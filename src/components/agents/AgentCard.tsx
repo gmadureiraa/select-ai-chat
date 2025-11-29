@@ -25,33 +25,33 @@ export default function AgentCard({
 
   const colorClasses = {
     primary: {
-      glow: "shadow-[0_0_50px_hsl(var(--primary)/0.3)]",
+      glow: "shadow-[0_0_50px_hsl(var(--primary)/0.35)]",
       text: "text-primary",
       bg: "bg-primary/10",
       hover: "hover:bg-primary/20",
       border: "border-primary/20",
     },
     secondary: {
-      glow: "shadow-[0_0_50px_hsl(var(--secondary)/0.3)]",
+      glow: "shadow-[0_0_50px_hsl(var(--secondary)/0.35)]",
       text: "text-secondary",
       bg: "bg-secondary/10",
       hover: "hover:bg-secondary/20",
       border: "border-secondary/20",
     },
     accent: {
-      glow: "shadow-[0_0_50px_hsl(var(--accent)/0.3)]",
+      glow: "shadow-[0_0_50px_hsl(var(--accent)/0.35)]",
       text: "text-accent",
       bg: "bg-accent/10",
       hover: "hover:bg-accent/20",
       border: "border-accent/20",
     },
-  };
+  } as const;
 
   const colors = colorClasses[accentColor];
 
   return (
     <div
-      className="relative w-full max-w-[320px] h-[360px] group [perspective:2000px]"
+      className="relative w-full max-w-[280px] h-[320px] group [perspective:2000px]"
       onMouseEnter={() => setIsFlipped(true)}
       onMouseLeave={() => setIsFlipped(false)}
     >
@@ -70,31 +70,38 @@ export default function AgentCard({
             "[backface-visibility:hidden] [transform:rotateY(0deg)]",
             "overflow-hidden rounded-2xl",
             "bg-card border border-border",
+            "shadow-sm",
             "transition-all duration-700",
+            "group-hover:shadow-md",
             isFlipped ? "opacity-0" : "opacity-100"
           )}
         >
           <div className="relative h-full overflow-hidden">
-            {/* Animated colored circle */}
-            <div className="absolute inset-0 flex items-start justify-center pt-20">
-              <div 
-                className={cn(
-                  "w-24 h-24 rounded-full transition-all duration-700",
-                  "animate-float",
-                  colors.bg,
-                  colors.glow,
-                  "group-hover:scale-125"
-                )}
-              />
+            {/* Círculo colorido animado (copiado da ref) */}
+            <div className="absolute inset-0 flex items-start justify-center pt-24">
+              <div className="relative w-[200px] h-[100px] flex items-center justify-center">
+                {[...Array(10)].map((_, i) => (
+                  <div
+                    key={i}
+                    className={cn(
+                      "absolute w-[50px] h-[50px] rounded-[140px]",
+                      "animate-agent-circle opacity-0",
+                      "group-hover:animate-[agent-circle_2s_linear_infinite]",
+                      colors.glow
+                    )}
+                    style={{ animationDelay: `${i * 0.3}s` }}
+                  />
+                ))}
+              </div>
             </div>
           </div>
 
-          <div className="absolute bottom-0 left-0 right-0 p-6">
-            <div className="space-y-2">
-              <h3 className="text-xl font-bold text-foreground leading-tight tracking-tight">
+          <div className="absolute bottom-0 left-0 right-0 p-5">
+            <div className="space-y-1.5">
+              <h3 className="text-lg font-semibold text-foreground leading-snug tracking-tight">
                 {title}
               </h3>
-              <p className="text-sm text-muted-foreground line-clamp-2">
+              <p className="text-sm text-muted-foreground line-clamp-2 tracking-tight">
                 {subtitle}
               </p>
             </div>
@@ -108,17 +115,19 @@ export default function AgentCard({
             "[backface-visibility:hidden] [transform:rotateY(180deg)]",
             "p-6 rounded-2xl",
             "bg-card border border-border",
+            "shadow-sm",
             "flex flex-col",
             "transition-all duration-700",
+            "group-hover:shadow-md",
             !isFlipped ? "opacity-0" : "opacity-100"
           )}
         >
           <div className="flex-1 space-y-6">
             <div className="space-y-2">
-              <h3 className="text-xl font-bold text-foreground leading-tight tracking-tight">
+              <h3 className="text-lg font-semibold text-foreground leading-snug tracking-tight">
                 {title}
               </h3>
-              <p className="text-sm text-muted-foreground line-clamp-2">
+              <p className="text-sm text-muted-foreground tracking-tight line-clamp-2">
                 {description}
               </p>
             </div>
@@ -160,7 +169,7 @@ export default function AgentCard({
               </span>
               <ArrowRight className={cn("w-4 h-4", colors.text)} />
             </button>
-            
+
             <button
               onClick={onRun}
               className={cn(
