@@ -73,6 +73,12 @@ export const MessageActions = ({
         description: "Mensagem copiada!",
         duration: 2000,
       });
+    } else {
+      toast({
+        description: "Erro ao copiar mensagem",
+        variant: "destructive",
+        duration: 2000,
+      });
     }
   };
 
@@ -87,8 +93,10 @@ export const MessageActions = ({
   };
 
   const handleSendToClickUp = async () => {
+    // Reset success state
     setTaskUrl(null);
 
+    // Validate inputs
     if (!selectedTemplate) {
       toast({
         title: "Template não selecionado",
@@ -133,6 +141,7 @@ export const MessageActions = ({
 
       if (error) throw error;
 
+      // Show success state
       setTaskUrl(data.taskUrl);
       
       toast({
@@ -140,12 +149,13 @@ export const MessageActions = ({
         description: "A tarefa foi adicionada ao ClickUp com sucesso",
       });
 
+      // Reset form after 2 seconds
       setTimeout(() => {
         setIsDialogOpen(false);
         setSelectedTemplate("");
         setTaskName("");
         setTaskUrl(null);
-      }, 2500);
+      }, 2000);
     } catch (error) {
       console.error('Error sending to ClickUp:', error);
       const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido ao criar tarefa';
@@ -161,6 +171,7 @@ export const MessageActions = ({
 
   const handleDialogClose = (open: boolean) => {
     if (!open && !isSending) {
+      // Reset state when closing
       setSelectedTemplate("");
       setTaskName("");
       setTaskUrl(null);
@@ -169,25 +180,25 @@ export const MessageActions = ({
   };
 
   return (
-    <div className="flex items-center gap-0.5 md:gap-1">
-      <TooltipProvider delayDuration={300}>
+    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+      <TooltipProvider>
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
               variant="ghost"
               size="icon"
-              className="h-6 w-6 md:h-7 md:w-7 hover:bg-muted/50 transition-colors"
+              className="h-7 w-7"
               onClick={handleCopy}
             >
               {isCopied ? (
-                <Check className="h-3 w-3 md:h-3.5 md:w-3.5 text-green-500" />
+                <Check className="h-3.5 w-3.5 text-green-500" />
               ) : (
-                <Copy className="h-3 w-3 md:h-3.5 md:w-3.5" />
+                <Copy className="h-3.5 w-3.5" />
               )}
             </Button>
           </TooltipTrigger>
-          <TooltipContent side="top" className="text-xs">
-            <p>{isCopied ? "Copiado!" : "Copiar"}</p>
+          <TooltipContent>
+            <p>{isCopied ? "Copiado!" : "Copiar mensagem"}</p>
           </TooltipContent>
         </Tooltip>
 
@@ -197,14 +208,14 @@ export const MessageActions = ({
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-6 w-6 md:h-7 md:w-7 hover:bg-muted/50 transition-colors"
+                className="h-7 w-7"
                 onClick={onRegenerate}
               >
-                <RotateCcw className="h-3 w-3 md:h-3.5 md:w-3.5" />
+                <RotateCcw className="h-3.5 w-3.5" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent side="top" className="text-xs">
-              <p>Regenerar</p>
+            <TooltipContent>
+              <p>Regenerar resposta</p>
             </TooltipContent>
           </Tooltip>
         )}
@@ -214,39 +225,34 @@ export const MessageActions = ({
             <Tooltip>
               <TooltipTrigger asChild>
                 <DialogTrigger asChild>
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className="h-6 w-6 md:h-7 md:w-7 hover:bg-muted/50 transition-colors"
-                  >
-                    <ExternalLink className="h-3 w-3 md:h-3.5 md:w-3.5" />
+                  <Button variant="ghost" size="icon" className="h-7 w-7">
+                    <ExternalLink className="h-3.5 w-3.5" />
                   </Button>
                 </DialogTrigger>
               </TooltipTrigger>
-              <TooltipContent side="top" className="text-xs">
+              <TooltipContent>
                 <p>Enviar para ClickUp</p>
               </TooltipContent>
             </Tooltip>
-            
-            <DialogContent className="sm:max-w-md w-[95vw] sm:w-full">
+            <DialogContent className="sm:max-w-md">
               <DialogHeader>
-                <DialogTitle className="text-base md:text-lg">Enviar para ClickUp</DialogTitle>
-                <DialogDescription className="text-xs md:text-sm">
+                <DialogTitle>Enviar para ClickUp</DialogTitle>
+                <DialogDescription>
                   Crie uma nova tarefa no ClickUp com o conteúdo desta mensagem
                 </DialogDescription>
               </DialogHeader>
               
               {taskUrl ? (
-                <div className="space-y-3 md:space-y-4 py-3 md:py-4">
+                <div className="space-y-4 py-4">
                   <Alert className="border-green-500/50 bg-green-500/10">
                     <CheckCircle2 className="h-4 w-4 text-green-500" />
-                    <AlertDescription className="text-xs md:text-sm">
+                    <AlertDescription className="text-sm">
                       Tarefa criada com sucesso!
                     </AlertDescription>
                   </Alert>
                   <Button
                     variant="outline"
-                    className="w-full text-sm"
+                    className="w-full"
                     onClick={() => window.open(taskUrl, '_blank')}
                   >
                     <ExternalLink className="h-4 w-4 mr-2" />
@@ -254,22 +260,20 @@ export const MessageActions = ({
                   </Button>
                 </div>
               ) : (
-                <div className="space-y-3 md:space-y-4">
+                <div className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="template" className="text-xs md:text-sm">
-                      Template / Lista do ClickUp
-                    </Label>
+                    <Label htmlFor="template">Template / Lista do ClickUp</Label>
                     <Select 
                       value={selectedTemplate} 
                       onValueChange={setSelectedTemplate}
                       disabled={isSending}
                     >
-                      <SelectTrigger id="template" className="text-sm">
+                      <SelectTrigger id="template">
                         <SelectValue placeholder="Selecione o template" />
                       </SelectTrigger>
                       <SelectContent>
                         {templates.map((template) => (
-                          <SelectItem key={template.id} value={template.id} className="text-sm">
+                          <SelectItem key={template.id} value={template.id}>
                             {template.name}
                           </SelectItem>
                         ))}
@@ -278,9 +282,7 @@ export const MessageActions = ({
                   </div>
                   
                   <div className="space-y-2">
-                    <Label htmlFor="taskName" className="text-xs md:text-sm">
-                      Nome da Tarefa
-                    </Label>
+                    <Label htmlFor="taskName">Nome da Tarefa</Label>
                     <Input
                       id="taskName"
                       value={taskName}
@@ -288,9 +290,8 @@ export const MessageActions = ({
                       placeholder="Ex: Newsletter Semanal - 29/11"
                       maxLength={MAX_TASK_NAME_LENGTH}
                       disabled={isSending}
-                      className="text-sm"
                     />
-                    <p className="text-[10px] md:text-xs text-muted-foreground">
+                    <p className="text-xs text-muted-foreground">
                       {taskName.length}/{MAX_TASK_NAME_LENGTH} caracteres
                     </p>
                   </div>
@@ -298,7 +299,7 @@ export const MessageActions = ({
                   <Button 
                     onClick={handleSendToClickUp} 
                     disabled={isSending || !selectedTemplate || !taskName}
-                    className="w-full text-sm"
+                    className="w-full"
                   >
                     {isSending ? (
                       <>

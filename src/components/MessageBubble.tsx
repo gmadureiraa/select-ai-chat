@@ -29,77 +29,57 @@ export const MessageBubble = ({
 
   return (
     <div className={cn(
-      "flex gap-3 px-3 md:px-6 py-3 md:py-4 animate-fade-in group",
-      isUser ? "flex-row-reverse" : "flex-row"
+      "flex gap-3 px-4 py-4 animate-fade-in group",
+      isUser ? "justify-end" : "justify-start"
     )}>
-      {/* Avatar */}
-      <div className={cn(
-        "flex-shrink-0 w-7 h-7 md:w-8 md:h-8 rounded-full flex items-center justify-center",
-        isUser 
-          ? "bg-muted border border-border" 
-          : "bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20"
-      )}>
-        {isUser ? (
-          <User className="h-3.5 w-3.5 md:h-4 md:w-4 text-foreground" />
-        ) : (
-          <img src={kaleidosLogo} alt="kAI" className="h-4 w-4 md:h-5 md:w-5 object-contain" />
-        )}
-      </div>
+      {!isUser && (
+        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-card border border-primary/20 flex items-center justify-center">
+          <img src={kaleidosLogo} alt="kAI" className="h-5 w-5 object-contain" />
+        </div>
+      )}
       
-      {/* Message content */}
-      <div className={cn(
-        "flex flex-col gap-1.5 md:gap-2 min-w-0",
-        isUser ? "items-end" : "items-start",
-        "flex-1 max-w-[85%] md:max-w-[75%]"
-      )}>
-        {/* Images */}
+      <div className="flex flex-col gap-2 max-w-[85%]">
         {imageUrls && imageUrls.length > 0 && (
-          <div className="flex gap-2 flex-wrap">
+          <div className="flex gap-2 flex-wrap mb-2">
             {imageUrls.map((url, index) => (
               <img
                 key={index}
                 src={url}
                 alt={`Anexo ${index + 1}`}
-                className="max-w-[200px] md:max-w-sm rounded-lg border shadow-sm"
+                className="max-w-sm rounded-lg border"
               />
             ))}
           </div>
         )}
-        
-        {/* Text bubble */}
         <div
           className={cn(
-            "rounded-2xl px-3 py-2.5 md:px-4 md:py-3 break-words shadow-sm",
+            "rounded-2xl px-4 py-3 break-words",
             isUser
-              ? "bg-primary text-primary-foreground rounded-br-sm"
-              : "bg-card border border-border rounded-bl-sm"
+              ? "bg-muted border border-border"
+              : "bg-card border border-border"
           )}
         >
-          <div className={cn(
-            "prose prose-sm md:prose-base dark:prose-invert max-w-none",
-            "[&>*:first-child]:mt-0 [&>*:last-child]:mb-0",
-            "[&_p]:leading-relaxed [&_pre]:my-2",
-            "[&_code]:text-xs [&_code]:px-1 [&_code]:py-0.5 [&_code]:rounded",
-            "[&_ul]:my-2 [&_ol]:my-2 [&_li]:my-0.5",
-            isUser && "prose-invert [&_code]:bg-primary-foreground/10"
-          )}>
+          <div className="prose prose-sm dark:prose-invert max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
             <ReactMarkdown>{content}</ReactMarkdown>
           </div>
         </div>
         
-        {/* Actions */}
-        {!isUser && (
-          <MessageActions 
-            content={content}
-            role={role}
-            onRegenerate={onRegenerate}
-            isLastMessage={isLastMessage}
-            clientId={clientId}
-            clientName={clientName}
-            templateName={templateName}
-          />
-        )}
+        <MessageActions 
+          content={content}
+          role={role}
+          onRegenerate={onRegenerate}
+          isLastMessage={isLastMessage}
+          clientId={clientId}
+          clientName={clientName}
+          templateName={templateName}
+        />
       </div>
+
+      {isUser && (
+        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-muted border border-border flex items-center justify-center">
+          <User className="h-4 w-4 text-foreground" />
+        </div>
+      )}
     </div>
   );
 };
