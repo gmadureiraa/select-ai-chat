@@ -44,15 +44,7 @@ export function N8nWorkflowCard({
 
     try {
       const response = await fetch(webhookUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          timestamp: new Date().toISOString(),
-          triggered_from: "kaleidos-app",
-          workflow_id: workflowId,
-        }),
+        method: "GET",
       });
 
       if (response.ok) {
