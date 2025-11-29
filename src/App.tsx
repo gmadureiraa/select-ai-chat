@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { AppLayout } from "@/components/AppLayout";
 import Agents from "./pages/Agents";
 import Clients from "./pages/Clients";
 import ClientChat from "./pages/ClientChat";
@@ -28,7 +29,9 @@ const App = () => (
             path="/agents"
             element={
               <ProtectedRoute>
-                <Agents />
+                <AppLayout>
+                  <Agents />
+                </AppLayout>
               </ProtectedRoute>
             }
           />
@@ -36,7 +39,9 @@ const App = () => (
             path="/clients"
             element={
               <ProtectedRoute>
-                <Clients />
+                <AppLayout>
+                  <Clients />
+                </AppLayout>
               </ProtectedRoute>
             }
           />
@@ -44,7 +49,9 @@ const App = () => (
             path="/client/:clientId"
             element={
               <ProtectedRoute>
-                <ClientDashboard />
+                <AppLayout>
+                  <ClientDashboard />
+                </AppLayout>
               </ProtectedRoute>
             }
           />
@@ -52,7 +59,9 @@ const App = () => (
             path="/client/:clientId/image-gen"
             element={
               <ProtectedRoute>
-                <ImageGeneration />
+                <AppLayout>
+                  <ImageGeneration />
+                </AppLayout>
               </ProtectedRoute>
             }
           />
@@ -60,7 +69,9 @@ const App = () => (
             path="/client/:clientId/gallery"
             element={
               <ProtectedRoute>
-                <ImageGallery />
+                <AppLayout>
+                  <ImageGallery />
+                </AppLayout>
               </ProtectedRoute>
             }
           />
@@ -68,7 +79,9 @@ const App = () => (
             path="/chat/:clientId"
             element={
               <ProtectedRoute>
-                <ClientChat />
+                <AppLayout>
+                  <ClientChat />
+                </AppLayout>
               </ProtectedRoute>
             }
           />
