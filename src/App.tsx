@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import Agents from "./pages/Agents";
 import Clients from "./pages/Clients";
 import ClientChat from "./pages/ClientChat";
 import ClientDashboard from "./pages/ClientDashboard";
@@ -22,7 +23,15 @@ const App = () => (
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<Login />} />
-          <Route path="/" element={<Navigate to="/clients" replace />} />
+          <Route path="/" element={<Navigate to="/agents" replace />} />
+          <Route
+            path="/agents"
+            element={
+              <ProtectedRoute>
+                <Agents />
+              </ProtectedRoute>
+            }
+          />
           <Route
             path="/clients"
             element={
