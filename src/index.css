@@ -8,75 +8,79 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    --background: 0 0% 98%;
-    --foreground: 0 0% 8%;
+    --background: 0 0% 7%;
+    --foreground: 0 0% 98%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 0 0% 8%;
+    --card: 0 0% 10%;
+    --card-foreground: 0 0% 98%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 8%;
+    --popover: 0 0% 10%;
+    --popover-foreground: 0 0% 98%;
 
     --primary: 150 100% 50%;
-    --primary-foreground: 0 0% 8%;
+    --primary-foreground: 0 0% 5%;
 
-    --secondary: 330 100% 55%;
+    --secondary: 330 100% 60%;
     --secondary-foreground: 0 0% 98%;
 
-    --muted: 0 0% 95%;
-    --muted-foreground: 0 0% 45%;
+    --muted: 0 0% 15%;
+    --muted-foreground: 0 0% 60%;
 
-    --accent: 330 100% 55%;
+    --accent: 330 100% 60%;
     --accent-foreground: 0 0% 98%;
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
 
-    --border: 0 0% 90%;
-    --input: 0 0% 90%;
+    --border: 0 0% 18%;
+    --input: 0 0% 18%;
     --ring: 150 100% 50%;
 
-    --radius: 0.75rem;
+    --radius: 1rem;
 
-    --chat-user-bg: 150 100% 50%;
-    --chat-user-fg: 0 0% 8%;
-    --chat-ai-bg: 0 0% 95%;
-    --chat-ai-fg: 0 0% 8%;
+    --chat-user-bg: 0 0% 15%;
+    --chat-user-fg: 0 0% 98%;
+    --chat-ai-bg: 0 0% 12%;
+    --chat-ai-fg: 0 0% 98%;
 
     --sidebar-width: 280px;
+    
+    /* Neon glow effects */
+    --glow-primary: 0 0 20px hsl(150 100% 50% / 0.5);
+    --glow-secondary: 0 0 20px hsl(330 100% 60% / 0.5);
   }
 
   .dark {
-    --background: 0 0% 5%;
+    --background: 0 0% 7%;
     --foreground: 0 0% 98%;
 
-    --card: 0 0% 8%;
+    --card: 0 0% 10%;
     --card-foreground: 0 0% 98%;
 
-    --popover: 0 0% 8%;
+    --popover: 0 0% 10%;
     --popover-foreground: 0 0% 98%;
 
     --primary: 150 100% 50%;
-    --primary-foreground: 0 0% 8%;
+    --primary-foreground: 0 0% 5%;
 
-    --secondary: 330 100% 55%;
+    --secondary: 330 100% 60%;
     --secondary-foreground: 0 0% 98%;
 
-    --muted: 0 0% 12%;
-    --muted-foreground: 0 0% 65%;
+    --muted: 0 0% 15%;
+    --muted-foreground: 0 0% 60%;
 
-    --accent: 330 100% 55%;
+    --accent: 330 100% 60%;
     --accent-foreground: 0 0% 98%;
 
     --destructive: 0 62.8% 50%;
     --destructive-foreground: 0 0% 98%;
 
-    --border: 0 0% 15%;
-    --input: 0 0% 15%;
+    --border: 0 0% 18%;
+    --input: 0 0% 18%;
     --ring: 150 100% 50%;
 
-    --chat-user-bg: 150 100% 50%;
-    --chat-user-fg: 0 0% 8%;
+    --chat-user-bg: 0 0% 15%;
+    --chat-user-fg: 0 0% 98%;
     --chat-ai-bg: 0 0% 12%;
     --chat-ai-fg: 0 0% 98%;
   }
