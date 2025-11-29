@@ -1,6 +1,8 @@
 export interface TemplateRule {
   id: string;
   content: string;
+  type?: 'text' | 'image_reference' | 'content_reference';
+  file_url?: string; // For image references or content files
 }
 
 export interface ClientTemplate {
