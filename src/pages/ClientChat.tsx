@@ -9,6 +9,7 @@ import { MessageBubble } from "@/components/MessageBubble";
 import { ChatInput } from "@/components/ChatInput";
 import { ModelSelector } from "@/components/ModelSelector";
 import { useClientChat } from "@/hooks/useClientChat";
+import kaleidosLogo from "@/assets/kaleidos-logo.svg";
 
 const ClientChat = () => {
   const { clientId } = useParams();
@@ -68,18 +69,19 @@ const ClientChat = () => {
 
   return (
     <div className="flex h-screen bg-background flex-col">
-      <div className="border-b p-4 bg-card">
+      <div className="border-b p-4 bg-card shadow-sm">
         <div className="flex items-center justify-between max-w-7xl mx-auto">
           <div className="flex items-center gap-4">
             <Button
               variant="ghost"
               size="icon"
               onClick={() => navigate("/clients")}
+              className="hover:bg-primary/10 transition-colors"
             >
               <ArrowLeft className="h-5 w-5" />
             </Button>
             <div>
-              <h1 className="text-xl font-semibold">{client.name}</h1>
+              <h1 className="text-xl font-bold">{client.name}</h1>
               {client.description && (
                 <p className="text-sm text-muted-foreground">
                   {client.description}
@@ -95,18 +97,32 @@ const ClientChat = () => {
         <div ref={scrollRef} className="h-full max-w-4xl mx-auto">
           {messages.length === 0 ? (
             <div className="h-full flex items-center justify-center">
-              <div className="text-center space-y-4 max-w-md p-8">
-                <Sparkles className="h-16 w-16 text-primary mx-auto" />
-                <h2 className="text-2xl font-bold">Chat com {client.name}</h2>
-                <p className="text-muted-foreground">
-                  Converse com a IA sobre este cliente. O contexto fixo está sempre ativo.
-                </p>
+              <div className="text-center space-y-6 max-w-md p-8 animate-fade-in">
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="w-24 h-24 bg-primary/10 rounded-full blur-xl animate-pulse" />
+                  </div>
+                  <img 
+                    src={kaleidosLogo} 
+                    alt="kAI" 
+                    className="h-20 w-20 mx-auto object-contain relative z-10 drop-shadow-[0_0_15px_rgba(0,255,127,0.5)]" 
+                  />
+                </div>
+                <div>
+                  <h2 className="text-3xl font-bold mb-2">
+                    Chat com <span className="text-primary">{client.name}</span>
+                  </h2>
+                  <p className="text-muted-foreground">
+                    Converse com a IA sobre este cliente. O contexto fixo está sempre ativo.
+                  </p>
+                </div>
                 {client.context_notes && (
-                  <div className="mt-4 p-4 bg-muted rounded-lg text-left">
-                    <p className="text-xs font-semibold mb-2 text-muted-foreground">
-                      CONTEXTO FIXO:
+                  <div className="mt-6 p-4 bg-muted/50 border border-primary/20 rounded-lg text-left backdrop-blur-sm">
+                    <p className="text-xs font-semibold mb-2 text-primary flex items-center gap-2">
+                      <span className="w-2 h-2 bg-primary rounded-full animate-pulse" />
+                      CONTEXTO FIXO ATIVO
                     </p>
-                    <p className="text-sm">{client.context_notes}</p>
+                    <p className="text-sm text-foreground">{client.context_notes}</p>
                   </div>
                 )}
               </div>
@@ -117,15 +133,15 @@ const ClientChat = () => {
                 <MessageBubble key={idx} role={message.role} content={message.content} />
               ))}
               {isLoading && (
-                <div className="flex gap-3 p-6">
-                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary flex items-center justify-center">
-                    <Sparkles className="h-5 w-5 text-primary-foreground animate-pulse" />
+                <div className="flex gap-3 p-6 animate-fade-in">
+                  <div className="flex-shrink-0 w-10 h-10 rounded-full bg-card border-2 border-primary/30 flex items-center justify-center shadow-[0_0_15px_rgba(0,255,127,0.3)] animate-pulse">
+                    <img src={kaleidosLogo} alt="kAI" className="h-6 w-6 object-contain" />
                   </div>
                   <div className="space-y-2">
-                    <div className="bg-chat-ai-bg text-chat-ai-fg rounded-2xl px-4 py-3">
+                    <div className="bg-chat-ai-bg text-chat-ai-fg rounded-2xl px-4 py-3 border border-primary/20">
                       <div className="flex items-center gap-2 text-sm">
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        <span className="font-medium">
+                        <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                        <span className="font-medium text-primary">
                           {currentStep === "analyzing" && "~ analisando demanda"}
                           {currentStep === "reviewing" && "~ revisando contexto do cliente"}
                           {currentStep === "creating" && "~ criando conteúdo"}
@@ -133,9 +149,9 @@ const ClientChat = () => {
                       </div>
                     </div>
                     <div className="flex gap-1 px-4">
-                      <span className="animate-bounce text-muted-foreground">●</span>
-                      <span className="animate-bounce text-muted-foreground" style={{ animationDelay: "0.1s" }}>●</span>
-                      <span className="animate-bounce text-muted-foreground" style={{ animationDelay: "0.2s" }}>●</span>
+                      <span className="animate-bounce text-primary">●</span>
+                      <span className="animate-bounce text-primary" style={{ animationDelay: "0.1s" }}>●</span>
+                      <span className="animate-bounce text-primary" style={{ animationDelay: "0.2s" }}>●</span>
                     </div>
                   </div>
                 </div>
