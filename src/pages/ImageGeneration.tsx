@@ -54,11 +54,25 @@ const ImageGeneration = () => {
     try {
       // Build enhanced prompt with template rules
       let enhancedPrompt = prompt;
+      const textRules: string[] = [];
+      const imageReferences: string[] = [];
+      
       if (selectedTemplate && selectedTemplate.rules.length > 0) {
-        const rulesContext = selectedTemplate.rules
-          .map(r => r.content)
-          .join(". ");
-        enhancedPrompt = `${prompt}\n\nDiretrizes de estilo: ${rulesContext}`;
+        selectedTemplate.rules.forEach(rule => {
+          if (rule.type === 'text' || !rule.type) {
+            textRules.push(rule.content);
+          } else if (rule.type === 'image_reference' && rule.file_url) {
+            imageReferences.push(rule.file_url);
+          }
+        });
+        
+        if (textRules.length > 0) {
+          enhancedPrompt = `${prompt}\n\nDiretrizes de estilo: ${textRules.join(". ")}`;
+        }
+        
+        if (imageReferences.length > 0) {
+          enhancedPrompt += `\n\nIMPORTANTE: Inspire-se no estilo visual, composição e elementos das seguintes imagens de referência (não copie, apenas inspire-se): ${imageReferences.join(", ")}`;
+        }
       }
 
       const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-image`, {
@@ -133,13 +147,28 @@ const ImageGeneration = () => {
         <Card className="p-6">
           <div className="space-y-6">
             {selectedTemplate && selectedTemplate.rules.length > 0 && (
-              <div className="p-4 bg-muted rounded-lg border">
-                <h3 className="text-sm font-semibold mb-2">Regras do Template:</h3>
-                <ul className="text-sm space-y-1 text-muted-foreground">
-                  {selectedTemplate.rules.map((rule) => (
-                    <li key={rule.id}>• {rule.content}</li>
-                  ))}
-                </ul>
+              <div className="p-4 bg-muted rounded-lg border space-y-3">
+                <h3 className="text-sm font-semibold">Regras do Template:</h3>
+                {selectedTemplate.rules.map((rule) => (
+                  <div key={rule.id} className="space-y-2">
+                    {rule.type === 'image_reference' && rule.file_url ? (
+                      <div className="space-y-1">
+                        <p className="text-xs font-medium text-muted-foreground">
+                          Imagem de Referência: {rule.content}
+                        </p>
+                        <img 
+                          src={rule.file_url} 
+                          alt="Referência" 
+                          className="max-w-sm rounded border"
+                        />
+                      </div>
+                    ) : (
+                      <div className="text-sm text-muted-foreground">
+                        • {rule.content}
+                      </div>
+                    )}
+                  </div>
+                ))}
               </div>
             )}
 

@@ -8,7 +8,7 @@ import { validateMessage, validateModelId } from "@/lib/validation";
 import { withRetry, RetryError } from "@/lib/retry";
 import { useRealtimeMessages } from "@/hooks/useRealtimeMessages";
 
-export const useClientChat = (clientId: string) => {
+export const useClientChat = (clientId: string, templateId?: string) => {
   const [selectedModel, setSelectedModel] = useState("gpt-5-mini-2025-08-07");
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -18,6 +18,22 @@ export const useClientChat = (clientId: string) => {
 
   // Ativar realtime para mensagens
   useRealtimeMessages(conversationId);
+
+  // Get template if templateId is provided
+  const { data: template } = useQuery({
+    queryKey: ["client-template", templateId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("client_templates")
+        .select("*")
+        .eq("id", templateId!)
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!templateId,
+  });
 
   // Get or create conversation
   const { data: conversation } = useQuery({
@@ -218,6 +234,28 @@ export const useClientChat = (clientId: string) => {
         contextParts.push('');
       }
 
+      // Add template rules if template is being used
+      if (template && template.rules) {
+        const rules = Array.isArray(template.rules) ? template.rules : [];
+        if (rules.length > 0) {
+          contextParts.push(`## 📝 Regras do Template "${template.name}":`);
+          contextParts.push("**IMPORTANTE: Siga estas regras ao criar o conteúdo:**");
+          
+          for (const rule of rules) {
+            const ruleData = rule as any;
+            if (ruleData.type === 'content_reference' && ruleData.file_url) {
+              contextParts.push(`\n**Referência de Estrutura e Linguagem:**`);
+              contextParts.push(`${ruleData.content}`);
+              contextParts.push(`IMPORTANTE: Use este exemplo APENAS para entender estrutura, formato e linguagem. NÃO copie o tema ou assunto - adapte para o contexto atual.`);
+              contextParts.push(`URL de referência: ${ruleData.file_url}`);
+            } else {
+              contextParts.push(`- ${ruleData.content}`);
+            }
+          }
+          contextParts.push('');
+        }
+      }
+
       if (client.tags && Object.values(client.tags).some(v => v)) {
         contextParts.push("## 🎯 Informações Estratégicas do Cliente:");
         if (client.tags.segment) contextParts.push(`**Segmento:** ${client.tags.segment}`);
@@ -350,7 +388,7 @@ export const useClientChat = (clientId: string) => {
       setIsLoading(false);
       setCurrentStep(null);
     }
-  }, [conversationId, client, selectedModel, messages, websites, documents, queryClient, toast]);
+  }, [conversationId, client, selectedModel, messages, websites, documents, template, queryClient, toast]);
 
   const regenerateLastMessage = useCallback(async () => {
     if (!messages.length || messages[messages.length - 1].role !== "assistant") {

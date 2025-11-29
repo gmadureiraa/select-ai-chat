@@ -1,4 +1,4 @@
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -15,6 +15,8 @@ import kaleidosLogo from "@/assets/kaleidos-logo.svg";
 const ClientChat = () => {
   const { clientId } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const templateId = searchParams.get("templateId") || undefined;
 
   const { data: client, isLoading: isLoadingClient } = useQuery({
     queryKey: ["client", clientId],
@@ -39,7 +41,7 @@ const ClientChat = () => {
     setSelectedModel,
     sendMessage,
     regenerateLastMessage,
-  } = useClientChat(clientId!);
+  } = useClientChat(clientId!, templateId);
 
   // Scroll suave automático
   const scrollRef = useSmoothScroll([messages, isLoading], {
