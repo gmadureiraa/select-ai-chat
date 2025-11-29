@@ -164,6 +164,41 @@ export type Database = {
           },
         ]
       }
+      client_templates: {
+        Row: {
+          client_id: string
+          created_at: string | null
+          id: string
+          name: string
+          rules: Json | null
+          updated_at: string | null
+        }
+        Insert: {
+          client_id: string
+          created_at?: string | null
+          id?: string
+          name: string
+          rules?: Json | null
+          updated_at?: string | null
+        }
+        Update: {
+          client_id?: string
+          created_at?: string | null
+          id?: string
+          name?: string
+          rules?: Json | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_templates_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       client_websites: {
         Row: {
           client_id: string

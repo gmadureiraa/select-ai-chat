@@ -7,6 +7,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Clients from "./pages/Clients";
 import ClientChat from "./pages/ClientChat";
 import ClientDashboard from "./pages/ClientDashboard";
+import ImageGeneration from "./pages/ImageGeneration";
 import Automations from "./pages/Automations";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
@@ -35,6 +36,14 @@ const App = () => (
             element={
               <ProtectedRoute>
                 <ClientDashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/client/:clientId/image-gen"
+            element={
+              <ProtectedRoute>
+                <ImageGeneration />
               </ProtectedRoute>
             }
           />
