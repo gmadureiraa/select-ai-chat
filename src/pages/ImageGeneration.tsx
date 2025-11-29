@@ -93,7 +93,10 @@ const ImageGeneration = () => {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
         },
-        body: JSON.stringify({ prompt: enhancedPrompt }),
+        body: JSON.stringify({ 
+          prompt: enhancedPrompt,
+          imageReferences: references.imageReferences
+        }),
       });
 
       if (!response.ok) {

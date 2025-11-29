@@ -46,14 +46,41 @@ export const useTemplateReferences = (templateId?: string) => {
         const ruleData = rule as any; // Use any for JSON data
 
         if (ruleData.type === 'image_reference' && ruleData.file_url) {
+          // Try public URL first, fallback to signed URL
+          let imageUrl = ruleData.file_url;
+          
+          // Check if it's a storage path (not a full URL)
+          if (!imageUrl.startsWith('http')) {
+            const { data: signedData } = await supabase.storage
+              .from('client-files')
+              .createSignedUrl(imageUrl, 3600);
+            
+            if (signedData?.signedUrl) {
+              imageUrl = signedData.signedUrl;
+            }
+          }
+          
           imageReferences.push({
-            url: ruleData.file_url,
+            url: imageUrl,
             description: ruleData.content,
           });
         } else if (ruleData.type === 'content_reference' && ruleData.file_url) {
           try {
+            let contentUrl = ruleData.file_url;
+            
+            // If it's a storage path, get signed URL
+            if (!contentUrl.startsWith('http')) {
+              const { data: signedData } = await supabase.storage
+                .from('client-files')
+                .createSignedUrl(contentUrl, 3600);
+              
+              if (signedData?.signedUrl) {
+                contentUrl = signedData.signedUrl;
+              }
+            }
+            
             // Fetch content from the file
-            const response = await fetch(ruleData.file_url);
+            const response = await fetch(contentUrl);
             const text = await response.text();
             
             contentReferences.push({

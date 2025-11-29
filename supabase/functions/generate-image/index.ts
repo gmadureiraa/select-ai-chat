@@ -12,7 +12,7 @@ serve(async (req) => {
   }
 
   try {
-    const { prompt } = await req.json();
+    const { prompt, imageReferences } = await req.json();
 
     if (!prompt || typeof prompt !== 'string') {
       return new Response(
@@ -22,6 +22,11 @@ serve(async (req) => {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       );
+    }
+
+    // Log if we have image references
+    if (imageReferences && Array.isArray(imageReferences) && imageReferences.length > 0) {
+      console.log('Generating with', imageReferences.length, 'image references');
     }
 
     const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
@@ -38,6 +43,15 @@ serve(async (req) => {
 
     console.log('Generating image with prompt:', prompt);
 
+    // Enhanced prompt with visual reference descriptions
+    let enhancedPrompt = prompt;
+    if (imageReferences && Array.isArray(imageReferences) && imageReferences.length > 0) {
+      const refDescriptions = imageReferences
+        .map((ref: any, idx: number) => `Referência ${idx + 1}: ${ref.description}`)
+        .join('\n');
+      enhancedPrompt = `${prompt}\n\nReferências visuais para se inspirar:\n${refDescriptions}\n\nIMPORTANTE: Inspire-se no estilo visual e elementos, mas crie algo original.`;
+    }
+
     const response = await fetch("https://api.openai.com/v1/images/generations", {
       method: "POST",
       headers: {
@@ -46,7 +60,7 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         model: "gpt-image-1",
-        prompt: prompt,
+        prompt: enhancedPrompt,
         n: 1,
         size: "1024x1024",
         quality: "high"
