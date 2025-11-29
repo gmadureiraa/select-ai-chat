@@ -5,8 +5,9 @@ Esta pasta contém todas as informações, referências e contexto relacionados 
 ## 📁 Estrutura
 
 ### Conteúdo de Referência
-- **newsletters-completas.md** - 6 newsletters completas do "Brisa da Semana" com análise detalhada de tom, estilo, estrutura e padrões consistentes
-- **temas-e-ideias.md** - Banco completo de temas já abordados (Patañjali, Deepak Chopra, Don Miguel Ruiz, Platão, Sêneca, Bruxas) + 26 ideias para futuras newsletters organizadas por categoria
+- **newsletters-completas.md** - Texto completo das 6 newsletters publicadas do "Brisa da Semana"
+- **analise-e-padroes.md** - Análise detalhada de tom, estilo, estrutura e padrões consistentes das newsletters
+- **temas-e-ideias.md** - Banco completo de temas já abordados + 26 ideias para futuras newsletters organizadas por categoria
 
 ### Como Funciona
 
