@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { ClientTemplate, CreateTemplateData, TemplateRule, DEFAULT_CHAT_RULES, DEFAULT_IMAGE_RULES } from "@/types/template";
+import { ClientTemplate, CreateTemplateData, TemplateRule, AutomationConfig, DEFAULT_CHAT_RULES, DEFAULT_IMAGE_RULES } from "@/types/template";
 
 export const useClientTemplates = (clientId: string) => {
   const { toast } = useToast();
@@ -23,7 +23,7 @@ export const useClientTemplates = (clientId: string) => {
         id: template.id,
         client_id: template.client_id,
         name: template.name,
-        type: (template.type as 'chat' | 'image') || 'chat',
+        type: (template.type as 'chat' | 'image' | 'automation') || 'chat',
         created_at: template.created_at,
         updated_at: template.updated_at,
         rules: Array.isArray(template.rules) 
@@ -33,18 +33,35 @@ export const useClientTemplates = (clientId: string) => {
               type: rule.type || 'text',
               file_url: rule.file_url || undefined
             }))
-          : []
+          : [],
+        automation_config: template.type === 'automation' 
+          ? (typeof template.rules === 'object' && !Array.isArray(template.rules) 
+              ? template.rules as any
+              : undefined)
+          : undefined
       })) as ClientTemplate[];
     },
   });
 
   const createTemplate = useMutation({
     mutationFn: async (data: CreateTemplateData) => {
-      const defaultRules = data.type === 'image' ? DEFAULT_IMAGE_RULES : DEFAULT_CHAT_RULES;
-      const rules = data.rules || defaultRules.map((content) => ({
-        id: crypto.randomUUID(),
-        content,
-      }));
+      let rulesData: any;
+      
+      if (data.type === 'automation') {
+        // For automation, store config in rules field
+        rulesData = data.automation_config || {
+          schedule_type: 'manual',
+          model: 'gpt-5-mini-2025-08-07',
+          prompt: '',
+        };
+      } else {
+        // For chat/image, store rules array
+        const defaultRules = data.type === 'image' ? DEFAULT_IMAGE_RULES : DEFAULT_CHAT_RULES;
+        rulesData = data.rules || defaultRules.map((content) => ({
+          id: crypto.randomUUID(),
+          content,
+        }));
+      }
 
       const { error } = await supabase
         .from("client_templates")
@@ -52,7 +69,7 @@ export const useClientTemplates = (clientId: string) => {
           client_id: data.client_id,
           name: data.name,
           type: data.type,
-          rules: rules as any,
+          rules: rulesData,
         }]);
 
       if (error) throw error;
@@ -61,7 +78,7 @@ export const useClientTemplates = (clientId: string) => {
       queryClient.invalidateQueries({ queryKey: ["client-templates", clientId] });
       toast({
         title: "Template criado",
-        description: "Template adicionado com regras padrões.",
+        description: "Template adicionado com sucesso.",
       });
     },
     onError: (error: any) => {

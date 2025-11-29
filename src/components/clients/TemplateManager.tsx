@@ -10,7 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Plus, Trash2, Settings, Edit2, MessageSquare, Image } from "lucide-react";
+import { Plus, Trash2, Settings, Edit2, MessageSquare, Image, Zap } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useClientTemplates } from "@/hooks/useClientTemplates";
 import { TemplateRulesDialog } from "./TemplateRulesDialog";
@@ -23,7 +23,7 @@ interface TemplateManagerProps {
 export const TemplateManager = ({ clientId }: TemplateManagerProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [newTemplateName, setNewTemplateName] = useState("");
-  const [newTemplateType, setNewTemplateType] = useState<'chat' | 'image'>('chat');
+  const [newTemplateType, setNewTemplateType] = useState<'chat' | 'image' | 'automation'>('chat');
   const [editingTemplate, setEditingTemplate] = useState<ClientTemplate | null>(null);
   const { toast } = useToast();
   const { templates, isLoading, createTemplate, updateTemplate, deleteTemplate } = useClientTemplates(clientId);
@@ -102,6 +102,8 @@ export const TemplateManager = ({ clientId }: TemplateManagerProps) => {
                       <div className="flex items-center gap-3 flex-1">
                         {template.type === 'image' ? (
                           <Image className="h-4 w-4 text-primary" />
+                        ) : template.type === 'automation' ? (
+                          <Zap className="h-4 w-4 text-secondary" />
                         ) : (
                           <MessageSquare className="h-4 w-4 text-primary" />
                         )}
@@ -109,24 +111,29 @@ export const TemplateManager = ({ clientId }: TemplateManagerProps) => {
                           <div className="flex items-center gap-2">
                             <span className="text-sm font-medium">{template.name}</span>
                             <span className="text-xs px-2 py-0.5 rounded-full bg-background border">
-                              {template.type === 'image' ? 'Imagem' : 'Chat'}
+                              {template.type === 'image' ? 'Imagem' : template.type === 'automation' ? 'Automação' : 'Chat'}
                             </span>
                           </div>
                           <p className="text-xs text-muted-foreground mt-1">
-                            {template.rules.length} regra(s) definida(s)
+                            {template.type === 'automation' 
+                              ? `${template.automation_config?.schedule_type || 'Manual'}`
+                              : `${template.rules.length} regra(s) definida(s)`
+                            }
                           </p>
                         </div>
                       </div>
                       <div className="flex gap-1">
-                        <Button
-                          onClick={() => setEditingTemplate(template)}
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 gap-2"
-                        >
-                          <Edit2 className="h-3 w-3" />
-                          Editar Regras
-                        </Button>
+                        {template.type !== 'automation' && (
+                          <Button
+                            onClick={() => setEditingTemplate(template)}
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 gap-2"
+                          >
+                            <Edit2 className="h-3 w-3" />
+                            Editar Regras
+                          </Button>
+                        )}
                         <Button
                           onClick={() => handleRemoveTemplate(template.id)}
                           variant="ghost"
@@ -146,7 +153,7 @@ export const TemplateManager = ({ clientId }: TemplateManagerProps) => {
             <div className="space-y-3 pt-4 border-t">
               <Label htmlFor="newTemplate">Adicionar Novo Template</Label>
               <div className="space-y-2">
-                <Select value={newTemplateType} onValueChange={(v: 'chat' | 'image') => setNewTemplateType(v)}>
+                <Select value={newTemplateType} onValueChange={(v: 'chat' | 'image' | 'automation') => setNewTemplateType(v)}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -163,6 +170,12 @@ export const TemplateManager = ({ clientId }: TemplateManagerProps) => {
                         Template de Imagem
                       </div>
                     </SelectItem>
+                    <SelectItem value="automation">
+                      <div className="flex items-center gap-2">
+                        <Zap className="h-4 w-4" />
+                        Automação Agendada
+                      </div>
+                    </SelectItem>
                   </SelectContent>
                 </Select>
                 <div className="flex gap-2">
@@ -170,7 +183,13 @@ export const TemplateManager = ({ clientId }: TemplateManagerProps) => {
                     id="newTemplate"
                     value={newTemplateName}
                     onChange={(e) => setNewTemplateName(e.target.value)}
-                    placeholder={newTemplateType === 'image' ? "Ex: Banner Instagram, Thumbnail YouTube..." : "Ex: Newsletter Semanal, Post Instagram..."}
+                    placeholder={
+                      newTemplateType === 'image' 
+                        ? "Ex: Banner Instagram, Thumbnail YouTube..." 
+                        : newTemplateType === 'automation'
+                        ? "Ex: Newsletter Semanal, Relatório Mensal..."
+                        : "Ex: Newsletter Semanal, Post Instagram..."
+                    }
                     onKeyDown={(e) => {
                       if (e.key === "Enter") {
                         e.preventDefault();
