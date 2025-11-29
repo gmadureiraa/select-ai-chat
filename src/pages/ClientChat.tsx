@@ -35,6 +35,22 @@ const ClientChat = () => {
     enabled: !!clientId,
   });
 
+  const { data: template } = useQuery({
+    queryKey: ["template", templateId],
+    queryFn: async () => {
+      if (!templateId) return null;
+      const { data, error } = await supabase
+        .from("client_templates")
+        .select("*")
+        .eq("id", templateId)
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!templateId,
+  });
+
   const {
     messages,
     isLoading,
@@ -148,6 +164,9 @@ const ClientChat = () => {
                   imageUrls={message.image_urls}
                   onRegenerate={regenerateLastMessage}
                   isLastMessage={idx === messages.length - 1}
+                  clientId={clientId}
+                  clientName={client?.name}
+                  templateName={template?.name}
                 />
               ))}
               {isLoading && (
