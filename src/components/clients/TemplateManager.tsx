@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import {
   Dialog,
@@ -9,7 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Plus, Trash2, Settings, Edit2 } from "lucide-react";
+import { Plus, Trash2, Settings, Edit2, MessageSquare, Image } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useClientTemplates } from "@/hooks/useClientTemplates";
 import { TemplateRulesDialog } from "./TemplateRulesDialog";
@@ -22,6 +23,7 @@ interface TemplateManagerProps {
 export const TemplateManager = ({ clientId }: TemplateManagerProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [newTemplateName, setNewTemplateName] = useState("");
+  const [newTemplateType, setNewTemplateType] = useState<'chat' | 'image'>('chat');
   const [editingTemplate, setEditingTemplate] = useState<ClientTemplate | null>(null);
   const { toast } = useToast();
   const { templates, isLoading, createTemplate, updateTemplate, deleteTemplate } = useClientTemplates(clientId);
@@ -39,9 +41,11 @@ export const TemplateManager = ({ clientId }: TemplateManagerProps) => {
     createTemplate.mutate({
       client_id: clientId,
       name: newTemplateName.trim(),
+      type: newTemplateType,
     });
     
     setNewTemplateName("");
+    setNewTemplateType('chat');
   };
 
   const handleRemoveTemplate = (id: string) => {
@@ -95,11 +99,23 @@ export const TemplateManager = ({ clientId }: TemplateManagerProps) => {
                       key={template.id}
                       className="flex items-center justify-between p-3 bg-muted rounded-lg"
                     >
-                      <div className="flex-1">
-                        <span className="text-sm font-medium">{template.name}</span>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {template.rules.length} regra(s) definida(s)
-                        </p>
+                      <div className="flex items-center gap-3 flex-1">
+                        {template.type === 'image' ? (
+                          <Image className="h-4 w-4 text-primary" />
+                        ) : (
+                          <MessageSquare className="h-4 w-4 text-primary" />
+                        )}
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-medium">{template.name}</span>
+                            <span className="text-xs px-2 py-0.5 rounded-full bg-background border">
+                              {template.type === 'image' ? 'Imagem' : 'Chat'}
+                            </span>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {template.rules.length} regra(s) definida(s)
+                          </p>
+                        </div>
                       </div>
                       <div className="flex gap-1">
                         <Button
@@ -129,27 +145,48 @@ export const TemplateManager = ({ clientId }: TemplateManagerProps) => {
             {/* Adicionar novo template */}
             <div className="space-y-3 pt-4 border-t">
               <Label htmlFor="newTemplate">Adicionar Novo Template</Label>
-              <div className="flex gap-2">
-                <Input
-                  id="newTemplate"
-                  value={newTemplateName}
-                  onChange={(e) => setNewTemplateName(e.target.value)}
-                  placeholder="Ex: Newsletter Semanal, Post Instagram..."
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      handleAddTemplate();
-                    }
-                  }}
-                />
-                <Button
-                  onClick={handleAddTemplate}
-                  disabled={!newTemplateName.trim() || createTemplate.isPending}
-                  className="gap-2 shrink-0"
-                >
-                  <Plus className="h-4 w-4" />
-                  Adicionar
-                </Button>
+              <div className="space-y-2">
+                <Select value={newTemplateType} onValueChange={(v: 'chat' | 'image') => setNewTemplateType(v)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="chat">
+                      <div className="flex items-center gap-2">
+                        <MessageSquare className="h-4 w-4" />
+                        Template de Chat
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="image">
+                      <div className="flex items-center gap-2">
+                        <Image className="h-4 w-4" />
+                        Template de Imagem
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+                <div className="flex gap-2">
+                  <Input
+                    id="newTemplate"
+                    value={newTemplateName}
+                    onChange={(e) => setNewTemplateName(e.target.value)}
+                    placeholder={newTemplateType === 'image' ? "Ex: Banner Instagram, Thumbnail YouTube..." : "Ex: Newsletter Semanal, Post Instagram..."}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        handleAddTemplate();
+                      }
+                    }}
+                  />
+                  <Button
+                    onClick={handleAddTemplate}
+                    disabled={!newTemplateName.trim() || createTemplate.isPending}
+                    className="gap-2 shrink-0"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Adicionar
+                  </Button>
+                </div>
               </div>
             </div>
 

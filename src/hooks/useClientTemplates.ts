@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { ClientTemplate, CreateTemplateData, TemplateRule, DEFAULT_TEMPLATE_RULES } from "@/types/template";
+import { ClientTemplate, CreateTemplateData, TemplateRule, DEFAULT_CHAT_RULES, DEFAULT_IMAGE_RULES } from "@/types/template";
 
 export const useClientTemplates = (clientId: string) => {
   const { toast } = useToast();
@@ -23,6 +23,7 @@ export const useClientTemplates = (clientId: string) => {
         id: template.id,
         client_id: template.client_id,
         name: template.name,
+        type: (template.type as 'chat' | 'image') || 'chat',
         created_at: template.created_at,
         updated_at: template.updated_at,
         rules: Array.isArray(template.rules) 
@@ -37,7 +38,8 @@ export const useClientTemplates = (clientId: string) => {
 
   const createTemplate = useMutation({
     mutationFn: async (data: CreateTemplateData) => {
-      const rules = data.rules || DEFAULT_TEMPLATE_RULES.map((content) => ({
+      const defaultRules = data.type === 'image' ? DEFAULT_IMAGE_RULES : DEFAULT_CHAT_RULES;
+      const rules = data.rules || defaultRules.map((content) => ({
         id: crypto.randomUUID(),
         content,
       }));
@@ -47,6 +49,7 @@ export const useClientTemplates = (clientId: string) => {
         .insert([{
           client_id: data.client_id,
           name: data.name,
+          type: data.type,
           rules: rules as any,
         }]);
 

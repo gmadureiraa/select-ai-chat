@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -8,15 +8,21 @@ import { Card } from "@/components/ui/card";
 import { Header } from "@/components/Header";
 import { ArrowLeft, Sparkles, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useClientTemplates } from "@/hooks/useClientTemplates";
 import kaleidosLogo from "@/assets/kaleidos-logo.svg";
 
 const ImageGeneration = () => {
   const { clientId } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const templateId = searchParams.get("templateId");
   const { toast } = useToast();
   const [prompt, setPrompt] = useState("");
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
+
+  const { templates } = useClientTemplates(clientId!);
+  const selectedTemplate = templates.find(t => t.id === templateId && t.type === 'image');
 
   const { data: client } = useQuery({
     queryKey: ["client", clientId],
@@ -46,13 +52,22 @@ const ImageGeneration = () => {
     setGeneratedImage(null);
 
     try {
+      // Build enhanced prompt with template rules
+      let enhancedPrompt = prompt;
+      if (selectedTemplate && selectedTemplate.rules.length > 0) {
+        const rulesContext = selectedTemplate.rules
+          .map(r => r.content)
+          .join(". ");
+        enhancedPrompt = `${prompt}\n\nDiretrizes de estilo: ${rulesContext}`;
+      }
+
       const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-image`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
         },
-        body: JSON.stringify({ prompt }),
+        body: JSON.stringify({ prompt: enhancedPrompt }),
       });
 
       if (!response.ok) {
@@ -89,9 +104,18 @@ const ImageGeneration = () => {
         <div>
           <div className="flex items-center gap-4 mb-2">
             <img src={kaleidosLogo} alt="Kaleidos" className="h-8 w-8" />
-            <h1 className="text-3xl font-bold">Geração de Imagem</h1>
+            <div>
+              <h1 className="text-3xl font-bold">
+                {selectedTemplate ? selectedTemplate.name : "Geração de Imagem"}
+              </h1>
+              {selectedTemplate && (
+                <p className="text-sm text-muted-foreground mt-1">
+                  Template com {selectedTemplate.rules.length} regra(s) aplicada(s)
+                </p>
+              )}
+            </div>
           </div>
-          {client && (
+          {client && !selectedTemplate && (
             <p className="text-muted-foreground">{client.name}</p>
           )}
         </div>
@@ -108,6 +132,17 @@ const ImageGeneration = () => {
       <div className="max-w-5xl mx-auto p-6">
         <Card className="p-6">
           <div className="space-y-6">
+            {selectedTemplate && selectedTemplate.rules.length > 0 && (
+              <div className="p-4 bg-muted rounded-lg border">
+                <h3 className="text-sm font-semibold mb-2">Regras do Template:</h3>
+                <ul className="text-sm space-y-1 text-muted-foreground">
+                  {selectedTemplate.rules.map((rule) => (
+                    <li key={rule.id}>• {rule.content}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
             <div className="space-y-2">
               <label className="text-sm font-medium">
                 Descreva a imagem que você quer criar
