@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Header } from "@/components/Header";
 import { ArrowLeft, Sparkles, Loader2, Download, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useClientTemplates } from "@/hooks/useClientTemplates";
+import { useTemplateReferences } from "@/hooks/useTemplateReferences";
 import { useImageGenerations } from "@/hooks/useImageGenerations";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import kaleidosLogo from "@/assets/kaleidos-logo.svg";
@@ -22,8 +22,7 @@ const ImageGeneration = () => {
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
 
-  const { templates } = useClientTemplates(clientId!);
-  const selectedTemplate = templates.find(t => t.id === templateId && t.type === 'image');
+  const { template, references, isLoading: isLoadingReferences } = useTemplateReferences(templateId);
   const { generations, createGeneration, deleteGeneration } = useImageGenerations(clientId!, templateId);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -61,27 +60,31 @@ const ImageGeneration = () => {
     setGeneratedImage(null);
 
     try {
-      // Build enhanced prompt with template rules
+      // Build enhanced prompt with ALL template rules and references
       let enhancedPrompt = prompt;
-      const textRules: string[] = [];
-      const imageReferences: string[] = [];
       
-      if (selectedTemplate && selectedTemplate.rules.length > 0) {
-        selectedTemplate.rules.forEach(rule => {
-          if (rule.type === 'text' || !rule.type) {
-            textRules.push(rule.content);
-          } else if (rule.type === 'image_reference' && rule.file_url) {
-            imageReferences.push(rule.file_url);
-          }
-        });
+      if (template && !isLoadingReferences) {
+        const promptParts: string[] = [prompt];
         
-        if (textRules.length > 0) {
-          enhancedPrompt = `${prompt}\n\nDiretrizes de estilo: ${textRules.join(". ")}`;
+        // Add text rules as style guidelines
+        if (references.textRules.length > 0) {
+          promptParts.push('\n\nESTILO E DIRETRIZES:');
+          references.textRules.forEach(rule => {
+            promptParts.push(`- ${rule}`);
+          });
         }
         
-        if (imageReferences.length > 0) {
-          enhancedPrompt += `\n\nIMPORTANTE: Inspire-se no estilo visual, composição e elementos das seguintes imagens de referência (não copie, apenas inspire-se): ${imageReferences.join(", ")}`;
+        // Add visual descriptions from image references
+        if (references.imageReferences.length > 0) {
+          promptParts.push('\n\nREFERÊNCIAS VISUAIS (inspire-se nestes elementos):');
+          references.imageReferences.forEach((ref, idx) => {
+            promptParts.push(`${idx + 1}. ${ref.description}`);
+            promptParts.push(`   URL: ${ref.url}`);
+          });
+          promptParts.push('\nIMPORTANTE: Inspire-se no estilo visual, composição e elementos dessas referências, mas crie algo original.');
         }
+        
+        enhancedPrompt = promptParts.join('\n');
       }
 
       const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-image`, {
@@ -136,16 +139,16 @@ const ImageGeneration = () => {
             <img src={kaleidosLogo} alt="Kaleidos" className="h-8 w-8" />
             <div>
               <h1 className="text-3xl font-bold">
-                {selectedTemplate ? selectedTemplate.name : "Geração de Imagem"}
+                {template ? template.name : "Geração de Imagem"}
               </h1>
-              {selectedTemplate && (
+              {template && (
                 <p className="text-sm text-muted-foreground mt-1">
-                  Template com {selectedTemplate.rules.length} regra(s) aplicada(s)
+                  Template com {references.textRules.length + references.imageReferences.length} regra(s) ativa(s)
                 </p>
               )}
             </div>
           </div>
-          {client && !selectedTemplate && (
+          {client && !template && (
             <p className="text-muted-foreground">{client.name}</p>
           )}
         </div>
@@ -160,31 +163,40 @@ const ImageGeneration = () => {
       </Header>
 
       <div className="flex-1 flex flex-col max-w-5xl mx-auto w-full">
-        {selectedTemplate && selectedTemplate.rules.length > 0 && (
+        {template && (references.textRules.length > 0 || references.imageReferences.length > 0) && !isLoadingReferences && (
           <div className="p-4 bg-muted/50 border-b">
             <details className="cursor-pointer">
-              <summary className="text-sm font-semibold">Regras do Template ({selectedTemplate.rules.length})</summary>
-              <div className="mt-3 space-y-3">
-                {selectedTemplate.rules.map((rule) => (
-                  <div key={rule.id} className="space-y-2">
-                    {rule.type === 'image_reference' && rule.file_url ? (
-                      <div className="space-y-1">
-                        <p className="text-xs font-medium text-muted-foreground">
-                          Imagem de Referência: {rule.content}
-                        </p>
-                        <img 
-                          src={rule.file_url} 
-                          alt="Referência" 
-                          className="max-w-sm rounded border"
-                        />
-                      </div>
-                    ) : (
-                      <div className="text-sm text-muted-foreground">
-                        • {rule.content}
-                      </div>
-                    )}
+              <summary className="text-sm font-semibold">
+                Regras do Template ({references.textRules.length + references.imageReferences.length})
+              </summary>
+              <div className="mt-3 space-y-4">
+                {references.textRules.length > 0 && (
+                  <div>
+                    <p className="text-xs font-semibold mb-2 text-muted-foreground">Diretrizes de Estilo:</p>
+                    <ul className="space-y-1">
+                      {references.textRules.map((rule, idx) => (
+                        <li key={idx} className="text-sm text-muted-foreground">• {rule}</li>
+                      ))}
+                    </ul>
                   </div>
-                ))}
+                )}
+                {references.imageReferences.length > 0 && (
+                  <div>
+                    <p className="text-xs font-semibold mb-2 text-muted-foreground">Referências Visuais:</p>
+                    <div className="space-y-3">
+                      {references.imageReferences.map((ref, idx) => (
+                        <div key={idx} className="space-y-1">
+                          <p className="text-xs font-medium text-muted-foreground">{ref.description}</p>
+                          <img 
+                            src={ref.url} 
+                            alt={ref.description} 
+                            className="max-w-sm rounded border"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </details>
           </div>
