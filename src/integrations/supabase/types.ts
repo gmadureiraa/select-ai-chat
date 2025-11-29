@@ -92,6 +92,7 @@ export type Database = {
           context_notes: string | null
           created_at: string | null
           description: string | null
+          function_templates: Json | null
           id: string
           name: string
           social_media: Json | null
@@ -102,6 +103,7 @@ export type Database = {
           context_notes?: string | null
           created_at?: string | null
           description?: string | null
+          function_templates?: Json | null
           id?: string
           name: string
           social_media?: Json | null
@@ -112,6 +114,7 @@ export type Database = {
           context_notes?: string | null
           created_at?: string | null
           description?: string | null
+          function_templates?: Json | null
           id?: string
           name?: string
           social_media?: Json | null

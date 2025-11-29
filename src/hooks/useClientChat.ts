@@ -79,7 +79,7 @@ export const useClientChat = (clientId: string) => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("clients")
-        .select("name, context_notes, social_media, tags")
+        .select("name, context_notes, social_media, tags, function_templates")
         .eq("id", clientId)
         .single();
 
@@ -88,6 +88,7 @@ export const useClientChat = (clientId: string) => {
         ...data,
         social_media: data.social_media as Record<string, string>,
         tags: data.tags as Record<string, string>,
+        function_templates: data.function_templates as string[],
       };
     },
     enabled: !!clientId,
@@ -146,6 +147,15 @@ export const useClientChat = (clientId: string) => {
 
       if (client.context_notes) {
         contextParts.push(`\n## Contexto Fixo:\n${client.context_notes}`);
+      }
+
+      // Add function templates if they exist
+      const templates = client.function_templates as string[] | undefined;
+      if (templates && templates.length > 0) {
+        contextParts.push("\n## Funções/Padrões Recorrentes:");
+        templates.forEach((template, idx) => {
+          contextParts.push(`${idx + 1}. ${template}`);
+        });
       }
 
       if (client.tags && Object.values(client.tags).some(v => v)) {
