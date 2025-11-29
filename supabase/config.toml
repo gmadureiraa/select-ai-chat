@@ -11,3 +11,9 @@ verify_jwt = false
 
 [functions.generate-image]
 verify_jwt = false
+
+[functions.fetch-beehiiv-metrics]
+verify_jwt = false
+
+[functions.scrape-social-metrics]
+verify_jwt = false
