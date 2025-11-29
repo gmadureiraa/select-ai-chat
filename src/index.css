@@ -48,6 +48,9 @@ All colors MUST be HSL.
     /* Neon glow effects */
     --glow-primary: 0 0 20px hsl(150 100% 50% / 0.5);
     --glow-secondary: 0 0 20px hsl(330 100% 60% / 0.5);
+    
+    /* Transitions */
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   .dark {
