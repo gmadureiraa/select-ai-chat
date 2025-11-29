@@ -1,14 +1,10 @@
-import { useState, useEffect } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useState, useEffect, useCallback } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-
-interface Message {
-  role: "user" | "assistant";
-  content: string;
-}
-
-type ProcessStep = "analyzing" | "reviewing" | "creating" | null;
+import { Message, Client, Website, Document, ProcessStep } from "@/types/chat";
+import { createChatError, getErrorMessage } from "@/lib/errors";
+import { validateMessage, validateModelId } from "@/lib/validation";
 
 export const useClientChat = (clientId: string) => {
   const [selectedModel, setSelectedModel] = useState("gpt-5-mini-2025-08-07");
@@ -127,8 +123,35 @@ export const useClientChat = (clientId: string) => {
     enabled: !!clientId,
   });
 
-  const sendMessage = async (content: string) => {
-    if (!conversationId || !client) return;
+  const sendMessage = useCallback(async (content: string) => {
+    // Validações
+    const validationError = validateMessage(content);
+    if (validationError) {
+      toast({
+        title: "Erro de validação",
+        description: validationError,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!conversationId || !client) {
+      toast({
+        title: "Erro",
+        description: "Conversa não inicializada.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!validateModelId(selectedModel)) {
+      toast({
+        title: "Erro",
+        description: "Modelo de IA inválido.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     setIsLoading(true);
     setCurrentStep("analyzing");
@@ -293,16 +316,23 @@ export const useClientChat = (clientId: string) => {
       queryClient.invalidateQueries({ queryKey: ["messages", conversationId] });
     } catch (error) {
       console.error("Error sending message:", error);
+      
+      const chatError = createChatError(error, "Não foi possível enviar a mensagem");
+      const errorMessage = getErrorMessage(chatError);
+      
       toast({
-        title: "Erro",
-        description: "Não foi possível enviar a mensagem.",
+        title: "Erro ao enviar mensagem",
+        description: errorMessage,
         variant: "destructive",
       });
+
+      // Remover mensagem do usuário em caso de erro
+      queryClient.invalidateQueries({ queryKey: ["messages", conversationId] });
     } finally {
       setIsLoading(false);
       setCurrentStep(null);
     }
-  };
+  }, [conversationId, client, selectedModel, messages, websites, documents, queryClient, toast]);
 
   return {
     messages,
