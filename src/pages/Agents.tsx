@@ -17,7 +17,6 @@ const Agents = () => {
       ],
       accentColor: "primary" as const,
       onOpen: () => navigate("/clients"),
-      onRun: () => console.log("Run agent 1"),
     },
     {
       title: "Análise de Performance",
@@ -31,7 +30,6 @@ const Agents = () => {
       ],
       accentColor: "accent" as const,
       onOpen: () => console.log("Open agent 2"),
-      onRun: () => console.log("Run agent 2"),
     },
     {
       title: "Automação de Conteúdo",
@@ -45,7 +43,6 @@ const Agents = () => {
       ],
       accentColor: "secondary" as const,
       onOpen: () => navigate("/automations"),
-      onRun: () => console.log("Run agent 3"),
     },
   ];
 
@@ -78,7 +75,6 @@ const Agents = () => {
               features={agent.features}
               accentColor={agent.accentColor}
               onOpen={agent.onOpen}
-              onRun={agent.onRun}
             />
           </div>
         ))}

@@ -9,7 +9,6 @@ export interface AgentCardProps {
   features: string[];
   accentColor: "primary" | "secondary" | "accent";
   onOpen: () => void;
-  onRun: () => void;
 }
 
 export default function AgentCard({
@@ -19,7 +18,6 @@ export default function AgentCard({
   features,
   accentColor,
   onOpen,
-  onRun,
 }: AgentCardProps) {
   const [isFlipped, setIsFlipped] = useState(false);
 
@@ -150,7 +148,7 @@ export default function AgentCard({
             </div>
           </div>
 
-          <div className="space-y-3 pt-6 mt-6 border-t border-border">
+          <div className="pt-6 mt-6 border-t border-border">
             <button
               onClick={onOpen}
               className={cn(
@@ -168,24 +166,6 @@ export default function AgentCard({
                 Abrir
               </span>
               <ArrowRight className={cn("w-4 h-4", colors.text)} />
-            </button>
-
-            <button
-              onClick={onRun}
-              className={cn(
-                "w-full flex items-center justify-between",
-                "p-3 rounded-xl",
-                "transition-all duration-300",
-                "bg-foreground/5",
-                "hover:bg-foreground/10",
-                "border border-foreground/10",
-                "hover:scale-[1.02]"
-              )}
-            >
-              <span className="text-sm font-semibold text-foreground">
-                Rodar
-              </span>
-              <ArrowRight className="w-4 h-4 text-foreground" />
             </button>
           </div>
         </div>
