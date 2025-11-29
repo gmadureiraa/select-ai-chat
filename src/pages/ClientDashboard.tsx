@@ -39,6 +39,14 @@ const ClientDashboard = () => {
     navigate(`/chat/${clientId}?${searchParams.toString()}`);
   };
 
+  const startImageGeneration = (templateId?: string) => {
+    const searchParams = new URLSearchParams();
+    if (templateId) {
+      searchParams.set("templateId", templateId);
+    }
+    navigate(`/client/${clientId}/image-gen?${searchParams.toString()}`);
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background">
@@ -151,7 +159,7 @@ const ClientDashboard = () => {
           {/* Geração de Imagem */}
           <Card
             className="hover:shadow-lg transition-shadow cursor-pointer border-accent/20"
-            onClick={() => navigate(`/client/${clientId}/image-gen`)}
+            onClick={() => startImageGeneration()}
           >
             <CardHeader>
               <div className="flex items-center gap-3">
@@ -173,14 +181,23 @@ const ClientDashboard = () => {
             <Card
               key={template.id}
               className="hover:shadow-lg transition-shadow cursor-pointer border-muted"
-              onClick={() => startNewChat(template.id)}
+              onClick={() => template.type === 'image' ? startImageGeneration(template.id) : startNewChat(template.id)}
             >
               <CardHeader>
                 <div className="flex items-center gap-3">
                   <div className="p-3 rounded-lg bg-muted">
-                    <Sparkles className="h-6 w-6 text-foreground" />
+                    {template.type === 'image' ? (
+                      <ImageIcon className="h-6 w-6 text-foreground" />
+                    ) : (
+                      <Sparkles className="h-6 w-6 text-foreground" />
+                    )}
                   </div>
-                  <CardTitle className="text-lg">{template.name}</CardTitle>
+                  <div className="flex items-center gap-2 flex-1">
+                    <CardTitle className="text-lg">{template.name}</CardTitle>
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-background border">
+                      {template.type === 'image' ? 'Imagem' : 'Chat'}
+                    </span>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent>
