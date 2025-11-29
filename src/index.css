@@ -13,7 +13,7 @@ All colors MUST be HSL.
     --foreground: 0 0% 100%;
 
     /* Cards with subtle elevation */
-    --card: 0 0% 5%;
+    --card: 0 0% 8%;
     --card-foreground: 0 0% 100%;
 
     --popover: 0 0% 5%;
@@ -39,7 +39,7 @@ All colors MUST be HSL.
     --destructive-foreground: 0 0% 100%;
 
     /* Minimal borders */
-    --border: 0 0% 12%;
+    --border: 0 0% 15%;
     --input: 0 0% 8%;
     --ring: 145 100% 50%;
 
@@ -63,10 +63,10 @@ All colors MUST be HSL.
     --background: 0 0% 0%;
     --foreground: 0 0% 100%;
 
-    --card: 0 0% 5%;
+    --card: 0 0% 8%;
     --card-foreground: 0 0% 100%;
 
-    --popover: 0 0% 5%;
+    --popover: 0 0% 8%;
     --popover-foreground: 0 0% 100%;
 
     --primary: 145 100% 50%;
@@ -84,7 +84,7 @@ All colors MUST be HSL.
     --destructive: 0 62.8% 50%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 0 0% 12%;
+    --border: 0 0% 15%;
     --input: 0 0% 8%;
     --ring: 145 100% 50%;
 
