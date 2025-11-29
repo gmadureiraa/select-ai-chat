@@ -29,11 +29,7 @@ const Agents = () => {
         "Análise preditiva",
       ],
       accentColor: "accent" as const,
-      onOpen: () => {
-        // Navigate to Defiverso performance dashboard
-        const defiversoId = "c1227fa7-f9c4-4f8c-a091-ae250919dc07";
-        navigate(`/client/${defiversoId}/performance`);
-      },
+      onOpen: () => navigate("/performance"),
     },
     {
       title: "Automação de Conteúdo",
