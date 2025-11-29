@@ -73,15 +73,49 @@ export const useClientChat = (clientId: string) => {
     enabled: !!conversationId,
   });
 
-  // Get client context
+  // Get client context with all structured data
   const { data: client } = useQuery({
     queryKey: ["client-context", clientId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("clients")
-        .select("name, context_notes")
+        .select("name, context_notes, social_media, tags")
         .eq("id", clientId)
         .single();
+
+      if (error) throw error;
+      return {
+        ...data,
+        social_media: data.social_media as Record<string, string>,
+        tags: data.tags as Record<string, string>,
+      };
+    },
+    enabled: !!clientId,
+  });
+
+  // Get websites and their scraped content
+  const { data: websites = [] } = useQuery({
+    queryKey: ["client-websites", clientId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("client_websites")
+        .select("*")
+        .eq("client_id", clientId);
+
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!clientId,
+  });
+
+  // Get documents
+  const { data: documents = [] } = useQuery({
+    queryKey: ["client-documents", clientId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("client_documents")
+        .select("*")
+        .eq("client_id", clientId);
 
       if (error) throw error;
       return data;
@@ -107,16 +141,48 @@ export const useClientChat = (clientId: string) => {
       // Invalidate to show user message immediately
       queryClient.invalidateQueries({ queryKey: ["messages", conversationId] });
 
-      // Build messages with context
-      const contextMessage = client.context_notes
-        ? `Contexto fixo sobre o cliente ${client.name}: ${client.context_notes}\n\n`
-        : "";
+      // Build comprehensive context
+      let contextParts = [`Você é um assistente útil para ajudar com tarefas relacionadas ao cliente ${client.name}.`];
+
+      if (client.context_notes) {
+        contextParts.push(`\n## Contexto Fixo:\n${client.context_notes}`);
+      }
+
+      if (client.tags && Object.values(client.tags).some(v => v)) {
+        contextParts.push("\n## Informações do Cliente:");
+        if (client.tags.segment) contextParts.push(`- Segmento: ${client.tags.segment}`);
+        if (client.tags.tone) contextParts.push(`- Tom de Voz: ${client.tags.tone}`);
+        if (client.tags.objectives) contextParts.push(`- Objetivos: ${client.tags.objectives}`);
+        if (client.tags.audience) contextParts.push(`- Público-Alvo: ${client.tags.audience}`);
+      }
+
+      if (client.social_media && Object.values(client.social_media).some(v => v)) {
+        contextParts.push("\n## Redes Sociais:");
+        if (client.social_media.instagram) contextParts.push(`- Instagram: ${client.social_media.instagram}`);
+        if (client.social_media.linkedin) contextParts.push(`- LinkedIn: ${client.social_media.linkedin}`);
+        if (client.social_media.facebook) contextParts.push(`- Facebook: ${client.social_media.facebook}`);
+        if (client.social_media.twitter) contextParts.push(`- Twitter: ${client.social_media.twitter}`);
+      }
+
+      if (websites.length > 0) {
+        contextParts.push("\n## Websites e Conteúdo Extraído:");
+        websites.forEach(w => {
+          contextParts.push(`\n### ${w.url}`);
+          if (w.scraped_markdown) {
+            contextParts.push(w.scraped_markdown.substring(0, 2000));
+          }
+        });
+      }
+
+      if (documents.length > 0) {
+        contextParts.push(`\n## Documentos Disponíveis (${documents.length}):`);
+        documents.forEach(d => contextParts.push(`- ${d.name} (${d.file_type})`));
+      }
+
+      const systemMessage = contextParts.join("\n");
 
       const messagesWithContext = [
-        {
-          role: "system" as const,
-          content: `${contextMessage}Você é um assistente útil para ajudar com tarefas relacionadas ao cliente ${client.name}.`,
-        },
+        { role: "system" as const, content: systemMessage },
         ...messages.map((m) => ({ role: m.role, content: m.content })),
         { role: "user" as const, content },
       ];
