@@ -68,6 +68,26 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+    // Fetch recent posts with their stats
+    const postsResponse = await fetch(
+      `https://api.beehiiv.com/v2/publications/${publication.id}/posts?status=confirmed&limit=10`,
+      {
+        headers: {
+          'Authorization': `Bearer ${beehiivApiKey}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+
+    let posts: any[] = [];
+    if (postsResponse.ok) {
+      const postsData = await postsResponse.json();
+      posts = postsData.data || [];
+      console.log(`Fetched ${posts.length} posts`);
+    } else {
+      console.warn('Could not fetch posts:', postsResponse.status);
+    }
+
     // Store metrics in database
     const { data: metricsData, error: metricsError } = await supabase
       .from('platform_metrics')
@@ -78,11 +98,26 @@ serve(async (req) => {
         subscribers: subscribers,
         open_rate: parseFloat(openRate),
         click_rate: parseFloat(clickRate),
-        total_posts: 0, // Not available in this endpoint
+        total_posts: posts.length,
         metadata: {
           publication_name: publication.name,
           publication_id: publication.id,
           raw_stats: stats,
+          recent_posts: posts.map(post => ({
+            id: post.id,
+            title: post.title,
+            subtitle: post.subtitle,
+            published_at: post.publish_date,
+            delivered: post.stats?.delivered || 0,
+            opened: post.stats?.unique_opens || 0,
+            clicked: post.stats?.unique_clicks || 0,
+            open_rate: post.stats?.unique_opens && post.stats?.delivered 
+              ? ((post.stats.unique_opens / post.stats.delivered) * 100).toFixed(2)
+              : 0,
+            click_rate: post.stats?.unique_clicks && post.stats?.delivered
+              ? ((post.stats.unique_clicks / post.stats.delivered) * 100).toFixed(2)
+              : 0,
+          })),
         },
       }, {
         onConflict: 'client_id,platform,metric_date',
@@ -102,7 +137,22 @@ serve(async (req) => {
           subscribers: subscribers,
           openRate: parseFloat(openRate),
           clickRate: parseFloat(clickRate),
-          totalPosts: 0,
+          totalPosts: posts.length,
+          recentPosts: posts.map(post => ({
+            id: post.id,
+            title: post.title,
+            subtitle: post.subtitle,
+            published_at: post.publish_date,
+            delivered: post.stats?.delivered || 0,
+            opened: post.stats?.unique_opens || 0,
+            clicked: post.stats?.unique_clicks || 0,
+            open_rate: post.stats?.unique_opens && post.stats?.delivered 
+              ? ((post.stats.unique_opens / post.stats.delivered) * 100).toFixed(2)
+              : 0,
+            click_rate: post.stats?.unique_clicks && post.stats?.delivered
+              ? ((post.stats.unique_clicks / post.stats.delivered) * 100).toFixed(2)
+              : 0,
+          })),
         },
       }),
       {

@@ -349,6 +349,53 @@ export default function ClientPerformance() {
               </CardContent>
             </Card>
           )}
+
+          {/* Recent Posts Table */}
+          {selectedChannel === 'newsletter' && latestMetrics?.metadata?.recent_posts && latestMetrics.metadata.recent_posts.length > 0 && (
+            <Card className="bg-card">
+              <CardHeader>
+                <CardTitle>Últimos Emails Enviados</CardTitle>
+                <CardDescription>Performance individual de cada email</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-border">
+                        <th className="text-left py-3 px-4 font-semibold">Título</th>
+                        <th className="text-right py-3 px-4 font-semibold">Enviados</th>
+                        <th className="text-right py-3 px-4 font-semibold">Aberturas</th>
+                        <th className="text-right py-3 px-4 font-semibold">Taxa Abertura</th>
+                        <th className="text-right py-3 px-4 font-semibold">Cliques</th>
+                        <th className="text-right py-3 px-4 font-semibold">Taxa Clique</th>
+                        <th className="text-right py-3 px-4 font-semibold">Data</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {latestMetrics.metadata.recent_posts.map((post: any, index: number) => (
+                        <tr key={post.id || index} className="border-b border-border/50 hover:bg-muted/50 transition-colors">
+                          <td className="py-3 px-4">
+                            <div className="font-medium">{post.title}</div>
+                            {post.subtitle && (
+                              <div className="text-sm text-muted-foreground mt-1 line-clamp-1">{post.subtitle}</div>
+                            )}
+                          </td>
+                          <td className="text-right py-3 px-4 tabular-nums">{post.delivered?.toLocaleString('pt-BR') || '-'}</td>
+                          <td className="text-right py-3 px-4 tabular-nums">{post.opened?.toLocaleString('pt-BR') || '-'}</td>
+                          <td className="text-right py-3 px-4 tabular-nums font-semibold text-primary">{post.open_rate}%</td>
+                          <td className="text-right py-3 px-4 tabular-nums">{post.clicked?.toLocaleString('pt-BR') || '-'}</td>
+                          <td className="text-right py-3 px-4 tabular-nums font-semibold text-secondary">{post.click_rate}%</td>
+                          <td className="text-right py-3 px-4 text-sm text-muted-foreground whitespace-nowrap">
+                            {post.published_at ? new Date(post.published_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }) : '-'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </>
       )}
 
