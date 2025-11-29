@@ -238,6 +238,19 @@ export const useClientChat = (clientId: string, templateId?: string) => {
           contextParts.push('');
         }
 
+        // Add image references
+        if (references.imageReferences.length > 0) {
+          contextParts.push("### 🎨 Referências Visuais:");
+          contextParts.push("**IMPORTANTE:** Essas são imagens de referência disponíveis:");
+          references.imageReferences.forEach((ref, idx) => {
+            contextParts.push(`${idx + 1}. ${ref.description}`);
+            contextParts.push(`   URL: ${ref.url}`);
+          });
+          contextParts.push('');
+          contextParts.push("Ao discutir design, estilo visual ou elementos gráficos, considere essas referências.");
+          contextParts.push('');
+        }
+
         // Add content references with full content
         if (references.contentReferences.length > 0) {
           contextParts.push("### 📄 Referências de Estrutura e Linguagem:");

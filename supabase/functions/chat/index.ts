@@ -44,9 +44,15 @@ serve(async (req) => {
     const { messages, model } = body;
     const selectedModel = model || "gpt-5-mini-2025-08-07";
     
+    // Check if messages contain images
+    const hasImages = messages.some((msg: any) => 
+      Array.isArray(msg.image_urls) && msg.image_urls.length > 0
+    );
+    
     console.log("Chat request:", {
       model: selectedModel,
       messageCount: messages.length,
+      hasImages,
       timestamp: new Date().toISOString()
     });
     
@@ -70,9 +76,26 @@ serve(async (req) => {
         model: selectedModel,
         messages: [
           { role: "system", content: "Você é um assistente de IA útil, inteligente e amigável. Responda de forma clara e concisa." },
-          ...messages,
+          ...messages.map((msg: any) => {
+            // Convert messages with images to OpenAI Vision format
+            if (msg.image_urls && msg.image_urls.length > 0) {
+              return {
+                role: msg.role,
+                content: [
+                  { type: "text", text: msg.content },
+                  ...msg.image_urls.map((url: string) => ({
+                    type: "image_url",
+                    image_url: { url }
+                  }))
+                ]
+              };
+            }
+            // Regular text message
+            return { role: msg.role, content: msg.content };
+          }),
         ],
         stream: true,
+        max_completion_tokens: 2000,
       }),
     });
 

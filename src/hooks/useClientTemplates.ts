@@ -18,7 +18,7 @@ export const useClientTemplates = (clientId: string) => {
 
       if (error) throw error;
       
-      // Parse rules from JSON
+      // Parse rules from JSON - preserve ALL fields
       return (data || []).map(template => ({
         id: template.id,
         client_id: template.client_id,
@@ -29,7 +29,9 @@ export const useClientTemplates = (clientId: string) => {
         rules: Array.isArray(template.rules) 
           ? (template.rules as any[]).map((rule: any) => ({
               id: rule.id || crypto.randomUUID(),
-              content: rule.content || String(rule)
+              content: rule.content || String(rule),
+              type: rule.type || 'text',
+              file_url: rule.file_url || undefined
             }))
           : []
       })) as ClientTemplate[];
