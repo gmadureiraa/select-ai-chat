@@ -1,6 +1,7 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import { Plus, Zap } from "lucide-react";
 import { ClientList } from "@/components/clients/ClientList";
 import { ClientDialog } from "@/components/clients/ClientDialog";
 import { useClients } from "@/hooks/useClients";
@@ -9,6 +10,7 @@ import kaleidosLogo from "@/assets/kaleidos-logo.svg";
 const Clients = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const { clients, isLoading } = useClients();
+  const navigate = useNavigate();
 
   return (
     <div className="min-h-screen bg-background">
@@ -34,13 +36,23 @@ const Clients = () => {
               Assistente de IA contextual para criação de conteúdo estratégico
             </p>
           </div>
-          <Button 
-            onClick={() => setIsDialogOpen(true)} 
-            className="gap-2 bg-secondary hover:bg-secondary/90 text-secondary-foreground shadow-lg hover:shadow-[0_0_20px_rgba(255,0,127,0.4)] transition-all"
-          >
-            <Plus className="h-4 w-4" />
-            Novo Cliente
-          </Button>
+          <div className="flex gap-2">
+            <Button 
+              onClick={() => navigate("/automations")} 
+              variant="outline"
+              className="gap-2"
+            >
+              <Zap className="h-4 w-4" />
+              Automações
+            </Button>
+            <Button 
+              onClick={() => setIsDialogOpen(true)} 
+              className="gap-2 bg-secondary hover:bg-secondary/90 text-secondary-foreground shadow-lg hover:shadow-[0_0_20px_rgba(255,0,127,0.4)] transition-all"
+            >
+              <Plus className="h-4 w-4" />
+              Novo Cliente
+            </Button>
+          </div>
         </div>
       </div>
 
