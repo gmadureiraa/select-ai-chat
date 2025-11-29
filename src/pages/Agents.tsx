@@ -44,7 +44,7 @@ const Agents = () => {
         "Otimização por IA",
       ],
       accentColor: "secondary" as const,
-      onOpen: () => console.log("Open agent 3"),
+      onOpen: () => navigate("/automations"),
       onRun: () => console.log("Run agent 3"),
     },
   ];

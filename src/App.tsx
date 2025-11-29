@@ -11,6 +11,7 @@ import ClientChat from "./pages/ClientChat";
 import ClientDashboard from "./pages/ClientDashboard";
 import ImageGeneration from "./pages/ImageGeneration";
 import ImageGallery from "./pages/ImageGallery";
+import Automations from "./pages/Automations";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 
@@ -81,6 +82,16 @@ const App = () => (
               <ProtectedRoute>
                 <AppLayout>
                   <ClientChat />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/automations"
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <Automations />
                 </AppLayout>
               </ProtectedRoute>
             }
