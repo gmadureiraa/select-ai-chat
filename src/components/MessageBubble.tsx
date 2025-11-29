@@ -7,13 +7,15 @@ import { MessageActions } from "@/components/MessageActions";
 interface MessageBubbleProps {
   role: "user" | "assistant";
   content: string;
+  imageUrls?: string[] | null;
   onRegenerate?: () => void;
   isLastMessage?: boolean;
 }
 
 export const MessageBubble = ({ 
   role, 
-  content, 
+  content,
+  imageUrls,
   onRegenerate,
   isLastMessage 
 }: MessageBubbleProps) => {
@@ -31,6 +33,18 @@ export const MessageBubble = ({
       )}
       
       <div className="flex flex-col gap-2 max-w-[80%]">
+        {imageUrls && imageUrls.length > 0 && (
+          <div className="flex gap-2 flex-wrap mb-2">
+            {imageUrls.map((url, index) => (
+              <img
+                key={index}
+                src={url}
+                alt={`Anexo ${index + 1}`}
+                className="max-w-sm rounded-lg border"
+              />
+            ))}
+          </div>
+        )}
         <div
           className={cn(
             "rounded-2xl px-4 py-3 break-words transition-all duration-200",
