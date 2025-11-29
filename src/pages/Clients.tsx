@@ -14,8 +14,13 @@ const Clients = () => {
       <div className="border-b bg-card">
         <div className="max-w-7xl mx-auto p-6 flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold">Clientes</h1>
-            <p className="text-muted-foreground mt-1">
+            <div className="flex items-center gap-3 mb-2">
+              <h1 className="text-3xl font-bold">k<span className="text-primary">AI</span></h1>
+              <span className="text-xs text-muted-foreground font-medium px-2 py-1 bg-muted rounded">
+                by Kaleidos Digital
+              </span>
+            </div>
+            <p className="text-muted-foreground">
               Gerencie seus clientes e seus contextos de chat
             </p>
           </div>
