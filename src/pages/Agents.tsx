@@ -47,21 +47,21 @@ const Agents = () => {
   ];
 
   return (
-    <div className="container max-w-7xl mx-auto px-6 py-8 space-y-8">
-      {/* Header estilo webapp */}
-      <header className="flex items-center justify-between gap-6">
+    <div className="container max-w-7xl mx-auto px-3 md:px-6 py-6 md:py-8 space-y-6 md:space-y-8">
+      {/* Header responsivo */}
+      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 md:gap-6">
         <div className="space-y-1">
-          <h1 className="text-2xl font-semibold tracking-tight">
+          <h1 className="text-xl md:text-2xl font-semibold tracking-tight">
             Agentes Kaleidos
           </h1>
-          <p className="text-sm text-muted-foreground max-w-xl">
+          <p className="text-xs md:text-sm text-muted-foreground max-w-xl">
             Escolha um agente para gerenciar clientes, automatizar conteúdos e analisar performance.
           </p>
         </div>
       </header>
 
-      {/* Agent Cards Grid */}
-      <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {/* Agent Cards Grid responsivo */}
+      <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
         {agents.map((agent, index) => (
           <div
             key={agent.title}

@@ -48,7 +48,6 @@ const ClientDashboard = () => {
     navigate(`/client/${clientId}/image-gen?${searchParams.toString()}`);
   };
 
-  // Count references in templates
   const getTemplateReferenceCount = (template: any) => {
     const rules = template.rules || [];
     const textRules = rules.filter((r: any) => !r.type || r.type === 'text').length;
@@ -61,16 +60,16 @@ const ClientDashboard = () => {
     return (
       <div className="min-h-screen bg-background">
         <Header>
-          <div className="flex items-center gap-4">
-            <Skeleton className="h-8 w-8 rounded-full" />
-            <Skeleton className="h-10 w-64" />
+          <div className="flex items-center gap-3 md:gap-4">
+            <Skeleton className="h-7 w-7 md:h-8 md:w-8 rounded-full" />
+            <Skeleton className="h-8 md:h-10 w-48 md:w-64" />
           </div>
         </Header>
-        <div className="max-w-7xl mx-auto p-6">
-          <Skeleton className="h-12 w-48 mb-6" />
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="max-w-7xl mx-auto p-3 md:p-6">
+          <Skeleton className="h-10 md:h-12 w-40 md:w-48 mb-4 md:mb-6" />
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-6">
             {[...Array(6)].map((_, i) => (
-              <Skeleton key={i} className="h-48" />
+              <Skeleton key={i} className="h-40 md:h-48" />
             ))}
           </div>
         </div>
@@ -80,13 +79,13 @@ const ClientDashboard = () => {
 
   if (!client) {
     return (
-      <div className="min-h-screen bg-background">
-        <Header>
-          <div className="flex items-center gap-4">
-            <img src={kaleidosLogo} alt="Kaleidos" className="h-8 w-8" />
-            <h1 className="text-2xl font-bold">Cliente não encontrado</h1>
-          </div>
-        </Header>
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <div className="text-center space-y-4">
+          <h1 className="text-xl md:text-2xl font-bold">Cliente não encontrado</h1>
+          <Button onClick={() => navigate("/clients")}>
+            Voltar para Clientes
+          </Button>
+        </div>
       </div>
     );
   }
@@ -94,73 +93,75 @@ const ClientDashboard = () => {
   return (
     <div className="min-h-screen bg-background">
       <Header>
-        <div>
-          <div className="flex items-center gap-4 mb-2">
-            <img src={kaleidosLogo} alt="Kaleidos" className="h-8 w-8" />
-            <h1 className="text-3xl font-bold">{client.name}</h1>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 md:gap-4 mb-1 md:mb-2">
+            <img src={kaleidosLogo} alt="Kaleidos" className="h-6 w-6 md:h-8 md:w-8 flex-shrink-0" />
+            <h1 className="text-xl md:text-3xl font-bold truncate">{client.name}</h1>
           </div>
           {client.description && (
-            <p className="text-muted-foreground">{client.description}</p>
+            <p className="text-xs md:text-sm text-muted-foreground line-clamp-1 md:line-clamp-2">
+              {client.description}
+            </p>
           )}
         </div>
         <Button
           onClick={() => navigate("/clients")}
           variant="outline"
-          className="gap-2"
+          size="sm"
+          className="gap-2 flex-shrink-0"
         >
-          <ArrowLeft className="h-4 w-4" />
-          Voltar
+          <ArrowLeft className="h-3.5 w-3.5 md:h-4 md:w-4" />
+          <span className="hidden sm:inline">Voltar</span>
         </Button>
       </Header>
 
-      <div className="max-w-7xl mx-auto p-6">
-        <div className="mb-8 flex items-center justify-between">
+      <div className="max-w-7xl mx-auto p-3 md:p-6">
+        <div className="mb-6 md:mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-3 md:gap-4">
           <div>
-            <h2 className="text-2xl font-bold mb-2">O que você quer fazer?</h2>
-            <p className="text-muted-foreground">
+            <h2 className="text-lg md:text-2xl font-bold mb-1 md:mb-2">O que você quer fazer?</h2>
+            <p className="text-xs md:text-sm text-muted-foreground">
               Escolha uma opção ou template para começar
             </p>
           </div>
           <TemplateManager clientId={clientId!} />
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-6">
           {/* Chat Livre */}
           <Card
-            className="hover:shadow-lg transition-shadow cursor-pointer border-primary/20"
+            className="hover:shadow-lg hover:border-primary/40 transition-all cursor-pointer border-primary/20 group"
             onClick={() => startNewChat()}
           >
-            <CardHeader>
+            <CardHeader className="pb-3">
               <div className="flex items-center gap-3">
-                <div className="p-3 rounded-lg bg-primary/10">
-                  <MessageSquare className="h-6 w-6 text-primary" />
+                <div className="p-2.5 md:p-3 rounded-lg bg-primary/10 group-hover:bg-primary/20 transition-colors">
+                  <MessageSquare className="h-5 w-5 md:h-6 md:w-6 text-primary" />
                 </div>
-                <CardTitle>Chat Livre</CardTitle>
+                <CardTitle className="text-base md:text-lg">Chat Livre</CardTitle>
               </div>
             </CardHeader>
             <CardContent>
-              <CardDescription>
-                Converse livremente com a IA sobre qualquer assunto relacionado
-                ao cliente
+              <CardDescription className="text-xs md:text-sm">
+                Converse livremente com a IA sobre qualquer assunto relacionado ao cliente
               </CardDescription>
             </CardContent>
           </Card>
 
           {/* Análise de Performance */}
           <Card
-            className="hover:shadow-lg transition-shadow cursor-pointer border-accent/20"
+            className="hover:shadow-lg hover:border-accent/40 transition-all cursor-pointer border-accent/20 group"
             onClick={() => navigate(`/client/${clientId}/performance`)}
           >
-            <CardHeader>
+            <CardHeader className="pb-3">
               <div className="flex items-center gap-3">
-                <div className="p-3 rounded-lg bg-accent/10">
-                  <BarChart3 className="h-6 w-6 text-accent" />
+                <div className="p-2.5 md:p-3 rounded-lg bg-accent/10 group-hover:bg-accent/20 transition-colors">
+                  <BarChart3 className="h-5 w-5 md:h-6 md:w-6 text-accent" />
                 </div>
-                <CardTitle>Análise de Performance</CardTitle>
+                <CardTitle className="text-base md:text-lg">Performance</CardTitle>
               </div>
             </CardHeader>
             <CardContent>
-              <CardDescription>
+              <CardDescription className="text-xs md:text-sm">
                 Visualize métricas, KPIs e insights de performance do cliente
               </CardDescription>
             </CardContent>
@@ -170,7 +171,7 @@ const ClientDashboard = () => {
           {templates.map((template) => (
             <Card
               key={template.id}
-              className="hover:shadow-lg transition-shadow cursor-pointer border-muted"
+              className="hover:shadow-lg hover:border-muted-foreground/20 transition-all cursor-pointer border-muted group"
               onClick={() => {
                 if (template.type === 'image') {
                   startImageGeneration(template.id);
@@ -181,49 +182,49 @@ const ClientDashboard = () => {
                 }
               }}
             >
-              <CardHeader>
+              <CardHeader className="pb-3">
                 <div className="flex items-center gap-3">
-                  <div className="p-3 rounded-lg bg-muted">
+                  <div className="p-2.5 md:p-3 rounded-lg bg-muted group-hover:bg-muted-foreground/10 transition-colors">
                     {template.type === 'image' ? (
-                      <ImageIcon className="h-6 w-6 text-foreground" />
+                      <ImageIcon className="h-5 w-5 md:h-6 md:w-6 text-foreground" />
                     ) : template.type === 'automation' ? (
-                      <Sparkles className="h-6 w-6 text-secondary" />
+                      <Sparkles className="h-5 w-5 md:h-6 md:w-6 text-secondary" />
                     ) : (
-                      <Sparkles className="h-6 w-6 text-foreground" />
+                      <Sparkles className="h-5 w-5 md:h-6 md:w-6 text-foreground" />
                     )}
                   </div>
-                  <div className="flex-1">
+                  <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
-                      <CardTitle className="text-lg">{template.name}</CardTitle>
-                      <Badge variant="outline" className="text-xs">
-                        {template.type === 'image' ? 'Imagem' : template.type === 'automation' ? 'Automação' : 'Chat'}
+                      <CardTitle className="text-sm md:text-lg truncate">{template.name}</CardTitle>
+                      <Badge variant="outline" className="text-[10px] md:text-xs flex-shrink-0">
+                        {template.type === 'image' ? 'Imagem' : template.type === 'automation' ? 'Auto' : 'Chat'}
                       </Badge>
                     </div>
                     {template.type === 'automation' ? (
-                      <div className="text-xs text-muted-foreground">
-                        {template.automation_config?.schedule_type === 'daily' && 'Execução diária'}
-                        {template.automation_config?.schedule_type === 'weekly' && 'Execução semanal'}
-                        {template.automation_config?.schedule_type === 'monthly' && 'Execução mensal'}
-                        {!template.automation_config?.schedule_type && 'Automação configurável'}
+                      <div className="text-[10px] md:text-xs text-muted-foreground">
+                        {template.automation_config?.schedule_type === 'daily' && 'Diária'}
+                        {template.automation_config?.schedule_type === 'weekly' && 'Semanal'}
+                        {template.automation_config?.schedule_type === 'monthly' && 'Mensal'}
+                        {!template.automation_config?.schedule_type && 'Manual'}
                       </div>
                     ) : (
                       (() => {
                         const counts = getTemplateReferenceCount(template);
                         return counts.total > 0 ? (
-                          <div className="flex items-center gap-2 flex-wrap">
+                          <div className="flex items-center gap-1.5 flex-wrap">
                             {counts.textRules > 0 && (
-                              <Badge variant="secondary" className="text-xs">
+                              <Badge variant="secondary" className="text-[9px] md:text-xs px-1.5 py-0">
                                 {counts.textRules} {counts.textRules === 1 ? 'regra' : 'regras'}
                               </Badge>
                             )}
                             {counts.imageRefs > 0 && (
-                              <Badge variant="secondary" className="text-xs">
-                                {counts.imageRefs} {counts.imageRefs === 1 ? 'img' : 'imgs'}
+                              <Badge variant="secondary" className="text-[9px] md:text-xs px-1.5 py-0">
+                                {counts.imageRefs} img
                               </Badge>
                             )}
                             {counts.contentRefs > 0 && (
-                              <Badge variant="secondary" className="text-xs">
-                                {counts.contentRefs} {counts.contentRefs === 1 ? 'ref' : 'refs'}
+                              <Badge variant="secondary" className="text-[9px] md:text-xs px-1.5 py-0">
+                                {counts.contentRefs} ref
                               </Badge>
                             )}
                           </div>
@@ -235,17 +236,21 @@ const ClientDashboard = () => {
               </CardHeader>
               <CardContent>
                 {template.type === 'automation' ? (
-                  <div className="text-xs text-muted-foreground">
+                  <div className="text-[10px] md:text-xs text-muted-foreground">
                     {template.automation_config?.prompt 
                       ? <p className="line-clamp-2">{template.automation_config.prompt}</p>
                       : <p>Clique para configurar esta automação</p>
                     }
                   </div>
                 ) : template.rules.length > 0 ? (
-                  <div className="text-xs text-muted-foreground">
+                  <div className="text-[10px] md:text-xs text-muted-foreground">
                     <p className="line-clamp-2">{template.rules[0].content}</p>
                   </div>
-                ) : null}
+                ) : (
+                  <div className="text-[10px] md:text-xs text-muted-foreground/60 italic">
+                    Clique para começar
+                  </div>
+                )}
               </CardContent>
             </Card>
           ))}
