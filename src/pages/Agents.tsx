@@ -1,6 +1,5 @@
 import { useNavigate } from "react-router-dom";
 import AgentCard from "@/components/agents/AgentCard";
-import kaleidosLogo from "@/assets/kaleidos-logo.svg";
 
 const Agents = () => {
   const navigate = useNavigate();
@@ -51,26 +50,21 @@ const Agents = () => {
   ];
 
   return (
-    <div className="max-w-7xl mx-auto px-8 py-12">
+    <div className="container max-w-7xl mx-auto px-6 py-12">
       {/* Header */}
       <div className="flex flex-col items-center gap-6 mb-16 animate-fade-in">
-        <img 
-          src={kaleidosLogo} 
-          alt="Kaleidos" 
-          className="h-12 w-12 object-contain" 
-        />
         <div className="text-center space-y-3">
-          <h1 className="text-5xl font-bold tracking-tight">
+          <h1 className="text-4xl font-bold tracking-tight">
             Agentes Kaleidos
           </h1>
-          <p className="text-muted-foreground text-base font-light max-w-2xl">
+          <p className="text-muted-foreground text-sm max-w-2xl">
             Escolha um agente para começar a trabalhar
           </p>
         </div>
       </div>
 
       {/* Agent Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 justify-items-center">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 justify-items-center">
         {agents.map((agent, index) => (
           <div 
             key={agent.title}
