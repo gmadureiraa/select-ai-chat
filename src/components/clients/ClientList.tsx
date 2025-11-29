@@ -66,10 +66,10 @@ export const ClientList = ({ clients, isLoading }: ClientListProps) => {
 
             <div className="flex gap-2">
               <Button
-                onClick={() => navigate(`/chat/${client.id}`)}
+                onClick={() => navigate(`/client/${client.id}`)}
                 className="flex-1"
               >
-                Abrir Chat
+                Abrir Cliente
               </Button>
               <Button
                 onClick={() => setEditingClient(client)}
