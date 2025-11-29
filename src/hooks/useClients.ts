@@ -9,6 +9,7 @@ export interface Client {
   context_notes: string | null;
   social_media: Record<string, string>;
   tags: Record<string, string>;
+  function_templates: string[];
   created_at: string;
   updated_at: string;
 }
@@ -19,6 +20,7 @@ export interface CreateClientData {
   context_notes: string | null;
   social_media?: Record<string, string>;
   tags?: Record<string, string>;
+  function_templates?: string[];
   websites?: string[];
 }
 
@@ -46,10 +48,11 @@ export const useClients = () => {
       const { data, error } = await supabase
         .from("clients")
         .insert({
-          ...client,
-          social_media: client.social_media || {},
-          tags: client.tags || {},
-        })
+        ...client,
+        social_media: client.social_media || {},
+        tags: client.tags || {},
+        function_templates: client.function_templates || [],
+      })
         .select()
         .single();
 

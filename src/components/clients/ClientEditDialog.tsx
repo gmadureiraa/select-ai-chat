@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -10,23 +10,22 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { useClients } from "@/hooks/useClients";
+import { useClients, Client } from "@/hooks/useClients";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, X } from "lucide-react";
 
-interface ClientDialogProps {
+interface ClientEditDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  client: Client | null;
 }
 
-export const ClientDialog = ({ open, onOpenChange }: ClientDialogProps) => {
+export const ClientEditDialog = ({ open, onOpenChange, client }: ClientEditDialogProps) => {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [contextNotes, setContextNotes] = useState("");
   
   // Structured fields
-  const [websites, setWebsites] = useState<string[]>([]);
-  const [websiteInput, setWebsiteInput] = useState("");
   const [socialMedia, setSocialMedia] = useState({
     instagram: "",
     linkedin: "",
@@ -39,23 +38,23 @@ export const ClientDialog = ({ open, onOpenChange }: ClientDialogProps) => {
     objectives: "",
     audience: "",
   });
-
+  
   // Function templates
   const [functionTemplates, setFunctionTemplates] = useState<string[]>([]);
   const [templateInput, setTemplateInput] = useState("");
   
-  const { createClient } = useClients();
+  const { updateClient } = useClients();
 
-  const addWebsite = () => {
-    if (websiteInput.trim() && !websites.includes(websiteInput.trim())) {
-      setWebsites([...websites, websiteInput.trim()]);
-      setWebsiteInput("");
+  useEffect(() => {
+    if (client) {
+      setName(client.name);
+      setDescription(client.description || "");
+      setContextNotes(client.context_notes || "");
+      setSocialMedia(client.social_media as any || { instagram: "", linkedin: "", facebook: "", twitter: "" });
+      setTags(client.tags as any || { segment: "", tone: "", objectives: "", audience: "" });
+      setFunctionTemplates((client.function_templates as string[]) || []);
     }
-  };
-
-  const removeWebsite = (url: string) => {
-    setWebsites(websites.filter(w => w !== url));
-  };
+  }, [client]);
 
   const addTemplate = () => {
     if (templateInput.trim() && !functionTemplates.includes(templateInput.trim())) {
@@ -71,26 +70,18 @@ export const ClientDialog = ({ open, onOpenChange }: ClientDialogProps) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    await createClient.mutateAsync({
+    if (!client) return;
+
+    await updateClient.mutateAsync({
+      id: client.id,
       name,
       description: description || null,
       context_notes: contextNotes || null,
       social_media: socialMedia,
       tags: tags,
       function_templates: functionTemplates,
-      websites,
     });
 
-    // Reset form
-    setName("");
-    setDescription("");
-    setContextNotes("");
-    setWebsites([]);
-    setWebsiteInput("");
-    setSocialMedia({ instagram: "", linkedin: "", facebook: "", twitter: "" });
-    setTags({ segment: "", tone: "", objectives: "", audience: "" });
-    setFunctionTemplates([]);
-    setTemplateInput("");
     onOpenChange(false);
   };
 
@@ -98,9 +89,9 @@ export const ClientDialog = ({ open, onOpenChange }: ClientDialogProps) => {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Novo Cliente</DialogTitle>
+          <DialogTitle>Editar Cliente</DialogTitle>
           <DialogDescription>
-            Crie um novo cliente e defina o contexto estruturado para o chat
+            Atualize as informações e contexto do cliente
           </DialogDescription>
         </DialogHeader>
 
@@ -108,7 +99,6 @@ export const ClientDialog = ({ open, onOpenChange }: ClientDialogProps) => {
           <Tabs defaultValue="basic" className="w-full">
             <TabsList className="grid w-full grid-cols-5">
               <TabsTrigger value="basic">Básico</TabsTrigger>
-              <TabsTrigger value="websites">Websites</TabsTrigger>
               <TabsTrigger value="social">Redes Sociais</TabsTrigger>
               <TabsTrigger value="tags">Tags/Notas</TabsTrigger>
               <TabsTrigger value="templates">Padrões</TabsTrigger>
@@ -149,43 +139,6 @@ export const ClientDialog = ({ open, onOpenChange }: ClientDialogProps) => {
                 <p className="text-xs text-muted-foreground">
                   Este contexto será incluído em todas as conversas com este cliente
                 </p>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="websites" className="space-y-4">
-              <div className="space-y-2">
-                <Label>Websites do Cliente</Label>
-                <p className="text-xs text-muted-foreground">
-                  Adicione websites que serão automaticamente extraídos para contexto
-                </p>
-                <div className="flex gap-2">
-                  <Input
-                    value={websiteInput}
-                    onChange={(e) => setWebsiteInput(e.target.value)}
-                    placeholder="https://exemplo.com"
-                    onKeyPress={(e) => e.key === "Enter" && (e.preventDefault(), addWebsite())}
-                  />
-                  <Button type="button" onClick={addWebsite} size="icon">
-                    <Plus className="h-4 w-4" />
-                  </Button>
-                </div>
-                {websites.length > 0 && (
-                  <div className="space-y-2 mt-2">
-                    {websites.map((url) => (
-                      <div key={url} className="flex items-center justify-between bg-muted p-2 rounded">
-                        <span className="text-sm truncate">{url}</span>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => removeWebsite(url)}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                )}
               </div>
             </TabsContent>
 
@@ -322,7 +275,7 @@ export const ClientDialog = ({ open, onOpenChange }: ClientDialogProps) => {
               Cancelar
             </Button>
             <Button type="submit" disabled={!name.trim()}>
-              Criar Cliente
+              Salvar Alterações
             </Button>
           </div>
         </form>
