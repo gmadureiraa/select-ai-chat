@@ -24,9 +24,9 @@ const Clients = () => {
               className="h-10 w-10 object-contain animate-fade-in" 
             />
             <div className="flex items-center gap-3">
-              <h1 className="text-5xl font-bold tracking-tight">
-                k<span className="text-primary glow-green">AI</span>
-              </h1>
+            <h1 className="text-5xl font-bold tracking-tight">
+              k<span className="text-primary">AI</span>
+            </h1>
               <span className="text-xs text-muted-foreground font-medium px-4 py-2 bg-muted/30 rounded-full border border-border/50">
                 by Kaleidos Digital
               </span>
@@ -38,7 +38,7 @@ const Clients = () => {
         </div>
         <Button 
           onClick={() => setIsDialogOpen(true)} 
-          className="gap-2 bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg glow-green transition-all font-semibold px-6 py-6 text-base"
+          className="gap-2 bg-primary hover:bg-primary/90 text-primary-foreground transition-all font-semibold px-6 py-6 text-base"
         >
           <Plus className="h-5 w-5" />
           Novo Cliente
