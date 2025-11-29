@@ -43,7 +43,7 @@ serve(async (req) => {
     }
 
     const publications = await publicationResponse.json();
-    console.log('Publications fetched:', publications);
+    console.log('Publications fetched with stats:', JSON.stringify(publications, null, 2));
 
     // Get the first publication (assuming single publication for now)
     const publication = publications.data?.[0];
@@ -51,50 +51,22 @@ serve(async (req) => {
       throw new Error('No publication found');
     }
 
-    // Fetch aggregate stats for posts
-    const statsResponse = await fetch(
-      `https://api.beehiiv.com/v2/publications/${publication.id}/posts/stats`,
-      {
-        headers: {
-          'Authorization': `Bearer ${beehiivApiKey}`,
-          'Content-Type': 'application/json',
-        },
-      }
-    );
+    // Extract metrics from publication stats
+    const stats = publication.stats || {};
+    const subscribers = stats.active_subscriptions || stats.stat_active_subscriptions || 0;
+    const openRate = stats.average_open_rate || stats.stat_average_open_rate || 0;
+    const clickRate = stats.average_click_rate || stats.stat_average_click_rate || 0;
 
-    if (!statsResponse.ok) {
-      const error = await statsResponse.text();
-      console.error('Beehiiv aggregate stats API error:', error);
-      throw new Error(`Beehiiv aggregate stats API error: ${statsResponse.status}`);
-    }
-
-    const aggregateStats = await statsResponse.json();
-    console.log('Aggregate stats fetched:', aggregateStats);
+    console.log('Extracted metrics:', {
+      subscribers,
+      openRate,
+      clickRate,
+    });
 
     // Connect to Supabase
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-    // Extract metrics from the response
-    const statsData = aggregateStats.data || {};
-    const subscribers = publication.stats?.active_subscriptions || 0;
-    const totalPosts = statsData.total_posts || 0;
-    
-    // Calculate averages from aggregate stats
-    const uniqueOpens = statsData.unique_opens || 0;
-    const uniqueClicks = statsData.unique_clicks || 0;
-    const sent = statsData.sent || 1; // Avoid division by zero
-    
-    const openRate = sent > 0 ? ((uniqueOpens / sent) * 100).toFixed(2) : 0;
-    const clickRate = sent > 0 ? ((uniqueClicks / sent) * 100).toFixed(2) : 0;
-
-    console.log('Calculated metrics:', {
-      subscribers,
-      openRate,
-      clickRate,
-      totalPosts,
-    });
 
     // Store metrics in database
     const { data: metricsData, error: metricsError } = await supabase
@@ -104,14 +76,13 @@ serve(async (req) => {
         platform: 'newsletter',
         metric_date: new Date().toISOString().split('T')[0],
         subscribers: subscribers,
-        open_rate: parseFloat(openRate as string),
-        click_rate: parseFloat(clickRate as string),
-        total_posts: totalPosts,
+        open_rate: parseFloat(openRate),
+        click_rate: parseFloat(clickRate),
+        total_posts: 0, // Not available in this endpoint
         metadata: {
           publication_name: publication.name,
           publication_id: publication.id,
-          raw_publication_stats: publication.stats,
-          raw_aggregate_stats: statsData,
+          raw_stats: stats,
         },
       }, {
         onConflict: 'client_id,platform,metric_date',
@@ -129,9 +100,9 @@ serve(async (req) => {
         success: true,
         data: {
           subscribers: subscribers,
-          openRate: parseFloat(openRate as string),
-          clickRate: parseFloat(clickRate as string),
-          totalPosts: totalPosts,
+          openRate: parseFloat(openRate),
+          clickRate: parseFloat(clickRate),
+          totalPosts: 0,
         },
       }),
       {
