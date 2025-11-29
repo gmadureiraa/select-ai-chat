@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Header } from "@/components/Header";
+import { TemplateManager } from "@/components/clients/TemplateManager";
 import { ArrowLeft, MessageSquare, FileText, Sparkles } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import kaleidosLogo from "@/assets/kaleidos-logo.svg";
@@ -19,7 +20,7 @@ const ClientDashboard = () => {
         .from("clients")
         .select("*")
         .eq("id", clientId)
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
       return data;
@@ -93,11 +94,17 @@ const ClientDashboard = () => {
       </Header>
 
       <div className="max-w-7xl mx-auto p-6">
-        <div className="mb-8">
-          <h2 className="text-2xl font-bold mb-2">O que você quer criar?</h2>
-          <p className="text-muted-foreground">
-            Escolha um template ou inicie um chat livre
-          </p>
+        <div className="mb-8 flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-bold mb-2">O que você quer criar?</h2>
+            <p className="text-muted-foreground">
+              Escolha um template ou inicie um chat livre
+            </p>
+          </div>
+          <TemplateManager 
+            clientId={clientId!} 
+            templates={functionTemplates}
+          />
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
