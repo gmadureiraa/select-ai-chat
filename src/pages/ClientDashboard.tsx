@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Header } from "@/components/Header";
 import { TemplateManager } from "@/components/clients/TemplateManager";
 import { useClientTemplates } from "@/hooks/useClientTemplates";
-import { ArrowLeft, MessageSquare, Sparkles, Image as ImageIcon, Images } from "lucide-react";
+import { ArrowLeft, MessageSquare, Sparkles, Image as ImageIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import kaleidosLogo from "@/assets/kaleidos-logo.svg";
@@ -142,46 +142,6 @@ const ClientDashboard = () => {
               <CardDescription>
                 Converse livremente com a IA sobre qualquer assunto relacionado
                 ao cliente
-              </CardDescription>
-            </CardContent>
-          </Card>
-
-          {/* Geração de Imagem */}
-          <Card
-            className="hover:shadow-lg transition-shadow cursor-pointer border-accent/20"
-            onClick={() => startImageGeneration()}
-          >
-            <CardHeader>
-              <div className="flex items-center gap-3">
-                <div className="p-3 rounded-lg bg-accent/10">
-                  <ImageIcon className="h-6 w-6 text-accent" />
-                </div>
-                <CardTitle>Geração de Imagem</CardTitle>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <CardDescription>
-                Crie imagens personalizadas usando IA para este cliente
-              </CardDescription>
-            </CardContent>
-          </Card>
-
-          {/* Galeria de Imagens */}
-          <Card
-            className="hover:shadow-lg transition-shadow cursor-pointer border-primary/20"
-            onClick={() => navigate(`/client/${clientId}/gallery`)}
-          >
-            <CardHeader>
-              <div className="flex items-center gap-3">
-                <div className="p-3 rounded-lg bg-primary/10">
-                  <Images className="h-6 w-6 text-primary" />
-                </div>
-                <CardTitle>Galeria de Imagens</CardTitle>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <CardDescription>
-                Visualize todas as imagens geradas para este cliente
               </CardDescription>
             </CardContent>
           </Card>
