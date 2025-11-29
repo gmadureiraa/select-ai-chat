@@ -14,6 +14,103 @@ export type Database = {
   }
   public: {
     Tables: {
+      automation_runs: {
+        Row: {
+          automation_id: string | null
+          completed_at: string | null
+          duration_ms: number | null
+          error: string | null
+          id: string
+          result: string | null
+          started_at: string
+          status: string
+        }
+        Insert: {
+          automation_id?: string | null
+          completed_at?: string | null
+          duration_ms?: number | null
+          error?: string | null
+          id?: string
+          result?: string | null
+          started_at?: string
+          status: string
+        }
+        Update: {
+          automation_id?: string | null
+          completed_at?: string | null
+          duration_ms?: number | null
+          error?: string | null
+          id?: string
+          result?: string | null
+          started_at?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "automation_runs_automation_id_fkey"
+            columns: ["automation_id"]
+            isOneToOne: false
+            referencedRelation: "automations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      automations: {
+        Row: {
+          client_id: string | null
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          last_run_at: string | null
+          model: string
+          name: string
+          next_run_at: string | null
+          prompt: string
+          schedule_config: Json
+          schedule_type: string
+          updated_at: string
+        }
+        Insert: {
+          client_id?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          last_run_at?: string | null
+          model?: string
+          name: string
+          next_run_at?: string | null
+          prompt: string
+          schedule_config?: Json
+          schedule_type: string
+          updated_at?: string
+        }
+        Update: {
+          client_id?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          last_run_at?: string | null
+          model?: string
+          name?: string
+          next_run_at?: string | null
+          prompt?: string
+          schedule_config?: Json
+          schedule_type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "automations_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       client_documents: {
         Row: {
           client_id: string
