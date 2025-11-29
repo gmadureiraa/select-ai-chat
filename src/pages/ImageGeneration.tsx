@@ -46,35 +46,24 @@ const ImageGeneration = () => {
     setGeneratedImage(null);
 
     try {
-      const LOVABLE_API_KEY = import.meta.env.VITE_LOVABLE_API_KEY || "demo-key";
-      
-      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-image`, {
         method: "POST",
         headers: {
-          "Authorization": `Bearer ${LOVABLE_API_KEY}`,
           "Content-Type": "application/json",
+          "Authorization": `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
         },
-        body: JSON.stringify({
-          model: "google/gemini-2.5-flash-image-preview",
-          messages: [
-            {
-              role: "user",
-              content: prompt,
-            }
-          ],
-          modalities: ["image", "text"]
-        }),
+        body: JSON.stringify({ prompt }),
       });
 
       if (!response.ok) {
-        throw new Error(`API error: ${response.status}`);
+        const errorData = await response.json();
+        throw new Error(errorData.error || `API error: ${response.status}`);
       }
 
       const data = await response.json();
-      const imageUrl = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
-
-      if (imageUrl) {
-        setGeneratedImage(imageUrl);
+      
+      if (data.imageUrl) {
+        setGeneratedImage(data.imageUrl);
         toast({
           title: "Imagem gerada!",
           description: "Sua imagem foi criada com sucesso.",
