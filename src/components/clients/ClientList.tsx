@@ -1,4 +1,4 @@
-import { MessageSquare, Loader2, Pencil, Trash2 } from "lucide-react";
+import { MessageSquare, Loader2, Pencil, Trash2, Rocket } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Client } from "@/hooks/useClients";
@@ -39,57 +39,51 @@ export const ClientList = ({ clients, isLoading }: ClientListProps) => {
     );
   }
 
+  const getClientIcon = (clientName: string) => {
+    if (clientName.toLowerCase().includes('defiverso')) {
+      return <Rocket className="h-6 w-6 text-primary" />;
+    }
+    return <MessageSquare className="h-6 w-6 text-primary" />;
+  };
+
   return (
     <>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {clients.map((client) => (
-          <Card key={client.id} className="p-8 hover:border-primary/30 transition-all bg-card/50 backdrop-blur-sm group">
-            <div className="flex items-start gap-4 mb-6">
-              <div className="p-3 bg-primary/5 rounded-xl group-hover:bg-primary/10 transition-colors">
-                <MessageSquare className="h-7 w-7 text-primary" />
+          <Card key={client.id} className="p-6 hover:border-primary/40 transition-all group">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-primary/5 rounded-lg group-hover:bg-primary/10 transition-colors">
+                  {getClientIcon(client.name)}
+                </div>
+                <h3 className="font-semibold text-lg group-hover:text-primary transition-colors">{client.name}</h3>
               </div>
-              <div className="flex-1 min-w-0">
-                <h3 className="font-bold text-xl truncate group-hover:text-primary transition-colors">{client.name}</h3>
-                {client.description && (
-                  <p className="text-sm text-muted-foreground line-clamp-2 mt-2 font-light">
-                    {client.description}
-                  </p>
-                )}
+              <div className="flex gap-2">
+                <Button
+                  onClick={() => setEditingClient(client)}
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 hover:bg-muted/50 hover:text-primary"
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                </Button>
+                <Button
+                  onClick={() => setDeletingClient(client)}
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 hover:bg-muted/50 hover:text-destructive"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
               </div>
             </div>
-            
-            {client.context_notes && (
-              <div className="mb-6 p-4 bg-muted/30 rounded-xl border border-border/50">
-                <p className="text-xs text-muted-foreground line-clamp-3 font-light">
-                  {client.context_notes}
-                </p>
-              </div>
-            )}
 
-            <div className="flex gap-3">
-              <Button
-                onClick={() => navigate(`/client/${client.id}`)}
-                className="flex-1 bg-primary hover:bg-primary/90 glow-green font-semibold"
-              >
-                Abrir Cliente
-              </Button>
-              <Button
-                onClick={() => setEditingClient(client)}
-                variant="outline"
-                size="icon"
-                className="border-border/50 hover:border-primary/50 hover:bg-muted/50"
-              >
-                <Pencil className="h-4 w-4" />
-              </Button>
-              <Button
-                onClick={() => setDeletingClient(client)}
-                variant="outline"
-                size="icon"
-                className="border-border/50 hover:border-destructive/50 hover:bg-muted/50 hover:text-destructive"
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </div>
+            <Button
+              onClick={() => navigate(`/client/${client.id}`)}
+              className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-medium"
+            >
+              Abrir Cliente
+            </Button>
           </Card>
         ))}
       </div>
