@@ -82,3 +82,27 @@ export const useScrapeMetrics = () => {
     },
   });
 };
+
+export const useFetchNotionMetrics = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ 
+      clientId, 
+      databaseId 
+    }: { 
+      clientId: string; 
+      databaseId: string;
+    }) => {
+      const { data, error } = await supabase.functions.invoke('fetch-notion-metrics', {
+        body: { clientId, databaseId },
+      });
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['performance-metrics'] });
+    },
+  });
+};
