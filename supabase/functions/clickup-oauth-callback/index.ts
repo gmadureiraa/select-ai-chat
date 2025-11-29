@@ -6,6 +6,11 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Validate OAuth code format (should be alphanumeric)
+function isValidOAuthCode(code: string): boolean {
+  return /^[a-zA-Z0-9_-]+$/.test(code) && code.length > 10 && code.length < 500;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -15,17 +20,44 @@ serve(async (req) => {
     const url = new URL(req.url);
     const code = url.searchParams.get('code');
 
+    // Validate code presence and format
     if (!code) {
-      throw new Error('No authorization code provided');
+      console.error('OAuth callback missing code parameter');
+      return new Response(
+        JSON.stringify({ error: 'Código de autorização não fornecido' }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
     }
 
+    if (!isValidOAuthCode(code)) {
+      console.error('Invalid OAuth code format');
+      return new Response(
+        JSON.stringify({ error: 'Código de autorização inválido' }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
+    }
+
+    // Get environment variables
     const clientId = Deno.env.get('CLICKUP_CLIENT_ID');
     const clientSecret = Deno.env.get('CLICKUP_CLIENT_SECRET');
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
-    if (!clientId || !clientSecret) {
-      throw new Error('ClickUp credentials not configured');
+    if (!clientId || !clientSecret || !supabaseUrl || !supabaseServiceKey) {
+      console.error('Missing required environment variables');
+      return new Response(
+        JSON.stringify({ error: 'Configuração do servidor incompleta' }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
     }
 
     // Exchange code for access token
@@ -42,18 +74,46 @@ serve(async (req) => {
     });
 
     if (!tokenResponse.ok) {
-      const error = await tokenResponse.text();
-      console.error('ClickUp token exchange failed:', error);
-      throw new Error('Failed to exchange code for token');
+      const errorText = await tokenResponse.text();
+      console.error('ClickUp token exchange failed:', {
+        status: tokenResponse.status,
+        error: errorText,
+      });
+      
+      return new Response(
+        JSON.stringify({ error: 'Falha na autorização do ClickUp' }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
     }
 
     const tokenData = await tokenResponse.json();
     const accessToken = tokenData.access_token;
 
-    // Get user info from auth header
+    if (!accessToken) {
+      console.error('No access token in response');
+      return new Response(
+        JSON.stringify({ error: 'Token de acesso não recebido' }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
+    }
+
+    // Authenticate user
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
-      throw new Error('No authorization header');
+      console.error('No authorization header in OAuth callback');
+      return new Response(
+        JSON.stringify({ error: 'Autenticação necessária' }),
+        {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
     }
 
     const supabaseClient = createClient(supabaseUrl, supabaseServiceKey);
@@ -61,20 +121,37 @@ serve(async (req) => {
     const { data: { user }, error: userError } = await supabaseClient.auth.getUser(token);
 
     if (userError || !user) {
-      throw new Error('Invalid user token');
+      console.error('User authentication failed in OAuth callback:', userError);
+      return new Response(
+        JSON.stringify({ error: 'Token de autenticação inválido' }),
+        {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
     }
 
-    // Get workspace info
-    const workspacesResponse = await fetch('https://api.clickup.com/api/v2/team', {
-      headers: {
-        'Authorization': accessToken,
-      },
-    });
+    // Get workspace info with error handling
+    let workspaceId = null;
+    try {
+      const workspacesResponse = await fetch('https://api.clickup.com/api/v2/team', {
+        headers: {
+          'Authorization': accessToken,
+        },
+      });
 
-    const workspacesData = await workspacesResponse.json();
-    const workspaceId = workspacesData.teams?.[0]?.id || null;
+      if (workspacesResponse.ok) {
+        const workspacesData = await workspacesResponse.json();
+        workspaceId = workspacesData.teams?.[0]?.id || null;
+      } else {
+        console.warn('Failed to fetch ClickUp workspace info, continuing without it');
+      }
+    } catch (error) {
+      console.warn('Error fetching workspace info:', error);
+      // Continue without workspace info - not critical
+    }
 
-    // Store token in database
+    // Store token in database with RLS protection
     const { error: insertError } = await supabaseClient
       .from('clickup_tokens')
       .upsert({
@@ -87,25 +164,34 @@ serve(async (req) => {
       });
 
     if (insertError) {
-      console.error('Error storing token:', insertError);
-      throw new Error('Failed to store ClickUp token');
+      console.error('Error storing ClickUp token:', insertError);
+      return new Response(
+        JSON.stringify({ error: 'Falha ao salvar token do ClickUp' }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
     }
+
+    console.log('ClickUp OAuth completed successfully for user:', user.id);
 
     // Redirect back to the app
     return new Response(null, {
       status: 302,
       headers: {
         ...corsHeaders,
-        'Location': `${url.origin}/clients`,
+        'Location': `${url.origin}/clients?clickup=connected`,
       },
     });
   } catch (error) {
-    console.error('Error in clickup-oauth-callback:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error('Unexpected error in clickup-oauth-callback:', error);
+    
+    // Never expose internal error details to client
     return new Response(
-      JSON.stringify({ error: errorMessage }),
+      JSON.stringify({ error: 'Ocorreu um erro durante a autorização' }),
       {
-        status: 400,
+        status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       }
     );

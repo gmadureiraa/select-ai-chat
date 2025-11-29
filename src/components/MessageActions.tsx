@@ -1,7 +1,7 @@
 import { Copy, Check, RotateCcw, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,6 +15,8 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Loader2, CheckCircle2 } from "lucide-react";
 
 interface MessageActionsProps {
   content: string;
@@ -25,6 +27,10 @@ interface MessageActionsProps {
   clientName?: string;
   templateName?: string;
 }
+
+// Validation constants
+const MAX_TASK_NAME_LENGTH = 200;
+const MIN_TASK_NAME_LENGTH = 3;
 
 export const MessageActions = ({
   content,
@@ -41,9 +47,10 @@ export const MessageActions = ({
   const [selectedTemplate, setSelectedTemplate] = useState<string>("");
   const [taskName, setTaskName] = useState("");
   const [isSending, setIsSending] = useState(false);
+  const [taskUrl, setTaskUrl] = useState<string | null>(null);
 
   // Fetch client templates with clickup_list_id
-  const { data: templates } = useQuery({
+  const { data: templates, isLoading: isLoadingTemplates } = useQuery({
     queryKey: ['client-templates-clickup', clientId],
     queryFn: async () => {
       if (!clientId) return [];
@@ -75,11 +82,35 @@ export const MessageActions = ({
     }
   };
 
+  const validateTaskName = (name: string): string | null => {
+    if (!name || name.trim().length < MIN_TASK_NAME_LENGTH) {
+      return `Nome da tarefa deve ter pelo menos ${MIN_TASK_NAME_LENGTH} caracteres`;
+    }
+    if (name.length > MAX_TASK_NAME_LENGTH) {
+      return `Nome da tarefa não pode exceder ${MAX_TASK_NAME_LENGTH} caracteres`;
+    }
+    return null;
+  };
+
   const handleSendToClickUp = async () => {
-    if (!selectedTemplate || !taskName) {
+    // Reset success state
+    setTaskUrl(null);
+
+    // Validate inputs
+    if (!selectedTemplate) {
       toast({
-        title: "Campos obrigatórios",
-        description: "Selecione um template e insira um nome para a tarefa",
+        title: "Template não selecionado",
+        description: "Por favor, selecione um template",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const validationError = validateTaskName(taskName);
+    if (validationError) {
+      toast({
+        title: "Nome da tarefa inválido",
+        description: validationError,
         variant: "destructive",
       });
       return;
@@ -88,8 +119,8 @@ export const MessageActions = ({
     const template = templates?.find(t => t.id === selectedTemplate);
     if (!template?.clickup_list_id) {
       toast({
-        title: "Erro",
-        description: "Template sem lista do ClickUp configurada",
+        title: "Configuração incompleta",
+        description: "Este template não tem uma lista do ClickUp configurada",
         variant: "destructive",
       });
       return;
@@ -101,7 +132,7 @@ export const MessageActions = ({
       const { data, error } = await supabase.functions.invoke('send-to-clickup', {
         body: {
           listId: template.clickup_list_id,
-          taskName,
+          taskName: taskName.trim(),
           content,
           clientName,
           templateName: template.name,
@@ -110,17 +141,24 @@ export const MessageActions = ({
 
       if (error) throw error;
 
+      // Show success state
+      setTaskUrl(data.taskUrl);
+      
       toast({
-        title: "Enviado para ClickUp!",
-        description: "A tarefa foi criada com sucesso",
+        title: "✓ Tarefa criada!",
+        description: "A tarefa foi adicionada ao ClickUp com sucesso",
       });
 
-      setIsDialogOpen(false);
-      setSelectedTemplate("");
-      setTaskName("");
+      // Reset form after 2 seconds
+      setTimeout(() => {
+        setIsDialogOpen(false);
+        setSelectedTemplate("");
+        setTaskName("");
+        setTaskUrl(null);
+      }, 2000);
     } catch (error) {
       console.error('Error sending to ClickUp:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido ao criar tarefa';
       toast({
         title: "Erro ao enviar",
         description: errorMessage,
@@ -129,6 +167,16 @@ export const MessageActions = ({
     } finally {
       setIsSending(false);
     }
+  };
+
+  const handleDialogClose = (open: boolean) => {
+    if (!open && !isSending) {
+      // Reset state when closing
+      setSelectedTemplate("");
+      setTaskName("");
+      setTaskUrl(null);
+    }
+    setIsDialogOpen(open);
   };
 
   return (
@@ -172,8 +220,8 @@ export const MessageActions = ({
           </Tooltip>
         )}
 
-        {role === "assistant" && clientId && templates && templates.length > 0 && (
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        {role === "assistant" && clientId && !isLoadingTemplates && templates && templates.length > 0 && (
+          <Dialog open={isDialogOpen} onOpenChange={handleDialogClose}>
             <Tooltip>
               <TooltipTrigger asChild>
                 <DialogTrigger asChild>
@@ -186,43 +234,84 @@ export const MessageActions = ({
                 <p>Enviar para ClickUp</p>
               </TooltipContent>
             </Tooltip>
-            <DialogContent>
+            <DialogContent className="sm:max-w-md">
               <DialogHeader>
                 <DialogTitle>Enviar para ClickUp</DialogTitle>
+                <DialogDescription>
+                  Crie uma nova tarefa no ClickUp com o conteúdo desta mensagem
+                </DialogDescription>
               </DialogHeader>
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="template">Template / Lista</Label>
-                  <Select value={selectedTemplate} onValueChange={setSelectedTemplate}>
-                    <SelectTrigger id="template">
-                      <SelectValue placeholder="Selecione o template" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {templates.map((template) => (
-                        <SelectItem key={template.id} value={template.id}>
-                          {template.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+              
+              {taskUrl ? (
+                <div className="space-y-4 py-4">
+                  <Alert className="border-green-500/50 bg-green-500/10">
+                    <CheckCircle2 className="h-4 w-4 text-green-500" />
+                    <AlertDescription className="text-sm">
+                      Tarefa criada com sucesso!
+                    </AlertDescription>
+                  </Alert>
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => window.open(taskUrl, '_blank')}
+                  >
+                    <ExternalLink className="h-4 w-4 mr-2" />
+                    Abrir tarefa no ClickUp
+                  </Button>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="taskName">Nome da Tarefa</Label>
-                  <Input
-                    id="taskName"
-                    value={taskName}
-                    onChange={(e) => setTaskName(e.target.value)}
-                    placeholder="Ex: Newsletter Semanal - 29/11"
-                  />
+              ) : (
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="template">Template / Lista do ClickUp</Label>
+                    <Select 
+                      value={selectedTemplate} 
+                      onValueChange={setSelectedTemplate}
+                      disabled={isSending}
+                    >
+                      <SelectTrigger id="template">
+                        <SelectValue placeholder="Selecione o template" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {templates.map((template) => (
+                          <SelectItem key={template.id} value={template.id}>
+                            {template.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="taskName">Nome da Tarefa</Label>
+                    <Input
+                      id="taskName"
+                      value={taskName}
+                      onChange={(e) => setTaskName(e.target.value)}
+                      placeholder="Ex: Newsletter Semanal - 29/11"
+                      maxLength={MAX_TASK_NAME_LENGTH}
+                      disabled={isSending}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      {taskName.length}/{MAX_TASK_NAME_LENGTH} caracteres
+                    </p>
+                  </div>
+
+                  <Button 
+                    onClick={handleSendToClickUp} 
+                    disabled={isSending || !selectedTemplate || !taskName}
+                    className="w-full"
+                  >
+                    {isSending ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Criando tarefa...
+                      </>
+                    ) : (
+                      "Criar Tarefa"
+                    )}
+                  </Button>
                 </div>
-                <Button 
-                  onClick={handleSendToClickUp} 
-                  disabled={isSending}
-                  className="w-full"
-                >
-                  {isSending ? "Enviando..." : "Criar Tarefa"}
-                </Button>
-              </div>
+              )}
             </DialogContent>
           </Dialog>
         )}
