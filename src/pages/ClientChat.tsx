@@ -1,9 +1,8 @@
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
-import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Sparkles, Loader2 } from "lucide-react";
+import { ArrowLeft, Loader2 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { MessageBubble } from "@/components/MessageBubble";
 import { ChatInput } from "@/components/ChatInput";
@@ -61,7 +60,6 @@ const ClientChat = () => {
     regenerateLastMessage,
   } = useClientChat(clientId!, templateId);
 
-  // Scroll suave automático
   const scrollRef = useSmoothScroll([messages, isLoading], {
     behavior: "smooth",
     delay: 100,
@@ -77,9 +75,9 @@ const ClientChat = () => {
 
   if (!client) {
     return (
-      <div className="flex h-screen items-center justify-center bg-background">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold mb-2">Cliente não encontrado</h2>
+      <div className="flex h-screen items-center justify-center bg-background p-4">
+        <div className="text-center space-y-4">
+          <h2 className="text-xl md:text-2xl font-bold">Cliente não encontrado</h2>
           <Button onClick={() => navigate("/clients")}>
             Voltar para Clientes
           </Button>
@@ -90,72 +88,74 @@ const ClientChat = () => {
 
   return (
     <div className="flex h-screen bg-background flex-col">
-      {/* Header minimalista */}
-      <div className="border-b p-3 bg-background/95 backdrop-blur-sm">
-        <div className="flex items-center justify-between max-w-5xl mx-auto">
-          <div className="flex items-center gap-3">
+      {/* Header responsivo */}
+      <div className="sticky top-0 z-10 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="flex items-center justify-between px-3 md:px-6 py-3 max-w-6xl mx-auto w-full">
+          <div className="flex items-center gap-2 md:gap-3 min-w-0 flex-1">
             <Button
               variant="ghost"
               size="icon"
               onClick={() => navigate(`/client/${clientId}`)}
-              className="hover:bg-muted h-9 w-9"
+              className="h-8 w-8 md:h-9 md:w-9 flex-shrink-0"
             >
               <ArrowLeft className="h-4 w-4" />
             </Button>
-            <div className="flex items-center gap-2">
-              <img src={kaleidosLogo} alt="kAI" className="h-6 w-6" />
-              <span className="text-sm font-medium text-muted-foreground">•</span>
-              <span className="text-sm font-semibold">{client.name}</span>
+            <div className="flex items-center gap-2 min-w-0">
+              <img src={kaleidosLogo} alt="kAI" className="h-5 w-5 md:h-6 md:w-6 flex-shrink-0" />
+              <span className="hidden sm:inline text-sm font-medium text-muted-foreground">•</span>
+              <span className="text-sm md:text-base font-semibold truncate">{client.name}</span>
             </div>
           </div>
-          <ModelSelector value={selectedModel} onChange={setSelectedModel} />
+          <div className="flex-shrink-0">
+            <ModelSelector value={selectedModel} onChange={setSelectedModel} />
+          </div>
         </div>
       </div>
 
       <ScrollArea className="flex-1">
         <div ref={scrollRef} className="h-full">
           {messages.length === 0 ? (
-            <div className="h-full flex flex-col items-center justify-center px-4">
-              <div className="text-center space-y-8 max-w-4xl w-full animate-fade-in py-12">
+            <div className="h-full flex flex-col items-center justify-center px-4 py-8 md:py-12">
+              <div className="text-center space-y-6 md:space-y-8 max-w-4xl w-full animate-fade-in">
                 {/* Logo e título */}
-                <div className="space-y-4">
+                <div className="space-y-3 md:space-y-4">
                   <div className="relative inline-block">
                     <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="w-20 h-20 bg-primary/5 rounded-full blur-2xl" />
+                      <div className="w-16 h-16 md:w-20 md:h-20 bg-primary/5 rounded-full blur-2xl" />
                     </div>
                     <img 
                       src={kaleidosLogo} 
                       alt="kAI" 
-                      className="h-16 w-16 object-contain relative z-10" 
+                      className="h-12 w-12 md:h-16 md:w-16 object-contain relative z-10" 
                     />
                   </div>
-                  <div>
-                    <h1 className="text-4xl font-bold mb-2 tracking-tight">
+                  <div className="space-y-2">
+                    <h1 className="text-2xl md:text-4xl font-bold tracking-tight">
                       O que posso fazer por você?
                     </h1>
-                    <p className="text-muted-foreground text-lg">
+                    <p className="text-muted-foreground text-base md:text-lg">
                       Escolha uma tarefa ou descreva o que você precisa
                     </p>
                   </div>
                 </div>
 
-                {/* Sugestões de tarefas rápidas */}
+                {/* Sugestões de tarefas */}
                 <TaskSuggestions onSelectTask={sendMessage} />
 
-                {/* Contexto do cliente (compacto) */}
+                {/* Contexto do cliente */}
                 {client.context_notes && (
-                  <div className="mt-8 p-4 bg-muted/30 border border-border rounded-lg text-left max-w-2xl mx-auto">
-                    <p className="text-xs font-medium mb-1 text-muted-foreground uppercase tracking-wide flex items-center gap-2">
+                  <div className="mt-6 md:mt-8 p-3 md:p-4 bg-muted/30 border border-border rounded-lg text-left max-w-2xl mx-auto">
+                    <p className="text-xs font-medium mb-1.5 text-muted-foreground uppercase tracking-wide flex items-center gap-2">
                       <span className="w-1.5 h-1.5 bg-primary rounded-full" />
                       Contexto ativo
                     </p>
-                    <p className="text-sm text-foreground/80 line-clamp-3">{client.context_notes}</p>
+                    <p className="text-xs md:text-sm text-foreground/80 line-clamp-3">{client.context_notes}</p>
                   </div>
                 )}
               </div>
             </div>
           ) : (
-            <div className="max-w-4xl mx-auto pb-4">
+            <div className="w-full max-w-5xl mx-auto py-4">
               {messages.map((message, idx) => (
                 <MessageBubble 
                   key={idx} 
@@ -170,7 +170,7 @@ const ClientChat = () => {
                 />
               ))}
               {isLoading && (
-                <div className="px-4 py-6 animate-fade-in">
+                <div className="px-3 md:px-4 py-4 md:py-6 animate-fade-in">
                   <AutonomousProgress currentStep={currentStep} />
                 </div>
               )}

@@ -25,22 +25,24 @@ export const ModelSelector = ({ value, onChange }: ModelSelectorProps) => {
 
   return (
     <Select value={value} onValueChange={onChange}>
-      <SelectTrigger className="w-[280px] border-border">
-        <div className="flex items-center gap-2">
-          <Brain className="h-4 w-4 text-primary" />
+      <SelectTrigger className="w-[140px] md:w-[200px] border-border h-9 text-sm">
+        <div className="flex items-center gap-1.5 md:gap-2 min-w-0">
+          <Brain className="h-3.5 w-3.5 md:h-4 md:w-4 text-primary flex-shrink-0" />
           <SelectValue>
-            <div className="flex flex-col items-start">
-              <span className="text-sm font-medium">{selectedModel?.name}</span>
-              <span className="text-xs text-muted-foreground">{selectedModel?.description}</span>
+            <div className="flex flex-col items-start min-w-0">
+              <span className="text-xs md:text-sm font-medium truncate">{selectedModel?.name}</span>
+              <span className="text-[10px] md:text-xs text-muted-foreground hidden sm:inline truncate">
+                {selectedModel?.description}
+              </span>
             </div>
           </SelectValue>
         </div>
       </SelectTrigger>
-      <SelectContent>
+      <SelectContent align="end" className="w-[200px] md:w-[240px]">
         {MODELS.map((model) => (
-          <SelectItem key={model.id} value={model.id}>
-            <div className="flex flex-col">
-              <span className="font-medium">{model.name}</span>
+          <SelectItem key={model.id} value={model.id} className="cursor-pointer">
+            <div className="flex flex-col py-1">
+              <span className="font-medium text-sm">{model.name}</span>
               <span className="text-xs text-muted-foreground">{model.description}</span>
             </div>
           </SelectItem>
