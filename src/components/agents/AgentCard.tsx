@@ -75,14 +75,15 @@ export default function AgentCard({
           )}
         >
           <div className="relative h-full overflow-hidden">
-            {/* Animated colored circle */}
+            {/* Animated colored circle with floating animation */}
             <div className="absolute inset-0 flex items-start justify-center pt-20">
               <div 
                 className={cn(
-                  "w-24 h-24 rounded-full transition-all duration-500",
+                  "w-24 h-24 rounded-full transition-all duration-700",
                   colors.bg,
                   colors.glow,
-                  "group-hover:scale-110"
+                  "group-hover:scale-125 group-hover:translate-y-[-8px]",
+                  "animate-[float_3s_ease-in-out_infinite]"
                 )}
               />
             </div>
