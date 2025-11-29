@@ -388,6 +388,71 @@ export type Database = {
           },
         ]
       }
+      platform_metrics: {
+        Row: {
+          click_rate: number | null
+          client_id: string
+          comments: number | null
+          created_at: string | null
+          engagement_rate: number | null
+          id: string
+          likes: number | null
+          metadata: Json | null
+          metric_date: string
+          open_rate: number | null
+          platform: string
+          shares: number | null
+          subscribers: number | null
+          total_posts: number | null
+          updated_at: string | null
+          views: number | null
+        }
+        Insert: {
+          click_rate?: number | null
+          client_id: string
+          comments?: number | null
+          created_at?: string | null
+          engagement_rate?: number | null
+          id?: string
+          likes?: number | null
+          metadata?: Json | null
+          metric_date?: string
+          open_rate?: number | null
+          platform: string
+          shares?: number | null
+          subscribers?: number | null
+          total_posts?: number | null
+          updated_at?: string | null
+          views?: number | null
+        }
+        Update: {
+          click_rate?: number | null
+          client_id?: string
+          comments?: number | null
+          created_at?: string | null
+          engagement_rate?: number | null
+          id?: string
+          likes?: number | null
+          metadata?: Json | null
+          metric_date?: string
+          open_rate?: number | null
+          platform?: string
+          shares?: number | null
+          subscribers?: number | null
+          total_posts?: number | null
+          updated_at?: string | null
+          views?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "platform_metrics_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string | null

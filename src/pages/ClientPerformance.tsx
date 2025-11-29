@@ -3,17 +3,20 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, TrendingUp, Users, Mail, BarChart3, Instagram, Youtube, Newspaper } from "lucide-react";
+import { ArrowLeft, TrendingUp, Users, Mail, BarChart3, Instagram, Youtube, Newspaper, RefreshCw } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { useState } from "react";
+import { usePerformanceMetrics, useFetchBeehiivMetrics, useScrapeMetrics } from "@/hooks/usePerformanceMetrics";
+import { useToast } from "@/components/ui/use-toast";
 
 export default function ClientPerformance() {
   const { clientId } = useParams();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const selectedChannel = searchParams.get("channel");
+  const { toast } = useToast();
 
   const { data: client, isLoading } = useQuery({
     queryKey: ["client", clientId],
@@ -28,6 +31,53 @@ export default function ClientPerformance() {
       return data;
     },
   });
+
+  const { data: metrics, isLoading: metricsLoading } = usePerformanceMetrics(
+    clientId || "", 
+    selectedChannel || ""
+  );
+
+  const fetchBeehiiv = useFetchBeehiivMetrics();
+  const scrapeMetrics = useScrapeMetrics();
+
+  const handleRefreshMetrics = async () => {
+    if (!clientId || !selectedChannel) return;
+
+    try {
+      if (selectedChannel === "newsletter") {
+        await fetchBeehiiv.mutateAsync(clientId);
+        toast({
+          title: "Métricas atualizadas",
+          description: "Dados da newsletter foram sincronizados com sucesso.",
+        });
+      } else {
+        const urls: Record<string, string> = {
+          instagram: "https://www.instagram.com/defiverso",
+          cortes: "https://www.youtube.com/channel/UCDUYB7s0W20qs90e160B1LA",
+        };
+        
+        const platform = selectedChannel === "cortes" ? "youtube" : selectedChannel;
+        await scrapeMetrics.mutateAsync({
+          clientId,
+          platform,
+          url: urls[selectedChannel],
+        });
+        toast({
+          title: "Métricas atualizadas",
+          description: "Dados foram coletados com sucesso.",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Erro ao atualizar",
+        description: "Não foi possível atualizar as métricas. Tente novamente.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const latestMetrics = metrics?.[0];
+  const isRefreshing = fetchBeehiiv.isPending || scrapeMetrics.isPending;
 
   // Canais disponíveis por cliente
   const channels = {
@@ -167,171 +217,154 @@ export default function ClientPerformance() {
             </p>
           </div>
         </div>
+        <Button
+          onClick={handleRefreshMetrics}
+          disabled={isRefreshing}
+          variant="outline"
+        >
+          <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+          {isRefreshing ? 'Atualizando...' : 'Atualizar Métricas'}
+        </Button>
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-        <Card className="border-primary/20 bg-card">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Inscritos Totais</CardTitle>
-            <Users className="h-4 w-4 text-primary" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{defiversoData.subscribers.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
-              <TrendingUp className="h-3 w-3 text-accent" />
-              +{defiversoData.growthRate}% este mês
-            </p>
-          </CardContent>
-        </Card>
+      {metricsLoading && (
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+          {[1, 2, 3, 4].map((i) => (
+            <Skeleton key={i} className="h-32" />
+          ))}
+        </div>
+      )}
 
-        <Card className="border-accent/20 bg-card">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Taxa de Abertura</CardTitle>
-            <Mail className="h-4 w-4 text-accent" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{defiversoData.openRate}%</div>
-            <p className="text-xs text-muted-foreground">
-              Acima da média do setor (21%)
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-secondary/20 bg-card">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Taxa de Cliques</CardTitle>
-            <BarChart3 className="h-4 w-4 text-secondary" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{defiversoData.clickRate}%</div>
-            <p className="text-xs text-muted-foreground">
-              Excelente engajamento
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-primary/20 bg-card">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Crescimento Semanal</CardTitle>
-            <TrendingUp className="h-4 w-4 text-primary" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">+67</div>
-            <p className="text-xs text-muted-foreground">
-              Novos inscritos esta semana
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Charts Row */}
-      <div className="grid gap-6 md:grid-cols-2">
-        {/* Subscriber Growth */}
-        <Card className="bg-card">
-          <CardHeader>
-            <CardTitle>Crescimento de Inscritos</CardTitle>
-            <CardDescription>Evolução mensal dos últimos 4 meses</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ChartContainer
-              config={{
-                subscribers: {
-                  label: "Inscritos",
-                  color: "hsl(var(--primary))",
-                },
-              }}
-              className="h-[300px]"
-            >
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={defiversoData.weeklyGrowth}>
-                  <defs>
-                    <linearGradient id="colorSubs" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                  <XAxis dataKey="week" className="text-xs" />
-                  <YAxis className="text-xs" />
-                  <ChartTooltip content={<ChartTooltipContent />} />
-                  <Area
-                    type="monotone"
-                    dataKey="subscribers"
-                    stroke="hsl(var(--primary))"
-                    fillOpacity={1}
-                    fill="url(#colorSubs)"
-                    strokeWidth={2}
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            </ChartContainer>
-          </CardContent>
-        </Card>
-
-        {/* Engagement Rate */}
-        <Card className="bg-card">
-          <CardHeader>
-            <CardTitle>Taxa de Engajamento</CardTitle>
-            <CardDescription>Taxa de abertura semanal</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ChartContainer
-              config={{
-                opens: {
-                  label: "Taxa de Abertura",
-                  color: "hsl(var(--accent))",
-                },
-              }}
-              className="h-[300px]"
-            >
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={defiversoData.weeklyGrowth}>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                  <XAxis dataKey="week" className="text-xs" />
-                  <YAxis className="text-xs" domain={[60, 75]} />
-                  <ChartTooltip content={<ChartTooltipContent />} />
-                  <Line
-                    type="monotone"
-                    dataKey="opens"
-                    stroke="hsl(var(--accent))"
-                    strokeWidth={3}
-                    dot={{ r: 4, fill: "hsl(var(--accent))" }}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </ChartContainer>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Top Topics */}
-      <Card className="bg-card">
-        <CardHeader>
-          <CardTitle>Tópicos de Maior Engajamento</CardTitle>
-          <CardDescription>Baseado em opens e cliques</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {defiversoData.topTopics.map((topic, index) => (
-              <div key={index} className="flex items-center gap-4">
-                <div className="flex-1">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-sm font-medium">{topic.topic}</span>
-                    <span className="text-sm text-muted-foreground">{topic.engagement}%</span>
-                  </div>
-                  <div className="h-2 bg-muted rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-gradient-to-r from-primary to-accent transition-all"
-                      style={{ width: `${topic.engagement}%` }}
-                    />
-                  </div>
+      {!metricsLoading && latestMetrics && (
+        <>
+          {/* KPI Cards */}
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+            <Card className="border-primary/20 bg-card">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">
+                  {selectedChannel === 'newsletter' ? 'Inscritos' : 'Seguidores'}
+                </CardTitle>
+                <Users className="h-4 w-4 text-primary" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {(latestMetrics.subscribers || 0).toLocaleString()}
                 </div>
-              </div>
-            ))}
+                <p className="text-xs text-muted-foreground mt-1">
+                  Total acumulado
+                </p>
+              </CardContent>
+            </Card>
+
+            {selectedChannel === 'newsletter' && (
+              <>
+                <Card className="border-accent/20 bg-card">
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Taxa de Abertura</CardTitle>
+                    <Mail className="h-4 w-4 text-accent" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">{latestMetrics.open_rate || 0}%</div>
+                    <p className="text-xs text-muted-foreground">
+                      Média do período
+                    </p>
+                  </CardContent>
+                </Card>
+
+                <Card className="border-secondary/20 bg-card">
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Taxa de Cliques</CardTitle>
+                    <BarChart3 className="h-4 w-4 text-secondary" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">{latestMetrics.click_rate || 0}%</div>
+                    <p className="text-xs text-muted-foreground">
+                      Engajamento ativo
+                    </p>
+                  </CardContent>
+                </Card>
+              </>
+            )}
+
+            <Card className="border-primary/20 bg-card">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">
+                  {selectedChannel === 'newsletter' ? 'Emails Enviados' : 'Posts'}
+                </CardTitle>
+                <TrendingUp className="h-4 w-4 text-primary" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{latestMetrics.total_posts || 0}</div>
+                <p className="text-xs text-muted-foreground">
+                  Total publicado
+                </p>
+              </CardContent>
+            </Card>
           </div>
-        </CardContent>
-      </Card>
+
+          {/* Historical Chart */}
+          {metrics && metrics.length > 1 && (
+            <Card className="bg-card">
+              <CardHeader>
+                <CardTitle>Evolução Histórica</CardTitle>
+                <CardDescription>Crescimento ao longo do tempo</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ChartContainer
+                  config={{
+                    subscribers: {
+                      label: selectedChannel === 'newsletter' ? "Inscritos" : "Seguidores",
+                      color: "hsl(var(--primary))",
+                    },
+                  }}
+                  className="h-[300px]"
+                >
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={metrics.slice(0, 30).reverse()}>
+                      <defs>
+                        <linearGradient id="colorSubs" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
+                          <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                      <XAxis 
+                        dataKey="metric_date" 
+                        className="text-xs"
+                        tickFormatter={(value) => new Date(value).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
+                      />
+                      <YAxis className="text-xs" />
+                      <ChartTooltip content={<ChartTooltipContent />} />
+                      <Area
+                        type="monotone"
+                        dataKey="subscribers"
+                        stroke="hsl(var(--primary))"
+                        fillOpacity={1}
+                        fill="url(#colorSubs)"
+                        strokeWidth={2}
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </ChartContainer>
+              </CardContent>
+            </Card>
+          )}
+        </>
+      )}
+
+      {!metricsLoading && !latestMetrics && (
+        <Card className="bg-card">
+          <CardContent className="p-12 text-center">
+            <p className="text-muted-foreground mb-4">
+              Nenhum dado disponível ainda. Clique em "Atualizar Métricas" para coletar os dados.
+            </p>
+            <Button onClick={handleRefreshMetrics} disabled={isRefreshing}>
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Coletar Dados
+            </Button>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
