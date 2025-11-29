@@ -50,23 +50,23 @@ const Agents = () => {
   ];
 
   return (
-    <div className="container max-w-7xl mx-auto px-6 py-12">
-      {/* Header */}
-      <div className="flex flex-col items-center gap-6 mb-16 animate-fade-in">
-        <div className="text-center space-y-3">
-          <h1 className="text-4xl font-bold tracking-tight">
+    <div className="container max-w-7xl mx-auto px-6 py-8 space-y-8">
+      {/* Header estilo webapp */}
+      <header className="flex items-center justify-between gap-6">
+        <div className="space-y-1">
+          <h1 className="text-2xl font-semibold tracking-tight">
             Agentes Kaleidos
           </h1>
-          <p className="text-muted-foreground text-sm max-w-2xl">
-            Escolha um agente para começar a trabalhar
+          <p className="text-sm text-muted-foreground max-w-xl">
+            Escolha um agente para gerenciar clientes, automatizar conteúdos e analisar performance.
           </p>
         </div>
-      </div>
+      </header>
 
       {/* Agent Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 justify-items-center">
+      <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {agents.map((agent, index) => (
-          <div 
+          <div
             key={agent.title}
             className="animate-fade-in"
             style={{ animationDelay: `${index * 100}ms` }}
@@ -82,7 +82,7 @@ const Agents = () => {
             />
           </div>
         ))}
-      </div>
+      </section>
     </div>
   );
 };
