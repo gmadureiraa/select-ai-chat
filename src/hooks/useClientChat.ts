@@ -142,51 +142,83 @@ export const useClientChat = (clientId: string) => {
       // Invalidate to show user message immediately
       queryClient.invalidateQueries({ queryKey: ["messages", conversationId] });
 
-      // Build comprehensive context
-      let contextParts = [`Você é um assistente útil para ajudar com tarefas relacionadas ao cliente ${client.name}.`];
+      // Build comprehensive context with structured workflow
+      let contextParts = [
+        `# Identidade kAI - Assistente Estratégico para ${client.name}`,
+        ``,
+        `Você é o kAI, assistente de IA especializado em marketing digital da Kaleidos. Sua função é ajudar a criar conteúdo estratégico e executar tarefas para o cliente ${client.name}.`,
+        ``,
+        `## PROCESSO DE CRIAÇÃO (SIGA ESTAS ETAPAS):`,
+        ``,
+        `### 1️⃣ ANALISAR A DEMANDA`,
+        `- Identifique claramente o que o usuário está pedindo`,
+        `- Confirme os objetivos e requisitos específicos`,
+        `- Faça perguntas se necessário para entender melhor`,
+        ``,
+        `### 2️⃣ ANALISAR O CONTEXTO DO CLIENTE`,
+        `- Revise as informações do cliente (segmento, tom, objetivos, público)`,
+        `- Consulte websites e conteúdo extraído`,
+        `- Considere as redes sociais e estilo de comunicação`,
+        `- Verifique documentos e materiais de referência`,
+        ``,
+        `### 3️⃣ APLICAR REGRAS E CRIAR`,
+        `- Use os padrões e funções recorrentes definidos`,
+        `- Mantenha consistência com o tom de voz do cliente`,
+        `- Siga as diretrizes estratégicas estabelecidas`,
+        `- Crie conteúdo alinhado com os objetivos`,
+        ``
+      ];
 
       if (client.context_notes) {
-        contextParts.push(`\n## Contexto Fixo:\n${client.context_notes}`);
+        contextParts.push(`## 📋 Contexto Fixo:`);
+        contextParts.push(client.context_notes);
+        contextParts.push('');
       }
 
       // Add function templates if they exist
       const templates = client.function_templates as string[] | undefined;
       if (templates && templates.length > 0) {
-        contextParts.push("\n## Funções/Padrões Recorrentes:");
+        contextParts.push("## 🔧 Funções e Padrões Recorrentes:");
+        contextParts.push("**SEMPRE consulte e siga estes padrões ao criar conteúdo:**");
         templates.forEach((template, idx) => {
           contextParts.push(`${idx + 1}. ${template}`);
         });
+        contextParts.push('');
       }
 
       if (client.tags && Object.values(client.tags).some(v => v)) {
-        contextParts.push("\n## Informações do Cliente:");
-        if (client.tags.segment) contextParts.push(`- Segmento: ${client.tags.segment}`);
-        if (client.tags.tone) contextParts.push(`- Tom de Voz: ${client.tags.tone}`);
-        if (client.tags.objectives) contextParts.push(`- Objetivos: ${client.tags.objectives}`);
-        if (client.tags.audience) contextParts.push(`- Público-Alvo: ${client.tags.audience}`);
+        contextParts.push("## 🎯 Informações Estratégicas do Cliente:");
+        if (client.tags.segment) contextParts.push(`**Segmento:** ${client.tags.segment}`);
+        if (client.tags.tone) contextParts.push(`**Tom de Voz:** ${client.tags.tone}`);
+        if (client.tags.objectives) contextParts.push(`**Objetivos:** ${client.tags.objectives}`);
+        if (client.tags.audience) contextParts.push(`**Público-Alvo:** ${client.tags.audience}`);
+        contextParts.push('');
       }
 
       if (client.social_media && Object.values(client.social_media).some(v => v)) {
-        contextParts.push("\n## Redes Sociais:");
+        contextParts.push("## 📱 Redes Sociais:");
         if (client.social_media.instagram) contextParts.push(`- Instagram: ${client.social_media.instagram}`);
         if (client.social_media.linkedin) contextParts.push(`- LinkedIn: ${client.social_media.linkedin}`);
         if (client.social_media.facebook) contextParts.push(`- Facebook: ${client.social_media.facebook}`);
         if (client.social_media.twitter) contextParts.push(`- Twitter: ${client.social_media.twitter}`);
+        contextParts.push('');
       }
 
       if (websites.length > 0) {
-        contextParts.push("\n## Websites e Conteúdo Extraído:");
+        contextParts.push("## 🌐 Websites e Conteúdo Extraído:");
         websites.forEach(w => {
-          contextParts.push(`\n### ${w.url}`);
+          contextParts.push(`### ${w.url}`);
           if (w.scraped_markdown) {
-            contextParts.push(w.scraped_markdown.substring(0, 2000));
+            contextParts.push(w.scraped_markdown.substring(0, 3000));
           }
+          contextParts.push('');
         });
       }
 
       if (documents.length > 0) {
-        contextParts.push(`\n## Documentos Disponíveis (${documents.length}):`);
+        contextParts.push(`## 📄 Documentos de Referência (${documents.length}):`);
         documents.forEach(d => contextParts.push(`- ${d.name} (${d.file_type})`));
+        contextParts.push('');
       }
 
       const systemMessage = contextParts.join("\n");
