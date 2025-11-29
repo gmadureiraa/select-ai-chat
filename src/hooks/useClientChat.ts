@@ -210,10 +210,11 @@ IMPORTANTE: Seja SELETIVO. Escolha apenas o que é ESSENCIAL para responder à p
         { role: "user", content }
       ];
 
+      // USAR MODELO BARATO para seleção (gpt-5-nano)
       const { data: selectionData, error: selectionError } = await supabase.functions.invoke("chat", {
         body: {
           messages: selectionMessages,
-          model: selectedModel,
+          model: "gpt-5-nano-2025-08-07", // Modelo mais barato para seleção
           isSelectionPhase: true,
           availableDocuments
         },
@@ -377,13 +378,18 @@ IMPORTANTE: Seja SELETIVO. Escolha apenas o que é ESSENCIAL para responder à p
         },
       ];
 
+      // USAR MODELO MELHOR para resposta final (gpt-5-mini se selecionado mini/nano, ou manter o escolhido)
+      const responseModel = selectedModel === "gpt-5-nano-2025-08-07" || selectedModel === "gpt-5-mini-2025-08-07"
+        ? "gpt-5-mini-2025-08-07" 
+        : selectedModel;
+
       // Call AI com retry automático
       const { data, error } = await withRetry(
         () =>
           supabase.functions.invoke("chat", {
             body: {
               messages: messagesWithContext,
-              model: selectedModel,
+              model: responseModel, // Modelo melhor para resposta
               isSelectionPhase: false, // Fase de resposta
             },
           }),
