@@ -9,6 +9,7 @@ import Agents from "./pages/Agents";
 import Clients from "./pages/Clients";
 import ClientChat from "./pages/ClientChat";
 import ClientDashboard from "./pages/ClientDashboard";
+import ClientPerformance from "./pages/ClientPerformance";
 import ImageGeneration from "./pages/ImageGeneration";
 import ImageGallery from "./pages/ImageGallery";
 import Automations from "./pages/Automations";
@@ -52,6 +53,16 @@ const App = () => (
               <ProtectedRoute>
                 <AppLayout>
                   <ClientDashboard />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/client/:clientId/performance"
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <ClientPerformance />
                 </AppLayout>
               </ProtectedRoute>
             }

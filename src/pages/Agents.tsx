@@ -29,7 +29,11 @@ const Agents = () => {
         "Análise preditiva",
       ],
       accentColor: "accent" as const,
-      onOpen: () => console.log("Open agent 2"),
+      onOpen: () => {
+        // Assuming Defiverso client ID - will need to query for actual ID
+        const defiversoId = "defiverso";
+        navigate(`/client/${defiversoId}/performance`);
+      },
     },
     {
       title: "Automação de Conteúdo",

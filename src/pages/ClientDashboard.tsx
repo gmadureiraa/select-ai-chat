@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Header } from "@/components/Header";
 import { TemplateManager } from "@/components/clients/TemplateManager";
 import { useClientTemplates } from "@/hooks/useClientTemplates";
-import { ArrowLeft, MessageSquare, Sparkles, Image as ImageIcon } from "lucide-react";
+import { ArrowLeft, MessageSquare, Sparkles, Image as ImageIcon, BarChart3 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import kaleidosLogo from "@/assets/kaleidos-logo.svg";
@@ -142,6 +142,26 @@ const ClientDashboard = () => {
               <CardDescription>
                 Converse livremente com a IA sobre qualquer assunto relacionado
                 ao cliente
+              </CardDescription>
+            </CardContent>
+          </Card>
+
+          {/* Análise de Performance */}
+          <Card
+            className="hover:shadow-lg transition-shadow cursor-pointer border-accent/20"
+            onClick={() => navigate(`/client/${clientId}/performance`)}
+          >
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <div className="p-3 rounded-lg bg-accent/10">
+                  <BarChart3 className="h-6 w-6 text-accent" />
+                </div>
+                <CardTitle>Análise de Performance</CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <CardDescription>
+                Visualize métricas, KPIs e insights de performance do cliente
               </CardDescription>
             </CardContent>
           </Card>
