@@ -12,9 +12,8 @@ const Clients = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="border-b bg-card shadow-lg relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-r from-primary/5 via-transparent to-secondary/5" />
-        <div className="max-w-7xl mx-auto p-6 flex items-center justify-between relative z-10">
+      <div className="border-b bg-card shadow-lg">
+        <div className="max-w-7xl mx-auto p-6 flex items-center justify-between">
           <div>
             <div className="flex items-center gap-4 mb-3">
               <img 
