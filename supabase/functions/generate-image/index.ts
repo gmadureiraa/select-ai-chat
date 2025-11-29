@@ -24,9 +24,9 @@ serve(async (req) => {
       );
     }
 
-    const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
-    if (!GEMINI_API_KEY) {
-      console.error('GEMINI_API_KEY not configured');
+    const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
+    if (!OPENAI_API_KEY) {
+      console.error('OPENAI_API_KEY not configured');
       return new Response(
         JSON.stringify({ error: 'API key not configured' }),
         { 
@@ -38,21 +38,19 @@ serve(async (req) => {
 
     console.log('Generating image with prompt:', prompt);
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const response = await fetch("https://api.openai.com/v1/images/generations", {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${GEMINI_API_KEY}`,
+        "Authorization": `Bearer ${OPENAI_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash-image-preview",
-        messages: [
-          {
-            role: "user",
-            content: prompt,
-          }
-        ],
-        modalities: ["image", "text"]
+        model: "gpt-image-1",
+        prompt: prompt,
+        n: 1,
+        size: "1024x1024",
+        quality: "high",
+        response_format: "b64_json"
       }),
     });
 
@@ -90,10 +88,10 @@ serve(async (req) => {
     }
 
     const data = await response.json();
-    const imageUrl = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+    const b64Image = data.data?.[0]?.b64_json;
 
-    if (!imageUrl) {
-      console.error('No image URL in response:', JSON.stringify(data));
+    if (!b64Image) {
+      console.error('No image in response:', JSON.stringify(data));
       return new Response(
         JSON.stringify({ error: 'Nenhuma imagem foi gerada' }),
         { 
@@ -104,6 +102,8 @@ serve(async (req) => {
     }
 
     console.log('Image generated successfully');
+
+    const imageUrl = `data:image/png;base64,${b64Image}`;
 
     return new Response(
       JSON.stringify({ imageUrl }),
