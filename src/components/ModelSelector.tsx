@@ -8,13 +8,11 @@ import {
 import { Brain } from "lucide-react";
 
 const MODELS = [
-  { id: "google/gemini-2.5-flash", name: "Gemini 2.5 Flash", description: "Rápido e eficiente" },
-  { id: "google/gemini-2.5-pro", name: "Gemini 2.5 Pro", description: "Mais poderoso" },
-  { id: "openai/gpt-5-2025-08-07", name: "GPT-5", description: "OpenAI mais avançado" },
-  { id: "openai/gpt-5-mini-2025-08-07", name: "GPT-5 Mini", description: "Balanceado" },
-  { id: "openai/gpt-4.1-2025-04-14", name: "GPT-4.1", description: "Confiável e preciso" },
-  { id: "anthropic/claude-sonnet-4-5", name: "Claude Sonnet 4.5", description: "Raciocínio superior" },
-  { id: "anthropic/claude-opus-4-1-20250805", name: "Claude Opus 4.1", description: "Mais inteligente" },
+  { id: "gpt-5-2025-08-07", name: "GPT-5", description: "OpenAI mais avançado" },
+  { id: "gpt-5-mini-2025-08-07", name: "GPT-5 Mini", description: "Balanceado" },
+  { id: "gpt-4.1-2025-04-14", name: "GPT-4.1", description: "Confiável e preciso" },
+  { id: "o3-2025-04-16", name: "O3", description: "Raciocínio profundo" },
+  { id: "o4-mini-2025-04-16", name: "O4 Mini", description: "Raciocínio rápido" },
 ];
 
 interface ModelSelectorProps {

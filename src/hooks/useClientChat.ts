@@ -11,7 +11,7 @@ interface Message {
 type ProcessStep = "analyzing" | "reviewing" | "creating" | null;
 
 export const useClientChat = (clientId: string) => {
-  const [selectedModel, setSelectedModel] = useState("google/gemini-2.5-pro");
+  const [selectedModel, setSelectedModel] = useState("gpt-5-mini-2025-08-07");
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [currentStep, setCurrentStep] = useState<ProcessStep>(null);
