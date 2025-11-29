@@ -144,7 +144,7 @@ export const useClientChat = (clientId: string, templateId?: string) => {
     enabled: !!clientId,
   });
 
-  const sendMessage = useCallback(async (content: string) => {
+  const sendMessage = useCallback(async (content: string, imageUrls?: string[]) => {
     // Validações
     const validationError = validateMessage(content);
     if (validationError) {
@@ -183,6 +183,7 @@ export const useClientChat = (clientId: string, templateId?: string) => {
         conversation_id: conversationId,
         role: "user",
         content,
+        image_urls: imageUrls || null,
       });
 
       if (insertError) throw insertError;
@@ -295,8 +296,19 @@ export const useClientChat = (clientId: string, templateId?: string) => {
 
       const messagesWithContext = [
         { role: "system" as const, content: systemMessage },
-        ...messages.map((m) => ({ role: m.role, content: m.content })),
-        { role: "user" as const, content },
+        ...messages.map((m) => {
+          const msg: any = { role: m.role, content: m.content };
+          // Add image URLs for multimodal support
+          if (m.image_urls && m.image_urls.length > 0) {
+            msg.images = m.image_urls;
+          }
+          return msg;
+        }),
+        { 
+          role: "user" as const, 
+          content,
+          ...(imageUrls && imageUrls.length > 0 ? { images: imageUrls } : {})
+        },
       ];
 
       setCurrentStep("creating");

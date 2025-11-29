@@ -1,14 +1,15 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Card } from "@/components/ui/card";
 import { Header } from "@/components/Header";
-import { ArrowLeft, Sparkles, Loader2 } from "lucide-react";
+import { ArrowLeft, Sparkles, Loader2, Download, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useClientTemplates } from "@/hooks/useClientTemplates";
+import { useImageGenerations } from "@/hooks/useImageGenerations";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import kaleidosLogo from "@/assets/kaleidos-logo.svg";
 
 const ImageGeneration = () => {
@@ -23,6 +24,14 @@ const ImageGeneration = () => {
 
   const { templates } = useClientTemplates(clientId!);
   const selectedTemplate = templates.find(t => t.id === templateId && t.type === 'image');
+  const { generations, createGeneration, deleteGeneration } = useImageGenerations(clientId!, templateId);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [generations]);
 
   const { data: client } = useQuery({
     queryKey: ["client", clientId],
@@ -92,7 +101,14 @@ const ImageGeneration = () => {
       const data = await response.json();
       
       if (data.imageUrl) {
-        setGeneratedImage(data.imageUrl);
+        // Save to history
+        await createGeneration.mutateAsync({
+          prompt,
+          imageUrl: data.imageUrl,
+          templateId,
+        });
+        
+        setPrompt("");
         toast({
           title: "Imagem gerada!",
           description: "Sua imagem foi criada com sucesso.",
@@ -143,12 +159,12 @@ const ImageGeneration = () => {
         </Button>
       </Header>
 
-      <div className="max-w-5xl mx-auto p-6">
-        <Card className="p-6">
-          <div className="space-y-6">
-            {selectedTemplate && selectedTemplate.rules.length > 0 && (
-              <div className="p-4 bg-muted rounded-lg border space-y-3">
-                <h3 className="text-sm font-semibold">Regras do Template:</h3>
+      <div className="flex-1 flex flex-col max-w-5xl mx-auto w-full">
+        {selectedTemplate && selectedTemplate.rules.length > 0 && (
+          <div className="p-4 bg-muted/50 border-b">
+            <details className="cursor-pointer">
+              <summary className="text-sm font-semibold">Regras do Template ({selectedTemplate.rules.length})</summary>
+              <div className="mt-3 space-y-3">
                 {selectedTemplate.rules.map((rule) => (
                   <div key={rule.id} className="space-y-2">
                     {rule.type === 'image_reference' && rule.file_url ? (
@@ -170,21 +186,88 @@ const ImageGeneration = () => {
                   </div>
                 ))}
               </div>
+            </details>
+          </div>
+        )}
+
+        <ScrollArea className="flex-1 p-6" ref={scrollRef}>
+          <div className="space-y-6 max-w-3xl mx-auto">
+            {generations.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground">
+                <Sparkles className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p>Nenhuma imagem gerada ainda</p>
+                <p className="text-sm">Digite um prompt abaixo para começar</p>
+              </div>
+            ) : (
+              generations.map((gen) => (
+                <div key={gen.id} className="space-y-3">
+                  <div className="flex items-start gap-3">
+                    <div className="flex-1 bg-muted p-3 rounded-lg">
+                      <p className="text-sm">{gen.prompt}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3 justify-end">
+                    <div className="max-w-2xl space-y-2">
+                      <img
+                        src={gen.image_url}
+                        alt="Generated"
+                        className="w-full rounded-lg border"
+                      />
+                      <div className="flex gap-2 justify-end">
+                        <Button
+                          onClick={() => {
+                            const link = document.createElement('a');
+                            link.href = gen.image_url;
+                            link.download = `image-${gen.id}.png`;
+                            link.click();
+                          }}
+                          variant="ghost"
+                          size="sm"
+                          className="gap-2"
+                        >
+                          <Download className="h-4 w-4" />
+                          Download
+                        </Button>
+                        <Button
+                          onClick={() => deleteGeneration.mutate(gen.id)}
+                          variant="ghost"
+                          size="sm"
+                          className="gap-2 hover:bg-destructive/10 hover:text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          Excluir
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))
             )}
+            {isGenerating && (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            )}
+          </div>
+        </ScrollArea>
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium">
-                Descreva a imagem que você quer criar
-              </label>
-              <Textarea
-                value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-                placeholder="Ex: Uma imagem moderna e vibrante de uma pessoa trabalhando com tecnologia, estilo minimalista, cores neon e magenta..."
-                className="min-h-[120px]"
-                disabled={isGenerating}
-              />
-            </div>
-
+        <div className="border-t p-4 bg-background">
+          <div className="max-w-3xl mx-auto space-y-3">
+            <Textarea
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+              placeholder="Descreva a imagem que você quer criar..."
+              className="min-h-[100px] resize-none"
+              disabled={isGenerating}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  if (!isGenerating && prompt.trim()) {
+                    handleGenerate();
+                  }
+                }
+              }}
+            />
             <Button
               onClick={handleGenerate}
               disabled={isGenerating || !prompt.trim()}
@@ -203,45 +286,8 @@ const ImageGeneration = () => {
                 </>
               )}
             </Button>
-
-            {generatedImage && (
-              <div className="space-y-4 pt-6 border-t">
-                <h3 className="text-lg font-semibold">Imagem Gerada</h3>
-                <div className="relative rounded-lg overflow-hidden border">
-                  <img
-                    src={generatedImage}
-                    alt="Generated"
-                    className="w-full h-auto"
-                  />
-                </div>
-                <div className="flex gap-2">
-                  <Button
-                    onClick={() => {
-                      const link = document.createElement('a');
-                      link.href = generatedImage;
-                      link.download = 'generated-image.png';
-                      link.click();
-                    }}
-                    variant="outline"
-                    className="flex-1"
-                  >
-                    Download
-                  </Button>
-                  <Button
-                    onClick={() => {
-                      setGeneratedImage(null);
-                      setPrompt("");
-                    }}
-                    variant="outline"
-                    className="flex-1"
-                  >
-                    Nova Imagem
-                  </Button>
-                </div>
-              </div>
-            )}
           </div>
-        </Card>
+        </div>
       </div>
     </div>
   );

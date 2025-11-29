@@ -137,6 +137,7 @@ const ClientChat = () => {
                   key={idx} 
                   role={message.role} 
                   content={message.content}
+                  imageUrls={message.image_urls}
                   onRegenerate={regenerateLastMessage}
                   isLastMessage={idx === messages.length - 1}
                 />

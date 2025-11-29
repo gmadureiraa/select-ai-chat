@@ -311,12 +311,55 @@ export type Database = {
           },
         ]
       }
+      image_generations: {
+        Row: {
+          client_id: string
+          created_at: string | null
+          id: string
+          image_url: string
+          prompt: string
+          template_id: string | null
+        }
+        Insert: {
+          client_id: string
+          created_at?: string | null
+          id?: string
+          image_url: string
+          prompt: string
+          template_id?: string | null
+        }
+        Update: {
+          client_id?: string
+          created_at?: string | null
+          id?: string
+          image_url?: string
+          prompt?: string
+          template_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "image_generations_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "image_generations_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "client_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       messages: {
         Row: {
           content: string
           conversation_id: string
           created_at: string | null
           id: string
+          image_urls: string[] | null
           role: string
         }
         Insert: {
@@ -324,6 +367,7 @@ export type Database = {
           conversation_id: string
           created_at?: string | null
           id?: string
+          image_urls?: string[] | null
           role: string
         }
         Update: {
@@ -331,6 +375,7 @@ export type Database = {
           conversation_id?: string
           created_at?: string | null
           id?: string
+          image_urls?: string[] | null
           role?: string
         }
         Relationships: [
