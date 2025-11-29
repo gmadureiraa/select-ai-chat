@@ -9,69 +9,54 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Plus, Trash2, Settings } from "lucide-react";
+import { Plus, Trash2, Settings, Edit2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useClientTemplates } from "@/hooks/useClientTemplates";
+import { TemplateRulesDialog } from "./TemplateRulesDialog";
+import { ClientTemplate, TemplateRule } from "@/types/template";
 
 interface TemplateManagerProps {
   clientId: string;
-  templates: string[];
 }
 
-export const TemplateManager = ({ clientId, templates }: TemplateManagerProps) => {
+export const TemplateManager = ({ clientId }: TemplateManagerProps) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [localTemplates, setLocalTemplates] = useState<string[]>(templates);
-  const [newTemplate, setNewTemplate] = useState("");
+  const [newTemplateName, setNewTemplateName] = useState("");
+  const [editingTemplate, setEditingTemplate] = useState<ClientTemplate | null>(null);
   const { toast } = useToast();
-  const queryClient = useQueryClient();
-
-  const updateTemplates = useMutation({
-    mutationFn: async (updatedTemplates: string[]) => {
-      const { error } = await supabase
-        .from("clients")
-        .update({ function_templates: updatedTemplates })
-        .eq("id", clientId);
-
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["client", clientId] });
-      toast({
-        title: "Templates atualizados",
-        description: "As alterações foram salvas com sucesso.",
-      });
-    },
-    onError: () => {
-      toast({
-        title: "Erro ao atualizar",
-        description: "Não foi possível salvar as alterações.",
-        variant: "destructive",
-      });
-    },
-  });
+  const { templates, isLoading, createTemplate, updateTemplate, deleteTemplate } = useClientTemplates(clientId);
 
   const handleAddTemplate = () => {
-    if (!newTemplate.trim()) return;
-    
-    const updated = [...localTemplates, newTemplate.trim()];
-    setLocalTemplates(updated);
-    setNewTemplate("");
-    updateTemplates.mutate(updated);
-  };
-
-  const handleRemoveTemplate = (index: number) => {
-    const updated = localTemplates.filter((_, i) => i !== index);
-    setLocalTemplates(updated);
-    updateTemplates.mutate(updated);
-  };
-
-  const handleOpenChange = (open: boolean) => {
-    setIsOpen(open);
-    if (!open) {
-      setLocalTemplates(templates);
-      setNewTemplate("");
+    if (!newTemplateName.trim()) {
+      toast({
+        title: "Nome obrigatório",
+        description: "Digite um nome para o template.",
+        variant: "destructive",
+      });
+      return;
     }
+    
+    createTemplate.mutate({
+      client_id: clientId,
+      name: newTemplateName.trim(),
+    });
+    
+    setNewTemplateName("");
+  };
+
+  const handleRemoveTemplate = (id: string) => {
+    deleteTemplate.mutate(id);
+  };
+
+  const handleSaveRules = (rules: TemplateRule[]) => {
+    if (!editingTemplate) return;
+    
+    updateTemplate.mutate({
+      id: editingTemplate.id,
+      rules,
+    });
+    
+    setEditingTemplate(null);
   };
 
   return (
@@ -86,7 +71,7 @@ export const TemplateManager = ({ clientId, templates }: TemplateManagerProps) =
         Gerenciar Templates
       </Button>
 
-      <Dialog open={isOpen} onOpenChange={handleOpenChange}>
+      <Dialog open={isOpen} onOpenChange={setIsOpen}>
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Gerenciar Templates de Funções</DialogTitle>
@@ -99,26 +84,42 @@ export const TemplateManager = ({ clientId, templates }: TemplateManagerProps) =
             {/* Lista de templates existentes */}
             <div className="space-y-3">
               <Label>Templates Existentes</Label>
-              {localTemplates.length === 0 ? (
+              {templates.length === 0 ? (
                 <p className="text-sm text-muted-foreground py-4 text-center border border-dashed rounded-lg">
                   Nenhum template criado ainda
                 </p>
               ) : (
                 <div className="space-y-2">
-                  {localTemplates.map((template, index) => (
+                  {templates.map((template) => (
                     <div
-                      key={index}
+                      key={template.id}
                       className="flex items-center justify-between p-3 bg-muted rounded-lg"
                     >
-                      <span className="text-sm font-medium">{template}</span>
-                      <Button
-                        onClick={() => handleRemoveTemplate(index)}
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 w-8 p-0 hover:bg-destructive/10 hover:text-destructive"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      <div className="flex-1">
+                        <span className="text-sm font-medium">{template.name}</span>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {template.rules.length} regra(s) definida(s)
+                        </p>
+                      </div>
+                      <div className="flex gap-1">
+                        <Button
+                          onClick={() => setEditingTemplate(template)}
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 gap-2"
+                        >
+                          <Edit2 className="h-3 w-3" />
+                          Editar Regras
+                        </Button>
+                        <Button
+                          onClick={() => handleRemoveTemplate(template.id)}
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0 hover:bg-destructive/10 hover:text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -131,8 +132,8 @@ export const TemplateManager = ({ clientId, templates }: TemplateManagerProps) =
               <div className="flex gap-2">
                 <Input
                   id="newTemplate"
-                  value={newTemplate}
-                  onChange={(e) => setNewTemplate(e.target.value)}
+                  value={newTemplateName}
+                  onChange={(e) => setNewTemplateName(e.target.value)}
                   placeholder="Ex: Newsletter Semanal, Post Instagram..."
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
@@ -143,7 +144,7 @@ export const TemplateManager = ({ clientId, templates }: TemplateManagerProps) =
                 />
                 <Button
                   onClick={handleAddTemplate}
-                  disabled={!newTemplate.trim() || updateTemplates.isPending}
+                  disabled={!newTemplateName.trim() || createTemplate.isPending}
                   className="gap-2 shrink-0"
                 >
                   <Plus className="h-4 w-4" />
@@ -172,7 +173,7 @@ export const TemplateManager = ({ clientId, templates }: TemplateManagerProps) =
                 ].map((suggestion) => (
                   <Button
                     key={suggestion}
-                    onClick={() => setNewTemplate(suggestion)}
+                    onClick={() => setNewTemplateName(suggestion)}
                     variant="outline"
                     size="sm"
                     className="text-xs h-7"
@@ -185,6 +186,13 @@ export const TemplateManager = ({ clientId, templates }: TemplateManagerProps) =
           </div>
         </DialogContent>
       </Dialog>
+
+      <TemplateRulesDialog
+        open={editingTemplate !== null}
+        onOpenChange={(open) => !open && setEditingTemplate(null)}
+        template={editingTemplate}
+        onSave={handleSaveRules}
+      />
     </>
   );
 };
