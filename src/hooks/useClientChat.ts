@@ -5,6 +5,8 @@ import { useToast } from "@/hooks/use-toast";
 import { Message, Client, Website, Document, ProcessStep } from "@/types/chat";
 import { createChatError, getErrorMessage } from "@/lib/errors";
 import { validateMessage, validateModelId } from "@/lib/validation";
+import { withRetry, RetryError } from "@/lib/retry";
+import { useRealtimeMessages } from "@/hooks/useRealtimeMessages";
 
 export const useClientChat = (clientId: string) => {
   const [selectedModel, setSelectedModel] = useState("gpt-5-mini-2025-08-07");
@@ -13,6 +15,9 @@ export const useClientChat = (clientId: string) => {
   const [currentStep, setCurrentStep] = useState<ProcessStep>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  // Ativar realtime para mensagens
+  useRealtimeMessages(conversationId);
 
   // Get or create conversation
   const { data: conversation } = useQuery({
@@ -260,13 +265,21 @@ export const useClientChat = (clientId: string) => {
 
       setCurrentStep("creating");
 
-      // Call AI
-      const { data, error } = await supabase.functions.invoke("chat", {
-        body: {
-          messages: messagesWithContext,
-          model: selectedModel,
-        },
-      });
+      // Call AI com retry automático
+      const { data, error } = await withRetry(
+        () =>
+          supabase.functions.invoke("chat", {
+            body: {
+              messages: messagesWithContext,
+              model: selectedModel,
+            },
+          }),
+        {
+          maxRetries: 3,
+          initialDelay: 1000,
+          backoffFactor: 2,
+        }
+      );
 
       if (error) throw error;
 
@@ -313,17 +326,24 @@ export const useClientChat = (clientId: string) => {
         content: aiResponse,
       });
 
-      queryClient.invalidateQueries({ queryKey: ["messages", conversationId] });
+      // Não precisa invalidar - realtime vai atualizar automaticamente
     } catch (error) {
       console.error("Error sending message:", error);
       
-      const chatError = createChatError(error, "Não foi possível enviar a mensagem");
-      const errorMessage = getErrorMessage(chatError);
+      let errorMessage = "Não foi possível enviar a mensagem";
+      
+      if (error instanceof RetryError) {
+        errorMessage = `Falha após ${error.attempts} tentativas. ${error.lastError.message}`;
+      } else {
+        const chatError = createChatError(error, "Não foi possível enviar a mensagem");
+        errorMessage = getErrorMessage(chatError);
+      }
       
       toast({
         title: "Erro ao enviar mensagem",
         description: errorMessage,
         variant: "destructive",
+        duration: 5000,
       });
 
       // Remover mensagem do usuário em caso de erro
