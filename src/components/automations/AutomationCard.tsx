@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { AutomationWithClient } from "@/types/automation";
+import { AutomationWithClient, DayOfWeek } from "@/types/automation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Play, Pause, Edit, Trash2, Clock, Calendar } from "lucide-react";
+import { Play, Pause, Edit, Trash2, Clock, Calendar, Database, Zap } from "lucide-react";
 import { useAutomations } from "@/hooks/useAutomations";
 import { AutomationDialog } from "./AutomationDialog";
 import { formatDistanceToNow } from "date-fns";
@@ -33,6 +33,31 @@ export const AutomationCard = ({ automation }: AutomationCardProps) => {
     weekly: "Semanalmente",
     monthly: "Mensalmente",
     custom: "Personalizado",
+  };
+
+  const dayLabels: Record<DayOfWeek, string> = {
+    monday: "Seg",
+    tuesday: "Ter",
+    wednesday: "Qua",
+    thursday: "Qui",
+    friday: "Sex",
+    saturday: "Sáb",
+    sunday: "Dom",
+  };
+
+  const getScheduleDetails = () => {
+    const parts = [scheduleLabels[automation.schedule_type]];
+    
+    if (automation.schedule_days && automation.schedule_days.length > 0) {
+      const days = automation.schedule_days.map((d) => dayLabels[d]).join(", ");
+      parts.push(days);
+    }
+    
+    if (automation.schedule_time) {
+      parts.push(`às ${automation.schedule_time}`);
+    }
+    
+    return parts.join(" ");
   };
 
   return (
@@ -94,8 +119,22 @@ export const AutomationCard = ({ automation }: AutomationCardProps) => {
           <div className="space-y-2">
             <div className="flex items-center gap-2 text-sm">
               <Calendar className="h-4 w-4 text-muted-foreground" />
-              <span>{scheduleLabels[automation.schedule_type]}</span>
+              <span>{getScheduleDetails()}</span>
             </div>
+
+            {automation.data_sources && automation.data_sources.length > 0 && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Database className="h-4 w-4" />
+                <span>{automation.data_sources.length} fonte(s) de dados</span>
+              </div>
+            )}
+
+            {automation.actions && automation.actions.length > 0 && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Zap className="h-4 w-4" />
+                <span>{automation.actions.length} ação(ões) configurada(s)</span>
+              </div>
+            )}
 
             {automation.last_run_at && (
               <div className="flex items-center gap-2 text-sm text-muted-foreground">

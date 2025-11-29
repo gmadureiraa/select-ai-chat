@@ -7,6 +7,74 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+async function fetchDataSources(dataSources: any[]) {
+  const results: Record<string, any> = {};
+
+  for (const source of dataSources) {
+    try {
+      console.log(`Fetching data from ${source.name}:`, source.url);
+      
+      const options: RequestInit = {
+        method: source.method || "GET",
+        headers: source.headers || {},
+      };
+
+      if (source.method === "POST" && source.body) {
+        options.body = source.body;
+        if (!options.headers) options.headers = {};
+        (options.headers as Record<string, string>)["Content-Type"] = "application/json";
+      }
+
+      const response = await fetch(source.url, options);
+      const data = await response.json();
+      
+      results[source.name] = data;
+      console.log(`Successfully fetched data from ${source.name}`);
+    } catch (error) {
+      console.error(`Error fetching ${source.name}:`, error);
+      results[source.name] = { error: error instanceof Error ? error.message : "Unknown error" };
+    }
+  }
+
+  return results;
+}
+
+async function executeActions(
+  actions: any[],
+  result: string,
+  automationId: string,
+  supabase: any,
+  webhookUrl?: string,
+  emailRecipients?: string[]
+) {
+  for (const action of actions) {
+    try {
+      console.log(`Executing action: ${action.type}`);
+
+      if (action.type === "save_to_db") {
+        // Result is already saved in automation_runs
+        console.log("Result saved to database");
+      } else if (action.type === "webhook" && webhookUrl) {
+        await fetch(webhookUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            automation_id: automationId,
+            result: result,
+            timestamp: new Date().toISOString(),
+          }),
+        });
+        console.log("Webhook called successfully");
+      } else if (action.type === "send_email" && emailRecipients?.length) {
+        console.log(`Email would be sent to: ${emailRecipients.join(", ")}`);
+        // Email functionality would require additional email service setup
+      }
+    } catch (error) {
+      console.error(`Error executing action ${action.type}:`, error);
+    }
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -58,6 +126,13 @@ serve(async (req) => {
 
     console.log("Running automation:", automation.name);
 
+    // Fetch data from configured sources
+    let externalData = {};
+    if (automation.data_sources && Array.isArray(automation.data_sources) && automation.data_sources.length > 0) {
+      console.log("Fetching external data sources...");
+      externalData = await fetchDataSources(automation.data_sources);
+    }
+
     try {
       const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
       if (!OPENAI_API_KEY) {
@@ -73,6 +148,14 @@ ${automation.description ? `Descrição: ${automation.description}` : ""}
 
 Contexto do Cliente:
 ${automation.clients.context_notes || "Nenhum contexto adicional"}
+
+${Object.keys(externalData).length > 0 ? `
+Dados Externos Coletados:
+${Object.entries(externalData).map(([name, data]) => `
+${name}:
+${JSON.stringify(data, null, 2)}
+`).join("\n")}
+` : ""}
 
 Execute a tarefa solicitada de forma completa e profissional.`;
 
@@ -120,6 +203,19 @@ Execute a tarefa solicitada de forma completa e profissional.`;
           last_run_at: new Date().toISOString(),
         })
         .eq("id", automationId);
+
+      // Execute configured actions
+      if (automation.actions && Array.isArray(automation.actions) && automation.actions.length > 0) {
+        console.log("Executing configured actions...");
+        await executeActions(
+          automation.actions,
+          result,
+          automationId,
+          supabase,
+          automation.webhook_url,
+          automation.email_recipients
+        );
+      }
 
       console.log(`Automation completed in ${duration}ms`);
 
