@@ -1,9 +1,12 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAutomations } from "@/hooks/useAutomations";
-import { Automation, ScheduleType } from "@/types/automation";
+import { Automation, ScheduleType, DayOfWeek, DataSource, AutomationAction } from "@/types/automation";
+import { ScheduleConfig } from "./ScheduleConfig";
+import { DataSourcesConfig } from "./DataSourcesConfig";
+import { ActionsConfig } from "./ActionsConfig";
 import {
   Dialog,
   DialogContent,
@@ -43,6 +46,12 @@ interface FormData {
   prompt: string;
   schedule_type: ScheduleType;
   model: string;
+  schedule_days: DayOfWeek[];
+  schedule_time: string;
+  data_sources: DataSource[];
+  actions: AutomationAction[];
+  webhook_url: string;
+  email_recipients: string[];
 }
 
 const MODELS = [
@@ -57,6 +66,13 @@ export const AutomationDialog = ({
   automation,
 }: AutomationDialogProps) => {
   const { createAutomation, updateAutomation } = useAutomations();
+  const [scheduleDays, setScheduleDays] = useState<DayOfWeek[]>([]);
+  const [scheduleTime, setScheduleTime] = useState("09:00");
+  const [dataSources, setDataSources] = useState<DataSource[]>([]);
+  const [actions, setActions] = useState<AutomationAction[]>([]);
+  const [webhookUrl, setWebhookUrl] = useState("");
+  const [emailRecipients, setEmailRecipients] = useState<string[]>([]);
+
   const form = useForm<FormData>({
     defaultValues: {
       client_id: "",
@@ -65,6 +81,12 @@ export const AutomationDialog = ({
       prompt: "",
       schedule_type: "daily",
       model: "gpt-5-mini-2025-08-07",
+      schedule_days: [],
+      schedule_time: "09:00",
+      data_sources: [],
+      actions: [],
+      webhook_url: "",
+      email_recipients: [],
     },
   });
 
@@ -90,7 +112,19 @@ export const AutomationDialog = ({
         prompt: automation.prompt,
         schedule_type: automation.schedule_type,
         model: automation.model,
+        schedule_days: automation.schedule_days || [],
+        schedule_time: automation.schedule_time || "09:00",
+        data_sources: automation.data_sources || [],
+        actions: automation.actions || [],
+        webhook_url: automation.webhook_url || "",
+        email_recipients: automation.email_recipients || [],
       });
+      setScheduleDays(automation.schedule_days || []);
+      setScheduleTime(automation.schedule_time || "09:00");
+      setDataSources(automation.data_sources || []);
+      setActions(automation.actions || []);
+      setWebhookUrl(automation.webhook_url || "");
+      setEmailRecipients(automation.email_recipients || []);
     } else {
       form.reset({
         client_id: "",
@@ -99,18 +133,40 @@ export const AutomationDialog = ({
         prompt: "",
         schedule_type: "daily",
         model: "gpt-5-mini-2025-08-07",
+        schedule_days: [],
+        schedule_time: "09:00",
+        data_sources: [],
+        actions: [],
+        webhook_url: "",
+        email_recipients: [],
       });
+      setScheduleDays([]);
+      setScheduleTime("09:00");
+      setDataSources([]);
+      setActions([]);
+      setWebhookUrl("");
+      setEmailRecipients([]);
     }
   }, [automation, form, open]);
 
   const onSubmit = async (data: FormData) => {
+    const payload = {
+      ...data,
+      schedule_days: scheduleDays,
+      schedule_time: scheduleTime,
+      data_sources: dataSources,
+      actions: actions,
+      webhook_url: webhookUrl,
+      email_recipients: emailRecipients,
+    };
+
     if (automation) {
       await updateAutomation.mutateAsync({
         id: automation.id,
-        ...data,
+        ...payload,
       });
     } else {
-      await createAutomation.mutateAsync(data);
+      await createAutomation.mutateAsync(payload);
     }
     onOpenChange(false);
   };
@@ -256,6 +312,28 @@ export const AutomationDialog = ({
                 )}
               />
             </div>
+
+            <ScheduleConfig
+              scheduleType={form.watch("schedule_type")}
+              scheduleDays={scheduleDays}
+              scheduleTime={scheduleTime}
+              onDaysChange={setScheduleDays}
+              onTimeChange={setScheduleTime}
+            />
+
+            <DataSourcesConfig
+              dataSources={dataSources}
+              onChange={setDataSources}
+            />
+
+            <ActionsConfig
+              actions={actions}
+              onChange={setActions}
+              webhookUrl={webhookUrl}
+              emailRecipients={emailRecipients}
+              onWebhookChange={setWebhookUrl}
+              onEmailRecipientsChange={setEmailRecipients}
+            />
 
             <div className="flex justify-end gap-2 pt-4">
               <Button

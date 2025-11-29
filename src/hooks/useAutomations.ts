@@ -22,15 +22,29 @@ export const useAutomations = (clientId?: string) => {
       const { data, error } = await query;
 
       if (error) throw error;
-      return data as AutomationWithClient[];
+      return data.map(item => ({
+        ...item,
+        data_sources: (item.data_sources as any) || [],
+        actions: (item.actions as any) || [],
+        schedule_days: (item.schedule_days as any) || [],
+        email_recipients: item.email_recipients || [],
+      })) as AutomationWithClient[];
     },
   });
 
   const createAutomation = useMutation({
     mutationFn: async (automation: Partial<Automation>) => {
+      const payload = {
+        ...automation,
+        data_sources: automation.data_sources || [],
+        actions: automation.actions || [],
+        schedule_days: automation.schedule_days || [],
+        email_recipients: automation.email_recipients || [],
+      };
+      
       const { data, error } = await supabase
         .from("automations")
-        .insert([automation as any])
+        .insert([payload as any])
         .select()
         .single();
 
@@ -59,9 +73,17 @@ export const useAutomations = (clientId?: string) => {
       id,
       ...updates
     }: Partial<Automation> & { id: string }) => {
+      const payload = {
+        ...updates,
+        data_sources: updates.data_sources || [],
+        actions: updates.actions || [],
+        schedule_days: updates.schedule_days || [],
+        email_recipients: updates.email_recipients || [],
+      };
+      
       const { data, error } = await supabase
         .from("automations")
-        .update(updates)
+        .update(payload as any)
         .eq("id", id)
         .select()
         .single();

@@ -57,9 +57,12 @@ export type Database = {
       }
       automations: {
         Row: {
+          actions: Json | null
           client_id: string | null
           created_at: string
+          data_sources: Json | null
           description: string | null
+          email_recipients: string[] | null
           id: string
           is_active: boolean
           last_run_at: string | null
@@ -68,13 +71,19 @@ export type Database = {
           next_run_at: string | null
           prompt: string
           schedule_config: Json
+          schedule_days: string[] | null
+          schedule_time: string | null
           schedule_type: string
           updated_at: string
+          webhook_url: string | null
         }
         Insert: {
+          actions?: Json | null
           client_id?: string | null
           created_at?: string
+          data_sources?: Json | null
           description?: string | null
+          email_recipients?: string[] | null
           id?: string
           is_active?: boolean
           last_run_at?: string | null
@@ -83,13 +92,19 @@ export type Database = {
           next_run_at?: string | null
           prompt: string
           schedule_config?: Json
+          schedule_days?: string[] | null
+          schedule_time?: string | null
           schedule_type: string
           updated_at?: string
+          webhook_url?: string | null
         }
         Update: {
+          actions?: Json | null
           client_id?: string | null
           created_at?: string
+          data_sources?: Json | null
           description?: string | null
+          email_recipients?: string[] | null
           id?: string
           is_active?: boolean
           last_run_at?: string | null
@@ -98,8 +113,11 @@ export type Database = {
           next_run_at?: string | null
           prompt?: string
           schedule_config?: Json
+          schedule_days?: string[] | null
+          schedule_time?: string | null
           schedule_type?: string
           updated_at?: string
+          webhook_url?: string | null
         }
         Relationships: [
           {
