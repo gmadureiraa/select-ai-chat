@@ -7,8 +7,19 @@ export interface Client {
   name: string;
   description: string | null;
   context_notes: string | null;
+  social_media: Record<string, string>;
+  tags: Record<string, string>;
   created_at: string;
   updated_at: string;
+}
+
+export interface CreateClientData {
+  name: string;
+  description: string | null;
+  context_notes: string | null;
+  social_media?: Record<string, string>;
+  tags?: Record<string, string>;
+  websites?: string[];
 }
 
 export const useClients = () => {
@@ -29,14 +40,34 @@ export const useClients = () => {
   });
 
   const createClient = useMutation({
-    mutationFn: async (client: Omit<Client, "id" | "created_at" | "updated_at">) => {
+    mutationFn: async (clientData: CreateClientData) => {
+      const { websites, ...client } = clientData;
+      
       const { data, error } = await supabase
         .from("clients")
-        .insert(client)
+        .insert({
+          ...client,
+          social_media: client.social_media || {},
+          tags: client.tags || {},
+        })
         .select()
         .single();
 
       if (error) throw error;
+      
+      // Add websites with scraping if provided
+      if (websites && websites.length > 0) {
+        for (const url of websites) {
+          try {
+            await supabase.functions.invoke("scrape-website", {
+              body: { url, clientId: data.id },
+            });
+          } catch (err) {
+            console.error("Error scraping website:", url, err);
+          }
+        }
+      }
+      
       return data;
     },
     onSuccess: () => {

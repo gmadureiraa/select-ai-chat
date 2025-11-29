@@ -49,6 +49,44 @@ export type Database = {
           },
         ]
       }
+      client_websites: {
+        Row: {
+          client_id: string
+          created_at: string
+          id: string
+          last_scraped_at: string | null
+          scraped_content: string | null
+          scraped_markdown: string | null
+          url: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          id?: string
+          last_scraped_at?: string | null
+          scraped_content?: string | null
+          scraped_markdown?: string | null
+          url: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          id?: string
+          last_scraped_at?: string | null
+          scraped_content?: string | null
+          scraped_markdown?: string | null
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_websites_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clients: {
         Row: {
           context_notes: string | null
@@ -56,6 +94,8 @@ export type Database = {
           description: string | null
           id: string
           name: string
+          social_media: Json | null
+          tags: Json | null
           updated_at: string | null
         }
         Insert: {
@@ -64,6 +104,8 @@ export type Database = {
           description?: string | null
           id?: string
           name: string
+          social_media?: Json | null
+          tags?: Json | null
           updated_at?: string | null
         }
         Update: {
@@ -72,6 +114,8 @@ export type Database = {
           description?: string | null
           id?: string
           name?: string
+          social_media?: Json | null
+          tags?: Json | null
           updated_at?: string | null
         }
         Relationships: []
