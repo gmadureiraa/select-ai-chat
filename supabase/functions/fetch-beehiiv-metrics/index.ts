@@ -25,13 +25,16 @@ serve(async (req) => {
 
     console.log('Fetching Beehiiv metrics for client:', clientId);
 
-    // Fetch publication data from Beehiiv
-    const publicationResponse = await fetch('https://api.beehiiv.com/v2/publications', {
-      headers: {
-        'Authorization': `Bearer ${beehiivApiKey}`,
-        'Content-Type': 'application/json',
-      },
-    });
+    // Fetch publication data with expanded stats from Beehiiv
+    const publicationResponse = await fetch(
+      'https://api.beehiiv.com/v2/publications?expand=stats',
+      {
+        headers: {
+          'Authorization': `Bearer ${beehiivApiKey}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
 
     if (!publicationResponse.ok) {
       const error = await publicationResponse.text();
@@ -48,9 +51,9 @@ serve(async (req) => {
       throw new Error('No publication found');
     }
 
-    // Fetch stats for the publication
+    // Fetch aggregate stats for posts
     const statsResponse = await fetch(
-      `https://api.beehiiv.com/v2/publications/${publication.id}/stats/summary`,
+      `https://api.beehiiv.com/v2/publications/${publication.id}/posts/stats`,
       {
         headers: {
           'Authorization': `Bearer ${beehiivApiKey}`,
@@ -61,17 +64,37 @@ serve(async (req) => {
 
     if (!statsResponse.ok) {
       const error = await statsResponse.text();
-      console.error('Beehiiv stats API error:', error);
-      throw new Error(`Beehiiv stats API error: ${statsResponse.status}`);
+      console.error('Beehiiv aggregate stats API error:', error);
+      throw new Error(`Beehiiv aggregate stats API error: ${statsResponse.status}`);
     }
 
-    const stats = await statsResponse.json();
-    console.log('Stats fetched:', stats);
+    const aggregateStats = await statsResponse.json();
+    console.log('Aggregate stats fetched:', aggregateStats);
 
     // Connect to Supabase
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Extract metrics from the response
+    const statsData = aggregateStats.data || {};
+    const subscribers = publication.stats?.active_subscriptions || 0;
+    const totalPosts = statsData.total_posts || 0;
+    
+    // Calculate averages from aggregate stats
+    const uniqueOpens = statsData.unique_opens || 0;
+    const uniqueClicks = statsData.unique_clicks || 0;
+    const sent = statsData.sent || 1; // Avoid division by zero
+    
+    const openRate = sent > 0 ? ((uniqueOpens / sent) * 100).toFixed(2) : 0;
+    const clickRate = sent > 0 ? ((uniqueClicks / sent) * 100).toFixed(2) : 0;
+
+    console.log('Calculated metrics:', {
+      subscribers,
+      openRate,
+      clickRate,
+      totalPosts,
+    });
 
     // Store metrics in database
     const { data: metricsData, error: metricsError } = await supabase
@@ -80,14 +103,15 @@ serve(async (req) => {
         client_id: clientId,
         platform: 'newsletter',
         metric_date: new Date().toISOString().split('T')[0],
-        subscribers: stats.data?.total_subscribers || 0,
-        open_rate: stats.data?.average_open_rate || 0,
-        click_rate: stats.data?.average_click_rate || 0,
-        total_posts: stats.data?.total_posts || 0,
+        subscribers: subscribers,
+        open_rate: parseFloat(openRate as string),
+        click_rate: parseFloat(clickRate as string),
+        total_posts: totalPosts,
         metadata: {
           publication_name: publication.name,
           publication_id: publication.id,
-          raw_stats: stats.data,
+          raw_publication_stats: publication.stats,
+          raw_aggregate_stats: statsData,
         },
       }, {
         onConflict: 'client_id,platform,metric_date',
@@ -104,10 +128,10 @@ serve(async (req) => {
       JSON.stringify({
         success: true,
         data: {
-          subscribers: stats.data?.total_subscribers || 0,
-          openRate: stats.data?.average_open_rate || 0,
-          clickRate: stats.data?.average_click_rate || 0,
-          totalPosts: stats.data?.total_posts || 0,
+          subscribers: subscribers,
+          openRate: parseFloat(openRate as string),
+          clickRate: parseFloat(clickRate as string),
+          totalPosts: totalPosts,
         },
       }),
       {
