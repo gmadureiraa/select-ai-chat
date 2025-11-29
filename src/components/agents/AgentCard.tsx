@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import { ArrowRight, LucideIcon } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { useState } from "react";
 
 export interface AgentCardProps {
@@ -7,7 +7,6 @@ export interface AgentCardProps {
   subtitle: string;
   description: string;
   features: string[];
-  icon: LucideIcon;
   accentColor: "primary" | "secondary" | "accent";
   onOpen: () => void;
   onRun: () => void;
@@ -18,7 +17,6 @@ export default function AgentCard({
   subtitle,
   description,
   features,
-  icon: Icon,
   accentColor,
   onOpen,
   onRun,
@@ -77,18 +75,16 @@ export default function AgentCard({
           )}
         >
           <div className="relative h-full overflow-hidden">
-            {/* Animated icon with glow effect */}
-            <div className="absolute inset-0 flex items-start justify-center pt-24">
-              <div className="relative w-[200px] h-[100px] flex items-center justify-center">
-                <Icon 
-                  className={cn(
-                    "w-20 h-20 transition-all duration-500",
-                    colors.text,
-                    colors.glow,
-                    "group-hover:scale-110"
-                  )} 
-                />
-              </div>
+            {/* Animated colored circle */}
+            <div className="absolute inset-0 flex items-start justify-center pt-20">
+              <div 
+                className={cn(
+                  "w-24 h-24 rounded-full transition-all duration-500",
+                  colors.bg,
+                  colors.glow,
+                  "group-hover:scale-110"
+                )}
+              />
             </div>
           </div>
 
