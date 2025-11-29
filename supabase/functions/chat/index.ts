@@ -6,22 +6,59 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Validação de entrada
+const validateRequest = (body: any): { valid: boolean; error?: string } => {
+  if (!body || typeof body !== "object") {
+    return { valid: false, error: "Invalid request body" };
+  }
+
+  if (!Array.isArray(body.messages) || body.messages.length === 0) {
+    return { valid: false, error: "Messages array is required and must not be empty" };
+  }
+
+  if (body.model && typeof body.model !== "string") {
+    return { valid: false, error: "Model must be a string" };
+  }
+
+  return { valid: true };
+};
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
+  const startTime = Date.now();
+
   try {
-    const { messages, model } = await req.json();
+    const body = await req.json();
+    
+    // Validar requisição
+    const validation = validateRequest(body);
+    if (!validation.valid) {
+      console.error("Validation error:", validation.error);
+      return new Response(
+        JSON.stringify({ error: validation.error }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const { messages, model } = body;
     const selectedModel = model || "gpt-5-mini-2025-08-07";
     
-    console.log("Starting chat request with model:", selectedModel);
+    console.log("Chat request:", {
+      model: selectedModel,
+      messageCount: messages.length,
+      timestamp: new Date().toISOString()
+    });
     
     const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
     
     if (!OPENAI_API_KEY) {
-      throw new Error("OPENAI_API_KEY is not configured");
+      console.error("OPENAI_API_KEY not configured");
+      return new Response(
+        JSON.stringify({ error: "API key not configured" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
-    
-    console.log("Using OpenAI API with model:", selectedModel);
 
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
@@ -41,35 +78,66 @@ serve(async (req) => {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("OpenAI API error:", response.status, errorText);
+      const duration = Date.now() - startTime;
       
-      if (response.status === 429) {
-        return new Response(
-          JSON.stringify({ error: "Limite de taxa excedido. Por favor, tente novamente mais tarde." }),
-          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
+      console.error("OpenAI API error:", {
+        status: response.status,
+        statusText: response.statusText,
+        error: errorText,
+        duration: `${duration}ms`,
+        model: selectedModel
+      });
       
-      if (response.status === 401) {
-        return new Response(
-          JSON.stringify({ error: "Chave de API inválida." }),
-          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+      let errorMessage = "Erro ao se comunicar com a OpenAI";
+      let statusCode = 500;
+      
+      switch (response.status) {
+        case 429:
+          errorMessage = "Limite de taxa excedido. Por favor, aguarde e tente novamente.";
+          statusCode = 429;
+          break;
+        case 401:
+          errorMessage = "Chave de API inválida ou expirada.";
+          statusCode = 401;
+          break;
+        case 400:
+          errorMessage = "Requisição inválida. Verifique os parâmetros.";
+          statusCode = 400;
+          break;
+        case 500:
+        case 502:
+        case 503:
+          errorMessage = "Servidor OpenAI temporariamente indisponível. Tente novamente.";
+          statusCode = 503;
+          break;
       }
       
       return new Response(
-        JSON.stringify({ error: "Erro ao se comunicar com a OpenAI" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({ error: errorMessage, details: errorText }),
+        { status: statusCode, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    const duration = Date.now() - startTime;
+    console.log(`Chat request completed in ${duration}ms`);
 
     return new Response(response.body, {
       headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
     });
   } catch (e) {
-    console.error("Chat error:", e);
+    const duration = Date.now() - startTime;
+    console.error("Chat error:", {
+      error: e instanceof Error ? e.message : "Unknown error",
+      stack: e instanceof Error ? e.stack : undefined,
+      duration: `${duration}ms`,
+      timestamp: new Date().toISOString()
+    });
+    
     return new Response(
-      JSON.stringify({ error: e instanceof Error ? e.message : "Erro desconhecido" }),
+      JSON.stringify({ 
+        error: e instanceof Error ? e.message : "Erro desconhecido ao processar a solicitação",
+        type: "internal_error"
+      }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
