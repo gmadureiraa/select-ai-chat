@@ -6,7 +6,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Header } from "@/components/Header";
 import { TemplateManager } from "@/components/clients/TemplateManager";
 import { useClientTemplates } from "@/hooks/useClientTemplates";
-import { ArrowLeft, MessageSquare, Sparkles, Zap, Image as ImageIcon } from "lucide-react";
+import { ArrowLeft, MessageSquare, Sparkles, Zap, Image as ImageIcon, Images } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import kaleidosLogo from "@/assets/kaleidos-logo.svg";
 
@@ -45,6 +46,15 @@ const ClientDashboard = () => {
       searchParams.set("templateId", templateId);
     }
     navigate(`/client/${clientId}/image-gen?${searchParams.toString()}`);
+  };
+
+  // Count references in templates
+  const getTemplateReferenceCount = (template: any) => {
+    const rules = template.rules || [];
+    const textRules = rules.filter((r: any) => !r.type || r.type === 'text').length;
+    const imageRefs = rules.filter((r: any) => r.type === 'image_reference').length;
+    const contentRefs = rules.filter((r: any) => r.type === 'content_reference').length;
+    return { textRules, imageRefs, contentRefs, total: textRules + imageRefs + contentRefs };
   };
 
   if (isLoading) {
@@ -176,6 +186,26 @@ const ClientDashboard = () => {
             </CardContent>
           </Card>
 
+          {/* Galeria de Imagens */}
+          <Card
+            className="hover:shadow-lg transition-shadow cursor-pointer border-primary/20"
+            onClick={() => navigate(`/client/${clientId}/gallery`)}
+          >
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <div className="p-3 rounded-lg bg-primary/10">
+                  <Images className="h-6 w-6 text-primary" />
+                </div>
+                <CardTitle>Galeria de Imagens</CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <CardDescription>
+                Visualize todas as imagens geradas para este cliente
+              </CardDescription>
+            </CardContent>
+          </Card>
+
           {/* Templates */}
           {templates.map((template) => (
             <Card
@@ -192,18 +222,39 @@ const ClientDashboard = () => {
                       <Sparkles className="h-6 w-6 text-foreground" />
                     )}
                   </div>
-                  <div className="flex items-center gap-2 flex-1">
-                    <CardTitle className="text-lg">{template.name}</CardTitle>
-                    <span className="text-xs px-2 py-0.5 rounded-full bg-background border">
-                      {template.type === 'image' ? 'Imagem' : 'Chat'}
-                    </span>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <CardTitle className="text-lg">{template.name}</CardTitle>
+                      <Badge variant="outline" className="text-xs">
+                        {template.type === 'image' ? 'Imagem' : 'Chat'}
+                      </Badge>
+                    </div>
+                    {(() => {
+                      const counts = getTemplateReferenceCount(template);
+                      return counts.total > 0 ? (
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {counts.textRules > 0 && (
+                            <Badge variant="secondary" className="text-xs">
+                              {counts.textRules} {counts.textRules === 1 ? 'regra' : 'regras'}
+                            </Badge>
+                          )}
+                          {counts.imageRefs > 0 && (
+                            <Badge variant="secondary" className="text-xs">
+                              {counts.imageRefs} {counts.imageRefs === 1 ? 'img' : 'imgs'}
+                            </Badge>
+                          )}
+                          {counts.contentRefs > 0 && (
+                            <Badge variant="secondary" className="text-xs">
+                              {counts.contentRefs} {counts.contentRefs === 1 ? 'ref' : 'refs'}
+                            </Badge>
+                          )}
+                        </div>
+                      ) : null;
+                    })()}
                   </div>
                 </div>
               </CardHeader>
               <CardContent>
-                <CardDescription className="mb-2">
-                  Usar template com {template.rules.length} regra(s) definida(s)
-                </CardDescription>
                 {template.rules.length > 0 && (
                   <div className="text-xs text-muted-foreground">
                     <p className="line-clamp-2">{template.rules[0].content}</p>
