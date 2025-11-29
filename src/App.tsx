@@ -10,6 +10,7 @@ import Clients from "./pages/Clients";
 import ClientChat from "./pages/ClientChat";
 import ClientDashboard from "./pages/ClientDashboard";
 import ClientPerformance from "./pages/ClientPerformance";
+import PerformanceClients from "./pages/PerformanceClients";
 import ImageGeneration from "./pages/ImageGeneration";
 import ImageGallery from "./pages/ImageGallery";
 import Automations from "./pages/Automations";
@@ -43,6 +44,16 @@ const App = () => (
               <ProtectedRoute>
                 <AppLayout>
                   <Clients />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/performance"
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <PerformanceClients />
                 </AppLayout>
               </ProtectedRoute>
             }

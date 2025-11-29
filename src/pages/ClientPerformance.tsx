@@ -1,16 +1,19 @@
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, TrendingUp, Users, Mail, BarChart3 } from "lucide-react";
+import { ArrowLeft, TrendingUp, Users, Mail, BarChart3, Instagram, Youtube, Newspaper } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
+import { useState } from "react";
 
 export default function ClientPerformance() {
   const { clientId } = useParams();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const selectedChannel = searchParams.get("channel");
 
   const { data: client, isLoading } = useQuery({
     queryKey: ["client", clientId],
@@ -25,6 +28,28 @@ export default function ClientPerformance() {
       return data;
     },
   });
+
+  // Canais disponíveis por cliente
+  const channels = {
+    newsletter: {
+      icon: Newspaper,
+      title: "Newsletter",
+      description: "Análise de emails e engajamento da newsletter",
+      color: "primary",
+    },
+    instagram: {
+      icon: Instagram,
+      title: "Instagram",
+      description: "Métricas de posts, stories e engajamento",
+      color: "secondary",
+    },
+    cortes: {
+      icon: Youtube,
+      title: "Cortes (YouTube/TikTok)",
+      description: "Performance de vídeos curtos e viral content",
+      color: "accent",
+    },
+  };
 
   // Dados mockados baseados nas informações reais do Defiverso
   const defiversoData = {
@@ -73,6 +98,56 @@ export default function ClientPerformance() {
     );
   }
 
+  // Se não tem canal selecionado, mostra a seleção de canais
+  if (!selectedChannel) {
+    return (
+      <div className="container mx-auto p-6 space-y-6">
+        {/* Header */}
+        <div className="flex items-center gap-4">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => navigate("/performance")}
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <div>
+            <h1 className="text-3xl font-bold">{client.name}</h1>
+            <p className="text-muted-foreground">Escolha um canal para análise</p>
+          </div>
+        </div>
+
+        {/* Channel Selection */}
+        <div className="grid gap-6 md:grid-cols-3">
+          {Object.entries(channels).map(([key, channel]) => {
+            const Icon = channel.icon;
+            return (
+              <Card
+                key={key}
+                className={`hover:shadow-lg transition-all cursor-pointer border-${channel.color}/20 hover:border-${channel.color}/40 group`}
+                onClick={() => setSearchParams({ channel: key })}
+              >
+                <CardHeader>
+                  <div className="flex items-center gap-3">
+                    <div className={`p-3 rounded-lg bg-${channel.color}/10 group-hover:bg-${channel.color}/20 transition-colors`}>
+                      <Icon className={`h-6 w-6 text-${channel.color}`} />
+                    </div>
+                    <CardTitle className={`group-hover:text-${channel.color} transition-colors`}>
+                      {channel.title}
+                    </CardTitle>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <CardDescription>{channel.description}</CardDescription>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="container mx-auto p-6 space-y-6">
       {/* Header */}
@@ -81,13 +156,15 @@ export default function ClientPerformance() {
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => navigate(`/client/${clientId}`)}
+            onClick={() => setSearchParams({})}
           >
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div>
             <h1 className="text-3xl font-bold">{client.name}</h1>
-            <p className="text-muted-foreground">Análise de Performance</p>
+            <p className="text-muted-foreground">
+              {channels[selectedChannel as keyof typeof channels]?.title || "Análise de Performance"}
+            </p>
           </div>
         </div>
       </div>
