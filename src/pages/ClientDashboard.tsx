@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Header } from "@/components/Header";
 import { TemplateManager } from "@/components/clients/TemplateManager";
 import { useClientTemplates } from "@/hooks/useClientTemplates";
-import { ArrowLeft, MessageSquare, Sparkles, Zap, Image as ImageIcon, Images } from "lucide-react";
+import { ArrowLeft, MessageSquare, Sparkles, Image as ImageIcon, Images } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import kaleidosLogo from "@/assets/kaleidos-logo.svg";
@@ -146,26 +146,6 @@ const ClientDashboard = () => {
             </CardContent>
           </Card>
 
-          {/* Automações */}
-          <Card
-            className="hover:shadow-lg transition-shadow cursor-pointer border-secondary/20"
-            onClick={() => navigate("/automations")}
-          >
-            <CardHeader>
-              <div className="flex items-center gap-3">
-                <div className="p-3 rounded-lg bg-secondary/10">
-                  <Zap className="h-6 w-6 text-secondary" />
-                </div>
-                <CardTitle>Automações</CardTitle>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <CardDescription>
-                Configure tarefas automáticas e agendamentos para este cliente
-              </CardDescription>
-            </CardContent>
-          </Card>
-
           {/* Geração de Imagem */}
           <Card
             className="hover:shadow-lg transition-shadow cursor-pointer border-accent/20"
@@ -211,13 +191,23 @@ const ClientDashboard = () => {
             <Card
               key={template.id}
               className="hover:shadow-lg transition-shadow cursor-pointer border-muted"
-              onClick={() => template.type === 'image' ? startImageGeneration(template.id) : startNewChat(template.id)}
+              onClick={() => {
+                if (template.type === 'image') {
+                  startImageGeneration(template.id);
+                } else if (template.type === 'automation') {
+                  navigate(`/automations?templateId=${template.id}`);
+                } else {
+                  startNewChat(template.id);
+                }
+              }}
             >
               <CardHeader>
                 <div className="flex items-center gap-3">
                   <div className="p-3 rounded-lg bg-muted">
                     {template.type === 'image' ? (
                       <ImageIcon className="h-6 w-6 text-foreground" />
+                    ) : template.type === 'automation' ? (
+                      <Sparkles className="h-6 w-6 text-secondary" />
                     ) : (
                       <Sparkles className="h-6 w-6 text-foreground" />
                     )}
@@ -226,40 +216,56 @@ const ClientDashboard = () => {
                     <div className="flex items-center gap-2 mb-1">
                       <CardTitle className="text-lg">{template.name}</CardTitle>
                       <Badge variant="outline" className="text-xs">
-                        {template.type === 'image' ? 'Imagem' : 'Chat'}
+                        {template.type === 'image' ? 'Imagem' : template.type === 'automation' ? 'Automação' : 'Chat'}
                       </Badge>
                     </div>
-                    {(() => {
-                      const counts = getTemplateReferenceCount(template);
-                      return counts.total > 0 ? (
-                        <div className="flex items-center gap-2 flex-wrap">
-                          {counts.textRules > 0 && (
-                            <Badge variant="secondary" className="text-xs">
-                              {counts.textRules} {counts.textRules === 1 ? 'regra' : 'regras'}
-                            </Badge>
-                          )}
-                          {counts.imageRefs > 0 && (
-                            <Badge variant="secondary" className="text-xs">
-                              {counts.imageRefs} {counts.imageRefs === 1 ? 'img' : 'imgs'}
-                            </Badge>
-                          )}
-                          {counts.contentRefs > 0 && (
-                            <Badge variant="secondary" className="text-xs">
-                              {counts.contentRefs} {counts.contentRefs === 1 ? 'ref' : 'refs'}
-                            </Badge>
-                          )}
-                        </div>
-                      ) : null;
-                    })()}
+                    {template.type === 'automation' ? (
+                      <div className="text-xs text-muted-foreground">
+                        {template.automation_config?.schedule_type === 'daily' && 'Execução diária'}
+                        {template.automation_config?.schedule_type === 'weekly' && 'Execução semanal'}
+                        {template.automation_config?.schedule_type === 'monthly' && 'Execução mensal'}
+                        {!template.automation_config?.schedule_type && 'Automação configurável'}
+                      </div>
+                    ) : (
+                      (() => {
+                        const counts = getTemplateReferenceCount(template);
+                        return counts.total > 0 ? (
+                          <div className="flex items-center gap-2 flex-wrap">
+                            {counts.textRules > 0 && (
+                              <Badge variant="secondary" className="text-xs">
+                                {counts.textRules} {counts.textRules === 1 ? 'regra' : 'regras'}
+                              </Badge>
+                            )}
+                            {counts.imageRefs > 0 && (
+                              <Badge variant="secondary" className="text-xs">
+                                {counts.imageRefs} {counts.imageRefs === 1 ? 'img' : 'imgs'}
+                              </Badge>
+                            )}
+                            {counts.contentRefs > 0 && (
+                              <Badge variant="secondary" className="text-xs">
+                                {counts.contentRefs} {counts.contentRefs === 1 ? 'ref' : 'refs'}
+                              </Badge>
+                            )}
+                          </div>
+                        ) : null;
+                      })()
+                    )}
                   </div>
                 </div>
               </CardHeader>
               <CardContent>
-                {template.rules.length > 0 && (
+                {template.type === 'automation' ? (
+                  <div className="text-xs text-muted-foreground">
+                    {template.automation_config?.prompt 
+                      ? <p className="line-clamp-2">{template.automation_config.prompt}</p>
+                      : <p>Clique para configurar esta automação</p>
+                    }
+                  </div>
+                ) : template.rules.length > 0 ? (
                   <div className="text-xs text-muted-foreground">
                     <p className="line-clamp-2">{template.rules[0].content}</p>
                   </div>
-                )}
+                ) : null}
               </CardContent>
             </Card>
           ))}

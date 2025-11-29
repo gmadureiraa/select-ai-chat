@@ -9,17 +9,32 @@ export interface ClientTemplate {
   id: string;
   client_id: string;
   name: string;
-  type: 'chat' | 'image';
+  type: 'chat' | 'image' | 'automation';
   rules: TemplateRule[];
+  automation_config?: AutomationConfig;
   created_at: string;
   updated_at: string;
+}
+
+export interface AutomationConfig {
+  schedule_type: string;
+  schedule_time?: string;
+  schedule_days?: string[];
+  schedule_config?: any;
+  model: string;
+  prompt: string;
+  data_sources?: any[];
+  actions?: any[];
+  email_recipients?: string[];
+  webhook_url?: string;
 }
 
 export interface CreateTemplateData {
   client_id: string;
   name: string;
-  type: 'chat' | 'image';
+  type: 'chat' | 'image' | 'automation';
   rules?: TemplateRule[];
+  automation_config?: AutomationConfig;
 }
 
 export const DEFAULT_CHAT_RULES: string[] = [
