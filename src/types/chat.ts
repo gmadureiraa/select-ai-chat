@@ -47,7 +47,7 @@ export interface Document {
   created_at: string;
 }
 
-export type ProcessStep = "analyzing" | "reviewing" | "creating" | null;
+export type ProcessStep = "analyzing" | "reviewing" | "creating" | "selecting" | null;
 
 export interface ChatError {
   message: string;

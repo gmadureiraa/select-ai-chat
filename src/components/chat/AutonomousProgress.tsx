@@ -7,9 +7,9 @@ interface AutonomousProgressProps {
 }
 
 const steps = [
-  { key: "analyzing", label: "Analisando demanda", description: "Entendendo o que você precisa" },
-  { key: "reviewing", label: "Revisando contexto", description: "Consultando informações do cliente" },
-  { key: "creating", label: "Criando conteúdo", description: "Executando tarefa com base nas regras" },
+  { key: "analyzing", label: "Analisando pergunta", description: "Identificando informações necessárias" },
+  { key: "reviewing", label: "Carregando documentos", description: "Lendo informações selecionadas" },
+  { key: "creating", label: "Criando resposta", description: "Gerando conteúdo com base nos documentos" },
 ];
 
 export const AutonomousProgress = ({ currentStep }: AutonomousProgressProps) => {

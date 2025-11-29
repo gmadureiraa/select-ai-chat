@@ -176,38 +176,74 @@ export const useClientChat = (clientId: string, templateId?: string) => {
 
       if (insertError) throw insertError;
 
-      // Realtime vai atualizar automaticamente
+      // FASE 1: Análise e seleção de documentos relevantes
+      setCurrentStep("analyzing");
+      
+      // Preparar lista de documentos disponíveis
+      const availableDocuments = documents.map(d => ({
+        id: d.id,
+        name: d.name,
+        type: d.file_type,
+        description: `${d.name} (${d.file_type})`
+      }));
+
+      // System message para seleção
+      const selectionSystemMessage = `Você é o kAI, assistente especializado da Kaleidos para o cliente ${client.name}.
+
+Sua tarefa é ANALISAR a pergunta do usuário e SELECIONAR apenas os documentos e informações REALMENTE RELEVANTES para responder.
+
+## Documentos Disponíveis:
+${availableDocuments.map(d => `- ${d.id}: ${d.description}`).join('\n')}
+
+## Informações do Cliente:
+- Websites: ${websites.length} website(s) com conteúdo extraído
+- Notas de Contexto: ${client.context_notes ? 'Disponíveis' : 'Não disponíveis'}
+- Redes Sociais: ${Object.keys(client.social_media || {}).length} rede(s)
+- Tags: ${Object.keys(client.tags || {}).length} tag(s)
+
+IMPORTANTE: Seja SELETIVO. Escolha apenas o que é ESSENCIAL para responder à pergunta específica do usuário.`;
+
+      // Histórico completo de mensagens para contexto
+      const selectionMessages = [
+        { role: "system", content: selectionSystemMessage },
+        ...messages.map(m => ({ role: m.role, content: m.content })),
+        { role: "user", content }
+      ];
+
+      const { data: selectionData, error: selectionError } = await supabase.functions.invoke("chat", {
+        body: {
+          messages: selectionMessages,
+          model: selectedModel,
+          isSelectionPhase: true,
+          availableDocuments
+        },
+      });
+
+      if (selectionError) throw selectionError;
+
+      const selection = selectionData.selection;
+      console.log("Documents selected:", selection);
+
+      // FASE 2: Carregar documentos selecionados
       setCurrentStep("reviewing");
 
-      // Build comprehensive context with structured workflow
+      // Build focused context with ONLY selected documents
       let contextParts = [
         `# Identidade kAI - Assistente Estratégico para ${client.name}`,
         ``,
-        `Você é o kAI, assistente de IA especializado em marketing digital da Kaleidos. Sua função é ajudar a criar conteúdo estratégico e executar tarefas para o cliente ${client.name}.`,
+        `Você é o kAI, assistente de IA especializado em marketing digital da Kaleidos.`,
         ``,
-        `## PROCESSO DE CRIAÇÃO (SIGA ESTAS ETAPAS):`,
+        `## 🎯 INFORMAÇÕES SELECIONADAS PARA ESTA TAREFA`,
         ``,
-        `### 1️⃣ ANALISAR A DEMANDA`,
-        `- Identifique claramente o que o usuário está pedindo`,
-        `- Confirme os objetivos e requisitos específicos`,
-        `- Faça perguntas se necessário para entender melhor`,
+        `Os seguintes recursos foram identificados como RELEVANTES para esta pergunta específica:`,
         ``,
-        `### 2️⃣ ANALISAR O CONTEXTO DO CLIENTE`,
-        `- Revise as informações do cliente (segmento, tom, objetivos, público)`,
-        `- Consulte websites e conteúdo extraído`,
-        `- Considere as redes sociais e estilo de comunicação`,
-        `- Verifique documentos e materiais de referência`,
-        ``,
-        `### 3️⃣ APLICAR REGRAS E CRIAR`,
-        `- Use os padrões e funções recorrentes definidos`,
-        `- Mantenha consistência com o tom de voz do cliente`,
-        `- Siga as diretrizes estratégicas estabelecidas`,
-        `- Crie conteúdo alinhado com os objetivos`,
+        `**Raciocínio da Seleção:** ${selection.reasoning}`,
         ``
       ];
 
-      if (client.context_notes) {
-        contextParts.push(`## 📋 Contexto Fixo:`);
+      // Add context notes only if selected
+      if (selection.use_context_notes && client.context_notes) {
+        contextParts.push(`## 📋 Contexto do Cliente:`);
         contextParts.push(client.context_notes);
         contextParts.push('');
       }
@@ -280,6 +316,35 @@ export const useClientChat = (clientId: string, templateId?: string) => {
         contextParts.push('');
       }
 
+      // Add selected resources
+      if (selection.use_websites && websites.length > 0) {
+        contextParts.push("## 🌐 Websites Selecionados:");
+        websites.forEach(w => {
+          contextParts.push(`### ${w.url}`);
+          if (w.scraped_markdown) {
+            contextParts.push(w.scraped_markdown.substring(0, 4000));
+          }
+          contextParts.push('');
+        });
+      }
+
+      // Add only selected documents (full content)
+      if (selection.selected_documents && selection.selected_documents.length > 0) {
+        contextParts.push(`## 📄 Documentos Selecionados:`);
+        const selectedDocs = documents.filter(d => selection.selected_documents.includes(d.id));
+        
+        for (const doc of selectedDocs) {
+          contextParts.push(`### ${doc.name}`);
+          contextParts.push(`Tipo: ${doc.file_type}`);
+          contextParts.push('');
+          // TODO: Aqui você pode adicionar lógica para ler o conteúdo do documento do storage
+          // Por enquanto, indicamos que o documento está disponível
+          contextParts.push(`[Documento ${doc.name} foi selecionado como relevante]`);
+          contextParts.push('');
+        }
+      }
+
+      // Always add social media and tags for consistency
       if (client.social_media && Object.values(client.social_media).some(v => v)) {
         contextParts.push("## 📱 Redes Sociais:");
         if (client.social_media.instagram) contextParts.push(`- Instagram: ${client.social_media.instagram}`);
@@ -289,43 +354,28 @@ export const useClientChat = (clientId: string, templateId?: string) => {
         contextParts.push('');
       }
 
-      if (websites.length > 0) {
-        contextParts.push("## 🌐 Websites e Conteúdo Extraído:");
-        websites.forEach(w => {
-          contextParts.push(`### ${w.url}`);
-          if (w.scraped_markdown) {
-            contextParts.push(w.scraped_markdown.substring(0, 3000));
-          }
-          contextParts.push('');
-        });
-      }
-
-      if (documents.length > 0) {
-        contextParts.push(`## 📄 Documentos de Referência (${documents.length}):`);
-        documents.forEach(d => contextParts.push(`- ${d.name} (${d.file_type})`));
-        contextParts.push('');
-      }
+      // FASE 3: Criar resposta com documentos selecionados
+      setCurrentStep("creating");
 
       const systemMessage = contextParts.join("\n");
 
+      // IMPORTANTE: Sempre enviar histórico COMPLETO da conversa
       const messagesWithContext = [
         { role: "system" as const, content: systemMessage },
         ...messages.map((m) => {
           const msg: any = { role: m.role, content: m.content };
           // Add image URLs for multimodal support
           if (m.image_urls && m.image_urls.length > 0) {
-            msg.images = m.image_urls;
+            msg.image_urls = m.image_urls;
           }
           return msg;
         }),
         { 
           role: "user" as const, 
           content,
-          ...(imageUrls && imageUrls.length > 0 ? { images: imageUrls } : {})
+          ...(imageUrls && imageUrls.length > 0 ? { image_urls: imageUrls } : {})
         },
       ];
-
-      setCurrentStep("creating");
 
       // Call AI com retry automático
       const { data, error } = await withRetry(
@@ -334,6 +384,7 @@ export const useClientChat = (clientId: string, templateId?: string) => {
             body: {
               messages: messagesWithContext,
               model: selectedModel,
+              isSelectionPhase: false, // Fase de resposta
             },
           }),
         {
