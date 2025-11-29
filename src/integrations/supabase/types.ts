@@ -129,6 +129,33 @@ export type Database = {
           },
         ]
       }
+      clickup_tokens: {
+        Row: {
+          access_token: string
+          created_at: string | null
+          id: string
+          updated_at: string | null
+          user_id: string
+          workspace_id: string | null
+        }
+        Insert: {
+          access_token: string
+          created_at?: string | null
+          id?: string
+          updated_at?: string | null
+          user_id: string
+          workspace_id?: string | null
+        }
+        Update: {
+          access_token?: string
+          created_at?: string | null
+          id?: string
+          updated_at?: string | null
+          user_id?: string
+          workspace_id?: string | null
+        }
+        Relationships: []
+      }
       client_documents: {
         Row: {
           client_id: string
@@ -166,6 +193,7 @@ export type Database = {
       }
       client_templates: {
         Row: {
+          clickup_list_id: string | null
           client_id: string
           created_at: string | null
           id: string
@@ -175,6 +203,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          clickup_list_id?: string | null
           client_id: string
           created_at?: string | null
           id?: string
@@ -184,6 +213,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          clickup_list_id?: string | null
           client_id?: string
           created_at?: string | null
           id?: string

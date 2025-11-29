@@ -10,6 +10,9 @@ interface MessageBubbleProps {
   imageUrls?: string[] | null;
   onRegenerate?: () => void;
   isLastMessage?: boolean;
+  clientId?: string;
+  clientName?: string;
+  templateName?: string;
 }
 
 export const MessageBubble = ({ 
@@ -17,7 +20,10 @@ export const MessageBubble = ({
   content,
   imageUrls,
   onRegenerate,
-  isLastMessage 
+  isLastMessage,
+  clientId,
+  clientName,
+  templateName,
 }: MessageBubbleProps) => {
   const isUser = role === "user";
 
@@ -63,6 +69,9 @@ export const MessageBubble = ({
           role={role}
           onRegenerate={onRegenerate}
           isLastMessage={isLastMessage}
+          clientId={clientId}
+          clientName={clientName}
+          templateName={templateName}
         />
       </div>
 
