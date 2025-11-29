@@ -11,8 +11,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useClients } from "@/hooks/useClients";
+import { useGenerateClientContext } from "@/hooks/useGenerateClientContext";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, X } from "lucide-react";
+import { Plus, X, Sparkles, Loader2 } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface ClientDialogProps {
   open: boolean;
@@ -23,6 +25,8 @@ export const ClientDialog = ({ open, onOpenChange }: ClientDialogProps) => {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [contextNotes, setContextNotes] = useState("");
+  const [generatedContext, setGeneratedContext] = useState("");
+  const [showGeneratedContext, setShowGeneratedContext] = useState(false);
   
   // Structured fields
   const [websites, setWebsites] = useState<string[]>([]);
@@ -45,6 +49,7 @@ export const ClientDialog = ({ open, onOpenChange }: ClientDialogProps) => {
   const [templateInput, setTemplateInput] = useState("");
   
   const { createClient } = useClients();
+  const { generateContext, isGenerating } = useGenerateClientContext();
 
   const addWebsite = () => {
     if (websiteInput.trim() && !websites.includes(websiteInput.trim())) {
@@ -68,6 +73,26 @@ export const ClientDialog = ({ open, onOpenChange }: ClientDialogProps) => {
     setFunctionTemplates(functionTemplates.filter(t => t !== template));
   };
 
+  const handleGenerateContext = async () => {
+    const context = await generateContext({
+      name,
+      description,
+      tags,
+      social_media: socialMedia,
+      function_templates: functionTemplates,
+    });
+
+    if (context) {
+      setGeneratedContext(context);
+      setShowGeneratedContext(true);
+    }
+  };
+
+  const handleUseGeneratedContext = () => {
+    setContextNotes(generatedContext);
+    setShowGeneratedContext(false);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -85,6 +110,8 @@ export const ClientDialog = ({ open, onOpenChange }: ClientDialogProps) => {
     setName("");
     setDescription("");
     setContextNotes("");
+    setGeneratedContext("");
+    setShowGeneratedContext(false);
     setWebsites([]);
     setWebsiteInput("");
     setSocialMedia({ instagram: "", linkedin: "", facebook: "", twitter: "" });
@@ -138,14 +165,73 @@ export const ClientDialog = ({ open, onOpenChange }: ClientDialogProps) => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="context">Contexto Fixo do Chat</Label>
-                <Textarea
-                  id="context"
-                  value={contextNotes}
-                  onChange={(e) => setContextNotes(e.target.value)}
-                  placeholder="Informações importantes, estratégias, objetivos, etc. que o chat deve sempre considerar..."
-                  rows={6}
-                />
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="context">Contexto Fixo do Chat</Label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleGenerateContext}
+                    disabled={!name.trim() || isGenerating}
+                    className="gap-2"
+                  >
+                    {isGenerating ? (
+                      <>
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                        Gerando...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="h-3 w-3" />
+                        Gerar com IA
+                      </>
+                    )}
+                  </Button>
+                </div>
+                
+                {showGeneratedContext && (
+                  <Alert className="mb-2">
+                    <Sparkles className="h-4 w-4" />
+                    <AlertDescription className="flex items-center justify-between">
+                      <span>Contexto gerado! Revise e edite abaixo antes de usar.</span>
+                      <div className="flex gap-2">
+                        <Button
+                          type="button"
+                          size="sm"
+                          onClick={handleUseGeneratedContext}
+                        >
+                          Usar Contexto
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setShowGeneratedContext(false)}
+                        >
+                          Descartar
+                        </Button>
+                      </div>
+                    </AlertDescription>
+                  </Alert>
+                )}
+
+                {showGeneratedContext ? (
+                  <Textarea
+                    value={generatedContext}
+                    onChange={(e) => setGeneratedContext(e.target.value)}
+                    className="min-h-[400px] font-mono text-sm"
+                    placeholder="Contexto gerado aparecerá aqui..."
+                  />
+                ) : (
+                  <Textarea
+                    id="context"
+                    value={contextNotes}
+                    onChange={(e) => setContextNotes(e.target.value)}
+                    placeholder="Informações importantes, estratégias, objetivos, etc. que o chat deve sempre considerar..."
+                    rows={6}
+                  />
+                )}
+                
                 <p className="text-xs text-muted-foreground">
                   Este contexto será incluído em todas as conversas com este cliente
                 </p>
