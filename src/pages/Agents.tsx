@@ -30,8 +30,8 @@ const Agents = () => {
       ],
       accentColor: "accent" as const,
       onOpen: () => {
-        // Assuming Defiverso client ID - will need to query for actual ID
-        const defiversoId = "defiverso";
+        // Navigate to Defiverso performance dashboard
+        const defiversoId = "c1227fa7-f9c4-4f8c-a091-ae250919dc07";
         navigate(`/client/${defiversoId}/performance`);
       },
     },
