@@ -33,6 +33,7 @@ const ClientChat = () => {
   const {
     messages,
     isLoading,
+    currentStep,
     selectedModel,
     setSelectedModel,
     sendMessage,
@@ -120,11 +121,21 @@ const ClientChat = () => {
                   <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary flex items-center justify-center">
                     <Sparkles className="h-5 w-5 text-primary-foreground animate-pulse" />
                   </div>
-                  <div className="bg-chat-ai-bg text-chat-ai-fg rounded-2xl px-4 py-3">
-                    <div className="flex gap-1">
-                      <span className="animate-bounce">●</span>
-                      <span className="animate-bounce" style={{ animationDelay: "0.1s" }}>●</span>
-                      <span className="animate-bounce" style={{ animationDelay: "0.2s" }}>●</span>
+                  <div className="space-y-2">
+                    <div className="bg-chat-ai-bg text-chat-ai-fg rounded-2xl px-4 py-3">
+                      <div className="flex items-center gap-2 text-sm">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <span className="font-medium">
+                          {currentStep === "analyzing" && "~ analisando demanda"}
+                          {currentStep === "reviewing" && "~ revisando contexto do cliente"}
+                          {currentStep === "creating" && "~ criando conteúdo"}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex gap-1 px-4">
+                      <span className="animate-bounce text-muted-foreground">●</span>
+                      <span className="animate-bounce text-muted-foreground" style={{ animationDelay: "0.1s" }}>●</span>
+                      <span className="animate-bounce text-muted-foreground" style={{ animationDelay: "0.2s" }}>●</span>
                     </div>
                   </div>
                 </div>

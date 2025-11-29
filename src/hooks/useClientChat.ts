@@ -8,10 +8,13 @@ interface Message {
   content: string;
 }
 
+type ProcessStep = "analyzing" | "reviewing" | "creating" | null;
+
 export const useClientChat = (clientId: string) => {
-  const [selectedModel, setSelectedModel] = useState("google/gemini-2.5-flash");
+  const [selectedModel, setSelectedModel] = useState("google/gemini-2.5-pro");
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [currentStep, setCurrentStep] = useState<ProcessStep>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -128,6 +131,7 @@ export const useClientChat = (clientId: string) => {
     if (!conversationId || !client) return;
 
     setIsLoading(true);
+    setCurrentStep("analyzing");
 
     try {
       // Save user message
@@ -141,6 +145,8 @@ export const useClientChat = (clientId: string) => {
 
       // Invalidate to show user message immediately
       queryClient.invalidateQueries({ queryKey: ["messages", conversationId] });
+
+      setCurrentStep("reviewing");
 
       // Build comprehensive context with structured workflow
       let contextParts = [
@@ -229,6 +235,8 @@ export const useClientChat = (clientId: string) => {
         { role: "user" as const, content },
       ];
 
+      setCurrentStep("creating");
+
       // Call AI
       const { data, error } = await supabase.functions.invoke("chat", {
         body: {
@@ -242,26 +250,33 @@ export const useClientChat = (clientId: string) => {
       const reader = data.body?.getReader();
       const decoder = new TextDecoder();
       let aiResponse = "";
+      let buffer = "";
 
       if (reader) {
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
 
-          const chunk = decoder.decode(value);
-          const lines = chunk.split("\n");
+          const chunk = decoder.decode(value, { stream: true });
+          buffer += chunk;
+
+          const lines = buffer.split("\n");
+          buffer = lines.pop() || ""; // Keep last incomplete line in buffer
 
           for (const line of lines) {
-            if (line.startsWith("data: ")) {
-              const data = line.slice(6);
-              if (data === "[DONE]") continue;
+            const trimmed = line.trim();
+            if (!trimmed || trimmed.startsWith(":")) continue;
+            
+            if (trimmed.startsWith("data: ")) {
+              const jsonStr = trimmed.slice(6);
+              if (jsonStr === "[DONE]") continue;
 
               try {
-                const parsed = JSON.parse(data);
+                const parsed = JSON.parse(jsonStr);
                 const content = parsed.choices[0]?.delta?.content || "";
                 aiResponse += content;
               } catch (e) {
-                console.error("Error parsing chunk:", e);
+                // Silently ignore JSON parse errors in streaming
               }
             }
           }
@@ -285,12 +300,14 @@ export const useClientChat = (clientId: string) => {
       });
     } finally {
       setIsLoading(false);
+      setCurrentStep(null);
     }
   };
 
   return {
     messages,
     isLoading,
+    currentStep,
     selectedModel,
     setSelectedModel,
     sendMessage,
