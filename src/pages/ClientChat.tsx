@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -9,12 +9,12 @@ import { MessageBubble } from "@/components/MessageBubble";
 import { ChatInput } from "@/components/ChatInput";
 import { ModelSelector } from "@/components/ModelSelector";
 import { useClientChat } from "@/hooks/useClientChat";
+import { useSmoothScroll } from "@/hooks/useSmoothScroll";
 import kaleidosLogo from "@/assets/kaleidos-logo.svg";
 
 const ClientChat = () => {
   const { clientId } = useParams();
   const navigate = useNavigate();
-  const scrollRef = useRef<HTMLDivElement>(null);
 
   const { data: client, isLoading: isLoadingClient } = useQuery({
     queryKey: ["client", clientId],
@@ -38,13 +38,14 @@ const ClientChat = () => {
     selectedModel,
     setSelectedModel,
     sendMessage,
+    regenerateLastMessage,
   } = useClientChat(clientId!);
 
-  useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
-  }, [messages]);
+  // Scroll suave automático
+  const scrollRef = useSmoothScroll([messages, isLoading], {
+    behavior: "smooth",
+    delay: 100,
+  });
 
   if (isLoadingClient) {
     return (
@@ -130,7 +131,13 @@ const ClientChat = () => {
           ) : (
             <div className="pb-4">
               {messages.map((message, idx) => (
-                <MessageBubble key={idx} role={message.role} content={message.content} />
+                <MessageBubble 
+                  key={idx} 
+                  role={message.role} 
+                  content={message.content}
+                  onRegenerate={regenerateLastMessage}
+                  isLastMessage={idx === messages.length - 1}
+                />
               ))}
               {isLoading && (
                 <div className="flex gap-3 p-6 animate-fade-in">
