@@ -1,5 +1,4 @@
 import { useNavigate } from "react-router-dom";
-import { Brain, MessageSquare, Zap } from "lucide-react";
 import AgentCard from "@/components/agents/AgentCard";
 import kaleidosLogo from "@/assets/kaleidos-logo.svg";
 
@@ -17,7 +16,6 @@ const Agents = () => {
         "Geração de imagens",
         "Automações programadas",
       ],
-      icon: MessageSquare,
       accentColor: "primary" as const,
       onOpen: () => navigate("/clients"),
       onRun: () => console.log("Run agent 1"),
@@ -32,7 +30,6 @@ const Agents = () => {
         "Relatórios automatizados",
         "Análise preditiva",
       ],
-      icon: Brain,
       accentColor: "accent" as const,
       onOpen: () => console.log("Open agent 2"),
       onRun: () => console.log("Run agent 2"),
@@ -47,7 +44,6 @@ const Agents = () => {
         "Personalização em escala",
         "Otimização por IA",
       ],
-      icon: Zap,
       accentColor: "secondary" as const,
       onOpen: () => console.log("Open agent 3"),
       onRun: () => console.log("Run agent 3"),
@@ -86,7 +82,6 @@ const Agents = () => {
               subtitle={agent.subtitle}
               description={agent.description}
               features={agent.features}
-              icon={agent.icon}
               accentColor={agent.accentColor}
               onOpen={agent.onOpen}
               onRun={agent.onRun}
