@@ -13,6 +13,9 @@ export default {
       },
     },
     extend: {
+      fontFamily: {
+        sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
@@ -56,6 +59,11 @@ export default {
             bg: "hsl(var(--chat-ai-bg))",
             fg: "hsl(var(--chat-ai-fg))",
           },
+        },
+        kaleidos: {
+          green: "hsl(145 100% 50%)",
+          magenta: "hsl(330 100% 60%)",
+          orange: "hsl(30 100% 55%)",
         },
       },
       borderRadius: {

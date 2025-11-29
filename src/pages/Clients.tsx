@@ -16,36 +16,36 @@ const Clients = () => {
   return (
     <div className="min-h-screen bg-background">
       <Header>
-        <div>
-          <div className="flex items-center gap-4 mb-3">
+        <div className="space-y-4">
+          <div className="flex items-center gap-6">
             <img 
               src={kaleidosLogo} 
               alt="Kaleidos" 
-              className="h-8 w-8 object-contain animate-fade-in" 
+              className="h-10 w-10 object-contain animate-fade-in" 
             />
-            <div className="flex items-center gap-2">
-              <h1 className="text-4xl font-bold">
-                k<span className="text-primary drop-shadow-[0_0_10px_rgba(0,255,127,0.5)]">AI</span>
+            <div className="flex items-center gap-3">
+              <h1 className="text-5xl font-bold tracking-tight">
+                k<span className="text-primary glow-green">AI</span>
               </h1>
-              <span className="text-xs text-muted-foreground font-medium px-3 py-1.5 bg-muted/50 rounded-full border border-primary/20">
+              <span className="text-xs text-muted-foreground font-medium px-4 py-2 bg-muted/30 rounded-full border border-border/50">
                 by Kaleidos Digital
               </span>
             </div>
           </div>
-          <p className="text-muted-foreground text-base">
+          <p className="text-muted-foreground text-lg font-light">
             Assistente de IA contextual para criação de conteúdo estratégico
           </p>
         </div>
         <Button 
           onClick={() => setIsDialogOpen(true)} 
-          className="gap-2 bg-secondary hover:bg-secondary/90 text-secondary-foreground shadow-lg hover:shadow-[0_0_20px_rgba(255,0,127,0.4)] transition-all"
+          className="gap-2 bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg glow-green transition-all font-semibold px-6 py-6 text-base"
         >
-          <Plus className="h-4 w-4" />
+          <Plus className="h-5 w-5" />
           Novo Cliente
         </Button>
       </Header>
 
-      <div className="max-w-7xl mx-auto p-6">
+      <div className="max-w-7xl mx-auto px-8 py-12">
         <ClientList clients={clients} isLoading={isLoading} />
       </div>
 
