@@ -171,9 +171,7 @@ export const useClientChat = (clientId: string) => {
 
       if (insertError) throw insertError;
 
-      // Invalidate to show user message immediately
-      queryClient.invalidateQueries({ queryKey: ["messages", conversationId] });
-
+      // Realtime vai atualizar automaticamente
       setCurrentStep("reviewing");
 
       // Build comprehensive context with structured workflow
@@ -354,6 +352,35 @@ export const useClientChat = (clientId: string) => {
     }
   }, [conversationId, client, selectedModel, messages, websites, documents, queryClient, toast]);
 
+  const regenerateLastMessage = useCallback(async () => {
+    if (!messages.length || messages[messages.length - 1].role !== "assistant") {
+      toast({
+        title: "Erro",
+        description: "Não há resposta para regenerar.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Deletar última mensagem da IA
+    const lastMessage = messages[messages.length - 1];
+    await supabase
+      .from("messages")
+      .delete()
+      .eq("id", lastMessage.id || "");
+
+    // Pegar última mensagem do usuário
+    const lastUserMessage = messages
+      .slice()
+      .reverse()
+      .find((m) => m.role === "user");
+
+    if (lastUserMessage) {
+      // Reenviar
+      await sendMessage(lastUserMessage.content);
+    }
+  }, [messages, sendMessage, toast]);
+
   return {
     messages,
     isLoading,
@@ -361,5 +388,6 @@ export const useClientChat = (clientId: string) => {
     selectedModel,
     setSelectedModel,
     sendMessage,
+    regenerateLastMessage,
   };
 };
