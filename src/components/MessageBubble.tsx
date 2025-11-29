@@ -23,16 +23,16 @@ export const MessageBubble = ({
 
   return (
     <div className={cn(
-      "flex gap-3 p-6 animate-fade-in group",
+      "flex gap-3 px-4 py-4 animate-fade-in group",
       isUser ? "justify-end" : "justify-start"
     )}>
       {!isUser && (
-        <div className="flex-shrink-0 w-10 h-10 rounded-full bg-card border-2 border-primary/30 flex items-center justify-center shadow-[0_0_15px_rgba(0,255,127,0.3)]">
-          <img src={kaleidosLogo} alt="kAI" className="h-6 w-6 object-contain" />
+        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-card border border-primary/20 flex items-center justify-center">
+          <img src={kaleidosLogo} alt="kAI" className="h-5 w-5 object-contain" />
         </div>
       )}
       
-      <div className="flex flex-col gap-2 max-w-[80%]">
+      <div className="flex flex-col gap-2 max-w-[85%]">
         {imageUrls && imageUrls.length > 0 && (
           <div className="flex gap-2 flex-wrap mb-2">
             {imageUrls.map((url, index) => (
@@ -47,13 +47,13 @@ export const MessageBubble = ({
         )}
         <div
           className={cn(
-            "rounded-2xl px-4 py-3 break-words transition-all duration-200",
+            "rounded-2xl px-4 py-3 break-words",
             isUser
-              ? "bg-chat-user-bg text-chat-user-fg border border-border"
-              : "bg-chat-ai-bg text-chat-ai-fg border border-primary/20"
+              ? "bg-muted border border-border"
+              : "bg-card border border-border"
           )}
         >
-          <div className="prose prose-sm dark:prose-invert max-w-none">
+          <div className="prose prose-sm dark:prose-invert max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
             <ReactMarkdown>{content}</ReactMarkdown>
           </div>
         </div>
@@ -67,8 +67,8 @@ export const MessageBubble = ({
       </div>
 
       {isUser && (
-        <div className="flex-shrink-0 w-10 h-10 rounded-full bg-muted border border-border flex items-center justify-center">
-          <User className="h-5 w-5 text-foreground" />
+        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-muted border border-border flex items-center justify-center">
+          <User className="h-4 w-4 text-foreground" />
         </div>
       )}
     </div>
