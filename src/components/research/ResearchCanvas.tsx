@@ -20,6 +20,7 @@ import { AIChatNode } from "./AIChatNode";
 import { TextNode } from "./TextNode";
 import { NoteNode } from "./NoteNode";
 import { AudioNode } from "./AudioNode";
+import ImageNode from "./ImageNode";
 import { Sparkles } from "lucide-react";
 
 interface ResearchCanvasProps {
@@ -32,6 +33,7 @@ const nodeTypes = {
   text: TextNode,
   note: NoteNode,
   audio: AudioNode,
+  image: ImageNode,
 };
 
 export const ResearchCanvas = ({ projectId }: ResearchCanvasProps) => {
@@ -61,6 +63,7 @@ export const ResearchCanvas = ({ projectId }: ResearchCanvasProps) => {
       else if (item.type === "text") nodeType = "text";
       else if (item.type === "note") nodeType = "note";
       else if (item.type === "audio") nodeType = "audio";
+      else if (item.type === "image") nodeType = "image";
 
       return {
         id: item.id,
