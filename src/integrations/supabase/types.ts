@@ -281,6 +281,7 @@ export type Database = {
           social_media: Json | null
           tags: Json | null
           updated_at: string | null
+          user_id: string
         }
         Insert: {
           context_notes?: string | null
@@ -292,6 +293,7 @@ export type Database = {
           social_media?: Json | null
           tags?: Json | null
           updated_at?: string | null
+          user_id?: string
         }
         Update: {
           context_notes?: string | null
@@ -303,6 +305,7 @@ export type Database = {
           social_media?: Json | null
           tags?: Json | null
           updated_at?: string | null
+          user_id?: string
         }
         Relationships: []
       }
