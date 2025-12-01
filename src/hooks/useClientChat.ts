@@ -16,6 +16,12 @@ export const useClientChat = (clientId: string, templateId?: string) => {
   const [isLoading, setIsLoading] = useState(false);
   const [currentStep, setCurrentStep] = useState<ProcessStep>(null);
   const [conversationRules, setConversationRules] = useState<string[]>([]);
+  const [workflowState, setWorkflowState] = useState<any>({
+    selectedMaterials: [],
+    reasoning: "",
+    strategy: "",
+    patternAnalysis: ""
+  });
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { logActivity } = useActivities();
@@ -168,6 +174,22 @@ export const useClientChat = (clientId: string, templateId?: string) => {
     enabled: !!clientId,
   });
 
+  // Get reference library
+  const { data: referenceLibrary = [] } = useQuery({
+    queryKey: ["client-reference-library", clientId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("client_reference_library")
+        .select("id, title, reference_type, content, source_url, metadata")
+        .eq("client_id", clientId)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!clientId,
+  });
+
   const sendMessage = useCallback(async (content: string, imageUrls?: string[]) => {
     // Validações
     const validationError = validateMessage(content);
@@ -234,6 +256,16 @@ export const useClientChat = (clientId: string, templateId?: string) => {
           title: d.name,
           preview: `Documento: ${d.name}`,
           hasFullContent: false // Precisa buscar do storage se necessário
+        })),
+        // NOVO: Biblioteca de Referências (tweets, threads, etc)
+        ...referenceLibrary.map(r => ({
+          id: r.id,
+          type: 'reference_library',
+          category: r.reference_type, // 'tweet', 'thread', 'video', etc
+          title: r.title,
+          preview: `${r.reference_type.toUpperCase()}: ${r.content.substring(0, 250)}`,
+          hasFullContent: true,
+          source_url: r.source_url
         }))
       ];
 
@@ -254,6 +286,13 @@ ${contentLibrary.map(c => `- ID: ${c.id}
 ${documents.map(d => `- ID: ${d.id}
   Nome: ${d.name}
   Tipo: ${d.file_type}`).join('\n')}
+
+### Biblioteca de Referências (${referenceLibrary.length}):
+${referenceLibrary.map(r => `- ID: ${r.id}
+  Tipo: ${r.reference_type}
+  Título: ${r.title}
+  Preview: ${r.content.substring(0, 150)}...
+  ${r.source_url ? `URL: ${r.source_url}` : ''}`).join('\n\n')}
 
 ## Outras Informações:
 - Websites: ${websites.length} website(s)
@@ -289,23 +328,42 @@ ESTRATÉGIA:
       const selection = selectionData.selection;
       console.log("Materials selected:", selection);
 
+      // Atualizar workflow state com materiais selecionados
+      setWorkflowState({
+        selectedMaterials: selection.selected_references || [],
+        reasoning: selection.reasoning || "",
+        strategy: selection.strategy || "",
+        patternAnalysis: ""
+      });
+
       // FASE 2: Análise de padrões (se necessário)
       let patternAnalysis = null;
       
       if (selection.analysis_needed && selection.selected_references?.length > 0) {
         setCurrentStep("analyzing_library");
         
-        // Buscar conteúdos completos selecionados
+        // Buscar conteúdos completos selecionados (biblioteca + referências)
         const selectedContents = selection.selected_references
-          .filter((ref: any) => ref.type === 'content_library')
           .map((ref: any) => {
-            const content = contentLibrary.find(c => c.id === ref.id);
-            return content ? {
-              title: content.title,
-              content_type: content.content_type,
-              content: content.content,
-              reason: ref.reason
-            } : null;
+            if (ref.type === 'content_library') {
+              const content = contentLibrary.find(c => c.id === ref.id);
+              return content ? {
+                title: content.title,
+                content_type: content.content_type,
+                content: content.content,
+                reason: ref.reason
+              } : null;
+            } else if (ref.type === 'reference_library') {
+              const reference = referenceLibrary.find(r => r.id === ref.id);
+              return reference ? {
+                title: reference.title,
+                content_type: `reference_${reference.reference_type}`,
+                content: reference.content,
+                source_url: reference.source_url,
+                reason: ref.reason
+              } : null;
+            }
+            return null;
           })
           .filter(Boolean);
 
@@ -316,6 +374,7 @@ ESTRATÉGIA:
 ## CONTEÚDOS PARA ANÁLISE:
 ${selectedContents.map((c: any, idx: number) => `
 ### ${idx + 1}. ${c.title} (${c.content_type})
+${c.source_url ? `**Fonte:** ${c.source_url}\n` : ''}
 ${c.content}
 ---
 `).join('\n')}
@@ -381,6 +440,12 @@ Retorne uma análise clara e estruturada para guiar a criação de novo conteúd
 
             patternAnalysis = analysisText;
             console.log("Pattern analysis completed:", analysisText.substring(0, 200));
+            
+            // Atualizar workflow state com análise de padrões
+            setWorkflowState((prev: any) => ({
+              ...prev,
+              patternAnalysis: analysisText
+            }));
           }
         }
       }
@@ -765,6 +830,7 @@ Retorne uma análise clara e estruturada para guiar a criação de novo conteúd
     currentStep,
     selectedModel,
     conversationRules,
+    workflowState,
     setSelectedModel,
     sendMessage,
     regenerateLastMessage,
