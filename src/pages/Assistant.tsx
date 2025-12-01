@@ -14,6 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import kaleidosLogo from "@/assets/kaleidos-logo.svg";
+import { TemplateManager } from "@/components/clients/TemplateManager";
 
 const Assistant = () => {
   const navigate = useNavigate();
@@ -120,13 +121,7 @@ const Assistant = () => {
                       Escolha uma opção ou template para começar
                     </p>
                   </div>
-                  <Button
-                    variant="ghost"
-                    onClick={() => navigate(`/client/${selectedClientId}`)}
-                    className="text-xs"
-                  >
-                    Gerenciar Templates
-                  </Button>
+                  <TemplateManager clientId={selectedClientId} />
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -207,13 +202,9 @@ const Assistant = () => {
                 {chatTemplates.length === 0 && imageTemplates.length === 0 && (
                   <div className="text-center py-12 text-muted-foreground">
                     <p>Nenhum template configurado para este cliente</p>
-                    <Button
-                      variant="outline"
-                      className="mt-4"
-                      onClick={() => navigate(`/client/${selectedClientId}`)}
-                    >
-                      Gerenciar Templates
-                    </Button>
+                    <div className="mt-4">
+                      <TemplateManager clientId={selectedClientId} />
+                    </div>
                   </div>
                 )}
               </div>
