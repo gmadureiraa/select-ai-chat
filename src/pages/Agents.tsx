@@ -20,8 +20,8 @@ const Agents = () => {
     },
     {
       title: "Assistente kAI",
-      subtitle: "Gerenciamento contextual de clientes",
-      description: "Sistema completo para gerenciar contexto e criar conteúdo estratégico para cada cliente",
+      subtitle: "Criação de conteúdo com IA",
+      description: "Chat inteligente com templates personalizados para criar conteúdo estratégico",
       features: [
         "Chat contextual por cliente",
         "Templates personalizáveis",
@@ -29,7 +29,7 @@ const Agents = () => {
         "Automações programadas",
       ],
       accentColor: "primary" as const,
-      onOpen: () => navigate("/clients"),
+      onOpen: () => navigate("/assistant"),
     },
     {
       title: "Análise de Performance",
