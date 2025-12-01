@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { BarChart3 } from "lucide-react";
 
 export default function PerformanceClients() {
   const navigate = useNavigate();
@@ -48,18 +49,18 @@ export default function PerformanceClients() {
         {clients?.map((client) => (
           <Card
             key={client.id}
-            className="p-6 border-border/50 bg-card/50 hover:border-border transition-all cursor-pointer"
+            className="p-6 border-border/50 bg-card/50 hover:border-border transition-all cursor-pointer group"
             onClick={() => navigate(`/client/${client.id}/performance`)}
           >
-            <h3 className="font-semibold text-lg mb-6">{client.name}</h3>
+            <div className="flex items-start gap-3 mb-4">
+              <BarChart3 className="h-5 w-5 text-foreground mt-0.5" />
+              <h3 className="font-semibold text-lg">{client.name}</h3>
+            </div>
             {client.description && (
-              <p className="text-sm text-muted-foreground mb-6 line-clamp-2">
+              <p className="text-sm text-muted-foreground line-clamp-2">
                 {client.description}
               </p>
             )}
-            <div className="flex items-center justify-center">
-              <span className="text-sm text-muted-foreground">Ver análise completa</span>
-            </div>
           </Card>
         ))}
       </div>
