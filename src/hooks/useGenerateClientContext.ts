@@ -12,11 +12,13 @@ export const useGenerateClientContext = () => {
     tags?: Record<string, string>;
     social_media?: Record<string, string>;
     function_templates?: string[];
+    websites?: string[];
+    documents?: string[];
   }): Promise<string> => {
     setIsGenerating(true);
 
     try {
-      const prompt = `Como assistente de IA da Kaleidos, organize todas as informações do cliente em um contexto estruturado e completo.
+      const prompt = `Como assistente de IA da Kaleidos, analise PROFUNDAMENTE todas as informações do cliente e crie um documento de contexto completo e estruturado.
 
 DADOS DO CLIENTE:
 Nome: ${clientData.name}
@@ -39,6 +41,18 @@ ${
 ${
   clientData.function_templates && clientData.function_templates.length > 0
     ? `FUNÇÕES/PADRÕES RECORRENTES:\n${clientData.function_templates.map((f, i) => `${i + 1}. ${f}`).join("\n")}`
+    : ""
+}
+
+${
+  clientData.websites && clientData.websites.length > 0
+    ? `CONTEÚDO DOS WEBSITES:\n${clientData.websites.join("\n\n---\n\n")}`
+    : ""
+}
+
+${
+  clientData.documents && clientData.documents.length > 0
+    ? `DOCUMENTOS ANEXADOS:\n${clientData.documents.join("\n")}`
     : ""
 }
 

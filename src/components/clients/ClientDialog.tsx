@@ -13,8 +13,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { useClients } from "@/hooks/useClients";
 import { useGenerateClientContext } from "@/hooks/useGenerateClientContext";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, X, Sparkles, Loader2 } from "lucide-react";
+import { Plus, X, Sparkles, Loader2, Upload, FileText } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { supabase } from "@/integrations/supabase/client";
 
 interface ClientDialogProps {
   open: boolean;
@@ -25,8 +26,8 @@ export const ClientDialog = ({ open, onOpenChange }: ClientDialogProps) => {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [contextNotes, setContextNotes] = useState("");
-  const [generatedContext, setGeneratedContext] = useState("");
-  const [showGeneratedContext, setShowGeneratedContext] = useState(false);
+  const [finalDoc, setFinalDoc] = useState("");
+  const [isProcessing, setIsProcessing] = useState(false);
   
   // Structured fields
   const [websites, setWebsites] = useState<string[]>([]);
@@ -47,6 +48,9 @@ export const ClientDialog = ({ open, onOpenChange }: ClientDialogProps) => {
   // Function templates
   const [functionTemplates, setFunctionTemplates] = useState<string[]>([]);
   const [templateInput, setTemplateInput] = useState("");
+  
+  // Documents
+  const [files, setFiles] = useState<File[]>([]);
   
   const { createClient } = useClients();
   const { generateContext, isGenerating } = useGenerateClientContext();
@@ -73,52 +77,108 @@ export const ClientDialog = ({ open, onOpenChange }: ClientDialogProps) => {
     setFunctionTemplates(functionTemplates.filter(t => t !== template));
   };
 
-  const handleGenerateContext = async () => {
-    const context = await generateContext({
-      name,
-      description,
-      tags,
-      social_media: socialMedia,
-      function_templates: functionTemplates,
-    });
-
-    if (context) {
-      setGeneratedContext(context);
-      setShowGeneratedContext(true);
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      setFiles(Array.from(e.target.files));
     }
   };
 
-  const handleUseGeneratedContext = () => {
-    setContextNotes(generatedContext);
-    setShowGeneratedContext(false);
+  const removeFile = (index: number) => {
+    setFiles(files.filter((_, i) => i !== index));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsProcessing(true);
     
-    await createClient.mutateAsync({
-      name,
-      description: description || null,
-      context_notes: contextNotes || null,
-      social_media: socialMedia,
-      tags: tags,
-      function_templates: functionTemplates,
-      websites,
-    });
+    try {
+      // 1. Criar o cliente primeiro para ter o ID
+      const client = await createClient.mutateAsync({
+        name,
+        description: description || null,
+        context_notes: null, // Será preenchido depois
+        social_media: socialMedia,
+        tags: tags,
+        function_templates: functionTemplates,
+        websites,
+      });
 
-    // Reset form
-    setName("");
-    setDescription("");
-    setContextNotes("");
-    setGeneratedContext("");
-    setShowGeneratedContext(false);
-    setWebsites([]);
-    setWebsiteInput("");
-    setSocialMedia({ instagram: "", linkedin: "", facebook: "", twitter: "" });
-    setTags({ segment: "", tone: "", objectives: "", audience: "" });
-    setFunctionTemplates([]);
-    setTemplateInput("");
-    onOpenChange(false);
+      const clientId = client.id;
+
+      // 2. Upload de documentos
+      const uploadedDocs: string[] = [];
+      for (const file of files) {
+        const fileExt = file.name.split(".").pop();
+        const fileName = `${clientId}/${Date.now()}_${file.name}`;
+        
+        const { error: uploadError } = await supabase.storage
+          .from("client-files")
+          .upload(fileName, file);
+
+        if (!uploadError) {
+          await supabase.from("client_documents").insert({
+            client_id: clientId,
+            name: file.name,
+            file_type: file.type,
+            file_path: fileName,
+          });
+          uploadedDocs.push(file.name);
+        }
+      }
+
+      // 3. Scrape websites
+      const websiteContents: string[] = [];
+      for (const url of websites) {
+        try {
+          const { data } = await supabase.functions.invoke("scrape-website", {
+            body: { url, clientId },
+          });
+          if (data?.scraped_markdown) {
+            websiteContents.push(`Website: ${url}\n${data.scraped_markdown}`);
+          }
+        } catch (err) {
+          console.error("Error scraping website:", url, err);
+        }
+      }
+
+      // 4. Gerar Doc Final com IA
+      const finalContext = await generateContext({
+        name,
+        description,
+        tags,
+        social_media: socialMedia,
+        function_templates: functionTemplates,
+        websites: websiteContents,
+        documents: uploadedDocs,
+      });
+
+      // 5. Atualizar cliente com Doc Final
+      if (finalContext) {
+        await supabase
+          .from("clients")
+          .update({ context_notes: finalContext })
+          .eq("id", clientId);
+        setFinalDoc(finalContext);
+      }
+
+      // Reset form
+      setName("");
+      setDescription("");
+      setContextNotes("");
+      setFinalDoc("");
+      setWebsites([]);
+      setWebsiteInput("");
+      setSocialMedia({ instagram: "", linkedin: "", facebook: "", twitter: "" });
+      setTags({ segment: "", tone: "", objectives: "", audience: "" });
+      setFunctionTemplates([]);
+      setTemplateInput("");
+      setFiles([]);
+      onOpenChange(false);
+    } catch (error) {
+      console.error("Error creating client:", error);
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   return (
@@ -133,12 +193,14 @@ export const ClientDialog = ({ open, onOpenChange }: ClientDialogProps) => {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <Tabs defaultValue="basic" className="w-full">
-            <TabsList className="grid w-full grid-cols-5">
+            <TabsList className="grid w-full grid-cols-7">
               <TabsTrigger value="basic">Básico</TabsTrigger>
               <TabsTrigger value="websites">Websites</TabsTrigger>
               <TabsTrigger value="social">Redes Sociais</TabsTrigger>
               <TabsTrigger value="tags">Tags/Notas</TabsTrigger>
               <TabsTrigger value="templates">Padrões</TabsTrigger>
+              <TabsTrigger value="documents">Documentos</TabsTrigger>
+              <TabsTrigger value="final">Doc Final</TabsTrigger>
             </TabsList>
 
             <TabsContent value="basic" className="space-y-4">
@@ -165,75 +227,16 @@ export const ClientDialog = ({ open, onOpenChange }: ClientDialogProps) => {
               </div>
 
               <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="context">Contexto Fixo do Chat</Label>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={handleGenerateContext}
-                    disabled={!name.trim() || isGenerating}
-                    className="gap-2"
-                  >
-                    {isGenerating ? (
-                      <>
-                        <Loader2 className="h-3 w-3 animate-spin" />
-                        Gerando...
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles className="h-3 w-3" />
-                        Gerar com IA
-                      </>
-                    )}
-                  </Button>
-                </div>
-                
-                {showGeneratedContext && (
-                  <Alert className="mb-2">
-                    <Sparkles className="h-4 w-4" />
-                    <AlertDescription className="flex items-center justify-between">
-                      <span>Contexto gerado! Revise e edite abaixo antes de usar.</span>
-                      <div className="flex gap-2">
-                        <Button
-                          type="button"
-                          size="sm"
-                          onClick={handleUseGeneratedContext}
-                        >
-                          Usar Contexto
-                        </Button>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          onClick={() => setShowGeneratedContext(false)}
-                        >
-                          Descartar
-                        </Button>
-                      </div>
-                    </AlertDescription>
-                  </Alert>
-                )}
-
-                {showGeneratedContext ? (
-                  <Textarea
-                    value={generatedContext}
-                    onChange={(e) => setGeneratedContext(e.target.value)}
-                    className="min-h-[400px] font-mono text-sm"
-                    placeholder="Contexto gerado aparecerá aqui..."
-                  />
-                ) : (
-                  <Textarea
-                    id="context"
-                    value={contextNotes}
-                    onChange={(e) => setContextNotes(e.target.value)}
-                    placeholder="Informações importantes, estratégias, objetivos, etc. que o chat deve sempre considerar..."
-                    rows={6}
-                  />
-                )}
-                
+                <Label htmlFor="context">Notas Adicionais (Opcional)</Label>
+                <Textarea
+                  id="context"
+                  value={contextNotes}
+                  onChange={(e) => setContextNotes(e.target.value)}
+                  placeholder="Qualquer observação ou nota adicional..."
+                  rows={4}
+                />
                 <p className="text-xs text-muted-foreground">
-                  Este contexto será incluído em todas as conversas com este cliente
+                  O Doc Final será gerado automaticamente ao salvar, combinando todas as informações fornecidas
                 </p>
               </div>
             </TabsContent>
@@ -397,6 +400,80 @@ export const ClientDialog = ({ open, onOpenChange }: ClientDialogProps) => {
                 )}
               </div>
             </TabsContent>
+
+            <TabsContent value="documents" className="space-y-4">
+              <div className="space-y-2">
+                <Label>Documentos do Cliente</Label>
+                <p className="text-xs text-muted-foreground">
+                  Adicione PDFs, documentos Word, imagens e outros arquivos relevantes
+                </p>
+                <div className="flex flex-col gap-2">
+                  <div className="relative">
+                    <Input
+                      type="file"
+                      multiple
+                      onChange={handleFileChange}
+                      className="cursor-pointer"
+                      accept=".pdf,.doc,.docx,.txt,.png,.jpg,.jpeg,.webp"
+                    />
+                    <Upload className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 pointer-events-none text-muted-foreground" />
+                  </div>
+                  {files.length > 0 && (
+                    <div className="space-y-2 mt-2">
+                      {files.map((file, idx) => (
+                        <div key={idx} className="flex items-center justify-between bg-muted p-2 rounded">
+                          <div className="flex items-center gap-2">
+                            <FileText className="h-4 w-4" />
+                            <span className="text-sm truncate">{file.name}</span>
+                            <span className="text-xs text-muted-foreground">
+                              ({(file.size / 1024).toFixed(1)} KB)
+                            </span>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => removeFile(idx)}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="final" className="space-y-4">
+              <div className="space-y-2">
+                <Label>Documento Final</Label>
+                <p className="text-xs text-muted-foreground">
+                  Este documento será gerado automaticamente com IA ao salvar o cliente, combinando todas as informações fornecidas
+                </p>
+                {isProcessing ? (
+                  <div className="flex items-center justify-center p-8 border border-dashed rounded">
+                    <div className="text-center space-y-2">
+                      <Loader2 className="h-6 w-6 animate-spin mx-auto" />
+                      <p className="text-sm text-muted-foreground">Processando informações...</p>
+                    </div>
+                  </div>
+                ) : finalDoc ? (
+                  <Textarea
+                    value={finalDoc}
+                    onChange={(e) => setFinalDoc(e.target.value)}
+                    className="min-h-[400px] font-mono text-sm"
+                    placeholder="Doc final gerado aparecerá aqui..."
+                  />
+                ) : (
+                  <div className="flex items-center justify-center p-8 border border-dashed rounded">
+                    <p className="text-sm text-muted-foreground">
+                      Preencha as informações e clique em Salvar para gerar o documento final
+                    </p>
+                  </div>
+                )}
+              </div>
+            </TabsContent>
           </Tabs>
 
           <div className="flex gap-2 justify-end pt-4 border-t">
@@ -404,11 +481,19 @@ export const ClientDialog = ({ open, onOpenChange }: ClientDialogProps) => {
               type="button"
               variant="outline"
               onClick={() => onOpenChange(false)}
+              disabled={isProcessing}
             >
               Cancelar
             </Button>
-            <Button type="submit" disabled={!name.trim()}>
-              Criar Cliente
+            <Button type="submit" disabled={!name.trim() || isProcessing}>
+              {isProcessing ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Processando...
+                </>
+              ) : (
+                "Salvar Cliente"
+              )}
             </Button>
           </div>
         </form>
