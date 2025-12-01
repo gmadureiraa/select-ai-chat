@@ -401,6 +401,31 @@ Retorne uma análise clara e estruturada para guiar a criação de novo conteúd
         ``
       ];
 
+      // Adicionar regra obrigatória para carrosséis
+      if (selection.detected_content_type === "carousel") {
+        contextParts.push(`## 🎴 REGRA OBRIGATÓRIA PARA CARROSSÉIS`);
+        contextParts.push(``);
+        contextParts.push(`**TODO carrossel DEVE seguir esta estrutura:**`);
+        contextParts.push(``);
+        contextParts.push(`**Página 1 (Hook Inicial):**`);
+        contextParts.push(`- Título ou hook que chame atenção`);
+        contextParts.push(`- SEMPRE apresentar 2-3 opções fortes e chamativas`);
+        contextParts.push(`- Exemplo: "Qual dessas dores você sente?" seguido de 3 opções`);
+        contextParts.push(``);
+        contextParts.push(`**Páginas 2 até n-1 (Desenvolvimento):**`);
+        contextParts.push(`- Uma ideia/conceito por página`);
+        contextParts.push(`- Desenvolvimento lógico do conteúdo`);
+        contextParts.push(``);
+        contextParts.push(`**Última Página (CTA):**`);
+        contextParts.push(`- SEMPRE finalizar com CTA clara e direta`);
+        contextParts.push(`- Pedir APENAS UMA ação: curtir OU seguir OU salvar`);
+        contextParts.push(`- A CTA deve conectar com o gancho inicial do carrossel`);
+        contextParts.push(`- Escolha a ação que fizer mais sentido para o conteúdo`);
+        contextParts.push(``);
+        contextParts.push(`**IMPORTANTE:** Esta estrutura NÃO se aplica em Engenharia Reversa.`);
+        contextParts.push(``);
+      }
+
       // Adicionar análise de padrões se disponível
       if (patternAnalysis) {
         contextParts.push(`## 📊 ANÁLISE DE PADRÕES DO CLIENTE`);
