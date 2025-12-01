@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useClients } from "@/hooks/useClients";
-import { ArrowLeft, Link2, Upload, Loader2, Sparkles, FileText } from "lucide-react";
+import { ArrowLeft, Upload, Loader2, FileText } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const ReverseEngineering = () => {
@@ -114,7 +114,7 @@ const ReverseEngineering = () => {
   return (
     <div className="container max-w-5xl mx-auto px-6 py-8 space-y-6">
       {/* Header */}
-      <header className="flex items-center gap-4">
+      <header className="flex items-center gap-4 mb-8">
         <Button
           variant="ghost"
           size="icon"
@@ -122,9 +122,8 @@ const ReverseEngineering = () => {
         >
           <ArrowLeft className="h-5 w-5" />
         </Button>
-        <div className="space-y-1">
-          <h1 className="text-2xl font-semibold tracking-tight flex items-center gap-2">
-            <Sparkles className="h-6 w-6" />
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">
             Engenharia Reversa
           </h1>
           <p className="text-sm text-muted-foreground">
@@ -133,13 +132,13 @@ const ReverseEngineering = () => {
         </div>
       </header>
 
-      <div className="grid gap-6">
+      <div className="grid gap-4">
         {/* Seleção de Cliente */}
-        <Card className="p-6 space-y-4">
-          <div className="space-y-2">
-            <Label>Cliente</Label>
+        <Card className="border-border/50 bg-card/50 p-6">
+          <div className="space-y-3">
+            <Label className="text-sm font-medium">Cliente</Label>
             <Select value={selectedClient} onValueChange={setSelectedClient}>
-              <SelectTrigger>
+              <SelectTrigger className="bg-background">
                 <SelectValue placeholder="Selecione o cliente" />
               </SelectTrigger>
               <SelectContent>
@@ -154,22 +153,20 @@ const ReverseEngineering = () => {
         </Card>
 
         {/* Input de Referência */}
-        <Card className="p-6 space-y-4">
-          <div className="space-y-2">
-            <Label>Conteúdo de Referência</Label>
+        <Card className="border-border/50 bg-card/50 p-6">
+          <div className="space-y-4">
+            <Label className="text-sm font-medium">Conteúdo de Referência</Label>
             <Tabs value={inputType} onValueChange={(v) => setInputType(v as "images" | "text")}>
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="images" className="flex items-center gap-2">
-                  <Upload className="h-4 w-4" />
+              <TabsList className="grid w-full grid-cols-2 bg-background">
+                <TabsTrigger value="images">
                   Imagens
                 </TabsTrigger>
-                <TabsTrigger value="text" className="flex items-center gap-2">
-                  <FileText className="h-4 w-4" />
+                <TabsTrigger value="text">
                   Texto
                 </TabsTrigger>
               </TabsList>
-              <TabsContent value="images" className="space-y-2 mt-4">
-                <div className="border-2 border-dashed border-border rounded-lg p-6 space-y-3">
+              <TabsContent value="images" className="space-y-3 mt-4">
+                <div className="border border-dashed border-border/50 rounded-lg p-8 hover:border-border transition-colors">
                   <input
                     type="file"
                     id="image-upload"
@@ -198,24 +195,24 @@ const ReverseEngineering = () => {
                   />
                   <label
                     htmlFor="image-upload"
-                    className="flex flex-col items-center gap-2 cursor-pointer"
+                    className="flex flex-col items-center gap-3 cursor-pointer"
                   >
-                    <Upload className="h-8 w-8 text-muted-foreground" />
+                    <Upload className="h-8 w-8 text-muted-foreground/50" />
                     <span className="text-sm text-muted-foreground">
                       Clique para fazer upload de screenshots
                     </span>
                   </label>
                 </div>
                 {referenceImages.length > 0 && (
-                  <div className="space-y-2">
-                    <p className="text-sm font-medium">{referenceImages.length} imagem(ns) carregada(s)</p>
+                  <div className="space-y-3">
+                    <p className="text-xs text-muted-foreground">{referenceImages.length} imagem(ns) carregada(s)</p>
                     <div className="flex gap-2 flex-wrap">
                       {referenceImages.map((url, i) => (
-                        <div key={i} className="relative w-20 h-20 rounded border">
-                          <img src={url} alt={`Preview ${i + 1}`} className="w-full h-full object-cover rounded" />
+                        <div key={i} className="relative w-20 h-20 rounded border border-border/50 overflow-hidden">
+                          <img src={url} alt={`Preview ${i + 1}`} className="w-full h-full object-cover" />
                           <button
                             onClick={() => setReferenceImages((prev) => prev.filter((_, idx) => idx !== i))}
-                            className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full w-5 h-5 flex items-center justify-center text-xs"
+                            className="absolute -top-1 -right-1 bg-background border border-border rounded-full w-5 h-5 flex items-center justify-center text-xs hover:bg-muted"
                           >
                             ×
                           </button>
@@ -253,43 +250,40 @@ const ReverseEngineering = () => {
                 Analisando...
               </>
             ) : (
-              <>
-                <Sparkles className="mr-2 h-4 w-4" />
-                Analisar Conteúdo
-              </>
+              "Analisar Conteúdo"
             )}
           </Button>
         </Card>
 
         {/* Análise */}
         {analysis && (
-          <Card className="p-6 space-y-4">
-            <div className="space-y-2">
-              <Label className="text-base font-semibold">Análise do Conteúdo</Label>
-              <div className="bg-muted/50 p-4 rounded-lg space-y-3 text-sm">
-                <div>
-                  <span className="font-medium text-foreground">Tipo:</span>{" "}
+          <Card className="border-border/50 bg-card/50 p-6 space-y-4">
+            <div className="space-y-4">
+              <Label className="text-sm font-medium">Análise do Conteúdo</Label>
+              <div className="bg-background border border-border/50 p-4 rounded-lg space-y-3 text-sm">
+                <div className="flex gap-2">
+                  <span className="font-medium min-w-[100px]">Tipo:</span>
                   <span className="text-muted-foreground">{analysis.contentType}</span>
                 </div>
-                <div>
-                  <span className="font-medium text-foreground">Estrutura:</span>{" "}
+                <div className="flex gap-2">
+                  <span className="font-medium min-w-[100px]">Estrutura:</span>
                   <span className="text-muted-foreground">{analysis.structure}</span>
                 </div>
-                <div>
-                  <span className="font-medium text-foreground">Tom:</span>{" "}
+                <div className="flex gap-2">
+                  <span className="font-medium min-w-[100px]">Tom:</span>
                   <span className="text-muted-foreground">{analysis.tone}</span>
                 </div>
                 <div>
-                  <span className="font-medium text-foreground">Principais elementos:</span>
-                  <ul className="list-disc list-inside text-muted-foreground mt-1 ml-2">
+                  <span className="font-medium">Principais elementos:</span>
+                  <ul className="list-disc list-inside text-muted-foreground mt-2 ml-2 space-y-1">
                     {analysis.keyElements?.map((element: string, i: number) => (
                       <li key={i}>{element}</li>
                     ))}
                   </ul>
                 </div>
                 <div>
-                  <span className="font-medium text-foreground">Estratégia:</span>{" "}
-                  <p className="text-muted-foreground mt-1">{analysis.strategy}</p>
+                  <span className="font-medium">Estratégia:</span>
+                  <p className="text-muted-foreground mt-2">{analysis.strategy}</p>
                 </div>
               </div>
             </div>
@@ -305,10 +299,7 @@ const ReverseEngineering = () => {
                   Gerando...
                 </>
               ) : (
-                <>
-                  <Sparkles className="mr-2 h-4 w-4" />
-                  Gerar Conteúdo Adaptado
-                </>
+                "Gerar Conteúdo Adaptado"
               )}
             </Button>
           </Card>
@@ -316,24 +307,24 @@ const ReverseEngineering = () => {
 
         {/* Conteúdo Gerado */}
         {generatedContent && (
-          <Card className="p-6 space-y-4">
-            <div className="space-y-2">
-              <Label className="text-base font-semibold flex items-center gap-2">
+          <Card className="border-border/50 bg-card/50 p-6 space-y-4">
+            <div className="space-y-4">
+              <Label className="text-sm font-medium">
                 Conteúdo Gerado
               </Label>
-              <div className="bg-muted/50 p-4 rounded-lg">
-                <pre className="whitespace-pre-wrap text-sm text-foreground font-sans">
+              <div className="bg-background border border-border/50 p-4 rounded-lg">
+                <pre className="whitespace-pre-wrap text-sm text-foreground font-sans leading-relaxed">
                   {generatedContent}
                 </pre>
               </div>
             </div>
 
-            <div className="flex gap-2">
+            <div className="flex gap-3">
               <Button
                 onClick={() => {
                   navigator.clipboard.writeText(generatedContent);
                   toast({
-                    title: "Copiado!",
+                    title: "Copiado",
                     description: "Conteúdo copiado para área de transferência",
                   });
                 }}
