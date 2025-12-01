@@ -19,7 +19,7 @@ const ResearchLab = () => {
               onSelectProject={setSelectedProjectId}
             />
           </div>
-          {selectedProjectId && <AddItemDialog projectId={selectedProjectId} />}
+          
         </div>
 
         {!selectedProjectId ? (

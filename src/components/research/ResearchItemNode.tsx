@@ -14,6 +14,7 @@ export const ResearchItemNode = memo(({ data }: NodeProps<ResearchItemNodeData>)
 
   const getIcon = () => {
     switch (item.type) {
+      case "note": return <FileText className="h-4 w-4 text-yellow-600" />;
       case "youtube": return <Youtube className="h-4 w-4 text-red-600" />;
       case "text": return <FileText className="h-4 w-4 text-blue-600" />;
       case "link": return <LinkIcon className="h-4 w-4 text-green-600" />;
@@ -26,6 +27,7 @@ export const ResearchItemNode = memo(({ data }: NodeProps<ResearchItemNodeData>)
 
   const getTypeLabel = () => {
     switch (item.type) {
+      case "note": return "Nota";
       case "youtube": return "YouTube";
       case "text": return "Texto";
       case "link": return "Link";
@@ -38,6 +40,7 @@ export const ResearchItemNode = memo(({ data }: NodeProps<ResearchItemNodeData>)
 
   const getBorderColor = () => {
     switch (item.type) {
+      case "note": return "border-yellow-200";
       case "youtube": return "border-red-200";
       case "text": return "border-blue-200";
       case "link": return "border-green-200";
