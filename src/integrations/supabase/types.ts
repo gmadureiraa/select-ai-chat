@@ -614,6 +614,156 @@ export type Database = {
         }
         Relationships: []
       }
+      research_conversations: {
+        Row: {
+          created_at: string | null
+          id: string
+          model: string | null
+          project_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          model?: string | null
+          project_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          model?: string | null
+          project_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "research_conversations_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "research_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      research_items: {
+        Row: {
+          content: string | null
+          created_at: string | null
+          file_path: string | null
+          height: number | null
+          id: string
+          metadata: Json | null
+          position_x: number | null
+          position_y: number | null
+          processed: boolean | null
+          project_id: string
+          source_url: string | null
+          thumbnail_url: string | null
+          title: string | null
+          type: string
+          width: number | null
+        }
+        Insert: {
+          content?: string | null
+          created_at?: string | null
+          file_path?: string | null
+          height?: number | null
+          id?: string
+          metadata?: Json | null
+          position_x?: number | null
+          position_y?: number | null
+          processed?: boolean | null
+          project_id: string
+          source_url?: string | null
+          thumbnail_url?: string | null
+          title?: string | null
+          type: string
+          width?: number | null
+        }
+        Update: {
+          content?: string | null
+          created_at?: string | null
+          file_path?: string | null
+          height?: number | null
+          id?: string
+          metadata?: Json | null
+          position_x?: number | null
+          position_y?: number | null
+          processed?: boolean | null
+          project_id?: string
+          source_url?: string | null
+          thumbnail_url?: string | null
+          title?: string | null
+          type?: string
+          width?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "research_items_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "research_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      research_messages: {
+        Row: {
+          content: string
+          conversation_id: string
+          created_at: string | null
+          id: string
+          role: string
+        }
+        Insert: {
+          content: string
+          conversation_id: string
+          created_at?: string | null
+          id?: string
+          role: string
+        }
+        Update: {
+          content?: string
+          conversation_id?: string
+          created_at?: string | null
+          id?: string
+          role?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "research_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "research_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      research_projects: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          name: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_activities: {
         Row: {
           activity_type: Database["public"]["Enums"]["activity_type"]
