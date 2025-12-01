@@ -26,20 +26,8 @@ export const AIChatNode = memo(({ data }: NodeProps<AIChatNodeData>) => {
     }
   }, [messages]);
 
-  // Adicionar suporte para tecla Delete
-  const handleDeleteKey = useCallback((e: KeyboardEvent) => {
-    if (e.key === 'Delete' || e.key === 'Backspace') {
-      onDelete(item.id);
-    }
-  }, [item.id, onDelete]);
+  // Removido atalho de teclado Delete/Backspace para evitar deleção acidental do card
 
-  useEffect(() => {
-    const element = document.getElementById(`ai-chat-${item.id}`);
-    if (element) {
-      element.addEventListener('keydown', handleDeleteKey as any);
-      return () => element.removeEventListener('keydown', handleDeleteKey as any);
-    }
-  }, [handleDeleteKey, item.id]);
 
   const handleSend = async () => {
     if (!input.trim() || isStreaming) return;
@@ -73,7 +61,7 @@ export const AIChatNode = memo(({ data }: NodeProps<AIChatNodeData>) => {
       <Button
         variant="outline"
         size="icon"
-        className="absolute top-2 left-2 h-8 px-2 rounded-full border-red-200 text-red-600 bg-red-50/80 hover:bg-red-100 hover:text-red-700 z-10 flex items-center gap-1"
+        className="absolute top-2 right-2 h-8 px-2 rounded-full border-red-200 text-red-600 bg-red-50/80 hover:bg-red-100 hover:text-red-700 z-10 flex items-center gap-1"
         onClick={() => onDelete(item.id)}
         title="Excluir card (Delete/Backspace)"
       >
