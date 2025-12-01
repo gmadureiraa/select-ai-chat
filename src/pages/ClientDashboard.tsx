@@ -3,7 +3,6 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Header } from "@/components/Header";
 import { TemplateManager } from "@/components/clients/TemplateManager";
 import { useClientTemplates } from "@/hooks/useClientTemplates";
 import { ArrowLeft, MessageSquare, Sparkles, Image as ImageIcon, BarChart3, Library, BookOpen } from "lucide-react";
@@ -60,13 +59,15 @@ const ClientDashboard = () => {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background">
-        <Header>
-          <div className="flex items-center gap-4">
-            <Skeleton className="h-8 w-8 rounded-full" />
-            <Skeleton className="h-10 w-64" />
+        <div className="border-b bg-background/95 backdrop-blur-sm">
+          <div className="max-w-7xl mx-auto px-6 py-6">
+            <div className="flex items-center gap-4">
+              <Skeleton className="h-10 w-10 rounded-full" />
+              <Skeleton className="h-10 w-64" />
+            </div>
           </div>
-        </Header>
-        <div className="max-w-7xl mx-auto p-6">
+        </div>
+        <div className="max-w-7xl mx-auto px-6 py-8">
           <Skeleton className="h-12 w-48 mb-6" />
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {[...Array(6)].map((_, i) => (
@@ -81,42 +82,57 @@ const ClientDashboard = () => {
   if (!client) {
     return (
       <div className="min-h-screen bg-background">
-        <Header>
-          <div className="flex items-center gap-4">
-            <img src={kaleidosLogo} alt="Kaleidos" className="h-8 w-8" />
-            <h1 className="text-2xl font-bold">Cliente não encontrado</h1>
+        <div className="border-b bg-background/95 backdrop-blur-sm">
+          <div className="max-w-7xl mx-auto px-6 py-6">
+            <div className="flex items-center gap-4">
+              <img src={kaleidosLogo} alt="Kaleidos" className="h-10 w-10" />
+              <h1 className="text-2xl font-semibold">Cliente não encontrado</h1>
+            </div>
           </div>
-        </Header>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="min-h-screen bg-background">
-      <Header>
-        <div>
-          <div className="flex items-center gap-4 mb-2">
-            <img src={kaleidosLogo} alt="Kaleidos" className="h-8 w-8" />
-            <h1 className="text-3xl font-bold">{client.name}</h1>
+      <div className="border-b bg-background/95 backdrop-blur-sm">
+        <div className="max-w-7xl mx-auto px-6 py-6">
+          <div className="flex items-start justify-between">
+            <div className="flex items-start gap-4">
+              <img src={kaleidosLogo} alt="Kaleidos" className="h-10 w-10 mt-1" />
+              <div>
+                <h1 className="text-2xl font-semibold mb-1">{client.name}</h1>
+                {client.description && (
+                  <p className="text-sm text-muted-foreground">{client.description}</p>
+                )}
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                onClick={() => navigate("/clients")}
+                variant="ghost"
+                className="gap-2"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Voltar
+              </Button>
+              <Button
+                onClick={() => navigate("/settings")}
+                variant="ghost"
+                className="gap-2"
+              >
+                Sair
+              </Button>
+            </div>
           </div>
-          {client.description && (
-            <p className="text-muted-foreground">{client.description}</p>
-          )}
         </div>
-        <Button
-          onClick={() => navigate("/clients")}
-          variant="outline"
-          className="gap-2"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Voltar
-        </Button>
-      </Header>
+      </div>
 
-      <div className="max-w-7xl mx-auto p-6">
+      <div className="max-w-7xl mx-auto px-6 py-8">
         <div className="mb-8 flex items-center justify-between">
           <div>
-            <h2 className="text-xl font-semibold">O que você quer fazer?</h2>
+            <h2 className="text-xl font-semibold mb-1">O que você quer fazer?</h2>
             <p className="text-sm text-muted-foreground">
               Escolha uma opção ou template para começar
             </p>
@@ -224,9 +240,21 @@ const ClientDashboard = () => {
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
                       <CardTitle className="text-base">{template.name}</CardTitle>
-                      <Badge variant="outline" className="text-xs">
-                        {template.type === 'image' ? 'Imagem' : template.type === 'automation' ? 'Automação' : 'Chat'}
-                      </Badge>
+                      {template.type === 'image' && (
+                        <Badge className="text-xs bg-[#ff006e] hover:bg-[#ff006e]/90">
+                          Imagem
+                        </Badge>
+                      )}
+                      {template.type === 'automation' && (
+                        <Badge variant="outline" className="text-xs">
+                          Automação
+                        </Badge>
+                      )}
+                      {template.type === 'chat' && (
+                        <Badge variant="outline" className="text-xs">
+                          Chat
+                        </Badge>
+                      )}
                     </div>
                     {template.type === 'automation' ? (
                       <div className="text-xs text-muted-foreground">
@@ -238,24 +266,10 @@ const ClientDashboard = () => {
                     ) : (
                       (() => {
                         const counts = getTemplateReferenceCount(template);
-                        return counts.total > 0 ? (
-                          <div className="flex items-center gap-2 flex-wrap">
-                            {counts.textRules > 0 && (
-                              <Badge variant="secondary" className="text-xs">
-                                {counts.textRules} {counts.textRules === 1 ? 'regra' : 'regras'}
-                              </Badge>
-                            )}
-                            {counts.imageRefs > 0 && (
-                              <Badge variant="secondary" className="text-xs">
-                                {counts.imageRefs} {counts.imageRefs === 1 ? 'img' : 'imgs'}
-                              </Badge>
-                            )}
-                            {counts.contentRefs > 0 && (
-                              <Badge variant="secondary" className="text-xs">
-                                {counts.contentRefs} {counts.contentRefs === 1 ? 'ref' : 'refs'}
-                              </Badge>
-                            )}
-                          </div>
+                        return counts.total > 0 && template.type === 'image' ? (
+                          <Badge className="text-xs bg-[#ff006e] hover:bg-[#ff006e]/90">
+                            {counts.total} {counts.total === 1 ? 'regra' : 'regras'}
+                          </Badge>
                         ) : null;
                       })()
                     )}
@@ -270,9 +284,11 @@ const ClientDashboard = () => {
                       : <p>Clique para configurar esta automação</p>
                     }
                   </div>
-                ) : template.rules.length > 0 ? (
+                ) : template.type === 'image' && template.rules.length > 0 ? (
                   <div className="text-xs text-muted-foreground">
-                    <p className="line-clamp-2">{template.rules[0].content}</p>
+                    {template.rules[0].content && (
+                      <p className="line-clamp-2">Estilo: {template.rules[0].content}</p>
+                    )}
                   </div>
                 ) : null}
               </CardContent>
