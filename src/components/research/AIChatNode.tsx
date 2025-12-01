@@ -11,12 +11,14 @@ interface AIChatNodeData {
   item: ResearchItem;
   onDelete: (id: string) => void;
   projectId: string;
+  connectedItems: ResearchItem[];
 }
 
 export const AIChatNode = memo(({ data }: NodeProps<AIChatNodeData>) => {
-  const { item, onDelete, projectId } = data;
+  const { item, onDelete, projectId, connectedItems } = data;
   const [input, setInput] = useState("");
-  const { messages, isStreaming, sendMessage } = useResearchChat(projectId, "google/gemini-2.5-flash");
+  // Usar itemId para conversa isolada por card
+  const { messages, isStreaming, sendMessage } = useResearchChat(projectId, item.id, "google/gemini-2.5-flash");
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -63,7 +65,31 @@ export const AIChatNode = memo(({ data }: NodeProps<AIChatNodeData>) => {
           <h3 className="font-semibold text-sm text-gray-900">
             {item.title || "Chat com IA"}
           </h3>
-          <p className="text-xs text-gray-500">Pergunte sobre os materiais conectados</p>
+          <div className="flex items-center gap-1 mt-1">
+            <p className="text-xs text-gray-500">
+              {connectedItems.length > 0 
+                ? `${connectedItems.length} ${connectedItems.length === 1 ? 'material conectado' : 'materiais conectados'}` 
+                : 'Conecte materiais para análise'}
+            </p>
+            {connectedItems.length > 0 && (
+              <div className="flex gap-1 ml-2">
+                {connectedItems.slice(0, 3).map((item) => (
+                  <div 
+                    key={item.id} 
+                    className="px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded text-xs"
+                    title={item.title || item.type}
+                  >
+                    {item.title?.substring(0, 10) || item.type}
+                  </div>
+                ))}
+                {connectedItems.length > 3 && (
+                  <div className="px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded text-xs">
+                    +{connectedItems.length - 3}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -72,7 +98,11 @@ export const AIChatNode = memo(({ data }: NodeProps<AIChatNodeData>) => {
           {messages.length === 0 && (
             <div className="text-center text-gray-400 py-8">
               <Bot className="h-10 w-10 mx-auto mb-3 opacity-40" />
-              <p className="text-xs">Conecte materiais e pergunte</p>
+              <p className="text-xs">
+                {connectedItems.length > 0 
+                  ? "Faça perguntas sobre os materiais conectados" 
+                  : "Conecte materiais e faça perguntas"}
+              </p>
             </div>
           )}
 

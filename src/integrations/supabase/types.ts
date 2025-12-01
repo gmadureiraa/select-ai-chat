@@ -667,18 +667,21 @@ export type Database = {
         Row: {
           created_at: string | null
           id: string
+          metadata: Json | null
           model: string | null
           project_id: string
         }
         Insert: {
           created_at?: string | null
           id?: string
+          metadata?: Json | null
           model?: string | null
           project_id: string
         }
         Update: {
           created_at?: string | null
           id?: string
+          metadata?: Json | null
           model?: string | null
           project_id?: string
         }
