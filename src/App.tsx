@@ -19,6 +19,7 @@ import Automations from "./pages/Automations";
 import ReverseEngineering from "./pages/ReverseEngineering";
 import Activities from "./pages/Activities";
 import ResearchLab from "./pages/ResearchLab";
+import Settings from "./pages/Settings";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 
@@ -159,6 +160,16 @@ const App = () => (
               <ProtectedRoute>
                 <AppLayout>
                   <Activities />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/settings"
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <Settings />
                 </AppLayout>
               </ProtectedRoute>
             }
