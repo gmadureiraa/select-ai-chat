@@ -1,4 +1,4 @@
-import { MessageSquare, Loader2, Pencil, Trash2 } from "lucide-react";
+import { MessageSquare, Loader2, Pencil, Trash2, FileText, Globe, Library, Bookmark } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Client } from "@/hooks/useClients";
@@ -42,7 +42,7 @@ export const ClientList = ({ clients, isLoading }: ClientListProps) => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {clients.map((client) => (
           <Card key={client.id} className="p-6 border-border/50 bg-card/50 hover:border-border transition-all">
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold text-lg">{client.name}</h3>
               <div className="flex gap-1">
                 <Button
@@ -50,6 +50,7 @@ export const ClientList = ({ clients, isLoading }: ClientListProps) => {
                   variant="ghost"
                   size="icon"
                   className="h-8 w-8"
+                  title="Editar informações"
                 >
                   <Pencil className="h-3.5 w-3.5" />
                 </Button>
@@ -58,19 +59,57 @@ export const ClientList = ({ clients, isLoading }: ClientListProps) => {
                   variant="ghost"
                   size="icon"
                   className="h-8 w-8 hover:text-destructive"
+                  title="Excluir cliente"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                 </Button>
               </div>
             </div>
 
-            <Button
-              onClick={() => navigate(`/client/${client.id}`)}
-              variant="outline"
-              className="w-full"
-            >
-              Abrir Cliente
-            </Button>
+            {client.description && (
+              <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
+                {client.description}
+              </p>
+            )}
+
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                onClick={() => setEditingClient(client)}
+                variant="outline"
+                size="sm"
+                className="w-full justify-start"
+              >
+                <FileText className="h-3.5 w-3.5 mr-2" />
+                Informações
+              </Button>
+              <Button
+                onClick={() => navigate(`/client/${client.id}/library`)}
+                variant="outline"
+                size="sm"
+                className="w-full justify-start"
+              >
+                <Library className="h-3.5 w-3.5 mr-2" />
+                Conteúdo
+              </Button>
+              <Button
+                onClick={() => navigate(`/client/${client.id}/references`)}
+                variant="outline"
+                size="sm"
+                className="w-full justify-start"
+              >
+                <Bookmark className="h-3.5 w-3.5 mr-2" />
+                Referências
+              </Button>
+              <Button
+                onClick={() => navigate(`/client/${client.id}/performance`)}
+                variant="outline"
+                size="sm"
+                className="w-full justify-start"
+              >
+                <Globe className="h-3.5 w-3.5 mr-2" />
+                Performance
+              </Button>
+            </div>
           </Card>
         ))}
       </div>
