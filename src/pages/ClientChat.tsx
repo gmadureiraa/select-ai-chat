@@ -134,16 +134,19 @@ const ClientChat = () => {
                   </div>
                   <div>
                     <h1 className="text-4xl font-bold mb-2 tracking-tight">
-                      O que posso fazer por você?
+                      {template ? template.name : "O que posso fazer por você?"}
                     </h1>
                     <p className="text-muted-foreground text-lg">
-                      Escolha uma tarefa ou descreva o que você precisa
+                      {template 
+                        ? "Descreva o que você precisa para este formato"
+                        : "Escolha uma tarefa ou descreva o que você precisa"
+                      }
                     </p>
                   </div>
                 </div>
 
-                {/* Sugestões de tarefas rápidas */}
-                <TaskSuggestions onSelectTask={sendMessage} />
+                {/* Sugestões de tarefas rápidas - apenas se não houver template específico */}
+                {!templateId && <TaskSuggestions onSelectTask={sendMessage} />}
 
                 {/* Contexto do cliente (compacto) */}
                 {client.context_notes && (
