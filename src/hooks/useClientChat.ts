@@ -8,6 +8,7 @@ import { validateMessage, validateModelId } from "@/lib/validation";
 import { withRetry, RetryError } from "@/lib/retry";
 import { useRealtimeMessages } from "@/hooks/useRealtimeMessages";
 import { useTemplateReferences } from "@/hooks/useTemplateReferences";
+import { useActivities } from "@/hooks/useActivities";
 
 export const useClientChat = (clientId: string, templateId?: string) => {
   const [selectedModel, setSelectedModel] = useState("gpt-5-mini-2025-08-07");
@@ -16,6 +17,7 @@ export const useClientChat = (clientId: string, templateId?: string) => {
   const [currentStep, setCurrentStep] = useState<ProcessStep>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { logActivity } = useActivities();
 
   // Ativar realtime para mensagens
   useRealtimeMessages(conversationId);
@@ -443,6 +445,21 @@ IMPORTANTE: Seja SELETIVO. Escolha apenas o que é ESSENCIAL para responder à p
         conversation_id: conversationId,
         role: "assistant",
         content: aiResponse,
+      });
+
+      // Log activity
+      logActivity.mutate({
+        activityType: "message_sent",
+        entityType: "conversation",
+        entityId: conversationId,
+        entityName: client.name,
+        description: `Mensagem enviada no chat de ${client.name}`,
+        metadata: { 
+          model: responseModel,
+          hasImages: (imageUrls && imageUrls.length > 0) || false,
+          messageLength: content.length,
+          responseLength: aiResponse.length
+        },
       });
 
       // Não precisa invalidar - realtime vai atualizar automaticamente

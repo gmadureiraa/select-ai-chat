@@ -507,15 +507,80 @@ export type Database = {
         }
         Relationships: []
       }
+      user_activities: {
+        Row: {
+          activity_type: Database["public"]["Enums"]["activity_type"]
+          created_at: string | null
+          description: string
+          entity_id: string | null
+          entity_name: string | null
+          entity_type: string | null
+          id: string
+          metadata: Json | null
+          user_id: string
+        }
+        Insert: {
+          activity_type: Database["public"]["Enums"]["activity_type"]
+          created_at?: string | null
+          description: string
+          entity_id?: string | null
+          entity_name?: string | null
+          entity_type?: string | null
+          id?: string
+          metadata?: Json | null
+          user_id: string
+        }
+        Update: {
+          activity_type?: Database["public"]["Enums"]["activity_type"]
+          created_at?: string | null
+          description?: string
+          entity_id?: string | null
+          entity_name?: string | null
+          entity_type?: string | null
+          id?: string
+          metadata?: Json | null
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      log_user_activity: {
+        Args: {
+          p_activity_type: Database["public"]["Enums"]["activity_type"]
+          p_description?: string
+          p_entity_id?: string
+          p_entity_name?: string
+          p_entity_type?: string
+          p_metadata?: Json
+        }
+        Returns: string
+      }
     }
     Enums: {
-      [_ in never]: never
+      activity_type:
+        | "client_created"
+        | "client_updated"
+        | "client_deleted"
+        | "template_created"
+        | "template_updated"
+        | "template_deleted"
+        | "conversation_created"
+        | "message_sent"
+        | "image_generated"
+        | "image_deleted"
+        | "automation_created"
+        | "automation_updated"
+        | "automation_deleted"
+        | "automation_executed"
+        | "reverse_engineering_analysis"
+        | "reverse_engineering_generation"
+        | "document_uploaded"
+        | "website_scraped"
+        | "metrics_fetched"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -642,6 +707,28 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      activity_type: [
+        "client_created",
+        "client_updated",
+        "client_deleted",
+        "template_created",
+        "template_updated",
+        "template_deleted",
+        "conversation_created",
+        "message_sent",
+        "image_generated",
+        "image_deleted",
+        "automation_created",
+        "automation_updated",
+        "automation_deleted",
+        "automation_executed",
+        "reverse_engineering_analysis",
+        "reverse_engineering_generation",
+        "document_uploaded",
+        "website_scraped",
+        "metrics_fetched",
+      ],
+    },
   },
 } as const

@@ -2,10 +2,12 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Automation, AutomationWithClient } from "@/types/automation";
+import { useActivities } from "@/hooks/useActivities";
 
 export const useAutomations = (clientId?: string) => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { logActivity } = useActivities();
 
   const { data: automations, isLoading } = useQuery({
     queryKey: clientId ? ["automations", clientId] : ["automations"],
@@ -51,8 +53,19 @@ export const useAutomations = (clientId?: string) => {
       if (error) throw error;
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["automations"] });
+      
+      // Log activity
+      logActivity.mutate({
+        activityType: "automation_created",
+        entityType: "automation",
+        entityId: data.id,
+        entityName: data.name,
+        description: `Automação "${data.name}" criada`,
+        metadata: { scheduleType: data.schedule_type },
+      });
+      
       toast({
         title: "Automação criada",
         description: "A automação foi criada com sucesso!",
@@ -91,8 +104,18 @@ export const useAutomations = (clientId?: string) => {
       if (error) throw error;
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["automations"] });
+      
+      // Log activity
+      logActivity.mutate({
+        activityType: "automation_updated",
+        entityType: "automation",
+        entityId: data.id,
+        entityName: data.name,
+        description: `Automação "${data.name}" atualizada`,
+      });
+      
       toast({
         title: "Automação atualizada",
         description: "As alterações foram salvas!",
@@ -110,15 +133,33 @@ export const useAutomations = (clientId?: string) => {
 
   const deleteAutomation = useMutation({
     mutationFn: async (id: string) => {
+      // Get automation name before deleting
+      const { data: automationData } = await supabase
+        .from("automations")
+        .select("name")
+        .eq("id", id)
+        .single();
+      
       const { error } = await supabase
         .from("automations")
         .delete()
         .eq("id", id);
 
       if (error) throw error;
+      return automationData?.name;
     },
-    onSuccess: () => {
+    onSuccess: (automationName) => {
       queryClient.invalidateQueries({ queryKey: ["automations"] });
+      
+      // Log activity
+      if (automationName) {
+        logActivity.mutate({
+          activityType: "automation_deleted",
+          entityType: "automation",
+          description: `Automação "${automationName}" excluída`,
+        });
+      }
+      
       toast({
         title: "Automação excluída",
         description: "A automação foi removida.",
@@ -161,14 +202,31 @@ export const useAutomations = (clientId?: string) => {
 
   const runAutomation = useMutation({
     mutationFn: async (automationId: string) => {
+      // Get automation name for logging
+      const { data: automationData } = await supabase
+        .from("automations")
+        .select("name")
+        .eq("id", automationId)
+        .single();
+      
       const { data, error } = await supabase.functions.invoke("run-automation", {
         body: { automationId },
       });
 
       if (error) throw error;
-      return data;
+      return { data, name: automationData?.name };
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
+      // Log activity
+      if (result.name) {
+        logActivity.mutate({
+          activityType: "automation_executed",
+          entityType: "automation",
+          description: `Automação "${result.name}" executada`,
+          metadata: { result: result.data },
+        });
+      }
+      
       toast({
         title: "Automação executada",
         description: "A automação foi executada com sucesso!",

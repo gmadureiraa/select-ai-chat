@@ -1,4 +1,4 @@
-import { Brain, Users, Zap, LogOut } from "lucide-react";
+import { Brain, Users, Zap, LogOut, Activity } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -23,6 +23,7 @@ const items = [
   { title: "Agentes", url: "/agents", icon: Brain },
   { title: "Clientes", url: "/clients", icon: Users },
   { title: "Automações", url: "/automations", icon: Zap },
+  { title: "Atividades", url: "/activities", icon: Activity },
 ];
 
 export function AppSidebar() {

@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useClients } from "@/hooks/useClients";
+import { useActivities } from "@/hooks/useActivities";
 import { ArrowLeft, Upload, Loader2, FileText } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -16,6 +17,7 @@ const ReverseEngineering = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { clients } = useClients();
+  const { logActivity } = useActivities();
   
   const [selectedClient, setSelectedClient] = useState<string>("");
   const [referenceText, setReferenceText] = useState("");
@@ -62,6 +64,22 @@ const ReverseEngineering = () => {
       if (error) throw error;
 
       setAnalysis(data);
+      
+      // Log activity
+      const clientName = clients.find(c => c.id === selectedClient)?.name;
+      logActivity.mutate({
+        activityType: "reverse_engineering_analysis",
+        entityType: "reverse_engineering",
+        entityName: clientName,
+        description: `Análise de engenharia reversa para ${clientName}`,
+        metadata: { 
+          inputType,
+          hasImages: referenceImages.length > 0,
+          hasText: referenceText.length > 0,
+          contentType: data.contentType
+        },
+      });
+      
       toast({
         title: "Análise concluída",
         description: "Conteúdo analisado com sucesso",
@@ -95,6 +113,20 @@ const ReverseEngineering = () => {
       if (error) throw error;
 
       setGeneratedContent(data.content);
+      
+      // Log activity
+      const clientName = clients.find(c => c.id === selectedClient)?.name;
+      logActivity.mutate({
+        activityType: "reverse_engineering_generation",
+        entityType: "reverse_engineering",
+        entityName: clientName,
+        description: `Conteúdo gerado via engenharia reversa para ${clientName}`,
+        metadata: { 
+          contentLength: data.content.length,
+          contentType: analysis.contentType
+        },
+      });
+      
       toast({
         title: "Conteúdo gerado",
         description: "Conteúdo adaptado ao estilo do cliente",
