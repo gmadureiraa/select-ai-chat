@@ -10,6 +10,7 @@ import { ChatInput } from "@/components/ChatInput";
 import { ModelSelector } from "@/components/ModelSelector";
 import { TaskSuggestions } from "@/components/chat/TaskSuggestions";
 import { AutonomousProgress } from "@/components/chat/AutonomousProgress";
+import { WorkflowVisualization } from "@/components/chat/WorkflowVisualization";
 import { useClientChat } from "@/hooks/useClientChat";
 import { useSmoothScroll } from "@/hooks/useSmoothScroll";
 import kaleidosLogo from "@/assets/kaleidos-logo.svg";
@@ -56,6 +57,8 @@ const ClientChat = () => {
     isLoading,
     currentStep,
     selectedModel,
+    conversationRules,
+    workflowState,
     setSelectedModel,
     sendMessage,
     regenerateLastMessage,
@@ -171,7 +174,10 @@ const ClientChat = () => {
               ))}
               {isLoading && (
                 <div className="px-4 py-6 animate-fade-in">
-                  <AutonomousProgress currentStep={currentStep} />
+                  <WorkflowVisualization 
+                    currentStep={currentStep} 
+                    workflowState={workflowState}
+                  />
                 </div>
               )}
             </div>

@@ -49,6 +49,22 @@ export interface Document {
 
 export type ProcessStep = "analyzing" | "analyzing_library" | "reviewing" | "creating" | "selecting" | null;
 
+export interface SelectedMaterial {
+  id: string;
+  type: 'content_library' | 'document' | 'reference_library';
+  category: string;
+  title: string;
+  reason?: string;
+}
+
+export interface WorkflowState {
+  currentStep: ProcessStep;
+  selectedMaterials: SelectedMaterial[];
+  patternAnalysis?: string;
+  reasoning?: string;
+  strategy?: string;
+}
+
 export interface ChatError {
   message: string;
   type: "network" | "api" | "validation" | "unknown";
