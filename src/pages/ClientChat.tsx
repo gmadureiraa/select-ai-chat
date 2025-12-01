@@ -3,7 +3,18 @@ import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Sparkles, Loader2 } from "lucide-react";
+import { ArrowLeft, Sparkles, Loader2, Trash2 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { MessageBubble } from "@/components/MessageBubble";
 import { ChatInput } from "@/components/ChatInput";
@@ -62,6 +73,7 @@ const ClientChat = () => {
     setSelectedModel,
     sendMessage,
     regenerateLastMessage,
+    clearConversation,
   } = useClientChat(clientId!, templateId);
 
   // Scroll suave automático
@@ -111,7 +123,39 @@ const ClientChat = () => {
               <span className="text-sm font-semibold">{client.name}</span>
             </div>
           </div>
-          <ModelSelector value={selectedModel} onChange={setSelectedModel} />
+          <div className="flex items-center gap-2">
+            <ModelSelector value={selectedModel} onChange={setSelectedModel} />
+            {messages.length > 0 && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="hover:bg-destructive/10 hover:text-destructive h-9 w-9"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Limpar conversa?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Todas as mensagens desta conversa serão removidas permanentemente. Esta ação não pode ser desfeita.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={clearConversation}
+                      className="bg-destructive hover:bg-destructive/90"
+                    >
+                      Limpar
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
+          </div>
         </div>
       </div>
 

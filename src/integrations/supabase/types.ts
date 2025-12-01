@@ -409,6 +409,7 @@ export type Database = {
           created_at: string | null
           id: string
           model: string
+          template_id: string | null
           title: string
           updated_at: string | null
         }
@@ -417,6 +418,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           model?: string
+          template_id?: string | null
           title: string
           updated_at?: string | null
         }
@@ -425,6 +427,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           model?: string
+          template_id?: string | null
           title?: string
           updated_at?: string | null
         }
@@ -434,6 +437,13 @@ export type Database = {
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversations_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "client_templates"
             referencedColumns: ["id"]
           },
         ]
