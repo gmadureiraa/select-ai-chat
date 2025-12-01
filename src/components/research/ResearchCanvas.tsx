@@ -17,6 +17,7 @@ import "reactflow/dist/style.css";
 import { useResearchItems } from "@/hooks/useResearchItems";
 import { ResearchItemNode } from "./ResearchItemNode";
 import { AIChatNode } from "./AIChatNode";
+import { Sparkles } from "lucide-react";
 
 interface ResearchCanvasProps {
   projectId: string;
@@ -36,14 +37,34 @@ export const ResearchCanvas = ({ projectId }: ResearchCanvasProps) => {
 
   // Update nodes when items change
   useEffect(() => {
-    const newNodes: Node[] = items.map((item) => ({
-      id: item.id,
-      type: item.type === "ai_chat" ? "aiChat" : "researchItem",
-      position: { x: item.position_x || Math.random() * 500, y: item.position_y || Math.random() * 500 },
-      data: { item, onDelete: deleteItem.mutate, projectId },
-    }));
+    if (!items) return;
+
+    const newNodes: Node[] = items.map((item) => {
+      // Para AI Chat nodes, calcular items conectados
+      let connectedItems: any[] = [];
+      if (item.type === "ai_chat" && connections) {
+        const connectedIds = connections
+          .filter(c => c.source_id === item.id || c.target_id === item.id)
+          .map(c => c.source_id === item.id ? c.target_id : c.source_id);
+        
+        connectedItems = items.filter(i => connectedIds.includes(i.id));
+      }
+
+      return {
+        id: item.id,
+        type: item.type === "ai_chat" ? "aiChat" : "researchItem",
+        position: { x: item.position_x || 0, y: item.position_y || 0 },
+        data: {
+          item,
+          onDelete: deleteItem.mutate,
+          projectId,
+          connectedItems,
+        },
+      };
+    });
+
     setNodes(newNodes);
-  }, [items, deleteItem.mutate, setNodes, projectId]);
+  }, [items, connections, deleteItem.mutate, setNodes, projectId]);
 
   // Update edges when connections change
   useEffect(() => {
@@ -53,6 +74,8 @@ export const ResearchCanvas = ({ projectId }: ResearchCanvasProps) => {
       target: conn.target_id,
       label: conn.label,
       type: "default",
+      style: { stroke: "#8b5cf6", strokeWidth: 2 },
+      animated: true,
     }));
     setEdges(newEdges);
   }, [connections, setEdges]);
@@ -90,17 +113,6 @@ export const ResearchCanvas = ({ projectId }: ResearchCanvasProps) => {
     [updateItem]
   );
 
-  if (items.length === 0) {
-    return (
-      <div className="flex items-center justify-center h-full bg-white">
-        <div className="text-center text-gray-500">
-          <p className="text-lg mb-2">Nenhum material adicionado ainda</p>
-          <p className="text-sm">Clique em "Adicionar Material" para começar</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="h-full w-full bg-white relative">
       <ReactFlow
@@ -133,6 +145,27 @@ export const ResearchCanvas = ({ projectId }: ResearchCanvasProps) => {
             <span className="text-3xl font-light">+</span>
           </button>
         </Panel>
+
+        {(!items || items.length === 0) && (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <div className="text-center text-muted-foreground max-w-md">
+              <div className="mb-4 flex justify-center">
+                <div className="p-4 bg-card/50 rounded-full border-2 border-dashed border-border">
+                  <Sparkles className="h-12 w-12 text-muted-foreground/50" />
+                </div>
+              </div>
+              <h3 className="text-xl font-semibold mb-2 text-foreground">Laboratório de Pesquisa</h3>
+              <p className="text-sm mb-4">
+                Comece adicionando um <strong>Chat IA</strong> ou <strong>materiais de pesquisa</strong>
+              </p>
+              <div className="text-xs text-muted-foreground/70 space-y-1">
+                <p>• Adicione notas, links, imagens, vídeos ou PDFs</p>
+                <p>• Conecte materiais relacionados</p>
+                <p>• Chat IA analisa apenas items conectados a ele</p>
+              </div>
+            </div>
+          </div>
+        )}
       </ReactFlow>
 
       <AddItemDialog 

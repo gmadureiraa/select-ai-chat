@@ -12,7 +12,7 @@ serve(async (req) => {
   }
 
   try {
-    const { projectId, conversationId, userMessage, model = "google/gemini-2.5-flash" } = await req.json();
+    const { projectId, conversationId, userMessage, model = "google/gemini-2.5-flash", connectedItemIds } = await req.json();
 
     if (!projectId || !userMessage) {
       throw new Error("projectId e userMessage são obrigatórios");
@@ -31,10 +31,17 @@ serve(async (req) => {
     console.log("Analisando pesquisa para projeto:", projectId);
 
       // Buscar itens e conexões do projeto
-      const { data: items, error: itemsError } = await supabase
+      // Se connectedItemIds for fornecido, buscar apenas esses items
+      let itemsQuery = supabase
         .from("research_items")
         .select("*")
         .eq("project_id", projectId);
+      
+      if (connectedItemIds && connectedItemIds.length > 0) {
+        itemsQuery = itemsQuery.in("id", connectedItemIds);
+      }
+      
+      const { data: items, error: itemsError } = await itemsQuery;
 
       const { data: connections, error: connectionsError } = await supabase
         .from("research_connections")
@@ -54,7 +61,9 @@ serve(async (req) => {
     if (messagesError) throw messagesError;
 
     // Construir contexto dos materiais com conexões
-    let materialsContext = "### Materiais do Projeto\n\n";
+    let materialsContext = connectedItemIds 
+      ? "### Materiais Conectados\n\n" 
+      : "### Materiais do Projeto\n\n";
     
     if (items && items.length > 0) {
       for (const item of items) {

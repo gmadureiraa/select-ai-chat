@@ -11,35 +11,61 @@ export interface ResearchMessage {
   created_at: string;
 }
 
-export const useResearchChat = (projectId?: string, model: string = "google/gemini-2.5-flash") => {
+export const useResearchChat = (projectId?: string, itemId?: string, model: string = "google/gemini-2.5-flash") => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isStreaming, setIsStreaming] = useState(false);
 
+  // Se itemId for fornecido, cria conversa isolada para aquele item específico
+  const conversationKey = itemId || projectId;
+
   // Get or create conversation
   const { data: conversation } = useQuery({
-    queryKey: ["research-conversation", projectId],
+    queryKey: ["research-conversation", conversationKey],
     queryFn: async () => {
-      if (!projectId) return null;
+      if (!conversationKey || !projectId) return null;
 
-      const { data: existing } = await supabase
+      // Se temos itemId, buscar conversa específica desse item
+      // Senão, buscar conversa geral do projeto
+      const { data: existingConversations } = await supabase
         .from("research_conversations")
         .select("*")
-        .eq("project_id", projectId)
-        .single();
+        .eq("project_id", projectId);
+      
+      let existing = null;
+      if (itemId && existingConversations) {
+        // Filtrar por itemId no metadata
+        existing = existingConversations.find((conv: any) => 
+          conv.metadata && conv.metadata.itemId === itemId
+        );
+      } else if (!itemId && existingConversations) {
+        // Buscar conversa sem itemId no metadata
+        existing = existingConversations.find((conv: any) => 
+          !conv.metadata || !conv.metadata.itemId
+        );
+      }
 
       if (existing) return existing;
 
+      const insertData: any = {
+        project_id: projectId,
+        model,
+      };
+      
+      if (itemId) {
+        insertData.metadata = { itemId };
+      }
+
       const { data: newConv, error } = await supabase
         .from("research_conversations")
-        .insert({ project_id: projectId, model })
+        .insert(insertData)
         .select()
         .single();
 
       if (error) throw error;
       return newConv;
     },
-    enabled: !!projectId,
+    enabled: !!conversationKey,
   });
 
   // Get messages
@@ -64,6 +90,26 @@ export const useResearchChat = (projectId?: string, model: string = "google/gemi
     mutationFn: async (content: string) => {
       if (!conversation?.id || !projectId) throw new Error("No conversation");
 
+      // Se temos itemId, passar connectedItemIds para a edge function
+      let connectedItemIds: string[] | undefined;
+      if (itemId) {
+        // Buscar conexões deste item
+        const { data: connections } = await supabase
+          .from("research_connections")
+          .select("source_id, target_id")
+          .or(`source_id.eq.${itemId},target_id.eq.${itemId}`);
+        
+        if (connections && connections.length > 0) {
+          connectedItemIds = Array.from(
+            new Set(
+              connections.flatMap(c => [
+                c.source_id === itemId ? c.target_id : c.source_id
+              ])
+            )
+          );
+        }
+      }
+
       // Save user message
       const { data: userMsg, error: userError } = await supabase
         .from("research_messages")
@@ -83,7 +129,13 @@ export const useResearchChat = (projectId?: string, model: string = "google/gemi
       // Call edge function to get AI response
       setIsStreaming(true);
       const { data: aiResponse, error: aiError } = await supabase.functions.invoke("analyze-research", {
-        body: { projectId, conversationId: conversation.id, userMessage: content, model },
+        body: {
+          projectId,
+          conversationId: conversation.id,
+          userMessage: content,
+          model,
+          connectedItemIds, // Passar IDs dos items conectados
+        },
       });
 
       setIsStreaming(false);

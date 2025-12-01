@@ -13,10 +13,10 @@ const MODELS = [
   { id: "gpt-4.1-2025-04-14", name: "GPT-4.1", description: "Confiável e preciso" },
   { id: "o3-2025-04-16", name: "O3", description: "Raciocínio profundo" },
   { id: "o4-mini-2025-04-16", name: "O4 Mini", description: "Raciocínio rápido" },
-  { id: "claude-sonnet-4-5", name: "Claude Sonnet 4.5", description: "Anthropic mais capaz" },
-  { id: "claude-opus-4-1", name: "Claude Opus 4.1", description: "Anthropic premium" },
-  { id: "gemini-2.5-pro", name: "Gemini 2.5 Pro", description: "Google mais avançado" },
-  { id: "gemini-2.5-flash", name: "Gemini 2.5 Flash", description: "Google rápido" },
+  { id: "anthropic/claude-sonnet-4-5", name: "Claude Sonnet 4.5", description: "Anthropic mais capaz" },
+  { id: "anthropic/claude-opus-4-1", name: "Claude Opus 4.1", description: "Anthropic premium" },
+  { id: "google/gemini-2.5-pro", name: "Gemini 2.5 Pro", description: "Google mais avançado" },
+  { id: "google/gemini-2.5-flash", name: "Gemini 2.5 Flash", description: "Google rápido" },
 ];
 
 interface ModelSelectorProps {
