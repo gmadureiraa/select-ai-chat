@@ -18,6 +18,7 @@ import ClientReferenceLibrary from "./pages/ClientReferenceLibrary";
 import Automations from "./pages/Automations";
 import ReverseEngineering from "./pages/ReverseEngineering";
 import Activities from "./pages/Activities";
+import ResearchLab from "./pages/ResearchLab";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 
@@ -159,6 +160,14 @@ const App = () => (
                 <AppLayout>
                   <Activities />
                 </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/research-lab"
+            element={
+              <ProtectedRoute>
+                <ResearchLab />
               </ProtectedRoute>
             }
           />

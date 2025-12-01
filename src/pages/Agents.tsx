@@ -57,6 +57,19 @@ const Agents = () => {
       accentColor: "secondary" as const,
       onOpen: () => navigate("/automations"),
     },
+    {
+      title: "Laboratório de Pesquisa",
+      subtitle: "Canvas multimodal de análise",
+      description: "Organize e analise vídeos, textos, áudios e imagens em um espaço visual interativo",
+      features: [
+        "Vídeos do YouTube",
+        "Transcrição automática",
+        "Chat com IA",
+        "Síntese inteligente",
+      ],
+      accentColor: "primary" as const,
+      onOpen: () => navigate("/research-lab"),
+    },
   ];
 
   return (

@@ -26,3 +26,9 @@ verify_jwt = false
 
 [functions.extract-knowledge]
 verify_jwt = false
+
+[functions.extract-youtube]
+verify_jwt = false
+
+[functions.analyze-research]
+verify_jwt = false
