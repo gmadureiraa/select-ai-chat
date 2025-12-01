@@ -3,8 +3,65 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+
+// Tool para extração estruturada de análise
+const contentAnalysisTool = {
+  type: "function",
+  function: {
+    name: "extract_content_analysis",
+    description: "Extrai análise estruturada do conteúdo de referência",
+    parameters: {
+      type: "object",
+      properties: {
+        content_type: {
+          type: "string",
+          enum: ["carrossel", "reels", "post_unico", "video_longo", "blog", "newsletter", "outro"],
+          description: "Tipo do conteúdo analisado"
+        },
+        page_count: {
+          type: "number",
+          description: "Número de páginas/slides/frames"
+        },
+        hook: {
+          type: "string",
+          description: "Gancho inicial que prende atenção"
+        },
+        structure: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              page: { type: "number" },
+              purpose: { type: "string" },
+              content_summary: { type: "string" }
+            }
+          },
+          description: "Estrutura página por página"
+        },
+        tone: {
+          type: "string",
+          description: "Tom de voz identificado"
+        },
+        cta: {
+          type: "string",
+          description: "Call-to-action final"
+        },
+        engagement_tactics: {
+          type: "array",
+          items: { type: "string" },
+          description: "Táticas de engajamento identificadas"
+        },
+        visual_elements: {
+          type: "array",
+          items: { type: "string" },
+          description: "Elementos visuais importantes (cores, fontes, layout)"
+        }
+      },
+      required: ["content_type", "page_count", "hook", "structure", "tone", "cta", "engagement_tactics"]
+    }
+  }
 };
 
 serve(async (req) => {
@@ -13,7 +70,7 @@ serve(async (req) => {
   }
 
   try {
-    const { clientId, referenceImages, referenceText, referenceUrl, phase, analysis } = await req.json();
+    const { clientId, referenceImages, referenceText, instagramCaption, phase, analysis } = await req.json();
     
     const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
     if (!OPENAI_API_KEY) {
@@ -33,90 +90,32 @@ serve(async (req) => {
 
     if (clientError) throw clientError;
 
-    // Buscar documentos do cliente
-    const { data: documents } = await supabase
-      .from("client_documents")
-      .select("*")
-      .eq("client_id", clientId);
-
-    // Buscar websites do cliente
-    const { data: websites } = await supabase
-      .from("client_websites")
-      .select("*")
-      .eq("client_id", clientId);
-
     // Buscar templates do cliente
     const { data: templates } = await supabase
       .from("client_templates")
       .select("*")
       .eq("client_id", clientId);
 
-    // Construir contexto do cliente
-    const clientContext = `
-CLIENTE: ${client.name}
-DESCRIÇÃO: ${client.description || ""}
-TAGS: ${client.tags ? JSON.stringify(client.tags) : ""}
-CONTEXTO: ${client.context_notes || ""}
-
-WEBSITES:
-${websites?.map((w) => `- ${w.url}: ${w.scraped_markdown?.slice(0, 2000) || ""}`).join("\n") || "Nenhum"}
-
-TEMPLATES E REGRAS:
-${templates?.map((t) => `${t.name}: ${t.rules ? JSON.stringify(t.rules).slice(0, 1000) : ""}`).join("\n") || "Nenhum"}
-`.trim();
-
     if (phase === "analyze") {
-      // FASE 1: ANALISAR O CONTEÚDO DE REFERÊNCIA
+      // FASE 1: ANALISAR O CONTEÚDO DE REFERÊNCIA COM TOOL CALLING
+      console.log("Phase 1: Analyzing content with tool calling");
       
-      let extractedContent = "";
-      
-      // 1. EXTRAIR CONTEÚDO (URL, imagens ou texto)
-      if (referenceUrl) {
-        console.log("URL analysis requested, but URL scraping is disabled for now:", referenceUrl);
-        throw new Error(
-          "No momento a análise via URL direto está desativada. Por favor, use a aba de Imagens (screenshots de cada página/slide) ou cole o texto completo na aba de Texto."
-        );
-      }
-      
-      // 2. ANALISAR O CONTEÚDO
       const userContent: any[] = [];
       
-      if (extractedContent) {
-        // Conteúdo extraído de URL
+      if (referenceImages && referenceImages.length > 0) {
+        // Prompt para análise de imagens
+        let textPrompt = `Analise este conteúdo visual em detalhes. Cada imagem representa uma página/slide do conteúdo.
+
+Use o tool extract_content_analysis para fornecer uma análise ESTRUTURADA.`;
+
+        // Incluir caption do Instagram se disponível
+        if (instagramCaption) {
+          textPrompt += `\n\nLEGENDA ORIGINAL DO POST:\n${instagramCaption}\n\nAnalise esta legenda em conjunto com as imagens.`;
+        }
+
         userContent.push({
           type: "text",
-          text: `Analise este conteúdo extraído em detalhes:
-
-${extractedContent}
-
-Forneça uma análise estruturada:
-1. Tipo de conteúdo (Reels, carrossel, blog post, vídeo longo, etc)
-2. Estrutura narrativa e sequência (identifique quantas páginas/slides existem)
-3. Tom e linguagem utilizada
-4. Elementos-chave (gancho, desenvolvimento, CTA, etc)
-5. Estratégia de engajamento
-
-IMPORTANTE: Se for um carrossel ou conteúdo com múltiplas páginas, identifique claramente cada slide/página.
-
-Seja extremamente detalhado na análise para permitir recriação fiel adaptada a outro estilo.`
-        });
-      } else if (referenceImages && referenceImages.length > 0) {
-        // Adicionar prompt inicial
-        userContent.push({
-          type: "text",
-          text: `Analise este conteúdo visual em detalhes. Pode ser um Reels, carrossel, blog post ou outro tipo de conteúdo.
-
-Forneça uma análise estruturada:
-1. Tipo de conteúdo (Reels, carrossel, blog post, vídeo longo, etc)
-2. Estrutura narrativa e sequência (cada imagem representa uma página/slide)
-3. Tom e linguagem utilizada (analise textos visíveis)
-4. Elementos visuais e design
-5. Elementos-chave (gancho, desenvolvimento, CTA, etc)
-6. Estratégia de engajamento
-
-IMPORTANTE: Cada imagem fornecida representa uma página/slide do conteúdo. Analise a sequência completa.
-
-Seja extremamente detalhado na análise para permitir recriação fiel adaptada a outro estilo.`
+          text: textPrompt
         });
         
         // Adicionar todas as imagens
@@ -127,27 +126,16 @@ Seja extremamente detalhado na análise para permitir recriação fiel adaptada 
           });
         }
       } else if (referenceText) {
-        // Apenas texto
+        // Análise de texto
         userContent.push({
           type: "text",
-          text: `Analise este conteúdo em detalhes:
-
-${referenceText}
-
-Forneça uma análise estruturada:
-1. Tipo de conteúdo (Reels, carrossel, blog post, vídeo longo, etc)
-2. Estrutura narrativa e sequência
-3. Tom e linguagem utilizada
-4. Elementos-chave (gancho, desenvolvimento, CTA, etc)
-5. Estratégia de engajamento
-
-Seja extremamente detalhado na análise para permitir recriação fiel adaptada a outro estilo.`
+          text: `Analise este conteúdo em detalhes:\n\n${referenceText}\n\nUse o tool extract_content_analysis para fornecer uma análise ESTRUTURADA.`
         });
       } else {
         throw new Error("Nenhum conteúdo de referência fornecido");
       }
 
-      console.log("Sending analysis request to OpenAI with", referenceImages?.length || 0, "images");
+      console.log("Sending analysis request to OpenAI (gpt-4o) with tool calling");
       
       const analysisResponse = await fetch("https://api.openai.com/v1/chat/completions", {
         method: "POST",
@@ -156,22 +144,22 @@ Seja extremamente detalhado na análise para permitir recriação fiel adaptada 
           Authorization: `Bearer ${OPENAI_API_KEY}`,
         },
         body: JSON.stringify({
-          model: "gpt-4o",
+          model: "gpt-4o", // Melhor para visão
           messages: [
             {
               role: "system",
-              content: "Você é um especialista em engenharia reversa de conteúdo digital.",
+              content: "Você é um especialista em engenharia reversa de conteúdo digital. Use o tool para fornecer análises estruturadas.",
             },
             {
               role: "user",
               content: userContent,
             },
           ],
+          tools: [contentAnalysisTool],
+          tool_choice: { type: "function", function: { name: "extract_content_analysis" } },
           max_tokens: 2000,
         }),
       });
-
-      console.log("OpenAI response status:", analysisResponse.status);
 
       if (!analysisResponse.ok) {
         const errorText = await analysisResponse.text();
@@ -180,68 +168,92 @@ Seja extremamente detalhado na análise para permitir recriação fiel adaptada 
       }
 
       const analysisData = await analysisResponse.json();
-      console.log("OpenAI response structure:", {
-        hasChoices: !!analysisData.choices,
-        choicesLength: analysisData.choices?.length,
-        hasFirstChoice: !!analysisData.choices?.[0],
-        hasMessage: !!analysisData.choices?.[0]?.message,
-        hasContent: !!analysisData.choices?.[0]?.message?.content,
-        error: analysisData.error
-      });
       
       if (analysisData.error) {
         console.error("OpenAI returned error:", analysisData.error);
-        throw new Error(`Erro da OpenAI: ${analysisData.error.message || JSON.stringify(analysisData.error)}`);
+        throw new Error(`Erro da OpenAI: ${analysisData.error.message}`);
       }
       
-      if (!analysisData.choices || analysisData.choices.length === 0) {
-        console.error("No choices in response:", JSON.stringify(analysisData));
-        throw new Error("API OpenAI não retornou nenhuma resposta válida");
+      const toolCall = analysisData.choices[0]?.message?.tool_calls?.[0];
+      if (!toolCall) {
+        throw new Error("Nenhuma análise estruturada foi retornada");
       }
       
-      if (!analysisData.choices[0]?.message?.content) {
-        console.error("No content in first choice:", JSON.stringify(analysisData.choices[0]));
-        throw new Error("Resposta da API OpenAI está incompleta");
-      }
-      
-      const analysisText = analysisData.choices[0].message.content;
-      console.log("Analysis completed, text length:", analysisText.length);
+      const structuredAnalysis = JSON.parse(toolCall.function.arguments);
+      console.log("Structured analysis extracted:", structuredAnalysis);
 
-      // Extrair informações estruturadas da análise
       return new Response(
-        JSON.stringify({
-          contentType: analysisText.match(/Tipo de conteúdo:?\s*(.+?)[\n\r]/i)?.[1] || "Indefinido",
-          structure: analysisText.match(/Estrutura narrativa:?\s*(.+?)[\n\r]/i)?.[1] || "",
-          tone: analysisText.match(/Tom e linguagem:?\s*(.+?)[\n\r]/i)?.[1] || "",
-          keyElements: analysisText.match(/Elementos-chave:?\s*(.+?)(?=\d\.|$)/is)?.[1]?.split(/[\n\r]+/).filter(Boolean) || [],
-          strategy: analysisText.match(/Estratégia:?\s*(.+?)(?=\n\n|$)/is)?.[1] || "",
-          fullAnalysis: analysisText,
-        }),
+        JSON.stringify(structuredAnalysis),
         {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         }
       );
+      
     } else if (phase === "generate") {
       // FASE 2: GERAR CONTEÚDO ADAPTADO AO CLIENTE
-      const generationPrompt = `Com base nesta análise de conteúdo:
+      console.log("Phase 2: Generating adapted content");
 
-${analysis.fullAnalysis}
+      // Construir contexto enriquecido do cliente
+      const clientContext = `
+## PERFIL COMPLETO DO CLIENTE: ${client.name}
 
-E considerando o perfil deste cliente:
+### Contexto Base
+${client.context_notes || ""}
+
+### Tags Estratégicas
+${client.tags ? `
+- Segmento: ${client.tags.segment || ""}
+- Tom de Voz: ${client.tags.tone || ""}
+- Objetivos: ${client.tags.objectives || ""}
+- Público-Alvo: ${client.tags.audience || ""}
+` : ""}
+
+### Templates e Padrões
+${templates?.map(t => `- ${t.name}: ${JSON.stringify(t.rules).substring(0, 500)}`).join('\n') || "Nenhum template específico"}
+
+### Redes Sociais
+${client.social_media ? Object.entries(client.social_media).map(([k, v]) => `- ${k}: ${v}`).join('\n') : ""}
+`.trim();
+
+      const generationPrompt = `## ANÁLISE ESTRUTURADA DO CONTEÚDO ORIGINAL
+
+**Tipo:** ${analysis.content_type}
+**Número de Páginas:** ${analysis.page_count}
+**Hook Inicial:** ${analysis.hook}
+**Tom:** ${analysis.tone}
+**CTA:** ${analysis.cta}
+
+**Estrutura:**
+${analysis.structure.map((s: any) => `- Página ${s.page}: ${s.purpose} - ${s.content_summary}`).join('\n')}
+
+**Táticas de Engajamento:**
+${analysis.engagement_tactics.map((t: string) => `- ${t}`).join('\n')}
+
+**Elementos Visuais:**
+${analysis.visual_elements?.map((e: string) => `- ${e}`).join('\n') || 'Não especificados'}
+
+---
 
 ${clientContext}
 
-RECRIE o conteúdo completamente adaptado ao estilo, tom e padrões do cliente.
+---
 
-IMPORTANTE:
-- Use o MESMO tipo de estrutura do conteúdo original
-- Adapte ao TOM e LINGUAGEM específicos do cliente
-- Siga os TEMPLATES e REGRAS estabelecidos pelo cliente
-- Mantenha a ESTRATÉGIA de engajamento, mas no estilo do cliente
-- Não copie literalmente - adapte e recrie
+## TAREFA: RECRIAÇÃO ADAPTADA
+
+Recrie o conteúdo MANTENDO:
+- A estrutura de ${analysis.page_count} páginas/slides
+- O tipo de hook identificado
+- As táticas de engajamento
+
+MAS ADAPTANDO:
+- Tom de voz para ${client.tags?.tone || analysis.tone}
+- Linguagem para o público ${client.tags?.audience || 'do cliente'}
+- CTA alinhado aos objetivos: ${client.tags?.objectives || 'do cliente'}
+- Seguindo os padrões dos templates
 
 **FORMATO DE SAÍDA OBRIGATÓRIO:**
-Se for um carrossel/conteúdo com múltiplas páginas, separe claramente cada página assim:
+${analysis.page_count > 1 ? `
+Separe cada página com ---PÁGINA N--- assim:
 
 ---PÁGINA 1---
 [conteúdo da primeira página]
@@ -249,14 +261,10 @@ Se for um carrossel/conteúdo com múltiplas páginas, separe claramente cada p�
 ---PÁGINA 2---
 [conteúdo da segunda página]
 
----PÁGINA 3---
-[conteúdo da terceira página]
+E assim por diante para todas as ${analysis.page_count} páginas.
+` : 'Entregue o conteúdo completo adaptado.'}`;
 
-E assim por diante.
-
-Se for um post único ou vídeo, entregue o conteúdo completo em formato corrido.`;
-
-      console.log("Sending generation request to OpenAI");
+      console.log("Sending generation request to OpenAI (gpt-5-mini)");
       
       const generationResponse = await fetch("https://api.openai.com/v1/chat/completions", {
         method: "POST",
@@ -265,11 +273,11 @@ Se for um post único ou vídeo, entregue o conteúdo completo em formato corrid
           Authorization: `Bearer ${OPENAI_API_KEY}`,
         },
         body: JSON.stringify({
-          model: "gpt-5-2025-08-07",
+          model: "gpt-5-mini-2025-08-07", // Mais rápido e barato
           messages: [
             {
               role: "system",
-              content: `Você é um criador de conteúdo especializado que adapta referências ao estilo único de cada cliente.`,
+              content: `Você é um criador de conteúdo especializado que adapta referências ao estilo único de cada cliente. Seja criativo mas mantenha a estrutura original.`,
             },
             {
               role: "user",
@@ -280,38 +288,23 @@ Se for um post único ou vídeo, entregue o conteúdo completo em formato corrid
         }),
       });
 
-      console.log("Generation response status:", generationResponse.status);
-
       if (!generationResponse.ok) {
         const errorText = await generationResponse.text();
         console.error("OpenAI API generation error:", errorText);
-        throw new Error(`Erro na API OpenAI (${generationResponse.status}): ${errorText.substring(0, 200)}`);
+        throw new Error(`Erro na API OpenAI (${generationResponse.status})`);
       }
 
       const generationData = await generationResponse.json();
-      console.log("Generation response structure:", {
-        hasChoices: !!generationData.choices,
-        choicesLength: generationData.choices?.length,
-        hasContent: !!generationData.choices?.[0]?.message?.content,
-        error: generationData.error
-      });
       
       if (generationData.error) {
-        console.error("OpenAI returned error:", generationData.error);
-        throw new Error(`Erro da OpenAI: ${generationData.error.message || JSON.stringify(generationData.error)}`);
+        throw new Error(`Erro da OpenAI: ${generationData.error.message}`);
       }
       
-      if (!generationData.choices || generationData.choices.length === 0) {
-        console.error("No choices in generation response:", JSON.stringify(generationData));
-        throw new Error("API OpenAI não retornou nenhuma resposta válida");
+      const content = generationData.choices[0]?.message?.content;
+      if (!content) {
+        throw new Error("Nenhum conteúdo foi gerado");
       }
       
-      if (!generationData.choices[0]?.message?.content) {
-        console.error("No content in generation:", JSON.stringify(generationData.choices[0]));
-        throw new Error("Resposta da API OpenAI está incompleta");
-      }
-      
-      const content = generationData.choices[0].message.content;
       console.log("Generation completed, content length:", content.length);
 
       return new Response(
