@@ -123,90 +123,90 @@ export const AddItemMenu = ({ projectId, onClose }: AddItemMenuProps) => {
 
   if (!selectedType) {
     return (
-      <div className="absolute bottom-20 right-4 bg-white rounded-xl shadow-2xl border-2 border-gray-200 p-4 min-w-[320px] z-50">
-        <h3 className="text-sm font-semibold text-gray-900 mb-3">Adicionar ao mapa</h3>
-        <div className="space-y-2">
+      <div className="absolute bottom-20 right-4 bg-background/95 backdrop-blur-sm border border-border rounded-xl shadow-2xl p-3 min-w-[300px] z-50">
+        <h3 className="text-sm font-semibold text-foreground mb-3 px-1">Adicionar ao mapa</h3>
+        <div className="space-y-1">
           <Button
-            variant="outline"
-            className="w-full justify-start gap-3 h-auto py-3 hover:bg-purple-50 hover:border-purple-300"
+            variant="ghost"
+            className="w-full justify-start gap-3 h-auto py-2.5 hover:bg-accent/50"
             onClick={() => handleSelectType("ai_chat")}
           >
-            <div className="p-2 bg-purple-100 rounded-lg">
-              <Sparkles className="h-4 w-4 text-purple-600" />
+            <div className="p-1.5 bg-purple-500/10 rounded-md">
+              <Sparkles className="h-4 w-4 text-purple-500" />
             </div>
-            <div className="text-left">
-              <div className="font-semibold text-sm">Chat IA</div>
-              <div className="text-xs text-gray-500">Análise inteligente</div>
+            <div className="text-left flex-1">
+              <div className="font-medium text-sm">Chat IA</div>
+              <div className="text-xs text-muted-foreground">Análise inteligente</div>
             </div>
           </Button>
 
           <Button
-            variant="outline"
-            className="w-full justify-start gap-3 h-auto py-3 hover:bg-yellow-50 hover:border-yellow-300"
+            variant="ghost"
+            className="w-full justify-start gap-3 h-auto py-2.5 hover:bg-accent/50"
             onClick={() => handleSelectType("note")}
           >
-            <div className="p-2 bg-yellow-100 rounded-lg">
+            <div className="p-1.5 bg-yellow-500/10 rounded-md">
               <StickyNote className="h-4 w-4 text-yellow-600" />
             </div>
-            <div className="text-left">
-              <div className="font-semibold text-sm">Nota</div>
-              <div className="text-xs text-gray-500">Anotação rápida</div>
+            <div className="text-left flex-1">
+              <div className="font-medium text-sm">Nota</div>
+              <div className="text-xs text-muted-foreground">Anotação rápida</div>
             </div>
           </Button>
 
           <Button
-            variant="outline"
-            className="w-full justify-start gap-3 h-auto py-3 hover:bg-red-50 hover:border-red-300"
+            variant="ghost"
+            className="w-full justify-start gap-3 h-auto py-2.5 hover:bg-accent/50"
             onClick={() => handleSelectType("youtube")}
           >
-            <div className="p-2 bg-red-100 rounded-lg">
+            <div className="p-1.5 bg-red-500/10 rounded-md">
               <Youtube className="h-4 w-4 text-red-600" />
             </div>
-            <div className="text-left">
-              <div className="font-semibold text-sm">Vídeo YouTube</div>
-              <div className="text-xs text-gray-500">Com transcrição automática</div>
+            <div className="text-left flex-1">
+              <div className="font-medium text-sm">Vídeo YouTube</div>
+              <div className="text-xs text-muted-foreground">Com transcrição automática</div>
             </div>
           </Button>
 
           <Button
-            variant="outline"
-            className="w-full justify-start gap-3 h-auto py-3 hover:bg-blue-50 hover:border-blue-300"
+            variant="ghost"
+            className="w-full justify-start gap-3 h-auto py-2.5 hover:bg-accent/50"
             onClick={() => handleSelectType("text")}
           >
-            <div className="p-2 bg-blue-100 rounded-lg">
+            <div className="p-1.5 bg-blue-500/10 rounded-md">
               <FileText className="h-4 w-4 text-blue-600" />
             </div>
-            <div className="text-left">
-              <div className="font-semibold text-sm">Texto</div>
-              <div className="text-xs text-gray-500">Cole ou escreva</div>
+            <div className="text-left flex-1">
+              <div className="font-medium text-sm">Texto</div>
+              <div className="text-xs text-muted-foreground">Cole ou escreva</div>
             </div>
           </Button>
 
           <Button
-            variant="outline"
-            className="w-full justify-start gap-3 h-auto py-3 hover:bg-green-50 hover:border-green-300"
+            variant="ghost"
+            className="w-full justify-start gap-3 h-auto py-2.5 hover:bg-accent/50"
             onClick={() => handleSelectType("link")}
           >
-            <div className="p-2 bg-green-100 rounded-lg">
+            <div className="p-1.5 bg-green-500/10 rounded-md">
               <LinkIcon className="h-4 w-4 text-green-600" />
             </div>
-            <div className="text-left">
-              <div className="font-semibold text-sm">Link</div>
-              <div className="text-xs text-gray-500">URL externa</div>
+            <div className="text-left flex-1">
+              <div className="font-medium text-sm">Link</div>
+              <div className="text-xs text-muted-foreground">URL externa</div>
             </div>
           </Button>
 
           <Button
-            variant="outline"
-            className="w-full justify-start gap-3 h-auto py-3 hover:bg-pink-50 hover:border-pink-300"
+            variant="ghost"
+            className="w-full justify-start gap-3 h-auto py-2.5 hover:bg-accent/50"
             onClick={() => handleSelectType("audio")}
           >
-            <div className="p-2 bg-pink-100 rounded-lg">
+            <div className="p-1.5 bg-pink-500/10 rounded-md">
               <Mic className="h-4 w-4 text-pink-600" />
             </div>
-            <div className="text-left">
-              <div className="font-semibold text-sm">Áudio</div>
-              <div className="text-xs text-gray-500">Gravar ou fazer upload</div>
+            <div className="text-left flex-1">
+              <div className="font-medium text-sm">Áudio</div>
+              <div className="text-xs text-muted-foreground">Gravar ou fazer upload</div>
             </div>
           </Button>
         </div>
@@ -215,9 +215,9 @@ export const AddItemMenu = ({ projectId, onClose }: AddItemMenuProps) => {
   }
 
   return (
-    <div className="absolute bottom-20 right-4 bg-white rounded-xl shadow-2xl border-2 border-gray-200 p-4 min-w-[360px] z-50">
+    <div className="absolute bottom-20 right-4 bg-background/95 backdrop-blur-sm border border-border rounded-xl shadow-2xl p-4 min-w-[360px] z-50">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-sm font-semibold text-gray-900">
+        <h3 className="text-sm font-semibold text-foreground">
           {selectedType === "ai_chat" && "Chat IA"}
           {selectedType === "note" && "Nova Nota"}
           {selectedType === "youtube" && "Adicionar Vídeo"}
@@ -331,9 +331,9 @@ export const AddItemMenu = ({ projectId, onClose }: AddItemMenuProps) => {
 
         {selectedType === "audio" && (
           <div className="text-center py-8">
-            <Mic className="h-12 w-12 mx-auto mb-3 text-pink-400" />
-            <p className="text-sm text-gray-600 mb-2">Funcionalidade de áudio</p>
-            <p className="text-xs text-gray-400">Em breve: gravação e upload de áudio</p>
+            <Mic className="h-12 w-12 mx-auto mb-3 text-muted-foreground/50" />
+            <p className="text-sm text-foreground mb-2">Funcionalidade de áudio</p>
+            <p className="text-xs text-muted-foreground">Em breve: gravação e upload de áudio</p>
           </div>
         )}
       </div>
