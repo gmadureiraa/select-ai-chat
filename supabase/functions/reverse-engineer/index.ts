@@ -13,7 +13,7 @@ serve(async (req) => {
   }
 
   try {
-    const { clientId, referenceUrl, referenceText, phase, analysis } = await req.json();
+    const { clientId, referenceImages, referenceText, phase, analysis } = await req.json();
     
     const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
     if (!OPENAI_API_KEY) {
@@ -66,51 +66,42 @@ ${templates?.map((t) => `${t.name}: ${t.rules ? JSON.stringify(t.rules).slice(0,
 `.trim();
 
     if (phase === "analyze") {
-      // FASE 1: ANALISAR O CONTEÚDO DE REFERÊNCIA
-      let referenceContent = "";
+      // FASE 1: ANALISAR O CONTEÚDO DE REFERÊNCIA (COM SUPORTE A MÚLTIPLAS IMAGENS)
       
-      if (referenceUrl) {
-        // Se for URL, fazer scraping/análise
-        const urlAnalysisPrompt = `Analise esta URL e extraia o conteúdo: ${referenceUrl}
-        
-Se for um vídeo do YouTube, identifique o tipo de vídeo.
-Se for um post do Instagram, identifique se é Reels, carrossel ou post único.
-Se for um blog post, identifique a estrutura.
+      // Construir mensagem com imagens ou texto
+      const userContent: any[] = [];
+      
+      if (referenceImages && referenceImages.length > 0) {
+        // Adicionar prompt inicial
+        userContent.push({
+          type: "text",
+          text: `Analise este conteúdo visual em detalhes. Pode ser um Reels, carrossel, blog post ou outro tipo de conteúdo.
 
-Retorne uma descrição detalhada do conteúdo encontrado.`;
+Forneça uma análise estruturada:
+1. Tipo de conteúdo (Reels, carrossel, blog post, vídeo longo, etc)
+2. Estrutura narrativa e sequência
+3. Tom e linguagem utilizada (analise textos visíveis)
+4. Elementos visuais e design
+5. Elementos-chave (gancho, desenvolvimento, CTA, etc)
+6. Estratégia de engajamento
 
-        const urlResponse = await fetch("https://api.openai.com/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${OPENAI_API_KEY}`,
-          },
-          body: JSON.stringify({
-            model: "gpt-5-mini-2025-08-07",
-            messages: [
-              {
-                role: "system",
-                content: "Você é um analista de conteúdo especializado em engenharia reversa.",
-              },
-              {
-                role: "user",
-                content: urlAnalysisPrompt,
-              },
-            ],
-            temperature: 0.3,
-          }),
+Seja extremamente detalhado na análise para permitir recriação fiel adaptada a outro estilo.`
         });
+        
+        // Adicionar todas as imagens
+        for (const imageUrl of referenceImages) {
+          userContent.push({
+            type: "image_url",
+            image_url: { url: imageUrl }
+          });
+        }
+      } else if (referenceText) {
+        // Apenas texto
+        userContent.push({
+          type: "text",
+          text: `Analise este conteúdo em detalhes:
 
-        const urlData = await urlResponse.json();
-        referenceContent = urlData.choices[0].message.content;
-      } else {
-        referenceContent = referenceText;
-      }
-
-      // Analisar estrutura, tom, estratégia
-      const analysisPrompt = `Analise este conteúdo em detalhes:
-
-${referenceContent}
+${referenceText}
 
 Forneça uma análise estruturada:
 1. Tipo de conteúdo (Reels, carrossel, blog post, vídeo longo, etc)
@@ -119,7 +110,11 @@ Forneça uma análise estruturada:
 4. Elementos-chave (gancho, desenvolvimento, CTA, etc)
 5. Estratégia de engajamento
 
-Seja extremamente detalhado na análise para permitir recriação fiel adaptada a outro estilo.`;
+Seja extremamente detalhado na análise para permitir recriação fiel adaptada a outro estilo.`
+        });
+      } else {
+        throw new Error("Nenhum conteúdo de referência fornecido");
+      }
 
       const analysisResponse = await fetch("https://api.openai.com/v1/chat/completions", {
         method: "POST",
@@ -128,7 +123,7 @@ Seja extremamente detalhado na análise para permitir recriação fiel adaptada 
           Authorization: `Bearer ${OPENAI_API_KEY}`,
         },
         body: JSON.stringify({
-          model: "gpt-5-mini-2025-08-07",
+          model: "gpt-4o",
           messages: [
             {
               role: "system",
@@ -136,14 +131,26 @@ Seja extremamente detalhado na análise para permitir recriação fiel adaptada 
             },
             {
               role: "user",
-              content: analysisPrompt,
+              content: userContent,
             },
           ],
-          temperature: 0.3,
+          max_tokens: 2000,
         }),
       });
 
+      if (!analysisResponse.ok) {
+        const errorText = await analysisResponse.text();
+        console.error("OpenAI API error:", errorText);
+        throw new Error(`OpenAI API error: ${analysisResponse.status} - ${errorText}`);
+      }
+
       const analysisData = await analysisResponse.json();
+      
+      if (!analysisData.choices?.[0]?.message?.content) {
+        console.error("Invalid OpenAI response:", analysisData);
+        throw new Error("Resposta inválida da API OpenAI");
+      }
+      
       const analysisText = analysisData.choices[0].message.content;
 
       // Extrair informações estruturadas da análise
@@ -199,11 +206,23 @@ Gere o conteúdo final pronto para uso.`;
               content: generationPrompt,
             },
           ],
-          temperature: 0.7,
+          max_completion_tokens: 4000,
         }),
       });
 
+      if (!generationResponse.ok) {
+        const errorText = await generationResponse.text();
+        console.error("OpenAI API error:", errorText);
+        throw new Error(`OpenAI API error: ${generationResponse.status} - ${errorText}`);
+      }
+
       const generationData = await generationResponse.json();
+      
+      if (!generationData.choices?.[0]?.message?.content) {
+        console.error("Invalid OpenAI response:", generationData);
+        throw new Error("Resposta inválida da API OpenAI");
+      }
+      
       const content = generationData.choices[0].message.content;
 
       return new Response(
