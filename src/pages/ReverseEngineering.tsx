@@ -18,13 +18,13 @@ const ReverseEngineering = () => {
   const { clients } = useClients();
   
   const [selectedClient, setSelectedClient] = useState<string>("");
-  const [referenceUrl, setReferenceUrl] = useState("");
   const [referenceText, setReferenceText] = useState("");
+  const [referenceImages, setReferenceImages] = useState<string[]>([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysis, setAnalysis] = useState<any>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedContent, setGeneratedContent] = useState("");
-  const [inputType, setInputType] = useState<"url" | "text">("url");
+  const [inputType, setInputType] = useState<"images" | "text">("images");
 
   const handleAnalyze = async () => {
     if (!selectedClient) {
@@ -36,10 +36,10 @@ const ReverseEngineering = () => {
       return;
     }
 
-    if (!referenceUrl && !referenceText) {
+    if (referenceImages.length === 0 && !referenceText) {
       toast({
         title: "Referência vazia",
-        description: "Adicione uma URL ou texto de referência",
+        description: "Adicione imagens ou texto de referência",
         variant: "destructive",
       });
       return;
@@ -53,7 +53,7 @@ const ReverseEngineering = () => {
       const { data, error } = await supabase.functions.invoke("reverse-engineer", {
         body: {
           clientId: selectedClient,
-          referenceUrl: inputType === "url" ? referenceUrl : undefined,
+          referenceImages: inputType === "images" ? referenceImages : undefined,
           referenceText: inputType === "text" ? referenceText : undefined,
           phase: "analyze",
         },
@@ -157,25 +157,75 @@ const ReverseEngineering = () => {
         <Card className="p-6 space-y-4">
           <div className="space-y-2">
             <Label>Conteúdo de Referência</Label>
-            <Tabs value={inputType} onValueChange={(v) => setInputType(v as "url" | "text")}>
+            <Tabs value={inputType} onValueChange={(v) => setInputType(v as "images" | "text")}>
               <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="url" className="flex items-center gap-2">
-                  <Link2 className="h-4 w-4" />
-                  URL
+                <TabsTrigger value="images" className="flex items-center gap-2">
+                  <Upload className="h-4 w-4" />
+                  Imagens
                 </TabsTrigger>
                 <TabsTrigger value="text" className="flex items-center gap-2">
                   <FileText className="h-4 w-4" />
                   Texto
                 </TabsTrigger>
               </TabsList>
-              <TabsContent value="url" className="space-y-2 mt-4">
-                <Input
-                  placeholder="https://instagram.com/p/... ou https://youtube.com/watch?v=..."
-                  value={referenceUrl}
-                  onChange={(e) => setReferenceUrl(e.target.value)}
-                />
+              <TabsContent value="images" className="space-y-2 mt-4">
+                <div className="border-2 border-dashed border-border rounded-lg p-6 space-y-3">
+                  <input
+                    type="file"
+                    id="image-upload"
+                    multiple
+                    accept="image/*"
+                    className="hidden"
+                    onChange={async (e) => {
+                      const files = Array.from(e.target.files || []);
+                      if (files.length === 0) return;
+                      
+                      const urls: string[] = [];
+                      for (const file of files) {
+                        const reader = new FileReader();
+                        const base64 = await new Promise<string>((resolve) => {
+                          reader.onload = () => resolve(reader.result as string);
+                          reader.readAsDataURL(file);
+                        });
+                        urls.push(base64);
+                      }
+                      setReferenceImages((prev) => [...prev, ...urls]);
+                      toast({
+                        title: "Imagens adicionadas",
+                        description: `${files.length} imagem(ns) carregada(s)`,
+                      });
+                    }}
+                  />
+                  <label
+                    htmlFor="image-upload"
+                    className="flex flex-col items-center gap-2 cursor-pointer"
+                  >
+                    <Upload className="h-8 w-8 text-muted-foreground" />
+                    <span className="text-sm text-muted-foreground">
+                      Clique para fazer upload de screenshots
+                    </span>
+                  </label>
+                </div>
+                {referenceImages.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium">{referenceImages.length} imagem(ns) carregada(s)</p>
+                    <div className="flex gap-2 flex-wrap">
+                      {referenceImages.map((url, i) => (
+                        <div key={i} className="relative w-20 h-20 rounded border">
+                          <img src={url} alt={`Preview ${i + 1}`} className="w-full h-full object-cover rounded" />
+                          <button
+                            onClick={() => setReferenceImages((prev) => prev.filter((_, idx) => idx !== i))}
+                            className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full w-5 h-5 flex items-center justify-center text-xs"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 <p className="text-xs text-muted-foreground">
-                  Cole o link de um Reels, carrossel, blog post ou vídeo
+                  Faça upload de screenshots de cada slide do carrossel, Reels ou frames do vídeo
                 </p>
               </TabsContent>
               <TabsContent value="text" className="space-y-2 mt-4">
@@ -297,7 +347,7 @@ const ReverseEngineering = () => {
                 onClick={() => {
                   setAnalysis(null);
                   setGeneratedContent("");
-                  setReferenceUrl("");
+                  setReferenceImages([]);
                   setReferenceText("");
                 }}
                 variant="outline"
