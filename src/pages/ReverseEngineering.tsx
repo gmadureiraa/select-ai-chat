@@ -176,13 +176,21 @@ const ReverseEngineering = () => {
               </TabsList>
               <TabsContent value="url" className="space-y-2 mt-4">
                 <Input
-                  placeholder="https://instagram.com/p/... ou https://youtube.com/watch?v=..."
+                  placeholder="https://example.com/blog-post"
                   value={referenceUrl}
                   onChange={(e) => setReferenceUrl(e.target.value)}
                 />
-                <p className="text-xs text-muted-foreground">
-                  Cole o link de um Instagram, YouTube, blog post ou qualquer site
-                </p>
+                <div className="bg-muted/50 p-3 rounded-lg space-y-2">
+                  <p className="text-xs text-muted-foreground">
+                    ⚠️ <strong>Limitação:</strong> YouTube e Instagram não suportam scraping automático.
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    ✅ <strong>Funciona com:</strong> Blogs, sites de notícias, artigos e a maioria dos sites públicos
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    💡 <strong>Alternativa:</strong> Para YouTube/Instagram, use a aba "Imagens" para fazer upload de screenshots
+                  </p>
+                </div>
               </TabsContent>
               <TabsContent value="images" className="space-y-2 mt-4">
                 <div className="border-2 border-dashed border-border rounded-lg p-6 space-y-3">
