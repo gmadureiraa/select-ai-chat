@@ -18,13 +18,14 @@ const ReverseEngineering = () => {
   const { clients } = useClients();
   
   const [selectedClient, setSelectedClient] = useState<string>("");
+  const [referenceUrl, setReferenceUrl] = useState("");
   const [referenceText, setReferenceText] = useState("");
   const [referenceImages, setReferenceImages] = useState<string[]>([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysis, setAnalysis] = useState<any>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedContent, setGeneratedContent] = useState("");
-  const [inputType, setInputType] = useState<"images" | "text">("images");
+  const [inputType, setInputType] = useState<"url" | "images" | "text">("url");
 
   const handleAnalyze = async () => {
     if (!selectedClient) {
@@ -36,10 +37,10 @@ const ReverseEngineering = () => {
       return;
     }
 
-    if (referenceImages.length === 0 && !referenceText) {
+    if (!referenceUrl && referenceImages.length === 0 && !referenceText) {
       toast({
         title: "Referência vazia",
-        description: "Adicione imagens ou texto de referência",
+        description: "Adicione uma URL, imagens ou texto de referência",
         variant: "destructive",
       });
       return;
@@ -53,6 +54,7 @@ const ReverseEngineering = () => {
       const { data, error } = await supabase.functions.invoke("reverse-engineer", {
         body: {
           clientId: selectedClient,
+          referenceUrl: inputType === "url" ? referenceUrl : undefined,
           referenceImages: inputType === "images" ? referenceImages : undefined,
           referenceText: inputType === "text" ? referenceText : undefined,
           phase: "analyze",
@@ -157,8 +159,12 @@ const ReverseEngineering = () => {
         <Card className="p-6 space-y-4">
           <div className="space-y-2">
             <Label>Conteúdo de Referência</Label>
-            <Tabs value={inputType} onValueChange={(v) => setInputType(v as "images" | "text")}>
-              <TabsList className="grid w-full grid-cols-2">
+            <Tabs value={inputType} onValueChange={(v) => setInputType(v as "url" | "images" | "text")}>
+              <TabsList className="grid w-full grid-cols-3">
+                <TabsTrigger value="url" className="flex items-center gap-2">
+                  <Link2 className="h-4 w-4" />
+                  URL
+                </TabsTrigger>
                 <TabsTrigger value="images" className="flex items-center gap-2">
                   <Upload className="h-4 w-4" />
                   Imagens
@@ -168,6 +174,16 @@ const ReverseEngineering = () => {
                   Texto
                 </TabsTrigger>
               </TabsList>
+              <TabsContent value="url" className="space-y-2 mt-4">
+                <Input
+                  placeholder="https://instagram.com/p/... ou https://youtube.com/watch?v=..."
+                  value={referenceUrl}
+                  onChange={(e) => setReferenceUrl(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Cole o link de um Instagram, YouTube, blog post ou qualquer site
+                </p>
+              </TabsContent>
               <TabsContent value="images" className="space-y-2 mt-4">
                 <div className="border-2 border-dashed border-border rounded-lg p-6 space-y-3">
                   <input
@@ -347,6 +363,7 @@ const ReverseEngineering = () => {
                 onClick={() => {
                   setAnalysis(null);
                   setGeneratedContent("");
+                  setReferenceUrl("");
                   setReferenceImages([]);
                   setReferenceText("");
                 }}

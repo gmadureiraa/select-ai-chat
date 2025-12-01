@@ -13,7 +13,7 @@ serve(async (req) => {
   }
 
   try {
-    const { clientId, referenceImages, referenceText, phase, analysis } = await req.json();
+    const { clientId, referenceImages, referenceText, referenceUrl, phase, analysis } = await req.json();
     
     const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
     if (!OPENAI_API_KEY) {
@@ -66,12 +66,119 @@ ${templates?.map((t) => `${t.name}: ${t.rules ? JSON.stringify(t.rules).slice(0,
 `.trim();
 
     if (phase === "analyze") {
-      // FASE 1: ANALISAR O CONTEÚDO DE REFERÊNCIA (COM SUPORTE A MÚLTIPLAS IMAGENS)
+      // FASE 1: ANALISAR O CONTEÚDO DE REFERÊNCIA
       
-      // Construir mensagem com imagens ou texto
+      let extractedContent = "";
+      
+      // 1. EXTRAIR CONTEÚDO (URL, imagens ou texto)
+      if (referenceUrl) {
+        console.log("Processing URL:", referenceUrl);
+        
+        // Se for YouTube, extrair transcrição
+        if (referenceUrl.includes('youtube.com') || referenceUrl.includes('youtu.be')) {
+          // Usar Firecrawl para extrair conteúdo do YouTube
+          const FIRECRAWL_API_KEY = Deno.env.get("FIRECRAWL_API_KEY");
+          if (!FIRECRAWL_API_KEY) {
+            throw new Error("FIRECRAWL_API_KEY não configurada");
+          }
+          
+          const scrapeResponse = await fetch('https://api.firecrawl.dev/v1/scrape', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${FIRECRAWL_API_KEY}`
+            },
+            body: JSON.stringify({
+              url: referenceUrl,
+              formats: ['markdown']
+            })
+          });
+          
+          if (!scrapeResponse.ok) {
+            throw new Error(`Erro ao fazer scraping: ${await scrapeResponse.text()}`);
+          }
+          
+          const scrapeData = await scrapeResponse.json();
+          extractedContent = scrapeData.markdown || scrapeData.data?.markdown || "";
+          console.log("Extracted content from URL, length:", extractedContent.length);
+        } else if (referenceUrl.includes('instagram.com')) {
+          // Instagram: usar Firecrawl
+          const FIRECRAWL_API_KEY = Deno.env.get("FIRECRAWL_API_KEY");
+          if (!FIRECRAWL_API_KEY) {
+            throw new Error("FIRECRAWL_API_KEY não configurada");
+          }
+          
+          const scrapeResponse = await fetch('https://api.firecrawl.dev/v1/scrape', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${FIRECRAWL_API_KEY}`
+            },
+            body: JSON.stringify({
+              url: referenceUrl,
+              formats: ['markdown', 'screenshot']
+            })
+          });
+          
+          if (!scrapeResponse.ok) {
+            throw new Error(`Erro ao fazer scraping: ${await scrapeResponse.text()}`);
+          }
+          
+          const scrapeData = await scrapeResponse.json();
+          extractedContent = scrapeData.markdown || scrapeData.data?.markdown || "";
+          console.log("Extracted content from Instagram, length:", extractedContent.length);
+        } else {
+          // Outros sites: usar Firecrawl
+          const FIRECRAWL_API_KEY = Deno.env.get("FIRECRAWL_API_KEY");
+          if (!FIRECRAWL_API_KEY) {
+            throw new Error("FIRECRAWL_API_KEY não configurada");
+          }
+          
+          const scrapeResponse = await fetch('https://api.firecrawl.dev/v1/scrape', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${FIRECRAWL_API_KEY}`
+            },
+            body: JSON.stringify({
+              url: referenceUrl,
+              formats: ['markdown']
+            })
+          });
+          
+          if (!scrapeResponse.ok) {
+            throw new Error(`Erro ao fazer scraping: ${await scrapeResponse.text()}`);
+          }
+          
+          const scrapeData = await scrapeResponse.json();
+          extractedContent = scrapeData.markdown || scrapeData.data?.markdown || "";
+          console.log("Extracted content from URL, length:", extractedContent.length);
+        }
+      }
+      
+      // 2. ANALISAR O CONTEÚDO
       const userContent: any[] = [];
       
-      if (referenceImages && referenceImages.length > 0) {
+      if (extractedContent) {
+        // Conteúdo extraído de URL
+        userContent.push({
+          type: "text",
+          text: `Analise este conteúdo extraído em detalhes:
+
+${extractedContent}
+
+Forneça uma análise estruturada:
+1. Tipo de conteúdo (Reels, carrossel, blog post, vídeo longo, etc)
+2. Estrutura narrativa e sequência (identifique quantas páginas/slides existem)
+3. Tom e linguagem utilizada
+4. Elementos-chave (gancho, desenvolvimento, CTA, etc)
+5. Estratégia de engajamento
+
+IMPORTANTE: Se for um carrossel ou conteúdo com múltiplas páginas, identifique claramente cada slide/página.
+
+Seja extremamente detalhado na análise para permitir recriação fiel adaptada a outro estilo.`
+        });
+      } else if (referenceImages && referenceImages.length > 0) {
         // Adicionar prompt inicial
         userContent.push({
           type: "text",
@@ -79,11 +186,13 @@ ${templates?.map((t) => `${t.name}: ${t.rules ? JSON.stringify(t.rules).slice(0,
 
 Forneça uma análise estruturada:
 1. Tipo de conteúdo (Reels, carrossel, blog post, vídeo longo, etc)
-2. Estrutura narrativa e sequência
+2. Estrutura narrativa e sequência (cada imagem representa uma página/slide)
 3. Tom e linguagem utilizada (analise textos visíveis)
 4. Elementos visuais e design
 5. Elementos-chave (gancho, desenvolvimento, CTA, etc)
 6. Estratégia de engajamento
+
+IMPORTANTE: Cada imagem fornecida representa uma página/slide do conteúdo. Analise a sequência completa.
 
 Seja extremamente detalhado na análise para permitir recriação fiel adaptada a outro estilo.`
         });
@@ -105,7 +214,7 @@ ${referenceText}
 
 Forneça uma análise estruturada:
 1. Tipo de conteúdo (Reels, carrossel, blog post, vídeo longo, etc)
-2. Estrutura narrativa
+2. Estrutura narrativa e sequência
 3. Tom e linguagem utilizada
 4. Elementos-chave (gancho, desenvolvimento, CTA, etc)
 5. Estratégia de engajamento
@@ -209,7 +318,21 @@ IMPORTANTE:
 - Mantenha a ESTRATÉGIA de engajamento, mas no estilo do cliente
 - Não copie literalmente - adapte e recrie
 
-Gere o conteúdo final pronto para uso.`;
+**FORMATO DE SAÍDA OBRIGATÓRIO:**
+Se for um carrossel/conteúdo com múltiplas páginas, separe claramente cada página assim:
+
+---PÁGINA 1---
+[conteúdo da primeira página]
+
+---PÁGINA 2---
+[conteúdo da segunda página]
+
+---PÁGINA 3---
+[conteúdo da terceira página]
+
+E assim por diante.
+
+Se for um post único ou vídeo, entregue o conteúdo completo em formato corrido.`;
 
       console.log("Sending generation request to OpenAI");
       
