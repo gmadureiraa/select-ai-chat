@@ -19,7 +19,7 @@ const Agents = () => {
       onOpen: () => navigate("/reverse-engineering"),
     },
     {
-      title: "Assistente de Clientes",
+      title: "Assistente kAI",
       subtitle: "Gerenciamento contextual de clientes",
       description: "Sistema completo para gerenciar contexto e criar conteúdo estratégico para cada cliente",
       features: [

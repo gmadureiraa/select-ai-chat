@@ -23,3 +23,6 @@ verify_jwt = false
 
 [functions.reverse-engineer]
 verify_jwt = false
+
+[functions.extract-knowledge]
+verify_jwt = false

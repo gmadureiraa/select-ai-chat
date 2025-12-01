@@ -15,6 +15,7 @@ export const useClientChat = (clientId: string, templateId?: string) => {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [currentStep, setCurrentStep] = useState<ProcessStep>(null);
+  const [conversationRules, setConversationRules] = useState<string[]>([]);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { logActivity } = useActivities();
@@ -24,6 +25,23 @@ export const useClientChat = (clientId: string, templateId?: string) => {
 
   // Get template references
   const { template, references, isLoading: isLoadingReferences } = useTemplateReferences(templateId);
+
+  // Função auxiliar para detectar feedback
+  const detectFeedback = (message: string): boolean => {
+    const feedbackPatterns = [
+      /não era (bem )?(isso|assim)/i,
+      /prefiro/i,
+      /mais (informal|formal|curto|longo)/i,
+      /menos/i,
+      /sempre (use|faça|inclua)/i,
+      /nunca (use|faça|inclua)/i,
+      /por favor/i,
+      /corrija/i,
+      /mude/i,
+      /altere/i,
+    ];
+    return feedbackPatterns.some(p => p.test(message));
+  };
 
   // Get or create conversation
   const { data: conversation } = useQuery({
@@ -244,6 +262,16 @@ IMPORTANTE: Seja SELETIVO. Escolha apenas o que é ESSENCIAL para responder à p
         ``
       ];
 
+      // Incluir regras aprendidas nesta conversa
+      if (conversationRules.length > 0) {
+        contextParts.push("## ⚠️ REGRAS APRENDIDAS NESTA CONVERSA:");
+        contextParts.push("**Aplique SEMPRE estas diretrizes do usuário:**");
+        conversationRules.forEach((rule, idx) => {
+          contextParts.push(`${idx + 1}. ${rule}`);
+        });
+        contextParts.push('');
+      }
+
       // Add context notes only if selected
       if (selection.use_context_notes && client.context_notes) {
         contextParts.push(`## 📋 Contexto do Cliente:`);
@@ -462,6 +490,13 @@ IMPORTANTE: Seja SELETIVO. Escolha apenas o que é ESSENCIAL para responder à p
         },
       });
 
+      // Detectar feedback na mensagem do usuário (próxima implementação)
+      // TODO: Implementar detecção de feedback e extração de regras
+      const hasFeedback = detectFeedback(content);
+      if (hasFeedback) {
+        console.log("Feedback detected in message, future implementation will extract rules");
+      }
+
       // Não precisa invalidar - realtime vai atualizar automaticamente
     } catch (error) {
       console.error("Error sending message:", error);
@@ -524,6 +559,7 @@ IMPORTANTE: Seja SELETIVO. Escolha apenas o que é ESSENCIAL para responder à p
     isLoading,
     currentStep,
     selectedModel,
+    conversationRules,
     setSelectedModel,
     sendMessage,
     regenerateLastMessage,

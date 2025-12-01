@@ -23,12 +23,54 @@ const validateRequest = (body: any): { valid: boolean; error?: string } => {
   return { valid: true };
 };
 
+// Tool para roteamento inteligente
+const routingTool = {
+  type: "function",
+  function: {
+    name: "route_request",
+    description: "Determina como processar a requisição do usuário de forma inteligente",
+    parameters: {
+      type: "object",
+      properties: {
+        intent: {
+          type: "string",
+          enum: ["criar_conteudo", "revisar_conteudo", "tirar_duvida", "brainstorm", "outro"],
+          description: "Intenção identificada na mensagem"
+        },
+        needs_documents: {
+          type: "boolean",
+          description: "Se precisa consultar documentos específicos do cliente"
+        },
+        needs_knowledge_base: {
+          type: "boolean",
+          description: "Se precisa consultar conteúdos anteriores (knowledge base)"
+        },
+        needs_websites: {
+          type: "boolean",
+          description: "Se precisa consultar conteúdo dos websites do cliente"
+        },
+        suggested_model: {
+          type: "string",
+          enum: ["nano", "mini", "standard"],
+          description: "Complexidade: nano=simples/rápido, mini=equilibrado, standard=complexo/preciso"
+        },
+        context_priority: {
+          type: "array",
+          items: { type: "string" },
+          description: "Ordem de prioridade do contexto necessário"
+        }
+      },
+      required: ["intent", "needs_documents", "needs_knowledge_base", "needs_websites", "suggested_model"]
+    }
+  }
+};
+
 // Tool para seleção de documentos relevantes
 const documentSelectionTool = {
   type: "function",
   function: {
     name: "select_relevant_documents",
-    description: "Seleciona os documentos e informações mais relevantes do cliente para responder à pergunta do usuário. Use este tool SEMPRE antes de responder para garantir que você está usando as informações corretas.",
+    description: "Seleciona os documentos e informações mais relevantes do cliente",
     parameters: {
       type: "object",
       properties: {
@@ -55,6 +97,39 @@ const documentSelectionTool = {
   }
 };
 
+// Tool para extrair regras de feedback
+const feedbackTool = {
+  type: "function",
+  function: {
+    name: "extract_feedback_rule",
+    description: "Extrai uma regra do feedback do usuário para aplicar em respostas futuras",
+    parameters: {
+      type: "object",
+      properties: {
+        is_feedback: {
+          type: "boolean",
+          description: "Se a mensagem contém feedback sobre uma resposta anterior"
+        },
+        rule: {
+          type: "string",
+          description: "Regra extraída do feedback (ex: 'Sempre usar tom mais informal')"
+        },
+        rule_type: {
+          type: "string",
+          enum: ["tom", "estrutura", "conteudo", "formato", "outro"],
+          description: "Categoria da regra"
+        },
+        applies_to: {
+          type: "string",
+          enum: ["esta_conversa", "este_template", "este_cliente"],
+          description: "Escopo de aplicação da regra"
+        }
+      },
+      required: ["is_feedback"]
+    }
+  }
+};
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -73,7 +148,7 @@ serve(async (req) => {
       );
     }
 
-    const { messages, model, isSelectionPhase, availableDocuments } = body;
+    const { messages, model, isSelectionPhase, isRoutingPhase, availableDocuments } = body;
     const selectedModel = model || "gpt-5-mini-2025-08-07";
     
     const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
@@ -86,10 +161,62 @@ serve(async (req) => {
       );
     }
 
+    // FASE 0: Roteamento inteligente (opcional - para uso futuro)
+    if (isRoutingPhase) {
+      console.log("Phase 0: Intelligent routing");
+
+      const routingMessages = messages.map((msg: any) => ({
+        role: msg.role,
+        content: msg.content
+      }));
+
+      const routingResponse = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${OPENAI_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "gpt-5-nano-2025-08-07", // Mais barato para routing
+          messages: routingMessages,
+          tools: [routingTool],
+          tool_choice: { type: "function", function: { name: "route_request" } },
+          max_completion_tokens: 500,
+        }),
+      });
+
+      if (!routingResponse.ok) {
+        const errorText = await routingResponse.text();
+        console.error("OpenAI routing error:", errorText);
+        return new Response(
+          JSON.stringify({ error: "Erro ao rotear requisição" }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const routingData = await routingResponse.json();
+      const toolCall = routingData.choices[0]?.message?.tool_calls?.[0];
+      
+      if (!toolCall) {
+        return new Response(
+          JSON.stringify({ error: "Roteamento falhou" }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const routing = JSON.parse(toolCall.function.arguments);
+      console.log("Routing decision:", routing);
+
+      return new Response(
+        JSON.stringify({ routing }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // FASE 1: Seleção de documentos
     if (isSelectionPhase) {
       console.log("Phase 1: Document selection", {
-        model: selectedModel,
+        model: "gpt-5-nano-2025-08-07",
         availableDocuments: availableDocuments?.length || 0,
         timestamp: new Date().toISOString()
       });
@@ -106,7 +233,7 @@ serve(async (req) => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: selectedModel,
+          model: "gpt-5-nano-2025-08-07", // Mais barato para seleção
           messages: selectionMessages,
           tools: [documentSelectionTool],
           tool_choice: { type: "function", function: { name: "select_relevant_documents" } },

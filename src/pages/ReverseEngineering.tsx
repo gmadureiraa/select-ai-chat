@@ -24,7 +24,9 @@ const ReverseEngineering = () => {
   const [referenceImages, setReferenceImages] = useState<string[]>([]);
   const [instagramUrl, setInstagramUrl] = useState("");
   const [extractedImages, setExtractedImages] = useState<string[]>([]);
+  const [instagramCaption, setInstagramCaption] = useState("");
   const [isExtracting, setIsExtracting] = useState(false);
+  const [analysisStep, setAnalysisStep] = useState<"extracting" | "analyzing" | "generating" | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysis, setAnalysis] = useState<any>(null);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -61,6 +63,7 @@ const ReverseEngineering = () => {
       }
 
       setExtractedImages(data.images);
+      setInstagramCaption(data.caption || "");
       toast({
         title: "Imagens extraídas",
         description: `${data.imageCount} ${data.imageCount === 1 ? 'imagem extraída' : 'imagens extraídas'}`,
@@ -98,6 +101,7 @@ const ReverseEngineering = () => {
     }
 
     setIsAnalyzing(true);
+    setAnalysisStep("analyzing");
     setAnalysis(null);
     setGeneratedContent("");
 
@@ -107,6 +111,7 @@ const ReverseEngineering = () => {
           clientId: selectedClient,
           referenceImages: inputType === "images" ? referenceImages : inputType === "instagram" ? extractedImages : undefined,
           referenceText: inputType === "text" ? referenceText : undefined,
+          instagramCaption: inputType === "instagram" ? instagramCaption : undefined,
           phase: "analyze",
         },
       });
@@ -143,6 +148,7 @@ const ReverseEngineering = () => {
       });
     } finally {
       setIsAnalyzing(false);
+      setAnalysisStep(null);
     }
   };
 
@@ -150,6 +156,7 @@ const ReverseEngineering = () => {
     if (!analysis) return;
 
     setIsGenerating(true);
+    setAnalysisStep("generating");
 
     try {
       const { data, error } = await supabase.functions.invoke("reverse-engineer", {
@@ -190,7 +197,19 @@ const ReverseEngineering = () => {
       });
     } finally {
       setIsGenerating(false);
+      setAnalysisStep(null);
     }
+  };
+
+  const handleNewAnalysis = () => {
+    setAnalysis(null);
+    setGeneratedContent("");
+    setReferenceImages([]);
+    setReferenceText("");
+    setInstagramUrl("");
+    setExtractedImages([]);
+    setInstagramCaption("");
+    setInputType("images");
   };
 
   return (
@@ -351,6 +370,12 @@ const ReverseEngineering = () => {
                       <p className="text-xs text-muted-foreground">
                         {extractedImages.length} {extractedImages.length === 1 ? 'imagem extraída' : 'imagens extraídas'}
                       </p>
+                      {instagramCaption && (
+                        <div className="p-3 bg-muted/50 rounded-lg">
+                          <p className="text-xs text-muted-foreground mb-1">Legenda extraída:</p>
+                          <p className="text-sm line-clamp-3">{instagramCaption}</p>
+                        </div>
+                      )}
                       <div className="flex gap-2 flex-wrap">
                         {extractedImages.map((url, i) => (
                           <div key={i} className="relative w-20 h-20 rounded border border-border/50 overflow-hidden">
@@ -374,6 +399,24 @@ const ReverseEngineering = () => {
             </Tabs>
           </div>
 
+          {analysisStep && (
+            <div className="p-4 bg-muted/30 rounded-lg border border-border/50">
+              <div className="flex items-center gap-3">
+                <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                <div className="flex-1">
+                  <p className="text-sm font-medium">
+                    {analysisStep === "analyzing" && "Analisando estrutura do conteúdo..."}
+                    {analysisStep === "generating" && "Gerando conteúdo adaptado..."}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {analysisStep === "analyzing" && "Extraindo estrutura, tom e táticas de engajamento"}
+                    {analysisStep === "generating" && "Aplicando estilo e padrões do cliente"}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           <Button
             onClick={handleAnalyze}
             disabled={isAnalyzing || !selectedClient}
@@ -394,31 +437,45 @@ const ReverseEngineering = () => {
         {analysis && (
           <Card className="border-border/50 bg-card/50 p-6 space-y-4">
             <div className="space-y-4">
-              <Label className="text-sm font-medium">Análise do Conteúdo</Label>
+              <Label className="text-sm font-medium">Análise Estruturada</Label>
               <div className="bg-background border border-border/50 p-4 rounded-lg space-y-3 text-sm">
                 <div className="flex gap-2">
-                  <span className="font-medium min-w-[100px]">Tipo:</span>
-                  <span className="text-muted-foreground">{analysis.contentType}</span>
+                  <span className="font-medium min-w-[120px]">Tipo:</span>
+                  <span className="text-muted-foreground">{analysis.content_type}</span>
                 </div>
                 <div className="flex gap-2">
-                  <span className="font-medium min-w-[100px]">Estrutura:</span>
-                  <span className="text-muted-foreground">{analysis.structure}</span>
+                  <span className="font-medium min-w-[120px]">Páginas/Slides:</span>
+                  <span className="text-muted-foreground">{analysis.page_count}</span>
                 </div>
                 <div className="flex gap-2">
-                  <span className="font-medium min-w-[100px]">Tom:</span>
+                  <span className="font-medium min-w-[120px]">Hook:</span>
+                  <span className="text-muted-foreground">{analysis.hook}</span>
+                </div>
+                <div className="flex gap-2">
+                  <span className="font-medium min-w-[120px]">Tom:</span>
                   <span className="text-muted-foreground">{analysis.tone}</span>
                 </div>
-                <div>
-                  <span className="font-medium">Principais elementos:</span>
-                  <ul className="list-disc list-inside text-muted-foreground mt-2 ml-2 space-y-1">
-                    {analysis.keyElements?.map((element: string, i: number) => (
-                      <li key={i}>{element}</li>
-                    ))}
-                  </ul>
+                <div className="flex gap-2">
+                  <span className="font-medium min-w-[120px]">CTA:</span>
+                  <span className="text-muted-foreground">{analysis.cta}</span>
                 </div>
                 <div>
-                  <span className="font-medium">Estratégia:</span>
-                  <p className="text-muted-foreground mt-2">{analysis.strategy}</p>
+                  <span className="font-medium">Estrutura:</span>
+                  <div className="mt-2 space-y-1">
+                    {analysis.structure?.map((s: any, i: number) => (
+                      <div key={i} className="text-muted-foreground ml-2">
+                        <span className="font-medium">Pág. {s.page}:</span> {s.purpose} - {s.content_summary}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <span className="font-medium">Táticas de Engajamento:</span>
+                  <ul className="list-disc list-inside text-muted-foreground mt-2 ml-2 space-y-1">
+                    {analysis.engagement_tactics?.map((tactic: string, i: number) => (
+                      <li key={i}>{tactic}</li>
+                    ))}
+                  </ul>
                 </div>
               </div>
             </div>
@@ -469,14 +526,7 @@ const ReverseEngineering = () => {
                 Copiar Conteúdo
               </Button>
               <Button
-                onClick={() => {
-                  setAnalysis(null);
-                  setGeneratedContent("");
-                  setReferenceImages([]);
-                  setReferenceText("");
-                  setInstagramUrl("");
-                  setExtractedImages([]);
-                }}
+                onClick={handleNewAnalysis}
                 variant="outline"
                 className="flex-1"
               >
