@@ -89,7 +89,7 @@ export const ResearchItemNode = memo(({ data }: NodeProps<ResearchItemNodeData>)
           <Trash2 className="h-3.5 w-3.5" />
         </Button>
 
-        {item.type === "youtube" && item.content && (
+        {item.type === "youtube" && (
           <Button
             variant="ghost"
             size="icon"
@@ -98,6 +98,7 @@ export const ResearchItemNode = memo(({ data }: NodeProps<ResearchItemNodeData>)
               e.stopPropagation();
               setShowTranscript(true);
             }}
+            title="Ver transcrição"
           >
             <Eye className="h-3.5 w-3.5" />
           </Button>
@@ -163,9 +164,18 @@ export const ResearchItemNode = memo(({ data }: NodeProps<ResearchItemNodeData>)
                   className="w-full rounded-lg border border-gray-200"
                 />
               )}
-              <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">
-                {item.content}
-              </p>
+              {item.content ? (
+                <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">
+                  {item.content}
+                </p>
+              ) : (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                  <p className="text-sm text-red-700 font-medium mb-2">⚠️ Transcrição não disponível</p>
+                  <p className="text-xs text-red-600">
+                    A transcrição não foi extraída corretamente. Tente remover e adicionar o vídeo novamente.
+                  </p>
+                </div>
+              )}
             </div>
           </ScrollArea>
         </DialogContent>

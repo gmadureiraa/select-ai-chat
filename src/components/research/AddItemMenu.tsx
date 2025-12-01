@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Youtube, FileText, Link as LinkIcon, Sparkles, StickyNote } from "lucide-react";
+import { Youtube, FileText, Link as LinkIcon, Sparkles, StickyNote, Mic } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -13,7 +13,7 @@ interface AddItemMenuProps {
   onClose: () => void;
 }
 
-type ItemType = "ai_chat" | "note" | "youtube" | "text" | "link" | null;
+type ItemType = "ai_chat" | "note" | "youtube" | "text" | "link" | "audio" | null;
 
 export const AddItemMenu = ({ projectId, onClose }: AddItemMenuProps) => {
   const [selectedType, setSelectedType] = useState<ItemType>(null);
@@ -195,6 +195,20 @@ export const AddItemMenu = ({ projectId, onClose }: AddItemMenuProps) => {
               <div className="text-xs text-gray-500">URL externa</div>
             </div>
           </Button>
+
+          <Button
+            variant="outline"
+            className="w-full justify-start gap-3 h-auto py-3 hover:bg-pink-50 hover:border-pink-300"
+            onClick={() => handleSelectType("audio")}
+          >
+            <div className="p-2 bg-pink-100 rounded-lg">
+              <Mic className="h-4 w-4 text-pink-600" />
+            </div>
+            <div className="text-left">
+              <div className="font-semibold text-sm">Áudio</div>
+              <div className="text-xs text-gray-500">Gravar ou fazer upload</div>
+            </div>
+          </Button>
         </div>
       </div>
     );
@@ -209,6 +223,7 @@ export const AddItemMenu = ({ projectId, onClose }: AddItemMenuProps) => {
           {selectedType === "youtube" && "Adicionar Vídeo"}
           {selectedType === "text" && "Adicionar Texto"}
           {selectedType === "link" && "Adicionar Link"}
+          {selectedType === "audio" && "Adicionar Áudio"}
         </h3>
         <Button variant="ghost" size="sm" onClick={() => setSelectedType(null)}>
           Voltar
@@ -312,6 +327,14 @@ export const AddItemMenu = ({ projectId, onClose }: AddItemMenuProps) => {
               Adicionar Link
             </Button>
           </>
+        )}
+
+        {selectedType === "audio" && (
+          <div className="text-center py-8">
+            <Mic className="h-12 w-12 mx-auto mb-3 text-pink-400" />
+            <p className="text-sm text-gray-600 mb-2">Funcionalidade de áudio</p>
+            <p className="text-xs text-gray-400">Em breve: gravação e upload de áudio</p>
+          </div>
         )}
       </div>
     </div>

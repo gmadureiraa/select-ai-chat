@@ -43,16 +43,24 @@ serve(async (req) => {
     const transcriptData = await transcriptResponse.json();
     console.log("Dados da transcrição recebidos:", JSON.stringify(transcriptData).substring(0, 500));
     console.log("Chaves disponíveis:", Object.keys(transcriptData));
-    console.log("Transcrição obtida com sucesso");
-
+    
     // Extrai informações do vídeo da URL
     const videoId = extractVideoId(url);
     const title = transcriptData.title || transcriptData.video_title || "Vídeo do YouTube";
-    const content = transcriptData.transcript || transcriptData.text || transcriptData.transcription || "";
+    
+    // CORREÇÃO CRÍTICA: Ler 'content' primeiro (é o campo correto da API Supadata)
+    const content = transcriptData.content || transcriptData.transcript || transcriptData.text || transcriptData.transcription || "";
     const thumbnail = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
     
     console.log("Título extraído:", title);
     console.log("Content length:", content.length);
+    console.log("Content preview:", content.substring(0, 200));
+    
+    if (!content || content.length === 0) {
+      console.error("ERRO: Transcrição vazia! TranscriptData:", JSON.stringify(transcriptData));
+    } else {
+      console.log("Transcrição obtida com sucesso");
+    }
 
     return new Response(
       JSON.stringify({

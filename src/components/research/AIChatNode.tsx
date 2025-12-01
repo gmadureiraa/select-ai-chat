@@ -3,7 +3,6 @@ import { Handle, Position, NodeProps } from "reactflow";
 import { Send, Bot, Sparkles, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { useResearchChat } from "@/hooks/useResearchChat";
 import { ResearchItem } from "@/hooks/useResearchItems";
 
@@ -93,10 +92,11 @@ export const AIChatNode = memo(({ data }: NodeProps<AIChatNodeData>) => {
         </div>
       </div>
 
-      <ScrollArea 
-        className="flex-1 p-3" 
+      <div 
+        className="flex-1 p-3 overflow-y-auto no-pan no-wheel" 
         ref={scrollRef}
         onWheel={(e) => e.stopPropagation()}
+        style={{ scrollbarWidth: 'thin' }}
       >
         <div className="space-y-3">
           {messages.length === 0 && (
@@ -149,7 +149,7 @@ export const AIChatNode = memo(({ data }: NodeProps<AIChatNodeData>) => {
             </div>
           )}
         </div>
-      </ScrollArea>
+      </div>
 
       <div className="p-2 border-t border-gray-200 bg-gray-50">
         <div className="flex gap-2">
