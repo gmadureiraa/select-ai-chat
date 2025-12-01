@@ -53,6 +53,10 @@ export const AIChatNode = memo(({ data }: NodeProps<AIChatNodeData>) => {
       e.preventDefault();
       handleSend();
     }
+    // Impede que Delete/Backspace propaguem para o elemento pai
+    if (e.key === "Delete" || e.key === "Backspace") {
+      e.stopPropagation();
+    }
   };
 
   return (
