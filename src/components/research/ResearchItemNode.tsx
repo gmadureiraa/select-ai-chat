@@ -1,6 +1,6 @@
-import { memo, useState } from "react";
+import { memo, useState, useEffect, useCallback } from "react";
 import { Handle, Position, NodeProps } from "reactflow";
-import { Trash2, Youtube, FileText, Link as LinkIcon, Image as ImageIcon, Music, FileType, Eye } from "lucide-react";
+import { Trash2, Youtube, FileText, Link as LinkIcon, Image as ImageIcon, Music, FileType } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ResearchItem } from "@/hooks/useResearchItems";
 import {
@@ -19,6 +19,22 @@ interface ResearchItemNodeData {
 export const ResearchItemNode = memo(({ data }: NodeProps<ResearchItemNodeData>) => {
   const { item, onDelete } = data;
   const [showTranscript, setShowTranscript] = useState(false);
+
+  // Adicionar suporte para tecla Delete
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    if (e.key === 'Delete' || e.key === 'Backspace') {
+      onDelete(item.id);
+    }
+  }, [item.id, onDelete]);
+
+  useEffect(() => {
+    // Adiciona listener de teclado quando o card está focado
+    const element = document.getElementById(`research-item-${item.id}`);
+    if (element) {
+      element.addEventListener('keydown', handleKeyDown as any);
+      return () => element.removeEventListener('keydown', handleKeyDown as any);
+    }
+  }, [handleKeyDown, item.id]);
 
   const getIcon = () => {
     switch (item.type) {
@@ -65,7 +81,9 @@ export const ResearchItemNode = memo(({ data }: NodeProps<ResearchItemNodeData>)
   return (
     <>
       <div 
-        className={`bg-white border-2 ${getBorderColor()} rounded-xl shadow-lg hover:shadow-xl transition-shadow p-4 min-w-[280px] max-w-[320px] group relative cursor-pointer`}
+        id={`research-item-${item.id}`}
+        tabIndex={0}
+        className={`bg-white border-2 ${getBorderColor()} rounded-xl shadow-lg hover:shadow-xl transition-shadow p-4 min-w-[280px] max-w-[320px] group relative cursor-pointer focus:outline-none focus:ring-2 focus:ring-purple-400`}
         onClick={() => {
           if (item.type === "youtube") {
             setShowTranscript(true);
@@ -80,12 +98,12 @@ export const ResearchItemNode = memo(({ data }: NodeProps<ResearchItemNodeData>)
         <Button
           variant="ghost"
           size="icon"
-          className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity h-7 w-7 hover:bg-red-50 hover:text-red-600 z-10"
+          className="absolute top-2 left-2 opacity-0 group-hover:opacity-100 transition-opacity h-7 w-7 hover:bg-red-50 hover:text-red-600 z-10"
           onClick={(e) => {
             e.stopPropagation();
             onDelete(item.id);
           }}
-          title="Excluir"
+          title="Excluir (ou pressione Delete)"
         >
           <Trash2 className="h-3.5 w-3.5" />
         </Button>
