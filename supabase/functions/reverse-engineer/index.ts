@@ -116,6 +116,8 @@ Seja extremamente detalhado na análise para permitir recriação fiel adaptada 
         throw new Error("Nenhum conteúdo de referência fornecido");
       }
 
+      console.log("Sending analysis request to OpenAI with", referenceImages?.length || 0, "images");
+      
       const analysisResponse = await fetch("https://api.openai.com/v1/chat/completions", {
         method: "POST",
         headers: {
@@ -138,20 +140,41 @@ Seja extremamente detalhado na análise para permitir recriação fiel adaptada 
         }),
       });
 
+      console.log("OpenAI response status:", analysisResponse.status);
+
       if (!analysisResponse.ok) {
         const errorText = await analysisResponse.text();
-        console.error("OpenAI API error:", errorText);
-        throw new Error(`OpenAI API error: ${analysisResponse.status} - ${errorText}`);
+        console.error("OpenAI API error response:", errorText);
+        throw new Error(`Erro na API OpenAI (${analysisResponse.status}): ${errorText.substring(0, 200)}`);
       }
 
       const analysisData = await analysisResponse.json();
+      console.log("OpenAI response structure:", {
+        hasChoices: !!analysisData.choices,
+        choicesLength: analysisData.choices?.length,
+        hasFirstChoice: !!analysisData.choices?.[0],
+        hasMessage: !!analysisData.choices?.[0]?.message,
+        hasContent: !!analysisData.choices?.[0]?.message?.content,
+        error: analysisData.error
+      });
       
-      if (!analysisData.choices?.[0]?.message?.content) {
-        console.error("Invalid OpenAI response:", analysisData);
-        throw new Error("Resposta inválida da API OpenAI");
+      if (analysisData.error) {
+        console.error("OpenAI returned error:", analysisData.error);
+        throw new Error(`Erro da OpenAI: ${analysisData.error.message || JSON.stringify(analysisData.error)}`);
+      }
+      
+      if (!analysisData.choices || analysisData.choices.length === 0) {
+        console.error("No choices in response:", JSON.stringify(analysisData));
+        throw new Error("API OpenAI não retornou nenhuma resposta válida");
+      }
+      
+      if (!analysisData.choices[0]?.message?.content) {
+        console.error("No content in first choice:", JSON.stringify(analysisData.choices[0]));
+        throw new Error("Resposta da API OpenAI está incompleta");
       }
       
       const analysisText = analysisData.choices[0].message.content;
+      console.log("Analysis completed, text length:", analysisText.length);
 
       // Extrair informações estruturadas da análise
       return new Response(
@@ -188,6 +211,8 @@ IMPORTANTE:
 
 Gere o conteúdo final pronto para uso.`;
 
+      console.log("Sending generation request to OpenAI");
+      
       const generationResponse = await fetch("https://api.openai.com/v1/chat/completions", {
         method: "POST",
         headers: {
@@ -210,20 +235,39 @@ Gere o conteúdo final pronto para uso.`;
         }),
       });
 
+      console.log("Generation response status:", generationResponse.status);
+
       if (!generationResponse.ok) {
         const errorText = await generationResponse.text();
-        console.error("OpenAI API error:", errorText);
-        throw new Error(`OpenAI API error: ${generationResponse.status} - ${errorText}`);
+        console.error("OpenAI API generation error:", errorText);
+        throw new Error(`Erro na API OpenAI (${generationResponse.status}): ${errorText.substring(0, 200)}`);
       }
 
       const generationData = await generationResponse.json();
+      console.log("Generation response structure:", {
+        hasChoices: !!generationData.choices,
+        choicesLength: generationData.choices?.length,
+        hasContent: !!generationData.choices?.[0]?.message?.content,
+        error: generationData.error
+      });
       
-      if (!generationData.choices?.[0]?.message?.content) {
-        console.error("Invalid OpenAI response:", generationData);
-        throw new Error("Resposta inválida da API OpenAI");
+      if (generationData.error) {
+        console.error("OpenAI returned error:", generationData.error);
+        throw new Error(`Erro da OpenAI: ${generationData.error.message || JSON.stringify(generationData.error)}`);
+      }
+      
+      if (!generationData.choices || generationData.choices.length === 0) {
+        console.error("No choices in generation response:", JSON.stringify(generationData));
+        throw new Error("API OpenAI não retornou nenhuma resposta válida");
+      }
+      
+      if (!generationData.choices[0]?.message?.content) {
+        console.error("No content in generation:", JSON.stringify(generationData.choices[0]));
+        throw new Error("Resposta da API OpenAI está incompleta");
       }
       
       const content = generationData.choices[0].message.content;
+      console.log("Generation completed, content length:", content.length);
 
       return new Response(
         JSON.stringify({ content }),
