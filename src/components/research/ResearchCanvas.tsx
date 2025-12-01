@@ -16,6 +16,7 @@ import ReactFlow, {
 import "reactflow/dist/style.css";
 import { useResearchItems } from "@/hooks/useResearchItems";
 import { ResearchItemNode } from "./ResearchItemNode";
+import { AIChatNode } from "./AIChatNode";
 
 interface ResearchCanvasProps {
   projectId: string;
@@ -23,6 +24,7 @@ interface ResearchCanvasProps {
 
 const nodeTypes = {
   researchItem: ResearchItemNode,
+  aiChat: AIChatNode,
 };
 
 export const ResearchCanvas = ({ projectId }: ResearchCanvasProps) => {
@@ -36,12 +38,12 @@ export const ResearchCanvas = ({ projectId }: ResearchCanvasProps) => {
   useEffect(() => {
     const newNodes: Node[] = items.map((item) => ({
       id: item.id,
-      type: "researchItem",
+      type: item.type === "ai_chat" ? "aiChat" : "researchItem",
       position: { x: item.position_x || Math.random() * 500, y: item.position_y || Math.random() * 500 },
-      data: { item, onDelete: deleteItem.mutate },
+      data: { item, onDelete: deleteItem.mutate, projectId },
     }));
     setNodes(newNodes);
-  }, [items, deleteItem.mutate, setNodes]);
+  }, [items, deleteItem.mutate, setNodes, projectId]);
 
   // Update edges when connections change
   useEffect(() => {

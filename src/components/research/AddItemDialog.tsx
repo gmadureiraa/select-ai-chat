@@ -30,12 +30,13 @@ export const AddItemDialog = ({ projectId, open, onOpenChange }: AddItemDialogPr
   const setDialogOpen = isControlled ? onOpenChange! : setInternalOpen;
   const { createItem } = useResearchItems(projectId);
   const { toast } = useToast();
-  const [type, setType] = useState<"youtube" | "text" | "link" | "note">("note");
+  const [type, setType] = useState<"youtube" | "text" | "link" | "note" | "ai_chat">("ai_chat");
   const [isProcessing, setIsProcessing] = useState(false);
 
   // Note
   const [noteTitle, setNoteTitle] = useState("");
   const [noteContent, setNoteContent] = useState("");
+  const [aiChatTitle, setAiChatTitle] = useState("");
 
   // YouTube
   const [youtubeUrl, setYoutubeUrl] = useState("");
@@ -67,6 +68,30 @@ export const AddItemDialog = ({ projectId, open, onOpenChange }: AddItemDialogPr
     } catch (error: any) {
       toast({
         title: "Erro ao adicionar nota",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleAddAIChat = async () => {
+    try {
+      await createItem.mutateAsync({
+        project_id: projectId,
+        type: "ai_chat",
+        title: aiChatTitle || "Chat com IA",
+        position_x: Math.random() * 500,
+        position_y: Math.random() * 500,
+      });
+      setAiChatTitle("");
+      setDialogOpen(false);
+      toast({
+        title: "Chat IA adicionado",
+        description: "Card de chat com IA criado com sucesso.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Erro ao adicionar chat",
         description: error.message,
         variant: "destructive",
       });
@@ -159,12 +184,28 @@ export const AddItemDialog = ({ projectId, open, onOpenChange }: AddItemDialogPr
         </DialogHeader>
 
         <Tabs value={type} onValueChange={(v: any) => setType(v)} className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
+            <TabsTrigger value="ai_chat">Chat IA</TabsTrigger>
             <TabsTrigger value="note">Nota</TabsTrigger>
             <TabsTrigger value="youtube">YouTube</TabsTrigger>
             <TabsTrigger value="text">Texto</TabsTrigger>
             <TabsTrigger value="link">Link</TabsTrigger>
           </TabsList>
+
+          <TabsContent value="ai_chat" className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="aiChatTitle">Título do Chat (opcional)</Label>
+              <Input
+                id="aiChatTitle"
+                placeholder="Ex: Análise de Vídeos, Resumo de Links..."
+                value={aiChatTitle}
+                onChange={(e) => setAiChatTitle(e.target.value)}
+              />
+            </div>
+            <Button onClick={handleAddAIChat} className="w-full">
+              Adicionar Chat IA
+            </Button>
+          </TabsContent>
 
             <TabsContent value="note" className="space-y-4">
               <div className="space-y-2">

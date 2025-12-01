@@ -1,9 +1,7 @@
 import { useState } from "react";
 import { AppLayout } from "@/components/AppLayout";
 import { ProjectSelector } from "@/components/research/ProjectSelector";
-import { AddItemDialog } from "@/components/research/AddItemDialog";
 import { ResearchCanvas } from "@/components/research/ResearchCanvas";
-import { ResearchChatPanel } from "@/components/research/ResearchChatPanel";
 
 const ResearchLab = () => {
   const [selectedProjectId, setSelectedProjectId] = useState<string>();
@@ -30,12 +28,9 @@ const ResearchLab = () => {
             </div>
           </div>
         ) : (
-          <div className="flex-1 flex gap-4 p-4 overflow-hidden bg-white">
-            <div className="flex-1 overflow-hidden rounded-lg border border-gray-200 shadow-sm">
+          <div className="flex-1 p-4 overflow-hidden bg-white">
+            <div className="h-full overflow-hidden rounded-lg border border-gray-200 shadow-sm">
               <ResearchCanvas projectId={selectedProjectId} />
-            </div>
-            <div className="w-96 overflow-hidden">
-              <ResearchChatPanel projectId={selectedProjectId} />
             </div>
           </div>
         )}

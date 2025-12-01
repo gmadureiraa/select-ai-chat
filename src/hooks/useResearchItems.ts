@@ -5,7 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 export interface ResearchItem {
   id: string;
   project_id: string;
-  type: "youtube" | "image" | "audio" | "text" | "link" | "pdf" | "note";
+  type: "youtube" | "image" | "audio" | "text" | "link" | "pdf" | "note" | "ai_chat";
   title: string | null;
   content: string | null;
   source_url: string | null;
