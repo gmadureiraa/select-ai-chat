@@ -16,15 +16,26 @@ import { useResearchItems } from "@/hooks/useResearchItems";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
+
 interface AddItemDialogProps {
   projectId: string;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
-export const AddItemDialog = ({ projectId }: AddItemDialogProps) => {
+export const AddItemDialog = ({ projectId, open, onOpenChange }: AddItemDialogProps) => {
+  const [internalOpen, setInternalOpen] = useState(false);
+  const isControlled = open !== undefined;
+  const dialogOpen = isControlled ? open : internalOpen;
+  const setDialogOpen = isControlled ? onOpenChange! : setInternalOpen;
   const { createItem } = useResearchItems(projectId);
   const { toast } = useToast();
-  const [isOpen, setIsOpen] = useState(false);
+  const [type, setType] = useState<"youtube" | "text" | "link" | "note">("note");
   const [isProcessing, setIsProcessing] = useState(false);
+
+  // Note
+  const [noteTitle, setNoteTitle] = useState("");
+  const [noteContent, setNoteContent] = useState("");
 
   // YouTube
   const [youtubeUrl, setYoutubeUrl] = useState("");
@@ -35,6 +46,32 @@ export const AddItemDialog = ({ projectId }: AddItemDialogProps) => {
 
   // Link
   const [linkUrl, setLinkUrl] = useState("");
+
+  const handleAddNote = async () => {
+    try {
+      await createItem.mutateAsync({
+        project_id: projectId,
+        type: "note",
+        title: noteTitle,
+        content: noteContent,
+        position_x: Math.random() * 500,
+        position_y: Math.random() * 500,
+      });
+      setNoteTitle("");
+      setNoteContent("");
+      setDialogOpen(false);
+      toast({
+        title: "Nota adicionada",
+        description: "Sua nota foi adicionada ao projeto.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Erro ao adicionar nota",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
 
   const handleAddYoutube = async () => {
     if (!youtubeUrl.trim()) return;
@@ -59,7 +96,7 @@ export const AddItemDialog = ({ projectId }: AddItemDialogProps) => {
       });
 
       setYoutubeUrl("");
-      setIsOpen(false);
+      setDialogOpen(false);
       toast({
         title: "Vídeo adicionado",
         description: "Transcrição extraída com sucesso.",
@@ -88,7 +125,7 @@ export const AddItemDialog = ({ projectId }: AddItemDialogProps) => {
 
     setTextTitle("");
     setTextContent("");
-    setIsOpen(false);
+    setDialogOpen(false);
   };
 
   const handleAddLink = async () => {
@@ -103,30 +140,58 @@ export const AddItemDialog = ({ projectId }: AddItemDialogProps) => {
     });
 
     setLinkUrl("");
-    setIsOpen(false);
+    setDialogOpen(false);
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogTrigger asChild>
-        <Button>
-          <Plus className="mr-2 h-4 w-4" />
-          Adicionar Material
-        </Button>
-      </DialogTrigger>
+    <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      {!isControlled && (
+        <DialogTrigger asChild>
+          <Button>
+            <Plus className="mr-2 h-4 w-4" />
+            Adicionar Material
+          </Button>
+        </DialogTrigger>
+      )}
       <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>Adicionar Material à Pesquisa</DialogTitle>
         </DialogHeader>
 
-        <Tabs defaultValue="youtube">
-          <TabsList className="grid w-full grid-cols-3">
+        <Tabs value={type} onValueChange={(v: any) => setType(v)} className="w-full">
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="note">Nota</TabsTrigger>
             <TabsTrigger value="youtube">YouTube</TabsTrigger>
             <TabsTrigger value="text">Texto</TabsTrigger>
             <TabsTrigger value="link">Link</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="youtube" className="space-y-4">
+            <TabsContent value="note" className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="note-title">Título da Nota</Label>
+                <Input
+                  id="note-title"
+                  placeholder="Digite o título..."
+                  value={noteTitle}
+                  onChange={(e) => setNoteTitle(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="note-content">Conteúdo</Label>
+                <Textarea
+                  id="note-content"
+                  placeholder="Digite suas anotações..."
+                  value={noteContent}
+                  onChange={(e) => setNoteContent(e.target.value)}
+                  rows={6}
+                />
+              </div>
+              <Button onClick={handleAddNote} className="w-full" disabled={!noteTitle || !noteContent}>
+                Adicionar Nota
+              </Button>
+            </TabsContent>
+
+            <TabsContent value="youtube" className="space-y-4">
             <div>
               <Label htmlFor="youtube-url">URL do Vídeo</Label>
               <Input

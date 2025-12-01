@@ -30,13 +30,19 @@ serve(async (req) => {
 
     console.log("Analisando pesquisa para projeto:", projectId);
 
-    // Buscar todos os itens do projeto
-    const { data: items, error: itemsError } = await supabase
-      .from("research_items")
-      .select("*")
-      .eq("project_id", projectId);
+      // Buscar itens e conexões do projeto
+      const { data: items, error: itemsError } = await supabase
+        .from("research_items")
+        .select("*")
+        .eq("project_id", projectId);
 
-    if (itemsError) throw itemsError;
+      const { data: connections, error: connectionsError } = await supabase
+        .from("research_connections")
+        .select("*")
+        .eq("project_id", projectId);
+
+      if (itemsError) throw itemsError;
+      if (connectionsError) throw connectionsError;
 
     // Buscar mensagens anteriores da conversa
     const { data: previousMessages, error: messagesError } = await supabase
@@ -47,7 +53,7 @@ serve(async (req) => {
 
     if (messagesError) throw messagesError;
 
-    // Construir contexto dos materiais
+    // Construir contexto dos materiais com conexões
     let materialsContext = "### Materiais do Projeto\n\n";
     
     if (items && items.length > 0) {
@@ -59,6 +65,21 @@ serve(async (req) => {
         if (item.source_url) {
           materialsContext += `Fonte: ${item.source_url}\n\n`;
         }
+      }
+
+      // Adicionar informações sobre conexões
+      if (connections && connections.length > 0) {
+        materialsContext += "\n### Conexões entre Materiais\n\n";
+        const itemsMap = new Map(items.map((item: any) => [item.id, item]));
+        
+        for (const conn of connections) {
+          const source = itemsMap.get(conn.source_id);
+          const target = itemsMap.get(conn.target_id);
+          if (source && target) {
+            materialsContext += `• "${source.title || source.type}" → "${target.title || target.type}"${conn.label ? ` (${conn.label})` : ""}\n`;
+          }
+        }
+        materialsContext += "\n";
       }
     } else {
       materialsContext += "Nenhum material adicionado ainda.\n\n";
@@ -78,8 +99,9 @@ Sua função é:
 - Analisar e sintetizar informações dos materiais disponíveis
 - Responder perguntas sobre o conteúdo
 - Identificar padrões e insights
-- Fazer conexões entre diferentes materiais
+- Fazer conexões entre diferentes materiais (considere as conexões já estabelecidas!)
 - Sugerir próximos passos de pesquisa
+- Quando houver conexões entre materiais, use-as para dar respostas mais completas e contextualizadas
 
 Seja conciso, objetivo e baseie suas respostas nos materiais fornecidos.`,
       },

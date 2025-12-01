@@ -1,4 +1,5 @@
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { AddItemDialog } from "./AddItemDialog";
 import ReactFlow, {
   Node,
   Edge,
@@ -25,10 +26,11 @@ const nodeTypes = {
 };
 
 export const ResearchCanvas = ({ projectId }: ResearchCanvasProps) => {
-  const { items, deleteItem, updateItem } = useResearchItems(projectId);
+  const { items, deleteItem, updateItem, connections, createConnection, deleteConnection } = useResearchItems(projectId);
 
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
 
   // Update nodes when items change
   useEffect(() => {
@@ -41,9 +43,37 @@ export const ResearchCanvas = ({ projectId }: ResearchCanvasProps) => {
     setNodes(newNodes);
   }, [items, deleteItem.mutate, setNodes]);
 
+  // Update edges when connections change
+  useEffect(() => {
+    const newEdges: Edge[] = connections.map((conn) => ({
+      id: conn.id,
+      source: conn.source_id,
+      target: conn.target_id,
+      label: conn.label,
+      type: "default",
+    }));
+    setEdges(newEdges);
+  }, [connections, setEdges]);
+
   const onConnect = useCallback(
-    (params: Connection) => setEdges((eds) => addEdge(params, eds)),
-    [setEdges]
+    (params: Connection) => {
+      if (params.source && params.target) {
+        createConnection.mutate({
+          source_id: params.source,
+          target_id: params.target,
+        });
+      }
+    },
+    [createConnection]
+  );
+
+  const onEdgesDelete = useCallback(
+    (edgesToDelete: Edge[]) => {
+      edgesToDelete.forEach((edge) => {
+        deleteConnection.mutate(edge.id);
+      });
+    },
+    [deleteConnection]
   );
 
   const onNodeDragStop = useCallback(
@@ -70,13 +100,14 @@ export const ResearchCanvas = ({ projectId }: ResearchCanvasProps) => {
   }
 
   return (
-    <div className="h-full w-full bg-white">
+    <div className="h-full w-full bg-white relative">
       <ReactFlow
         nodes={nodes}
         edges={edges}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
+        onEdgesDelete={onEdgesDelete}
         onNodeDragStop={onNodeDragStop}
         nodeTypes={nodeTypes}
         fitView
@@ -92,7 +123,21 @@ export const ResearchCanvas = ({ projectId }: ResearchCanvasProps) => {
         <Panel position="top-right" className="bg-white/90 backdrop-blur-sm px-4 py-2 rounded-lg border border-gray-200 text-sm text-gray-600">
           Arraste os cards • Conecte clicando e arrastando das bordas
         </Panel>
+        <Panel position="bottom-right" className="mr-4 mb-4">
+          <button
+            onClick={() => setIsAddDialogOpen(true)}
+            className="w-14 h-14 rounded-full bg-[#00ff9d] hover:bg-[#00cc7d] text-black shadow-lg flex items-center justify-center transition-all hover:scale-110"
+          >
+            <span className="text-3xl font-light">+</span>
+          </button>
+        </Panel>
       </ReactFlow>
+
+      <AddItemDialog 
+        projectId={projectId} 
+        open={isAddDialogOpen}
+        onOpenChange={setIsAddDialogOpen}
+      />
     </div>
   );
 };

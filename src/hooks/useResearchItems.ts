@@ -5,7 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 export interface ResearchItem {
   id: string;
   project_id: string;
-  type: "youtube" | "image" | "audio" | "text" | "link" | "pdf";
+  type: "youtube" | "image" | "audio" | "text" | "link" | "pdf" | "note";
   title: string | null;
   content: string | null;
   source_url: string | null;
@@ -17,6 +17,15 @@ export interface ResearchItem {
   height: number;
   metadata: any;
   processed: boolean;
+  created_at: string;
+}
+
+export interface ResearchConnection {
+  id: string;
+  project_id: string;
+  source_id: string;
+  target_id: string;
+  label: string | null;
   created_at: string;
 }
 
@@ -113,11 +122,61 @@ export const useResearchItems = (projectId?: string) => {
     },
   });
 
+  // Connections queries
+  const { data: connections = [] } = useQuery({
+    queryKey: ["research-connections", projectId],
+    queryFn: async () => {
+      if (!projectId) return [];
+      
+      const { data, error } = await supabase
+        .from("research_connections")
+        .select("*")
+        .eq("project_id", projectId);
+
+      if (error) throw error;
+      return data as ResearchConnection[];
+    },
+    enabled: !!projectId,
+  });
+
+  const createConnection = useMutation({
+    mutationFn: async (connection: { source_id: string; target_id: string; label?: string }) => {
+      const { data, error } = await supabase
+        .from("research_connections")
+        .insert([{ project_id: projectId, ...connection }])
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["research-connections", projectId] });
+    },
+  });
+
+  const deleteConnection = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from("research_connections")
+        .delete()
+        .eq("id", id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["research-connections", projectId] });
+    },
+  });
+
   return {
     items,
     isLoading,
     createItem,
     updateItem,
     deleteItem,
+    connections,
+    createConnection,
+    deleteConnection,
   };
 };
