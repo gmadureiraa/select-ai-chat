@@ -65,9 +65,9 @@ export const ResearchItemNode = memo(({ data }: NodeProps<ResearchItemNodeData>)
   return (
     <>
       <div 
-        className={`bg-white border-2 ${getBorderColor()} rounded-xl shadow-lg hover:shadow-xl transition-shadow p-4 min-w-[280px] max-w-[320px] group relative`}
+        className={`bg-white border-2 ${getBorderColor()} rounded-xl shadow-lg hover:shadow-xl transition-shadow p-4 min-w-[280px] max-w-[320px] group relative cursor-pointer`}
         onClick={() => {
-          if (item.type === "youtube" && item.content) {
+          if (item.type === "youtube") {
             setShowTranscript(true);
           }
         }}
@@ -85,24 +85,10 @@ export const ResearchItemNode = memo(({ data }: NodeProps<ResearchItemNodeData>)
             e.stopPropagation();
             onDelete(item.id);
           }}
+          title="Excluir"
         >
           <Trash2 className="h-3.5 w-3.5" />
         </Button>
-
-        {item.type === "youtube" && (
-          <Button
-            variant="ghost"
-            size="icon"
-            className="absolute top-2 right-10 opacity-0 group-hover:opacity-100 transition-opacity h-7 w-7 hover:bg-blue-50 hover:text-blue-600 z-10"
-            onClick={(e) => {
-              e.stopPropagation();
-              setShowTranscript(true);
-            }}
-            title="Ver transcrição"
-          >
-            <Eye className="h-3.5 w-3.5" />
-          </Button>
-        )}
 
       <div className="flex items-start gap-3 mb-3">
         <div className="p-2.5 bg-gray-50 rounded-lg border border-gray-200">
@@ -151,27 +137,29 @@ export const ResearchItemNode = memo(({ data }: NodeProps<ResearchItemNodeData>)
       </div>
 
       <Dialog open={showTranscript} onOpenChange={setShowTranscript}>
-        <DialogContent className="max-w-3xl max-h-[80vh]" onClick={(e) => e.stopPropagation()}>
+        <DialogContent className="max-w-4xl max-h-[85vh]" onClick={(e) => e.stopPropagation()}>
           <DialogHeader>
-            <DialogTitle>{item.title || "Transcrição"}</DialogTitle>
+            <DialogTitle className="text-lg font-semibold">{item.title || "Transcrição do Vídeo"}</DialogTitle>
           </DialogHeader>
-          <ScrollArea className="h-[60vh] pr-4">
-            <div className="space-y-2">
+          <ScrollArea className="h-[70vh] pr-4">
+            <div className="space-y-4">
               {item.thumbnail_url && (
                 <img
                   src={item.thumbnail_url}
                   alt={item.title || "Thumbnail"}
-                  className="w-full rounded-lg border border-gray-200"
+                  className="w-full rounded-lg border border-border shadow-sm"
                 />
               )}
               {item.content ? (
-                <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">
-                  {item.content}
-                </p>
+                <div className="bg-muted/30 rounded-lg p-4 border border-border">
+                  <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">
+                    {item.content}
+                  </p>
+                </div>
               ) : (
-                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                  <p className="text-sm text-red-700 font-medium mb-2">⚠️ Transcrição não disponível</p>
-                  <p className="text-xs text-red-600">
+                <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4">
+                  <p className="text-sm text-destructive font-medium mb-2">⚠️ Transcrição não disponível</p>
+                  <p className="text-xs text-destructive/80">
                     A transcrição não foi extraída corretamente. Tente remover e adicionar o vídeo novamente.
                   </p>
                 </div>
