@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Youtube, FileText, Link as LinkIcon, Sparkles, StickyNote, Mic } from "lucide-react";
+import { Youtube, FileText, Link as LinkIcon, Sparkles, StickyNote, Mic, Image } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -13,7 +13,7 @@ interface AddItemMenuProps {
   onClose: () => void;
 }
 
-type ItemType = "ai_chat" | "note" | "youtube" | "text" | "link" | "audio" | null;
+type ItemType = "ai_chat" | "note" | "youtube" | "text" | "link" | "audio" | "image" | null;
 
 export const AddItemMenu = ({ projectId, onClose }: AddItemMenuProps) => {
   const [selectedType, setSelectedType] = useState<ItemType>(null);
@@ -109,6 +109,18 @@ export const AddItemMenu = ({ projectId, onClose }: AddItemMenuProps) => {
             position_y: Math.random() * 500,
           });
           toast({ title: "Áudio criado - clique para gravar" });
+          break;
+
+        case "image":
+          await createItem.mutateAsync({
+            project_id: projectId,
+            type: "image",
+            title: url || "Nova Imagem",
+            source_url: url || undefined,
+            position_x: Math.random() * 500,
+            position_y: Math.random() * 500,
+          });
+          toast({ title: "Imagem adicionada" });
           break;
       }
 
@@ -217,6 +229,20 @@ export const AddItemMenu = ({ projectId, onClose }: AddItemMenuProps) => {
               <div className="text-xs text-muted-foreground">Gravar ou fazer upload</div>
             </div>
           </Button>
+
+          <Button
+            variant="ghost"
+            className="w-full justify-start gap-3 h-auto py-2.5 hover:bg-accent/50"
+            onClick={() => handleSelectType("image")}
+          >
+            <div className="p-1.5 bg-orange-500/10 rounded-md">
+              <Image className="h-4 w-4 text-orange-600" />
+            </div>
+            <div className="text-left flex-1">
+              <div className="font-medium text-sm">Imagem</div>
+              <div className="text-xs text-muted-foreground">Adicionar ou gerar imagem</div>
+            </div>
+          </Button>
         </div>
       </div>
     );
@@ -232,6 +258,7 @@ export const AddItemMenu = ({ projectId, onClose }: AddItemMenuProps) => {
           {selectedType === "text" && "Adicionar Texto"}
           {selectedType === "link" && "Adicionar Link"}
           {selectedType === "audio" && "Adicionar Áudio"}
+          {selectedType === "image" && "Adicionar Imagem"}
         </h3>
         <Button variant="ghost" size="sm" onClick={() => setSelectedType(null)}>
           Voltar
@@ -319,6 +346,25 @@ export const AddItemMenu = ({ projectId, onClose }: AddItemMenuProps) => {
               Criar Áudio
             </Button>
           </div>
+        )}
+
+        {selectedType === "image" && (
+          <>
+            <div>
+              <Label>URL da Imagem (opcional)</Label>
+              <Input
+                placeholder="https://... ou deixe vazio para gerar"
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Após criar, você pode gerar novas imagens com IA
+              </p>
+            </div>
+            <Button onClick={handleAddItem} className="w-full" disabled={isProcessing}>
+              {isProcessing ? "Adicionando..." : "Adicionar Imagem"}
+            </Button>
+          </>
         )}
       </div>
     </div>
