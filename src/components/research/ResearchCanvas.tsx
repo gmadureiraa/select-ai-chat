@@ -136,9 +136,6 @@ export const ResearchCanvas = ({ projectId }: ResearchCanvasProps) => {
           nodeColor="#f3f4f6"
           maskColor="rgba(0, 0, 0, 0.1)"
         />
-        <Panel position="top-right" className="bg-white/90 backdrop-blur-sm px-4 py-2 rounded-lg border border-gray-200 text-sm text-gray-600">
-          Arraste os cards • Conecte clicando e arrastando das bordas
-        </Panel>
         <Panel position="bottom-right" className="mr-4 mb-4">
           <button
             onClick={() => setIsAddMenuOpen(!isAddMenuOpen)}

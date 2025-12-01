@@ -96,14 +96,14 @@ export const ResearchItemNode = memo(({ data }: NodeProps<ResearchItemNodeData>)
         <Handle type="source" position={Position.Right} className="w-3 h-3 !bg-gray-400" />
 
         <Button
-          variant="ghost"
+          variant="outline"
           size="icon"
-          className="absolute top-2 left-2 opacity-0 group-hover:opacity-100 transition-opacity h-7 w-7 hover:bg-red-50 hover:text-red-600 z-10"
+          className="absolute top-2 left-2 h-8 px-2 rounded-full border-red-200 text-red-600 bg-red-50/80 hover:bg-red-100 hover:text-red-700 z-10 flex items-center gap-1"
           onClick={(e) => {
             e.stopPropagation();
             onDelete(item.id);
           }}
-          title="Excluir (ou pressione Delete)"
+          title="Excluir card (Delete/Backspace)"
         >
           <Trash2 className="h-3.5 w-3.5" />
         </Button>
@@ -156,8 +156,22 @@ export const ResearchItemNode = memo(({ data }: NodeProps<ResearchItemNodeData>)
 
       <Dialog open={showTranscript} onOpenChange={setShowTranscript}>
         <DialogContent className="max-w-4xl max-h-[85vh]" onClick={(e) => e.stopPropagation()}>
-          <DialogHeader>
-            <DialogTitle className="text-lg font-semibold">{item.title || "Transcrição do Vídeo"}</DialogTitle>
+          <DialogHeader className="flex flex-row items-center justify-between gap-2">
+            <DialogTitle className="text-lg font-semibold flex-1">
+              {item.title || "Transcrição do Vídeo"}
+            </DialogTitle>
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-8 px-2 rounded-full border-red-200 text-red-600 bg-red-50/80 hover:bg-red-100 hover:text-red-700"
+              onClick={() => {
+                onDelete(item.id);
+                setShowTranscript(false);
+              }}
+              title="Excluir este card"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
           </DialogHeader>
           <ScrollArea className="h-[70vh] pr-4">
             <div className="space-y-4">
@@ -176,7 +190,7 @@ export const ResearchItemNode = memo(({ data }: NodeProps<ResearchItemNodeData>)
                 </div>
               ) : (
                 <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4">
-                  <p className="text-sm text-destructive font-medium mb-2">⚠️ Transcrição não disponível</p>
+                  <p className="text-sm text-destructive font-medium mb-2">Transcrição não disponível</p>
                   <p className="text-xs text-destructive/80">
                     A transcrição não foi extraída corretamente. Tente remover e adicionar o vídeo novamente.
                   </p>
