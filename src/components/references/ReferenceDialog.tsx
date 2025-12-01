@@ -6,6 +6,9 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CreateReferenceData, ReferenceItem } from "@/hooks/useReferenceLibrary";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+import { Loader2, Upload, X } from "lucide-react";
 
 interface ReferenceDialogProps {
   open: boolean;
@@ -15,6 +18,7 @@ interface ReferenceDialogProps {
 }
 
 export function ReferenceDialog({ open, onClose, onSave, reference }: ReferenceDialogProps) {
+  const { toast } = useToast();
   const [formData, setFormData] = useState<CreateReferenceData>({
     title: "",
     reference_type: "tweet",
@@ -22,6 +26,9 @@ export function ReferenceDialog({ open, onClose, onSave, reference }: ReferenceD
     source_url: "",
     thumbnail_url: "",
   });
+  const [uploadedImages, setUploadedImages] = useState<string[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
+  const [isTranscribing, setIsTranscribing] = useState(false);
 
   useEffect(() => {
     if (reference) {
@@ -32,6 +39,7 @@ export function ReferenceDialog({ open, onClose, onSave, reference }: ReferenceD
         source_url: reference.source_url || "",
         thumbnail_url: reference.thumbnail_url || "",
       });
+      setUploadedImages(reference.metadata?.image_urls || []);
     } else {
       setFormData({
         title: "",
@@ -40,12 +48,117 @@ export function ReferenceDialog({ open, onClose, onSave, reference }: ReferenceD
         source_url: "",
         thumbnail_url: "",
       });
+      setUploadedImages([]);
     }
   }, [reference, open]);
 
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    if (uploadedImages.length + files.length > 10) {
+      toast({
+        title: "Limite excedido",
+        description: "Você pode adicionar no máximo 10 imagens.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsUploading(true);
+    const newImageUrls: string[] = [];
+
+    try {
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${crypto.randomUUID()}.${fileExt}`;
+        const filePath = `reference-images/${fileName}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('client-files')
+          .upload(filePath, file);
+
+        if (uploadError) throw uploadError;
+
+        const { data: { publicUrl } } = supabase.storage
+          .from('client-files')
+          .getPublicUrl(filePath);
+
+        newImageUrls.push(publicUrl);
+      }
+
+      setUploadedImages([...uploadedImages, ...newImageUrls]);
+      toast({
+        title: "Imagens carregadas",
+        description: `${newImageUrls.length} imagem(ns) adicionada(s)`,
+      });
+    } catch (error) {
+      console.error("Error uploading images:", error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível fazer upload das imagens",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleTranscribe = async () => {
+    if (uploadedImages.length === 0) {
+      toast({
+        title: "Nenhuma imagem",
+        description: "Adicione pelo menos uma imagem para transcrever",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsTranscribing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('transcribe-images', {
+        body: { imageUrls: uploadedImages }
+      });
+
+      if (error) throw error;
+
+      const existingContent = formData.content.trim();
+      const newContent = existingContent 
+        ? `${existingContent}\n\n--- CONTEÚDO DAS IMAGENS ---\n${data.transcription}`
+        : data.transcription;
+
+      setFormData({ ...formData, content: newContent });
+      toast({
+        title: "Transcrição concluída",
+        description: "O conteúdo das imagens foi adicionado",
+      });
+    } catch (error) {
+      console.error("Error transcribing images:", error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível transcrever as imagens",
+        variant: "destructive",
+      });
+    } finally {
+      setIsTranscribing(false);
+    }
+  };
+
+  const removeImage = (index: number) => {
+    setUploadedImages(uploadedImages.filter((_, i) => i !== index));
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSave(formData);
+    const dataWithImages = {
+      ...formData,
+      metadata: {
+        ...formData.metadata,
+        image_urls: uploadedImages,
+      },
+    };
+    onSave(dataWithImages);
     onClose();
   };
 
@@ -91,12 +204,73 @@ export function ReferenceDialog({ open, onClose, onSave, reference }: ReferenceD
           </div>
 
           <div className="space-y-2">
+            <Label>Imagens (até 10)</Label>
+            <div className="space-y-2">
+              <div className="flex gap-2">
+                <Input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={handleImageUpload}
+                  disabled={isUploading || uploadedImages.length >= 10}
+                  className="flex-1"
+                />
+                {uploadedImages.length > 0 && (
+                  <Button
+                    type="button"
+                    onClick={handleTranscribe}
+                    disabled={isTranscribing}
+                    variant="secondary"
+                  >
+                    {isTranscribing ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Transcrevendo...
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="mr-2 h-4 w-4" />
+                        Transcrever
+                      </>
+                    )}
+                  </Button>
+                )}
+              </div>
+              
+              {uploadedImages.length > 0 && (
+                <div className="grid grid-cols-5 gap-2">
+                  {uploadedImages.map((url, index) => (
+                    <div key={index} className="relative group">
+                      <img
+                        src={url}
+                        alt={`Upload ${index + 1}`}
+                        className="w-full h-20 object-cover rounded border"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeImage(index)}
+                        className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              
+              <p className="text-xs text-muted-foreground">
+                {uploadedImages.length}/10 imagens • Faça upload e clique em "Transcrever" para extrair o conteúdo
+              </p>
+            </div>
+          </div>
+
+          <div className="space-y-2">
             <Label htmlFor="content">Conteúdo</Label>
             <Textarea
               id="content"
               value={formData.content}
               onChange={(e) => setFormData({ ...formData, content: e.target.value })}
-              placeholder="Cole o conteúdo completo da referência aqui..."
+              placeholder="Cole o conteúdo completo da referência aqui ou transcreva das imagens..."
               className="min-h-[200px] font-mono text-sm"
               required
             />

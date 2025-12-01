@@ -32,3 +32,6 @@ verify_jwt = false
 
 [functions.analyze-research]
 verify_jwt = false
+
+[functions.transcribe-images]
+verify_jwt = false
