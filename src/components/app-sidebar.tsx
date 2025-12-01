@@ -1,4 +1,4 @@
-import { Brain, Users, LogOut, Activity, Settings } from "lucide-react";
+import { Brain, Users, LogOut, Activity, Settings, PanelLeftClose } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -86,11 +86,12 @@ export function AppSidebar() {
       <SidebarFooter className="border-t border-border p-2">
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarTrigger className="w-full justify-start">
-              <SidebarMenuButton className="w-full">
-                <span className="text-sm">{open ? "Recolher" : ""}</span>
-              </SidebarMenuButton>
-            </SidebarTrigger>
+            <SidebarMenuButton asChild>
+              <SidebarTrigger className="w-full justify-start hover:bg-accent/50">
+                <PanelLeftClose className="h-5 w-5" />
+                {open && <span>Recolher</span>}
+              </SidebarTrigger>
+            </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
             <SidebarMenuButton onClick={handleLogout} className="hover:bg-destructive/10 hover:text-destructive">
