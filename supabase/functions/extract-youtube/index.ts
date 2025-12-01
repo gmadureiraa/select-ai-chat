@@ -123,8 +123,14 @@ serve(async (req) => {
 });
 
 function extractVideoId(url: string): string {
+  // Check if it's a channel URL
+  if (url.includes('/@') || url.includes('/channel/') || url.includes('/c/')) {
+    throw new Error("Por favor, forneça uma URL de vídeo do YouTube, não uma URL de canal. Exemplo: https://youtube.com/watch?v=VIDEO_ID");
+  }
+
   const patterns = [
     /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\n?#]+)/,
+    /youtube\.com\/shorts\/([^&\n?#]+)/,
   ];
   
   for (const pattern of patterns) {
@@ -134,7 +140,7 @@ function extractVideoId(url: string): string {
     }
   }
   
-  throw new Error("ID do vídeo não encontrado na URL");
+  throw new Error("URL do YouTube inválida. Por favor, forneça uma URL de vídeo válida. Exemplo: https://youtube.com/watch?v=VIDEO_ID");
 }
 
 async function fetchYouTubeTranscript(videoId: string): Promise<string> {
