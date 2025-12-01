@@ -1,8 +1,15 @@
-import { memo } from "react";
+import { memo, useState } from "react";
 import { Handle, Position, NodeProps } from "reactflow";
-import { Trash2, Youtube, FileText, Link as LinkIcon, Image as ImageIcon, Music, FileType } from "lucide-react";
+import { Trash2, Youtube, FileText, Link as LinkIcon, Image as ImageIcon, Music, FileType, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ResearchItem } from "@/hooks/useResearchItems";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface ResearchItemNodeData {
   item: ResearchItem;
@@ -11,6 +18,7 @@ interface ResearchItemNodeData {
 
 export const ResearchItemNode = memo(({ data }: NodeProps<ResearchItemNodeData>) => {
   const { item, onDelete } = data;
+  const [showTranscript, setShowTranscript] = useState(false);
 
   const getIcon = () => {
     switch (item.type) {
@@ -55,20 +63,45 @@ export const ResearchItemNode = memo(({ data }: NodeProps<ResearchItemNodeData>)
   };
 
   return (
-    <div className={`bg-white border-2 ${getBorderColor()} rounded-xl shadow-lg hover:shadow-xl transition-shadow p-4 min-w-[280px] max-w-[320px] group relative`}>
-      <Handle type="target" position={Position.Top} className="w-3 h-3 !bg-gray-400" />
-      <Handle type="source" position={Position.Bottom} className="w-3 h-3 !bg-gray-400" />
-      <Handle type="source" position={Position.Left} className="w-3 h-3 !bg-gray-400" />
-      <Handle type="source" position={Position.Right} className="w-3 h-3 !bg-gray-400" />
-
-      <Button
-        variant="ghost"
-        size="icon"
-        className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity h-7 w-7 hover:bg-red-50 hover:text-red-600"
-        onClick={() => onDelete(item.id)}
+    <>
+      <div 
+        className={`bg-white border-2 ${getBorderColor()} rounded-xl shadow-lg hover:shadow-xl transition-shadow p-4 min-w-[280px] max-w-[320px] group relative`}
+        onClick={() => {
+          if (item.type === "youtube" && item.content) {
+            setShowTranscript(true);
+          }
+        }}
       >
-        <Trash2 className="h-3.5 w-3.5" />
-      </Button>
+        <Handle type="target" position={Position.Top} className="w-3 h-3 !bg-gray-400" />
+        <Handle type="source" position={Position.Bottom} className="w-3 h-3 !bg-gray-400" />
+        <Handle type="source" position={Position.Left} className="w-3 h-3 !bg-gray-400" />
+        <Handle type="source" position={Position.Right} className="w-3 h-3 !bg-gray-400" />
+
+        <Button
+          variant="ghost"
+          size="icon"
+          className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity h-7 w-7 hover:bg-red-50 hover:text-red-600 z-10"
+          onClick={(e) => {
+            e.stopPropagation();
+            onDelete(item.id);
+          }}
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </Button>
+
+        {item.type === "youtube" && item.content && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="absolute top-2 right-10 opacity-0 group-hover:opacity-100 transition-opacity h-7 w-7 hover:bg-blue-50 hover:text-blue-600 z-10"
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowTranscript(true);
+            }}
+          >
+            <Eye className="h-3.5 w-3.5" />
+          </Button>
+        )}
 
       <div className="flex items-start gap-3 mb-3">
         <div className="p-2.5 bg-gray-50 rounded-lg border border-gray-200">
@@ -103,17 +136,41 @@ export const ResearchItemNode = memo(({ data }: NodeProps<ResearchItemNodeData>)
         </p>
       )}
 
-      {item.source_url && (
-        <a
-          href={item.source_url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-xs text-blue-600 hover:text-blue-700 hover:underline block truncate font-medium"
-        >
-          {item.source_url}
-        </a>
-      )}
-    </div>
+        {item.source_url && (
+          <a
+            href={item.source_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs text-blue-600 hover:text-blue-700 hover:underline block truncate font-medium"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {item.source_url}
+          </a>
+        )}
+      </div>
+
+      <Dialog open={showTranscript} onOpenChange={setShowTranscript}>
+        <DialogContent className="max-w-3xl max-h-[80vh]" onClick={(e) => e.stopPropagation()}>
+          <DialogHeader>
+            <DialogTitle>{item.title || "Transcrição"}</DialogTitle>
+          </DialogHeader>
+          <ScrollArea className="h-[60vh] pr-4">
+            <div className="space-y-2">
+              {item.thumbnail_url && (
+                <img
+                  src={item.thumbnail_url}
+                  alt={item.title || "Thumbnail"}
+                  className="w-full rounded-lg border border-gray-200"
+                />
+              )}
+              <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">
+                {item.content}
+              </p>
+            </div>
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 });
 

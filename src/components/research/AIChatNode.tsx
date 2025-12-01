@@ -93,7 +93,11 @@ export const AIChatNode = memo(({ data }: NodeProps<AIChatNodeData>) => {
         </div>
       </div>
 
-      <ScrollArea className="flex-1 p-3" ref={scrollRef}>
+      <ScrollArea 
+        className="flex-1 p-3" 
+        ref={scrollRef}
+        onWheel={(e) => e.stopPropagation()}
+      >
         <div className="space-y-3">
           {messages.length === 0 && (
             <div className="text-center text-gray-400 py-8">

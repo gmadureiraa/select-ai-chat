@@ -29,19 +29,25 @@ serve(async (req) => {
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
     console.log("Analisando pesquisa para projeto:", projectId);
+    console.log("connectedItemIds recebidos:", connectedItemIds);
 
-      // Buscar itens e conexões do projeto
-      // Se connectedItemIds for fornecido, buscar apenas esses items
-      let itemsQuery = supabase
-        .from("research_items")
-        .select("*")
-        .eq("project_id", projectId);
-      
-      if (connectedItemIds && connectedItemIds.length > 0) {
-        itemsQuery = itemsQuery.in("id", connectedItemIds);
-      }
-      
-      const { data: items, error: itemsError } = await itemsQuery;
+    // Buscar itens e conexões do projeto
+    // Se connectedItemIds for fornecido, buscar apenas esses items
+    let itemsQuery = supabase
+      .from("research_items")
+      .select("*")
+      .eq("project_id", projectId);
+    
+    if (connectedItemIds && connectedItemIds.length > 0) {
+      console.log("Filtrando por items conectados:", connectedItemIds);
+      itemsQuery = itemsQuery.in("id", connectedItemIds);
+    }
+    
+    const { data: items, error: itemsError } = await itemsQuery;
+    console.log("Items encontrados:", items?.length || 0);
+    if (items && items.length > 0) {
+      console.log("Primeiro item:", items[0]?.title, "- Content length:", items[0]?.content?.length || 0);
+    }
 
       const { data: connections, error: connectionsError } = await supabase
         .from("research_connections")
