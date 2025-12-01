@@ -17,6 +17,9 @@ import "reactflow/dist/style.css";
 import { useResearchItems } from "@/hooks/useResearchItems";
 import { ResearchItemNode } from "./ResearchItemNode";
 import { AIChatNode } from "./AIChatNode";
+import { TextNode } from "./TextNode";
+import { NoteNode } from "./NoteNode";
+import { AudioNode } from "./AudioNode";
 import { Sparkles } from "lucide-react";
 
 interface ResearchCanvasProps {
@@ -26,6 +29,9 @@ interface ResearchCanvasProps {
 const nodeTypes = {
   researchItem: ResearchItemNode,
   aiChat: AIChatNode,
+  text: TextNode,
+  note: NoteNode,
+  audio: AudioNode,
 };
 
 export const ResearchCanvas = ({ projectId }: ResearchCanvasProps) => {
@@ -50,9 +56,15 @@ export const ResearchCanvas = ({ projectId }: ResearchCanvasProps) => {
         connectedItems = items.filter(i => connectedIds.includes(i.id));
       }
 
+      let nodeType = "researchItem";
+      if (item.type === "ai_chat") nodeType = "aiChat";
+      else if (item.type === "text") nodeType = "text";
+      else if (item.type === "note") nodeType = "note";
+      else if (item.type === "audio") nodeType = "audio";
+
       return {
         id: item.id,
-        type: item.type === "ai_chat" ? "aiChat" : "researchItem",
+        type: nodeType,
         position: { x: item.position_x || 0, y: item.position_y || 0 },
         data: {
           item,
@@ -128,6 +140,12 @@ export const ResearchCanvas = ({ projectId }: ResearchCanvasProps) => {
         className="bg-white"
         noPanClassName="no-pan"
         noWheelClassName="no-wheel"
+        connectionRadius={50}
+        defaultEdgeOptions={{
+          type: 'default',
+          style: { stroke: '#8b5cf6', strokeWidth: 2 },
+          animated: true,
+        }}
       >
         <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="#e5e5e5" />
         <Controls className="bg-white border border-gray-200 rounded-lg" />

@@ -47,16 +47,14 @@ export const AddItemMenu = ({ projectId, onClose }: AddItemMenuProps) => {
           break;
 
         case "note":
-          if (!content.trim()) return;
           await createItem.mutateAsync({
             project_id: projectId,
             type: "note",
-            title: title || "Nota",
-            content,
+            title: "Nova Nota",
             position_x: Math.random() * 500,
             position_y: Math.random() * 500,
           });
-          toast({ title: "Nota adicionada" });
+          toast({ title: "Nota criada - clique para editar" });
           break;
 
         case "youtube":
@@ -80,15 +78,14 @@ export const AddItemMenu = ({ projectId, onClose }: AddItemMenuProps) => {
           break;
 
         case "text":
-          if (!content.trim()) return;
           await createItem.mutateAsync({
             project_id: projectId,
             type: "text",
-            title: title || "Texto",
-            content,
-            processed: true,
+            title: "Novo Texto",
+            position_x: Math.random() * 500,
+            position_y: Math.random() * 500,
           });
-          toast({ title: "Texto adicionado" });
+          toast({ title: "Texto criado - clique para editar" });
           break;
 
         case "link":
@@ -101,6 +98,17 @@ export const AddItemMenu = ({ projectId, onClose }: AddItemMenuProps) => {
             processed: false,
           });
           toast({ title: "Link adicionado" });
+          break;
+
+        case "audio":
+          await createItem.mutateAsync({
+            project_id: projectId,
+            type: "audio",
+            title: "Novo Áudio",
+            position_x: Math.random() * 500,
+            position_y: Math.random() * 500,
+          });
+          toast({ title: "Áudio criado - clique para gravar" });
           break;
       }
 
@@ -248,28 +256,14 @@ export const AddItemMenu = ({ projectId, onClose }: AddItemMenuProps) => {
         )}
 
         {selectedType === "note" && (
-          <>
-            <div>
-              <Label>Título</Label>
-              <Input
-                placeholder="Título da nota..."
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-              />
-            </div>
-            <div>
-              <Label>Conteúdo</Label>
-              <Textarea
-                placeholder="Digite suas anotações..."
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-                rows={4}
-              />
-            </div>
-            <Button onClick={handleAddItem} className="w-full" disabled={!content.trim() || isProcessing}>
-              Adicionar Nota
+          <div className="text-center py-4">
+            <p className="text-sm text-muted-foreground mb-4">
+              Um card de nota será criado. Clique nele para editar o conteúdo.
+            </p>
+            <Button onClick={handleAddItem} className="w-full" disabled={isProcessing}>
+              Criar Nota
             </Button>
-          </>
+          </div>
         )}
 
         {selectedType === "youtube" && (
@@ -289,28 +283,14 @@ export const AddItemMenu = ({ projectId, onClose }: AddItemMenuProps) => {
         )}
 
         {selectedType === "text" && (
-          <>
-            <div>
-              <Label>Título (opcional)</Label>
-              <Input
-                placeholder="Título do texto..."
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-              />
-            </div>
-            <div>
-              <Label>Conteúdo</Label>
-              <Textarea
-                placeholder="Cole ou escreva o texto..."
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-                rows={6}
-              />
-            </div>
-            <Button onClick={handleAddItem} className="w-full" disabled={!content.trim() || isProcessing}>
-              Adicionar Texto
+          <div className="text-center py-4">
+            <p className="text-sm text-muted-foreground mb-4">
+              Um card de texto será criado. Clique nele para editar o conteúdo.
+            </p>
+            <Button onClick={handleAddItem} className="w-full" disabled={isProcessing}>
+              Criar Texto
             </Button>
-          </>
+          </div>
         )}
 
         {selectedType === "link" && (
@@ -330,10 +310,14 @@ export const AddItemMenu = ({ projectId, onClose }: AddItemMenuProps) => {
         )}
 
         {selectedType === "audio" && (
-          <div className="text-center py-8">
-            <Mic className="h-12 w-12 mx-auto mb-3 text-muted-foreground/50" />
-            <p className="text-sm text-foreground mb-2">Funcionalidade de áudio</p>
-            <p className="text-xs text-muted-foreground">Em breve: gravação e upload de áudio</p>
+          <div className="text-center py-4">
+            <Mic className="h-12 w-12 mx-auto mb-3 text-pink-600" />
+            <p className="text-sm text-muted-foreground mb-4">
+              Um card de áudio será criado. Clique nele para iniciar a gravação.
+            </p>
+            <Button onClick={handleAddItem} className="w-full" disabled={isProcessing}>
+              Criar Áudio
+            </Button>
           </div>
         )}
       </div>
