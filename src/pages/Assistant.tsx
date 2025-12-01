@@ -4,9 +4,15 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Loader2, MessageSquare, Image, Zap } from "lucide-react";
+import { Loader2, MessageSquare, Image } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import kaleidosLogo from "@/assets/kaleidos-logo.svg";
 
 const Assistant = () => {
@@ -59,63 +65,48 @@ const Assistant = () => {
     <div className="min-h-screen bg-background">
       <div className="border-b bg-background/95 backdrop-blur-sm">
         <div className="max-w-7xl mx-auto px-6 py-6">
-          <div className="flex items-center gap-4">
-            <img src={kaleidosLogo} alt="kAI" className="h-10 w-10" />
-            <div>
-              <h1 className="text-2xl font-semibold">Assistente kAI</h1>
-              <p className="text-sm text-muted-foreground">
-                Selecione um cliente para começar a criar conteúdo
-              </p>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <img src={kaleidosLogo} alt="kAI" className="h-10 w-10" />
+              <div>
+                <h1 className="text-2xl font-semibold">Assistente kAI</h1>
+                <p className="text-sm text-muted-foreground">
+                  {selectedClient ? selectedClient.name : "Selecione um cliente para começar"}
+                </p>
+              </div>
             </div>
+            
+            {/* Dropdown de seleção de cliente */}
+            <Select value={selectedClientId || ""} onValueChange={setSelectedClientId}>
+              <SelectTrigger className="w-[280px]">
+                <SelectValue placeholder="Cliente:" />
+              </SelectTrigger>
+              <SelectContent className="bg-background z-50">
+                {isLoadingClients ? (
+                  <div className="flex items-center justify-center py-4">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  </div>
+                ) : (
+                  clients?.map((client) => (
+                    <SelectItem key={client.id} value={client.id}>
+                      {client.name}
+                    </SelectItem>
+                  ))
+                )}
+              </SelectContent>
+            </Select>
           </div>
         </div>
       </div>
 
       <div className="max-w-7xl mx-auto px-6 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          {/* Lista de Clientes */}
-          <Card className="lg:col-span-1 p-4 bg-card/50">
-            <h2 className="text-sm font-semibold mb-4 uppercase tracking-wide text-muted-foreground">
-              Clientes
-            </h2>
-            {isLoadingClients ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-              </div>
-            ) : (
-              <ScrollArea className="h-[calc(100vh-300px)]">
-                <div className="space-y-2 pr-4">
-                  {clients?.map((client) => (
-                    <button
-                      key={client.id}
-                      onClick={() => setSelectedClientId(client.id)}
-                      className={`w-full text-left p-3 rounded-lg border transition-all ${
-                        selectedClientId === client.id
-                          ? "bg-primary/10 border-primary text-primary"
-                          : "bg-background border-border hover:bg-muted/50"
-                      }`}
-                    >
-                      <div className="font-medium text-sm">{client.name}</div>
-                      {client.description && (
-                        <div className="text-xs text-muted-foreground mt-1 line-clamp-2">
-                          {client.description}
-                        </div>
-                      )}
-                    </button>
-                  ))}
-                </div>
-              </ScrollArea>
-            )}
-          </Card>
-
-          {/* Templates e Ações */}
-          <div className="lg:col-span-3">
+        <div>
             {!selectedClientId ? (
               <div className="flex items-center justify-center h-[calc(100vh-300px)]">
                 <div className="text-center space-y-2">
                   <MessageSquare className="h-12 w-12 mx-auto text-muted-foreground/50" />
                   <p className="text-muted-foreground">
-                    Selecione um cliente para ver os templates disponíveis
+                    Selecione um cliente no menu acima para ver os templates disponíveis
                   </p>
                 </div>
               </div>
@@ -124,9 +115,7 @@ const Assistant = () => {
                 {/* Header do Cliente */}
                 <div className="flex items-start justify-between">
                   <div>
-                    <h2 className="text-xl font-semibold mb-1">
-                      {selectedClient?.name}
-                    </h2>
+                    <h2 className="text-xl font-semibold mb-1">O que você quer fazer?</h2>
                     <p className="text-sm text-muted-foreground">
                       Escolha uma opção ou template para começar
                     </p>
@@ -136,7 +125,7 @@ const Assistant = () => {
                     onClick={() => navigate(`/client/${selectedClientId}`)}
                     className="text-xs"
                   >
-                    Ver Dashboard
+                    Gerenciar Templates
                   </Button>
                 </div>
 
@@ -229,7 +218,6 @@ const Assistant = () => {
                 )}
               </div>
             )}
-          </div>
         </div>
       </div>
     </div>
