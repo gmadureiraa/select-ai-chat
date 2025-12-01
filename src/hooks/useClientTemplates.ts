@@ -2,10 +2,12 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { ClientTemplate, CreateTemplateData, TemplateRule, AutomationConfig, DEFAULT_CHAT_RULES, DEFAULT_IMAGE_RULES } from "@/types/template";
+import { useActivities } from "@/hooks/useActivities";
 
 export const useClientTemplates = (clientId: string) => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { logActivity } = useActivities();
 
   const { data: templates, isLoading } = useQuery({
     queryKey: ["client-templates", clientId],
@@ -63,19 +65,33 @@ export const useClientTemplates = (clientId: string) => {
         }));
       }
 
-      const { error } = await supabase
+      const { data: result, error } = await supabase
         .from("client_templates")
         .insert([{
           client_id: data.client_id,
           name: data.name,
           type: data.type,
           rules: rulesData,
-        }]);
+        }])
+        .select()
+        .single();
 
       if (error) throw error;
+      return result;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["client-templates", clientId] });
+      
+      // Log activity
+      logActivity.mutate({
+        activityType: "template_created",
+        entityType: "template",
+        entityId: data.id,
+        entityName: data.name,
+        description: `Template "${data.name}" criado (${data.type})`,
+        metadata: { templateType: data.type },
+      });
+      
       toast({
         title: "Template criado",
         description: "Template adicionado com sucesso.",
@@ -96,15 +112,28 @@ export const useClientTemplates = (clientId: string) => {
       if (name !== undefined) updates.name = name;
       if (rules !== undefined) updates.rules = rules as any;
 
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from("client_templates")
         .update(updates)
-        .eq("id", id);
+        .eq("id", id)
+        .select()
+        .single();
 
       if (error) throw error;
+      return data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["client-templates", clientId] });
+      
+      // Log activity
+      logActivity.mutate({
+        activityType: "template_updated",
+        entityType: "template",
+        entityId: data.id,
+        entityName: data.name,
+        description: `Template "${data.name}" atualizado`,
+      });
+      
       toast({
         title: "Template atualizado",
         description: "Alterações salvas com sucesso.",
@@ -121,15 +150,33 @@ export const useClientTemplates = (clientId: string) => {
 
   const deleteTemplate = useMutation({
     mutationFn: async (id: string) => {
+      // Get template name before deleting
+      const { data: templateData } = await supabase
+        .from("client_templates")
+        .select("name, type")
+        .eq("id", id)
+        .single();
+      
       const { error } = await supabase
         .from("client_templates")
         .delete()
         .eq("id", id);
 
       if (error) throw error;
+      return templateData;
     },
-    onSuccess: () => {
+    onSuccess: (templateData) => {
       queryClient.invalidateQueries({ queryKey: ["client-templates", clientId] });
+      
+      // Log activity
+      if (templateData) {
+        logActivity.mutate({
+          activityType: "template_deleted",
+          entityType: "template",
+          description: `Template "${templateData.name}" excluído (${templateData.type})`,
+        });
+      }
+      
       toast({
         title: "Template excluído",
         description: "Template removido com sucesso.",

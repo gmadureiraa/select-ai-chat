@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useActivities } from "@/hooks/useActivities";
 
 export interface Client {
   id: string;
@@ -27,6 +28,7 @@ export interface CreateClientData {
 export const useClients = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { logActivity } = useActivities();
 
   const { data: clients = [], isLoading } = useQuery({
     queryKey: ["clients"],
@@ -73,8 +75,21 @@ export const useClients = () => {
       
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["clients"] });
+      
+      // Log activity
+      logActivity.mutate({
+        activityType: "client_created",
+        entityType: "client",
+        entityId: data.id,
+        entityName: data.name,
+        description: `Cliente "${data.name}" criado com sucesso`,
+        metadata: { 
+          hasSocialMedia: Object.keys(data.social_media || {}).length > 0 
+        },
+      });
+      
       toast({
         title: "Cliente criado",
         description: "O cliente foi criado com sucesso.",
@@ -101,8 +116,18 @@ export const useClients = () => {
       if (error) throw error;
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["clients"] });
+      
+      // Log activity
+      logActivity.mutate({
+        activityType: "client_updated",
+        entityType: "client",
+        entityId: data.id,
+        entityName: data.name,
+        description: `Cliente "${data.name}" atualizado`,
+      });
+      
       toast({
         title: "Cliente atualizado",
         description: "O cliente foi atualizado com sucesso.",
@@ -119,11 +144,30 @@ export const useClients = () => {
 
   const deleteClient = useMutation({
     mutationFn: async (id: string) => {
+      // Get client name before deleting
+      const { data: clientData } = await supabase
+        .from("clients")
+        .select("name")
+        .eq("id", id)
+        .single();
+      
       const { error } = await supabase.from("clients").delete().eq("id", id);
       if (error) throw error;
+      
+      return clientData?.name;
     },
-    onSuccess: () => {
+    onSuccess: (clientName) => {
       queryClient.invalidateQueries({ queryKey: ["clients"] });
+      
+      // Log activity
+      if (clientName) {
+        logActivity.mutate({
+          activityType: "client_deleted",
+          entityType: "client",
+          description: `Cliente "${clientName}" excluído`,
+        });
+      }
+      
       toast({
         title: "Cliente excluído",
         description: "O cliente foi excluído com sucesso.",
