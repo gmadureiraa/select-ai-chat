@@ -34,17 +34,45 @@ export interface UserActivity {
   created_at: string;
 }
 
-export const useActivities = () => {
+export const useActivities = (filters?: {
+  activityType?: ActivityType;
+  searchQuery?: string;
+  startDate?: Date;
+  endDate?: Date;
+  limit?: number;
+}) => {
   const queryClient = useQueryClient();
 
   const { data: activities, isLoading } = useQuery({
-    queryKey: ["user-activities"],
+    queryKey: ["user-activities", filters],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("user_activities")
         .select("*")
-        .order("created_at", { ascending: false })
-        .limit(100);
+        .order("created_at", { ascending: false });
+
+      // Apply filters
+      if (filters?.activityType) {
+        query = query.eq("activity_type", filters.activityType);
+      }
+
+      if (filters?.searchQuery) {
+        query = query.or(
+          `entity_name.ilike.%${filters.searchQuery}%,description.ilike.%${filters.searchQuery}%`
+        );
+      }
+
+      if (filters?.startDate) {
+        query = query.gte("created_at", filters.startDate.toISOString());
+      }
+
+      if (filters?.endDate) {
+        query = query.lte("created_at", filters.endDate.toISOString());
+      }
+
+      query = query.limit(filters?.limit || 100);
+
+      const { data, error } = await query;
 
       if (error) throw error;
       return data as UserActivity[];

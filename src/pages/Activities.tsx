@@ -1,16 +1,35 @@
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useActivities, ActivityType } from "@/hooks/useActivities";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { ArrowLeft, Activity } from "lucide-react";
+import { ArrowLeft, Activity, Search, Filter, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const Activities = () => {
   const navigate = useNavigate();
-  const { activities, isLoading } = useActivities();
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedType, setSelectedType] = useState<ActivityType | "all">("all");
+  const [limit, setLimit] = useState(50);
+
+  const { activities, isLoading } = useActivities({
+    activityType: selectedType === "all" ? undefined : selectedType,
+    searchQuery: searchQuery || undefined,
+    limit,
+  });
+
+  const hasFilters = searchQuery || selectedType !== "all";
 
   const activityLabels: Record<ActivityType, string> = {
     client_created: "Cliente Criado",
@@ -76,13 +95,92 @@ const Activities = () => {
         <Button variant="ghost" size="icon" onClick={() => navigate("/agents")}>
           <ArrowLeft className="h-5 w-5" />
         </Button>
-        <div>
+        <div className="flex-1">
           <h1 className="text-2xl font-semibold tracking-tight">Registro de Atividades</h1>
           <p className="text-sm text-muted-foreground">
             Histórico completo de todas as suas ações no sistema
           </p>
         </div>
       </div>
+
+      {/* Filters */}
+      <Card className="border-border/50 bg-card/50">
+        <CardContent className="pt-6 space-y-4">
+          <div className="flex flex-col sm:flex-row gap-3">
+            {/* Search */}
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar por nome ou descrição..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+
+            {/* Activity Type Filter */}
+            <Select value={selectedType} onValueChange={(v) => setSelectedType(v as ActivityType | "all")}>
+              <SelectTrigger className="w-full sm:w-[240px]">
+                <Filter className="h-4 w-4 mr-2" />
+                <SelectValue placeholder="Tipo de atividade" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas as atividades</SelectItem>
+                <SelectItem value="client_created">Cliente Criado</SelectItem>
+                <SelectItem value="client_updated">Cliente Atualizado</SelectItem>
+                <SelectItem value="client_deleted">Cliente Deletado</SelectItem>
+                <SelectItem value="template_created">Template Criado</SelectItem>
+                <SelectItem value="template_updated">Template Atualizado</SelectItem>
+                <SelectItem value="template_deleted">Template Deletado</SelectItem>
+                <SelectItem value="conversation_created">Conversa Iniciada</SelectItem>
+                <SelectItem value="message_sent">Mensagem Enviada</SelectItem>
+                <SelectItem value="image_generated">Imagem Gerada</SelectItem>
+                <SelectItem value="image_deleted">Imagem Deletada</SelectItem>
+                <SelectItem value="automation_created">Automação Criada</SelectItem>
+                <SelectItem value="automation_updated">Automação Atualizada</SelectItem>
+                <SelectItem value="automation_deleted">Automação Deletada</SelectItem>
+                <SelectItem value="automation_executed">Automação Executada</SelectItem>
+                <SelectItem value="reverse_engineering_analysis">Análise de Engenharia Reversa</SelectItem>
+                <SelectItem value="reverse_engineering_generation">Geração de Engenharia Reversa</SelectItem>
+                <SelectItem value="document_uploaded">Documento Carregado</SelectItem>
+                <SelectItem value="website_scraped">Website Raspado</SelectItem>
+                <SelectItem value="metrics_fetched">Métricas Coletadas</SelectItem>
+              </SelectContent>
+            </Select>
+
+            {/* Clear Filters */}
+            {hasFilters && (
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => {
+                  setSearchQuery("");
+                  setSelectedType("all");
+                }}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+
+          {/* Results count */}
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <span>
+              {activities?.length || 0} atividade{activities?.length !== 1 ? "s" : ""} encontrada{activities?.length !== 1 ? "s" : ""}
+            </span>
+            {activities && activities.length >= limit && (
+              <Button
+                variant="link"
+                size="sm"
+                onClick={() => setLimit(limit + 50)}
+                className="text-xs h-auto p-0"
+              >
+                Carregar mais
+              </Button>
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Activities List */}
       {!activities || activities.length === 0 ? (
