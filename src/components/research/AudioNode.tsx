@@ -1,11 +1,12 @@
 import { memo, useState, useRef } from "react";
 import { Handle, Position, NodeProps } from "reactflow";
-import { Trash2, Mic, Square, Play, Pause } from "lucide-react";
+import { Trash2, Mic, Square, Play, Pause, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ResearchItem } from "@/hooks/useResearchItems";
 import { useResearchItems } from "@/hooks/useResearchItems";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 interface AudioNodeData {
   item: ResearchItem;
@@ -21,6 +22,7 @@ export const AudioNode = memo(({ data }: NodeProps<AudioNodeData>) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [title, setTitle] = useState(item.title || "");
   const [recordingTime, setRecordingTime] = useState(0);
+  const [isTranscribing, setIsTranscribing] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -39,18 +41,58 @@ export const AudioNode = memo(({ data }: NodeProps<AudioNodeData>) => {
         }
       };
 
-      mediaRecorder.onstop = () => {
+      mediaRecorder.onstop = async () => {
         const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
         const audioUrl = URL.createObjectURL(audioBlob);
         
-        updateItem.mutate({
-          id: item.id,
-          title: title || `Áudio ${new Date().toLocaleString()}`,
-          content: audioUrl,
-          metadata: { duration: recordingTime },
-        });
-
         stream.getTracks().forEach(track => track.stop());
+
+        // Transcrever o áudio
+        setIsTranscribing(true);
+        try {
+          // Converter blob para base64
+          const reader = new FileReader();
+          reader.readAsDataURL(audioBlob);
+          reader.onloadend = async () => {
+            const base64Audio = (reader.result as string).split(',')[1];
+            
+            const { data, error } = await supabase.functions.invoke('transcribe-audio', {
+              body: { audio: base64Audio }
+            });
+
+            if (error) throw error;
+
+            // Salvar áudio com transcrição
+            updateItem.mutate({
+              id: item.id,
+              title: title || `Áudio ${new Date().toLocaleString()}`,
+              content: audioUrl,
+              metadata: { 
+                duration: recordingTime,
+                transcript: data.text 
+              },
+              processed: true,
+            });
+
+            toast({ title: "Áudio transcrito com sucesso" });
+          };
+        } catch (error: any) {
+          console.error('Erro ao transcrever:', error);
+          toast({
+            title: "Erro na transcrição",
+            description: error.message,
+            variant: "destructive",
+          });
+          // Salvar sem transcrição
+          updateItem.mutate({
+            id: item.id,
+            title: title || `Áudio ${new Date().toLocaleString()}`,
+            content: audioUrl,
+            metadata: { duration: recordingTime },
+          });
+        } finally {
+          setIsTranscribing(false);
+        }
       };
 
       mediaRecorder.start();
@@ -164,22 +206,40 @@ export const AudioNode = memo(({ data }: NodeProps<AudioNodeData>) => {
           <h3 className="font-semibold text-sm text-gray-900">
             {item.title || "Gravação de áudio"}
           </h3>
-          <div className="flex items-center gap-2">
-            <Button onClick={togglePlayback} size="sm" variant="outline">
-              {isPlaying ? (
-                <Pause className="h-4 w-4" />
-              ) : (
-                <Play className="h-4 w-4" />
-              )}
-            </Button>
-            <div className="flex-1 h-1 bg-pink-100 rounded-full overflow-hidden">
-              <div className="h-full bg-pink-500 w-0 animate-pulse" />
+          
+          {isTranscribing ? (
+            <div className="flex items-center gap-2 text-sm text-gray-600 py-4">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <span>Transcrevendo áudio...</span>
             </div>
-          </div>
-          {item.metadata?.duration && (
-            <p className="text-xs text-gray-500">
-              Duração: {formatTime(item.metadata.duration as number)}
-            </p>
+          ) : (
+            <>
+              <div className="flex items-center gap-2">
+                <Button onClick={togglePlayback} size="sm" variant="outline">
+                  {isPlaying ? (
+                    <Pause className="h-4 w-4" />
+                  ) : (
+                    <Play className="h-4 w-4" />
+                  )}
+                </Button>
+                <div className="flex-1 h-1 bg-pink-100 rounded-full overflow-hidden">
+                  <div className="h-full bg-pink-500 w-0 animate-pulse" />
+                </div>
+              </div>
+              {item.metadata?.duration && (
+                <p className="text-xs text-gray-500">
+                  Duração: {formatTime(item.metadata.duration as number)}
+                </p>
+              )}
+              {item.metadata?.transcript && (
+                <div className="mt-3 pt-3 border-t border-pink-200">
+                  <p className="text-xs font-semibold text-gray-700 mb-1">Transcrição:</p>
+                  <p className="text-xs text-gray-600 whitespace-pre-wrap leading-relaxed">
+                    {item.metadata.transcript as string}
+                  </p>
+                </div>
+              )}
+            </>
           )}
         </div>
       )}
