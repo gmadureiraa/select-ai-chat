@@ -62,11 +62,11 @@ export const AutomationCard = ({ automation }: AutomationCardProps) => {
 
   return (
     <>
-      <Card className="hover:shadow-lg transition-shadow">
+      <Card className="border-border/50 bg-card/50 hover:border-border transition-all">
         <CardHeader>
           <div className="flex items-start justify-between">
             <div className="flex-1">
-              <CardTitle className="text-lg mb-2">{automation.name}</CardTitle>
+              <CardTitle className="text-base mb-2">{automation.name}</CardTitle>
               <Badge variant="outline" className="text-xs">
                 {automation.clients.name}
               </Badge>

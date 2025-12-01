@@ -15,24 +15,20 @@ const Automations = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="border-b bg-card shadow-sm">
-        <div className="container mx-auto p-4">
+      <div className="border-b bg-card/50">
+        <div className="container mx-auto p-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={() => navigate("/clients")}
-                className="hover:bg-primary/10"
               >
                 <ArrowLeft className="h-5 w-5" />
               </Button>
-              <div className="flex items-center gap-2">
-                <Zap className="h-6 w-6 text-primary" />
-                <h1 className="text-2xl font-bold">Automações</h1>
-              </div>
+              <h1 className="text-2xl font-semibold tracking-tight">Automações</h1>
             </div>
-            <Button onClick={() => setIsDialogOpen(true)}>
+            <Button onClick={() => setIsDialogOpen(true)} variant="outline">
               <Plus className="h-4 w-4 mr-2" />
               Nova Automação
             </Button>
@@ -44,7 +40,7 @@ const Automations = () => {
         {/* Workflows n8n */}
         <section>
           <div className="mb-4">
-            <h2 className="text-lg font-semibold mb-1">Workflows Externos</h2>
+            <h2 className="text-base font-semibold">Workflows Externos</h2>
             <p className="text-sm text-muted-foreground">
               Execute workflows do n8n diretamente daqui
             </p>
@@ -61,7 +57,7 @@ const Automations = () => {
         {/* Automações do Sistema */}
         <section>
           <div className="mb-4">
-            <h2 className="text-lg font-semibold mb-1">Automações do Sistema</h2>
+            <h2 className="text-base font-semibold">Automações do Sistema</h2>
             <p className="text-sm text-muted-foreground">
               Automações criadas e gerenciadas pelo sistema
             </p>
@@ -79,15 +75,15 @@ const Automations = () => {
               ))}
             </div>
           ) : (
-            <div className="flex flex-col items-center justify-center py-12 text-center border-2 border-dashed border-border rounded-lg">
-              <Zap className="h-12 w-12 text-muted-foreground/50 mb-3" />
-              <h3 className="text-lg font-semibold mb-2">
+            <div className="flex flex-col items-center justify-center py-12 text-center border border-dashed border-border/50 rounded-lg">
+              <Zap className="h-10 w-10 text-muted-foreground/50 mb-3" />
+              <h3 className="text-base font-semibold mb-2">
                 Nenhuma automação criada
               </h3>
               <p className="text-sm text-muted-foreground mb-4 max-w-md">
                 Crie automações para executar tarefas automaticamente
               </p>
-              <Button onClick={() => setIsDialogOpen(true)}>
+              <Button onClick={() => setIsDialogOpen(true)} variant="outline">
                 <Plus className="h-4 w-4 mr-2" />
                 Nova Automação
               </Button>

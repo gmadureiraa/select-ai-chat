@@ -162,8 +162,8 @@ export default function ClientPerformance() {
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div>
-            <h1 className="text-3xl font-bold">{client.name}</h1>
-            <p className="text-muted-foreground">Escolha um canal para análise</p>
+            <h1 className="text-2xl font-semibold tracking-tight">{client.name}</h1>
+            <p className="text-sm text-muted-foreground">Escolha um canal para análise</p>
           </div>
         </div>
 
@@ -174,21 +174,19 @@ export default function ClientPerformance() {
             return (
               <Card
                 key={key}
-                className={`hover:shadow-lg transition-all cursor-pointer border-${channel.color}/20 hover:border-${channel.color}/40 group`}
+                className="border-border/50 bg-card/50 hover:border-border transition-all cursor-pointer"
                 onClick={() => setSearchParams({ channel: key })}
               >
                 <CardHeader>
                   <div className="flex items-center gap-3">
-                    <div className={`p-3 rounded-lg bg-${channel.color}/10 group-hover:bg-${channel.color}/20 transition-colors`}>
-                      <Icon className={`h-6 w-6 text-${channel.color}`} />
-                    </div>
-                    <CardTitle className={`group-hover:text-${channel.color} transition-colors`}>
+                    <Icon className="h-5 w-5 text-foreground" />
+                    <CardTitle className="text-base">
                       {channel.title}
                     </CardTitle>
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <CardDescription>{channel.description}</CardDescription>
+                  <CardDescription className="text-sm">{channel.description}</CardDescription>
                 </CardContent>
               </Card>
             );
@@ -211,8 +209,8 @@ export default function ClientPerformance() {
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div>
-            <h1 className="text-3xl font-bold">{client.name}</h1>
-            <p className="text-muted-foreground">
+            <h1 className="text-2xl font-semibold tracking-tight">{client.name}</h1>
+            <p className="text-sm text-muted-foreground">
               {channels[selectedChannel as keyof typeof channels]?.title || "Análise de Performance"}
             </p>
           </div>

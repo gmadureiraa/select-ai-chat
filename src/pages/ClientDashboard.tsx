@@ -116,8 +116,8 @@ const ClientDashboard = () => {
       <div className="max-w-7xl mx-auto p-6">
         <div className="mb-8 flex items-center justify-between">
           <div>
-            <h2 className="text-2xl font-bold mb-2">O que você quer fazer?</h2>
-            <p className="text-muted-foreground">
+            <h2 className="text-xl font-semibold">O que você quer fazer?</h2>
+            <p className="text-sm text-muted-foreground">
               Escolha uma opção ou template para começar
             </p>
           </div>
@@ -127,40 +127,35 @@ const ClientDashboard = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {/* Chat Livre */}
           <Card
-            className="hover:shadow-lg transition-shadow cursor-pointer border-primary/20"
+            className="border-border/50 bg-card/50 hover:border-border transition-all cursor-pointer"
             onClick={() => startNewChat()}
           >
             <CardHeader>
               <div className="flex items-center gap-3">
-                <div className="p-3 rounded-lg bg-primary/10">
-                  <MessageSquare className="h-6 w-6 text-primary" />
-                </div>
-                <CardTitle>Chat Livre</CardTitle>
+                <MessageSquare className="h-5 w-5 text-foreground" />
+                <CardTitle className="text-base">Chat Livre</CardTitle>
               </div>
             </CardHeader>
             <CardContent>
-              <CardDescription>
-                Converse livremente com a IA sobre qualquer assunto relacionado
-                ao cliente
+              <CardDescription className="text-sm">
+                Converse livremente com a IA sobre qualquer assunto relacionado ao cliente
               </CardDescription>
             </CardContent>
           </Card>
 
           {/* Análise de Performance */}
           <Card
-            className="hover:shadow-lg transition-shadow cursor-pointer border-accent/20"
+            className="border-border/50 bg-card/50 hover:border-border transition-all cursor-pointer"
             onClick={() => navigate(`/client/${clientId}/performance`)}
           >
             <CardHeader>
               <div className="flex items-center gap-3">
-                <div className="p-3 rounded-lg bg-accent/10">
-                  <BarChart3 className="h-6 w-6 text-accent" />
-                </div>
-                <CardTitle>Análise de Performance</CardTitle>
+                <BarChart3 className="h-5 w-5 text-foreground" />
+                <CardTitle className="text-base">Análise de Performance</CardTitle>
               </div>
             </CardHeader>
             <CardContent>
-              <CardDescription>
+              <CardDescription className="text-sm">
                 Visualize métricas, KPIs e insights de performance do cliente
               </CardDescription>
             </CardContent>
@@ -170,7 +165,7 @@ const ClientDashboard = () => {
           {templates.map((template) => (
             <Card
               key={template.id}
-              className="hover:shadow-lg transition-shadow cursor-pointer border-muted"
+              className="border-border/50 bg-card/50 hover:border-border transition-all cursor-pointer"
               onClick={() => {
                 if (template.type === 'image') {
                   startImageGeneration(template.id);
@@ -183,18 +178,16 @@ const ClientDashboard = () => {
             >
               <CardHeader>
                 <div className="flex items-center gap-3">
-                  <div className="p-3 rounded-lg bg-muted">
-                    {template.type === 'image' ? (
-                      <ImageIcon className="h-6 w-6 text-foreground" />
-                    ) : template.type === 'automation' ? (
-                      <Sparkles className="h-6 w-6 text-secondary" />
-                    ) : (
-                      <Sparkles className="h-6 w-6 text-foreground" />
-                    )}
-                  </div>
+                  {template.type === 'image' ? (
+                    <ImageIcon className="h-5 w-5 text-foreground" />
+                  ) : template.type === 'automation' ? (
+                    <Sparkles className="h-5 w-5 text-foreground" />
+                  ) : (
+                    <MessageSquare className="h-5 w-5 text-foreground" />
+                  )}
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
-                      <CardTitle className="text-lg">{template.name}</CardTitle>
+                      <CardTitle className="text-base">{template.name}</CardTitle>
                       <Badge variant="outline" className="text-xs">
                         {template.type === 'image' ? 'Imagem' : template.type === 'automation' ? 'Automação' : 'Chat'}
                       </Badge>
