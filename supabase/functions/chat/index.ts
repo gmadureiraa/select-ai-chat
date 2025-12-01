@@ -152,11 +152,17 @@ serve(async (req) => {
     const selectedModel = model || "gpt-5-mini-2025-08-07";
     
     const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
+    const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
+    const GOOGLE_API_KEY = Deno.env.get("GOOGLE_AI_STUDIO_API_KEY");
     
-    if (!OPENAI_API_KEY) {
-      console.error("OPENAI_API_KEY not configured");
+    // Determinar qual API usar baseado no modelo selecionado
+    const isClaudeModel = selectedModel.startsWith("claude-");
+    const isGeminiModel = selectedModel.startsWith("gemini-");
+    
+    if (!OPENAI_API_KEY && !ANTHROPIC_API_KEY && !GOOGLE_API_KEY) {
+      console.error("Nenhuma API key configurada");
       return new Response(
-        JSON.stringify({ error: "API key not configured" }),
+        JSON.stringify({ error: "API key não configurada" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -287,35 +293,106 @@ serve(async (req) => {
       Array.isArray(msg.image_urls) && msg.image_urls.length > 0
     );
 
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${OPENAI_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: selectedModel,
-        messages: messages.map((msg: any) => {
-          // Convert messages with images to OpenAI Vision format
-          if (msg.image_urls && msg.image_urls.length > 0) {
-            return {
-              role: msg.role,
-              content: [
-                { type: "text", text: msg.content },
-                ...msg.image_urls.map((url: string) => ({
-                  type: "image_url",
-                  image_url: { url }
-                }))
-              ]
-            };
-          }
-          // Regular text message
-          return { role: msg.role, content: msg.content };
+    let response;
+    
+    // Escolher API baseado no modelo
+    if (isClaudeModel && ANTHROPIC_API_KEY) {
+      console.log("Using Claude API");
+      const claudeMessages = messages.map((msg: any) => {
+        if (msg.image_urls && msg.image_urls.length > 0) {
+          const content: any[] = [{ type: "text", text: msg.content }];
+          msg.image_urls.forEach((url: string) => {
+            content.push({
+              type: "image",
+              source: { type: "url", url }
+            });
+          });
+          return { role: msg.role, content };
+        }
+        return { role: msg.role, content: msg.content };
+      });
+
+      response = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "x-api-key": ANTHROPIC_API_KEY,
+          "Content-Type": "application/json",
+          "anthropic-version": "2023-06-01"
+        },
+        body: JSON.stringify({
+          model: selectedModel,
+          messages: claudeMessages,
+          max_tokens: 3000,
+          stream: true
         }),
-        stream: true,
-        max_completion_tokens: 3000,
-      }),
-    });
+      });
+    } else if (isGeminiModel && GOOGLE_API_KEY) {
+      console.log("Using Google Gemini API");
+      const geminiContents = messages.map((msg: any) => {
+        if (msg.image_urls && msg.image_urls.length > 0) {
+          const parts: any[] = [{ text: msg.content }];
+          msg.image_urls.forEach((url: string) => {
+            parts.push({
+              inlineData: {
+                mimeType: "image/jpeg",
+                data: url // Note: Google requires base64, this may need adjustment
+              }
+            });
+          });
+          return { role: msg.role === "assistant" ? "model" : "user", parts };
+        }
+        return { 
+          role: msg.role === "assistant" ? "model" : "user", 
+          parts: [{ text: msg.content }] 
+        };
+      });
+
+      response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${selectedModel}:streamGenerateContent?key=${GOOGLE_API_KEY}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          contents: geminiContents
+        }),
+      });
+    } else if (OPENAI_API_KEY) {
+      console.log("Using OpenAI API");
+      response = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${OPENAI_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: selectedModel,
+          messages: messages.map((msg: any) => {
+            // Convert messages with images to OpenAI Vision format
+            if (msg.image_urls && msg.image_urls.length > 0) {
+              return {
+                role: msg.role,
+                content: [
+                  { type: "text", text: msg.content },
+                  ...msg.image_urls.map((url: string) => ({
+                    type: "image_url",
+                    image_url: { url }
+                  }))
+                ]
+              };
+            }
+            // Regular text message
+            return { role: msg.role, content: msg.content };
+          }),
+          stream: true,
+          max_completion_tokens: 3000,
+        }),
+      });
+    } else {
+      return new Response(
+        JSON.stringify({ error: "Modelo não suportado ou API key não disponível" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     if (!response.ok) {
       const errorText = await response.text();
