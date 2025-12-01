@@ -67,11 +67,11 @@ export const AIChatNode = memo(({ data }: NodeProps<AIChatNodeData>) => {
       <Handle type="target" position={Position.Right} className="w-3 h-3 !bg-gray-400" />
 
       <Button
-        variant="ghost"
+        variant="outline"
         size="icon"
-        className="absolute top-2 left-2 opacity-0 group-hover:opacity-100 transition-opacity h-7 w-7 hover:bg-red-50 hover:text-red-600 z-10"
+        className="absolute top-2 left-2 h-8 px-2 rounded-full border-red-200 text-red-600 bg-red-50/80 hover:bg-red-100 hover:text-red-700 z-10 flex items-center gap-1"
         onClick={() => onDelete(item.id)}
-        title="Excluir (ou pressione Delete)"
+        title="Excluir card (Delete/Backspace)"
       >
         <Trash2 className="h-3.5 w-3.5" />
       </Button>
