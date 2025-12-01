@@ -21,6 +21,7 @@ export const ResearchItemNode = memo(({ data }: NodeProps<ResearchItemNodeData>)
       case "image": return <ImageIcon className="h-4 w-4 text-purple-600" />;
       case "audio": return <Music className="h-4 w-4 text-pink-600" />;
       case "pdf": return <FileType className="h-4 w-4 text-orange-600" />;
+      case "ai_chat": return <FileText className="h-4 w-4 text-purple-600" />;
       default: return <FileText className="h-4 w-4 text-gray-600" />;
     }
   };
@@ -34,6 +35,7 @@ export const ResearchItemNode = memo(({ data }: NodeProps<ResearchItemNodeData>)
       case "image": return "Imagem";
       case "audio": return "Áudio";
       case "pdf": return "PDF";
+      case "ai_chat": return "Chat IA";
       default: return item.type;
     }
   };
@@ -47,6 +49,7 @@ export const ResearchItemNode = memo(({ data }: NodeProps<ResearchItemNodeData>)
       case "image": return "border-purple-200";
       case "audio": return "border-pink-200";
       case "pdf": return "border-orange-200";
+      case "ai_chat": return "border-purple-300";
       default: return "border-gray-200";
     }
   };
