@@ -17,16 +17,18 @@ export interface ContentItem {
   title: string;
   content_type: ContentType;
   content: string;
-  thumbnail_url?: string;
-  metadata?: Record<string, any>;
+  content_url?: string | null;
+  thumbnail_url?: string | null;
+  metadata?: Record<string, any> | null;
   created_at: string;
-  updated_at: string;
+  updated_at?: string | null;
 }
 
 export interface CreateContentData {
   title: string;
   content_type: ContentType;
   content: string;
+  content_url?: string;
   thumbnail_url?: string;
   metadata?: Record<string, any>;
 }

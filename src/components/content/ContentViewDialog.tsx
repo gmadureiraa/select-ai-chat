@@ -55,6 +55,19 @@ export const ContentViewDialog = ({ open, onClose, content }: ContentViewDialogP
                 className="w-full rounded-lg border"
               />
             )}
+            {content.content_url && (
+              <div className="p-3 bg-muted/50 rounded-lg">
+                <p className="text-xs text-muted-foreground mb-2">Link do conteúdo:</p>
+                <a 
+                  href={content.content_url} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-sm text-primary hover:underline break-all"
+                >
+                  {content.content_url}
+                </a>
+              </div>
+            )}
             <div className="whitespace-pre-wrap text-sm text-foreground/90">
               {content.content}
             </div>
