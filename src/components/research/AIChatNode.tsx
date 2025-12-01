@@ -1,4 +1,4 @@
-import { memo, useState, useRef, useEffect } from "react";
+import { memo, useState, useRef, useEffect, useCallback } from "react";
 import { Handle, Position, NodeProps } from "reactflow";
 import { Send, Bot, Sparkles, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -26,6 +26,21 @@ export const AIChatNode = memo(({ data }: NodeProps<AIChatNodeData>) => {
     }
   }, [messages]);
 
+  // Adicionar suporte para tecla Delete
+  const handleDeleteKey = useCallback((e: KeyboardEvent) => {
+    if (e.key === 'Delete' || e.key === 'Backspace') {
+      onDelete(item.id);
+    }
+  }, [item.id, onDelete]);
+
+  useEffect(() => {
+    const element = document.getElementById(`ai-chat-${item.id}`);
+    if (element) {
+      element.addEventListener('keydown', handleDeleteKey as any);
+      return () => element.removeEventListener('keydown', handleDeleteKey as any);
+    }
+  }, [handleDeleteKey, item.id]);
+
   const handleSend = async () => {
     if (!input.trim() || isStreaming) return;
     const message = input;
@@ -41,7 +56,11 @@ export const AIChatNode = memo(({ data }: NodeProps<AIChatNodeData>) => {
   };
 
   return (
-    <div className="bg-white border-2 border-gray-300 rounded-xl shadow-lg hover:shadow-xl transition-shadow min-w-[400px] max-w-[400px] h-[500px] flex flex-col group relative">
+    <div 
+      id={`ai-chat-${item.id}`}
+      tabIndex={0}
+      className="bg-white border-2 border-gray-300 rounded-xl shadow-lg hover:shadow-xl transition-shadow min-w-[400px] max-w-[400px] h-[500px] flex flex-col group relative focus:outline-none focus:ring-2 focus:ring-purple-400"
+    >
       <Handle type="target" position={Position.Top} className="w-3 h-3 !bg-gray-400" />
       <Handle type="source" position={Position.Bottom} className="w-3 h-3 !bg-gray-400" />
       <Handle type="target" position={Position.Left} className="w-3 h-3 !bg-gray-400" />
@@ -50,8 +69,9 @@ export const AIChatNode = memo(({ data }: NodeProps<AIChatNodeData>) => {
       <Button
         variant="ghost"
         size="icon"
-        className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity h-7 w-7 hover:bg-red-50 hover:text-red-600 z-10"
+        className="absolute top-2 left-2 opacity-0 group-hover:opacity-100 transition-opacity h-7 w-7 hover:bg-red-50 hover:text-red-600 z-10"
         onClick={() => onDelete(item.id)}
+        title="Excluir (ou pressione Delete)"
       >
         <Trash2 className="h-3.5 w-3.5" />
       </Button>
@@ -129,11 +149,15 @@ export const AIChatNode = memo(({ data }: NodeProps<AIChatNodeData>) => {
               <div
                 className={`flex-1 p-2 rounded-lg text-xs ${
                   message.role === "assistant" 
-                    ? "bg-purple-50 border border-purple-100 text-gray-800" 
-                    : "bg-gray-100 border border-gray-200 text-gray-700"
+                    ? "bg-purple-50 border border-purple-100" 
+                    : "bg-gray-100 border border-gray-200"
                 }`}
               >
-                <p className="whitespace-pre-wrap leading-relaxed">{message.content}</p>
+                <p className={`whitespace-pre-wrap leading-relaxed ${
+                  message.role === "assistant" ? "text-gray-900" : "text-gray-900"
+                }`}>
+                  {message.content}
+                </p>
               </div>
             </div>
           ))}
@@ -158,7 +182,7 @@ export const AIChatNode = memo(({ data }: NodeProps<AIChatNodeData>) => {
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Faça uma pergunta..."
-            className="min-h-[60px] max-h-[60px] resize-none text-xs bg-white"
+            className="min-h-[60px] max-h-[60px] resize-none text-xs bg-white text-gray-900 placeholder:text-gray-500"
             disabled={isStreaming}
           />
           <Button 
