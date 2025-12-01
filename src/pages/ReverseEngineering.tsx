@@ -18,14 +18,13 @@ const ReverseEngineering = () => {
   const { clients } = useClients();
   
   const [selectedClient, setSelectedClient] = useState<string>("");
-  const [referenceUrl, setReferenceUrl] = useState("");
   const [referenceText, setReferenceText] = useState("");
   const [referenceImages, setReferenceImages] = useState<string[]>([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysis, setAnalysis] = useState<any>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedContent, setGeneratedContent] = useState("");
-  const [inputType, setInputType] = useState<"url" | "images" | "text">("url");
+  const [inputType, setInputType] = useState<"images" | "text">("images");
 
   const handleAnalyze = async () => {
     if (!selectedClient) {
@@ -37,10 +36,10 @@ const ReverseEngineering = () => {
       return;
     }
 
-    if (!referenceUrl && referenceImages.length === 0 && !referenceText) {
+    if (referenceImages.length === 0 && !referenceText) {
       toast({
         title: "Referência vazia",
-        description: "Adicione uma URL, imagens ou texto de referência",
+        description: "Adicione imagens ou texto de referência",
         variant: "destructive",
       });
       return;
@@ -54,7 +53,6 @@ const ReverseEngineering = () => {
       const { data, error } = await supabase.functions.invoke("reverse-engineer", {
         body: {
           clientId: selectedClient,
-          referenceUrl: inputType === "url" ? referenceUrl : undefined,
           referenceImages: inputType === "images" ? referenceImages : undefined,
           referenceText: inputType === "text" ? referenceText : undefined,
           phase: "analyze",
@@ -126,7 +124,7 @@ const ReverseEngineering = () => {
         </Button>
         <div className="space-y-1">
           <h1 className="text-2xl font-semibold tracking-tight flex items-center gap-2">
-            <Sparkles className="h-6 w-6 text-primary" />
+            <Sparkles className="h-6 w-6" />
             Engenharia Reversa
           </h1>
           <p className="text-sm text-muted-foreground">
@@ -159,12 +157,8 @@ const ReverseEngineering = () => {
         <Card className="p-6 space-y-4">
           <div className="space-y-2">
             <Label>Conteúdo de Referência</Label>
-            <Tabs value={inputType} onValueChange={(v) => setInputType(v as "url" | "images" | "text")}>
-              <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="url" className="flex items-center gap-2">
-                  <Link2 className="h-4 w-4" />
-                  URL
-                </TabsTrigger>
+            <Tabs value={inputType} onValueChange={(v) => setInputType(v as "images" | "text")}>
+              <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="images" className="flex items-center gap-2">
                   <Upload className="h-4 w-4" />
                   Imagens
@@ -174,24 +168,6 @@ const ReverseEngineering = () => {
                   Texto
                 </TabsTrigger>
               </TabsList>
-              <TabsContent value="url" className="space-y-2 mt-4">
-                <Input
-                  placeholder="https://example.com/blog-post"
-                  value={referenceUrl}
-                  onChange={(e) => setReferenceUrl(e.target.value)}
-                />
-                <div className="bg-muted/50 p-3 rounded-lg space-y-2">
-                  <p className="text-xs text-muted-foreground">
-                    ⚠️ <strong>Limitação:</strong> YouTube e Instagram não suportam scraping automático.
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    ✅ <strong>Funciona com:</strong> Blogs, sites de notícias, artigos e a maioria dos sites públicos
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    💡 <strong>Alternativa:</strong> Para YouTube/Instagram, use a aba "Imagens" para fazer upload de screenshots
-                  </p>
-                </div>
-              </TabsContent>
               <TabsContent value="images" className="space-y-2 mt-4">
                 <div className="border-2 border-dashed border-border rounded-lg p-6 space-y-3">
                   <input
@@ -249,7 +225,7 @@ const ReverseEngineering = () => {
                   </div>
                 )}
                 <p className="text-xs text-muted-foreground">
-                  Faça upload de screenshots de cada slide do carrossel, Reels ou frames do vídeo
+                  Faça upload de screenshots de cada slide do carrossel, frames do Reels ou páginas do conteúdo
                 </p>
               </TabsContent>
               <TabsContent value="text" className="space-y-2 mt-4">
@@ -343,7 +319,6 @@ const ReverseEngineering = () => {
           <Card className="p-6 space-y-4">
             <div className="space-y-2">
               <Label className="text-base font-semibold flex items-center gap-2">
-                <Sparkles className="h-5 w-5 text-primary" />
                 Conteúdo Gerado
               </Label>
               <div className="bg-muted/50 p-4 rounded-lg">
@@ -371,7 +346,6 @@ const ReverseEngineering = () => {
                 onClick={() => {
                   setAnalysis(null);
                   setGeneratedContent("");
-                  setReferenceUrl("");
                   setReferenceImages([]);
                   setReferenceText("");
                 }}
