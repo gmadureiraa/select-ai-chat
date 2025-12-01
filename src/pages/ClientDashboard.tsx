@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Header } from "@/components/Header";
 import { TemplateManager } from "@/components/clients/TemplateManager";
 import { useClientTemplates } from "@/hooks/useClientTemplates";
-import { ArrowLeft, MessageSquare, Sparkles, Image as ImageIcon, BarChart3 } from "lucide-react";
+import { ArrowLeft, MessageSquare, Sparkles, Image as ImageIcon, BarChart3, Library } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import kaleidosLogo from "@/assets/kaleidos-logo.svg";
@@ -157,6 +157,24 @@ const ClientDashboard = () => {
             <CardContent>
               <CardDescription className="text-sm">
                 Visualize métricas, KPIs e insights de performance do cliente
+              </CardDescription>
+            </CardContent>
+          </Card>
+
+          {/* Biblioteca de Conteúdos */}
+          <Card
+            className="border-border/50 bg-card/50 hover:border-border transition-all cursor-pointer"
+            onClick={() => navigate(`/client/${clientId}/library`)}
+          >
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <Library className="h-5 w-5 text-foreground" />
+                <CardTitle className="text-base">Biblioteca de Conteúdos</CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <CardDescription className="text-sm">
+                Acesse conteúdos criados para usar como referência
               </CardDescription>
             </CardContent>
           </Card>
