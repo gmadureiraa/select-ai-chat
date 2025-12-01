@@ -156,6 +156,50 @@ export type Database = {
         }
         Relationships: []
       }
+      client_content_library: {
+        Row: {
+          client_id: string
+          content: string
+          content_type: Database["public"]["Enums"]["content_type"]
+          created_at: string | null
+          id: string
+          metadata: Json | null
+          thumbnail_url: string | null
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          client_id: string
+          content: string
+          content_type: Database["public"]["Enums"]["content_type"]
+          created_at?: string | null
+          id?: string
+          metadata?: Json | null
+          thumbnail_url?: string | null
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          client_id?: string
+          content?: string
+          content_type?: Database["public"]["Enums"]["content_type"]
+          created_at?: string | null
+          id?: string
+          metadata?: Json | null
+          thumbnail_url?: string | null
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_content_library_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       client_documents: {
         Row: {
           client_id: string
@@ -584,6 +628,17 @@ export type Database = {
         | "document_uploaded"
         | "website_scraped"
         | "metrics_fetched"
+        | "content_library_added"
+        | "content_library_updated"
+        | "content_library_deleted"
+      content_type:
+        | "newsletter"
+        | "carousel"
+        | "reel_script"
+        | "video_script"
+        | "blog_post"
+        | "social_post"
+        | "other"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -731,6 +786,18 @@ export const Constants = {
         "document_uploaded",
         "website_scraped",
         "metrics_fetched",
+        "content_library_added",
+        "content_library_updated",
+        "content_library_deleted",
+      ],
+      content_type: [
+        "newsletter",
+        "carousel",
+        "reel_script",
+        "video_script",
+        "blog_post",
+        "social_post",
+        "other",
       ],
     },
   },
