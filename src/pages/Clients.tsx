@@ -16,19 +16,18 @@ const Clients = () => {
       <div className="flex flex-col gap-8">
         <div className="flex justify-between items-center animate-fade-in">
           <div>
-            <h1 className="text-5xl font-bold tracking-tight mb-2">
+            <h1 className="text-3xl font-semibold tracking-tight">
               Clientes
             </h1>
-            <p className="text-muted-foreground">
+            <p className="text-sm text-muted-foreground">
               Gerencie seus clientes e contextos
             </p>
           </div>
           <Button
             onClick={() => setIsDialogOpen(true)}
-            size="lg"
-            className="bg-primary text-primary-foreground hover:bg-primary/90"
+            variant="outline"
           >
-            <Plus className="mr-2 h-5 w-5" />
+            <Plus className="mr-2 h-4 w-4" />
             Novo Cliente
           </Button>
         </div>

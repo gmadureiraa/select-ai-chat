@@ -326,9 +326,9 @@ const ImageGeneration = () => {
           <div className="space-y-6 max-w-3xl mx-auto">
             {generations.length === 0 ? (
               <div className="text-center py-12 text-muted-foreground">
-                <Sparkles className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>Nenhuma imagem gerada ainda</p>
-                <p className="text-sm">Digite um prompt abaixo para começar</p>
+                <Sparkles className="h-10 w-10 mx-auto mb-4 opacity-30" />
+                <p className="text-sm">Nenhuma imagem gerada ainda</p>
+                <p className="text-xs">Digite um prompt abaixo para começar</p>
               </div>
             ) : (
               generations.map((gen) => (
@@ -422,10 +422,7 @@ const ImageGeneration = () => {
                   Gerando imagem...
                 </>
               ) : (
-                <>
-                  <Sparkles className="h-5 w-5" />
-                  Gerar Imagem
-                </>
+                "Gerar Imagem"
               )}
             </Button>
           </div>
