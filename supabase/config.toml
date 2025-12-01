@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.scrape-social-metrics]
 verify_jwt = false
+
+[functions.reverse-engineer]
+verify_jwt = false
