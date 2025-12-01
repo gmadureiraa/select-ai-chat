@@ -19,6 +19,7 @@ export const ContentDialog = ({ open, onClose, onSave, content }: ContentDialogP
     title: "",
     content_type: "newsletter",
     content: "",
+    content_url: "",
     thumbnail_url: "",
   });
 
@@ -28,6 +29,7 @@ export const ContentDialog = ({ open, onClose, onSave, content }: ContentDialogP
         title: content.title,
         content_type: content.content_type,
         content: content.content,
+        content_url: content.content_url || "",
         thumbnail_url: content.thumbnail_url || "",
       });
     } else {
@@ -35,6 +37,7 @@ export const ContentDialog = ({ open, onClose, onSave, content }: ContentDialogP
         title: "",
         content_type: "newsletter",
         content: "",
+        content_url: "",
         thumbnail_url: "",
       });
     }
@@ -95,6 +98,20 @@ export const ContentDialog = ({ open, onClose, onSave, content }: ContentDialogP
               className="min-h-[300px] font-mono text-sm"
               required
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="content_url">URL do Conteúdo (opcional)</Label>
+            <Input
+              id="content_url"
+              value={formData.content_url}
+              onChange={(e) => setFormData({ ...formData, content_url: e.target.value })}
+              placeholder="https://..."
+              type="url"
+            />
+            <p className="text-xs text-muted-foreground">
+              Link do conteúdo publicado (facilita leitura pela IA)
+            </p>
           </div>
 
           <div className="space-y-2">

@@ -145,7 +145,7 @@ const ClientDashboard = () => {
 
           {/* Análise de Performance */}
           <Card
-            className="border-border/50 bg-card/50 hover:border-border transition-all cursor-pointer"
+            className="border-[#00ff87]/40 border bg-card/50 hover:border-[#00ff87]/60 transition-all cursor-pointer"
             onClick={() => navigate(`/client/${clientId}/performance`)}
           >
             <CardHeader>
@@ -163,7 +163,7 @@ const ClientDashboard = () => {
 
           {/* Biblioteca de Conteúdos */}
           <Card
-            className="border-border/50 bg-card/50 hover:border-border transition-all cursor-pointer"
+            className="border-[#ff006e]/40 border bg-card/50 hover:border-[#ff006e]/60 transition-all cursor-pointer"
             onClick={() => navigate(`/client/${clientId}/library`)}
           >
             <CardHeader>

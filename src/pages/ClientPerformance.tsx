@@ -237,12 +237,12 @@ export default function ClientPerformance() {
         <>
           {/* KPI Cards */}
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-            <Card className="border-primary/20 bg-card">
+            <Card className="border-border/50 bg-card/50">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">
                   {selectedChannel === 'newsletter' ? 'Inscritos' : 'Seguidores'}
                 </CardTitle>
-                <Users className="h-4 w-4 text-primary" />
+                <Users className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
@@ -256,10 +256,10 @@ export default function ClientPerformance() {
 
             {selectedChannel === 'newsletter' && (
               <>
-                <Card className="border-accent/20 bg-card">
+                <Card className="border-border/50 bg-card/50">
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-sm font-medium">Taxa de Abertura</CardTitle>
-                    <Mail className="h-4 w-4 text-accent" />
+                    <Mail className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
                   <CardContent>
                     <div className="text-2xl font-bold">{latestMetrics.open_rate || 0}%</div>
@@ -269,10 +269,10 @@ export default function ClientPerformance() {
                   </CardContent>
                 </Card>
 
-                <Card className="border-secondary/20 bg-card">
+                <Card className="border-border/50 bg-card/50">
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-sm font-medium">Taxa de Cliques</CardTitle>
-                    <BarChart3 className="h-4 w-4 text-secondary" />
+                    <BarChart3 className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
                   <CardContent>
                     <div className="text-2xl font-bold">{latestMetrics.click_rate || 0}%</div>
@@ -284,12 +284,12 @@ export default function ClientPerformance() {
               </>
             )}
 
-            <Card className="border-primary/20 bg-card">
+            <Card className="border-border/50 bg-card/50">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">
                   {selectedChannel === 'newsletter' ? 'Emails Enviados' : 'Posts'}
                 </CardTitle>
-                <TrendingUp className="h-4 w-4 text-primary" />
+                <TrendingUp className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{latestMetrics.total_posts || 0}</div>
@@ -302,7 +302,7 @@ export default function ClientPerformance() {
 
           {/* Historical Chart */}
           {metrics && metrics.length > 1 && (
-            <Card className="bg-card">
+            <Card className="border-border/50 bg-card/50">
               <CardHeader>
                 <CardTitle>Evolução Histórica</CardTitle>
                 <CardDescription>Crescimento ao longo do tempo</CardDescription>
@@ -350,7 +350,7 @@ export default function ClientPerformance() {
 
           {/* Recent Posts Table */}
           {selectedChannel === 'newsletter' && latestMetrics?.metadata?.recent_posts && latestMetrics.metadata.recent_posts.length > 0 && (
-            <Card className="bg-card">
+            <Card className="border-border/50 bg-card/50">
               <CardHeader>
                 <CardTitle>Últimos Emails Enviados</CardTitle>
                 <CardDescription>Performance individual de cada email</CardDescription>
@@ -398,7 +398,7 @@ export default function ClientPerformance() {
       )}
 
       {!metricsLoading && !latestMetrics && (
-        <Card className="bg-card">
+        <Card className="border-border/50 bg-card/50">
           <CardContent className="p-12 text-center">
             <p className="text-muted-foreground mb-4">
               Nenhum dado disponível ainda. Clique em "Atualizar Métricas" para coletar os dados.
