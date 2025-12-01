@@ -1,10 +1,91 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.47.13";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+// Pricing por 1M tokens (USD)
+const MODEL_PRICING: Record<string, { input: number; output: number }> = {
+  // OpenAI GPT-5
+  "gpt-5-2025-08-07": { input: 5.0, output: 15.0 },
+  "gpt-5-mini-2025-08-07": { input: 0.4, output: 1.6 },
+  "gpt-5-nano-2025-08-07": { input: 0.1, output: 0.4 },
+  // OpenAI GPT-4.1
+  "gpt-4.1-2025-04-14": { input: 2.5, output: 10.0 },
+  "gpt-4.1-mini-2025-04-14": { input: 0.15, output: 0.6 },
+  // Legacy OpenAI
+  "gpt-4o": { input: 2.5, output: 10.0 },
+  "gpt-4o-mini": { input: 0.15, output: 0.6 },
+  // Anthropic Claude
+  "claude-sonnet-4-5": { input: 3.0, output: 15.0 },
+  "claude-opus-4-1-20250805": { input: 15.0, output: 75.0 },
+  // Google Gemini
+  "gemini-2.5-pro": { input: 1.25, output: 5.0 },
+  "gemini-2.5-flash": { input: 0.075, output: 0.3 },
+  "gemini-2.5-flash-lite": { input: 0.0375, output: 0.15 },
+};
+
+function estimateCost(model: string, inputTokens: number, outputTokens: number): number {
+  const pricing = MODEL_PRICING[model] || { input: 0, output: 0 };
+  const inputCost = (inputTokens / 1_000_000) * pricing.input;
+  const outputCost = (outputTokens / 1_000_000) * pricing.output;
+  return inputCost + outputCost;
+}
+
+function getProvider(model: string): string {
+  if (model.startsWith("gpt-") || model.startsWith("o3") || model.startsWith("o4")) return "openai";
+  if (model.startsWith("claude-")) return "anthropic";
+  if (model.startsWith("gemini-")) return "google";
+  return "unknown";
+}
+
+async function logAIUsage(
+  userId: string,
+  model: string,
+  edgeFunction: string,
+  inputTokens: number,
+  outputTokens: number,
+  metadata: Record<string, any> = {}
+) {
+  try {
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    
+    if (!supabaseUrl || !supabaseServiceKey) {
+      console.error("Missing Supabase credentials for logging");
+      return;
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    
+    const totalTokens = inputTokens + outputTokens;
+    const estimatedCost = estimateCost(model, inputTokens, outputTokens);
+    const provider = getProvider(model);
+
+    const { error } = await supabase.from("ai_usage_logs").insert({
+      user_id: userId,
+      model_name: model,
+      provider,
+      edge_function: edgeFunction,
+      input_tokens: inputTokens,
+      output_tokens: outputTokens,
+      total_tokens: totalTokens,
+      estimated_cost_usd: estimatedCost,
+      metadata,
+    });
+
+    if (error) {
+      console.error("Failed to log AI usage:", error);
+    } else {
+      console.log(`Logged AI usage: ${model} - ${totalTokens} tokens - $${estimatedCost.toFixed(6)}`);
+    }
+  } catch (error) {
+    console.error("Error logging AI usage:", error);
+  }
+}
 
 // Validação de entrada
 const validateRequest = (body: any): { valid: boolean; error?: string } => {
@@ -179,7 +260,7 @@ serve(async (req) => {
       );
     }
 
-    const { messages, model, isSelectionPhase, isRoutingPhase, availableMaterials } = body;
+    const { messages, model, isSelectionPhase, isRoutingPhase, availableMaterials, userId, clientId } = body;
     const selectedModel = model || "gpt-5-mini-2025-08-07";
     
     const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
@@ -288,6 +369,20 @@ serve(async (req) => {
       }
 
       const selectionData = await selectionResponse.json();
+      
+      // Log usage para fase de seleção
+      const selectionUsage = selectionData.usage;
+      if (selectionUsage && userId) {
+        await logAIUsage(
+          userId,
+          "gpt-5-nano-2025-08-07",
+          "chat-selection",
+          selectionUsage.prompt_tokens || 0,
+          selectionUsage.completion_tokens || 0,
+          { phase: "content_selection", clientId }
+        );
+      }
+      
       const toolCall = selectionData.choices[0]?.message?.tool_calls?.[0];
       
       if (!toolCall) {
@@ -472,6 +567,26 @@ serve(async (req) => {
 
     const duration = Date.now() - startTime;
     console.log(`Chat request completed in ${duration}ms`);
+
+    // Log usage para resposta final (streaming - não podemos capturar tokens exatos)
+    // Vamos estimar baseado no tamanho da resposta
+    if (userId && !isSelectionPhase) {
+      // Para streaming, não temos os tokens exatos, então logamos metadata indicando isso
+      await logAIUsage(
+        userId,
+        selectedModel,
+        "chat-response",
+        0, // Tokens de input não disponíveis em streaming
+        0, // Tokens de output não disponíveis em streaming
+        { 
+          phase: "final_response", 
+          clientId, 
+          duration_ms: duration,
+          streaming: true,
+          note: "Token counts unavailable for streaming responses"
+        }
+      );
+    }
 
     return new Response(response.body, {
       headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
