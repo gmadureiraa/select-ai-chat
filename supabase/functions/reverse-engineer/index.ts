@@ -72,59 +72,10 @@ ${templates?.map((t) => `${t.name}: ${t.rules ? JSON.stringify(t.rules).slice(0,
       
       // 1. EXTRAIR CONTEÚDO (URL, imagens ou texto)
       if (referenceUrl) {
-        console.log("Processing URL:", referenceUrl);
-        
-        // Verificar se é um site suportado (YouTube/Instagram geralmente bloqueiam scraping)
-        const isYouTube = referenceUrl.includes('youtube.com') || referenceUrl.includes('youtu.be');
-        const isInstagram = referenceUrl.includes('instagram.com');
-        
-        if (isYouTube || isInstagram) {
-          throw new Error(
-            isYouTube 
-              ? "YouTube não suporta scraping automático. Por favor, faça upload de screenshots do vídeo ou cole a transcrição manualmente."
-              : "Instagram não suporta scraping automático. Por favor, faça upload de screenshots do post/reels."
-          );
-        }
-        
-        // Tentar scraping para outros sites
-        try {
-          const FIRECRAWL_API_KEY = Deno.env.get("FIRECRAWL_API_KEY");
-          if (!FIRECRAWL_API_KEY) {
-            throw new Error("FIRECRAWL_API_KEY não configurada");
-          }
-          
-          const scrapeResponse = await fetch('https://api.firecrawl.dev/v1/scrape', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${FIRECRAWL_API_KEY}`
-            },
-            body: JSON.stringify({
-              url: referenceUrl,
-              formats: ['markdown']
-            })
-          });
-          
-          const scrapeData = await scrapeResponse.json();
-          
-          if (!scrapeResponse.ok || !scrapeData.success) {
-            throw new Error(scrapeData.error || "Erro ao fazer scraping");
-          }
-          
-          extractedContent = scrapeData.markdown || scrapeData.data?.markdown || "";
-          
-          if (!extractedContent) {
-            throw new Error("Nenhum conteúdo foi extraído do site");
-          }
-          
-          console.log("Extracted content from URL, length:", extractedContent.length);
-        } catch (error) {
-          console.error("Scraping error:", error);
-          const errorMessage = error instanceof Error ? error.message : String(error);
-          throw new Error(
-            `Não foi possível fazer scraping desta URL. Por favor, copie e cole o conteúdo manualmente ou faça upload de screenshots. Erro: ${errorMessage}`
-          );
-        }
+        console.log("URL analysis requested, but URL scraping is disabled for now:", referenceUrl);
+        throw new Error(
+          "No momento a análise via URL direto está desativada. Por favor, use a aba de Imagens (screenshots de cada página/slide) ou cole o texto completo na aba de Texto."
+        );
       }
       
       // 2. ANALISAR O CONTEÚDO
