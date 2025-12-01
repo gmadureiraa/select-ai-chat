@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AppLayout } from "@/components/AppLayout";
 import Agents from "./pages/Agents";
+import Assistant from "./pages/Assistant";
 import Clients from "./pages/Clients";
 import ClientChat from "./pages/ClientChat";
 import ClientDashboard from "./pages/ClientDashboard";
@@ -40,6 +41,16 @@ const App = () => (
               <ProtectedRoute>
                 <AppLayout>
                   <Agents />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/assistant"
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <Assistant />
                 </AppLayout>
               </ProtectedRoute>
             }
