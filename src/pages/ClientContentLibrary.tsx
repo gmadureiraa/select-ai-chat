@@ -2,19 +2,22 @@ import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useContentLibrary, ContentItem, CreateContentData } from "@/hooks/useContentLibrary";
 import { useClients } from "@/hooks/useClients";
+import { useImportContent } from "@/hooks/useImportContent";
 import { Button } from "@/components/ui/button";
-import { Plus, ArrowLeft, Library } from "lucide-react";
+import { Plus, ArrowLeft, Library, Upload } from "lucide-react";
 import { ContentCard } from "@/components/content/ContentCard";
 import { ContentDialog } from "@/components/content/ContentDialog";
 import { ContentViewDialog } from "@/components/content/ContentViewDialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { useToast } from "@/hooks/use-toast";
 
 export default function ClientContentLibrary() {
   const { clientId } = useParams<{ clientId: string }>();
   const navigate = useNavigate();
   const { clients } = useClients();
   const { contents, isLoading, createContent, updateContent, deleteContent } = useContentLibrary(clientId!);
+  const { importFromMarkdown } = useImportContent(clientId!);
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
@@ -22,8 +25,30 @@ export default function ClientContentLibrary() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [contentToDelete, setContentToDelete] = useState<string | null>(null);
   const [filterType, setFilterType] = useState<string>("all");
+  const { toast } = useToast();
 
   const client = clients.find((c) => c.id === clientId);
+
+  const handleImport = () => {
+    if (!client) return;
+    
+    // Determine client slug based on name
+    let clientSlug = "";
+    if (client.name.toLowerCase().includes("layla")) {
+      clientSlug = "layla-foz";
+    } else if (client.name.toLowerCase().includes("defiverso")) {
+      clientSlug = "defiverso";
+    } else {
+      toast({
+        title: "Importação não disponível",
+        description: "Este cliente ainda não possui arquivos de importação configurados.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    importFromMarkdown.mutate(clientSlug);
+  };
 
   const handleSave = (data: CreateContentData) => {
     if (selectedContent) {
@@ -86,13 +111,23 @@ export default function ClientContentLibrary() {
                 </div>
               </div>
             </div>
-            <Button onClick={() => {
-              setSelectedContent(null);
-              setDialogOpen(true);
-            }}>
-              <Plus className="h-4 w-4 mr-2" />
-              Adicionar Conteúdo
-            </Button>
+            <div className="flex gap-2">
+              <Button 
+                variant="outline"
+                onClick={handleImport}
+                disabled={importFromMarkdown.isPending}
+              >
+                <Upload className="h-4 w-4 mr-2" />
+                {importFromMarkdown.isPending ? "Importando..." : "Importar Newsletters"}
+              </Button>
+              <Button onClick={() => {
+                setSelectedContent(null);
+                setDialogOpen(true);
+              }}>
+                <Plus className="h-4 w-4 mr-2" />
+                Adicionar Conteúdo
+              </Button>
+            </div>
           </div>
         </div>
       </div>
