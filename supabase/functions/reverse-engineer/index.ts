@@ -73,8 +73,11 @@ serve(async (req) => {
     const { clientId, referenceImages, referenceText, instagramCaption, phase, analysis } = await req.json();
     
     const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
-    if (!OPENAI_API_KEY) {
-      throw new Error("OPENAI_API_KEY não configurada");
+    const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
+    const GOOGLE_API_KEY = Deno.env.get("GOOGLE_AI_STUDIO_API_KEY");
+    
+    if (!OPENAI_API_KEY && !ANTHROPIC_API_KEY && !GOOGLE_API_KEY) {
+      throw new Error("Nenhuma API key configurada");
     }
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -135,31 +138,69 @@ Use o tool extract_content_analysis para fornecer uma análise ESTRUTURADA.`;
         throw new Error("Nenhum conteúdo de referência fornecido");
       }
 
-      console.log("Sending analysis request to OpenAI (gpt-4o) with tool calling");
+      // Escolher melhor modelo para análise visual: Claude > GPT-4o > Gemini
+      let analysisResponse;
       
-      const analysisResponse = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${OPENAI_API_KEY}`,
-        },
-        body: JSON.stringify({
-          model: "gpt-4o", // Melhor para visão
-          messages: [
-            {
-              role: "system",
-              content: "Você é um especialista em engenharia reversa de conteúdo digital. Use o tool para fornecer análises estruturadas.",
-            },
-            {
-              role: "user",
-              content: userContent,
-            },
-          ],
-          tools: [contentAnalysisTool],
-          tool_choice: { type: "function", function: { name: "extract_content_analysis" } },
-          max_tokens: 2000,
-        }),
-      });
+      if (ANTHROPIC_API_KEY && referenceImages && referenceImages.length > 0) {
+        console.log("Using Claude Sonnet 4.5 for visual analysis");
+        const claudeContent: any[] = [
+          { type: "text", text: userContent.find((c: any) => c.type === "text")?.text || "" }
+        ];
+        for (const img of referenceImages) {
+          claudeContent.push({
+            type: "image",
+            source: { type: "url", url: img }
+          });
+        }
+        
+        analysisResponse = await fetch("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": ANTHROPIC_API_KEY,
+            "anthropic-version": "2023-06-01"
+          },
+          body: JSON.stringify({
+            model: "claude-sonnet-4-5",
+            max_tokens: 2000,
+            tools: [contentAnalysisTool],
+            tool_choice: { type: "tool", name: "extract_content_analysis" },
+            messages: [
+              {
+                role: "user",
+                content: claudeContent
+              }
+            ]
+          })
+        });
+      } else if (OPENAI_API_KEY) {
+        console.log("Using GPT-4o for analysis");
+        analysisResponse = await fetch("https://api.openai.com/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${OPENAI_API_KEY}`,
+          },
+          body: JSON.stringify({
+            model: "gpt-4o",
+            messages: [
+              {
+                role: "system",
+                content: "Você é um especialista em engenharia reversa de conteúdo digital. Use o tool para fornecer análises estruturadas.",
+              },
+              {
+                role: "user",
+                content: userContent,
+              },
+            ],
+            tools: [contentAnalysisTool],
+            tool_choice: { type: "function", function: { name: "extract_content_analysis" } },
+            max_tokens: 2000,
+          }),
+        });
+      } else {
+        throw new Error("API key para análise não disponível");
+      }
 
       if (!analysisResponse.ok) {
         const errorText = await analysisResponse.text();
@@ -170,16 +211,24 @@ Use o tool extract_content_analysis para fornecer uma análise ESTRUTURADA.`;
       const analysisData = await analysisResponse.json();
       
       if (analysisData.error) {
-        console.error("OpenAI returned error:", analysisData.error);
-        throw new Error(`Erro da OpenAI: ${analysisData.error.message}`);
+        console.error("AI returned error:", analysisData.error);
+        throw new Error(`Erro da IA: ${analysisData.error.message || JSON.stringify(analysisData.error)}`);
       }
       
-      const toolCall = analysisData.choices[0]?.message?.tool_calls?.[0];
-      if (!toolCall) {
-        throw new Error("Nenhuma análise estruturada foi retornada");
+      // Extrair tool call (formato diferente para Claude vs OpenAI)
+      let structuredAnalysis;
+      if (analysisData.content) {
+        // Claude response
+        const toolUse = analysisData.content.find((c: any) => c.type === "tool_use");
+        if (!toolUse) throw new Error("Nenhuma análise estruturada foi retornada");
+        structuredAnalysis = toolUse.input;
+      } else {
+        // OpenAI response
+        const toolCall = analysisData.choices[0]?.message?.tool_calls?.[0];
+        if (!toolCall) throw new Error("Nenhuma análise estruturada foi retornada");
+        structuredAnalysis = JSON.parse(toolCall.function.arguments);
       }
       
-      const structuredAnalysis = JSON.parse(toolCall.function.arguments);
       console.log("Structured analysis extracted:", structuredAnalysis);
 
       return new Response(
@@ -264,29 +313,72 @@ Separe cada página com ---PÁGINA N--- assim:
 E assim por diante para todas as ${analysis.page_count} páginas.
 ` : 'Entregue o conteúdo completo adaptado.'}`;
 
-      console.log("Sending generation request to OpenAI (gpt-5-mini)");
+      // Escolher melhor modelo para geração: Claude Opus > GPT-5 > Gemini Pro
+      let generationResponse;
       
-      const generationResponse = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${OPENAI_API_KEY}`,
-        },
-        body: JSON.stringify({
-          model: "gpt-5-mini-2025-08-07", // Mais rápido e barato
-          messages: [
-            {
-              role: "system",
-              content: `Você é um criador de conteúdo especializado que adapta referências ao estilo único de cada cliente. Seja criativo mas mantenha a estrutura original.`,
-            },
-            {
-              role: "user",
-              content: generationPrompt,
-            },
-          ],
-          max_completion_tokens: 4000,
-        }),
-      });
+      if (ANTHROPIC_API_KEY) {
+        console.log("Using Claude Opus 4.1 for generation");
+        generationResponse = await fetch("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": ANTHROPIC_API_KEY,
+            "anthropic-version": "2023-06-01"
+          },
+          body: JSON.stringify({
+            model: "claude-opus-4-1-20250805",
+            max_tokens: 4000,
+            messages: [
+              {
+                role: "user",
+                content: generationPrompt
+              }
+            ],
+            system: "Você é um criador de conteúdo especializado que adapta referências ao estilo único de cada cliente. Seja criativo mas mantenha a estrutura original."
+          })
+        });
+      } else if (OPENAI_API_KEY) {
+        console.log("Using GPT-5-mini for generation");
+        generationResponse = await fetch("https://api.openai.com/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${OPENAI_API_KEY}`,
+          },
+          body: JSON.stringify({
+            model: "gpt-5-mini-2025-08-07",
+            messages: [
+              {
+                role: "system",
+                content: `Você é um criador de conteúdo especializado que adapta referências ao estilo único de cada cliente. Seja criativo mas mantenha a estrutura original.`,
+              },
+              {
+                role: "user",
+                content: generationPrompt,
+              },
+            ],
+            max_completion_tokens: 4000,
+          }),
+        });
+      } else if (GOOGLE_API_KEY) {
+        console.log("Using Gemini 2.5 Pro for generation");
+        generationResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${GOOGLE_API_KEY}`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            contents: [{
+              parts: [{ text: generationPrompt }]
+            }],
+            systemInstruction: {
+              parts: [{ text: "Você é um criador de conteúdo especializado que adapta referências ao estilo único de cada cliente. Seja criativo mas mantenha a estrutura original." }]
+            }
+          })
+        });
+      } else {
+        throw new Error("API key para geração não disponível");
+      }
 
       if (!generationResponse.ok) {
         const errorText = await generationResponse.text();
@@ -297,10 +389,22 @@ E assim por diante para todas as ${analysis.page_count} páginas.
       const generationData = await generationResponse.json();
       
       if (generationData.error) {
-        throw new Error(`Erro da OpenAI: ${generationData.error.message}`);
+        throw new Error(`Erro da IA: ${generationData.error.message || JSON.stringify(generationData.error)}`);
       }
       
-      const content = generationData.choices[0]?.message?.content;
+      // Extrair conteúdo (formato diferente para Claude vs OpenAI vs Google)
+      let content;
+      if (generationData.content) {
+        // Claude response
+        content = generationData.content.find((c: any) => c.type === "text")?.text;
+      } else if (generationData.choices) {
+        // OpenAI response
+        content = generationData.choices[0]?.message?.content;
+      } else if (generationData.candidates) {
+        // Google response
+        content = generationData.candidates[0]?.content?.parts[0]?.text;
+      }
+      
       if (!content) {
         throw new Error("Nenhum conteúdo foi gerado");
       }
