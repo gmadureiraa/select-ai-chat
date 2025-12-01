@@ -1,0 +1,1 @@
+ALTER TABLE client_reference_library ENABLE ROW LEVEL SECURITY;
