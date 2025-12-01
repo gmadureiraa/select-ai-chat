@@ -126,6 +126,8 @@ export const ResearchCanvas = ({ projectId }: ResearchCanvasProps) => {
         nodeTypes={nodeTypes}
         fitView
         className="bg-white"
+        noPanClassName="no-pan"
+        noWheelClassName="no-wheel"
       >
         <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="#e5e5e5" />
         <Controls className="bg-white border border-gray-200 rounded-lg" />
