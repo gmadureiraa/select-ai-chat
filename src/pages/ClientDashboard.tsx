@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Header } from "@/components/Header";
 import { TemplateManager } from "@/components/clients/TemplateManager";
 import { useClientTemplates } from "@/hooks/useClientTemplates";
-import { ArrowLeft, MessageSquare, Sparkles, Image as ImageIcon, BarChart3, Library } from "lucide-react";
+import { ArrowLeft, MessageSquare, Sparkles, Image as ImageIcon, BarChart3, Library, BookOpen } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import kaleidosLogo from "@/assets/kaleidos-logo.svg";
@@ -175,6 +175,24 @@ const ClientDashboard = () => {
             <CardContent>
               <CardDescription className="text-sm">
                 Acesse conteúdos criados para usar como referência
+              </CardDescription>
+            </CardContent>
+          </Card>
+
+          {/* Biblioteca de Referências */}
+          <Card
+            className="border-[#00ff87]/40 border bg-card/50 hover:border-[#00ff87]/60 transition-all cursor-pointer"
+            onClick={() => navigate(`/client/${clientId}/references`)}
+          >
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <BookOpen className="h-5 w-5 text-foreground" />
+                <CardTitle className="text-base">Biblioteca de Referências</CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <CardDescription className="text-sm">
+                Gerencie exemplos e referências de estilo
               </CardDescription>
             </CardContent>
           </Card>

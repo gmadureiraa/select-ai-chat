@@ -14,6 +14,7 @@ import PerformanceClients from "./pages/PerformanceClients";
 import ImageGeneration from "./pages/ImageGeneration";
 import ImageGallery from "./pages/ImageGallery";
 import ClientContentLibrary from "./pages/ClientContentLibrary";
+import ClientReferenceLibrary from "./pages/ClientReferenceLibrary";
 import Automations from "./pages/Automations";
 import ReverseEngineering from "./pages/ReverseEngineering";
 import Activities from "./pages/Activities";
@@ -107,6 +108,16 @@ const App = () => (
               <ProtectedRoute>
                 <AppLayout>
                   <ClientContentLibrary />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/client/:clientId/references"
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <ClientReferenceLibrary />
                 </AppLayout>
               </ProtectedRoute>
             }

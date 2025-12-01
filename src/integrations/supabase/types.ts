@@ -238,6 +238,53 @@ export type Database = {
           },
         ]
       }
+      client_reference_library: {
+        Row: {
+          client_id: string
+          content: string
+          created_at: string | null
+          id: string
+          metadata: Json | null
+          reference_type: string
+          source_url: string | null
+          thumbnail_url: string | null
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          client_id: string
+          content: string
+          created_at?: string | null
+          id?: string
+          metadata?: Json | null
+          reference_type: string
+          source_url?: string | null
+          thumbnail_url?: string | null
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          client_id?: string
+          content?: string
+          created_at?: string | null
+          id?: string
+          metadata?: Json | null
+          reference_type?: string
+          source_url?: string | null
+          thumbnail_url?: string | null
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_reference_library_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       client_templates: {
         Row: {
           clickup_list_id: string | null
