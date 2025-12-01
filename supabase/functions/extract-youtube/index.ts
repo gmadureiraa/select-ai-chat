@@ -41,17 +41,23 @@ serve(async (req) => {
     }
 
     const transcriptData = await transcriptResponse.json();
+    console.log("Dados da transcrição recebidos:", JSON.stringify(transcriptData).substring(0, 500));
+    console.log("Chaves disponíveis:", Object.keys(transcriptData));
     console.log("Transcrição obtida com sucesso");
 
     // Extrai informações do vídeo da URL
     const videoId = extractVideoId(url);
-    const title = transcriptData.title || "Vídeo do YouTube";
+    const title = transcriptData.title || transcriptData.video_title || "Vídeo do YouTube";
+    const content = transcriptData.transcript || transcriptData.text || transcriptData.transcription || "";
     const thumbnail = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
+    
+    console.log("Título extraído:", title);
+    console.log("Content length:", content.length);
 
     return new Response(
       JSON.stringify({
         title,
-        content: transcriptData.transcript || transcriptData.text || "",
+        content,
         thumbnail,
         videoId,
         metadata: {

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { AddItemDialog } from "./AddItemDialog";
+import { AddItemMenu } from "./AddItemMenu";
 import ReactFlow, {
   Node,
   Edge,
@@ -33,7 +33,7 @@ export const ResearchCanvas = ({ projectId }: ResearchCanvasProps) => {
 
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
-  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isAddMenuOpen, setIsAddMenuOpen] = useState(false);
 
   // Update nodes when items change
   useEffect(() => {
@@ -139,8 +139,10 @@ export const ResearchCanvas = ({ projectId }: ResearchCanvasProps) => {
         </Panel>
         <Panel position="bottom-right" className="mr-4 mb-4">
           <button
-            onClick={() => setIsAddDialogOpen(true)}
-            className="w-14 h-14 rounded-full bg-[#00ff9d] hover:bg-[#00cc7d] text-black shadow-lg flex items-center justify-center transition-all hover:scale-110"
+            onClick={() => setIsAddMenuOpen(!isAddMenuOpen)}
+            className={`w-14 h-14 rounded-full bg-[#00ff9d] hover:bg-[#00cc7d] text-black shadow-lg flex items-center justify-center transition-all hover:scale-110 ${
+              isAddMenuOpen ? "rotate-45" : ""
+            }`}
           >
             <span className="text-3xl font-light">+</span>
           </button>
@@ -168,11 +170,9 @@ export const ResearchCanvas = ({ projectId }: ResearchCanvasProps) => {
         )}
       </ReactFlow>
 
-      <AddItemDialog 
-        projectId={projectId} 
-        open={isAddDialogOpen}
-        onOpenChange={setIsAddDialogOpen}
-      />
+      {isAddMenuOpen && (
+        <AddItemMenu projectId={projectId} onClose={() => setIsAddMenuOpen(false)} />
+      )}
     </div>
   );
 };
