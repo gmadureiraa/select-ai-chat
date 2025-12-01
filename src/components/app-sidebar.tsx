@@ -1,4 +1,4 @@
-import { Brain, Users, Zap, LogOut, Activity } from "lucide-react";
+import { Brain, Users, LogOut, Activity, Settings } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -17,13 +17,14 @@ import {
   useSidebar,
   SidebarFooter,
   SidebarHeader,
+  SidebarTrigger,
 } from "@/components/ui/sidebar";
 
 const items = [
   { title: "Agentes", url: "/agents", icon: Brain },
   { title: "Clientes", url: "/clients", icon: Users },
-  { title: "Automações", url: "/automations", icon: Zap },
   { title: "Atividades", url: "/activities", icon: Activity },
+  { title: "Configurações", url: "/settings", icon: Settings },
 ];
 
 export function AppSidebar() {
@@ -84,6 +85,13 @@ export function AppSidebar() {
 
       <SidebarFooter className="border-t border-border p-2">
         <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarTrigger className="w-full justify-start">
+              <SidebarMenuButton className="w-full">
+                <span className="text-sm">{open ? "Recolher" : ""}</span>
+              </SidebarMenuButton>
+            </SidebarTrigger>
+          </SidebarMenuItem>
           <SidebarMenuItem>
             <SidebarMenuButton onClick={handleLogout} className="hover:bg-destructive/10 hover:text-destructive">
               <LogOut className="h-5 w-5" />
