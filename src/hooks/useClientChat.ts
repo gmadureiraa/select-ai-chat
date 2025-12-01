@@ -152,6 +152,22 @@ export const useClientChat = (clientId: string, templateId?: string) => {
     enabled: !!clientId,
   });
 
+  // Get content library
+  const { data: contentLibrary = [] } = useQuery({
+    queryKey: ["client-content-library", clientId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("client_content_library")
+        .select("id, title, content_type, content, metadata")
+        .eq("client_id", clientId)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!clientId,
+  });
+
   const sendMessage = useCallback(async (content: string, imageUrls?: string[]) => {
     // Validações
     const validationError = validateMessage(content);
@@ -196,32 +212,60 @@ export const useClientChat = (clientId: string, templateId?: string) => {
 
       if (insertError) throw insertError;
 
-      // FASE 1: Análise e seleção de documentos relevantes
+      // FASE 1: Análise e seleção de materiais relevantes (biblioteca + documentos)
       setCurrentStep("analyzing");
       
-      // Preparar lista de documentos disponíveis
-      const availableDocuments = documents.map(d => ({
-        id: d.id,
-        name: d.name,
-        type: d.file_type,
-        description: `${d.name} (${d.file_type})`
-      }));
+      // Preparar lista completa de materiais disponíveis
+      const availableMaterials = [
+        // Conteúdos da biblioteca (com preview do conteúdo)
+        ...contentLibrary.map(c => ({
+          id: c.id,
+          type: 'content_library',
+          category: c.content_type, // 'newsletter', 'carousel', 'reel_script', etc
+          title: c.title,
+          preview: c.content.substring(0, 300), // Preview para IA decidir
+          hasFullContent: true
+        })),
+        // Documentos do storage
+        ...documents.map(d => ({
+          id: d.id,
+          type: 'document',
+          category: d.file_type,
+          title: d.name,
+          preview: `Documento: ${d.name}`,
+          hasFullContent: false // Precisa buscar do storage se necessário
+        }))
+      ];
 
-      // System message para seleção
+      // System message para seleção inteligente
       const selectionSystemMessage = `Você é o kAI, assistente especializado da Kaleidos para o cliente ${client.name}.
 
-Sua tarefa é ANALISAR a pergunta do usuário e SELECIONAR apenas os documentos e informações REALMENTE RELEVANTES para responder.
+Sua tarefa é ANALISAR a pergunta do usuário e SELECIONAR os materiais mais RELEVANTES da biblioteca e documentos.
 
-## Documentos Disponíveis:
-${availableDocuments.map(d => `- ${d.id}: ${d.description}`).join('\n')}
+## Materiais Disponíveis (${availableMaterials.length} total):
 
-## Informações do Cliente:
-- Websites: ${websites.length} website(s) com conteúdo extraído
-- Notas de Contexto: ${client.context_notes ? 'Disponíveis' : 'Não disponíveis'}
-- Redes Sociais: ${Object.keys(client.social_media || {}).length} rede(s)
-- Tags: ${Object.keys(client.tags || {}).length} tag(s)
+### Biblioteca de Conteúdo (${contentLibrary.length}):
+${contentLibrary.map(c => `- ID: ${c.id}
+  Tipo: ${c.content_type}
+  Título: ${c.title}
+  Preview: ${c.content.substring(0, 200)}...`).join('\n\n')}
 
-IMPORTANTE: Seja SELETIVO. Escolha apenas o que é ESSENCIAL para responder à pergunta específica do usuário.`;
+### Documentos (${documents.length}):
+${documents.map(d => `- ID: ${d.id}
+  Nome: ${d.name}
+  Tipo: ${d.file_type}`).join('\n')}
+
+## Outras Informações:
+- Websites: ${websites.length} website(s)
+- Notas de Contexto: ${client.context_notes ? 'Sim' : 'Não'}
+- Redes Sociais: ${Object.keys(client.social_media || {}).length}
+- Tags: ${Object.keys(client.tags || {}).length}
+
+ESTRATÉGIA:
+1. Identifique o tipo de conteúdo que o usuário quer (newsletter, carousel, etc)
+2. Busque exemplos RELEVANTES desse tipo na biblioteca
+3. Selecione materiais que ajudem a entender PADRÕES, TOM e ESTRUTURA
+4. Priorize conteúdos similares ao que o usuário pediu`;
 
       // Histórico completo de mensagens para contexto
       const selectionMessages = [
@@ -236,19 +280,115 @@ IMPORTANTE: Seja SELETIVO. Escolha apenas o que é ESSENCIAL para responder à p
           messages: selectionMessages,
           model: "gpt-5-nano-2025-08-07", // Modelo mais barato para seleção
           isSelectionPhase: true,
-          availableDocuments
+          availableMaterials
         },
       });
 
       if (selectionError) throw selectionError;
 
       const selection = selectionData.selection;
-      console.log("Documents selected:", selection);
+      console.log("Materials selected:", selection);
 
-      // FASE 2: Carregar documentos selecionados
+      // FASE 2: Análise de padrões (se necessário)
+      let patternAnalysis = null;
+      
+      if (selection.analysis_needed && selection.selected_references?.length > 0) {
+        setCurrentStep("analyzing_library");
+        
+        // Buscar conteúdos completos selecionados
+        const selectedContents = selection.selected_references
+          .filter((ref: any) => ref.type === 'content_library')
+          .map((ref: any) => {
+            const content = contentLibrary.find(c => c.id === ref.id);
+            return content ? {
+              title: content.title,
+              content_type: content.content_type,
+              content: content.content,
+              reason: ref.reason
+            } : null;
+          })
+          .filter(Boolean);
+
+        if (selectedContents.length > 0) {
+          // Criar prompt de análise de padrões
+          const analysisPrompt = `Analise profundamente os seguintes conteúdos de referência do cliente ${client.name} e extraia os padrões essenciais:
+
+## CONTEÚDOS PARA ANÁLISE:
+${selectedContents.map((c: any, idx: number) => `
+### ${idx + 1}. ${c.title} (${c.content_type})
+${c.content}
+---
+`).join('\n')}
+
+## EXTRAIA:
+1. **Estrutura Padrão**: Como o conteúdo é organizado (abertura, desenvolvimento, fechamento)
+2. **Tom de Voz**: Formal/informal, uso de pronomes, estilo de escrita, linguagem característica
+3. **Elementos Recorrentes**: CTAs, perguntas, citações, metáforas, emojis, formatação
+4. **Comprimento Típico**: Número aproximado de parágrafos, extensão das seções
+5. **Padrões de Engajamento**: O que chama atenção, como conecta com o leitor
+6. **Vocabulário Específico**: Palavras, expressões ou termos recorrentes
+
+Retorne uma análise clara e estruturada para guiar a criação de novo conteúdo similar.`;
+
+          const analysisMessages = [
+            { role: "system", content: "Você é um especialista em análise de padrões de conteúdo." },
+            { role: "user", content: analysisPrompt }
+          ];
+
+          // Chamar IA para análise (usar mini para economizar)
+          const { data: analysisData, error: analysisError } = await supabase.functions.invoke("chat", {
+            body: {
+              messages: analysisMessages,
+              model: "gpt-5-mini-2025-08-07",
+              isSelectionPhase: false
+            },
+          });
+
+          if (!analysisError && analysisData?.body) {
+            const reader = analysisData.body.getReader();
+            const decoder = new TextDecoder();
+            let analysisText = "";
+            let buffer = "";
+
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+
+              const chunk = decoder.decode(value, { stream: true });
+              buffer += chunk;
+
+              const lines = buffer.split("\n");
+              buffer = lines.pop() || "";
+
+              for (const line of lines) {
+                const trimmed = line.trim();
+                if (!trimmed || trimmed.startsWith(":")) continue;
+                
+                if (trimmed.startsWith("data: ")) {
+                  const jsonStr = trimmed.slice(6);
+                  if (jsonStr === "[DONE]") continue;
+
+                  try {
+                    const parsed = JSON.parse(jsonStr);
+                    const content = parsed.choices[0]?.delta?.content || "";
+                    analysisText += content;
+                  } catch (e) {
+                    // Ignorar erros de parse
+                  }
+                }
+              }
+            }
+
+            patternAnalysis = analysisText;
+            console.log("Pattern analysis completed:", analysisText.substring(0, 200));
+          }
+        }
+      }
+
+      // FASE 3: Carregar documentos e preparar contexto enriquecido
       setCurrentStep("reviewing");
 
-      // Build focused context with ONLY selected documents
+      // Build enriched context with pattern analysis
       let contextParts = [
         `# Identidade kAI - Assistente Estratégico para ${client.name}`,
         ``,
@@ -256,11 +396,27 @@ IMPORTANTE: Seja SELETIVO. Escolha apenas o que é ESSENCIAL para responder à p
         ``,
         `## 🎯 INFORMAÇÕES SELECIONADAS PARA ESTA TAREFA`,
         ``,
-        `Os seguintes recursos foram identificados como RELEVANTES para esta pergunta específica:`,
-        ``,
         `**Raciocínio da Seleção:** ${selection.reasoning}`,
+        `**Estratégia:** ${selection.strategy || 'Seguir padrões estabelecidos'}`,
         ``
       ];
+
+      // Adicionar análise de padrões se disponível
+      if (patternAnalysis) {
+        contextParts.push(`## 📊 ANÁLISE DE PADRÕES DO CLIENTE`);
+        contextParts.push(``);
+        contextParts.push(`**IMPORTANTE:** Os conteúdos selecionados foram analisados para identificar padrões. Use esta análise como guia:`);
+        contextParts.push(``);
+        contextParts.push(patternAnalysis);
+        contextParts.push(``);
+        contextParts.push(`**INSTRUÇÕES CRÍTICAS:**`);
+        contextParts.push(`1. SIGA a estrutura e organização identificada`);
+        contextParts.push(`2. MANTENHA o tom de voz característico`);
+        contextParts.push(`3. USE elementos recorrentes e vocabulário específico`);
+        contextParts.push(`4. ADAPTE para o tema solicitado pelo usuário`);
+        contextParts.push(`5. NÃO COPIE conteúdo, apenas padrões e estilo`);
+        contextParts.push(``);
+      }
 
       // Incluir regras aprendidas nesta conversa
       if (conversationRules.length > 0) {
@@ -359,19 +515,43 @@ IMPORTANTE: Seja SELETIVO. Escolha apenas o que é ESSENCIAL para responder à p
         });
       }
 
-      // Add only selected documents (full content)
-      if (selection.selected_documents && selection.selected_documents.length > 0) {
-        contextParts.push(`## 📄 Documentos Selecionados:`);
-        const selectedDocs = documents.filter(d => selection.selected_documents.includes(d.id));
+      // Add selected content library items (full content)
+      if (selection.selected_references && selection.selected_references.length > 0) {
+        const contentRefs = selection.selected_references.filter((ref: any) => ref.type === 'content_library');
         
-        for (const doc of selectedDocs) {
-          contextParts.push(`### ${doc.name}`);
-          contextParts.push(`Tipo: ${doc.file_type}`);
-          contextParts.push('');
-          // TODO: Aqui você pode adicionar lógica para ler o conteúdo do documento do storage
-          // Por enquanto, indicamos que o documento está disponível
-          contextParts.push(`[Documento ${doc.name} foi selecionado como relevante]`);
-          contextParts.push('');
+        if (contentRefs.length > 0) {
+          contextParts.push(`## 📚 CONTEÚDOS DA BIBLIOTECA SELECIONADOS:`);
+          contextParts.push(``);
+          contextParts.push(`Os seguintes conteúdos foram identificados como referências relevantes:`);
+          contextParts.push(``);
+          
+          contentRefs.forEach((ref: any) => {
+            const content = contentLibrary.find(c => c.id === ref.id);
+            if (content) {
+              contextParts.push(`### ${content.title} (${content.content_type}) - Prioridade: ${ref.priority}`);
+              contextParts.push(`**Por que foi selecionado:** ${ref.reason}`);
+              contextParts.push(``);
+              contextParts.push('```');
+              contextParts.push(content.content);
+              contextParts.push('```');
+              contextParts.push(``);
+            }
+          });
+        }
+
+        // Add selected documents
+        const docRefs = selection.selected_references.filter((ref: any) => ref.type === 'document');
+        if (docRefs.length > 0) {
+          contextParts.push(`## 📄 Documentos Selecionados:`);
+          docRefs.forEach((ref: any) => {
+            const doc = documents.find(d => d.id === ref.id);
+            if (doc) {
+              contextParts.push(`### ${doc.name}`);
+              contextParts.push(`**Por que foi selecionado:** ${ref.reason}`);
+              contextParts.push(`Tipo: ${doc.file_type}`);
+              contextParts.push(``);
+            }
+          });
         }
       }
 
@@ -385,7 +565,7 @@ IMPORTANTE: Seja SELETIVO. Escolha apenas o que é ESSENCIAL para responder à p
         contextParts.push('');
       }
 
-      // FASE 3: Criar resposta com documentos selecionados
+      // FASE 4: Criar resposta contextualizada
       setCurrentStep("creating");
 
       const systemMessage = contextParts.join("\n");

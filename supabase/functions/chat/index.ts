@@ -65,34 +65,65 @@ const routingTool = {
   }
 };
 
-// Tool para seleção de documentos relevantes
-const documentSelectionTool = {
+// Tool para seleção inteligente de conteúdo
+const contentSelectionTool = {
   type: "function",
   function: {
-    name: "select_relevant_documents",
-    description: "Seleciona os documentos e informações mais relevantes do cliente",
+    name: "select_relevant_content",
+    description: "Seleciona conteúdos relevantes da biblioteca e documentos do cliente para usar como referência",
     parameters: {
       type: "object",
       properties: {
-        selected_documents: {
+        detected_content_type: {
+          type: "string",
+          enum: ["newsletter", "carousel", "reel_script", "video_script", "blog_post", "social_post", "general"],
+          description: "Tipo de conteúdo que o usuário está pedindo"
+        },
+        selected_references: {
           type: "array",
-          items: { type: "string" },
-          description: "IDs dos documentos selecionados como relevantes"
+          items: {
+            type: "object",
+            properties: {
+              id: { type: "string", description: "ID do material selecionado" },
+              type: { 
+                type: "string", 
+                enum: ["content_library", "document"],
+                description: "Tipo: content_library (biblioteca) ou document (arquivo)"
+              },
+              reason: { type: "string", description: "Por que este material foi selecionado" },
+              priority: { 
+                type: "string", 
+                enum: ["high", "medium", "low"],
+                description: "Prioridade de relevância"
+              }
+            },
+            required: ["id", "type", "reason", "priority"]
+          },
+          description: "Materiais selecionados da biblioteca e documentos com justificativa"
+        },
+        analysis_needed: {
+          type: "boolean",
+          description: "Se precisa fazer análise profunda dos conteúdos para extrair padrões, estrutura e tom"
+        },
+        use_context_notes: {
+          type: "boolean",
+          description: "Se deve usar as notas de contexto gerais do cliente"
         },
         use_websites: {
           type: "boolean",
           description: "Se deve usar o conteúdo dos websites do cliente"
         },
-        use_context_notes: {
-          type: "boolean",
-          description: "Se deve usar as notas de contexto do cliente"
+        strategy: {
+          type: "string",
+          enum: ["follow_structure", "adapt_tone", "combine_best", "innovate"],
+          description: "Estratégia de uso: follow_structure (seguir estrutura), adapt_tone (adaptar tom), combine_best (combinar melhores práticas), innovate (inovar)"
         },
         reasoning: {
           type: "string",
-          description: "Breve explicação de por que estes documentos foram escolhidos"
+          description: "Explicação geral da seleção e estratégia escolhida"
         }
       },
-      required: ["selected_documents", "use_websites", "use_context_notes", "reasoning"]
+      required: ["detected_content_type", "selected_references", "analysis_needed", "use_context_notes", "use_websites", "strategy", "reasoning"]
     }
   }
 };
@@ -148,7 +179,7 @@ serve(async (req) => {
       );
     }
 
-    const { messages, model, isSelectionPhase, isRoutingPhase, availableDocuments } = body;
+    const { messages, model, isSelectionPhase, isRoutingPhase, availableMaterials } = body;
     const selectedModel = model || "gpt-5-mini-2025-08-07";
     
     const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
@@ -219,11 +250,11 @@ serve(async (req) => {
       );
     }
 
-    // FASE 1: Seleção de documentos
+    // FASE 1: Seleção inteligente de conteúdo
     if (isSelectionPhase) {
-      console.log("Phase 1: Document selection", {
+      console.log("Phase 1: Intelligent content selection", {
         model: "gpt-5-nano-2025-08-07",
-        availableDocuments: availableDocuments?.length || 0,
+        availableMaterials: availableMaterials?.length || 0,
         timestamp: new Date().toISOString()
       });
 
@@ -241,9 +272,9 @@ serve(async (req) => {
         body: JSON.stringify({
           model: "gpt-5-nano-2025-08-07", // Mais barato para seleção
           messages: selectionMessages,
-          tools: [documentSelectionTool],
-          tool_choice: { type: "function", function: { name: "select_relevant_documents" } },
-          max_completion_tokens: 1000,
+          tools: [contentSelectionTool],
+          tool_choice: { type: "function", function: { name: "select_relevant_content" } },
+          max_completion_tokens: 2000, // Mais tokens para análise detalhada
         }),
       });
 
@@ -251,7 +282,7 @@ serve(async (req) => {
         const errorText = await selectionResponse.text();
         console.error("OpenAI selection error:", errorText);
         return new Response(
-          JSON.stringify({ error: "Erro ao selecionar documentos" }),
+          JSON.stringify({ error: "Erro ao selecionar conteúdo" }),
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
@@ -261,15 +292,18 @@ serve(async (req) => {
       
       if (!toolCall) {
         return new Response(
-          JSON.stringify({ error: "Nenhum documento selecionado" }),
+          JSON.stringify({ error: "Nenhum conteúdo selecionado" }),
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 
       const selection = JSON.parse(toolCall.function.arguments);
       
-      console.log("Documents selected:", {
-        selected: selection.selected_documents?.length || 0,
+      console.log("Content selected:", {
+        contentType: selection.detected_content_type,
+        referencesCount: selection.selected_references?.length || 0,
+        needsAnalysis: selection.analysis_needed,
+        strategy: selection.strategy,
         useWebsites: selection.use_websites,
         useContext: selection.use_context_notes,
         reasoning: selection.reasoning
