@@ -29,7 +29,7 @@ const Agents = () => {
         "Automações programadas",
       ],
       accentColor: "primary" as const,
-      onOpen: () => navigate("/assistant"),
+      onOpen: () => navigate("/clients"),
     },
     {
       title: "Análise de Performance",
