@@ -1,0 +1,1 @@
+ALTER TABLE conversations ADD COLUMN IF NOT EXISTS template_id UUID REFERENCES client_templates(id) ON DELETE SET NULL;

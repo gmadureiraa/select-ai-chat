@@ -49,15 +49,24 @@ export const useClientChat = (clientId: string, templateId?: string) => {
     return feedbackPatterns.some(p => p.test(message));
   };
 
-  // Get or create conversation
+  // Get or create conversation (separada por template)
   const { data: conversation } = useQuery({
-    queryKey: ["conversation", clientId],
+    queryKey: ["conversation", clientId, templateId],
     queryFn: async () => {
-      // Try to get existing conversation
-      const { data: existing, error: fetchError } = await supabase
+      // Try to get existing conversation for this client + template combination
+      let query = supabase
         .from("conversations")
         .select("*")
-        .eq("client_id", clientId)
+        .eq("client_id", clientId);
+      
+      // Filter by template_id if provided, or get the general chat (no template)
+      if (templateId) {
+        query = query.eq("template_id", templateId);
+      } else {
+        query = query.is("template_id", null);
+      }
+      
+      const { data: existing, error: fetchError } = await query
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -75,6 +84,7 @@ export const useClientChat = (clientId: string, templateId?: string) => {
           client_id: clientId,
           title: "Nova Conversa",
           model: selectedModel,
+          template_id: templateId || null,
         })
         .select()
         .single();
@@ -824,6 +834,33 @@ Retorne uma análise clara e estruturada para guiar a criação de novo conteúd
     }
   }, [messages, sendMessage, toast]);
 
+  const clearConversation = useCallback(async () => {
+    if (!conversationId) return;
+
+    try {
+      // Delete all messages
+      await supabase
+        .from("messages")
+        .delete()
+        .eq("conversation_id", conversationId);
+
+      // Invalidate messages query to refresh
+      queryClient.invalidateQueries({ queryKey: ["messages", conversationId] });
+
+      toast({
+        title: "Conversa limpa",
+        description: "Todas as mensagens foram removidas.",
+      });
+    } catch (error) {
+      console.error("Error clearing conversation:", error);
+      toast({
+        title: "Erro ao limpar conversa",
+        description: "Não foi possível limpar a conversa.",
+        variant: "destructive",
+      });
+    }
+  }, [conversationId, queryClient, toast]);
+
   return {
     messages,
     isLoading,
@@ -834,5 +871,6 @@ Retorne uma análise clara e estruturada para guiar a criação de novo conteúd
     setSelectedModel,
     sendMessage,
     regenerateLastMessage,
+    clearConversation,
   };
 };
