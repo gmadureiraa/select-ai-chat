@@ -14,6 +14,7 @@ import PerformanceClients from "./pages/PerformanceClients";
 import ImageGeneration from "./pages/ImageGeneration";
 import ImageGallery from "./pages/ImageGallery";
 import Automations from "./pages/Automations";
+import ReverseEngineering from "./pages/ReverseEngineering";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 
@@ -114,6 +115,16 @@ const App = () => (
               <ProtectedRoute>
                 <AppLayout>
                   <Automations />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/reverse-engineering"
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <ReverseEngineering />
                 </AppLayout>
               </ProtectedRoute>
             }

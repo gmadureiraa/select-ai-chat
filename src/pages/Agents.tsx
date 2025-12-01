@@ -6,6 +6,19 @@ const Agents = () => {
 
   const agents = [
     {
+      title: "Engenharia Reversa",
+      subtitle: "Análise e recriação de conteúdo",
+      description: "Analise qualquer conteúdo de referência e recrie adaptado ao estilo único do seu cliente",
+      features: [
+        "Análise de Reels e vídeos",
+        "Carrosséis e posts",
+        "Blogs e artigos",
+        "Adaptação ao cliente",
+      ],
+      accentColor: "accent" as const,
+      onOpen: () => navigate("/reverse-engineering"),
+    },
+    {
       title: "Assistente de Clientes",
       subtitle: "Gerenciamento contextual de clientes",
       description: "Sistema completo para gerenciar contexto e criar conteúdo estratégico para cada cliente",
