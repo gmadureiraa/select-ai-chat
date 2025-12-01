@@ -23,18 +23,18 @@ const ResearchLab = () => {
         </div>
 
         {!selectedProjectId ? (
-          <div className="flex items-center justify-center flex-1">
-            <div className="text-center text-muted-foreground">
+          <div className="flex items-center justify-center flex-1 bg-white">
+            <div className="text-center text-gray-500">
               <p className="text-lg mb-2">Nenhum projeto selecionado</p>
               <p className="text-sm">Selecione ou crie um projeto para começar</p>
             </div>
           </div>
         ) : (
-          <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-4 p-4 overflow-hidden">
-            <div className="lg:col-span-2 overflow-auto">
+          <div className="flex-1 flex gap-4 p-4 overflow-hidden bg-white">
+            <div className="flex-1 overflow-hidden rounded-lg border border-gray-200 shadow-sm">
               <ResearchCanvas projectId={selectedProjectId} />
             </div>
-            <div className="overflow-hidden">
+            <div className="w-96 overflow-hidden">
               <ResearchChatPanel projectId={selectedProjectId} />
             </div>
           </div>
