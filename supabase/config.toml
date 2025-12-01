@@ -3,6 +3,9 @@ project_id = "tkbsjtgrumhvwlxkmojg"
 [functions.chat]
 verify_jwt = false
 
+[functions.extract-instagram]
+verify_jwt = false
+
 [functions.run-automation]
 verify_jwt = false
 

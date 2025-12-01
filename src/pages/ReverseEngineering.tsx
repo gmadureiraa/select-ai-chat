@@ -10,7 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useClients } from "@/hooks/useClients";
 import { useActivities } from "@/hooks/useActivities";
-import { ArrowLeft, Upload, Loader2, FileText } from "lucide-react";
+import { ArrowLeft, Upload, Loader2, FileText, X } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const ReverseEngineering = () => {
@@ -22,11 +22,61 @@ const ReverseEngineering = () => {
   const [selectedClient, setSelectedClient] = useState<string>("");
   const [referenceText, setReferenceText] = useState("");
   const [referenceImages, setReferenceImages] = useState<string[]>([]);
+  const [instagramUrl, setInstagramUrl] = useState("");
+  const [extractedImages, setExtractedImages] = useState<string[]>([]);
+  const [isExtracting, setIsExtracting] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysis, setAnalysis] = useState<any>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedContent, setGeneratedContent] = useState("");
-  const [inputType, setInputType] = useState<"images" | "text">("images");
+  const [inputType, setInputType] = useState<"images" | "text" | "instagram">("images");
+
+  const handleExtractInstagram = async () => {
+    if (!instagramUrl.trim()) {
+      toast({
+        title: "Link vazio",
+        description: "Cole o link do Instagram",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsExtracting(true);
+    setExtractedImages([]);
+
+    try {
+      const { data, error } = await supabase.functions.invoke('extract-instagram', {
+        body: { url: instagramUrl }
+      });
+
+      if (error) throw error;
+
+      if (data.error) {
+        toast({
+          title: "Erro",
+          description: data.error,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      setExtractedImages(data.images);
+      toast({
+        title: "Imagens extraídas",
+        description: `${data.imageCount} ${data.imageCount === 1 ? 'imagem extraída' : 'imagens extraídas'}`,
+      });
+
+    } catch (error) {
+      console.error('Error extracting Instagram images:', error);
+      toast({
+        title: "Erro",
+        description: "Erro ao extrair imagens do Instagram",
+        variant: "destructive",
+      });
+    } finally {
+      setIsExtracting(false);
+    }
+  };
 
   const handleAnalyze = async () => {
     if (!selectedClient) {
@@ -38,10 +88,10 @@ const ReverseEngineering = () => {
       return;
     }
 
-    if (referenceImages.length === 0 && !referenceText) {
+    if (referenceImages.length === 0 && !referenceText && extractedImages.length === 0) {
       toast({
         title: "Referência vazia",
-        description: "Adicione imagens ou texto de referência",
+        description: "Adicione imagens, texto de referência ou extraia de um post do Instagram",
         variant: "destructive",
       });
       return;
@@ -55,7 +105,7 @@ const ReverseEngineering = () => {
       const { data, error } = await supabase.functions.invoke("reverse-engineer", {
         body: {
           clientId: selectedClient,
-          referenceImages: inputType === "images" ? referenceImages : undefined,
+          referenceImages: inputType === "images" ? referenceImages : inputType === "instagram" ? extractedImages : undefined,
           referenceText: inputType === "text" ? referenceText : undefined,
           phase: "analyze",
         },
@@ -188,13 +238,16 @@ const ReverseEngineering = () => {
         <Card className="border-border/50 bg-card/50 p-6">
           <div className="space-y-4">
             <Label className="text-sm font-medium">Conteúdo de Referência</Label>
-            <Tabs value={inputType} onValueChange={(v) => setInputType(v as "images" | "text")}>
-              <TabsList className="grid w-full grid-cols-2 bg-background">
+            <Tabs value={inputType} onValueChange={(v) => setInputType(v as "images" | "text" | "instagram")}>
+              <TabsList className="grid w-full grid-cols-3 bg-background">
                 <TabsTrigger value="images">
                   Imagens
                 </TabsTrigger>
                 <TabsTrigger value="text">
                   Texto
+                </TabsTrigger>
+                <TabsTrigger value="instagram">
+                  Link Instagram
                 </TabsTrigger>
               </TabsList>
               <TabsContent value="images" className="space-y-3 mt-4">
@@ -267,6 +320,56 @@ const ReverseEngineering = () => {
                 <p className="text-xs text-muted-foreground">
                   Cole o texto completo do conteúdo de referência
                 </p>
+              </TabsContent>
+              <TabsContent value="instagram" className="space-y-4 mt-4">
+                <div className="space-y-3">
+                  <div className="flex gap-2">
+                    <Input
+                      type="url"
+                      placeholder="https://instagram.com/p/..."
+                      value={instagramUrl}
+                      onChange={(e) => setInstagramUrl(e.target.value)}
+                      className="flex-1"
+                    />
+                    <Button 
+                      onClick={handleExtractInstagram} 
+                      disabled={isExtracting || !instagramUrl.trim()}
+                    >
+                      {isExtracting ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Extraindo...
+                        </>
+                      ) : (
+                        'Extrair'
+                      )}
+                    </Button>
+                  </div>
+
+                  {extractedImages.length > 0 && (
+                    <div className="space-y-3">
+                      <p className="text-xs text-muted-foreground">
+                        {extractedImages.length} {extractedImages.length === 1 ? 'imagem extraída' : 'imagens extraídas'}
+                      </p>
+                      <div className="flex gap-2 flex-wrap">
+                        {extractedImages.map((url, i) => (
+                          <div key={i} className="relative w-20 h-20 rounded border border-border/50 overflow-hidden">
+                            <img src={url} alt={`Instagram ${i + 1}`} className="w-full h-full object-cover" />
+                            <button
+                              onClick={() => setExtractedImages((prev) => prev.filter((_, idx) => idx !== i))}
+                              className="absolute -top-1 -right-1 bg-background border border-border rounded-full w-5 h-5 flex items-center justify-center text-xs hover:bg-muted"
+                            >
+                              ×
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  <p className="text-xs text-muted-foreground">
+                    Cole o link de um post ou carrossel do Instagram para extrair todas as imagens automaticamente
+                  </p>
+                </div>
               </TabsContent>
             </Tabs>
           </div>
@@ -371,6 +474,8 @@ const ReverseEngineering = () => {
                   setGeneratedContent("");
                   setReferenceImages([]);
                   setReferenceText("");
+                  setInstagramUrl("");
+                  setExtractedImages([]);
                 }}
                 variant="outline"
                 className="flex-1"
