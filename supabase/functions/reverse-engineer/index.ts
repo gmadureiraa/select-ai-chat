@@ -74,9 +74,20 @@ ${templates?.map((t) => `${t.name}: ${t.rules ? JSON.stringify(t.rules).slice(0,
       if (referenceUrl) {
         console.log("Processing URL:", referenceUrl);
         
-        // Se for YouTube, extrair transcrição
-        if (referenceUrl.includes('youtube.com') || referenceUrl.includes('youtu.be')) {
-          // Usar Firecrawl para extrair conteúdo do YouTube
+        // Verificar se é um site suportado (YouTube/Instagram geralmente bloqueiam scraping)
+        const isYouTube = referenceUrl.includes('youtube.com') || referenceUrl.includes('youtu.be');
+        const isInstagram = referenceUrl.includes('instagram.com');
+        
+        if (isYouTube || isInstagram) {
+          throw new Error(
+            isYouTube 
+              ? "YouTube não suporta scraping automático. Por favor, faça upload de screenshots do vídeo ou cole a transcrição manualmente."
+              : "Instagram não suporta scraping automático. Por favor, faça upload de screenshots do post/reels."
+          );
+        }
+        
+        // Tentar scraping para outros sites
+        try {
           const FIRECRAWL_API_KEY = Deno.env.get("FIRECRAWL_API_KEY");
           if (!FIRECRAWL_API_KEY) {
             throw new Error("FIRECRAWL_API_KEY não configurada");
@@ -94,65 +105,25 @@ ${templates?.map((t) => `${t.name}: ${t.rules ? JSON.stringify(t.rules).slice(0,
             })
           });
           
-          if (!scrapeResponse.ok) {
-            throw new Error(`Erro ao fazer scraping: ${await scrapeResponse.text()}`);
+          const scrapeData = await scrapeResponse.json();
+          
+          if (!scrapeResponse.ok || !scrapeData.success) {
+            throw new Error(scrapeData.error || "Erro ao fazer scraping");
           }
           
-          const scrapeData = await scrapeResponse.json();
           extractedContent = scrapeData.markdown || scrapeData.data?.markdown || "";
+          
+          if (!extractedContent) {
+            throw new Error("Nenhum conteúdo foi extraído do site");
+          }
+          
           console.log("Extracted content from URL, length:", extractedContent.length);
-        } else if (referenceUrl.includes('instagram.com')) {
-          // Instagram: usar Firecrawl
-          const FIRECRAWL_API_KEY = Deno.env.get("FIRECRAWL_API_KEY");
-          if (!FIRECRAWL_API_KEY) {
-            throw new Error("FIRECRAWL_API_KEY não configurada");
-          }
-          
-          const scrapeResponse = await fetch('https://api.firecrawl.dev/v1/scrape', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${FIRECRAWL_API_KEY}`
-            },
-            body: JSON.stringify({
-              url: referenceUrl,
-              formats: ['markdown', 'screenshot']
-            })
-          });
-          
-          if (!scrapeResponse.ok) {
-            throw new Error(`Erro ao fazer scraping: ${await scrapeResponse.text()}`);
-          }
-          
-          const scrapeData = await scrapeResponse.json();
-          extractedContent = scrapeData.markdown || scrapeData.data?.markdown || "";
-          console.log("Extracted content from Instagram, length:", extractedContent.length);
-        } else {
-          // Outros sites: usar Firecrawl
-          const FIRECRAWL_API_KEY = Deno.env.get("FIRECRAWL_API_KEY");
-          if (!FIRECRAWL_API_KEY) {
-            throw new Error("FIRECRAWL_API_KEY não configurada");
-          }
-          
-          const scrapeResponse = await fetch('https://api.firecrawl.dev/v1/scrape', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${FIRECRAWL_API_KEY}`
-            },
-            body: JSON.stringify({
-              url: referenceUrl,
-              formats: ['markdown']
-            })
-          });
-          
-          if (!scrapeResponse.ok) {
-            throw new Error(`Erro ao fazer scraping: ${await scrapeResponse.text()}`);
-          }
-          
-          const scrapeData = await scrapeResponse.json();
-          extractedContent = scrapeData.markdown || scrapeData.data?.markdown || "";
-          console.log("Extracted content from URL, length:", extractedContent.length);
+        } catch (error) {
+          console.error("Scraping error:", error);
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          throw new Error(
+            `Não foi possível fazer scraping desta URL. Por favor, copie e cole o conteúdo manualmente ou faça upload de screenshots. Erro: ${errorMessage}`
+          );
         }
       }
       
