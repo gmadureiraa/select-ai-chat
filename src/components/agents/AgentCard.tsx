@@ -49,9 +49,10 @@ export default function AgentCard({
 
   return (
     <div
-      className="relative w-full max-w-[280px] h-[320px] group [perspective:2000px]"
+      className="relative w-full max-w-[280px] h-[320px] group [perspective:2000px] cursor-pointer"
       onMouseEnter={() => setIsFlipped(true)}
       onMouseLeave={() => setIsFlipped(false)}
+      onClick={onOpen}
     >
       <div
         className={cn(
