@@ -1,8 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { BarChart3, TrendingUp } from "lucide-react";
+import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function PerformanceClients() {
@@ -49,30 +48,18 @@ export default function PerformanceClients() {
         {clients?.map((client) => (
           <Card
             key={client.id}
-            className="hover:shadow-lg transition-all cursor-pointer border-accent/20 hover:border-accent/40 group"
+            className="p-6 border-border/50 bg-card/50 hover:border-border transition-all cursor-pointer"
             onClick={() => navigate(`/client/${client.id}/performance`)}
           >
-            <CardHeader>
-              <div className="flex items-center gap-3">
-                <div className="p-3 rounded-lg bg-accent/10 group-hover:bg-accent/20 transition-colors">
-                  <BarChart3 className="h-6 w-6 text-accent" />
-                </div>
-                <div className="flex-1">
-                  <CardTitle className="group-hover:text-accent transition-colors">
-                    {client.name}
-                  </CardTitle>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <CardDescription className="line-clamp-2">
-                {client.description || "Visualize dashboards e métricas de performance"}
-              </CardDescription>
-              <div className="flex items-center gap-2 mt-4 text-sm text-muted-foreground">
-                <TrendingUp className="h-4 w-4" />
-                <span>Ver análise completa</span>
-              </div>
-            </CardContent>
+            <h3 className="font-semibold text-lg mb-6">{client.name}</h3>
+            {client.description && (
+              <p className="text-sm text-muted-foreground mb-6 line-clamp-2">
+                {client.description}
+              </p>
+            )}
+            <div className="flex items-center justify-center">
+              <span className="text-sm text-muted-foreground">Ver análise completa</span>
+            </div>
           </Card>
         ))}
       </div>
