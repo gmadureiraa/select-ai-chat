@@ -1,39 +1,30 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { ClientList } from "@/components/clients/ClientList";
 import { ClientDialog } from "@/components/clients/ClientDialog";
 import { useClients } from "@/hooks/useClients";
+import { PageHeader } from "@/components/PageHeader";
 
 const Clients = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const { clients, isLoading } = useClients();
-  const navigate = useNavigate();
+
+  const clientCount = clients?.length || 0;
 
   return (
-    <div className="max-w-7xl mx-auto px-8 py-12">
-      <div className="flex flex-col gap-8">
-        <div className="flex justify-between items-center animate-fade-in">
-          <div>
-            <h1 className="text-3xl font-semibold tracking-tight">
-              Clientes
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              Gerencie seus clientes e contextos
-            </p>
-          </div>
-          <Button
-            onClick={() => setIsDialogOpen(true)}
-            variant="outline"
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Novo Cliente
-          </Button>
-        </div>
+    <div className="max-w-6xl mx-auto px-6 py-8 space-y-6">
+      <PageHeader 
+        title="Clientes" 
+        subtitle={`${clientCount} cliente${clientCount !== 1 ? 's' : ''} cadastrado${clientCount !== 1 ? 's' : ''}`}
+      >
+        <Button onClick={() => setIsDialogOpen(true)} variant="outline">
+          <Plus className="mr-2 h-4 w-4" />
+          Novo Cliente
+        </Button>
+      </PageHeader>
 
-        <ClientList clients={clients} isLoading={isLoading} />
-      </div>
+      <ClientList clients={clients} isLoading={isLoading} />
 
       <ClientDialog
         open={isDialogOpen}
