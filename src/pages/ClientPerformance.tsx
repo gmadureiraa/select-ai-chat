@@ -150,10 +150,10 @@ const { toast } = useToast();
       return sum + (metadata?.reach || 0);
     }, 0);
     
-    // Calculate follower gain in the period from daily_gain metadata
+    // Calculate follower gain in the period from followers_gained metadata
     const totalFollowerGain = filteredMetrics.reduce((sum, m) => {
       const metadata = m.metadata as any;
-      return sum + (metadata?.daily_gain || 0);
+      return sum + (metadata?.followers_gained || metadata?.daily_gain || 0);
     }, 0);
     
     // Current followers from most recent metric
@@ -168,16 +168,16 @@ const { toast } = useToast();
     };
   }, [metrics, dateRange, customDateRange]);
 
-  // Chart data configuration
+  // Chart data configuration - Kaleidos colors (green and pink)
   const chartConfig = useMemo(() => ({
-    views: { label: "Visualizações", color: "hsl(217, 91%, 60%)", dataKey: "views" },
-    reach: { label: "Alcance", color: "hsl(280, 87%, 65%)", dataKey: "reach" },
-    followers: { label: "Seguidores", color: "hsl(262, 83%, 58%)", dataKey: "subscribers" },
-    dailyGain: { label: "Ganho Diário", color: "hsl(142, 71%, 45%)", dataKey: "daily_gain" },
-    engagement: { label: "Engajamento (%)", color: "hsl(38, 92%, 50%)", dataKey: "engagement_rate" },
-    impressions: { label: "Impressões", color: "hsl(199, 89%, 48%)", dataKey: "impressions" },
-    engagements: { label: "Engajamentos", color: "hsl(280, 87%, 65%)", dataKey: "engagements" },
-    likes: { label: "Curtidas", color: "hsl(340, 82%, 52%)", dataKey: "likes" },
+    views: { label: "Visualizações", color: "hsl(160, 84%, 39%)", dataKey: "views" },
+    reach: { label: "Alcance", color: "hsl(330, 81%, 60%)", dataKey: "reach" },
+    followers: { label: "Seguidores", color: "hsl(160, 84%, 39%)", dataKey: "subscribers" },
+    dailyGain: { label: "Ganho Diário", color: "hsl(330, 81%, 60%)", dataKey: "followers_gained" },
+    engagement: { label: "Engajamento (%)", color: "hsl(160, 84%, 39%)", dataKey: "engagement_rate" },
+    impressions: { label: "Impressões", color: "hsl(160, 84%, 39%)", dataKey: "impressions" },
+    engagements: { label: "Engajamentos", color: "hsl(330, 81%, 60%)", dataKey: "engagements" },
+    likes: { label: "Curtidas", color: "hsl(330, 81%, 60%)", dataKey: "likes" },
   }), []);
 
   const chartData = useMemo(() => {
@@ -226,12 +226,12 @@ const { toast } = useToast();
     
     const calculatedData = sortedMetrics.map((m, index) => {
       const metadata = m.metadata as any;
-      const dailyGain = metadata?.daily_gain || metadata?.new_follows || 0;
+      const dailyGain = metadata?.followers_gained || metadata?.daily_gain || metadata?.new_follows || 0;
       
       let calculatedSubscribers = runningTotal;
       if (index > 0) {
         const prevMetadata = sortedMetrics[index - 1]?.metadata as any;
-        const prevDailyGain = prevMetadata?.daily_gain || prevMetadata?.new_follows || 0;
+        const prevDailyGain = prevMetadata?.followers_gained || prevMetadata?.daily_gain || prevMetadata?.new_follows || 0;
         runningTotal -= prevDailyGain;
         calculatedSubscribers = runningTotal;
       }
@@ -239,7 +239,7 @@ const { toast } = useToast();
       return {
         ...m,
         subscribers: m.subscribers || calculatedSubscribers,
-        daily_gain: dailyGain,
+        followers_gained: dailyGain,
         reach: metadata?.reach || 0,
         impressions: metadata?.impressions || 0,
         engagements: metadata?.engagements || 0,
