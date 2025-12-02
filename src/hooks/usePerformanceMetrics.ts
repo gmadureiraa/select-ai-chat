@@ -20,9 +20,9 @@ export interface PerformanceMetrics {
   updated_at: string;
 }
 
-export const usePerformanceMetrics = (clientId: string, platform: string) => {
+export const usePerformanceMetrics = (clientId: string, platform: string, limit: number = 30) => {
   return useQuery({
-    queryKey: ['performance-metrics', clientId, platform],
+    queryKey: ['performance-metrics', clientId, platform, limit],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('platform_metrics')
@@ -30,7 +30,7 @@ export const usePerformanceMetrics = (clientId: string, platform: string) => {
         .eq('client_id', clientId)
         .eq('platform', platform)
         .order('metric_date', { ascending: false })
-        .limit(30);
+        .limit(limit);
 
       if (error) throw error;
       return data as PerformanceMetrics[];
