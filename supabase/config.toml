@@ -12,6 +12,9 @@ verify_jwt = false
 [functions.scrape-website]
 verify_jwt = false
 
+[functions.scrape-research-link]
+verify_jwt = false
+
 [functions.generate-image]
 verify_jwt = false
 
@@ -37,6 +40,9 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.transcribe-video]
+verify_jwt = false
+
+[functions.transcribe-audio]
 verify_jwt = false
 
 [functions.grok-search]
