@@ -126,7 +126,6 @@ export const ProjectSelector = ({ selectedProjectId, onSelectProject }: ProjectS
                   <SelectValue placeholder="Selecione um cliente" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Nenhum</SelectItem>
                   {clients.map((client) => (
                     <SelectItem key={client.id} value={client.id}>
                       {client.name}
@@ -174,7 +173,6 @@ export const ProjectSelector = ({ selectedProjectId, onSelectProject }: ProjectS
                   <SelectValue placeholder="Selecione um cliente" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Nenhum</SelectItem>
                   {clients.map((client) => (
                     <SelectItem key={client.id} value={client.id}>
                       {client.name}
