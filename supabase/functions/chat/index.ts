@@ -201,11 +201,75 @@ serve(async (req) => {
       throw new Error(`Google API error: ${aiResponse.status} - ${errorText}`);
     }
 
-    // Stream com logging (formato SSE do Google)
+    // Se for fase de seleção, não fazer streaming - retornar JSON direto
+    if (isSelectionPhase) {
+      const reader = aiResponse.body?.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let toolCallData: any = null;
+      let totalInputTokens = 0;
+      let totalOutputTokens = 0;
+
+      if (!reader) {
+        throw new Error("No response body");
+      }
+
+      // Ler todo o stream
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+          if (line.startsWith("data: ")) {
+            const data = line.slice(6).trim();
+            
+            try {
+              const parsed = JSON.parse(data);
+              
+              // Extrair tokens
+              if (parsed.usageMetadata) {
+                totalInputTokens = parsed.usageMetadata.promptTokenCount || 0;
+                totalOutputTokens = parsed.usageMetadata.candidatesTokenCount || 0;
+              }
+
+              // Capturar function call
+              if (parsed.candidates?.[0]?.content?.parts?.[0]?.functionCall) {
+                toolCallData = parsed.candidates[0].content.parts[0].functionCall;
+              }
+            } catch (e) {
+              console.error("[CHAT] Parse error:", e);
+            }
+          }
+        }
+      }
+
+      // Log de uso
+      if (userId && (totalInputTokens > 0 || totalOutputTokens > 0)) {
+        await logAIUsage(
+          supabase,
+          userId,
+          googleModel,
+          "chat-selection",
+          totalInputTokens,
+          totalOutputTokens,
+          { isSelectionPhase: true, clientId }
+        );
+      }
+
+      // Retornar JSON direto
+      return new Response(
+        JSON.stringify({ selection: toolCallData?.args || {} }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Stream normal para resposta final
     let totalInputTokens = 0;
     let totalOutputTokens = 0;
-    const startTime = Date.now();
-    let toolCallData: any = null;
 
     const stream = new ReadableStream({
       async start(controller) {
@@ -234,24 +298,14 @@ serve(async (req) => {
                 try {
                   const parsed = JSON.parse(data);
                   
-                  // Extrair tokens (Google Gemini formato)
+                  // Extrair tokens
                   if (parsed.usageMetadata) {
                     totalInputTokens = parsed.usageMetadata.promptTokenCount || 0;
                     totalOutputTokens = parsed.usageMetadata.candidatesTokenCount || 0;
                   }
 
-                  // Se for fase de seleção, capturar function call
-                  if (isSelectionPhase && parsed.candidates?.[0]?.content?.parts?.[0]?.functionCall) {
-                    toolCallData = parsed.candidates[0].content.parts[0].functionCall;
-                    // Enviar como resposta estruturada
-                    const selectionResponse = {
-                      selection: toolCallData.args
-                    };
-                    controller.enqueue(
-                      new TextEncoder().encode(`data: ${JSON.stringify(selectionResponse)}\n\n`)
-                    );
-                  } else if (parsed.candidates?.[0]?.content?.parts?.[0]?.text) {
-                    // Streaming normal de texto
+                  // Streaming de texto
+                  if (parsed.candidates?.[0]?.content?.parts?.[0]?.text) {
                     const textChunk = parsed.candidates[0].content.parts[0].text;
                     const openAIFormat = {
                       choices: [{
@@ -283,7 +337,6 @@ serve(async (req) => {
               totalOutputTokens,
               {
                 client_id: clientId,
-                duration_ms: Date.now() - startTime,
                 phase: isSelectionPhase ? "selection" : "response",
               }
             );
