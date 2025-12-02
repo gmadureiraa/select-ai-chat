@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useRef } from "react";
 import ReactFlow, {
   Node,
   Edge,
@@ -25,8 +25,12 @@ import { PDFNode } from "./PDFNode";
 import { EmbedNode } from "./EmbedNode";
 import { SpreadsheetNode } from "./SpreadsheetNode";
 import { ComparisonNode } from "./ComparisonNode";
+import { GroupNode } from "./GroupNode";
 import { CanvasToolbar } from "./CanvasToolbar";
 import { ZoomControls } from "./ZoomControls";
+import { SearchFilterPanel, FilterState } from "./SearchFilterPanel";
+import { ExportPanel } from "./ExportPanel";
+import { ExecutiveSummary } from "./ExecutiveSummary";
 import { Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -43,6 +47,8 @@ import { Label } from "@/components/ui/label";
 interface ResearchCanvasProps {
   projectId: string;
   clientId?: string;
+  projectName?: string;
+  onPresentationMode?: () => void;
 }
 
 const nodeTypes = {
@@ -58,6 +64,7 @@ const nodeTypes = {
   embed: EmbedNode,
   spreadsheet: SpreadsheetNode,
   comparison: ComparisonNode,
+  group: GroupNode,
 };
 
 // Node colors for minimap
@@ -76,12 +83,14 @@ const nodeColors: Record<string, string> = {
   contentLibrary: "#06b6d4",
   referenceLibrary: "#6366f1",
   researchItem: "#9ca3af",
+  group: "#64748b",
 };
 
-const ResearchCanvasInner = ({ projectId, clientId }: ResearchCanvasProps) => {
+const ResearchCanvasInner = ({ projectId, clientId, projectName = "Projeto" }: ResearchCanvasProps) => {
   const { items, deleteItem, updateItem, connections, createConnection, deleteConnection, createItem } = useResearchItems(projectId);
   const { toast } = useToast();
   const { getNodes, deleteElements } = useReactFlow();
+  const canvasRef = useRef<HTMLDivElement>(null);
 
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
@@ -92,6 +101,10 @@ const ResearchCanvasInner = ({ projectId, clientId }: ResearchCanvasProps) => {
   const [urlDialog, setUrlDialog] = useState<{ type: "youtube" | "link" | "image" | null; open: boolean }>({ type: null, open: false });
   const [urlInput, setUrlInput] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
+
+  // Search and filter state
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filters, setFilters] = useState<FilterState>({ types: [], tags: [], processed: "all" });
 
   // Track connected nodes for AI chat highlighting
   const [connectedToSelected, setConnectedToSelected] = useState<Set<string>>(new Set());
@@ -109,11 +122,29 @@ const ResearchCanvasInner = ({ projectId, clientId }: ResearchCanvasProps) => {
     setConnectedToSelected(connected);
   }, [selectedNodeIds, connections]);
 
-  // Update nodes when items change
+  // Update nodes when items change - with filtering
   useEffect(() => {
     if (!items) return;
 
-    const newNodes: Node[] = items.map((item) => {
+    // Apply filters
+    let filteredItems = items;
+    
+    // Search filter
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      filteredItems = filteredItems.filter(item => 
+        item.title?.toLowerCase().includes(query) ||
+        item.content?.toLowerCase().includes(query) ||
+        item.source_url?.toLowerCase().includes(query)
+      );
+    }
+    
+    // Type filter
+    if (filters.types.length > 0) {
+      filteredItems = filteredItems.filter(item => filters.types.includes(item.type));
+    }
+
+    const newNodes: Node[] = filteredItems.map((item) => {
       let connectedItems: any[] = [];
       if ((item.type === "ai_chat" || item.type === "comparison") && connections) {
         const connectedIds = connections
@@ -135,6 +166,7 @@ const ResearchCanvasInner = ({ projectId, clientId }: ResearchCanvasProps) => {
         embed: "embed",
         spreadsheet: "spreadsheet",
         comparison: "comparison",
+        group: "group",
       };
       const nodeType = typeToNodeType[item.type] || "researchItem";
 
@@ -145,6 +177,7 @@ const ResearchCanvasInner = ({ projectId, clientId }: ResearchCanvasProps) => {
         data: {
           item,
           onDelete: deleteItem.mutate,
+          onUpdate: (id: string, updates: any) => updateItem.mutate({ id, ...updates }),
           projectId,
           clientId,
           connectedItems,
@@ -154,7 +187,7 @@ const ResearchCanvasInner = ({ projectId, clientId }: ResearchCanvasProps) => {
     });
 
     setNodes(newNodes);
-  }, [items, connections, deleteItem.mutate, setNodes, projectId, clientId, connectedToSelected, selectedNodeIds]);
+  }, [items, connections, deleteItem.mutate, updateItem, setNodes, projectId, clientId, connectedToSelected, selectedNodeIds, searchQuery, filters]);
 
   // Update edges when connections change - with visual feedback
   useEffect(() => {
@@ -373,6 +406,18 @@ const ResearchCanvasInner = ({ projectId, clientId }: ResearchCanvasProps) => {
           });
           toast({ title: "Comparação adicionada", description: "Conecte itens para comparar. Atalho: K" });
           break;
+
+        case "group":
+          await createItem.mutateAsync({
+            project_id: projectId,
+            type: "group",
+            title: "Novo Grupo",
+            position_x: basePosition.x,
+            position_y: basePosition.y,
+            metadata: { color: "purple" },
+          });
+          toast({ title: "Grupo criado", description: "Arraste itens para dentro. Atalho: G" });
+          break;
       }
     } catch (error: any) {
       toast({
@@ -461,8 +506,36 @@ const ResearchCanvasInner = ({ projectId, clientId }: ResearchCanvasProps) => {
     return nodeColors[node.type || "researchItem"] || "#9ca3af";
   };
 
+  // Filtered items count
+  const filteredCount = nodes.length;
+  const totalCount = items?.length || 0;
+
   return (
-    <div className="h-full w-full bg-muted/30 relative">
+    <div ref={canvasRef} className="h-full w-full bg-muted/30 relative">
+      {/* Search and Filter Panel */}
+      <SearchFilterPanel
+        onSearch={setSearchQuery}
+        onFilterChange={setFilters}
+        itemCount={totalCount}
+        filteredCount={filteredCount}
+      />
+
+      {/* Export and Summary Panel */}
+      <div className="absolute top-4 right-4 z-50 flex items-center gap-2">
+        <ExecutiveSummary
+          items={items || []}
+          connections={connections}
+          projectName={projectName}
+          clientId={clientId}
+        />
+        <ExportPanel
+          items={items || []}
+          connections={connections}
+          projectName={projectName}
+          canvasRef={canvasRef}
+        />
+      </div>
+
       <ReactFlow
         nodes={nodes}
         edges={edges}

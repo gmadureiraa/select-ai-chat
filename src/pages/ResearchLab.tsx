@@ -2,12 +2,18 @@ import { useState } from "react";
 import { AppLayout } from "@/components/AppLayout";
 import { ProjectSelector } from "@/components/research/ProjectSelector";
 import { ResearchCanvas } from "@/components/research/ResearchCanvas";
+import { PresentationMode } from "@/components/research/PresentationMode";
 import { useResearchProjects } from "@/hooks/useResearchProjects";
+import { useResearchItems } from "@/hooks/useResearchItems";
+import { Button } from "@/components/ui/button";
+import { Presentation } from "lucide-react";
 
 const ResearchLab = () => {
   const [selectedProjectId, setSelectedProjectId] = useState<string>();
+  const [showPresentation, setShowPresentation] = useState(false);
   const { projects } = useResearchProjects();
   const selectedProject = projects.find(p => p.id === selectedProjectId);
+  const { items } = useResearchItems(selectedProjectId);
 
   return (
     <AppLayout>
@@ -25,6 +31,18 @@ const ResearchLab = () => {
               </div>
             )}
           </div>
+
+          {selectedProjectId && items && items.length > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowPresentation(true)}
+              className="gap-2"
+            >
+              <Presentation className="h-4 w-4" />
+              Apresentar
+            </Button>
+          )}
         </div>
 
         {!selectedProjectId ? (
@@ -39,12 +57,21 @@ const ResearchLab = () => {
             <div className="h-full overflow-hidden rounded-lg border border-border shadow-sm bg-background">
               <ResearchCanvas 
                 projectId={selectedProjectId} 
-                clientId={selectedProject?.client_id || undefined} 
+                clientId={selectedProject?.client_id || undefined}
+                projectName={selectedProject?.name}
               />
             </div>
           </div>
         )}
       </div>
+
+      {/* Presentation Mode */}
+      {showPresentation && items && (
+        <PresentationMode
+          items={items}
+          onClose={() => setShowPresentation(false)}
+        />
+      )}
     </AppLayout>
   );
 };
