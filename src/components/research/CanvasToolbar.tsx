@@ -10,6 +10,10 @@ import {
   Image, 
   BookOpen, 
   Library,
+  FileText as PDFIcon,
+  Globe,
+  Table,
+  GitCompare,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
@@ -24,10 +28,14 @@ interface CanvasToolbarProps {
 const tools = [
   { id: "select", icon: MousePointer2, label: "Selecionar", shortcut: "V", color: "" },
   { id: "ai_chat", icon: Sparkles, label: "Chat IA", shortcut: "C", color: "text-purple-500", bgHover: "hover:bg-purple-500/10" },
+  { id: "comparison", icon: GitCompare, label: "Comparação", shortcut: "K", color: "text-amber-500", bgHover: "hover:bg-amber-500/10" },
   { id: "note", icon: StickyNote, label: "Nota", shortcut: "N", color: "text-yellow-500", bgHover: "hover:bg-yellow-500/10" },
   { id: "youtube", icon: Youtube, label: "YouTube", shortcut: "Y", color: "text-red-500", bgHover: "hover:bg-red-500/10" },
   { id: "text", icon: FileText, label: "Texto", shortcut: "T", color: "text-blue-500", bgHover: "hover:bg-blue-500/10" },
   { id: "link", icon: LinkIcon, label: "Link", shortcut: "L", color: "text-green-500", bgHover: "hover:bg-green-500/10" },
+  { id: "pdf", icon: PDFIcon, label: "PDF", shortcut: "P", color: "text-rose-500", bgHover: "hover:bg-rose-500/10" },
+  { id: "embed", icon: Globe, label: "Embed Social", shortcut: "E", color: "text-emerald-500", bgHover: "hover:bg-emerald-500/10" },
+  { id: "spreadsheet", icon: Table, label: "Planilha", shortcut: "S", color: "text-teal-500", bgHover: "hover:bg-teal-500/10" },
   { id: "audio", icon: Mic, label: "Áudio", shortcut: "A", color: "text-pink-500", bgHover: "hover:bg-pink-500/10" },
   { id: "image", icon: Image, label: "Imagem", shortcut: "I", color: "text-orange-500", bgHover: "hover:bg-orange-500/10" },
   { id: "content_library", icon: BookOpen, label: "Biblioteca de Conteúdo", shortcut: "B", color: "text-cyan-500", bgHover: "hover:bg-cyan-500/10" },

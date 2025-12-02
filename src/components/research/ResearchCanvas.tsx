@@ -21,6 +21,10 @@ import { TextNode } from "./TextNode";
 import { NoteNode } from "./NoteNode";
 import { AudioNode } from "./AudioNode";
 import ImageNode from "./ImageNode";
+import { PDFNode } from "./PDFNode";
+import { EmbedNode } from "./EmbedNode";
+import { SpreadsheetNode } from "./SpreadsheetNode";
+import { ComparisonNode } from "./ComparisonNode";
 import { CanvasToolbar } from "./CanvasToolbar";
 import { ZoomControls } from "./ZoomControls";
 import { Sparkles } from "lucide-react";
@@ -50,17 +54,25 @@ const nodeTypes = {
   note: NoteNode,
   audio: AudioNode,
   image: ImageNode,
+  pdf: PDFNode,
+  embed: EmbedNode,
+  spreadsheet: SpreadsheetNode,
+  comparison: ComparisonNode,
 };
 
 // Node colors for minimap
 const nodeColors: Record<string, string> = {
   aiChat: "#a855f7",
+  comparison: "#f59e0b",
   note: "#eab308",
   text: "#3b82f6",
   youtube: "#ef4444",
   link: "#22c55e",
   audio: "#ec4899",
   image: "#f97316",
+  pdf: "#f43f5e",
+  embed: "#10b981",
+  spreadsheet: "#14b8a6",
   contentLibrary: "#06b6d4",
   referenceLibrary: "#6366f1",
   researchItem: "#9ca3af",
@@ -103,7 +115,7 @@ const ResearchCanvasInner = ({ projectId, clientId }: ResearchCanvasProps) => {
 
     const newNodes: Node[] = items.map((item) => {
       let connectedItems: any[] = [];
-      if (item.type === "ai_chat" && connections) {
+      if ((item.type === "ai_chat" || item.type === "comparison") && connections) {
         const connectedIds = connections
           .filter(c => c.source_id === item.id || c.target_id === item.id)
           .map(c => c.source_id === item.id ? c.target_id : c.source_id);
@@ -111,14 +123,20 @@ const ResearchCanvasInner = ({ projectId, clientId }: ResearchCanvasProps) => {
         connectedItems = items.filter(i => connectedIds.includes(i.id));
       }
 
-      let nodeType = "researchItem";
-      if (item.type === "ai_chat") nodeType = "aiChat";
-      else if (item.type === "content_library") nodeType = "contentLibrary";
-      else if (item.type === "reference_library") nodeType = "referenceLibrary";
-      else if (item.type === "text") nodeType = "text";
-      else if (item.type === "note") nodeType = "note";
-      else if (item.type === "audio") nodeType = "audio";
-      else if (item.type === "image") nodeType = "image";
+      const typeToNodeType: Record<string, string> = {
+        ai_chat: "aiChat",
+        content_library: "contentLibrary",
+        reference_library: "referenceLibrary",
+        text: "text",
+        note: "note",
+        audio: "audio",
+        image: "image",
+        pdf: "pdf",
+        embed: "embed",
+        spreadsheet: "spreadsheet",
+        comparison: "comparison",
+      };
+      const nodeType = typeToNodeType[item.type] || "researchItem";
 
       return {
         id: item.id,
@@ -310,6 +328,50 @@ const ResearchCanvasInner = ({ projectId, clientId }: ResearchCanvasProps) => {
             position_y: basePosition.y,
           });
           toast({ title: "Biblioteca de Referências adicionada", description: "Atalho: R" });
+          break;
+
+        case "pdf":
+          await createItem.mutateAsync({
+            project_id: projectId,
+            type: "pdf",
+            title: "Novo PDF",
+            position_x: basePosition.x,
+            position_y: basePosition.y,
+          });
+          toast({ title: "PDF adicionado", description: "Atalho: P" });
+          break;
+
+        case "embed":
+          await createItem.mutateAsync({
+            project_id: projectId,
+            type: "embed",
+            title: "Embed de Rede Social",
+            position_x: basePosition.x,
+            position_y: basePosition.y,
+          });
+          toast({ title: "Embed adicionado", description: "Atalho: E" });
+          break;
+
+        case "spreadsheet":
+          await createItem.mutateAsync({
+            project_id: projectId,
+            type: "spreadsheet",
+            title: "Nova Planilha",
+            position_x: basePosition.x,
+            position_y: basePosition.y,
+          });
+          toast({ title: "Planilha adicionada", description: "Atalho: S" });
+          break;
+
+        case "comparison":
+          await createItem.mutateAsync({
+            project_id: projectId,
+            type: "comparison",
+            title: "Comparação",
+            position_x: basePosition.x,
+            position_y: basePosition.y,
+          });
+          toast({ title: "Comparação adicionada", description: "Conecte itens para comparar. Atalho: K" });
           break;
       }
     } catch (error: any) {
