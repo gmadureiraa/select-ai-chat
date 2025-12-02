@@ -3,11 +3,11 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, Eye, Instagram, Youtube, Newspaper, RefreshCw, TrendingUp, TrendingDown, Users, CalendarIcon, Megaphone } from "lucide-react";
+import { ArrowLeft, Eye, Instagram, Youtube, Newspaper, RefreshCw, TrendingUp, TrendingDown, Users, CalendarIcon, Megaphone, Twitter, MousePointer, Heart, MessageCircle, Repeat2, UserPlus } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { usePerformanceMetrics, useFetchBeehiivMetrics, useScrapeMetrics, useFetchInstagramMetrics } from "@/hooks/usePerformanceMetrics";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useToast } from "@/components/ui/use-toast";
@@ -29,7 +29,16 @@ export default function ClientPerformance() {
 const { toast } = useToast();
   const [dateRange, setDateRange] = useState("30");
   const [customDateRange, setCustomDateRange] = useState<DateRange | undefined>();
-  const [chartMetric, setChartMetric] = useState<"views" | "reach" | "followers" | "dailyGain">("followers");
+  const [chartMetric, setChartMetric] = useState<"views" | "reach" | "followers" | "dailyGain" | "impressions" | "engagements" | "likes">("followers");
+
+  // Set default chart metric based on selected channel
+  useEffect(() => {
+    if (selectedChannel === "twitter") {
+      setChartMetric("impressions");
+    } else if (selectedChannel === "instagram") {
+      setChartMetric("followers");
+    }
+  }, [selectedChannel]);
 
   const { data: client, isLoading } = useQuery({
     queryKey: ["client", clientId],
@@ -165,6 +174,9 @@ const { toast } = useToast();
     followers: { label: "Seguidores", color: "hsl(262, 83%, 58%)", dataKey: "subscribers" },
     dailyGain: { label: "Ganho Diário", color: "hsl(142, 71%, 45%)", dataKey: "daily_gain" },
     engagement: { label: "Engajamento (%)", color: "hsl(38, 92%, 50%)", dataKey: "engagement_rate" },
+    impressions: { label: "Impressões", color: "hsl(199, 89%, 48%)", dataKey: "impressions" },
+    engagements: { label: "Engajamentos", color: "hsl(280, 87%, 65%)", dataKey: "engagements" },
+    likes: { label: "Curtidas", color: "hsl(340, 82%, 52%)", dataKey: "likes" },
   }), []);
 
   const chartData = useMemo(() => {
@@ -213,21 +225,23 @@ const { toast } = useToast();
     
     const calculatedData = sortedMetrics.map((m, index) => {
       const metadata = m.metadata as any;
-      const dailyGain = metadata?.daily_gain || 0;
+      const dailyGain = metadata?.daily_gain || metadata?.new_follows || 0;
       
       let calculatedSubscribers = runningTotal;
       if (index > 0) {
         const prevMetadata = sortedMetrics[index - 1]?.metadata as any;
-        const prevDailyGain = prevMetadata?.daily_gain || 0;
+        const prevDailyGain = prevMetadata?.daily_gain || prevMetadata?.new_follows || 0;
         runningTotal -= prevDailyGain;
         calculatedSubscribers = runningTotal;
       }
       
       return {
         ...m,
-        subscribers: calculatedSubscribers,
+        subscribers: m.subscribers || calculatedSubscribers,
         daily_gain: dailyGain,
         reach: metadata?.reach || 0,
+        impressions: metadata?.impressions || 0,
+        engagements: metadata?.engagements || 0,
         date: new Date(m.metric_date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }),
       };
     });
@@ -247,6 +261,11 @@ const { toast } = useToast();
       icon: Instagram,
       title: "Instagram",
       description: "Métricas de posts, stories e engajamento",
+    },
+    twitter: {
+      icon: Twitter,
+      title: "X (Twitter)",
+      description: "Impressões, engajamentos e crescimento de seguidores",
     },
     cortes: {
       icon: Youtube,
@@ -592,6 +611,127 @@ const { toast } = useToast();
                     </tbody>
                   </table>
                 </div>
+              </CardContent>
+            </Card>
+          )}
+        </>
+      )}
+
+      {/* Twitter metrics */}
+      {!metricsLoading && metrics && metrics.length > 0 && selectedChannel === "twitter" && (
+        <>
+          {/* Twitter KPI Cards - Period Based */}
+          <div className="grid gap-4 md:grid-cols-4">
+            <KPICard
+              title={`Impressões (${periodMetrics?.daysInPeriod || 0} dias)`}
+              value={metrics.slice(0, parseInt(dateRange) || 30).reduce((sum, m) => sum + ((m.metadata as any)?.impressions || 0), 0)}
+              change={null}
+              icon={Eye}
+            />
+            <KPICard
+              title={`Engajamentos (${periodMetrics?.daysInPeriod || 0} dias)`}
+              value={metrics.slice(0, parseInt(dateRange) || 30).reduce((sum, m) => sum + ((m.metadata as any)?.engagements || 0), 0)}
+              change={null}
+              icon={MousePointer}
+            />
+            <KPICard
+              title="Seguidores atuais"
+              value={metrics[0]?.subscribers || 0}
+              change={null}
+              icon={Users}
+            />
+            <KPICard
+              title={`Novos seguidores`}
+              value={metrics.slice(0, parseInt(dateRange) || 30).reduce((sum, m) => sum + ((m.metadata as any)?.new_follows || 0), 0)}
+              change={null}
+              icon={UserPlus}
+              formatter={(v) => `+${v.toLocaleString("pt-BR")}`}
+            />
+          </div>
+
+          {/* Twitter Historical Chart */}
+          {chartData.length >= 1 && (
+            <Card className="border-border/50 bg-card/50">
+              <CardHeader className="pb-2">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-base">{chartConfig[chartMetric]?.label || "Métrica"}</CardTitle>
+                    <CardDescription className="text-xs">
+                      {chartData.length > 0 && `${chartData[0]?.date} - ${chartData[chartData.length - 1]?.date}`}
+                    </CardDescription>
+                  </div>
+                  <ToggleGroup 
+                    type="single" 
+                    value={chartMetric} 
+                    onValueChange={(v) => v && setChartMetric(v as typeof chartMetric)}
+                    className="bg-muted/50 p-1 rounded-lg"
+                  >
+                    <ToggleGroupItem value="impressions" className="text-xs px-3 h-7 data-[state=on]:bg-background">
+                      Impressões
+                    </ToggleGroupItem>
+                    <ToggleGroupItem value="engagements" className="text-xs px-3 h-7 data-[state=on]:bg-background">
+                      Engajamentos
+                    </ToggleGroupItem>
+                    <ToggleGroupItem value="likes" className="text-xs px-3 h-7 data-[state=on]:bg-background">
+                      Curtidas
+                    </ToggleGroupItem>
+                    <ToggleGroupItem value="followers" className="text-xs px-3 h-7 data-[state=on]:bg-background">
+                      Seguidores
+                    </ToggleGroupItem>
+                  </ToggleGroup>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <ChartContainer
+                  config={{
+                    [chartConfig[chartMetric]?.dataKey || 'impressions']: { 
+                      label: chartConfig[chartMetric]?.label || 'Impressões', 
+                      color: chartConfig[chartMetric]?.color || 'hsl(199, 89%, 48%)' 
+                    },
+                  }}
+                  className="h-[280px]"
+                >
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={chartData}>
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-border/30" vertical={false} />
+                      <XAxis 
+                        dataKey="date" 
+                        className="text-xs"
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                      />
+                      <YAxis 
+                        className="text-xs" 
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                        tickFormatter={(value) => {
+                          return value >= 1000 ? `${(value / 1000).toFixed(1)}k` : value;
+                        }}
+                      />
+                      <Tooltip 
+                        contentStyle={{ 
+                          backgroundColor: 'hsl(var(--card))', 
+                          border: '1px solid hsl(var(--border))',
+                          borderRadius: '8px',
+                        }}
+                        formatter={(value: number) => [
+                          value.toLocaleString('pt-BR'),
+                          chartConfig[chartMetric]?.label || 'Valor'
+                        ]}
+                      />
+                      <Line
+                        type="natural"
+                        dataKey={chartConfig[chartMetric]?.dataKey || 'impressions'}
+                        stroke={chartConfig[chartMetric]?.color || 'hsl(199, 89%, 48%)'}
+                        strokeWidth={2}
+                        dot={chartData.length > 30 ? false : { r: 3, fill: chartConfig[chartMetric]?.color || 'hsl(199, 89%, 48%)' }}
+                        activeDot={{ r: 5, stroke: chartConfig[chartMetric]?.color || 'hsl(199, 89%, 48%)', strokeWidth: 2, fill: 'hsl(var(--background))' }}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </ChartContainer>
               </CardContent>
             </Card>
           )}
