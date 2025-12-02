@@ -12,7 +12,7 @@ serve(async (req) => {
   }
 
   try {
-    const { projectId, conversationId, userMessage, model = "google/gemini-2.5-flash", connectedItemIds } = await req.json();
+    const { projectId, conversationId, userMessage, model = "google/gemini-2.5-flash", connectedItemIds, clientId } = await req.json();
 
     if (!projectId || !userMessage) {
       throw new Error("projectId e userMessage são obrigatórios");
@@ -30,6 +30,24 @@ serve(async (req) => {
 
     console.log("Analisando pesquisa para projeto:", projectId);
     console.log("connectedItemIds recebidos:", connectedItemIds);
+    console.log("clientId:", clientId);
+
+    // Se clientId fornecido, buscar informações do cliente
+    let clientContext = "";
+    if (clientId) {
+      const { data: client } = await supabase
+        .from("clients")
+        .select("*")
+        .eq("id", clientId)
+        .single();
+      
+      if (client) {
+        clientContext = `\n### Informações do Cliente\n\n**Cliente:** ${client.name}\n`;
+        if (client.description) clientContext += `**Descrição:** ${client.description}\n`;
+        if (client.context_notes) clientContext += `**Contexto:** ${client.context_notes}\n`;
+        clientContext += "\n";
+      }
+    }
 
     // Buscar itens e conexões do projeto
     // Se connectedItemIds for fornecido, buscar apenas esses items
@@ -66,14 +84,21 @@ serve(async (req) => {
 
     if (messagesError) throw messagesError;
 
-    // Construir contexto dos materiais com conexões
+    // Construir contexto dos materiais com conexões - ANÁLISE SEQUENCIAL
     let materialsContext = connectedItemIds 
-      ? "### Materiais Conectados\n\n" 
+      ? "### Materiais Conectados (Análise Sequencial)\n\n" 
       : "### Materiais do Projeto\n\n";
     
+    const progressSteps: string[] = [];
+    
     if (items && items.length > 0) {
-      for (const item of items) {
-        materialsContext += `**${item.title || item.type.toUpperCase()}** (${item.type})\n`;
+      // Processar items em ordem sequencial
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        console.log(`Processando item ${i + 1}/${items.length}: ${item.title}`);
+        progressSteps.push(`Analisando: ${item.title || item.type} (${i + 1}/${items.length})`);
+        
+        materialsContext += `**[${i + 1}/${items.length}] ${item.title || item.type.toUpperCase()}** (${item.type})\n`;
         if (item.content) {
           materialsContext += `${item.content.substring(0, 2000)}${item.content.length > 2000 ? "..." : ""}\n\n`;
         }
@@ -107,16 +132,17 @@ serve(async (req) => {
         content: `Você é um assistente de pesquisa especializado em analisar materiais multimodais (vídeos, textos, áudios, imagens).
 
 Você tem acesso aos seguintes materiais do projeto:
-
+${clientContext}
 ${materialsContext}
 
 Sua função é:
-- Analisar e sintetizar informações dos materiais disponíveis
+- Analisar e sintetizar informações dos materiais disponíveis (em ordem sequencial quando materiais estão conectados)
 - Responder perguntas sobre o conteúdo
 - Identificar padrões e insights
 - Fazer conexões entre diferentes materiais (considere as conexões já estabelecidas!)
 - Sugerir próximos passos de pesquisa
 - Quando houver conexões entre materiais, use-as para dar respostas mais completas e contextualizadas
+${clientId ? "- Considere sempre o contexto do cliente ao gerar respostas" : ""}
 
 Seja conciso, objetivo e baseie suas respostas nos materiais fornecidos.`,
       },
@@ -158,7 +184,7 @@ Seja conciso, objetivo e baseie suas respostas nos materiais fornecidos.`,
     console.log("Resposta gerada com sucesso");
 
     return new Response(
-      JSON.stringify({ response }),
+      JSON.stringify({ response, progress: progressSteps }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       }

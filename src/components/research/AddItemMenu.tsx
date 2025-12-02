@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Youtube, FileText, Link as LinkIcon, Sparkles, StickyNote, Mic, Image, BookOpen, Library } from "lucide-react";
+import { Youtube, FileText, Link as LinkIcon, Sparkles, StickyNote, Mic, Image, BookOpen, Library, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -13,7 +13,7 @@ interface AddItemMenuProps {
   onClose: () => void;
 }
 
-type ItemType = "ai_chat" | "note" | "youtube" | "text" | "link" | "audio" | "image" | "content_library" | "reference_library" | null;
+type ItemType = "ai_chat" | "note" | "youtube" | "text" | "link" | "audio" | "image" | "content_library" | "reference_library" | "grok_search" | null;
 
 export const AddItemMenu = ({ projectId, onClose }: AddItemMenuProps) => {
   const [selectedType, setSelectedType] = useState<ItemType>(null);
@@ -144,6 +144,17 @@ export const AddItemMenu = ({ projectId, onClose }: AddItemMenuProps) => {
           });
           toast({ title: "Biblioteca de Referências adicionada" });
           break;
+
+        case "grok_search":
+          await createItem.mutateAsync({
+            project_id: projectId,
+            type: "grok_search",
+            title: "Pesquisa Grok",
+            position_x: Math.random() * 500,
+            position_y: Math.random() * 500,
+          });
+          toast({ title: "Pesquisa Grok adicionada" });
+          break;
       }
 
       // Reset and close
@@ -179,6 +190,20 @@ export const AddItemMenu = ({ projectId, onClose }: AddItemMenuProps) => {
             <div className="text-left flex-1">
               <div className="font-medium text-sm">Chat IA</div>
               <div className="text-xs text-muted-foreground">Análise inteligente</div>
+            </div>
+          </Button>
+
+          <Button
+            variant="ghost"
+            className="w-full justify-start gap-3 h-auto py-2.5 hover:bg-accent/50"
+            onClick={() => handleSelectType("grok_search")}
+          >
+            <div className="p-1.5 bg-blue-500/10 rounded-md">
+              <Search className="h-4 w-4 text-blue-600" />
+            </div>
+            <div className="text-left flex-1">
+              <div className="font-medium text-sm">Pesquisa Grok</div>
+              <div className="text-xs text-muted-foreground">Pesquisa em tempo real</div>
             </div>
           </Button>
 
