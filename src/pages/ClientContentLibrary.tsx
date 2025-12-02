@@ -143,7 +143,11 @@ export default function ClientContentLibrary() {
                 <SelectItem value="all">Todos os tipos</SelectItem>
                 <SelectItem value="newsletter">Newsletter</SelectItem>
                 <SelectItem value="carousel">Carrossel</SelectItem>
+                <SelectItem value="stories">Stories</SelectItem>
+                <SelectItem value="static_image">Estático Único</SelectItem>
                 <SelectItem value="reel_script">Roteiro Reels</SelectItem>
+                <SelectItem value="short_video">Vídeo Curto</SelectItem>
+                <SelectItem value="long_video">Vídeo Longo</SelectItem>
                 <SelectItem value="video_script">Roteiro Vídeo</SelectItem>
                 <SelectItem value="blog_post">Post Blog</SelectItem>
                 <SelectItem value="social_post">Post Social</SelectItem>

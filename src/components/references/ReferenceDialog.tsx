@@ -195,7 +195,11 @@ export function ReferenceDialog({ open, onClose, onSave, reference }: ReferenceD
                 <SelectItem value="tweet">Tweet</SelectItem>
                 <SelectItem value="thread">Thread</SelectItem>
                 <SelectItem value="carousel">Carrossel</SelectItem>
+                <SelectItem value="stories">Stories</SelectItem>
+                <SelectItem value="static_image">Estático Único</SelectItem>
                 <SelectItem value="reel">Reel</SelectItem>
+                <SelectItem value="short_video">Vídeo Curto</SelectItem>
+                <SelectItem value="long_video">Vídeo Longo</SelectItem>
                 <SelectItem value="video">Vídeo</SelectItem>
                 <SelectItem value="article">Artigo</SelectItem>
                 <SelectItem value="other">Outro</SelectItem>
