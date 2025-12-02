@@ -13,6 +13,8 @@ export type ContentType =
   | "static_image"
   | "short_video"
   | "long_video"
+  | "tweet"
+  | "thread"
   | "other";
 
 export interface ContentItem {
