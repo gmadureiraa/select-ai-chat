@@ -9,6 +9,7 @@ import { withRetry, RetryError } from "@/lib/retry";
 import { useRealtimeMessages } from "@/hooks/useRealtimeMessages";
 import { useTemplateReferences } from "@/hooks/useTemplateReferences";
 import { useActivities } from "@/hooks/useActivities";
+import { useAuth } from "@/hooks/useAuth";
 
 export const useClientChat = (clientId: string, templateId?: string) => {
   const [selectedModel, setSelectedModel] = useState("gpt-5-mini-2025-08-07");
@@ -25,6 +26,7 @@ export const useClientChat = (clientId: string, templateId?: string) => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { logActivity } = useActivities();
+  const { user } = useAuth();
 
   // Ativar realtime para mensagens
   useRealtimeMessages(conversationId);
@@ -329,7 +331,9 @@ ESTRATÉGIA:
           messages: selectionMessages,
           model: "gpt-5-nano-2025-08-07", // Modelo mais barato para seleção
           isSelectionPhase: true,
-          availableMaterials
+          availableMaterials,
+          userId: user?.id,
+          clientId
         },
       });
 
@@ -409,7 +413,9 @@ Retorne uma análise clara e estruturada para guiar a criação de novo conteúd
             body: {
               messages: analysisMessages,
               model: "gpt-5-mini-2025-08-07",
-              isSelectionPhase: false
+              isSelectionPhase: false,
+              userId: user?.id,
+              clientId
             },
           });
 
@@ -701,6 +707,8 @@ Retorne uma análise clara e estruturada para guiar a criação de novo conteúd
               messages: messagesWithContext,
               model: responseModel, // Modelo melhor para resposta
               isSelectionPhase: false, // Fase de resposta
+              userId: user?.id,
+              clientId
             },
           }),
         {
