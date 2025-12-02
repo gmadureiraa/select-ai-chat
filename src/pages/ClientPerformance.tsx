@@ -3,13 +3,16 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, TrendingUp, Users, Mail, BarChart3, Instagram, Youtube, Newspaper, RefreshCw } from "lucide-react";
+import { ArrowLeft, Eye, Heart, MessageCircle, Share2, Instagram, Youtube, Newspaper, RefreshCw, TrendingUp, TrendingDown, Users } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { useState } from "react";
-import { usePerformanceMetrics, useFetchBeehiivMetrics, useScrapeMetrics } from "@/hooks/usePerformanceMetrics";
+import { usePerformanceMetrics, useFetchBeehiivMetrics, useScrapeMetrics, useFetchInstagramMetrics } from "@/hooks/usePerformanceMetrics";
 import { useToast } from "@/components/ui/use-toast";
+import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { PageHeader } from "@/components/PageHeader";
 
 export default function ClientPerformance() {
   const { clientId } = useParams();
@@ -17,6 +20,7 @@ export default function ClientPerformance() {
   const [searchParams, setSearchParams] = useSearchParams();
   const selectedChannel = searchParams.get("channel");
   const { toast } = useToast();
+  const [dateRange, setDateRange] = useState("7");
 
   const { data: client, isLoading } = useQuery({
     queryKey: ["client", clientId],
@@ -39,6 +43,7 @@ export default function ClientPerformance() {
 
   const fetchBeehiiv = useFetchBeehiivMetrics();
   const scrapeMetrics = useScrapeMetrics();
+  const fetchInstagram = useFetchInstagramMetrics();
 
   const handleRefreshMetrics = async () => {
     if (!clientId || !selectedChannel) return;
@@ -50,9 +55,28 @@ export default function ClientPerformance() {
           title: "Métricas atualizadas",
           description: "Dados da newsletter foram sincronizados com sucesso.",
         });
+      } else if (selectedChannel === "instagram") {
+        // Get Instagram username from client social_media
+        const socialMedia = client?.social_media as any;
+        const instagramUrl = socialMedia?.instagram || "";
+        const username = instagramUrl.split("/").filter(Boolean).pop() || "";
+        
+        if (!username) {
+          toast({
+            title: "Erro",
+            description: "Configure o Instagram do cliente primeiro.",
+            variant: "destructive",
+          });
+          return;
+        }
+        
+        await fetchInstagram.mutateAsync({ clientId, username });
+        toast({
+          title: "Métricas atualizadas",
+          description: "Dados do Instagram foram coletados com sucesso.",
+        });
       } else {
         const urls: Record<string, string> = {
-          instagram: "https://www.instagram.com/defiverso",
           cortes: "https://www.youtube.com/channel/UCDUYB7s0W20qs90e160B1LA",
         };
         
@@ -77,7 +101,15 @@ export default function ClientPerformance() {
   };
 
   const latestMetrics = metrics?.[0];
-  const isRefreshing = fetchBeehiiv.isPending || scrapeMetrics.isPending;
+  const previousMetrics = metrics?.[1];
+  const isRefreshing = fetchBeehiiv.isPending || scrapeMetrics.isPending || fetchInstagram.isPending;
+
+  // Calculate percentage change
+  const calculateChange = (current: number, previous: number) => {
+    if (!previous || previous === 0) return null;
+    const change = ((current - previous) / previous) * 100;
+    return change.toFixed(0);
+  };
 
   // Canais disponíveis por cliente
   const channels = {
@@ -85,55 +117,26 @@ export default function ClientPerformance() {
       icon: Newspaper,
       title: "Newsletter",
       description: "Análise de emails e engajamento da newsletter",
-      color: "primary",
     },
     instagram: {
       icon: Instagram,
       title: "Instagram",
       description: "Métricas de posts, stories e engajamento",
-      color: "secondary",
     },
     cortes: {
       icon: Youtube,
       title: "Cortes (YouTube/TikTok)",
       description: "Performance de vídeos curtos e viral content",
-      color: "accent",
     },
-  };
-
-  // Dados mockados baseados nas informações reais do Defiverso
-  const defiversoData = {
-    subscribers: 2847,
-    openRate: 68.5,
-    clickRate: 12.3,
-    growthRate: 8.2,
-    weeklyGrowth: [
-      { week: "Sem 1", subscribers: 2650, opens: 67.2 },
-      { week: "Sem 2", subscribers: 2720, opens: 68.1 },
-      { week: "Sem 3", subscribers: 2780, opens: 67.8 },
-      { week: "Sem 4", subscribers: 2847, opens: 68.5 },
-    ],
-    monthlyEngagement: [
-      { month: "Ago", engagement: 65 },
-      { month: "Set", engagement: 70 },
-      { month: "Out", engagement: 68 },
-      { month: "Nov", engagement: 75 },
-    ],
-    topTopics: [
-      { topic: "Airdrops & Farms", engagement: 82 },
-      { topic: "DeFi Protocols", engagement: 78 },
-      { topic: "Market Analysis", engagement: 71 },
-      { topic: "NFT Insights", engagement: 65 },
-    ],
   };
 
   if (isLoading) {
     return (
-      <div className="container mx-auto p-6 space-y-6">
+      <div className="max-w-6xl mx-auto px-6 py-8 space-y-6">
         <Skeleton className="h-12 w-64" />
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           {[1, 2, 3, 4].map((i) => (
-            <Skeleton key={i} className="h-32" />
+            <Skeleton key={i} className="h-28" />
           ))}
         </div>
       </div>
@@ -142,7 +145,7 @@ export default function ClientPerformance() {
 
   if (!client) {
     return (
-      <div className="container mx-auto p-6">
+      <div className="max-w-6xl mx-auto px-6 py-8">
         <p className="text-muted-foreground">Cliente não encontrado</p>
       </div>
     );
@@ -151,24 +154,14 @@ export default function ClientPerformance() {
   // Se não tem canal selecionado, mostra a seleção de canais
   if (!selectedChannel) {
     return (
-      <div className="container mx-auto p-6 space-y-6">
-        {/* Header */}
-        <div className="flex items-center gap-4">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => navigate("/performance")}
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight">{client.name}</h1>
-            <p className="text-sm text-muted-foreground">Escolha um canal para análise</p>
-          </div>
-        </div>
+      <div className="max-w-6xl mx-auto px-6 py-8 space-y-6">
+        <PageHeader
+          title={client.name}
+          subtitle="Escolha um canal para análise"
+          onBack={() => navigate("/performance")}
+        />
 
-        {/* Channel Selection */}
-        <div className="grid gap-6 md:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-3">
           {Object.entries(channels).map(([key, channel]) => {
             const Icon = channel.icon;
             return (
@@ -177,12 +170,10 @@ export default function ClientPerformance() {
                 className="border-border/50 bg-card/50 hover:border-border transition-all cursor-pointer"
                 onClick={() => setSearchParams({ channel: key })}
               >
-                <CardHeader>
+                <CardHeader className="pb-2">
                   <div className="flex items-center gap-3">
-                    <Icon className="h-5 w-5 text-foreground" />
-                    <CardTitle className="text-base">
-                      {channel.title}
-                    </CardTitle>
+                    <Icon className="h-5 w-5 text-muted-foreground" />
+                    <CardTitle className="text-base">{channel.title}</CardTitle>
                   </div>
                 </CardHeader>
                 <CardContent>
@@ -196,163 +187,289 @@ export default function ClientPerformance() {
     );
   }
 
+  // KPI Card Component
+  const KPICard = ({ 
+    title, 
+    value, 
+    change, 
+    icon: Icon,
+    formatter = (v: number) => v.toLocaleString("pt-BR")
+  }: { 
+    title: string; 
+    value: number; 
+    change: string | null;
+    icon: any;
+    formatter?: (v: number) => string;
+  }) => (
+    <Card className="border-border/50 bg-card/50">
+      <CardContent className="p-4">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-sm text-muted-foreground">{title}</span>
+          <Icon className="h-4 w-4 text-muted-foreground" />
+        </div>
+        <div className="text-2xl font-semibold tracking-tight">
+          {formatter(value)}
+        </div>
+        {change !== null && (
+          <div className={`text-xs mt-1 flex items-center gap-1 ${
+            parseFloat(change) >= 0 ? "text-emerald-500" : "text-red-500"
+          }`}>
+            {parseFloat(change) >= 0 ? (
+              <TrendingUp className="h-3 w-3" />
+            ) : (
+              <TrendingDown className="h-3 w-3" />
+            )}
+            {parseFloat(change) >= 0 ? "+" : ""}{change}% últimos 7 dias
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+
   return (
-    <div className="container mx-auto p-6 space-y-6">
+    <div className="max-w-6xl mx-auto px-6 py-8 space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
+        <PageHeader
+          title="Analytics"
+          subtitle={`${channels[selectedChannel as keyof typeof channels]?.title || "Análise"} · ${client.name}`}
+          onBack={() => setSearchParams({})}
+          badge={<Badge variant="outline" className="ml-2 text-xs">Beta</Badge>}
+        />
+        
+        <div className="flex items-center gap-3">
+          <Select value={dateRange} onValueChange={setDateRange}>
+            <SelectTrigger className="w-[140px] h-9">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="7">Últimos 7 dias</SelectItem>
+              <SelectItem value="14">Últimos 14 dias</SelectItem>
+              <SelectItem value="30">Últimos 30 dias</SelectItem>
+            </SelectContent>
+          </Select>
+          
           <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setSearchParams({})}
+            onClick={handleRefreshMetrics}
+            disabled={isRefreshing}
+            size="sm"
+            variant="outline"
           >
-            <ArrowLeft className="h-4 w-4" />
+            <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+            {isRefreshing ? 'Atualizando...' : 'Atualizar'}
           </Button>
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight">{client.name}</h1>
-            <p className="text-sm text-muted-foreground">
-              {channels[selectedChannel as keyof typeof channels]?.title || "Análise de Performance"}
-            </p>
-          </div>
         </div>
-        <Button
-          onClick={handleRefreshMetrics}
-          disabled={isRefreshing}
-          variant="outline"
-        >
-          <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
-          {isRefreshing ? 'Atualizando...' : 'Atualizar Métricas'}
-        </Button>
       </div>
 
       {metricsLoading && (
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           {[1, 2, 3, 4].map((i) => (
-            <Skeleton key={i} className="h-32" />
+            <Skeleton key={i} className="h-28" />
           ))}
         </div>
       )}
 
-      {!metricsLoading && latestMetrics && (
+      {!metricsLoading && latestMetrics && selectedChannel === "instagram" && (
         <>
-          {/* KPI Cards */}
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-            <Card className="border-border/50 bg-card/50">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">
-                  {selectedChannel === 'newsletter' ? 'Inscritos' : 'Seguidores'}
-                </CardTitle>
-                <Users className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  {(latestMetrics.subscribers || 0).toLocaleString()}
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Total acumulado
-                </p>
-              </CardContent>
-            </Card>
+          {/* Instagram KPI Cards */}
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <KPICard
+              title="Visualizações agregadas"
+              value={latestMetrics.views || 0}
+              change={previousMetrics ? calculateChange(latestMetrics.views || 0, previousMetrics.views || 0) : null}
+              icon={Eye}
+            />
+            <KPICard
+              title="Curtidas agregadas"
+              value={latestMetrics.likes || 0}
+              change={previousMetrics ? calculateChange(latestMetrics.likes || 0, previousMetrics.likes || 0) : null}
+              icon={Heart}
+            />
+            <KPICard
+              title="Comentários agregados"
+              value={latestMetrics.comments || 0}
+              change={previousMetrics ? calculateChange(latestMetrics.comments || 0, previousMetrics.comments || 0) : null}
+              icon={MessageCircle}
+            />
+            <KPICard
+              title="Compartilhamentos"
+              value={latestMetrics.shares || 0}
+              change={previousMetrics ? calculateChange(latestMetrics.shares || 0, previousMetrics.shares || 0) : null}
+              icon={Share2}
+            />
+          </div>
 
-            {selectedChannel === 'newsletter' && (
-              <>
-                <Card className="border-border/50 bg-card/50">
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Taxa de Abertura</CardTitle>
-                    <Mail className="h-4 w-4 text-muted-foreground" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{latestMetrics.open_rate || 0}%</div>
-                    <p className="text-xs text-muted-foreground">
-                      Média do período
-                    </p>
-                  </CardContent>
-                </Card>
-
-                <Card className="border-border/50 bg-card/50">
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Taxa de Cliques</CardTitle>
-                    <BarChart3 className="h-4 w-4 text-muted-foreground" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{latestMetrics.click_rate || 0}%</div>
-                    <p className="text-xs text-muted-foreground">
-                      Engajamento ativo
-                    </p>
-                  </CardContent>
-                </Card>
-              </>
-            )}
-
-            <Card className="border-border/50 bg-card/50">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">
-                  {selectedChannel === 'newsletter' ? 'Emails Enviados' : 'Posts'}
-                </CardTitle>
-                <TrendingUp className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{latestMetrics.total_posts || 0}</div>
-                <p className="text-xs text-muted-foreground">
-                  Total publicado
-                </p>
-              </CardContent>
-            </Card>
+          {/* Followers Card */}
+          <div className="grid gap-4 md:grid-cols-3">
+            <KPICard
+              title="Seguidores"
+              value={latestMetrics.subscribers || 0}
+              change={previousMetrics ? calculateChange(latestMetrics.subscribers || 0, previousMetrics.subscribers || 0) : null}
+              icon={Users}
+            />
+            <KPICard
+              title="Taxa de Engajamento"
+              value={latestMetrics.engagement_rate || 0}
+              change={null}
+              icon={TrendingUp}
+              formatter={(v) => `${v.toFixed(2)}%`}
+            />
+            <KPICard
+              title="Total de Posts"
+              value={latestMetrics.total_posts || 0}
+              change={null}
+              icon={Instagram}
+            />
           </div>
 
           {/* Historical Chart */}
           {metrics && metrics.length > 1 && (
             <Card className="border-border/50 bg-card/50">
-              <CardHeader>
-                <CardTitle>Evolução Histórica</CardTitle>
-                <CardDescription>Crescimento ao longo do tempo</CardDescription>
+              <CardHeader className="pb-2">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-base">Visualizações agregadas</CardTitle>
+                    <CardDescription className="text-xs">
+                      {new Date(metrics[metrics.length - 1]?.metric_date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })} - {new Date(metrics[0]?.metric_date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })}
+                    </CardDescription>
+                  </div>
+                </div>
               </CardHeader>
               <CardContent>
                 <ChartContainer
                   config={{
-                    subscribers: {
-                      label: selectedChannel === 'newsletter' ? "Inscritos" : "Seguidores",
-                      color: "hsl(var(--primary))",
-                    },
+                    views: { label: "Visualizações", color: "hsl(var(--primary))" },
+                    likes: { label: "Curtidas", color: "hsl(var(--chart-2))" },
                   }}
-                  className="h-[300px]"
+                  className="h-[280px]"
                 >
                   <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={metrics.slice(0, 30).reverse()}>
-                      <defs>
-                        <linearGradient id="colorSubs" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
-                          <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                    <LineChart data={metrics.slice(0, parseInt(dateRange)).reverse()}>
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-border/50" vertical={false} />
                       <XAxis 
                         dataKey="metric_date" 
                         className="text-xs"
                         tickFormatter={(value) => new Date(value).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
+                        axisLine={false}
+                        tickLine={false}
                       />
-                      <YAxis className="text-xs" />
+                      <YAxis 
+                        className="text-xs" 
+                        axisLine={false}
+                        tickLine={false}
+                        tickFormatter={(value) => value >= 1000 ? `${(value / 1000).toFixed(0)}k` : value}
+                      />
                       <ChartTooltip content={<ChartTooltipContent />} />
-                      <Area
+                      <Legend />
+                      <Line
                         type="monotone"
-                        dataKey="subscribers"
+                        dataKey="views"
                         stroke="hsl(var(--primary))"
-                        fillOpacity={1}
-                        fill="url(#colorSubs)"
                         strokeWidth={2}
+                        dot={{ r: 4, fill: "hsl(var(--primary))" }}
+                        activeDot={{ r: 6 }}
                       />
-                    </AreaChart>
+                      <Line
+                        type="monotone"
+                        dataKey="likes"
+                        stroke="hsl(var(--chart-2))"
+                        strokeWidth={2}
+                        dot={{ r: 4, fill: "hsl(var(--chart-2))" }}
+                        activeDot={{ r: 6 }}
+                      />
+                    </LineChart>
                   </ResponsiveContainer>
                 </ChartContainer>
               </CardContent>
             </Card>
           )}
 
-          {/* Recent Posts Table */}
-          {selectedChannel === 'newsletter' && latestMetrics?.metadata?.recent_posts && latestMetrics.metadata.recent_posts.length > 0 && (
+          {/* Recent Posts */}
+          {latestMetrics?.metadata?.recent_posts && latestMetrics.metadata.recent_posts.length > 0 && (
             <Card className="border-border/50 bg-card/50">
               <CardHeader>
-                <CardTitle>Últimos Emails Enviados</CardTitle>
+                <CardTitle className="text-base">Posts Recentes</CardTitle>
+                <CardDescription>Performance individual de cada post</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-border">
+                        <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Post</th>
+                        <th className="text-right py-3 px-4 text-sm font-medium text-muted-foreground">Views</th>
+                        <th className="text-right py-3 px-4 text-sm font-medium text-muted-foreground">Curtidas</th>
+                        <th className="text-right py-3 px-4 text-sm font-medium text-muted-foreground">Comentários</th>
+                        <th className="text-right py-3 px-4 text-sm font-medium text-muted-foreground">Data</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {latestMetrics.metadata.recent_posts.map((post: any, index: number) => (
+                        <tr key={post.id || index} className="border-b border-border/50 hover:bg-muted/50 transition-colors">
+                          <td className="py-3 px-4">
+                            <div className="flex items-center gap-2">
+                              <Badge variant="outline" className="text-xs">
+                                {post.type === "Video" ? "Reels" : post.type}
+                              </Badge>
+                              <span className="text-sm truncate max-w-[200px]">
+                                {post.caption || "Sem legenda"}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="text-right py-3 px-4 tabular-nums text-sm">{(post.views || 0).toLocaleString('pt-BR')}</td>
+                          <td className="text-right py-3 px-4 tabular-nums text-sm">{(post.likes || 0).toLocaleString('pt-BR')}</td>
+                          <td className="text-right py-3 px-4 tabular-nums text-sm">{(post.comments || 0).toLocaleString('pt-BR')}</td>
+                          <td className="text-right py-3 px-4 text-sm text-muted-foreground">
+                            {post.timestamp ? new Date(post.timestamp).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }) : '-'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </>
+      )}
+
+      {/* Newsletter metrics (existing) */}
+      {!metricsLoading && latestMetrics && selectedChannel === "newsletter" && (
+        <>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <KPICard
+              title="Inscritos"
+              value={latestMetrics.subscribers || 0}
+              change={previousMetrics ? calculateChange(latestMetrics.subscribers || 0, previousMetrics.subscribers || 0) : null}
+              icon={Users}
+            />
+            <KPICard
+              title="Taxa de Abertura"
+              value={latestMetrics.open_rate || 0}
+              change={null}
+              icon={Eye}
+              formatter={(v) => `${v}%`}
+            />
+            <KPICard
+              title="Taxa de Cliques"
+              value={latestMetrics.click_rate || 0}
+              change={null}
+              icon={TrendingUp}
+              formatter={(v) => `${v}%`}
+            />
+            <KPICard
+              title="Emails Enviados"
+              value={latestMetrics.total_posts || 0}
+              change={null}
+              icon={Newspaper}
+            />
+          </div>
+
+          {/* Recent Emails Table */}
+          {latestMetrics?.metadata?.recent_posts && latestMetrics.metadata.recent_posts.length > 0 && (
+            <Card className="border-border/50 bg-card/50">
+              <CardHeader>
+                <CardTitle className="text-base">Últimos Emails Enviados</CardTitle>
                 <CardDescription>Performance individual de cada email</CardDescription>
               </CardHeader>
               <CardContent>
@@ -360,30 +477,27 @@ export default function ClientPerformance() {
                   <table className="w-full">
                     <thead>
                       <tr className="border-b border-border">
-                        <th className="text-left py-3 px-4 font-semibold">Título</th>
-                        <th className="text-right py-3 px-4 font-semibold">Enviados</th>
-                        <th className="text-right py-3 px-4 font-semibold">Aberturas</th>
-                        <th className="text-right py-3 px-4 font-semibold">Taxa Abertura</th>
-                        <th className="text-right py-3 px-4 font-semibold">Cliques</th>
-                        <th className="text-right py-3 px-4 font-semibold">Taxa Clique</th>
-                        <th className="text-right py-3 px-4 font-semibold">Data</th>
+                        <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Título</th>
+                        <th className="text-right py-3 px-4 text-sm font-medium text-muted-foreground">Enviados</th>
+                        <th className="text-right py-3 px-4 text-sm font-medium text-muted-foreground">Aberturas</th>
+                        <th className="text-right py-3 px-4 text-sm font-medium text-muted-foreground">Taxa</th>
+                        <th className="text-right py-3 px-4 text-sm font-medium text-muted-foreground">Cliques</th>
+                        <th className="text-right py-3 px-4 text-sm font-medium text-muted-foreground">Taxa</th>
+                        <th className="text-right py-3 px-4 text-sm font-medium text-muted-foreground">Data</th>
                       </tr>
                     </thead>
                     <tbody>
                       {latestMetrics.metadata.recent_posts.map((post: any, index: number) => (
                         <tr key={post.id || index} className="border-b border-border/50 hover:bg-muted/50 transition-colors">
                           <td className="py-3 px-4">
-                            <div className="font-medium">{post.title}</div>
-                            {post.subtitle && (
-                              <div className="text-sm text-muted-foreground mt-1 line-clamp-1">{post.subtitle}</div>
-                            )}
+                            <div className="font-medium text-sm">{post.title}</div>
                           </td>
-                          <td className="text-right py-3 px-4 tabular-nums">{post.delivered?.toLocaleString('pt-BR') || '-'}</td>
-                          <td className="text-right py-3 px-4 tabular-nums">{post.opened?.toLocaleString('pt-BR') || '-'}</td>
-                          <td className="text-right py-3 px-4 tabular-nums font-semibold text-primary">{post.open_rate}%</td>
-                          <td className="text-right py-3 px-4 tabular-nums">{post.clicked?.toLocaleString('pt-BR') || '-'}</td>
-                          <td className="text-right py-3 px-4 tabular-nums font-semibold text-secondary">{post.click_rate}%</td>
-                          <td className="text-right py-3 px-4 text-sm text-muted-foreground whitespace-nowrap">
+                          <td className="text-right py-3 px-4 tabular-nums text-sm">{post.delivered?.toLocaleString('pt-BR') || '-'}</td>
+                          <td className="text-right py-3 px-4 tabular-nums text-sm">{post.opened?.toLocaleString('pt-BR') || '-'}</td>
+                          <td className="text-right py-3 px-4 tabular-nums text-sm font-medium text-emerald-500">{post.open_rate}%</td>
+                          <td className="text-right py-3 px-4 tabular-nums text-sm">{post.clicked?.toLocaleString('pt-BR') || '-'}</td>
+                          <td className="text-right py-3 px-4 tabular-nums text-sm font-medium text-primary">{post.click_rate}%</td>
+                          <td className="text-right py-3 px-4 text-sm text-muted-foreground">
                             {post.published_at ? new Date(post.published_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }) : '-'}
                           </td>
                         </tr>
@@ -401,7 +515,7 @@ export default function ClientPerformance() {
         <Card className="border-border/50 bg-card/50">
           <CardContent className="p-12 text-center">
             <p className="text-muted-foreground mb-4">
-              Nenhum dado disponível ainda. Clique em "Atualizar Métricas" para coletar os dados.
+              Nenhum dado disponível ainda. Clique em "Atualizar" para coletar os dados.
             </p>
             <Button onClick={handleRefreshMetrics} disabled={isRefreshing}>
               <RefreshCw className="h-4 w-4 mr-2" />
