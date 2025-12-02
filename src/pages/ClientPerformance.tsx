@@ -341,7 +341,7 @@ const latestMetrics = metrics?.[0];
           </div>
 
           {/* Historical Chart */}
-          {metrics && metrics.length > 1 && (
+          {metrics && metrics.length >= 1 && (
             <Card className="border-border/50 bg-card/50">
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
