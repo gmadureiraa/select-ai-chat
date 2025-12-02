@@ -17,6 +17,8 @@ import "reactflow/dist/style.css";
 import { useResearchItems } from "@/hooks/useResearchItems";
 import { ResearchItemNode } from "./ResearchItemNode";
 import { AIChatNode } from "./AIChatNode";
+import { ContentLibraryNode } from "./ContentLibraryNode";
+import { ReferenceLibraryNode } from "./ReferenceLibraryNode";
 import { TextNode } from "./TextNode";
 import { NoteNode } from "./NoteNode";
 import { AudioNode } from "./AudioNode";
@@ -30,6 +32,8 @@ interface ResearchCanvasProps {
 const nodeTypes = {
   researchItem: ResearchItemNode,
   aiChat: AIChatNode,
+  contentLibrary: ContentLibraryNode,
+  referenceLibrary: ReferenceLibraryNode,
   text: TextNode,
   note: NoteNode,
   audio: AudioNode,
@@ -60,6 +64,8 @@ export const ResearchCanvas = ({ projectId }: ResearchCanvasProps) => {
 
       let nodeType = "researchItem";
       if (item.type === "ai_chat") nodeType = "aiChat";
+      else if (item.type === "content_library") nodeType = "contentLibrary";
+      else if (item.type === "reference_library") nodeType = "referenceLibrary";
       else if (item.type === "text") nodeType = "text";
       else if (item.type === "note") nodeType = "note";
       else if (item.type === "audio") nodeType = "audio";
