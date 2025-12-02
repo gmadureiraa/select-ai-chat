@@ -21,10 +21,12 @@ interface ImageNodeData {
       transcribed?: boolean;
     };
   };
+  onDelete?: (id: string) => void;
+  projectId?: string;
 }
 
 const ImageNode = ({ data, id }: NodeProps<ImageNodeData>) => {
-  const { deleteItem, updateItem } = useResearchItems();
+  const { updateItem } = useResearchItems(data.projectId);
   const { toast } = useToast();
   const [prompt, setPrompt] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
@@ -125,9 +127,11 @@ const ImageNode = ({ data, id }: NodeProps<ImageNodeData>) => {
     }
   };
 
-  const handleDelete = async (e: React.MouseEvent) => {
+  const handleDelete = (e: React.MouseEvent) => {
     e.stopPropagation();
-    await deleteItem.mutateAsync(data.item.id);
+    if (data.onDelete) {
+      data.onDelete(data.item.id);
+    }
   };
 
   const handleGenerateImage = async () => {

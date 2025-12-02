@@ -338,7 +338,8 @@ export const ResearchCanvas = ({ projectId, clientId }: ResearchCanvasProps) => 
         className="bg-[#fafafa]"
         noPanClassName="no-pan"
         noWheelClassName="no-wheel"
-        connectionRadius={50}
+        connectionRadius={100}
+        snapToGrid={false}
         defaultEdgeOptions={{
           type: 'default',
           style: { stroke: '#8b5cf6', strokeWidth: 2 },
