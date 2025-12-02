@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, Eye, Heart, MessageCircle, Share2, Instagram, Youtube, Newspaper, RefreshCw, TrendingUp, TrendingDown, Users, CalendarIcon } from "lucide-react";
+import { ArrowLeft, Eye, Instagram, Youtube, Newspaper, RefreshCw, TrendingUp, TrendingDown, Users, CalendarIcon } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
@@ -110,9 +110,46 @@ const { toast } = useToast();
     }
   };
 
-const latestMetrics = metrics?.[0];
-  const previousMetrics = metrics?.[1];
   const isRefreshing = fetchBeehiiv.isPending || scrapeMetrics.isPending || fetchInstagram.isPending;
+
+  // Calculate period-based metrics for KPIs
+  const periodMetrics = useMemo(() => {
+    if (!metrics || metrics.length === 0) return null;
+    
+    let filteredMetrics = metrics;
+    
+    if (dateRange === "custom" && customDateRange?.from) {
+      const startDate = customDateRange.from;
+      const endDate = customDateRange.to || new Date();
+      filteredMetrics = metrics.filter(m => {
+        const metricDate = new Date(m.metric_date);
+        return isWithinInterval(metricDate, { start: startDate, end: endDate });
+      });
+    } else {
+      filteredMetrics = metrics.slice(0, parseInt(dateRange));
+    }
+    
+    if (filteredMetrics.length === 0) return null;
+    
+    // Sum views for the period
+    const totalViews = filteredMetrics.reduce((sum, m) => sum + (m.views || 0), 0);
+    
+    // Calculate follower gain in the period from daily_gain metadata
+    const totalFollowerGain = filteredMetrics.reduce((sum, m) => {
+      const metadata = m.metadata as any;
+      return sum + (metadata?.daily_gain || 0);
+    }, 0);
+    
+    // Current followers from most recent metric
+    const currentFollowers = metrics[0]?.subscribers || 0;
+    
+    return {
+      totalViews,
+      totalFollowerGain,
+      currentFollowers,
+      daysInPeriod: filteredMetrics.length,
+    };
+  }, [metrics, dateRange, customDateRange]);
 
   // Chart data configuration
   const chartConfig = useMemo(() => ({
@@ -190,13 +227,6 @@ const latestMetrics = metrics?.[0];
     // Reverse to show oldest to newest in chart
     return calculatedData.reverse();
   }, [metrics, dateRange, customDateRange]);
-
-  // Calculate percentage change
-  const calculateChange = (current: number, previous: number) => {
-    if (!previous || previous === 0) return null;
-    const change = ((current - previous) / previous) * 100;
-    return change.toFixed(0);
-  };
 
   // Canais disponíveis por cliente
   const channels = {
@@ -393,56 +423,28 @@ const latestMetrics = metrics?.[0];
         </div>
       )}
 
-      {!metricsLoading && latestMetrics && selectedChannel === "instagram" && (
+      {!metricsLoading && periodMetrics && selectedChannel === "instagram" && (
         <>
-          {/* Instagram KPI Cards */}
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          {/* Instagram KPI Cards - Period Based */}
+          <div className="grid gap-4 md:grid-cols-3">
             <KPICard
-              title="Visualizações agregadas"
-              value={latestMetrics.views || 0}
-              change={previousMetrics ? calculateChange(latestMetrics.views || 0, previousMetrics.views || 0) : null}
+              title={`Visualizações (${periodMetrics.daysInPeriod} dias)`}
+              value={periodMetrics.totalViews}
+              change={null}
               icon={Eye}
             />
             <KPICard
-              title="Curtidas agregadas"
-              value={latestMetrics.likes || 0}
-              change={previousMetrics ? calculateChange(latestMetrics.likes || 0, previousMetrics.likes || 0) : null}
-              icon={Heart}
-            />
-            <KPICard
-              title="Comentários agregados"
-              value={latestMetrics.comments || 0}
-              change={previousMetrics ? calculateChange(latestMetrics.comments || 0, previousMetrics.comments || 0) : null}
-              icon={MessageCircle}
-            />
-            <KPICard
-              title="Compartilhamentos"
-              value={latestMetrics.shares || 0}
-              change={previousMetrics ? calculateChange(latestMetrics.shares || 0, previousMetrics.shares || 0) : null}
-              icon={Share2}
-            />
-          </div>
-
-          {/* Followers Card */}
-          <div className="grid gap-4 md:grid-cols-3">
-            <KPICard
-              title="Seguidores"
-              value={latestMetrics.subscribers || 0}
-              change={previousMetrics ? calculateChange(latestMetrics.subscribers || 0, previousMetrics.subscribers || 0) : null}
+              title="Seguidores atuais"
+              value={periodMetrics.currentFollowers}
+              change={null}
               icon={Users}
             />
             <KPICard
-              title="Taxa de Engajamento"
-              value={latestMetrics.engagement_rate || 0}
+              title={`Ganho no período`}
+              value={periodMetrics.totalFollowerGain}
               change={null}
               icon={TrendingUp}
-              formatter={(v) => `${v.toFixed(2)}%`}
-            />
-            <KPICard
-              title="Total de Posts"
-              value={latestMetrics.total_posts || 0}
-              change={null}
-              icon={Instagram}
+              formatter={(v) => (v >= 0 ? `+${v.toLocaleString("pt-BR")}` : v.toLocaleString("pt-BR"))}
             />
           </div>
 
@@ -538,7 +540,7 @@ const latestMetrics = metrics?.[0];
           )}
 
           {/* Recent Posts */}
-          {latestMetrics?.metadata?.recent_posts && latestMetrics.metadata.recent_posts.length > 0 && (
+          {metrics?.[0]?.metadata && (metrics[0].metadata as any)?.recent_posts?.length > 0 && (
             <Card className="border-border/50 bg-card/50">
               <CardHeader>
                 <CardTitle className="text-base">Posts Recentes</CardTitle>
@@ -557,7 +559,7 @@ const latestMetrics = metrics?.[0];
                       </tr>
                     </thead>
                     <tbody>
-                      {latestMetrics.metadata.recent_posts.map((post: any, index: number) => (
+                      {(metrics[0].metadata as any).recent_posts.map((post: any, index: number) => (
                         <tr key={post.id || index} className="border-b border-border/50 hover:bg-muted/50 transition-colors">
                           <td className="py-3 px-4">
                             <div className="flex items-center gap-2">
@@ -587,39 +589,39 @@ const latestMetrics = metrics?.[0];
       )}
 
       {/* Newsletter metrics (existing) */}
-      {!metricsLoading && latestMetrics && selectedChannel === "newsletter" && (
+      {!metricsLoading && metrics && metrics.length > 0 && selectedChannel === "newsletter" && (
         <>
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <KPICard
               title="Inscritos"
-              value={latestMetrics.subscribers || 0}
-              change={previousMetrics ? calculateChange(latestMetrics.subscribers || 0, previousMetrics.subscribers || 0) : null}
+              value={metrics[0]?.subscribers || 0}
+              change={null}
               icon={Users}
             />
             <KPICard
               title="Taxa de Abertura"
-              value={latestMetrics.open_rate || 0}
+              value={metrics[0]?.open_rate || 0}
               change={null}
               icon={Eye}
               formatter={(v) => `${v}%`}
             />
             <KPICard
               title="Taxa de Cliques"
-              value={latestMetrics.click_rate || 0}
+              value={metrics[0]?.click_rate || 0}
               change={null}
               icon={TrendingUp}
               formatter={(v) => `${v}%`}
             />
             <KPICard
               title="Emails Enviados"
-              value={latestMetrics.total_posts || 0}
+              value={metrics[0]?.total_posts || 0}
               change={null}
               icon={Newspaper}
             />
           </div>
 
           {/* Recent Emails Table */}
-          {latestMetrics?.metadata?.recent_posts && latestMetrics.metadata.recent_posts.length > 0 && (
+          {metrics?.[0]?.metadata && (metrics[0].metadata as any)?.recent_posts?.length > 0 && (
             <Card className="border-border/50 bg-card/50">
               <CardHeader>
                 <CardTitle className="text-base">Últimos Emails Enviados</CardTitle>
@@ -640,7 +642,7 @@ const latestMetrics = metrics?.[0];
                       </tr>
                     </thead>
                     <tbody>
-                      {latestMetrics.metadata.recent_posts.map((post: any, index: number) => (
+                      {(metrics[0].metadata as any).recent_posts.map((post: any, index: number) => (
                         <tr key={post.id || index} className="border-b border-border/50 hover:bg-muted/50 transition-colors">
                           <td className="py-3 px-4">
                             <div className="font-medium text-sm">{post.title}</div>
@@ -664,7 +666,7 @@ const latestMetrics = metrics?.[0];
         </>
       )}
 
-      {!metricsLoading && !latestMetrics && (
+      {!metricsLoading && (!metrics || metrics.length === 0) && (
         <Card className="border-border/50 bg-card/50">
           <CardContent className="p-12 text-center">
             <p className="text-muted-foreground mb-4">
