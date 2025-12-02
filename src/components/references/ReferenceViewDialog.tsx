@@ -47,6 +47,18 @@ export function ReferenceViewDialog({ open, onClose, reference }: ReferenceViewD
               </a>
             </div>
           )}
+          {reference.metadata?.image_urls && reference.metadata.image_urls.length > 0 && (
+            <div className="space-y-2">
+              {reference.metadata.image_urls.map((url: string, index: number) => (
+                <img
+                  key={index}
+                  src={url}
+                  alt={`${reference.title} - imagem ${index + 1}`}
+                  className="w-full rounded-lg border"
+                />
+              ))}
+            </div>
+          )}
           {reference.thumbnail_url && (
             <div>
               <img
