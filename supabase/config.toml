@@ -36,6 +36,9 @@ verify_jwt = false
 [functions.transcribe-images]
 verify_jwt = false
 
+[functions.transcribe-video]
+verify_jwt = false
+
 [functions.grok-search]
 verify_jwt = false
 
