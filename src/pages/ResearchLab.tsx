@@ -3,6 +3,9 @@ import { AppLayout } from "@/components/AppLayout";
 import { ProjectSelector } from "@/components/research/ProjectSelector";
 import { ResearchCanvas } from "@/components/research/ResearchCanvas";
 import { PresentationMode } from "@/components/research/PresentationMode";
+import { CommentsPanel } from "@/components/research/CommentsPanel";
+import { SharingDialog } from "@/components/research/SharingDialog";
+import { VersionHistoryPanel } from "@/components/research/VersionHistoryPanel";
 import { useResearchProjects } from "@/hooks/useResearchProjects";
 import { useResearchItems } from "@/hooks/useResearchItems";
 import { Button } from "@/components/ui/button";
@@ -32,16 +35,23 @@ const ResearchLab = () => {
             )}
           </div>
 
-          {selectedProjectId && items && items.length > 0 && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowPresentation(true)}
-              className="gap-2"
-            >
-              <Presentation className="h-4 w-4" />
-              Apresentar
-            </Button>
+          {selectedProjectId && (
+            <div className="flex items-center gap-2">
+              <CommentsPanel projectId={selectedProjectId} />
+              <VersionHistoryPanel projectId={selectedProjectId} />
+              <SharingDialog projectId={selectedProjectId} projectName={selectedProject?.name} />
+              {items && items.length > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowPresentation(true)}
+                  className="gap-2"
+                >
+                  <Presentation className="h-4 w-4" />
+                  Apresentar
+                </Button>
+              )}
+            </div>
           )}
         </div>
 
