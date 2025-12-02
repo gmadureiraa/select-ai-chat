@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, Eye, Heart, MessageCircle, Share2, Instagram, Youtube, Newspaper, RefreshCw, TrendingUp, TrendingDown, Users } from "lucide-react";
+import { ArrowLeft, Eye, Heart, MessageCircle, Share2, Instagram, Youtube, Newspaper, RefreshCw, TrendingUp, TrendingDown, Users, CalendarIcon } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
@@ -14,6 +14,12 @@ import { useToast } from "@/components/ui/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PageHeader } from "@/components/PageHeader";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { format, subDays, isWithinInterval } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import { cn } from "@/lib/utils";
+import { DateRange } from "react-day-picker";
 
 export default function ClientPerformance() {
   const { clientId } = useParams();
@@ -21,7 +27,8 @@ export default function ClientPerformance() {
   const [searchParams, setSearchParams] = useSearchParams();
   const selectedChannel = searchParams.get("channel");
 const { toast } = useToast();
-  const [dateRange, setDateRange] = useState("7");
+  const [dateRange, setDateRange] = useState("30");
+  const [customDateRange, setCustomDateRange] = useState<DateRange | undefined>();
   const [chartMetric, setChartMetric] = useState<"views" | "likes" | "followers" | "dailyGain" | "engagement">("followers");
 
   const { data: client, isLoading } = useQuery({
@@ -40,7 +47,8 @@ const { toast } = useToast();
 
   const { data: metrics, isLoading: metricsLoading } = usePerformanceMetrics(
     clientId || "", 
-    selectedChannel || ""
+    selectedChannel || "",
+    100 // Fetch up to 100 days for custom ranges
   );
 
   const fetchBeehiiv = useFetchBeehiivMetrics();
@@ -118,23 +126,54 @@ const latestMetrics = metrics?.[0];
   const chartData = useMemo(() => {
     if (!metrics) return [];
     
-    // Get metrics for the selected range, sorted by date descending (newest first)
-    const rangeMetrics = metrics.slice(0, parseInt(dateRange));
+    // Filter metrics based on date range selection
+    let filteredMetrics = metrics;
+    
+    if (dateRange === "custom" && customDateRange?.from) {
+      const startDate = customDateRange.from;
+      const endDate = customDateRange.to || new Date();
+      filteredMetrics = metrics.filter(m => {
+        const metricDate = new Date(m.metric_date);
+        return isWithinInterval(metricDate, { start: startDate, end: endDate });
+      });
+    } else {
+      filteredMetrics = metrics.slice(0, parseInt(dateRange));
+    }
     
     // Current followers from the most recent metric
-    const currentFollowers = rangeMetrics[0]?.subscribers || 0;
+    const currentFollowers = metrics[0]?.subscribers || 0;
+    
+    // Sort by date descending for calculation
+    const sortedMetrics = [...filteredMetrics].sort((a, b) => 
+      new Date(b.metric_date).getTime() - new Date(a.metric_date).getTime()
+    );
     
     // Calculate historical followers by subtracting daily gains backwards
     let runningTotal = currentFollowers;
-    const calculatedData = rangeMetrics.map((m, index) => {
+    
+    // First, calculate how much to subtract to get to the first date in our range
+    const allMetricsSorted = [...metrics].sort((a, b) => 
+      new Date(b.metric_date).getTime() - new Date(a.metric_date).getTime()
+    );
+    
+    // Find the index of the first metric in our filtered range
+    const firstFilteredDate = sortedMetrics[0]?.metric_date;
+    const startIndex = allMetricsSorted.findIndex(m => m.metric_date === firstFilteredDate);
+    
+    // Subtract daily gains from index 0 to startIndex to get the correct starting point
+    for (let i = 0; i < startIndex; i++) {
+      const metadata = allMetricsSorted[i]?.metadata as any;
+      const dailyGain = metadata?.daily_gain || 0;
+      runningTotal -= dailyGain;
+    }
+    
+    const calculatedData = sortedMetrics.map((m, index) => {
       const metadata = m.metadata as any;
       const dailyGain = metadata?.daily_gain || 0;
       
-      // For the first entry (most recent), use current followers
-      // For subsequent entries, subtract the previous day's gain
       let calculatedSubscribers = runningTotal;
       if (index > 0) {
-        const prevMetadata = rangeMetrics[index - 1]?.metadata as any;
+        const prevMetadata = sortedMetrics[index - 1]?.metadata as any;
         const prevDailyGain = prevMetadata?.daily_gain || 0;
         runningTotal -= prevDailyGain;
         calculatedSubscribers = runningTotal;
@@ -150,7 +189,7 @@ const latestMetrics = metrics?.[0];
     
     // Reverse to show oldest to newest in chart
     return calculatedData.reverse();
-  }, [metrics, dateRange]);
+  }, [metrics, dateRange, customDateRange]);
 
   // Calculate percentage change
   const calculateChange = (current: number, previous: number) => {
@@ -286,16 +325,53 @@ const latestMetrics = metrics?.[0];
         />
         
         <div className="flex items-center gap-3">
-          <Select value={dateRange} onValueChange={setDateRange}>
-            <SelectTrigger className="w-[140px] h-9">
+          <Select value={dateRange} onValueChange={(v) => {
+            setDateRange(v);
+            if (v !== "custom") setCustomDateRange(undefined);
+          }}>
+            <SelectTrigger className="w-[160px] h-9">
+              <CalendarIcon className="h-4 w-4 mr-2 text-muted-foreground" />
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="7">Últimos 7 dias</SelectItem>
               <SelectItem value="14">Últimos 14 dias</SelectItem>
               <SelectItem value="30">Últimos 30 dias</SelectItem>
+              <SelectItem value="90">Últimos 90 dias</SelectItem>
+              <SelectItem value="custom">Período personalizado</SelectItem>
             </SelectContent>
           </Select>
+          
+          {dateRange === "custom" && (
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className="h-9">
+                  {customDateRange?.from ? (
+                    customDateRange.to ? (
+                      <>
+                        {format(customDateRange.from, "dd/MM", { locale: ptBR })} - {format(customDateRange.to, "dd/MM", { locale: ptBR })}
+                      </>
+                    ) : (
+                      format(customDateRange.from, "dd/MM/yyyy", { locale: ptBR })
+                    )
+                  ) : (
+                    "Selecionar datas"
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="end">
+                <Calendar
+                  mode="range"
+                  selected={customDateRange}
+                  onSelect={setCustomDateRange}
+                  numberOfMonths={2}
+                  locale={ptBR}
+                  disabled={(date) => date > new Date()}
+                  className={cn("p-3 pointer-events-auto")}
+                />
+              </PopoverContent>
+            </Popover>
+          )}
           
           <Button
             onClick={handleRefreshMetrics}
@@ -447,12 +523,12 @@ const latestMetrics = metrics?.[0];
                         ]}
                       />
                       <Line
-                        type="monotone"
+                        type="natural"
                         dataKey={chartConfig[chartMetric].dataKey}
                         stroke={chartConfig[chartMetric].color}
                         strokeWidth={2}
-                        dot={{ r: 4, fill: chartConfig[chartMetric].color }}
-                        activeDot={{ r: 6, stroke: chartConfig[chartMetric].color, strokeWidth: 2 }}
+                        dot={chartData.length > 30 ? false : { r: 3, fill: chartConfig[chartMetric].color }}
+                        activeDot={{ r: 5, stroke: chartConfig[chartMetric].color, strokeWidth: 2, fill: 'hsl(var(--background))' }}
                       />
                     </LineChart>
                   </ResponsiveContainer>
