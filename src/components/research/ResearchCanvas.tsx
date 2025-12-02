@@ -10,6 +10,7 @@ import ReactFlow, {
   MiniMap,
   ReactFlowProvider,
   useReactFlow,
+  MarkerType,
 } from "reactflow";
 import "reactflow/dist/style.css";
 import { useResearchItems } from "@/hooks/useResearchItems";
@@ -31,6 +32,9 @@ import { ZoomControls } from "./ZoomControls";
 import { SearchFilterPanel, FilterState } from "./SearchFilterPanel";
 import { ExportPanel } from "./ExportPanel";
 import { ExecutiveSummary } from "./ExecutiveSummary";
+import { QuickCapture } from "./QuickCapture";
+import { SmoothEdge } from "./SmoothEdge";
+import { FloatingAIChat } from "./FloatingAIChat";
 import { Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -70,6 +74,10 @@ const nodeTypes = {
   spreadsheet: SpreadsheetNode,
   comparison: ComparisonNode,
   group: GroupNode,
+};
+
+const edgeTypes = {
+  smooth: SmoothEdge,
 };
 
 // Node colors for minimap
@@ -142,6 +150,10 @@ const ResearchCanvasInner = ({ projectId, clientId, projectName = "Projeto", inn
   // Search and filter state
   const [searchQuery, setSearchQuery] = useState("");
   const [filters, setFilters] = useState<FilterState>({ types: [], tags: [], processed: "all" });
+  
+  // Floating AI Chat state
+  const [showFloatingChat, setShowFloatingChat] = useState(false);
+  const [floatingChatItems, setFloatingChatItems] = useState<Array<{ id: string; title: string; content: string; type: string }>>([]);
 
   // Track connected nodes for AI chat highlighting
   const [connectedToSelected, setConnectedToSelected] = useState<Set<string>>(new Set());
@@ -226,7 +238,7 @@ const ResearchCanvasInner = ({ projectId, clientId, projectName = "Projeto", inn
     setNodes(newNodes);
   }, [items, connections, deleteItem.mutate, updateItem, setNodes, projectId, clientId, connectedToSelected, selectedNodeIds, searchQuery, filters]);
 
-  // Update edges when connections change - with visual feedback
+  // Update edges when connections change - with smooth bezier curves
   useEffect(() => {
     const newEdges: Edge[] = connections.map((conn) => {
       const isHighlighted = selectedNodeIds.has(conn.source_id) || selectedNodeIds.has(conn.target_id);
@@ -236,12 +248,21 @@ const ResearchCanvasInner = ({ projectId, clientId, projectName = "Projeto", inn
         source: conn.source_id,
         target: conn.target_id,
         label: conn.label,
-        type: "default",
+        type: "smooth",
+        data: {
+          label: conn.label,
+          animated: isHighlighted,
+        },
         style: { 
-          stroke: isHighlighted ? '#a855f7' : '#8b5cf6', 
+          stroke: isHighlighted ? 'hsl(var(--primary))' : 'hsl(var(--muted-foreground) / 0.4)', 
           strokeWidth: isHighlighted ? 3 : 2,
         },
-        animated: isHighlighted,
+        markerEnd: {
+          type: MarkerType.ArrowClosed,
+          width: 15,
+          height: 15,
+          color: isHighlighted ? 'hsl(var(--primary))' : 'hsl(var(--muted-foreground) / 0.4)',
+        },
       };
     });
     setEdges(newEdges);
@@ -465,6 +486,69 @@ const ResearchCanvasInner = ({ projectId, clientId, projectName = "Projeto", inn
     }
   };
 
+  // Handle Quick Capture
+  const handleQuickCapture = async (type: string, content?: string) => {
+    const basePosition = {
+      x: Math.random() * 400 + 100,
+      y: Math.random() * 300 + 100,
+    };
+
+    if (type === "youtube" && content) {
+      setUrlInput(content);
+      setUrlDialog({ type: "youtube", open: true });
+      return;
+    }
+
+    if (type === "link" && content) {
+      setUrlInput(content);
+      setUrlDialog({ type: "link", open: true });
+      return;
+    }
+
+    try {
+      if (type === "note" && content) {
+        await createItem.mutateAsync({
+          project_id: projectId,
+          type: "note",
+          title: "Nota Rápida",
+          content: content,
+          position_x: basePosition.x,
+          position_y: basePosition.y,
+        });
+        toast({ title: "Nota adicionada" });
+      } else if (type === "text" && content) {
+        await createItem.mutateAsync({
+          project_id: projectId,
+          type: "text",
+          title: "Texto",
+          content: content,
+          position_x: basePosition.x,
+          position_y: basePosition.y,
+        });
+        toast({ title: "Texto adicionado" });
+      } else if (type === "ai_chat") {
+        // Toggle floating AI chat
+        setShowFloatingChat(true);
+        // Get selected items for context
+        const selectedItems = items?.filter(item => selectedNodeIds.has(item.id)) || [];
+        setFloatingChatItems(selectedItems.map(item => ({
+          id: item.id,
+          title: item.title || "Sem título",
+          content: item.content || "",
+          type: item.type,
+        })));
+      } else {
+        handleAddItem(type);
+      }
+    } catch (error: any) {
+      toast({
+        title: "Erro na captura",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleUrlSubmit = async () => {
     if (!urlInput.trim() || !urlDialog.type) return;
 
@@ -583,6 +667,7 @@ const ResearchCanvasInner = ({ projectId, clientId, projectName = "Projeto", inn
         onNodeDragStop={onNodeDragStop}
         onSelectionChange={onSelectionChange}
         nodeTypes={nodeTypes}
+        edgeTypes={edgeTypes}
         fitView
         className={background === "light" ? "bg-white" : "bg-muted/30"}
         noPanClassName="no-pan"
@@ -593,9 +678,14 @@ const ResearchCanvasInner = ({ projectId, clientId, projectName = "Projeto", inn
         panOnScroll
         selectNodesOnDrag={false}
         defaultEdgeOptions={{
-          type: 'default',
-          style: { stroke: '#8b5cf6', strokeWidth: 2 },
+          type: 'smooth',
+          style: { stroke: 'hsl(var(--muted-foreground) / 0.4)', strokeWidth: 2 },
           animated: false,
+          markerEnd: {
+            type: MarkerType.ArrowClosed,
+            width: 15,
+            height: 15,
+          },
         }}
       >
         <Background 
@@ -636,7 +726,23 @@ const ResearchCanvasInner = ({ projectId, clientId, projectName = "Projeto", inn
         )}
       </ReactFlow>
 
-      <CanvasToolbar 
+      {/* Quick Capture - Eden.so style */}
+      <QuickCapture 
+        onCapture={handleQuickCapture}
+        isProcessing={isProcessing}
+      />
+
+      {/* Floating AI Chat */}
+      {showFloatingChat && (
+        <FloatingAIChat
+          projectId={projectId}
+          clientId={clientId}
+          connectedItems={floatingChatItems}
+          onClose={() => setShowFloatingChat(false)}
+        />
+      )}
+
+      <CanvasToolbar
         onAddItem={handleAddItem} 
         activeTool={activeTool} 
         setActiveTool={setActiveTool} 
