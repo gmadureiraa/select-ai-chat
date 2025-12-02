@@ -10,9 +10,9 @@ const corsHeaders = {
 const MODEL_PRICING: Record<string, { input: number; output: number }> = {
   "gemini-2.0-flash-exp": { input: 0.00, output: 0.00 }, // Free tier
   "gemini-2.5-flash": { input: 0.075, output: 0.30 },
-  "gemini-2.5-flash-8b": { input: 0.0375, output: 0.15 },
   "gemini-2.5-pro": { input: 1.25, output: 5.00 },
   "gemini-1.5-flash": { input: 0.075, output: 0.30 },
+  "gemini-1.5-flash-8b": { input: 0.0375, output: 0.15 },
   "gemini-1.5-pro": { input: 1.25, output: 5.00 },
 };
 

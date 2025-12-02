@@ -329,7 +329,7 @@ ESTRATÉGIA:
       const { data: selectionData, error: selectionError } = await supabase.functions.invoke("chat", {
         body: {
           messages: selectionMessages,
-          model: "gemini-2.5-flash-8b", // Modelo mais barato e rápido
+          model: "gemini-1.5-flash-8b", // Modelo mais barato e rápido (8B)
           isSelectionPhase: true,
           availableMaterials,
           userId: user?.id,
