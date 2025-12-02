@@ -52,7 +52,7 @@ export const NoteNode = memo(({ data }: NodeProps<NoteNodeData>) => {
   return (
     <div 
       className={cn(
-        "bg-yellow-50 dark:bg-yellow-900/20 border-2 border-yellow-200 dark:border-yellow-700 rounded-xl shadow-md hover:shadow-lg transition-all",
+        "bg-yellow-900/20 border-2 border-yellow-700 rounded-xl shadow-md hover:shadow-lg transition-all",
         "p-3 min-w-[300px] max-w-[380px] group relative",
         isConnected && "ring-2 ring-yellow-400/50"
       )}
@@ -93,11 +93,11 @@ export const NoteNode = memo(({ data }: NodeProps<NoteNodeData>) => {
 
       {/* Header */}
       <div className="flex items-start gap-3 mb-3">
-        <div className="p-2 bg-yellow-100 dark:bg-yellow-800/30 rounded-lg border border-yellow-300 dark:border-yellow-700">
-          <StickyNote className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
+        <div className="p-2 bg-yellow-800/30 rounded-lg border border-yellow-700">
+          <StickyNote className="h-4 w-4 text-yellow-400" />
         </div>
         <div className="flex-1 min-w-0 pr-12">
-          <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-yellow-200 dark:bg-yellow-800/50 text-yellow-800 dark:text-yellow-300 text-xs font-medium">
+          <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-yellow-800/50 text-yellow-300 text-xs font-medium">
             Nota
           </span>
         </div>
