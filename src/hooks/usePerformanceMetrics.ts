@@ -83,6 +83,30 @@ export const useScrapeMetrics = () => {
   });
 };
 
+export const useFetchInstagramMetrics = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ 
+      clientId, 
+      username 
+    }: { 
+      clientId: string; 
+      username: string;
+    }) => {
+      const { data, error } = await supabase.functions.invoke('fetch-instagram-metrics', {
+        body: { clientId, username },
+      });
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['performance-metrics'] });
+    },
+  });
+};
+
 export const useFetchNotionMetrics = () => {
   const queryClient = useQueryClient();
 
