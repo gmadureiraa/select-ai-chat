@@ -14,11 +14,15 @@ export const validateMessage = (content: string): string | null => {
 
 export const validateModelId = (modelId: string): boolean => {
   const validModels = [
-    "gpt-5-2025-08-07",
-    "gpt-5-mini-2025-08-07",
-    "gpt-4.1-2025-04-14",
-    "o3-2025-04-16",
-    "o4-mini-2025-04-16",
+    "gemini-2.5-flash",
+    "gemini-2.5-flash-8b",
+    "gemini-2.0-flash-exp",
+    "gemini-2.0-flash-thinking-exp",
+    "gemini-exp-1206",
+    "gemini-2.5-pro",
+    "gemini-1.5-flash",
+    "gemini-1.5-flash-8b",
+    "gemini-1.5-pro",
   ];
   
   return validModels.includes(modelId);

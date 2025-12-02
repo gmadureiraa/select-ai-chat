@@ -18,7 +18,7 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { MessageBubble } from "@/components/MessageBubble";
 import { ChatInput } from "@/components/ChatInput";
-import { ModelSelector } from "@/components/ModelSelector";
+
 import { TaskSuggestions } from "@/components/chat/TaskSuggestions";
 import { AutonomousProgress } from "@/components/chat/AutonomousProgress";
 import { WorkflowVisualization } from "@/components/chat/WorkflowVisualization";
@@ -67,10 +67,8 @@ const ClientChat = () => {
     messages,
     isLoading,
     currentStep,
-    selectedModel,
     conversationRules,
     workflowState,
-    setSelectedModel,
     sendMessage,
     regenerateLastMessage,
     clearConversation,
@@ -124,7 +122,6 @@ const ClientChat = () => {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <ModelSelector value={selectedModel} onChange={setSelectedModel} />
             {messages.length > 0 && (
               <AlertDialog>
                 <AlertDialogTrigger asChild>
