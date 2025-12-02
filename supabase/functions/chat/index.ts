@@ -87,7 +87,7 @@ const contentSelectionTool = {
       properties: {
         detected_content_type: {
           type: "string",
-          enum: ["newsletter", "carousel", "reel_script", "video_script", "blog_post", "social_post", "general"],
+          enum: ["newsletter", "carousel", "stories", "reel_script", "video_script", "blog_post", "social_post", "general"],
           description: "Tipo de conteúdo solicitado"
         },
         selected_references: {
@@ -96,7 +96,7 @@ const contentSelectionTool = {
             type: "object",
             properties: {
               id: { type: "string" },
-              type: { type: "string", enum: ["content_library", "document"] },
+              type: { type: "string", enum: ["content_library", "document", "reference_library"] },
               reason: { type: "string" },
               priority: { type: "string", enum: ["high", "medium", "low"] }
             },
