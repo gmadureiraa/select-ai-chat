@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, Eye, Instagram, Youtube, Newspaper, RefreshCw, TrendingUp, TrendingDown, Users, CalendarIcon } from "lucide-react";
+import { ArrowLeft, Eye, Instagram, Youtube, Newspaper, RefreshCw, TrendingUp, TrendingDown, Users, CalendarIcon, Megaphone } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
@@ -29,7 +29,7 @@ export default function ClientPerformance() {
 const { toast } = useToast();
   const [dateRange, setDateRange] = useState("30");
   const [customDateRange, setCustomDateRange] = useState<DateRange | undefined>();
-  const [chartMetric, setChartMetric] = useState<"views" | "likes" | "followers" | "dailyGain" | "engagement">("followers");
+  const [chartMetric, setChartMetric] = useState<"views" | "reach" | "followers" | "dailyGain">("followers");
 
   const { data: client, isLoading } = useQuery({
     queryKey: ["client", clientId],
@@ -134,6 +134,12 @@ const { toast } = useToast();
     // Sum views for the period
     const totalViews = filteredMetrics.reduce((sum, m) => sum + (m.views || 0), 0);
     
+    // Sum reach for the period from metadata
+    const totalReach = filteredMetrics.reduce((sum, m) => {
+      const metadata = m.metadata as any;
+      return sum + (metadata?.reach || 0);
+    }, 0);
+    
     // Calculate follower gain in the period from daily_gain metadata
     const totalFollowerGain = filteredMetrics.reduce((sum, m) => {
       const metadata = m.metadata as any;
@@ -145,6 +151,7 @@ const { toast } = useToast();
     
     return {
       totalViews,
+      totalReach,
       totalFollowerGain,
       currentFollowers,
       daysInPeriod: filteredMetrics.length,
@@ -154,7 +161,7 @@ const { toast } = useToast();
   // Chart data configuration
   const chartConfig = useMemo(() => ({
     views: { label: "Visualizações", color: "hsl(217, 91%, 60%)", dataKey: "views" },
-    likes: { label: "Curtidas", color: "hsl(142, 71%, 45%)", dataKey: "likes" },
+    reach: { label: "Alcance", color: "hsl(280, 87%, 65%)", dataKey: "reach" },
     followers: { label: "Seguidores", color: "hsl(262, 83%, 58%)", dataKey: "subscribers" },
     dailyGain: { label: "Ganho Diário", color: "hsl(142, 71%, 45%)", dataKey: "daily_gain" },
     engagement: { label: "Engajamento (%)", color: "hsl(38, 92%, 50%)", dataKey: "engagement_rate" },
@@ -220,6 +227,7 @@ const { toast } = useToast();
         ...m,
         subscribers: calculatedSubscribers,
         daily_gain: dailyGain,
+        reach: metadata?.reach || 0,
         date: new Date(m.metric_date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }),
       };
     });
@@ -426,12 +434,18 @@ const { toast } = useToast();
       {!metricsLoading && periodMetrics && selectedChannel === "instagram" && (
         <>
           {/* Instagram KPI Cards - Period Based */}
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid gap-4 md:grid-cols-4">
             <KPICard
               title={`Visualizações (${periodMetrics.daysInPeriod} dias)`}
               value={periodMetrics.totalViews}
               change={null}
               icon={Eye}
+            />
+            <KPICard
+              title={`Alcance (${periodMetrics.daysInPeriod} dias)`}
+              value={periodMetrics.totalReach}
+              change={null}
+              icon={Megaphone}
             />
             <KPICard
               title="Seguidores atuais"
@@ -465,20 +479,17 @@ const { toast } = useToast();
                     onValueChange={(v) => v && setChartMetric(v as typeof chartMetric)}
                     className="bg-muted/50 p-1 rounded-lg"
                   >
+                    <ToggleGroupItem value="views" className="text-xs px-3 h-7 data-[state=on]:bg-background">
+                      Views
+                    </ToggleGroupItem>
+                    <ToggleGroupItem value="reach" className="text-xs px-3 h-7 data-[state=on]:bg-background">
+                      Alcance
+                    </ToggleGroupItem>
                     <ToggleGroupItem value="followers" className="text-xs px-3 h-7 data-[state=on]:bg-background">
                       Seguidores
                     </ToggleGroupItem>
                     <ToggleGroupItem value="dailyGain" className="text-xs px-3 h-7 data-[state=on]:bg-background">
                       Ganho Diário
-                    </ToggleGroupItem>
-                    <ToggleGroupItem value="views" className="text-xs px-3 h-7 data-[state=on]:bg-background">
-                      Views
-                    </ToggleGroupItem>
-                    <ToggleGroupItem value="likes" className="text-xs px-3 h-7 data-[state=on]:bg-background">
-                      Curtidas
-                    </ToggleGroupItem>
-                    <ToggleGroupItem value="engagement" className="text-xs px-3 h-7 data-[state=on]:bg-background">
-                      Engajamento
                     </ToggleGroupItem>
                   </ToggleGroup>
                 </div>
@@ -509,7 +520,6 @@ const { toast } = useToast();
                         tickLine={false}
                         tick={{ fill: 'hsl(var(--muted-foreground))' }}
                         tickFormatter={(value) => {
-                          if (chartMetric === 'engagement') return `${value}%`;
                           return value >= 1000 ? `${(value / 1000).toFixed(1)}k` : value;
                         }}
                       />
@@ -520,7 +530,7 @@ const { toast } = useToast();
                           borderRadius: '8px',
                         }}
                         formatter={(value: number) => [
-                          chartMetric === 'engagement' ? `${value.toFixed(2)}%` : value.toLocaleString('pt-BR'),
+                          value.toLocaleString('pt-BR'),
                           chartConfig[chartMetric].label
                         ]}
                       />
