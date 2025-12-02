@@ -10,6 +10,12 @@ import { useRealtimeMessages } from "@/hooks/useRealtimeMessages";
 import { useTemplateReferences } from "@/hooks/useTemplateReferences";
 import { useActivities } from "@/hooks/useActivities";
 import { useAuth } from "@/hooks/useAuth";
+import { 
+  GLOBAL_CONTENT_RULES, 
+  STORIES_FORMAT_RULES, 
+  CAROUSEL_FORMAT_RULES, 
+  IDEA_REQUEST_KEYWORDS 
+} from "@/types/template";
 
 export const useClientChat = (clientId: string, templateId?: string) => {
   const [selectedModel, setSelectedModel] = useState("gemini-2.5-flash");
@@ -482,26 +488,40 @@ Retorne uma análise clara e estruturada para guiar a criação de novo conteúd
         ``
       ];
 
-      // Adicionar regra obrigatória para carrosséis
-      if (selection.detected_content_type === "carousel") {
-        contextParts.push(`## 🎴 REGRA OBRIGATÓRIA PARA CARROSSÉIS`);
+      // Detectar se usuário está pedindo ideias (para dar flexibilidade nas regras)
+      const isAskingForIdeas = IDEA_REQUEST_KEYWORDS.some(keyword => 
+        content.toLowerCase().includes(keyword.toLowerCase())
+      );
+
+      // REGRA GLOBAL: Evitar emojis
+      contextParts.push(`## 🚫 REGRA GLOBAL DE EMOJIS`);
+      contextParts.push(``);
+      contextParts.push(GLOBAL_CONTENT_RULES.emoji);
+      contextParts.push(``);
+
+      // Aplicar regras de formato específicas por tipo de conteúdo
+      if (isAskingForIdeas) {
+        contextParts.push(`## 💡 MODO DE IDEIAS ATIVADO`);
         contextParts.push(``);
-        contextParts.push(`**TODO carrossel DEVE seguir esta estrutura:**`);
+        contextParts.push(`O usuário está pedindo ideias. Priorize CRIATIVIDADE e BRAINSTORMING.`);
+        contextParts.push(`Você pode ser mais flexível com formatos, mas ainda assim mantenha a regra de emojis.`);
         contextParts.push(``);
-        contextParts.push(`**Página 1 (Hook Inicial):**`);
-        contextParts.push(`- Título ou hook que chame atenção`);
-        contextParts.push(`- SEMPRE apresentar 2-3 opções fortes e chamativas`);
-        contextParts.push(`- Exemplo: "Qual dessas dores você sente?" seguido de 3 opções`);
+      }
+
+      // Regras de formato para Stories
+      if (selection.detected_content_type === "stories" || 
+          content.toLowerCase().includes("storie") || 
+          content.toLowerCase().includes("stories")) {
+        contextParts.push(STORIES_FORMAT_RULES);
         contextParts.push(``);
-        contextParts.push(`**Páginas 2 até n-1 (Desenvolvimento):**`);
-        contextParts.push(`- Uma ideia/conceito por página`);
-        contextParts.push(`- Desenvolvimento lógico do conteúdo`);
-        contextParts.push(``);
-        contextParts.push(`**Última Página (CTA):**`);
-        contextParts.push(`- SEMPRE finalizar com CTA clara e direta`);
-        contextParts.push(`- Pedir APENAS UMA ação: curtir OU seguir OU salvar`);
-        contextParts.push(`- A CTA deve conectar com o gancho inicial do carrossel`);
-        contextParts.push(`- Escolha a ação que fizer mais sentido para o conteúdo`);
+      }
+
+      // Regras de formato para Carrossel
+      if (selection.detected_content_type === "carousel" || 
+          selection.detected_content_type === "static_image" ||
+          content.toLowerCase().includes("carrossel") ||
+          content.toLowerCase().includes("carousel")) {
+        contextParts.push(CAROUSEL_FORMAT_RULES);
         contextParts.push(``);
         contextParts.push(`**IMPORTANTE:** Esta estrutura NÃO se aplica em Engenharia Reversa.`);
         contextParts.push(``);
