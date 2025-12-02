@@ -19,7 +19,6 @@ import { ResearchItemNode } from "./ResearchItemNode";
 import { AIChatNode } from "./AIChatNode";
 import { ContentLibraryNode } from "./ContentLibraryNode";
 import { ReferenceLibraryNode } from "./ReferenceLibraryNode";
-import { GrokSearchNode } from "./GrokSearchNode";
 import { TextNode } from "./TextNode";
 import { NoteNode } from "./NoteNode";
 import { AudioNode } from "./AudioNode";
@@ -36,7 +35,6 @@ const nodeTypes = {
   aiChat: AIChatNode,
   contentLibrary: ContentLibraryNode,
   referenceLibrary: ReferenceLibraryNode,
-  grokSearch: GrokSearchNode,
   text: TextNode,
   note: NoteNode,
   audio: AudioNode,
@@ -69,7 +67,6 @@ export const ResearchCanvas = ({ projectId, clientId }: ResearchCanvasProps) => 
       if (item.type === "ai_chat") nodeType = "aiChat";
       else if (item.type === "content_library") nodeType = "contentLibrary";
       else if (item.type === "reference_library") nodeType = "referenceLibrary";
-      else if (item.type === "grok_search") nodeType = "grokSearch";
       else if (item.type === "text") nodeType = "text";
       else if (item.type === "note") nodeType = "note";
       else if (item.type === "audio") nodeType = "audio";

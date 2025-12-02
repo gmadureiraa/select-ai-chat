@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Clock } from "lucide-react";
 import { useState } from "react";
 
 export interface AgentCardProps {
@@ -9,6 +9,7 @@ export interface AgentCardProps {
   features: string[];
   accentColor: "primary" | "secondary" | "accent";
   onOpen: () => void;
+  comingSoon?: boolean;
 }
 
 export default function AgentCard({
@@ -18,6 +19,7 @@ export default function AgentCard({
   features,
   accentColor,
   onOpen,
+  comingSoon = false,
 }: AgentCardProps) {
   const [isFlipped, setIsFlipped] = useState(false);
 
@@ -49,10 +51,13 @@ export default function AgentCard({
 
   return (
     <div
-      className="relative w-full max-w-[280px] h-[320px] group [perspective:2000px] cursor-pointer"
+      className={cn(
+        "relative w-full max-w-[280px] h-[320px] group [perspective:2000px]",
+        comingSoon ? "cursor-default" : "cursor-pointer"
+      )}
       onMouseEnter={() => setIsFlipped(true)}
       onMouseLeave={() => setIsFlipped(false)}
-      onClick={onOpen}
+      onClick={comingSoon ? undefined : onOpen}
     >
       <div
         className={cn(
@@ -121,54 +126,68 @@ export default function AgentCard({
             !isFlipped ? "opacity-0" : "opacity-100"
           )}
         >
-          <div className="flex-1 space-y-6">
-            <div className="space-y-2">
-              <h3 className="text-lg font-semibold text-foreground leading-snug tracking-tight">
-                {title}
+          {comingSoon ? (
+            <div className="flex-1 flex flex-col items-center justify-center text-center">
+              <Clock className="w-12 h-12 text-muted-foreground/50 mb-4" />
+              <h3 className="text-lg font-semibold text-foreground mb-2">
+                Em breve
               </h3>
-              <p className="text-sm text-muted-foreground tracking-tight line-clamp-2">
-                {description}
+              <p className="text-sm text-muted-foreground">
+                Este agente está em desenvolvimento
               </p>
             </div>
-
-            <div className="space-y-2">
-              {features.map((feature, index) => (
-                <div
-                  key={feature}
-                  className="flex items-center gap-2 text-sm text-foreground transition-all duration-500"
-                  style={{
-                    transform: isFlipped ? "translateX(0)" : "translateX(-10px)",
-                    opacity: isFlipped ? 1 : 0,
-                    transitionDelay: `${index * 100 + 200}ms`,
-                  }}
-                >
-                  <ArrowRight className={cn("w-3 h-3", colors.text)} />
-                  <span>{feature}</span>
+          ) : (
+            <>
+              <div className="flex-1 space-y-6">
+                <div className="space-y-2">
+                  <h3 className="text-lg font-semibold text-foreground leading-snug tracking-tight">
+                    {title}
+                  </h3>
+                  <p className="text-sm text-muted-foreground tracking-tight line-clamp-2">
+                    {description}
+                  </p>
                 </div>
-              ))}
-            </div>
-          </div>
 
-          <div className="pt-6 mt-6 border-t border-border">
-            <button
-              onClick={onOpen}
-              className={cn(
-                "w-full flex items-center justify-between",
-                "p-3 rounded-xl",
-                "transition-all duration-300",
-                colors.bg,
-                colors.hover,
-                colors.border,
-                "border",
-                "hover:scale-[1.02]"
-              )}
-            >
-              <span className={cn("text-sm font-semibold", colors.text)}>
-                Abrir
-              </span>
-              <ArrowRight className={cn("w-4 h-4", colors.text)} />
-            </button>
-          </div>
+                <div className="space-y-2">
+                  {features.map((feature, index) => (
+                    <div
+                      key={feature}
+                      className="flex items-center gap-2 text-sm text-foreground transition-all duration-500"
+                      style={{
+                        transform: isFlipped ? "translateX(0)" : "translateX(-10px)",
+                        opacity: isFlipped ? 1 : 0,
+                        transitionDelay: `${index * 100 + 200}ms`,
+                      }}
+                    >
+                      <ArrowRight className={cn("w-3 h-3", colors.text)} />
+                      <span>{feature}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="pt-6 mt-6 border-t border-border">
+                <button
+                  onClick={onOpen}
+                  className={cn(
+                    "w-full flex items-center justify-between",
+                    "p-3 rounded-xl",
+                    "transition-all duration-300",
+                    colors.bg,
+                    colors.hover,
+                    colors.border,
+                    "border",
+                    "hover:scale-[1.02]"
+                  )}
+                >
+                  <span className={cn("text-sm font-semibold", colors.text)}>
+                    Abrir
+                  </span>
+                  <ArrowRight className={cn("w-4 h-4", colors.text)} />
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>

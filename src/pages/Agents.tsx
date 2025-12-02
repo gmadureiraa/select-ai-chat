@@ -17,7 +17,8 @@ const Agents = () => {
         "Adaptação ao cliente",
       ],
       accentColor: "accent" as const,
-      onOpen: () => navigate("/reverse-engineering"),
+      onOpen: () => {},
+      comingSoon: true,
     },
     {
       title: "Assistente kAI",
@@ -95,6 +96,7 @@ const Agents = () => {
               features={agent.features}
               accentColor={agent.accentColor}
               onOpen={agent.onOpen}
+              comingSoon={agent.comingSoon}
             />
           </div>
         ))}
