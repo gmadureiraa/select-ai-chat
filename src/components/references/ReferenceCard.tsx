@@ -18,6 +18,10 @@ const REFERENCE_TYPE_LABELS: Record<string, string> = {
   reel: "Reel",
   video: "Vídeo",
   article: "Artigo",
+  stories: "Stories",
+  static_image: "Estático Único",
+  short_video: "Vídeo Curto",
+  long_video: "Vídeo Longo",
   other: "Outro"
 };
 

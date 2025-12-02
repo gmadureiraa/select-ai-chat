@@ -1,7 +1,7 @@
 import { ContentItem } from "@/hooks/useContentLibrary";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Edit, Trash2, FileText, Instagram, Video, Film, Globe, MessageSquare } from "lucide-react";
+import { Edit, Trash2, FileText, Instagram, Video, Film, Globe, MessageSquare, Smartphone, Image as ImageIcon, Play } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 interface ContentCardProps {
@@ -18,11 +18,15 @@ const contentTypeConfig = {
   video_script: { label: "Roteiro Vídeo", icon: Video, color: "bg-red-500/10 text-red-500" },
   blog_post: { label: "Post Blog", icon: Globe, color: "bg-green-500/10 text-green-500" },
   social_post: { label: "Post Social", icon: MessageSquare, color: "bg-cyan-500/10 text-cyan-500" },
+  stories: { label: "Stories", icon: Smartphone, color: "bg-orange-500/10 text-orange-500" },
+  static_image: { label: "Estático Único", icon: ImageIcon, color: "bg-indigo-500/10 text-indigo-500" },
+  short_video: { label: "Vídeo Curto", icon: Play, color: "bg-red-500/10 text-red-500" },
+  long_video: { label: "Vídeo Longo", icon: Video, color: "bg-purple-500/10 text-purple-500" },
   other: { label: "Outro", icon: FileText, color: "bg-gray-500/10 text-gray-500" },
 };
 
 export const ContentCard = ({ content, onEdit, onDelete, onView }: ContentCardProps) => {
-  const config = contentTypeConfig[content.content_type];
+  const config = contentTypeConfig[content.content_type] || contentTypeConfig.other;
   const Icon = config.icon;
 
   return (
