@@ -90,14 +90,30 @@ export const AddItemMenu = ({ projectId, onClose }: AddItemMenuProps) => {
 
         case "link":
           if (!url.trim()) return;
+          toast({ title: "Extraindo conteúdo do link...", description: "Isso pode levar alguns segundos." });
+          
+          const { data: linkData, error: linkError } = await supabase.functions.invoke("scrape-research-link", {
+            body: { url },
+          });
+          
+          if (linkError) throw linkError;
+          
           await createItem.mutateAsync({
             project_id: projectId,
             type: "link",
-            title: url,
+            title: linkData.data.title || url,
+            content: linkData.data.content,
             source_url: url,
-            processed: false,
+            thumbnail_url: linkData.data.thumbnail,
+            metadata: {
+              description: linkData.data.description,
+              images: linkData.data.images,
+              textLength: linkData.data.textLength,
+              imagesTranscribed: linkData.data.imagesTranscribed
+            },
+            processed: true,
           });
-          toast({ title: "Link adicionado" });
+          toast({ title: "Link extraído", description: "Texto e imagens foram processados." });
           break;
 
         case "audio":
@@ -258,8 +274,8 @@ export const AddItemMenu = ({ projectId, onClose }: AddItemMenuProps) => {
               <LinkIcon className="h-4 w-4 text-green-600" />
             </div>
             <div className="text-left flex-1">
-              <div className="font-medium text-sm">Link</div>
-              <div className="text-xs text-muted-foreground">URL externa</div>
+              <div className="font-medium text-sm">Link / Website</div>
+              <div className="text-xs text-muted-foreground">Extrai texto e imagens automaticamente</div>
             </div>
           </Button>
 
@@ -400,15 +416,18 @@ export const AddItemMenu = ({ projectId, onClose }: AddItemMenuProps) => {
         {selectedType === "link" && (
           <>
             <div>
-              <Label>URL</Label>
+              <Label>URL do site ou artigo</Label>
               <Input
                 placeholder="https://..."
                 value={url}
                 onChange={(e) => setUrl(e.target.value)}
               />
+              <p className="text-xs text-muted-foreground mt-1">
+                O conteúdo e as imagens serão extraídos automaticamente
+              </p>
             </div>
             <Button onClick={handleAddItem} className="w-full" disabled={!url.trim() || isProcessing}>
-              Adicionar Link
+              {isProcessing ? "Extraindo conteúdo..." : "Extrair e Adicionar"}
             </Button>
           </>
         )}
