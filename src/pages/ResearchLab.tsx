@@ -28,15 +28,15 @@ const ResearchLab = () => {
         </div>
 
         {!selectedProjectId ? (
-          <div className="flex items-center justify-center flex-1 bg-white">
-            <div className="text-center text-gray-500">
+          <div className="flex items-center justify-center flex-1 bg-muted/30">
+            <div className="text-center text-muted-foreground">
               <p className="text-lg mb-2">Nenhum projeto selecionado</p>
               <p className="text-sm">Selecione ou crie um projeto para começar</p>
             </div>
           </div>
         ) : (
-          <div className="flex-1 p-4 overflow-hidden bg-white">
-            <div className="h-full overflow-hidden rounded-lg border border-gray-200 shadow-sm">
+          <div className="flex-1 p-4 overflow-hidden bg-muted/30">
+            <div className="h-full overflow-hidden rounded-lg border border-border shadow-sm bg-background">
               <ResearchCanvas 
                 projectId={selectedProjectId} 
                 clientId={selectedProject?.client_id || undefined} 

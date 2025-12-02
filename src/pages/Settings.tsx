@@ -5,6 +5,7 @@ import { useAIUsage } from "@/hooks/useAIUsage";
 import { User, Zap, CreditCard, TrendingUp, Activity } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
+import { PageHeader } from "@/components/PageHeader";
 
 export default function Settings() {
   const { user } = useAuth();
@@ -23,11 +24,11 @@ export default function Settings() {
   };
 
   return (
-    <div className="container mx-auto py-8 px-6 max-w-5xl">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">Configurações</h1>
-        <p className="text-muted-foreground">Gerencie suas preferências e informações da conta</p>
-      </div>
+    <div className="max-w-6xl mx-auto px-6 py-8 space-y-6">
+      <PageHeader 
+        title="Configurações" 
+        subtitle="Gerencie suas preferências e informações da conta"
+      />
 
       <div className="space-y-6">
         {/* Perfil */}

@@ -1,14 +1,14 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useActivities, ActivityType } from "@/hooks/useActivities";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { ArrowLeft, Activity, Search, Filter, X } from "lucide-react";
+import { Activity, Search, Filter, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PageHeader } from "@/components/PageHeader";
 import {
   Select,
   SelectContent,
@@ -18,7 +18,6 @@ import {
 } from "@/components/ui/select";
 
 const Activities = () => {
-  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedType, setSelectedType] = useState<ActivityType | "all">("all");
   const [limit, setLimit] = useState(50);
@@ -77,7 +76,7 @@ const Activities = () => {
 
   if (isLoading) {
     return (
-      <div className="container mx-auto p-6 space-y-6">
+      <div className="max-w-6xl mx-auto px-6 py-8 space-y-6">
         <Skeleton className="h-12 w-64" />
         <div className="space-y-4">
           {[...Array(10)].map((_, i) => (
@@ -89,19 +88,11 @@ const Activities = () => {
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => navigate("/agents")}>
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
-        <div className="flex-1">
-          <h1 className="text-2xl font-semibold tracking-tight">Registro de Atividades</h1>
-          <p className="text-sm text-muted-foreground">
-            Histórico completo de todas as suas ações no sistema
-          </p>
-        </div>
-      </div>
+    <div className="max-w-6xl mx-auto px-6 py-8 space-y-6">
+      <PageHeader 
+        title="Registro de Atividades" 
+        subtitle="Histórico completo de todas as suas ações no sistema"
+      />
 
       {/* Filters */}
       <Card className="border-border/50 bg-card/50">

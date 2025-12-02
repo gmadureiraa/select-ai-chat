@@ -34,7 +34,7 @@ const Login = () => {
           <div className="flex items-center justify-center gap-4">
             <img src={kaleidosLogo} alt="Kaleidos" className="h-12 w-12" />
             <h1 className="text-4xl font-bold">
-              k<span className="text-primary drop-shadow-[0_0_10px_rgba(0,255,127,0.5)]">AI</span>
+              k<span className="text-primary">AI</span>
             </h1>
           </div>
           <div>

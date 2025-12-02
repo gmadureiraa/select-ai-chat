@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import AgentCard from "@/components/agents/AgentCard";
+import { PageHeader } from "@/components/PageHeader";
 
 const Agents = () => {
   const navigate = useNavigate();
@@ -73,18 +74,11 @@ const Agents = () => {
   ];
 
   return (
-    <div className="container max-w-7xl mx-auto px-6 py-8 space-y-8">
-      {/* Header estilo webapp */}
-      <header className="flex items-center justify-between gap-6">
-        <div className="space-y-1">
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Agentes Kaleidos
-          </h1>
-          <p className="text-sm text-muted-foreground max-w-xl">
-            Escolha um agente para gerenciar clientes, automatizar conteúdos e analisar performance.
-          </p>
-        </div>
-      </header>
+    <div className="max-w-6xl mx-auto px-6 py-8 space-y-8">
+      <PageHeader 
+        title="Agentes Kaleidos" 
+        subtitle="Escolha um agente para gerenciar clientes, automatizar conteúdos e analisar performance."
+      />
 
       {/* Agent Cards Grid */}
       <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
