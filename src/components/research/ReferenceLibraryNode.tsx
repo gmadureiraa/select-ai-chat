@@ -12,6 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 interface ReferenceLibraryNodeData {
   item: ResearchItem;
   onDelete: (id: string) => void;
+  clientId?: string;
 }
 
 interface ReferenceItem {
@@ -25,19 +26,25 @@ interface ReferenceItem {
 }
 
 export const ReferenceLibraryNode = memo(({ data }: { data: ReferenceLibraryNodeData }) => {
-  const { item, onDelete } = data;
+  const { item, onDelete, clientId } = data;
   const { toast } = useToast();
   const [selectedReferenceId, setSelectedReferenceId] = useState<string | null>(
     item.metadata?.selected_reference_id || null
   );
 
   const { data: allReferences = [], isLoading } = useQuery({
-    queryKey: ["all-reference-library"],
+    queryKey: ["reference-library", clientId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("client_reference_library")
         .select("*, clients(name)")
         .order("created_at", { ascending: false });
+
+      if (clientId) {
+        query = query.eq("client_id", clientId);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       return data as ReferenceItem[];

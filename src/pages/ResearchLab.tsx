@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { AppLayout } from "@/components/AppLayout";
 import { ProjectSelector } from "@/components/research/ProjectSelector";
-import { ClientSelector } from "@/components/research/ClientSelector";
 import { ResearchCanvas } from "@/components/research/ResearchCanvas";
+import { useResearchProjects } from "@/hooks/useResearchProjects";
 
 const ResearchLab = () => {
   const [selectedProjectId, setSelectedProjectId] = useState<string>();
-  const [selectedClientId, setSelectedClientId] = useState<string>();
+  const { projects } = useResearchProjects();
+  const selectedProject = projects.find(p => p.id === selectedProjectId);
 
   return (
     <AppLayout>
@@ -18,12 +19,12 @@ const ResearchLab = () => {
               selectedProjectId={selectedProjectId}
               onSelectProject={setSelectedProjectId}
             />
-            <ClientSelector
-              selectedClientId={selectedClientId}
-              onSelectClient={setSelectedClientId}
-            />
+            {selectedProject?.client_id && (
+              <div className="text-sm text-muted-foreground">
+                Cliente filtrado no projeto
+              </div>
+            )}
           </div>
-          
         </div>
 
         {!selectedProjectId ? (
@@ -36,7 +37,10 @@ const ResearchLab = () => {
         ) : (
           <div className="flex-1 p-4 overflow-hidden bg-white">
             <div className="h-full overflow-hidden rounded-lg border border-gray-200 shadow-sm">
-              <ResearchCanvas projectId={selectedProjectId} clientId={selectedClientId} />
+              <ResearchCanvas 
+                projectId={selectedProjectId} 
+                clientId={selectedProject?.client_id || undefined} 
+              />
             </div>
           </div>
         )}

@@ -7,6 +7,7 @@ export interface ResearchProject {
   user_id: string;
   name: string;
   description: string | null;
+  client_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -29,10 +30,10 @@ export const useResearchProjects = () => {
   });
 
   const createProject = useMutation({
-    mutationFn: async ({ name, description }: { name: string; description?: string }) => {
+    mutationFn: async ({ name, description, client_id }: { name: string; description?: string; client_id?: string }) => {
       const { data, error } = await supabase
         .from("research_projects")
-        .insert([{ name, description } as any])
+        .insert([{ name, description, client_id } as any])
         .select()
         .single();
 
@@ -56,10 +57,10 @@ export const useResearchProjects = () => {
   });
 
   const updateProject = useMutation({
-    mutationFn: async ({ id, name, description }: { id: string; name: string; description?: string }) => {
+    mutationFn: async ({ id, name, description, client_id }: { id: string; name: string; description?: string; client_id?: string }) => {
       const { data, error } = await supabase
         .from("research_projects")
-        .update({ name, description })
+        .update({ name, description, client_id })
         .eq("id", id)
         .select()
         .single();

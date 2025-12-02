@@ -12,6 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 interface ContentLibraryNodeData {
   item: ResearchItem;
   onDelete: (id: string) => void;
+  clientId?: string;
 }
 
 interface ContentItem {
@@ -24,19 +25,25 @@ interface ContentItem {
 }
 
 export const ContentLibraryNode = memo(({ data }: { data: ContentLibraryNodeData }) => {
-  const { item, onDelete } = data;
+  const { item, onDelete, clientId } = data;
   const { toast } = useToast();
   const [selectedContentId, setSelectedContentId] = useState<string | null>(
     item.metadata?.selected_content_id || null
   );
 
   const { data: allContents = [], isLoading } = useQuery({
-    queryKey: ["all-content-library"],
+    queryKey: ["content-library", clientId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("client_content_library")
         .select("*, clients(name)")
         .order("created_at", { ascending: false });
+
+      if (clientId) {
+        query = query.eq("client_id", clientId);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       return data as ContentItem[];
