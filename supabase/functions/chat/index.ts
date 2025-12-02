@@ -9,13 +9,12 @@ const corsHeaders = {
 
 // Pricing por 1M tokens (USD) - Preços oficiais do Google AI Studio
 const MODEL_PRICING: Record<string, { input: number; output: number }> = {
-  "gemini-2.0-flash-exp": { input: 0.00, output: 0.00 }, // Free tier
-  "gemini-2.0-flash-thinking-exp": { input: 0.00, output: 0.00 }, // Free tier
-  "gemini-exp-1206": { input: 0.00, output: 0.00 }, // Free tier
-  "gemini-2.5-flash": { input: 0.075, output: 0.30 }, // Preço oficial Google
-  "gemini-2.5-pro": { input: 1.25, output: 5.00 }, // Preço oficial Google
+  "gemini-3-pro-preview": { input: 0.00, output: 0.00 }, // Free tier
+  "gemini-2.5-flash": { input: 0.075, output: 0.30 },
+  "gemini-2.5-flash-lite": { input: 0.0375, output: 0.15 }, // Mais barato
+  "gemini-2.5-pro": { input: 1.25, output: 5.00 },
+  "gemini-2.0-flash-exp": { input: 0.00, output: 0.00 }, // Free experimental
   "gemini-1.5-flash": { input: 0.075, output: 0.30 },
-  "gemini-1.5-flash-8b": { input: 0.0375, output: 0.15 }, // Mais barato
   "gemini-1.5-pro": { input: 1.25, output: 5.00 },
 };
 
