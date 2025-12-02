@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, useRef } from "react";
+import { useCallback, useEffect, useState, useRef, forwardRef, useImperativeHandle } from "react";
 import ReactFlow, {
   Node,
   Edge,
@@ -51,6 +51,10 @@ interface ResearchCanvasProps {
   onPresentationMode?: () => void;
 }
 
+export interface ResearchCanvasRef {
+  applyTemplate: (templateItems: Array<{ type: string; title: string; content?: string; position_x: number; position_y: number }>) => Promise<void>;
+}
+
 const nodeTypes = {
   researchItem: ResearchItemNode,
   aiChat: AIChatNode,
@@ -86,11 +90,43 @@ const nodeColors: Record<string, string> = {
   group: "#64748b",
 };
 
-const ResearchCanvasInner = ({ projectId, clientId, projectName = "Projeto" }: ResearchCanvasProps) => {
+interface ResearchCanvasInnerProps extends ResearchCanvasProps {
+  innerRef?: React.Ref<ResearchCanvasRef>;
+}
+
+const ResearchCanvasInner = ({ projectId, clientId, projectName = "Projeto", innerRef }: ResearchCanvasInnerProps) => {
   const { items, deleteItem, updateItem, connections, createConnection, deleteConnection, createItem } = useResearchItems(projectId);
   const { toast } = useToast();
   const { getNodes, deleteElements } = useReactFlow();
   const canvasRef = useRef<HTMLDivElement>(null);
+
+  // Expose applyTemplate method via ref
+  useImperativeHandle(innerRef, () => ({
+    applyTemplate: async (templateItems) => {
+      try {
+        toast({ title: "Aplicando template...", description: "Adicionando itens ao canvas." });
+        
+        for (const item of templateItems) {
+          await createItem.mutateAsync({
+            project_id: projectId,
+            type: item.type as any,
+            title: item.title,
+            content: item.content || "",
+            position_x: item.position_x,
+            position_y: item.position_y,
+          });
+        }
+        
+        toast({ title: "Template aplicado", description: `${templateItems.length} itens adicionados ao canvas.` });
+      } catch (error: any) {
+        toast({
+          title: "Erro ao aplicar template",
+          description: error.message,
+          variant: "destructive",
+        });
+      }
+    },
+  }), [projectId, createItem, toast]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
@@ -664,10 +700,10 @@ const ResearchCanvasInner = ({ projectId, clientId, projectName = "Projeto" }: R
   );
 };
 
-export const ResearchCanvas = (props: ResearchCanvasProps) => {
+export const ResearchCanvas = forwardRef<ResearchCanvasRef, ResearchCanvasProps>((props, ref) => {
   return (
     <ReactFlowProvider>
-      <ResearchCanvasInner {...props} />
+      <ResearchCanvasInner {...props} innerRef={ref} />
     </ReactFlowProvider>
   );
-};
+});
