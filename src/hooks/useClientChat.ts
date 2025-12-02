@@ -12,7 +12,7 @@ import { useActivities } from "@/hooks/useActivities";
 import { useAuth } from "@/hooks/useAuth";
 
 export const useClientChat = (clientId: string, templateId?: string) => {
-  const [selectedModel, setSelectedModel] = useState("gpt-5-mini-2025-08-07");
+  const [selectedModel, setSelectedModel] = useState("google/gemini-2.5-flash");
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [currentStep, setCurrentStep] = useState<ProcessStep>(null);
@@ -329,7 +329,7 @@ ESTRATÉGIA:
       const { data: selectionData, error: selectionError } = await supabase.functions.invoke("chat", {
         body: {
           messages: selectionMessages,
-          model: "gpt-5-nano-2025-08-07", // Modelo mais barato para seleção
+          model: "google/gemini-2.5-flash-lite", // Modelo mais barato para seleção
           isSelectionPhase: true,
           availableMaterials,
           userId: user?.id,
@@ -412,7 +412,7 @@ Retorne uma análise clara e estruturada para guiar a criação de novo conteúd
           const { data: analysisData, error: analysisError } = await supabase.functions.invoke("chat", {
             body: {
               messages: analysisMessages,
-              model: "gpt-5-mini-2025-08-07",
+              model: "google/gemini-2.5-flash",
               isSelectionPhase: false,
               userId: user?.id,
               clientId
