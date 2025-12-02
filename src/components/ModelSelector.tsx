@@ -9,7 +9,7 @@ import { Brain } from "lucide-react";
 
 const MODELS = [
   { id: "gemini-2.5-flash", name: "Gemini 2.5 Flash", description: "Balanceado e rápido (recomendado)" },
-  { id: "gemini-2.5-flash-8b", name: "Gemini 2.5 Flash 8B", description: "Mais rápido e econômico" },
+  { id: "gemini-1.5-flash-8b", name: "Gemini 1.5 Flash 8B", description: "Mais rápido e econômico" },
   { id: "gemini-2.0-flash-exp", name: "Gemini 2.0 Flash Exp", description: "Experimental grátis" },
   { id: "gemini-2.5-pro", name: "Gemini 2.5 Pro", description: "Máxima qualidade" },
   { id: "gemini-1.5-flash", name: "Gemini 1.5 Flash", description: "Versão estável anterior" },

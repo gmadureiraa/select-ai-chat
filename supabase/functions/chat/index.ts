@@ -13,10 +13,9 @@ const MODEL_PRICING: Record<string, { input: number; output: number }> = {
   "gemini-2.0-flash-thinking-exp": { input: 0.00, output: 0.00 }, // Free tier
   "gemini-exp-1206": { input: 0.00, output: 0.00 }, // Free tier
   "gemini-2.5-flash": { input: 0.075, output: 0.30 }, // Preço oficial Google
-  "gemini-2.5-flash-8b": { input: 0.0375, output: 0.15 }, // Preço oficial Google (antigo flash-lite)
   "gemini-2.5-pro": { input: 1.25, output: 5.00 }, // Preço oficial Google
   "gemini-1.5-flash": { input: 0.075, output: 0.30 },
-  "gemini-1.5-flash-8b": { input: 0.0375, output: 0.15 },
+  "gemini-1.5-flash-8b": { input: 0.0375, output: 0.15 }, // Mais barato
   "gemini-1.5-pro": { input: 1.25, output: 5.00 },
 };
 
@@ -38,13 +37,8 @@ function getGoogleModelName(model: string): string {
   // Remove prefixo "google/" se existir
   const cleanModel = model.replace("google/", "");
   
-  // Mapear aliases para nomes oficiais
-  const modelMap: Record<string, string> = {
-    "gemini-2.5-flash-lite": "gemini-2.5-flash-8b",
-    "gemini-3-pro-preview": "gemini-2.0-flash-exp", // Modelo experimental mais recente
-  };
-  
-  return modelMap[cleanModel] || cleanModel;
+  // Retornar modelo limpo (todos os nomes já estão corretos)
+  return cleanModel;
 }
 
 async function logAIUsage(
@@ -144,6 +138,7 @@ serve(async (req) => {
 
     // Converter modelo para formato Google
     const googleModel = getGoogleModelName(model);
+    console.log(`[CHAT] Using Google model: ${googleModel}`);
     
     // Preparar conteúdos para o Google Gemini API
     const contents = messages
