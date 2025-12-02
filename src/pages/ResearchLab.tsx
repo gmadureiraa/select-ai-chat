@@ -11,11 +11,35 @@ import { AutomationsPanel } from "@/components/research/AutomationsPanel";
 import { useResearchProjects } from "@/hooks/useResearchProjects";
 import { useResearchItems } from "@/hooks/useResearchItems";
 import { Button } from "@/components/ui/button";
-import { Presentation } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+  DropdownMenuLabel,
+} from "@/components/ui/dropdown-menu";
+import { 
+  Presentation, 
+  Settings2, 
+  LayoutTemplate, 
+  Zap, 
+  MessageSquare, 
+  History, 
+  Share2,
+  Sun,
+  Moon,
+} from "lucide-react";
 
 const ResearchLab = () => {
   const [selectedProjectId, setSelectedProjectId] = useState<string>();
   const [showPresentation, setShowPresentation] = useState(false);
+  const [canvasBackground, setCanvasBackground] = useState<"dark" | "light">("dark");
+  const [showTemplates, setShowTemplates] = useState(false);
+  const [showAutomations, setShowAutomations] = useState(false);
+  const [showComments, setShowComments] = useState(false);
+  const [showVersions, setShowVersions] = useState(false);
+  const [showSharing, setShowSharing] = useState(false);
   const canvasRef = useRef<ResearchCanvasRef>(null);
   const { projects } = useResearchProjects();
   const selectedProject = projects.find(p => p.id === selectedProjectId);
@@ -46,11 +70,55 @@ const ResearchLab = () => {
 
           {selectedProjectId && (
             <div className="flex items-center gap-2">
-              <ProjectTemplates onApplyTemplate={handleApplyTemplate} />
-              <AutomationsPanel projectId={selectedProjectId} />
-              <CommentsPanel projectId={selectedProjectId} />
-              <VersionHistoryPanel projectId={selectedProjectId} />
-              <SharingDialog projectId={selectedProjectId} projectName={selectedProject?.name} />
+              {/* Background Toggle */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCanvasBackground(canvasBackground === "dark" ? "light" : "dark")}
+                className="gap-2"
+              >
+                {canvasBackground === "dark" ? (
+                  <Sun className="h-4 w-4" />
+                ) : (
+                  <Moon className="h-4 w-4" />
+                )}
+              </Button>
+
+              {/* Configs Dropdown */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="gap-2">
+                    <Settings2 className="h-4 w-4" />
+                    Configurações
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuLabel>Projeto</DropdownMenuLabel>
+                  <DropdownMenuItem onClick={() => setShowTemplates(true)}>
+                    <LayoutTemplate className="h-4 w-4 mr-2" />
+                    Templates
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setShowAutomations(true)}>
+                    <Zap className="h-4 w-4 mr-2" />
+                    Automações
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuLabel>Colaboração</DropdownMenuLabel>
+                  <DropdownMenuItem onClick={() => setShowComments(true)}>
+                    <MessageSquare className="h-4 w-4 mr-2" />
+                    Comentários
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setShowSharing(true)}>
+                    <Share2 className="h-4 w-4 mr-2" />
+                    Compartilhar
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setShowVersions(true)}>
+                    <History className="h-4 w-4 mr-2" />
+                    Histórico de Versões
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
               {items && items.length > 0 && (
                 <Button
                   variant="outline"
@@ -81,11 +149,54 @@ const ResearchLab = () => {
                 projectId={selectedProjectId} 
                 clientId={selectedProject?.client_id || undefined}
                 projectName={selectedProject?.name}
+                background={canvasBackground}
               />
             </div>
           </div>
         )}
       </div>
+
+      {/* Dialogs/Panels - controlled by state */}
+      {showTemplates && (
+        <ProjectTemplates 
+          onApplyTemplate={handleApplyTemplate} 
+          open={showTemplates}
+          onOpenChange={setShowTemplates}
+        />
+      )}
+      
+      {showAutomations && selectedProjectId && (
+        <AutomationsPanel 
+          projectId={selectedProjectId}
+          open={showAutomations}
+          onOpenChange={setShowAutomations}
+        />
+      )}
+      
+      {showComments && selectedProjectId && (
+        <CommentsPanel 
+          projectId={selectedProjectId}
+          open={showComments}
+          onOpenChange={setShowComments}
+        />
+      )}
+      
+      {showVersions && selectedProjectId && (
+        <VersionHistoryPanel 
+          projectId={selectedProjectId}
+          open={showVersions}
+          onOpenChange={setShowVersions}
+        />
+      )}
+      
+      {showSharing && selectedProjectId && (
+        <SharingDialog 
+          projectId={selectedProjectId}
+          projectName={selectedProject?.name}
+          open={showSharing}
+          onOpenChange={setShowSharing}
+        />
+      )}
 
       {/* Presentation Mode */}
       {showPresentation && items && (

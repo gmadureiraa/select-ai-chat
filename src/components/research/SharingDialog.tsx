@@ -8,7 +8,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   Select,
@@ -17,7 +16,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Share2,
@@ -35,6 +33,8 @@ import { ptBR } from "date-fns/locale";
 interface SharingDialogProps {
   projectId: string;
   projectName?: string;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
 const permissionLabels: Record<SharePermission, { label: string; icon: React.ReactNode }> = {
@@ -43,7 +43,7 @@ const permissionLabels: Record<SharePermission, { label: string; icon: React.Rea
   admin: { label: "Admin", icon: <Shield className="h-3.5 w-3.5" /> },
 };
 
-export const SharingDialog = ({ projectId, projectName }: SharingDialogProps) => {
+export const SharingDialog = ({ projectId, projectName, open, onOpenChange }: SharingDialogProps) => {
   const { shares, shareProject, updatePermission, removeShare } = useResearchSharing(projectId);
   const [email, setEmail] = useState("");
   const [permission, setPermission] = useState<SharePermission>("view");
@@ -64,13 +64,7 @@ export const SharingDialog = ({ projectId, projectName }: SharingDialogProps) =>
   };
 
   return (
-    <Dialog>
-      <DialogTrigger asChild>
-        <Button variant="outline" size="sm" className="gap-2">
-          <Share2 className="h-4 w-4" />
-          Compartilhar
-        </Button>
-      </DialogTrigger>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">

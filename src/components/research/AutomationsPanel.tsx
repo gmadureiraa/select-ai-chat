@@ -8,7 +8,6 @@ import {
   SheetContent,
   SheetHeader,
   SheetTitle,
-  SheetTrigger,
 } from "@/components/ui/sheet";
 import {
   Select,
@@ -48,9 +47,11 @@ const actionOptions = [
 
 interface AutomationsPanelProps {
   projectId: string;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
-export const AutomationsPanel = ({ projectId }: AutomationsPanelProps) => {
+export const AutomationsPanel = ({ projectId, open, onOpenChange }: AutomationsPanelProps) => {
   const { toast } = useToast();
   const [automations, setAutomations] = useState<Automation[]>([
     {
@@ -124,13 +125,7 @@ export const AutomationsPanel = ({ projectId }: AutomationsPanelProps) => {
     actionOptions.find(o => o.value === value)?.label || value;
 
   return (
-    <Sheet>
-      <SheetTrigger asChild>
-        <Button variant="outline" size="sm" className="gap-2">
-          <Zap className="h-4 w-4" />
-          Automações
-        </Button>
-      </SheetTrigger>
+    <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="w-[400px] sm:w-[540px]">
         <SheetHeader>
           <SheetTitle className="flex items-center gap-2">
