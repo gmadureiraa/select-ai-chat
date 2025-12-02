@@ -7,15 +7,17 @@ import { ResearchItem } from "@/hooks/useResearchItems";
 import { useResearchItems } from "@/hooks/useResearchItems";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { cn } from "@/lib/utils";
 
 interface AudioNodeData {
   item: ResearchItem;
   onDelete: (id: string) => void;
   projectId: string;
+  isConnected?: boolean;
 }
 
 export const AudioNode = memo(({ data }: NodeProps<AudioNodeData>) => {
-  const { item, onDelete, projectId } = data;
+  const { item, onDelete, projectId, isConnected } = data;
   const { updateItem } = useResearchItems(projectId);
   const { toast } = useToast();
   const [isRecording, setIsRecording] = useState(false);
@@ -47,10 +49,8 @@ export const AudioNode = memo(({ data }: NodeProps<AudioNodeData>) => {
         
         stream.getTracks().forEach(track => track.stop());
 
-        // Transcrever o áudio
         setIsTranscribing(true);
         try {
-          // Converter blob para base64
           const reader = new FileReader();
           reader.readAsDataURL(audioBlob);
           reader.onloadend = async () => {
@@ -62,7 +62,6 @@ export const AudioNode = memo(({ data }: NodeProps<AudioNodeData>) => {
 
             if (error) throw error;
 
-            // Salvar áudio com transcrição
             updateItem.mutate({
               id: item.id,
               title: title || `Áudio ${new Date().toLocaleString()}`,
@@ -83,7 +82,6 @@ export const AudioNode = memo(({ data }: NodeProps<AudioNodeData>) => {
             description: error.message,
             variant: "destructive",
           });
-          // Salvar sem transcrição
           updateItem.mutate({
             id: item.id,
             title: title || `Áudio ${new Date().toLocaleString()}`,
@@ -144,17 +142,31 @@ export const AudioNode = memo(({ data }: NodeProps<AudioNodeData>) => {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  return (
-    <div className="bg-white border-2 border-pink-200 rounded-xl shadow-lg hover:shadow-xl transition-shadow p-4 min-w-[300px] max-w-[320px] group relative">
-      <Handle type="target" position={Position.Top} className="w-3 h-3 !bg-gray-400" />
-      <Handle type="source" position={Position.Bottom} className="w-3 h-3 !bg-gray-400" />
-      <Handle type="source" position={Position.Left} className="w-3 h-3 !bg-gray-400" />
-      <Handle type="source" position={Position.Right} className="w-3 h-3 !bg-gray-400" />
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Delete" || e.key === "Backspace") {
+      e.stopPropagation();
+    }
+  };
 
+  return (
+    <div 
+      className={cn(
+        "bg-card border-2 border-pink-200 dark:border-pink-800 rounded-xl shadow-md hover:shadow-lg transition-all",
+        "p-3 min-w-[300px] max-w-[320px] group relative",
+        isConnected && "ring-2 ring-pink-400/50"
+      )}
+    >
+      {/* Handles */}
+      <Handle type="target" position={Position.Top} className="!w-3 !h-3 !bg-pink-400 hover:!bg-pink-500 !border-2 !border-background" />
+      <Handle type="source" position={Position.Bottom} className="!w-3 !h-3 !bg-pink-400 hover:!bg-pink-500 !border-2 !border-background" />
+      <Handle type="target" position={Position.Left} className="!w-3 !h-3 !bg-pink-400 hover:!bg-pink-500 !border-2 !border-background" id="left" />
+      <Handle type="source" position={Position.Right} className="!w-3 !h-3 !bg-pink-400 hover:!bg-pink-500 !border-2 !border-background" id="right" />
+
+      {/* Delete Button */}
       <Button
-        variant="outline"
+        variant="ghost"
         size="icon"
-        className="absolute top-2 right-2 h-8 px-2 rounded-full border-red-200 text-red-600 bg-red-50/80 hover:bg-red-100 hover:text-red-700 z-10"
+        className="absolute top-2 right-2 h-7 w-7 rounded-full bg-destructive/10 hover:bg-destructive/20 text-destructive z-10"
         onClick={(e) => {
           e.stopPropagation();
           onDelete(item.id);
@@ -163,19 +175,21 @@ export const AudioNode = memo(({ data }: NodeProps<AudioNodeData>) => {
         <Trash2 className="h-3.5 w-3.5" />
       </Button>
 
+      {/* Header */}
       <div className="flex items-start gap-3 mb-3">
-        <div className="p-2.5 bg-pink-50 rounded-lg border border-pink-200">
-          <Mic className="h-4 w-4 text-pink-600" />
+        <div className="p-2 bg-pink-100 dark:bg-pink-900/30 rounded-lg border border-pink-200 dark:border-pink-800">
+          <Mic className="h-4 w-4 text-pink-600 dark:text-pink-400" />
         </div>
-        <div className="flex-1 min-w-0">
-          <div className="inline-flex items-center px-2 py-1 rounded-md bg-pink-100 text-pink-700 text-xs font-medium mb-2">
+        <div className="flex-1 min-w-0 pr-8">
+          <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300 text-xs font-medium">
             Áudio
-          </div>
+          </span>
         </div>
       </div>
 
+      {/* Content */}
       {!item.content ? (
-        <div className="space-y-3">
+        <div className="space-y-3" onKeyDown={handleKeyDown}>
           <Input
             placeholder="Título (opcional)"
             value={title}
@@ -203,12 +217,12 @@ export const AudioNode = memo(({ data }: NodeProps<AudioNodeData>) => {
         </div>
       ) : (
         <div className="space-y-3">
-          <h3 className="font-semibold text-sm text-gray-900">
+          <h3 className="font-semibold text-sm text-foreground">
             {item.title || "Gravação de áudio"}
           </h3>
           
           {isTranscribing ? (
-            <div className="flex items-center gap-2 text-sm text-gray-600 py-4">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
               <Loader2 className="h-4 w-4 animate-spin" />
               <span>Transcrevendo áudio...</span>
             </div>
@@ -222,19 +236,19 @@ export const AudioNode = memo(({ data }: NodeProps<AudioNodeData>) => {
                     <Play className="h-4 w-4" />
                   )}
                 </Button>
-                <div className="flex-1 h-1 bg-pink-100 rounded-full overflow-hidden">
-                  <div className="h-full bg-pink-500 w-0 animate-pulse" />
+                <div className="flex-1 h-1 bg-pink-100 dark:bg-pink-900/30 rounded-full overflow-hidden">
+                  <div className={cn("h-full bg-pink-500", isPlaying && "animate-pulse")} style={{ width: isPlaying ? "50%" : "0%" }} />
                 </div>
               </div>
               {item.metadata?.duration && (
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-muted-foreground">
                   Duração: {formatTime(item.metadata.duration as number)}
                 </p>
               )}
               {item.metadata?.transcript && (
-                <div className="mt-3 pt-3 border-t border-pink-200">
-                  <p className="text-xs font-semibold text-gray-700 mb-1">Transcrição:</p>
-                  <p className="text-xs text-gray-600 whitespace-pre-wrap leading-relaxed">
+                <div className="mt-3 pt-3 border-t border-border">
+                  <p className="text-xs font-semibold text-foreground mb-1">Transcrição:</p>
+                  <p className="text-xs text-muted-foreground whitespace-pre-wrap leading-relaxed">
                     {item.metadata.transcript as string}
                   </p>
                 </div>

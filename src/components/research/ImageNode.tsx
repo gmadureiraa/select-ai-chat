@@ -1,14 +1,13 @@
 import { memo, useState, useEffect } from "react";
 import { Handle, Position, NodeProps } from "reactflow";
-import { Card, CardContent } from "@/components/ui/card";
-import { Trash2, Sparkles, Upload, FileText } from "lucide-react";
+import { Trash2, Sparkles, Upload, FileText, Image as ImageIcon, Loader2 } from "lucide-react";
 import { useResearchItems } from "@/hooks/useResearchItems";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2 } from "lucide-react";
-import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
 
 interface ImageNodeData {
   item: {
@@ -23,9 +22,10 @@ interface ImageNodeData {
   };
   onDelete?: (id: string) => void;
   projectId?: string;
+  isConnected?: boolean;
 }
 
-const ImageNode = ({ data, id }: NodeProps<ImageNodeData>) => {
+const ImageNode = ({ data }: NodeProps<ImageNodeData>) => {
   const { updateItem } = useResearchItems(data.projectId);
   const { toast } = useToast();
   const [prompt, setPrompt] = useState("");
@@ -33,7 +33,6 @@ const ImageNode = ({ data, id }: NodeProps<ImageNodeData>) => {
   const [isUploading, setIsUploading] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
 
-  // Auto-transcrever quando a imagem é carregada pela primeira vez
   useEffect(() => {
     if (data.item.source_url && !data.item.metadata?.transcribed && !data.item.content) {
       handleTranscribeImage();
@@ -147,30 +146,17 @@ const ImageNode = ({ data, id }: NodeProps<ImageNodeData>) => {
     setIsGenerating(true);
 
     try {
-      // Incluir a imagem atual como referência se existir
       const imageReferences = data.item.source_url
-        ? [
-            {
-              url: data.item.source_url,
-              description: data.item.metadata?.description || "Imagem de referência",
-            },
-          ]
+        ? [{ url: data.item.source_url, description: data.item.metadata?.description || "Imagem de referência" }]
         : [];
 
-      const { data: result, error } = await supabase.functions.invoke(
-        "generate-image",
-        {
-          body: {
-            prompt,
-            imageReferences,
-          },
-        }
-      );
+      const { data: result, error } = await supabase.functions.invoke("generate-image", {
+        body: { prompt, imageReferences },
+      });
 
       if (error) throw error;
 
       if (result?.imageUrl) {
-        // Criar novo item com a imagem gerada
         await updateItem.mutateAsync({
           id: data.item.id,
           source_url: result.imageUrl,
@@ -200,36 +186,60 @@ const ImageNode = ({ data, id }: NodeProps<ImageNodeData>) => {
     }
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Delete" || e.key === "Backspace") {
+      e.stopPropagation();
+    }
+  };
+
   return (
-    <Card className="w-[400px] border-border/40 bg-card/95 shadow-lg backdrop-blur-sm">
-      <button
+    <div 
+      className={cn(
+        "bg-card border-2 border-orange-200 dark:border-orange-800 rounded-xl shadow-md hover:shadow-lg transition-all",
+        "min-w-[350px] max-w-[400px] group relative",
+        data.isConnected && "ring-2 ring-orange-400/50"
+      )}
+    >
+      {/* Handles */}
+      <Handle type="target" position={Position.Top} className="!w-3 !h-3 !bg-orange-400 hover:!bg-orange-500 !border-2 !border-background" />
+      <Handle type="source" position={Position.Bottom} className="!w-3 !h-3 !bg-orange-400 hover:!bg-orange-500 !border-2 !border-background" />
+      <Handle type="target" position={Position.Left} className="!w-3 !h-3 !bg-orange-400 hover:!bg-orange-500 !border-2 !border-background" id="left" />
+      <Handle type="source" position={Position.Right} className="!w-3 !h-3 !bg-orange-400 hover:!bg-orange-500 !border-2 !border-background" id="right" />
+
+      {/* Delete Button */}
+      <Button
+        variant="ghost"
+        size="icon"
+        className="absolute top-2 right-2 h-7 w-7 rounded-full bg-destructive/10 hover:bg-destructive/20 text-destructive z-10"
         onClick={handleDelete}
-        className="absolute top-2 right-2 z-10 p-1.5 rounded-md bg-destructive/10 hover:bg-destructive/20 text-destructive transition-colors"
       >
-        <Trash2 className="h-4 w-4" />
-      </button>
+        <Trash2 className="h-3.5 w-3.5" />
+      </Button>
 
-      <Handle type="target" position={Position.Top} className="!bg-primary" />
-
-      <CardContent className="p-4 space-y-3">
-        <div className="flex items-center justify-between">
-          <div className="text-xs font-medium text-muted-foreground">
-            Imagem
+      {/* Header */}
+      <div className="flex items-center justify-between p-3 pb-2">
+        <div className="flex items-center gap-2">
+          <div className="p-2 bg-orange-100 dark:bg-orange-900/30 rounded-lg border border-orange-200 dark:border-orange-800">
+            <ImageIcon className="h-4 w-4 text-orange-600 dark:text-orange-400" />
           </div>
-          {isTranscribing && (
-            <div className="flex items-center gap-1 text-xs text-primary">
-              <Loader2 className="h-3 w-3 animate-spin" />
-              <span>Transcrevendo...</span>
-            </div>
-          )}
+          <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 text-xs font-medium">
+            Imagem
+          </span>
         </div>
+        {isTranscribing && (
+          <div className="flex items-center gap-1 text-xs text-primary">
+            <Loader2 className="h-3 w-3 animate-spin" />
+            <span>Transcrevendo...</span>
+          </div>
+        )}
+      </div>
 
+      <div className="px-3 pb-3 space-y-3">
+        {/* Upload Area */}
         {!data.item.source_url && (
-          <div className="border-2 border-dashed border-border/50 rounded-lg p-6 text-center">
+          <div className="border-2 border-dashed border-border rounded-lg p-6 text-center">
             <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground mb-3">
-              Faça upload de uma imagem
-            </p>
+            <p className="text-sm text-muted-foreground mb-3">Faça upload de uma imagem</p>
             <Input
               type="file"
               accept="image/*"
@@ -240,8 +250,9 @@ const ImageNode = ({ data, id }: NodeProps<ImageNodeData>) => {
           </div>
         )}
 
+        {/* Image Preview */}
         {data.item.source_url && (
-          <div className="rounded-lg overflow-hidden border border-border/40">
+          <div className="rounded-lg overflow-hidden border border-border">
             <img
               src={data.item.source_url}
               alt={data.item.title || "Imagem"}
@@ -250,8 +261,9 @@ const ImageNode = ({ data, id }: NodeProps<ImageNodeData>) => {
           </div>
         )}
 
+        {/* Transcription */}
         {data.item.content && (
-          <div className="p-3 bg-muted/30 rounded-md border border-border/40">
+          <div className="p-3 bg-muted/30 rounded-md border border-border">
             <div className="flex items-center gap-1 mb-1">
               <FileText className="h-3 w-3 text-primary" />
               <span className="text-xs font-medium">Transcrição</span>
@@ -262,7 +274,8 @@ const ImageNode = ({ data, id }: NodeProps<ImageNodeData>) => {
           </div>
         )}
 
-        <div className="space-y-2 pt-2 border-t border-border/40">
+        {/* Image Generation */}
+        <div className="space-y-2 pt-2 border-t border-border" onKeyDown={handleKeyDown}>
           <div className="flex items-center gap-2">
             <Sparkles className="h-4 w-4 text-primary" />
             <span className="text-xs font-medium">Gerar Nova Imagem</span>
@@ -271,8 +284,9 @@ const ImageNode = ({ data, id }: NodeProps<ImageNodeData>) => {
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
             placeholder="Descreva a imagem que deseja gerar..."
-            className="min-h-[80px] text-sm"
+            className="min-h-[80px] text-sm no-pan no-wheel"
             disabled={isGenerating}
+            onWheel={(e) => e.stopPropagation()}
           />
           <Button
             onClick={handleGenerateImage}
@@ -293,14 +307,8 @@ const ImageNode = ({ data, id }: NodeProps<ImageNodeData>) => {
             )}
           </Button>
         </div>
-      </CardContent>
-
-      <Handle
-        type="source"
-        position={Position.Bottom}
-        className="!bg-primary"
-      />
-    </Card>
+      </div>
+    </div>
   );
 };
 

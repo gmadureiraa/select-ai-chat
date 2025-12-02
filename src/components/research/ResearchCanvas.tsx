@@ -2,13 +2,14 @@ import { useCallback, useEffect, useState } from "react";
 import ReactFlow, {
   Node,
   Edge,
-  Controls,
   Background,
   BackgroundVariant,
   useNodesState,
   useEdgesState,
   Connection,
   MiniMap,
+  ReactFlowProvider,
+  useReactFlow,
 } from "reactflow";
 import "reactflow/dist/style.css";
 import { useResearchItems } from "@/hooks/useResearchItems";
@@ -21,6 +22,7 @@ import { NoteNode } from "./NoteNode";
 import { AudioNode } from "./AudioNode";
 import ImageNode from "./ImageNode";
 import { CanvasToolbar } from "./CanvasToolbar";
+import { ZoomControls } from "./ZoomControls";
 import { Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -50,18 +52,50 @@ const nodeTypes = {
   image: ImageNode,
 };
 
-export const ResearchCanvas = ({ projectId, clientId }: ResearchCanvasProps) => {
+// Node colors for minimap
+const nodeColors: Record<string, string> = {
+  aiChat: "#a855f7",
+  note: "#eab308",
+  text: "#3b82f6",
+  youtube: "#ef4444",
+  link: "#22c55e",
+  audio: "#ec4899",
+  image: "#f97316",
+  contentLibrary: "#06b6d4",
+  referenceLibrary: "#6366f1",
+  researchItem: "#9ca3af",
+};
+
+const ResearchCanvasInner = ({ projectId, clientId }: ResearchCanvasProps) => {
   const { items, deleteItem, updateItem, connections, createConnection, deleteConnection, createItem } = useResearchItems(projectId);
   const { toast } = useToast();
+  const { getNodes, deleteElements } = useReactFlow();
 
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [activeTool, setActiveTool] = useState<string | null>("select");
+  const [selectedNodeIds, setSelectedNodeIds] = useState<Set<string>>(new Set());
   
   // Dialog states for URL inputs
   const [urlDialog, setUrlDialog] = useState<{ type: "youtube" | "link" | "image" | null; open: boolean }>({ type: null, open: false });
   const [urlInput, setUrlInput] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
+
+  // Track connected nodes for AI chat highlighting
+  const [connectedToSelected, setConnectedToSelected] = useState<Set<string>>(new Set());
+
+  // Update connected nodes when selection changes
+  useEffect(() => {
+    const connected = new Set<string>();
+    selectedNodeIds.forEach(nodeId => {
+      const nodeConnections = connections.filter(c => c.source_id === nodeId || c.target_id === nodeId);
+      nodeConnections.forEach(c => {
+        connected.add(c.source_id);
+        connected.add(c.target_id);
+      });
+    });
+    setConnectedToSelected(connected);
+  }, [selectedNodeIds, connections]);
 
   // Update nodes when items change
   useEffect(() => {
@@ -96,26 +130,63 @@ export const ResearchCanvas = ({ projectId, clientId }: ResearchCanvasProps) => 
           projectId,
           clientId,
           connectedItems,
+          isConnected: connectedToSelected.has(item.id) && !selectedNodeIds.has(item.id),
         },
       };
     });
 
     setNodes(newNodes);
-  }, [items, connections, deleteItem.mutate, setNodes, projectId, clientId]);
+  }, [items, connections, deleteItem.mutate, setNodes, projectId, clientId, connectedToSelected, selectedNodeIds]);
 
-  // Update edges when connections change
+  // Update edges when connections change - with visual feedback
   useEffect(() => {
-    const newEdges: Edge[] = connections.map((conn) => ({
-      id: conn.id,
-      source: conn.source_id,
-      target: conn.target_id,
-      label: conn.label,
-      type: "default",
-      style: { stroke: "#8b5cf6", strokeWidth: 2 },
-      animated: true,
-    }));
+    const newEdges: Edge[] = connections.map((conn) => {
+      const isHighlighted = selectedNodeIds.has(conn.source_id) || selectedNodeIds.has(conn.target_id);
+      
+      return {
+        id: conn.id,
+        source: conn.source_id,
+        target: conn.target_id,
+        label: conn.label,
+        type: "default",
+        style: { 
+          stroke: isHighlighted ? '#a855f7' : '#8b5cf6', 
+          strokeWidth: isHighlighted ? 3 : 2,
+        },
+        animated: isHighlighted,
+      };
+    });
     setEdges(newEdges);
-  }, [connections, setEdges]);
+  }, [connections, setEdges, selectedNodeIds]);
+
+  // Handle node selection changes
+  const onSelectionChange = useCallback(({ nodes: selectedNodes }: { nodes: Node[] }) => {
+    setSelectedNodeIds(new Set(selectedNodes.map(n => n.id)));
+  }, []);
+
+  // Handle keyboard delete
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable) {
+        return;
+      }
+
+      if (e.key === "Delete" || e.key === "Backspace") {
+        const selectedNodes = getNodes().filter(n => n.selected);
+        if (selectedNodes.length > 0) {
+          e.preventDefault();
+          selectedNodes.forEach(node => {
+            deleteItem.mutate(node.id);
+          });
+          toast({ title: `${selectedNodes.length} item(ns) excluído(s)` });
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [deleteItem, getNodes, toast]);
 
   const onConnect = useCallback(
     (params: Connection) => {
@@ -172,7 +243,7 @@ export const ResearchCanvas = ({ projectId, clientId }: ResearchCanvasProps) => 
             position_x: basePosition.x,
             position_y: basePosition.y,
           });
-          toast({ title: "Chat IA adicionado" });
+          toast({ title: "Chat IA adicionado", description: "Atalho: C" });
           break;
 
         case "note":
@@ -183,7 +254,7 @@ export const ResearchCanvas = ({ projectId, clientId }: ResearchCanvasProps) => 
             position_x: basePosition.x,
             position_y: basePosition.y,
           });
-          toast({ title: "Nota criada" });
+          toast({ title: "Nota criada", description: "Atalho: N" });
           break;
 
         case "text":
@@ -194,7 +265,7 @@ export const ResearchCanvas = ({ projectId, clientId }: ResearchCanvasProps) => 
             position_x: basePosition.x,
             position_y: basePosition.y,
           });
-          toast({ title: "Texto criado" });
+          toast({ title: "Texto criado", description: "Atalho: T" });
           break;
 
         case "audio":
@@ -205,7 +276,7 @@ export const ResearchCanvas = ({ projectId, clientId }: ResearchCanvasProps) => 
             position_x: basePosition.x,
             position_y: basePosition.y,
           });
-          toast({ title: "Áudio criado" });
+          toast({ title: "Áudio criado", description: "Atalho: A" });
           break;
 
         case "image":
@@ -216,7 +287,7 @@ export const ResearchCanvas = ({ projectId, clientId }: ResearchCanvasProps) => 
             position_x: basePosition.x,
             position_y: basePosition.y,
           });
-          toast({ title: "Imagem adicionada" });
+          toast({ title: "Imagem adicionada", description: "Atalho: I" });
           break;
 
         case "content_library":
@@ -227,7 +298,7 @@ export const ResearchCanvas = ({ projectId, clientId }: ResearchCanvasProps) => 
             position_x: basePosition.x,
             position_y: basePosition.y,
           });
-          toast({ title: "Biblioteca de Conteúdo adicionada" });
+          toast({ title: "Biblioteca de Conteúdo adicionada", description: "Atalho: B" });
           break;
 
         case "reference_library":
@@ -238,7 +309,7 @@ export const ResearchCanvas = ({ projectId, clientId }: ResearchCanvasProps) => 
             position_x: basePosition.x,
             position_y: basePosition.y,
           });
-          toast({ title: "Biblioteca de Referências adicionada" });
+          toast({ title: "Biblioteca de Referências adicionada", description: "Atalho: R" });
           break;
       }
     } catch (error: any) {
@@ -323,8 +394,13 @@ export const ResearchCanvas = ({ projectId, clientId }: ResearchCanvasProps) => 
     }
   };
 
+  // Get node color for minimap
+  const getNodeColor = (node: Node) => {
+    return nodeColors[node.type || "researchItem"] || "#9ca3af";
+  };
+
   return (
-    <div className="h-full w-full bg-[#fafafa] relative">
+    <div className="h-full w-full bg-muted/30 relative">
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -333,48 +409,55 @@ export const ResearchCanvas = ({ projectId, clientId }: ResearchCanvasProps) => 
         onConnect={onConnect}
         onEdgesDelete={onEdgesDelete}
         onNodeDragStop={onNodeDragStop}
+        onSelectionChange={onSelectionChange}
         nodeTypes={nodeTypes}
         fitView
-        className="bg-[#fafafa]"
+        className="bg-muted/30"
         noPanClassName="no-pan"
         noWheelClassName="no-wheel"
         connectionRadius={100}
         snapToGrid={false}
+        selectionOnDrag
+        panOnScroll
+        selectNodesOnDrag={false}
         defaultEdgeOptions={{
           type: 'default',
           style: { stroke: '#8b5cf6', strokeWidth: 2 },
-          animated: true,
+          animated: false,
         }}
       >
         <Background 
           variant={BackgroundVariant.Dots} 
           gap={24} 
           size={2} 
-          color="#d4d4d4" 
+          color="hsl(var(--muted-foreground) / 0.2)" 
         />
-        <Controls className="bg-card border border-border rounded-lg shadow-sm" />
+        
         <MiniMap
-          className="bg-card border border-border rounded-lg shadow-sm"
-          nodeColor="#e5e5e5"
-          maskColor="rgba(0, 0, 0, 0.08)"
+          className="!bg-card !border !border-border !rounded-lg !shadow-lg"
+          nodeColor={getNodeColor}
+          maskColor="hsl(var(--background) / 0.7)"
+          style={{ width: 150, height: 100 }}
+          pannable
+          zoomable
         />
 
         {(!items || items.length === 0) && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
             <div className="text-center max-w-md">
               <div className="mb-4 flex justify-center">
-                <div className="p-4 bg-white rounded-full border-2 border-dashed border-gray-300">
-                  <Sparkles className="h-12 w-12 text-gray-400" />
+                <div className="p-4 bg-card rounded-full border-2 border-dashed border-border">
+                  <Sparkles className="h-12 w-12 text-muted-foreground" />
                 </div>
               </div>
-              <h3 className="text-xl font-semibold mb-2 text-gray-700">Laboratório de Pesquisa</h3>
-              <p className="text-sm mb-4 text-gray-500">
+              <h3 className="text-xl font-semibold mb-2 text-foreground">Laboratório de Pesquisa</h3>
+              <p className="text-sm mb-4 text-muted-foreground">
                 Use a barra de ferramentas abaixo para adicionar itens ao canvas
               </p>
-              <div className="text-xs text-gray-400 space-y-1">
-                <p>• Adicione notas, links, imagens, vídeos ou PDFs</p>
-                <p>• Conecte materiais relacionados</p>
-                <p>• Chat IA analisa apenas items conectados a ele</p>
+              <div className="text-xs text-muted-foreground space-y-1">
+                <p>• Atalhos: <kbd className="px-1 py-0.5 bg-muted rounded">C</kbd> Chat IA, <kbd className="px-1 py-0.5 bg-muted rounded">N</kbd> Nota, <kbd className="px-1 py-0.5 bg-muted rounded">T</kbd> Texto</p>
+                <p>• <kbd className="px-1 py-0.5 bg-muted rounded">Delete</kbd> para excluir itens selecionados</p>
+                <p>• Conecte materiais ao Chat IA para análise</p>
               </div>
             </div>
           </div>
@@ -386,6 +469,8 @@ export const ResearchCanvas = ({ projectId, clientId }: ResearchCanvasProps) => 
         activeTool={activeTool} 
         setActiveTool={setActiveTool} 
       />
+
+      <ZoomControls />
 
       {/* URL Input Dialog */}
       <Dialog open={urlDialog.open} onOpenChange={(open) => {
@@ -411,6 +496,7 @@ export const ResearchCanvas = ({ projectId, clientId }: ResearchCanvasProps) => 
                 onChange={(e) => setUrlInput(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleUrlSubmit()}
                 disabled={isProcessing}
+                autoFocus
               />
               {urlDialog.type === "link" && (
                 <p className="text-xs text-muted-foreground">
@@ -440,5 +526,13 @@ export const ResearchCanvas = ({ projectId, clientId }: ResearchCanvasProps) => 
         </DialogContent>
       </Dialog>
     </div>
+  );
+};
+
+export const ResearchCanvas = (props: ResearchCanvasProps) => {
+  return (
+    <ReactFlowProvider>
+      <ResearchCanvasInner {...props} />
+    </ReactFlowProvider>
   );
 };

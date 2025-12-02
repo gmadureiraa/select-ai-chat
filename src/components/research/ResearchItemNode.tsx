@@ -1,4 +1,4 @@
-import { memo, useState, useEffect, useCallback } from "react";
+import { memo, useState, useCallback } from "react";
 import { Handle, Position, NodeProps } from "reactflow";
 import { Trash2, Youtube, FileText, Link as LinkIcon, Image as ImageIcon, Music, FileType } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -10,143 +10,114 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { cn } from "@/lib/utils";
 
 interface ResearchItemNodeData {
   item: ResearchItem;
   onDelete: (id: string) => void;
+  isConnected?: boolean;
 }
 
+const typeConfig: Record<string, { icon: any; color: string; border: string; bg: string; label: string }> = {
+  note: { icon: FileText, color: "text-yellow-600 dark:text-yellow-400", border: "border-yellow-200 dark:border-yellow-800", bg: "bg-yellow-100 dark:bg-yellow-900/30", label: "Nota" },
+  youtube: { icon: Youtube, color: "text-red-600 dark:text-red-400", border: "border-red-200 dark:border-red-800", bg: "bg-red-100 dark:bg-red-900/30", label: "YouTube" },
+  text: { icon: FileText, color: "text-blue-600 dark:text-blue-400", border: "border-blue-200 dark:border-blue-800", bg: "bg-blue-100 dark:bg-blue-900/30", label: "Texto" },
+  link: { icon: LinkIcon, color: "text-green-600 dark:text-green-400", border: "border-green-200 dark:border-green-800", bg: "bg-green-100 dark:bg-green-900/30", label: "Link" },
+  image: { icon: ImageIcon, color: "text-orange-600 dark:text-orange-400", border: "border-orange-200 dark:border-orange-800", bg: "bg-orange-100 dark:bg-orange-900/30", label: "Imagem" },
+  audio: { icon: Music, color: "text-pink-600 dark:text-pink-400", border: "border-pink-200 dark:border-pink-800", bg: "bg-pink-100 dark:bg-pink-900/30", label: "Áudio" },
+  pdf: { icon: FileType, color: "text-orange-600 dark:text-orange-400", border: "border-orange-200 dark:border-orange-800", bg: "bg-orange-100 dark:bg-orange-900/30", label: "PDF" },
+  ai_chat: { icon: FileText, color: "text-purple-600 dark:text-purple-400", border: "border-purple-200 dark:border-purple-800", bg: "bg-purple-100 dark:bg-purple-900/30", label: "Chat IA" },
+};
+
+const defaultConfig = { icon: FileText, color: "text-muted-foreground", border: "border-border", bg: "bg-muted", label: "Item" };
+
 export const ResearchItemNode = memo(({ data }: NodeProps<ResearchItemNodeData>) => {
-  const { item, onDelete } = data;
+  const { item, onDelete, isConnected } = data;
   const [showTranscript, setShowTranscript] = useState(false);
 
-  // Adicionar suporte para tecla Delete
-  const handleKeyDown = useCallback((e: KeyboardEvent) => {
-    if (e.key === 'Delete' || e.key === 'Backspace') {
-      onDelete(item.id);
-    }
-  }, [item.id, onDelete]);
-
-  useEffect(() => {
-    // Adiciona listener de teclado quando o card está focado
-    const element = document.getElementById(`research-item-${item.id}`);
-    if (element) {
-      element.addEventListener('keydown', handleKeyDown as any);
-      return () => element.removeEventListener('keydown', handleKeyDown as any);
-    }
-  }, [handleKeyDown, item.id]);
-
-  const getIcon = () => {
-    switch (item.type) {
-      case "note": return <FileText className="h-4 w-4 text-yellow-600" />;
-      case "youtube": return <Youtube className="h-4 w-4 text-red-600" />;
-      case "text": return <FileText className="h-4 w-4 text-blue-600" />;
-      case "link": return <LinkIcon className="h-4 w-4 text-green-600" />;
-      case "image": return <ImageIcon className="h-4 w-4 text-purple-600" />;
-      case "audio": return <Music className="h-4 w-4 text-pink-600" />;
-      case "pdf": return <FileType className="h-4 w-4 text-orange-600" />;
-      case "ai_chat": return <FileText className="h-4 w-4 text-purple-600" />;
-      default: return <FileText className="h-4 w-4 text-gray-600" />;
-    }
-  };
-
-  const getTypeLabel = () => {
-    switch (item.type) {
-      case "note": return "Nota";
-      case "youtube": return "YouTube";
-      case "text": return "Texto";
-      case "link": return "Link";
-      case "image": return "Imagem";
-      case "audio": return "Áudio";
-      case "pdf": return "PDF";
-      case "ai_chat": return "Chat IA";
-      default: return item.type;
-    }
-  };
-
-  const getBorderColor = () => {
-    switch (item.type) {
-      case "note": return "border-yellow-200";
-      case "youtube": return "border-red-200";
-      case "text": return "border-blue-200";
-      case "link": return "border-green-200";
-      case "image": return "border-purple-200";
-      case "audio": return "border-pink-200";
-      case "pdf": return "border-orange-200";
-      case "ai_chat": return "border-purple-300";
-      default: return "border-gray-200";
-    }
-  };
+  const config = typeConfig[item.type] || defaultConfig;
+  const Icon = config.icon;
 
   return (
     <>
       <div 
-        id={`research-item-${item.id}`}
-        tabIndex={0}
-        className={`bg-white border-2 ${getBorderColor()} rounded-xl shadow-lg hover:shadow-xl transition-shadow p-4 min-w-[280px] max-w-[320px] group relative cursor-pointer focus:outline-none focus:ring-2 focus:ring-purple-400`}
+        className={cn(
+          "bg-card border-2 rounded-xl shadow-md hover:shadow-lg transition-all",
+          "p-3 min-w-[280px] max-w-[320px] group relative cursor-pointer",
+          "focus:outline-none focus:ring-2 focus:ring-primary/50",
+          config.border,
+          isConnected && "ring-2 ring-primary/30"
+        )}
         onClick={() => {
           if (item.type === "youtube") {
             setShowTranscript(true);
           }
         }}
       >
-        <Handle type="target" position={Position.Top} className="w-3 h-3 !bg-gray-400" />
-        <Handle type="source" position={Position.Bottom} className="w-3 h-3 !bg-gray-400" />
-        <Handle type="source" position={Position.Left} className="w-3 h-3 !bg-gray-400" />
-        <Handle type="source" position={Position.Right} className="w-3 h-3 !bg-gray-400" />
+        {/* Handles */}
+        <Handle type="target" position={Position.Top} className={cn("!w-3 !h-3 !border-2 !border-background", config.color.replace("text-", "!bg-").replace("-600", "-400"))} />
+        <Handle type="source" position={Position.Bottom} className={cn("!w-3 !h-3 !border-2 !border-background", config.color.replace("text-", "!bg-").replace("-600", "-400"))} />
+        <Handle type="target" position={Position.Left} className={cn("!w-3 !h-3 !border-2 !border-background", config.color.replace("text-", "!bg-").replace("-600", "-400"))} id="left" />
+        <Handle type="source" position={Position.Right} className={cn("!w-3 !h-3 !border-2 !border-background", config.color.replace("text-", "!bg-").replace("-600", "-400"))} id="right" />
 
+        {/* Delete Button */}
         <Button
-          variant="outline"
+          variant="ghost"
           size="icon"
-          className="absolute top-2 right-2 h-8 px-2 rounded-full border-red-200 text-red-600 bg-red-50/80 hover:bg-red-100 hover:text-red-700 z-10 flex items-center gap-1"
+          className="absolute top-2 right-2 h-7 w-7 rounded-full bg-destructive/10 hover:bg-destructive/20 text-destructive z-10"
           onClick={(e) => {
             e.stopPropagation();
             onDelete(item.id);
           }}
-          title="Excluir card (Delete/Backspace)"
         >
           <Trash2 className="h-3.5 w-3.5" />
         </Button>
 
-      <div className="flex items-start gap-3 mb-3">
-        <div className="p-2.5 bg-gray-50 rounded-lg border border-gray-200">
-          {getIcon()}
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="inline-flex items-center px-2 py-1 rounded-md bg-gray-100 text-gray-700 text-xs font-medium mb-2">
-            {getTypeLabel()}
+        {/* Header */}
+        <div className="flex items-start gap-3 mb-3">
+          <div className={cn("p-2 rounded-lg border", config.bg, config.border)}>
+            <Icon className={cn("h-4 w-4", config.color)} />
           </div>
-          {item.processed && (
-            <div className="inline-flex items-center px-2 py-1 rounded-md bg-green-50 text-green-700 text-xs font-medium ml-2">
-              Processado
+          <div className="flex-1 min-w-0 pr-8">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className={cn("inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium", config.bg, config.color)}>
+                {config.label}
+              </span>
+              {item.processed && (
+                <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 text-xs font-medium">
+                  Processado
+                </span>
+              )}
             </div>
-          )}
-          <h3 className="font-semibold text-sm text-gray-900 truncate mt-1">
-            {item.title || "Sem título"}
-          </h3>
+            <h3 className="font-semibold text-sm text-foreground truncate mt-1">
+              {item.title || "Sem título"}
+            </h3>
+          </div>
         </div>
-      </div>
 
-      {item.thumbnail_url && (
-        <img
-          src={item.thumbnail_url}
-          alt={item.title || "Thumbnail"}
-          className="w-full h-32 object-cover rounded-lg mb-3 border border-gray-200"
-        />
-      )}
+        {/* Thumbnail */}
+        {item.thumbnail_url && (
+          <img
+            src={item.thumbnail_url}
+            alt={item.title || "Thumbnail"}
+            className="w-full h-32 object-cover rounded-lg mb-3 border border-border"
+          />
+        )}
 
-      {item.content && (
-        <p className="text-xs text-gray-600 line-clamp-3 mb-3 leading-relaxed">
-          {item.content}
-        </p>
-      )}
+        {/* Content Preview */}
+        {item.content && (
+          <p className="text-xs text-muted-foreground line-clamp-3 mb-3 leading-relaxed">
+            {item.content}
+          </p>
+        )}
 
+        {/* Source URL */}
         {item.source_url && (
           <a
             href={item.source_url}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-xs text-blue-600 hover:text-blue-700 hover:underline block truncate font-medium"
+            className="text-xs text-primary hover:underline block truncate font-medium"
             onClick={(e) => e.stopPropagation()}
           >
             {item.source_url}
@@ -154,6 +125,7 @@ export const ResearchItemNode = memo(({ data }: NodeProps<ResearchItemNodeData>)
         )}
       </div>
 
+      {/* Transcript Dialog */}
       <Dialog open={showTranscript} onOpenChange={setShowTranscript}>
         <DialogContent className="max-w-4xl max-h-[85vh]" onClick={(e) => e.stopPropagation()}>
           <DialogHeader className="flex flex-row items-center justify-between gap-2">
@@ -161,16 +133,15 @@ export const ResearchItemNode = memo(({ data }: NodeProps<ResearchItemNodeData>)
               {item.title || "Transcrição do Vídeo"}
             </DialogTitle>
             <Button
-              variant="outline"
+              variant="ghost"
               size="icon"
-              className="h-8 px-2 rounded-full border-red-200 text-red-600 bg-red-50/80 hover:bg-red-100 hover:text-red-700"
+              className="h-8 w-8 rounded-full bg-destructive/10 hover:bg-destructive/20 text-destructive"
               onClick={() => {
                 onDelete(item.id);
                 setShowTranscript(false);
               }}
-              title="Excluir este card"
             >
-              <Trash2 className="h-3.5 w-3.5" />
+              <Trash2 className="h-4 w-4" />
             </Button>
           </DialogHeader>
           <ScrollArea className="h-[70vh] pr-4">
