@@ -40,13 +40,18 @@ export const useContentLibrary = (clientId: string) => {
   const { data: contents = [], isLoading } = useQuery({
     queryKey: ["client-content-library", clientId],
     queryFn: async () => {
+      console.log("Fetching content library for clientId:", clientId);
       const { data, error } = await supabase
         .from("client_content_library")
         .select("*")
         .eq("client_id", clientId)
         .order("created_at", { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error("Error fetching content library:", error);
+        throw error;
+      }
+      console.log("Content library data:", data);
       return data as ContentItem[];
     },
     enabled: !!clientId,
