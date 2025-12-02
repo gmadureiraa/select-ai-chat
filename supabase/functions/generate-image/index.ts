@@ -29,9 +29,9 @@ serve(async (req) => {
       console.log('Generating with', imageReferences.length, 'image references');
     }
 
-    const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
-    if (!OPENAI_API_KEY) {
-      console.error('OPENAI_API_KEY not configured');
+    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+    if (!LOVABLE_API_KEY) {
+      console.error('LOVABLE_API_KEY not configured');
       return new Response(
         JSON.stringify({ error: 'API key not configured' }),
         { 
@@ -41,7 +41,7 @@ serve(async (req) => {
       );
     }
 
-    console.log('Generating image with prompt:', prompt);
+    console.log('Generating image with Nano Banana (Gemini 2.5 Flash Image)');
 
     // Enhanced prompt with visual reference descriptions
     let enhancedPrompt = prompt;
@@ -52,24 +52,27 @@ serve(async (req) => {
       enhancedPrompt = `${prompt}\n\nReferências visuais para se inspirar:\n${refDescriptions}\n\nIMPORTANTE: Inspire-se no estilo visual e elementos, mas crie algo original.`;
     }
 
-    const response = await fetch("https://api.openai.com/v1/images/generations", {
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${OPENAI_API_KEY}`,
+        "Authorization": `Bearer ${LOVABLE_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "gpt-image-1",
-        prompt: enhancedPrompt,
-        n: 1,
-        size: "1024x1024",
-        quality: "high"
+        model: "google/gemini-2.5-flash-image-preview",
+        messages: [
+          {
+            role: "user",
+            content: enhancedPrompt
+          }
+        ],
+        modalities: ["image", "text"]
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Lovable AI error:', response.status, errorText);
+      console.error('Lovable AI Gateway error:', response.status, errorText);
       
       if (response.status === 429) {
         return new Response(
@@ -83,7 +86,7 @@ serve(async (req) => {
       
       if (response.status === 402) {
         return new Response(
-          JSON.stringify({ error: 'Créditos insuficientes. Adicione créditos na sua workspace.' }),
+          JSON.stringify({ error: 'Créditos insuficientes. Adicione créditos na sua workspace Lovable.' }),
           { 
             status: 402,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -101,9 +104,11 @@ serve(async (req) => {
     }
 
     const data = await response.json();
-    const b64Image = data.data?.[0]?.b64_json;
+    
+    // Nano Banana returns images in choices[0].message.images[0].image_url.url format
+    const imageUrl = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
 
-    if (!b64Image) {
+    if (!imageUrl) {
       console.error('No image in response:', JSON.stringify(data));
       return new Response(
         JSON.stringify({ error: 'Nenhuma imagem foi gerada' }),
@@ -114,9 +119,7 @@ serve(async (req) => {
       );
     }
 
-    console.log('Image generated successfully');
-
-    const imageUrl = `data:image/png;base64,${b64Image}`;
+    console.log('Image generated successfully with Nano Banana');
 
     return new Response(
       JSON.stringify({ imageUrl }),
