@@ -334,7 +334,7 @@ serve(async (req) => {
     // FASE 1: Seleção inteligente de conteúdo
     if (isSelectionPhase) {
       console.log("Phase 1: Intelligent content selection", {
-        model: "gpt-5-nano-2025-08-07",
+        model: "gpt-5-mini-2025-08-07",
         availableMaterials: availableMaterials?.length || 0,
         timestamp: new Date().toISOString()
       });
@@ -351,7 +351,7 @@ serve(async (req) => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "gpt-5-nano-2025-08-07", // Mais barato para seleção
+          model: "gpt-5-mini-2025-08-07", // Modelo mais capaz para seleção
           messages: selectionMessages,
           tools: [contentSelectionTool],
           tool_choice: { type: "function", function: { name: "select_relevant_content" } },
@@ -375,7 +375,7 @@ serve(async (req) => {
       if (selectionUsage && userId) {
         await logAIUsage(
           userId,
-          "gpt-5-nano-2025-08-07",
+          "gpt-5-mini-2025-08-07",
           "chat-selection",
           selectionUsage.prompt_tokens || 0,
           selectionUsage.completion_tokens || 0,
