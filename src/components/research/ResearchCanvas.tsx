@@ -13,6 +13,7 @@ import ReactFlow, {
   MarkerType,
 } from "reactflow";
 import "reactflow/dist/style.css";
+import { AnimatePresence } from "framer-motion";
 import { useResearchItems } from "@/hooks/useResearchItems";
 import { ResearchItemNode } from "./ResearchItemNode";
 import { AIChatNode } from "./AIChatNode";
@@ -35,6 +36,7 @@ import { ExecutiveSummary } from "./ExecutiveSummary";
 import { QuickCapture } from "./QuickCapture";
 import { SmoothEdge } from "./SmoothEdge";
 import { FloatingAIChat } from "./FloatingAIChat";
+import { SplitViewPanel } from "./SplitViewPanel";
 import { Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -155,6 +157,10 @@ const ResearchCanvasInner = ({ projectId, clientId, projectName = "Projeto", inn
   const [showFloatingChat, setShowFloatingChat] = useState(false);
   const [floatingChatItems, setFloatingChatItems] = useState<Array<{ id: string; title: string; content: string; type: string }>>([]);
 
+  // Split View state
+  const [showSplitView, setShowSplitView] = useState(false);
+  const [splitViewItems, setSplitViewItems] = useState<Array<{ id: string; title: string; content: string; type: string; source_url?: string; thumbnail_url?: string }>>([]);
+
   // Track connected nodes for AI chat highlighting
   const [connectedToSelected, setConnectedToSelected] = useState<Set<string>>(new Set());
 
@@ -273,7 +279,7 @@ const ResearchCanvasInner = ({ projectId, clientId, projectName = "Projeto", inn
     setSelectedNodeIds(new Set(selectedNodes.map(n => n.id)));
   }, []);
 
-  // Handle keyboard delete
+  // Handle keyboard delete and shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
@@ -291,11 +297,36 @@ const ResearchCanvasInner = ({ projectId, clientId, projectName = "Projeto", inn
           toast({ title: `${selectedNodes.length} item(ns) excluído(s)` });
         }
       }
+
+      // Split View shortcut - V key
+      if (e.key === "v" || e.key === "V") {
+        const selectedNodes = getNodes().filter(n => n.selected);
+        if (selectedNodes.length > 0) {
+          e.preventDefault();
+          const selectedItems = selectedNodes
+            .map(node => items?.find(item => item.id === node.id))
+            .filter(Boolean)
+            .map(item => ({
+              id: item!.id,
+              title: item!.title || "Sem título",
+              content: item!.content || "",
+              type: item!.type,
+              source_url: item!.source_url || undefined,
+              thumbnail_url: item!.thumbnail_url || undefined,
+            }));
+          
+          if (selectedItems.length > 0) {
+            setSplitViewItems(selectedItems);
+            setShowSplitView(true);
+            toast({ title: "Split View", description: `${selectedItems.length} item(ns) adicionado(s)` });
+          }
+        }
+      }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [deleteItem, getNodes, toast]);
+  }, [deleteItem, getNodes, toast, items]);
 
   const onConnect = useCallback(
     (params: Connection) => {
@@ -718,7 +749,7 @@ const ResearchCanvasInner = ({ projectId, clientId, projectName = "Projeto", inn
               </p>
               <div className="text-xs text-muted-foreground space-y-1">
                 <p>• Atalhos: <kbd className="px-1 py-0.5 bg-muted rounded">C</kbd> Chat IA, <kbd className="px-1 py-0.5 bg-muted rounded">N</kbd> Nota, <kbd className="px-1 py-0.5 bg-muted rounded">T</kbd> Texto</p>
-                <p>• <kbd className="px-1 py-0.5 bg-muted rounded">Delete</kbd> para excluir itens selecionados</p>
+                <p>• <kbd className="px-1 py-0.5 bg-muted rounded">Delete</kbd> para excluir, <kbd className="px-1 py-0.5 bg-muted rounded">V</kbd> Split View</p>
                 <p>• Conecte materiais ao Chat IA para análise</p>
               </div>
             </div>
@@ -741,6 +772,25 @@ const ResearchCanvasInner = ({ projectId, clientId, projectName = "Projeto", inn
           onClose={() => setShowFloatingChat(false)}
         />
       )}
+
+      {/* Split View Panel */}
+      <AnimatePresence>
+        {showSplitView && splitViewItems.length > 0 && (
+          <SplitViewPanel
+            items={splitViewItems}
+            onClose={() => {
+              setShowSplitView(false);
+              setSplitViewItems([]);
+            }}
+            onRemoveItem={(id) => {
+              setSplitViewItems(prev => prev.filter(item => item.id !== id));
+              if (splitViewItems.length <= 1) {
+                setShowSplitView(false);
+              }
+            }}
+          />
+        )}
+      </AnimatePresence>
 
       <CanvasToolbar
         onAddItem={handleAddItem} 
