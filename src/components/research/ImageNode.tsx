@@ -250,14 +250,20 @@ const ImageNode = ({ data }: NodeProps<ImageNodeData>) => {
           </div>
         )}
 
-        {/* Image Preview */}
+        {/* Image Preview with Enhanced Thumbnail */}
         {data.item.source_url && (
-          <div className="rounded-lg overflow-hidden border border-border">
+          <div className="rounded-lg overflow-hidden border border-border relative group/img">
             <img
               src={data.item.source_url}
               alt={data.item.title || "Imagem"}
-              className="w-full h-auto"
+              className="w-full h-auto max-h-[200px] object-cover"
             />
+            {/* Hover overlay with full preview hint */}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover/img:opacity-100 transition-opacity flex items-end justify-center pb-2">
+              <span className="text-white text-xs bg-black/50 px-2 py-1 rounded">
+                {data.item.title || "Clique para expandir"}
+              </span>
+            </div>
           </div>
         )}
 

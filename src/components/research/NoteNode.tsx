@@ -1,12 +1,13 @@
 import { memo, useState, useRef, useEffect } from "react";
 import { Handle, Position, NodeProps } from "reactflow";
-import { Trash2, StickyNote, Check, X } from "lucide-react";
+import { Trash2, StickyNote, Check, X, Edit2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { ResearchItem } from "@/hooks/useResearchItems";
 import { useResearchItems } from "@/hooks/useResearchItems";
 import { cn } from "@/lib/utils";
+import { RichTextEditor } from "./RichTextEditor";
+import ReactMarkdown from "react-markdown";
 
 interface NoteNodeData {
   item: ResearchItem;
@@ -21,13 +22,6 @@ export const NoteNode = memo(({ data }: NodeProps<NoteNodeData>) => {
   const [isEditing, setIsEditing] = useState(!item.content);
   const [title, setTitle] = useState(item.title || "");
   const [content, setContent] = useState(item.content || "");
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-
-  useEffect(() => {
-    if (isEditing && textareaRef.current) {
-      textareaRef.current.focus();
-    }
-  }, [isEditing]);
 
   const handleSave = () => {
     if (!content.trim()) return;
@@ -59,7 +53,7 @@ export const NoteNode = memo(({ data }: NodeProps<NoteNodeData>) => {
     <div 
       className={cn(
         "bg-yellow-50 dark:bg-yellow-900/20 border-2 border-yellow-200 dark:border-yellow-700 rounded-xl shadow-md hover:shadow-lg transition-all",
-        "p-3 min-w-[280px] max-w-[320px] group relative",
+        "p-3 min-w-[300px] max-w-[380px] group relative",
         isConnected && "ring-2 ring-yellow-400/50"
       )}
     >
@@ -69,25 +63,40 @@ export const NoteNode = memo(({ data }: NodeProps<NoteNodeData>) => {
       <Handle type="target" position={Position.Left} className="!w-3 !h-3 !bg-yellow-400 hover:!bg-yellow-500 !border-2 !border-background" id="left" />
       <Handle type="source" position={Position.Right} className="!w-3 !h-3 !bg-yellow-400 hover:!bg-yellow-500 !border-2 !border-background" id="right" />
 
-      {/* Delete Button */}
-      <Button
-        variant="ghost"
-        size="icon"
-        className="absolute top-2 right-2 h-7 w-7 rounded-full bg-destructive/10 hover:bg-destructive/20 text-destructive z-10"
-        onClick={(e) => {
-          e.stopPropagation();
-          onDelete(item.id);
-        }}
-      >
-        <Trash2 className="h-3.5 w-3.5" />
-      </Button>
+      {/* Actions */}
+      <div className="absolute top-2 right-2 flex gap-1 z-10">
+        {!isEditing && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 rounded-full bg-muted/50 hover:bg-muted text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity"
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsEditing(true);
+            }}
+          >
+            <Edit2 className="h-3.5 w-3.5" />
+          </Button>
+        )}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7 rounded-full bg-destructive/10 hover:bg-destructive/20 text-destructive"
+          onClick={(e) => {
+            e.stopPropagation();
+            onDelete(item.id);
+          }}
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </Button>
+      </div>
 
       {/* Header */}
       <div className="flex items-start gap-3 mb-3">
         <div className="p-2 bg-yellow-100 dark:bg-yellow-800/30 rounded-lg border border-yellow-300 dark:border-yellow-700">
           <StickyNote className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
         </div>
-        <div className="flex-1 min-w-0 pr-8">
+        <div className="flex-1 min-w-0 pr-12">
           <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-yellow-200 dark:bg-yellow-800/50 text-yellow-800 dark:text-yellow-300 text-xs font-medium">
             Nota
           </span>
@@ -103,14 +112,11 @@ export const NoteNode = memo(({ data }: NodeProps<NoteNodeData>) => {
             onChange={(e) => setTitle(e.target.value)}
             className="text-sm bg-white dark:bg-background"
           />
-          <Textarea
-            ref={textareaRef}
-            placeholder="Digite suas anotações..."
+          <RichTextEditor
             value={content}
-            onChange={(e) => setContent(e.target.value)}
-            rows={5}
-            className="text-sm resize-none bg-white dark:bg-background no-pan no-wheel"
-            onWheel={(e) => e.stopPropagation()}
+            onChange={setContent}
+            placeholder="Digite suas anotações em Markdown..."
+            minRows={6}
           />
           <div className="flex gap-2">
             <Button size="sm" onClick={handleSave} disabled={!content.trim()} className="flex-1">
@@ -124,11 +130,27 @@ export const NoteNode = memo(({ data }: NodeProps<NoteNodeData>) => {
           </div>
         </div>
       ) : (
-        <div onClick={() => setIsEditing(true)} className="cursor-pointer">
+        <div className="cursor-pointer" onClick={() => setIsEditing(true)}>
           <h3 className="font-semibold text-sm text-foreground mb-2">{item.title || "Nota"}</h3>
-          <p className="text-xs text-muted-foreground line-clamp-5 leading-relaxed whitespace-pre-wrap">
-            {item.content}
-          </p>
+          <div className="prose prose-sm dark:prose-invert max-w-none text-xs text-muted-foreground">
+            <ReactMarkdown
+              components={{
+                p: ({ children }) => <p className="mb-1 last:mb-0">{children}</p>,
+                h1: ({ children }) => <h1 className="text-sm font-bold mb-1">{children}</h1>,
+                h2: ({ children }) => <h2 className="text-sm font-semibold mb-1">{children}</h2>,
+                ul: ({ children }) => <ul className="list-disc pl-4 mb-1">{children}</ul>,
+                ol: ({ children }) => <ol className="list-decimal pl-4 mb-1">{children}</ol>,
+                li: ({ children }) => <li className="mb-0.5">{children}</li>,
+                blockquote: ({ children }) => <blockquote className="border-l-2 border-yellow-400 pl-2 italic">{children}</blockquote>,
+                code: ({ children }) => <code className="bg-muted px-1 rounded text-[10px]">{children}</code>,
+              }}
+            >
+              {item.content?.slice(0, 500) || ""}
+            </ReactMarkdown>
+            {item.content && item.content.length > 500 && (
+              <span className="text-yellow-600">...</span>
+            )}
+          </div>
         </div>
       )}
     </div>
