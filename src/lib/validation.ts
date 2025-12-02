@@ -15,10 +15,9 @@ export const validateMessage = (content: string): string | null => {
 export const validateModelId = (modelId: string): boolean => {
   const validModels = [
     "gemini-2.5-flash",
-    "gemini-1.5-flash-8b",
+    "gemini-2.5-flash-lite",
+    "gemini-3-pro-preview",
     "gemini-2.0-flash-exp",
-    "gemini-2.0-flash-thinking-exp",
-    "gemini-exp-1206",
     "gemini-2.5-pro",
     "gemini-1.5-flash",
     "gemini-1.5-pro",
