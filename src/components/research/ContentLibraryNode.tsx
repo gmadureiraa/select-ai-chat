@@ -39,7 +39,11 @@ export const ContentLibraryNode = memo(({ data }: { data: ContentLibraryNodeData
         .select("*, clients(name)")
         .order("created_at", { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error("Error fetching content library:", error);
+        throw error;
+      }
+      console.log("Content library loaded:", data?.length || 0, "items");
       return data as ContentItem[];
     },
   });
@@ -94,25 +98,25 @@ export const ContentLibraryNode = memo(({ data }: { data: ContentLibraryNodeData
           </div>
         </CardHeader>
         <CardContent className="space-y-3">
-          {allContents.length === 0 && !isLoading ? (
-            <p className="text-xs text-muted-foreground py-4 text-center">
-              Nenhum conteúdo disponível nas bibliotecas
-            </p>
-          ) : (
-            <div>
-              <label className="text-xs text-muted-foreground mb-1 block">
-                Selecione um conteúdo
-              </label>
-              <Select
-                value={selectedContentId || ""}
-                onValueChange={setSelectedContentId}
-                disabled={isLoading}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder={isLoading ? "Carregando..." : "Escolher conteúdo"} />
-                </SelectTrigger>
-                <SelectContent>
-                  {allContents.map((content) => (
+          <div>
+            <label className="text-xs text-muted-foreground mb-1 block">
+              Selecione um conteúdo
+            </label>
+            <Select
+              value={selectedContentId || ""}
+              onValueChange={setSelectedContentId}
+              disabled={isLoading}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder={isLoading ? "Carregando..." : allContents.length === 0 ? "Nenhum conteúdo disponível" : "Escolher conteúdo"} />
+              </SelectTrigger>
+              <SelectContent>
+                {allContents.length === 0 ? (
+                  <div className="px-2 py-4 text-xs text-muted-foreground text-center">
+                    Nenhum conteúdo disponível
+                  </div>
+                ) : (
+                  allContents.map((content) => (
                     <SelectItem key={content.id} value={content.id}>
                       <div className="flex flex-col items-start">
                         <span className="font-medium">{content.title}</span>
@@ -121,11 +125,11 @@ export const ContentLibraryNode = memo(({ data }: { data: ContentLibraryNodeData
                         </span>
                       </div>
                     </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
+                  ))
+                )}
+              </SelectContent>
+            </Select>
+          </div>
 
           {selectedContent && (
             <div className="p-3 bg-muted/50 rounded-md border border-border">

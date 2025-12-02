@@ -40,7 +40,11 @@ export const ReferenceLibraryNode = memo(({ data }: { data: ReferenceLibraryNode
         .select("*, clients(name)")
         .order("created_at", { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error("Error fetching reference library:", error);
+        throw error;
+      }
+      console.log("Reference library loaded:", data?.length || 0, "items");
       return data as ReferenceItem[];
     },
   });
@@ -96,25 +100,25 @@ export const ReferenceLibraryNode = memo(({ data }: { data: ReferenceLibraryNode
           </div>
         </CardHeader>
         <CardContent className="space-y-3">
-          {allReferences.length === 0 && !isLoading ? (
-            <p className="text-xs text-muted-foreground py-4 text-center">
-              Nenhuma referência disponível nas bibliotecas
-            </p>
-          ) : (
-            <div>
-              <label className="text-xs text-muted-foreground mb-1 block">
-                Selecione uma referência
-              </label>
-              <Select
-                value={selectedReferenceId || ""}
-                onValueChange={setSelectedReferenceId}
-                disabled={isLoading}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder={isLoading ? "Carregando..." : "Escolher referência"} />
-                </SelectTrigger>
-                <SelectContent>
-                  {allReferences.map((reference) => (
+          <div>
+            <label className="text-xs text-muted-foreground mb-1 block">
+              Selecione uma referência
+            </label>
+            <Select
+              value={selectedReferenceId || ""}
+              onValueChange={setSelectedReferenceId}
+              disabled={isLoading}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder={isLoading ? "Carregando..." : allReferences.length === 0 ? "Nenhuma referência disponível" : "Escolher referência"} />
+              </SelectTrigger>
+              <SelectContent>
+                {allReferences.length === 0 ? (
+                  <div className="px-2 py-4 text-xs text-muted-foreground text-center">
+                    Nenhuma referência disponível
+                  </div>
+                ) : (
+                  allReferences.map((reference) => (
                     <SelectItem key={reference.id} value={reference.id}>
                       <div className="flex flex-col items-start">
                         <span className="font-medium">{reference.title}</span>
@@ -123,11 +127,11 @@ export const ReferenceLibraryNode = memo(({ data }: { data: ReferenceLibraryNode
                         </span>
                       </div>
                     </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
+                  ))
+                )}
+              </SelectContent>
+            </Select>
+          </div>
 
           {selectedReference && (
             <div className="p-3 bg-muted/50 rounded-md border border-border">
