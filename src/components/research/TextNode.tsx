@@ -6,15 +6,17 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { ResearchItem } from "@/hooks/useResearchItems";
 import { useResearchItems } from "@/hooks/useResearchItems";
+import { cn } from "@/lib/utils";
 
 interface TextNodeData {
   item: ResearchItem;
   onDelete: (id: string) => void;
   projectId: string;
+  isConnected?: boolean;
 }
 
 export const TextNode = memo(({ data }: NodeProps<TextNodeData>) => {
-  const { item, onDelete, projectId } = data;
+  const { item, onDelete, projectId, isConnected } = data;
   const { updateItem } = useResearchItems(projectId);
   const [isEditing, setIsEditing] = useState(!item.content);
   const [title, setTitle] = useState(item.title || "");
@@ -48,17 +50,31 @@ export const TextNode = memo(({ data }: NodeProps<TextNodeData>) => {
     }
   };
 
-  return (
-    <div className="bg-white border-2 border-blue-200 rounded-xl shadow-lg hover:shadow-xl transition-shadow p-4 min-w-[320px] max-w-[400px] group relative">
-      <Handle type="target" position={Position.Top} className="w-3 h-3 !bg-gray-400" />
-      <Handle type="source" position={Position.Bottom} className="w-3 h-3 !bg-gray-400" />
-      <Handle type="source" position={Position.Left} className="w-3 h-3 !bg-gray-400" />
-      <Handle type="source" position={Position.Right} className="w-3 h-3 !bg-gray-400" />
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Delete" || e.key === "Backspace") {
+      e.stopPropagation();
+    }
+  };
 
+  return (
+    <div 
+      className={cn(
+        "bg-card border-2 border-blue-200 dark:border-blue-800 rounded-xl shadow-md hover:shadow-lg transition-all",
+        "p-3 min-w-[320px] max-w-[400px] group relative",
+        isConnected && "ring-2 ring-blue-400/50"
+      )}
+    >
+      {/* Handles */}
+      <Handle type="target" position={Position.Top} className="!w-3 !h-3 !bg-blue-400 hover:!bg-blue-500 !border-2 !border-background" />
+      <Handle type="source" position={Position.Bottom} className="!w-3 !h-3 !bg-blue-400 hover:!bg-blue-500 !border-2 !border-background" />
+      <Handle type="target" position={Position.Left} className="!w-3 !h-3 !bg-blue-400 hover:!bg-blue-500 !border-2 !border-background" id="left" />
+      <Handle type="source" position={Position.Right} className="!w-3 !h-3 !bg-blue-400 hover:!bg-blue-500 !border-2 !border-background" id="right" />
+
+      {/* Delete Button */}
       <Button
-        variant="outline"
+        variant="ghost"
         size="icon"
-        className="absolute top-2 right-2 h-8 px-2 rounded-full border-red-200 text-red-600 bg-red-50/80 hover:bg-red-100 hover:text-red-700 z-10"
+        className="absolute top-2 right-2 h-7 w-7 rounded-full bg-destructive/10 hover:bg-destructive/20 text-destructive z-10"
         onClick={(e) => {
           e.stopPropagation();
           onDelete(item.id);
@@ -67,19 +83,21 @@ export const TextNode = memo(({ data }: NodeProps<TextNodeData>) => {
         <Trash2 className="h-3.5 w-3.5" />
       </Button>
 
+      {/* Header */}
       <div className="flex items-start gap-3 mb-3">
-        <div className="p-2.5 bg-blue-50 rounded-lg border border-blue-200">
-          <FileText className="h-4 w-4 text-blue-600" />
+        <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg border border-blue-200 dark:border-blue-800">
+          <FileText className="h-4 w-4 text-blue-600 dark:text-blue-400" />
         </div>
-        <div className="flex-1 min-w-0">
-          <div className="inline-flex items-center px-2 py-1 rounded-md bg-blue-100 text-blue-700 text-xs font-medium mb-2">
+        <div className="flex-1 min-w-0 pr-8">
+          <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs font-medium">
             Texto
-          </div>
+          </span>
         </div>
       </div>
 
+      {/* Content */}
       {isEditing ? (
-        <div className="space-y-2">
+        <div className="space-y-2" onKeyDown={handleKeyDown}>
           <Input
             placeholder="Título (opcional)"
             value={title}
@@ -92,7 +110,8 @@ export const TextNode = memo(({ data }: NodeProps<TextNodeData>) => {
             value={content}
             onChange={(e) => setContent(e.target.value)}
             rows={6}
-            className="text-sm resize-none"
+            className="text-sm resize-none no-pan no-wheel"
+            onWheel={(e) => e.stopPropagation()}
           />
           <div className="flex gap-2">
             <Button size="sm" onClick={handleSave} disabled={!content.trim()} className="flex-1">
@@ -107,8 +126,8 @@ export const TextNode = memo(({ data }: NodeProps<TextNodeData>) => {
         </div>
       ) : (
         <div onClick={() => setIsEditing(true)} className="cursor-pointer">
-          <h3 className="font-semibold text-sm text-gray-900 mb-2">{item.title || "Texto"}</h3>
-          <p className="text-xs text-gray-600 line-clamp-6 leading-relaxed whitespace-pre-wrap">
+          <h3 className="font-semibold text-sm text-foreground mb-2">{item.title || "Texto"}</h3>
+          <p className="text-xs text-muted-foreground line-clamp-6 leading-relaxed whitespace-pre-wrap">
             {item.content}
           </p>
         </div>
