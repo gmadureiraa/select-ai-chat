@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Youtube, FileText, Link as LinkIcon, Sparkles, StickyNote, Mic, Image } from "lucide-react";
+import { Youtube, FileText, Link as LinkIcon, Sparkles, StickyNote, Mic, Image, BookOpen, Library } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -13,7 +13,7 @@ interface AddItemMenuProps {
   onClose: () => void;
 }
 
-type ItemType = "ai_chat" | "note" | "youtube" | "text" | "link" | "audio" | "image" | null;
+type ItemType = "ai_chat" | "note" | "youtube" | "text" | "link" | "audio" | "image" | "content_library" | "reference_library" | null;
 
 export const AddItemMenu = ({ projectId, onClose }: AddItemMenuProps) => {
   const [selectedType, setSelectedType] = useState<ItemType>(null);
@@ -121,6 +121,28 @@ export const AddItemMenu = ({ projectId, onClose }: AddItemMenuProps) => {
             position_y: Math.random() * 500,
           });
           toast({ title: "Imagem adicionada" });
+          break;
+
+        case "content_library":
+          await createItem.mutateAsync({
+            project_id: projectId,
+            type: "content_library",
+            title: "Biblioteca de Conteúdo",
+            position_x: Math.random() * 500,
+            position_y: Math.random() * 500,
+          });
+          toast({ title: "Biblioteca de Conteúdo adicionada" });
+          break;
+
+        case "reference_library":
+          await createItem.mutateAsync({
+            project_id: projectId,
+            type: "reference_library",
+            title: "Biblioteca de Referências",
+            position_x: Math.random() * 500,
+            position_y: Math.random() * 500,
+          });
+          toast({ title: "Biblioteca de Referências adicionada" });
           break;
       }
 
@@ -243,6 +265,34 @@ export const AddItemMenu = ({ projectId, onClose }: AddItemMenuProps) => {
               <div className="text-xs text-muted-foreground">Adicionar ou gerar imagem</div>
             </div>
           </Button>
+
+          <Button
+            variant="ghost"
+            className="w-full justify-start gap-3 h-auto py-2.5 hover:bg-accent/50"
+            onClick={() => handleSelectType("content_library")}
+          >
+            <div className="p-1.5 bg-cyan-500/10 rounded-md">
+              <BookOpen className="h-4 w-4 text-cyan-600" />
+            </div>
+            <div className="text-left flex-1">
+              <div className="font-medium text-sm">Biblioteca de Conteúdo</div>
+              <div className="text-xs text-muted-foreground">Conteúdos dos clientes</div>
+            </div>
+          </Button>
+
+          <Button
+            variant="ghost"
+            className="w-full justify-start gap-3 h-auto py-2.5 hover:bg-accent/50"
+            onClick={() => handleSelectType("reference_library")}
+          >
+            <div className="p-1.5 bg-indigo-500/10 rounded-md">
+              <Library className="h-4 w-4 text-indigo-600" />
+            </div>
+            <div className="text-left flex-1">
+              <div className="font-medium text-sm">Biblioteca de Referências</div>
+              <div className="text-xs text-muted-foreground">Referências dos clientes</div>
+            </div>
+          </Button>
         </div>
       </div>
     );
@@ -259,6 +309,8 @@ export const AddItemMenu = ({ projectId, onClose }: AddItemMenuProps) => {
           {selectedType === "link" && "Adicionar Link"}
           {selectedType === "audio" && "Adicionar Áudio"}
           {selectedType === "image" && "Adicionar Imagem"}
+          {selectedType === "content_library" && "Biblioteca de Conteúdo"}
+          {selectedType === "reference_library" && "Biblioteca de Referências"}
         </h3>
         <Button variant="ghost" size="sm" onClick={() => setSelectedType(null)}>
           Voltar
@@ -365,6 +417,19 @@ export const AddItemMenu = ({ projectId, onClose }: AddItemMenuProps) => {
               {isProcessing ? "Adicionando..." : "Adicionar Imagem"}
             </Button>
           </>
+        )}
+
+        {(selectedType === "content_library" || selectedType === "reference_library") && (
+          <div className="text-center py-4">
+            <p className="text-sm text-muted-foreground mb-4">
+              {selectedType === "content_library" 
+                ? "Um card de biblioteca será criado. Selecione conteúdos específicos dos clientes."
+                : "Um card de biblioteca será criado. Selecione referências específicas dos clientes."}
+            </p>
+            <Button onClick={handleAddItem} className="w-full" disabled={isProcessing}>
+              Criar Biblioteca
+            </Button>
+          </div>
         )}
       </div>
     </div>

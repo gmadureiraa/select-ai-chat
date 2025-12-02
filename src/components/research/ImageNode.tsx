@@ -1,21 +1,24 @@
-import { memo, useState } from "react";
+import { memo, useState, useEffect } from "react";
 import { Handle, Position, NodeProps } from "reactflow";
 import { Card, CardContent } from "@/components/ui/card";
-import { Trash2, Sparkles } from "lucide-react";
+import { Trash2, Sparkles, Upload, FileText } from "lucide-react";
 import { useResearchItems } from "@/hooks/useResearchItems";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
+import { Input } from "@/components/ui/input";
 
 interface ImageNodeData {
   item: {
     id: string;
     title?: string;
     source_url?: string;
+    content?: string;
     metadata?: {
       description?: string;
+      transcribed?: boolean;
     };
   };
 }
@@ -25,6 +28,102 @@ const ImageNode = ({ data, id }: NodeProps<ImageNodeData>) => {
   const { toast } = useToast();
   const [prompt, setPrompt] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [isTranscribing, setIsTranscribing] = useState(false);
+
+  // Auto-transcrever quando a imagem é carregada pela primeira vez
+  useEffect(() => {
+    if (data.item.source_url && !data.item.metadata?.transcribed && !data.item.content) {
+      handleTranscribeImage();
+    }
+  }, [data.item.source_url]);
+
+  const handleTranscribeImage = async () => {
+    if (!data.item.source_url) return;
+
+    setIsTranscribing(true);
+    try {
+      const { data: result, error } = await supabase.functions.invoke("transcribe-images", {
+        body: { imageUrls: [data.item.source_url] },
+      });
+
+      if (error) throw error;
+
+      if (result?.transcription) {
+        await updateItem.mutateAsync({
+          id: data.item.id,
+          content: result.transcription,
+          metadata: {
+            ...data.item.metadata,
+            transcribed: true,
+            transcribedAt: new Date().toISOString(),
+          },
+        });
+
+        toast({
+          title: "Imagem transcrita",
+          description: "Conteúdo textual extraído com sucesso",
+        });
+      }
+    } catch (error: any) {
+      console.error("Error transcribing image:", error);
+      toast({
+        title: "Erro ao transcrever",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsTranscribing(false);
+    }
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      toast({
+        title: "Arquivo inválido",
+        description: "Por favor, selecione uma imagem",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      const fileName = `${Date.now()}-${file.name}`;
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from("client-files")
+        .upload(`research-images/${fileName}`, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from("client-files")
+        .getPublicUrl(uploadData.path);
+
+      await updateItem.mutateAsync({
+        id: data.item.id,
+        source_url: publicUrl,
+        title: file.name,
+      });
+
+      toast({
+        title: "Imagem carregada",
+        description: "A transcrição será feita automaticamente",
+      });
+    } catch (error: any) {
+      console.error("Error uploading image:", error);
+      toast({
+        title: "Erro ao fazer upload",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsUploading(false);
+    }
+  };
 
   const handleDelete = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -109,11 +208,33 @@ const ImageNode = ({ data, id }: NodeProps<ImageNodeData>) => {
       <Handle type="target" position={Position.Top} className="!bg-primary" />
 
       <CardContent className="p-4 space-y-3">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center justify-between">
           <div className="text-xs font-medium text-muted-foreground">
             Imagem
           </div>
+          {isTranscribing && (
+            <div className="flex items-center gap-1 text-xs text-primary">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              <span>Transcrevendo...</span>
+            </div>
+          )}
         </div>
+
+        {!data.item.source_url && (
+          <div className="border-2 border-dashed border-border/50 rounded-lg p-6 text-center">
+            <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+            <p className="text-sm text-muted-foreground mb-3">
+              Faça upload de uma imagem
+            </p>
+            <Input
+              type="file"
+              accept="image/*"
+              onChange={handleImageUpload}
+              disabled={isUploading}
+              className="text-sm"
+            />
+          </div>
+        )}
 
         {data.item.source_url && (
           <div className="rounded-lg overflow-hidden border border-border/40">
@@ -125,10 +246,16 @@ const ImageNode = ({ data, id }: NodeProps<ImageNodeData>) => {
           </div>
         )}
 
-        {data.item.metadata?.description && (
-          <p className="text-xs text-muted-foreground">
-            {data.item.metadata.description}
-          </p>
+        {data.item.content && (
+          <div className="p-3 bg-muted/30 rounded-md border border-border/40">
+            <div className="flex items-center gap-1 mb-1">
+              <FileText className="h-3 w-3 text-primary" />
+              <span className="text-xs font-medium">Transcrição</span>
+            </div>
+            <p className="text-xs text-muted-foreground line-clamp-4">
+              {data.item.content}
+            </p>
+          </div>
         )}
 
         <div className="space-y-2 pt-2 border-t border-border/40">
