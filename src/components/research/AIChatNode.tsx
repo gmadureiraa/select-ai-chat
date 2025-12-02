@@ -10,14 +10,16 @@ interface AIChatNodeData {
   item: ResearchItem;
   onDelete: (id: string) => void;
   projectId: string;
+  clientId?: string;
   connectedItems: ResearchItem[];
 }
 
 export const AIChatNode = memo(({ data }: NodeProps<AIChatNodeData>) => {
-  const { item, onDelete, projectId, connectedItems } = data;
+  const { item, onDelete, projectId, clientId, connectedItems } = data;
   const [input, setInput] = useState("");
+  const [analysisProgress, setAnalysisProgress] = useState<string[]>([]);
   // Usar itemId para conversa isolada por card
-  const { messages, isStreaming, sendMessage } = useResearchChat(projectId, item.id, "google/gemini-2.5-flash");
+  const { messages, isStreaming, sendMessage } = useResearchChat(projectId, item.id, "google/gemini-2.5-flash", clientId, setAnalysisProgress);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -160,7 +162,15 @@ export const AIChatNode = memo(({ data }: NodeProps<AIChatNodeData>) => {
                 <Bot className="h-3 w-3 text-purple-600 animate-pulse" />
               </div>
               <div className="flex-1 p-2 rounded-lg bg-purple-50 border border-purple-100">
-                <p className="text-xs text-gray-500">Analisando materiais...</p>
+                {analysisProgress.length > 0 ? (
+                  <div className="space-y-1">
+                    {analysisProgress.map((step, idx) => (
+                      <p key={idx} className="text-xs text-purple-700">✓ {step}</p>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-gray-500">Analisando materiais...</p>
+                )}
               </div>
             </div>
           )}

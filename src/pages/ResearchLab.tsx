@@ -1,10 +1,12 @@
 import { useState } from "react";
 import { AppLayout } from "@/components/AppLayout";
 import { ProjectSelector } from "@/components/research/ProjectSelector";
+import { ClientSelector } from "@/components/research/ClientSelector";
 import { ResearchCanvas } from "@/components/research/ResearchCanvas";
 
 const ResearchLab = () => {
   const [selectedProjectId, setSelectedProjectId] = useState<string>();
+  const [selectedClientId, setSelectedClientId] = useState<string>();
 
   return (
     <AppLayout>
@@ -15,6 +17,10 @@ const ResearchLab = () => {
             <ProjectSelector
               selectedProjectId={selectedProjectId}
               onSelectProject={setSelectedProjectId}
+            />
+            <ClientSelector
+              selectedClientId={selectedClientId}
+              onSelectClient={setSelectedClientId}
             />
           </div>
           
@@ -30,7 +36,7 @@ const ResearchLab = () => {
         ) : (
           <div className="flex-1 p-4 overflow-hidden bg-white">
             <div className="h-full overflow-hidden rounded-lg border border-gray-200 shadow-sm">
-              <ResearchCanvas projectId={selectedProjectId} />
+              <ResearchCanvas projectId={selectedProjectId} clientId={selectedClientId} />
             </div>
           </div>
         )}

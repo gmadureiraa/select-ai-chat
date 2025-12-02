@@ -11,7 +11,13 @@ export interface ResearchMessage {
   created_at: string;
 }
 
-export const useResearchChat = (projectId?: string, itemId?: string, model: string = "google/gemini-2.5-flash") => {
+export const useResearchChat = (
+  projectId?: string, 
+  itemId?: string, 
+  model: string = "google/gemini-2.5-flash",
+  clientId?: string,
+  onProgressUpdate?: (progress: string[]) => void
+) => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isStreaming, setIsStreaming] = useState(false);
@@ -128,12 +134,14 @@ export const useResearchChat = (projectId?: string, itemId?: string, model: stri
 
       // Call edge function to get AI response
       setIsStreaming(true);
+      
       const { data: aiResponse, error: aiError } = await supabase.functions.invoke("analyze-research", {
         body: {
           projectId,
           conversationId: conversation.id,
           userMessage: content,
           model,
+          clientId,
           connectedItemIds, // Passar IDs dos items conectados
         },
       });
@@ -141,6 +149,11 @@ export const useResearchChat = (projectId?: string, itemId?: string, model: stri
       setIsStreaming(false);
 
       if (aiError) throw aiError;
+      
+      // Update progress if available
+      if (onProgressUpdate && aiResponse.progress) {
+        onProgressUpdate(aiResponse.progress);
+      }
 
       // Save assistant response
       const { error: assistantError } = await supabase

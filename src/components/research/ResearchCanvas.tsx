@@ -19,6 +19,7 @@ import { ResearchItemNode } from "./ResearchItemNode";
 import { AIChatNode } from "./AIChatNode";
 import { ContentLibraryNode } from "./ContentLibraryNode";
 import { ReferenceLibraryNode } from "./ReferenceLibraryNode";
+import { GrokSearchNode } from "./GrokSearchNode";
 import { TextNode } from "./TextNode";
 import { NoteNode } from "./NoteNode";
 import { AudioNode } from "./AudioNode";
@@ -27,6 +28,7 @@ import { Sparkles } from "lucide-react";
 
 interface ResearchCanvasProps {
   projectId: string;
+  clientId?: string;
 }
 
 const nodeTypes = {
@@ -34,13 +36,14 @@ const nodeTypes = {
   aiChat: AIChatNode,
   contentLibrary: ContentLibraryNode,
   referenceLibrary: ReferenceLibraryNode,
+  grokSearch: GrokSearchNode,
   text: TextNode,
   note: NoteNode,
   audio: AudioNode,
   image: ImageNode,
 };
 
-export const ResearchCanvas = ({ projectId }: ResearchCanvasProps) => {
+export const ResearchCanvas = ({ projectId, clientId }: ResearchCanvasProps) => {
   const { items, deleteItem, updateItem, connections, createConnection, deleteConnection } = useResearchItems(projectId);
 
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
@@ -66,6 +69,7 @@ export const ResearchCanvas = ({ projectId }: ResearchCanvasProps) => {
       if (item.type === "ai_chat") nodeType = "aiChat";
       else if (item.type === "content_library") nodeType = "contentLibrary";
       else if (item.type === "reference_library") nodeType = "referenceLibrary";
+      else if (item.type === "grok_search") nodeType = "grokSearch";
       else if (item.type === "text") nodeType = "text";
       else if (item.type === "note") nodeType = "note";
       else if (item.type === "audio") nodeType = "audio";
@@ -79,13 +83,14 @@ export const ResearchCanvas = ({ projectId }: ResearchCanvasProps) => {
           item,
           onDelete: deleteItem.mutate,
           projectId,
+          clientId,
           connectedItems,
         },
       };
     });
 
     setNodes(newNodes);
-  }, [items, connections, deleteItem.mutate, setNodes, projectId]);
+  }, [items, connections, deleteItem.mutate, setNodes, projectId, clientId]);
 
   // Update edges when connections change
   useEffect(() => {
