@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useClients } from "@/hooks/useClients";
 import { useActivities } from "@/hooks/useActivities";
+import { useAuth } from "@/hooks/useAuth";
 import { ArrowLeft, Upload, Loader2, FileText, X } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -18,6 +19,7 @@ const ReverseEngineering = () => {
   const { toast } = useToast();
   const { clients } = useClients();
   const { logActivity } = useActivities();
+  const { user } = useAuth();
   
   const [selectedClient, setSelectedClient] = useState<string>("");
   const [referenceText, setReferenceText] = useState("");
@@ -113,6 +115,7 @@ const ReverseEngineering = () => {
           referenceText: inputType === "text" ? referenceText : undefined,
           instagramCaption: inputType === "instagram" ? instagramCaption : undefined,
           phase: "analyze",
+          userId: user?.id,
         },
       });
 
@@ -164,6 +167,7 @@ const ReverseEngineering = () => {
           clientId: selectedClient,
           analysis: analysis,
           phase: "generate",
+          userId: user?.id,
         },
       });
 
