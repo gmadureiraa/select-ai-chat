@@ -50,18 +50,18 @@ export const AIChatNode = memo(({ data }: NodeProps<AIChatNodeData>) => {
   return (
     <div 
       className={cn(
-        "bg-card border-2 border-purple-200 dark:border-purple-800 rounded-xl shadow-md hover:shadow-lg transition-all",
+        "bg-card border border-border rounded-2xl shadow-sm hover:shadow-md transition-all",
         "min-w-[400px] max-w-[400px] h-[500px] flex flex-col group relative",
-        "focus:outline-none focus:ring-2 focus:ring-purple-400",
-        isConnected && "ring-2 ring-purple-400/50",
-        isStreaming && "ring-2 ring-purple-500 animate-pulse"
+        "focus:outline-none focus:ring-2 focus:ring-primary/20",
+        isConnected && "ring-2 ring-primary/30",
+        isStreaming && "ring-2 ring-primary/50"
       )}
     >
       {/* Handles */}
-      <Handle type="target" position={Position.Top} className="!w-3 !h-3 !bg-purple-400 hover:!bg-purple-500 !border-2 !border-background" />
-      <Handle type="source" position={Position.Bottom} className="!w-3 !h-3 !bg-purple-400 hover:!bg-purple-500 !border-2 !border-background" />
-      <Handle type="target" position={Position.Left} className="!w-3 !h-3 !bg-purple-400 hover:!bg-purple-500 !border-2 !border-background" id="left" />
-      <Handle type="source" position={Position.Right} className="!w-3 !h-3 !bg-purple-400 hover:!bg-purple-500 !border-2 !border-background" id="right" />
+      <Handle type="target" position={Position.Top} className="!w-3 !h-3 !bg-muted-foreground hover:!bg-foreground !border-2 !border-background" />
+      <Handle type="source" position={Position.Bottom} className="!w-3 !h-3 !bg-muted-foreground hover:!bg-foreground !border-2 !border-background" />
+      <Handle type="target" position={Position.Left} className="!w-3 !h-3 !bg-muted-foreground hover:!bg-foreground !border-2 !border-background" id="left" />
+      <Handle type="source" position={Position.Right} className="!w-3 !h-3 !bg-muted-foreground hover:!bg-foreground !border-2 !border-background" id="right" />
 
       {/* Delete Button */}
       <Button
@@ -75,8 +75,8 @@ export const AIChatNode = memo(({ data }: NodeProps<AIChatNodeData>) => {
 
       {/* Header */}
       <div className="flex items-center gap-2 p-3 border-b border-border">
-        <div className="p-2 bg-purple-900/30 rounded-lg border border-purple-700">
-          <Sparkles className="h-4 w-4 text-purple-400" />
+        <div className="p-2 bg-muted rounded-lg">
+          <Sparkles className="h-4 w-4 text-foreground" />
         </div>
         <div className="flex-1 min-w-0">
           <h3 className="font-semibold text-sm text-foreground">
@@ -84,7 +84,7 @@ export const AIChatNode = memo(({ data }: NodeProps<AIChatNodeData>) => {
           </h3>
           <div className="flex items-center gap-2 mt-1">
             {connectedItems.length > 0 ? (
-              <Badge variant="secondary" className="text-xs gap-1 bg-purple-900/30 text-purple-300 border-purple-700">
+              <Badge variant="secondary" className="text-xs gap-1">
                 <Link2 className="h-3 w-3" />
                 {connectedItems.length} conectado{connectedItems.length > 1 ? "s" : ""}
               </Badge>
@@ -103,7 +103,7 @@ export const AIChatNode = memo(({ data }: NodeProps<AIChatNodeData>) => {
               <Badge 
                 key={connItem.id} 
                 variant="outline"
-                className="text-xs bg-purple-900/20 text-purple-300 border-purple-700"
+                className="text-xs"
               >
                 {connItem.title?.substring(0, 15) || connItem.type}
                 {connItem.title && connItem.title.length > 15 && "..."}
@@ -144,11 +144,11 @@ export const AIChatNode = memo(({ data }: NodeProps<AIChatNodeData>) => {
               <div
                 className={cn(
                   "p-1.5 rounded-full shrink-0",
-                  message.role === "assistant" ? "bg-purple-900/30" : "bg-muted"
+                  message.role === "assistant" ? "bg-muted" : "bg-muted"
                 )}
               >
                 {message.role === "assistant" ? (
-                  <Bot className="h-3 w-3 text-purple-400" />
+                  <Bot className="h-3 w-3 text-foreground" />
                 ) : (
                   <div className="h-3 w-3 rounded-full bg-muted-foreground" />
                 )}
@@ -157,7 +157,7 @@ export const AIChatNode = memo(({ data }: NodeProps<AIChatNodeData>) => {
                 className={cn(
                   "flex-1 p-2 rounded-lg text-xs",
                   message.role === "assistant" 
-                    ? "bg-purple-900/30 border border-purple-700" 
+                    ? "bg-muted/50" 
                     : "bg-muted border border-border"
                 )}
               >
@@ -170,14 +170,14 @@ export const AIChatNode = memo(({ data }: NodeProps<AIChatNodeData>) => {
 
           {isStreaming && (
             <div className="flex gap-2">
-              <div className="p-1.5 rounded-full bg-purple-900/30 shrink-0">
-                <Bot className="h-3 w-3 text-purple-400 animate-pulse" />
+              <div className="p-1.5 rounded-full bg-muted shrink-0">
+                <Bot className="h-3 w-3 text-foreground animate-pulse" />
               </div>
-              <div className="flex-1 p-2 rounded-lg bg-purple-900/30 border border-purple-700">
+              <div className="flex-1 p-2 rounded-lg bg-muted/50">
                 {analysisProgress.length > 0 ? (
                   <div className="space-y-1">
                     {analysisProgress.map((step, idx) => (
-                      <p key={idx} className="text-xs text-purple-300">✓ {step}</p>
+                      <p key={idx} className="text-xs text-muted-foreground">✓ {step}</p>
                     ))}
                   </div>
                 ) : (
@@ -190,21 +190,21 @@ export const AIChatNode = memo(({ data }: NodeProps<AIChatNodeData>) => {
       </div>
 
       {/* Input */}
-      <div className="p-2 border-t border-border bg-muted/30">
-        <div className="flex gap-2">
+      <div className="p-3 border-t border-border">
+        <div className="flex items-end gap-2 bg-muted/30 rounded-xl border border-border p-2">
           <Textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Faça uma pergunta..."
-            className="min-h-[60px] max-h-[60px] resize-none text-xs bg-background"
+            className="min-h-[40px] max-h-[80px] resize-none text-sm bg-transparent border-0 focus-visible:ring-0 focus-visible:ring-offset-0 p-1"
             disabled={isStreaming}
           />
           <Button 
             onClick={handleSend} 
             disabled={!input.trim() || isStreaming} 
             size="icon"
-            className="h-[60px] w-[60px] shrink-0"
+            className="h-8 w-8 shrink-0 rounded-lg"
           >
             <Send className="h-4 w-4" />
           </Button>
