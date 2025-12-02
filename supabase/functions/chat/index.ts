@@ -7,14 +7,17 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
-// Pricing por 1M tokens (USD) - Gemini models
+// Pricing por 1M tokens (USD) - Preços oficiais do Google AI Studio
 const MODEL_PRICING: Record<string, { input: number; output: number }> = {
-  "google/gemini-2.5-flash": { input: 0.10, output: 0.40 },
-  "google/gemini-2.5-flash-lite": { input: 0.05, output: 0.15 },
-  "google/gemini-3-pro-preview": { input: 0.50, output: 2.00 },
-  "google/gemini-2.5-pro": { input: 1.25, output: 5.00 },
-  "gpt-5-mini-2025-08-07": { input: 1.00, output: 4.00 },
-  "gpt-5-nano-2025-08-07": { input: 0.20, output: 0.80 },
+  "gemini-2.0-flash-exp": { input: 0.00, output: 0.00 }, // Free tier
+  "gemini-2.0-flash-thinking-exp": { input: 0.00, output: 0.00 }, // Free tier
+  "gemini-exp-1206": { input: 0.00, output: 0.00 }, // Free tier
+  "gemini-2.5-flash": { input: 0.075, output: 0.30 }, // Preço oficial Google
+  "gemini-2.5-flash-8b": { input: 0.0375, output: 0.15 }, // Preço oficial Google (antigo flash-lite)
+  "gemini-2.5-pro": { input: 1.25, output: 5.00 }, // Preço oficial Google
+  "gemini-1.5-flash": { input: 0.075, output: 0.30 },
+  "gemini-1.5-flash-8b": { input: 0.0375, output: 0.15 },
+  "gemini-1.5-pro": { input: 1.25, output: 5.00 },
 };
 
 function estimateCost(model: string, inputTokens: number, outputTokens: number): number {
@@ -27,7 +30,21 @@ function estimateCost(model: string, inputTokens: number, outputTokens: number):
 function getProvider(model: string): string {
   if (model.includes("gemini")) return "google";
   if (model.includes("gpt-")) return "openai";
-  return "lovable";
+  return "unknown";
+}
+
+// Converter modelo para formato do Google AI Studio
+function getGoogleModelName(model: string): string {
+  // Remove prefixo "google/" se existir
+  const cleanModel = model.replace("google/", "");
+  
+  // Mapear aliases para nomes oficiais
+  const modelMap: Record<string, string> = {
+    "gemini-2.5-flash-lite": "gemini-2.5-flash-8b",
+    "gemini-3-pro-preview": "gemini-2.0-flash-exp", // Modelo experimental mais recente
+  };
+  
+  return modelMap[cleanModel] || cleanModel;
 }
 
 async function logAIUsage(
@@ -114,63 +131,87 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { messages, model = "google/gemini-2.5-flash", isSelectionPhase, userId, clientId } = await req.json();
+    const { messages, model = "gemini-2.5-flash", isSelectionPhase, userId, clientId } = await req.json();
 
     console.log(`[CHAT] Model: ${model}, Phase: ${isSelectionPhase ? "selection" : "response"}`);
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY não configurada");
+    const GOOGLE_API_KEY = Deno.env.get("GOOGLE_AI_STUDIO_API_KEY");
+    if (!GOOGLE_API_KEY) throw new Error("GOOGLE_AI_STUDIO_API_KEY não configurada");
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Construir requisição
+    // Converter modelo para formato Google
+    const googleModel = getGoogleModelName(model);
+    
+    // Preparar conteúdos para o Google Gemini API
+    const contents = messages
+      .filter((m: any) => m.role !== "system")
+      .map((m: any) => ({
+        role: m.role === "assistant" ? "model" : "user",
+        parts: [{ text: m.content }]
+      }));
+
+    // System instruction separado (Google Gemini não usa "system" em messages)
+    const systemInstruction = messages.find((m: any) => m.role === "system")?.content;
+
+    // Construir requisição para Google Gemini API
     const requestBody: any = {
-      model,
-      messages,
-      stream: true,
+      contents,
+      generationConfig: {
+        temperature: 1.0,
+        maxOutputTokens: 8192,
+      }
     };
 
-    if (isSelectionPhase) {
-      requestBody.tools = [contentSelectionTool];
-      requestBody.tool_choice = { type: "function", function: { name: "select_relevant_content" } };
+    if (systemInstruction) {
+      requestBody.systemInstruction = {
+        parts: [{ text: systemInstruction }]
+      };
     }
 
-    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(requestBody),
-    });
+    // Tools para seleção (se necessário)
+    if (isSelectionPhase) {
+      requestBody.tools = [{
+        functionDeclarations: [{
+          name: "select_relevant_content",
+          description: "Seleciona conteúdos relevantes da biblioteca e documentos do cliente",
+          parameters: contentSelectionTool.function.parameters
+        }]
+      }];
+    }
+
+    const aiResponse = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${googleModel}:streamGenerateContent?alt=sse&key=${GOOGLE_API_KEY}`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(requestBody),
+      }
+    );
 
     if (!aiResponse.ok) {
       const errorText = await aiResponse.text();
-      console.error("[CHAT] AI Gateway error:", errorText);
+      console.error("[CHAT] Google API error:", errorText);
       
       if (aiResponse.status === 429) {
-        return new Response(JSON.stringify({ error: "Limite de requisições atingido" }), {
+        return new Response(JSON.stringify({ error: "Limite de requisições do Google atingido" }), {
           status: 429,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      
-      if (aiResponse.status === 402) {
-        return new Response(JSON.stringify({ error: "Créditos insuficientes" }), {
-          status: 402,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
 
-      throw new Error(`AI Gateway error: ${aiResponse.status}`);
+      throw new Error(`Google API error: ${aiResponse.status} - ${errorText}`);
     }
 
-    // Stream com logging
+    // Stream com logging (formato SSE do Google)
     let totalInputTokens = 0;
     let totalOutputTokens = 0;
     const startTime = Date.now();
+    let toolCallData: any = null;
 
     const stream = new ReadableStream({
       async start(controller) {
@@ -195,18 +236,38 @@ serve(async (req) => {
             for (const line of lines) {
               if (line.startsWith("data: ")) {
                 const data = line.slice(6).trim();
-                if (data === "[DONE]") {
-                  controller.enqueue(new TextEncoder().encode("data: [DONE]\n\n"));
-                  continue;
-                }
-
+                
                 try {
                   const parsed = JSON.parse(data);
-                  if (parsed.usage) {
-                    totalInputTokens = parsed.usage.prompt_tokens || 0;
-                    totalOutputTokens = parsed.usage.completion_tokens || 0;
+                  
+                  // Extrair tokens (Google Gemini formato)
+                  if (parsed.usageMetadata) {
+                    totalInputTokens = parsed.usageMetadata.promptTokenCount || 0;
+                    totalOutputTokens = parsed.usageMetadata.candidatesTokenCount || 0;
                   }
-                  controller.enqueue(new TextEncoder().encode(line + "\n"));
+
+                  // Se for fase de seleção, capturar function call
+                  if (isSelectionPhase && parsed.candidates?.[0]?.content?.parts?.[0]?.functionCall) {
+                    toolCallData = parsed.candidates[0].content.parts[0].functionCall;
+                    // Enviar como resposta estruturada
+                    const selectionResponse = {
+                      selection: toolCallData.args
+                    };
+                    controller.enqueue(
+                      new TextEncoder().encode(`data: ${JSON.stringify(selectionResponse)}\n\n`)
+                    );
+                  } else if (parsed.candidates?.[0]?.content?.parts?.[0]?.text) {
+                    // Streaming normal de texto
+                    const textChunk = parsed.candidates[0].content.parts[0].text;
+                    const openAIFormat = {
+                      choices: [{
+                        delta: { content: textChunk }
+                      }]
+                    };
+                    controller.enqueue(
+                      new TextEncoder().encode(`data: ${JSON.stringify(openAIFormat)}\n\n`)
+                    );
+                  }
                 } catch (e) {
                   console.error("[CHAT] Parse error:", e);
                 }
@@ -214,12 +275,15 @@ serve(async (req) => {
             }
           }
 
+          // Enviar [DONE]
+          controller.enqueue(new TextEncoder().encode("data: [DONE]\n\n"));
+
           // Log após completar
           if (userId && (totalInputTokens > 0 || totalOutputTokens > 0)) {
             await logAIUsage(
               supabase,
               userId,
-              model,
+              googleModel,
               isSelectionPhase ? "chat-selection" : "chat-response",
               totalInputTokens,
               totalOutputTokens,
