@@ -1,11 +1,13 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { AppLayout } from "@/components/AppLayout";
 import { ProjectSelector } from "@/components/research/ProjectSelector";
-import { ResearchCanvas } from "@/components/research/ResearchCanvas";
+import { ResearchCanvas, ResearchCanvasRef } from "@/components/research/ResearchCanvas";
 import { PresentationMode } from "@/components/research/PresentationMode";
 import { CommentsPanel } from "@/components/research/CommentsPanel";
 import { SharingDialog } from "@/components/research/SharingDialog";
 import { VersionHistoryPanel } from "@/components/research/VersionHistoryPanel";
+import { ProjectTemplates, ProjectTemplate } from "@/components/research/ProjectTemplates";
+import { AutomationsPanel } from "@/components/research/AutomationsPanel";
 import { useResearchProjects } from "@/hooks/useResearchProjects";
 import { useResearchItems } from "@/hooks/useResearchItems";
 import { Button } from "@/components/ui/button";
@@ -14,9 +16,16 @@ import { Presentation } from "lucide-react";
 const ResearchLab = () => {
   const [selectedProjectId, setSelectedProjectId] = useState<string>();
   const [showPresentation, setShowPresentation] = useState(false);
+  const canvasRef = useRef<ResearchCanvasRef>(null);
   const { projects } = useResearchProjects();
   const selectedProject = projects.find(p => p.id === selectedProjectId);
   const { items } = useResearchItems(selectedProjectId);
+
+  const handleApplyTemplate = (template: ProjectTemplate) => {
+    if (canvasRef.current) {
+      canvasRef.current.applyTemplate(template.items);
+    }
+  };
 
   return (
     <AppLayout>
@@ -37,6 +46,8 @@ const ResearchLab = () => {
 
           {selectedProjectId && (
             <div className="flex items-center gap-2">
+              <ProjectTemplates onApplyTemplate={handleApplyTemplate} />
+              <AutomationsPanel projectId={selectedProjectId} />
               <CommentsPanel projectId={selectedProjectId} />
               <VersionHistoryPanel projectId={selectedProjectId} />
               <SharingDialog projectId={selectedProjectId} projectName={selectedProject?.name} />
@@ -66,6 +77,7 @@ const ResearchLab = () => {
           <div className="flex-1 p-4 overflow-hidden bg-muted/30">
             <div className="h-full overflow-hidden rounded-lg border border-border shadow-sm bg-background">
               <ResearchCanvas 
+                ref={canvasRef}
                 projectId={selectedProjectId} 
                 clientId={selectedProject?.client_id || undefined}
                 projectName={selectedProject?.name}
