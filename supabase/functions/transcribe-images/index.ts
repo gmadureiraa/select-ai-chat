@@ -31,7 +31,7 @@ serve(async (req) => {
     const messages = [
       {
         role: "system",
-        content: "Você é um especialista em análise e transcrição de conteúdo visual. Analise as imagens fornecidas e extraia TODO o conteúdo textual visível, descrevendo também elementos visuais importantes como layout, cores, gráficos, e estrutura. Se for um carrossel do Instagram, separe cada página com '---PÁGINA N---'. Seja detalhado e preciso na extração do conteúdo."
+        content: "Você é um especialista em análise e transcrição de conteúdo visual. Sua tarefa é DESCREVER COMPLETAMENTE a imagem E extrair todo o texto presente. Inclua: 1) DESCRIÇÃO VISUAL: layout, composição, cores dominantes, estilo gráfico, elementos visuais (ícones, ilustrações, fotos), hierarquia visual, e atmosfera geral. 2) TRANSCRIÇÃO: todo o conteúdo textual visível (títulos, subtítulos, corpo de texto, CTAs, legendas). 3) CONTEXTO: tipo de conteúdo (post, carousel, anúncio, etc.) e objetivo aparente. Se for um carrossel do Instagram, separe cada página com '---PÁGINA N---'. Seja extremamente detalhado e preciso - a descrição deve permitir que alguém visualize mentalmente a imagem sem vê-la."
       },
       {
         role: "user",
@@ -39,8 +39,8 @@ serve(async (req) => {
           {
             type: "text",
             text: imageUrls.length === 1 
-              ? "Transcreva todo o conteúdo textual desta imagem e descreva os elementos visuais importantes:"
-              : `Transcreva todo o conteúdo textual destas ${imageUrls.length} imagens e descreva os elementos visuais importantes. Se for um carrossel, separe cada página:`
+              ? "Analise esta imagem completamente: DESCREVA todos os elementos visuais (layout, cores, estilo, composição, elementos gráficos) E TRANSCREVA todo o texto presente. Seja extremamente detalhado na descrição visual para que possa servir como referência de estilo e estrutura:"
+              : `Analise estas ${imageUrls.length} imagens completamente: para cada uma, DESCREVA todos os elementos visuais (layout, cores, estilo, composição, elementos gráficos) E TRANSCREVA todo o texto presente. Se for um carrossel, separe cada página com '---PÁGINA N---'. Seja extremamente detalhado nas descrições visuais:`
           },
           ...imageUrls.map((url: string) => ({
             type: "image_url",
