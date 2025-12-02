@@ -192,7 +192,11 @@ export const ContentDialog = ({ open, onClose, onSave, content }: ContentDialogP
               <SelectContent>
                 <SelectItem value="newsletter">Newsletter</SelectItem>
                 <SelectItem value="carousel">Carrossel Instagram</SelectItem>
+                <SelectItem value="stories">Stories</SelectItem>
+                <SelectItem value="static_image">Estático Único</SelectItem>
                 <SelectItem value="reel_script">Roteiro Reels</SelectItem>
+                <SelectItem value="short_video">Vídeo Curto</SelectItem>
+                <SelectItem value="long_video">Vídeo Longo</SelectItem>
                 <SelectItem value="video_script">Roteiro Vídeo</SelectItem>
                 <SelectItem value="blog_post">Post de Blog</SelectItem>
                 <SelectItem value="social_post">Post Social</SelectItem>

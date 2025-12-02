@@ -9,6 +9,10 @@ export type ContentType =
   | "video_script"
   | "blog_post"
   | "social_post"
+  | "stories"
+  | "static_image"
+  | "short_video"
+  | "long_video"
   | "other";
 
 export interface ContentItem {

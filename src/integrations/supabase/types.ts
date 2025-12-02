@@ -954,6 +954,10 @@ export type Database = {
         | "blog_post"
         | "social_post"
         | "other"
+        | "stories"
+        | "static_image"
+        | "short_video"
+        | "long_video"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1113,6 +1117,10 @@ export const Constants = {
         "blog_post",
         "social_post",
         "other",
+        "stories",
+        "static_image",
+        "short_video",
+        "long_video",
       ],
     },
   },
