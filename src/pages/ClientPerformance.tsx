@@ -7,8 +7,9 @@ import { ArrowLeft, Eye, Heart, MessageCircle, Share2, Instagram, Youtube, Newsp
 import { Skeleton } from "@/components/ui/skeleton";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { usePerformanceMetrics, useFetchBeehiivMetrics, useScrapeMetrics, useFetchInstagramMetrics } from "@/hooks/usePerformanceMetrics";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useToast } from "@/components/ui/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -19,8 +20,9 @@ export default function ClientPerformance() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const selectedChannel = searchParams.get("channel");
-  const { toast } = useToast();
+const { toast } = useToast();
   const [dateRange, setDateRange] = useState("7");
+  const [chartMetric, setChartMetric] = useState<"views" | "likes" | "followers" | "engagement">("views");
 
   const { data: client, isLoading } = useQuery({
     queryKey: ["client", clientId],
@@ -100,9 +102,25 @@ export default function ClientPerformance() {
     }
   };
 
-  const latestMetrics = metrics?.[0];
+const latestMetrics = metrics?.[0];
   const previousMetrics = metrics?.[1];
   const isRefreshing = fetchBeehiiv.isPending || scrapeMetrics.isPending || fetchInstagram.isPending;
+
+  // Chart data configuration
+  const chartConfig = useMemo(() => ({
+    views: { label: "Visualizações", color: "hsl(217, 91%, 60%)", dataKey: "views" },
+    likes: { label: "Curtidas", color: "hsl(142, 71%, 45%)", dataKey: "likes" },
+    followers: { label: "Seguidores", color: "hsl(262, 83%, 58%)", dataKey: "subscribers" },
+    engagement: { label: "Engajamento (%)", color: "hsl(38, 92%, 50%)", dataKey: "engagement_rate" },
+  }), []);
+
+  const chartData = useMemo(() => {
+    if (!metrics) return [];
+    return metrics.slice(0, parseInt(dateRange)).reverse().map(m => ({
+      ...m,
+      date: new Date(m.metric_date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }),
+    }));
+  }, [metrics, dateRange]);
 
   // Calculate percentage change
   const calculateChange = (current: number, previous: number) => {
@@ -328,54 +346,80 @@ export default function ClientPerformance() {
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
                   <div>
-                    <CardTitle className="text-base">Visualizações agregadas</CardTitle>
+                    <CardTitle className="text-base">{chartConfig[chartMetric].label}</CardTitle>
                     <CardDescription className="text-xs">
-                      {new Date(metrics[metrics.length - 1]?.metric_date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })} - {new Date(metrics[0]?.metric_date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })}
+                      {chartData.length > 0 && `${chartData[0]?.date} - ${chartData[chartData.length - 1]?.date}`}
                     </CardDescription>
                   </div>
+                  <ToggleGroup 
+                    type="single" 
+                    value={chartMetric} 
+                    onValueChange={(v) => v && setChartMetric(v as typeof chartMetric)}
+                    className="bg-muted/50 p-1 rounded-lg"
+                  >
+                    <ToggleGroupItem value="views" className="text-xs px-3 h-7 data-[state=on]:bg-background">
+                      Views
+                    </ToggleGroupItem>
+                    <ToggleGroupItem value="likes" className="text-xs px-3 h-7 data-[state=on]:bg-background">
+                      Curtidas
+                    </ToggleGroupItem>
+                    <ToggleGroupItem value="followers" className="text-xs px-3 h-7 data-[state=on]:bg-background">
+                      Seguidores
+                    </ToggleGroupItem>
+                    <ToggleGroupItem value="engagement" className="text-xs px-3 h-7 data-[state=on]:bg-background">
+                      Engajamento
+                    </ToggleGroupItem>
+                  </ToggleGroup>
                 </div>
               </CardHeader>
               <CardContent>
                 <ChartContainer
                   config={{
-                    views: { label: "Visualizações", color: "hsl(var(--primary))" },
-                    likes: { label: "Curtidas", color: "hsl(var(--chart-2))" },
+                    [chartConfig[chartMetric].dataKey]: { 
+                      label: chartConfig[chartMetric].label, 
+                      color: chartConfig[chartMetric].color 
+                    },
                   }}
                   className="h-[280px]"
                 >
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={metrics.slice(0, parseInt(dateRange)).reverse()}>
-                      <CartesianGrid strokeDasharray="3 3" className="stroke-border/50" vertical={false} />
+                    <LineChart data={chartData}>
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-border/30" vertical={false} />
                       <XAxis 
-                        dataKey="metric_date" 
+                        dataKey="date" 
                         className="text-xs"
-                        tickFormatter={(value) => new Date(value).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
                         axisLine={false}
                         tickLine={false}
+                        tick={{ fill: 'hsl(var(--muted-foreground))' }}
                       />
                       <YAxis 
                         className="text-xs" 
                         axisLine={false}
                         tickLine={false}
-                        tickFormatter={(value) => value >= 1000 ? `${(value / 1000).toFixed(0)}k` : value}
+                        tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                        tickFormatter={(value) => {
+                          if (chartMetric === 'engagement') return `${value}%`;
+                          return value >= 1000 ? `${(value / 1000).toFixed(1)}k` : value;
+                        }}
                       />
-                      <ChartTooltip content={<ChartTooltipContent />} />
-                      <Legend />
+                      <Tooltip 
+                        contentStyle={{ 
+                          backgroundColor: 'hsl(var(--card))', 
+                          border: '1px solid hsl(var(--border))',
+                          borderRadius: '8px',
+                        }}
+                        formatter={(value: number) => [
+                          chartMetric === 'engagement' ? `${value.toFixed(2)}%` : value.toLocaleString('pt-BR'),
+                          chartConfig[chartMetric].label
+                        ]}
+                      />
                       <Line
                         type="monotone"
-                        dataKey="views"
-                        stroke="hsl(var(--primary))"
+                        dataKey={chartConfig[chartMetric].dataKey}
+                        stroke={chartConfig[chartMetric].color}
                         strokeWidth={2}
-                        dot={{ r: 4, fill: "hsl(var(--primary))" }}
-                        activeDot={{ r: 6 }}
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="likes"
-                        stroke="hsl(var(--chart-2))"
-                        strokeWidth={2}
-                        dot={{ r: 4, fill: "hsl(var(--chart-2))" }}
-                        activeDot={{ r: 6 }}
+                        dot={{ r: 4, fill: chartConfig[chartMetric].color }}
+                        activeDot={{ r: 6, stroke: chartConfig[chartMetric].color, strokeWidth: 2 }}
                       />
                     </LineChart>
                   </ResponsiveContainer>
