@@ -22,7 +22,7 @@ export default function ClientPerformance() {
   const selectedChannel = searchParams.get("channel");
 const { toast } = useToast();
   const [dateRange, setDateRange] = useState("7");
-  const [chartMetric, setChartMetric] = useState<"views" | "likes" | "followers" | "engagement">("views");
+  const [chartMetric, setChartMetric] = useState<"views" | "likes" | "followers" | "dailyGain" | "engagement">("followers");
 
   const { data: client, isLoading } = useQuery({
     queryKey: ["client", clientId],
@@ -111,15 +111,30 @@ const latestMetrics = metrics?.[0];
     views: { label: "Visualizações", color: "hsl(217, 91%, 60%)", dataKey: "views" },
     likes: { label: "Curtidas", color: "hsl(142, 71%, 45%)", dataKey: "likes" },
     followers: { label: "Seguidores", color: "hsl(262, 83%, 58%)", dataKey: "subscribers" },
+    dailyGain: { label: "Ganho Diário", color: "hsl(142, 71%, 45%)", dataKey: "daily_gain" },
     engagement: { label: "Engajamento (%)", color: "hsl(38, 92%, 50%)", dataKey: "engagement_rate" },
   }), []);
 
   const chartData = useMemo(() => {
     if (!metrics) return [];
-    return metrics.slice(0, parseInt(dateRange)).reverse().map(m => ({
-      ...m,
-      date: new Date(m.metric_date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }),
-    }));
+    return metrics.slice(0, parseInt(dateRange)).reverse().map((m, index, arr) => {
+      // Calculate daily gain from metadata or calculate from subscribers difference
+      const metadata = m.metadata as any;
+      let dailyGain = metadata?.daily_gain || 0;
+      
+      // If no daily_gain in metadata, calculate from previous day's subscribers
+      if (!dailyGain && index > 0) {
+        const prevSubscribers = arr[index - 1]?.subscribers || 0;
+        const currentSubscribers = m.subscribers || 0;
+        dailyGain = currentSubscribers - prevSubscribers;
+      }
+      
+      return {
+        ...m,
+        daily_gain: dailyGain,
+        date: new Date(m.metric_date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }),
+      };
+    });
   }, [metrics, dateRange]);
 
   // Calculate percentage change
@@ -357,14 +372,17 @@ const latestMetrics = metrics?.[0];
                     onValueChange={(v) => v && setChartMetric(v as typeof chartMetric)}
                     className="bg-muted/50 p-1 rounded-lg"
                   >
+                    <ToggleGroupItem value="followers" className="text-xs px-3 h-7 data-[state=on]:bg-background">
+                      Seguidores
+                    </ToggleGroupItem>
+                    <ToggleGroupItem value="dailyGain" className="text-xs px-3 h-7 data-[state=on]:bg-background">
+                      Ganho Diário
+                    </ToggleGroupItem>
                     <ToggleGroupItem value="views" className="text-xs px-3 h-7 data-[state=on]:bg-background">
                       Views
                     </ToggleGroupItem>
                     <ToggleGroupItem value="likes" className="text-xs px-3 h-7 data-[state=on]:bg-background">
                       Curtidas
-                    </ToggleGroupItem>
-                    <ToggleGroupItem value="followers" className="text-xs px-3 h-7 data-[state=on]:bg-background">
-                      Seguidores
                     </ToggleGroupItem>
                     <ToggleGroupItem value="engagement" className="text-xs px-3 h-7 data-[state=on]:bg-background">
                       Engajamento
