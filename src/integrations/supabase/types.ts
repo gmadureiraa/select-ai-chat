@@ -656,6 +656,60 @@ export type Database = {
         }
         Relationships: []
       }
+      research_comments: {
+        Row: {
+          content: string
+          created_at: string | null
+          id: string
+          item_id: string | null
+          position_x: number | null
+          position_y: number | null
+          project_id: string
+          resolved: boolean | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string | null
+          id?: string
+          item_id?: string | null
+          position_x?: number | null
+          position_y?: number | null
+          project_id: string
+          resolved?: boolean | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Update: {
+          content?: string
+          created_at?: string | null
+          id?: string
+          item_id?: string | null
+          position_x?: number | null
+          position_y?: number | null
+          project_id?: string
+          resolved?: boolean | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "research_comments_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "research_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "research_comments_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "research_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       research_connections: {
         Row: {
           created_at: string | null
@@ -831,6 +885,85 @@ export type Database = {
           },
         ]
       }
+      research_project_shares: {
+        Row: {
+          created_at: string | null
+          id: string
+          permission: Database["public"]["Enums"]["share_permission"]
+          project_id: string
+          shared_by: string
+          shared_with_email: string
+          shared_with_user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          permission?: Database["public"]["Enums"]["share_permission"]
+          project_id: string
+          shared_by?: string
+          shared_with_email: string
+          shared_with_user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          permission?: Database["public"]["Enums"]["share_permission"]
+          project_id?: string
+          shared_by?: string
+          shared_with_email?: string
+          shared_with_user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "research_project_shares_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "research_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      research_project_versions: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          name: string | null
+          project_id: string
+          snapshot: Json
+          user_id: string
+          version_number: number
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name?: string | null
+          project_id: string
+          snapshot: Json
+          user_id?: string
+          version_number: number
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name?: string | null
+          project_id?: string
+          snapshot?: Json
+          user_id?: string
+          version_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "research_project_versions_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "research_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       research_projects: {
         Row: {
           client_id: string | null
@@ -910,6 +1043,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      has_project_access: {
+        Args: { p_project_id: string; p_user_id: string }
+        Returns: boolean
+      }
+      has_project_edit_access: {
+        Args: { p_project_id: string; p_user_id: string }
+        Returns: boolean
+      }
       log_user_activity: {
         Args: {
           p_activity_type: Database["public"]["Enums"]["activity_type"]
@@ -960,6 +1101,7 @@ export type Database = {
         | "long_video"
         | "tweet"
         | "thread"
+      share_permission: "view" | "edit" | "admin"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1126,6 +1268,7 @@ export const Constants = {
         "tweet",
         "thread",
       ],
+      share_permission: ["view", "edit", "admin"],
     },
   },
 } as const
