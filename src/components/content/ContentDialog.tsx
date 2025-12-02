@@ -29,6 +29,8 @@ export const ContentDialog = ({ open, onClose, onSave, content }: ContentDialogP
   const [uploadedImages, setUploadedImages] = useState<string[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
+  const [videoUrl, setVideoUrl] = useState("");
+  const [isTranscribingVideo, setIsTranscribingVideo] = useState(false);
 
   useEffect(() => {
     if (content) {
@@ -40,6 +42,7 @@ export const ContentDialog = ({ open, onClose, onSave, content }: ContentDialogP
         thumbnail_url: content.thumbnail_url || "",
       });
       setUploadedImages(content.metadata?.image_urls || []);
+      setVideoUrl(content.metadata?.video_url || "");
     } else {
       setFormData({
         title: "",
@@ -49,6 +52,7 @@ export const ContentDialog = ({ open, onClose, onSave, content }: ContentDialogP
         thumbnail_url: "",
       });
       setUploadedImages([]);
+      setVideoUrl("");
     }
   }, [content, open]);
 
@@ -149,6 +153,93 @@ export const ContentDialog = ({ open, onClose, onSave, content }: ContentDialogP
     setUploadedImages(uploadedImages.filter((_, i) => i !== index));
   };
 
+  const handleVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Check file size (max 20MB)
+    if (file.size > 20 * 1024 * 1024) {
+      toast({
+        title: "Arquivo muito grande",
+        description: "O vídeo deve ter no máximo 20MB.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${crypto.randomUUID()}.${fileExt}`;
+      const filePath = `content-videos/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('client-files')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('client-files')
+        .getPublicUrl(filePath);
+
+      setVideoUrl(publicUrl);
+      toast({
+        title: "Vídeo carregado",
+        description: "Vídeo enviado com sucesso. Clique em 'Transcrever Vídeo' para extrair o conteúdo.",
+      });
+    } catch (error) {
+      console.error("Error uploading video:", error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível fazer upload do vídeo",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleTranscribeVideo = async () => {
+    if (!videoUrl) {
+      toast({
+        title: "Nenhum vídeo",
+        description: "Adicione um link ou faça upload de um vídeo primeiro",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsTranscribingVideo(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('transcribe-video', {
+        body: { videoUrl }
+      });
+
+      if (error) throw error;
+
+      const existingContent = formData.content.trim();
+      const newContent = existingContent 
+        ? `${existingContent}\n\n--- TRANSCRIÇÃO DO VÍDEO ---\n${data.transcription}`
+        : data.transcription;
+
+      setFormData({ ...formData, content: newContent });
+      toast({
+        title: "Transcrição concluída",
+        description: "O conteúdo do vídeo foi adicionado",
+      });
+    } catch (error) {
+      console.error("Error transcribing video:", error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível transcrever o vídeo",
+        variant: "destructive",
+      });
+    } finally {
+      setIsTranscribingVideo(false);
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const dataWithImages = {
@@ -156,6 +247,7 @@ export const ContentDialog = ({ open, onClose, onSave, content }: ContentDialogP
       metadata: {
         ...formData.metadata,
         image_urls: uploadedImages,
+        video_url: videoUrl || undefined,
       },
     };
     onSave(dataWithImages);
@@ -267,12 +359,53 @@ export const ContentDialog = ({ open, onClose, onSave, content }: ContentDialogP
           </div>
 
           <div className="space-y-2">
+            <Label>Vídeo (opcional)</Label>
+            <div className="space-y-2">
+              <div className="flex gap-2">
+                <Input
+                  value={videoUrl}
+                  onChange={(e) => setVideoUrl(e.target.value)}
+                  placeholder="Cole o link do vídeo ou faça upload"
+                  className="flex-1"
+                />
+                <Button
+                  type="button"
+                  onClick={handleTranscribeVideo}
+                  disabled={isTranscribingVideo || !videoUrl}
+                  variant="secondary"
+                >
+                  {isTranscribingVideo ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Transcrevendo...
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="mr-2 h-4 w-4" />
+                      Transcrever
+                    </>
+                  )}
+                </Button>
+              </div>
+              <Input
+                type="file"
+                accept="video/*"
+                onChange={handleVideoUpload}
+                disabled={isUploading}
+              />
+              <p className="text-xs text-muted-foreground">
+                Faça upload de um vídeo (max 20MB) ou cole o link e clique em "Transcrever"
+              </p>
+            </div>
+          </div>
+
+          <div className="space-y-2">
             <Label htmlFor="content">Conteúdo</Label>
             <Textarea
               id="content"
               value={formData.content}
               onChange={(e) => setFormData({ ...formData, content: e.target.value })}
-              placeholder="Cole o conteúdo completo aqui ou transcreva das imagens..."
+              placeholder="Cole o conteúdo completo aqui ou transcreva das imagens/vídeo..."
               className="min-h-[300px] font-mono text-sm"
               required
             />
