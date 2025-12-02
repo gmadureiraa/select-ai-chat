@@ -33,18 +33,12 @@ export const ReferenceLibraryNode = memo(({ data }: { data: ReferenceLibraryNode
   );
 
   const { data: allReferences = [], isLoading } = useQuery({
-    queryKey: ["reference-library", clientId],
+    queryKey: ["reference-library-all"],
     queryFn: async () => {
-      let query = supabase
+      const { data, error } = await supabase
         .from("client_reference_library")
         .select("*, clients(name)")
         .order("created_at", { ascending: false });
-
-      if (clientId) {
-        query = query.eq("client_id", clientId);
-      }
-
-      const { data, error } = await query;
 
       if (error) throw error;
       return data as ReferenceItem[];
@@ -102,32 +96,38 @@ export const ReferenceLibraryNode = memo(({ data }: { data: ReferenceLibraryNode
           </div>
         </CardHeader>
         <CardContent className="space-y-3">
-          <div>
-            <label className="text-xs text-muted-foreground mb-1 block">
-              Selecione uma referência
-            </label>
-            <Select
-              value={selectedReferenceId || ""}
-              onValueChange={setSelectedReferenceId}
-              disabled={isLoading}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder={isLoading ? "Carregando..." : "Escolher referência"} />
-              </SelectTrigger>
-              <SelectContent>
-                {allReferences.map((reference) => (
-                  <SelectItem key={reference.id} value={reference.id}>
-                    <div className="flex flex-col items-start">
-                      <span className="font-medium">{reference.title}</span>
-                      <span className="text-xs text-muted-foreground">
-                        {reference.clients?.name} • {reference.reference_type}
-                      </span>
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          {allReferences.length === 0 && !isLoading ? (
+            <p className="text-xs text-muted-foreground py-4 text-center">
+              Nenhuma referência disponível nas bibliotecas
+            </p>
+          ) : (
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">
+                Selecione uma referência
+              </label>
+              <Select
+                value={selectedReferenceId || ""}
+                onValueChange={setSelectedReferenceId}
+                disabled={isLoading}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder={isLoading ? "Carregando..." : "Escolher referência"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {allReferences.map((reference) => (
+                    <SelectItem key={reference.id} value={reference.id}>
+                      <div className="flex flex-col items-start">
+                        <span className="font-medium">{reference.title}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {reference.clients?.name} • {reference.reference_type}
+                        </span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           {selectedReference && (
             <div className="p-3 bg-muted/50 rounded-md border border-border">

@@ -32,18 +32,12 @@ export const ContentLibraryNode = memo(({ data }: { data: ContentLibraryNodeData
   );
 
   const { data: allContents = [], isLoading } = useQuery({
-    queryKey: ["content-library", clientId],
+    queryKey: ["content-library-all"],
     queryFn: async () => {
-      let query = supabase
+      const { data, error } = await supabase
         .from("client_content_library")
         .select("*, clients(name)")
         .order("created_at", { ascending: false });
-
-      if (clientId) {
-        query = query.eq("client_id", clientId);
-      }
-
-      const { data, error } = await query;
 
       if (error) throw error;
       return data as ContentItem[];
@@ -100,32 +94,38 @@ export const ContentLibraryNode = memo(({ data }: { data: ContentLibraryNodeData
           </div>
         </CardHeader>
         <CardContent className="space-y-3">
-          <div>
-            <label className="text-xs text-muted-foreground mb-1 block">
-              Selecione um conteúdo
-            </label>
-            <Select
-              value={selectedContentId || ""}
-              onValueChange={setSelectedContentId}
-              disabled={isLoading}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder={isLoading ? "Carregando..." : "Escolher conteúdo"} />
-              </SelectTrigger>
-              <SelectContent>
-                {allContents.map((content) => (
-                  <SelectItem key={content.id} value={content.id}>
-                    <div className="flex flex-col items-start">
-                      <span className="font-medium">{content.title}</span>
-                      <span className="text-xs text-muted-foreground">
-                        {content.clients?.name} • {content.content_type}
-                      </span>
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          {allContents.length === 0 && !isLoading ? (
+            <p className="text-xs text-muted-foreground py-4 text-center">
+              Nenhum conteúdo disponível nas bibliotecas
+            </p>
+          ) : (
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">
+                Selecione um conteúdo
+              </label>
+              <Select
+                value={selectedContentId || ""}
+                onValueChange={setSelectedContentId}
+                disabled={isLoading}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder={isLoading ? "Carregando..." : "Escolher conteúdo"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {allContents.map((content) => (
+                    <SelectItem key={content.id} value={content.id}>
+                      <div className="flex flex-col items-start">
+                        <span className="font-medium">{content.title}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {content.clients?.name} • {content.content_type}
+                        </span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           {selectedContent && (
             <div className="p-3 bg-muted/50 rounded-md border border-border">
