@@ -12,7 +12,6 @@ import {
   SheetContent,
   SheetHeader,
   SheetTitle,
-  SheetTrigger,
 } from "@/components/ui/sheet";
 import {
   Dialog,
@@ -44,9 +43,11 @@ import { ptBR } from "date-fns/locale";
 
 interface VersionHistoryPanelProps {
   projectId: string;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
-export const VersionHistoryPanel = ({ projectId }: VersionHistoryPanelProps) => {
+export const VersionHistoryPanel = ({ projectId, open, onOpenChange }: VersionHistoryPanelProps) => {
   const { versions, createVersion, restoreVersion, deleteVersion } = useResearchVersions(projectId);
   const { items, connections } = useResearchItems(projectId);
   
@@ -80,18 +81,7 @@ export const VersionHistoryPanel = ({ projectId }: VersionHistoryPanelProps) => 
 
   return (
     <>
-      <Sheet>
-        <SheetTrigger asChild>
-          <Button variant="outline" size="sm" className="gap-2">
-            <History className="h-4 w-4" />
-            Histórico
-            {versions.length > 0 && (
-              <Badge variant="secondary" className="ml-1">
-                {versions.length}
-              </Badge>
-            )}
-          </Button>
-        </SheetTrigger>
+      <Sheet open={open} onOpenChange={onOpenChange}>
         <SheetContent className="w-[400px] sm:w-[540px]">
           <SheetHeader>
             <SheetTitle className="flex items-center gap-2">

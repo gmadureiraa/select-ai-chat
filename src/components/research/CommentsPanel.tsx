@@ -9,7 +9,6 @@ import {
   SheetContent,
   SheetHeader,
   SheetTitle,
-  SheetTrigger,
 } from "@/components/ui/sheet";
 import {
   MessageSquare,
@@ -23,9 +22,11 @@ import { ptBR } from "date-fns/locale";
 
 interface CommentsPanelProps {
   projectId: string;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
-export const CommentsPanel = ({ projectId }: CommentsPanelProps) => {
+export const CommentsPanel = ({ projectId, open, onOpenChange }: CommentsPanelProps) => {
   const { comments, createComment, updateComment, deleteComment, unresolvedCount } = useResearchComments(projectId);
   const [newComment, setNewComment] = useState("");
   const [filter, setFilter] = useState<"all" | "open" | "resolved">("all");
@@ -43,18 +44,7 @@ export const CommentsPanel = ({ projectId }: CommentsPanelProps) => {
   });
 
   return (
-    <Sheet>
-      <SheetTrigger asChild>
-        <Button variant="outline" size="sm" className="gap-2 relative">
-          <MessageSquare className="h-4 w-4" />
-          Comentários
-          {unresolvedCount > 0 && (
-            <Badge variant="destructive" className="absolute -top-2 -right-2 h-5 w-5 p-0 flex items-center justify-center text-xs">
-              {unresolvedCount}
-            </Badge>
-          )}
-        </Button>
-      </SheetTrigger>
+    <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="w-[400px] sm:w-[540px]">
         <SheetHeader>
           <SheetTitle className="flex items-center gap-2">

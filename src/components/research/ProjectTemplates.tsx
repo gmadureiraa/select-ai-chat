@@ -74,24 +74,18 @@ const templates: ProjectTemplate[] = [
 
 interface ProjectTemplatesProps {
   onApplyTemplate: (template: ProjectTemplate) => void;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
-export const ProjectTemplates = ({ onApplyTemplate }: ProjectTemplatesProps) => {
-  const [open, setOpen] = useState(false);
-
+export const ProjectTemplates = ({ onApplyTemplate, open, onOpenChange }: ProjectTemplatesProps) => {
   const handleApply = (template: ProjectTemplate) => {
     onApplyTemplate(template);
-    setOpen(false);
+    onOpenChange?.(false);
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button variant="outline" size="sm" className="gap-2">
-          <LayoutTemplate className="h-4 w-4" />
-          Templates
-        </Button>
-      </DialogTrigger>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[700px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
