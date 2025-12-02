@@ -117,24 +117,39 @@ const latestMetrics = metrics?.[0];
 
   const chartData = useMemo(() => {
     if (!metrics) return [];
-    return metrics.slice(0, parseInt(dateRange)).reverse().map((m, index, arr) => {
-      // Calculate daily gain from metadata or calculate from subscribers difference
+    
+    // Get metrics for the selected range, sorted by date descending (newest first)
+    const rangeMetrics = metrics.slice(0, parseInt(dateRange));
+    
+    // Current followers from the most recent metric
+    const currentFollowers = rangeMetrics[0]?.subscribers || 0;
+    
+    // Calculate historical followers by subtracting daily gains backwards
+    let runningTotal = currentFollowers;
+    const calculatedData = rangeMetrics.map((m, index) => {
       const metadata = m.metadata as any;
-      let dailyGain = metadata?.daily_gain || 0;
+      const dailyGain = metadata?.daily_gain || 0;
       
-      // If no daily_gain in metadata, calculate from previous day's subscribers
-      if (!dailyGain && index > 0) {
-        const prevSubscribers = arr[index - 1]?.subscribers || 0;
-        const currentSubscribers = m.subscribers || 0;
-        dailyGain = currentSubscribers - prevSubscribers;
+      // For the first entry (most recent), use current followers
+      // For subsequent entries, subtract the previous day's gain
+      let calculatedSubscribers = runningTotal;
+      if (index > 0) {
+        const prevMetadata = rangeMetrics[index - 1]?.metadata as any;
+        const prevDailyGain = prevMetadata?.daily_gain || 0;
+        runningTotal -= prevDailyGain;
+        calculatedSubscribers = runningTotal;
       }
       
       return {
         ...m,
+        subscribers: calculatedSubscribers,
         daily_gain: dailyGain,
         date: new Date(m.metric_date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }),
       };
     });
+    
+    // Reverse to show oldest to newest in chart
+    return calculatedData.reverse();
   }, [metrics, dateRange]);
 
   // Calculate percentage change
