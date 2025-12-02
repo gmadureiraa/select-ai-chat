@@ -75,8 +75,8 @@ export const AIChatNode = memo(({ data }: NodeProps<AIChatNodeData>) => {
 
       {/* Header */}
       <div className="flex items-center gap-2 p-3 border-b border-border">
-        <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg border border-purple-200 dark:border-purple-800">
-          <Sparkles className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+        <div className="p-2 bg-purple-900/30 rounded-lg border border-purple-700">
+          <Sparkles className="h-4 w-4 text-purple-400" />
         </div>
         <div className="flex-1 min-w-0">
           <h3 className="font-semibold text-sm text-foreground">
@@ -84,7 +84,7 @@ export const AIChatNode = memo(({ data }: NodeProps<AIChatNodeData>) => {
           </h3>
           <div className="flex items-center gap-2 mt-1">
             {connectedItems.length > 0 ? (
-              <Badge variant="secondary" className="text-xs gap-1">
+              <Badge variant="secondary" className="text-xs gap-1 bg-purple-900/30 text-purple-300 border-purple-700">
                 <Link2 className="h-3 w-3" />
                 {connectedItems.length} conectado{connectedItems.length > 1 ? "s" : ""}
               </Badge>
@@ -103,14 +103,14 @@ export const AIChatNode = memo(({ data }: NodeProps<AIChatNodeData>) => {
               <Badge 
                 key={connItem.id} 
                 variant="outline"
-                className="text-xs bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800"
+                className="text-xs bg-purple-900/20 text-purple-300 border-purple-700"
               >
                 {connItem.title?.substring(0, 15) || connItem.type}
                 {connItem.title && connItem.title.length > 15 && "..."}
               </Badge>
             ))}
             {connectedItems.length > 4 && (
-              <Badge variant="outline" className="text-xs">
+              <Badge variant="outline" className="text-xs text-muted-foreground">
                 +{connectedItems.length - 4}
               </Badge>
             )}
@@ -144,11 +144,11 @@ export const AIChatNode = memo(({ data }: NodeProps<AIChatNodeData>) => {
               <div
                 className={cn(
                   "p-1.5 rounded-full shrink-0",
-                  message.role === "assistant" ? "bg-purple-100 dark:bg-purple-900/30" : "bg-muted"
+                  message.role === "assistant" ? "bg-purple-900/30" : "bg-muted"
                 )}
               >
                 {message.role === "assistant" ? (
-                  <Bot className="h-3 w-3 text-purple-600 dark:text-purple-400" />
+                  <Bot className="h-3 w-3 text-purple-400" />
                 ) : (
                   <div className="h-3 w-3 rounded-full bg-muted-foreground" />
                 )}
@@ -157,7 +157,7 @@ export const AIChatNode = memo(({ data }: NodeProps<AIChatNodeData>) => {
                 className={cn(
                   "flex-1 p-2 rounded-lg text-xs",
                   message.role === "assistant" 
-                    ? "bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800" 
+                    ? "bg-purple-900/30 border border-purple-700" 
                     : "bg-muted border border-border"
                 )}
               >
@@ -170,14 +170,14 @@ export const AIChatNode = memo(({ data }: NodeProps<AIChatNodeData>) => {
 
           {isStreaming && (
             <div className="flex gap-2">
-              <div className="p-1.5 rounded-full bg-purple-100 dark:bg-purple-900/30 shrink-0">
-                <Bot className="h-3 w-3 text-purple-600 dark:text-purple-400 animate-pulse" />
+              <div className="p-1.5 rounded-full bg-purple-900/30 shrink-0">
+                <Bot className="h-3 w-3 text-purple-400 animate-pulse" />
               </div>
-              <div className="flex-1 p-2 rounded-lg bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800">
+              <div className="flex-1 p-2 rounded-lg bg-purple-900/30 border border-purple-700">
                 {analysisProgress.length > 0 ? (
                   <div className="space-y-1">
                     {analysisProgress.map((step, idx) => (
-                      <p key={idx} className="text-xs text-purple-700 dark:text-purple-300">✓ {step}</p>
+                      <p key={idx} className="text-xs text-purple-300">✓ {step}</p>
                     ))}
                   </div>
                 ) : (

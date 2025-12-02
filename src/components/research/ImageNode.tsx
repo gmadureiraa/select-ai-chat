@@ -195,7 +195,7 @@ const ImageNode = ({ data }: NodeProps<ImageNodeData>) => {
   return (
     <div 
       className={cn(
-        "bg-card border-2 border-orange-200 dark:border-orange-800 rounded-xl shadow-md hover:shadow-lg transition-all",
+        "bg-card border-2 border-orange-700 rounded-xl shadow-md hover:shadow-lg transition-all",
         "min-w-[350px] max-w-[400px] group relative",
         data.isConnected && "ring-2 ring-orange-400/50"
       )}
@@ -219,10 +219,10 @@ const ImageNode = ({ data }: NodeProps<ImageNodeData>) => {
       {/* Header */}
       <div className="flex items-center justify-between p-3 pb-2">
         <div className="flex items-center gap-2">
-          <div className="p-2 bg-orange-100 dark:bg-orange-900/30 rounded-lg border border-orange-200 dark:border-orange-800">
-            <ImageIcon className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+          <div className="p-2 bg-orange-900/30 rounded-lg border border-orange-700">
+            <ImageIcon className="h-4 w-4 text-orange-400" />
           </div>
-          <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 text-xs font-medium">
+          <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-orange-900/30 text-orange-300 text-xs font-medium">
             Imagem
           </span>
         </div>
