@@ -220,9 +220,15 @@ const ResearchCanvasInner = ({ projectId, clientId, projectName = "Projeto", inn
     setConnectedToSelected(connected);
   }, [selectedNodeIds, connections]);
 
-  // Update nodes when items change - with filtering
+  // Track if we're currently dragging to prevent updates during drag
+  const isDraggingRef = useRef(false);
+
+  // Update nodes when items change - with filtering and smart updates
   useEffect(() => {
     if (!items) return;
+    
+    // Don't update nodes while dragging to prevent flickering
+    if (isDraggingRef.current) return;
 
     // Apply filters
     let filteredItems = items;
@@ -242,35 +248,43 @@ const ResearchCanvasInner = ({ projectId, clientId, projectName = "Projeto", inn
       filteredItems = filteredItems.filter(item => filters.types.includes(item.type));
     }
 
-    const newNodes: Node[] = filteredItems.map((item) => {
-      let connectedItems: any[] = [];
-      if ((item.type === "ai_chat" || item.type === "comparison") && connections) {
-        const connectedIds = connections
-          .filter(c => c.source_id === item.id || c.target_id === item.id)
-          .map(c => c.source_id === item.id ? c.target_id : c.source_id);
+    // Use functional update to preserve positions during updates
+    setNodes((currentNodes) => {
+      const currentPositions = new Map(currentNodes.map(n => [n.id, n.position]));
+      
+      return filteredItems.map((item) => {
+        let connectedItems: any[] = [];
+        if ((item.type === "ai_chat" || item.type === "comparison") && connections) {
+          const connectedIds = connections
+            .filter(c => c.source_id === item.id || c.target_id === item.id)
+            .map(c => c.source_id === item.id ? c.target_id : c.source_id);
+          
+          connectedItems = items.filter(i => connectedIds.includes(i.id));
+        }
+
+        const nodeType = typeToNodeType[item.type] || "researchItem";
         
-        connectedItems = items.filter(i => connectedIds.includes(i.id));
-      }
+        // Preserve current position if node exists and hasn't been updated from DB
+        const currentPos = currentPositions.get(item.id);
+        const dbPos = { x: item.position_x || 0, y: item.position_y || 0 };
+        const position = currentPos || dbPos;
 
-      const nodeType = typeToNodeType[item.type] || "researchItem";
-
-      return {
-        id: item.id,
-        type: nodeType,
-        position: { x: item.position_x || 0, y: item.position_y || 0 },
-        data: {
-          item,
-          onDelete: deleteItem.mutate,
-          onUpdate: (id: string, updates: any) => updateItem.mutate({ id, ...updates }),
-          projectId,
-          clientId,
-          connectedItems,
-          isConnected: connectedToSelected.has(item.id) && !selectedNodeIds.has(item.id),
-        },
-      };
+        return {
+          id: item.id,
+          type: nodeType,
+          position,
+          data: {
+            item,
+            onDelete: deleteItem.mutate,
+            onUpdate: (id: string, updates: any) => updateItem.mutate({ id, ...updates }),
+            projectId,
+            clientId,
+            connectedItems,
+            isConnected: connectedToSelected.has(item.id) && !selectedNodeIds.has(item.id),
+          },
+        };
+      });
     });
-
-    setNodes(newNodes);
   }, [items, connections, deleteItem.mutate, updateItem, setNodes, projectId, clientId, connectedToSelected, selectedNodeIds, searchQuery, filters]);
 
   // Update edges when connections change - with smooth bezier curves
@@ -382,6 +396,10 @@ const ResearchCanvasInner = ({ projectId, clientId, projectName = "Projeto", inn
   const pendingUpdates = useRef<Map<string, { x: number; y: number }>>(new Map());
   const updateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+  const onNodeDragStart = useCallback(() => {
+    isDraggingRef.current = true;
+  }, []);
+
   const onNodeDragStop = useCallback(
     (_: any, node: Node) => {
       pendingUpdates.current.set(node.id, { x: node.position.x, y: node.position.y });
@@ -391,6 +409,7 @@ const ResearchCanvasInner = ({ projectId, clientId, projectName = "Projeto", inn
       }
       
       updateTimeoutRef.current = setTimeout(() => {
+        // First update the database
         pendingUpdates.current.forEach((pos, id) => {
           updateItem.mutate({
             id,
@@ -399,6 +418,11 @@ const ResearchCanvasInner = ({ projectId, clientId, projectName = "Projeto", inn
           });
         });
         pendingUpdates.current.clear();
+        
+        // Then allow node updates again after a short delay
+        setTimeout(() => {
+          isDraggingRef.current = false;
+        }, 100);
       }, 300);
     },
     [updateItem]
@@ -743,6 +767,7 @@ const ResearchCanvasInner = ({ projectId, clientId, projectName = "Projeto", inn
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
         onEdgesDelete={onEdgesDelete}
+        onNodeDragStart={onNodeDragStart}
         onNodeDragStop={onNodeDragStop}
         onSelectionChange={onSelectionChange}
         nodeTypes={nodeTypes}
