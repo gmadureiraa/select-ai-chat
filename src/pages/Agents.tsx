@@ -7,6 +7,19 @@ const Agents = () => {
 
   const agents = [
     {
+      title: "Publicador Social",
+      subtitle: "Publique no Twitter e LinkedIn",
+      description: "Publique conteúdo diretamente nas redes sociais dos seus clientes integrados",
+      features: [
+        "Twitter/X integrado",
+        "LinkedIn (em breve)",
+        "Publicação direta",
+        "Por cliente",
+      ],
+      accentColor: "primary" as const,
+      onOpen: () => navigate("/social-publisher"),
+    },
+    {
       title: "Engenharia Reversa",
       subtitle: "Análise e recriação de conteúdo",
       description: "Analise qualquer conteúdo de referência e recrie adaptado ao estilo único do seu cliente",

@@ -21,6 +21,7 @@ import ReverseEngineering from "./pages/ReverseEngineering";
 import Activities from "./pages/Activities";
 import ResearchLab from "./pages/ResearchLab";
 import Settings from "./pages/Settings";
+import SocialPublisher from "./pages/SocialPublisher";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 
@@ -190,6 +191,16 @@ const App = () => (
             element={
               <ProtectedRoute>
                 <ResearchLab />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/social-publisher"
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <SocialPublisher />
+                </AppLayout>
               </ProtectedRoute>
             }
           />
