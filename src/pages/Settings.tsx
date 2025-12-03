@@ -2,14 +2,18 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/hooks/useAuth";
 import { useAIUsage } from "@/hooks/useAIUsage";
-import { User, Zap, CreditCard, TrendingUp, Activity } from "lucide-react";
+import { User, Zap, CreditCard, TrendingUp, Activity, Sun, Moon, Palette } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PageHeader } from "@/components/PageHeader";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { useTheme } from "next-themes";
 
 export default function Settings() {
   const { user } = useAuth();
   const { data: stats, isLoading } = useAIUsage(30);
+  const { theme, setTheme } = useTheme();
 
   const formatCost = (cost: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -31,6 +35,41 @@ export default function Settings() {
       />
 
       <div className="space-y-6">
+        {/* Aparência */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Palette className="h-5 w-5 text-muted-foreground" />
+              <CardTitle>Aparência</CardTitle>
+            </div>
+            <CardDescription>Personalize a aparência do aplicativo</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                {theme === "dark" ? (
+                  <Moon className="h-5 w-5 text-muted-foreground" />
+                ) : (
+                  <Sun className="h-5 w-5 text-muted-foreground" />
+                )}
+                <div>
+                  <Label htmlFor="theme-toggle" className="text-base font-medium">
+                    Modo Escuro
+                  </Label>
+                  <p className="text-sm text-muted-foreground">
+                    Alternar entre tema claro e escuro
+                  </p>
+                </div>
+              </div>
+              <Switch
+                id="theme-toggle"
+                checked={theme === "dark"}
+                onCheckedChange={(checked) => setTheme(checked ? "dark" : "light")}
+              />
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Perfil */}
         <Card>
           <CardHeader>
