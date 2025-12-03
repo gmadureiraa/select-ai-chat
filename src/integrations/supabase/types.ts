@@ -1238,6 +1238,10 @@ export type Database = {
     }
     Functions: {
       can_delete_in_workspace: { Args: { p_user_id: string }; Returns: boolean }
+      can_view_workspace_ai_usage: {
+        Args: { p_target_user_id: string; p_user_id: string }
+        Returns: boolean
+      }
       client_workspace_accessible: {
         Args: { p_client_id: string; p_user_id: string }
         Returns: boolean

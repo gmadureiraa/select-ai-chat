@@ -2,7 +2,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/hooks/useAuth";
 import { useAIUsage } from "@/hooks/useAIUsage";
-import { User, Zap, CreditCard, TrendingUp, Activity, Sun, Moon, Palette } from "lucide-react";
+import { useWorkspace } from "@/hooks/useWorkspace";
+import { User, Zap, CreditCard, TrendingUp, Activity, Sun, Moon, Palette, Users } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PageHeader } from "@/components/PageHeader";
@@ -15,6 +16,10 @@ export default function Settings() {
   const { user } = useAuth();
   const { data: stats, isLoading } = useAIUsage(30);
   const { theme, setTheme } = useTheme();
+  const { userRole } = useWorkspace();
+  
+  const isAdmin = userRole === "owner" || userRole === "admin";
+  const hasMultipleUsers = stats && Object.keys(stats.byUser).length > 1;
 
   const formatCost = (cost: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -144,10 +149,13 @@ export default function Settings() {
 
                 {/* Detalhes */}
                 <Tabs defaultValue="models" className="w-full">
-                  <TabsList className="grid w-full grid-cols-3">
+                  <TabsList className={`grid w-full ${isAdmin && hasMultipleUsers ? 'grid-cols-4' : 'grid-cols-3'}`}>
                     <TabsTrigger value="models">Por Modelo</TabsTrigger>
                     <TabsTrigger value="providers">Por Provider</TabsTrigger>
                     <TabsTrigger value="functions">Por Função</TabsTrigger>
+                    {isAdmin && hasMultipleUsers && (
+                      <TabsTrigger value="users">Por Membro</TabsTrigger>
+                    )}
                   </TabsList>
                   
                   <TabsContent value="models" className="space-y-3 mt-4">
@@ -191,6 +199,31 @@ export default function Settings() {
                       </div>
                     ))}
                   </TabsContent>
+
+                  {isAdmin && hasMultipleUsers && (
+                    <TabsContent value="users" className="space-y-3 mt-4">
+                      {Object.entries(stats.byUser)
+                        .sort((a, b) => b[1].cost - a[1].cost)
+                        .map(([userId, data]) => (
+                          <div key={userId} className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
+                            <div className="flex items-center gap-3 flex-1">
+                              <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+                                <Users className="h-4 w-4 text-primary" />
+                              </div>
+                              <div>
+                                <div className="font-medium text-sm">
+                                  {data.fullName || data.email || userId.slice(0, 8)}
+                                </div>
+                                <div className="text-xs text-muted-foreground">
+                                  {formatNumber(data.calls)} chamadas · {formatNumber(data.tokens)} tokens
+                                </div>
+                              </div>
+                            </div>
+                            <div className="text-sm font-semibold">{formatCost(data.cost)}</div>
+                          </div>
+                        ))}
+                    </TabsContent>
+                  )}
                 </Tabs>
               </div>
             )}
