@@ -410,6 +410,7 @@ export type Database = {
         Row: {
           context_notes: string | null
           created_at: string | null
+          created_by: string | null
           description: string | null
           function_templates: Json | null
           id: string
@@ -419,10 +420,12 @@ export type Database = {
           tags: Json | null
           updated_at: string | null
           user_id: string
+          workspace_id: string
         }
         Insert: {
           context_notes?: string | null
           created_at?: string | null
+          created_by?: string | null
           description?: string | null
           function_templates?: Json | null
           id?: string
@@ -432,10 +435,12 @@ export type Database = {
           tags?: Json | null
           updated_at?: string | null
           user_id?: string
+          workspace_id: string
         }
         Update: {
           context_notes?: string | null
           created_at?: string | null
+          created_by?: string | null
           description?: string | null
           function_templates?: Json | null
           id?: string
@@ -445,8 +450,17 @@ export type Database = {
           tags?: Json | null
           updated_at?: string | null
           user_id?: string
+          workspace_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "clients_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       conversations: {
         Row: {
@@ -1121,17 +1135,136 @@ export type Database = {
         }
         Relationships: []
       }
+      workspace_invites: {
+        Row: {
+          accepted_at: string | null
+          created_at: string | null
+          email: string
+          expires_at: string | null
+          id: string
+          invited_by: string
+          role: Database["public"]["Enums"]["workspace_role"]
+          workspace_id: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          created_at?: string | null
+          email: string
+          expires_at?: string | null
+          id?: string
+          invited_by: string
+          role?: Database["public"]["Enums"]["workspace_role"]
+          workspace_id: string
+        }
+        Update: {
+          accepted_at?: string | null
+          created_at?: string | null
+          email?: string
+          expires_at?: string | null
+          id?: string
+          invited_by?: string
+          role?: Database["public"]["Enums"]["workspace_role"]
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workspace_invites_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workspace_members: {
+        Row: {
+          created_at: string | null
+          id: string
+          role: Database["public"]["Enums"]["workspace_role"]
+          user_id: string
+          workspace_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          role?: Database["public"]["Enums"]["workspace_role"]
+          user_id: string
+          workspace_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          role?: Database["public"]["Enums"]["workspace_role"]
+          user_id?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workspace_members_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workspaces: {
+        Row: {
+          created_at: string | null
+          id: string
+          name: string
+          owner_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          name: string
+          owner_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          name?: string
+          owner_id?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      can_delete_in_workspace: { Args: { p_user_id: string }; Returns: boolean }
+      client_workspace_accessible: {
+        Args: { p_client_id: string; p_user_id: string }
+        Returns: boolean
+      }
+      client_workspace_can_delete: {
+        Args: { p_client_id: string; p_user_id: string }
+        Returns: boolean
+      }
+      conversation_workspace_accessible: {
+        Args: { p_conversation_id: string; p_user_id: string }
+        Returns: boolean
+      }
+      get_user_workspace_id: { Args: { p_user_id: string }; Returns: string }
+      get_user_workspace_role: {
+        Args: { p_user_id: string }
+        Returns: Database["public"]["Enums"]["workspace_role"]
+      }
       has_project_access: {
         Args: { p_project_id: string; p_user_id: string }
         Returns: boolean
       }
       has_project_edit_access: {
         Args: { p_project_id: string; p_user_id: string }
+        Returns: boolean
+      }
+      is_workspace_member: {
+        Args: { p_user_id: string; p_workspace_id: string }
         Returns: boolean
       }
       log_user_activity: {
@@ -1187,6 +1320,7 @@ export type Database = {
         | "x_article"
         | "linkedin_post"
       share_permission: "view" | "edit" | "admin"
+      workspace_role: "owner" | "admin" | "member"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1356,6 +1490,7 @@ export const Constants = {
         "linkedin_post",
       ],
       share_permission: ["view", "edit", "admin"],
+      workspace_role: ["owner", "admin", "member"],
     },
   },
 } as const

@@ -9,6 +9,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { useTheme } from "next-themes";
+import { TeamManagement } from "@/components/settings/TeamManagement";
 
 export default function Settings() {
   const { user } = useAuth();
@@ -69,6 +70,9 @@ export default function Settings() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Time */}
+        <TeamManagement />
 
         {/* Perfil */}
         <Card>

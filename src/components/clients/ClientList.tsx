@@ -6,6 +6,7 @@ import { useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { ClientEditDialog } from "./ClientEditDialog";
 import { DeleteClientDialog } from "./DeleteClientDialog";
+import { useWorkspace } from "@/hooks/useWorkspace";
 
 interface ClientListProps {
   clients: Client[];
@@ -16,6 +17,7 @@ export const ClientList = ({ clients, isLoading }: ClientListProps) => {
   const navigate = useNavigate();
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [deletingClient, setDeletingClient] = useState<Client | null>(null);
+  const { canDelete } = useWorkspace();
 
   if (isLoading) {
     return (
@@ -54,15 +56,17 @@ export const ClientList = ({ clients, isLoading }: ClientListProps) => {
                 >
                   <Pencil className="h-3.5 w-3.5" />
                 </Button>
-                <Button
-                  onClick={() => setDeletingClient(client)}
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 hover:text-destructive"
-                  title="Excluir cliente"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
+                {canDelete && (
+                  <Button
+                    onClick={() => setDeletingClient(client)}
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 hover:text-destructive"
+                    title="Excluir cliente"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                )}
               </div>
             </div>
 

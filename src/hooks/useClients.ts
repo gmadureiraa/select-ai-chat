@@ -48,14 +48,25 @@ export const useClients = () => {
     mutationFn: async (clientData: CreateClientData) => {
       const { websites, ...client } = clientData;
       
+      // Get user's workspace_id
+      const { data: memberData } = await supabase
+        .from("workspace_members")
+        .select("workspace_id")
+        .single();
+      
+      if (!memberData?.workspace_id) {
+        throw new Error("Você não pertence a nenhum workspace");
+      }
+      
       const { data, error } = await supabase
         .from("clients")
         .insert({
-        ...client,
-        social_media: client.social_media || {},
-        tags: client.tags || {},
-        function_templates: client.function_templates || [],
-      })
+          ...client,
+          social_media: client.social_media || {},
+          tags: client.tags || {},
+          function_templates: client.function_templates || [],
+          workspace_id: memberData.workspace_id,
+        })
         .select()
         .single();
 

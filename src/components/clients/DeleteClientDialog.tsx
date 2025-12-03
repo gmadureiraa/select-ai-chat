@@ -9,6 +9,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Client, useClients } from "@/hooks/useClients";
+import { useWorkspace } from "@/hooks/useWorkspace";
 
 interface DeleteClientDialogProps {
   open: boolean;
@@ -18,12 +19,31 @@ interface DeleteClientDialogProps {
 
 export const DeleteClientDialog = ({ open, onOpenChange, client }: DeleteClientDialogProps) => {
   const { deleteClient } = useClients();
+  const { canDelete } = useWorkspace();
 
   const handleDelete = async () => {
-    if (!client) return;
+    if (!client || !canDelete) return;
     await deleteClient.mutateAsync(client.id);
     onOpenChange(false);
   };
+
+  if (!canDelete) {
+    return (
+      <AlertDialog open={open} onOpenChange={onOpenChange}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Sem permissão</AlertDialogTitle>
+            <AlertDialogDescription>
+              Você não tem permissão para excluir clientes. Entre em contato com um administrador.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Fechar</AlertDialogCancel>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    );
+  }
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
