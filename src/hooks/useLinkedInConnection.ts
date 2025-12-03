@@ -29,14 +29,17 @@ export function useLinkedInConnection() {
   });
 
   const initiateOAuth = () => {
-    const clientId = import.meta.env.VITE_LINKEDIN_CLIENT_ID || "770mfkfvrdwpao";
+    const clientId = "770mfkfvrdwpao";
     const redirectUri = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/linkedin-oauth-callback`;
     const state = `${user?.id}|${window.location.origin}/social-publisher`;
     const scope = "openid profile w_member_social";
     
     const authUrl = `https://www.linkedin.com/oauth/v2/authorization?response_type=code&client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${encodeURIComponent(state)}&scope=${encodeURIComponent(scope)}`;
     
-    window.location.href = authUrl;
+    console.log("LinkedIn OAuth URL:", authUrl);
+    
+    // Open in same window for OAuth flow
+    window.open(authUrl, "_self");
   };
 
   const disconnect = async () => {
