@@ -27,14 +27,11 @@ import {
   MessageSquare, 
   History, 
   Share2,
-  Sun,
-  Moon,
 } from "lucide-react";
 
 const ResearchLab = () => {
   const [selectedProjectId, setSelectedProjectId] = useState<string>();
   const [showPresentation, setShowPresentation] = useState(false);
-  const [canvasBackground, setCanvasBackground] = useState<"dark" | "light">("dark");
   const [showTemplates, setShowTemplates] = useState(false);
   const [showAutomations, setShowAutomations] = useState(false);
   const [showComments, setShowComments] = useState(false);
@@ -70,20 +67,6 @@ const ResearchLab = () => {
 
           {selectedProjectId && (
             <div className="flex items-center gap-2">
-              {/* Background Toggle */}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCanvasBackground(canvasBackground === "dark" ? "light" : "dark")}
-                className="gap-2"
-              >
-                {canvasBackground === "dark" ? (
-                  <Sun className="h-4 w-4" />
-                ) : (
-                  <Moon className="h-4 w-4" />
-                )}
-              </Button>
-
               {/* Configs Dropdown */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -149,7 +132,6 @@ const ResearchLab = () => {
                 projectId={selectedProjectId} 
                 clientId={selectedProject?.client_id || undefined}
                 projectName={selectedProject?.name}
-                background={canvasBackground}
               />
             </div>
           </div>

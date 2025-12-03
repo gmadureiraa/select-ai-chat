@@ -81,7 +81,6 @@ interface ResearchCanvasProps {
   clientId?: string;
   projectName?: string;
   onPresentationMode?: () => void;
-  background?: "dark" | "light";
 }
 
 export interface ResearchCanvasRef {
@@ -148,7 +147,7 @@ interface ResearchCanvasInnerProps extends ResearchCanvasProps {
   innerRef?: React.Ref<ResearchCanvasRef>;
 }
 
-const ResearchCanvasInner = ({ projectId, clientId, projectName = "Projeto", innerRef, background = "dark" }: ResearchCanvasInnerProps) => {
+const ResearchCanvasInner = ({ projectId, clientId, projectName = "Projeto", innerRef }: ResearchCanvasInnerProps) => {
   const { items, deleteItem, updateItem, connections, createConnection, deleteConnection, createItem } = useResearchItems(projectId);
   const { toast } = useToast();
   const { getNodes, deleteElements } = useReactFlow();
@@ -739,7 +738,7 @@ const ResearchCanvasInner = ({ projectId, clientId, projectName = "Projeto", inn
   const totalCount = items?.length || 0;
 
   return (
-    <div ref={canvasRef} className={`h-full w-full relative ${background === "light" ? "bg-background" : "bg-muted/30"}`}>
+    <div ref={canvasRef} className="h-full w-full relative bg-muted/30">
       {/* Search and Filter Panel */}
       <SearchFilterPanel
         onSearch={setSearchQuery}
@@ -781,7 +780,7 @@ const ResearchCanvasInner = ({ projectId, clientId, projectName = "Projeto", inn
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
         fitView
-        style={{ backgroundColor: background === "light" ? "hsl(var(--background))" : "hsl(var(--muted) / 0.3)" }}
+        style={{ backgroundColor: "hsl(var(--muted) / 0.3)" }}
         noPanClassName="no-pan"
         noWheelClassName="no-wheel"
         connectionRadius={100}
@@ -808,7 +807,7 @@ const ResearchCanvasInner = ({ projectId, clientId, projectName = "Projeto", inn
           variant={BackgroundVariant.Dots} 
           gap={24} 
           size={2} 
-          color={background === "light" ? "hsl(var(--muted-foreground) / 0.3)" : "hsl(var(--muted-foreground) / 0.2)"} 
+          color="hsl(var(--muted-foreground) / 0.2)" 
         />
         
         <MiniMap
