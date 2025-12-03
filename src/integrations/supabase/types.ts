@@ -413,6 +413,7 @@ export type Database = {
           description: string | null
           function_templates: Json | null
           id: string
+          identity_guide: string | null
           name: string
           social_media: Json | null
           tags: Json | null
@@ -425,6 +426,7 @@ export type Database = {
           description?: string | null
           function_templates?: Json | null
           id?: string
+          identity_guide?: string | null
           name: string
           social_media?: Json | null
           tags?: Json | null
@@ -437,6 +439,7 @@ export type Database = {
           description?: string | null
           function_templates?: Json | null
           id?: string
+          identity_guide?: string | null
           name?: string
           social_media?: Json | null
           tags?: Json | null

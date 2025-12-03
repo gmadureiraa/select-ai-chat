@@ -12,7 +12,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useClients, Client } from "@/hooks/useClients";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, X } from "lucide-react";
+import { Plus, X, FileText, Loader2 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 interface ClientEditDialogProps {
   open: boolean;
@@ -24,6 +25,8 @@ export const ClientEditDialog = ({ open, onOpenChange, client }: ClientEditDialo
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [contextNotes, setContextNotes] = useState("");
+  const [identityGuide, setIdentityGuide] = useState("");
+  const [isLoadingGuide, setIsLoadingGuide] = useState(false);
   
   // Structured fields
   const [socialMedia, setSocialMedia] = useState({
@@ -44,17 +47,72 @@ export const ClientEditDialog = ({ open, onOpenChange, client }: ClientEditDialo
   const [templateInput, setTemplateInput] = useState("");
   
   const { updateClient } = useClients();
+  const { toast } = useToast();
 
   useEffect(() => {
     if (client) {
       setName(client.name);
       setDescription(client.description || "");
       setContextNotes(client.context_notes || "");
+      setIdentityGuide((client as any).identity_guide || "");
       setSocialMedia(client.social_media as any || { instagram: "", linkedin: "", facebook: "", twitter: "" });
       setTags(client.tags as any || { segment: "", tone: "", objectives: "", audience: "" });
       setFunctionTemplates((client.function_templates as string[]) || []);
     }
   }, [client]);
+
+  // Load guide from public folder
+  const loadGuideFromFolder = async () => {
+    if (!client) return;
+    
+    setIsLoadingGuide(true);
+    try {
+      const slugMap: Record<string, string> = {
+        'Gabriel Madureira': 'madureira',
+        'Madureira': 'madureira',
+        'NeoBankless': 'neobankless',
+        'Neobankless': 'neobankless',
+        'Defiverso': 'defiverso',
+        'Jornal Cripto': 'jornal-cripto',
+        'Kaleidos': 'kaleidos',
+        'Layla Foz': 'layla-foz',
+      };
+      
+      const slug = slugMap[client.name] || client.name.toLowerCase().replace(/\s+/g, '-');
+      const response = await fetch(`/clients/${slug}/guia-conteudo.md`);
+      
+      if (response.ok) {
+        const content = await response.text();
+        if (content && !content.includes('<!DOCTYPE html>')) {
+          setIdentityGuide(content);
+          toast({
+            title: "Guia carregado",
+            description: "Conteúdo importado do arquivo guia-conteudo.md",
+          });
+        } else {
+          toast({
+            title: "Arquivo não encontrado",
+            description: `Não foi possível encontrar /clients/${slug}/guia-conteudo.md`,
+            variant: "destructive",
+          });
+        }
+      } else {
+        toast({
+          title: "Arquivo não encontrado",
+          description: `Não foi possível encontrar /clients/${slug}/guia-conteudo.md`,
+          variant: "destructive",
+        });
+      }
+    } catch (e) {
+      toast({
+        title: "Erro ao carregar",
+        description: "Falha ao buscar arquivo de guia",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoadingGuide(false);
+    }
+  };
 
   const addTemplate = () => {
     if (templateInput.trim() && !functionTemplates.includes(templateInput.trim())) {
@@ -77,6 +135,7 @@ export const ClientEditDialog = ({ open, onOpenChange, client }: ClientEditDialo
       name,
       description: description || null,
       context_notes: contextNotes || null,
+      identity_guide: identityGuide || null,
       social_media: socialMedia,
       tags: tags,
       function_templates: functionTemplates,
@@ -99,6 +158,7 @@ export const ClientEditDialog = ({ open, onOpenChange, client }: ClientEditDialo
           <Tabs defaultValue="basic" className="w-full">
             <TabsList className="grid w-full grid-cols-5">
               <TabsTrigger value="basic">Básico</TabsTrigger>
+              <TabsTrigger value="identity">Identidade</TabsTrigger>
               <TabsTrigger value="social">Redes Sociais</TabsTrigger>
               <TabsTrigger value="tags">Tags/Notas</TabsTrigger>
               <TabsTrigger value="templates">Padrões</TabsTrigger>
@@ -138,6 +198,60 @@ export const ClientEditDialog = ({ open, onOpenChange, client }: ClientEditDialo
                 />
                 <p className="text-xs text-muted-foreground">
                   Este contexto será incluído em todas as conversas com este cliente
+                </p>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="identity" className="space-y-4">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="identity">Guia de Identidade e Posicionamento</Label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={loadGuideFromFolder}
+                    disabled={isLoadingGuide}
+                    className="gap-2"
+                  >
+                    {isLoadingGuide ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <FileText className="h-4 w-4" />
+                    )}
+                    Importar de Arquivo
+                  </Button>
+                </div>
+                <Textarea
+                  id="identity"
+                  value={identityGuide}
+                  onChange={(e) => setIdentityGuide(e.target.value)}
+                  placeholder={`# Posicionamento do Cliente
+
+## Tom de Voz
+- Técnico mas acessível
+- Direto e sem rodeios
+- etc.
+
+## Pilares de Conteúdo
+1. Marketing e Estratégia
+2. Empreendedorismo
+3. etc.
+
+## Estratégia por Plataforma
+### Instagram
+- Carrosséis educativos
+- Stories diários
+
+### Twitter/X
+- Threads técnicas
+- Opiniões fortes`}
+                  rows={20}
+                  className="font-mono text-sm"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Este guia completo de identidade será a PRIMEIRA informação que a IA receberá ao criar conteúdo. 
+                  Inclua posicionamento, tom de voz, pilares de conteúdo, estratégias por plataforma e exemplos.
                 </p>
               </div>
             </TabsContent>
