@@ -8,20 +8,35 @@ import { useResearchItems } from "@/hooks/useResearchItems";
 import { cn } from "@/lib/utils";
 import { RichTextEditor } from "./RichTextEditor";
 import ReactMarkdown from "react-markdown";
+import { CategorySelector } from "./CategorySelector";
+import { CategoryBadge } from "./CategoryBadge";
+import { getCategoryById } from "@/types/researchCategories";
 
 interface NoteNodeData {
   item: ResearchItem;
   onDelete: (id: string) => void;
   projectId: string;
   isConnected?: boolean;
+  onUpdate?: (id: string, updates: any) => void;
 }
 
 export const NoteNode = memo(({ data }: NodeProps<NoteNodeData>) => {
-  const { item, onDelete, projectId, isConnected } = data;
+  const { item, onDelete, projectId, isConnected, onUpdate } = data;
   const { updateItem } = useResearchItems(projectId);
   const [isEditing, setIsEditing] = useState(!item.content);
   const [title, setTitle] = useState(item.title || "");
   const [content, setContent] = useState(item.content || "");
+  const categoryId = (item.metadata as any)?.category;
+  const category = getCategoryById(categoryId);
+
+  const handleCategoryChange = (newCategoryId: string | undefined) => {
+    if (onUpdate) {
+      const currentMetadata = (item.metadata as any) || {};
+      onUpdate(item.id, { 
+        metadata: { ...currentMetadata, category: newCategoryId } 
+      });
+    }
+  };
 
   const handleSave = () => {
     if (!content.trim()) return;
@@ -65,41 +80,51 @@ export const NoteNode = memo(({ data }: NodeProps<NoteNodeData>) => {
 
       {/* Actions */}
       <div className="absolute top-2 right-2 flex gap-1 z-10">
+        {onUpdate && (
+          <CategorySelector
+            categoryId={categoryId}
+            onCategoryChange={handleCategoryChange}
+            size="sm"
+          />
+        )}
         {!isEditing && (
           <Button
             variant="ghost"
             size="icon"
-            className="h-7 w-7 rounded-full bg-muted/50 hover:bg-muted text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity"
+            className="h-6 w-6 rounded-full bg-muted/50 hover:bg-muted text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity"
             onClick={(e) => {
               e.stopPropagation();
               setIsEditing(true);
             }}
           >
-            <Edit2 className="h-3.5 w-3.5" />
+            <Edit2 className="h-3 w-3" />
           </Button>
         )}
         <Button
           variant="ghost"
           size="icon"
-          className="h-7 w-7 rounded-full bg-destructive/10 hover:bg-destructive/20 text-destructive"
+          className="h-6 w-6 rounded-full bg-destructive/10 hover:bg-destructive/20 text-destructive"
           onClick={(e) => {
             e.stopPropagation();
             onDelete(item.id);
           }}
         >
-          <Trash2 className="h-3.5 w-3.5" />
+          <Trash2 className="h-3 w-3" />
         </Button>
       </div>
 
       {/* Header */}
       <div className="flex items-start gap-3 mb-3">
-        <div className="p-2 bg-yellow-800/30 rounded-lg border border-yellow-700">
-          <StickyNote className="h-4 w-4 text-yellow-400" />
+        <div className={cn("p-2 rounded-lg border", category?.bgClass || "bg-yellow-800/30", category?.borderClass || "border-yellow-700")}>
+          <StickyNote className={cn("h-4 w-4", category?.textClass || "text-yellow-400")} />
         </div>
-        <div className="flex-1 min-w-0 pr-12">
-          <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-yellow-800/50 text-yellow-300 text-xs font-medium">
-            Nota
-          </span>
+        <div className="flex-1 min-w-0 pr-16">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-yellow-800/50 text-yellow-300 text-xs font-medium">
+              Nota
+            </span>
+            {categoryId && <CategoryBadge categoryId={categoryId} size="sm" />}
+          </div>
         </div>
       </div>
 

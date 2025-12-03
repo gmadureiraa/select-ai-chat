@@ -11,10 +11,14 @@ import {
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
+import { CategorySelector } from "./CategorySelector";
+import { CategoryBadge } from "./CategoryBadge";
+import { getCategoryById } from "@/types/researchCategories";
 
 interface ResearchItemNodeData {
   item: ResearchItem;
   onDelete: (id: string) => void;
+  onUpdate?: (id: string, updates: any) => void;
   isConnected?: boolean;
 }
 
@@ -32,11 +36,22 @@ const typeConfig: Record<string, { icon: any; color: string; border: string; bg:
 const defaultConfig = { icon: FileText, color: "text-muted-foreground", border: "border-border", bg: "bg-muted", label: "Item" };
 
 export const ResearchItemNode = memo(({ data }: NodeProps<ResearchItemNodeData>) => {
-  const { item, onDelete, isConnected } = data;
+  const { item, onDelete, onUpdate, isConnected } = data;
   const [showTranscript, setShowTranscript] = useState(false);
 
   const config = typeConfig[item.type] || defaultConfig;
   const Icon = config.icon;
+  const categoryId = (item.metadata as any)?.category;
+  const category = getCategoryById(categoryId);
+
+  const handleCategoryChange = (newCategoryId: string | undefined) => {
+    if (onUpdate) {
+      const currentMetadata = (item.metadata as any) || {};
+      onUpdate(item.id, { 
+        metadata: { ...currentMetadata, category: newCategoryId } 
+      });
+    }
+  };
 
   return (
     <>
@@ -60,29 +75,39 @@ export const ResearchItemNode = memo(({ data }: NodeProps<ResearchItemNodeData>)
         <Handle type="target" position={Position.Left} className={cn("!w-3 !h-3 !border-2 !border-background", config.color.replace("text-", "!bg-").replace("-600", "-400"))} id="left" />
         <Handle type="source" position={Position.Right} className={cn("!w-3 !h-3 !border-2 !border-background", config.color.replace("text-", "!bg-").replace("-600", "-400"))} id="right" />
 
-        {/* Delete Button */}
-        <Button
-          variant="ghost"
-          size="icon"
-          className="absolute top-2 right-2 h-7 w-7 rounded-full bg-destructive/10 hover:bg-destructive/20 text-destructive z-10"
-          onClick={(e) => {
-            e.stopPropagation();
-            onDelete(item.id);
-          }}
-        >
-          <Trash2 className="h-3.5 w-3.5" />
-        </Button>
+        {/* Actions */}
+        <div className="absolute top-2 right-2 flex items-center gap-1 z-10">
+          {onUpdate && (
+            <CategorySelector
+              categoryId={categoryId}
+              onCategoryChange={handleCategoryChange}
+              size="sm"
+            />
+          )}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6 rounded-full bg-destructive/10 hover:bg-destructive/20 text-destructive"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete(item.id);
+            }}
+          >
+            <Trash2 className="h-3 w-3" />
+          </Button>
+        </div>
 
         {/* Header */}
         <div className="flex items-start gap-3 mb-3">
-          <div className={cn("p-2 rounded-lg border", config.bg, config.border)}>
-            <Icon className={cn("h-4 w-4", config.color)} />
+          <div className={cn("p-2 rounded-lg border", category?.bgClass || config.bg, category?.borderClass || config.border)}>
+            <Icon className={cn("h-4 w-4", category?.textClass || config.color)} />
           </div>
-          <div className="flex-1 min-w-0 pr-8">
+          <div className="flex-1 min-w-0 pr-16">
             <div className="flex items-center gap-2 flex-wrap">
               <span className={cn("inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium", config.bg, config.color)}>
                 {config.label}
               </span>
+              {categoryId && <CategoryBadge categoryId={categoryId} size="sm" />}
               {item.processed && (
                 <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 text-xs font-medium">
                   Processado

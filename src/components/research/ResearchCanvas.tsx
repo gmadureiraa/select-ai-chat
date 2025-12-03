@@ -194,7 +194,7 @@ const ResearchCanvasInner = ({ projectId, clientId, projectName = "Projeto", inn
 
   // Search and filter state
   const [searchQuery, setSearchQuery] = useState("");
-  const [filters, setFilters] = useState<FilterState>({ types: [], tags: [], processed: "all" });
+  const [filters, setFilters] = useState<FilterState>({ types: [], tags: [], categories: [], processed: "all" });
   
   // Floating AI Chat state
   const [showFloatingChat, setShowFloatingChat] = useState(false);
@@ -246,6 +246,14 @@ const ResearchCanvasInner = ({ projectId, clientId, projectName = "Projeto", inn
     // Type filter
     if (filters.types.length > 0) {
       filteredItems = filteredItems.filter(item => filters.types.includes(item.type));
+    }
+
+    // Category filter
+    if (filters.categories.length > 0) {
+      filteredItems = filteredItems.filter(item => {
+        const itemCategory = (item.metadata as any)?.category;
+        return itemCategory && filters.categories.includes(itemCategory);
+      });
     }
 
     // Use functional update to preserve positions during updates

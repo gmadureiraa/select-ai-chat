@@ -5,6 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import { CategorySelector } from "./CategorySelector";
+import { CategoryBadge } from "./CategoryBadge";
+import { getCategoryById } from "@/types/researchCategories";
+import { useToast } from "@/hooks/use-toast";
 
 interface GroupNodeProps {
   id: string;
@@ -14,6 +18,7 @@ interface GroupNodeProps {
       metadata?: {
         color?: string;
         collapsed?: boolean;
+        category?: string;
       };
     };
     onDelete: (id: string) => void;
@@ -36,9 +41,12 @@ const groupColors = [
 export const GroupNode = memo(({ id, data, selected }: GroupNodeProps) => {
   const [isEditing, setIsEditing] = useState(false);
   const [title, setTitle] = useState(data.item.title || "Grupo");
+  const { toast } = useToast();
   
   const colorId = data.item.metadata?.color || "purple";
   const colorConfig = groupColors.find(c => c.id === colorId) || groupColors[0];
+  const categoryId = data.item.metadata?.category;
+  const category = getCategoryById(categoryId);
 
   const handleTitleChange = () => {
     setIsEditing(false);
@@ -49,12 +57,26 @@ export const GroupNode = memo(({ id, data, selected }: GroupNodeProps) => {
 
   const handleColorChange = (newColor: string) => {
     if (data.onUpdate) {
-      data.onUpdate(id, { 
-        metadata: { 
-          ...data.item.metadata, 
-          color: newColor 
-        } 
-      });
+      const newMetadata = { 
+        ...(data.item.metadata || {}), 
+        color: newColor 
+      };
+      data.onUpdate(id, { metadata: newMetadata });
+      toast({ title: "Cor atualizada" });
+    }
+  };
+
+  const handleCategoryChange = (newCategoryId: string | undefined) => {
+    if (data.onUpdate) {
+      const newMetadata = { 
+        ...(data.item.metadata || {}), 
+        category: newCategoryId 
+      };
+      data.onUpdate(id, { metadata: newMetadata });
+      if (newCategoryId) {
+        const cat = getCategoryById(newCategoryId);
+        toast({ title: `Categoria: ${cat?.label}` });
+      }
     }
   };
 
@@ -99,10 +121,18 @@ export const GroupNode = memo(({ id, data, selected }: GroupNodeProps) => {
             </span>
           )}
 
+          {categoryId && <CategoryBadge categoryId={categoryId} size="sm" />}
+
           <div className="ml-auto flex items-center gap-1">
+            <CategorySelector
+              categoryId={categoryId}
+              onCategoryChange={handleCategoryChange}
+              size="sm"
+            />
+            
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-6 w-6">
+                <Button variant="ghost" size="icon" className="h-6 w-6" title="Mudar cor">
                   <Palette className="h-3 w-3" />
                 </Button>
               </PopoverTrigger>
@@ -112,7 +142,7 @@ export const GroupNode = memo(({ id, data, selected }: GroupNodeProps) => {
                     <button
                       key={color.id}
                       className={cn(
-                        "w-6 h-6 rounded border-2 transition-all",
+                        "w-6 h-6 rounded border-2 transition-all hover:scale-110",
                         color.bg,
                         color.border,
                         colorId === color.id && "ring-2 ring-primary ring-offset-1"
