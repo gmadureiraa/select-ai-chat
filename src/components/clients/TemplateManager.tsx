@@ -14,11 +14,27 @@ import { Plus, Trash2, Settings, Edit2, MessageSquare, Image, Zap } from "lucide
 import { useToast } from "@/hooks/use-toast";
 import { useClientTemplates } from "@/hooks/useClientTemplates";
 import { TemplateRulesDialog } from "./TemplateRulesDialog";
-import { ClientTemplate, TemplateRule } from "@/types/template";
+import { ClientTemplate, TemplateRule, getDefaultRulesForTemplateName } from "@/types/template";
+import { CONTENT_TYPE_OPTIONS, getContentTypeLabel } from "@/types/contentTypes";
 
 interface TemplateManagerProps {
   clientId: string;
 }
+
+// Sugestões de templates baseadas nos tipos de conteúdo
+const TEMPLATE_SUGGESTIONS = [
+  { name: "Newsletter", contentType: "newsletter" },
+  { name: "Carrossel Instagram", contentType: "carousel" },
+  { name: "Stories", contentType: "stories" },
+  { name: "Post Estático", contentType: "static_image" },
+  { name: "Tweet", contentType: "tweet" },
+  { name: "Thread", contentType: "thread" },
+  { name: "Artigo no X", contentType: "x_article" },
+  { name: "Post LinkedIn", contentType: "linkedin_post" },
+  { name: "Vídeo Curto", contentType: "short_video" },
+  { name: "Vídeo Longo", contentType: "long_video" },
+  { name: "Blog Post", contentType: "blog_post" },
+];
 
 export const TemplateManager = ({ clientId }: TemplateManagerProps) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -38,10 +54,19 @@ export const TemplateManager = ({ clientId }: TemplateManagerProps) => {
       return;
     }
     
+    // Get default rules based on template name
+    const defaultRules = getDefaultRulesForTemplateName(newTemplateName);
+    const rulesData = defaultRules.map((content) => ({
+      id: crypto.randomUUID(),
+      content,
+      type: 'text' as const,
+    }));
+    
     createTemplate.mutate({
       client_id: clientId,
       name: newTemplateName.trim(),
       type: newTemplateType,
+      rules: rulesData,
     });
     
     setNewTemplateName("");
@@ -212,29 +237,18 @@ export const TemplateManager = ({ clientId }: TemplateManagerProps) => {
             {/* Exemplos de templates */}
             <div className="space-y-2 pt-2">
               <Label className="text-xs text-muted-foreground">
-                Sugestões de Templates:
+                Sugestões de Templates (com regras pré-configuradas):
               </Label>
               <div className="flex flex-wrap gap-2">
-                {[
-                  "Newsletter",
-                  "Carrossel Instagram",
-                  "Stories",
-                  "Tweet",
-                  "Thread",
-                  "Artigo no X",
-                  "Post LinkedIn",
-                  "Vídeo Curto",
-                  "Vídeo Longo",
-                  "Blog Post",
-                ].map((suggestion) => (
+                {TEMPLATE_SUGGESTIONS.map((suggestion) => (
                   <Button
-                    key={suggestion}
-                    onClick={() => setNewTemplateName(suggestion)}
+                    key={suggestion.name}
+                    onClick={() => setNewTemplateName(suggestion.name)}
                     variant="outline"
                     size="sm"
                     className="text-xs h-7"
                   >
-                    {suggestion}
+                    {suggestion.name}
                   </Button>
                 ))}
               </div>
