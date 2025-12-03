@@ -66,3 +66,5 @@ verify_jwt = false
 [functions.process-scheduled-posts]
 verify_jwt = false
 
+[functions.import-beehiiv-newsletters]
+verify_jwt = false
