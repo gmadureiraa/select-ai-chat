@@ -38,8 +38,8 @@ export function useLinkedInConnection() {
     
     console.log("LinkedIn OAuth URL:", authUrl);
     
-    // Open in same window for OAuth flow
-    window.open(authUrl, "_self");
+    // Open in new window to avoid iframe restrictions
+    window.open(authUrl, "_blank", "width=600,height=700");
   };
 
   const disconnect = async () => {
