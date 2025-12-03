@@ -87,8 +87,22 @@ const contentSelectionTool = {
       properties: {
         detected_content_type: {
           type: "string",
-          enum: ["newsletter", "carousel", "stories", "reel_script", "video_script", "blog_post", "social_post", "general"],
-          description: "Tipo de conteúdo solicitado"
+          enum: [
+            "static_image",    // Post estático único
+            "carousel",        // Carrossel Instagram/LinkedIn
+            "stories",         // Stories Instagram/Facebook
+            "tweet",           // Tweet único
+            "thread",          // Thread Twitter/X
+            "short_video",     // Reels/TikTok
+            "reel_script",     // Roteiro de Reel
+            "video_script",    // Roteiro de vídeo
+            "linkedin",        // Post LinkedIn
+            "newsletter",      // Newsletter/Email
+            "blog_post",       // Post de blog
+            "social_post",     // Post genérico de rede social
+            "general"          // Conversa geral
+          ],
+          description: "Tipo de conteúdo solicitado pelo usuário"
         },
         selected_references: {
           type: "array",

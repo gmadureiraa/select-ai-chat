@@ -13,8 +13,17 @@ import { useAuth } from "@/hooks/useAuth";
 import { 
   GLOBAL_CONTENT_RULES, 
   STORIES_FORMAT_RULES, 
-  CAROUSEL_FORMAT_RULES, 
-  IDEA_REQUEST_KEYWORDS 
+  CAROUSEL_FORMAT_RULES,
+  STATIC_POST_FORMAT_RULES,
+  TWEET_FORMAT_RULES,
+  THREAD_FORMAT_RULES,
+  REELS_FORMAT_RULES,
+  LINKEDIN_FORMAT_RULES,
+  CAPTION_FORMAT_RULES,
+  IDEA_REQUEST_KEYWORDS,
+  detectContentType,
+  isIdeaRequest,
+  ContentFormatType
 } from "@/types/template";
 
 export const useClientChat = (clientId: string, templateId?: string) => {
@@ -489,41 +498,57 @@ Retorne uma análise clara e estruturada para guiar a criação de novo conteúd
       ];
 
       // Detectar se usuário está pedindo ideias (para dar flexibilidade nas regras)
-      const isAskingForIdeas = IDEA_REQUEST_KEYWORDS.some(keyword => 
-        content.toLowerCase().includes(keyword.toLowerCase())
-      );
+      const isAskingForIdeas = isIdeaRequest(content);
 
-      // REGRA GLOBAL: Evitar emojis
-      contextParts.push(`## 🚫 REGRA GLOBAL DE EMOJIS`);
+      // REGRAS GLOBAIS DE CONTEÚDO
+      contextParts.push(`## REGRAS GLOBAIS DE CONTEÚDO`);
       contextParts.push(``);
-      contextParts.push(GLOBAL_CONTENT_RULES.emoji);
+      contextParts.push(`- ${GLOBAL_CONTENT_RULES.emoji}`);
+      contextParts.push(`- ${GLOBAL_CONTENT_RULES.clarity}`);
+      contextParts.push(`- ${GLOBAL_CONTENT_RULES.specificity}`);
+      contextParts.push(`- ${GLOBAL_CONTENT_RULES.hook}`);
+      contextParts.push(`- ${GLOBAL_CONTENT_RULES.cta}`);
+      contextParts.push(`- ${GLOBAL_CONTENT_RULES.value}`);
       contextParts.push(``);
+
+      // Detectar tipo de conteúdo automaticamente
+      const detectedType = detectContentType(content) || selection.detected_content_type;
 
       // Aplicar regras de formato específicas por tipo de conteúdo
       if (isAskingForIdeas) {
-        contextParts.push(`## 💡 MODO DE IDEIAS ATIVADO`);
+        contextParts.push(`## MODO DE IDEIAS ATIVADO`);
         contextParts.push(``);
         contextParts.push(`O usuário está pedindo ideias. Priorize CRIATIVIDADE e BRAINSTORMING.`);
-        contextParts.push(`Você pode ser mais flexível com formatos, mas ainda assim mantenha a regra de emojis.`);
+        contextParts.push(`Você pode ser mais flexível com formatos, mas ainda assim siga as regras globais.`);
         contextParts.push(``);
       }
 
-      // Regras de formato para Stories
-      if (selection.detected_content_type === "stories" || 
-          content.toLowerCase().includes("storie") || 
-          content.toLowerCase().includes("stories")) {
+      // Aplicar regras específicas do formato detectado
+      if (detectedType === "stories" || content.toLowerCase().includes("storie")) {
         contextParts.push(STORIES_FORMAT_RULES);
         contextParts.push(``);
-      }
-
-      // Regras de formato para Carrossel
-      if (selection.detected_content_type === "carousel" || 
-          selection.detected_content_type === "static_image" ||
-          content.toLowerCase().includes("carrossel") ||
-          content.toLowerCase().includes("carousel")) {
+      } else if (detectedType === "carousel" || content.toLowerCase().includes("carrossel")) {
         contextParts.push(CAROUSEL_FORMAT_RULES);
         contextParts.push(``);
-        contextParts.push(`**IMPORTANTE:** Esta estrutura NÃO se aplica em Engenharia Reversa.`);
+      } else if (detectedType === "static_image" || content.toLowerCase().includes("post estático")) {
+        contextParts.push(STATIC_POST_FORMAT_RULES);
+        contextParts.push(``);
+      } else if (detectedType === "tweet" || (content.toLowerCase().includes("tweet") && !content.toLowerCase().includes("thread"))) {
+        contextParts.push(TWEET_FORMAT_RULES);
+        contextParts.push(``);
+      } else if (detectedType === "thread" || content.toLowerCase().includes("thread")) {
+        contextParts.push(THREAD_FORMAT_RULES);
+        contextParts.push(``);
+      } else if (detectedType === "short_video" || detectedType === "reel_script" || 
+                 content.toLowerCase().includes("reel") || content.toLowerCase().includes("tiktok")) {
+        contextParts.push(REELS_FORMAT_RULES);
+        contextParts.push(``);
+      } else if (detectedType === "linkedin" || content.toLowerCase().includes("linkedin")) {
+        contextParts.push(LINKEDIN_FORMAT_RULES);
+        contextParts.push(``);
+      } else if (detectedType === "newsletter" || detectedType === "blog_post" || 
+                 content.toLowerCase().includes("legenda")) {
+        contextParts.push(CAPTION_FORMAT_RULES);
         contextParts.push(``);
       }
 
