@@ -20,9 +20,9 @@ import {
   REELS_FORMAT_RULES,
   LINKEDIN_FORMAT_RULES,
   CAPTION_FORMAT_RULES,
-  IDEA_REQUEST_KEYWORDS,
+  IDEA_MODE_RULES,
   detectContentType,
-  isIdeaRequest,
+  parseIdeaRequest,
   ContentFormatType
 } from "@/types/template";
 
@@ -296,10 +296,21 @@ export const useClientChat = (clientId: string, templateId?: string) => {
         }))
       ];
 
+      // Detectar pedido de ideias ANTES da seleção para otimizar a busca
+      const preliminaryIdeaCheck = parseIdeaRequest(content);
+
       // System message para seleção inteligente
       const selectionSystemMessage = `Você é o kAI, assistente especializado da Kaleidos para o cliente ${client.name}.
 
+${preliminaryIdeaCheck.isIdea ? `
+## ⚠️ MODO IDEIAS DETECTADO
+O usuário está pedindo IDEIAS de conteúdo (${preliminaryIdeaCheck.quantity || 5} ideias${preliminaryIdeaCheck.contentType ? ` de ${preliminaryIdeaCheck.contentType}` : ''}).
+Selecione materiais que sirvam de INSPIRAÇÃO para criar ideias NOVAS e DIFERENTES.
+Analise os TEMAS e ABORDAGENS que funcionam para identificar padrões de sucesso.
+IMPORTANTE: Os materiais selecionados serão usados como BASE - o assistente NÃO deve copiar essas ideias.
+` : `
 Sua tarefa é ANALISAR a pergunta do usuário e SELECIONAR os materiais mais RELEVANTES da biblioteca e documentos.
+`}
 
 ## Materiais Disponíveis (${availableMaterials.length} total):
 
@@ -328,10 +339,17 @@ ${referenceLibrary.map(r => `- ID: ${r.id}
 - Tags: ${Object.keys(client.tags || {}).length}
 
 ESTRATÉGIA:
+${preliminaryIdeaCheck.isIdea ? `
+1. Identifique o tipo de conteúdo das ideias pedidas (carousel, stories, etc)
+2. Busque exemplos VARIADOS desse tipo para inspiração (não só os mais recentes)
+3. Selecione materiais com TEMAS DIFERENTES entre si para ampliar possibilidades
+4. Priorize conteúdos que tiveram sucesso para entender o que funciona
+` : `
 1. Identifique o tipo de conteúdo que o usuário quer (newsletter, carousel, etc)
 2. Busque exemplos RELEVANTES desse tipo na biblioteca
 3. Selecione materiais que ajudem a entender PADRÕES, TOM e ESTRUTURA
-4. Priorize conteúdos similares ao que o usuário pediu`;
+4. Priorize conteúdos similares ao que o usuário pediu
+`}`;
 
       // Histórico completo de mensagens para contexto
       const selectionMessages = [
@@ -397,8 +415,28 @@ ESTRATÉGIA:
           .filter(Boolean);
 
         if (selectedContents.length > 0) {
-          // Criar prompt de análise de padrões
-          const analysisPrompt = `Analise profundamente os seguintes conteúdos de referência do cliente ${client.name} e extraia os padrões essenciais:
+          // Criar prompt de análise de padrões (diferente para modo ideias vs criação de conteúdo)
+          const analysisPrompt = preliminaryIdeaCheck.isIdea 
+            ? `Analise os seguintes conteúdos de referência do cliente ${client.name} para IDENTIFICAR OPORTUNIDADES DE NOVAS IDEIAS:
+
+## CONTEÚDOS PARA ANÁLISE:
+${selectedContents.map((c: any, idx: number) => `
+### ${idx + 1}. ${c.title} (${c.content_type})
+${c.source_url ? `**Fonte:** ${c.source_url}\n` : ''}
+${c.content}
+---
+`).join('\n')}
+
+## EXTRAIA PARA GERAR IDEIAS NOVAS:
+1. **Temas que Funcionam**: Quais assuntos/tópicos geram engajamento para este cliente?
+2. **Ângulos Já Explorados**: Como esses temas foram abordados? (para NÃO repetir)
+3. **Oportunidades Não Exploradas**: Que variações ou novos ângulos poderiam ser criados?
+4. **Padrões de Sucesso**: O que esses conteúdos têm em comum que funciona bem?
+5. **Gaps/Lacunas**: Que temas relacionados ainda não foram cobertos?
+
+IMPORTANTE: Esta análise serve para INSPIRAR ideias NOVAS - nunca para repetir ou copiar as existentes.
+Retorne insights claros que ajudem a criar ideias ORIGINAIS e DIFERENTES.`
+            : `Analise profundamente os seguintes conteúdos de referência do cliente ${client.name} e extraia os padrões essenciais:
 
 ## CONTEÚDOS PARA ANÁLISE:
 ${selectedContents.map((c: any, idx: number) => `
@@ -497,59 +535,76 @@ Retorne uma análise clara e estruturada para guiar a criação de novo conteúd
         ``
       ];
 
-      // Detectar se usuário está pedindo ideias (para dar flexibilidade nas regras)
-      const isAskingForIdeas = isIdeaRequest(content);
-
-      // REGRAS GLOBAIS DE CONTEÚDO
-      contextParts.push(`## REGRAS GLOBAIS DE CONTEÚDO`);
-      contextParts.push(``);
-      contextParts.push(`- ${GLOBAL_CONTENT_RULES.emoji}`);
-      contextParts.push(`- ${GLOBAL_CONTENT_RULES.clarity}`);
-      contextParts.push(`- ${GLOBAL_CONTENT_RULES.specificity}`);
-      contextParts.push(`- ${GLOBAL_CONTENT_RULES.hook}`);
-      contextParts.push(`- ${GLOBAL_CONTENT_RULES.cta}`);
-      contextParts.push(`- ${GLOBAL_CONTENT_RULES.value}`);
-      contextParts.push(``);
+      // Detectar se usuário está pedindo ideias de forma inteligente
+      const ideaRequest = parseIdeaRequest(content);
+      const isAskingForIdeas = ideaRequest.isIdea;
+      const requestedQuantity = ideaRequest.quantity || 5;
 
       // Detectar tipo de conteúdo automaticamente
-      const detectedType = detectContentType(content) || selection.detected_content_type;
+      const detectedType = ideaRequest.contentType || detectContentType(content) || selection.detected_content_type;
 
-      // Aplicar regras de formato específicas por tipo de conteúdo
+      // Se é pedido de IDEIAS, aplicar regras específicas de ideias
       if (isAskingForIdeas) {
-        contextParts.push(`## MODO DE IDEIAS ATIVADO`);
+        // Adicionar regras específicas de ideias
+        contextParts.push(IDEA_MODE_RULES);
         contextParts.push(``);
-        contextParts.push(`O usuário está pedindo ideias. Priorize CRIATIVIDADE e BRAINSTORMING.`);
-        contextParts.push(`Você pode ser mais flexível com formatos, mas ainda assim siga as regras globais.`);
+        contextParts.push(`**⚡ QUANTIDADE SOLICITADA:** ${requestedQuantity} ideias`);
+        if (detectedType) {
+          contextParts.push(`**📋 TIPO DE CONTEÚDO:** ${detectedType}`);
+        }
         contextParts.push(``);
-      }
+        
+        // IMPORTANTE: Instruir sobre uso da biblioteca como inspiração
+        if (selection.selected_references?.length > 0) {
+          contextParts.push(`## 📚 REFERÊNCIAS PARA INSPIRAÇÃO (NÃO COPIAR)`);
+          contextParts.push(``);
+          contextParts.push(`Use os conteúdos selecionados como BASE para criar ideias NOVAS e DIFERENTES:`);
+          contextParts.push(`- Analise os TEMAS abordados para entender o que funciona para este cliente`);
+          contextParts.push(`- Note os ÂNGULOS e ABORDAGENS usados`);
+          contextParts.push(`- Crie variações e combinações ORIGINAIS`);
+          contextParts.push(`- NUNCA sugira a mesma ideia que já existe na biblioteca`);
+          contextParts.push(``);
+        }
+      } else {
+        // REGRAS GLOBAIS DE CONTEÚDO (apenas para criação de conteúdo, não para ideias)
+        contextParts.push(`## REGRAS GLOBAIS DE CONTEÚDO`);
+        contextParts.push(``);
+        contextParts.push(`- ${GLOBAL_CONTENT_RULES.emoji}`);
+        contextParts.push(`- ${GLOBAL_CONTENT_RULES.clarity}`);
+        contextParts.push(`- ${GLOBAL_CONTENT_RULES.specificity}`);
+        contextParts.push(`- ${GLOBAL_CONTENT_RULES.hook}`);
+        contextParts.push(`- ${GLOBAL_CONTENT_RULES.cta}`);
+        contextParts.push(`- ${GLOBAL_CONTENT_RULES.value}`);
+        contextParts.push(``);
 
-      // Aplicar regras específicas do formato detectado
-      if (detectedType === "stories" || content.toLowerCase().includes("storie")) {
-        contextParts.push(STORIES_FORMAT_RULES);
-        contextParts.push(``);
-      } else if (detectedType === "carousel" || content.toLowerCase().includes("carrossel")) {
-        contextParts.push(CAROUSEL_FORMAT_RULES);
-        contextParts.push(``);
-      } else if (detectedType === "static_image" || content.toLowerCase().includes("post estático")) {
-        contextParts.push(STATIC_POST_FORMAT_RULES);
-        contextParts.push(``);
-      } else if (detectedType === "tweet" || (content.toLowerCase().includes("tweet") && !content.toLowerCase().includes("thread"))) {
-        contextParts.push(TWEET_FORMAT_RULES);
-        contextParts.push(``);
-      } else if (detectedType === "thread" || content.toLowerCase().includes("thread")) {
-        contextParts.push(THREAD_FORMAT_RULES);
-        contextParts.push(``);
-      } else if (detectedType === "short_video" || detectedType === "reel_script" || 
-                 content.toLowerCase().includes("reel") || content.toLowerCase().includes("tiktok")) {
-        contextParts.push(REELS_FORMAT_RULES);
-        contextParts.push(``);
-      } else if (detectedType === "linkedin" || content.toLowerCase().includes("linkedin")) {
-        contextParts.push(LINKEDIN_FORMAT_RULES);
-        contextParts.push(``);
-      } else if (detectedType === "newsletter" || detectedType === "blog_post" || 
-                 content.toLowerCase().includes("legenda")) {
-        contextParts.push(CAPTION_FORMAT_RULES);
-        contextParts.push(``);
+        // Aplicar regras específicas do formato detectado APENAS SE NÃO FOR PEDIDO DE IDEIAS
+        if (detectedType === "stories" || content.toLowerCase().includes("storie")) {
+          contextParts.push(STORIES_FORMAT_RULES);
+          contextParts.push(``);
+        } else if (detectedType === "carousel" || content.toLowerCase().includes("carrossel")) {
+          contextParts.push(CAROUSEL_FORMAT_RULES);
+          contextParts.push(``);
+        } else if (detectedType === "static_image" || content.toLowerCase().includes("post estático")) {
+          contextParts.push(STATIC_POST_FORMAT_RULES);
+          contextParts.push(``);
+        } else if (detectedType === "tweet" || (content.toLowerCase().includes("tweet") && !content.toLowerCase().includes("thread"))) {
+          contextParts.push(TWEET_FORMAT_RULES);
+          contextParts.push(``);
+        } else if (detectedType === "thread" || content.toLowerCase().includes("thread")) {
+          contextParts.push(THREAD_FORMAT_RULES);
+          contextParts.push(``);
+        } else if (detectedType === "short_video" || detectedType === "reel_script" || 
+                   content.toLowerCase().includes("reel") || content.toLowerCase().includes("tiktok")) {
+          contextParts.push(REELS_FORMAT_RULES);
+          contextParts.push(``);
+        } else if (detectedType === "linkedin" || content.toLowerCase().includes("linkedin")) {
+          contextParts.push(LINKEDIN_FORMAT_RULES);
+          contextParts.push(``);
+        } else if (detectedType === "newsletter" || detectedType === "blog_post" || 
+                   content.toLowerCase().includes("legenda")) {
+          contextParts.push(CAPTION_FORMAT_RULES);
+          contextParts.push(``);
+        }
       }
 
       // Adicionar análise de padrões se disponível
