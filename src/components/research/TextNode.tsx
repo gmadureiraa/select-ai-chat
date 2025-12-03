@@ -7,21 +7,36 @@ import { Input } from "@/components/ui/input";
 import { ResearchItem } from "@/hooks/useResearchItems";
 import { useResearchItems } from "@/hooks/useResearchItems";
 import { cn } from "@/lib/utils";
+import { CategorySelector } from "./CategorySelector";
+import { CategoryBadge } from "./CategoryBadge";
+import { getCategoryById } from "@/types/researchCategories";
 
 interface TextNodeData {
   item: ResearchItem;
   onDelete: (id: string) => void;
   projectId: string;
   isConnected?: boolean;
+  onUpdate?: (id: string, updates: any) => void;
 }
 
 export const TextNode = memo(({ data }: NodeProps<TextNodeData>) => {
-  const { item, onDelete, projectId, isConnected } = data;
+  const { item, onDelete, projectId, isConnected, onUpdate } = data;
   const { updateItem } = useResearchItems(projectId);
   const [isEditing, setIsEditing] = useState(!item.content);
   const [title, setTitle] = useState(item.title || "");
   const [content, setContent] = useState(item.content || "");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const categoryId = (item.metadata as any)?.category;
+  const category = getCategoryById(categoryId);
+
+  const handleCategoryChange = (newCategoryId: string | undefined) => {
+    if (onUpdate) {
+      const currentMetadata = (item.metadata as any) || {};
+      onUpdate(item.id, { 
+        metadata: { ...currentMetadata, category: newCategoryId } 
+      });
+    }
+  };
 
   useEffect(() => {
     if (isEditing && textareaRef.current) {
@@ -70,28 +85,40 @@ export const TextNode = memo(({ data }: NodeProps<TextNodeData>) => {
       <Handle type="target" position={Position.Left} className="!w-3 !h-3 !bg-blue-400 hover:!bg-blue-500 !border-2 !border-background" id="left" />
       <Handle type="source" position={Position.Right} className="!w-3 !h-3 !bg-blue-400 hover:!bg-blue-500 !border-2 !border-background" id="right" />
 
-      {/* Delete Button */}
-      <Button
-        variant="ghost"
-        size="icon"
-        className="absolute top-2 right-2 h-7 w-7 rounded-full bg-destructive/10 hover:bg-destructive/20 text-destructive z-10"
-        onClick={(e) => {
-          e.stopPropagation();
-          onDelete(item.id);
-        }}
-      >
-        <Trash2 className="h-3.5 w-3.5" />
-      </Button>
+      {/* Actions */}
+      <div className="absolute top-2 right-2 flex items-center gap-1 z-10">
+        {onUpdate && (
+          <CategorySelector
+            categoryId={categoryId}
+            onCategoryChange={handleCategoryChange}
+            size="sm"
+          />
+        )}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-6 w-6 rounded-full bg-destructive/10 hover:bg-destructive/20 text-destructive"
+          onClick={(e) => {
+            e.stopPropagation();
+            onDelete(item.id);
+          }}
+        >
+          <Trash2 className="h-3 w-3" />
+        </Button>
+      </div>
 
       {/* Header */}
       <div className="flex items-start gap-3 mb-3">
-        <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg border border-blue-200 dark:border-blue-800">
-          <FileText className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+        <div className={cn("p-2 rounded-lg border", category?.bgClass || "bg-blue-100 dark:bg-blue-900/30", category?.borderClass || "border-blue-200 dark:border-blue-800")}>
+          <FileText className={cn("h-4 w-4", category?.textClass || "text-blue-600 dark:text-blue-400")} />
         </div>
-        <div className="flex-1 min-w-0 pr-8">
-          <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs font-medium">
-            Texto
-          </span>
+        <div className="flex-1 min-w-0 pr-16">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs font-medium">
+              Texto
+            </span>
+            {categoryId && <CategoryBadge categoryId={categoryId} size="sm" />}
+          </div>
         </div>
       </div>
 

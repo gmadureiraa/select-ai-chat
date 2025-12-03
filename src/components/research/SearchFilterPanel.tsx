@@ -11,6 +11,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+import { RESEARCH_CATEGORIES } from "@/types/researchCategories";
 
 interface SearchFilterPanelProps {
   onSearch: (query: string) => void;
@@ -22,6 +23,7 @@ interface SearchFilterPanelProps {
 export interface FilterState {
   types: string[];
   tags: string[];
+  categories: string[];
   processed: "all" | "processed" | "pending";
 }
 
@@ -52,6 +54,7 @@ export const SearchFilterPanel = ({
   const [filters, setFilters] = useState<FilterState>({
     types: [],
     tags: [],
+    categories: [],
     processed: "all",
   });
   const [isFilterOpen, setIsFilterOpen] = useState(false);
@@ -71,15 +74,26 @@ export const SearchFilterPanel = ({
     onFilterChange(newFilters);
   };
 
+  const toggleCategoryFilter = (categoryId: string) => {
+    const newCategories = filters.categories.includes(categoryId)
+      ? filters.categories.filter(c => c !== categoryId)
+      : [...filters.categories, categoryId];
+    
+    const newFilters = { ...filters, categories: newCategories };
+    setFilters(newFilters);
+    onFilterChange(newFilters);
+  };
+
   const clearFilters = () => {
-    const emptyFilters: FilterState = { types: [], tags: [], processed: "all" };
+    const emptyFilters: FilterState = { types: [], tags: [], categories: [], processed: "all" };
     setFilters(emptyFilters);
     setSearchQuery("");
     onSearch("");
     onFilterChange(emptyFilters);
   };
 
-  const hasActiveFilters = filters.types.length > 0 || filters.tags.length > 0 || filters.processed !== "all" || searchQuery;
+  const hasActiveFilters = filters.types.length > 0 || filters.categories.length > 0 || filters.tags.length > 0 || filters.processed !== "all" || searchQuery;
+  const activeFilterCount = filters.types.length + filters.categories.length;
 
   return (
     <div className="absolute top-4 left-4 z-50 flex items-center gap-2">
@@ -115,17 +129,17 @@ export const SearchFilterPanel = ({
           >
             <SlidersHorizontal className="h-4 w-4" />
             Filtros
-            {filters.types.length > 0 && (
+            {activeFilterCount > 0 && (
               <Badge variant="secondary" className="ml-1 h-5 px-1.5">
-                {filters.types.length}
+                {activeFilterCount}
               </Badge>
             )}
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-72" align="start">
+        <PopoverContent className="w-80" align="start">
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <h4 className="font-medium text-sm">Filtrar por Tipo</h4>
+              <h4 className="font-medium text-sm">Filtros</h4>
               {hasActiveFilters && (
                 <Button
                   variant="ghost"
@@ -137,23 +151,52 @@ export const SearchFilterPanel = ({
                 </Button>
               )}
             </div>
+
+            {/* Category Filter */}
+            <div className="space-y-2">
+              <h5 className="text-xs font-medium text-muted-foreground">Por Categoria</h5>
+              <div className="grid grid-cols-2 gap-1.5">
+                {RESEARCH_CATEGORIES.map((category) => {
+                  const Icon = category.icon;
+                  return (
+                    <div
+                      key={category.id}
+                      className={cn(
+                        "flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-all",
+                        filters.categories.includes(category.id)
+                          ? cn("border-primary", category.bgClass)
+                          : "border-border hover:border-muted-foreground/50"
+                      )}
+                      onClick={() => toggleCategoryFilter(category.id)}
+                    >
+                      <Icon className={cn("h-3 w-3", category.textClass)} />
+                      <span className="text-xs truncate">{category.label.split('/')[0]}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
             
-            <div className="grid grid-cols-2 gap-2">
-              {itemTypes.map((type) => (
-                <div
-                  key={type.id}
-                  className={cn(
-                    "flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-all",
-                    filters.types.includes(type.id)
-                      ? "border-primary bg-primary/5"
-                      : "border-border hover:border-muted-foreground/50"
-                  )}
-                  onClick={() => toggleTypeFilter(type.id)}
-                >
-                  <div className={cn("w-2 h-2 rounded-full", type.color)} />
-                  <span className="text-xs">{type.label}</span>
-                </div>
-              ))}
+            {/* Type Filter */}
+            <div className="space-y-2">
+              <h5 className="text-xs font-medium text-muted-foreground">Por Tipo</h5>
+              <div className="grid grid-cols-2 gap-1.5">
+                {itemTypes.map((type) => (
+                  <div
+                    key={type.id}
+                    className={cn(
+                      "flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-all",
+                      filters.types.includes(type.id)
+                        ? "border-primary bg-primary/5"
+                        : "border-border hover:border-muted-foreground/50"
+                    )}
+                    onClick={() => toggleTypeFilter(type.id)}
+                  >
+                    <div className={cn("w-2 h-2 rounded-full", type.color)} />
+                    <span className="text-xs">{type.label}</span>
+                  </div>
+                ))}
+              </div>
             </div>
 
             <div className="pt-2 border-t">
@@ -166,9 +209,26 @@ export const SearchFilterPanel = ({
       </Popover>
 
       {/* Active filter badges */}
-      {filters.types.length > 0 && (
-        <div className="flex gap-1">
-          {filters.types.slice(0, 3).map((typeId) => {
+      {(filters.types.length > 0 || filters.categories.length > 0) && (
+        <div className="flex gap-1 flex-wrap max-w-xs">
+          {filters.categories.slice(0, 2).map((catId) => {
+            const category = RESEARCH_CATEGORIES.find(c => c.id === catId);
+            if (!category) return null;
+            const Icon = category.icon;
+            return (
+              <Badge
+                key={catId}
+                variant="secondary"
+                className={cn("h-7 gap-1 cursor-pointer hover:bg-destructive/20", category.bgClass, category.textClass)}
+                onClick={() => toggleCategoryFilter(catId)}
+              >
+                <Icon className="h-3 w-3" />
+                {category.label.split('/')[0]}
+                <X className="h-3 w-3" />
+              </Badge>
+            );
+          })}
+          {filters.types.slice(0, 2).map((typeId) => {
             const type = itemTypes.find(t => t.id === typeId);
             return (
               <Badge
@@ -183,9 +243,9 @@ export const SearchFilterPanel = ({
               </Badge>
             );
           })}
-          {filters.types.length > 3 && (
+          {(filters.types.length + filters.categories.length) > 4 && (
             <Badge variant="secondary" className="h-7">
-              +{filters.types.length - 3}
+              +{(filters.types.length + filters.categories.length) - 4}
             </Badge>
           )}
         </div>
