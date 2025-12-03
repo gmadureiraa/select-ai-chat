@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CreateReferenceData, ReferenceItem } from "@/hooks/useReferenceLibrary";
+import { CONTENT_TYPE_OPTIONS } from "@/types/contentTypes";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Upload, X } from "lucide-react";
@@ -283,17 +284,11 @@ export function ReferenceDialog({ open, onClose, onSave, reference }: ReferenceD
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="tweet">Tweet</SelectItem>
-                <SelectItem value="thread">Thread</SelectItem>
-                <SelectItem value="carousel">Carrossel</SelectItem>
-                <SelectItem value="stories">Stories</SelectItem>
-                <SelectItem value="static_image">Estático Único</SelectItem>
-                <SelectItem value="reel">Reel</SelectItem>
-                <SelectItem value="short_video">Vídeo Curto</SelectItem>
-                <SelectItem value="long_video">Vídeo Longo</SelectItem>
-                <SelectItem value="video">Vídeo</SelectItem>
-                <SelectItem value="article">Artigo</SelectItem>
-                <SelectItem value="other">Outro</SelectItem>
+                {CONTENT_TYPE_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>

@@ -1,8 +1,9 @@
 import { ContentItem } from "@/hooks/useContentLibrary";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Edit, Trash2, FileText, Instagram, Video, Film, Globe, MessageSquare, Smartphone, Image as ImageIcon, Play } from "lucide-react";
+import { Edit, Trash2, FileText, Instagram, Video, Film, Globe, MessageSquare, Smartphone, Image as ImageIcon, Play, Twitter, Linkedin } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { getContentTypeLabel } from "@/types/contentTypes";
 
 interface ContentCardProps {
   content: ContentItem;
@@ -11,23 +12,25 @@ interface ContentCardProps {
   onView: (content: ContentItem) => void;
 }
 
-const contentTypeConfig = {
-  newsletter: { label: "Newsletter", icon: FileText, color: "bg-blue-500/10 text-blue-500" },
-  carousel: { label: "Carrossel", icon: Instagram, color: "bg-pink-500/10 text-pink-500" },
-  reel_script: { label: "Roteiro Reels", icon: Film, color: "bg-purple-500/10 text-purple-500" },
-  video_script: { label: "Roteiro Vídeo", icon: Video, color: "bg-red-500/10 text-red-500" },
-  blog_post: { label: "Post Blog", icon: Globe, color: "bg-green-500/10 text-green-500" },
-  social_post: { label: "Post Social", icon: MessageSquare, color: "bg-cyan-500/10 text-cyan-500" },
-  stories: { label: "Stories", icon: Smartphone, color: "bg-orange-500/10 text-orange-500" },
-  static_image: { label: "Estático Único", icon: ImageIcon, color: "bg-indigo-500/10 text-indigo-500" },
-  short_video: { label: "Vídeo Curto", icon: Play, color: "bg-red-500/10 text-red-500" },
-  long_video: { label: "Vídeo Longo", icon: Video, color: "bg-purple-500/10 text-purple-500" },
-  other: { label: "Outro", icon: FileText, color: "bg-gray-500/10 text-gray-500" },
+const contentTypeConfig: Record<string, { icon: any; color: string }> = {
+  newsletter: { icon: FileText, color: "bg-blue-500/10 text-blue-500" },
+  carousel: { icon: Instagram, color: "bg-pink-500/10 text-pink-500" },
+  stories: { icon: Smartphone, color: "bg-orange-500/10 text-orange-500" },
+  static_image: { icon: ImageIcon, color: "bg-indigo-500/10 text-indigo-500" },
+  short_video: { icon: Play, color: "bg-red-500/10 text-red-500" },
+  long_video: { icon: Video, color: "bg-purple-500/10 text-purple-500" },
+  tweet: { icon: Twitter, color: "bg-sky-500/10 text-sky-500" },
+  thread: { icon: Twitter, color: "bg-sky-500/10 text-sky-500" },
+  x_article: { icon: Twitter, color: "bg-sky-500/10 text-sky-500" },
+  linkedin_post: { icon: Linkedin, color: "bg-blue-600/10 text-blue-600" },
+  blog_post: { icon: Globe, color: "bg-green-500/10 text-green-500" },
+  other: { icon: FileText, color: "bg-gray-500/10 text-gray-500" },
 };
 
 export const ContentCard = ({ content, onEdit, onDelete, onView }: ContentCardProps) => {
   const config = contentTypeConfig[content.content_type] || contentTypeConfig.other;
   const Icon = config.icon;
+  const label = getContentTypeLabel(content.content_type);
 
   return (
     <Card className="group cursor-pointer hover:border-primary/50 transition-all" onClick={() => onView(content)}>
@@ -38,7 +41,7 @@ export const ContentCard = ({ content, onEdit, onDelete, onView }: ContentCardPr
               <Icon className="h-4 w-4" />
             </div>
             <Badge variant="secondary" className="text-xs">
-              {config.label}
+              {label}
             </Badge>
           </div>
         </div>

@@ -2,20 +2,9 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
-export type ContentType = 
-  | "newsletter"
-  | "carousel"
-  | "reel_script"
-  | "video_script"
-  | "blog_post"
-  | "social_post"
-  | "stories"
-  | "static_image"
-  | "short_video"
-  | "long_video"
-  | "tweet"
-  | "thread"
-  | "other";
+import { ContentTypeKey, normalizeContentType } from "@/types/contentTypes";
+
+export type ContentType = ContentTypeKey;
 
 export interface ContentItem {
   id: string;

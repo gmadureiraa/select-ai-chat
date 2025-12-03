@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ContentItem, ContentType, CreateContentData } from "@/hooks/useContentLibrary";
+import { CONTENT_TYPE_OPTIONS } from "@/types/contentTypes";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Upload, X } from "lucide-react";
@@ -282,17 +283,11 @@ export const ContentDialog = ({ open, onClose, onSave, content }: ContentDialogP
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="newsletter">Newsletter</SelectItem>
-                <SelectItem value="carousel">Carrossel Instagram</SelectItem>
-                <SelectItem value="stories">Stories</SelectItem>
-                <SelectItem value="static_image">Estático Único</SelectItem>
-                <SelectItem value="reel_script">Roteiro Reels</SelectItem>
-                <SelectItem value="short_video">Vídeo Curto</SelectItem>
-                <SelectItem value="long_video">Vídeo Longo</SelectItem>
-                <SelectItem value="video_script">Roteiro Vídeo</SelectItem>
-                <SelectItem value="blog_post">Post de Blog</SelectItem>
-                <SelectItem value="social_post">Post Social</SelectItem>
-                <SelectItem value="other">Outro</SelectItem>
+                {CONTENT_TYPE_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>

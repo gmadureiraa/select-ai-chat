@@ -520,14 +520,12 @@ export type ContentFormatType =
   | 'stories' 
   | 'tweet' 
   | 'thread' 
+  | 'x_article'
   | 'short_video' 
-  | 'reel_script'
   | 'long_video'
-  | 'video_script'
-  | 'linkedin' 
+  | 'linkedin_post' 
   | 'newsletter'
   | 'blog_post'
-  | 'social_post'
   | 'other';
 
 export const getContentFormatRules = (contentType: ContentFormatType): string => {
@@ -539,14 +537,12 @@ export const getContentFormatRules = (contentType: ContentFormatType): string =>
     stories: STORIES_FORMAT_RULES,
     tweet: TWEET_FORMAT_RULES,
     thread: THREAD_FORMAT_RULES,
+    x_article: THREAD_FORMAT_RULES, // Similar to thread structure
     short_video: REELS_FORMAT_RULES,
-    reel_script: REELS_FORMAT_RULES,
-    long_video: REELS_FORMAT_RULES, // Use same base, but longer
-    video_script: REELS_FORMAT_RULES,
-    linkedin: LINKEDIN_FORMAT_RULES,
-    newsletter: CAPTION_FORMAT_RULES, // Base for text content
+    long_video: REELS_FORMAT_RULES,
+    linkedin_post: LINKEDIN_FORMAT_RULES,
+    newsletter: CAPTION_FORMAT_RULES,
     blog_post: CAPTION_FORMAT_RULES,
-    social_post: CAPTION_FORMAT_RULES,
     other: '',
   };
 
@@ -567,12 +563,13 @@ export const detectContentType = (text: string): ContentFormatType | null => {
   if (lowerText.includes('carrossel') || lowerText.includes('carousel')) return 'carousel';
   if (lowerText.includes('storie') || lowerText.includes('story')) return 'stories';
   if (lowerText.includes('thread')) return 'thread';
+  if (lowerText.includes('artigo no x') || lowerText.includes('artigo x') || lowerText.includes('artigo twitter')) return 'x_article';
   if (lowerText.includes('tweet') || lowerText.includes('twitter') || lowerText.includes(' x ')) return 'tweet';
-  if (lowerText.includes('reel') || lowerText.includes('tiktok') || lowerText.includes('vídeo curto') || lowerText.includes('video curto')) return 'short_video';
-  if (lowerText.includes('linkedin')) return 'linkedin';
+  if (lowerText.includes('reel') || lowerText.includes('tiktok') || lowerText.includes('vídeo curto') || lowerText.includes('video curto') || lowerText.includes('short')) return 'short_video';
+  if (lowerText.includes('vídeo longo') || lowerText.includes('video longo') || lowerText.includes('youtube') || lowerText.includes('roteiro')) return 'long_video';
+  if (lowerText.includes('linkedin')) return 'linkedin_post';
   if (lowerText.includes('newsletter')) return 'newsletter';
-  if (lowerText.includes('post estático') || lowerText.includes('imagem estática') || lowerText.includes('post único')) return 'static_image';
-  if (lowerText.includes('roteiro') || lowerText.includes('script')) return 'video_script';
+  if (lowerText.includes('post estático') || lowerText.includes('imagem estática') || lowerText.includes('post único') || lowerText.includes('estático')) return 'static_image';
   if (lowerText.includes('blog') || lowerText.includes('artigo')) return 'blog_post';
   
   return null;
