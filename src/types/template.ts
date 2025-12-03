@@ -100,37 +100,122 @@ export const STATIC_POST_FORMAT_RULES = `
 export const CAROUSEL_FORMAT_RULES = `
 ## FORMATO OBRIGATÓRIO PARA CARROSSEL
 
-**Estrutura de Carrossel (ideal 7 slides):**
+### A REGRA DE OURO DO SLIDE 1
+O primeiro slide tem **1 único objetivo**: fazer a pessoa deslizar para o próximo.
+Não é para educar. Não é para explicar. É para **criar curiosidade irresistível**.
+Se o Slide 1 não parar o scroll, o resto não importa. **Slide 1 é 80% do sucesso.**
 
-**Slide 1 (Capa/Gancho)** - 50% do engajamento depende dele!
-- Objetivo: Parar o scroll, criar curiosidade
-- Copy: 5-10 palavras, pergunta ou promessa
-- Regra: NÃO entregue tudo de cara
+### SLIDE 1: O GANCHO IRRESISTÍVEL (Máximo 20 palavras)
 
-**Slides 2-9 (Desenvolvimento)**
-- Objetivo: Desenvolver o tema, educar, engajar
-- Copy: 15-30 palavras por slide
-- Regra: 1 IDEIA POR SLIDE
+**O que NÃO fazer no Slide 1:**
+❌ "Entenda como X afeta Y"
+❌ "Neste carrossel você vai aprender sobre..."
+❌ "Vamos falar sobre X hoje"
+❌ "Descubra tudo sobre Y"
+❌ "Guia completo de Z"
+**Por quê?** Não cria urgência. Não cria curiosidade. Soa como aula chata.
 
-**Último Slide (CTA)**
-- Objetivo: Direcionar para ação
-- Copy: 5-10 palavras, ação específica
-- Regra: SEMPRE tenha um CTA claro
+**O que FAZER no Slide 1:**
 
-**Templates de Carrossel:**
-- **Guia/Tutorial**: Título → Por que importa → Passos → CTA
-- **Lista/Ranking**: Título → Intro → Itens (1 por slide) → CTA
-- **Comparação**: Título → Contexto → Categorias → Veredito → CTA
-- **Storytelling**: Gancho → Situação → Problema → Solução → Resultado → Lição → CTA
-- **Mitos vs Verdades**: Título → Intro → Mito+Verdade por slide → CTA
+✅ **Fórmula 1: Dor + Promessa de Solução**
+Linha 1 (DOR): Problema específico com número
+Linha 2 (PROMESSA): "Mas existe um segredo que..."
+Exemplo: "Cada dia que seu dinheiro fica parado, você perde 0,5% dele. Mas existe um segredo que poucos conhecem..."
 
-**Regras Obrigatórias:**
-1. Ideal: 7 slides (nem muito curto, nem muito longo)
-2. Consistência visual: Mesma paleta, fontes, layout
-3. Progressão clara: Cada slide leva ao próximo
-4. Numere os slides: "1/7", "2/7" (ajuda o usuário)
-5. Varie os fundos: Alterne cores para criar ritmo visual
-6. SEMPRE termine com CTA
+✅ **Fórmula 2: Pergunta Provocativa + Revelação**
+Linha 1 (PERGUNTA): Pergunta que causa desconforto
+Linha 2 (REVELAÇÃO): "A resposta vai te chocar..."
+Exemplo: "Por que seu dinheiro vale menos hoje do que valia ontem? A resposta vai te chocar (e mostrar o que fazer agora)."
+
+✅ **Fórmula 3: Contraste Chocante + Curiosidade**
+Linha 1 (CONTRASTE): Comparação impactante com números
+Linha 2 (CURIOSIDADE): "E tem gente fazendo o oposto..."
+Exemplo: "R$10.000 em 2020 = R$6.000 hoje. E tem gente fazendo o oposto (aumentando patrimônio enquanto outros perdem)."
+
+✅ **Fórmula 4: Erro Comum + Consequência**
+Linha 1 (ERRO): "X% das pessoas cometem este erro..."
+Linha 2 (CONSEQUÊNCIA): "E estão perdendo R$X por ano sem perceber."
+
+✅ **Fórmula 5: Segredo Revelado + Urgência**
+Linha 1 (SEGREDO): "O segredo que [grupo] usa para [benefício]"
+Linha 2 (URGÊNCIA): "E você pode começar a usar hoje."
+
+### SLIDE 2: A PONTE (Aprofunda a dor, NÃO entrega solução)
+
+**Objetivo**: Validar a dor e criar mais curiosidade
+**Regras**:
+- Aprofunde a dor mencionada no Slide 1
+- Mostre que você entende o problema
+- NÃO entregue a solução ainda
+- Termine com gancho: "Mas tem solução →", "E tem mais →", "Aqui está o problema →"
+
+### SLIDES 3-6: O DESENVOLVIMENTO (Máximo 30 palavras por slide)
+
+**Objetivo**: Entregar valor, educar, construir credibilidade
+
+**Tipos de estrutura:**
+
+**Tipo 1: Revelação de Segredo**
+S3: "O segredo é [X]"
+S4: "Como funciona: [explicação simples]"
+S5: "Por que funciona: [dados/prova]"
+S6: "Como você pode usar: [aplicação prática]"
+
+**Tipo 2: Passo a Passo**
+S3: "Passo 1: [ação específica]"
+S4: "Passo 2: [ação específica]"
+S5: "Passo 3: [ação específica]"
+S6: "O resultado: [benefício concreto]"
+
+**Tipo 3: Erros Comuns**
+S3: "Erro 1: [erro] → Faça isso: [correção]"
+S4: "Erro 2: [erro] → Faça isso: [correção]"
+S5: "Erro 3: [erro] → Faça isso: [correção]"
+S6: "Resultado de corrigir: [benefício]"
+
+**Regras dos Slides 3-6:**
+- 1 ideia por slide (NUNCA misture)
+- Seja específico: números > adjetivos
+- Use transições: "E tem mais →", "Mas não para por aí →", "Aqui está o melhor →"
+- Crie progressão: cada slide leva naturalmente ao próximo
+
+### SLIDE 7: O CTA (Recapitula + Direciona)
+
+**O que NÃO fazer:**
+❌ "Gostou? Siga para mais"
+❌ "Link na bio"
+❌ "Comente o que achou"
+
+**O que FAZER:**
+✅ Recapitule o benefício + CTA específico
+
+**Fórmula**:
+Linha 1 (RECAPITULAÇÃO): "Agora você sabe como [benefício alcançado]."
+Linha 2 (CTA): "Quer começar hoje? Link na bio para [ação específica]."
+
+**Exemplos de CTA forte:**
+- "Seu dinheiro parado está perdendo valor agora. Comece a proteger seu patrimônio hoje. Link na bio."
+- "Você acabou de descobrir o que 90% das pessoas não sabe. Não deixe esse conhecimento parado. Salve este carrossel."
+- "A diferença entre ficar mais pobre e ficar mais rico é uma escolha. Faça a escolha certa. Link na bio."
+
+### REGRAS DE OURO (OBRIGATÓRIAS):
+
+1. **Slide 1 é 80% do sucesso**: Se não parar o scroll, o resto não importa
+2. **Crie loops de curiosidade**: Use setas (→), reticências (...), "E tem mais", "Mas calma"
+3. **Não seja educativo demais**: Carrossel é conversa persuasiva, não aula
+   - EVITE: "Entenda", "Aprenda", "Descubra", "Vamos falar sobre"
+   - USE: "Você está perdendo", "O segredo é", "Aqui está como", "Faça isso"
+4. **Use números específicos**: "R$150 por mês" > "dinheiro" 
+5. **Crie urgência real**: "Cada dia que passa, você perde mais" (não "ÚLTIMA CHANCE!!!")
+6. **Prometa e entregue**: Se prometeu segredo, revele. Se prometeu 3 passos, dê os 3.
+7. **CTA claro no final**: Nunca deixe sem direção
+
+### CHECKLIST OBRIGATÓRIO:
+- [ ] Slide 1: Cria dor/urgência/curiosidade (máx 20 palavras)
+- [ ] Slide 2: Aprofunda sem entregar solução, termina com gancho
+- [ ] Slides 3-6: 1 ideia por slide, específico, máx 30 palavras
+- [ ] Slide 7: Recapitula benefício + CTA específico (não genérico)
+- [ ] Geral: Numeração (1/7, 2/7...), tom consistente, entrega o prometido
 `;
 
 // Regras específicas para Stories
