@@ -1,4 +1,4 @@
-import { Copy, Check, RotateCcw, ExternalLink } from "lucide-react";
+import { Copy, Check, RotateCcw, ExternalLink, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Tooltip,
   TooltipContent,
@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/tooltip";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2, CheckCircle2 } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
 
 interface MessageActionsProps {
   content: string;
@@ -43,11 +44,14 @@ export const MessageActions = ({
 }: MessageActionsProps) => {
   const { isCopied, copyToClipboard } = useCopyToClipboard(2000);
   const { toast } = useToast();
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<string>("");
   const [taskName, setTaskName] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [taskUrl, setTaskUrl] = useState<string | null>(null);
+  const [isSavingDraft, setIsSavingDraft] = useState(false);
 
   // Fetch client templates with clickup_list_id
   const { data: templates, isLoading: isLoadingTemplates } = useQuery({
@@ -179,6 +183,49 @@ export const MessageActions = ({
     setIsDialogOpen(open);
   };
 
+  const handleSendToSocialPublisher = async () => {
+    if (!user) {
+      toast({
+        title: "Erro",
+        description: "Você precisa estar logado para salvar rascunhos",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSavingDraft(true);
+    try {
+      const { error } = await supabase
+        .from('scheduled_posts')
+        .insert({
+          user_id: user.id,
+          content: content,
+          platforms: ['twitter'],
+          status: 'draft',
+          client_id: clientId || null,
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: "Rascunho salvo!",
+        description: "Conteúdo enviado para o Publicador Social",
+      });
+
+      // Invalidate drafts query
+      queryClient.invalidateQueries({ queryKey: ['scheduled-posts'] });
+    } catch (error: any) {
+      console.error('Error saving draft:', error);
+      toast({
+        title: "Erro ao salvar",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsSavingDraft(false);
+    }
+  };
+
   return (
     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
       <TooltipProvider>
@@ -216,6 +263,29 @@ export const MessageActions = ({
             </TooltipTrigger>
             <TooltipContent>
               <p>Regenerar resposta</p>
+            </TooltipContent>
+          </Tooltip>
+        )}
+
+        {role === "assistant" && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                onClick={handleSendToSocialPublisher}
+                disabled={isSavingDraft}
+              >
+                {isSavingDraft ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Send className="h-3.5 w-3.5" />
+                )}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Enviar para Publicador Social</p>
             </TooltipContent>
           </Tooltip>
         )}
