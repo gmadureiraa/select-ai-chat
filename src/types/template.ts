@@ -44,6 +44,31 @@ export const DEFAULT_CHAT_RULES: string[] = [
   "Priorize clareza e objetividade",
 ];
 
+// Mapeamento de nome do template para tipo de conteúdo
+// Nota: Os valores são strings que correspondem a ContentFormatType definido mais abaixo
+export const TEMPLATE_NAME_TO_CONTENT_TYPE: Record<string, string> = {
+  "Newsletter": "newsletter",
+  "Carrossel Instagram": "carousel",
+  "Carrossel": "carousel",
+  "Stories": "stories",
+  "Story": "stories",
+  "Tweet": "tweet",
+  "Thread": "thread",
+  "Artigo no X": "x_article",
+  "Artigo X": "x_article",
+  "Post LinkedIn": "linkedin_post",
+  "LinkedIn": "linkedin_post",
+  "Vídeo Curto": "short_video",
+  "Reels": "short_video",
+  "TikTok": "short_video",
+  "Vídeo Longo": "long_video",
+  "YouTube": "long_video",
+  "Blog Post": "blog_post",
+  "Artigo Blog": "blog_post",
+  "Estático": "static_image",
+  "Post Estático": "static_image",
+};
+
 export const DEFAULT_IMAGE_RULES: string[] = [
   "Estilo: Moderno e minimalista",
   "Proporção: 1024x1024 (quadrado)",
@@ -554,6 +579,39 @@ export const getContentFormatRules = (contentType: ContentFormatType): string =>
 
 ${specificRules}
 `;
+};
+
+// Função para obter regras padrão de template baseado no nome
+export const getDefaultRulesForTemplateName = (templateName: string): string[] => {
+  const contentType = detectContentTypeFromTemplateName(templateName);
+  
+  if (!contentType) {
+    return DEFAULT_CHAT_RULES;
+  }
+  
+  const formatRules = getContentFormatRules(contentType);
+  
+  // Divide as regras em partes menores e mais legíveis
+  const globalRules = Object.values(GLOBAL_CONTENT_RULES);
+  
+  return [
+    ...globalRules,
+    `FORMATO: ${templateName.toUpperCase()}`,
+    formatRules,
+  ];
+};
+
+// Detecta tipo de conteúdo a partir do nome do template
+export const detectContentTypeFromTemplateName = (name: string): ContentFormatType | null => {
+  const normalizedName = name.trim();
+  
+  // Check exact match first
+  if (TEMPLATE_NAME_TO_CONTENT_TYPE[normalizedName]) {
+    return TEMPLATE_NAME_TO_CONTENT_TYPE[normalizedName] as ContentFormatType;
+  }
+  
+  // Then try detection from text
+  return detectContentType(normalizedName);
 };
 
 // Detecção de tipo de conteúdo a partir do texto
