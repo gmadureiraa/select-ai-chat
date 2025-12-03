@@ -773,7 +773,7 @@ const ResearchCanvasInner = ({ projectId, clientId, projectName = "Projeto", inn
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
         fitView
-        className={background === "light" ? "bg-background" : "bg-muted/30"}
+        style={{ backgroundColor: background === "light" ? "hsl(var(--background))" : "hsl(var(--muted) / 0.3)" }}
         noPanClassName="no-pan"
         noWheelClassName="no-wheel"
         connectionRadius={100}
@@ -781,7 +781,6 @@ const ResearchCanvasInner = ({ projectId, clientId, projectName = "Projeto", inn
         selectionOnDrag
         panOnScroll
         selectNodesOnDrag={false}
-        // Performance optimizations
         onlyRenderVisibleElements
         elevateEdgesOnSelect
         minZoom={0.1}
