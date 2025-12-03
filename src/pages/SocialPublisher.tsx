@@ -13,7 +13,7 @@ import { useScheduledPosts, useCreateScheduledPost, useDeleteScheduledPost, useU
 import { useLinkedInConnection } from "@/hooks/useLinkedInConnection";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Twitter, Linkedin, Send, Loader2, CheckCircle, AlertCircle, Image, Calendar, Clock, Trash2, Link2, Link2Off, FileText, Edit } from "lucide-react";
+import { Twitter, Linkedin, Send, Loader2, CheckCircle, AlertCircle, Image, Calendar, Clock, Trash2, Link2, Link2Off, FileText, Edit, Upload, X } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -37,6 +37,9 @@ const SocialPublisher = () => {
   const [selectedClientId, setSelectedClientId] = useState<string>("");
   const [content, setContent] = useState("");
   const [imageUrl, setImageUrl] = useState("");
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string>("");
+  const [isUploading, setIsUploading] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
   const [publishResults, setPublishResults] = useState<PublishResult[]>([]);
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(["twitter"]);
@@ -90,6 +93,9 @@ const SocialPublisher = () => {
     setIsPublishing(true);
     setPublishResults([]);
 
+    // Upload image if file is selected
+    const finalImageUrl = await uploadImageToStorage();
+
     const results: PublishResult[] = [];
     const session = await supabase.auth.getSession();
 
@@ -116,7 +122,7 @@ const SocialPublisher = () => {
           const { data, error } = await supabase.functions.invoke('post-linkedin', {
             body: {
               content: content.trim(),
-              imageUrl: imageUrl || undefined
+              imageUrl: finalImageUrl || undefined
             },
             headers: {
               Authorization: `Bearer ${session.data.session?.access_token}`
@@ -149,7 +155,7 @@ const SocialPublisher = () => {
     if (successCount === results.length) {
       toast.success("Conteúdo publicado com sucesso em todas as plataformas!");
       setContent("");
-      setImageUrl("");
+      clearImage();
     } else if (successCount > 0) {
       toast.warning(`Publicado em ${successCount}/${results.length} plataformas`);
     } else {
@@ -164,13 +170,16 @@ const SocialPublisher = () => {
     }
 
     try {
+      // Upload image if file is selected
+      const finalImageUrl = await uploadImageToStorage();
+
       if (editingDraft) {
         await updatePost.mutateAsync({
           id: editingDraft,
           content: content.trim(),
           platforms: selectedPlatforms,
           client_id: selectedClientId || undefined,
-          image_url: imageUrl || undefined,
+          image_url: finalImageUrl || undefined,
         });
         toast.success("Rascunho atualizado!");
         setEditingDraft(null);
@@ -179,13 +188,13 @@ const SocialPublisher = () => {
           content: content.trim(),
           platforms: selectedPlatforms,
           client_id: selectedClientId || undefined,
-          image_url: imageUrl || undefined,
+          image_url: finalImageUrl || undefined,
           status: 'draft',
         });
         toast.success("Rascunho salvo!");
       }
       setContent("");
-      setImageUrl("");
+      clearImage();
       setActiveTab("drafts");
     } catch (error: any) {
       toast.error("Erro ao salvar rascunho: " + error.message);
@@ -206,17 +215,20 @@ const SocialPublisher = () => {
     const scheduledAt = new Date(`${scheduleDate}T${scheduleTime}`).toISOString();
 
     try {
+      // Upload image if file is selected
+      const finalImageUrl = await uploadImageToStorage();
+
       await createPost.mutateAsync({
         content: content.trim(),
         platforms: selectedPlatforms,
         client_id: selectedClientId || undefined,
-        image_url: imageUrl || undefined,
+        image_url: finalImageUrl || undefined,
         status: 'scheduled',
         scheduled_at: scheduledAt,
       });
       toast.success("Post agendado com sucesso!");
       setContent("");
-      setImageUrl("");
+      clearImage();
       setScheduleDate("");
       setScheduleTime("");
     } catch (error: any) {
@@ -238,8 +250,66 @@ const SocialPublisher = () => {
     setSelectedPlatforms(draft.platforms || []);
     setSelectedClientId(draft.client_id || "");
     setImageUrl(draft.image_url || "");
+    setImagePreview(draft.image_url || "");
+    setImageFile(null);
     setEditingDraft(draft.id);
     setActiveTab("publish");
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast.error("Por favor, selecione apenas arquivos de imagem");
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Imagem deve ter no máximo 5MB");
+      return;
+    }
+
+    setImageFile(file);
+    setImagePreview(URL.createObjectURL(file));
+    setImageUrl(""); // Clear URL input when file is selected
+  };
+
+  const uploadImageToStorage = async (): Promise<string | null> => {
+    if (!imageFile) return imageUrl || null;
+
+    setIsUploading(true);
+    try {
+      const fileExt = imageFile.name.split('.').pop();
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+      const filePath = `posts/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('social-images')
+        .upload(filePath, imageFile);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('social-images')
+        .getPublicUrl(filePath);
+
+      return publicUrl;
+    } catch (error: any) {
+      console.error("Error uploading image:", error);
+      toast.error("Erro ao fazer upload da imagem: " + error.message);
+      return null;
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const clearImage = () => {
+    setImageFile(null);
+    setImagePreview("");
+    setImageUrl("");
   };
 
   return (
@@ -345,13 +415,59 @@ const SocialPublisher = () => {
                   <div className="space-y-2">
                     <label className="text-sm text-muted-foreground flex items-center gap-2">
                       <Image className="h-4 w-4" />
-                      URL da Imagem (opcional)
+                      Imagem (opcional)
                     </label>
-                    <Input
-                      value={imageUrl}
-                      onChange={(e) => setImageUrl(e.target.value)}
-                      placeholder="https://exemplo.com/imagem.jpg"
-                    />
+                    
+                    {/* Image Preview */}
+                    {imagePreview && (
+                      <div className="relative w-full max-w-[200px]">
+                        <img 
+                          src={imagePreview} 
+                          alt="Preview" 
+                          className="w-full h-auto rounded-lg border border-border/50"
+                        />
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="icon"
+                          className="absolute -top-2 -right-2 h-6 w-6"
+                          onClick={clearImage}
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    )}
+
+                    {!imagePreview && (
+                      <div className="flex gap-2">
+                        <label className="flex-1">
+                          <div className="flex items-center gap-2 px-3 py-2 border border-border rounded-md cursor-pointer hover:bg-accent/50 transition-colors">
+                            <Upload className="h-4 w-4 text-muted-foreground" />
+                            <span className="text-sm text-muted-foreground">
+                              {isUploading ? "Enviando..." : "Upload de imagem"}
+                            </span>
+                          </div>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={handleImageUpload}
+                            disabled={isUploading}
+                          />
+                        </label>
+                        <span className="flex items-center text-xs text-muted-foreground">ou</span>
+                        <Input
+                          value={imageUrl}
+                          onChange={(e) => {
+                            setImageUrl(e.target.value);
+                            setImagePreview(e.target.value);
+                            setImageFile(null);
+                          }}
+                          placeholder="Cole URL da imagem"
+                          className="flex-1"
+                        />
+                      </div>
+                    )}
                   </div>
 
                   <div className="space-y-2">
