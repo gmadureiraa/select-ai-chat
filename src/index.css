@@ -8,58 +8,57 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    /* Kaleidos Black Background */
-    --background: 0 0% 0%;
-    --foreground: 0 0% 100%;
+    /* Light mode - Kaleidos White Background */
+    --background: 0 0% 98%;
+    --foreground: 0 0% 10%;
 
     /* Cards with subtle elevation */
-    --card: 0 0% 8%;
-    --card-foreground: 0 0% 100%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 10%;
 
-    --popover: 0 0% 5%;
-    --popover-foreground: 0 0% 100%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 10%;
 
     /* Kaleidos Neon Green */
-    --primary: 145 100% 50%;
-    --primary-foreground: 0 0% 0%;
+    --primary: 145 100% 40%;
+    --primary-foreground: 0 0% 100%;
 
     /* Kaleidos Magenta */
-    --secondary: 330 100% 60%;
+    --secondary: 330 100% 50%;
     --secondary-foreground: 0 0% 100%;
 
     /* Kaleidos Orange */
-    --accent: 30 100% 55%;
-    --accent-foreground: 0 0% 0%;
+    --accent: 30 100% 50%;
+    --accent-foreground: 0 0% 100%;
 
     /* Subtle grays */
-    --muted: 0 0% 10%;
-    --muted-foreground: 0 0% 50%;
+    --muted: 0 0% 94%;
+    --muted-foreground: 0 0% 40%;
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 100%;
 
     /* Minimal borders */
-    --border: 0 0% 15%;
-    --input: 0 0% 8%;
-    --ring: 145 100% 50%;
+    --border: 0 0% 88%;
+    --input: 0 0% 94%;
+    --ring: 145 100% 40%;
 
     --radius: 0.75rem;
 
-    /* Chat bubbles with more contrast */
-    --chat-user-bg: 0 0% 8%;
-    --chat-user-fg: 0 0% 100%;
-    --chat-ai-bg: 0 0% 5%;
-    --chat-ai-fg: 0 0% 100%;
+    /* Chat bubbles */
+    --chat-user-bg: 0 0% 94%;
+    --chat-user-fg: 0 0% 10%;
+    --chat-ai-bg: 0 0% 98%;
+    --chat-ai-fg: 0 0% 10%;
 
     --sidebar-width: 280px;
-    
-    /* Subtle shadows only */
     
     /* Transitions */
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   .dark {
+    /* Dark mode - Kaleidos Black Background */
     --background: 0 0% 0%;
     --foreground: 0 0% 100%;
 
