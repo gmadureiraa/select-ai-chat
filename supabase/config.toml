@@ -54,3 +54,12 @@ verify_jwt = false
 [functions.collect-daily-metrics]
 verify_jwt = false
 
+[functions.post-twitter]
+verify_jwt = false
+
+[functions.linkedin-oauth-callback]
+verify_jwt = false
+
+[functions.post-linkedin]
+verify_jwt = false
+
