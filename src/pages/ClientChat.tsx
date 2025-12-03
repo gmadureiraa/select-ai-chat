@@ -110,7 +110,7 @@ const ClientChat = () => {
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => navigate(`/client/${clientId}`)}
+              onClick={() => navigate("/assistant")}
               className="hover:bg-muted h-9 w-9"
             >
               <ArrowLeft className="h-4 w-4" />
