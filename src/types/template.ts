@@ -496,10 +496,96 @@ export const detectContentType = (text: string): ContentFormatType | null => {
 // Detecção de pedido de ideias
 export const IDEA_REQUEST_KEYWORDS = [
   "ideias", "ideia", "sugestões", "sugestão", "me dá", "me de",
-  "quero ideias", "preciso de ideias", "pode sugerir", "sugira"
+  "quero ideias", "preciso de ideias", "pode sugerir", "sugira",
+  "brainstorm", "inspiração", "inspirar"
 ];
 
 export const isIdeaRequest = (text: string): boolean => {
   const lowerText = text.toLowerCase();
   return IDEA_REQUEST_KEYWORDS.some(keyword => lowerText.includes(keyword));
 };
+
+// Interface para parsing inteligente de pedidos de ideias
+export interface IdeaRequest {
+  isIdea: boolean;
+  quantity: number | null;
+  contentType: ContentFormatType | null;
+}
+
+// Parser inteligente que extrai quantidade e tipo de conteúdo
+export const parseIdeaRequest = (text: string): IdeaRequest => {
+  const lowerText = text.toLowerCase();
+  
+  // Detectar quantidade de ideias pedidas
+  const quantityPatterns = [
+    /(\d+)\s*(ideias?|sugestões?)/i,
+    /(uma|duas|três|quatro|cinco|seis|sete|oito|nove|dez)\s*(ideias?|sugestões?)/i,
+  ];
+  
+  let quantity: number | null = null;
+  for (const pattern of quantityPatterns) {
+    const match = text.match(pattern);
+    if (match) {
+      const numStr = match[1];
+      const numberMap: Record<string, number> = {
+        'uma': 1, 'duas': 2, 'três': 3, 'quatro': 4, 'cinco': 5,
+        'seis': 6, 'sete': 7, 'oito': 8, 'nove': 9, 'dez': 10
+      };
+      quantity = numberMap[numStr.toLowerCase()] || parseInt(numStr);
+      break;
+    }
+  }
+  
+  // Detectar tipo de conteúdo
+  const contentType = detectContentType(text);
+  
+  // Verificar se é pedido de ideias
+  const isIdea = isIdeaRequest(text) || quantity !== null;
+  
+  return { isIdea, quantity, contentType };
+};
+
+// Regras específicas para modo de ideias
+export const IDEA_MODE_RULES = `
+## 🎯 MODO IDEIAS - REGRAS OBRIGATÓRIAS
+
+**O usuário está pedindo IDEIAS, não conteúdo final.**
+
+### Formato de Apresentação:
+Para cada ideia, use EXATAMENTE este formato:
+
+**Ideia [N]: [Título curto e atrativo - máx 8 palavras]**
+[Descrição concisa em 1-2 frases explicando o conceito]
+
+### Regras Críticas:
+1. **SEJA CONCISO**: Cada ideia deve ter no máximo 2-3 linhas TOTAL
+2. **SEJA ESPECÍFICO**: Títulos claros que explicam a ideia de forma direta
+3. **NUNCA COPIE**: As ideias da biblioteca são INSPIRAÇÃO - crie variações NOVAS e ORIGINAIS
+4. **QUANTIDADE EXATA**: Entregue EXATAMENTE a quantidade pedida (ou 5 se não especificado)
+5. **DIVERSIDADE**: Cada ideia deve ser claramente diferente das outras
+6. **NÃO DESENVOLVA**: NÃO escreva o conteúdo completo, apenas a ideia resumida
+
+### O que NÃO fazer:
+- NÃO escreva o conteúdo completo de nenhuma ideia
+- NÃO copie ou repita ideias que já existem na biblioteca do cliente
+- NÃO inclua CTAs, estruturas completas, textos longos ou formatação final
+- NÃO repita ideias similares com palavras diferentes
+- NÃO inclua emojis no título das ideias
+- NÃO numere dentro do título (o número vem antes)
+
+### Exemplo de Resposta CORRETA:
+
+**Ideia 1: O mito do trabalho duro**
+Desmistificar que trabalhar mais horas = mais sucesso. Mostrar dados sobre produtividade real.
+
+**Ideia 2: Antes e depois do método X**
+Comparação visual entre a rotina antiga vs. nova abordagem otimizada com resultados.
+
+**Ideia 3: 5 sinais de que você está no caminho certo**
+Lista de indicadores positivos de progresso que passam despercebidos no dia a dia.
+
+### Exemplo de Resposta INCORRETA (evite):
+❌ Ideia muito longa com explicação detalhada que desenvolve todo o conteúdo e já entrega a estrutura final com CTA e formatação...
+❌ "Ideia 1: 🚀 Uma ideia incrível que vai mudar sua vida!" (emojis e título vago)
+❌ Repetir uma ideia que já está na biblioteca do cliente
+`;
