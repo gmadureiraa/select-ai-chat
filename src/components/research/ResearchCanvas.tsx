@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, useRef, forwardRef, useImperativeHandle } from "react";
+import { useCallback, useEffect, useState, useRef, forwardRef, useImperativeHandle, useMemo } from "react";
 import ReactFlow, {
   Node,
   Edge,
@@ -349,13 +349,28 @@ const ResearchCanvasInner = ({ projectId, clientId, projectName = "Projeto", inn
     [deleteConnection]
   );
 
+  // Debounced position update to reduce DB calls during drag
+  const pendingUpdates = useRef<Map<string, { x: number; y: number }>>(new Map());
+  const updateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
   const onNodeDragStop = useCallback(
     (_: any, node: Node) => {
-      updateItem.mutate({
-        id: node.id,
-        position_x: node.position.x,
-        position_y: node.position.y,
-      });
+      pendingUpdates.current.set(node.id, { x: node.position.x, y: node.position.y });
+      
+      if (updateTimeoutRef.current) {
+        clearTimeout(updateTimeoutRef.current);
+      }
+      
+      updateTimeoutRef.current = setTimeout(() => {
+        pendingUpdates.current.forEach((pos, id) => {
+          updateItem.mutate({
+            id,
+            position_x: pos.x,
+            position_y: pos.y,
+          });
+        });
+        pendingUpdates.current.clear();
+      }, 300);
     },
     [updateItem]
   );
@@ -653,17 +668,17 @@ const ResearchCanvasInner = ({ projectId, clientId, projectName = "Projeto", inn
     }
   };
 
-  // Get node color for minimap
-  const getNodeColor = (node: Node) => {
+  // Memoized node color function for minimap performance
+  const getNodeColor = useCallback((node: Node) => {
     return nodeColors[node.type || "researchItem"] || "#9ca3af";
-  };
+  }, []);
 
   // Filtered items count
   const filteredCount = nodes.length;
   const totalCount = items?.length || 0;
 
   return (
-    <div ref={canvasRef} className={`h-full w-full relative ${background === "light" ? "bg-white" : "bg-muted/30"}`}>
+    <div ref={canvasRef} className={`h-full w-full relative ${background === "light" ? "bg-background" : "bg-muted/30"}`}>
       {/* Search and Filter Panel */}
       <SearchFilterPanel
         onSearch={setSearchQuery}
@@ -700,7 +715,7 @@ const ResearchCanvasInner = ({ projectId, clientId, projectName = "Projeto", inn
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
         fitView
-        className={background === "light" ? "bg-white" : "bg-muted/30"}
+        className={background === "light" ? "bg-background" : "bg-muted/30"}
         noPanClassName="no-pan"
         noWheelClassName="no-wheel"
         connectionRadius={100}

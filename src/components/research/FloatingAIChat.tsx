@@ -116,10 +116,10 @@ Responda em português brasileiro.`;
       )}
     >
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-gradient-to-r from-purple-500/10 to-pink-500/10">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/30">
         <div className="flex items-center gap-2">
-          <div className="p-1.5 bg-purple-500/20 rounded-lg">
-            <Sparkles className="h-4 w-4 text-purple-500" />
+          <div className="p-1.5 bg-primary/10 rounded-lg">
+            <Sparkles className="h-4 w-4 text-primary" />
           </div>
           <div>
             <span className="font-semibold text-sm">AI Chat</span>

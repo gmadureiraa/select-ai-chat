@@ -1,6 +1,5 @@
 import { memo } from 'react';
 import { EdgeProps, getBezierPath, EdgeLabelRenderer } from 'reactflow';
-import { cn } from '@/lib/utils';
 
 interface SmoothEdgeProps extends EdgeProps {
   data?: {
@@ -54,10 +53,7 @@ export const SmoothEdge = memo(({
       {/* Main edge path */}
       <path
         id={id}
-        className={cn(
-          "react-flow__edge-path transition-all duration-200",
-          isAnimated && "animate-pulse"
-        )}
+        className="react-flow__edge-path"
         d={edgePath}
         markerEnd={markerEnd}
         style={{
@@ -65,6 +61,7 @@ export const SmoothEdge = memo(({
           stroke: selected ? 'hsl(var(--primary))' : style.stroke || 'hsl(var(--muted-foreground) / 0.5)',
           strokeWidth: selected ? 3 : (style.strokeWidth as number) || 2,
           strokeDasharray: isAnimated ? '5,5' : undefined,
+          transition: 'stroke 0.15s ease, stroke-width 0.15s ease',
         }}
       />
 
@@ -86,12 +83,11 @@ export const SmoothEdge = memo(({
               transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`,
               pointerEvents: 'all',
             }}
-            className={cn(
-              "px-2 py-1 rounded-md text-xs font-medium transition-all",
+            className={`px-2 py-1 rounded-md text-xs font-medium transition-all ${
               selected 
                 ? "bg-primary text-primary-foreground shadow-lg" 
                 : "bg-card/90 text-muted-foreground border border-border shadow-sm"
-            )}
+            }`}
           >
             {data.label}
           </div>

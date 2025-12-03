@@ -110,7 +110,7 @@ export const NoteNode = memo(({ data }: NodeProps<NoteNodeData>) => {
             placeholder="Título da nota"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            className="text-sm bg-white dark:bg-background"
+            className="text-sm bg-background"
           />
           <RichTextEditor
             value={content}
