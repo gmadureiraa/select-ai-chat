@@ -3,6 +3,7 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/componen
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Edit, Trash2, Eye, ExternalLink } from "lucide-react";
+import { getContentTypeLabel } from "@/types/contentTypes";
 
 interface ReferenceCardProps {
   reference: ReferenceItem;
@@ -11,20 +12,6 @@ interface ReferenceCardProps {
   onView: (reference: ReferenceItem) => void;
 }
 
-const REFERENCE_TYPE_LABELS: Record<string, string> = {
-  tweet: "Tweet",
-  thread: "Thread",
-  carousel: "Carrossel",
-  reel: "Reel",
-  video: "Vídeo",
-  article: "Artigo",
-  stories: "Stories",
-  static_image: "Estático Único",
-  short_video: "Vídeo Curto",
-  long_video: "Vídeo Longo",
-  other: "Outro"
-};
-
 export function ReferenceCard({ reference, onEdit, onDelete, onView }: ReferenceCardProps) {
   return (
     <Card className="bg-card/50 border-border/50 hover:border-border transition-all">
@@ -32,7 +19,7 @@ export function ReferenceCard({ reference, onEdit, onDelete, onView }: Reference
         <div className="flex items-start justify-between gap-2">
           <CardTitle className="text-base line-clamp-2">{reference.title}</CardTitle>
           <Badge variant="outline" className="shrink-0">
-            {REFERENCE_TYPE_LABELS[reference.reference_type] || reference.reference_type}
+            {getContentTypeLabel(reference.reference_type)}
           </Badge>
         </div>
       </CardHeader>

@@ -216,16 +216,16 @@ export const TemplateManager = ({ clientId }: TemplateManagerProps) => {
               </Label>
               <div className="flex flex-wrap gap-2">
                 {[
-                  "Newsletter Semanal",
-                  "Post Instagram",
-                  "Story Instagram",
-                  "Roteiro YouTube",
-                  "Roteiro Reels",
-                  "Thread Twitter",
-                  "Carrossel",
-                  "Legenda de Post",
-                  "E-mail Marketing",
-                  "Artigo Blog",
+                  "Newsletter",
+                  "Carrossel Instagram",
+                  "Stories",
+                  "Tweet",
+                  "Thread",
+                  "Artigo no X",
+                  "Post LinkedIn",
+                  "Vídeo Curto",
+                  "Vídeo Longo",
+                  "Blog Post",
                 ].map((suggestion) => (
                   <Button
                     key={suggestion}

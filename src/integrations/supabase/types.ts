@@ -1181,6 +1181,8 @@ export type Database = {
         | "long_video"
         | "tweet"
         | "thread"
+        | "x_article"
+        | "linkedin_post"
       share_permission: "view" | "edit" | "admin"
     }
     CompositeTypes: {
@@ -1347,6 +1349,8 @@ export const Constants = {
         "long_video",
         "tweet",
         "thread",
+        "x_article",
+        "linkedin_post",
       ],
       share_permission: ["view", "edit", "admin"],
     },
