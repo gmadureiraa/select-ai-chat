@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, useRef, forwardRef, useImperativeHandle, useMemo } from "react";
+import { useCallback, useEffect, useState, useRef, forwardRef, useImperativeHandle, useMemo, lazy, Suspense, memo } from "react";
 import ReactFlow, {
   Node,
   Edge,
@@ -14,30 +14,56 @@ import ReactFlow, {
 } from "reactflow";
 import "reactflow/dist/style.css";
 import { AnimatePresence } from "framer-motion";
-import { useResearchItems } from "@/hooks/useResearchItems";
+import { useResearchItems, ResearchItem } from "@/hooks/useResearchItems";
+import { Sparkles, Loader2 } from "lucide-react";
+
+// Lazy load heavy components for better initial load
+const AIChatNode = lazy(() => import("./AIChatNode").then(m => ({ default: m.AIChatNode })));
+const PDFNode = lazy(() => import("./PDFNode").then(m => ({ default: m.PDFNode })));
+const SpreadsheetNode = lazy(() => import("./SpreadsheetNode").then(m => ({ default: m.SpreadsheetNode })));
+const ComparisonNode = lazy(() => import("./ComparisonNode").then(m => ({ default: m.ComparisonNode })));
+const EmbedNode = lazy(() => import("./EmbedNode").then(m => ({ default: m.EmbedNode })));
+const ContentLibraryNode = lazy(() => import("./ContentLibraryNode").then(m => ({ default: m.ContentLibraryNode })));
+const ReferenceLibraryNode = lazy(() => import("./ReferenceLibraryNode").then(m => ({ default: m.ReferenceLibraryNode })));
+
+// Direct imports for lightweight nodes
 import { ResearchItemNode } from "./ResearchItemNode";
-import { AIChatNode } from "./AIChatNode";
-import { ContentLibraryNode } from "./ContentLibraryNode";
-import { ReferenceLibraryNode } from "./ReferenceLibraryNode";
 import { TextNode } from "./TextNode";
 import { NoteNode } from "./NoteNode";
 import { AudioNode } from "./AudioNode";
 import ImageNode from "./ImageNode";
-import { PDFNode } from "./PDFNode";
-import { EmbedNode } from "./EmbedNode";
-import { SpreadsheetNode } from "./SpreadsheetNode";
-import { ComparisonNode } from "./ComparisonNode";
 import { GroupNode } from "./GroupNode";
+
+// Lazy load panels and dialogs
+const FloatingAIChat = lazy(() => import("./FloatingAIChat").then(m => ({ default: m.FloatingAIChat })));
+const SplitViewPanel = lazy(() => import("./SplitViewPanel").then(m => ({ default: m.SplitViewPanel })));
+const ExportPanel = lazy(() => import("./ExportPanel").then(m => ({ default: m.ExportPanel })));
+const ExecutiveSummary = lazy(() => import("./ExecutiveSummary").then(m => ({ default: m.ExecutiveSummary })));
+
 import { CanvasToolbar } from "./CanvasToolbar";
 import { ZoomControls } from "./ZoomControls";
 import { SearchFilterPanel, FilterState } from "./SearchFilterPanel";
-import { ExportPanel } from "./ExportPanel";
-import { ExecutiveSummary } from "./ExecutiveSummary";
 import { QuickCapture } from "./QuickCapture";
 import { SmoothEdge } from "./SmoothEdge";
-import { FloatingAIChat } from "./FloatingAIChat";
-import { SplitViewPanel } from "./SplitViewPanel";
-import { Sparkles } from "lucide-react";
+
+// Node loading fallback
+const NodeLoadingFallback = memo(() => (
+  <div className="flex items-center justify-center p-4 bg-card border border-border rounded-lg min-w-[200px] min-h-[100px]">
+    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+  </div>
+));
+NodeLoadingFallback.displayName = "NodeLoadingFallback";
+
+// Wrap lazy nodes with Suspense
+const withSuspense = (Component: React.LazyExoticComponent<any>) => {
+  const WrappedComponent = memo((props: any) => (
+    <Suspense fallback={<NodeLoadingFallback />}>
+      <Component {...props} />
+    </Suspense>
+  ));
+  WrappedComponent.displayName = 'SuspenseWrapper';
+  return WrappedComponent;
+};
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -62,19 +88,20 @@ export interface ResearchCanvasRef {
   applyTemplate: (templateItems: Array<{ type: string; title: string; content?: string; position_x: number; position_y: number }>) => Promise<void>;
 }
 
+// Memoized node types with lazy-loaded heavy components
 const nodeTypes = {
   researchItem: ResearchItemNode,
-  aiChat: AIChatNode,
-  contentLibrary: ContentLibraryNode,
-  referenceLibrary: ReferenceLibraryNode,
+  aiChat: withSuspense(AIChatNode),
+  contentLibrary: withSuspense(ContentLibraryNode),
+  referenceLibrary: withSuspense(ReferenceLibraryNode),
   text: TextNode,
   note: NoteNode,
   audio: AudioNode,
   image: ImageNode,
-  pdf: PDFNode,
-  embed: EmbedNode,
-  spreadsheet: SpreadsheetNode,
-  comparison: ComparisonNode,
+  pdf: withSuspense(PDFNode),
+  embed: withSuspense(EmbedNode),
+  spreadsheet: withSuspense(SpreadsheetNode),
+  comparison: withSuspense(ComparisonNode),
   group: GroupNode,
 };
 
@@ -82,7 +109,23 @@ const edgeTypes = {
   smooth: SmoothEdge,
 };
 
-// Node colors for minimap
+// Type mapping - defined outside component for performance
+const typeToNodeType: Record<string, string> = {
+  ai_chat: "aiChat",
+  content_library: "contentLibrary",
+  reference_library: "referenceLibrary",
+  text: "text",
+  note: "note",
+  audio: "audio",
+  image: "image",
+  pdf: "pdf",
+  embed: "embed",
+  spreadsheet: "spreadsheet",
+  comparison: "comparison",
+  group: "group",
+};
+
+// Node colors for minimap - defined outside component
 const nodeColors: Record<string, string> = {
   aiChat: "#a855f7",
   comparison: "#f59e0b",
@@ -209,20 +252,6 @@ const ResearchCanvasInner = ({ projectId, clientId, projectName = "Projeto", inn
         connectedItems = items.filter(i => connectedIds.includes(i.id));
       }
 
-      const typeToNodeType: Record<string, string> = {
-        ai_chat: "aiChat",
-        content_library: "contentLibrary",
-        reference_library: "referenceLibrary",
-        text: "text",
-        note: "note",
-        audio: "audio",
-        image: "image",
-        pdf: "pdf",
-        embed: "embed",
-        spreadsheet: "spreadsheet",
-        comparison: "comparison",
-        group: "group",
-      };
       const nodeType = typeToNodeType[item.type] || "researchItem";
 
       return {
@@ -687,20 +716,24 @@ const ResearchCanvasInner = ({ projectId, clientId, projectName = "Projeto", inn
         filteredCount={filteredCount}
       />
 
-      {/* Export and Summary Panel */}
+      {/* Export and Summary Panel - Lazy loaded */}
       <div className="absolute top-4 right-4 z-50 flex items-center gap-2">
-        <ExecutiveSummary
-          items={items || []}
-          connections={connections}
-          projectName={projectName}
-          clientId={clientId}
-        />
-        <ExportPanel
-          items={items || []}
-          connections={connections}
-          projectName={projectName}
-          canvasRef={canvasRef}
-        />
+        <Suspense fallback={null}>
+          <ExecutiveSummary
+            items={items || []}
+            connections={connections}
+            projectName={projectName}
+            clientId={clientId}
+          />
+        </Suspense>
+        <Suspense fallback={null}>
+          <ExportPanel
+            items={items || []}
+            connections={connections}
+            projectName={projectName}
+            canvasRef={canvasRef}
+          />
+        </Suspense>
       </div>
 
       <ReactFlow
@@ -723,6 +756,11 @@ const ResearchCanvasInner = ({ projectId, clientId, projectName = "Projeto", inn
         selectionOnDrag
         panOnScroll
         selectNodesOnDrag={false}
+        // Performance optimizations
+        onlyRenderVisibleElements
+        elevateEdgesOnSelect
+        minZoom={0.1}
+        maxZoom={2}
         defaultEdgeOptions={{
           type: 'smooth',
           style: { stroke: 'hsl(var(--muted-foreground) / 0.4)', strokeWidth: 2 },
@@ -778,32 +816,36 @@ const ResearchCanvasInner = ({ projectId, clientId, projectName = "Projeto", inn
         isProcessing={isProcessing}
       />
 
-      {/* Floating AI Chat */}
+      {/* Floating AI Chat - Lazy loaded */}
       {showFloatingChat && (
-        <FloatingAIChat
-          projectId={projectId}
-          clientId={clientId}
-          connectedItems={floatingChatItems}
-          onClose={() => setShowFloatingChat(false)}
-        />
+        <Suspense fallback={null}>
+          <FloatingAIChat
+            projectId={projectId}
+            clientId={clientId}
+            connectedItems={floatingChatItems}
+            onClose={() => setShowFloatingChat(false)}
+          />
+        </Suspense>
       )}
 
-      {/* Split View Panel */}
+      {/* Split View Panel - Lazy loaded */}
       <AnimatePresence>
         {showSplitView && splitViewItems.length > 0 && (
-          <SplitViewPanel
-            items={splitViewItems}
-            onClose={() => {
-              setShowSplitView(false);
-              setSplitViewItems([]);
-            }}
-            onRemoveItem={(id) => {
-              setSplitViewItems(prev => prev.filter(item => item.id !== id));
-              if (splitViewItems.length <= 1) {
+          <Suspense fallback={null}>
+            <SplitViewPanel
+              items={splitViewItems}
+              onClose={() => {
                 setShowSplitView(false);
-              }
-            }}
-          />
+                setSplitViewItems([]);
+              }}
+              onRemoveItem={(id) => {
+                setSplitViewItems(prev => prev.filter(item => item.id !== id));
+                if (splitViewItems.length <= 1) {
+                  setShowSplitView(false);
+                }
+              }}
+            />
+          </Suspense>
         )}
       </AnimatePresence>
 
