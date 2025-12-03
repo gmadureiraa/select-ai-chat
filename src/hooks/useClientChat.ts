@@ -10,6 +10,7 @@ import { useRealtimeMessages } from "@/hooks/useRealtimeMessages";
 import { useTemplateReferences } from "@/hooks/useTemplateReferences";
 import { useActivities } from "@/hooks/useActivities";
 import { useAuth } from "@/hooks/useAuth";
+import { useClientKnowledge, formatKnowledgeForContext } from "@/hooks/useClientKnowledge";
 import { 
   GLOBAL_CONTENT_RULES, 
   STORIES_FORMAT_RULES, 
@@ -48,6 +49,30 @@ export const useClientChat = (clientId: string, templateId?: string) => {
 
   // Get template references
   const { template, references, isLoading: isLoadingReferences } = useTemplateReferences(templateId);
+
+  // Get client context with all structured data (including identity_guide)
+  const { data: client } = useQuery({
+    queryKey: ["client-context", clientId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("clients")
+        .select("name, context_notes, identity_guide, social_media, tags, function_templates")
+        .eq("id", clientId)
+        .single();
+
+      if (error) throw error;
+      return {
+        ...data,
+        social_media: data.social_media as Record<string, string>,
+        tags: data.tags as Record<string, string>,
+        function_templates: data.function_templates as string[],
+      };
+    },
+    enabled: !!clientId,
+  });
+
+  // Get client knowledge from files and identity guide
+  const { identityGuide, knowledgeFiles, isLoading: isLoadingKnowledge } = useClientKnowledge(clientId, client?.name);
 
   // Função auxiliar para detectar feedback
   const detectFeedback = (message: string): boolean => {
@@ -132,27 +157,6 @@ export const useClientChat = (clientId: string, templateId?: string) => {
       return data as Message[];
     },
     enabled: !!conversationId,
-  });
-
-  // Get client context with all structured data
-  const { data: client } = useQuery({
-    queryKey: ["client-context", clientId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("clients")
-        .select("name, context_notes, social_media, tags, function_templates")
-        .eq("id", clientId)
-        .single();
-
-      if (error) throw error;
-      return {
-        ...data,
-        social_media: data.social_media as Record<string, string>,
-        tags: data.tags as Record<string, string>,
-        function_templates: data.function_templates as string[],
-      };
-    },
-    enabled: !!clientId,
   });
 
   // Get websites and their scraped content
@@ -523,17 +527,30 @@ Retorne uma análise clara e estruturada para guiar a criação de novo conteúd
       setCurrentStep("reviewing");
 
       // Build enriched context with pattern analysis
+      // Start with identity guide as the FIRST thing (most important context)
+      const knowledgeContext = formatKnowledgeForContext(
+        identityGuide || client.identity_guide || null, 
+        knowledgeFiles
+      );
+
       let contextParts = [
         `# Identidade kAI - Assistente Estratégico para ${client.name}`,
         ``,
         `Você é o kAI, assistente de IA especializado em marketing digital da Kaleidos.`,
-        ``,
-        `## 🎯 INFORMAÇÕES SELECIONADAS PARA ESTA TAREFA`,
-        ``,
-        `**Raciocínio da Seleção:** ${selection.reasoning}`,
-        `**Estratégia:** ${selection.strategy || 'Seguir padrões estabelecidos'}`,
         ``
       ];
+
+      // Add identity guide and knowledge files FIRST (highest priority context)
+      if (knowledgeContext) {
+        contextParts.push(knowledgeContext);
+        contextParts.push(``);
+      }
+
+      contextParts.push(`## 🎯 INFORMAÇÕES SELECIONADAS PARA ESTA TAREFA`);
+      contextParts.push(``);
+      contextParts.push(`**Raciocínio da Seleção:** ${selection.reasoning}`);
+      contextParts.push(`**Estratégia:** ${selection.strategy || 'Seguir padrões estabelecidos'}`);
+      contextParts.push(``);
 
       // Detectar se usuário está pedindo ideias de forma inteligente
       const ideaRequest = parseIdeaRequest(content);
