@@ -80,27 +80,73 @@ serve(async (req) => {
         const postDetail = await postDetailResponse.json();
         const fullPost = postDetail.data;
 
-        // Extract content - prefer free_web_content for full HTML
-        const htmlContent = fullPost.content?.free?.web || fullPost.content?.free?.email || '';
+        console.log(`Post ${fullPost.title} - Available content fields:`, {
+          hasFreeWeb: !!fullPost.content?.free?.web,
+          hasFreeEmail: !!fullPost.content?.free?.email,
+          hasPremiumWeb: !!fullPost.content?.premium?.web,
+          hasPremiumEmail: !!fullPost.content?.premium?.email,
+          freeWebLength: fullPost.content?.free?.web?.length || 0,
+          premiumWebLength: fullPost.content?.premium?.web?.length || 0,
+        });
+
+        // Extract content - try premium first (full content), then free
+        const htmlContent = fullPost.content?.premium?.web 
+          || fullPost.content?.premium?.email 
+          || fullPost.content?.free?.web 
+          || fullPost.content?.free?.email 
+          || '';
         
-        // Convert HTML to cleaner text while preserving structure
+        console.log(`HTML content length for "${fullPost.title}": ${htmlContent.length}`);
+        
+        // Convert HTML to cleaner text while preserving structure better
         const cleanContent = htmlContent
+          // Remove style and script tags
           .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
           .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+          // Preserve headings with markdown-like formatting
+          .replace(/<h1[^>]*>([\s\S]*?)<\/h1>/gi, '\n\n# $1\n\n')
+          .replace(/<h2[^>]*>([\s\S]*?)<\/h2>/gi, '\n\n## $1\n\n')
+          .replace(/<h3[^>]*>([\s\S]*?)<\/h3>/gi, '\n\n### $1\n\n')
+          .replace(/<h[4-6][^>]*>([\s\S]*?)<\/h[4-6]>/gi, '\n\n#### $1\n\n')
+          // Handle blockquotes
+          .replace(/<blockquote[^>]*>([\s\S]*?)<\/blockquote>/gi, '\n\n> $1\n\n')
+          // Handle line breaks and paragraphs
           .replace(/<br\s*\/?>/gi, '\n')
           .replace(/<\/p>/gi, '\n\n')
-          .replace(/<\/h[1-6]>/gi, '\n\n')
-          .replace(/<li>/gi, '• ')
+          .replace(/<p[^>]*>/gi, '')
+          // Handle lists
+          .replace(/<li[^>]*>/gi, '• ')
           .replace(/<\/li>/gi, '\n')
+          .replace(/<\/?[ou]l[^>]*>/gi, '\n')
+          // Handle links - preserve text
+          .replace(/<a[^>]*>([\s\S]*?)<\/a>/gi, '$1')
+          // Handle emphasis
+          .replace(/<strong[^>]*>([\s\S]*?)<\/strong>/gi, '**$1**')
+          .replace(/<b[^>]*>([\s\S]*?)<\/b>/gi, '**$1**')
+          .replace(/<em[^>]*>([\s\S]*?)<\/em>/gi, '*$1*')
+          .replace(/<i[^>]*>([\s\S]*?)<\/i>/gi, '*$1*')
+          // Remove remaining HTML tags
           .replace(/<[^>]+>/g, '')
+          // Decode HTML entities
           .replace(/&nbsp;/g, ' ')
           .replace(/&amp;/g, '&')
           .replace(/&lt;/g, '<')
           .replace(/&gt;/g, '>')
           .replace(/&quot;/g, '"')
           .replace(/&#39;/g, "'")
+          .replace(/&rsquo;/g, "'")
+          .replace(/&lsquo;/g, "'")
+          .replace(/&rdquo;/g, '"')
+          .replace(/&ldquo;/g, '"')
+          .replace(/&mdash;/g, '—')
+          .replace(/&ndash;/g, '–')
+          .replace(/&hellip;/g, '...')
+          // Clean up excessive whitespace
           .replace(/\n{3,}/g, '\n\n')
+          .replace(/[ \t]+/g, ' ')
           .trim();
+        
+        console.log(`Clean content length for "${fullPost.title}": ${cleanContent.length}`);
 
         // Extract images from HTML
         const imageRegex = /<img[^>]+src="([^"]+)"/gi;
