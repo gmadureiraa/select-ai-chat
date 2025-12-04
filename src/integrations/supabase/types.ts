@@ -1279,6 +1279,68 @@ export type Database = {
         }
         Relationships: []
       }
+      youtube_videos: {
+        Row: {
+          click_rate: number | null
+          client_id: string
+          created_at: string | null
+          duration_seconds: number | null
+          id: string
+          impressions: number | null
+          metadata: Json | null
+          published_at: string | null
+          subscribers_gained: number | null
+          thumbnail_url: string | null
+          title: string
+          total_views: number | null
+          updated_at: string | null
+          video_id: string
+          watch_hours: number | null
+        }
+        Insert: {
+          click_rate?: number | null
+          client_id: string
+          created_at?: string | null
+          duration_seconds?: number | null
+          id?: string
+          impressions?: number | null
+          metadata?: Json | null
+          published_at?: string | null
+          subscribers_gained?: number | null
+          thumbnail_url?: string | null
+          title: string
+          total_views?: number | null
+          updated_at?: string | null
+          video_id: string
+          watch_hours?: number | null
+        }
+        Update: {
+          click_rate?: number | null
+          client_id?: string
+          created_at?: string | null
+          duration_seconds?: number | null
+          id?: string
+          impressions?: number | null
+          metadata?: Json | null
+          published_at?: string | null
+          subscribers_gained?: number | null
+          thumbnail_url?: string | null
+          title?: string
+          total_views?: number | null
+          updated_at?: string | null
+          video_id?: string
+          watch_hours?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "youtube_videos_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

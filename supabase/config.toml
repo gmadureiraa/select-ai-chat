@@ -68,3 +68,6 @@ verify_jwt = false
 
 [functions.import-beehiiv-newsletters]
 verify_jwt = false
+
+[functions.fetch-youtube-metrics]
+verify_jwt = false
