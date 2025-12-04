@@ -40,6 +40,16 @@ export default function KnowledgeBase() {
     setFormPageCount(null);
   };
 
+  // Sanitize filename for storage (remove special chars, accents, spaces)
+  const sanitizeFileName = (name: string) => {
+    return name
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '') // Remove accents
+      .replace(/[^a-zA-Z0-9._-]/g, '_') // Replace special chars with underscore
+      .replace(/_+/g, '_') // Replace multiple underscores with single
+      .toLowerCase();
+  };
+
   const handlePDFUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !file.type.includes('pdf')) {
@@ -49,8 +59,9 @@ export default function KnowledgeBase() {
 
     setIsUploading(true);
     try {
-      // Upload to storage
-      const fileName = `knowledge/${Date.now()}_${file.name}`;
+      // Upload to storage with sanitized filename
+      const sanitizedName = sanitizeFileName(file.name);
+      const fileName = `knowledge/${Date.now()}_${sanitizedName}`;
       const { error: uploadError } = await supabase.storage
         .from('client-files')
         .upload(fileName, file);
