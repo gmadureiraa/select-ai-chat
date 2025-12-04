@@ -85,6 +85,7 @@ export const GLOBAL_CONTENT_RULES = {
   hook: "Primeiros 3 segundos/primeira linha decidem tudo. O gancho é CRÍTICO.",
   cta: "SEMPRE tenha um CTA. 1 CTA por conteúdo. Não confunda o usuário.",
   value: "Se não é útil, educativo, inspirador ou divertido, não publique.",
+  slideFormatting: "SEMPRE pule uma linha em branco após o fim de cada slide/página em conteúdos multi-página (carrossel, stories, threads). Use '---PÁGINA N---' ou '---SLIDE N---' como separador, seguido de linha em branco antes do próximo conteúdo.",
 };
 
 // =====================================================
