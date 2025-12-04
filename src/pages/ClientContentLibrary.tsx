@@ -98,7 +98,7 @@ export default function ClientContentLibrary() {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => navigate(`/clients/${clientId}`)}
+                onClick={() => navigate(`/client/${clientId}`)}
               >
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Voltar
