@@ -14,6 +14,7 @@ import { useClients, Client } from "@/hooks/useClients";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, X, FileText, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { ClientDocumentsManager } from "./ClientDocumentsManager";
 
 interface ClientEditDialogProps {
   open: boolean;
@@ -156,11 +157,12 @@ export const ClientEditDialog = ({ open, onOpenChange, client }: ClientEditDialo
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <Tabs defaultValue="basic" className="w-full">
-            <TabsList className="grid w-full grid-cols-5">
+            <TabsList className="grid w-full grid-cols-6">
               <TabsTrigger value="basic">Básico</TabsTrigger>
               <TabsTrigger value="identity">Identidade</TabsTrigger>
-              <TabsTrigger value="social">Redes Sociais</TabsTrigger>
-              <TabsTrigger value="tags">Tags/Notas</TabsTrigger>
+              <TabsTrigger value="documents">Documentos</TabsTrigger>
+              <TabsTrigger value="social">Redes</TabsTrigger>
+              <TabsTrigger value="tags">Tags</TabsTrigger>
               <TabsTrigger value="templates">Padrões</TabsTrigger>
             </TabsList>
 
@@ -254,6 +256,10 @@ export const ClientEditDialog = ({ open, onOpenChange, client }: ClientEditDialo
                   Inclua posicionamento, tom de voz, pilares de conteúdo, estratégias por plataforma e exemplos.
                 </p>
               </div>
+            </TabsContent>
+
+            <TabsContent value="documents" className="space-y-4">
+              {client && <ClientDocumentsManager clientId={client.id} />}
             </TabsContent>
 
             <TabsContent value="social" className="space-y-4">

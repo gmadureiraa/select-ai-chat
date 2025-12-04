@@ -249,6 +249,7 @@ export type Database = {
         Row: {
           client_id: string
           created_at: string | null
+          extracted_content: string | null
           file_path: string
           file_type: string
           id: string
@@ -257,6 +258,7 @@ export type Database = {
         Insert: {
           client_id: string
           created_at?: string | null
+          extracted_content?: string | null
           file_path: string
           file_type: string
           id?: string
@@ -265,6 +267,7 @@ export type Database = {
         Update: {
           client_id?: string
           created_at?: string | null
+          extracted_content?: string | null
           file_path?: string
           file_type?: string
           id?: string

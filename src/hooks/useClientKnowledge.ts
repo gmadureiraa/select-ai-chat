@@ -1,9 +1,17 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
+interface ClientDocument {
+  id: string;
+  name: string;
+  file_type: string;
+  extracted_content: string | null;
+}
+
 interface ClientKnowledge {
   identityGuide: string | null;
   knowledgeFiles: Record<string, string>;
+  documents: ClientDocument[];
   isLoading: boolean;
 }
 
@@ -35,6 +43,7 @@ const KNOWLEDGE_FILES = [
 export const useClientKnowledge = (clientId: string | undefined, clientName?: string): ClientKnowledge => {
   const [identityGuide, setIdentityGuide] = useState<string | null>(null);
   const [knowledgeFiles, setKnowledgeFiles] = useState<Record<string, string>>({});
+  const [documents, setDocuments] = useState<ClientDocument[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -87,6 +96,17 @@ export const useClientKnowledge = (clientId: string | undefined, clientName?: st
             setKnowledgeFiles(files);
           }
         }
+
+        // 3. Fetch documents with extracted content
+        const { data: docs, error: docsError } = await supabase
+          .from("client_documents")
+          .select("id, name, file_type, extracted_content")
+          .eq("client_id", clientId)
+          .not("extracted_content", "is", null);
+
+        if (!docsError && docs) {
+          setDocuments(docs);
+        }
       } catch (e) {
         console.error("Error in useClientKnowledge:", e);
       } finally {
@@ -97,13 +117,14 @@ export const useClientKnowledge = (clientId: string | undefined, clientName?: st
     fetchKnowledge();
   }, [clientId, clientName]);
 
-  return { identityGuide, knowledgeFiles, isLoading };
+  return { identityGuide, knowledgeFiles, documents, isLoading };
 };
 
 // Helper to format knowledge for AI context
 export const formatKnowledgeForContext = (
   identityGuide: string | null,
-  knowledgeFiles: Record<string, string>
+  knowledgeFiles: Record<string, string>,
+  documents?: ClientDocument[]
 ): string => {
   const parts: string[] = [];
 
@@ -162,6 +183,21 @@ export const formatKnowledgeForContext = (
       parts.push(``);
       parts.push(guiaUniversal);
       parts.push(``);
+    }
+  }
+
+  // Priority 3: Extracted documents content
+  if (documents && documents.length > 0) {
+    parts.push(`## 📄 DOCUMENTOS DO CLIENTE`);
+    parts.push(``);
+    
+    for (const doc of documents) {
+      if (doc.extracted_content) {
+        parts.push(`### ${doc.name}`);
+        parts.push(``);
+        parts.push(doc.extracted_content);
+        parts.push(``);
+      }
     }
   }
 

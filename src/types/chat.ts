@@ -44,6 +44,7 @@ export interface Document {
   name: string;
   file_path: string;
   file_type: string;
+  extracted_content?: string | null;
   created_at: string;
 }
 
