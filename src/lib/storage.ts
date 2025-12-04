@@ -1,0 +1,90 @@
+import { supabase } from "@/integrations/supabase/client";
+
+/**
+ * Upload a file to the client-files bucket and return the file path
+ * @param file The file to upload
+ * @param folder The folder within client-files to store the file
+ * @returns The file path (not URL) for later retrieval via signed URL
+ */
+export async function uploadToClientFiles(
+  file: File,
+  folder: string
+): Promise<{ path: string; error: Error | null }> {
+  const fileExt = file.name.split(".").pop();
+  const fileName = `${folder}/${crypto.randomUUID()}.${fileExt}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from("client-files")
+    .upload(fileName, file);
+
+  if (uploadError) {
+    return { path: "", error: uploadError };
+  }
+
+  return { path: fileName, error: null };
+}
+
+/**
+ * Get a signed URL for a file in client-files bucket
+ * @param filePath The path to the file in the bucket
+ * @param expiresIn Expiration time in seconds (default 1 hour)
+ * @returns Signed URL or null if error
+ */
+export async function getSignedUrl(
+  filePath: string,
+  expiresIn: number = 3600
+): Promise<string | null> {
+  // If it's already a full URL (legacy), return as-is for backward compatibility
+  if (filePath.startsWith("http")) {
+    // For legacy URLs, try to extract path and create signed URL
+    const bucketMatch = filePath.match(/\/client-files\/(.+)$/);
+    if (bucketMatch) {
+      filePath = bucketMatch[1];
+    } else {
+      return filePath; // External URL, return as-is
+    }
+  }
+
+  const { data, error } = await supabase.storage
+    .from("client-files")
+    .createSignedUrl(filePath, expiresIn);
+
+  if (error) {
+    console.error("Error creating signed URL:", error);
+    return null;
+  }
+
+  return data.signedUrl;
+}
+
+/**
+ * Get multiple signed URLs at once
+ * @param filePaths Array of file paths
+ * @param expiresIn Expiration time in seconds
+ * @returns Array of signed URLs (null for any that failed)
+ */
+export async function getSignedUrls(
+  filePaths: string[],
+  expiresIn: number = 3600
+): Promise<(string | null)[]> {
+  return Promise.all(filePaths.map((path) => getSignedUrl(path, expiresIn)));
+}
+
+/**
+ * Upload file and immediately get a signed URL for display
+ * Useful for immediate preview after upload
+ */
+export async function uploadAndGetSignedUrl(
+  file: File,
+  folder: string,
+  expiresIn: number = 3600
+): Promise<{ path: string; signedUrl: string | null; error: Error | null }> {
+  const { path, error } = await uploadToClientFiles(file, folder);
+  
+  if (error) {
+    return { path: "", signedUrl: null, error };
+  }
+
+  const signedUrl = await getSignedUrl(path, expiresIn);
+  return { path, signedUrl, error: null };
+}

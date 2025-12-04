@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -18,9 +19,14 @@ serve(async (req) => {
     }
 
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
-    if (!SUPABASE_URL) {
-      throw new Error("SUPABASE_URL não configurada");
+    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    
+    if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+      throw new Error("Supabase credentials não configuradas");
     }
+
+    // Use service role to access private bucket
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
     console.log(`Loading knowledge base for client: ${clientFolder}`);
     console.log(`Files requested: ${files.join(", ")}`);
@@ -28,20 +34,21 @@ serve(async (req) => {
     const contents: Array<{ file: string; content: string } | null> = await Promise.all(
       files.map(async (file: string) => {
         try {
-          // Construir URL para arquivo no storage público
-          const fileUrl = `${SUPABASE_URL}/storage/v1/object/public/client-files/${clientFolder}/${file}`;
-          console.log(`Fetching: ${fileUrl}`);
-
-          const response = await fetch(fileUrl);
+          const filePath = `${clientFolder}/${file}`;
           
-          if (response.ok) {
-            const content = await response.text();
-            console.log(`Successfully loaded ${file} (${content.length} chars)`);
-            return { file, content };
-          } else {
-            console.warn(`Failed to load ${file}: ${response.status} ${response.statusText}`);
+          // Try to download file directly using service role
+          const { data, error } = await supabase.storage
+            .from("client-files")
+            .download(filePath);
+
+          if (error) {
+            console.warn(`Failed to download ${file}: ${error.message}`);
             return null;
           }
+
+          const content = await data.text();
+          console.log(`Successfully loaded ${file} (${content.length} chars)`);
+          return { file, content };
         } catch (error) {
           console.error(`Error loading ${file}:`, error);
           return null;

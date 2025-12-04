@@ -11,6 +11,18 @@ const LINKEDIN_CLIENT_SECRET = Deno.env.get("LINKEDIN_CLIENT_SECRET");
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
+// Validate state hash to prevent state parameter spoofing
+async function validateStateHash(userId: string, timestamp: number, providedHash: string): Promise<boolean> {
+  const data = `${userId}:${timestamp}:linkedin_oauth`;
+  const encoder = new TextEncoder();
+  const dataBuffer = encoder.encode(data);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", dataBuffer);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  const expectedHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 16);
+  
+  return providedHash === expectedHash;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -23,9 +35,11 @@ serve(async (req) => {
     const error = url.searchParams.get("error");
     const errorDescription = url.searchParams.get("error_description");
 
+    const defaultRedirect = "https://9c978e1c-b485-433f-8082-036390767d5a.lovableproject.com/social-publisher";
+
     if (error) {
       console.error("LinkedIn OAuth error:", error, errorDescription);
-      return Response.redirect(`${state || "https://9c978e1c-b485-433f-8082-036390767d5a.lovableproject.com"}/social-publisher?linkedin_error=${encodeURIComponent(errorDescription || error)}`);
+      return Response.redirect(`${defaultRedirect}?linkedin_error=${encodeURIComponent(errorDescription || error)}`);
     }
 
     if (!code) {
@@ -34,6 +48,46 @@ serve(async (req) => {
 
     if (!LINKEDIN_CLIENT_ID || !LINKEDIN_CLIENT_SECRET) {
       throw new Error("LinkedIn credentials not configured");
+    }
+
+    // Parse and validate state parameter
+    // State format: userId|timestamp|hash|redirectUrl
+    let userId: string | null = null;
+    let redirectUrl = defaultRedirect;
+
+    if (state) {
+      const parts = state.split("|");
+      if (parts.length >= 3) {
+        const [stateUserId, timestampStr, hash, ...redirectParts] = parts;
+        const timestamp = parseInt(timestampStr, 10);
+        
+        // Validate timestamp (state expires after 10 minutes)
+        const now = Date.now();
+        const maxAge = 10 * 60 * 1000; // 10 minutes
+        
+        if (isNaN(timestamp) || now - timestamp > maxAge) {
+          console.error("OAuth state expired or invalid timestamp");
+          return Response.redirect(`${defaultRedirect}?linkedin_error=${encodeURIComponent("OAuth session expired. Please try again.")}`);
+        }
+
+        // Validate hash to prevent state tampering
+        const isValidHash = await validateStateHash(stateUserId, timestamp, hash);
+        if (!isValidHash) {
+          console.error("OAuth state hash validation failed - potential tampering detected");
+          return Response.redirect(`${defaultRedirect}?linkedin_error=${encodeURIComponent("Security validation failed. Please try again.")}`);
+        }
+
+        userId = stateUserId;
+        if (redirectParts.length > 0) {
+          redirectUrl = redirectParts.join("|");
+        }
+        
+        console.log("State validated successfully for user:", userId);
+      }
+    }
+
+    if (!userId) {
+      throw new Error("Could not identify user from state parameter");
     }
 
     // Exchange code for access token
@@ -59,31 +113,6 @@ serve(async (req) => {
       throw new Error(tokenData.error_description || "Failed to get access token");
     }
 
-    // Get user ID from state (JWT token)
-    const authHeader = req.headers.get("authorization");
-    let userId: string | null = null;
-
-    // Try to get user from state (we pass the user ID in state)
-    if (state && state.includes("|")) {
-      const parts = state.split("|");
-      userId = parts[0];
-    }
-
-    if (!userId) {
-      // Try to decode from the authorization header
-      if (authHeader) {
-        const supabaseClient = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
-        const { data: { user }, error: authError } = await supabaseClient.auth.getUser(authHeader.replace("Bearer ", ""));
-        if (user) {
-          userId = user.id;
-        }
-      }
-    }
-
-    if (!userId) {
-      throw new Error("Could not identify user");
-    }
-
     // Calculate expiration
     const expiresAt = new Date(Date.now() + (tokenData.expires_in * 1000)).toISOString();
 
@@ -107,7 +136,6 @@ serve(async (req) => {
     console.log("LinkedIn token stored for user:", userId);
 
     // Redirect back to app
-    const redirectUrl = state?.split("|")[1] || "https://9c978e1c-b485-433f-8082-036390767d5a.lovableproject.com/social-publisher";
     return Response.redirect(`${redirectUrl}?linkedin_connected=true`);
 
   } catch (error: any) {

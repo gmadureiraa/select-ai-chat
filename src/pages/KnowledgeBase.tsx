@@ -12,6 +12,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Plus, FileText, Trash2, Edit, Upload, Loader2, Search, BookOpen, Download, ExternalLink } from "lucide-react";
 import { useGlobalKnowledge, KNOWLEDGE_CATEGORIES, KnowledgeCategory, GlobalKnowledge } from "@/hooks/useGlobalKnowledge";
 import { supabase } from "@/integrations/supabase/client";
+import { uploadAndGetSignedUrl } from "@/lib/storage";
 import { toast } from "sonner";
 
 export default function KnowledgeBase() {
@@ -62,21 +63,16 @@ export default function KnowledgeBase() {
     try {
       // Upload to storage with sanitized filename
       const sanitizedName = sanitizeFileName(file.name);
-      const fileName = `knowledge/${Date.now()}_${sanitizedName}`;
-      const { error: uploadError } = await supabase.storage
-        .from('client-files')
-        .upload(fileName, file);
+      const { path, signedUrl, error: uploadError } = await uploadAndGetSignedUrl(
+        new File([file], `${Date.now()}_${sanitizedName}`, { type: file.type }),
+        "knowledge"
+      );
 
       if (uploadError) throw uploadError;
 
-      // Get public URL
-      const { data: urlData } = supabase.storage
-        .from('client-files')
-        .getPublicUrl(fileName);
-
-      // Extract PDF content
+      // Extract PDF content using signed URL
       const { data, error } = await supabase.functions.invoke('extract-pdf', {
-        body: { fileUrl: urlData.publicUrl, fileName: file.name }
+        body: { fileUrl: signedUrl, fileName: file.name }
       });
 
       if (error) throw error;
@@ -85,7 +81,7 @@ export default function KnowledgeBase() {
       setFormContent(data.content || '');
       setFormSourceFile(file.name);
       setFormPageCount(data.pageCount || null);
-      setFormPdfUrl(urlData.publicUrl);
+      setFormPdfUrl(signedUrl);
       
       toast.success('PDF extraído com sucesso! Revise o conteúdo abaixo.');
     } catch (error: any) {

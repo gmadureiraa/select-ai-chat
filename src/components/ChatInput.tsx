@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Send, Image as ImageIcon, X } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { uploadAndGetSignedUrl } from "@/lib/storage";
 import { useToast } from "@/hooks/use-toast";
 
 interface ChatInputProps {
@@ -47,23 +47,12 @@ export const ChatInput = ({ onSend, disabled }: ChatInputProps) => {
       setUploadingImages(true);
       try {
         const uploadPromises = imageFiles.map(async (file) => {
-          const fileExt = file.name.split('.').pop();
-          const fileName = `chat-images/${crypto.randomUUID()}.${fileExt}`;
-          
-          const { error: uploadError } = await supabase.storage
-            .from('client-files')
-            .upload(fileName, file);
-
-          if (uploadError) throw uploadError;
-
-          const { data: { publicUrl } } = supabase.storage
-            .from('client-files')
-            .getPublicUrl(fileName);
-
-          return publicUrl;
+          const { signedUrl, error } = await uploadAndGetSignedUrl(file, "chat-images");
+          if (error) throw error;
+          return signedUrl;
         });
 
-        imageUrls = await Promise.all(uploadPromises);
+        imageUrls = (await Promise.all(uploadPromises)).filter((url): url is string => url !== null);
       } catch (error: any) {
         toast({
           title: "Erro ao enviar imagens",

@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { CreateReferenceData, ReferenceItem } from "@/hooks/useReferenceLibrary";
 import { CONTENT_TYPE_OPTIONS } from "@/types/contentTypes";
 import { supabase } from "@/integrations/supabase/client";
+import { uploadAndGetSignedUrl } from "@/lib/storage";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Upload, X } from "lucide-react";
 
@@ -76,21 +77,10 @@ export function ReferenceDialog({ open, onClose, onSave, reference }: ReferenceD
     try {
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
-        const fileExt = file.name.split('.').pop();
-        const fileName = `${crypto.randomUUID()}.${fileExt}`;
-        const filePath = `reference-images/${fileName}`;
+        const { signedUrl, error } = await uploadAndGetSignedUrl(file, "reference-images");
 
-        const { error: uploadError } = await supabase.storage
-          .from('client-files')
-          .upload(filePath, file);
-
-        if (uploadError) throw uploadError;
-
-        const { data: { publicUrl } } = supabase.storage
-          .from('client-files')
-          .getPublicUrl(filePath);
-
-        newImageUrls.push(publicUrl);
+        if (error) throw error;
+        if (signedUrl) newImageUrls.push(signedUrl);
       }
 
       setUploadedImages([...uploadedImages, ...newImageUrls]);
@@ -169,21 +159,10 @@ export function ReferenceDialog({ open, onClose, onSave, reference }: ReferenceD
 
     setIsUploading(true);
     try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${crypto.randomUUID()}.${fileExt}`;
-      const filePath = `reference-videos/${fileName}`;
+      const { signedUrl, error } = await uploadAndGetSignedUrl(file, "reference-videos");
 
-      const { error: uploadError } = await supabase.storage
-        .from('client-files')
-        .upload(filePath, file);
-
-      if (uploadError) throw uploadError;
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('client-files')
-        .getPublicUrl(filePath);
-
-      setVideoUrl(publicUrl);
+      if (error) throw error;
+      if (signedUrl) setVideoUrl(signedUrl);
       toast({
         title: "Vídeo carregado",
         description: "Vídeo enviado com sucesso. Clique em 'Transcrever Vídeo' para extrair o conteúdo.",

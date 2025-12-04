@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { Plus, Trash2, Edit2, Check, X, Image, FileText, Type, Upload } from "lucide-react";
 import { ClientTemplate, TemplateRule } from "@/types/template";
-import { supabase } from "@/integrations/supabase/client";
+import { uploadAndGetSignedUrl } from "@/lib/storage";
 import { useToast } from "@/hooks/use-toast";
 
 interface TemplateRulesDialogProps {
@@ -62,24 +62,16 @@ export const TemplateRulesDialog = ({
     
     setUploadingFile(true);
     try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${template.client_id}/${template.id}/${crypto.randomUUID()}.${fileExt}`;
-      
-      const { error: uploadError } = await supabase.storage
-        .from('client-files')
-        .upload(fileName, file);
+      const folder = `${template.client_id}/${template.id}`;
+      const { signedUrl, error } = await uploadAndGetSignedUrl(file, folder);
 
-      if (uploadError) throw uploadError;
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('client-files')
-        .getPublicUrl(fileName);
+      if (error) throw error;
 
       const newRuleObj: TemplateRule = {
         id: crypto.randomUUID(),
         content: newRule.trim() || file.name,
         type: newRuleType,
-        file_url: publicUrl,
+        file_url: signedUrl || "",
       };
       
       const updatedRules = [...rules, newRuleObj];
