@@ -23,6 +23,7 @@ import Activities from "./pages/Activities";
 import ResearchLab from "./pages/ResearchLab";
 import Settings from "./pages/Settings";
 import SocialPublisher from "./pages/SocialPublisher";
+import KnowledgeBase from "./pages/KnowledgeBase";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 
@@ -184,6 +185,16 @@ const App = () => (
               <ProtectedRoute>
                 <AppLayout>
                   <Settings />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/knowledge"
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <KnowledgeBase />
                 </AppLayout>
               </ProtectedRoute>
             }

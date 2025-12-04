@@ -11,6 +11,7 @@ import { useTemplateReferences } from "@/hooks/useTemplateReferences";
 import { useActivities } from "@/hooks/useActivities";
 import { useAuth } from "@/hooks/useAuth";
 import { useClientKnowledge, formatKnowledgeForContext } from "@/hooks/useClientKnowledge";
+import { useWorkspace } from "@/hooks/useWorkspace";
 import { 
   GLOBAL_CONTENT_RULES, 
   STORIES_FORMAT_RULES, 
@@ -43,6 +44,7 @@ export const useClientChat = (clientId: string, templateId?: string) => {
   const queryClient = useQueryClient();
   const { logActivity } = useActivities();
   const { user } = useAuth();
+  const { workspace } = useWorkspace();
 
   // Ativar realtime para mensagens
   useRealtimeMessages(conversationId);
@@ -219,6 +221,22 @@ export const useClientChat = (clientId: string, templateId?: string) => {
       return data;
     },
     enabled: !!clientId,
+  });
+
+  // Get global knowledge base
+  const { data: globalKnowledge = [] } = useQuery({
+    queryKey: ["global-knowledge", workspace?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("global_knowledge")
+        .select("id, title, content, category")
+        .eq("workspace_id", workspace!.id)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!workspace?.id,
   });
 
   const sendMessage = useCallback(async (content: string, imageUrls?: string[]) => {
@@ -544,6 +562,17 @@ Retorne uma análise clara e estruturada para guiar a criação de novo conteúd
       if (knowledgeContext) {
         contextParts.push(knowledgeContext);
         contextParts.push(``);
+      }
+
+      // Add global knowledge base (content creation knowledge)
+      if (globalKnowledge.length > 0) {
+        contextParts.push(`## 📚 BASE DE CONHECIMENTO (Técnicas de Criação de Conteúdo)`);
+        contextParts.push(``);
+        globalKnowledge.forEach((k) => {
+          contextParts.push(`### ${k.title} [${k.category}]`);
+          contextParts.push(k.content.substring(0, 2000)); // Limitar para não sobrecarregar
+          contextParts.push(``);
+        });
       }
 
       contextParts.push(`## 🎯 INFORMAÇÕES SELECIONADAS PARA ESTA TAREFA`);
