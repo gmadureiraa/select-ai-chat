@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useClients } from "@/hooks/useClients";
 import { useScheduledPosts, useCreateScheduledPost, useDeleteScheduledPost, useUpdateScheduledPost } from "@/hooks/useScheduledPosts";
+import { useQueryClient } from "@tanstack/react-query";
 import { useLinkedInConnection } from "@/hooks/useLinkedInConnection";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -26,6 +27,7 @@ interface PublishResult {
 
 const SocialPublisher = () => {
   const [searchParams] = useSearchParams();
+  const queryClient = useQueryClient();
   const { clients, isLoading: clientsLoading } = useClients();
   const { data: drafts, isLoading: draftsLoading } = useScheduledPosts('draft');
   const { data: scheduled, isLoading: scheduledLoading } = useScheduledPosts('scheduled');
@@ -77,6 +79,36 @@ const SocialPublisher = () => {
         ? prev.filter(p => p !== platform)
         : [...prev, platform]
     );
+  };
+
+  const saveToContentLibrary = async (contentText: string, platforms: string[], imageUrl?: string | null) => {
+    if (!selectedClientId || selectedClientId === "none") return;
+    
+    try {
+      const title = contentText.slice(0, 50) + (contentText.length > 50 ? '...' : '');
+      const contentType = platforms.includes('linkedin') ? 'linkedin_post' : 
+                          platforms.includes('twitter') ? 'tweet' : 'social_post';
+      
+      await supabase
+        .from('client_content_library')
+        .insert({
+          client_id: selectedClientId,
+          title: `Publicado: ${title}`,
+          content: contentText,
+          content_type: contentType,
+          content_url: imageUrl || null,
+          metadata: { 
+            source: 'social_publisher', 
+            platforms,
+            published_at: new Date().toISOString()
+          },
+        });
+      
+      // Invalidate content library cache
+      queryClient.invalidateQueries({ queryKey: ['content-library', selectedClientId] });
+    } catch (error) {
+      console.error('Error saving to content library:', error);
+    }
   };
 
   const handlePublish = async () => {
@@ -153,10 +185,14 @@ const SocialPublisher = () => {
 
     const successCount = results.filter(r => r.success).length;
     if (successCount === results.length) {
+      // Save to content library on successful publish
+      await saveToContentLibrary(content.trim(), selectedPlatforms, finalImageUrl);
       toast.success("Conteúdo publicado com sucesso em todas as plataformas!");
       setContent("");
       clearImage();
     } else if (successCount > 0) {
+      // Save to content library even if partial success
+      await saveToContentLibrary(content.trim(), selectedPlatforms, finalImageUrl);
       toast.warning(`Publicado em ${successCount}/${results.length} plataformas`);
     } else {
       toast.error("Erro ao publicar em todas as plataformas");
