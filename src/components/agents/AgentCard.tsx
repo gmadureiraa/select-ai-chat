@@ -117,9 +117,8 @@ export default function AgentCard({
                     className={cn(
                       "absolute w-[50px] h-[50px] rounded-[140px]",
                       "animate-agent-circle opacity-0",
-                      "group-hover:animate-[agent-circle_2s_linear_infinite]",
-                      "transition-shadow duration-500",
-                      isFlipped ? colors.glowFlipped : colors.glow
+                      "group-hover:animate-[agent-circle_3s_linear_infinite]",
+                      colors.glow
                     )}
                     style={{ animationDelay: `${i * 0.3}s` }}
                   />
