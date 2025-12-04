@@ -1,4 +1,4 @@
-import { Brain, Users, LogOut, Activity, Settings, PanelLeftClose } from "lucide-react";
+import { Brain, Users, LogOut, Activity, Settings, PanelLeftClose, BookOpen } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -23,6 +23,7 @@ import {
 const items = [
   { title: "Agentes", url: "/agents", icon: Brain },
   { title: "Clientes", url: "/clients", icon: Users },
+  { title: "Conhecimento", url: "/knowledge", icon: BookOpen },
   { title: "Atividades", url: "/activities", icon: Activity },
   { title: "Configurações", url: "/settings", icon: Settings },
 ];

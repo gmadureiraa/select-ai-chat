@@ -507,6 +507,53 @@ export type Database = {
           },
         ]
       }
+      global_knowledge: {
+        Row: {
+          category: Database["public"]["Enums"]["knowledge_category"]
+          content: string
+          created_at: string
+          id: string
+          metadata: Json | null
+          page_count: number | null
+          source_file: string | null
+          title: string
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          category?: Database["public"]["Enums"]["knowledge_category"]
+          content: string
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          page_count?: number | null
+          source_file?: string | null
+          title: string
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          category?: Database["public"]["Enums"]["knowledge_category"]
+          content?: string
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          page_count?: number | null
+          source_file?: string | null
+          title?: string
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "global_knowledge_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       image_generations: {
         Row: {
           client_id: string
@@ -1323,6 +1370,14 @@ export type Database = {
         | "thread"
         | "x_article"
         | "linkedin_post"
+      knowledge_category:
+        | "copywriting"
+        | "storytelling"
+        | "hooks"
+        | "psychology"
+        | "structure"
+        | "engagement"
+        | "other"
       share_permission: "view" | "edit" | "admin"
       workspace_role: "owner" | "admin" | "member"
     }
@@ -1492,6 +1547,15 @@ export const Constants = {
         "thread",
         "x_article",
         "linkedin_post",
+      ],
+      knowledge_category: [
+        "copywriting",
+        "storytelling",
+        "hooks",
+        "psychology",
+        "structure",
+        "engagement",
+        "other",
       ],
       share_permission: ["view", "edit", "admin"],
       workspace_role: ["owner", "admin", "member"],
