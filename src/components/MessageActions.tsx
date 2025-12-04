@@ -195,6 +195,7 @@ export const MessageActions = ({
 
     setIsSavingDraft(true);
     try {
+      // Save to scheduled_posts (draft)
       const { error } = await supabase
         .from('scheduled_posts')
         .insert({
@@ -207,13 +208,28 @@ export const MessageActions = ({
 
       if (error) throw error;
 
+      // Also save to content library if client is selected
+      if (clientId) {
+        const title = content.slice(0, 50) + (content.length > 50 ? '...' : '');
+        await supabase
+          .from('client_content_library')
+          .insert({
+            client_id: clientId,
+            title: `Rascunho: ${title}`,
+            content: content,
+            content_type: 'social_post',
+            metadata: { source: 'assistant_draft', template: templateName },
+          });
+      }
+
       toast({
         title: "Rascunho salvo!",
-        description: "Conteúdo enviado para o Publicador Social",
+        description: "Conteúdo enviado para o Publicador Social e Biblioteca",
       });
 
-      // Invalidate drafts query
+      // Invalidate queries
       queryClient.invalidateQueries({ queryKey: ['scheduled-posts'] });
+      queryClient.invalidateQueries({ queryKey: ['content-library'] });
     } catch (error: any) {
       console.error('Error saving draft:', error);
       toast({
