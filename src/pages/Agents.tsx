@@ -29,7 +29,7 @@ const Agents = () => {
         "Chat com IA",
         "Síntese inteligente",
       ],
-      accentColor: "primary" as const,
+      accentColor: "white" as const,
       onOpen: () => navigate("/research-lab"),
     },
     {
@@ -55,7 +55,7 @@ const Agents = () => {
         "Publicação direta",
         "Por cliente",
       ],
-      accentColor: "primary" as const,
+      accentColor: "yellow" as const,
       onOpen: () => navigate("/social-publisher"),
     },
     {
@@ -81,7 +81,7 @@ const Agents = () => {
         "Blogs e artigos",
         "Adaptação ao cliente",
       ],
-      accentColor: "accent" as const,
+      accentColor: "purple" as const,
       onOpen: () => {},
       comingSoon: true,
     },
