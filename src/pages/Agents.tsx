@@ -20,19 +20,6 @@ const Agents = () => {
       onOpen: () => navigate("/assistant"),
     },
     {
-      title: "Publicador Social",
-      subtitle: "Publique no Twitter e LinkedIn",
-      description: "Publique conteúdo diretamente nas redes sociais dos seus clientes integrados",
-      features: [
-        "Twitter/X integrado",
-        "LinkedIn (em breve)",
-        "Publicação direta",
-        "Por cliente",
-      ],
-      accentColor: "primary" as const,
-      onOpen: () => navigate("/social-publisher"),
-    },
-    {
       title: "Laboratório de Pesquisa",
       subtitle: "Canvas multimodal de análise",
       description: "Organize e analise vídeos, textos, áudios e imagens em um espaço visual interativo",
@@ -57,6 +44,19 @@ const Agents = () => {
       ],
       accentColor: "accent" as const,
       onOpen: () => navigate("/performance"),
+    },
+    {
+      title: "Publicador Social",
+      subtitle: "Publique no Twitter e LinkedIn",
+      description: "Publique conteúdo diretamente nas redes sociais dos seus clientes integrados",
+      features: [
+        "Twitter/X integrado",
+        "LinkedIn (em breve)",
+        "Publicação direta",
+        "Por cliente",
+      ],
+      accentColor: "primary" as const,
+      onOpen: () => navigate("/social-publisher"),
     },
     {
       title: "Automações",
