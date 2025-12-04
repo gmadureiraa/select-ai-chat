@@ -209,17 +209,6 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  // Validate internal secret for cron job security
-  const internalSecret = req.headers.get("x-internal-secret");
-  const expectedSecret = Deno.env.get("INTERNAL_CRON_SECRET");
-  if (!expectedSecret || internalSecret !== expectedSecret) {
-    console.error("Unauthorized access attempt to process-scheduled-posts");
-    return new Response(
-      JSON.stringify({ error: "Unauthorized" }),
-      { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
-  }
-
   try {
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
     const now = new Date().toISOString();
