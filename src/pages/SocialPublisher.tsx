@@ -509,23 +509,25 @@ const SocialPublisher = () => {
                   <div className="space-y-2">
                     <label className="text-sm text-muted-foreground flex items-center gap-2">
                       <Clock className="h-4 w-4" />
-                      Agendar (opcional)
+                      Agendar
+                      <Badge variant="outline" className="text-xs">Em breve</Badge>
                     </label>
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 opacity-50 pointer-events-none">
                       <Input
                         type="date"
-                        value={scheduleDate}
-                        onChange={(e) => setScheduleDate(e.target.value)}
-                        min={format(new Date(), 'yyyy-MM-dd')}
+                        disabled
+                        placeholder="Data"
                         className="flex-1"
                       />
                       <Input
                         type="time"
-                        value={scheduleTime}
-                        onChange={(e) => setScheduleTime(e.target.value)}
+                        disabled
                         className="w-32"
                       />
                     </div>
+                    <p className="text-xs text-muted-foreground">
+                      Recurso de agendamento em desenvolvimento
+                    </p>
                   </div>
 
                   <div className="flex gap-2 pt-2">
@@ -546,17 +548,6 @@ const SocialPublisher = () => {
                         </>
                       )}
                     </Button>
-                    {(scheduleDate && scheduleTime) && (
-                      <Button
-                        onClick={handleSchedule}
-                        variant="secondary"
-                        disabled={!content.trim() || selectedPlatforms.length === 0}
-                        className="gap-2"
-                      >
-                        <Calendar className="h-4 w-4" />
-                        Agendar
-                      </Button>
-                    )}
                     <Button
                       onClick={handleSaveDraft}
                       variant="outline"
