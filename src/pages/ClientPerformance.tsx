@@ -3,13 +3,14 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, Eye, Instagram, Youtube, Newspaper, RefreshCw, TrendingUp, TrendingDown, Users, CalendarIcon, Megaphone, Twitter, MousePointer, Heart, MessageCircle, Repeat2, UserPlus, AlertCircle, Clock, Play } from "lucide-react";
+import { ArrowLeft, Eye, Instagram, Youtube, Newspaper, RefreshCw, TrendingUp, TrendingDown, Users, CalendarIcon, Megaphone, Twitter, MousePointer, Heart, MessageCircle, Repeat2, UserPlus, AlertCircle, Clock, Play, Archive, ArchiveRestore } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { useState, useMemo, useEffect } from "react";
 import { usePerformanceMetrics, useFetchBeehiivMetrics, useScrapeMetrics, useFetchInstagramMetrics } from "@/hooks/usePerformanceMetrics";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useYouTubeVideos, useFetchYouTubeMetrics } from "@/hooks/useYouTubeMetrics";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useToast } from "@/components/ui/use-toast";
@@ -26,12 +27,14 @@ import { DateRange } from "react-day-picker";
 export default function ClientPerformance() {
   const { clientId } = useParams();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
   const selectedChannel = searchParams.get("channel");
-const { toast } = useToast();
+  const { toast } = useToast();
   const [dateRange, setDateRange] = useState("30");
   const [customDateRange, setCustomDateRange] = useState<DateRange | undefined>();
   const [chartMetric, setChartMetric] = useState<"views" | "reach" | "followers" | "dailyGain" | "impressions" | "engagements" | "likes" | "watchHours">("followers");
+  const [showArchived, setShowArchived] = useState(false);
 
   // Set default chart metric based on selected channel
   useEffect(() => {
@@ -55,6 +58,45 @@ const { toast } = useToast();
 
       if (error) throw error;
       return data;
+    },
+  });
+
+  // Get archived channels from client tags
+  const archivedChannels = useMemo(() => {
+    const tags = client?.tags as any;
+    return tags?.archived_channels || [];
+  }, [client?.tags]);
+
+  // Toggle archive mutation
+  const toggleArchive = useMutation({
+    mutationFn: async ({ channel, archive }: { channel: string; archive: boolean }) => {
+      const currentTags = (client?.tags || {}) as any;
+      const currentArchived = currentTags.archived_channels || [];
+      
+      const newArchived = archive
+        ? [...currentArchived, channel]
+        : currentArchived.filter((c: string) => c !== channel);
+      
+      const { error } = await supabase
+        .from("clients")
+        .update({ 
+          tags: { 
+            ...currentTags, 
+            archived_channels: newArchived 
+          } 
+        })
+        .eq("id", clientId);
+      
+      if (error) throw error;
+    },
+    onSuccess: (_, { archive }) => {
+      queryClient.invalidateQueries({ queryKey: ["client", clientId] });
+      toast({
+        title: archive ? "Canal arquivado" : "Canal restaurado",
+        description: archive 
+          ? "O canal foi movido para arquivados." 
+          : "O canal foi restaurado para a lista principal.",
+      });
     },
   });
 
@@ -108,26 +150,21 @@ const { toast } = useToast();
       } else if (selectedChannel === "youtube") {
         // Get YouTube channel ID from client social_media
         const socialMedia = client?.social_media as any;
-        const youtubeUrl = socialMedia?.youtube || "";
         
-        // Extract channel ID from URL
-        let channelId = "";
-        if (youtubeUrl.includes("/channel/")) {
-          channelId = youtubeUrl.split("/channel/")[1]?.split(/[/?]/)[0] || "";
-        } else if (youtubeUrl.includes("/@")) {
-          // Handle @username format - would need to resolve via API
-          toast({
-            title: "Erro",
-            description: "Para atualização automática, configure o Channel ID do YouTube nas configurações do cliente.",
-            variant: "destructive",
-          });
-          return;
+        // First check for explicit channel_id, then try to extract from URL
+        let channelId = socialMedia?.youtube_channel_id || "";
+        
+        if (!channelId) {
+          const youtubeUrl = socialMedia?.youtube || "";
+          if (youtubeUrl.includes("/channel/")) {
+            channelId = youtubeUrl.split("/channel/")[1]?.split(/[/?]/)[0] || "";
+          }
         }
         
         if (!channelId) {
           toast({
             title: "Erro",
-            description: "Configure o Channel ID do YouTube do cliente primeiro.",
+            description: "Configure o Channel ID do YouTube nas configurações do cliente.",
             variant: "destructive",
           });
           return;
@@ -347,6 +384,9 @@ const { toast } = useToast();
 
   // Se não tem canal selecionado, mostra a seleção de canais
   if (!selectedChannel) {
+    const activeChannels = Object.entries(channels).filter(([key]) => !archivedChannels.includes(key));
+    const archivedChannelsList = Object.entries(channels).filter(([key]) => archivedChannels.includes(key));
+
     return (
       <div className="max-w-6xl mx-auto px-6 py-8 space-y-6">
         <PageHeader
@@ -355,28 +395,99 @@ const { toast } = useToast();
           onBack={() => navigate("/performance")}
         />
 
+        {/* Active Channels */}
         <div className="grid gap-4 md:grid-cols-3">
-          {Object.entries(channels).map(([key, channel]) => {
+          {activeChannels.map(([key, channel]) => {
             const Icon = channel.icon;
             return (
               <Card
                 key={key}
-                className="border-border/50 bg-card/50 hover:border-border transition-all cursor-pointer"
-                onClick={() => setSearchParams({ channel: key })}
+                className="border-border/50 bg-card/50 hover:border-border transition-all cursor-pointer group relative"
               >
-                <CardHeader className="pb-2">
-                  <div className="flex items-center gap-3">
-                    <Icon className="h-5 w-5 text-muted-foreground" />
-                    <CardTitle className="text-base">{channel.title}</CardTitle>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <CardDescription className="text-sm">{channel.description}</CardDescription>
-                </CardContent>
+                <div 
+                  className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7"
+                    onClick={() => toggleArchive.mutate({ channel: key, archive: true })}
+                    title="Arquivar canal"
+                  >
+                    <Archive className="h-3.5 w-3.5 text-muted-foreground" />
+                  </Button>
+                </div>
+                <div onClick={() => setSearchParams({ channel: key })}>
+                  <CardHeader className="pb-2">
+                    <div className="flex items-center gap-3">
+                      <Icon className="h-5 w-5 text-muted-foreground" />
+                      <CardTitle className="text-base">{channel.title}</CardTitle>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <CardDescription className="text-sm">{channel.description}</CardDescription>
+                  </CardContent>
+                </div>
               </Card>
             );
           })}
         </div>
+
+        {/* Archived Channels Section */}
+        {archivedChannelsList.length > 0 && (
+          <div className="space-y-3">
+            <button
+              onClick={() => setShowArchived(!showArchived)}
+              className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <Archive className="h-4 w-4" />
+              <span>Canais arquivados ({archivedChannelsList.length})</span>
+              <span className="text-xs">{showArchived ? "▼" : "▶"}</span>
+            </button>
+            
+            {showArchived && (
+              <div className="grid gap-4 md:grid-cols-3">
+                {archivedChannelsList.map(([key, channel]) => {
+                  const Icon = channel.icon;
+                  return (
+                    <Card
+                      key={key}
+                      className="border-border/30 bg-card/30 hover:border-border/50 transition-all cursor-pointer group relative opacity-60 hover:opacity-100"
+                    >
+                      <div 
+                        className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          onClick={() => toggleArchive.mutate({ channel: key, archive: false })}
+                          title="Restaurar canal"
+                        >
+                          <ArchiveRestore className="h-3.5 w-3.5 text-muted-foreground" />
+                        </Button>
+                      </div>
+                      <div onClick={() => setSearchParams({ channel: key })}>
+                        <CardHeader className="pb-2">
+                          <div className="flex items-center gap-3">
+                            <Icon className="h-5 w-5 text-muted-foreground" />
+                            <CardTitle className="text-base">{channel.title}</CardTitle>
+                            <Badge variant="outline" className="text-[10px] px-1.5 py-0">Arquivado</Badge>
+                          </div>
+                        </CardHeader>
+                        <CardContent>
+                          <CardDescription className="text-sm">{channel.description}</CardDescription>
+                        </CardContent>
+                      </div>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     );
   }
