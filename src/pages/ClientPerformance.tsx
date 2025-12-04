@@ -842,17 +842,31 @@ const { toast } = useToast();
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
                   <div>
-                    <CardTitle className="text-base">Views Diárias</CardTitle>
+                    <CardTitle className="text-base">Métricas Diárias</CardTitle>
                     <CardDescription className="text-xs">
                       {chartData.length > 0 && `${chartData[0]?.date} - ${chartData[chartData.length - 1]?.date}`}
                     </CardDescription>
                   </div>
+                  <ToggleGroup 
+                    type="single" 
+                    value={chartMetric} 
+                    onValueChange={(v) => v && setChartMetric(v as any)}
+                    className="bg-muted/50 p-1 rounded-lg"
+                  >
+                    <ToggleGroupItem value="views" className="text-xs px-3 py-1 h-7 data-[state=on]:bg-background">
+                      Views
+                    </ToggleGroupItem>
+                    <ToggleGroupItem value="watchHours" className="text-xs px-3 py-1 h-7 data-[state=on]:bg-background">
+                      Horas
+                    </ToggleGroupItem>
+                  </ToggleGroup>
                 </div>
               </CardHeader>
               <CardContent>
                 <ChartContainer
                   config={{
                     views: { label: "Views", color: "hsl(160, 84%, 39%)" },
+                    watchHours: { label: "Horas Assistidas", color: "hsl(330, 81%, 60%)" },
                   }}
                   className="h-[280px]"
                 >
@@ -883,16 +897,16 @@ const { toast } = useToast();
                         }}
                         formatter={(value: number) => [
                           value.toLocaleString('pt-BR'),
-                          'Views'
+                          chartMetric === 'views' ? 'Views' : 'Horas Assistidas'
                         ]}
                       />
                       <Line
                         type="natural"
-                        dataKey="views"
-                        stroke="hsl(160, 84%, 39%)"
+                        dataKey={chartMetric === 'views' ? 'views' : 'watch_hours'}
+                        stroke={chartMetric === 'views' ? "hsl(160, 84%, 39%)" : "hsl(330, 81%, 60%)"}
                         strokeWidth={2}
-                        dot={chartData.length > 30 ? false : { r: 3, fill: "hsl(160, 84%, 39%)" }}
-                        activeDot={{ r: 5, stroke: "hsl(160, 84%, 39%)", strokeWidth: 2, fill: 'hsl(var(--background))' }}
+                        dot={chartData.length > 30 ? false : { r: 3, fill: chartMetric === 'views' ? "hsl(160, 84%, 39%)" : "hsl(330, 81%, 60%)" }}
+                        activeDot={{ r: 5, stroke: chartMetric === 'views' ? "hsl(160, 84%, 39%)" : "hsl(330, 81%, 60%)", strokeWidth: 2, fill: 'hsl(var(--background))' }}
                       />
                     </LineChart>
                   </ResponsiveContainer>
@@ -948,14 +962,20 @@ const { toast } = useToast();
                         <tr key={video.id} className="border-b border-border/50 hover:bg-muted/50 transition-colors">
                           <td className="py-3 px-4">
                             <div className="flex items-center gap-3">
-                              {video.thumbnail_url && (
-                                <img 
-                                  src={video.thumbnail_url} 
-                                  alt="" 
-                                  className="w-16 h-9 object-cover rounded"
-                                />
-                              )}
-                              <div className="font-medium text-sm max-w-[300px] truncate">{video.title}</div>
+                              <div className="w-24 h-14 bg-muted rounded overflow-hidden flex-shrink-0">
+                                {video.thumbnail_url ? (
+                                  <img 
+                                    src={video.thumbnail_url} 
+                                    alt={video.title}
+                                    className="w-full h-full object-cover"
+                                  />
+                                ) : (
+                                  <div className="w-full h-full flex items-center justify-center">
+                                    <Play className="h-6 w-6 text-muted-foreground" />
+                                  </div>
+                                )}
+                              </div>
+                              <div className="font-medium text-sm max-w-[280px] truncate">{video.title}</div>
                             </div>
                           </td>
                           <td className="text-right py-3 px-4 tabular-nums text-sm font-medium">
