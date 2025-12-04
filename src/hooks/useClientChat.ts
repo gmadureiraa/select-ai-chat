@@ -176,13 +176,13 @@ export const useClientChat = (clientId: string, templateId?: string) => {
     enabled: !!clientId,
   });
 
-  // Get documents
+  // Get documents with extracted content
   const { data: documents = [] } = useQuery({
     queryKey: ["client-documents", clientId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("client_documents")
-        .select("*")
+        .select("id, name, file_type, file_path, extracted_content")
         .eq("client_id", clientId);
 
       if (error) throw error;
@@ -297,14 +297,17 @@ export const useClientChat = (clientId: string, templateId?: string) => {
           preview: c.content.substring(0, 300), // Preview para IA decidir
           hasFullContent: true
         })),
-        // Documentos do storage
+        // Documentos do storage (agora com conteúdo extraído)
         ...documents.map(d => ({
           id: d.id,
           type: 'document',
           category: d.file_type,
           title: d.name,
-          preview: `Documento: ${d.name}`,
-          hasFullContent: false // Precisa buscar do storage se necessário
+          preview: d.extracted_content 
+            ? `${d.name}: ${d.extracted_content.substring(0, 250)}...` 
+            : `Documento: ${d.name} (sem transcrição)`,
+          hasFullContent: !!d.extracted_content,
+          content: d.extracted_content
         })),
         // NOVO: Biblioteca de Referências (tweets, threads, etc)
         ...referenceLibrary.map(r => ({
@@ -345,7 +348,8 @@ ${contentLibrary.map(c => `- ID: ${c.id}
 ### Documentos (${documents.length}):
 ${documents.map(d => `- ID: ${d.id}
   Nome: ${d.name}
-  Tipo: ${d.file_type}`).join('\n')}
+  Tipo: ${d.file_type}
+  ${d.extracted_content ? `Conteúdo: ${d.extracted_content.substring(0, 200)}...` : '(Sem transcrição)'}`).join('\n\n')}
 
 ### Biblioteca de Referências (${referenceLibrary.length}):
 ${referenceLibrary.map(r => `- ID: ${r.id}
@@ -546,9 +550,18 @@ Retorne uma análise clara e estruturada para guiar a criação de novo conteúd
 
       // Build enriched context with pattern analysis
       // Start with identity guide as the FIRST thing (most important context)
+      // Include documents with extracted content
+      const docsWithContent = documents.filter(d => d.extracted_content).map(d => ({
+        id: d.id,
+        name: d.name,
+        file_type: d.file_type,
+        extracted_content: d.extracted_content
+      }));
+      
       const knowledgeContext = formatKnowledgeForContext(
         identityGuide || client.identity_guide || null, 
-        knowledgeFiles
+        knowledgeFiles,
+        docsWithContent
       );
 
       let contextParts = [

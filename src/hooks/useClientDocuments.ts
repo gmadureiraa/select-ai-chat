@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { getSignedUrl } from "@/lib/storage";
 
 export interface ClientDocument {
   id: string;
@@ -8,6 +9,7 @@ export interface ClientDocument {
   name: string;
   file_type: string;
   file_path: string;
+  extracted_content: string | null;
   created_at: string;
 }
 
@@ -42,8 +44,8 @@ export const useClientDocuments = (clientId: string) => {
 
       if (uploadError) throw uploadError;
 
-      // Save document metadata
-      const { data, error: dbError } = await supabase
+      // Save document metadata first
+      const { data: docRecord, error: dbError } = await supabase
         .from("client_documents")
         .insert({
           client_id: clientId,
@@ -55,13 +57,56 @@ export const useClientDocuments = (clientId: string) => {
         .single();
 
       if (dbError) throw dbError;
-      return data;
+
+      // Extract content based on file type
+      let extractedContent: string | null = null;
+
+      try {
+        // Get signed URL for extraction
+        const signedUrl = await getSignedUrl(fileName);
+
+        if (file.type.includes("pdf")) {
+          // Use PDF extraction
+          const { data: pdfData, error: pdfError } = await supabase.functions.invoke("extract-pdf", {
+            body: { fileUrl: signedUrl, fileName: file.name },
+          });
+
+          if (!pdfError && pdfData?.content) {
+            extractedContent = pdfData.content;
+          }
+        } else if (file.type.includes("image")) {
+          // Use image transcription
+          const { data: imgData, error: imgError } = await supabase.functions.invoke("transcribe-images", {
+            body: { imageUrls: [signedUrl] },
+          });
+
+          if (!imgError && imgData?.transcriptions?.[0]) {
+            extractedContent = imgData.transcriptions[0];
+          }
+        } else if (file.type.includes("text") || file.name.endsWith(".md") || file.name.endsWith(".txt")) {
+          // Read text directly
+          extractedContent = await file.text();
+        }
+
+        // Update document with extracted content
+        if (extractedContent) {
+          await supabase
+            .from("client_documents")
+            .update({ extracted_content: extractedContent })
+            .eq("id", docRecord.id);
+        }
+      } catch (extractError) {
+        console.error("Error extracting content:", extractError);
+        // Don't fail the upload if extraction fails
+      }
+
+      return { ...docRecord, extracted_content: extractedContent };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["client-documents", clientId] });
       toast({
         title: "Documento enviado",
-        description: "O documento foi adicionado ao contexto do cliente.",
+        description: "O documento foi adicionado e transcrito para o contexto do cliente.",
       });
     },
     onError: (error) => {
