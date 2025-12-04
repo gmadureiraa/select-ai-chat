@@ -7,6 +7,19 @@ const Agents = () => {
 
   const agents = [
     {
+      title: "Assistente kAI",
+      subtitle: "Criação de conteúdo com IA",
+      description: "Chat inteligente com templates personalizados para criar conteúdo estratégico",
+      features: [
+        "Chat contextual por cliente",
+        "Templates personalizáveis",
+        "Geração de imagens",
+        "Automações programadas",
+      ],
+      accentColor: "primary" as const,
+      onOpen: () => navigate("/assistant"),
+    },
+    {
       title: "Publicador Social",
       subtitle: "Publique no Twitter e LinkedIn",
       description: "Publique conteúdo diretamente nas redes sociais dos seus clientes integrados",
@@ -20,31 +33,17 @@ const Agents = () => {
       onOpen: () => navigate("/social-publisher"),
     },
     {
-      title: "Engenharia Reversa",
-      subtitle: "Análise e recriação de conteúdo",
-      description: "Analise qualquer conteúdo de referência e recrie adaptado ao estilo único do seu cliente",
+      title: "Laboratório de Pesquisa",
+      subtitle: "Canvas multimodal de análise",
+      description: "Organize e analise vídeos, textos, áudios e imagens em um espaço visual interativo",
       features: [
-        "Análise de Reels e vídeos",
-        "Carrosséis e posts",
-        "Blogs e artigos",
-        "Adaptação ao cliente",
-      ],
-      accentColor: "accent" as const,
-      onOpen: () => {},
-      comingSoon: true,
-    },
-    {
-      title: "Assistente kAI",
-      subtitle: "Criação de conteúdo com IA",
-      description: "Chat inteligente com templates personalizados para criar conteúdo estratégico",
-      features: [
-        "Chat contextual por cliente",
-        "Templates personalizáveis",
-        "Geração de imagens",
-        "Automações programadas",
+        "Vídeos do YouTube",
+        "Transcrição automática",
+        "Chat com IA",
+        "Síntese inteligente",
       ],
       accentColor: "primary" as const,
-      onOpen: () => navigate("/assistant"),
+      onOpen: () => navigate("/research-lab"),
     },
     {
       title: "Análise de Performance",
@@ -60,8 +59,8 @@ const Agents = () => {
       onOpen: () => navigate("/performance"),
     },
     {
-      title: "Automação de Conteúdo",
-      subtitle: "Criação e publicação automatizada",
+      title: "Automações",
+      subtitle: "Rodar e criar automações",
       description: "Geração e distribuição automática de conteúdo em múltiplos canais e formatos",
       features: [
         "Multi-plataforma",
@@ -73,17 +72,18 @@ const Agents = () => {
       onOpen: () => navigate("/automations"),
     },
     {
-      title: "Laboratório de Pesquisa",
-      subtitle: "Canvas multimodal de análise",
-      description: "Organize e analise vídeos, textos, áudios e imagens em um espaço visual interativo",
+      title: "Engenharia Reversa",
+      subtitle: "Análise e recriação de conteúdo",
+      description: "Analise qualquer conteúdo de referência e recrie adaptado ao estilo único do seu cliente",
       features: [
-        "Vídeos do YouTube",
-        "Transcrição automática",
-        "Chat com IA",
-        "Síntese inteligente",
+        "Análise de Reels e vídeos",
+        "Carrosséis e posts",
+        "Blogs e artigos",
+        "Adaptação ao cliente",
       ],
-      accentColor: "primary" as const,
-      onOpen: () => navigate("/research-lab"),
+      accentColor: "accent" as const,
+      onOpen: () => {},
+      comingSoon: true,
     },
   ];
 
