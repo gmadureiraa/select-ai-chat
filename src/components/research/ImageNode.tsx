@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
+import { uploadAndGetSignedUrl } from "@/lib/storage";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
@@ -93,20 +94,13 @@ const ImageNode = ({ data }: NodeProps<ImageNodeData>) => {
 
     setIsUploading(true);
     try {
-      const fileName = `${Date.now()}-${file.name}`;
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from("client-files")
-        .upload(`research-images/${fileName}`, file);
+      const { signedUrl, error } = await uploadAndGetSignedUrl(file, "research-images");
 
-      if (uploadError) throw uploadError;
-
-      const { data: { publicUrl } } = supabase.storage
-        .from("client-files")
-        .getPublicUrl(uploadData.path);
+      if (error) throw error;
 
       await updateItem.mutateAsync({
         id: data.item.id,
-        source_url: publicUrl,
+        source_url: signedUrl || "",
         title: file.name,
       });
 
