@@ -91,10 +91,44 @@ serve(async (req) => {
     }
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-    // Buscar automação
+    // Extract JWT from Authorization header for ownership verification
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: "Authorization header required" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Create user-scoped client to verify ownership via RLS
+    const userSupabase = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } }
+    });
+
+    // Verify user has access to this automation via RLS policies
+    const { data: automationAccess, error: accessError } = await userSupabase
+      .from("automations")
+      .select("id")
+      .eq("id", automationId)
+      .single();
+
+    if (accessError || !automationAccess) {
+      console.error("Access denied or automation not found:", accessError);
+      return new Response(
+        JSON.stringify({ error: "Automation not found or access denied" }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    console.log("Ownership verified for automation:", automationId);
+
+    // Now use service role for the actual operations (needed for some admin tasks)
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Buscar automação com dados completos
     const { data: automation, error: automationError } = await supabase
       .from("automations")
       .select("*, clients(*)")
