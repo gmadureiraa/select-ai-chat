@@ -7,7 +7,7 @@ export interface AgentCardProps {
   subtitle: string;
   description: string;
   features: string[];
-  accentColor: "primary" | "secondary" | "accent";
+  accentColor: "primary" | "secondary" | "accent" | "white" | "purple" | "yellow";
   onOpen: () => void;
   comingSoon?: boolean;
 }
@@ -26,6 +26,7 @@ export default function AgentCard({
   const colorClasses = {
     primary: {
       glow: "shadow-[0_0_50px_hsl(var(--primary)/0.35)]",
+      glowFlipped: "shadow-[0_0_50px_hsl(var(--primary)/0.35)]",
       text: "text-primary",
       bg: "bg-primary/10",
       hover: "hover:bg-primary/20",
@@ -33,6 +34,7 @@ export default function AgentCard({
     },
     secondary: {
       glow: "shadow-[0_0_50px_hsl(var(--secondary)/0.35)]",
+      glowFlipped: "shadow-[0_0_50px_hsl(var(--secondary)/0.35)]",
       text: "text-secondary",
       bg: "bg-secondary/10",
       hover: "hover:bg-secondary/20",
@@ -40,10 +42,35 @@ export default function AgentCard({
     },
     accent: {
       glow: "shadow-[0_0_50px_hsl(var(--accent)/0.35)]",
+      glowFlipped: "shadow-[0_0_50px_hsl(var(--accent)/0.35)]",
       text: "text-accent",
       bg: "bg-accent/10",
       hover: "hover:bg-accent/20",
       border: "border-accent/20",
+    },
+    white: {
+      glow: "shadow-[0_0_50px_hsl(0_0%_100%/0.5)]",
+      glowFlipped: "shadow-[0_0_50px_hsl(0_0%_0%/0.35)]",
+      text: "text-foreground",
+      bg: "bg-foreground/10",
+      hover: "hover:bg-foreground/20",
+      border: "border-foreground/20",
+    },
+    purple: {
+      glow: "shadow-[0_0_50px_hsl(280_100%_60%/0.45)]",
+      glowFlipped: "shadow-[0_0_50px_hsl(280_100%_60%/0.45)]",
+      text: "text-[hsl(280_100%_70%)]",
+      bg: "bg-[hsl(280_100%_60%/0.1)]",
+      hover: "hover:bg-[hsl(280_100%_60%/0.2)]",
+      border: "border-[hsl(280_100%_60%/0.2)]",
+    },
+    yellow: {
+      glow: "shadow-[0_0_50px_hsl(45_100%_50%/0.45)]",
+      glowFlipped: "shadow-[0_0_50px_hsl(45_100%_50%/0.45)]",
+      text: "text-[hsl(45_100%_50%)]",
+      bg: "bg-[hsl(45_100%_50%/0.1)]",
+      hover: "hover:bg-[hsl(45_100%_50%/0.2)]",
+      border: "border-[hsl(45_100%_50%/0.2)]",
     },
   } as const;
 
@@ -91,7 +118,8 @@ export default function AgentCard({
                       "absolute w-[50px] h-[50px] rounded-[140px]",
                       "animate-agent-circle opacity-0",
                       "group-hover:animate-[agent-circle_2s_linear_infinite]",
-                      colors.glow
+                      "transition-shadow duration-500",
+                      isFlipped ? colors.glowFlipped : colors.glow
                     )}
                     style={{ animationDelay: `${i * 0.3}s` }}
                   />
