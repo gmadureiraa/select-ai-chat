@@ -3,13 +3,14 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, Eye, Instagram, Youtube, Newspaper, RefreshCw, TrendingUp, TrendingDown, Users, CalendarIcon, Megaphone, Twitter, MousePointer, Heart, MessageCircle, Repeat2, UserPlus, AlertCircle } from "lucide-react";
+import { ArrowLeft, Eye, Instagram, Youtube, Newspaper, RefreshCw, TrendingUp, TrendingDown, Users, CalendarIcon, Megaphone, Twitter, MousePointer, Heart, MessageCircle, Repeat2, UserPlus, AlertCircle, Clock, Play } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { useState, useMemo, useEffect } from "react";
 import { usePerformanceMetrics, useFetchBeehiivMetrics, useScrapeMetrics, useFetchInstagramMetrics } from "@/hooks/usePerformanceMetrics";
+import { useYouTubeVideos, useFetchYouTubeMetrics } from "@/hooks/useYouTubeMetrics";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useToast } from "@/components/ui/use-toast";
 import { Badge } from "@/components/ui/badge";
@@ -17,7 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { PageHeader } from "@/components/PageHeader";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { format, subDays, isWithinInterval } from "date-fns";
+import { format, subDays, isWithinInterval, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { DateRange } from "react-day-picker";
@@ -30,7 +31,7 @@ export default function ClientPerformance() {
 const { toast } = useToast();
   const [dateRange, setDateRange] = useState("30");
   const [customDateRange, setCustomDateRange] = useState<DateRange | undefined>();
-  const [chartMetric, setChartMetric] = useState<"views" | "reach" | "followers" | "dailyGain" | "impressions" | "engagements" | "likes">("followers");
+  const [chartMetric, setChartMetric] = useState<"views" | "reach" | "followers" | "dailyGain" | "impressions" | "engagements" | "likes" | "watchHours">("followers");
 
   // Set default chart metric based on selected channel
   useEffect(() => {
@@ -38,6 +39,8 @@ const { toast } = useToast();
       setChartMetric("impressions");
     } else if (selectedChannel === "instagram") {
       setChartMetric("followers");
+    } else if (selectedChannel === "youtube") {
+      setChartMetric("views");
     }
   }, [selectedChannel]);
 
@@ -58,12 +61,19 @@ const { toast } = useToast();
   const { data: metrics, isLoading: metricsLoading } = usePerformanceMetrics(
     clientId || "", 
     selectedChannel || "",
-    100 // Fetch up to 100 days for custom ranges
+    365 // Fetch up to 365 days for YouTube
+  );
+
+  // YouTube videos query
+  const { data: youtubeVideos, isLoading: youtubeVideosLoading } = useYouTubeVideos(
+    clientId || "",
+    100
   );
 
   const fetchBeehiiv = useFetchBeehiivMetrics();
   const scrapeMetrics = useScrapeMetrics();
   const fetchInstagram = useFetchInstagramMetrics();
+  const fetchYouTube = useFetchYouTubeMetrics();
 
   const handleRefreshMetrics = async () => {
     if (!clientId || !selectedChannel) return;
@@ -95,6 +105,39 @@ const { toast } = useToast();
           title: "Métricas atualizadas",
           description: "Dados do Instagram foram coletados com sucesso.",
         });
+      } else if (selectedChannel === "youtube") {
+        // Get YouTube channel ID from client social_media
+        const socialMedia = client?.social_media as any;
+        const youtubeUrl = socialMedia?.youtube || "";
+        
+        // Extract channel ID from URL
+        let channelId = "";
+        if (youtubeUrl.includes("/channel/")) {
+          channelId = youtubeUrl.split("/channel/")[1]?.split(/[/?]/)[0] || "";
+        } else if (youtubeUrl.includes("/@")) {
+          // Handle @username format - would need to resolve via API
+          toast({
+            title: "Erro",
+            description: "Para atualização automática, configure o Channel ID do YouTube nas configurações do cliente.",
+            variant: "destructive",
+          });
+          return;
+        }
+        
+        if (!channelId) {
+          toast({
+            title: "Erro",
+            description: "Configure o Channel ID do YouTube do cliente primeiro.",
+            variant: "destructive",
+          });
+          return;
+        }
+        
+        await fetchYouTube.mutateAsync({ clientId, channelId });
+        toast({
+          title: "Métricas atualizadas",
+          description: "Dados do YouTube foram coletados com sucesso.",
+        });
       } else {
         const urls: Record<string, string> = {
           cortes: "https://www.youtube.com/channel/UCDUYB7s0W20qs90e160B1LA",
@@ -120,7 +163,7 @@ const { toast } = useToast();
     }
   };
 
-  const isRefreshing = fetchBeehiiv.isPending || scrapeMetrics.isPending || fetchInstagram.isPending;
+  const isRefreshing = fetchBeehiiv.isPending || scrapeMetrics.isPending || fetchInstagram.isPending || fetchYouTube.isPending;
 
   // Calculate period-based metrics for KPIs
   const periodMetrics = useMemo(() => {
@@ -178,6 +221,7 @@ const { toast } = useToast();
     impressions: { label: "Impressões", color: "hsl(160, 84%, 39%)", dataKey: "impressions" },
     engagements: { label: "Engajamentos", color: "hsl(330, 81%, 60%)", dataKey: "engagements" },
     likes: { label: "Curtidas", color: "hsl(330, 81%, 60%)", dataKey: "likes" },
+    watchHours: { label: "Horas Assistidas", color: "hsl(330, 81%, 60%)", dataKey: "watch_hours" },
   }), []);
 
   const chartData = useMemo(() => {
@@ -267,6 +311,11 @@ const { toast } = useToast();
       icon: Twitter,
       title: "X (Twitter)",
       description: "Impressões, engajamentos e crescimento de seguidores",
+    },
+    youtube: {
+      icon: Youtube,
+      title: "YouTube",
+      description: "Views, horas assistidas e performance por vídeo",
     },
     cortes: {
       icon: Youtube,
@@ -745,6 +794,207 @@ const { toast } = useToast();
                     </LineChart>
                   </ResponsiveContainer>
                 </ChartContainer>
+              </CardContent>
+            </Card>
+          )}
+        </>
+      )}
+
+      {/* YouTube metrics */}
+      {!metricsLoading && selectedChannel === "youtube" && (
+        <>
+          {/* YouTube KPI Cards */}
+          <div className="grid gap-4 md:grid-cols-4">
+            <KPICard
+              title={`Views (${periodMetrics?.daysInPeriod || 0} dias)`}
+              value={periodMetrics?.totalViews || 0}
+              change={null}
+              icon={Eye}
+            />
+            <KPICard
+              title="Horas Assistidas"
+              value={youtubeVideos?.reduce((sum, v) => sum + (v.watch_hours || 0), 0) || 0}
+              change={null}
+              icon={Clock}
+              formatter={(v) => `${(v / 1000).toFixed(1)}k`}
+            />
+            <KPICard
+              title="Inscritos Ganhos"
+              value={youtubeVideos?.reduce((sum, v) => sum + (v.subscribers_gained || 0), 0) || 0}
+              change={null}
+              icon={UserPlus}
+              formatter={(v) => `+${v.toLocaleString("pt-BR")}`}
+            />
+            <KPICard
+              title="CTR Médio"
+              value={youtubeVideos && youtubeVideos.length > 0 
+                ? youtubeVideos.reduce((sum, v) => sum + (v.click_rate || 0), 0) / youtubeVideos.length 
+                : 0}
+              change={null}
+              icon={MousePointer}
+              formatter={(v) => `${v.toFixed(2)}%`}
+            />
+          </div>
+
+          {/* YouTube Historical Chart */}
+          {chartData.length >= 1 && (
+            <Card className="border-border/50 bg-card/50">
+              <CardHeader className="pb-2">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-base">Views Diárias</CardTitle>
+                    <CardDescription className="text-xs">
+                      {chartData.length > 0 && `${chartData[0]?.date} - ${chartData[chartData.length - 1]?.date}`}
+                    </CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <ChartContainer
+                  config={{
+                    views: { label: "Views", color: "hsl(160, 84%, 39%)" },
+                  }}
+                  className="h-[280px]"
+                >
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={chartData}>
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-border/30" vertical={false} />
+                      <XAxis 
+                        dataKey="date" 
+                        className="text-xs"
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                      />
+                      <YAxis 
+                        className="text-xs" 
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                        tickFormatter={(value) => {
+                          return value >= 1000 ? `${(value / 1000).toFixed(0)}k` : value;
+                        }}
+                      />
+                      <Tooltip 
+                        contentStyle={{ 
+                          backgroundColor: 'hsl(var(--card))', 
+                          border: '1px solid hsl(var(--border))',
+                          borderRadius: '8px',
+                        }}
+                        formatter={(value: number) => [
+                          value.toLocaleString('pt-BR'),
+                          'Views'
+                        ]}
+                      />
+                      <Line
+                        type="natural"
+                        dataKey="views"
+                        stroke="hsl(160, 84%, 39%)"
+                        strokeWidth={2}
+                        dot={chartData.length > 30 ? false : { r: 3, fill: "hsl(160, 84%, 39%)" }}
+                        activeDot={{ r: 5, stroke: "hsl(160, 84%, 39%)", strokeWidth: 2, fill: 'hsl(var(--background))' }}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </ChartContainer>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* YouTube Videos Table */}
+          {youtubeVideos && youtubeVideos.length > 0 && (
+            <Card className="border-border/50 bg-card/50">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-base">Vídeos</CardTitle>
+                    <CardDescription>Performance individual de cada vídeo</CardDescription>
+                  </div>
+                  <Badge variant="outline">{youtubeVideos.length} vídeos</Badge>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-border">
+                        <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Título</th>
+                        <th className="text-right py-3 px-4 text-sm font-medium text-muted-foreground">Views</th>
+                        <th className="text-right py-3 px-4 text-sm font-medium text-muted-foreground">Horas</th>
+                        <th className="text-right py-3 px-4 text-sm font-medium text-muted-foreground">Inscritos</th>
+                        <th className="text-right py-3 px-4 text-sm font-medium text-muted-foreground">Impressões</th>
+                        <th className="text-right py-3 px-4 text-sm font-medium text-muted-foreground">CTR</th>
+                        <th className="text-right py-3 px-4 text-sm font-medium text-muted-foreground">Data</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {youtubeVideos
+                        .filter(video => {
+                          // Filter videos by date if custom range
+                          if (dateRange === "custom" && customDateRange?.from && video.published_at) {
+                            const publishDate = new Date(video.published_at);
+                            const startDate = customDateRange.from;
+                            const endDate = customDateRange.to || new Date();
+                            return publishDate >= startDate && publishDate <= endDate;
+                          }
+                          // Default: show videos from December 2024 onwards
+                          if (video.published_at) {
+                            const publishDate = new Date(video.published_at);
+                            return publishDate >= new Date('2024-12-01');
+                          }
+                          return true;
+                        })
+                        .map((video) => (
+                        <tr key={video.id} className="border-b border-border/50 hover:bg-muted/50 transition-colors">
+                          <td className="py-3 px-4">
+                            <div className="flex items-center gap-3">
+                              {video.thumbnail_url && (
+                                <img 
+                                  src={video.thumbnail_url} 
+                                  alt="" 
+                                  className="w-16 h-9 object-cover rounded"
+                                />
+                              )}
+                              <div className="font-medium text-sm max-w-[300px] truncate">{video.title}</div>
+                            </div>
+                          </td>
+                          <td className="text-right py-3 px-4 tabular-nums text-sm font-medium">
+                            {video.total_views?.toLocaleString('pt-BR') || '-'}
+                          </td>
+                          <td className="text-right py-3 px-4 tabular-nums text-sm">
+                            {video.watch_hours ? `${(video.watch_hours / 1000).toFixed(1)}k` : '-'}
+                          </td>
+                          <td className="text-right py-3 px-4 tabular-nums text-sm text-emerald-500">
+                            {video.subscribers_gained ? `+${video.subscribers_gained.toLocaleString('pt-BR')}` : '-'}
+                          </td>
+                          <td className="text-right py-3 px-4 tabular-nums text-sm">
+                            {video.impressions ? `${(video.impressions / 1000000).toFixed(1)}M` : '-'}
+                          </td>
+                          <td className="text-right py-3 px-4 tabular-nums text-sm font-medium text-primary">
+                            {video.click_rate ? `${video.click_rate}%` : '-'}
+                          </td>
+                          <td className="text-right py-3 px-4 text-sm text-muted-foreground">
+                            {video.published_at 
+                              ? new Date(video.published_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })
+                              : '-'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* No data state */}
+          {(!youtubeVideos || youtubeVideos.length === 0) && !youtubeVideosLoading && (
+            <Card className="border-border/50 bg-card/50">
+              <CardContent className="p-12 text-center">
+                <Play className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                <p className="text-muted-foreground mb-4">
+                  Nenhum dado de vídeo disponível. Importe os CSVs do YouTube Analytics ou configure a API.
+                </p>
               </CardContent>
             </Card>
           )}
