@@ -8,9 +8,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Badge } from "@/components/ui/badge";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Plus, FileText, Trash2, Edit, Upload, Loader2, Search, BookOpen } from "lucide-react";
+import { Plus, FileText, Trash2, Edit, Upload, Loader2, Search, BookOpen, Download, ExternalLink } from "lucide-react";
 import { useGlobalKnowledge, KNOWLEDGE_CATEGORIES, KnowledgeCategory, GlobalKnowledge } from "@/hooks/useGlobalKnowledge";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -31,6 +30,7 @@ export default function KnowledgeBase() {
   const [formCategory, setFormCategory] = useState<KnowledgeCategory>("other");
   const [formSourceFile, setFormSourceFile] = useState("");
   const [formPageCount, setFormPageCount] = useState<number | null>(null);
+  const [formPdfUrl, setFormPdfUrl] = useState<string | null>(null);
 
   const resetForm = () => {
     setFormTitle("");
@@ -38,6 +38,7 @@ export default function KnowledgeBase() {
     setFormCategory("other");
     setFormSourceFile("");
     setFormPageCount(null);
+    setFormPdfUrl(null);
   };
 
   // Sanitize filename for storage (remove special chars, accents, spaces)
@@ -84,6 +85,7 @@ export default function KnowledgeBase() {
       setFormContent(data.content || '');
       setFormSourceFile(file.name);
       setFormPageCount(data.pageCount || null);
+      setFormPdfUrl(urlData.publicUrl);
       
       toast.success('PDF extraído com sucesso! Revise o conteúdo abaixo.');
     } catch (error: any) {
@@ -106,6 +108,7 @@ export default function KnowledgeBase() {
       category: formCategory,
       source_file: formSourceFile || undefined,
       page_count: formPageCount || undefined,
+      metadata: formPdfUrl ? { pdf_url: formPdfUrl } : undefined,
     });
 
     resetForm();
@@ -153,17 +156,24 @@ export default function KnowledgeBase() {
     return KNOWLEDGE_CATEGORIES.find(c => c.value === category)?.label || category;
   };
 
-  const getCategoryColor = (category: KnowledgeCategory) => {
-    const colors: Record<KnowledgeCategory, string> = {
-      copywriting: 'bg-blue-500/20 text-blue-400',
-      storytelling: 'bg-purple-500/20 text-purple-400',
-      hooks: 'bg-yellow-500/20 text-yellow-400',
-      psychology: 'bg-pink-500/20 text-pink-400',
-      structure: 'bg-green-500/20 text-green-400',
-      engagement: 'bg-cyan-500/20 text-cyan-400',
-      other: 'bg-muted text-muted-foreground',
+  const getCategoryConfig = (category: KnowledgeCategory) => {
+    const configs: Record<KnowledgeCategory, { bg: string; text: string; border: string }> = {
+      copywriting: { bg: 'bg-blue-500/10', text: 'text-blue-400', border: 'border-blue-500/30' },
+      storytelling: { bg: 'bg-purple-500/10', text: 'text-purple-400', border: 'border-purple-500/30' },
+      hooks: { bg: 'bg-amber-500/10', text: 'text-amber-400', border: 'border-amber-500/30' },
+      psychology: { bg: 'bg-pink-500/10', text: 'text-pink-400', border: 'border-pink-500/30' },
+      structure: { bg: 'bg-emerald-500/10', text: 'text-emerald-400', border: 'border-emerald-500/30' },
+      engagement: { bg: 'bg-cyan-500/10', text: 'text-cyan-400', border: 'border-cyan-500/30' },
+      other: { bg: 'bg-muted/50', text: 'text-muted-foreground', border: 'border-border' },
     };
-    return colors[category];
+    return configs[category];
+  };
+
+  const getPdfUrl = (item: GlobalKnowledge) => {
+    if (item.metadata && typeof item.metadata === 'object' && 'pdf_url' in item.metadata) {
+      return (item.metadata as { pdf_url?: string }).pdf_url;
+    }
+    return null;
   };
 
   return (
@@ -219,61 +229,87 @@ export default function KnowledgeBase() {
         </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredKnowledge.map((item) => (
-            <Card 
-              key={item.id} 
-              className="hover:border-primary/50 transition-colors cursor-pointer group"
-              onClick={() => handleView(item)}
-            >
-              <CardHeader className="pb-3">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <FileText className="h-5 w-5 text-muted-foreground shrink-0" />
-                    <CardTitle className="text-base line-clamp-1">{item.title}</CardTitle>
-                  </div>
-                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
-                    <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => handleEdit(item)}>
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive hover:text-destructive">
-                          <Trash2 className="h-4 w-4" />
+          {filteredKnowledge.map((item) => {
+            const categoryConfig = getCategoryConfig(item.category);
+            const pdfUrl = getPdfUrl(item);
+            
+            return (
+              <Card 
+                key={item.id} 
+                className="hover:border-primary/50 transition-all cursor-pointer group relative overflow-hidden"
+                onClick={() => handleView(item)}
+              >
+                <CardHeader className="pb-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                      <div className={`p-2 rounded-lg ${categoryConfig.bg} shrink-0`}>
+                        <FileText className={`h-4 w-4 ${categoryConfig.text}`} />
+                      </div>
+                      <CardTitle className="text-sm font-medium line-clamp-2 leading-tight">{item.title}</CardTitle>
+                    </div>
+                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" onClick={e => e.stopPropagation()}>
+                      {pdfUrl && (
+                        <Button 
+                          size="icon" 
+                          variant="ghost" 
+                          className="h-7 w-7" 
+                          onClick={() => window.open(pdfUrl, '_blank')}
+                          title="Abrir PDF original"
+                        >
+                          <ExternalLink className="h-3.5 w-3.5" />
                         </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Remover conhecimento?</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            Esta ação não pode ser desfeita.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                          <AlertDialogAction onClick={() => deleteKnowledge.mutate(item.id)}>
-                            Remover
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
+                      )}
+                      <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handleEdit(item)}>
+                        <Edit className="h-3.5 w-3.5" />
+                      </Button>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive hover:text-destructive">
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Remover conhecimento?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Esta ação não pode ser desfeita.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => deleteKnowledge.mutate(item.id)}>
+                              Remover
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </div>
                   </div>
-                </div>
-                <Badge className={getCategoryColor(item.category)}>
-                  {getCategoryLabel(item.category)}
-                </Badge>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground line-clamp-3">
-                  {item.content.slice(0, 200)}...
-                </p>
-                {item.page_count && (
-                  <p className="text-xs text-muted-foreground mt-2">
-                    ~{item.page_count} páginas
+                </CardHeader>
+                <CardContent className="pt-0 space-y-3">
+                  <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium border ${categoryConfig.bg} ${categoryConfig.text} ${categoryConfig.border}`}>
+                    {getCategoryLabel(item.category)}
+                  </span>
+                  <p className="text-xs text-muted-foreground line-clamp-3 leading-relaxed">
+                    {item.content.slice(0, 180)}...
                   </p>
-                )}
-              </CardContent>
-            </Card>
-          ))}
+                  <div className="flex items-center justify-between pt-1">
+                    {item.page_count && (
+                      <span className="text-[11px] text-muted-foreground/70">
+                        ~{item.page_count} páginas
+                      </span>
+                    )}
+                    {pdfUrl && (
+                      <span className="text-[11px] text-primary/70 flex items-center gap-1">
+                        <Download className="h-3 w-3" />
+                        PDF anexado
+                      </span>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       )}
 
@@ -427,31 +463,47 @@ export default function KnowledgeBase() {
             </DialogTitle>
           </DialogHeader>
 
-          {selectedKnowledge && (
-            <div className="space-y-4">
-              <div className="flex items-center gap-2">
-                <Badge className={getCategoryColor(selectedKnowledge.category)}>
-                  {getCategoryLabel(selectedKnowledge.category)}
-                </Badge>
-                {selectedKnowledge.page_count && (
-                  <span className="text-sm text-muted-foreground">
-                    ~{selectedKnowledge.page_count} páginas
+          {selectedKnowledge && (() => {
+            const categoryConfig = getCategoryConfig(selectedKnowledge.category);
+            const pdfUrl = getPdfUrl(selectedKnowledge);
+            
+            return (
+              <div className="space-y-4">
+                <div className="flex items-center flex-wrap gap-2">
+                  <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium border ${categoryConfig.bg} ${categoryConfig.text} ${categoryConfig.border}`}>
+                    {getCategoryLabel(selectedKnowledge.category)}
                   </span>
-                )}
-                {selectedKnowledge.source_file && (
-                  <span className="text-sm text-muted-foreground">
-                    • {selectedKnowledge.source_file}
-                  </span>
-                )}
-              </div>
-
-              <ScrollArea className="h-[400px] border rounded-md p-4">
-                <div className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap">
-                  {selectedKnowledge.content}
+                  {selectedKnowledge.page_count && (
+                    <span className="text-sm text-muted-foreground">
+                      ~{selectedKnowledge.page_count} páginas
+                    </span>
+                  )}
+                  {selectedKnowledge.source_file && (
+                    <span className="text-sm text-muted-foreground">
+                      • {selectedKnowledge.source_file}
+                    </span>
+                  )}
+                  {pdfUrl && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => window.open(pdfUrl, '_blank')}
+                      className="h-7 text-xs"
+                    >
+                      <ExternalLink className="h-3 w-3 mr-1.5" />
+                      Abrir PDF original
+                    </Button>
+                  )}
                 </div>
-              </ScrollArea>
-            </div>
-          )}
+
+                <ScrollArea className="h-[400px] border rounded-md p-4">
+                  <div className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap">
+                    {selectedKnowledge.content}
+                  </div>
+                </ScrollArea>
+              </div>
+            );
+          })()}
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsViewDialogOpen(false)}>
