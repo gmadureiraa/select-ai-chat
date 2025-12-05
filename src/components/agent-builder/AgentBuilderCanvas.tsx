@@ -75,12 +75,29 @@ export const AgentBuilderCanvas = ({
       target: conn.target_node_id,
       sourceHandle: conn.connection_type === "condition_true" ? "true" : 
                    conn.connection_type === "condition_false" ? "false" : undefined,
-      label: conn.label,
-      animated: conn.connection_type === "ai_connection",
-      style: conn.connection_type === "ai_connection" 
-        ? { strokeDasharray: "5 5", stroke: "hsl(var(--primary))" }
-        : undefined,
-      markerEnd: { type: MarkerType.ArrowClosed },
+      label: conn.connection_type === "ai_connection" ? "AI connection" : conn.label,
+      labelStyle: { 
+        fontSize: 11, 
+        fontWeight: 500, 
+        fill: "hsl(var(--muted-foreground))",
+      },
+      labelBgStyle: { 
+        fill: "hsl(var(--card))", 
+        fillOpacity: 0.9,
+      },
+      labelBgPadding: [8, 4] as [number, number],
+      labelBgBorderRadius: 6,
+      style: { 
+        strokeDasharray: "6 4", 
+        stroke: "hsl(var(--muted-foreground))",
+        strokeWidth: 1.5,
+      },
+      markerEnd: { 
+        type: MarkerType.ArrowClosed,
+        color: "hsl(var(--muted-foreground))",
+        width: 16,
+        height: 16,
+      },
     })),
     [initialConnections]
   );
@@ -94,7 +111,29 @@ export const AgentBuilderCanvas = ({
         addEdge(
           {
             ...params,
-            markerEnd: { type: MarkerType.ArrowClosed },
+            label: "AI connection",
+            labelStyle: { 
+              fontSize: 11, 
+              fontWeight: 500, 
+              fill: "hsl(var(--muted-foreground))",
+            },
+            labelBgStyle: { 
+              fill: "hsl(var(--card))", 
+              fillOpacity: 0.9,
+            },
+            labelBgPadding: [8, 4] as [number, number],
+            labelBgBorderRadius: 6,
+            style: { 
+              strokeDasharray: "6 4", 
+              stroke: "hsl(var(--muted-foreground))",
+              strokeWidth: 1.5,
+            },
+            markerEnd: { 
+              type: MarkerType.ArrowClosed,
+              color: "hsl(var(--muted-foreground))",
+              width: 16,
+              height: 16,
+            },
           },
           eds
         )

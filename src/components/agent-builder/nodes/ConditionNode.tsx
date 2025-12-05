@@ -1,56 +1,69 @@
 import { memo } from "react";
 import { Handle, Position, NodeProps } from "reactflow";
-import { GitBranch } from "lucide-react";
+import { GitBranch, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
 import type { WorkflowNodeData } from "@/types/agentBuilder";
 
 export const ConditionNode = memo(({ data, selected }: NodeProps<WorkflowNodeData>) => {
   return (
     <div
       className={cn(
-        "relative min-w-[180px] rounded-xl border-2 bg-gradient-to-br from-purple-500/20 to-violet-500/20 p-4 shadow-lg transition-all",
-        selected ? "border-purple-500 ring-2 ring-purple-500/30" : "border-purple-500/50"
+        "group relative min-w-[180px] rounded-2xl bg-card border shadow-md transition-all hover:shadow-lg",
+        selected ? "border-purple-500 ring-2 ring-purple-500/20" : "border-border"
       )}
     >
       <Handle
         type="target"
         position={Position.Top}
-        className="!w-3 !h-3 !bg-purple-500 !border-2 !border-background"
+        className="!w-2.5 !h-2.5 !bg-muted-foreground !border-2 !border-card !-top-1"
       />
       <Handle
         type="source"
         position={Position.Bottom}
         id="true"
         style={{ left: "30%" }}
-        className="!w-3 !h-3 !bg-green-500 !border-2 !border-background"
+        className="!w-2.5 !h-2.5 !bg-emerald-500 !border-2 !border-card !-bottom-1"
       />
       <Handle
         type="source"
         position={Position.Bottom}
         id="false"
         style={{ left: "70%" }}
-        className="!w-3 !h-3 !bg-red-500 !border-2 !border-background"
+        className="!w-2.5 !h-2.5 !bg-red-500 !border-2 !border-card !-bottom-1"
       />
       
-      <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-purple-500/20">
-          <GitBranch className="h-5 w-5 text-purple-500" />
-        </div>
-        <div className="flex-1">
-          <p className="text-xs font-medium text-purple-500 uppercase tracking-wide">Condição</p>
-          <p className="font-semibold text-foreground">{data.label || "Condição"}</p>
-        </div>
-      </div>
+      {/* Settings button on hover */}
+      <button className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-md hover:bg-muted">
+        <Settings className="h-4 w-4 text-muted-foreground" />
+      </button>
       
-      {data.config?.condition && (
-        <div className="mt-2 rounded-md bg-muted/50 p-2">
-          <code className="text-xs text-muted-foreground">{data.config.condition}</code>
+      <div className="p-4">
+        {/* Badge */}
+        <Badge 
+          variant="secondary" 
+          className="mb-3 bg-purple-500/10 text-purple-600 border-0 font-medium text-xs"
+        >
+          <GitBranch className="h-3 w-3 mr-1" />
+          Condition
+        </Badge>
+        
+        {/* Content */}
+        <p className="font-semibold text-foreground text-sm">
+          {data.label || "Condição"}
+        </p>
+        
+        {data.config?.condition && (
+          <div className="mt-2 rounded-md bg-muted/50 p-2">
+            <code className="text-xs text-muted-foreground">{data.config.condition}</code>
+          </div>
+        )}
+        
+        {/* True/False labels */}
+        <div className="mt-3 flex justify-between text-xs">
+          <span className="text-emerald-500 font-medium">✓ True</span>
+          <span className="text-red-500 font-medium">✗ False</span>
         </div>
-      )}
-      
-      <div className="mt-2 flex justify-between text-xs text-muted-foreground">
-        <span className="text-green-500">✓ True</span>
-        <span className="text-red-500">✗ False</span>
       </div>
     </div>
   );
