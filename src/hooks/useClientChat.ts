@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Message, Client, Website, Document, ProcessStep } from "@/types/chat";
+import { Message, Client, Website, Document, ProcessStep, detectImageGenerationRequest } from "@/types/chat";
 import { createChatError, getErrorMessage } from "@/lib/errors";
 import { validateMessage, validateModelId } from "@/lib/validation";
 import { withRetry, RetryError } from "@/lib/retry";
@@ -282,6 +282,64 @@ export const useClientChat = (clientId: string, templateId?: string) => {
       });
 
       if (insertError) throw insertError;
+
+      // DETECTAR PEDIDO DE GERAÇÃO DE IMAGEM
+      const imageGenRequest = detectImageGenerationRequest(content);
+      
+      if (imageGenRequest.isImageRequest) {
+        setCurrentStep("generating_image");
+        
+        try {
+          console.log("[CHAT] Image generation detected, prompt:", imageGenRequest.prompt);
+          
+          const { data: imageData, error: imageError } = await supabase.functions.invoke("generate-image", {
+            body: {
+              prompt: imageGenRequest.prompt || content,
+            },
+          });
+
+          if (imageError) throw imageError;
+          
+          if (imageData?.imageUrl) {
+            // Salvar resposta com imagem gerada
+            await supabase.from("messages").insert({
+              conversation_id: conversationId,
+              role: "assistant",
+              content: `Imagem gerada com sucesso! 🎨\n\n**Prompt utilizado:** ${imageGenRequest.prompt || content}`,
+              image_urls: [imageData.imageUrl],
+            });
+
+            // Log activity
+            logActivity.mutate({
+              activityType: "image_generated",
+              entityType: "conversation",
+              entityId: conversationId,
+              entityName: client.name,
+              description: `Imagem gerada no chat de ${client.name}`,
+              metadata: { prompt: imageGenRequest.prompt || content },
+            });
+
+            queryClient.invalidateQueries({ queryKey: ["messages", conversationId] });
+          } else {
+            throw new Error("Nenhuma imagem retornada");
+          }
+        } catch (imgError: any) {
+          console.error("Image generation error:", imgError);
+          
+          // Salvar mensagem de erro
+          await supabase.from("messages").insert({
+            conversation_id: conversationId,
+            role: "assistant",
+            content: `Não foi possível gerar a imagem. ${imgError.message || "Tente novamente."}`,
+          });
+          
+          queryClient.invalidateQueries({ queryKey: ["messages", conversationId] });
+        }
+        
+        setIsLoading(false);
+        setCurrentStep(null);
+        return;
+      }
 
       // FASE 1: Análise e seleção de materiais relevantes (biblioteca + documentos)
       setCurrentStep("analyzing");

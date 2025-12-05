@@ -1,9 +1,8 @@
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
-import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Sparkles, Loader2, Trash2 } from "lucide-react";
+import { ArrowLeft, Loader2, Trash2 } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -18,9 +17,7 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { MessageBubble } from "@/components/MessageBubble";
 import { ChatInput } from "@/components/ChatInput";
-
 import { TaskSuggestions } from "@/components/chat/TaskSuggestions";
-import { AutonomousProgress } from "@/components/chat/AutonomousProgress";
 import { WorkflowVisualization } from "@/components/chat/WorkflowVisualization";
 import { useClientChat } from "@/hooks/useClientChat";
 import { useSmoothScroll } from "@/hooks/useSmoothScroll";
@@ -67,7 +64,6 @@ const ClientChat = () => {
     messages,
     isLoading,
     currentStep,
-    conversationRules,
     workflowState,
     sendMessage,
     regenerateLastMessage,
@@ -79,6 +75,12 @@ const ClientChat = () => {
     behavior: "smooth",
     delay: 100,
   });
+
+  // Detectar se uma mensagem tem imagem gerada por IA
+  const isGeneratedImage = (content: string, role: string): boolean => {
+    if (role !== "assistant") return false;
+    return content.includes("Imagem gerada") || content.includes("🎨");
+  };
 
   if (isLoadingClient) {
     return (
@@ -104,8 +106,8 @@ const ClientChat = () => {
   return (
     <div className="flex h-screen bg-background flex-col">
       {/* Header minimalista */}
-      <div className="border-b p-3 bg-background/95 backdrop-blur-sm">
-        <div className="flex items-center justify-between max-w-5xl mx-auto">
+      <header className="border-b bg-background/95 backdrop-blur-sm sticky top-0 z-10">
+        <div className="flex items-center justify-between h-14 px-4 max-w-5xl mx-auto">
           <div className="flex items-center gap-3">
             <Button
               variant="ghost"
@@ -116,87 +118,93 @@ const ClientChat = () => {
               <ArrowLeft className="h-4 w-4" />
             </Button>
             <div className="flex items-center gap-2">
-              <img src={kaleidosLogo} alt="kAI" className="h-6 w-6" />
-              <span className="text-sm font-medium text-muted-foreground">•</span>
-              <span className="text-sm font-semibold">{client.name}</span>
+              <img src={kaleidosLogo} alt="kAI" className="h-5 w-5" />
+              <span className="text-xs text-muted-foreground">•</span>
+              <span className="text-sm font-medium">{client.name}</span>
+              {template && (
+                <>
+                  <span className="text-xs text-muted-foreground">•</span>
+                  <span className="text-xs text-muted-foreground">{template.name}</span>
+                </>
+              )}
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            {messages.length > 0 && (
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="hover:bg-destructive/10 hover:text-destructive h-9 w-9"
+          
+          {messages.length > 0 && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="hover:bg-destructive/10 hover:text-destructive h-9 w-9"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Limpar conversa?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Todas as mensagens serão removidas permanentemente.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={clearConversation}
+                    className="bg-destructive hover:bg-destructive/90"
                   >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Limpar conversa?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Todas as mensagens desta conversa serão removidas permanentemente. Esta ação não pode ser desfeita.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                    <AlertDialogAction
-                      onClick={clearConversation}
-                      className="bg-destructive hover:bg-destructive/90"
-                    >
-                      Limpar
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            )}
-          </div>
+                    Limpar
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
         </div>
-      </div>
+      </header>
 
+      {/* Área de mensagens */}
       <ScrollArea className="flex-1">
-        <div ref={scrollRef} className="h-full">
+        <div ref={scrollRef} className="min-h-full">
           {messages.length === 0 ? (
-            <div className="h-full flex flex-col items-center justify-center px-4">
-              <div className="text-center space-y-8 max-w-4xl w-full animate-fade-in py-12">
+            <div className="h-full flex flex-col items-center justify-center px-4 py-12">
+              <div className="text-center space-y-6 max-w-2xl w-full animate-fade-in">
                 {/* Logo e título */}
-                <div className="space-y-4">
+                <div className="space-y-3">
                   <div className="relative inline-block">
                     <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="w-20 h-20 bg-primary/5 rounded-full blur-2xl" />
+                      <div className="w-16 h-16 bg-primary/10 rounded-full blur-xl" />
                     </div>
                     <img 
                       src={kaleidosLogo} 
                       alt="kAI" 
-                      className="h-16 w-16 object-contain relative z-10" 
+                      className="h-12 w-12 object-contain relative z-10" 
                     />
                   </div>
-                  <div>
-                    <h1 className="text-4xl font-bold mb-2 tracking-tight">
-                      {template ? template.name : "O que posso fazer por você?"}
-                    </h1>
-                    <p className="text-muted-foreground text-lg">
-                      {template 
-                        ? "Descreva o que você precisa para este formato"
-                        : "Escolha uma tarefa ou descreva o que você precisa"
-                      }
-                    </p>
-                  </div>
+                  <h1 className="text-2xl font-semibold tracking-tight">
+                    {template ? template.name : "Como posso ajudar?"}
+                  </h1>
+                  <p className="text-sm text-muted-foreground">
+                    {template 
+                      ? "Descreva o que você precisa"
+                      : "Escolha uma sugestão ou digite sua mensagem"
+                    }
+                  </p>
                 </div>
 
-                {/* Sugestões de tarefas rápidas - apenas se não houver template específico */}
+                {/* Sugestões rápidas */}
                 {!templateId && <TaskSuggestions onSelectTask={sendMessage} />}
 
-                {/* Contexto do cliente (compacto) */}
+                {/* Contexto do cliente */}
                 {client.context_notes && (
-                  <div className="mt-8 p-4 bg-muted/30 border border-border rounded-lg text-left max-w-2xl mx-auto">
-                    <p className="text-xs font-medium mb-1 text-muted-foreground uppercase tracking-wide flex items-center gap-2">
-                      <span className="w-1.5 h-1.5 bg-primary rounded-full" />
+                  <div className="p-3 bg-muted/30 border border-border/50 rounded-lg text-left">
+                    <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1 flex items-center gap-1.5">
+                      <span className="w-1 h-1 bg-primary rounded-full" />
                       Contexto ativo
                     </p>
-                    <p className="text-sm text-foreground/80 line-clamp-3">{client.context_notes}</p>
+                    <p className="text-xs text-foreground/70 line-clamp-2">
+                      {client.context_notes}
+                    </p>
                   </div>
                 )}
               </div>
@@ -205,10 +213,11 @@ const ClientChat = () => {
             <div className="max-w-4xl mx-auto pb-4">
               {messages.map((message, idx) => (
                 <MessageBubble 
-                  key={idx} 
+                  key={message.id || idx} 
                   role={message.role} 
                   content={message.content}
                   imageUrls={message.image_urls}
+                  isGeneratedImage={isGeneratedImage(message.content, message.role)}
                   onRegenerate={regenerateLastMessage}
                   isLastMessage={idx === messages.length - 1}
                   clientId={clientId}
@@ -216,8 +225,10 @@ const ClientChat = () => {
                   templateName={template?.name}
                 />
               ))}
+              
+              {/* Visualização do workflow durante loading */}
               {isLoading && (
-                <div className="px-4 py-6 animate-fade-in">
+                <div className="px-4 py-4 animate-fade-in">
                   <WorkflowVisualization 
                     currentStep={currentStep} 
                     workflowState={workflowState}
@@ -229,6 +240,7 @@ const ClientChat = () => {
         </div>
       </ScrollArea>
 
+      {/* Input de chat */}
       <ChatInput onSend={sendMessage} disabled={isLoading} />
     </div>
   );

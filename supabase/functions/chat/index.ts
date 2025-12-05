@@ -9,11 +9,11 @@ const corsHeaders = {
 
 // Pricing por 1M tokens (USD) - Preços oficiais do Google AI Studio
 const MODEL_PRICING: Record<string, { input: number; output: number }> = {
-  "gemini-3-pro-preview": { input: 0.00, output: 0.00 }, // Free tier
+  "gemini-3-pro-preview": { input: 0.00, output: 0.00 },
   "gemini-2.5-flash": { input: 0.075, output: 0.30 },
-  "gemini-2.5-flash-lite": { input: 0.0375, output: 0.15 }, // Mais barato
+  "gemini-2.5-flash-lite": { input: 0.0375, output: 0.15 },
   "gemini-2.5-pro": { input: 1.25, output: 5.00 },
-  "gemini-2.0-flash-exp": { input: 0.00, output: 0.00 }, // Free experimental
+  "gemini-2.0-flash-exp": { input: 0.00, output: 0.00 },
   "gemini-1.5-flash": { input: 0.075, output: 0.30 },
   "gemini-1.5-pro": { input: 1.25, output: 5.00 },
 };
@@ -31,12 +31,8 @@ function getProvider(model: string): string {
   return "unknown";
 }
 
-// Converter modelo para formato do Google AI Studio
 function getGoogleModelName(model: string): string {
-  // Remove prefixo "google/" se existir
   const cleanModel = model.replace("google/", "");
-  
-  // Retornar modelo limpo (todos os nomes já estão corretos)
   return cleanModel;
 }
 
@@ -76,6 +72,29 @@ async function logAIUsage(
   }
 }
 
+// Converter URL de imagem para base64
+async function urlToBase64(url: string): Promise<{ mimeType: string; data: string } | null> {
+  try {
+    const response = await fetch(url);
+    if (!response.ok) {
+      console.error("[IMAGE] Failed to fetch:", url);
+      return null;
+    }
+    
+    const contentType = response.headers.get("content-type") || "image/jpeg";
+    const arrayBuffer = await response.arrayBuffer();
+    const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+    
+    return {
+      mimeType: contentType,
+      data: base64
+    };
+  } catch (error) {
+    console.error("[IMAGE] Error converting to base64:", error);
+    return null;
+  }
+}
+
 // Tool para seleção inteligente de conteúdo
 const contentSelectionTool = {
   type: "function",
@@ -88,19 +107,9 @@ const contentSelectionTool = {
         detected_content_type: {
           type: "string",
           enum: [
-            "static_image",    // Post estático único
-            "carousel",        // Carrossel Instagram/LinkedIn
-            "stories",         // Stories Instagram/Facebook
-            "tweet",           // Tweet único
-            "thread",          // Thread Twitter/X
-            "short_video",     // Reels/TikTok
-            "reel_script",     // Roteiro de Reel
-            "video_script",    // Roteiro de vídeo
-            "linkedin",        // Post LinkedIn
-            "newsletter",      // Newsletter/Email
-            "blog_post",       // Post de blog
-            "social_post",     // Post genérico de rede social
-            "general"          // Conversa geral
+            "static_image", "carousel", "stories", "tweet", "thread",
+            "short_video", "reel_script", "video_script", "linkedin",
+            "newsletter", "blog_post", "social_post", "general"
           ],
           description: "Tipo de conteúdo solicitado pelo usuário"
         },
@@ -117,10 +126,7 @@ const contentSelectionTool = {
             required: ["id", "type", "reason", "priority"]
           }
         },
-        analysis_needed: {
-          type: "boolean",
-          description: "Se precisa análise profunda de padrões"
-        },
+        analysis_needed: { type: "boolean", description: "Se precisa análise profunda de padrões" },
         use_context_notes: { type: "boolean" },
         use_websites: { type: "boolean" },
         strategy: {
@@ -138,9 +144,9 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { messages, model = "gemini-2.5-flash", isSelectionPhase, userId, clientId } = await req.json();
+    const { messages, model = "gemini-2.5-flash", isSelectionPhase, userId, clientId, imageUrls } = await req.json();
 
-    console.log(`[CHAT] Model: ${model}, Phase: ${isSelectionPhase ? "selection" : "response"}`);
+    console.log(`[CHAT] Model: ${model}, Phase: ${isSelectionPhase ? "selection" : "response"}, Images: ${imageUrls?.length || 0}`);
 
     const GOOGLE_API_KEY = Deno.env.get("GOOGLE_AI_STUDIO_API_KEY");
     if (!GOOGLE_API_KEY) throw new Error("GOOGLE_AI_STUDIO_API_KEY não configurada");
@@ -149,22 +155,70 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Converter modelo para formato Google
     const googleModel = getGoogleModelName(model);
     console.log(`[CHAT] Using Google model: ${googleModel}`);
     
-    // Preparar conteúdos para o Google Gemini API
-    const contents = messages
-      .filter((m: any) => m.role !== "system")
-      .map((m: any) => ({
-        role: m.role === "assistant" ? "model" : "user",
-        parts: [{ text: m.content }]
-      }));
+    // Preparar conteúdos para o Google Gemini API (com suporte multimodal)
+    const contents = [];
+    
+    for (const m of messages) {
+      if (m.role === "system") continue;
+      
+      const parts: any[] = [];
+      
+      // Adicionar texto
+      if (m.content) {
+        parts.push({ text: m.content });
+      }
+      
+      // Adicionar imagens da mensagem (se existir image_urls no objeto)
+      if (m.image_urls && Array.isArray(m.image_urls) && m.image_urls.length > 0) {
+        for (const imgUrl of m.image_urls) {
+          const imageData = await urlToBase64(imgUrl);
+          if (imageData) {
+            parts.push({
+              inlineData: {
+                mimeType: imageData.mimeType,
+                data: imageData.data
+              }
+            });
+            console.log(`[CHAT] Added image from message: ${imgUrl.substring(0, 50)}...`);
+          }
+        }
+      }
+      
+      if (parts.length > 0) {
+        contents.push({
+          role: m.role === "assistant" ? "model" : "user",
+          parts
+        });
+      }
+    }
+    
+    // Adicionar imagens do request body (imageUrls do nível superior)
+    if (imageUrls && Array.isArray(imageUrls) && imageUrls.length > 0) {
+      // Encontrar a última mensagem do usuário e adicionar as imagens
+      const lastUserIdx = contents.findLastIndex((c: any) => c.role === "user");
+      if (lastUserIdx !== -1) {
+        for (const imgUrl of imageUrls) {
+          const imageData = await urlToBase64(imgUrl);
+          if (imageData) {
+            contents[lastUserIdx].parts.push({
+              inlineData: {
+                mimeType: imageData.mimeType,
+                data: imageData.data
+              }
+            });
+            console.log(`[CHAT] Added request image: ${imgUrl.substring(0, 50)}...`);
+          }
+        }
+      }
+    }
 
-    // System instruction separado (Google Gemini não usa "system" em messages)
+    // System instruction separado
     const systemInstruction = messages.find((m: any) => m.role === "system")?.content;
 
-    // Construir requisição para Google Gemini API
+    // Construir requisição
     const requestBody: any = {
       contents,
       generationConfig: {
@@ -179,7 +233,7 @@ serve(async (req) => {
       };
     }
 
-    // Tools para seleção (se necessário)
+    // Tools para seleção
     if (isSelectionPhase) {
       requestBody.tools = [{
         functionDeclarations: [{
@@ -194,9 +248,7 @@ serve(async (req) => {
       `https://generativelanguage.googleapis.com/v1beta/models/${googleModel}:streamGenerateContent?alt=sse&key=${GOOGLE_API_KEY}`,
       {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(requestBody),
       }
     );
@@ -215,7 +267,7 @@ serve(async (req) => {
       throw new Error(`Google API error: ${aiResponse.status} - ${errorText}`);
     }
 
-    // Se for fase de seleção, não fazer streaming - retornar JSON direto
+    // Fase de seleção - retornar JSON direto
     if (isSelectionPhase) {
       const reader = aiResponse.body?.getReader();
       const decoder = new TextDecoder();
@@ -224,11 +276,8 @@ serve(async (req) => {
       let totalInputTokens = 0;
       let totalOutputTokens = 0;
 
-      if (!reader) {
-        throw new Error("No response body");
-      }
+      if (!reader) throw new Error("No response body");
 
-      // Ler todo o stream
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
@@ -240,17 +289,12 @@ serve(async (req) => {
         for (const line of lines) {
           if (line.startsWith("data: ")) {
             const data = line.slice(6).trim();
-            
             try {
               const parsed = JSON.parse(data);
-              
-              // Extrair tokens
               if (parsed.usageMetadata) {
                 totalInputTokens = parsed.usageMetadata.promptTokenCount || 0;
                 totalOutputTokens = parsed.usageMetadata.candidatesTokenCount || 0;
               }
-
-              // Capturar function call
               if (parsed.candidates?.[0]?.content?.parts?.[0]?.functionCall) {
                 toolCallData = parsed.candidates[0].content.parts[0].functionCall;
               }
@@ -261,20 +305,10 @@ serve(async (req) => {
         }
       }
 
-      // Log de uso
       if (userId && (totalInputTokens > 0 || totalOutputTokens > 0)) {
-        await logAIUsage(
-          supabase,
-          userId,
-          googleModel,
-          "chat-selection",
-          totalInputTokens,
-          totalOutputTokens,
-          { isSelectionPhase: true, clientId }
-        );
+        await logAIUsage(supabase, userId, googleModel, "chat-selection", totalInputTokens, totalOutputTokens, { isSelectionPhase: true, clientId });
       }
 
-      // Retornar JSON direto
       return new Response(
         JSON.stringify({ selection: toolCallData?.args || {} }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -308,23 +342,16 @@ serve(async (req) => {
             for (const line of lines) {
               if (line.startsWith("data: ")) {
                 const data = line.slice(6).trim();
-                
                 try {
                   const parsed = JSON.parse(data);
-                  
-                  // Extrair tokens
                   if (parsed.usageMetadata) {
                     totalInputTokens = parsed.usageMetadata.promptTokenCount || 0;
                     totalOutputTokens = parsed.usageMetadata.candidatesTokenCount || 0;
                   }
-
-                  // Streaming de texto
                   if (parsed.candidates?.[0]?.content?.parts?.[0]?.text) {
                     const textChunk = parsed.candidates[0].content.parts[0].text;
                     const openAIFormat = {
-                      choices: [{
-                        delta: { content: textChunk }
-                      }]
+                      choices: [{ delta: { content: textChunk } }]
                     };
                     controller.enqueue(
                       new TextEncoder().encode(`data: ${JSON.stringify(openAIFormat)}\n\n`)
@@ -337,23 +364,13 @@ serve(async (req) => {
             }
           }
 
-          // Enviar [DONE]
           controller.enqueue(new TextEncoder().encode("data: [DONE]\n\n"));
 
-          // Log após completar
           if (userId && (totalInputTokens > 0 || totalOutputTokens > 0)) {
-            await logAIUsage(
-              supabase,
-              userId,
-              googleModel,
-              isSelectionPhase ? "chat-selection" : "chat-response",
-              totalInputTokens,
-              totalOutputTokens,
-              {
-                client_id: clientId,
-                phase: isSelectionPhase ? "selection" : "response",
-              }
-            );
+            await logAIUsage(supabase, userId, googleModel, "chat-response", totalInputTokens, totalOutputTokens, {
+              client_id: clientId,
+              hasImages: (imageUrls?.length || 0) > 0
+            });
           }
 
           controller.close();

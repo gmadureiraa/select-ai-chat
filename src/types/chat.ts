@@ -5,6 +5,7 @@ export interface Message {
   image_urls?: string[] | null;
   created_at?: string;
   conversation_id?: string;
+  isGeneratedImage?: boolean; // Flag para identificar imagens geradas por IA
 }
 
 export interface Client {
@@ -48,7 +49,14 @@ export interface Document {
   created_at: string;
 }
 
-export type ProcessStep = "analyzing" | "analyzing_library" | "reviewing" | "creating" | "selecting" | null;
+export type ProcessStep = 
+  | "analyzing" 
+  | "analyzing_library" 
+  | "reviewing" 
+  | "creating" 
+  | "selecting" 
+  | "generating_image" // Novo step para geração de imagem
+  | null;
 
 export interface SelectedMaterial {
   id: string;
@@ -70,4 +78,27 @@ export interface ChatError {
   message: string;
   type: "network" | "api" | "validation" | "unknown";
   statusCode?: number;
+}
+
+// Função para detectar pedidos de geração de imagem
+export function detectImageGenerationRequest(message: string): { isImageRequest: boolean; prompt: string } {
+  const imagePatterns = [
+    /(?:gere|crie|faça|desenhe|produza|elabore|monte)\s+(?:uma?\s+)?(?:imagem|ilustração|arte|visual|design|banner|thumbnail|capa|foto|picture)/i,
+    /(?:quero|preciso|me\s+(?:faz|faça))\s+(?:uma?\s+)?(?:imagem|ilustração|arte|visual|design|banner)/i,
+    /(?:criar|gerar)\s+(?:uma?\s+)?(?:imagem|ilustração|arte|visual)/i,
+    /visualize|ilustre|represente\s+visualmente/i,
+    /(?:make|create|generate|draw)\s+(?:an?\s+)?(?:image|illustration|picture|art|visual)/i,
+  ];
+
+  const isImageRequest = imagePatterns.some(pattern => pattern.test(message));
+  
+  // Extrair o prompt removendo os termos de comando
+  let prompt = message;
+  if (isImageRequest) {
+    prompt = message
+      .replace(/(?:gere|crie|faça|desenhe|produza|elabore|monte|quero|preciso|me\s+(?:faz|faça)|criar|gerar|visualize|ilustre|represente\s+visualmente|make|create|generate|draw)\s+(?:uma?\s+)?(?:imagem|ilustração|arte|visual|design|banner|thumbnail|capa|foto|picture|an?\s+image|illustration|picture|art|visual)?\s*/gi, '')
+      .trim();
+  }
+
+  return { isImageRequest, prompt };
 }
