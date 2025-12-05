@@ -2,6 +2,7 @@ import { memo } from "react";
 import { Handle, Position, NodeProps } from "reactflow";
 import { Zap, MessageSquare, Webhook, Calendar, Play, Bell } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
 import type { WorkflowNodeData } from "@/types/agentBuilder";
 
 const triggerIcons = {
@@ -13,11 +14,11 @@ const triggerIcons = {
 };
 
 const triggerLabels = {
-  user_message: "Mensagem do Usuário",
-  webhook: "Webhook",
+  user_message: "User message received",
+  webhook: "Webhook recebido",
   schedule: "Agendamento",
-  manual: "Manual",
-  event: "Evento",
+  manual: "Trigger manual",
+  event: "Evento disparado",
 };
 
 export const TriggerNode = memo(({ data, selected }: NodeProps<WorkflowNodeData>) => {
@@ -26,31 +27,41 @@ export const TriggerNode = memo(({ data, selected }: NodeProps<WorkflowNodeData>
   const label = data.label || triggerLabels[triggerType as keyof typeof triggerLabels] || "Trigger";
 
   return (
-    <div
-      className={cn(
-        "relative min-w-[200px] rounded-xl border-2 bg-gradient-to-br from-amber-500/20 to-orange-500/20 p-4 shadow-lg transition-all",
-        selected ? "border-amber-500 ring-2 ring-amber-500/30" : "border-amber-500/50"
-      )}
-    >
-      <Handle
-        type="source"
-        position={Position.Bottom}
-        className="!w-3 !h-3 !bg-amber-500 !border-2 !border-background"
-      />
+    <div className="flex flex-col items-center">
+      {/* Trigger badge above */}
+      <Badge 
+        variant="secondary" 
+        className="mb-2 bg-amber-500/10 text-amber-600 border-0 font-medium text-xs"
+      >
+        <Zap className="h-3 w-3 mr-1" />
+        Trigger
+      </Badge>
       
-      <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-500/20">
-          <Icon className="h-5 w-5 text-amber-500" />
+      {/* Main trigger card */}
+      <div
+        className={cn(
+          "relative min-w-[200px] rounded-2xl bg-card border shadow-md transition-all hover:shadow-lg",
+          selected ? "border-amber-500 ring-2 ring-amber-500/20" : "border-border"
+        )}
+      >
+        <Handle
+          type="source"
+          position={Position.Bottom}
+          className="!w-2.5 !h-2.5 !bg-muted-foreground !border-2 !border-card !-bottom-1"
+        />
+        
+        <div className="p-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted">
+              <Icon className="h-4 w-4 text-muted-foreground" />
+            </div>
+            <p className="font-medium text-foreground text-sm">{label}</p>
+          </div>
         </div>
-        <div className="flex-1">
-          <p className="text-xs font-medium text-amber-500 uppercase tracking-wide">Trigger</p>
-          <p className="font-semibold text-foreground">{label}</p>
-        </div>
+        
+        {/* Connection dot at bottom center */}
+        <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 rounded-full bg-muted-foreground" />
       </div>
-      
-      {data.config?.description && (
-        <p className="mt-2 text-xs text-muted-foreground">{data.config.description}</p>
-      )}
     </div>
   );
 });

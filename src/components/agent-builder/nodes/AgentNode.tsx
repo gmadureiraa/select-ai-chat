@@ -1,89 +1,106 @@
 import { memo } from "react";
 import { Handle, Position, NodeProps } from "reactflow";
-import { Bot, Sparkles, Brain, Wrench } from "lucide-react";
+import { Bot, Wrench, Brain, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import type { WorkflowNodeData } from "@/types/agentBuilder";
 
-const modelBadges: Record<string, { label: string; color: string }> = {
-  "google/gemini-2.5-flash": { label: "G", color: "bg-blue-500" },
-  "google/gemini-2.5-pro": { label: "G+", color: "bg-blue-600" },
-  "openai/gpt-5": { label: "GPT", color: "bg-emerald-500" },
-  "openai/gpt-5-mini": { label: "GPT", color: "bg-emerald-400" },
+const modelIcons: Record<string, { src: string; alt: string }> = {
+  "google/gemini-2.5-flash": { src: "https://www.google.com/favicon.ico", alt: "Google" },
+  "google/gemini-2.5-pro": { src: "https://www.google.com/favicon.ico", alt: "Google" },
+  "openai/gpt-5": { src: "https://openai.com/favicon.ico", alt: "OpenAI" },
+  "openai/gpt-5-mini": { src: "https://openai.com/favicon.ico", alt: "OpenAI" },
 };
 
 export const AgentNode = memo(({ data, selected }: NodeProps<WorkflowNodeData>) => {
   const agent = data.agent;
   const model = agent?.model || "google/gemini-2.5-flash";
-  const modelBadge = modelBadges[model] || { label: "AI", color: "bg-primary" };
+  const modelIcon = modelIcons[model];
   const hasTools = agent?.tools && agent.tools.length > 0;
   const hasKnowledge = agent?.knowledge && agent.knowledge.length > 0;
 
   return (
     <div
       className={cn(
-        "relative min-w-[240px] rounded-xl border-2 bg-gradient-to-br from-primary/10 to-primary/5 p-4 shadow-lg transition-all",
-        selected ? "border-primary ring-2 ring-primary/30" : "border-primary/50"
+        "group relative min-w-[220px] rounded-2xl bg-card border shadow-md transition-all hover:shadow-lg",
+        selected ? "border-primary ring-2 ring-primary/20" : "border-border"
       )}
     >
       <Handle
         type="target"
         position={Position.Top}
-        className="!w-3 !h-3 !bg-primary !border-2 !border-background"
+        className="!w-2.5 !h-2.5 !bg-muted-foreground !border-2 !border-card !-top-1"
       />
       <Handle
         type="source"
         position={Position.Bottom}
-        className="!w-3 !h-3 !bg-primary !border-2 !border-background"
+        className="!w-2.5 !h-2.5 !bg-muted-foreground !border-2 !border-card !-bottom-1"
       />
       
-      {/* Model badge */}
-      <div className={cn("absolute -top-2 -right-2 px-2 py-0.5 rounded-full text-xs font-bold text-white", modelBadge.color)}>
-        {modelBadge.label}
-      </div>
+      {/* Settings button on hover */}
+      <button className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-md hover:bg-muted">
+        <Settings className="h-4 w-4 text-muted-foreground" />
+      </button>
       
-      <div className="flex items-center gap-3">
-        <Avatar className="h-12 w-12 border-2 border-primary/30">
-          {agent?.avatar_url ? (
-            <AvatarImage src={agent.avatar_url} alt={agent.name} />
-          ) : null}
-          <AvatarFallback className="bg-primary/20">
-            <Bot className="h-6 w-6 text-primary" />
-          </AvatarFallback>
-        </Avatar>
+      <div className="p-4">
+        {/* Badge */}
+        <Badge 
+          variant="secondary" 
+          className="mb-3 bg-emerald-500/10 text-emerald-600 border-0 font-medium text-xs"
+        >
+          <Bot className="h-3 w-3 mr-1" />
+          Agent
+        </Badge>
         
-        <div className="flex-1 min-w-0">
-          <p className="text-xs font-medium text-primary uppercase tracking-wide">Agente</p>
-          <p className="font-semibold text-foreground truncate">
-            {agent?.name || data.label || "Novo Agente"}
-          </p>
+        {/* Content */}
+        <div className="flex items-center gap-3">
+          {/* Pixel art style avatar */}
+          <Avatar className="h-12 w-12 rounded-lg border-2 border-muted">
+            {agent?.avatar_url ? (
+              <AvatarImage src={agent.avatar_url} alt={agent.name} className="object-cover" />
+            ) : null}
+            <AvatarFallback className="bg-gradient-to-br from-primary/20 to-purple-500/20 rounded-lg">
+              <Bot className="h-6 w-6 text-primary" />
+            </AvatarFallback>
+          </Avatar>
+          
+          <div className="flex-1 min-w-0">
+            <p className="font-semibold text-foreground text-sm truncate">
+              {agent?.name || data.label || "Novo Agente"}
+            </p>
+          </div>
+        </div>
+        
+        {/* Bottom indicators */}
+        <div className="mt-3 flex items-center gap-2">
+          {/* Model icon */}
+          {modelIcon && (
+            <img 
+              src={modelIcon.src} 
+              alt={modelIcon.alt} 
+              className="h-4 w-4 opacity-60"
+            />
+          )}
+          
+          {/* Tools indicator */}
+          {hasTools && (
+            <div className="flex items-center gap-1 text-muted-foreground">
+              <Wrench className="h-3.5 w-3.5" />
+            </div>
+          )}
+          
+          {/* Knowledge indicator */}
+          {hasKnowledge && (
+            <div className="flex items-center gap-1 text-muted-foreground">
+              <Brain className="h-3.5 w-3.5" />
+            </div>
+          )}
         </div>
       </div>
       
-      {agent?.description && (
-        <p className="mt-2 text-xs text-muted-foreground line-clamp-2">{agent.description}</p>
-      )}
-      
-      {/* Indicators */}
-      <div className="mt-3 flex items-center gap-2">
-        {hasTools && (
-          <div className="flex items-center gap-1 rounded-full bg-muted px-2 py-0.5">
-            <Wrench className="h-3 w-3 text-muted-foreground" />
-            <span className="text-xs text-muted-foreground">{agent.tools.length}</span>
-          </div>
-        )}
-        {hasKnowledge && (
-          <div className="flex items-center gap-1 rounded-full bg-muted px-2 py-0.5">
-            <Brain className="h-3 w-3 text-muted-foreground" />
-            <span className="text-xs text-muted-foreground">{agent.knowledge.length}</span>
-          </div>
-        )}
-        {agent?.memory_enabled && (
-          <div className="flex items-center gap-1 rounded-full bg-muted px-2 py-0.5">
-            <Sparkles className="h-3 w-3 text-muted-foreground" />
-          </div>
-        )}
-      </div>
+      {/* Connection dot at bottom center */}
+      <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 rounded-full bg-primary" />
     </div>
   );
 });
