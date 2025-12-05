@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, Play, Save, ChevronLeft, MoreHorizontal, Settings, Trash2 } from "lucide-react";
+import { Plus, Save, ChevronLeft, MoreHorizontal, Settings, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -20,6 +20,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { AgentBuilderCanvas } from "@/components/agent-builder/AgentBuilderCanvas";
+import { WorkflowTestPanel } from "@/components/agent-builder/WorkflowTestPanel";
+import { WorkflowRunsPanel } from "@/components/agent-builder/WorkflowRunsPanel";
 import { useAIWorkflows, useWorkflowNodes, useWorkflowConnections } from "@/hooks/useAIWorkflows";
 import { toast } from "sonner";
 
@@ -211,14 +213,22 @@ export default function AgentBuilder() {
         </div>
 
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm">
+          <WorkflowRunsPanel workflowId={selectedWorkflowId} />
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => {
+              updateWorkflow.mutate({ id: selectedWorkflowId!, name: selectedWorkflow?.name || '' });
+              toast.success('Workflow salvo!');
+            }}
+          >
             <Save className="h-4 w-4 mr-2" />
             Salvar
           </Button>
-          <Button size="sm">
-            <Play className="h-4 w-4 mr-2" />
-            Executar
-          </Button>
+          <WorkflowTestPanel 
+            workflowId={selectedWorkflowId} 
+            workflowName={selectedWorkflow?.name || 'Workflow'} 
+          />
         </div>
       </div>
 
