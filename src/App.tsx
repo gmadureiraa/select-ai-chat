@@ -24,6 +24,7 @@ import ResearchLab from "./pages/ResearchLab";
 import Settings from "./pages/Settings";
 import SocialPublisher from "./pages/SocialPublisher";
 import KnowledgeBase from "./pages/KnowledgeBase";
+import AgentBuilder from "./pages/AgentBuilder";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 
@@ -214,6 +215,14 @@ const App = () => (
                 <AppLayout>
                   <SocialPublisher />
                 </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/agent-builder"
+            element={
+              <ProtectedRoute>
+                <AgentBuilder />
               </ProtectedRoute>
             }
           />
