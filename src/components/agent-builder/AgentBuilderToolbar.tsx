@@ -49,9 +49,9 @@ export const AgentBuilderToolbar = ({ onAddNode, activeTool }: AgentBuilderToolb
   return (
     <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-50">
       <div className="flex items-end gap-3 p-4 bg-muted/50 backdrop-blur-sm rounded-2xl">
-        {tools.map((tool) => (
+        {tools.map((tool, index) => (
           <button
-            key={tool.id}
+            key={`${tool.id}-${index}`}
             onClick={() => onAddNode(tool.id)}
             className={cn(
               "group relative flex flex-col items-start transition-all duration-200",
