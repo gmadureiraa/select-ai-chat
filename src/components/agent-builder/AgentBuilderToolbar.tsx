@@ -1,11 +1,11 @@
-import { Bot, Zap, GitBranch, Wrench, StickyNote } from "lucide-react";
+import { Bot, Zap, GitBranch, Wrench, StickyNote, Workflow } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import type { NodeType } from "@/types/agentBuilder";
 
 interface AgentBuilderToolbarProps {
-  onAddNode: (type: NodeType) => void;
+  onAddNode: (type: NodeType, config?: Record<string, any>) => void;
   activeTool: NodeType | null;
 }
 
@@ -43,6 +43,15 @@ const tools = [
     bgHover: "hover:bg-emerald-500/10"
   },
   { 
+    id: "tool" as NodeType, 
+    subtype: "n8n",
+    icon: Workflow, 
+    label: "n8n", 
+    description: "Workflow n8n",
+    color: "text-orange-500",
+    bgHover: "hover:bg-orange-500/10"
+  },
+  { 
     id: "note" as NodeType, 
     icon: StickyNote, 
     label: "Nota", 
@@ -57,8 +66,8 @@ export const AgentBuilderToolbar = ({ onAddNode, activeTool }: AgentBuilderToolb
     <TooltipProvider delayDuration={0}>
       <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-50">
         <div className="flex items-center gap-1 px-3 py-2 bg-card/95 backdrop-blur-sm border border-border rounded-xl shadow-lg">
-          {tools.map((tool) => (
-            <Tooltip key={tool.id}>
+          {tools.map((tool, idx) => (
+            <Tooltip key={`${tool.id}-${idx}`}>
               <TooltipTrigger asChild>
                 <Button
                   variant="ghost"
@@ -70,7 +79,7 @@ export const AgentBuilderToolbar = ({ onAddNode, activeTool }: AgentBuilderToolb
                       : tool.bgHover,
                     tool.color
                   )}
-                  onClick={() => onAddNode(tool.id)}
+                  onClick={() => onAddNode(tool.id, tool.subtype ? { toolType: tool.subtype } : undefined)}
                 >
                   <tool.icon className="h-5 w-5" />
                 </Button>

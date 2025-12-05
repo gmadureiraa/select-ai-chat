@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { X, Bot, Wrench, Brain } from "lucide-react";
+import { X, Bot, Wrench, Brain, Globe, Webhook, Code, Workflow } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,7 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import type { AIAgent, AIWorkflowNode, NodeConfig, TriggerType } from "@/types/agentBuilder";
+import { N8nWorkflowSelector } from "./N8nWorkflowSelector";
+import type { AIAgent, AIWorkflowNode, NodeConfig, TriggerType, AgentTool } from "@/types/agentBuilder";
 
 interface AgentConfigPanelProps {
   node: AIWorkflowNode | null;
@@ -62,6 +63,7 @@ export const AgentConfigPanel = ({
   const isAgentNode = node.type === "agent";
   const isTriggerNode = node.type === "trigger";
   const isConditionNode = node.type === "condition";
+  const isToolNode = node.type === "tool";
 
   const handleSaveAgent = () => {
     if (agent?.id) {
@@ -79,8 +81,12 @@ export const AgentConfigPanel = ({
       <div className="flex items-center justify-between p-4 border-b border-border">
         <div className="flex items-center gap-2">
           {isAgentNode && <Bot className="h-5 w-5 text-primary" />}
+          {isToolNode && <Workflow className="h-5 w-5 text-emerald-500" />}
           <h3 className="font-semibold">
-            {isAgentNode ? "Configurar Agente" : isTriggerNode ? "Configurar Trigger" : "Configurar Nó"}
+            {isAgentNode ? "Configurar Agente" : 
+             isTriggerNode ? "Configurar Trigger" : 
+             isToolNode ? "Configurar Ferramenta" :
+             isConditionNode ? "Configurar Condição" : "Configurar Nó"}
           </h3>
         </div>
         <Button variant="ghost" size="icon" onClick={onClose}>
@@ -158,11 +164,82 @@ export const AgentConfigPanel = ({
             </TabsContent>
 
             <TabsContent value="tools" className="p-4 space-y-4">
-              <div className="text-center py-8 text-muted-foreground">
-                <Wrench className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                <p className="text-sm">Adicione ferramentas para o agente usar</p>
-                <Button variant="outline" size="sm" className="mt-4">
-                  Adicionar Ferramenta
+              {/* n8n Workflows Integration */}
+              <N8nWorkflowSelector
+                selectedWorkflows={
+                  (localAgent.tools || [])
+                    .filter((t: AgentTool) => t.type === "n8n")
+                    .map((t: AgentTool) => ({
+                      id: t.id,
+                      name: t.name,
+                      webhookUrl: t.config?.webhookUrl || "",
+                    }))
+                }
+                onSelect={(workflows) => {
+                  const otherTools = (localAgent.tools || []).filter((t: AgentTool) => t.type !== "n8n");
+                  const n8nTools: AgentTool[] = workflows.map((w) => ({
+                    id: w.id,
+                    name: w.name,
+                    type: "n8n",
+                    config: { webhookUrl: w.webhookUrl },
+                    description: `n8n workflow: ${w.name}`,
+                  }));
+                  setLocalAgent({ ...localAgent, tools: [...otherTools, ...n8nTools] });
+                }}
+              />
+
+              {/* API Tools */}
+              <div className="border-t pt-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Globe className="h-4 w-4 text-muted-foreground" />
+                  <Label className="text-sm font-medium">APIs & Webhooks</Label>
+                </div>
+                <div className="space-y-2">
+                  {(localAgent.tools || [])
+                    .filter((t: AgentTool) => t.type === "api" || t.type === "webhook")
+                    .map((tool: AgentTool, idx: number) => (
+                      <div key={tool.id || idx} className="flex items-center gap-2 p-2 bg-muted/50 rounded">
+                        {tool.type === "webhook" ? (
+                          <Webhook className="h-4 w-4 text-orange-500" />
+                        ) : (
+                          <Globe className="h-4 w-4 text-blue-500" />
+                        )}
+                        <span className="text-sm flex-1">{tool.name}</span>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6"
+                          onClick={() => {
+                            setLocalAgent({
+                              ...localAgent,
+                              tools: (localAgent.tools || []).filter((t: AgentTool) => t.id !== tool.id),
+                            });
+                          }}
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ))}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full"
+                  onClick={() => {
+                    const newTool: AgentTool = {
+                      id: `api_${Date.now()}`,
+                      name: "Nova API",
+                      type: "api",
+                      config: { url: "", method: "GET" },
+                    };
+                    setLocalAgent({
+                      ...localAgent,
+                      tools: [...(localAgent.tools || []), newTool],
+                    });
+                  }}
+                >
+                  <Globe className="h-4 w-4 mr-2" />
+                  Adicionar API
                 </Button>
               </div>
             </TabsContent>
@@ -295,6 +372,141 @@ export const AgentConfigPanel = ({
                 className="font-mono text-sm"
               />
             </div>
+          </div>
+        ) : isToolNode ? (
+          <div className="p-4 space-y-4">
+            <div className="space-y-2">
+              <Label>Tipo de Ferramenta</Label>
+              <Select
+                value={(node.config as NodeConfig)?.toolType || "webhook"}
+                onValueChange={(value) => onUpdateNode({ 
+                  config: { ...node.config, toolType: value } 
+                })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="n8n">
+                    <div className="flex items-center gap-2">
+                      <Workflow className="h-4 w-4" />
+                      <span>n8n Workflow</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="webhook">
+                    <div className="flex items-center gap-2">
+                      <Webhook className="h-4 w-4" />
+                      <span>Webhook</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="api">
+                    <div className="flex items-center gap-2">
+                      <Globe className="h-4 w-4" />
+                      <span>API HTTP</span>
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {(node.config as NodeConfig)?.toolType === "n8n" ? (
+              <div className="space-y-4">
+                <N8nWorkflowSelector
+                  selectedWorkflows={
+                    (node.config as NodeConfig)?.n8nWorkflowId
+                      ? [{
+                          id: (node.config as NodeConfig)?.n8nWorkflowId || "",
+                          name: (node.config as NodeConfig)?.n8nWorkflowName || "",
+                          webhookUrl: (node.config as NodeConfig)?.webhookUrl || "",
+                        }]
+                      : []
+                  }
+                  onSelect={(workflows) => {
+                    const selected = workflows[0];
+                    if (selected) {
+                      onUpdateNode({
+                        config: {
+                          ...node.config,
+                          n8nWorkflowId: selected.id,
+                          n8nWorkflowName: selected.name,
+                          webhookUrl: selected.webhookUrl,
+                        }
+                      });
+                    } else {
+                      onUpdateNode({
+                        config: {
+                          ...node.config,
+                          n8nWorkflowId: undefined,
+                          n8nWorkflowName: undefined,
+                          webhookUrl: undefined,
+                        }
+                      });
+                    }
+                  }}
+                />
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Nome</Label>
+                  <Input
+                    value={(node.config as NodeConfig)?.label || ""}
+                    onChange={(e) => onUpdateNode({ 
+                      config: { ...node.config, label: e.target.value } 
+                    })}
+                    placeholder="Nome da ferramenta"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>URL</Label>
+                  <Input
+                    value={(node.config as NodeConfig)?.url || ""}
+                    onChange={(e) => onUpdateNode({ 
+                      config: { ...node.config, url: e.target.value } 
+                    })}
+                    placeholder="https://api.example.com/endpoint"
+                    className="font-mono text-sm"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Método HTTP</Label>
+                  <Select
+                    value={(node.config as NodeConfig)?.method || "POST"}
+                    onValueChange={(value) => onUpdateNode({ 
+                      config: { ...node.config, method: value } 
+                    })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="GET">GET</SelectItem>
+                      <SelectItem value="POST">POST</SelectItem>
+                      <SelectItem value="PUT">PUT</SelectItem>
+                      <SelectItem value="DELETE">DELETE</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Headers (JSON)</Label>
+                  <Textarea
+                    value={JSON.stringify((node.config as NodeConfig)?.headers || {}, null, 2)}
+                    onChange={(e) => {
+                      try {
+                        onUpdateNode({ 
+                          config: { ...node.config, headers: JSON.parse(e.target.value) } 
+                        });
+                      } catch {}
+                    }}
+                    placeholder='{}'
+                    className="font-mono text-sm min-h-[80px]"
+                  />
+                </div>
+              </div>
+            )}
           </div>
         ) : (
           <div className="p-4 space-y-4">
