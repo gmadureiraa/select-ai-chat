@@ -14,6 +14,78 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_agents: {
+        Row: {
+          avatar_url: string | null
+          created_at: string | null
+          description: string | null
+          escalation_agent_id: string | null
+          id: string
+          knowledge: Json | null
+          memory_enabled: boolean | null
+          metadata: Json | null
+          model: string | null
+          name: string
+          system_prompt: string
+          temperature: number | null
+          tools: Json | null
+          updated_at: string | null
+          variables: Json | null
+          workspace_id: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string | null
+          description?: string | null
+          escalation_agent_id?: string | null
+          id?: string
+          knowledge?: Json | null
+          memory_enabled?: boolean | null
+          metadata?: Json | null
+          model?: string | null
+          name: string
+          system_prompt?: string
+          temperature?: number | null
+          tools?: Json | null
+          updated_at?: string | null
+          variables?: Json | null
+          workspace_id: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string | null
+          description?: string | null
+          escalation_agent_id?: string | null
+          id?: string
+          knowledge?: Json | null
+          memory_enabled?: boolean | null
+          metadata?: Json | null
+          model?: string | null
+          name?: string
+          system_prompt?: string
+          temperature?: number | null
+          tools?: Json | null
+          updated_at?: string | null
+          variables?: Json | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_agents_escalation_agent_id_fkey"
+            columns: ["escalation_agent_id"]
+            isOneToOne: false
+            referencedRelation: "ai_agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_agents_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_usage_logs: {
         Row: {
           created_at: string
@@ -55,6 +127,194 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      ai_workflow_connections: {
+        Row: {
+          connection_type: string | null
+          created_at: string | null
+          id: string
+          label: string | null
+          source_node_id: string
+          target_node_id: string
+          workflow_id: string
+        }
+        Insert: {
+          connection_type?: string | null
+          created_at?: string | null
+          id?: string
+          label?: string | null
+          source_node_id: string
+          target_node_id: string
+          workflow_id: string
+        }
+        Update: {
+          connection_type?: string | null
+          created_at?: string | null
+          id?: string
+          label?: string | null
+          source_node_id?: string
+          target_node_id?: string
+          workflow_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_workflow_connections_source_node_id_fkey"
+            columns: ["source_node_id"]
+            isOneToOne: false
+            referencedRelation: "ai_workflow_nodes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_workflow_connections_target_node_id_fkey"
+            columns: ["target_node_id"]
+            isOneToOne: false
+            referencedRelation: "ai_workflow_nodes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_workflow_connections_workflow_id_fkey"
+            columns: ["workflow_id"]
+            isOneToOne: false
+            referencedRelation: "ai_workflows"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_workflow_nodes: {
+        Row: {
+          agent_id: string | null
+          config: Json | null
+          created_at: string | null
+          id: string
+          position_x: number | null
+          position_y: number | null
+          type: string
+          workflow_id: string
+        }
+        Insert: {
+          agent_id?: string | null
+          config?: Json | null
+          created_at?: string | null
+          id?: string
+          position_x?: number | null
+          position_y?: number | null
+          type: string
+          workflow_id: string
+        }
+        Update: {
+          agent_id?: string | null
+          config?: Json | null
+          created_at?: string | null
+          id?: string
+          position_x?: number | null
+          position_y?: number | null
+          type?: string
+          workflow_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_workflow_nodes_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "ai_agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_workflow_nodes_workflow_id_fkey"
+            columns: ["workflow_id"]
+            isOneToOne: false
+            referencedRelation: "ai_workflows"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_workflow_runs: {
+        Row: {
+          completed_at: string | null
+          error: string | null
+          execution_log: Json | null
+          id: string
+          result: Json | null
+          started_at: string | null
+          status: string | null
+          trigger_data: Json | null
+          workflow_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          error?: string | null
+          execution_log?: Json | null
+          id?: string
+          result?: Json | null
+          started_at?: string | null
+          status?: string | null
+          trigger_data?: Json | null
+          workflow_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          error?: string | null
+          execution_log?: Json | null
+          id?: string
+          result?: Json | null
+          started_at?: string | null
+          status?: string | null
+          trigger_data?: Json | null
+          workflow_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_workflow_runs_workflow_id_fkey"
+            columns: ["workflow_id"]
+            isOneToOne: false
+            referencedRelation: "ai_workflows"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_workflows: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          is_active: boolean | null
+          metadata: Json | null
+          name: string
+          trigger_config: Json | null
+          updated_at: string | null
+          workspace_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          metadata?: Json | null
+          name: string
+          trigger_config?: Json | null
+          updated_at?: string | null
+          workspace_id: string
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          metadata?: Json | null
+          name?: string
+          trigger_config?: Json | null
+          updated_at?: string | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_workflows_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       automation_runs: {
         Row: {
@@ -1393,6 +1653,10 @@ export type Database = {
           p_metadata?: Json
         }
         Returns: string
+      }
+      workflow_workspace_accessible: {
+        Args: { p_user_id: string; p_workflow_id: string }
+        Returns: boolean
       }
     }
     Enums: {
