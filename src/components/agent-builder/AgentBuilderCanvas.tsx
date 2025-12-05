@@ -103,7 +103,7 @@ export const AgentBuilderCanvas = ({
     [setEdges]
   );
 
-  const handleAddNode = useCallback((type: NodeType) => {
+  const handleAddNode = useCallback((type: NodeType, config?: Record<string, any>) => {
     const newNode: Node<WorkflowNodeData> = {
       id: `temp-${Date.now()}`,
       type,
@@ -112,9 +112,13 @@ export const AgentBuilderCanvas = ({
         label: type === "trigger" ? "Trigger" :
                type === "agent" ? "Novo Agente" :
                type === "condition" ? "Condição" :
-               type === "tool" ? "Ferramenta" : "Nota",
+               type === "tool" ? (config?.toolType === "n8n" ? "n8n Workflow" : "Ferramenta") : "Nota",
         type,
-        config: type === "trigger" ? { trigger_type: "manual" } : {},
+        config: type === "trigger" 
+          ? { trigger_type: "manual" } 
+          : type === "tool" 
+            ? { toolType: config?.toolType || "webhook", ...config }
+            : {},
       },
     };
     setNodes((nds) => [...nds, newNode]);

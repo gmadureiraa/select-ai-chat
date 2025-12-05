@@ -276,22 +276,77 @@ async function executeToolNode(
         return { success: true, output: data };
       }
       
-      case 'n8n_workflow': {
-        const workflowId = config.n8nWorkflowId || '';
+      case 'n8n_workflow':
+      case 'n8n': {
+        const workflowId = config.n8nWorkflowId || config.id || '';
+        const webhookUrl = config.webhookUrl || config.n8nWebhookUrl || '';
+        const workflowName = config.n8nWorkflowName || config.name || 'n8n Workflow';
         
-        if (!workflowId) {
-          return { success: false, output: null, error: 'n8n workflow ID not configured' };
+        console.log(`Executing n8n workflow: ${workflowName} (${workflowId})`);
+        console.log(`Webhook URL: ${webhookUrl}`);
+
+        if (!webhookUrl) {
+          return { success: false, output: null, error: 'n8n webhook URL not configured' };
         }
 
-        // This would integrate with n8n MCP - for now return placeholder
-        return { 
-          success: true, 
-          output: { 
-            message: 'n8n workflow execution placeholder',
+        try {
+          // Call n8n webhook with workflow context
+          const payload = {
+            input: context.currentInput,
+            variables: context.variables,
+            outputs: context.outputs,
             workflowId,
-            input: context.currentInput 
-          } 
-        };
+            triggeredAt: new Date().toISOString(),
+          };
+
+          console.log(`Sending payload to n8n:`, JSON.stringify(payload, null, 2));
+
+          const response = await fetch(webhookUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(payload),
+          });
+
+          // n8n webhooks may return different response types
+          let data: any;
+          const contentType = response.headers.get('content-type') || '';
+          
+          if (contentType.includes('application/json')) {
+            data = await response.json();
+          } else {
+            data = { message: await response.text(), status: response.status };
+          }
+
+          console.log(`n8n response:`, JSON.stringify(data, null, 2));
+
+          if (!response.ok && response.status !== 200) {
+            return { 
+              success: false, 
+              output: data, 
+              error: `n8n webhook returned status ${response.status}` 
+            };
+          }
+
+          return { 
+            success: true, 
+            output: {
+              ...data,
+              workflowId,
+              workflowName,
+              webhookUrl,
+              executedAt: new Date().toISOString(),
+            }
+          };
+        } catch (fetchError) {
+          console.error('n8n webhook fetch error:', fetchError);
+          return { 
+            success: false, 
+            output: null, 
+            error: `Failed to call n8n webhook: ${String(fetchError)}` 
+          };
+        }
       }
       
       case 'http_request': {
