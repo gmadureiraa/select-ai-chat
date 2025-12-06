@@ -5,17 +5,20 @@ import { Send, Image as ImageIcon, X, Loader2 } from "lucide-react";
 import { uploadAndGetSignedUrl } from "@/lib/storage";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { QualitySelector } from "@/components/chat/QualitySelector";
 
 interface ChatInputProps {
-  onSend: (message: string, imageUrls?: string[]) => void;
+  onSend: (message: string, imageUrls?: string[], quality?: "fast" | "high") => void;
   disabled?: boolean;
+  showQualitySelector?: boolean;
 }
 
-export const ChatInput = ({ onSend, disabled }: ChatInputProps) => {
+export const ChatInput = ({ onSend, disabled, showQualitySelector = true }: ChatInputProps) => {
   const [input, setInput] = useState("");
   const [charCount, setCharCount] = useState(0);
   const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [uploadingImages, setUploadingImages] = useState(false);
+  const [quality, setQuality] = useState<"fast" | "high">("fast");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
@@ -73,7 +76,7 @@ export const ChatInput = ({ onSend, disabled }: ChatInputProps) => {
       setUploadingImages(false);
     }
 
-    onSend(trimmed || "Analise esta imagem", imageUrls);
+    onSend(trimmed || "Analise esta imagem", imageUrls, quality);
     setInput("");
     setCharCount(0);
     setImageFiles([]);
@@ -115,6 +118,20 @@ export const ChatInput = ({ onSend, disabled }: ChatInputProps) => {
   return (
     <div className="border-t bg-background/95 backdrop-blur-sm p-3 sm:p-4">
       <div className="max-w-4xl mx-auto space-y-3">
+        {/* Seletor de qualidade */}
+        {showQualitySelector && (
+          <div className="flex items-center justify-between">
+            <QualitySelector 
+              quality={quality} 
+              onChange={setQuality} 
+              disabled={disabled || uploadingImages}
+            />
+            <span className="text-[10px] text-muted-foreground">
+              {quality === "high" ? "Pipeline 4 agentes" : "Resposta rápida"}
+            </span>
+          </div>
+        )}
+
         {/* Preview de imagens */}
         {imageFiles.length > 0 && (
           <div className="flex gap-2 flex-wrap p-2 bg-muted/30 rounded-lg">

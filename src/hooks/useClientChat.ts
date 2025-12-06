@@ -244,7 +244,7 @@ export const useClientChat = (clientId: string, templateId?: string) => {
     enabled: !!workspace?.id,
   });
 
-  const sendMessage = useCallback(async (content: string, imageUrls?: string[]) => {
+  const sendMessage = useCallback(async (content: string, imageUrls?: string[], quality?: "fast" | "high") => {
     // Validações
     const validationError = validateMessage(content);
     if (validationError) {
@@ -350,20 +350,27 @@ export const useClientChat = (clientId: string, templateId?: string) => {
       const earlyIdeaCheck = parseIdeaRequest(content);
       const earlyDetectedType = earlyIdeaCheck.contentType || detectContentType(content);
       
-      // Usar pipeline multi-agente para conteúdos longos (exceto ideias)
-      const shouldUseMultiAgent = !earlyIdeaCheck.isIdea && 
+      // Usar pipeline multi-agente quando:
+      // 1. Usuário escolheu "Alta Qualidade" OU
+      // 2. É conteúdo longo E modelo de qualidade (exceto ideias)
+      const shouldUseMultiAgent = quality === "high" || (
+        !earlyIdeaCheck.isIdea && 
         MULTI_AGENT_CONTENT_TYPES.includes(earlyDetectedType || "") &&
-        (selectedModel.includes("pro") || selectedModel.includes("gpt-5")); // Apenas para modelos de qualidade
+        (selectedModel.includes("pro") || selectedModel.includes("gpt-5"))
+      );
 
       if (shouldUseMultiAgent) {
-        console.log("[CHAT] Using multi-agent pipeline for:", earlyDetectedType);
+        console.log("[CHAT] Using multi-agent pipeline for:", earlyDetectedType, "quality:", quality);
         setCurrentStep("multi_agent");
         setMultiAgentStep("researcher");
-        setMultiAgentDetails({});
+        setMultiAgentDetails({ researcher: "Analisando biblioteca de conteúdo..." });
 
         try {
-          // Buscar guia de copywriting do cliente
-          const copywritingGuide = "";
+          // Buscar guia de copywriting do cliente (de knowledgeFiles se disponível)
+          const copywritingEntry = Object.entries(knowledgeFiles || {}).find(([name]) => 
+            name.toLowerCase().includes("copywriting") || name.toLowerCase().includes("guia")
+          );
+          const copywritingGuide = copywritingEntry ? copywritingEntry[1] : "";
 
           const { data, error } = await supabase.functions.invoke("chat-multi-agent", {
             body: {
