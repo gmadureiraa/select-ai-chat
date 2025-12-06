@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useCallback } from "react";
 
 interface UseSmoothScrollOptions {
   behavior?: ScrollBehavior;
@@ -7,6 +7,7 @@ interface UseSmoothScrollOptions {
 
 /**
  * Hook para scroll suave automático para o final
+ * Adaptado para funcionar com ScrollArea do Radix
  */
 export const useSmoothScroll = (
   dependencies: any[],
@@ -16,9 +17,27 @@ export const useSmoothScroll = (
   const scrollRef = useRef<HTMLDivElement>(null);
   const isUserScrolling = useRef(false);
   const scrollTimeout = useRef<NodeJS.Timeout>();
+  const initialScrollDone = useRef(false);
 
+  // Scroll para o final
+  const scrollToBottom = useCallback((immediate = false) => {
+    if (!scrollRef.current) return;
+    
+    // Buscar o viewport do ScrollArea (elemento pai com overflow)
+    const viewport = scrollRef.current.closest('[data-radix-scroll-area-viewport]');
+    const scrollElement = viewport || scrollRef.current;
+    
+    if (scrollElement) {
+      const scrollBehavior = immediate ? "auto" : behavior;
+      scrollElement.scrollTo({
+        top: scrollElement.scrollHeight,
+        behavior: scrollBehavior,
+      });
+    }
+  }, [behavior]);
+
+  // Detectar scroll manual do usuário
   useEffect(() => {
-    // Detectar quando usuário está fazendo scroll manual
     const handleScroll = () => {
       isUserScrolling.current = true;
       if (scrollTimeout.current) {
@@ -29,7 +48,10 @@ export const useSmoothScroll = (
       }, 1000);
     };
 
-    const scrollElement = scrollRef.current;
+    // Encontrar o viewport do ScrollArea
+    const viewport = scrollRef.current?.closest('[data-radix-scroll-area-viewport]');
+    const scrollElement = viewport || scrollRef.current;
+
     if (scrollElement) {
       scrollElement.addEventListener("scroll", handleScroll);
     }
@@ -44,17 +66,25 @@ export const useSmoothScroll = (
     };
   }, []);
 
+  // Scroll inicial (quando mensagens carregam pela primeira vez)
   useEffect(() => {
-    // Só fazer scroll automático se usuário não estiver fazendo scroll manual
-    if (!isUserScrolling.current && scrollRef.current) {
+    if (!initialScrollDone.current && dependencies[0]?.length > 0) {
+      // Scroll imediato na primeira carga
       setTimeout(() => {
-        scrollRef.current?.scrollTo({
-          top: scrollRef.current.scrollHeight,
-          behavior,
-        });
+        scrollToBottom(true);
+        initialScrollDone.current = true;
+      }, 50);
+    }
+  }, [dependencies, scrollToBottom]);
+
+  // Scroll quando dependências mudam (novas mensagens)
+  useEffect(() => {
+    if (!isUserScrolling.current && initialScrollDone.current) {
+      setTimeout(() => {
+        scrollToBottom(false);
       }, delay);
     }
   }, dependencies);
 
-  return scrollRef;
+  return { scrollRef, scrollToBottom };
 };

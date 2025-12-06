@@ -138,11 +138,13 @@ export const ChatInput = ({ onSend, disabled, showQualitySelector = true }: Chat
               )}
             </div>
             <span className="text-[10px] text-muted-foreground">
-              {mode === "ideas" 
-                ? "Gera ideias baseadas na biblioteca" 
-                : quality === "high" 
-                  ? "Pipeline 4 agentes" 
-                  : "Resposta rápida"
+              {mode === "free_chat"
+                ? "Conversa livre com dados reais"
+                : mode === "ideas" 
+                  ? "Gera ideias baseadas na biblioteca" 
+                  : quality === "high" 
+                    ? "Pipeline 4 agentes" 
+                    : "Resposta rápida"
               }
             </span>
           </div>

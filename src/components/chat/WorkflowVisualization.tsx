@@ -19,7 +19,23 @@ interface WorkflowVisualizationProps {
     patternAnalysis?: string;
   };
   isIdeaMode?: boolean;
+  isFreeChatMode?: boolean;
 }
+
+const stepsForFreeChat = [
+  { 
+    key: "analyzing", 
+    label: "Preparando Contexto", 
+    description: "Carregando dados do cliente",
+    icon: Search
+  },
+  { 
+    key: "creating", 
+    label: "Respondendo", 
+    description: "Gerando resposta com dados reais",
+    icon: Sparkles
+  },
+];
 
 const stepsForIdeas = [
   { 
@@ -96,11 +112,14 @@ const stepsForImage = [
   },
 ];
 
-export const WorkflowVisualization = ({ currentStep, workflowState, isIdeaMode = false }: WorkflowVisualizationProps) => {
+export const WorkflowVisualization = ({ currentStep, workflowState, isIdeaMode = false, isFreeChatMode = false }: WorkflowVisualizationProps) => {
   // Selecionar steps baseado no modo
   const getActiveSteps = () => {
     if (currentStep === "generating_image") {
       return stepsForImage;
+    }
+    if (isFreeChatMode) {
+      return stepsForFreeChat;
     }
     return isIdeaMode ? stepsForIdeas : stepsForContent;
   };
@@ -115,28 +134,46 @@ export const WorkflowVisualization = ({ currentStep, workflowState, isIdeaMode =
   const currentIndex = getCurrentStepIndex();
   const currentStepData = activeSteps[currentIndex];
 
+  // Cores baseadas no modo
+  const getModeColor = () => {
+    if (isFreeChatMode) return "emerald";
+    if (isIdeaMode) return "amber";
+    return "primary";
+  };
+
+  const modeColor = getModeColor();
+
   return (
     <div className={cn(
       "space-y-3 p-4 backdrop-blur-sm border rounded-xl",
-      isIdeaMode 
-        ? "bg-amber-500/10 border-amber-500/30" 
-        : "bg-card/50 border-border/50"
+      isFreeChatMode 
+        ? "bg-emerald-500/10 border-emerald-500/30" 
+        : isIdeaMode 
+          ? "bg-amber-500/10 border-amber-500/30" 
+          : "bg-card/50 border-border/50"
     )}>
       {/* Header com modo */}
       <div className="flex items-center gap-2">
         <div className={cn(
           "flex items-center gap-2 text-sm font-medium",
-          isIdeaMode ? "text-amber-500" : "text-primary"
+          isFreeChatMode ? "text-emerald-500" : isIdeaMode ? "text-amber-500" : "text-primary"
         )}>
           <Loader2 className="h-4 w-4 animate-spin" />
           <span>
             {currentStep === "generating_image" 
               ? "Gerando imagem..." 
-              : isIdeaMode 
-                ? "MODO IDEIAS" 
-                : "MODO CONTEÚDO"}
+              : isFreeChatMode
+                ? "CHAT LIVRE"
+                : isIdeaMode 
+                  ? "MODO IDEIAS" 
+                  : "MODO CONTEÚDO"}
           </span>
         </div>
+        {isFreeChatMode && (
+          <Badge variant="outline" className="text-[10px] bg-emerald-500/20 border-emerald-500/40 text-emerald-600">
+            Dados Reais
+          </Badge>
+        )}
         {isIdeaMode && (
           <Badge variant="outline" className="text-[10px] bg-amber-500/20 border-amber-500/40 text-amber-600">
             Fluxo Simplificado
@@ -164,26 +201,26 @@ export const WorkflowVisualization = ({ currentStep, workflowState, isIdeaMode =
               key={step.key}
               className={cn(
                 "flex items-center gap-3 p-2 rounded-lg transition-all duration-300",
-                isCurrent && (isIdeaMode ? "bg-amber-500/20" : "bg-primary/10"),
+                isCurrent && (isFreeChatMode ? "bg-emerald-500/20" : isIdeaMode ? "bg-amber-500/20" : "bg-primary/10"),
                 isCompleted && "bg-muted/30",
                 isPending && "opacity-40"
               )}
             >
               <div className="flex-shrink-0">
-                {isCompleted && <CheckCircle2 className={cn("h-4 w-4", isIdeaMode ? "text-amber-500" : "text-primary")} />}
-                {isCurrent && <Loader2 className={cn("h-4 w-4 animate-spin", isIdeaMode ? "text-amber-500" : "text-primary")} />}
+                {isCompleted && <CheckCircle2 className={cn("h-4 w-4", isFreeChatMode ? "text-emerald-500" : isIdeaMode ? "text-amber-500" : "text-primary")} />}
+                {isCurrent && <Loader2 className={cn("h-4 w-4 animate-spin", isFreeChatMode ? "text-emerald-500" : isIdeaMode ? "text-amber-500" : "text-primary")} />}
                 {isPending && <Circle className="h-4 w-4 text-muted-foreground/50" />}
               </div>
 
               <div className="flex items-center gap-2 flex-1 min-w-0">
                 <Icon className={cn(
                   "h-3.5 w-3.5",
-                  isCurrent ? (isIdeaMode ? "text-amber-500" : "text-primary") : "text-muted-foreground"
+                  isCurrent ? (isFreeChatMode ? "text-emerald-500" : isIdeaMode ? "text-amber-500" : "text-primary") : "text-muted-foreground"
                 )} />
                 <span className={cn(
                   "text-sm",
                   isCurrent 
-                    ? (isIdeaMode ? "text-amber-600 font-medium" : "text-primary font-medium") 
+                    ? (isFreeChatMode ? "text-emerald-600 font-medium" : isIdeaMode ? "text-amber-600 font-medium" : "text-primary font-medium") 
                     : "text-muted-foreground"
                 )}>
                   {step.label}
@@ -195,7 +232,7 @@ export const WorkflowVisualization = ({ currentStep, workflowState, isIdeaMode =
       </div>
 
       {/* Selected Materials - Apenas para modo conteúdo */}
-      {!isIdeaMode && workflowState.selectedMaterials.length > 0 && currentStep !== "generating_image" && (
+      {!isIdeaMode && !isFreeChatMode && workflowState.selectedMaterials.length > 0 && currentStep !== "generating_image" && (
         <div className="pt-2 border-t border-border/30">
           <p className="text-xs font-medium text-muted-foreground mb-2">
             {workflowState.selectedMaterials.length} materiais selecionados
