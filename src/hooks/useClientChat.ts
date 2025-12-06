@@ -246,7 +246,7 @@ export const useClientChat = (clientId: string, templateId?: string) => {
     enabled: !!workspace?.id,
   });
 
-  const sendMessage = useCallback(async (content: string, imageUrls?: string[], quality?: "fast" | "high") => {
+  const sendMessage = useCallback(async (content: string, imageUrls?: string[], quality?: "fast" | "high", explicitMode?: "content" | "ideas") => {
     // Validações
     const validationError = validateMessage(content);
     if (validationError) {
@@ -279,9 +279,11 @@ export const useClientChat = (clientId: string, templateId?: string) => {
     setIsLoading(true);
     setCurrentStep("analyzing");
     
-    // Detectar modo de ideias para visualização
-    const ideaCheck = parseIdeaRequest(content);
-    setIsIdeaMode(ideaCheck.isIdea);
+    // Usar modo explícito do toggle - PRIORIDADE sobre auto-detecção
+    const isExplicitIdeaMode = explicitMode === "ideas";
+    setIsIdeaMode(isExplicitIdeaMode);
+    
+    console.log("[CHAT] Explicit mode:", explicitMode, "| isExplicitIdeaMode:", isExplicitIdeaMode);
 
     try {
       // Save user message
@@ -352,18 +354,16 @@ export const useClientChat = (clientId: string, templateId?: string) => {
         return;
       }
 
-      // Detectar tipo de conteúdo e verificar se deve usar pipeline multi-agente
-      const earlyIdeaCheck = parseIdeaRequest(content);
-      const earlyDetectedType = earlyIdeaCheck.contentType || detectContentType(content);
+      // Detectar tipo de conteúdo para multi-agente (apenas se NÃO estiver em modo ideias)
+      const earlyDetectedType = detectContentType(content);
       
-      // Usar pipeline multi-agente quando:
-      // 1. Usuário escolheu "Alta Qualidade" OU
-      // 2. É conteúdo longo E modelo de qualidade (exceto ideias)
-      const shouldUseMultiAgent = quality === "high" || (
-        !earlyIdeaCheck.isIdea && 
+      // Usar pipeline multi-agente APENAS quando:
+      // 1. NÃO está em modo ideias explícito E
+      // 2. (Usuário escolheu "Alta Qualidade" OU é conteúdo longo com modelo premium)
+      const shouldUseMultiAgent = !isExplicitIdeaMode && (quality === "high" || (
         MULTI_AGENT_CONTENT_TYPES.includes(earlyDetectedType || "") &&
         (selectedModel.includes("pro") || selectedModel.includes("gpt-5"))
-      );
+      ));
 
       if (shouldUseMultiAgent) {
         console.log("[CHAT] Using multi-agent pipeline for:", earlyDetectedType, "quality:", quality);
@@ -498,18 +498,15 @@ export const useClientChat = (clientId: string, templateId?: string) => {
         return;
       }
 
-      // Detectar pedido de ideias ANTES de tudo
-      const preliminaryIdeaCheck = parseIdeaRequest(content);
-      console.log("[CHAT] Idea check:", preliminaryIdeaCheck);
-
       // =====================================================
-      // FLUXO SIMPLIFICADO PARA IDEIAS
+      // FLUXO SIMPLIFICADO PARA IDEIAS (toggle explícito)
       // =====================================================
-      if (preliminaryIdeaCheck.isIdea) {
-        console.log("[CHAT] MODO IDEIAS - Fluxo simplificado");
+      if (isExplicitIdeaMode) {
+        console.log("[CHAT] MODO IDEIAS EXPLÍCITO - Fluxo simplificado");
         setCurrentStep("selecting");
         
-        const requestedQuantity = preliminaryIdeaCheck.quantity || 5;
+        // Gerar pelo menos 3 ideias (mínimo), pode pedir mais
+        const requestedQuantity = Math.max(3, parseIdeaRequest(content).quantity || 3);
         
         // Preparar contexto simplificado com biblioteca
         const libraryContext = contentLibrary.slice(0, 15).map((c, i) => 
@@ -802,41 +799,8 @@ AGORA CHAME A FUNÇÃO select_relevant_content com:
           .filter(Boolean);
 
         if (selectedContents.length > 0) {
-          // Criar prompt de análise de padrões (diferente para modo ideias vs criação de conteúdo)
-          const analysisPrompt = preliminaryIdeaCheck.isIdea 
-            ? `Analise os seguintes conteúdos do cliente ${client.name} para IDENTIFICAR OS TEMAS E ASSUNTOS que este cliente trabalha:
-
-## CONTEÚDOS DO CLIENTE:
-${selectedContents.map((c: any, idx: number) => `
-### ${idx + 1}. ${c.title} (${c.content_type})
-${c.source_url ? `**Fonte:** ${c.source_url}\n` : ''}
-${c.content}
----
-`).join('\n')}
-
-## EXTRAIA PARA GERAR IDEIAS NOVAS:
-
-### 1. TEMAS PRINCIPAIS (OBRIGATÓRIO)
-Liste os 5-10 principais assuntos/tópicos que este cliente aborda:
-- Ex: "Investimentos", "Cripto", "Mindset financeiro", "Renda passiva", etc.
-
-### 2. POSICIONAMENTO DO CLIENTE
-- Qual é o nicho específico?
-- Qual é a proposta de valor?
-- Quem é o público-alvo?
-
-### 3. ÂNGULOS JÁ USADOS
-Para cada tema, liste brevemente como já foi abordado (para NÃO repetir):
-- Tema X: "Já fez sobre Y, Z..."
-
-### 4. OPORTUNIDADES DE NOVAS IDEIAS
-Sugira ângulos NOVOS dentro dos mesmos temas que ainda não foram explorados.
-
-IMPORTANTE: 
-- As novas ideias DEVEM SER sobre os temas que o cliente trabalha
-- NÃO sugira temas fora do nicho do cliente
-- O objetivo é criar VARIAÇÕES NOVAS dos mesmos temas`
-            : `Analise os seguintes conteúdos de REFERÊNCIA do cliente ${client.name} para extrair PADRÕES DE ESCRITA:
+          // Criar prompt de análise de padrões (apenas para modo conteúdo - o modo ideias usa fluxo separado)
+          const analysisPrompt = `Analise os seguintes conteúdos de REFERÊNCIA do cliente ${client.name} para extrair PADRÕES DE ESCRITA:
 
 ## REFERÊNCIAS DE ESTILO:
 ${selectedContents.map((c: any, idx: number) => `

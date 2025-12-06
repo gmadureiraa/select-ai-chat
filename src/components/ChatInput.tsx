@@ -6,9 +6,10 @@ import { uploadAndGetSignedUrl } from "@/lib/storage";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { QualitySelector } from "@/components/chat/QualitySelector";
+import { ModeSelector, ChatMode } from "@/components/chat/ModeSelector";
 
 interface ChatInputProps {
-  onSend: (message: string, imageUrls?: string[], quality?: "fast" | "high") => void;
+  onSend: (message: string, imageUrls?: string[], quality?: "fast" | "high", mode?: ChatMode) => void;
   disabled?: boolean;
   showQualitySelector?: boolean;
 }
@@ -19,6 +20,7 @@ export const ChatInput = ({ onSend, disabled, showQualitySelector = true }: Chat
   const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [uploadingImages, setUploadingImages] = useState(false);
   const [quality, setQuality] = useState<"fast" | "high">("fast");
+  const [mode, setMode] = useState<ChatMode>("content");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
@@ -76,7 +78,7 @@ export const ChatInput = ({ onSend, disabled, showQualitySelector = true }: Chat
       setUploadingImages(false);
     }
 
-    onSend(trimmed || "Analise esta imagem", imageUrls, quality);
+    onSend(trimmed || "Analise esta imagem", imageUrls, quality, mode);
     setInput("");
     setCharCount(0);
     setImageFiles([]);
@@ -118,16 +120,30 @@ export const ChatInput = ({ onSend, disabled, showQualitySelector = true }: Chat
   return (
     <div className="border-t bg-background/95 backdrop-blur-sm p-3 sm:p-4">
       <div className="max-w-4xl mx-auto space-y-3">
-        {/* Seletor de qualidade */}
+        {/* Seletores de modo e qualidade */}
         {showQualitySelector && (
-          <div className="flex items-center justify-between">
-            <QualitySelector 
-              quality={quality} 
-              onChange={setQuality} 
-              disabled={disabled || uploadingImages}
-            />
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <div className="flex items-center gap-3">
+              <ModeSelector 
+                mode={mode} 
+                onChange={setMode} 
+                disabled={disabled || uploadingImages}
+              />
+              {mode === "content" && (
+                <QualitySelector 
+                  quality={quality} 
+                  onChange={setQuality} 
+                  disabled={disabled || uploadingImages}
+                />
+              )}
+            </div>
             <span className="text-[10px] text-muted-foreground">
-              {quality === "high" ? "Pipeline 4 agentes" : "Resposta rápida"}
+              {mode === "ideas" 
+                ? "Gera ideias baseadas na biblioteca" 
+                : quality === "high" 
+                  ? "Pipeline 4 agentes" 
+                  : "Resposta rápida"
+              }
             </span>
           </div>
         )}
