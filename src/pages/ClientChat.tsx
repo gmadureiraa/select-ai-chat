@@ -19,6 +19,7 @@ import { MessageBubble } from "@/components/MessageBubble";
 import { ChatInput } from "@/components/ChatInput";
 import { TaskSuggestions } from "@/components/chat/TaskSuggestions";
 import { WorkflowVisualization } from "@/components/chat/WorkflowVisualization";
+import { MultiAgentProgress } from "@/components/chat/MultiAgentProgress";
 import { useClientChat } from "@/hooks/useClientChat";
 import { useSmoothScroll } from "@/hooks/useSmoothScroll";
 import kaleidosLogo from "@/assets/kaleidos-logo.svg";
@@ -65,6 +66,8 @@ const ClientChat = () => {
     isLoading,
     currentStep,
     workflowState,
+    multiAgentStep,
+    multiAgentDetails,
     sendMessage,
     regenerateLastMessage,
     clearConversation,
@@ -229,10 +232,17 @@ const ClientChat = () => {
               {/* Visualização do workflow durante loading */}
               {isLoading && (
                 <div className="px-4 py-4 animate-fade-in">
-                  <WorkflowVisualization 
-                    currentStep={currentStep} 
-                    workflowState={workflowState}
-                  />
+                  {multiAgentStep ? (
+                    <MultiAgentProgress 
+                      currentStep={multiAgentStep} 
+                      stepDetails={multiAgentDetails}
+                    />
+                  ) : (
+                    <WorkflowVisualization 
+                      currentStep={currentStep} 
+                      workflowState={workflowState}
+                    />
+                  )}
                 </div>
               )}
             </div>
