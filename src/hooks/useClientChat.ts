@@ -542,79 +542,72 @@ export const useClientChat = (clientId: string, templateId?: string) => {
       // System message para seleção inteligente
       const selectionSystemMessage = `Você é o kAI, assistente especializado da Kaleidos para o cliente ${client.name}.
 
+## ⚠️ INSTRUÇÃO OBRIGATÓRIA
+Você DEVE usar a função select_relevant_content para selecionar materiais da biblioteca.
+ANALISE a biblioteca abaixo e SELECIONE os materiais mais relevantes.
+
 ${preliminaryIdeaCheck.isIdea ? `
-## ⚠️ MODO IDEIAS DETECTADO
-O usuário está pedindo IDEIAS de conteúdo (${preliminaryIdeaCheck.quantity || 5} ideias${preliminaryIdeaCheck.contentType ? ` de ${preliminaryIdeaCheck.contentType}` : ''}).
+## MODO IDEIAS (${preliminaryIdeaCheck.quantity || 5} ideias${preliminaryIdeaCheck.contentType ? ` de ${preliminaryIdeaCheck.contentType}` : ''})
 
-PROCESSO OBRIGATÓRIO:
-1. ANALISE a biblioteca de conteúdo para identificar os TEMAS e ASSUNTOS que este cliente trabalha
-2. SELECIONE materiais variados que mostrem o escopo de temas do cliente
-3. O objetivo é entender O QUE o cliente fala para criar ideias NOVAS sobre esses temas
+OBJETIVO: Identificar os TEMAS e ASSUNTOS que este cliente trabalha para criar ideias NOVAS.
 
-IMPORTANTE: 
-- Os materiais selecionados mostram os TEMAS do cliente (finanças, cripto, marketing, etc.)
-- As ideias devem ser sobre ESSES TEMAS, não sobre qualquer assunto aleatório
-- NÃO copiar as ideias existentes, mas criar NOVAS sobre os mesmos temas
+ANALISE A BIBLIOTECA ABAIXO:
+- Quais são os temas recorrentes? (ex: amor, emoções, espiritualidade, autoconhecimento)
+- Sobre o que este cliente FALA?
+- Quais ângulos e perspectivas já foram abordados?
+
+SELECIONE: 3-5 conteúdos que mostrem os PRINCIPAIS TEMAS do cliente.
+As ideias geradas devem ser sobre ESSES TEMAS específicos do cliente.
 ` : `
 ## MODO CRIAÇÃO DE CONTEÚDO
-O usuário quer CRIAR conteúdo final.
 
-PROCESSO OBRIGATÓRIO:
-1. ANALISE a biblioteca de REFERÊNCIAS para entender ESTILO e TOM de escrita
-2. SELECIONE exemplos que mostrem como o cliente ESCREVE
-3. O objetivo é copiar o ESTILO, não o conteúdo
+OBJETIVO: Entender o ESTILO de escrita do cliente para replicá-lo.
 
-IMPORTANTE:
-- Priorize a BIBLIOTECA DE REFERÊNCIAS (são modelos de escrita)
-- Busque exemplos do MESMO TIPO de conteúdo pedido
-- O assistente deve ESCREVER IGUAL aos exemplos de referência
+ANALISE A BIBLIOTECA ABAIXO:
+- Qual é o TOM de voz? (informal, formal, poético, direto)
+- Qual é a ESTRUTURA dos conteúdos?
+- Quais palavras e expressões são características?
+
+SELECIONE: 3-5 exemplos que mostrem o ESTILO de escrita.
+O conteúdo gerado deve PARECER com esses exemplos.
 `}
 
-## Materiais Disponíveis (${availableMaterials.length} total):
+## BIBLIOTECA DE CONTEÚDO DO CLIENTE (${contentLibrary.length} itens):
 
-### Biblioteca de Conteúdo (${contentLibrary.length}):
-${contentLibrary.map(c => `- ID: ${c.id}
-  Tipo: ${c.content_type}
-  Título: ${c.title}
-  Preview: ${c.content.substring(0, 200)}...`).join('\n\n')}
+${contentLibrary.length === 0 ? 'ATENÇÃO: Biblioteca vazia! Selecione analysis_needed: false' : contentLibrary.slice(0, 15).map((c, i) => `
+### [${i + 1}] ${c.title}
+- ID: ${c.id}
+- Tipo: ${c.content_type}
+- Conteúdo: "${c.content.substring(0, 400)}..."
+`).join('\n')}
 
-### Documentos (${documents.length}):
-${documents.map(d => `- ID: ${d.id}
-  Nome: ${d.name}
-  Tipo: ${d.file_type}
-  ${d.extracted_content ? `Conteúdo: ${d.extracted_content.substring(0, 200)}...` : '(Sem transcrição)'}`).join('\n\n')}
+## BIBLIOTECA DE REFERÊNCIAS (${referenceLibrary.length} itens):
 
-### Biblioteca de Referências (${referenceLibrary.length}) - MODELOS DE ESCRITA:
-${referenceLibrary.map(r => `- ID: ${r.id}
-  Tipo: ${r.reference_type}
-  Título: ${r.title}
-  Preview: ${r.content.substring(0, 150)}...
-  ${r.source_url ? `URL: ${r.source_url}` : ''}`).join('\n\n')}
+${referenceLibrary.length === 0 ? 'Sem referências cadastradas' : referenceLibrary.slice(0, 10).map((r, i) => `
+### [REF ${i + 1}] ${r.title}
+- ID: ${r.id}
+- Tipo: ${r.reference_type}
+- Conteúdo: "${r.content.substring(0, 300)}..."
+`).join('\n')}
 
-## Outras Informações:
-- Websites: ${websites.length} website(s)
-- Notas de Contexto: ${client.context_notes ? 'Sim' : 'Não'}
-- Redes Sociais: ${Object.keys(client.social_media || {}).length}
-- Tags: ${Object.keys(client.tags || {}).length}
+## DOCUMENTOS (${documents.length} itens):
+${documents.length === 0 ? 'Sem documentos' : documents.map(d => `- ${d.name} (${d.file_type})`).join('\n')}
 
-ESTRATÉGIA:
-${preliminaryIdeaCheck.isIdea ? `
-1. Identifique os TEMAS/ASSUNTOS que o cliente aborda (finanças, cripto, marketing, etc.)
-2. Selecione materiais VARIADOS que mostrem a amplitude de temas
-3. O objetivo é ter base para criar ideias NOVAS sobre esses mesmos temas
-4. Priorize conteúdos do tipo pedido pelo usuário (${preliminaryIdeaCheck.contentType || 'qualquer'})
-` : `
-1. Identifique o tipo de conteúdo pedido (${preliminaryIdeaCheck.contentType || 'detecte do contexto'})
-2. PRIORIZE a biblioteca de REFERÊNCIAS (modelos de escrita)
-3. Selecione exemplos que mostrem TOM, ESTILO e ESTRUTURA
-4. O assistente vai ESCREVER IGUAL a esses exemplos
-`}`;
+---
+AGORA CHAME A FUNÇÃO select_relevant_content com:
+- detected_content_type: "${preliminaryIdeaCheck.contentType || 'general'}"
+- selected_references: array com IDs dos materiais relevantes (mínimo 3 se disponível)
+- analysis_needed: ${contentLibrary.length > 0 || referenceLibrary.length > 0 ? 'true' : 'false'}
+- use_context_notes: ${client.context_notes ? 'true' : 'false'}
+- use_websites: ${websites.length > 0 ? 'true' : 'false'}
+- strategy: "follow_structure" ou "adapt_tone"
+- reasoning: explique brevemente porque selecionou esses materiais`;
 
       // Histórico completo de mensagens para contexto
       const selectionMessages = [
         { role: "system", content: selectionSystemMessage },
         ...messages.map(m => ({ role: m.role, content: m.content })),
-        { role: "user", content }
+        { role: "user", content: `TAREFA: Analise a biblioteca acima e use a função select_relevant_content para selecionar materiais relevantes para: "${content}"` }
       ];
 
       // USAR MODELO BARATO para seleção

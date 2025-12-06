@@ -144,9 +144,13 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { messages, model = "gemini-2.5-flash", isSelectionPhase, userId, clientId, imageUrls } = await req.json();
+    const { messages, model = "gemini-2.5-flash", isSelectionPhase, userId, clientId, imageUrls, availableMaterials } = await req.json();
 
     console.log(`[CHAT] Model: ${model}, Phase: ${isSelectionPhase ? "selection" : "response"}, Images: ${imageUrls?.length || 0}`);
+    
+    if (isSelectionPhase && availableMaterials) {
+      console.log(`[CHAT] Available materials: ${availableMaterials.length} items`);
+    }
 
     const GOOGLE_API_KEY = Deno.env.get("GOOGLE_AI_STUDIO_API_KEY");
     if (!GOOGLE_API_KEY) throw new Error("GOOGLE_AI_STUDIO_API_KEY não configurada");
@@ -233,15 +237,22 @@ serve(async (req) => {
       };
     }
 
-    // Tools para seleção
+    // Tools para seleção - FORÇA USO DA TOOL
     if (isSelectionPhase) {
       requestBody.tools = [{
         functionDeclarations: [{
           name: "select_relevant_content",
-          description: "Seleciona conteúdos relevantes da biblioteca e documentos do cliente",
+          description: "OBRIGATÓRIO: Seleciona conteúdos relevantes da biblioteca e documentos do cliente para análise",
           parameters: contentSelectionTool.function.parameters
         }]
       }];
+      // Forçar uso da ferramenta
+      requestBody.toolConfig = {
+        functionCallingConfig: {
+          mode: "ANY",
+          allowedFunctionNames: ["select_relevant_content"]
+        }
+      };
     }
 
     const aiResponse = await fetch(
@@ -309,8 +320,11 @@ serve(async (req) => {
         await logAIUsage(supabase, userId, googleModel, "chat-selection", totalInputTokens, totalOutputTokens, { isSelectionPhase: true, clientId });
       }
 
+      const selectionResult = toolCallData?.args || {};
+      console.log(`[CHAT] Selection result: ${JSON.stringify(selectionResult).substring(0, 500)}`);
+
       return new Response(
-        JSON.stringify({ selection: toolCallData?.args || {} }),
+        JSON.stringify({ selection: selectionResult }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
