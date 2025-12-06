@@ -692,6 +692,12 @@ export const IDEA_MODE_RULES = `
 
 **O usuário está pedindo IDEIAS, não conteúdo final.**
 
+### PROCESSO OBRIGATÓRIO:
+1. ANALISE a biblioteca de conteúdo e referências do cliente
+2. IDENTIFIQUE os temas, assuntos e abordagens que funcionam para este cliente
+3. CRIE ideias NOVAS e ORIGINAIS inspiradas nesses temas (nunca copie!)
+4. As ideias devem ser RELEVANTES para o nicho/posicionamento do cliente
+
 ### Formato de Apresentação:
 Para cada ideia, use EXATAMENTE este formato:
 
@@ -699,12 +705,14 @@ Para cada ideia, use EXATAMENTE este formato:
 [Descrição concisa em 1-2 frases explicando o conceito]
 
 ### Regras Críticas:
-1. **SEJA CONCISO**: Cada ideia deve ter no máximo 2-3 linhas TOTAL
-2. **SEJA ESPECÍFICO**: Títulos claros que explicam a ideia de forma direta
-3. **NUNCA COPIE**: As ideias da biblioteca são INSPIRAÇÃO - crie variações NOVAS e ORIGINAIS
-4. **QUANTIDADE EXATA**: Entregue EXATAMENTE a quantidade pedida (ou 5 se não especificado)
-5. **DIVERSIDADE**: Cada ideia deve ser claramente diferente das outras
-6. **NÃO DESENVOLVA**: NÃO escreva o conteúdo completo, apenas a ideia resumida
+1. **BASEIE-SE NA BIBLIOTECA**: Use os temas e assuntos que o cliente já aborda
+2. **SEJA CONCISO**: Cada ideia deve ter no máximo 2-3 linhas TOTAL
+3. **SEJA ESPECÍFICO**: Títulos claros que explicam a ideia de forma direta
+4. **NUNCA COPIE**: Crie VARIAÇÕES e NOVAS ABORDAGENS dos temas, não repita ideias existentes
+5. **QUANTIDADE EXATA**: Entregue EXATAMENTE a quantidade pedida (ou 5 se não especificado)
+6. **DIVERSIDADE**: Cada ideia deve ser claramente diferente das outras
+7. **NÃO DESENVOLVA**: NÃO escreva o conteúdo completo, apenas a ideia resumida
+8. **MANTENHA O NICHO**: As ideias devem ser sobre os temas que o cliente trabalha
 
 ### O que NÃO fazer:
 - NÃO escreva o conteúdo completo de nenhuma ideia
@@ -713,6 +721,7 @@ Para cada ideia, use EXATAMENTE este formato:
 - NÃO repita ideias similares com palavras diferentes
 - NÃO inclua emojis no título das ideias
 - NÃO numere dentro do título (o número vem antes)
+- NÃO sugira temas FORA do nicho/posicionamento do cliente
 
 ### Exemplo de Resposta CORRETA:
 
@@ -726,7 +735,35 @@ Comparação visual entre a rotina antiga vs. nova abordagem otimizada com resul
 Lista de indicadores positivos de progresso que passam despercebidos no dia a dia.
 
 ### Exemplo de Resposta INCORRETA (evite):
-❌ Ideia muito longa com explicação detalhada que desenvolve todo o conteúdo e já entrega a estrutura final com CTA e formatação...
+❌ Ideia muito longa com explicação detalhada que desenvolve todo o conteúdo...
 ❌ "Ideia 1: 🚀 Uma ideia incrível que vai mudar sua vida!" (emojis e título vago)
 ❌ Repetir uma ideia que já está na biblioteca do cliente
+❌ Sugerir temas que o cliente não trabalha (ex: receitas para um cliente de finanças)
+`;
+
+// Regras específicas para modo de criação de conteúdo
+export const CONTENT_CREATION_RULES = `
+## ✍️ MODO CRIAÇÃO DE CONTEÚDO - REGRAS OBRIGATÓRIAS
+
+**O usuário quer CONTEÚDO FINAL, não ideias.**
+
+### PROCESSO OBRIGATÓRIO:
+1. ANALISE a biblioteca de referências para entender o ESTILO e TOM do cliente
+2. SIGA a estrutura e formato das regras específicas do tipo de conteúdo
+3. ESCREVA no mesmo TOM e ESTILO dos conteúdos de referência
+4. APLIQUE os padrões de escrita identificados na biblioteca
+
+### Regras Críticas:
+1. **SIGA O ESTILO**: Escreva igual está nos exemplos da biblioteca de referência
+2. **USE O TOM CERTO**: Mantenha a personalidade e voz do cliente
+3. **APLIQUE AS REGRAS**: Siga as regras de formato específicas (carrossel, stories, etc.)
+4. **ENTREGUE COMPLETO**: O conteúdo deve estar pronto para publicar
+5. **MANTENHA CONSISTÊNCIA**: O novo conteúdo deve parecer feito pelo mesmo autor
+
+### O que FAZER:
+- Copie o ESTILO, não o conteúdo
+- Use o mesmo vocabulário e expressões do cliente
+- Siga a mesma estrutura de organização
+- Mantenha o mesmo nível de formalidade/informalidade
+- Aplique os mesmos padrões de formatação
 `;
