@@ -77,3 +77,6 @@ verify_jwt = false
 
 [functions.execute-workflow]
 verify_jwt = true
+
+[functions.chat-multi-agent]
+verify_jwt = true

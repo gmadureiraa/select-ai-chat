@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Message, Client, Website, Document, ProcessStep, detectImageGenerationRequest } from "@/types/chat";
+import { Message, Client, Website, Document, ProcessStep, MultiAgentStep, detectImageGenerationRequest } from "@/types/chat";
 import { createChatError, getErrorMessage } from "@/lib/errors";
 import { validateMessage, validateModelId } from "@/lib/validation";
 import { withRetry, RetryError } from "@/lib/retry";
@@ -28,11 +28,16 @@ import {
   ContentFormatType
 } from "@/types/template";
 
+// Tipos de conteúdo que se beneficiam do pipeline multi-agente
+const MULTI_AGENT_CONTENT_TYPES = ["newsletter", "blog_post", "linkedin_post", "thread", "carousel"];
+
 export const useClientChat = (clientId: string, templateId?: string) => {
   const [selectedModel, setSelectedModel] = useState("gemini-2.5-flash");
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [currentStep, setCurrentStep] = useState<ProcessStep>(null);
+  const [multiAgentStep, setMultiAgentStep] = useState<MultiAgentStep>(null);
+  const [multiAgentDetails, setMultiAgentDetails] = useState<Record<string, string>>({});
   const [conversationRules, setConversationRules] = useState<string[]>([]);
   const [workflowState, setWorkflowState] = useState<any>({
     selectedMaterials: [],
@@ -338,6 +343,145 @@ export const useClientChat = (clientId: string, templateId?: string) => {
         
         setIsLoading(false);
         setCurrentStep(null);
+        return;
+      }
+
+      // Detectar tipo de conteúdo e verificar se deve usar pipeline multi-agente
+      const earlyIdeaCheck = parseIdeaRequest(content);
+      const earlyDetectedType = earlyIdeaCheck.contentType || detectContentType(content);
+      
+      // Usar pipeline multi-agente para conteúdos longos (exceto ideias)
+      const shouldUseMultiAgent = !earlyIdeaCheck.isIdea && 
+        MULTI_AGENT_CONTENT_TYPES.includes(earlyDetectedType || "") &&
+        (selectedModel.includes("pro") || selectedModel.includes("gpt-5")); // Apenas para modelos de qualidade
+
+      if (shouldUseMultiAgent) {
+        console.log("[CHAT] Using multi-agent pipeline for:", earlyDetectedType);
+        setCurrentStep("multi_agent");
+        setMultiAgentStep("researcher");
+        setMultiAgentDetails({});
+
+        try {
+          // Buscar guia de copywriting do cliente
+          const copywritingGuide = "";
+
+          const { data, error } = await supabase.functions.invoke("chat-multi-agent", {
+            body: {
+              userMessage: content,
+              contentLibrary: contentLibrary.slice(0, 20).map(c => ({
+                id: c.id,
+                title: c.title,
+                content_type: c.content_type,
+                content: c.content
+              })),
+              referenceLibrary: referenceLibrary.slice(0, 10).map(r => ({
+                id: r.id,
+                title: r.title,
+                reference_type: r.reference_type,
+                content: r.content
+              })),
+              identityGuide: identityGuide || client.identity_guide || "",
+              copywritingGuide,
+              clientName: client.name,
+              contentType: earlyDetectedType,
+              userId: user?.id,
+              clientId,
+              writerModel: "google/gemini-2.5-pro",
+              editorModel: "google/gemini-2.5-pro"
+            },
+          });
+
+          if (error) throw error;
+
+          // Processar stream de progresso
+          const reader = data.body?.getReader();
+          const decoder = new TextDecoder();
+          let buffer = "";
+          let finalContent = "";
+
+          if (reader) {
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+
+              buffer += decoder.decode(value, { stream: true });
+              const lines = buffer.split("\n");
+              buffer = lines.pop() || "";
+
+              for (const line of lines) {
+                const trimmed = line.trim();
+                if (!trimmed || !trimmed.startsWith("data: ")) continue;
+
+                const jsonStr = trimmed.slice(6);
+                if (jsonStr === "[DONE]") continue;
+
+                try {
+                  const parsed = JSON.parse(jsonStr);
+                  const { step, status, content: stepContent } = parsed;
+
+                  // Atualizar progresso visual
+                  if (step && status) {
+                    if (step === "complete" && status === "done") {
+                      finalContent = stepContent || "";
+                      setMultiAgentStep("complete");
+                    } else if (step === "error") {
+                      throw new Error(stepContent || "Erro no pipeline");
+                    } else {
+                      setMultiAgentStep(step as any);
+                      if (stepContent) {
+                        setMultiAgentDetails(prev => ({
+                          ...prev,
+                          [step]: stepContent
+                        }));
+                      }
+                    }
+                  }
+                } catch (e) {
+                  // Ignore parse errors
+                }
+              }
+            }
+          }
+
+          // Salvar resposta final
+          if (finalContent) {
+            await supabase.from("messages").insert({
+              conversation_id: conversationId,
+              role: "assistant",
+              content: finalContent,
+            });
+
+            // Log activity
+            logActivity.mutate({
+              activityType: "message_sent",
+              entityType: "conversation",
+              entityId: conversationId,
+              entityName: client.name,
+              description: `Conteúdo gerado via pipeline multi-agente para ${client.name}`,
+              metadata: { 
+                model: "multi-agent-pipeline",
+                contentType: earlyDetectedType,
+                responseLength: finalContent.length
+              },
+            });
+
+            queryClient.invalidateQueries({ queryKey: ["messages", conversationId] });
+          }
+        } catch (multiAgentError: any) {
+          console.error("Multi-agent pipeline error:", multiAgentError);
+          
+          await supabase.from("messages").insert({
+            conversation_id: conversationId,
+            role: "assistant",
+            content: `Erro no pipeline multi-agente: ${multiAgentError.message || "Tente novamente."}`,
+          });
+          
+          queryClient.invalidateQueries({ queryKey: ["messages", conversationId] });
+        }
+        
+        setIsLoading(false);
+        setCurrentStep(null);
+        setMultiAgentStep(null);
         return;
       }
 
@@ -1090,6 +1234,8 @@ Retorne uma análise clara e estruturada para guiar a criação de novo conteúd
     messages,
     isLoading,
     currentStep,
+    multiAgentStep,
+    multiAgentDetails,
     selectedModel,
     conversationRules,
     workflowState,

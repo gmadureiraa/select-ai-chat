@@ -55,7 +55,17 @@ export type ProcessStep =
   | "reviewing" 
   | "creating" 
   | "selecting" 
-  | "generating_image" // Novo step para geração de imagem
+  | "generating_image"
+  | "multi_agent" // Pipeline multi-agente
+  | null;
+
+export type MultiAgentStep = 
+  | "researcher" 
+  | "writer" 
+  | "editor" 
+  | "reviewer" 
+  | "complete" 
+  | "error" 
   | null;
 
 export interface SelectedMaterial {
