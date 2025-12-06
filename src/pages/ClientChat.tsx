@@ -197,7 +197,7 @@ const ClientChat = () => {
                 </div>
 
                 {/* Sugestões rápidas */}
-                {!templateId && <TaskSuggestions onSelectTask={(task) => sendMessage(task, [], "fast")} />}
+                {!templateId && <TaskSuggestions onSelectTask={(task) => sendMessage(task, [], "fast", "content")} />}
 
                 {/* Contexto do cliente */}
                 {client.context_notes && (
@@ -253,7 +253,10 @@ const ClientChat = () => {
       </ScrollArea>
 
       {/* Input de chat */}
-      <ChatInput onSend={sendMessage} disabled={isLoading} />
+      <ChatInput 
+        onSend={(content, imageUrls, quality, mode) => sendMessage(content, imageUrls, quality, mode)} 
+        disabled={isLoading} 
+      />
     </div>
   );
 };
