@@ -196,7 +196,7 @@ const ClientChat = () => {
                 </div>
 
                 {/* Sugestões rápidas */}
-                {!templateId && <TaskSuggestions onSelectTask={sendMessage} />}
+                {!templateId && <TaskSuggestions onSelectTask={(task) => sendMessage(task, [], "fast")} />}
 
                 {/* Contexto do cliente */}
                 {client.context_notes && (
