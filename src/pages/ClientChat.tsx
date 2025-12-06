@@ -69,13 +69,14 @@ const ClientChat = () => {
     multiAgentStep,
     multiAgentDetails,
     isIdeaMode,
+    isFreeChatMode,
     sendMessage,
     regenerateLastMessage,
     clearConversation,
   } = useClientChat(clientId!, templateId);
 
   // Scroll suave automático
-  const scrollRef = useSmoothScroll([messages, isLoading], {
+  const { scrollRef } = useSmoothScroll([messages, isLoading], {
     behavior: "smooth",
     delay: 100,
   });
@@ -243,6 +244,7 @@ const ClientChat = () => {
                       currentStep={currentStep} 
                       workflowState={workflowState}
                       isIdeaMode={isIdeaMode}
+                      isFreeChatMode={isFreeChatMode}
                     />
                   )}
                 </div>

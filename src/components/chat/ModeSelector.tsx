@@ -1,7 +1,7 @@
-import { Lightbulb, FileText } from "lucide-react";
+import { Lightbulb, FileText, MessageCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export type ChatMode = "content" | "ideas";
+export type ChatMode = "content" | "ideas" | "free_chat";
 
 interface ModeSelectorProps {
   mode: ChatMode;
@@ -12,6 +12,20 @@ interface ModeSelectorProps {
 export const ModeSelector = ({ mode, onChange, disabled }: ModeSelectorProps) => {
   return (
     <div className="flex items-center gap-1 p-1 bg-muted/50 rounded-lg">
+      <button
+        onClick={() => onChange("free_chat")}
+        disabled={disabled}
+        className={cn(
+          "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all",
+          mode === "free_chat"
+            ? "bg-emerald-500/10 text-emerald-600 shadow-sm border border-emerald-500/20"
+            : "text-muted-foreground hover:text-foreground",
+          disabled && "opacity-50 cursor-not-allowed"
+        )}
+      >
+        <MessageCircle className="h-3 w-3" />
+        Chat
+      </button>
       <button
         onClick={() => onChange("content")}
         disabled={disabled}

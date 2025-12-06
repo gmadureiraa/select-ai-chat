@@ -41,6 +41,7 @@ export const useClientChat = (clientId: string, templateId?: string) => {
   const [multiAgentDetails, setMultiAgentDetails] = useState<Record<string, string>>({});
   const [conversationRules, setConversationRules] = useState<string[]>([]);
   const [isIdeaMode, setIsIdeaMode] = useState(false);
+  const [isFreeChatMode, setIsFreeChatMode] = useState(false);
   const [workflowState, setWorkflowState] = useState<any>({
     selectedMaterials: [],
     reasoning: "",
@@ -246,7 +247,7 @@ export const useClientChat = (clientId: string, templateId?: string) => {
     enabled: !!workspace?.id,
   });
 
-  const sendMessage = useCallback(async (content: string, imageUrls?: string[], quality?: "fast" | "high", explicitMode?: "content" | "ideas") => {
+  const sendMessage = useCallback(async (content: string, imageUrls?: string[], quality?: "fast" | "high", explicitMode?: "content" | "ideas" | "free_chat") => {
     // Validações
     const validationError = validateMessage(content);
     if (validationError) {
@@ -281,9 +282,11 @@ export const useClientChat = (clientId: string, templateId?: string) => {
     
     // Usar modo explícito do toggle - PRIORIDADE sobre auto-detecção
     const isExplicitIdeaMode = explicitMode === "ideas";
+    const isFreeChatModeExplicit = explicitMode === "free_chat";
     setIsIdeaMode(isExplicitIdeaMode);
+    setIsFreeChatMode(isFreeChatModeExplicit);
     
-    console.log("[CHAT] Explicit mode:", explicitMode, "| isExplicitIdeaMode:", isExplicitIdeaMode);
+    console.log("[CHAT] Explicit mode:", explicitMode, "| isExplicitIdeaMode:", isExplicitIdeaMode, "| isFreeChatMode:", isFreeChatModeExplicit);
 
     try {
       // Save user message
@@ -349,6 +352,151 @@ export const useClientChat = (clientId: string, templateId?: string) => {
           queryClient.invalidateQueries({ queryKey: ["messages", conversationId] });
         }
         
+        setIsLoading(false);
+        setCurrentStep(null);
+        return;
+      }
+
+      // =====================================================
+      // FLUXO CHAT LIVRE (conversa com dados reais, nunca inventa)
+      // =====================================================
+      if (isFreeChatModeExplicit) {
+        console.log("[CHAT] MODO CHAT LIVRE - Conversa com dados reais");
+        setCurrentStep("analyzing");
+        
+        // Buscar métricas do cliente
+        const { data: metrics } = await supabase
+          .from("platform_metrics")
+          .select("*")
+          .eq("client_id", clientId)
+          .order("metric_date", { ascending: false })
+          .limit(30);
+        
+        // Formatar métricas para contexto
+        const metricsContext = metrics && metrics.length > 0 
+          ? metrics.map(m => `[${m.platform}] ${m.metric_date}: ${m.subscribers || 0} seguidores, ${m.views || 0} views, ${m.open_rate || 0}% open rate`).join('\n')
+          : 'Sem métricas disponíveis';
+        
+        // Preparar contexto completo com TODOS os dados
+        const freeChatContext = `Você é o kAI, assistente de IA especializado para o cliente ${client.name}.
+
+## ⚠️ REGRA CRÍTICA: NUNCA INVENTE DADOS
+- Se uma informação não estiver listada abaixo, diga: "Não encontrei essa informação nas fontes disponíveis"
+- NUNCA crie números, estatísticas ou dados que não estejam explicitamente fornecidos
+- Cite a fonte quando responder (ex: "Segundo a biblioteca de conteúdo...", "Nas métricas de Instagram...")
+- Se perguntado sobre algo que não está nas fontes, seja honesto e diga que não tem essa informação
+
+## 📋 IDENTIDADE DO CLIENTE:
+${client.identity_guide || client.context_notes || 'Sem guia de identidade cadastrado'}
+
+## 📊 MÉTRICAS DE PERFORMANCE (últimos 30 dias):
+${metricsContext}
+
+## 📚 BIBLIOTECA DE CONTEÚDO (${contentLibrary.length} itens):
+${contentLibrary.slice(0, 20).map((c, i) => `[${i + 1}] "${c.title}" (${c.content_type})`).join('\n') || 'Biblioteca vazia'}
+
+## 📖 BIBLIOTECA DE REFERÊNCIAS (${referenceLibrary.length} itens):
+${referenceLibrary.slice(0, 15).map((r, i) => `[REF ${i + 1}] "${r.title}" (${r.reference_type})`).join('\n') || 'Sem referências'}
+
+## 📄 DOCUMENTOS (${documents.length}):
+${documents.map(d => `- ${d.name}: ${d.extracted_content?.substring(0, 200) || 'Sem transcrição'}...`).join('\n') || 'Sem documentos'}
+
+## 🌐 WEBSITES (${websites.length}):
+${websites.map(w => `- ${w.url}`).join('\n') || 'Sem websites'}
+
+## 📱 REDES SOCIAIS:
+${client.social_media ? Object.entries(client.social_media).filter(([_, v]) => v).map(([k, v]) => `- ${k}: ${v}`).join('\n') : 'Não cadastradas'}
+
+## 🏷️ TAGS:
+${client.tags ? Object.entries(client.tags).filter(([_, v]) => v).map(([k, v]) => `- ${k}: ${v}`).join('\n') : 'Sem tags'}
+
+---
+
+INSTRUÇÕES:
+- Responda perguntas usando APENAS as informações acima
+- Para perguntas sobre métricas, use os dados de MÉTRICAS DE PERFORMANCE
+- Para perguntas sobre conteúdo passado, use BIBLIOTECA DE CONTEÚDO
+- Seja direto e conciso
+- Se não souber, diga que não encontrou a informação`;
+
+        setCurrentStep("creating");
+
+        // Chamar IA diretamente - modelo rápido e barato
+        const freeChatMessages = [
+          { role: "system", content: freeChatContext },
+          ...messages.map((m) => ({ role: m.role, content: m.content })),
+          { role: "user", content }
+        ];
+
+        const { data: freeChatData, error: freeChatError } = await supabase.functions.invoke("chat", {
+          body: {
+            messages: freeChatMessages,
+            model: "gemini-2.5-flash-lite", // Modelo mais barato para chat livre
+            isSelectionPhase: false,
+            userId: user?.id,
+            clientId
+          },
+        });
+
+        if (freeChatError) throw freeChatError;
+
+        // Processar stream
+        const reader = freeChatData.body?.getReader();
+        const decoder = new TextDecoder();
+        let aiResponse = "";
+        let buffer = "";
+
+        if (reader) {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            const chunk = decoder.decode(value, { stream: true });
+            buffer += chunk;
+
+            const lines = buffer.split("\n");
+            buffer = lines.pop() || "";
+
+            for (const line of lines) {
+              const trimmed = line.trim();
+              if (!trimmed || trimmed.startsWith(":")) continue;
+              
+              if (trimmed.startsWith("data: ")) {
+                const jsonStr = trimmed.slice(6);
+                if (jsonStr === "[DONE]") continue;
+
+                try {
+                  const parsed = JSON.parse(jsonStr);
+                  const tokenContent = parsed.choices[0]?.delta?.content || "";
+                  aiResponse += tokenContent;
+                } catch (e) {
+                  // Ignore
+                }
+              }
+            }
+          }
+        }
+
+        // Salvar resposta
+        await supabase.from("messages").insert({
+          conversation_id: conversationId,
+          role: "assistant",
+          content: aiResponse,
+        });
+
+        logActivity.mutate({
+          activityType: "message_sent",
+          entityType: "conversation",
+          entityId: conversationId,
+          entityName: client.name,
+          description: `Chat livre com ${client.name}`,
+          metadata: { 
+            model: "gemini-2.5-flash-lite",
+            isFreeChatMode: true
+          },
+        });
+
+        queryClient.invalidateQueries({ queryKey: ["messages", conversationId] });
         setIsLoading(false);
         setCurrentStep(null);
         return;
@@ -1416,6 +1564,7 @@ IMPORTANTE: O novo conteúdo deve parecer escrito pelo mesmo autor.`;
     conversationRules,
     workflowState,
     isIdeaMode,
+    isFreeChatMode,
     setSelectedModel,
     sendMessage,
     regenerateLastMessage,
