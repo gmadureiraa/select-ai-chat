@@ -69,11 +69,11 @@ export const useSmoothScroll = (
   // Scroll inicial (quando mensagens carregam pela primeira vez)
   useEffect(() => {
     if (!initialScrollDone.current && dependencies[0]?.length > 0) {
-      // Scroll imediato na primeira carga
+      // Delay aumentado para garantir que o DOM está pronto
       setTimeout(() => {
         scrollToBottom(true);
         initialScrollDone.current = true;
-      }, 50);
+      }, 150);
     }
   }, [dependencies, scrollToBottom]);
 

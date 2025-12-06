@@ -6,6 +6,7 @@ import { Message, Client, Website, Document, ProcessStep, MultiAgentStep, detect
 import { createChatError, getErrorMessage } from "@/lib/errors";
 import { validateMessage, validateModelId } from "@/lib/validation";
 import { withRetry, RetryError } from "@/lib/retry";
+import { parseSSEStream } from "@/lib/sse";
 import { useRealtimeMessages } from "@/hooks/useRealtimeMessages";
 import { useTemplateReferences } from "@/hooks/useTemplateReferences";
 import { useActivities } from "@/hooks/useActivities";
@@ -372,9 +373,39 @@ export const useClientChat = (clientId: string, templateId?: string) => {
           .order("metric_date", { ascending: false })
           .limit(30);
         
-        // Formatar métricas para contexto
+        // Formatar métricas para contexto com informações mais completas
         const metricsContext = metrics && metrics.length > 0 
-          ? metrics.map(m => `[${m.platform}] ${m.metric_date}: ${m.subscribers || 0} seguidores, ${m.views || 0} views, ${m.open_rate || 0}% open rate`).join('\n')
+          ? `📊 Dados disponíveis para ${[...new Set(metrics.map(m => m.platform))].join(', ')}:\n\n` +
+            [...new Set(metrics.map(m => m.platform))].map(platform => {
+              const platformMetrics = metrics.filter(m => m.platform === platform);
+              const latest = platformMetrics[0];
+              const weekAgo = platformMetrics[6];
+              const monthAgo = platformMetrics[29];
+              
+              let summary = `### ${platform.toUpperCase()}\n`;
+              summary += `- Última atualização: ${latest.metric_date}\n`;
+              if (latest.subscribers) summary += `- Seguidores: ${latest.subscribers.toLocaleString()}\n`;
+              if (latest.views) summary += `- Visualizações: ${latest.views.toLocaleString()}\n`;
+              if (latest.likes) summary += `- Curtidas: ${latest.likes.toLocaleString()}\n`;
+              if (latest.comments) summary += `- Comentários: ${latest.comments}\n`;
+              if (latest.engagement_rate) summary += `- Taxa de engajamento: ${latest.engagement_rate.toFixed(2)}%\n`;
+              if (latest.open_rate) summary += `- Taxa de abertura: ${latest.open_rate.toFixed(2)}%\n`;
+              if (latest.click_rate) summary += `- Taxa de cliques: ${latest.click_rate.toFixed(2)}%\n`;
+              
+              // Comparação semanal
+              if (weekAgo && latest.subscribers && weekAgo.subscribers) {
+                const weekGrowth = latest.subscribers - weekAgo.subscribers;
+                summary += `- Crescimento semanal: ${weekGrowth > 0 ? '+' : ''}${weekGrowth} seguidores\n`;
+              }
+              
+              // Comparação mensal  
+              if (monthAgo && latest.subscribers && monthAgo.subscribers) {
+                const monthGrowth = latest.subscribers - monthAgo.subscribers;
+                summary += `- Crescimento mensal: ${monthGrowth > 0 ? '+' : ''}${monthGrowth} seguidores\n`;
+              }
+              
+              return summary;
+            }).join('\n')
           : 'Sem métricas disponíveis';
         
         // Preparar contexto completo com TODOS os dados
@@ -440,41 +471,12 @@ INSTRUÇÕES:
 
         if (freeChatError) throw freeChatError;
 
-        // Processar stream
+        // Processar stream usando função utilitária
         const reader = freeChatData.body?.getReader();
-        const decoder = new TextDecoder();
         let aiResponse = "";
-        let buffer = "";
 
         if (reader) {
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-
-            const chunk = decoder.decode(value, { stream: true });
-            buffer += chunk;
-
-            const lines = buffer.split("\n");
-            buffer = lines.pop() || "";
-
-            for (const line of lines) {
-              const trimmed = line.trim();
-              if (!trimmed || trimmed.startsWith(":")) continue;
-              
-              if (trimmed.startsWith("data: ")) {
-                const jsonStr = trimmed.slice(6);
-                if (jsonStr === "[DONE]") continue;
-
-                try {
-                  const parsed = JSON.parse(jsonStr);
-                  const tokenContent = parsed.choices[0]?.delta?.content || "";
-                  aiResponse += tokenContent;
-                } catch (e) {
-                  // Ignore
-                }
-              }
-            }
-          }
+          aiResponse = await parseSSEStream(reader);
         }
 
         // Salvar resposta
@@ -725,41 +727,12 @@ ${referenceLibrary.length > 0 ? `## 📖 REFERÊNCIAS DE ESTILO:\n${referenceCon
 
         if (ideaError) throw ideaError;
 
-        // Processar stream
+        // Processar stream usando função utilitária
         const reader = ideaData.body?.getReader();
-        const decoder = new TextDecoder();
         let aiResponse = "";
-        let buffer = "";
 
         if (reader) {
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-
-            const chunk = decoder.decode(value, { stream: true });
-            buffer += chunk;
-
-            const lines = buffer.split("\n");
-            buffer = lines.pop() || "";
-
-            for (const line of lines) {
-              const trimmed = line.trim();
-              if (!trimmed || trimmed.startsWith(":")) continue;
-              
-              if (trimmed.startsWith("data: ")) {
-                const jsonStr = trimmed.slice(6);
-                if (jsonStr === "[DONE]") continue;
-
-                try {
-                  const parsed = JSON.parse(jsonStr);
-                  const content = parsed.choices[0]?.delta?.content || "";
-                  aiResponse += content;
-                } catch (e) {
-                  // Ignore
-                }
-              }
-            }
-          }
+          aiResponse = await parseSSEStream(reader);
         }
 
         // Salvar resposta
@@ -1008,38 +981,7 @@ IMPORTANTE: O novo conteúdo deve parecer escrito pelo mesmo autor.`;
 
           if (!analysisError && analysisData?.body) {
             const reader = analysisData.body.getReader();
-            const decoder = new TextDecoder();
-            let analysisText = "";
-            let buffer = "";
-
-            while (true) {
-              const { done, value } = await reader.read();
-              if (done) break;
-
-              const chunk = decoder.decode(value, { stream: true });
-              buffer += chunk;
-
-              const lines = buffer.split("\n");
-              buffer = lines.pop() || "";
-
-              for (const line of lines) {
-                const trimmed = line.trim();
-                if (!trimmed || trimmed.startsWith(":")) continue;
-                
-                if (trimmed.startsWith("data: ")) {
-                  const jsonStr = trimmed.slice(6);
-                  if (jsonStr === "[DONE]") continue;
-
-                  try {
-                    const parsed = JSON.parse(jsonStr);
-                    const content = parsed.choices[0]?.delta?.content || "";
-                    analysisText += content;
-                  } catch (e) {
-                    // Ignorar erros de parse
-                  }
-                }
-              }
-            }
+            const analysisText = await parseSSEStream(reader);
 
             patternAnalysis = analysisText;
             console.log("Pattern analysis completed:", analysisText.substring(0, 200));
@@ -1405,40 +1347,12 @@ IMPORTANTE: O novo conteúdo deve parecer escrito pelo mesmo autor.`;
 
       if (error) throw error;
 
+      // Processar stream usando função utilitária
       const reader = data.body?.getReader();
-      const decoder = new TextDecoder();
       let aiResponse = "";
-      let buffer = "";
 
       if (reader) {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-
-          const chunk = decoder.decode(value, { stream: true });
-          buffer += chunk;
-
-          const lines = buffer.split("\n");
-          buffer = lines.pop() || ""; // Keep last incomplete line in buffer
-
-          for (const line of lines) {
-            const trimmed = line.trim();
-            if (!trimmed || trimmed.startsWith(":")) continue;
-            
-            if (trimmed.startsWith("data: ")) {
-              const jsonStr = trimmed.slice(6);
-              if (jsonStr === "[DONE]") continue;
-
-              try {
-                const parsed = JSON.parse(jsonStr);
-                const content = parsed.choices[0]?.delta?.content || "";
-                aiResponse += content;
-              } catch (e) {
-                // Silently ignore JSON parse errors in streaming
-              }
-            }
-          }
-        }
+        aiResponse = await parseSSEStream(reader);
       }
 
       // Save AI response
