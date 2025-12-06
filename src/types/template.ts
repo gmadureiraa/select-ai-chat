@@ -657,23 +657,53 @@ export interface IdeaRequest {
 export const parseIdeaRequest = (text: string): IdeaRequest => {
   const lowerText = text.toLowerCase();
   
-  // Detectar quantidade de ideias pedidas
+  // Padrões expandidos para detectar pedidos de ideias
   const quantityPatterns = [
-    /(\d+)\s*(ideias?|sugestões?)/i,
-    /(uma|duas|três|quatro|cinco|seis|sete|oito|nove|dez)\s*(ideias?|sugestões?)/i,
+    // "3 ideias", "5 ideias de newsletter"
+    /(\d+)\s*(novas?)?\s*(ideias?|sugestões?)/i,
+    // "De 3 novas ideias", "Dê 5 ideias", "Me dê 3 ideias"
+    /(d[eê]|me\s+d[eêaá]|quero|preciso\s+de)\s*(\d+)\s*(novas?)?\s*(ideias?|sugestões?)/i,
+    // "uma ideia", "duas ideias"
+    /(uma|duas|três|quatro|cinco|seis|sete|oito|nove|dez)\s*(novas?)?\s*(ideias?|sugestões?)/i,
+    // "De uma ideia", "Me dê três sugestões"
+    /(d[eê]|me\s+d[eêaá]|quero|preciso\s+de)\s*(uma|duas|três|quatro|cinco|seis|sete|oito|nove|dez)\s*(novas?)?\s*(ideias?|sugestões?)/i,
+  ];
+  
+  // Padrões simples para detectar se é pedido de ideias (sem quantidade específica)
+  const ideaPatterns = [
+    /novas?\s+ideias?/i,
+    /ideias?\s+(de|para|sobre)/i,
+    /me\s+d[eêaá]\s+ideias?/i,
+    /sugira\s+ideias?/i,
+    /quero\s+ideias?/i,
+    /preciso\s+de\s+ideias?/i,
+    /brainstorm/i,
   ];
   
   let quantity: number | null = null;
+  const numberMap: Record<string, number> = {
+    'uma': 1, 'duas': 2, 'três': 3, 'quatro': 4, 'cinco': 5,
+    'seis': 6, 'sete': 7, 'oito': 8, 'nove': 9, 'dez': 10
+  };
+  
+  // Tentar extrair quantidade
   for (const pattern of quantityPatterns) {
     const match = text.match(pattern);
     if (match) {
-      const numStr = match[1];
-      const numberMap: Record<string, number> = {
-        'uma': 1, 'duas': 2, 'três': 3, 'quatro': 4, 'cinco': 5,
-        'seis': 6, 'sete': 7, 'oito': 8, 'nove': 9, 'dez': 10
-      };
-      quantity = numberMap[numStr.toLowerCase()] || parseInt(numStr);
-      break;
+      // Encontrar o número no match
+      for (const group of match.slice(1)) {
+        if (!group) continue;
+        const num = parseInt(group);
+        if (!isNaN(num)) {
+          quantity = num;
+          break;
+        }
+        if (numberMap[group.toLowerCase()]) {
+          quantity = numberMap[group.toLowerCase()];
+          break;
+        }
+      }
+      if (quantity) break;
     }
   }
   
@@ -681,7 +711,12 @@ export const parseIdeaRequest = (text: string): IdeaRequest => {
   const contentType = detectContentType(text);
   
   // Verificar se é pedido de ideias
-  const isIdea = isIdeaRequest(text) || quantity !== null;
+  const matchesIdeaPattern = ideaPatterns.some(p => p.test(text));
+  const hasIdeaKeyword = isIdeaRequest(text);
+  const isIdea = hasIdeaKeyword || matchesIdeaPattern || quantity !== null;
+  
+  // Debug log
+  console.log(`[parseIdeaRequest] text: "${text.substring(0, 50)}..." -> isIdea: ${isIdea}, quantity: ${quantity}, contentType: ${contentType}`);
   
   return { isIdea, quantity, contentType };
 };

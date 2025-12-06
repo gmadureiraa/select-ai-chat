@@ -1,9 +1,7 @@
 import { CheckCircle2, Circle, Loader2, FileText, Sparkles, Search, Lightbulb, ExternalLink, ImageIcon } from "lucide-react";
 import { ProcessStep } from "@/types/chat";
 import { cn } from "@/lib/utils";
-import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface WorkflowVisualizationProps {
   currentStep: ProcessStep;
@@ -26,32 +24,26 @@ interface WorkflowVisualizationProps {
 const stepsForIdeas = [
   { 
     key: "analyzing", 
-    label: "Analisando Pedido", 
+    label: "Detectando Pedido", 
     description: "Identificando que você quer ideias",
     icon: Search
   },
   { 
     key: "selecting", 
-    label: "Buscando na Biblioteca", 
-    description: "Identificando temas que o cliente trabalha",
+    label: "Lendo Biblioteca", 
+    description: "Buscando temas que o cliente trabalha",
     icon: FileText
   },
   { 
     key: "analyzing_library", 
     label: "Analisando Temas", 
-    description: "Extraindo temas e assuntos do cliente",
+    description: "Identificando assuntos principais",
     icon: Lightbulb
-  },
-  { 
-    key: "reviewing", 
-    label: "Preparando Contexto", 
-    description: "Organizando temas para gerar ideias novas",
-    icon: Sparkles
   },
   { 
     key: "creating", 
     label: "Gerando Ideias", 
-    description: "Criando ideias novas sobre os temas do cliente",
+    description: "Criando ideias novas sobre os temas",
     icon: Sparkles
   },
 ];
@@ -65,26 +57,26 @@ const stepsForContent = [
   },
   { 
     key: "selecting", 
-    label: "Buscando Referências", 
-    description: "Selecionando modelos de escrita",
+    label: "Selecionando Referências", 
+    description: "Buscando modelos de escrita",
     icon: FileText
   },
   { 
     key: "analyzing_library", 
     label: "Analisando Estilo", 
-    description: "Extraindo tom, estrutura e padrões",
+    description: "Extraindo tom e padrões",
     icon: Lightbulb
   },
   { 
     key: "reviewing", 
     label: "Preparando Contexto", 
-    description: "Organizando regras de escrita",
+    description: "Organizando regras",
     icon: Sparkles
   },
   { 
     key: "creating", 
-    label: "Escrevendo Conteúdo", 
-    description: "Gerando conteúdo no estilo do cliente",
+    label: "Escrevendo", 
+    description: "Gerando conteúdo final",
     icon: Sparkles
   },
 ];
@@ -99,25 +91,10 @@ const stepsForImage = [
   { 
     key: "generating_image", 
     label: "Gerando Imagem", 
-    description: "Criando imagem com IA (Nano Banana)",
+    description: "Criando imagem com IA",
     icon: ImageIcon
   },
 ];
-
-const REFERENCE_TYPE_LABELS: Record<string, string> = {
-  tweet: "Tweet",
-  thread: "Thread",
-  carousel: "Carrossel",
-  reel: "Reel",
-  video: "Vídeo",
-  article: "Artigo",
-  other: "Outro",
-  newsletter: "Newsletter",
-  reel_script: "Script de Reel",
-  video_script: "Script de Vídeo",
-  blog_post: "Post de Blog",
-  social_post: "Post Social"
-};
 
 export const WorkflowVisualization = ({ currentStep, workflowState, isIdeaMode = false }: WorkflowVisualizationProps) => {
   // Selecionar steps baseado no modo
@@ -139,17 +116,32 @@ export const WorkflowVisualization = ({ currentStep, workflowState, isIdeaMode =
   const currentStepData = activeSteps[currentIndex];
 
   return (
-    <div className="space-y-4 p-4 bg-card/50 backdrop-blur-sm border border-border/50 rounded-xl">
-      {/* Header */}
-      <div className="flex items-center gap-2 text-sm font-medium text-primary">
-        <Loader2 className="h-4 w-4 animate-spin" />
-        <span>
-          {currentStep === "generating_image" 
-            ? "Gerando imagem..." 
-            : isIdeaMode 
-              ? "Buscando ideias..." 
-              : "Criando conteúdo..."}
-        </span>
+    <div className={cn(
+      "space-y-3 p-4 backdrop-blur-sm border rounded-xl",
+      isIdeaMode 
+        ? "bg-amber-500/10 border-amber-500/30" 
+        : "bg-card/50 border-border/50"
+    )}>
+      {/* Header com modo */}
+      <div className="flex items-center gap-2">
+        <div className={cn(
+          "flex items-center gap-2 text-sm font-medium",
+          isIdeaMode ? "text-amber-500" : "text-primary"
+        )}>
+          <Loader2 className="h-4 w-4 animate-spin" />
+          <span>
+            {currentStep === "generating_image" 
+              ? "Gerando imagem..." 
+              : isIdeaMode 
+                ? "MODO IDEIAS" 
+                : "MODO CONTEÚDO"}
+          </span>
+        </div>
+        {isIdeaMode && (
+          <Badge variant="outline" className="text-[10px] bg-amber-500/20 border-amber-500/40 text-amber-600">
+            Fluxo Simplificado
+          </Badge>
+        )}
       </div>
 
       {/* Current step description */}
@@ -160,7 +152,7 @@ export const WorkflowVisualization = ({ currentStep, workflowState, isIdeaMode =
       )}
 
       {/* Workflow Steps - Compact */}
-      <div className="space-y-2">
+      <div className="space-y-1.5">
         {activeSteps.map((step, index) => {
           const isCompleted = index < currentIndex;
           const isCurrent = index === currentIndex;
@@ -171,26 +163,28 @@ export const WorkflowVisualization = ({ currentStep, workflowState, isIdeaMode =
             <div
               key={step.key}
               className={cn(
-                "flex items-center gap-3 p-3 rounded-lg transition-all duration-300",
-                isCurrent && "bg-primary/10 border border-primary/30",
+                "flex items-center gap-3 p-2 rounded-lg transition-all duration-300",
+                isCurrent && (isIdeaMode ? "bg-amber-500/20" : "bg-primary/10"),
                 isCompleted && "bg-muted/30",
                 isPending && "opacity-40"
               )}
             >
               <div className="flex-shrink-0">
-                {isCompleted && <CheckCircle2 className="h-4 w-4 text-primary" />}
-                {isCurrent && <Loader2 className="h-4 w-4 text-primary animate-spin" />}
+                {isCompleted && <CheckCircle2 className={cn("h-4 w-4", isIdeaMode ? "text-amber-500" : "text-primary")} />}
+                {isCurrent && <Loader2 className={cn("h-4 w-4 animate-spin", isIdeaMode ? "text-amber-500" : "text-primary")} />}
                 {isPending && <Circle className="h-4 w-4 text-muted-foreground/50" />}
               </div>
 
               <div className="flex items-center gap-2 flex-1 min-w-0">
                 <Icon className={cn(
                   "h-3.5 w-3.5",
-                  isCurrent ? "text-primary" : "text-muted-foreground"
+                  isCurrent ? (isIdeaMode ? "text-amber-500" : "text-primary") : "text-muted-foreground"
                 )} />
                 <span className={cn(
                   "text-sm",
-                  isCurrent ? "text-primary font-medium" : "text-muted-foreground"
+                  isCurrent 
+                    ? (isIdeaMode ? "text-amber-600 font-medium" : "text-primary font-medium") 
+                    : "text-muted-foreground"
                 )}>
                   {step.label}
                 </span>
@@ -200,8 +194,8 @@ export const WorkflowVisualization = ({ currentStep, workflowState, isIdeaMode =
         })}
       </div>
 
-      {/* Selected Materials - Compact */}
-      {workflowState.selectedMaterials.length > 0 && currentStep !== "generating_image" && (
+      {/* Selected Materials - Apenas para modo conteúdo */}
+      {!isIdeaMode && workflowState.selectedMaterials.length > 0 && currentStep !== "generating_image" && (
         <div className="pt-2 border-t border-border/30">
           <p className="text-xs font-medium text-muted-foreground mb-2">
             {workflowState.selectedMaterials.length} materiais selecionados

@@ -498,6 +498,156 @@ export const useClientChat = (clientId: string, templateId?: string) => {
         return;
       }
 
+      // Detectar pedido de ideias ANTES de tudo
+      const preliminaryIdeaCheck = parseIdeaRequest(content);
+      console.log("[CHAT] Idea check:", preliminaryIdeaCheck);
+
+      // =====================================================
+      // FLUXO SIMPLIFICADO PARA IDEIAS
+      // =====================================================
+      if (preliminaryIdeaCheck.isIdea) {
+        console.log("[CHAT] MODO IDEIAS - Fluxo simplificado");
+        setCurrentStep("selecting");
+        
+        const requestedQuantity = preliminaryIdeaCheck.quantity || 5;
+        
+        // Preparar contexto simplificado com biblioteca
+        const libraryContext = contentLibrary.slice(0, 15).map((c, i) => 
+          `[${i + 1}] ${c.title} (${c.content_type}): "${c.content.substring(0, 300)}..."`
+        ).join('\n\n');
+        
+        const referenceContext = referenceLibrary.slice(0, 10).map((r, i) => 
+          `[REF ${i + 1}] ${r.title} (${r.reference_type}): "${r.content.substring(0, 200)}..."`
+        ).join('\n\n');
+
+        setCurrentStep("analyzing_library");
+        
+        // Prompt DIRETO para geração de ideias
+        const ideaSystemPrompt = `Você é o kAI, assistente de criação de conteúdo da Kaleidos para o cliente ${client.name}.
+
+## 🎯 TAREFA: GERAR ${requestedQuantity} IDEIAS NOVAS DE CONTEÚDO
+
+${client.identity_guide ? `## 📋 IDENTIDADE DO CLIENTE:\n${client.identity_guide.substring(0, 1500)}\n` : ''}
+
+## 📚 BIBLIOTECA DE CONTEÚDO DO CLIENTE (TEMAS QUE ELE TRABALHA):
+
+${contentLibrary.length === 0 ? 'ATENÇÃO: Biblioteca vazia! Sugira ideias genéricas para o nicho do cliente.' : libraryContext}
+
+${referenceLibrary.length > 0 ? `## 📖 REFERÊNCIAS DE ESTILO:\n${referenceContext}` : ''}
+
+## INSTRUÇÕES OBRIGATÓRIAS:
+
+1. **ANALISE OS TEMAS**: Veja sobre o que o cliente fala na biblioteca acima
+2. **CRIE IDEIAS NOVAS**: As ideias devem ser sobre os MESMOS TEMAS, mas com ângulos NOVOS
+3. **NÃO COPIE**: Nunca repita ideias que já existem na biblioteca
+4. **SEJA CONCISO**: Cada ideia deve ter máximo 2-3 linhas
+
+## FORMATO DE RESPOSTA (OBRIGATÓRIO):
+
+**Ideia 1: [Título curto - máx 8 palavras]**
+[Descrição em 1-2 frases explicando o conceito]
+
+**Ideia 2: [Título curto]**
+[Descrição breve]
+
+... (até ${requestedQuantity} ideias)
+
+## REGRAS:
+- Gere EXATAMENTE ${requestedQuantity} ideias
+- Ideias devem ser sobre os temas que o cliente trabalha
+- Cada ideia deve ser diferente das outras
+- NÃO desenvolva conteúdo completo
+- NÃO use emojis nos títulos`;
+
+        setCurrentStep("creating");
+
+        // Chamar IA diretamente para ideias
+        const ideaMessages = [
+          { role: "system", content: ideaSystemPrompt },
+          ...messages.map((m) => ({ role: m.role, content: m.content })),
+          { role: "user", content }
+        ];
+
+        const { data: ideaData, error: ideaError } = await supabase.functions.invoke("chat", {
+          body: {
+            messages: ideaMessages,
+            model: "gemini-2.5-flash", // Modelo rápido para ideias
+            isSelectionPhase: false,
+            userId: user?.id,
+            clientId
+          },
+        });
+
+        if (ideaError) throw ideaError;
+
+        // Processar stream
+        const reader = ideaData.body?.getReader();
+        const decoder = new TextDecoder();
+        let aiResponse = "";
+        let buffer = "";
+
+        if (reader) {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            const chunk = decoder.decode(value, { stream: true });
+            buffer += chunk;
+
+            const lines = buffer.split("\n");
+            buffer = lines.pop() || "";
+
+            for (const line of lines) {
+              const trimmed = line.trim();
+              if (!trimmed || trimmed.startsWith(":")) continue;
+              
+              if (trimmed.startsWith("data: ")) {
+                const jsonStr = trimmed.slice(6);
+                if (jsonStr === "[DONE]") continue;
+
+                try {
+                  const parsed = JSON.parse(jsonStr);
+                  const content = parsed.choices[0]?.delta?.content || "";
+                  aiResponse += content;
+                } catch (e) {
+                  // Ignore
+                }
+              }
+            }
+          }
+        }
+
+        // Salvar resposta
+        await supabase.from("messages").insert({
+          conversation_id: conversationId,
+          role: "assistant",
+          content: aiResponse,
+        });
+
+        logActivity.mutate({
+          activityType: "message_sent",
+          entityType: "conversation",
+          entityId: conversationId,
+          entityName: client.name,
+          description: `${requestedQuantity} ideias geradas para ${client.name}`,
+          metadata: { 
+            model: "gemini-2.5-flash",
+            isIdeaMode: true,
+            requestedQuantity
+          },
+        });
+
+        queryClient.invalidateQueries({ queryKey: ["messages", conversationId] });
+        setIsLoading(false);
+        setCurrentStep(null);
+        return;
+      }
+
+      // =====================================================
+      // FLUXO NORMAL PARA CRIAÇÃO DE CONTEÚDO
+      // =====================================================
+      console.log("[CHAT] MODO CONTEÚDO - Fluxo completo");
+      
       // FASE 1: Análise e seleção de materiais relevantes (biblioteca + documentos)
       setCurrentStep("analyzing");
       
@@ -507,12 +657,12 @@ export const useClientChat = (clientId: string, templateId?: string) => {
         ...contentLibrary.map(c => ({
           id: c.id,
           type: 'content_library',
-          category: c.content_type, // 'newsletter', 'carousel', 'reel_script', etc
+          category: c.content_type,
           title: c.title,
-          preview: c.content.substring(0, 300), // Preview para IA decidir
+          preview: c.content.substring(0, 300),
           hasFullContent: true
         })),
-        // Documentos do storage (agora com conteúdo extraído)
+        // Documentos do storage
         ...documents.map(d => ({
           id: d.id,
           type: 'document',
@@ -524,11 +674,11 @@ export const useClientChat = (clientId: string, templateId?: string) => {
           hasFullContent: !!d.extracted_content,
           content: d.extracted_content
         })),
-        // NOVO: Biblioteca de Referências (tweets, threads, etc)
+        // Biblioteca de Referências
         ...referenceLibrary.map(r => ({
           id: r.id,
           type: 'reference_library',
-          category: r.reference_type, // 'tweet', 'thread', 'video', etc
+          category: r.reference_type,
           title: r.title,
           preview: `${r.reference_type.toUpperCase()}: ${r.content.substring(0, 250)}`,
           hasFullContent: true,
@@ -536,29 +686,15 @@ export const useClientChat = (clientId: string, templateId?: string) => {
         }))
       ];
 
-      // Detectar pedido de ideias ANTES da seleção para otimizar a busca
-      const preliminaryIdeaCheck = parseIdeaRequest(content);
-
-      // System message para seleção inteligente
+      // Detectar tipo de conteúdo para seleção
+      const selectionDetectedType = detectContentType(content);
+      
+      // System message para seleção inteligente (APENAS PARA CONTEÚDO)
       const selectionSystemMessage = `Você é o kAI, assistente especializado da Kaleidos para o cliente ${client.name}.
 
 ## ⚠️ INSTRUÇÃO OBRIGATÓRIA
 Você DEVE usar a função select_relevant_content para selecionar materiais da biblioteca.
-ANALISE a biblioteca abaixo e SELECIONE os materiais mais relevantes.
 
-${preliminaryIdeaCheck.isIdea ? `
-## MODO IDEIAS (${preliminaryIdeaCheck.quantity || 5} ideias${preliminaryIdeaCheck.contentType ? ` de ${preliminaryIdeaCheck.contentType}` : ''})
-
-OBJETIVO: Identificar os TEMAS e ASSUNTOS que este cliente trabalha para criar ideias NOVAS.
-
-ANALISE A BIBLIOTECA ABAIXO:
-- Quais são os temas recorrentes? (ex: amor, emoções, espiritualidade, autoconhecimento)
-- Sobre o que este cliente FALA?
-- Quais ângulos e perspectivas já foram abordados?
-
-SELECIONE: 3-5 conteúdos que mostrem os PRINCIPAIS TEMAS do cliente.
-As ideias geradas devem ser sobre ESSES TEMAS específicos do cliente.
-` : `
 ## MODO CRIAÇÃO DE CONTEÚDO
 
 OBJETIVO: Entender o ESTILO de escrita do cliente para replicá-lo.
@@ -570,7 +706,6 @@ ANALISE A BIBLIOTECA ABAIXO:
 
 SELECIONE: 3-5 exemplos que mostrem o ESTILO de escrita.
 O conteúdo gerado deve PARECER com esses exemplos.
-`}
 
 ## BIBLIOTECA DE CONTEÚDO DO CLIENTE (${contentLibrary.length} itens):
 
@@ -595,7 +730,7 @@ ${documents.length === 0 ? 'Sem documentos' : documents.map(d => `- ${d.name} ($
 
 ---
 AGORA CHAME A FUNÇÃO select_relevant_content com:
-- detected_content_type: "${preliminaryIdeaCheck.contentType || 'general'}"
+- detected_content_type: "${selectionDetectedType || 'general'}"
 - selected_references: array com IDs dos materiais relevantes (mínimo 3 se disponível)
 - analysis_needed: ${contentLibrary.length > 0 || referenceLibrary.length > 0 ? 'true' : 'false'}
 - use_context_notes: ${client.context_notes ? 'true' : 'false'}
@@ -931,11 +1066,11 @@ IMPORTANTE: O novo conteúdo deve parecer escrito pelo mesmo autor.`;
         } else if (detectedType === "thread" || content.toLowerCase().includes("thread")) {
           contextParts.push(THREAD_FORMAT_RULES);
           contextParts.push(``);
-        } else if (detectedType === "short_video" || detectedType === "reel_script" || 
+        } else if (detectedType === "short_video" || 
                    content.toLowerCase().includes("reel") || content.toLowerCase().includes("tiktok")) {
           contextParts.push(REELS_FORMAT_RULES);
           contextParts.push(``);
-        } else if (detectedType === "linkedin" || content.toLowerCase().includes("linkedin")) {
+        } else if (detectedType === "linkedin_post" || content.toLowerCase().includes("linkedin")) {
           contextParts.push(LINKEDIN_FORMAT_RULES);
           contextParts.push(``);
         } else if (detectedType === "newsletter" || detectedType === "blog_post" || 
