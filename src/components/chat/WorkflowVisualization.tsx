@@ -20,44 +20,87 @@ interface WorkflowVisualizationProps {
     strategy?: string;
     patternAnalysis?: string;
   };
+  isIdeaMode?: boolean;
 }
 
-const steps = [
+const stepsForIdeas = [
   { 
     key: "analyzing", 
-    label: "Análise Inicial", 
-    description: "Entendendo a pergunta e identificando necessidades",
+    label: "Analisando Pedido", 
+    description: "Identificando que você quer ideias",
     icon: Search
   },
   { 
     key: "selecting", 
-    label: "Seleção de Materiais", 
-    description: "Escolhendo referências relevantes da biblioteca",
+    label: "Buscando na Biblioteca", 
+    description: "Identificando temas que o cliente trabalha",
     icon: FileText
   },
   { 
     key: "analyzing_library", 
-    label: "Análise de Padrões", 
-    description: "Extraindo tom, estrutura e estilo dos materiais",
+    label: "Analisando Temas", 
+    description: "Extraindo temas e assuntos do cliente",
     icon: Lightbulb
   },
   { 
     key: "reviewing", 
-    label: "Preparação de Contexto", 
-    description: "Organizando informações para geração",
+    label: "Preparando Contexto", 
+    description: "Organizando temas para gerar ideias novas",
     icon: Sparkles
+  },
+  { 
+    key: "creating", 
+    label: "Gerando Ideias", 
+    description: "Criando ideias novas sobre os temas do cliente",
+    icon: Sparkles
+  },
+];
+
+const stepsForContent = [
+  { 
+    key: "analyzing", 
+    label: "Analisando Pedido", 
+    description: "Identificando o tipo de conteúdo",
+    icon: Search
+  },
+  { 
+    key: "selecting", 
+    label: "Buscando Referências", 
+    description: "Selecionando modelos de escrita",
+    icon: FileText
+  },
+  { 
+    key: "analyzing_library", 
+    label: "Analisando Estilo", 
+    description: "Extraindo tom, estrutura e padrões",
+    icon: Lightbulb
+  },
+  { 
+    key: "reviewing", 
+    label: "Preparando Contexto", 
+    description: "Organizando regras de escrita",
+    icon: Sparkles
+  },
+  { 
+    key: "creating", 
+    label: "Escrevendo Conteúdo", 
+    description: "Gerando conteúdo no estilo do cliente",
+    icon: Sparkles
+  },
+];
+
+const stepsForImage = [
+  { 
+    key: "analyzing", 
+    label: "Análise Inicial", 
+    description: "Entendendo a solicitação",
+    icon: Search
   },
   { 
     key: "generating_image", 
     label: "Gerando Imagem", 
     description: "Criando imagem com IA (Nano Banana)",
     icon: ImageIcon
-  },
-  { 
-    key: "creating", 
-    label: "Criação de Conteúdo", 
-    description: "Gerando resposta baseada nos padrões identificados",
-    icon: Sparkles
   },
 ];
 
@@ -76,11 +119,16 @@ const REFERENCE_TYPE_LABELS: Record<string, string> = {
   social_post: "Post Social"
 };
 
-export const WorkflowVisualization = ({ currentStep, workflowState }: WorkflowVisualizationProps) => {
-  // Filtrar steps baseado no currentStep
-  const activeSteps = currentStep === "generating_image" 
-    ? steps.filter(s => s.key === "analyzing" || s.key === "generating_image")
-    : steps.filter(s => s.key !== "generating_image");
+export const WorkflowVisualization = ({ currentStep, workflowState, isIdeaMode = false }: WorkflowVisualizationProps) => {
+  // Selecionar steps baseado no modo
+  const getActiveSteps = () => {
+    if (currentStep === "generating_image") {
+      return stepsForImage;
+    }
+    return isIdeaMode ? stepsForIdeas : stepsForContent;
+  };
+
+  const activeSteps = getActiveSteps();
 
   const getCurrentStepIndex = () => {
     if (!currentStep) return -1;
@@ -88,6 +136,7 @@ export const WorkflowVisualization = ({ currentStep, workflowState }: WorkflowVi
   };
 
   const currentIndex = getCurrentStepIndex();
+  const currentStepData = activeSteps[currentIndex];
 
   return (
     <div className="space-y-4 p-4 bg-card/50 backdrop-blur-sm border border-border/50 rounded-xl">
@@ -95,9 +144,20 @@ export const WorkflowVisualization = ({ currentStep, workflowState }: WorkflowVi
       <div className="flex items-center gap-2 text-sm font-medium text-primary">
         <Loader2 className="h-4 w-4 animate-spin" />
         <span>
-          {currentStep === "generating_image" ? "Gerando imagem..." : "Processando..."}
+          {currentStep === "generating_image" 
+            ? "Gerando imagem..." 
+            : isIdeaMode 
+              ? "Buscando ideias..." 
+              : "Criando conteúdo..."}
         </span>
       </div>
+
+      {/* Current step description */}
+      {currentStepData && (
+        <p className="text-xs text-muted-foreground">
+          {currentStepData.description}
+        </p>
+      )}
 
       {/* Workflow Steps - Compact */}
       <div className="space-y-2">

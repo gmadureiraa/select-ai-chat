@@ -68,6 +68,7 @@ const ClientChat = () => {
     workflowState,
     multiAgentStep,
     multiAgentDetails,
+    isIdeaMode,
     sendMessage,
     regenerateLastMessage,
     clearConversation,
@@ -241,6 +242,7 @@ const ClientChat = () => {
                     <WorkflowVisualization 
                       currentStep={currentStep} 
                       workflowState={workflowState}
+                      isIdeaMode={isIdeaMode}
                     />
                   )}
                 </div>

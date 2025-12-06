@@ -23,6 +23,7 @@ import {
   LINKEDIN_FORMAT_RULES,
   CAPTION_FORMAT_RULES,
   IDEA_MODE_RULES,
+  CONTENT_CREATION_RULES,
   detectContentType,
   parseIdeaRequest,
   ContentFormatType
@@ -39,6 +40,7 @@ export const useClientChat = (clientId: string, templateId?: string) => {
   const [multiAgentStep, setMultiAgentStep] = useState<MultiAgentStep>(null);
   const [multiAgentDetails, setMultiAgentDetails] = useState<Record<string, string>>({});
   const [conversationRules, setConversationRules] = useState<string[]>([]);
+  const [isIdeaMode, setIsIdeaMode] = useState(false);
   const [workflowState, setWorkflowState] = useState<any>({
     selectedMaterials: [],
     reasoning: "",
@@ -276,6 +278,10 @@ export const useClientChat = (clientId: string, templateId?: string) => {
 
     setIsLoading(true);
     setCurrentStep("analyzing");
+    
+    // Detectar modo de ideias para visualização
+    const ideaCheck = parseIdeaRequest(content);
+    setIsIdeaMode(ideaCheck.isIdea);
 
     try {
       // Save user message
@@ -539,11 +545,29 @@ export const useClientChat = (clientId: string, templateId?: string) => {
 ${preliminaryIdeaCheck.isIdea ? `
 ## ⚠️ MODO IDEIAS DETECTADO
 O usuário está pedindo IDEIAS de conteúdo (${preliminaryIdeaCheck.quantity || 5} ideias${preliminaryIdeaCheck.contentType ? ` de ${preliminaryIdeaCheck.contentType}` : ''}).
-Selecione materiais que sirvam de INSPIRAÇÃO para criar ideias NOVAS e DIFERENTES.
-Analise os TEMAS e ABORDAGENS que funcionam para identificar padrões de sucesso.
-IMPORTANTE: Os materiais selecionados serão usados como BASE - o assistente NÃO deve copiar essas ideias.
+
+PROCESSO OBRIGATÓRIO:
+1. ANALISE a biblioteca de conteúdo para identificar os TEMAS e ASSUNTOS que este cliente trabalha
+2. SELECIONE materiais variados que mostrem o escopo de temas do cliente
+3. O objetivo é entender O QUE o cliente fala para criar ideias NOVAS sobre esses temas
+
+IMPORTANTE: 
+- Os materiais selecionados mostram os TEMAS do cliente (finanças, cripto, marketing, etc.)
+- As ideias devem ser sobre ESSES TEMAS, não sobre qualquer assunto aleatório
+- NÃO copiar as ideias existentes, mas criar NOVAS sobre os mesmos temas
 ` : `
-Sua tarefa é ANALISAR a pergunta do usuário e SELECIONAR os materiais mais RELEVANTES da biblioteca e documentos.
+## MODO CRIAÇÃO DE CONTEÚDO
+O usuário quer CRIAR conteúdo final.
+
+PROCESSO OBRIGATÓRIO:
+1. ANALISE a biblioteca de REFERÊNCIAS para entender ESTILO e TOM de escrita
+2. SELECIONE exemplos que mostrem como o cliente ESCREVE
+3. O objetivo é copiar o ESTILO, não o conteúdo
+
+IMPORTANTE:
+- Priorize a BIBLIOTECA DE REFERÊNCIAS (são modelos de escrita)
+- Busque exemplos do MESMO TIPO de conteúdo pedido
+- O assistente deve ESCREVER IGUAL aos exemplos de referência
 `}
 
 ## Materiais Disponíveis (${availableMaterials.length} total):
@@ -560,7 +584,7 @@ ${documents.map(d => `- ID: ${d.id}
   Tipo: ${d.file_type}
   ${d.extracted_content ? `Conteúdo: ${d.extracted_content.substring(0, 200)}...` : '(Sem transcrição)'}`).join('\n\n')}
 
-### Biblioteca de Referências (${referenceLibrary.length}):
+### Biblioteca de Referências (${referenceLibrary.length}) - MODELOS DE ESCRITA:
 ${referenceLibrary.map(r => `- ID: ${r.id}
   Tipo: ${r.reference_type}
   Título: ${r.title}
@@ -575,15 +599,15 @@ ${referenceLibrary.map(r => `- ID: ${r.id}
 
 ESTRATÉGIA:
 ${preliminaryIdeaCheck.isIdea ? `
-1. Identifique o tipo de conteúdo das ideias pedidas (carousel, stories, etc)
-2. Busque exemplos VARIADOS desse tipo para inspiração (não só os mais recentes)
-3. Selecione materiais com TEMAS DIFERENTES entre si para ampliar possibilidades
-4. Priorize conteúdos que tiveram sucesso para entender o que funciona
+1. Identifique os TEMAS/ASSUNTOS que o cliente aborda (finanças, cripto, marketing, etc.)
+2. Selecione materiais VARIADOS que mostrem a amplitude de temas
+3. O objetivo é ter base para criar ideias NOVAS sobre esses mesmos temas
+4. Priorize conteúdos do tipo pedido pelo usuário (${preliminaryIdeaCheck.contentType || 'qualquer'})
 ` : `
-1. Identifique o tipo de conteúdo que o usuário quer (newsletter, carousel, etc)
-2. Busque exemplos RELEVANTES desse tipo na biblioteca
-3. Selecione materiais que ajudem a entender PADRÕES, TOM e ESTRUTURA
-4. Priorize conteúdos similares ao que o usuário pediu
+1. Identifique o tipo de conteúdo pedido (${preliminaryIdeaCheck.contentType || 'detecte do contexto'})
+2. PRIORIZE a biblioteca de REFERÊNCIAS (modelos de escrita)
+3. Selecione exemplos que mostrem TOM, ESTILO e ESTRUTURA
+4. O assistente vai ESCREVER IGUAL a esses exemplos
 `}`;
 
       // Histórico completo de mensagens para contexto
@@ -652,9 +676,9 @@ ${preliminaryIdeaCheck.isIdea ? `
         if (selectedContents.length > 0) {
           // Criar prompt de análise de padrões (diferente para modo ideias vs criação de conteúdo)
           const analysisPrompt = preliminaryIdeaCheck.isIdea 
-            ? `Analise os seguintes conteúdos de referência do cliente ${client.name} para IDENTIFICAR OPORTUNIDADES DE NOVAS IDEIAS:
+            ? `Analise os seguintes conteúdos do cliente ${client.name} para IDENTIFICAR OS TEMAS E ASSUNTOS que este cliente trabalha:
 
-## CONTEÚDOS PARA ANÁLISE:
+## CONTEÚDOS DO CLIENTE:
 ${selectedContents.map((c: any, idx: number) => `
 ### ${idx + 1}. ${c.title} (${c.content_type})
 ${c.source_url ? `**Fonte:** ${c.source_url}\n` : ''}
@@ -663,17 +687,30 @@ ${c.content}
 `).join('\n')}
 
 ## EXTRAIA PARA GERAR IDEIAS NOVAS:
-1. **Temas que Funcionam**: Quais assuntos/tópicos geram engajamento para este cliente?
-2. **Ângulos Já Explorados**: Como esses temas foram abordados? (para NÃO repetir)
-3. **Oportunidades Não Exploradas**: Que variações ou novos ângulos poderiam ser criados?
-4. **Padrões de Sucesso**: O que esses conteúdos têm em comum que funciona bem?
-5. **Gaps/Lacunas**: Que temas relacionados ainda não foram cobertos?
 
-IMPORTANTE: Esta análise serve para INSPIRAR ideias NOVAS - nunca para repetir ou copiar as existentes.
-Retorne insights claros que ajudem a criar ideias ORIGINAIS e DIFERENTES.`
-            : `Analise profundamente os seguintes conteúdos de referência do cliente ${client.name} e extraia os padrões essenciais:
+### 1. TEMAS PRINCIPAIS (OBRIGATÓRIO)
+Liste os 5-10 principais assuntos/tópicos que este cliente aborda:
+- Ex: "Investimentos", "Cripto", "Mindset financeiro", "Renda passiva", etc.
 
-## CONTEÚDOS PARA ANÁLISE:
+### 2. POSICIONAMENTO DO CLIENTE
+- Qual é o nicho específico?
+- Qual é a proposta de valor?
+- Quem é o público-alvo?
+
+### 3. ÂNGULOS JÁ USADOS
+Para cada tema, liste brevemente como já foi abordado (para NÃO repetir):
+- Tema X: "Já fez sobre Y, Z..."
+
+### 4. OPORTUNIDADES DE NOVAS IDEIAS
+Sugira ângulos NOVOS dentro dos mesmos temas que ainda não foram explorados.
+
+IMPORTANTE: 
+- As novas ideias DEVEM SER sobre os temas que o cliente trabalha
+- NÃO sugira temas fora do nicho do cliente
+- O objetivo é criar VARIAÇÕES NOVAS dos mesmos temas`
+            : `Analise os seguintes conteúdos de REFERÊNCIA do cliente ${client.name} para extrair PADRÕES DE ESCRITA:
+
+## REFERÊNCIAS DE ESTILO:
 ${selectedContents.map((c: any, idx: number) => `
 ### ${idx + 1}. ${c.title} (${c.content_type})
 ${c.source_url ? `**Fonte:** ${c.source_url}\n` : ''}
@@ -681,15 +718,37 @@ ${c.content}
 ---
 `).join('\n')}
 
-## EXTRAIA:
-1. **Estrutura Padrão**: Como o conteúdo é organizado (abertura, desenvolvimento, fechamento)
-2. **Tom de Voz**: Formal/informal, uso de pronomes, estilo de escrita, linguagem característica
-3. **Elementos Recorrentes**: CTAs, perguntas, citações, metáforas, emojis, formatação
-4. **Comprimento Típico**: Número aproximado de parágrafos, extensão das seções
-5. **Padrões de Engajamento**: O que chama atenção, como conecta com o leitor
-6. **Vocabulário Específico**: Palavras, expressões ou termos recorrentes
+## EXTRAIA OS PADRÕES DE ESCRITA:
 
-Retorne uma análise clara e estruturada para guiar a criação de novo conteúdo similar.`;
+### 1. TOM DE VOZ
+- Formal ou informal?
+- Uso de "você" ou "vocês"?
+- Primeira pessoa (eu/nós) ou terceira pessoa?
+- Estilo: didático, provocativo, inspiracional, técnico?
+
+### 2. ESTRUTURA
+- Como começa os conteúdos? (gancho, pergunta, afirmação)
+- Como desenvolve o argumento?
+- Como termina? (CTA, reflexão, provocação)
+
+### 3. ELEMENTOS DE ESTILO
+- Usa emojis? Com que frequência?
+- Tamanho típico dos parágrafos
+- Usa listas, bullets, numeração?
+- Frases curtas ou longas?
+
+### 4. VOCABULÁRIO CARACTERÍSTICO
+- Palavras e expressões que se repetem
+- Jargões ou termos específicos
+- Bordões ou frases marcantes
+
+### 5. REGRAS PARA REPLICAR
+Liste as 5 regras mais importantes para ESCREVER IGUAL a este cliente:
+1. [regra]
+2. [regra]
+...
+
+IMPORTANTE: O novo conteúdo deve parecer escrito pelo mesmo autor.`;
 
           const analysisMessages = [
             { role: "system", content: "Você é um especialista em análise de padrões de conteúdo." },
@@ -822,19 +881,37 @@ Retorne uma análise clara e estruturada para guiar a criação de novo conteúd
         }
         contextParts.push(``);
         
+        // Adicionar análise de temas SE disponível
+        if (patternAnalysis) {
+          contextParts.push(`## 📊 ANÁLISE DOS TEMAS DO CLIENTE`);
+          contextParts.push(``);
+          contextParts.push(`**IMPORTANTE:** Use esta análise para criar ideias sobre os MESMOS TEMAS:`);
+          contextParts.push(``);
+          contextParts.push(patternAnalysis);
+          contextParts.push(``);
+          contextParts.push(`**INSTRUÇÕES CRÍTICAS PARA IDEIAS:**`);
+          contextParts.push(`1. CRIE ideias sobre os TEMAS identificados acima`);
+          contextParts.push(`2. NÃO sugira ideias sobre temas FORA do nicho do cliente`);
+          contextParts.push(`3. CRIE variações NOVAS - não repita as ideias existentes`);
+          contextParts.push(`4. Cada ideia deve ser DIFERENTE das outras`);
+          contextParts.push(`5. Mantenha-se no POSICIONAMENTO do cliente`);
+          contextParts.push(``);
+        }
+        
         // IMPORTANTE: Instruir sobre uso da biblioteca como inspiração
         if (selection.selected_references?.length > 0) {
-          contextParts.push(`## 📚 REFERÊNCIAS PARA INSPIRAÇÃO (NÃO COPIAR)`);
+          contextParts.push(`## 📚 BIBLIOTECA DO CLIENTE (TEMAS DE REFERÊNCIA)`);
           contextParts.push(``);
-          contextParts.push(`Use os conteúdos selecionados como BASE para criar ideias NOVAS e DIFERENTES:`);
-          contextParts.push(`- Analise os TEMAS abordados para entender o que funciona para este cliente`);
-          contextParts.push(`- Note os ÂNGULOS e ABORDAGENS usados`);
-          contextParts.push(`- Crie variações e combinações ORIGINAIS`);
-          contextParts.push(`- NUNCA sugira a mesma ideia que já existe na biblioteca`);
+          contextParts.push(`Os conteúdos abaixo mostram os TEMAS que o cliente trabalha.`);
+          contextParts.push(`CRIE ideias NOVAS sobre estes mesmos temas:`);
           contextParts.push(``);
         }
       } else {
-        // REGRAS GLOBAIS DE CONTEÚDO (apenas para criação de conteúdo, não para ideias)
+        // MODO CRIAÇÃO DE CONTEÚDO
+        contextParts.push(CONTENT_CREATION_RULES);
+        contextParts.push(``);
+        
+        // REGRAS GLOBAIS DE CONTEÚDO
         contextParts.push(`## REGRAS GLOBAIS DE CONTEÚDO`);
         contextParts.push(``);
         contextParts.push(`- ${GLOBAL_CONTENT_RULES.emoji}`);
@@ -845,7 +922,7 @@ Retorne uma análise clara e estruturada para guiar a criação de novo conteúd
         contextParts.push(`- ${GLOBAL_CONTENT_RULES.value}`);
         contextParts.push(``);
 
-        // Aplicar regras específicas do formato detectado APENAS SE NÃO FOR PEDIDO DE IDEIAS
+        // Aplicar regras específicas do formato detectado
         if (detectedType === "stories" || content.toLowerCase().includes("storie")) {
           contextParts.push(STORIES_FORMAT_RULES);
           contextParts.push(``);
@@ -873,23 +950,23 @@ Retorne uma análise clara e estruturada para guiar a criação de novo conteúd
           contextParts.push(CAPTION_FORMAT_RULES);
           contextParts.push(``);
         }
-      }
-
-      // Adicionar análise de padrões se disponível
-      if (patternAnalysis) {
-        contextParts.push(`## 📊 ANÁLISE DE PADRÕES DO CLIENTE`);
-        contextParts.push(``);
-        contextParts.push(`**IMPORTANTE:** Os conteúdos selecionados foram analisados para identificar padrões. Use esta análise como guia:`);
-        contextParts.push(``);
-        contextParts.push(patternAnalysis);
-        contextParts.push(``);
-        contextParts.push(`**INSTRUÇÕES CRÍTICAS:**`);
-        contextParts.push(`1. SIGA a estrutura e organização identificada`);
-        contextParts.push(`2. MANTENHA o tom de voz característico`);
-        contextParts.push(`3. USE elementos recorrentes e vocabulário específico`);
-        contextParts.push(`4. ADAPTE para o tema solicitado pelo usuário`);
-        contextParts.push(`5. NÃO COPIE conteúdo, apenas padrões e estilo`);
-        contextParts.push(``);
+        
+        // Adicionar análise de padrões de ESTILO SE disponível
+        if (patternAnalysis) {
+          contextParts.push(`## 📊 ANÁLISE DE ESTILO DO CLIENTE`);
+          contextParts.push(``);
+          contextParts.push(`**IMPORTANTE:** ESCREVA seguindo o estilo identificado abaixo:`);
+          contextParts.push(``);
+          contextParts.push(patternAnalysis);
+          contextParts.push(``);
+          contextParts.push(`**INSTRUÇÕES CRÍTICAS PARA ESCRITA:**`);
+          contextParts.push(`1. SIGA a estrutura e organização identificada`);
+          contextParts.push(`2. MANTENHA o tom de voz característico`);
+          contextParts.push(`3. USE o vocabulário e expressões do cliente`);
+          contextParts.push(`4. COPIE o estilo, não o conteúdo`);
+          contextParts.push(`5. O resultado deve parecer escrito pelo mesmo autor`);
+          contextParts.push(``);
+        }
       }
 
       // Incluir regras aprendidas nesta conversa
@@ -1246,6 +1323,7 @@ Retorne uma análise clara e estruturada para guiar a criação de novo conteúd
     selectedModel,
     conversationRules,
     workflowState,
+    isIdeaMode,
     setSelectedModel,
     sendMessage,
     regenerateLastMessage,
