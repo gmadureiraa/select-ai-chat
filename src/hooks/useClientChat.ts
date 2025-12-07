@@ -309,9 +309,22 @@ export const useClientChat = (clientId: string, templateId?: string) => {
         try {
           console.log("[CHAT] Image generation detected, prompt:", imageGenRequest.prompt);
           
+          // Process attached images as references
+          let referenceImages: Array<{ base64: string; description?: string }> = [];
+          if (imageUrls && imageUrls.length > 0) {
+            console.log("[CHAT] Processing", imageUrls.length, "attached images as references");
+            const { processReferenceImages } = await import("@/lib/imageUtils");
+            referenceImages = await processReferenceImages(
+              imageUrls.map(url => ({ url, description: "Referência do usuário" })),
+              3,
+              1024
+            );
+          }
+          
           const { data: imageData, error: imageError } = await supabase.functions.invoke("generate-image", {
             body: {
               prompt: imageGenRequest.prompt || content,
+              referenceImages: referenceImages.length > 0 ? referenceImages : undefined,
             },
           });
 
