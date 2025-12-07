@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { uploadAndGetSignedUrl } from "@/lib/storage";
+import { processReferenceImages } from "@/lib/imageUtils";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
@@ -140,12 +141,27 @@ const ImageNode = ({ data }: NodeProps<ImageNodeData>) => {
     setIsGenerating(true);
 
     try {
-      const imageReferences = data.item.source_url
-        ? [{ url: data.item.source_url, description: data.item.metadata?.description || "Imagem de referência" }]
-        : [];
+      // Use current image as reference if available
+      let referenceImages: Array<{ base64: string; description?: string }> = [];
+      
+      if (data.item.source_url) {
+        toast({
+          title: "Processando referência...",
+          description: "Usando imagem atual como base",
+        });
+        
+        referenceImages = await processReferenceImages(
+          [{ url: data.item.source_url, description: data.item.metadata?.description || "Imagem de referência" }],
+          1,
+          1024
+        );
+      }
 
       const { data: result, error } = await supabase.functions.invoke("generate-image", {
-        body: { prompt, imageReferences },
+        body: { 
+          prompt,
+          referenceImages: referenceImages.length > 0 ? referenceImages : undefined
+        },
       });
 
       if (error) throw error;
@@ -158,12 +174,15 @@ const ImageNode = ({ data }: NodeProps<ImageNodeData>) => {
             ...data.item.metadata,
             generatedPrompt: prompt,
             generatedAt: new Date().toISOString(),
+            usedReference: !!data.item.source_url,
           },
         });
 
         toast({
           title: "Imagem gerada",
-          description: "Nova imagem criada com sucesso",
+          description: referenceImages.length > 0 
+            ? "Nova imagem criada baseada na referência"
+            : "Nova imagem criada com sucesso",
         });
 
         setPrompt("");

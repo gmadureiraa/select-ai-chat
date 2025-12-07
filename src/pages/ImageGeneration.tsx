@@ -4,15 +4,22 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { Header } from "@/components/Header";
-import { ArrowLeft, Sparkles, Loader2, Download, Trash2, Copy, ZoomIn } from "lucide-react";
+import { ArrowLeft, Sparkles, Loader2, Download, Trash2, Copy, ZoomIn, ImagePlus, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useTemplateReferences } from "@/hooks/useTemplateReferences";
 import { useImageGenerations } from "@/hooks/useImageGenerations";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { ReferencePreviewDialog } from "@/components/images/ReferencePreviewDialog";
+import { processReferenceImages } from "@/lib/imageUtils";
 import kaleidosLogo from "@/assets/kaleidos-logo.svg";
+
+interface UploadedReference {
+  file: File;
+  preview: string;
+}
 
 const ImageGeneration = () => {
   const { clientId } = useParams();
@@ -28,12 +35,61 @@ const ImageGeneration = () => {
   const { template, references, isLoading: isLoadingReferences } = useTemplateReferences(templateId);
   const { generations, createGeneration, deleteGeneration } = useImageGenerations(clientId!, templateId);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploadedReferences, setUploadedReferences] = useState<UploadedReference[]>([]);
 
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [generations]);
+
+  // Cleanup uploaded previews on unmount
+  useEffect(() => {
+    return () => {
+      uploadedReferences.forEach(ref => URL.revokeObjectURL(ref.preview));
+    };
+  }, []);
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+
+    const newRefs: UploadedReference[] = [];
+    const maxFiles = 3 - uploadedReferences.length;
+
+    for (let i = 0; i < Math.min(files.length, maxFiles); i++) {
+      const file = files[i];
+      if (file.type.startsWith("image/")) {
+        newRefs.push({
+          file,
+          preview: URL.createObjectURL(file),
+        });
+      }
+    }
+
+    if (newRefs.length > 0) {
+      setUploadedReferences(prev => [...prev, ...newRefs]);
+      toast({
+        title: `${newRefs.length} referência(s) adicionada(s)`,
+        description: "As imagens serão usadas como base para geração",
+      });
+    }
+
+    // Reset input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  const removeUploadedReference = (index: number) => {
+    setUploadedReferences(prev => {
+      const updated = [...prev];
+      URL.revokeObjectURL(updated[index].preview);
+      updated.splice(index, 1);
+      return updated;
+    });
+  };
 
   const { data: client } = useQuery({
     queryKey: ["client", clientId],
@@ -63,7 +119,7 @@ const ImageGeneration = () => {
     setGeneratedImage(null);
 
     try {
-      // Build enhanced prompt with ALL template rules and references
+      // Build enhanced prompt with ALL template rules
       let enhancedPrompt = prompt;
       
       if (template && !isLoadingReferences) {
@@ -77,17 +133,32 @@ const ImageGeneration = () => {
           });
         }
         
-        // Add visual descriptions from image references
-        if (references.imageReferences.length > 0) {
-          promptParts.push('\n\nREFERÊNCIAS VISUAIS (inspire-se nestes elementos):');
-          references.imageReferences.forEach((ref, idx) => {
-            promptParts.push(`${idx + 1}. ${ref.description}`);
-            promptParts.push(`   URL: ${ref.url}`);
-          });
-          promptParts.push('\nIMPORTANTE: Inspire-se no estilo visual, composição e elementos dessas referências, mas crie algo original.');
-        }
-        
         enhancedPrompt = promptParts.join('\n');
+      }
+
+      // Process reference images (uploaded + template)
+      const imagesToProcess: Array<{ url?: string; file?: File; description?: string }> = [];
+      
+      // Add uploaded references first (user priority)
+      uploadedReferences.forEach(ref => {
+        imagesToProcess.push({ file: ref.file, description: "Referência do usuário" });
+      });
+      
+      // Add template references
+      if (references.imageReferences.length > 0) {
+        references.imageReferences.forEach(ref => {
+          imagesToProcess.push({ url: ref.url, description: ref.description });
+        });
+      }
+      
+      // Convert to base64 (max 3 images)
+      let referenceImages: Array<{ base64: string; description?: string }> = [];
+      if (imagesToProcess.length > 0) {
+        toast({
+          title: "Processando referências...",
+          description: `Convertendo ${Math.min(imagesToProcess.length, 3)} imagem(ns)`,
+        });
+        referenceImages = await processReferenceImages(imagesToProcess, 3, 1024);
       }
 
       const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-image`, {
@@ -98,7 +169,11 @@ const ImageGeneration = () => {
         },
         body: JSON.stringify({ 
           prompt: enhancedPrompt,
-          imageReferences: references.imageReferences
+          referenceImages: referenceImages.length > 0 ? referenceImages : undefined,
+          // Legacy fallback
+          imageReferences: references.imageReferences.length > 0 && referenceImages.length === 0 
+            ? references.imageReferences 
+            : undefined
         }),
       });
 
@@ -118,9 +193,15 @@ const ImageGeneration = () => {
         });
         
         setPrompt("");
+        // Clear uploaded references after successful generation
+        uploadedReferences.forEach(ref => URL.revokeObjectURL(ref.preview));
+        setUploadedReferences([]);
+        
         toast({
           title: "Imagem gerada!",
-          description: "Sua imagem foi criada com sucesso.",
+          description: referenceImages.length > 0 
+            ? `Criada com ${referenceImages.length} referência(s) visual(is)`
+            : "Sua imagem foi criada com sucesso.",
         });
       } else {
         throw new Error("No image returned");
@@ -129,7 +210,7 @@ const ImageGeneration = () => {
       console.error("Error generating image:", error);
       toast({
         title: "Erro ao gerar imagem",
-        description: "Não foi possível gerar a imagem. Tente novamente.",
+        description: error instanceof Error ? error.message : "Não foi possível gerar a imagem. Tente novamente.",
         variant: "destructive",
       });
     } finally {
@@ -137,7 +218,7 @@ const ImageGeneration = () => {
     }
   };
 
-  const handleGenerateVariation = async (originalPrompt: string) => {
+  const handleGenerateVariation = async (originalPrompt: string, originalImageUrl?: string) => {
     setPrompt(originalPrompt);
     setIsGenerating(true);
 
@@ -154,15 +235,17 @@ const ImageGeneration = () => {
           });
         }
         
-        if (references.imageReferences.length > 0) {
-          promptParts.push('\n\nREFERÊNCIAS VISUAIS (inspire-se nestes elementos):');
-          references.imageReferences.forEach((ref, idx) => {
-            promptParts.push(`${idx + 1}. ${ref.description}`);
-            promptParts.push(`   URL: ${ref.url}`);
-          });
-        }
-        
         enhancedPrompt = promptParts.join('\n');
+      }
+
+      // Use original image as reference for variation
+      let referenceImages: Array<{ base64: string; description?: string }> = [];
+      if (originalImageUrl) {
+        referenceImages = await processReferenceImages(
+          [{ url: originalImageUrl, description: "Imagem original para variação" }],
+          1,
+          1024
+        );
       }
 
       const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-image`, {
@@ -173,7 +256,7 @@ const ImageGeneration = () => {
         },
         body: JSON.stringify({ 
           prompt: enhancedPrompt,
-          imageReferences: references.imageReferences
+          referenceImages: referenceImages.length > 0 ? referenceImages : undefined
         }),
       });
 
@@ -194,7 +277,7 @@ const ImageGeneration = () => {
         setPrompt("");
         toast({
           title: "Variação gerada!",
-          description: "Uma nova versão da imagem foi criada.",
+          description: "Uma nova versão da imagem foi criada baseada na original.",
         });
       } else {
         throw new Error("No image returned");
@@ -203,7 +286,7 @@ const ImageGeneration = () => {
       console.error("Error generating variation:", error);
       toast({
         title: "Erro ao gerar variação",
-        description: "Não foi possível gerar a variação. Tente novamente.",
+        description: error instanceof Error ? error.message : "Não foi possível gerar a variação. Tente novamente.",
         variant: "destructive",
       });
     } finally {
@@ -347,7 +430,7 @@ const ImageGeneration = () => {
                       />
                       <div className="flex gap-2 justify-end flex-wrap">
                         <Button
-                          onClick={() => handleGenerateVariation(gen.prompt)}
+                          onClick={() => handleGenerateVariation(gen.prompt, gen.image_url)}
                           variant="ghost"
                           size="sm"
                           className="gap-2"
@@ -395,6 +478,64 @@ const ImageGeneration = () => {
 
         <div className="border-t p-4 bg-background">
           <div className="max-w-3xl mx-auto space-y-3">
+            {/* Reference Images Upload Section */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <ImagePlus className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground">
+                    Referências visuais ({uploadedReferences.length}/3)
+                  </span>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isGenerating || uploadedReferences.length >= 3}
+                  className="gap-2"
+                >
+                  <ImagePlus className="h-4 w-4" />
+                  Adicionar
+                </Button>
+                <Input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={handleFileUpload}
+                  className="hidden"
+                />
+              </div>
+              
+              {/* Uploaded References Preview */}
+              {uploadedReferences.length > 0 && (
+                <div className="flex gap-2 flex-wrap">
+                  {uploadedReferences.map((ref, idx) => (
+                    <div key={idx} className="relative group">
+                      <img
+                        src={ref.preview}
+                        alt={`Referência ${idx + 1}`}
+                        className="h-16 w-16 object-cover rounded-lg border border-border"
+                      />
+                      <button
+                        onClick={() => removeUploadedReference(idx)}
+                        className="absolute -top-1 -right-1 h-5 w-5 bg-destructive text-destructive-foreground rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              
+              {/* Template references indicator */}
+              {references.imageReferences.length > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  + {references.imageReferences.length} referência(s) do template serão usadas
+                </p>
+              )}
+            </div>
+
             <Textarea
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
@@ -422,7 +563,15 @@ const ImageGeneration = () => {
                   Gerando imagem...
                 </>
               ) : (
-                "Gerar Imagem"
+                <>
+                  <Sparkles className="h-5 w-5" />
+                  Gerar Imagem
+                  {(uploadedReferences.length > 0 || references.imageReferences.length > 0) && (
+                    <Badge variant="secondary" className="ml-2 text-xs">
+                      {uploadedReferences.length + references.imageReferences.length} ref
+                    </Badge>
+                  )}
+                </>
               )}
             </Button>
           </div>
