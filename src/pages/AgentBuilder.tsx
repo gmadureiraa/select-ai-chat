@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, Save, ChevronLeft, MoreHorizontal, Settings, Trash2, Sparkles, LayoutTemplate } from "lucide-react";
+import { Plus, Save, ChevronLeft, MoreHorizontal, Settings, Trash2, Sparkles, LayoutTemplate, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -20,12 +20,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { AgentBuilderCanvas } from "@/components/agent-builder/AgentBuilderCanvas";
-import { WorkflowTestPanel } from "@/components/agent-builder/WorkflowTestPanel";
+import { WorkflowExecutionPanel } from "@/components/agent-builder/WorkflowExecutionPanel";
 import { WorkflowRunsPanel } from "@/components/agent-builder/WorkflowRunsPanel";
 import { WorkflowTemplateSelector } from "@/components/agent-builder/WorkflowTemplateSelector";
 import { useAIWorkflows, useWorkflowNodes, useWorkflowConnections } from "@/hooks/useAIWorkflows";
 import { useWorkflowTemplates, WorkflowTemplate } from "@/hooks/useWorkflowTemplates";
 import { useQueryClient } from "@tanstack/react-query";
+import { AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 
 export default function AgentBuilder() {
@@ -37,11 +38,22 @@ export default function AgentBuilder() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isTemplateDialogOpen, setIsTemplateDialogOpen] = useState(false);
   const [newWorkflowName, setNewWorkflowName] = useState("");
+  const [isExecutionOpen, setIsExecutionOpen] = useState(false);
 
-  const { nodes } = useWorkflowNodes(selectedWorkflowId);
-  const { connections } = useWorkflowConnections(selectedWorkflowId);
+  const { nodes, isLoading: nodesLoading } = useWorkflowNodes(selectedWorkflowId);
+  const { connections, isLoading: connectionsLoading } = useWorkflowConnections(selectedWorkflowId);
 
   const selectedWorkflow = workflows.find(w => w.id === selectedWorkflowId);
+
+  // Convert nodes for execution panel
+  const canvasNodes = nodes.map(n => ({
+    id: n.id,
+    type: n.type,
+    data: {
+      label: n.config?.name || n.type,
+      config: n.config,
+    },
+  }));
 
   const handleCreateWorkflow = async () => {
     if (!newWorkflowName.trim()) {
@@ -321,10 +333,14 @@ export default function AgentBuilder() {
             <Save className="h-4 w-4 mr-2" />
             Salvar
           </Button>
-          <WorkflowTestPanel 
-            workflowId={selectedWorkflowId} 
-            workflowName={selectedWorkflow?.name || 'Workflow'} 
-          />
+          <Button 
+            size="sm"
+            onClick={() => setIsExecutionOpen(true)}
+            className="gap-2"
+          >
+            <Play className="h-4 w-4" />
+            Executar
+          </Button>
         </div>
       </div>
 
@@ -336,6 +352,18 @@ export default function AgentBuilder() {
           initialConnections={connections}
         />
       </div>
+
+      {/* Execution Panel */}
+      <AnimatePresence>
+        {isExecutionOpen && (
+          <WorkflowExecutionPanel
+            workflowId={selectedWorkflowId}
+            workflowName={selectedWorkflow?.name || 'Workflow'}
+            nodes={canvasNodes}
+            onClose={() => setIsExecutionOpen(false)}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }
