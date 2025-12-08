@@ -770,6 +770,48 @@ export type Database = {
           },
         ]
       }
+      favorite_messages: {
+        Row: {
+          client_id: string
+          created_at: string | null
+          id: string
+          message_id: string
+          note: string | null
+          user_id: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string | null
+          id?: string
+          message_id: string
+          note?: string | null
+          user_id?: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string | null
+          id?: string
+          message_id?: string
+          note?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "favorite_messages_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "favorite_messages_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       global_knowledge: {
         Row: {
           category: Database["public"]["Enums"]["knowledge_category"]
@@ -779,6 +821,7 @@ export type Database = {
           metadata: Json | null
           page_count: number | null
           source_file: string | null
+          tags: string[] | null
           title: string
           updated_at: string
           workspace_id: string
@@ -791,6 +834,7 @@ export type Database = {
           metadata?: Json | null
           page_count?: number | null
           source_file?: string | null
+          tags?: string[] | null
           title: string
           updated_at?: string
           workspace_id: string
@@ -803,6 +847,7 @@ export type Database = {
           metadata?: Json | null
           page_count?: number | null
           source_file?: string | null
+          tags?: string[] | null
           title?: string
           updated_at?: string
           workspace_id?: string
@@ -917,6 +962,59 @@ export type Database = {
             columns: ["conversation_id"]
             isOneToOne: false
             referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      performance_goals: {
+        Row: {
+          client_id: string
+          created_at: string | null
+          current_value: number | null
+          end_date: string | null
+          id: string
+          metric_name: string
+          period: string | null
+          platform: string
+          start_date: string | null
+          status: string | null
+          target_value: number
+          updated_at: string | null
+        }
+        Insert: {
+          client_id: string
+          created_at?: string | null
+          current_value?: number | null
+          end_date?: string | null
+          id?: string
+          metric_name: string
+          period?: string | null
+          platform: string
+          start_date?: string | null
+          status?: string | null
+          target_value: number
+          updated_at?: string | null
+        }
+        Update: {
+          client_id?: string
+          created_at?: string | null
+          current_value?: number | null
+          end_date?: string | null
+          id?: string
+          metric_name?: string
+          period?: string | null
+          platform?: string
+          start_date?: string | null
+          status?: string | null
+          target_value?: number
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "performance_goals_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
             referencedColumns: ["id"]
           },
         ]

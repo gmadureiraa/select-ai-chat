@@ -20,19 +20,6 @@ const Agents = () => {
       onOpen: () => navigate("/assistant"),
     },
     {
-      title: "Agent Builder",
-      subtitle: "Crie workflows de IA visuais",
-      description: "Monte pipelines de agentes interconectados com drag-and-drop para automações avançadas",
-      features: [
-        "Canvas visual",
-        "Multi-agentes",
-        "Templates prontos",
-        "Execução automática",
-      ],
-      accentColor: "emerald" as const,
-      onOpen: () => navigate("/agent-builder"),
-    },
-    {
       title: "Laboratório de Pesquisa",
       subtitle: "Canvas multimodal de análise",
       description: "Organize e analise vídeos, textos, áudios e imagens em um espaço visual interativo",
@@ -46,25 +33,12 @@ const Agents = () => {
       onOpen: () => navigate("/research-lab"),
     },
     {
-      title: "Engenharia Reversa",
-      subtitle: "Análise e recriação de conteúdo",
-      description: "Analise qualquer conteúdo de referência e recrie adaptado ao estilo único do seu cliente",
-      features: [
-        "Análise de Reels e vídeos",
-        "Carrosséis e posts",
-        "Blogs e artigos",
-        "Adaptação ao cliente",
-      ],
-      accentColor: "purple" as const,
-      onOpen: () => navigate("/reverse-engineering"),
-    },
-    {
       title: "Análise de Performance",
       subtitle: "Métricas e insights automatizados",
       description: "Coleta e análise automática de dados de performance em múltiplas plataformas",
       features: [
         "Dashboards em tempo real",
-        "Alertas inteligentes",
+        "Metas e objetivos",
         "Relatórios automatizados",
         "Análise preditiva",
       ],
@@ -96,6 +70,32 @@ const Agents = () => {
       ],
       accentColor: "secondary" as const,
       onOpen: () => navigate("/automations"),
+    },
+    {
+      title: "Engenharia Reversa",
+      subtitle: "Análise e recriação de conteúdo",
+      description: "Analise qualquer conteúdo de referência e recrie adaptado ao estilo único do seu cliente",
+      features: [
+        "Análise de Reels e vídeos",
+        "Carrosséis e posts",
+        "Blogs e artigos",
+        "Adaptação ao cliente",
+      ],
+      accentColor: "purple" as const,
+      onOpen: () => navigate("/reverse-engineering"),
+    },
+    {
+      title: "Agent Builder",
+      subtitle: "Crie workflows de IA visuais",
+      description: "Monte pipelines de agentes interconectados com drag-and-drop para automações avançadas",
+      features: [
+        "Canvas visual",
+        "Multi-agentes",
+        "Templates prontos",
+        "Execução automática",
+      ],
+      accentColor: "emerald" as const,
+      onOpen: () => navigate("/agent-builder"),
     },
   ];
 
