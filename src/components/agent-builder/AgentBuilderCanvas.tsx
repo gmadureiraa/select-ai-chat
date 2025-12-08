@@ -1,4 +1,4 @@
-import { useCallback, useState, useMemo } from "react";
+import { useCallback, useState, useMemo, useEffect } from "react";
 import ReactFlow, {
   Node,
   Edge,
@@ -52,24 +52,31 @@ export const AgentBuilderCanvas = ({
   const [selectedNode, setSelectedNode] = useState<Node<WorkflowNodeData> | null>(null);
 
   // Convert DB nodes to React Flow nodes
-  const flowNodes = useMemo(() => 
-    initialNodes.map((node) => ({
-      id: node.id,
-      type: node.type,
-      position: { x: node.position_x, y: node.position_y },
-      data: {
-        label: (node.config as any)?.label || node.type,
+  const convertToFlowNodes = useCallback((dbNodes: AIWorkflowNode[]) => 
+    dbNodes.map((node) => {
+      const config = node.config as any;
+      return {
+        id: node.id,
         type: node.type,
-        agent: agents.find(a => a.id === node.agent_id),
-        config: node.config,
-      } as WorkflowNodeData,
-    })),
-    [initialNodes, agents]
+        position: { x: node.position_x || 0, y: node.position_y || 0 },
+        data: {
+          label: config?.name || config?.label || 
+                 (node.type === 'trigger' ? 'Trigger' : 
+                  node.type === 'agent' ? (config?.name || 'Agente') :
+                  node.type === 'condition' ? 'Condição' :
+                  node.type === 'tool' ? 'Ferramenta' : 'Nota'),
+          type: node.type,
+          agent: agents.find(a => a.id === node.agent_id),
+          config: node.config,
+        } as WorkflowNodeData,
+      };
+    }),
+    [agents]
   );
 
   // Convert DB connections to React Flow edges
-  const flowEdges = useMemo(() =>
-    initialConnections.map((conn) => ({
+  const convertToFlowEdges = useCallback((dbConnections: any[]) =>
+    dbConnections.map((conn) => ({
       id: conn.id,
       source: conn.source_node_id,
       target: conn.target_node_id,
@@ -83,11 +90,27 @@ export const AgentBuilderCanvas = ({
       },
       markerEnd: { type: MarkerType.ArrowClosed },
     })),
-    [initialConnections]
+    []
   );
 
-  const [nodes, setNodes, onNodesChangeInternal] = useNodesState(flowNodes);
-  const [edges, setEdges, onEdgesChangeInternal] = useEdgesState(flowEdges);
+  const [nodes, setNodes, onNodesChangeInternal] = useNodesState([]);
+  const [edges, setEdges, onEdgesChangeInternal] = useEdgesState([]);
+
+  // Sync nodes when initialNodes changes
+  useEffect(() => {
+    if (initialNodes.length > 0) {
+      const flowNodes = convertToFlowNodes(initialNodes);
+      setNodes(flowNodes);
+    }
+  }, [initialNodes, convertToFlowNodes, setNodes]);
+
+  // Sync edges when initialConnections changes
+  useEffect(() => {
+    if (initialConnections.length > 0) {
+      const flowEdges = convertToFlowEdges(initialConnections);
+      setEdges(flowEdges);
+    }
+  }, [initialConnections, convertToFlowEdges, setEdges]);
 
   const onConnect = useCallback(
     (params: Connection) => {

@@ -25,10 +25,12 @@ import { WorkflowRunsPanel } from "@/components/agent-builder/WorkflowRunsPanel"
 import { WorkflowTemplateSelector } from "@/components/agent-builder/WorkflowTemplateSelector";
 import { useAIWorkflows, useWorkflowNodes, useWorkflowConnections } from "@/hooks/useAIWorkflows";
 import { useWorkflowTemplates, WorkflowTemplate } from "@/hooks/useWorkflowTemplates";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 export default function AgentBuilder() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { workflows, createWorkflow, updateWorkflow, deleteWorkflow } = useAIWorkflows();
   const { data: templates } = useWorkflowTemplates();
   const [selectedWorkflowId, setSelectedWorkflowId] = useState<string | null>(null);
@@ -123,10 +125,13 @@ export default function AgentBuilder() {
           }
         }
       }
+      // Invalidate queries to refetch nodes and connections
+      await queryClient.invalidateQueries({ queryKey: ["workflow-nodes", result.id] });
+      await queryClient.invalidateQueries({ queryKey: ["workflow-connections", result.id] });
       
       setSelectedWorkflowId(result.id);
       setIsTemplateDialogOpen(false);
-      toast.success(`Workflow "${template.name}" criado com ${template.nodes?.length || 0} agentes!`);
+      toast.success(`Workflow "${template.name}" criado com ${template.nodes?.length || 0} nodes!`);
     } catch (error) {
       console.error("Error creating workflow from template:", error);
       toast.error("Erro ao criar workflow");
