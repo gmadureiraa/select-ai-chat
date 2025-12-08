@@ -33,7 +33,7 @@ import {
 // Tipos de conteúdo que se beneficiam do pipeline multi-agente
 const MULTI_AGENT_CONTENT_TYPES = ["newsletter", "blog_post", "linkedin_post", "thread", "carousel"];
 
-export const useClientChat = (clientId: string, templateId?: string) => {
+export const useClientChat = (clientId: string, templateId?: string, conversationIdParam?: string) => {
   const [selectedModel, setSelectedModel] = useState("gemini-2.5-flash");
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -102,10 +102,22 @@ export const useClientChat = (clientId: string, templateId?: string) => {
     return feedbackPatterns.some(p => p.test(message));
   };
 
-  // Get or create conversation (separada por template)
-  const { data: conversation } = useQuery({
-    queryKey: ["conversation", clientId, templateId],
+  // Get specific conversation by ID or get/create default conversation
+  const { data: conversation, refetch: refetchConversation } = useQuery({
+    queryKey: ["conversation", clientId, templateId, conversationIdParam],
     queryFn: async () => {
+      // If specific conversationId provided, load that conversation
+      if (conversationIdParam) {
+        const { data: specific, error } = await supabase
+          .from("conversations")
+          .select("*")
+          .eq("id", conversationIdParam)
+          .single();
+        
+        if (error) throw error;
+        return specific;
+      }
+
       // Try to get existing conversation for this client + template combination
       let query = supabase
         .from("conversations")
@@ -153,6 +165,32 @@ export const useClientChat = (clientId: string, templateId?: string) => {
       setConversationId(conversation.id);
     }
   }, [conversation]);
+
+  // Start a new conversation
+  const startNewConversation = useCallback(async () => {
+    const { data: newConv, error } = await supabase
+      .from("conversations")
+      .insert({
+        client_id: clientId,
+        title: "Nova Conversa",
+        model: selectedModel,
+        template_id: templateId || null,
+      })
+      .select()
+      .single();
+
+    if (error) {
+      toast({
+        title: "Erro",
+        description: "Não foi possível criar nova conversa.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setConversationId(newConv.id);
+    queryClient.invalidateQueries({ queryKey: ["conversation-history", clientId] });
+  }, [clientId, templateId, selectedModel, toast, queryClient]);
 
   // Get messages
   const { data: messages = [] } = useQuery({
@@ -1492,9 +1530,11 @@ IMPORTANTE: O novo conteúdo deve parecer escrito pelo mesmo autor.`;
     workflowState,
     isIdeaMode,
     isFreeChatMode,
+    conversationId,
     setSelectedModel,
     sendMessage,
     regenerateLastMessage,
     clearConversation,
+    startNewConversation,
   };
 };

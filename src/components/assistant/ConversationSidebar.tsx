@@ -1,6 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { MessageSquare, Clock, Trash2, Plus, ChevronRight } from "lucide-react";
+import { MessageSquare, Clock, Trash2, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Conversation } from "@/types/chat";
@@ -13,11 +12,17 @@ import { cn } from "@/lib/utils";
 
 interface ConversationSidebarProps {
   clientId: string;
+  currentConversationId: string | null;
+  onSelectConversation: (conversationId: string) => void;
   onNewConversation: () => void;
 }
 
-export const ConversationSidebar = ({ clientId, onNewConversation }: ConversationSidebarProps) => {
-  const navigate = useNavigate();
+export const ConversationSidebar = ({ 
+  clientId, 
+  currentConversationId,
+  onSelectConversation,
+  onNewConversation 
+}: ConversationSidebarProps) => {
   const { data: conversations, refetch } = useConversationHistory(clientId);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
@@ -34,15 +39,16 @@ export const ConversationSidebar = ({ clientId, onNewConversation }: Conversatio
       if (error) throw error;
       toast.success("Conversa excluída");
       refetch();
+      
+      // If deleted current conversation, create new
+      if (conversationId === currentConversationId) {
+        onNewConversation();
+      }
     } catch (error) {
       toast.error("Erro ao excluir conversa");
     } finally {
       setDeletingId(null);
     }
-  };
-
-  const handleSelect = (conversationId: string) => {
-    navigate(`/chat/${clientId}?conversationId=${conversationId}`);
   };
 
   return (
@@ -69,10 +75,11 @@ export const ConversationSidebar = ({ clientId, onNewConversation }: Conversatio
             conversations?.map((conversation) => (
               <div
                 key={conversation.id}
-                onClick={() => handleSelect(conversation.id)}
+                onClick={() => onSelectConversation(conversation.id)}
                 className={cn(
                   "group flex items-center gap-2 p-2.5 rounded-lg cursor-pointer transition-all",
-                  "hover:bg-accent/50 border border-transparent hover:border-border/50"
+                  "hover:bg-accent/50 border border-transparent hover:border-border/50",
+                  currentConversationId === conversation.id && "bg-accent border-border"
                 )}
               >
                 <MessageSquare className="h-4 w-4 text-muted-foreground shrink-0" />
