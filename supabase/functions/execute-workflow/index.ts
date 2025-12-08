@@ -43,16 +43,33 @@ interface ExecutionContext {
   executionLog: any[];
 }
 
-// Execute AI Agent node
+// Map model names to Gemini models via Lovable AI Gateway
+function mapToGeminiModel(model: string): string {
+  const modelMap: Record<string, string> = {
+    'google/gemini-2.5-flash': 'google/gemini-2.5-flash',
+    'google/gemini-2.5-pro': 'google/gemini-2.5-pro',
+    'google/gemini-2.5-flash-lite': 'google/gemini-2.5-flash-lite',
+    'openai/gpt-4o': 'google/gemini-2.5-flash',
+    'openai/gpt-4o-mini': 'google/gemini-2.5-flash',
+    'openai/gpt-5': 'google/gemini-2.5-pro',
+    'openai/gpt-5-mini': 'google/gemini-2.5-flash',
+    'gpt-4o': 'google/gemini-2.5-flash',
+    'gpt-4o-mini': 'google/gemini-2.5-flash',
+  };
+  
+  return modelMap[model] || 'google/gemini-2.5-flash';
+}
+
+// Execute AI Agent node using Lovable AI Gateway
 async function executeAgentNode(
   node: WorkflowNode,
   agent: Agent,
   context: ExecutionContext
 ): Promise<{ success: boolean; output: any; error?: string }> {
-  const googleApiKey = Deno.env.get('GOOGLE_AI_STUDIO_API_KEY');
+  const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
   
-  if (!googleApiKey) {
-    return { success: false, output: null, error: 'Google AI API key not configured' };
+  if (!LOVABLE_API_KEY) {
+    return { success: false, output: null, error: 'LOVABLE_API_KEY not configured' };
   }
 
   try {
@@ -73,87 +90,44 @@ async function executeAgentNode(
       ? context.currentInput 
       : JSON.stringify(context.currentInput);
 
-    // Determine model
-    const modelMap: Record<string, string> = {
-      'google/gemini-2.5-flash': 'gemini-2.5-flash-preview-05-20',
-      'google/gemini-2.5-pro': 'gemini-2.5-pro-preview-05-06',
-      'google/gemini-2.5-flash-lite': 'gemini-2.0-flash-lite',
-      'openai/gpt-4o': 'gpt-4o',
-      'openai/gpt-4o-mini': 'gpt-4o-mini',
-    };
-    
-    const modelId = modelMap[agent.model] || 'gemini-2.5-flash-preview-05-20';
-    
-    // Use Google Gemini
-    if (agent.model.startsWith('google/')) {
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${googleApiKey}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [
-              {
-                role: 'user',
-                parts: [{ text: `${systemPrompt}\n\n---\n\nInput do usuário:\n${userMessage}` }]
-              }
-            ],
-            generationConfig: {
-              temperature: agent.temperature || 0.7,
-              maxOutputTokens: 4096,
-            }
-          })
-        }
-      );
+    // Map to Gemini model
+    const geminiModel = mapToGeminiModel(agent.model);
+    console.log(`Agent ${agent.name} using model: ${geminiModel} (original: ${agent.model})`);
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Gemini API error:', errorText);
-        return { success: false, output: null, error: `Gemini API error: ${response.status}` };
-      }
+    // Call Lovable AI Gateway
+    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: geminiModel,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userMessage }
+        ],
+      })
+    });
 
-      const data = await response.json();
-      const output = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Lovable AI Gateway error:', response.status, errorText);
       
-      return { success: true, output };
-    } 
-    // Use OpenAI
-    else if (agent.model.startsWith('openai/')) {
-      const openaiKey = Deno.env.get('OPENAI_API_KEY');
-      if (!openaiKey) {
-        return { success: false, output: null, error: 'OpenAI API key not configured' };
+      if (response.status === 429) {
+        return { success: false, output: null, error: 'Rate limit exceeded. Please try again later.' };
       }
-
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${openaiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: modelId,
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: userMessage }
-          ],
-          temperature: agent.temperature || 0.7,
-          max_tokens: 4096,
-        })
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('OpenAI API error:', errorText);
-        return { success: false, output: null, error: `OpenAI API error: ${response.status}` };
+      if (response.status === 402) {
+        return { success: false, output: null, error: 'Insufficient credits. Please add funds.' };
       }
-
-      const data = await response.json();
-      const output = data.choices?.[0]?.message?.content || '';
       
-      return { success: true, output };
+      return { success: false, output: null, error: `AI Gateway error: ${response.status}` };
     }
 
-    return { success: false, output: null, error: 'Unsupported model' };
+    const data = await response.json();
+    const output = data.choices?.[0]?.message?.content || '';
+    
+    return { success: true, output };
   } catch (error) {
     console.error('Agent execution error:', error);
     return { success: false, output: null, error: String(error) };
