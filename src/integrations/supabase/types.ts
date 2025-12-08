@@ -1445,6 +1445,51 @@ export type Database = {
         }
         Relationships: []
       }
+      workflow_templates: {
+        Row: {
+          category: string
+          connections: Json
+          created_at: string
+          description: string | null
+          icon: string | null
+          id: string
+          is_featured: boolean | null
+          name: string
+          nodes: Json
+          thumbnail_url: string | null
+          updated_at: string
+          workflow_config: Json
+        }
+        Insert: {
+          category?: string
+          connections?: Json
+          created_at?: string
+          description?: string | null
+          icon?: string | null
+          id?: string
+          is_featured?: boolean | null
+          name: string
+          nodes?: Json
+          thumbnail_url?: string | null
+          updated_at?: string
+          workflow_config?: Json
+        }
+        Update: {
+          category?: string
+          connections?: Json
+          created_at?: string
+          description?: string | null
+          icon?: string | null
+          id?: string
+          is_featured?: boolean | null
+          name?: string
+          nodes?: Json
+          thumbnail_url?: string | null
+          updated_at?: string
+          workflow_config?: Json
+        }
+        Relationships: []
+      }
       workspace_invites: {
         Row: {
           accepted_at: string | null

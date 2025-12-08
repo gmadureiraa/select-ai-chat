@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, Save, ChevronLeft, MoreHorizontal, Settings, Trash2 } from "lucide-react";
+import { Plus, Save, ChevronLeft, MoreHorizontal, Settings, Trash2, Sparkles, LayoutTemplate } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -22,14 +22,18 @@ import {
 import { AgentBuilderCanvas } from "@/components/agent-builder/AgentBuilderCanvas";
 import { WorkflowTestPanel } from "@/components/agent-builder/WorkflowTestPanel";
 import { WorkflowRunsPanel } from "@/components/agent-builder/WorkflowRunsPanel";
+import { WorkflowTemplateSelector } from "@/components/agent-builder/WorkflowTemplateSelector";
 import { useAIWorkflows, useWorkflowNodes, useWorkflowConnections } from "@/hooks/useAIWorkflows";
+import { useWorkflowTemplates, WorkflowTemplate } from "@/hooks/useWorkflowTemplates";
 import { toast } from "sonner";
 
 export default function AgentBuilder() {
   const navigate = useNavigate();
   const { workflows, createWorkflow, updateWorkflow, deleteWorkflow } = useAIWorkflows();
+  const { data: templates } = useWorkflowTemplates();
   const [selectedWorkflowId, setSelectedWorkflowId] = useState<string | null>(null);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isTemplateDialogOpen, setIsTemplateDialogOpen] = useState(false);
   const [newWorkflowName, setNewWorkflowName] = useState("");
 
   const { nodes } = useWorkflowNodes(selectedWorkflowId);
@@ -53,6 +57,25 @@ export default function AgentBuilder() {
     setSelectedWorkflowId(result.id);
     setIsCreateDialogOpen(false);
     setNewWorkflowName("");
+  };
+
+  const handleCreateFromTemplate = async (template: WorkflowTemplate) => {
+    try {
+      const triggerType = (template.workflow_config?.trigger_type || "manual") as "manual" | "webhook" | "schedule" | "user_message" | "event";
+        
+      const result = await createWorkflow.mutateAsync({
+        name: template.name,
+        description: template.description || "",
+        is_active: false,
+        trigger_config: { type: triggerType },
+      });
+      
+      setSelectedWorkflowId(result.id);
+      setIsTemplateDialogOpen(false);
+      toast.success(`Workflow "${template.name}" criado a partir do template!`);
+    } catch (error) {
+      toast.error("Erro ao criar workflow");
+    }
   };
 
   const handleDeleteWorkflow = async (id: string) => {
@@ -81,10 +104,16 @@ export default function AgentBuilder() {
                 <p className="text-muted-foreground">Crie e gerencie workflows de agentes de IA</p>
               </div>
             </div>
-            <Button onClick={() => setIsCreateDialogOpen(true)}>
-              <Plus className="h-4 w-4 mr-2" />
-              Novo Workflow
-            </Button>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setIsTemplateDialogOpen(true)}>
+                <LayoutTemplate className="h-4 w-4 mr-2" />
+                Usar Template
+              </Button>
+              <Button onClick={() => setIsCreateDialogOpen(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                Novo Workflow
+              </Button>
+            </div>
           </div>
 
           {workflows.length === 0 ? (
@@ -187,6 +216,13 @@ export default function AgentBuilder() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* Template Selector */}
+        <WorkflowTemplateSelector
+          open={isTemplateDialogOpen}
+          onOpenChange={setIsTemplateDialogOpen}
+          onSelectTemplate={handleCreateFromTemplate}
+        />
       </div>
     );
   }

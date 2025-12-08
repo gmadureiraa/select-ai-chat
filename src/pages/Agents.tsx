@@ -20,6 +20,19 @@ const Agents = () => {
       onOpen: () => navigate("/assistant"),
     },
     {
+      title: "Agent Builder",
+      subtitle: "Crie workflows de IA visuais",
+      description: "Monte pipelines de agentes interconectados com drag-and-drop para automações avançadas",
+      features: [
+        "Canvas visual",
+        "Multi-agentes",
+        "Templates prontos",
+        "Execução automática",
+      ],
+      accentColor: "emerald" as const,
+      onOpen: () => navigate("/agent-builder"),
+    },
+    {
       title: "Laboratório de Pesquisa",
       subtitle: "Canvas multimodal de análise",
       description: "Organize e analise vídeos, textos, áudios e imagens em um espaço visual interativo",
@@ -31,6 +44,19 @@ const Agents = () => {
       ],
       accentColor: "white" as const,
       onOpen: () => navigate("/research-lab"),
+    },
+    {
+      title: "Engenharia Reversa",
+      subtitle: "Análise e recriação de conteúdo",
+      description: "Analise qualquer conteúdo de referência e recrie adaptado ao estilo único do seu cliente",
+      features: [
+        "Análise de Reels e vídeos",
+        "Carrosséis e posts",
+        "Blogs e artigos",
+        "Adaptação ao cliente",
+      ],
+      accentColor: "purple" as const,
+      onOpen: () => navigate("/reverse-engineering"),
     },
     {
       title: "Análise de Performance",
@@ -71,20 +97,6 @@ const Agents = () => {
       accentColor: "secondary" as const,
       onOpen: () => navigate("/automations"),
     },
-    {
-      title: "Engenharia Reversa",
-      subtitle: "Análise e recriação de conteúdo",
-      description: "Analise qualquer conteúdo de referência e recrie adaptado ao estilo único do seu cliente",
-      features: [
-        "Análise de Reels e vídeos",
-        "Carrosséis e posts",
-        "Blogs e artigos",
-        "Adaptação ao cliente",
-      ],
-      accentColor: "purple" as const,
-      onOpen: () => {},
-      comingSoon: true,
-    },
   ];
 
   return (
@@ -109,7 +121,6 @@ const Agents = () => {
               features={agent.features}
               accentColor={agent.accentColor}
               onOpen={agent.onOpen}
-              comingSoon={agent.comingSoon}
             />
           </div>
         ))}

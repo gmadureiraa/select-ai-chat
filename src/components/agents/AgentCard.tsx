@@ -7,7 +7,7 @@ export interface AgentCardProps {
   subtitle: string;
   description: string;
   features: string[];
-  accentColor: "primary" | "secondary" | "accent" | "white" | "purple" | "yellow";
+  accentColor: "primary" | "secondary" | "accent" | "white" | "purple" | "yellow" | "emerald";
   onOpen: () => void;
   comingSoon?: boolean;
 }
@@ -71,6 +71,14 @@ export default function AgentCard({
       bg: "bg-[hsl(45_100%_50%/0.1)]",
       hover: "hover:bg-[hsl(45_100%_50%/0.2)]",
       border: "border-[hsl(45_100%_50%/0.2)]",
+    },
+    emerald: {
+      glow: "shadow-[0_0_50px_hsl(160_84%_39%/0.45)]",
+      glowFlipped: "shadow-[0_0_50px_hsl(160_84%_39%/0.45)]",
+      text: "text-emerald-400",
+      bg: "bg-emerald-500/10",
+      hover: "hover:bg-emerald-500/20",
+      border: "border-emerald-500/20",
     },
   } as const;
 
