@@ -296,14 +296,14 @@ export const AgentConfigPanel = ({
               <div className="space-y-2">
                 <Label>Agente de Escalação</Label>
                 <Select
-                  value={localAgent.escalation_agent_id || ""}
-                  onValueChange={(value) => setLocalAgent({ ...localAgent, escalation_agent_id: value || undefined })}
+                  value={localAgent.escalation_agent_id || "none"}
+                  onValueChange={(value) => setLocalAgent({ ...localAgent, escalation_agent_id: value === "none" ? undefined : value })}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Nenhum" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Nenhum</SelectItem>
+                    <SelectItem value="none">Nenhum</SelectItem>
                     {agents.filter(a => a.id !== agent?.id).map((a) => (
                       <SelectItem key={a.id} value={a.id}>
                         {a.name}
