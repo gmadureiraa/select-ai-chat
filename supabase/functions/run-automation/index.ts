@@ -75,6 +75,24 @@ async function executeActions(
   }
 }
 
+// Map legacy model names to Gemini equivalents
+function mapToGeminiModel(model: string): string {
+  const modelMap: Record<string, string> = {
+    "gpt-4o": "google/gemini-2.5-flash",
+    "gpt-4o-mini": "google/gemini-2.5-flash",
+    "gpt-4-turbo": "google/gemini-2.5-flash",
+    "gpt-4": "google/gemini-2.5-flash",
+    "gpt-3.5-turbo": "google/gemini-2.5-flash-lite",
+  };
+  
+  // If already a Gemini model, return as-is
+  if (model.startsWith("google/")) {
+    return model;
+  }
+  
+  return modelMap[model] || "google/gemini-2.5-flash";
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -168,9 +186,9 @@ serve(async (req) => {
     }
 
     try {
-      const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
-      if (!OPENAI_API_KEY) {
-        throw new Error("OPENAI_API_KEY not configured");
+      const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+      if (!LOVABLE_API_KEY) {
+        throw new Error("LOVABLE_API_KEY not configured");
       }
 
       // Construir contexto da automação
@@ -193,15 +211,19 @@ ${JSON.stringify(data, null, 2)}
 
 Execute a tarefa solicitada de forma completa e profissional.`;
 
-      // Chamar OpenAI
-      const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      // Map model to Gemini
+      const geminiModel = mapToGeminiModel(automation.model);
+      console.log(`Using model: ${geminiModel} (original: ${automation.model})`);
+
+      // Call Lovable AI Gateway with Gemini
+      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${OPENAI_API_KEY}`,
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: automation.model,
+          model: geminiModel,
           messages: [
             { role: "system", content: systemPrompt },
             { role: "user", content: automation.prompt },
@@ -211,7 +233,16 @@ Execute a tarefa solicitada de forma completa e profissional.`;
 
       if (!response.ok) {
         const errorText = await response.text();
-        throw new Error(`OpenAI API error: ${response.status} - ${errorText}`);
+        console.error("Lovable AI Gateway error:", response.status, errorText);
+        
+        if (response.status === 429) {
+          throw new Error("Rate limit exceeded. Please try again later.");
+        }
+        if (response.status === 402) {
+          throw new Error("Insufficient credits. Please add funds to your workspace.");
+        }
+        
+        throw new Error(`AI Gateway error: ${response.status} - ${errorText}`);
       }
 
       const data = await response.json();
