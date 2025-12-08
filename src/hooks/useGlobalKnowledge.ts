@@ -21,6 +21,7 @@ export interface GlobalKnowledge {
   source_file: string | null;
   page_count: number | null;
   metadata: Record<string, any>;
+  tags: string[];
   created_at: string;
   updated_at: string;
 }
@@ -32,6 +33,7 @@ export interface CreateKnowledgeData {
   source_file?: string;
   page_count?: number;
   metadata?: Record<string, any>;
+  tags?: string[];
 }
 
 export const KNOWLEDGE_CATEGORIES: { value: KnowledgeCategory; label: string }[] = [
@@ -79,6 +81,7 @@ export function useGlobalKnowledge() {
           source_file: data.source_file || null,
           page_count: data.page_count || null,
           metadata: data.metadata || {},
+          tags: data.tags || [],
         });
 
       if (error) throw error;

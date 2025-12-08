@@ -23,6 +23,7 @@ import { format, subDays, isWithinInterval, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { DateRange } from "react-day-picker";
+import { GoalsPanel } from "@/components/performance/GoalsPanel";
 
 export default function ClientPerformance() {
   const { clientId } = useParams();
@@ -653,6 +654,16 @@ export default function ClientPerformance() {
               formatter={(v) => (v >= 0 ? `+${v.toLocaleString("pt-BR")}` : v.toLocaleString("pt-BR"))}
             />
           </div>
+
+          {/* Goals Panel */}
+          <GoalsPanel
+            clientId={clientId!}
+            platform="instagram"
+            currentMetrics={{
+              followers: periodMetrics.currentFollowers,
+              views: periodMetrics.totalViews,
+            }}
+          />
 
           {/* Historical Chart */}
           {metrics && metrics.length >= 1 && (

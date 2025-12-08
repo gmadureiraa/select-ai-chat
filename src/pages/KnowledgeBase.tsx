@@ -9,11 +9,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Plus, FileText, Trash2, Edit, Upload, Loader2, Search, BookOpen, Download, ExternalLink } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Plus, FileText, Trash2, Edit, Upload, Loader2, Search, BookOpen, Download, ExternalLink, Tag } from "lucide-react";
 import { useGlobalKnowledge, KNOWLEDGE_CATEGORIES, KnowledgeCategory, GlobalKnowledge } from "@/hooks/useGlobalKnowledge";
 import { supabase } from "@/integrations/supabase/client";
 import { uploadAndGetSignedUrl } from "@/lib/storage";
 import { toast } from "sonner";
+import { TagsInput } from "@/components/knowledge/TagsInput";
 
 export default function KnowledgeBase() {
   const { knowledge, isLoading, createKnowledge, updateKnowledge, deleteKnowledge } = useGlobalKnowledge();
@@ -24,6 +26,7 @@ export default function KnowledgeBase() {
   const [isUploading, setIsUploading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterCategory, setFilterCategory] = useState<string>("all");
+  const [filterTag, setFilterTag] = useState<string>("all");
 
   // Form state
   const [formTitle, setFormTitle] = useState("");
@@ -32,6 +35,7 @@ export default function KnowledgeBase() {
   const [formSourceFile, setFormSourceFile] = useState("");
   const [formPageCount, setFormPageCount] = useState<number | null>(null);
   const [formPdfUrl, setFormPdfUrl] = useState<string | null>(null);
+  const [formTags, setFormTags] = useState<string[]>([]);
 
   const resetForm = () => {
     setFormTitle("");
@@ -40,7 +44,11 @@ export default function KnowledgeBase() {
     setFormSourceFile("");
     setFormPageCount(null);
     setFormPdfUrl(null);
+    setFormTags([]);
   };
+
+  // Get all unique tags
+  const allTags = Array.from(new Set(knowledge.flatMap(k => k.tags || [])));
 
   // Sanitize filename for storage (remove special chars, accents, spaces)
   const sanitizeFileName = (name: string) => {
@@ -105,6 +113,7 @@ export default function KnowledgeBase() {
       source_file: formSourceFile || undefined,
       page_count: formPageCount || undefined,
       metadata: formPdfUrl ? { pdf_url: formPdfUrl } : undefined,
+      tags: formTags,
     });
 
     resetForm();
@@ -118,6 +127,7 @@ export default function KnowledgeBase() {
     setFormCategory(item.category);
     setFormSourceFile(item.source_file || "");
     setFormPageCount(item.page_count);
+    setFormTags(item.tags || []);
     setIsEditDialogOpen(true);
   };
 
@@ -129,6 +139,7 @@ export default function KnowledgeBase() {
       title: formTitle,
       content: formContent,
       category: formCategory,
+      tags: formTags,
     });
 
     resetForm();
@@ -145,7 +156,8 @@ export default function KnowledgeBase() {
     const matchesSearch = item.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          item.content.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategory = filterCategory === "all" || item.category === filterCategory;
-    return matchesSearch && matchesCategory;
+    const matchesTag = filterTag === "all" || (item.tags && item.tags.includes(filterTag));
+    return matchesSearch && matchesCategory && matchesTag;
   });
 
   const getCategoryLabel = (category: KnowledgeCategory) => {
@@ -180,8 +192,8 @@ export default function KnowledgeBase() {
       />
 
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-        <div className="flex flex-1 gap-3 w-full sm:w-auto">
-          <div className="relative flex-1 max-w-sm">
+        <div className="flex flex-1 gap-3 w-full sm:w-auto flex-wrap">
+          <div className="relative flex-1 min-w-[200px] max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Buscar conhecimento..."
@@ -191,7 +203,7 @@ export default function KnowledgeBase() {
             />
           </div>
           <Select value={filterCategory} onValueChange={setFilterCategory}>
-            <SelectTrigger className="w-[180px]">
+            <SelectTrigger className="w-[160px]">
               <SelectValue placeholder="Categoria" />
             </SelectTrigger>
             <SelectContent>
@@ -201,6 +213,20 @@ export default function KnowledgeBase() {
               ))}
             </SelectContent>
           </Select>
+          {allTags.length > 0 && (
+            <Select value={filterTag} onValueChange={setFilterTag}>
+              <SelectTrigger className="w-[140px]">
+                <Tag className="h-3.5 w-3.5 mr-2" />
+                <SelectValue placeholder="Tags" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas tags</SelectItem>
+                {allTags.map(tag => (
+                  <SelectItem key={tag} value={tag}>{tag}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
         </div>
 
         <Button onClick={() => { resetForm(); setIsAddDialogOpen(true); }}>
@@ -283,9 +309,16 @@ export default function KnowledgeBase() {
                   </div>
                 </CardHeader>
                 <CardContent className="pt-0 space-y-3">
-                  <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium border ${categoryConfig.bg} ${categoryConfig.text} ${categoryConfig.border}`}>
-                    {getCategoryLabel(item.category)}
-                  </span>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium border ${categoryConfig.bg} ${categoryConfig.text} ${categoryConfig.border}`}>
+                      {getCategoryLabel(item.category)}
+                    </span>
+                    {item.tags?.map(tag => (
+                      <Badge key={tag} variant="outline" className="text-xs">
+                        {tag}
+                      </Badge>
+                    ))}
+                  </div>
                   <p className="text-xs text-muted-foreground line-clamp-3 leading-relaxed">
                     {item.content.slice(0, 180)}...
                   </p>
@@ -368,14 +401,23 @@ export default function KnowledgeBase() {
 
             <div className="space-y-2">
               <Label>Conteúdo extraído</Label>
-              <ScrollArea className="h-[200px] border rounded-md">
+              <ScrollArea className="h-[160px] border rounded-md">
                 <Textarea
                   value={formContent}
                   onChange={(e) => setFormContent(e.target.value)}
                   placeholder="O conteúdo do PDF aparecerá aqui após o upload..."
-                  className="min-h-[200px] border-0 resize-none"
+                  className="min-h-[160px] border-0 resize-none"
                 />
               </ScrollArea>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Tags</Label>
+              <TagsInput 
+                tags={formTags} 
+                onChange={setFormTags} 
+                placeholder="Adicionar tag..." 
+              />
             </div>
           </div>
 
@@ -427,13 +469,22 @@ export default function KnowledgeBase() {
 
             <div className="space-y-2">
               <Label>Conteúdo</Label>
-              <ScrollArea className="h-[300px] border rounded-md">
+              <ScrollArea className="h-[200px] border rounded-md">
                 <Textarea
                   value={formContent}
                   onChange={(e) => setFormContent(e.target.value)}
-                  className="min-h-[300px] border-0 resize-none"
+                  className="min-h-[200px] border-0 resize-none"
                 />
               </ScrollArea>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Tags</Label>
+              <TagsInput 
+                tags={formTags} 
+                onChange={setFormTags} 
+                placeholder="Adicionar tag..." 
+              />
             </div>
           </div>
 
