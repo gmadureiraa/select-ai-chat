@@ -63,17 +63,72 @@ export default function AgentBuilder() {
     try {
       const triggerType = (template.workflow_config?.trigger_type || "manual") as "manual" | "webhook" | "schedule" | "user_message" | "event";
         
+      // Create workflow first
       const result = await createWorkflow.mutateAsync({
         name: template.name,
         description: template.description || "",
         is_active: false,
-        trigger_config: { type: triggerType },
+        trigger_config: { 
+          type: triggerType,
+          ...(template.workflow_config?.schedule && { schedule: template.workflow_config.schedule }),
+        },
       });
+
+      // Create a map from template node IDs to new node IDs
+      const nodeIdMap: Record<string, string> = {};
+
+      // Create nodes from template
+      if (template.nodes && template.nodes.length > 0) {
+        const { supabase } = await import("@/integrations/supabase/client");
+        
+        for (const templateNode of template.nodes) {
+          const { data: newNode, error: nodeError } = await supabase
+            .from("ai_workflow_nodes")
+            .insert({
+              workflow_id: result.id,
+              type: templateNode.type,
+              config: templateNode.config || {},
+              position_x: templateNode.position?.x || 0,
+              position_y: templateNode.position?.y || 0,
+            })
+            .select()
+            .single();
+
+          if (nodeError) {
+            console.error("Error creating node:", nodeError);
+            continue;
+          }
+
+          // Map template node ID to new node ID
+          nodeIdMap[templateNode.id] = newNode.id;
+        }
+
+        // Create connections using the new node IDs
+        if (template.connections && template.connections.length > 0) {
+          for (const templateConnection of template.connections) {
+            const sourceNodeId = nodeIdMap[templateConnection.source];
+            const targetNodeId = nodeIdMap[templateConnection.target];
+
+            if (sourceNodeId && targetNodeId) {
+              await supabase
+                .from("ai_workflow_connections")
+                .insert({
+                  workflow_id: result.id,
+                  source_node_id: sourceNodeId,
+                  target_node_id: targetNodeId,
+                  connection_type: templateConnection.connection_type || "default",
+                  label: templateConnection.label,
+                });
+            }
+          }
+        }
+      }
       
       setSelectedWorkflowId(result.id);
       setIsTemplateDialogOpen(false);
-      toast.success(`Workflow "${template.name}" criado a partir do template!`);
+      toast.success(`Workflow "${template.name}" criado com ${template.nodes?.length || 0} agentes!`);
     } catch (error) {
+      console.error("Error creating workflow from template:", error);
       toast.error("Erro ao criar workflow");
     }
   };
