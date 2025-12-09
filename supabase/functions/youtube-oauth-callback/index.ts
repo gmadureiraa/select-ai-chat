@@ -115,9 +115,8 @@ serve(async (req) => {
     }
 
     // Store tokens in database
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabase = createClient(SUPABASE_URL!, supabaseServiceKey);
 
     const expiresAt = tokens.expires_in 
       ? new Date(Date.now() + tokens.expires_in * 1000).toISOString()
@@ -154,7 +153,6 @@ serve(async (req) => {
     const sbUrl = Deno.env.get('SUPABASE_URL') || '';
     const pId = sbUrl.split('.')[0].replace('https://', '');
     const origin = Deno.env.get('SITE_URL') || `https://${pId}.lovableproject.com`;
-    return Response.redirect(`${origin}/performance?error=unknown`, 302);
     return Response.redirect(`${origin}/performance?error=unknown`, 302);
   }
 });

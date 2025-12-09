@@ -53,7 +53,7 @@ export function EnhancedKPICard({
   const isPositive = change !== null && change !== undefined && change >= 0;
 
   return (
-    <Card className={`relative overflow-hidden border-border/50 bg-gradient-to-br ${colors.gradient} backdrop-blur-sm transition-all hover:border-border hover:shadow-lg`}>
+    <Card className="relative overflow-hidden border-border/50 bg-card backdrop-blur-sm transition-all hover:border-border hover:shadow-lg">
       <CardContent className="p-5">
         <div className="flex items-start justify-between mb-3">
           <div className="flex items-center gap-2">

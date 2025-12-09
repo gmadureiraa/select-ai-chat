@@ -12,7 +12,8 @@ export const useChannelDataStatus = (clientId: string) => {
   return useQuery({
     queryKey: ['channel-data-status', clientId],
     queryFn: async () => {
-      const platforms = ['instagram', 'twitter', 'youtube', 'newsletter', 'cortes'];
+      // Updated platforms: removed 'cortes', added 'tiktok'
+      const platforms = ['instagram', 'twitter', 'youtube', 'newsletter', 'tiktok'];
       
       const statusPromises = platforms.map(async (platform) => {
         const { data, error, count } = await supabase

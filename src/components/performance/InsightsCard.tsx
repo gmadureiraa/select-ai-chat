@@ -74,7 +74,7 @@ export function InsightsCard({ insights, bestContent, periodComparison }: Insigh
     : 0;
 
   return (
-    <Card className="border-border/50 bg-gradient-to-br from-card to-muted/20">
+    <Card className="border-border/50">
       <CardHeader className="pb-3">
         <div className="flex items-center gap-2">
           <Sparkles className="h-5 w-5 text-primary" />
@@ -84,7 +84,7 @@ export function InsightsCard({ insights, bestContent, periodComparison }: Insigh
       <CardContent className="space-y-4">
         {/* Best Content Highlight */}
         {bestContent && (
-          <div className="bg-gradient-to-r from-secondary/20 via-secondary/10 to-transparent p-4 rounded-xl border border-secondary/20">
+          <div className="bg-secondary/10 p-4 rounded-xl border border-secondary/20">
             <div className="flex items-center gap-2 mb-2">
               <Trophy className="h-4 w-4 text-secondary" />
               <span className="text-xs font-medium text-secondary uppercase tracking-wide">

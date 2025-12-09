@@ -416,13 +416,21 @@ export const useClientChat = (clientId: string, templateId?: string, conversatio
         console.log("[CHAT] MODO CHAT LIVRE - Conversa com dados reais");
         setCurrentStep("analyzing");
         
-        // Buscar métricas do cliente
+        // Buscar métricas do cliente (últimos 90 dias para análise completa)
         const { data: metrics } = await supabase
           .from("platform_metrics")
           .select("*")
           .eq("client_id", clientId)
           .order("metric_date", { ascending: false })
-          .limit(30);
+          .limit(90);
+        
+        // Buscar vídeos do YouTube
+        const { data: youtubeVideos } = await supabase
+          .from("youtube_videos")
+          .select("*")
+          .eq("client_id", clientId)
+          .order("total_views", { ascending: false })
+          .limit(20);
         
         // Formatar métricas para contexto com informações mais completas
         const metricsContext = metrics && metrics.length > 0 
@@ -430,8 +438,8 @@ export const useClientChat = (clientId: string, templateId?: string, conversatio
             [...new Set(metrics.map(m => m.platform))].map(platform => {
               const platformMetrics = metrics.filter(m => m.platform === platform);
               const latest = platformMetrics[0];
-              const weekAgo = platformMetrics[6];
-              const monthAgo = platformMetrics[29];
+              const weekAgo = platformMetrics.find((_, i) => i >= 7);
+              const monthAgo = platformMetrics.find((_, i) => i >= 30);
               
               let summary = `### ${platform.toUpperCase()}\n`;
               summary += `- Última atualização: ${latest.metric_date}\n`;
@@ -442,22 +450,39 @@ export const useClientChat = (clientId: string, templateId?: string, conversatio
               if (latest.engagement_rate) summary += `- Taxa de engajamento: ${latest.engagement_rate.toFixed(2)}%\n`;
               if (latest.open_rate) summary += `- Taxa de abertura: ${latest.open_rate.toFixed(2)}%\n`;
               if (latest.click_rate) summary += `- Taxa de cliques: ${latest.click_rate.toFixed(2)}%\n`;
+              if (latest.total_posts) summary += `- Total de posts: ${latest.total_posts}\n`;
+              
+              // Calcular totais do período
+              const totalViews = platformMetrics.reduce((sum, m) => sum + (m.views || 0), 0);
+              const totalLikes = platformMetrics.reduce((sum, m) => sum + (m.likes || 0), 0);
+              if (totalViews > 0) summary += `- Views acumuladas (${platformMetrics.length} dias): ${totalViews.toLocaleString()}\n`;
+              if (totalLikes > 0) summary += `- Curtidas acumuladas (${platformMetrics.length} dias): ${totalLikes.toLocaleString()}\n`;
               
               // Comparação semanal
               if (weekAgo && latest.subscribers && weekAgo.subscribers) {
                 const weekGrowth = latest.subscribers - weekAgo.subscribers;
-                summary += `- Crescimento semanal: ${weekGrowth > 0 ? '+' : ''}${weekGrowth} seguidores\n`;
+                const weekGrowthPct = ((weekGrowth / weekAgo.subscribers) * 100).toFixed(2);
+                summary += `- Crescimento semanal: ${weekGrowth > 0 ? '+' : ''}${weekGrowth} seguidores (${weekGrowthPct}%)\n`;
               }
               
               // Comparação mensal  
               if (monthAgo && latest.subscribers && monthAgo.subscribers) {
                 const monthGrowth = latest.subscribers - monthAgo.subscribers;
-                summary += `- Crescimento mensal: ${monthGrowth > 0 ? '+' : ''}${monthGrowth} seguidores\n`;
+                const monthGrowthPct = ((monthGrowth / monthAgo.subscribers) * 100).toFixed(2);
+                summary += `- Crescimento mensal: ${monthGrowth > 0 ? '+' : ''}${monthGrowth} seguidores (${monthGrowthPct}%)\n`;
               }
               
               return summary;
             }).join('\n')
           : 'Sem métricas disponíveis';
+        
+        // Formatar dados de YouTube
+        const youtubeContext = youtubeVideos && youtubeVideos.length > 0
+          ? `📺 VÍDEOS DO YOUTUBE (Top ${youtubeVideos.length}):\n` +
+            youtubeVideos.map((v, i) => 
+              `${i + 1}. "${v.title}" - ${v.total_views?.toLocaleString() || 0} views, ${v.watch_hours?.toFixed(1) || 0}h assistidas, +${v.subscribers_gained || 0} inscritos`
+            ).join('\n')
+          : '';
         
         // Preparar contexto completo com TODOS os dados
         const freeChatContext = `Você é o kAI, assistente de IA especializado para o cliente ${client.name}.
@@ -471,8 +496,10 @@ export const useClientChat = (clientId: string, templateId?: string, conversatio
 ## 📋 IDENTIDADE DO CLIENTE:
 ${client.identity_guide || client.context_notes || 'Sem guia de identidade cadastrado'}
 
-## 📊 MÉTRICAS DE PERFORMANCE (últimos 30 dias):
+## 📊 MÉTRICAS DE PERFORMANCE (últimos 90 dias):
 ${metricsContext}
+
+${youtubeContext}
 
 ## 📚 BIBLIOTECA DE CONTEÚDO (${contentLibrary.length} itens):
 ${contentLibrary.slice(0, 20).map((c, i) => `[${i + 1}] "${c.title}" (${c.content_type})`).join('\n') || 'Biblioteca vazia'}
