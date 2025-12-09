@@ -73,7 +73,7 @@ export default function ClientReferenceLibrary() {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => navigate(`/client/${clientId}`)}
+                onClick={() => navigate("/clients")}
               >
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Voltar
