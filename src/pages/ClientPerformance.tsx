@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, Eye, Instagram, Youtube, Newspaper, RefreshCw, TrendingUp, TrendingDown, Users, CalendarIcon, Megaphone, Twitter, MousePointer, Heart, MessageCircle, Repeat2, UserPlus, AlertCircle, Clock, Play, Archive, ArchiveRestore, Link2, Video } from "lucide-react";
+import { ArrowLeft, Eye, Instagram, Youtube, Newspaper, RefreshCw, TrendingUp, TrendingDown, Users, CalendarIcon, Megaphone, Twitter, MousePointer, Heart, MessageCircle, Repeat2, UserPlus, AlertCircle, Clock, Play, Archive, ArchiveRestore, Link2, Video, BarChart3 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useState, useMemo, useEffect } from "react";
@@ -29,6 +29,11 @@ import { EnhancedKPICard } from "@/components/performance/EnhancedKPICard";
 import { EnhancedAreaChart } from "@/components/performance/EnhancedAreaChart";
 import { PerformanceTable, ProgressBar, ContentTypeIcon } from "@/components/performance/PerformanceTable";
 import { InsightsCard } from "@/components/performance/InsightsCard";
+import { StatsGrid } from "@/components/performance/StatsGrid";
+import { MixedBarLineChart } from "@/components/performance/MixedBarLineChart";
+import { DonutChart } from "@/components/performance/DonutChart";
+import { AudienceSentimentGauge } from "@/components/performance/AudienceSentimentGauge";
+import { useYouTubeSentiment, useAnalyzeYouTubeSentiment } from "@/hooks/useYouTubeSentiment";
 
 export default function ClientPerformance() {
   const { clientId } = useParams();
@@ -286,6 +291,10 @@ export default function ClientPerformance() {
     { key: "watchHours", label: "Horas", dataKey: "watch_hours", color: "hsl(var(--secondary))" },
   ];
 
+  // YouTube sentiment hook
+  const { data: youtubeSentiment } = useYouTubeSentiment(clientId || "");
+  const analyzeSentiment = useAnalyzeYouTubeSentiment();
+
   const chartData = useMemo(() => {
     if (!metrics) return [];
     
@@ -302,41 +311,18 @@ export default function ClientPerformance() {
       filteredMetrics = metrics.slice(0, parseInt(dateRange));
     }
     
-    const currentFollowers = metrics[0]?.subscribers || 0;
+    // Sort chronologically (oldest first for chart display)
     const sortedMetrics = [...filteredMetrics].sort((a, b) => 
-      new Date(b.metric_date).getTime() - new Date(a.metric_date).getTime()
+      new Date(a.metric_date).getTime() - new Date(b.metric_date).getTime()
     );
     
-    let runningTotal = currentFollowers;
-    const allMetricsSorted = [...metrics].sort((a, b) => 
-      new Date(b.metric_date).getTime() - new Date(a.metric_date).getTime()
-    );
-    
-    const firstFilteredDate = sortedMetrics[0]?.metric_date;
-    const startIndex = allMetricsSorted.findIndex(m => m.metric_date === firstFilteredDate);
-    
-    for (let i = 0; i < startIndex; i++) {
-      const metadata = allMetricsSorted[i]?.metadata as any;
-      const dailyGain = metadata?.daily_gain || 0;
-      runningTotal -= dailyGain;
-    }
-    
-    const calculatedData = sortedMetrics.map((m, index) => {
+    return sortedMetrics.map((m) => {
       const metadata = m.metadata as any;
-      const dailyGain = metadata?.followers_gained || metadata?.daily_gain || metadata?.new_follows || 0;
-      
-      let calculatedSubscribers = runningTotal;
-      if (index > 0) {
-        const prevMetadata = sortedMetrics[index - 1]?.metadata as any;
-        const prevDailyGain = prevMetadata?.followers_gained || prevMetadata?.daily_gain || prevMetadata?.new_follows || 0;
-        runningTotal -= prevDailyGain;
-        calculatedSubscribers = runningTotal;
-      }
-      
       return {
         ...m,
-        subscribers: m.subscribers || calculatedSubscribers,
-        followers_gained: dailyGain,
+        // Use subscribers directly if available (most reliable)
+        subscribers: m.subscribers || 0,
+        followers_gained: metadata?.followers_gained || metadata?.daily_gain || metadata?.new_follows || 0,
         reach: metadata?.reach || 0,
         impressions: metadata?.impressions || 0,
         engagements: metadata?.engagements || 0,
@@ -345,9 +331,31 @@ export default function ClientPerformance() {
         date: new Date(m.metric_date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }),
       };
     });
-    
-    return calculatedData.reverse();
   }, [metrics, dateRange, customDateRange]);
+
+  // Donut chart data for content distribution
+  const contentDistribution = useMemo(() => {
+    if (selectedChannel === "instagram" && metrics?.[0]?.metadata) {
+      const posts = (metrics[0].metadata as any)?.recent_posts || [];
+      const distribution: Record<string, number> = {};
+      posts.forEach((p: any) => {
+        const type = p.type === "Video" ? "Reels" : p.type || "Post";
+        distribution[type] = (distribution[type] || 0) + 1;
+      });
+      return Object.entries(distribution).map(([name, value], i) => ({
+        name,
+        value,
+        color: i === 0 ? "hsl(var(--primary))" : i === 1 ? "hsl(var(--secondary))" : "hsl(var(--accent))",
+      }));
+    }
+    if (selectedChannel === "youtube" && youtubeVideos) {
+      // Group by month for YouTube
+      return [
+        { name: "Vídeos", value: youtubeVideos.length, color: "hsl(var(--primary))" },
+      ];
+    }
+    return [];
+  }, [selectedChannel, metrics, youtubeVideos]);
 
   // Generate insights
   const insights = useMemo(() => {
@@ -840,13 +848,28 @@ export default function ClientPerformance() {
             />
           </div>
 
-          {/* Best video insight */}
-          {bestContent && (
-            <InsightsCard
-              insights={[]}
-              bestContent={bestContent}
+          {/* Audience Sentiment Gauge for YouTube */}
+          <div className="grid gap-4 md:grid-cols-2">
+            <AudienceSentimentGauge
+              score={youtubeSentiment?.score || 50}
+              previousScore={undefined}
+              totalComments={youtubeSentiment?.totalComments}
+              lastUpdated={youtubeSentiment?.lastUpdated ? new Date(youtubeSentiment.lastUpdated).toLocaleDateString('pt-BR') : undefined}
+              isLoading={analyzeSentiment.isPending}
+              onRefresh={() => {
+                // TODO: Get actual comments from YouTube API
+                analyzeSentiment.mutate({ clientId: clientId || "", comments: [] });
+              }}
             />
-          )}
+            
+            {/* Best video insight */}
+            {bestContent && (
+              <InsightsCard
+                insights={youtubeSentiment?.insights?.map(i => ({ type: "info" as const, title: i })) || []}
+                bestContent={bestContent}
+              />
+            )}
+          </div>
 
           {chartData.length >= 1 && (
             <EnhancedAreaChart

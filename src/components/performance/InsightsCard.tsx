@@ -82,8 +82,8 @@ export function InsightsCard({ insights, bestContent, periodComparison }: Insigh
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Best Content Highlight */}
-        {bestContent && (
+        {/* Best Content Highlight - only show if value > 0 */}
+        {bestContent && bestContent.value > 0 && (
           <div className="bg-secondary/10 p-4 rounded-xl border border-secondary/20">
             <div className="flex items-center gap-2 mb-2">
               <Trophy className="h-4 w-4 text-secondary" />
