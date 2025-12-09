@@ -11,6 +11,8 @@ interface TwitterToken {
   expires_at: string | null;
   twitter_id: string | null;
   username: string | null;
+  twitter_api_key: string | null;
+  twitter_api_secret: string | null;
   created_at: string | null;
   updated_at: string | null;
 }
@@ -90,6 +92,63 @@ export const useDisconnectTwitter = (clientId: string) => {
       toast({
         title: "Erro",
         description: "Não foi possível desconectar a conta.",
+        variant: "destructive",
+      });
+    },
+  });
+};
+
+export const useSaveTwitterCredentials = (clientId: string) => {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ apiKey, apiSecret }: { apiKey: string; apiSecret: string }) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      // Check if record exists
+      const { data: existing } = await supabase
+        .from("twitter_tokens")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("client_id", clientId)
+        .maybeSingle();
+
+      if (existing) {
+        // Update existing record
+        const { error } = await supabase
+          .from("twitter_tokens")
+          .update({
+            twitter_api_key: apiKey,
+            twitter_api_secret: apiSecret,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", existing.id);
+
+        if (error) throw error;
+      } else {
+        // Insert new record with placeholder access_token
+        const { error } = await supabase
+          .from("twitter_tokens")
+          .insert({
+            user_id: user.id,
+            client_id: clientId,
+            access_token: "pending",
+            twitter_api_key: apiKey,
+            twitter_api_secret: apiSecret,
+          });
+
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["twitter-connection", clientId] });
+    },
+    onError: () => {
+      toast({
+        title: "Erro",
+        description: "Não foi possível salvar as credenciais.",
         variant: "destructive",
       });
     },
