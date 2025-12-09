@@ -80,3 +80,12 @@ verify_jwt = true
 
 [functions.chat-multi-agent]
 verify_jwt = true
+
+[functions.youtube-oauth-callback]
+verify_jwt = false
+
+[functions.youtube-oauth-start]
+verify_jwt = true
+
+[functions.fetch-youtube-analytics]
+verify_jwt = true

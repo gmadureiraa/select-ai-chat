@@ -1685,6 +1685,53 @@ export type Database = {
         }
         Relationships: []
       }
+      youtube_tokens: {
+        Row: {
+          access_token: string
+          channel_id: string | null
+          channel_title: string | null
+          client_id: string | null
+          created_at: string | null
+          expires_at: string | null
+          id: string
+          refresh_token: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          access_token: string
+          channel_id?: string | null
+          channel_title?: string | null
+          client_id?: string | null
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string
+          refresh_token?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          access_token?: string
+          channel_id?: string | null
+          channel_title?: string | null
+          client_id?: string | null
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string
+          refresh_token?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "youtube_tokens_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       youtube_videos: {
         Row: {
           click_rate: number | null
