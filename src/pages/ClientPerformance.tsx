@@ -3,16 +3,13 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, Eye, Instagram, Youtube, Newspaper, RefreshCw, TrendingUp, TrendingDown, Users, CalendarIcon, Megaphone, Twitter, MousePointer, Heart, MessageCircle, Repeat2, UserPlus, AlertCircle, Clock, Play, Archive, ArchiveRestore, Link2 } from "lucide-react";
+import { ArrowLeft, Eye, Instagram, Youtube, Newspaper, RefreshCw, TrendingUp, TrendingDown, Users, CalendarIcon, Megaphone, Twitter, MousePointer, Heart, MessageCircle, Repeat2, UserPlus, AlertCircle, Clock, Play, Archive, ArchiveRestore, Link2, Video } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { useState, useMemo, useEffect } from "react";
 import { usePerformanceMetrics, useFetchBeehiivMetrics, useScrapeMetrics, useFetchInstagramMetrics } from "@/hooks/usePerformanceMetrics";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useYouTubeVideos, useFetchYouTubeMetrics } from "@/hooks/useYouTubeMetrics";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useToast } from "@/components/ui/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -28,6 +25,10 @@ import { ChannelCard } from "@/components/performance/ChannelCard";
 import { YouTubeConnectionCard } from "@/components/performance/YouTubeConnectionCard";
 import { useChannelDataStatus } from "@/hooks/useChannelDataStatus";
 import { useYouTubeConnection, useFetchYouTubeAnalytics, useStartYouTubeOAuth } from "@/hooks/useYouTubeOAuth";
+import { EnhancedKPICard } from "@/components/performance/EnhancedKPICard";
+import { EnhancedAreaChart } from "@/components/performance/EnhancedAreaChart";
+import { PerformanceTable, ProgressBar, ContentTypeIcon } from "@/components/performance/PerformanceTable";
+import { InsightsCard } from "@/components/performance/InsightsCard";
 
 export default function ClientPerformance() {
   const { clientId } = useParams();
@@ -38,7 +39,7 @@ export default function ClientPerformance() {
   const { toast } = useToast();
   const [dateRange, setDateRange] = useState("30");
   const [customDateRange, setCustomDateRange] = useState<DateRange | undefined>();
-  const [chartMetric, setChartMetric] = useState<"views" | "reach" | "followers" | "dailyGain" | "impressions" | "engagements" | "likes" | "watchHours">("followers");
+  const [chartMetric, setChartMetric] = useState<string>("followers");
   const [showArchived, setShowArchived] = useState(false);
 
   // Set default chart metric based on selected channel
@@ -48,6 +49,8 @@ export default function ClientPerformance() {
     } else if (selectedChannel === "instagram") {
       setChartMetric("followers");
     } else if (selectedChannel === "youtube") {
+      setChartMetric("views");
+    } else if (selectedChannel === "tiktok") {
       setChartMetric("views");
     }
   }, [selectedChannel]);
@@ -108,7 +111,7 @@ export default function ClientPerformance() {
   const { data: metrics, isLoading: metricsLoading } = usePerformanceMetrics(
     clientId || "", 
     selectedChannel || "",
-    365 // Fetch up to 365 days for YouTube
+    365
   );
 
   // YouTube videos query
@@ -133,7 +136,6 @@ export default function ClientPerformance() {
           description: "Dados da newsletter foram sincronizados com sucesso.",
         });
       } else if (selectedChannel === "instagram") {
-        // Get Instagram username from client social_media
         const socialMedia = client?.social_media as any;
         const instagramUrl = socialMedia?.instagram || "";
         const username = instagramUrl.split("/").filter(Boolean).pop() || "";
@@ -153,10 +155,7 @@ export default function ClientPerformance() {
           description: "Dados do Instagram foram coletados com sucesso.",
         });
       } else if (selectedChannel === "youtube") {
-        // Get YouTube channel ID from client social_media
         const socialMedia = client?.social_media as any;
-        
-        // First check for explicit channel_id, then try to extract from URL
         let channelId = socialMedia?.youtube_channel_id || "";
         
         if (!channelId) {
@@ -180,20 +179,15 @@ export default function ClientPerformance() {
           title: "Métricas atualizadas",
           description: "Dados do YouTube foram coletados com sucesso.",
         });
-      } else {
-        const urls: Record<string, string> = {
-          cortes: "https://www.youtube.com/channel/UCDUYB7s0W20qs90e160B1LA",
-        };
-        
-        const platform = selectedChannel === "cortes" ? "youtube" : selectedChannel;
-        await scrapeMetrics.mutateAsync({
-          clientId,
-          platform,
-          url: urls[selectedChannel],
-        });
+      } else if (selectedChannel === "tiktok") {
         toast({
-          title: "Métricas atualizadas",
-          description: "Dados foram coletados com sucesso.",
+          title: "Em desenvolvimento",
+          description: "A integração com TikTok está em desenvolvimento.",
+        });
+      } else {
+        toast({
+          title: "Canal não suportado",
+          description: "Este canal ainda não tem integração automática.",
         });
       }
     } catch (error) {
@@ -226,23 +220,24 @@ export default function ClientPerformance() {
     
     if (filteredMetrics.length === 0) return null;
     
-    // Sum views for the period
     const totalViews = filteredMetrics.reduce((sum, m) => sum + (m.views || 0), 0);
-    
-    // Sum reach for the period from metadata
     const totalReach = filteredMetrics.reduce((sum, m) => {
       const metadata = m.metadata as any;
       return sum + (metadata?.reach || 0);
     }, 0);
-    
-    // Calculate follower gain in the period from followers_gained metadata
     const totalFollowerGain = filteredMetrics.reduce((sum, m) => {
       const metadata = m.metadata as any;
       return sum + (metadata?.followers_gained || metadata?.daily_gain || 0);
     }, 0);
-    
-    // Current followers from most recent metric
     const currentFollowers = metrics[0]?.subscribers || 0;
+    
+    // Calculate previous period for comparison
+    const previousMetrics = metrics.slice(parseInt(dateRange), parseInt(dateRange) * 2);
+    const previousViews = previousMetrics.reduce((sum, m) => sum + (m.views || 0), 0);
+    const previousFollowerGain = previousMetrics.reduce((sum, m) => {
+      const metadata = m.metadata as any;
+      return sum + (metadata?.followers_gained || metadata?.daily_gain || 0);
+    }, 0);
     
     return {
       totalViews,
@@ -250,26 +245,50 @@ export default function ClientPerformance() {
       totalFollowerGain,
       currentFollowers,
       daysInPeriod: filteredMetrics.length,
+      viewsChange: previousViews > 0 ? ((totalViews - previousViews) / previousViews) * 100 : 0,
+      followersChange: previousFollowerGain > 0 ? ((totalFollowerGain - previousFollowerGain) / previousFollowerGain) * 100 : 0,
+      previousViews,
+      previousFollowerGain,
     };
   }, [metrics, dateRange, customDateRange]);
 
-  // Chart data configuration - Kaleidos colors (green and pink)
-  const chartConfig = useMemo(() => ({
-    views: { label: "Visualizações", color: "hsl(160, 84%, 39%)", dataKey: "views" },
-    reach: { label: "Alcance", color: "hsl(330, 81%, 60%)", dataKey: "reach" },
-    followers: { label: "Seguidores", color: "hsl(160, 84%, 39%)", dataKey: "subscribers" },
-    dailyGain: { label: "Ganho Diário", color: "hsl(330, 81%, 60%)", dataKey: "followers_gained" },
-    engagement: { label: "Engajamento (%)", color: "hsl(160, 84%, 39%)", dataKey: "engagement_rate" },
-    impressions: { label: "Impressões", color: "hsl(160, 84%, 39%)", dataKey: "impressions" },
-    engagements: { label: "Engajamentos", color: "hsl(330, 81%, 60%)", dataKey: "engagements" },
-    likes: { label: "Curtidas", color: "hsl(330, 81%, 60%)", dataKey: "likes" },
-    watchHours: { label: "Horas Assistidas", color: "hsl(330, 81%, 60%)", dataKey: "watch_hours" },
-  }), []);
+  // Sparkline data for KPIs (last 7 days)
+  const sparklineData = useMemo(() => {
+    if (!metrics || metrics.length < 7) return { views: [], followers: [], reach: [] };
+    
+    const last7 = metrics.slice(0, 7).reverse();
+    return {
+      views: last7.map(m => m.views || 0),
+      followers: last7.map(m => m.subscribers || 0),
+      reach: last7.map(m => (m.metadata as any)?.reach || 0),
+      impressions: last7.map(m => (m.metadata as any)?.impressions || 0),
+      engagements: last7.map(m => (m.metadata as any)?.engagements || 0),
+    };
+  }, [metrics]);
+
+  // Chart metrics config
+  const instagramChartMetrics = [
+    { key: "views", label: "Views", dataKey: "views", color: "hsl(var(--primary))" },
+    { key: "reach", label: "Alcance", dataKey: "reach", color: "hsl(var(--secondary))" },
+    { key: "followers", label: "Seguidores", dataKey: "subscribers", color: "hsl(var(--primary))" },
+    { key: "dailyGain", label: "Ganho Diário", dataKey: "followers_gained", color: "hsl(var(--secondary))" },
+  ];
+
+  const twitterChartMetrics = [
+    { key: "impressions", label: "Impressões", dataKey: "impressions", color: "hsl(var(--primary))" },
+    { key: "engagements", label: "Engajamentos", dataKey: "engagements", color: "hsl(var(--secondary))" },
+    { key: "likes", label: "Curtidas", dataKey: "likes", color: "hsl(var(--secondary))" },
+    { key: "followers", label: "Seguidores", dataKey: "subscribers", color: "hsl(var(--primary))" },
+  ];
+
+  const youtubeChartMetrics = [
+    { key: "views", label: "Views", dataKey: "views", color: "hsl(var(--primary))" },
+    { key: "watchHours", label: "Horas", dataKey: "watch_hours", color: "hsl(var(--secondary))" },
+  ];
 
   const chartData = useMemo(() => {
     if (!metrics) return [];
     
-    // Filter metrics based on date range selection
     let filteredMetrics = metrics;
     
     if (dateRange === "custom" && customDateRange?.from) {
@@ -283,27 +302,19 @@ export default function ClientPerformance() {
       filteredMetrics = metrics.slice(0, parseInt(dateRange));
     }
     
-    // Current followers from the most recent metric
     const currentFollowers = metrics[0]?.subscribers || 0;
-    
-    // Sort by date descending for calculation
     const sortedMetrics = [...filteredMetrics].sort((a, b) => 
       new Date(b.metric_date).getTime() - new Date(a.metric_date).getTime()
     );
     
-    // Calculate historical followers by subtracting daily gains backwards
     let runningTotal = currentFollowers;
-    
-    // First, calculate how much to subtract to get to the first date in our range
     const allMetricsSorted = [...metrics].sort((a, b) => 
       new Date(b.metric_date).getTime() - new Date(a.metric_date).getTime()
     );
     
-    // Find the index of the first metric in our filtered range
     const firstFilteredDate = sortedMetrics[0]?.metric_date;
     const startIndex = allMetricsSorted.findIndex(m => m.metric_date === firstFilteredDate);
     
-    // Subtract daily gains from index 0 to startIndex to get the correct starting point
     for (let i = 0; i < startIndex; i++) {
       const metadata = allMetricsSorted[i]?.metadata as any;
       const dailyGain = metadata?.daily_gain || 0;
@@ -329,15 +340,77 @@ export default function ClientPerformance() {
         reach: metadata?.reach || 0,
         impressions: metadata?.impressions || 0,
         engagements: metadata?.engagements || 0,
+        likes: metadata?.likes || 0,
+        watch_hours: metadata?.watch_hours || 0,
         date: new Date(m.metric_date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }),
       };
     });
     
-    // Reverse to show oldest to newest in chart
     return calculatedData.reverse();
   }, [metrics, dateRange, customDateRange]);
 
-  // Canais disponíveis por cliente
+  // Generate insights
+  const insights = useMemo(() => {
+    if (!periodMetrics) return [];
+    
+    const result: { type: "success" | "warning" | "info" | "highlight"; title: string; value?: string | number; change?: number; description?: string }[] = [];
+    
+    if (periodMetrics.viewsChange > 20) {
+      result.push({
+        type: "success",
+        title: "Crescimento de visualizações",
+        change: periodMetrics.viewsChange,
+        description: "Performance acima da média do período anterior",
+      });
+    } else if (periodMetrics.viewsChange < -20) {
+      result.push({
+        type: "warning",
+        title: "Queda em visualizações",
+        change: periodMetrics.viewsChange,
+        description: "Considere ajustar a estratégia de conteúdo",
+      });
+    }
+    
+    if (periodMetrics.totalFollowerGain > 0) {
+      result.push({
+        type: "info",
+        title: "Novos seguidores no período",
+        value: `+${periodMetrics.totalFollowerGain.toLocaleString("pt-BR")}`,
+      });
+    }
+    
+    return result;
+  }, [periodMetrics]);
+
+  // Best performing content
+  const bestContent = useMemo(() => {
+    if (selectedChannel === "youtube" && youtubeVideos && youtubeVideos.length > 0) {
+      const best = youtubeVideos.reduce((a, b) => (a.total_views || 0) > (b.total_views || 0) ? a : b);
+      return {
+        title: best.title,
+        metric: "visualizações",
+        value: best.total_views || 0,
+        type: "Vídeo",
+      };
+    }
+    
+    if (metrics?.[0]?.metadata) {
+      const posts = (metrics[0].metadata as any)?.recent_posts || [];
+      if (posts.length > 0) {
+        const best = posts.reduce((a: any, b: any) => (a.views || 0) > (b.views || 0) ? a : b);
+        return {
+          title: best.caption || best.title || "Post sem título",
+          metric: "visualizações",
+          value: best.views || 0,
+          type: best.type || "Post",
+        };
+      }
+    }
+    
+    return null;
+  }, [selectedChannel, youtubeVideos, metrics]);
+
+  // Channel definitions - Removed "cortes", added TikTok
   const channels = {
     newsletter: {
       icon: Newspaper,
@@ -359,12 +432,20 @@ export default function ClientPerformance() {
       title: "YouTube",
       description: "Views, horas assistidas e performance por vídeo",
     },
-    cortes: {
-      icon: Youtube,
-      title: "Cortes (YouTube/TikTok)",
-      description: "Performance de vídeos curtos e viral content",
+    tiktok: {
+      icon: Video,
+      title: "TikTok",
+      description: "Performance de vídeos curtos e conteúdo viral",
     },
   };
+
+  // Channel data status
+  const { data: channelStatus, isLoading: statusLoading } = useChannelDataStatus(clientId || "");
+  
+  // YouTube OAuth
+  const { data: youtubeConnection } = useYouTubeConnection(clientId || "");
+  const startYouTubeOAuth = useStartYouTubeOAuth();
+  const fetchYouTubeAnalytics = useFetchYouTubeAnalytics();
 
   if (isLoading) {
     return (
@@ -372,7 +453,7 @@ export default function ClientPerformance() {
         <Skeleton className="h-12 w-64" />
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           {[1, 2, 3, 4].map((i) => (
-            <Skeleton key={i} className="h-28" />
+            <Skeleton key={i} className="h-32" />
           ))}
         </div>
       </div>
@@ -387,15 +468,7 @@ export default function ClientPerformance() {
     );
   }
 
-  // Channel data status
-  const { data: channelStatus, isLoading: statusLoading } = useChannelDataStatus(clientId || "");
-  
-  // YouTube OAuth
-  const { data: youtubeConnection } = useYouTubeConnection(clientId || "");
-  const startYouTubeOAuth = useStartYouTubeOAuth();
-  const fetchYouTubeAnalytics = useFetchYouTubeAnalytics();
-
-  // Se não tem canal selecionado, mostra a seleção de canais
+  // If no channel selected, show channel selection
   if (!selectedChannel) {
     const activeChannels = Object.entries(channels).filter(([key]) => !archivedChannels.includes(key));
     const archivedChannelsList = Object.entries(channels).filter(([key]) => archivedChannels.includes(key));
@@ -408,8 +481,8 @@ export default function ClientPerformance() {
           onBack={() => navigate("/performance")}
         />
 
-        {/* Active Channels with data status */}
-        <div className="grid gap-4 md:grid-cols-3">
+        {/* Active Channels */}
+        <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-5">
           {activeChannels.map(([key, channel]) => {
             const status = channelStatus?.[key];
             return (
@@ -437,7 +510,7 @@ export default function ClientPerformance() {
           </div>
         </div>
 
-        {/* Archived Channels Section */}
+        {/* Archived Channels */}
         {archivedChannelsList.length > 0 && (
           <div className="space-y-3 pt-4">
             <button
@@ -477,66 +550,27 @@ export default function ClientPerformance() {
     );
   }
 
-  // KPI Card Component
-  const KPICard = ({ 
-    title, 
-    value, 
-    change, 
-    icon: Icon,
-    formatter = (v: number) => v.toLocaleString("pt-BR")
-  }: { 
-    title: string; 
-    value: number; 
-    change: string | null;
-    icon: any;
-    formatter?: (v: number) => string;
-  }) => (
-    <Card className="border-border/50 bg-card/50">
-      <CardContent className="p-4">
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-sm text-muted-foreground">{title}</span>
-          <Icon className="h-4 w-4 text-muted-foreground" />
-        </div>
-        <div className="text-2xl font-semibold tracking-tight">
-          {formatter(value)}
-        </div>
-        {change !== null && (
-          <div className={`text-xs mt-1 flex items-center gap-1 ${
-            parseFloat(change) >= 0 ? "text-emerald-500" : "text-red-500"
-          }`}>
-            {parseFloat(change) >= 0 ? (
-              <TrendingUp className="h-3 w-3" />
-            ) : (
-              <TrendingDown className="h-3 w-3" />
-            )}
-            {parseFloat(change) >= 0 ? "+" : ""}{change}% últimos 7 dias
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  );
-
   const isStartOfMonth = new Date().getDate() <= 5;
+  const dateRangeLabel = chartData.length > 0 ? `${chartData[0]?.date} - ${chartData[chartData.length - 1]?.date}` : "";
 
   return (
     <div className="max-w-6xl mx-auto px-6 py-8 space-y-6">
-      {/* Monthly reminder alert */}
+      {/* Monthly reminder */}
       {isStartOfMonth && (
         <Alert className="border-amber-500/50 bg-amber-500/10">
           <AlertCircle className="h-4 w-4 text-amber-500" />
           <AlertDescription className="text-sm text-amber-200">
-            Novo mês! Lembre-se de atualizar os CSVs de métricas do Instagram e Twitter.
+            Novo mês! Lembre-se de atualizar os CSVs de métricas.
           </AlertDescription>
         </Alert>
       )}
 
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-4">
         <PageHeader
           title="Analytics"
           subtitle={`${channels[selectedChannel as keyof typeof channels]?.title || "Análise"} · ${client.name}`}
           onBack={() => setSearchParams({})}
-          badge={<Badge variant="outline" className="ml-2 text-xs">Beta</Badge>}
         />
         
         <div className="flex items-center gap-3">
@@ -603,39 +637,45 @@ export default function ClientPerformance() {
       {metricsLoading && (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           {[1, 2, 3, 4].map((i) => (
-            <Skeleton key={i} className="h-28" />
+            <Skeleton key={i} className="h-32" />
           ))}
         </div>
       )}
 
+      {/* INSTAGRAM */}
       {!metricsLoading && periodMetrics && selectedChannel === "instagram" && (
         <>
-          {/* Instagram KPI Cards - Period Based */}
-          <div className="grid gap-4 md:grid-cols-4">
-            <KPICard
-              title={`Visualizações (${periodMetrics.daysInPeriod} dias)`}
+          {/* Enhanced KPI Cards */}
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <EnhancedKPICard
+              title={`Visualizações (${periodMetrics.daysInPeriod}d)`}
               value={periodMetrics.totalViews}
-              change={null}
+              change={periodMetrics.viewsChange}
               icon={Eye}
+              sparklineData={sparklineData.views}
+              accentColor="primary"
             />
-            <KPICard
-              title={`Alcance (${periodMetrics.daysInPeriod} dias)`}
+            <EnhancedKPICard
+              title={`Alcance (${periodMetrics.daysInPeriod}d)`}
               value={periodMetrics.totalReach}
-              change={null}
               icon={Megaphone}
+              sparklineData={sparklineData.reach}
+              accentColor="secondary"
             />
-            <KPICard
+            <EnhancedKPICard
               title="Seguidores atuais"
               value={periodMetrics.currentFollowers}
-              change={null}
               icon={Users}
+              sparklineData={sparklineData.followers}
+              accentColor="primary"
             />
-            <KPICard
-              title={`Ganho no período`}
+            <EnhancedKPICard
+              title="Ganho no período"
               value={periodMetrics.totalFollowerGain}
-              change={null}
+              change={periodMetrics.followersChange}
               icon={TrendingUp}
               formatter={(v) => (v >= 0 ? `+${v.toLocaleString("pt-BR")}` : v.toLocaleString("pt-BR"))}
+              accentColor="accent"
             />
           </div>
 
@@ -649,567 +689,369 @@ export default function ClientPerformance() {
             }}
           />
 
-          {/* Historical Chart */}
-          {metrics && metrics.length >= 1 && (
-            <Card className="border-border/50 bg-card/50">
-              <CardHeader className="pb-2">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle className="text-base">{chartConfig[chartMetric].label}</CardTitle>
-                    <CardDescription className="text-xs">
-                      {chartData.length > 0 && `${chartData[0]?.date} - ${chartData[chartData.length - 1]?.date}`}
-                    </CardDescription>
-                  </div>
-                  <ToggleGroup 
-                    type="single" 
-                    value={chartMetric} 
-                    onValueChange={(v) => v && setChartMetric(v as typeof chartMetric)}
-                    className="bg-muted/50 p-1 rounded-lg"
-                  >
-                    <ToggleGroupItem value="views" className="text-xs px-3 h-7 data-[state=on]:bg-background">
-                      Views
-                    </ToggleGroupItem>
-                    <ToggleGroupItem value="reach" className="text-xs px-3 h-7 data-[state=on]:bg-background">
-                      Alcance
-                    </ToggleGroupItem>
-                    <ToggleGroupItem value="followers" className="text-xs px-3 h-7 data-[state=on]:bg-background">
-                      Seguidores
-                    </ToggleGroupItem>
-                    <ToggleGroupItem value="dailyGain" className="text-xs px-3 h-7 data-[state=on]:bg-background">
-                      Ganho Diário
-                    </ToggleGroupItem>
-                  </ToggleGroup>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <ChartContainer
-                  config={{
-                    [chartConfig[chartMetric].dataKey]: { 
-                      label: chartConfig[chartMetric].label, 
-                      color: chartConfig[chartMetric].color 
-                    },
-                  }}
-                  className="h-[280px]"
-                >
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={chartData}>
-                      <CartesianGrid strokeDasharray="3 3" className="stroke-border/30" vertical={false} />
-                      <XAxis 
-                        dataKey="date" 
-                        className="text-xs"
-                        axisLine={false}
-                        tickLine={false}
-                        tick={{ fill: 'hsl(var(--muted-foreground))' }}
-                      />
-                      <YAxis 
-                        className="text-xs" 
-                        axisLine={false}
-                        tickLine={false}
-                        tick={{ fill: 'hsl(var(--muted-foreground))' }}
-                        tickFormatter={(value) => {
-                          return value >= 1000 ? `${(value / 1000).toFixed(1)}k` : value;
-                        }}
-                      />
-                      <Tooltip 
-                        contentStyle={{ 
-                          backgroundColor: 'hsl(var(--card))', 
-                          border: '1px solid hsl(var(--border))',
-                          borderRadius: '8px',
-                        }}
-                        formatter={(value: number) => [
-                          value.toLocaleString('pt-BR'),
-                          chartConfig[chartMetric].label
-                        ]}
-                      />
-                      <Line
-                        type="natural"
-                        dataKey={chartConfig[chartMetric].dataKey}
-                        stroke={chartConfig[chartMetric].color}
-                        strokeWidth={2}
-                        dot={chartData.length > 30 ? false : { r: 3, fill: chartConfig[chartMetric].color }}
-                        activeDot={{ r: 5, stroke: chartConfig[chartMetric].color, strokeWidth: 2, fill: 'hsl(var(--background))' }}
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </ChartContainer>
-              </CardContent>
-            </Card>
+          {/* Insights */}
+          {(insights.length > 0 || bestContent) && (
+            <InsightsCard
+              insights={insights}
+              bestContent={bestContent || undefined}
+              periodComparison={periodMetrics.previousViews > 0 ? {
+                label: "Visualizações",
+                current: periodMetrics.totalViews,
+                previous: periodMetrics.previousViews,
+              } : undefined}
+            />
           )}
 
-          {/* Recent Posts */}
+          {/* Enhanced Area Chart */}
+          {chartData.length >= 1 && (
+            <EnhancedAreaChart
+              data={chartData}
+              metrics={instagramChartMetrics}
+              selectedMetric={chartMetric}
+              onMetricChange={setChartMetric}
+              dateRange={dateRangeLabel}
+            />
+          )}
+
+          {/* Performance Table with badges */}
           {metrics?.[0]?.metadata && (metrics[0].metadata as any)?.recent_posts?.length > 0 && (
-            <Card className="border-border/50 bg-card/50">
-              <CardHeader>
-                <CardTitle className="text-base">Posts Recentes</CardTitle>
-                <CardDescription>Performance individual de cada post</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b border-border">
-                        <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Post</th>
-                        <th className="text-right py-3 px-4 text-sm font-medium text-muted-foreground">Views</th>
-                        <th className="text-right py-3 px-4 text-sm font-medium text-muted-foreground">Curtidas</th>
-                        <th className="text-right py-3 px-4 text-sm font-medium text-muted-foreground">Comentários</th>
-                        <th className="text-right py-3 px-4 text-sm font-medium text-muted-foreground">Data</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(metrics[0].metadata as any).recent_posts.map((post: any, index: number) => (
-                        <tr key={post.id || index} className="border-b border-border/50 hover:bg-muted/50 transition-colors">
-                          <td className="py-3 px-4">
-                            <div className="flex items-center gap-2">
-                              <Badge variant="outline" className="text-xs">
-                                {post.type === "Video" ? "Reels" : post.type}
-                              </Badge>
-                              <span className="text-sm truncate max-w-[200px]">
-                                {post.caption || "Sem legenda"}
-                              </span>
-                            </div>
-                          </td>
-                          <td className="text-right py-3 px-4 tabular-nums text-sm">{(post.views || 0).toLocaleString('pt-BR')}</td>
-                          <td className="text-right py-3 px-4 tabular-nums text-sm">{(post.likes || 0).toLocaleString('pt-BR')}</td>
-                          <td className="text-right py-3 px-4 tabular-nums text-sm">{(post.comments || 0).toLocaleString('pt-BR')}</td>
-                          <td className="text-right py-3 px-4 text-sm text-muted-foreground">
-                            {post.timestamp ? new Date(post.timestamp).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }) : '-'}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </CardContent>
-            </Card>
+            <PerformanceTable
+              title="Posts Recentes"
+              description="Performance individual com indicadores de sucesso"
+              data={(metrics[0].metadata as any).recent_posts.map((post: any) => ({
+                ...post,
+                views: post.views || 0,
+                type: post.type === "Video" ? "Reels" : post.type,
+              }))}
+              columns={[
+                { 
+                  key: "caption", 
+                  label: "Post",
+                  format: (value, row) => (
+                    <div className="flex items-center gap-2">
+                      <ContentTypeIcon type={row.type} />
+                      <Badge variant="outline" className="text-xs shrink-0">
+                        {row.type}
+                      </Badge>
+                      <span className="text-sm truncate max-w-[200px]">
+                        {value || "Sem legenda"}
+                      </span>
+                    </div>
+                  )
+                },
+                { 
+                  key: "views", 
+                  label: "Views", 
+                  align: "right",
+                  format: (value, row) => <ProgressBar value={value || 0} max={Math.max(...(metrics[0].metadata as any).recent_posts.map((p: any) => p.views || 0), 1)} />
+                },
+                { key: "likes", label: "Curtidas", align: "right", format: (v) => (v || 0).toLocaleString('pt-BR') },
+                { key: "comments", label: "Comentários", align: "right", format: (v) => (v || 0).toLocaleString('pt-BR') },
+                { 
+                  key: "timestamp", 
+                  label: "Data", 
+                  align: "right",
+                  format: (v) => v ? new Date(v).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }) : '-'
+                },
+              ]}
+              metricKey="views"
+            />
           )}
         </>
       )}
 
-      {/* Twitter metrics */}
+      {/* TWITTER */}
       {!metricsLoading && metrics && metrics.length > 0 && selectedChannel === "twitter" && (
         <>
-          {/* Twitter KPI Cards - Period Based */}
-          <div className="grid gap-4 md:grid-cols-4">
-            <KPICard
-              title={`Impressões (${periodMetrics?.daysInPeriod || 0} dias)`}
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <EnhancedKPICard
+              title={`Impressões (${periodMetrics?.daysInPeriod || 0}d)`}
               value={metrics.slice(0, parseInt(dateRange) || 30).reduce((sum, m) => sum + ((m.metadata as any)?.impressions || 0), 0)}
-              change={null}
               icon={Eye}
+              sparklineData={sparklineData.impressions}
+              accentColor="primary"
             />
-            <KPICard
-              title={`Engajamentos (${periodMetrics?.daysInPeriod || 0} dias)`}
+            <EnhancedKPICard
+              title={`Engajamentos (${periodMetrics?.daysInPeriod || 0}d)`}
               value={metrics.slice(0, parseInt(dateRange) || 30).reduce((sum, m) => sum + ((m.metadata as any)?.engagements || 0), 0)}
-              change={null}
               icon={MousePointer}
+              sparklineData={sparklineData.engagements}
+              accentColor="secondary"
             />
-            <KPICard
+            <EnhancedKPICard
               title="Seguidores atuais"
               value={metrics[0]?.subscribers || 0}
-              change={null}
               icon={Users}
+              sparklineData={sparklineData.followers}
+              accentColor="primary"
             />
-            <KPICard
-              title={`Novos seguidores`}
+            <EnhancedKPICard
+              title="Novos seguidores"
               value={metrics.slice(0, parseInt(dateRange) || 30).reduce((sum, m) => sum + ((m.metadata as any)?.new_follows || 0), 0)}
-              change={null}
               icon={UserPlus}
               formatter={(v) => `+${v.toLocaleString("pt-BR")}`}
+              accentColor="accent"
             />
           </div>
 
-          {/* Twitter Historical Chart */}
           {chartData.length >= 1 && (
-            <Card className="border-border/50 bg-card/50">
-              <CardHeader className="pb-2">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle className="text-base">{chartConfig[chartMetric]?.label || "Métrica"}</CardTitle>
-                    <CardDescription className="text-xs">
-                      {chartData.length > 0 && `${chartData[0]?.date} - ${chartData[chartData.length - 1]?.date}`}
-                    </CardDescription>
-                  </div>
-                  <ToggleGroup 
-                    type="single" 
-                    value={chartMetric} 
-                    onValueChange={(v) => v && setChartMetric(v as typeof chartMetric)}
-                    className="bg-muted/50 p-1 rounded-lg"
-                  >
-                    <ToggleGroupItem value="impressions" className="text-xs px-3 h-7 data-[state=on]:bg-background">
-                      Impressões
-                    </ToggleGroupItem>
-                    <ToggleGroupItem value="engagements" className="text-xs px-3 h-7 data-[state=on]:bg-background">
-                      Engajamentos
-                    </ToggleGroupItem>
-                    <ToggleGroupItem value="likes" className="text-xs px-3 h-7 data-[state=on]:bg-background">
-                      Curtidas
-                    </ToggleGroupItem>
-                    <ToggleGroupItem value="followers" className="text-xs px-3 h-7 data-[state=on]:bg-background">
-                      Seguidores
-                    </ToggleGroupItem>
-                  </ToggleGroup>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <ChartContainer
-                  config={{
-                    [chartConfig[chartMetric]?.dataKey || 'impressions']: { 
-                      label: chartConfig[chartMetric]?.label || 'Impressões', 
-                      color: chartConfig[chartMetric]?.color || 'hsl(199, 89%, 48%)' 
-                    },
-                  }}
-                  className="h-[280px]"
-                >
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={chartData}>
-                      <CartesianGrid strokeDasharray="3 3" className="stroke-border/30" vertical={false} />
-                      <XAxis 
-                        dataKey="date" 
-                        className="text-xs"
-                        axisLine={false}
-                        tickLine={false}
-                        tick={{ fill: 'hsl(var(--muted-foreground))' }}
-                      />
-                      <YAxis 
-                        className="text-xs" 
-                        axisLine={false}
-                        tickLine={false}
-                        tick={{ fill: 'hsl(var(--muted-foreground))' }}
-                        tickFormatter={(value) => {
-                          return value >= 1000 ? `${(value / 1000).toFixed(1)}k` : value;
-                        }}
-                      />
-                      <Tooltip 
-                        contentStyle={{ 
-                          backgroundColor: 'hsl(var(--card))', 
-                          border: '1px solid hsl(var(--border))',
-                          borderRadius: '8px',
-                        }}
-                        formatter={(value: number) => [
-                          value.toLocaleString('pt-BR'),
-                          chartConfig[chartMetric]?.label || 'Valor'
-                        ]}
-                      />
-                      <Line
-                        type="natural"
-                        dataKey={chartConfig[chartMetric]?.dataKey || 'impressions'}
-                        stroke={chartConfig[chartMetric]?.color || 'hsl(199, 89%, 48%)'}
-                        strokeWidth={2}
-                        dot={chartData.length > 30 ? false : { r: 3, fill: chartConfig[chartMetric]?.color || 'hsl(199, 89%, 48%)' }}
-                        activeDot={{ r: 5, stroke: chartConfig[chartMetric]?.color || 'hsl(199, 89%, 48%)', strokeWidth: 2, fill: 'hsl(var(--background))' }}
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </ChartContainer>
-              </CardContent>
-            </Card>
+            <EnhancedAreaChart
+              data={chartData}
+              metrics={twitterChartMetrics}
+              selectedMetric={chartMetric}
+              onMetricChange={setChartMetric}
+              dateRange={dateRangeLabel}
+            />
           )}
         </>
       )}
 
-      {/* YouTube metrics */}
+      {/* YOUTUBE */}
       {!metricsLoading && selectedChannel === "youtube" && (
         <>
-          {/* YouTube KPI Cards */}
-          <div className="grid gap-4 md:grid-cols-4">
-            <KPICard
-              title={`Views (${periodMetrics?.daysInPeriod || 0} dias)`}
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <EnhancedKPICard
+              title={`Views (${periodMetrics?.daysInPeriod || 0}d)`}
               value={periodMetrics?.totalViews || 0}
-              change={null}
               icon={Eye}
+              sparklineData={sparklineData.views}
+              accentColor="primary"
             />
-            <KPICard
+            <EnhancedKPICard
               title="Horas Assistidas"
               value={youtubeVideos?.reduce((sum, v) => sum + (v.watch_hours || 0), 0) || 0}
-              change={null}
               icon={Clock}
               formatter={(v) => `${(v / 1000).toFixed(1)}k`}
+              accentColor="secondary"
             />
-            <KPICard
+            <EnhancedKPICard
               title="Inscritos Ganhos"
               value={youtubeVideos?.reduce((sum, v) => sum + (v.subscribers_gained || 0), 0) || 0}
-              change={null}
               icon={UserPlus}
               formatter={(v) => `+${v.toLocaleString("pt-BR")}`}
+              accentColor="accent"
             />
-            <KPICard
+            <EnhancedKPICard
               title="CTR Médio"
               value={youtubeVideos && youtubeVideos.length > 0 
                 ? youtubeVideos.reduce((sum, v) => sum + (v.click_rate || 0), 0) / youtubeVideos.length 
                 : 0}
-              change={null}
               icon={MousePointer}
               formatter={(v) => `${v.toFixed(2)}%`}
+              accentColor="primary"
             />
           </div>
 
-          {/* YouTube Historical Chart */}
+          {/* Best video insight */}
+          {bestContent && (
+            <InsightsCard
+              insights={[]}
+              bestContent={bestContent}
+            />
+          )}
+
           {chartData.length >= 1 && (
-            <Card className="border-border/50 bg-card/50">
-              <CardHeader className="pb-2">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle className="text-base">Métricas Diárias</CardTitle>
-                    <CardDescription className="text-xs">
-                      {chartData.length > 0 && `${chartData[0]?.date} - ${chartData[chartData.length - 1]?.date}`}
-                    </CardDescription>
-                  </div>
-                  <ToggleGroup 
-                    type="single" 
-                    value={chartMetric} 
-                    onValueChange={(v) => v && setChartMetric(v as any)}
-                    className="bg-muted/50 p-1 rounded-lg"
-                  >
-                    <ToggleGroupItem value="views" className="text-xs px-3 py-1 h-7 data-[state=on]:bg-background">
-                      Views
-                    </ToggleGroupItem>
-                    <ToggleGroupItem value="watchHours" className="text-xs px-3 py-1 h-7 data-[state=on]:bg-background">
-                      Horas
-                    </ToggleGroupItem>
-                  </ToggleGroup>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <ChartContainer
-                  config={{
-                    views: { label: "Views", color: "hsl(160, 84%, 39%)" },
-                    watchHours: { label: "Horas Assistidas", color: "hsl(330, 81%, 60%)" },
-                  }}
-                  className="h-[280px]"
-                >
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={chartData}>
-                      <CartesianGrid strokeDasharray="3 3" className="stroke-border/30" vertical={false} />
-                      <XAxis 
-                        dataKey="date" 
-                        className="text-xs"
-                        axisLine={false}
-                        tickLine={false}
-                        tick={{ fill: 'hsl(var(--muted-foreground))' }}
-                      />
-                      <YAxis 
-                        className="text-xs" 
-                        axisLine={false}
-                        tickLine={false}
-                        tick={{ fill: 'hsl(var(--muted-foreground))' }}
-                        tickFormatter={(value) => {
-                          return value >= 1000 ? `${(value / 1000).toFixed(0)}k` : value;
-                        }}
-                      />
-                      <Tooltip 
-                        contentStyle={{ 
-                          backgroundColor: 'hsl(var(--card))', 
-                          border: '1px solid hsl(var(--border))',
-                          borderRadius: '8px',
-                        }}
-                        formatter={(value: number) => [
-                          value.toLocaleString('pt-BR'),
-                          chartMetric === 'views' ? 'Views' : 'Horas Assistidas'
-                        ]}
-                      />
-                      <Line
-                        type="natural"
-                        dataKey={chartMetric === 'views' ? 'views' : 'watch_hours'}
-                        stroke={chartMetric === 'views' ? "hsl(160, 84%, 39%)" : "hsl(330, 81%, 60%)"}
-                        strokeWidth={2}
-                        dot={chartData.length > 30 ? false : { r: 3, fill: chartMetric === 'views' ? "hsl(160, 84%, 39%)" : "hsl(330, 81%, 60%)" }}
-                        activeDot={{ r: 5, stroke: chartMetric === 'views' ? "hsl(160, 84%, 39%)" : "hsl(330, 81%, 60%)", strokeWidth: 2, fill: 'hsl(var(--background))' }}
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </ChartContainer>
-              </CardContent>
-            </Card>
+            <EnhancedAreaChart
+              data={chartData}
+              metrics={youtubeChartMetrics}
+              selectedMetric={chartMetric}
+              onMetricChange={setChartMetric}
+              dateRange={dateRangeLabel}
+            />
           )}
 
-          {/* YouTube Videos Table */}
+          {/* YouTube Videos Table with enhanced styling */}
           {youtubeVideos && youtubeVideos.length > 0 && (
-            <Card className="border-border/50 bg-card/50">
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle className="text-base">Vídeos</CardTitle>
-                    <CardDescription>Performance individual de cada vídeo</CardDescription>
-                  </div>
-                  <Badge variant="outline">{youtubeVideos.length} vídeos</Badge>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b border-border">
-                        <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Título</th>
-                        <th className="text-right py-3 px-4 text-sm font-medium text-muted-foreground">Views</th>
-                        <th className="text-right py-3 px-4 text-sm font-medium text-muted-foreground">Horas</th>
-                        <th className="text-right py-3 px-4 text-sm font-medium text-muted-foreground">Inscritos</th>
-                        <th className="text-right py-3 px-4 text-sm font-medium text-muted-foreground">Impressões</th>
-                        <th className="text-right py-3 px-4 text-sm font-medium text-muted-foreground">CTR</th>
-                        <th className="text-right py-3 px-4 text-sm font-medium text-muted-foreground">Data</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {youtubeVideos
-                        .filter(video => {
-                          // Filter videos by date if custom range
-                          if (dateRange === "custom" && customDateRange?.from && video.published_at) {
-                            const publishDate = new Date(video.published_at);
-                            const startDate = customDateRange.from;
-                            const endDate = customDateRange.to || new Date();
-                            return publishDate >= startDate && publishDate <= endDate;
-                          }
-                          // Default: show videos from December 2024 onwards
-                          if (video.published_at) {
-                            const publishDate = new Date(video.published_at);
-                            return publishDate >= new Date('2024-12-01');
-                          }
-                          return true;
-                        })
-                        .map((video) => (
-                        <tr key={video.id} className="border-b border-border/50 hover:bg-muted/50 transition-colors">
-                          <td className="py-3 px-4">
-                            <div className="flex items-center gap-3">
-                              <div className="w-24 h-14 bg-muted rounded overflow-hidden flex-shrink-0">
-                                {video.thumbnail_url ? (
-                                  <img 
-                                    src={video.thumbnail_url} 
-                                    alt={video.title}
-                                    className="w-full h-full object-cover"
-                                  />
-                                ) : (
-                                  <div className="w-full h-full flex items-center justify-center">
-                                    <Play className="h-6 w-6 text-muted-foreground" />
-                                  </div>
-                                )}
-                              </div>
-                              <div className="font-medium text-sm max-w-[280px] truncate">{video.title}</div>
+            <PerformanceTable
+              title="Vídeos"
+              description="Performance individual de cada vídeo"
+              data={youtubeVideos
+                .filter(video => {
+                  if (dateRange === "custom" && customDateRange?.from && video.published_at) {
+                    const publishDate = new Date(video.published_at);
+                    const startDate = customDateRange.from;
+                    const endDate = customDateRange.to || new Date();
+                    return publishDate >= startDate && publishDate <= endDate;
+                  }
+                  if (video.published_at) {
+                    const publishDate = new Date(video.published_at);
+                    return publishDate >= new Date('2024-12-01');
+                  }
+                  return true;
+                })
+                .map(video => ({
+                  ...video,
+                  views: video.total_views || 0,
+                }))}
+              columns={[
+                { 
+                  key: "title", 
+                  label: "Título",
+                  format: (value, row) => (
+                    <div className="flex items-center gap-3">
+                      <div className="w-16 h-10 bg-muted rounded overflow-hidden flex-shrink-0 relative group">
+                        {row.thumbnail_url ? (
+                          <>
+                            <img 
+                              src={row.thumbnail_url} 
+                              alt={value}
+                              className="w-full h-full object-cover"
+                            />
+                            <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                              <Play className="h-4 w-4 text-white" />
                             </div>
-                          </td>
-                          <td className="text-right py-3 px-4 tabular-nums text-sm font-medium">
-                            {video.total_views?.toLocaleString('pt-BR') || '-'}
-                          </td>
-                          <td className="text-right py-3 px-4 tabular-nums text-sm">
-                            {video.watch_hours ? `${(video.watch_hours / 1000).toFixed(1)}k` : '-'}
-                          </td>
-                          <td className="text-right py-3 px-4 tabular-nums text-sm text-emerald-500">
-                            {video.subscribers_gained ? `+${video.subscribers_gained.toLocaleString('pt-BR')}` : '-'}
-                          </td>
-                          <td className="text-right py-3 px-4 tabular-nums text-sm">
-                            {video.impressions ? `${(video.impressions / 1000000).toFixed(1)}M` : '-'}
-                          </td>
-                          <td className="text-right py-3 px-4 tabular-nums text-sm font-medium text-primary">
-                            {video.click_rate ? `${video.click_rate}%` : '-'}
-                          </td>
-                          <td className="text-right py-3 px-4 text-sm text-muted-foreground">
-                            {video.published_at 
-                              ? new Date(video.published_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })
-                              : '-'}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </CardContent>
-            </Card>
+                          </>
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center">
+                            <Play className="h-4 w-4 text-muted-foreground" />
+                          </div>
+                        )}
+                      </div>
+                      <span className="font-medium text-sm truncate max-w-[220px]">{value}</span>
+                    </div>
+                  )
+                },
+                { 
+                  key: "total_views", 
+                  label: "Views", 
+                  align: "right",
+                  format: (v) => (v || 0).toLocaleString('pt-BR')
+                },
+                { 
+                  key: "watch_hours", 
+                  label: "Horas", 
+                  align: "right",
+                  format: (v) => v ? `${(v / 1000).toFixed(1)}k` : '-'
+                },
+                { 
+                  key: "subscribers_gained", 
+                  label: "Inscritos", 
+                  align: "right",
+                  format: (v) => v ? <span className="text-emerald-500">+{v.toLocaleString('pt-BR')}</span> : '-'
+                },
+                { 
+                  key: "click_rate", 
+                  label: "CTR", 
+                  align: "right",
+                  format: (v) => v ? <span className="text-primary font-medium">{v}%</span> : '-'
+                },
+                { 
+                  key: "published_at", 
+                  label: "Data", 
+                  align: "right",
+                  format: (v) => v ? new Date(v).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }) : '-'
+                },
+              ]}
+              metricKey="views"
+            />
           )}
 
-          {/* No data state */}
           {(!youtubeVideos || youtubeVideos.length === 0) && !youtubeVideosLoading && (
-            <Card className="border-border/50 bg-card/50">
+            <Card className="border-border/50 bg-gradient-to-br from-card to-muted/20">
               <CardContent className="p-12 text-center">
-                <Play className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                <p className="text-muted-foreground mb-4">
-                  Nenhum dado de vídeo disponível. Importe os CSVs do YouTube Analytics ou configure a API.
+                <div className="w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center mx-auto mb-4">
+                  <Play className="h-8 w-8 text-muted-foreground" />
+                </div>
+                <h3 className="font-semibold mb-2">Nenhum dado de vídeo</h3>
+                <p className="text-muted-foreground mb-6 max-w-md mx-auto">
+                  Importe os CSVs do YouTube Analytics ou conecte sua conta para coletar dados automaticamente.
                 </p>
+                <Button onClick={handleRefreshMetrics} disabled={isRefreshing}>
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Coletar Dados
+                </Button>
               </CardContent>
             </Card>
           )}
         </>
       )}
 
-      {/* Newsletter metrics (existing) */}
+      {/* TIKTOK - Coming Soon */}
+      {!metricsLoading && selectedChannel === "tiktok" && (
+        <Card className="border-border/50 bg-gradient-to-br from-card to-muted/20">
+          <CardContent className="p-12 text-center">
+            <div className="w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center mx-auto mb-4">
+              <Video className="h-8 w-8 text-muted-foreground" />
+            </div>
+            <h3 className="font-semibold mb-2">TikTok Analytics</h3>
+            <p className="text-muted-foreground mb-4 max-w-md mx-auto">
+              A integração com TikTok está em desenvolvimento. Em breve você poderá acompanhar métricas de vídeos curtos.
+            </p>
+            <Badge variant="outline">Em breve</Badge>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* NEWSLETTER */}
       {!metricsLoading && metrics && metrics.length > 0 && selectedChannel === "newsletter" && (
         <>
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <KPICard
+            <EnhancedKPICard
               title="Inscritos"
               value={metrics[0]?.subscribers || 0}
-              change={null}
               icon={Users}
+              accentColor="primary"
             />
-            <KPICard
+            <EnhancedKPICard
               title="Taxa de Abertura"
               value={metrics[0]?.open_rate || 0}
-              change={null}
               icon={Eye}
               formatter={(v) => `${v}%`}
+              accentColor="secondary"
             />
-            <KPICard
+            <EnhancedKPICard
               title="Taxa de Cliques"
               value={metrics[0]?.click_rate || 0}
-              change={null}
-              icon={TrendingUp}
+              icon={MousePointer}
               formatter={(v) => `${v}%`}
+              accentColor="accent"
             />
-            <KPICard
+            <EnhancedKPICard
               title="Emails Enviados"
               value={metrics[0]?.total_posts || 0}
-              change={null}
               icon={Newspaper}
+              accentColor="primary"
             />
           </div>
 
-          {/* Recent Emails Table */}
           {metrics?.[0]?.metadata && (metrics[0].metadata as any)?.recent_posts?.length > 0 && (
-            <Card className="border-border/50 bg-card/50">
-              <CardHeader>
-                <CardTitle className="text-base">Últimos Emails Enviados</CardTitle>
-                <CardDescription>Performance individual de cada email</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b border-border">
-                        <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Título</th>
-                        <th className="text-right py-3 px-4 text-sm font-medium text-muted-foreground">Enviados</th>
-                        <th className="text-right py-3 px-4 text-sm font-medium text-muted-foreground">Aberturas</th>
-                        <th className="text-right py-3 px-4 text-sm font-medium text-muted-foreground">Taxa</th>
-                        <th className="text-right py-3 px-4 text-sm font-medium text-muted-foreground">Cliques</th>
-                        <th className="text-right py-3 px-4 text-sm font-medium text-muted-foreground">Taxa</th>
-                        <th className="text-right py-3 px-4 text-sm font-medium text-muted-foreground">Data</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(metrics[0].metadata as any).recent_posts.map((post: any, index: number) => (
-                        <tr key={post.id || index} className="border-b border-border/50 hover:bg-muted/50 transition-colors">
-                          <td className="py-3 px-4">
-                            <div className="font-medium text-sm">{post.title}</div>
-                          </td>
-                          <td className="text-right py-3 px-4 tabular-nums text-sm">{post.delivered?.toLocaleString('pt-BR') || '-'}</td>
-                          <td className="text-right py-3 px-4 tabular-nums text-sm">{post.opened?.toLocaleString('pt-BR') || '-'}</td>
-                          <td className="text-right py-3 px-4 tabular-nums text-sm font-medium text-emerald-500">{post.open_rate}%</td>
-                          <td className="text-right py-3 px-4 tabular-nums text-sm">{post.clicked?.toLocaleString('pt-BR') || '-'}</td>
-                          <td className="text-right py-3 px-4 tabular-nums text-sm font-medium text-primary">{post.click_rate}%</td>
-                          <td className="text-right py-3 px-4 text-sm text-muted-foreground">
-                            {post.published_at ? new Date(post.published_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }) : '-'}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </CardContent>
-            </Card>
+            <PerformanceTable
+              title="Últimos Emails Enviados"
+              description="Performance individual de cada email"
+              data={(metrics[0].metadata as any).recent_posts.map((post: any) => ({
+                ...post,
+                views: post.opened || 0,
+              }))}
+              columns={[
+                { key: "title", label: "Título", format: (v) => <span className="font-medium">{v}</span> },
+                { key: "delivered", label: "Enviados", align: "right", format: (v) => (v || 0).toLocaleString('pt-BR') },
+                { key: "opened", label: "Aberturas", align: "right", format: (v) => (v || 0).toLocaleString('pt-BR') },
+                { key: "open_rate", label: "Taxa", align: "right", format: (v) => <span className="text-emerald-500 font-medium">{v}%</span> },
+                { key: "clicked", label: "Cliques", align: "right", format: (v) => (v || 0).toLocaleString('pt-BR') },
+                { key: "click_rate", label: "Taxa", align: "right", format: (v) => <span className="text-primary font-medium">{v}%</span> },
+                { 
+                  key: "published_at", 
+                  label: "Data", 
+                  align: "right",
+                  format: (v) => v ? new Date(v).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }) : '-'
+                },
+              ]}
+              metricKey="views"
+            />
           )}
         </>
       )}
 
-      {!metricsLoading && (!metrics || metrics.length === 0) && (
-        <Card className="border-border/50 bg-card/50">
+      {/* No data state */}
+      {!metricsLoading && (!metrics || metrics.length === 0) && selectedChannel !== "tiktok" && (
+        <Card className="border-border/50 bg-gradient-to-br from-card to-muted/20">
           <CardContent className="p-12 text-center">
-            <p className="text-muted-foreground mb-4">
-              Nenhum dado disponível ainda. Clique em "Atualizar" para coletar os dados.
+            <div className="w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center mx-auto mb-4">
+              <AlertCircle className="h-8 w-8 text-muted-foreground" />
+            </div>
+            <h3 className="font-semibold mb-2">Nenhum dado disponível</h3>
+            <p className="text-muted-foreground mb-6 max-w-md mx-auto">
+              Clique em "Atualizar" para coletar os dados ou importe via CSV.
             </p>
             <Button onClick={handleRefreshMetrics} disabled={isRefreshing}>
               <RefreshCw className="h-4 w-4 mr-2" />
