@@ -63,12 +63,12 @@ async function logAIUsage(
 // Mapeia nomes de modelo para formato Gemini
 function mapToGeminiModel(model: string): string {
   const modelMap: Record<string, string> = {
-    "google/gemini-2.5-flash": "gemini-2.5-flash-preview-05-20",
-    "google/gemini-2.5-pro": "gemini-2.5-pro-preview-06-05",
-    "google/gemini-2.5-flash-lite": "gemini-2.5-flash-lite-preview-06-17",
-    "gemini-2.5-flash": "gemini-2.5-flash-preview-05-20",
-    "gemini-2.5-pro": "gemini-2.5-pro-preview-06-05",
-    "gemini-2.5-flash-lite": "gemini-2.5-flash-lite-preview-06-17",
+    "google/gemini-2.5-flash": "gemini-2.0-flash",
+    "google/gemini-2.5-pro": "gemini-2.5-pro-preview-05-06",
+    "google/gemini-2.5-flash-lite": "gemini-2.0-flash-lite",
+    "gemini-2.5-flash": "gemini-2.0-flash",
+    "gemini-2.5-pro": "gemini-2.5-pro-preview-05-06",
+    "gemini-2.5-flash-lite": "gemini-2.0-flash-lite",
   };
   return modelMap[model] || model;
 }
@@ -187,7 +187,7 @@ ${userMessage}
 Analise e selecione os materiais mais relevantes para criar este conteúdo.` }
   ];
 
-  const result = await callGemini(messages, "gemini-2.5-flash-preview-05-20");
+  const result = await callGemini(messages, "gemini-2.0-flash");
   
   // Extrair IDs dos materiais mencionados
   const selectedIds = contentLibrary
@@ -364,7 +364,7 @@ ${content}
 Faça a revisão final e retorne a versão PRONTA PARA PUBLICAÇÃO.` }
   ];
 
-  const result = await callGemini(messages, "gemini-2.5-flash-preview-05-20");
+  const result = await callGemini(messages, "gemini-2.0-flash");
   console.log(`[AGENT-4] Final version: ${result.content.length} chars`);
   
   return result.content;
