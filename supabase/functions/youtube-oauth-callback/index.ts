@@ -17,8 +17,10 @@ serve(async (req) => {
     const state = url.searchParams.get('state');
     const error = url.searchParams.get('error');
     
-    // Get the origin for redirect
-    const origin = Deno.env.get('SITE_URL') || 'https://preview--2c2f84a0-93bc-46b5-96a3-5c7eb43f1c4a.lovable.app';
+    // Get the origin for redirect - use production URL
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
+    const projectId = supabaseUrl.split('.')[0].replace('https://', '');
+    const origin = Deno.env.get('SITE_URL') || `https://${projectId}.lovableproject.com`;
     
     if (error) {
       console.error('OAuth error:', error);
@@ -149,7 +151,10 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('OAuth callback error:', error);
-    const origin = Deno.env.get('SITE_URL') || 'https://preview--2c2f84a0-93bc-46b5-96a3-5c7eb43f1c4a.lovable.app';
+    const sbUrl = Deno.env.get('SUPABASE_URL') || '';
+    const pId = sbUrl.split('.')[0].replace('https://', '');
+    const origin = Deno.env.get('SITE_URL') || `https://${pId}.lovableproject.com`;
+    return Response.redirect(`${origin}/performance?error=unknown`, 302);
     return Response.redirect(`${origin}/performance?error=unknown`, 302);
   }
 });
