@@ -474,45 +474,40 @@ export default function ClientPerformance() {
     const archivedChannelsList = Object.entries(channels).filter(([key]) => archivedChannels.includes(key));
 
     return (
-      <div className="max-w-6xl mx-auto px-6 py-8 space-y-6">
+      <div className="max-w-6xl mx-auto px-6 py-8 space-y-8">
         <PageHeader
           title={client.name}
           subtitle="Escolha um canal para análise"
           onBack={() => navigate("/performance")}
         />
 
-        {/* Active Channels */}
-        <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-5">
-          {activeChannels.map(([key, channel]) => {
-            const status = channelStatus?.[key];
-            return (
-              <ChannelCard
-                key={key}
-                channelKey={key}
-                icon={channel.icon}
-                title={channel.title}
-                description={channel.description}
-                hasData={status?.hasData || false}
-                daysOfData={status?.daysOfData || 0}
-                lastUpdate={status?.lastUpdate || null}
-                onClick={() => setSearchParams({ channel: key })}
-                onArchive={() => toggleArchive.mutate({ channel: key, archive: true })}
-              />
-            );
-          })}
-        </div>
-
-        {/* YouTube Connection Card */}
-        <div className="pt-4">
-          <h3 className="text-sm font-medium text-muted-foreground mb-3">Integrações Automáticas</h3>
-          <div className="grid gap-4 md:grid-cols-2">
-            <YouTubeConnectionCard clientId={clientId || ""} />
+        {/* Active Channels - cleaner grid */}
+        <div className="space-y-3">
+          <h3 className="text-sm font-medium text-muted-foreground">Canais Disponíveis</h3>
+          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+            {activeChannels.map(([key, channel]) => {
+              const status = channelStatus?.[key];
+              return (
+                <ChannelCard
+                  key={key}
+                  channelKey={key}
+                  icon={channel.icon}
+                  title={channel.title}
+                  description={channel.description}
+                  hasData={status?.hasData || false}
+                  daysOfData={status?.daysOfData || 0}
+                  lastUpdate={status?.lastUpdate || null}
+                  onClick={() => setSearchParams({ channel: key })}
+                  onArchive={() => toggleArchive.mutate({ channel: key, archive: true })}
+                />
+              );
+            })}
           </div>
         </div>
 
         {/* Archived Channels */}
         {archivedChannelsList.length > 0 && (
-          <div className="space-y-3 pt-4">
+          <div className="space-y-3">
             <button
               onClick={() => setShowArchived(!showArchived)}
               className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
@@ -523,7 +518,7 @@ export default function ClientPerformance() {
             </button>
             
             {showArchived && (
-              <div className="grid gap-4 md:grid-cols-3">
+              <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
                 {archivedChannelsList.map(([key, channel]) => {
                   const status = channelStatus?.[key];
                   return (
@@ -809,6 +804,9 @@ export default function ClientPerformance() {
       {/* YOUTUBE */}
       {!metricsLoading && selectedChannel === "youtube" && (
         <>
+          {/* YouTube Connection Card - inside channel page */}
+          <YouTubeConnectionCard clientId={clientId || ""} />
+          
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <EnhancedKPICard
               title={`Views (${periodMetrics?.daysInPeriod || 0}d)`}
@@ -947,17 +945,17 @@ export default function ClientPerformance() {
           )}
 
           {(!youtubeVideos || youtubeVideos.length === 0) && !youtubeVideosLoading && (
-            <Card className="border-border/50 bg-gradient-to-br from-card to-muted/20">
+            <Card className="border-border/50 border-dashed">
               <CardContent className="p-12 text-center">
-                <div className="w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center mx-auto mb-4">
-                  <Play className="h-8 w-8 text-muted-foreground" />
+                <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
+                  <Play className="h-5 w-5 text-muted-foreground" />
                 </div>
-                <h3 className="font-semibold mb-2">Nenhum dado de vídeo</h3>
-                <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-                  Importe os CSVs do YouTube Analytics ou conecte sua conta para coletar dados automaticamente.
+                <h3 className="font-medium mb-2">Nenhum dado de vídeo</h3>
+                <p className="text-sm text-muted-foreground mb-6 max-w-md mx-auto">
+                  Conecte sua conta YouTube acima ou importe CSVs do Analytics.
                 </p>
-                <Button onClick={handleRefreshMetrics} disabled={isRefreshing}>
-                  <RefreshCw className="h-4 w-4 mr-2" />
+                <Button variant="outline" onClick={handleRefreshMetrics} disabled={isRefreshing}>
+                  <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
                   Coletar Dados
                 </Button>
               </CardContent>
@@ -968,16 +966,16 @@ export default function ClientPerformance() {
 
       {/* TIKTOK - Coming Soon */}
       {!metricsLoading && selectedChannel === "tiktok" && (
-        <Card className="border-border/50 bg-gradient-to-br from-card to-muted/20">
+        <Card className="border-border/50 border-dashed">
           <CardContent className="p-12 text-center">
-            <div className="w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center mx-auto mb-4">
-              <Video className="h-8 w-8 text-muted-foreground" />
+            <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
+              <Video className="h-5 w-5 text-muted-foreground" />
             </div>
-            <h3 className="font-semibold mb-2">TikTok Analytics</h3>
-            <p className="text-muted-foreground mb-4 max-w-md mx-auto">
-              A integração com TikTok está em desenvolvimento. Em breve você poderá acompanhar métricas de vídeos curtos.
+            <h3 className="font-medium mb-2">TikTok Analytics</h3>
+            <p className="text-sm text-muted-foreground mb-4 max-w-md mx-auto">
+              Integração em desenvolvimento. Em breve você poderá acompanhar métricas de vídeos curtos.
             </p>
-            <Badge variant="outline">Em breve</Badge>
+            <Badge variant="outline" className="text-muted-foreground">Em breve</Badge>
           </CardContent>
         </Card>
       )}
@@ -1044,17 +1042,17 @@ export default function ClientPerformance() {
 
       {/* No data state */}
       {!metricsLoading && (!metrics || metrics.length === 0) && selectedChannel !== "tiktok" && (
-        <Card className="border-border/50 bg-gradient-to-br from-card to-muted/20">
+        <Card className="border-border/50 border-dashed">
           <CardContent className="p-12 text-center">
-            <div className="w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center mx-auto mb-4">
-              <AlertCircle className="h-8 w-8 text-muted-foreground" />
+            <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
+              <AlertCircle className="h-5 w-5 text-muted-foreground" />
             </div>
-            <h3 className="font-semibold mb-2">Nenhum dado disponível</h3>
-            <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-              Clique em "Atualizar" para coletar os dados ou importe via CSV.
+            <h3 className="font-medium mb-2">Nenhum dado disponível</h3>
+            <p className="text-sm text-muted-foreground mb-6 max-w-md mx-auto">
+              Clique em "Atualizar" para coletar dados ou importe via CSV.
             </p>
-            <Button onClick={handleRefreshMetrics} disabled={isRefreshing}>
-              <RefreshCw className="h-4 w-4 mr-2" />
+            <Button variant="outline" onClick={handleRefreshMetrics} disabled={isRefreshing}>
+              <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
               Coletar Dados
             </Button>
           </CardContent>
