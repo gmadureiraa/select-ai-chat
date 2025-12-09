@@ -144,13 +144,6 @@ const ClientChat = () => {
             handleNewConversation();
           }}
           onSelectConversation={handleSelectConversation}
-          onSelectMode={(mode) => {
-            // For modes, start new conversation without template
-            const newParams = new URLSearchParams();
-            newParams.set("mode", mode);
-            setSearchParams(newParams);
-            handleNewConversation();
-          }}
         />
       )}
 
