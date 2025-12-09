@@ -238,11 +238,14 @@ export const WorkflowVisualization = ({ currentStep, workflowState, isIdeaMode =
             {workflowState.selectedMaterials.length} materiais selecionados
           </p>
           <div className="flex flex-wrap gap-1">
-            {workflowState.selectedMaterials.slice(0, 4).map((material) => (
-              <Badge key={material.id} variant="secondary" className="text-[10px]">
-                {material.title.substring(0, 20)}{material.title.length > 20 ? "..." : ""}
-              </Badge>
-            ))}
+            {workflowState.selectedMaterials.slice(0, 4).map((material) => {
+              const title = material.title || "Material";
+              return (
+                <Badge key={material.id} variant="secondary" className="text-[10px]">
+                  {title.substring(0, 20)}{title.length > 20 ? "..." : ""}
+                </Badge>
+              );
+            })}
             {workflowState.selectedMaterials.length > 4 && (
               <Badge variant="outline" className="text-[10px]">
                 +{workflowState.selectedMaterials.length - 4}
