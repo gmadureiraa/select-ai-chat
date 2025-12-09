@@ -43,23 +43,7 @@ const quickActions = [
     icon: MessageCircle,
     label: "Chat Livre",
     prompt: "",
-    mode: "free_chat" as const,
     className: "bg-emerald-500/10 border-emerald-500/20 text-emerald-600 hover:bg-emerald-500/20",
-  },
-  {
-    icon: Lightbulb,
-    label: "Gerar Ideias",
-    prompt: "Me dê 5 ideias de conteúdo originais e criativas para esse cliente.",
-    mode: "ideas" as const,
-    className: "bg-amber-500/10 border-amber-500/20 text-amber-600 hover:bg-amber-500/20",
-  },
-  {
-    icon: Sparkles,
-    label: "Alta Qualidade",
-    prompt: "",
-    mode: "content" as const,
-    quality: "high" as const,
-    className: "bg-primary/10 border-primary/20 text-primary hover:bg-primary/20",
   },
 ];
 
