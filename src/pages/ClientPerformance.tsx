@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, Eye, Instagram, Youtube, Newspaper, RefreshCw, TrendingUp, TrendingDown, Users, CalendarIcon, Megaphone, Twitter, MousePointer, Heart, MessageCircle, Repeat2, UserPlus, AlertCircle, Clock, Play, Archive, ArchiveRestore } from "lucide-react";
+import { ArrowLeft, Eye, Instagram, Youtube, Newspaper, RefreshCw, TrendingUp, TrendingDown, Users, CalendarIcon, Megaphone, Twitter, MousePointer, Heart, MessageCircle, Repeat2, UserPlus, AlertCircle, Clock, Play, Archive, ArchiveRestore, Link2 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
@@ -24,6 +24,10 @@ import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { DateRange } from "react-day-picker";
 import { GoalsPanel } from "@/components/performance/GoalsPanel";
+import { ChannelCard } from "@/components/performance/ChannelCard";
+import { YouTubeConnectionCard } from "@/components/performance/YouTubeConnectionCard";
+import { useChannelDataStatus } from "@/hooks/useChannelDataStatus";
+import { useYouTubeConnection, useFetchYouTubeAnalytics, useStartYouTubeOAuth } from "@/hooks/useYouTubeOAuth";
 
 export default function ClientPerformance() {
   const { clientId } = useParams();
@@ -383,6 +387,14 @@ export default function ClientPerformance() {
     );
   }
 
+  // Channel data status
+  const { data: channelStatus, isLoading: statusLoading } = useChannelDataStatus(clientId || "");
+  
+  // YouTube OAuth
+  const { data: youtubeConnection } = useYouTubeConnection(clientId || "");
+  const startYouTubeOAuth = useStartYouTubeOAuth();
+  const fetchYouTubeAnalytics = useFetchYouTubeAnalytics();
+
   // Se não tem canal selecionado, mostra a seleção de canais
   if (!selectedChannel) {
     const activeChannels = Object.entries(channels).filter(([key]) => !archivedChannels.includes(key));
@@ -396,48 +408,38 @@ export default function ClientPerformance() {
           onBack={() => navigate("/performance")}
         />
 
-        {/* Active Channels */}
+        {/* Active Channels with data status */}
         <div className="grid gap-4 md:grid-cols-3">
           {activeChannels.map(([key, channel]) => {
-            const Icon = channel.icon;
+            const status = channelStatus?.[key];
             return (
-              <Card
+              <ChannelCard
                 key={key}
-                className="border-border/50 bg-card/50 hover:border-border transition-all cursor-pointer group relative"
-              >
-                <div 
-                  className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-10"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7"
-                    onClick={() => toggleArchive.mutate({ channel: key, archive: true })}
-                    title="Arquivar canal"
-                  >
-                    <Archive className="h-3.5 w-3.5 text-muted-foreground" />
-                  </Button>
-                </div>
-                <div onClick={() => setSearchParams({ channel: key })}>
-                  <CardHeader className="pb-2">
-                    <div className="flex items-center gap-3">
-                      <Icon className="h-5 w-5 text-muted-foreground" />
-                      <CardTitle className="text-base">{channel.title}</CardTitle>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <CardDescription className="text-sm">{channel.description}</CardDescription>
-                  </CardContent>
-                </div>
-              </Card>
+                channelKey={key}
+                icon={channel.icon}
+                title={channel.title}
+                description={channel.description}
+                hasData={status?.hasData || false}
+                daysOfData={status?.daysOfData || 0}
+                lastUpdate={status?.lastUpdate || null}
+                onClick={() => setSearchParams({ channel: key })}
+                onArchive={() => toggleArchive.mutate({ channel: key, archive: true })}
+              />
             );
           })}
         </div>
 
+        {/* YouTube Connection Card */}
+        <div className="pt-4">
+          <h3 className="text-sm font-medium text-muted-foreground mb-3">Integrações Automáticas</h3>
+          <div className="grid gap-4 md:grid-cols-2">
+            <YouTubeConnectionCard clientId={clientId || ""} />
+          </div>
+        </div>
+
         {/* Archived Channels Section */}
         {archivedChannelsList.length > 0 && (
-          <div className="space-y-3">
+          <div className="space-y-3 pt-4">
             <button
               onClick={() => setShowArchived(!showArchived)}
               className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
@@ -450,39 +452,21 @@ export default function ClientPerformance() {
             {showArchived && (
               <div className="grid gap-4 md:grid-cols-3">
                 {archivedChannelsList.map(([key, channel]) => {
-                  const Icon = channel.icon;
+                  const status = channelStatus?.[key];
                   return (
-                    <Card
+                    <ChannelCard
                       key={key}
-                      className="border-border/30 bg-card/30 hover:border-border/50 transition-all cursor-pointer group relative opacity-60 hover:opacity-100"
-                    >
-                      <div 
-                        className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-10"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7"
-                          onClick={() => toggleArchive.mutate({ channel: key, archive: false })}
-                          title="Restaurar canal"
-                        >
-                          <ArchiveRestore className="h-3.5 w-3.5 text-muted-foreground" />
-                        </Button>
-                      </div>
-                      <div onClick={() => setSearchParams({ channel: key })}>
-                        <CardHeader className="pb-2">
-                          <div className="flex items-center gap-3">
-                            <Icon className="h-5 w-5 text-muted-foreground" />
-                            <CardTitle className="text-base">{channel.title}</CardTitle>
-                            <Badge variant="outline" className="text-[10px] px-1.5 py-0">Arquivado</Badge>
-                          </div>
-                        </CardHeader>
-                        <CardContent>
-                          <CardDescription className="text-sm">{channel.description}</CardDescription>
-                        </CardContent>
-                      </div>
-                    </Card>
+                      channelKey={key}
+                      icon={channel.icon}
+                      title={channel.title}
+                      description={channel.description}
+                      hasData={status?.hasData || false}
+                      daysOfData={status?.daysOfData || 0}
+                      lastUpdate={status?.lastUpdate || null}
+                      isArchived
+                      onClick={() => setSearchParams({ channel: key })}
+                      onRestore={() => toggleArchive.mutate({ channel: key, archive: false })}
+                    />
                   );
                 })}
               </div>
