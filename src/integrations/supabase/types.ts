@@ -1507,6 +1507,53 @@ export type Database = {
           },
         ]
       }
+      twitter_tokens: {
+        Row: {
+          access_token: string
+          client_id: string | null
+          created_at: string | null
+          expires_at: string | null
+          id: string
+          refresh_token: string | null
+          twitter_id: string | null
+          updated_at: string | null
+          user_id: string
+          username: string | null
+        }
+        Insert: {
+          access_token: string
+          client_id?: string | null
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string
+          refresh_token?: string | null
+          twitter_id?: string | null
+          updated_at?: string | null
+          user_id: string
+          username?: string | null
+        }
+        Update: {
+          access_token?: string
+          client_id?: string | null
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string
+          refresh_token?: string | null
+          twitter_id?: string | null
+          updated_at?: string | null
+          user_id?: string
+          username?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "twitter_tokens_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_activities: {
         Row: {
           activity_type: Database["public"]["Enums"]["activity_type"]

@@ -23,6 +23,8 @@ import { DateRange } from "react-day-picker";
 import { GoalsPanel } from "@/components/performance/GoalsPanel";
 import { ChannelCard } from "@/components/performance/ChannelCard";
 import { YouTubeConnectionCard } from "@/components/performance/YouTubeConnectionCard";
+import { TwitterConnectionCard } from "@/components/performance/TwitterConnectionCard";
+import { CSVUploadCard } from "@/components/performance/CSVUploadCard";
 import { useChannelDataStatus } from "@/hooks/useChannelDataStatus";
 import { useYouTubeConnection, useFetchYouTubeAnalytics, useStartYouTubeOAuth } from "@/hooks/useYouTubeOAuth";
 import { EnhancedKPICard } from "@/components/performance/EnhancedKPICard";
@@ -34,6 +36,9 @@ import { MixedBarLineChart } from "@/components/performance/MixedBarLineChart";
 import { DonutChart } from "@/components/performance/DonutChart";
 import { AudienceSentimentGauge } from "@/components/performance/AudienceSentimentGauge";
 import { useYouTubeSentiment, useAnalyzeYouTubeSentiment } from "@/hooks/useYouTubeSentiment";
+import { useImportInstagramCSV } from "@/hooks/useImportInstagramCSV";
+import { useImportNewsletterCSV } from "@/hooks/useImportNewsletterCSV";
+import { useImportTwitterCSV } from "@/hooks/useImportTwitterCSV";
 
 export default function ClientPerformance() {
   const { clientId } = useParams();
@@ -129,6 +134,11 @@ export default function ClientPerformance() {
   const scrapeMetrics = useScrapeMetrics();
   const fetchInstagram = useFetchInstagramMetrics();
   const fetchYouTube = useFetchYouTubeMetrics();
+
+  // CSV Import hooks
+  const importInstagramCSV = useImportInstagramCSV(clientId || "");
+  const importNewsletterCSV = useImportNewsletterCSV(clientId || "");
+  const importTwitterCSV = useImportTwitterCSV(clientId || "");
 
   const handleRefreshMetrics = async () => {
     if (!clientId || !selectedChannel) return;
@@ -646,51 +656,71 @@ export default function ClientPerformance() {
       )}
 
       {/* INSTAGRAM */}
-      {!metricsLoading && periodMetrics && selectedChannel === "instagram" && (
+      {!metricsLoading && selectedChannel === "instagram" && (
         <>
-          {/* Enhanced KPI Cards */}
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <EnhancedKPICard
-              title={`Visualizações (${periodMetrics.daysInPeriod}d)`}
-              value={periodMetrics.totalViews}
-              change={periodMetrics.viewsChange}
-              icon={Eye}
-              sparklineData={sparklineData.views}
-              accentColor="primary"
-            />
-            <EnhancedKPICard
-              title={`Alcance (${periodMetrics.daysInPeriod}d)`}
-              value={periodMetrics.totalReach}
-              icon={Megaphone}
-              sparklineData={sparklineData.reach}
-              accentColor="secondary"
-            />
-            <EnhancedKPICard
-              title="Seguidores atuais"
-              value={periodMetrics.currentFollowers}
-              icon={Users}
-              sparklineData={sparklineData.followers}
-              accentColor="primary"
-            />
-            <EnhancedKPICard
-              title="Ganho no período"
-              value={periodMetrics.totalFollowerGain}
-              change={periodMetrics.followersChange}
-              icon={TrendingUp}
-              formatter={(v) => (v >= 0 ? `+${v.toLocaleString("pt-BR")}` : v.toLocaleString("pt-BR"))}
-              accentColor="accent"
+          {/* CSV Upload for Instagram */}
+          <div className="grid gap-4 md:grid-cols-2">
+            <CSVUploadCard
+              title="Importar Métricas Instagram"
+              description="Importe dados diários de seguidores, alcance e engajamento"
+              columns={[
+                { name: "date", required: true },
+                { name: "followers", required: false },
+                { name: "views", required: false },
+                { name: "likes", required: false },
+                { name: "comments", required: false },
+              ]}
+              templateName="instagram-metricas"
+              onUpload={async (data) => { await importInstagramCSV.mutateAsync(data); }}
+              isLoading={importInstagramCSV.isPending}
             />
           </div>
 
-          {/* Goals Panel */}
-          <GoalsPanel
-            clientId={clientId!}
-            platform="instagram"
-            currentMetrics={{
-              followers: periodMetrics.currentFollowers,
-              views: periodMetrics.totalViews,
-            }}
-          />
+          {periodMetrics && (
+            <>
+              {/* Enhanced KPI Cards */}
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                <EnhancedKPICard
+                  title={`Visualizações (${periodMetrics.daysInPeriod}d)`}
+                  value={periodMetrics.totalViews}
+                  change={periodMetrics.viewsChange}
+                  icon={Eye}
+                  sparklineData={sparklineData.views}
+                  accentColor="primary"
+                />
+                <EnhancedKPICard
+                  title={`Alcance (${periodMetrics.daysInPeriod}d)`}
+                  value={periodMetrics.totalReach}
+                  icon={Megaphone}
+                  sparklineData={sparklineData.reach}
+                  accentColor="secondary"
+                />
+                <EnhancedKPICard
+                  title="Seguidores atuais"
+                  value={periodMetrics.currentFollowers}
+                  icon={Users}
+                  sparklineData={sparklineData.followers}
+                  accentColor="primary"
+                />
+                <EnhancedKPICard
+                  title="Ganho no período"
+                  value={periodMetrics.totalFollowerGain}
+                  change={periodMetrics.followersChange}
+                  icon={TrendingUp}
+                  formatter={(v) => (v >= 0 ? `+${v.toLocaleString("pt-BR")}` : v.toLocaleString("pt-BR"))}
+                  accentColor="accent"
+                />
+              </div>
+
+              {/* Goals Panel */}
+              <GoalsPanel
+                clientId={clientId!}
+                platform="instagram"
+                currentMetrics={{
+                  followers: periodMetrics.currentFollowers,
+                  views: periodMetrics.totalViews,
+                }}
+              />
 
           {/* Insights */}
           {(insights.length > 0 || bestContent) && (
@@ -764,47 +794,69 @@ export default function ClientPerformance() {
       )}
 
       {/* TWITTER */}
-      {!metricsLoading && metrics && metrics.length > 0 && selectedChannel === "twitter" && (
+      {!metricsLoading && selectedChannel === "twitter" && (
         <>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <EnhancedKPICard
-              title={`Impressões (${periodMetrics?.daysInPeriod || 0}d)`}
-              value={metrics.slice(0, parseInt(dateRange) || 30).reduce((sum, m) => sum + ((m.metadata as any)?.impressions || 0), 0)}
-              icon={Eye}
-              sparklineData={sparklineData.impressions}
-              accentColor="primary"
-            />
-            <EnhancedKPICard
-              title={`Engajamentos (${periodMetrics?.daysInPeriod || 0}d)`}
-              value={metrics.slice(0, parseInt(dateRange) || 30).reduce((sum, m) => sum + ((m.metadata as any)?.engagements || 0), 0)}
-              icon={MousePointer}
-              sparklineData={sparklineData.engagements}
-              accentColor="secondary"
-            />
-            <EnhancedKPICard
-              title="Seguidores atuais"
-              value={metrics[0]?.subscribers || 0}
-              icon={Users}
-              sparklineData={sparklineData.followers}
-              accentColor="primary"
-            />
-            <EnhancedKPICard
-              title="Novos seguidores"
-              value={metrics.slice(0, parseInt(dateRange) || 30).reduce((sum, m) => sum + ((m.metadata as any)?.new_follows || 0), 0)}
-              icon={UserPlus}
-              formatter={(v) => `+${v.toLocaleString("pt-BR")}`}
-              accentColor="accent"
+          {/* Twitter Connection + CSV Upload */}
+          <div className="grid gap-4 md:grid-cols-2">
+            <TwitterConnectionCard clientId={clientId || ""} />
+            <CSVUploadCard
+              title="Importar Métricas Twitter/X"
+              description="Importe dados de impressões, engajamentos e seguidores"
+              columns={[
+                { name: "date", required: true },
+                { name: "impressions", required: false },
+                { name: "followers", required: false },
+                { name: "likes", required: false },
+              ]}
+              templateName="twitter-metricas"
+              onUpload={async (data) => { await importTwitterCSV.mutateAsync(data); }}
+              isLoading={importTwitterCSV.isPending}
             />
           </div>
 
-          {chartData.length >= 1 && (
-            <EnhancedAreaChart
-              data={chartData}
-              metrics={twitterChartMetrics}
-              selectedMetric={chartMetric}
-              onMetricChange={setChartMetric}
-              dateRange={dateRangeLabel}
-            />
+          {metrics && metrics.length > 0 && (
+            <>
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                <EnhancedKPICard
+                  title={`Impressões (${periodMetrics?.daysInPeriod || 0}d)`}
+                  value={metrics.slice(0, parseInt(dateRange) || 30).reduce((sum, m) => sum + ((m.metadata as any)?.impressions || 0), 0)}
+                  icon={Eye}
+                  sparklineData={sparklineData.impressions}
+                  accentColor="primary"
+                />
+                <EnhancedKPICard
+                  title={`Engajamentos (${periodMetrics?.daysInPeriod || 0}d)`}
+                  value={metrics.slice(0, parseInt(dateRange) || 30).reduce((sum, m) => sum + ((m.metadata as any)?.engagements || 0), 0)}
+                  icon={MousePointer}
+                  sparklineData={sparklineData.engagements}
+                  accentColor="secondary"
+                />
+                <EnhancedKPICard
+                  title="Seguidores atuais"
+                  value={metrics[0]?.subscribers || 0}
+                  icon={Users}
+                  sparklineData={sparklineData.followers}
+                  accentColor="primary"
+                />
+                <EnhancedKPICard
+                  title="Novos seguidores"
+                  value={metrics.slice(0, parseInt(dateRange) || 30).reduce((sum, m) => sum + ((m.metadata as any)?.new_follows || 0), 0)}
+                  icon={UserPlus}
+                  formatter={(v) => `+${v.toLocaleString("pt-BR")}`}
+                  accentColor="accent"
+                />
+              </div>
+
+              {chartData.length >= 1 && (
+                <EnhancedAreaChart
+                  data={chartData}
+                  metrics={twitterChartMetrics}
+                  selectedMetric={chartMetric}
+                  onMetricChange={setChartMetric}
+                  dateRange={dateRangeLabel}
+                />
+              )}
+            </>
           )}
         </>
       )}
@@ -1004,38 +1056,55 @@ export default function ClientPerformance() {
       )}
 
       {/* NEWSLETTER */}
-      {!metricsLoading && metrics && metrics.length > 0 && selectedChannel === "newsletter" && (
+      {!metricsLoading && selectedChannel === "newsletter" && (
         <>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <EnhancedKPICard
-              title="Inscritos"
-              value={metrics[0]?.subscribers || 0}
-              icon={Users}
-              accentColor="primary"
-            />
-            <EnhancedKPICard
-              title="Taxa de Abertura"
-              value={metrics[0]?.open_rate || 0}
-              icon={Eye}
-              formatter={(v) => `${v}%`}
-              accentColor="secondary"
-            />
-            <EnhancedKPICard
-              title="Taxa de Cliques"
-              value={metrics[0]?.click_rate || 0}
-              icon={MousePointer}
-              formatter={(v) => `${v}%`}
-              accentColor="accent"
-            />
-            <EnhancedKPICard
-              title="Emails Enviados"
-              value={metrics[0]?.total_posts || 0}
-              icon={Newspaper}
-              accentColor="primary"
+          {/* CSV Upload for Newsletter */}
+          <div className="grid gap-4 md:grid-cols-2">
+            <CSVUploadCard
+              title="Importar Métricas Newsletter"
+              description="Importe dados de assinantes, abertura e cliques"
+              columns={[
+                { name: "date", required: true },
+                { name: "subscribers", required: false },
+                { name: "open_rate", required: false },
+                { name: "click_rate", required: false },
+              ]}
+              templateName="newsletter-metricas"
+              onUpload={async (data) => { await importNewsletterCSV.mutateAsync(data); }}
+              isLoading={importNewsletterCSV.isPending}
             />
           </div>
 
-          {metrics?.[0]?.metadata && (metrics[0].metadata as any)?.recent_posts?.length > 0 && (
+          {metrics && metrics.length > 0 && (
+            <>
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                <EnhancedKPICard
+                  title="Inscritos"
+                  value={metrics[0]?.subscribers || 0}
+                  icon={Users}
+                  accentColor="primary"
+                />
+                <EnhancedKPICard
+                  title="Taxa de Abertura"
+                  value={metrics[0]?.open_rate || 0}
+                  icon={Eye}
+                  formatter={(v) => `${v}%`}
+                  accentColor="secondary"
+                />
+                <EnhancedKPICard
+                  title="Taxa de Cliques"
+                  value={metrics[0]?.click_rate || 0}
+                  icon={MousePointer}
+                  formatter={(v) => `${v}%`}
+                  accentColor="accent"
+                />
+                <EnhancedKPICard
+                  title="Emails Enviados"
+                  value={metrics[0]?.total_posts || 0}
+                  icon={Newspaper}
+                  accentColor="primary"
+                />
+              </div>
             <PerformanceTable
               title="Últimos Emails Enviados"
               description="Performance individual de cada email"
