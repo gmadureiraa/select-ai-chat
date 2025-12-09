@@ -23,6 +23,7 @@ import { MultiAgentProgress } from "@/components/chat/MultiAgentProgress";
 import { ChatOptionsSidebar } from "@/components/assistant/ChatOptionsSidebar";
 import { useClientChat } from "@/hooks/useClientChat";
 import { useSmoothScroll } from "@/hooks/useSmoothScroll";
+import { useClientTemplates } from "@/hooks/useClientTemplates";
 import kaleidosLogo from "@/assets/kaleidos-logo.svg";
 import { useState } from "react";
 
@@ -82,6 +83,8 @@ const ClientChat = () => {
     startNewConversation,
   } = useClientChat(clientId!, templateId, conversationIdParam);
 
+  const { templates, createTemplate } = useClientTemplates(clientId!);
+
   // Scroll suave automático
   const { scrollRef } = useSmoothScroll([messages, isLoading], {
     behavior: "smooth",
@@ -101,6 +104,39 @@ const ClientChat = () => {
     if (templateId) newParams.set("templateId", templateId);
     setSearchParams(newParams);
     queryClient.invalidateQueries({ queryKey: ["conversation-history", clientId] });
+  };
+
+  const handleCreateTemplateFromSuggestion = async (name: string, prompt: string) => {
+    // Check if template with this name already exists
+    const existingTemplate = templates.find(t => t.name === name);
+    
+    if (existingTemplate) {
+      // Template exists, just select it
+      const newParams = new URLSearchParams();
+      newParams.set("templateId", existingTemplate.id);
+      setSearchParams(newParams);
+    } else {
+      // Create new template
+      const result = await createTemplate.mutateAsync({
+        client_id: clientId!,
+        name,
+        type: "chat",
+      });
+      
+      // Navigate to the new template
+      const newParams = new URLSearchParams();
+      newParams.set("templateId", result.id);
+      setSearchParams(newParams);
+      
+      // Send the initial prompt if provided
+      if (prompt) {
+        setTimeout(() => {
+          sendMessage(prompt, [], "fast", "content");
+        }, 500);
+      }
+    }
+    
+    queryClient.invalidateQueries({ queryKey: ["client-templates", clientId] });
   };
 
   // Detectar se uma mensagem tem imagem gerada por IA
@@ -248,7 +284,7 @@ const ClientChat = () => {
                   </div>
 
                   {/* Sugestões rápidas */}
-                  {!templateId && <TaskSuggestions onSelectTask={(task) => sendMessage(task, [], "fast", "content")} />}
+                  {!templateId && <TaskSuggestions onCreateTemplate={handleCreateTemplateFromSuggestion} />}
 
                   {/* Contexto do cliente */}
                   {client.context_notes && (
