@@ -1,7 +1,7 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Archive, AlertCircle, CheckCircle2, Clock, ChevronRight } from "lucide-react";
+import { Archive, AlertCircle, CheckCircle2, Clock, ChevronRight, Instagram, Youtube, Twitter, Newspaper, Video } from "lucide-react";
 import { LucideIcon } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -20,6 +20,43 @@ interface ChannelCardProps {
   onRestore?: () => void;
 }
 
+// Channel color/style mapping
+const channelStyles: Record<string, { bg: string; iconColor: string; borderColor: string }> = {
+  instagram: {
+    bg: "from-pink-500/10 to-purple-500/10",
+    iconColor: "text-pink-500",
+    borderColor: "hover:border-pink-500/50",
+  },
+  youtube: {
+    bg: "from-red-500/10 to-red-600/10",
+    iconColor: "text-red-500",
+    borderColor: "hover:border-red-500/50",
+  },
+  twitter: {
+    bg: "from-sky-500/10 to-blue-500/10",
+    iconColor: "text-sky-500",
+    borderColor: "hover:border-sky-500/50",
+  },
+  newsletter: {
+    bg: "from-emerald-500/10 to-green-500/10",
+    iconColor: "text-emerald-500",
+    borderColor: "hover:border-emerald-500/50",
+  },
+  tiktok: {
+    bg: "from-slate-500/10 to-slate-600/10",
+    iconColor: "text-foreground",
+    borderColor: "hover:border-slate-500/50",
+  },
+};
+
+const channelIcons: Record<string, LucideIcon> = {
+  instagram: Instagram,
+  youtube: Youtube,
+  twitter: Twitter,
+  newsletter: Newspaper,
+  tiktok: Video,
+};
+
 export function ChannelCard({
   channelKey,
   icon: Icon,
@@ -33,6 +70,14 @@ export function ChannelCard({
   onArchive,
   onRestore,
 }: ChannelCardProps) {
+  const style = channelStyles[channelKey] || {
+    bg: "from-muted to-muted",
+    iconColor: "text-muted-foreground",
+    borderColor: "hover:border-border",
+  };
+  
+  const ChannelIcon = channelIcons[channelKey] || Icon;
+
   const getStatusBadge = () => {
     if (!hasData) {
       return (
@@ -57,7 +102,7 @@ export function ChannelCard({
     return (
       <Badge variant="outline" className="text-emerald-500 border-emerald-500/30 gap-1 text-[10px]">
         <CheckCircle2 className="h-3 w-3" />
-        {daysOfData}d
+        {daysOfData}d de dados
       </Badge>
     );
   };
@@ -77,11 +122,14 @@ export function ChannelCard({
 
   return (
     <Card
-      className={`border-border/50 hover:border-border hover:bg-muted/30 transition-all cursor-pointer group relative ${
+      className={`border-border/50 ${style.borderColor} transition-all cursor-pointer group relative overflow-hidden ${
         isArchived ? 'opacity-60' : ''
       } ${!hasData ? 'border-dashed' : ''}`}
       onClick={onClick}
     >
+      {/* Gradient background */}
+      <div className={`absolute inset-0 bg-gradient-to-br ${style.bg} opacity-50`} />
+      
       {/* Archive/Restore button */}
       {!isArchived && onArchive && (
         <div 
@@ -120,30 +168,28 @@ export function ChannelCard({
         </div>
       )}
 
-      <CardHeader className="pb-2">
-        <div className="flex items-center gap-3">
-          <div className="h-9 w-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
-            <Icon className="h-4 w-4 text-muted-foreground" />
+      <CardContent className="p-5 relative">
+        {/* Icon prominente */}
+        <div className="flex flex-col items-center text-center mb-3">
+          <div className={`h-14 w-14 rounded-2xl bg-background/80 backdrop-blur-sm flex items-center justify-center mb-3 shadow-sm border border-border/30`}>
+            <ChannelIcon className={`h-7 w-7 ${style.iconColor}`} />
           </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2">
-              <CardTitle className="text-sm font-medium truncate">{title}</CardTitle>
-              {getStatusBadge()}
-            </div>
-          </div>
+          <h3 className="font-semibold text-base">{title}</h3>
         </div>
-      </CardHeader>
-      <CardContent className="pt-0">
-        <CardDescription className="text-xs line-clamp-1 mb-2">{description}</CardDescription>
-        <div className="flex items-center justify-between">
-          {lastUpdate ? (
+        
+        {/* Status */}
+        <div className="flex flex-col items-center gap-2">
+          {getStatusBadge()}
+          {lastUpdate && (
             <p className="text-[10px] text-muted-foreground">
               {getLastUpdateText()}
             </p>
-          ) : (
-            <span />
           )}
-          <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+        </div>
+        
+        {/* Hover indicator */}
+        <div className="absolute bottom-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity">
+          <ChevronRight className="h-4 w-4 text-muted-foreground" />
         </div>
       </CardContent>
     </Card>
