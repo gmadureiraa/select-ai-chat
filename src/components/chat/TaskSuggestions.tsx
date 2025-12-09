@@ -2,8 +2,7 @@ import { Button } from "@/components/ui/button";
 import { FileText, Mail, Image, Video, TrendingUp, Newspaper, Sparkles, MessageCircle, Lightbulb } from "lucide-react";
 
 interface TaskSuggestionsProps {
-  onSelectTask: (task: string) => void;
-  templates?: Array<{ id: string; name: string; type: string }>;
+  onCreateTemplate: (name: string, prompt: string) => void;
 }
 
 const defaultTemplates = [
@@ -64,44 +63,34 @@ const quickActions = [
   },
 ];
 
-export const TaskSuggestions = ({ onSelectTask, templates }: TaskSuggestionsProps) => {
-  const displayTemplates = templates && templates.length > 0 
-    ? templates.filter(t => t.type === "chat").map(t => ({
-        icon: FileText,
-        label: t.name,
-        prompt: `Usando o template "${t.name}", crie conteúdo seguindo as regras configuradas.`,
-      }))
-    : defaultTemplates;
+export const TaskSuggestions = ({ onCreateTemplate }: TaskSuggestionsProps) => {
+  const allOptions = [
+    ...quickActions.map(action => ({
+      icon: action.icon,
+      label: action.label,
+      prompt: action.prompt,
+      className: action.className,
+    })),
+    ...defaultTemplates.map(template => ({
+      icon: template.icon,
+      label: template.label,
+      prompt: template.prompt,
+      className: undefined,
+    })),
+  ];
 
   return (
-    <div className="space-y-4 max-w-3xl mx-auto">
-      {/* Quick Actions */}
-      <div className="flex items-center justify-center gap-2 flex-wrap">
-        {quickActions.map((action) => (
-          <Button
-            key={action.label}
-            onClick={() => onSelectTask(action.prompt)}
-            variant="outline"
-            size="sm"
-            className={`gap-1.5 ${action.className}`}
-          >
-            <action.icon className="h-3.5 w-3.5" />
-            {action.label}
-          </Button>
-        ))}
-      </div>
-
-      {/* Templates Grid */}
+    <div className="max-w-3xl mx-auto">
       <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-        {displayTemplates.slice(0, 6).map((task) => (
+        {allOptions.map((option) => (
           <Button
-            key={task.label}
-            onClick={() => onSelectTask(task.prompt)}
+            key={option.label}
+            onClick={() => onCreateTemplate(option.label, option.prompt)}
             variant="outline"
-            className="h-auto py-3 px-3 flex flex-col gap-1.5 hover:border-primary hover:bg-primary/5 transition-all group"
+            className={`h-auto py-3 px-3 flex flex-col gap-1.5 hover:border-primary hover:bg-primary/5 transition-all group ${option.className || ""}`}
           >
-            <task.icon className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
-            <span className="text-xs font-medium">{task.label}</span>
+            <option.icon className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
+            <span className="text-xs font-medium">{option.label}</span>
           </Button>
         ))}
       </div>
