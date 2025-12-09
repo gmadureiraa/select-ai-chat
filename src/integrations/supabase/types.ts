@@ -1515,6 +1515,8 @@ export type Database = {
           expires_at: string | null
           id: string
           refresh_token: string | null
+          twitter_api_key: string | null
+          twitter_api_secret: string | null
           twitter_id: string | null
           updated_at: string | null
           user_id: string
@@ -1527,6 +1529,8 @@ export type Database = {
           expires_at?: string | null
           id?: string
           refresh_token?: string | null
+          twitter_api_key?: string | null
+          twitter_api_secret?: string | null
           twitter_id?: string | null
           updated_at?: string | null
           user_id: string
@@ -1539,6 +1543,8 @@ export type Database = {
           expires_at?: string | null
           id?: string
           refresh_token?: string | null
+          twitter_api_key?: string | null
+          twitter_api_secret?: string | null
           twitter_id?: string | null
           updated_at?: string | null
           user_id?: string
