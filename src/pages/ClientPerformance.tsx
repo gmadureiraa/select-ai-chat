@@ -722,73 +722,75 @@ export default function ClientPerformance() {
                 }}
               />
 
-          {/* Insights */}
-          {(insights.length > 0 || bestContent) && (
-            <InsightsCard
-              insights={insights}
-              bestContent={bestContent || undefined}
-              periodComparison={periodMetrics.previousViews > 0 ? {
-                label: "Visualizações",
-                current: periodMetrics.totalViews,
-                previous: periodMetrics.previousViews,
-              } : undefined}
-            />
-          )}
+              {/* Insights */}
+              {(insights.length > 0 || bestContent) && (
+                <InsightsCard
+                  insights={insights}
+                  bestContent={bestContent || undefined}
+                  periodComparison={periodMetrics.previousViews > 0 ? {
+                    label: "Visualizações",
+                    current: periodMetrics.totalViews,
+                    previous: periodMetrics.previousViews,
+                  } : undefined}
+                />
+              )}
 
-          {/* Enhanced Area Chart */}
-          {chartData.length >= 1 && (
-            <EnhancedAreaChart
-              data={chartData}
-              metrics={instagramChartMetrics}
-              selectedMetric={chartMetric}
-              onMetricChange={setChartMetric}
-              dateRange={dateRangeLabel}
-            />
-          )}
+              {/* Enhanced Area Chart */}
+              {chartData.length >= 1 && (
+                <EnhancedAreaChart
+                  data={chartData}
+                  metrics={instagramChartMetrics}
+                  selectedMetric={chartMetric}
+                  onMetricChange={setChartMetric}
+                  dateRange={dateRangeLabel}
+                />
+              )}
 
-          {/* Performance Table with badges */}
-          {metrics?.[0]?.metadata && (metrics[0].metadata as any)?.recent_posts?.length > 0 && (
-            <PerformanceTable
-              title="Posts Recentes"
-              description="Performance individual com indicadores de sucesso"
-              data={(metrics[0].metadata as any).recent_posts.map((post: any) => ({
-                ...post,
-                views: post.views || 0,
-                type: post.type === "Video" ? "Reels" : post.type,
-              }))}
-              columns={[
-                { 
-                  key: "caption", 
-                  label: "Post",
-                  format: (value, row) => (
-                    <div className="flex items-center gap-2">
-                      <ContentTypeIcon type={row.type} />
-                      <Badge variant="outline" className="text-xs shrink-0">
-                        {row.type}
-                      </Badge>
-                      <span className="text-sm truncate max-w-[200px]">
-                        {value || "Sem legenda"}
-                      </span>
-                    </div>
-                  )
-                },
-                { 
-                  key: "views", 
-                  label: "Views", 
-                  align: "right",
-                  format: (value, row) => <ProgressBar value={value || 0} max={Math.max(...(metrics[0].metadata as any).recent_posts.map((p: any) => p.views || 0), 1)} />
-                },
-                { key: "likes", label: "Curtidas", align: "right", format: (v) => (v || 0).toLocaleString('pt-BR') },
-                { key: "comments", label: "Comentários", align: "right", format: (v) => (v || 0).toLocaleString('pt-BR') },
-                { 
-                  key: "timestamp", 
-                  label: "Data", 
-                  align: "right",
-                  format: (v) => v ? new Date(v).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }) : '-'
-                },
-              ]}
-              metricKey="views"
-            />
+              {/* Performance Table with badges */}
+              {metrics?.[0]?.metadata && (metrics[0].metadata as any)?.recent_posts?.length > 0 && (
+                <PerformanceTable
+                  title="Posts Recentes"
+                  description="Performance individual com indicadores de sucesso"
+                  data={(metrics[0].metadata as any).recent_posts.map((post: any) => ({
+                    ...post,
+                    views: post.views || 0,
+                    type: post.type === "Video" ? "Reels" : post.type,
+                  }))}
+                  columns={[
+                    { 
+                      key: "caption", 
+                      label: "Post",
+                      format: (value, row) => (
+                        <div className="flex items-center gap-2">
+                          <ContentTypeIcon type={row.type} />
+                          <Badge variant="outline" className="text-xs shrink-0">
+                            {row.type}
+                          </Badge>
+                          <span className="text-sm truncate max-w-[200px]">
+                            {value || "Sem legenda"}
+                          </span>
+                        </div>
+                      )
+                    },
+                    { 
+                      key: "views", 
+                      label: "Views", 
+                      align: "right",
+                      format: (value, row) => <ProgressBar value={value || 0} max={Math.max(...(metrics[0].metadata as any).recent_posts.map((p: any) => p.views || 0), 1)} />
+                    },
+                    { key: "likes", label: "Curtidas", align: "right", format: (v) => (v || 0).toLocaleString('pt-BR') },
+                    { key: "comments", label: "Comentários", align: "right", format: (v) => (v || 0).toLocaleString('pt-BR') },
+                    { 
+                      key: "timestamp", 
+                      label: "Data", 
+                      align: "right",
+                      format: (v) => v ? new Date(v).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }) : '-'
+                    },
+                  ]}
+                  metricKey="views"
+                />
+              )}
+            </>
           )}
         </>
       )}
@@ -1105,29 +1107,30 @@ export default function ClientPerformance() {
                   accentColor="primary"
                 />
               </div>
-            <PerformanceTable
-              title="Últimos Emails Enviados"
-              description="Performance individual de cada email"
-              data={(metrics[0].metadata as any).recent_posts.map((post: any) => ({
-                ...post,
-                views: post.opened || 0,
-              }))}
-              columns={[
-                { key: "title", label: "Título", format: (v) => <span className="font-medium">{v}</span> },
-                { key: "delivered", label: "Enviados", align: "right", format: (v) => (v || 0).toLocaleString('pt-BR') },
-                { key: "opened", label: "Aberturas", align: "right", format: (v) => (v || 0).toLocaleString('pt-BR') },
-                { key: "open_rate", label: "Taxa", align: "right", format: (v) => <span className="text-emerald-500 font-medium">{v}%</span> },
-                { key: "clicked", label: "Cliques", align: "right", format: (v) => (v || 0).toLocaleString('pt-BR') },
-                { key: "click_rate", label: "Taxa", align: "right", format: (v) => <span className="text-primary font-medium">{v}%</span> },
-                { 
-                  key: "published_at", 
-                  label: "Data", 
-                  align: "right",
-                  format: (v) => v ? new Date(v).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }) : '-'
-                },
-              ]}
-              metricKey="views"
-            />
+              <PerformanceTable
+                title="Últimos Emails Enviados"
+                description="Performance individual de cada email"
+                data={(metrics[0].metadata as any).recent_posts.map((post: any) => ({
+                  ...post,
+                  views: post.opened || 0,
+                }))}
+                columns={[
+                  { key: "title", label: "Título", format: (v) => <span className="font-medium">{v}</span> },
+                  { key: "delivered", label: "Enviados", align: "right", format: (v) => (v || 0).toLocaleString('pt-BR') },
+                  { key: "opened", label: "Aberturas", align: "right", format: (v) => (v || 0).toLocaleString('pt-BR') },
+                  { key: "open_rate", label: "Taxa", align: "right", format: (v) => <span className="text-emerald-500 font-medium">{v}%</span> },
+                  { key: "clicked", label: "Cliques", align: "right", format: (v) => (v || 0).toLocaleString('pt-BR') },
+                  { key: "click_rate", label: "Taxa", align: "right", format: (v) => <span className="text-primary font-medium">{v}%</span> },
+                  { 
+                    key: "published_at", 
+                    label: "Data", 
+                    align: "right",
+                    format: (v) => v ? new Date(v).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }) : '-'
+                  },
+                ]}
+                metricKey="views"
+              />
+            </>
           )}
         </>
       )}
