@@ -10,9 +10,6 @@ import {
   ChevronDown,
   ChevronRight,
   Clock,
-  History,
-  Settings,
-  Plus,
   Library,
   BookOpen,
   TrendingUp
@@ -73,7 +70,7 @@ export const ChatOptionsSidebar = ({
   const { templates, isLoading: templatesLoading } = useClientTemplates(clientId);
   const { data: conversations } = useConversationHistory(clientId);
   const [searchQuery, setSearchQuery] = useState("");
-  const [historyOpen, setHistoryOpen] = useState(false);
+  const [expandedTemplates, setExpandedTemplates] = useState<Record<string, boolean>>({});
 
   const chatTemplates = templates?.filter(t => t.type === "chat") || [];
   const imageTemplates = templates?.filter(t => t.type === "image") || [];
@@ -85,9 +82,106 @@ export const ChatOptionsSidebar = ({
     t.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const recentConversations = conversations?.slice(0, 5) || [];
+  // Agrupar conversas por template_id
+  const conversationsByTemplate = (conversations || []).reduce((acc, conv) => {
+    const templateId = conv.template_id || "no_template";
+    if (!acc[templateId]) {
+      acc[templateId] = [];
+    }
+    acc[templateId].push(conv);
+    return acc;
+  }, {} as Record<string, typeof conversations>);
+
+  const toggleTemplate = (templateId: string) => {
+    setExpandedTemplates(prev => ({
+      ...prev,
+      [templateId]: !prev[templateId]
+    }));
+  };
 
   const navigate = useNavigate();
+
+  const renderTemplateWithHistory = (
+    template: { id: string; name: string; rules?: any[] },
+    type: "chat" | "image"
+  ) => {
+    const templateConversations = conversationsByTemplate[template.id] || [];
+    const hasConversations = templateConversations.length > 0;
+    const isExpanded = expandedTemplates[template.id];
+    const Icon = type === "chat" ? FileText : Image;
+    const iconColor = type === "chat" ? "text-primary" : "text-pink-500";
+    const bgColor = type === "chat" ? "bg-primary/10" : "bg-pink-500/10";
+
+    return (
+      <div key={template.id} className="space-y-0.5">
+        <div className="flex items-center">
+          {hasConversations ? (
+            <button
+              onClick={() => toggleTemplate(template.id)}
+              className="p-1 hover:bg-accent/50 rounded transition-colors"
+            >
+              {isExpanded ? (
+                <ChevronDown className="h-3 w-3 text-muted-foreground" />
+              ) : (
+                <ChevronRight className="h-3 w-3 text-muted-foreground" />
+              )}
+            </button>
+          ) : (
+            <div className="w-5" />
+          )}
+          <button
+            onClick={() => onSelectTemplate(template.id, template.name)}
+            className={cn(
+              "flex-1 flex items-start gap-2.5 p-2 rounded-lg transition-all",
+              "hover:bg-accent/50 border border-transparent hover:border-border/50",
+              "text-left group"
+            )}
+          >
+            <div className={cn("p-1.5 rounded-md shrink-0", bgColor)}>
+              <Icon className={cn("h-4 w-4", iconColor)} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium truncate">{template.name}</p>
+              <p className="text-[10px] text-muted-foreground">
+                {hasConversations 
+                  ? `${templateConversations.length} conversa${templateConversations.length > 1 ? "s" : ""}`
+                  : "Nova conversa"
+                }
+              </p>
+            </div>
+          </button>
+        </div>
+
+        {/* Histórico do template */}
+        {hasConversations && isExpanded && (
+          <div className="ml-5 pl-2 border-l border-border/50 space-y-0.5">
+            {templateConversations.map((conv) => (
+              <button
+                key={conv.id}
+                onClick={() => onSelectConversation(conv.id)}
+                className={cn(
+                  "w-full flex items-start gap-2 p-2 rounded-lg transition-all text-left",
+                  "hover:bg-accent/50 border border-transparent hover:border-border/50",
+                  currentConversationId === conv.id && "bg-accent border-border"
+                )}
+              >
+                <Clock className="h-3 w-3 text-muted-foreground mt-0.5 shrink-0" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-medium truncate">{conv.title}</p>
+                  <p className="text-[10px] text-muted-foreground">
+                    {formatDistanceToNow(new Date(conv.updated_at || conv.created_at), { 
+                      addSuffix: true, 
+                      locale: ptBR 
+                    })}
+                  </p>
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div className="w-72 border-r bg-card/30 flex flex-col h-full">
@@ -138,107 +232,28 @@ export const ChatOptionsSidebar = ({
             ))}
           </div>
 
-          {/* Templates de Chat */}
+          {/* Templates de Chat com Histórico */}
           {filteredChatTemplates.length > 0 && (
-            <div className="space-y-1.5">
+            <div className="space-y-1">
               <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider px-2">
                 Templates de Conteúdo
               </p>
-              {filteredChatTemplates.map((template) => (
-                <button
-                  key={template.id}
-                  onClick={() => onSelectTemplate(template.id, template.name)}
-                  className={cn(
-                    "w-full flex items-start gap-3 p-2.5 rounded-lg transition-all",
-                    "hover:bg-accent/50 border border-transparent hover:border-border/50",
-                    "text-left group"
-                  )}
-                >
-                  <div className="p-1.5 rounded-md shrink-0 bg-primary/10">
-                    <FileText className="h-4 w-4 text-primary" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium truncate">{template.name}</p>
-                    <p className="text-[10px] text-muted-foreground">
-                      {template.rules?.length || 0} regras
-                    </p>
-                  </div>
-                </button>
-              ))}
+              {filteredChatTemplates.map((template) => 
+                renderTemplateWithHistory(template, "chat")
+              )}
             </div>
           )}
 
-          {/* Templates de Imagem */}
+          {/* Templates de Imagem com Histórico */}
           {filteredImageTemplates.length > 0 && (
-            <div className="space-y-1.5">
+            <div className="space-y-1">
               <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider px-2">
                 Templates de Imagem
               </p>
-              {filteredImageTemplates.map((template) => (
-                <button
-                  key={template.id}
-                  onClick={() => onSelectTemplate(template.id, template.name)}
-                  className={cn(
-                    "w-full flex items-start gap-3 p-2.5 rounded-lg transition-all",
-                    "hover:bg-accent/50 border border-transparent hover:border-border/50",
-                    "text-left group"
-                  )}
-                >
-                  <div className="p-1.5 rounded-md shrink-0 bg-pink-500/10">
-                    <Image className="h-4 w-4 text-pink-500" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium truncate">{template.name}</p>
-                    <p className="text-[10px] text-muted-foreground">
-                      {template.rules?.length || 0} regras
-                    </p>
-                  </div>
-                </button>
-              ))}
+              {filteredImageTemplates.map((template) => 
+                renderTemplateWithHistory(template, "image")
+              )}
             </div>
-          )}
-
-          {/* Histórico de Conversas */}
-          {recentConversations.length > 0 && (
-            <Collapsible open={historyOpen} onOpenChange={setHistoryOpen}>
-              <CollapsibleTrigger className="w-full flex items-center justify-between px-2 py-1 hover:bg-accent/30 rounded-md transition-colors">
-                <div className="flex items-center gap-2">
-                  <History className="h-3.5 w-3.5 text-muted-foreground" />
-                  <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
-                    Histórico Recente
-                  </p>
-                </div>
-                {historyOpen ? (
-                  <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-                ) : (
-                  <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
-                )}
-              </CollapsibleTrigger>
-              <CollapsibleContent className="space-y-1 mt-1.5">
-                {recentConversations.map((conv) => (
-                  <button
-                    key={conv.id}
-                    onClick={() => onSelectConversation(conv.id)}
-                    className={cn(
-                      "w-full flex items-start gap-2 p-2 rounded-lg transition-all text-left",
-                      "hover:bg-accent/50 border border-transparent hover:border-border/50",
-                      currentConversationId === conv.id && "bg-accent border-border"
-                    )}
-                  >
-                    <Clock className="h-3 w-3 text-muted-foreground mt-0.5 shrink-0" />
-                    <div className="min-w-0 flex-1">
-                      <p className="text-xs font-medium truncate">{conv.title}</p>
-                      <p className="text-[10px] text-muted-foreground">
-                        {formatDistanceToNow(new Date(conv.updated_at || conv.created_at), { 
-                          addSuffix: true, 
-                          locale: ptBR 
-                        })}
-                      </p>
-                    </div>
-                  </button>
-                ))}
-              </CollapsibleContent>
-            </Collapsible>
           )}
 
           {/* Empty state */}
