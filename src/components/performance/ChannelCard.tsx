@@ -1,7 +1,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Archive, AlertCircle, CheckCircle2, Clock } from "lucide-react";
+import { Archive, AlertCircle, CheckCircle2, Clock, ChevronRight } from "lucide-react";
 import { LucideIcon } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -36,7 +36,7 @@ export function ChannelCard({
   const getStatusBadge = () => {
     if (!hasData) {
       return (
-        <Badge variant="outline" className="text-muted-foreground border-muted-foreground/30 gap-1">
+        <Badge variant="outline" className="text-muted-foreground border-muted-foreground/30 gap-1 text-[10px]">
           <AlertCircle className="h-3 w-3" />
           Sem dados
         </Badge>
@@ -47,7 +47,7 @@ export function ChannelCard({
     
     if (isStale) {
       return (
-        <Badge variant="outline" className="text-yellow-500 border-yellow-500/30 gap-1">
+        <Badge variant="outline" className="text-amber-500 border-amber-500/30 gap-1 text-[10px]">
           <Clock className="h-3 w-3" />
           Desatualizado
         </Badge>
@@ -55,9 +55,9 @@ export function ChannelCard({
     }
 
     return (
-      <Badge variant="outline" className="text-green-500 border-green-500/30 gap-1">
+      <Badge variant="outline" className="text-emerald-500 border-emerald-500/30 gap-1 text-[10px]">
         <CheckCircle2 className="h-3 w-3" />
-        {daysOfData} {daysOfData === 1 ? 'dia' : 'dias'}
+        {daysOfData}d
       </Badge>
     );
   };
@@ -66,10 +66,10 @@ export function ChannelCard({
     if (!lastUpdate) return null;
     
     try {
-      return `Atualizado ${formatDistanceToNow(new Date(lastUpdate), { 
+      return formatDistanceToNow(new Date(lastUpdate), { 
         addSuffix: true, 
         locale: ptBR 
-      })}`;
+      });
     } catch {
       return null;
     }
@@ -77,24 +77,27 @@ export function ChannelCard({
 
   return (
     <Card
-      className={`border-border/50 bg-card/50 hover:border-border transition-all cursor-pointer group relative ${
+      className={`border-border/50 hover:border-border hover:bg-muted/30 transition-all cursor-pointer group relative ${
         isArchived ? 'opacity-60' : ''
       } ${!hasData ? 'border-dashed' : ''}`}
+      onClick={onClick}
     >
       {/* Archive/Restore button */}
       {!isArchived && onArchive && (
         <div 
           className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-10"
-          onClick={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation();
+            onArchive();
+          }}
         >
           <Button
             variant="ghost"
             size="icon"
-            className="h-7 w-7"
-            onClick={onArchive}
+            className="h-6 w-6"
             title="Arquivar canal"
           >
-            <Archive className="h-3.5 w-3.5 text-muted-foreground" />
+            <Archive className="h-3 w-3 text-muted-foreground" />
           </Button>
         </div>
       )}
@@ -102,38 +105,47 @@ export function ChannelCard({
       {isArchived && onRestore && (
         <div 
           className="absolute top-2 right-2 z-10"
-          onClick={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation();
+            onRestore();
+          }}
         >
           <Button
             variant="ghost"
             size="sm"
-            className="h-7 px-2 text-xs"
-            onClick={onRestore}
+            className="h-6 px-2 text-xs"
           >
             Restaurar
           </Button>
         </div>
       )}
 
-      <div onClick={onClick}>
-        <CardHeader className="pb-2">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Icon className="h-5 w-5 text-muted-foreground" />
-              <CardTitle className="text-base">{title}</CardTitle>
-            </div>
-            {getStatusBadge()}
+      <CardHeader className="pb-2">
+        <div className="flex items-center gap-3">
+          <div className="h-9 w-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
+            <Icon className="h-4 w-4 text-muted-foreground" />
           </div>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          <CardDescription className="text-sm">{description}</CardDescription>
-          {lastUpdate && (
-            <p className="text-xs text-muted-foreground">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <CardTitle className="text-sm font-medium truncate">{title}</CardTitle>
+              {getStatusBadge()}
+            </div>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="pt-0">
+        <CardDescription className="text-xs line-clamp-1 mb-2">{description}</CardDescription>
+        <div className="flex items-center justify-between">
+          {lastUpdate ? (
+            <p className="text-[10px] text-muted-foreground">
               {getLastUpdateText()}
             </p>
+          ) : (
+            <span />
           )}
-        </CardContent>
-      </div>
+          <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+        </div>
+      </CardContent>
     </Card>
   );
 }
