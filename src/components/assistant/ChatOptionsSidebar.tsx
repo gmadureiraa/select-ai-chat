@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { 
   MessageCircle, 
   Lightbulb, 
@@ -9,7 +10,12 @@ import {
   ChevronDown,
   ChevronRight,
   Clock,
-  History
+  History,
+  Settings,
+  Plus,
+  Library,
+  BookOpen,
+  TrendingUp
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -17,6 +23,7 @@ import { Input } from "@/components/ui/input";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useClientTemplates } from "@/hooks/useClientTemplates";
 import { useConversationHistory } from "@/hooks/useConversationHistory";
+import { TemplateManager } from "@/components/clients/TemplateManager";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -80,14 +87,20 @@ export const ChatOptionsSidebar = ({
 
   const recentConversations = conversations?.slice(0, 5) || [];
 
+  const navigate = useNavigate();
+
   return (
     <div className="w-72 border-r bg-card/30 flex flex-col h-full">
-      {/* Search */}
-      <div className="p-3 border-b">
+      {/* Header with Template Manager */}
+      <div className="p-3 border-b space-y-2">
+        <div className="flex items-center justify-between">
+          <p className="text-xs font-medium">Opções</p>
+          <TemplateManager clientId={clientId} />
+        </div>
         <div className="relative">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
           <Input
-            placeholder="Buscar templates..."
+            placeholder="Buscar..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="h-8 pl-8 text-xs"
@@ -231,15 +244,43 @@ export const ChatOptionsSidebar = ({
           {/* Empty state */}
           {templatesLoading ? (
             <div className="text-center py-8 text-muted-foreground text-xs">
-              Carregando templates...
+              Carregando...
             </div>
           ) : chatTemplates.length === 0 && imageTemplates.length === 0 && (
             <div className="text-center py-8 text-muted-foreground text-xs px-4">
               <FileText className="h-8 w-8 mx-auto mb-2 opacity-50" />
-              <p>Nenhum template configurado</p>
+              <p>Nenhum template</p>
               <p className="text-[10px] mt-1">Use os modos rápidos acima</p>
             </div>
           )}
+
+          {/* Quick Links */}
+          <div className="space-y-1.5 pt-2 border-t">
+            <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider px-2">
+              Recursos
+            </p>
+            <button
+              onClick={() => navigate(`/client/${clientId}/content`)}
+              className="w-full flex items-center gap-2 p-2 rounded-lg text-left hover:bg-accent/50 transition-colors"
+            >
+              <Library className="h-4 w-4 text-muted-foreground" />
+              <span className="text-xs">Biblioteca de Conteúdo</span>
+            </button>
+            <button
+              onClick={() => navigate(`/client/${clientId}/references`)}
+              className="w-full flex items-center gap-2 p-2 rounded-lg text-left hover:bg-accent/50 transition-colors"
+            >
+              <BookOpen className="h-4 w-4 text-muted-foreground" />
+              <span className="text-xs">Referências</span>
+            </button>
+            <button
+              onClick={() => navigate(`/client/${clientId}/performance`)}
+              className="w-full flex items-center gap-2 p-2 rounded-lg text-left hover:bg-accent/50 transition-colors"
+            >
+              <TrendingUp className="h-4 w-4 text-muted-foreground" />
+              <span className="text-xs">Performance</span>
+            </button>
+          </div>
         </div>
       </ScrollArea>
     </div>
