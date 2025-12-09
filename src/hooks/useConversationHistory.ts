@@ -27,7 +27,8 @@ export const useConversationHistory = (clientId: string) => {
 export const createNewConversation = async (
   clientId: string,
   model: string,
-  title: string = "Nova Conversa"
+  title: string = "Nova Conversa",
+  templateId?: string | null
 ) => {
   const { data, error } = await supabase
     .from("conversations")
@@ -35,6 +36,7 @@ export const createNewConversation = async (
       client_id: clientId,
       title,
       model,
+      template_id: templateId || null,
     })
     .select()
     .single();

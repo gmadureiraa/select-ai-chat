@@ -25,6 +25,7 @@ export interface Conversation {
   client_id: string;
   title: string;
   model: string;
+  template_id?: string | null;
   created_at: string;
   updated_at?: string;
 }
