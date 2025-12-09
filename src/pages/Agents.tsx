@@ -1,9 +1,13 @@
 import { useNavigate } from "react-router-dom";
 import AgentCard from "@/components/agents/AgentCard";
 import { PageHeader } from "@/components/PageHeader";
+import { useWorkspace } from "@/hooks/useWorkspace";
 
 const Agents = () => {
   const navigate = useNavigate();
+  const { userRole } = useWorkspace();
+  
+  const isMember = userRole === "member";
 
   const agents = [
     {
@@ -57,6 +61,7 @@ const Agents = () => {
       ],
       accentColor: "yellow" as const,
       onOpen: () => navigate("/social-publisher"),
+      comingSoon: isMember,
     },
     {
       title: "Automações",
@@ -83,6 +88,7 @@ const Agents = () => {
       ],
       accentColor: "purple" as const,
       onOpen: () => navigate("/reverse-engineering"),
+      comingSoon: isMember,
     },
     {
       title: "Agent Builder",
@@ -96,6 +102,7 @@ const Agents = () => {
       ],
       accentColor: "emerald" as const,
       onOpen: () => navigate("/agent-builder"),
+      comingSoon: isMember,
     },
   ];
 
