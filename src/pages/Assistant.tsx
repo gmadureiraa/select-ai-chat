@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Loader2, MessageSquare, Image } from "lucide-react";
+import { Loader2, MessageSquare, Image, MessageCircle, Lightbulb, Sparkles, Library, BookOpen, TrendingUp } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
   Select,
@@ -33,7 +33,7 @@ const Assistant = () => {
     },
   });
 
-  const { data: templates, isLoading: isLoadingTemplates } = useQuery({
+  const { data: templates } = useQuery({
     queryKey: ["templates", selectedClientId],
     queryFn: async () => {
       if (!selectedClientId) return [];
@@ -62,6 +62,51 @@ const Assistant = () => {
   const chatTemplates = templates?.filter((t) => t.type === "chat") || [];
   const imageTemplates = templates?.filter((t) => t.type === "image") || [];
 
+  const quickActions = [
+    {
+      icon: MessageCircle,
+      label: "Chat Livre",
+      description: "Conversa com dados reais",
+      className: "bg-emerald-500/10 border-emerald-500/20 hover:bg-emerald-500/15",
+      iconClass: "text-emerald-500",
+      onClick: () => handleStartChat(),
+    },
+    {
+      icon: Lightbulb,
+      label: "Gerar Ideias",
+      description: "Ideias criativas",
+      className: "bg-amber-500/10 border-amber-500/20 hover:bg-amber-500/15",
+      iconClass: "text-amber-500",
+      onClick: () => handleStartChat(),
+    },
+    {
+      icon: Sparkles,
+      label: "Alta Qualidade",
+      description: "Pipeline 4 agentes",
+      className: "bg-primary/10 border-primary/20 hover:bg-primary/15",
+      iconClass: "text-primary",
+      onClick: () => handleStartChat(),
+    },
+  ];
+
+  const clientResources = [
+    {
+      icon: Library,
+      label: "Biblioteca de Conteúdo",
+      path: `/client/${selectedClientId}/content`,
+    },
+    {
+      icon: BookOpen,
+      label: "Referências",
+      path: `/client/${selectedClientId}/references`,
+    },
+    {
+      icon: TrendingUp,
+      label: "Performance",
+      path: `/client/${selectedClientId}/performance`,
+    },
+  ];
+
   return (
     <div className="min-h-screen bg-background">
       <div className="border-b bg-background/95 backdrop-blur-sm">
@@ -77,7 +122,6 @@ const Assistant = () => {
               </div>
             </div>
             
-            {/* Dropdown de seleção de cliente */}
             <Select value={selectedClientId || ""} onValueChange={setSelectedClientId}>
               <SelectTrigger className="w-[280px]">
                 <SelectValue placeholder="Cliente:" />
@@ -101,45 +145,80 @@ const Assistant = () => {
       </div>
 
       <div className="max-w-7xl mx-auto px-6 py-8">
-        <div>
-            {!selectedClientId ? (
-              <div className="flex items-center justify-center h-[calc(100vh-300px)]">
-                <div className="text-center space-y-2">
-                  <MessageSquare className="h-12 w-12 mx-auto text-muted-foreground/50" />
-                  <p className="text-muted-foreground">
-                    Selecione um cliente no menu acima para ver os templates disponíveis
-                  </p>
-                </div>
+        {!selectedClientId ? (
+          <div className="flex items-center justify-center h-[calc(100vh-300px)]">
+            <div className="text-center space-y-2">
+              <MessageSquare className="h-12 w-12 mx-auto text-muted-foreground/50" />
+              <p className="text-muted-foreground">
+                Selecione um cliente no menu acima para ver os templates disponíveis
+              </p>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-8">
+            {/* Header */}
+            <div className="flex items-start justify-between">
+              <div>
+                <h2 className="text-xl font-semibold mb-1">O que você quer fazer?</h2>
+                <p className="text-sm text-muted-foreground">
+                  Escolha uma ação rápida ou template
+                </p>
               </div>
-            ) : (
-              <div className="space-y-6">
-                {/* Header do Cliente */}
-                <div className="flex items-start justify-between">
-                  <div>
-                    <h2 className="text-xl font-semibold mb-1">O que você quer fazer?</h2>
-                    <p className="text-sm text-muted-foreground">
-                      Escolha uma opção ou template para começar
-                    </p>
-                  </div>
-                  <TemplateManager clientId={selectedClientId} />
-                </div>
+              <TemplateManager clientId={selectedClientId} />
+            </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {/* Chat Livre */}
+            {/* Quick Actions */}
+            <div className="space-y-3">
+              <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
+                Ações Rápidas
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                {quickActions.map((action) => (
                   <Card
-                    className="p-4 border-border/50 bg-card/50 hover:border-border transition-all cursor-pointer"
-                    onClick={() => handleStartChat()}
+                    key={action.label}
+                    className={`p-4 cursor-pointer transition-all border ${action.className}`}
+                    onClick={action.onClick}
                   >
-                    <div className="flex items-center gap-3 mb-2">
-                      <MessageSquare className="h-5 w-5 text-foreground" />
-                      <div className="font-semibold text-base">Chat Livre</div>
+                    <div className="flex items-center gap-3">
+                      <action.icon className={`h-5 w-5 ${action.iconClass}`} />
+                      <div>
+                        <div className="font-medium text-sm">{action.label}</div>
+                        <div className="text-xs text-muted-foreground">{action.description}</div>
+                      </div>
                     </div>
-                    <p className="text-xs text-muted-foreground">
-                      Converse livremente com a IA sobre qualquer assunto relacionado ao cliente
-                    </p>
                   </Card>
+                ))}
+              </div>
+            </div>
 
-                  {/* Templates de Chat */}
+            {/* Client Resources */}
+            <div className="space-y-3">
+              <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
+                Recursos do Cliente
+              </h3>
+              <div className="flex gap-2 flex-wrap">
+                {clientResources.map((resource) => (
+                  <Button
+                    key={resource.label}
+                    variant="outline"
+                    size="sm"
+                    className="gap-2"
+                    onClick={() => navigate(resource.path)}
+                  >
+                    <resource.icon className="h-4 w-4" />
+                    {resource.label}
+                  </Button>
+                ))}
+              </div>
+            </div>
+
+            {/* Content Templates */}
+            {chatTemplates.length > 0 && (
+              <div className="space-y-3">
+                <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
+                  Templates de Conteúdo
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                   {chatTemplates.map((template) => (
                     <Card
                       key={template.id}
@@ -147,11 +226,8 @@ const Assistant = () => {
                       onClick={() => handleStartChat(template.id)}
                     >
                       <div className="flex items-center gap-3 mb-2">
-                        <MessageSquare className="h-5 w-5 text-foreground" />
-                        <div className="flex items-center gap-2">
-                          <div className="font-semibold text-base">{template.name}</div>
-                          <Badge variant="outline" className="text-xs">Chat</Badge>
-                        </div>
+                        <MessageSquare className="h-4 w-4 text-foreground" />
+                        <div className="font-medium text-sm">{template.name}</div>
                       </div>
                       {template.rules && Array.isArray(template.rules) && template.rules.length > 0 && (
                         <p className="text-xs text-muted-foreground line-clamp-2">
@@ -160,10 +236,19 @@ const Assistant = () => {
                       )}
                     </Card>
                   ))}
+                </div>
+              </div>
+            )}
 
+            {/* Image Templates */}
+            {imageTemplates.length > 0 && (
+              <div className="space-y-3">
+                <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
+                  Geração de Imagem
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                   {imageTemplates.map((template) => {
                     const rules = Array.isArray(template.rules) ? template.rules : [];
-                    const ruleCount = rules.length;
                     return (
                       <Card
                         key={template.id}
@@ -173,43 +258,35 @@ const Assistant = () => {
                         }
                       >
                         <div className="flex items-center gap-3 mb-2">
-                          <Image className="h-5 w-5 text-foreground" />
+                          <Image className="h-4 w-4 text-[#ff006e]" />
                           <div className="flex items-center gap-2">
-                            <div className="font-semibold text-base">{template.name}</div>
-                            <Badge className="text-xs bg-[#ff006e] hover:bg-[#ff006e]/90">
+                            <div className="font-medium text-sm">{template.name}</div>
+                            <Badge className="text-[10px] bg-[#ff006e] hover:bg-[#ff006e]/90">
                               Imagem
                             </Badge>
                           </div>
                         </div>
-                        {ruleCount > 0 && (
-                          <div className="flex items-center gap-2">
-                            <Badge className="text-xs bg-[#ff006e] hover:bg-[#ff006e]/90">
-                              {ruleCount} {ruleCount === 1 ? 'regra' : 'regras'}
-                            </Badge>
-                            {(rules[0] as any)?.content && (
-                              <p className="text-xs text-muted-foreground line-clamp-1">
-                                Estilo: {(rules[0] as any).content}
-                              </p>
-                            )}
-                          </div>
+                        {rules.length > 0 && (rules[0] as any)?.content && (
+                          <p className="text-xs text-muted-foreground line-clamp-1">
+                            {(rules[0] as any).content}
+                          </p>
                         )}
                       </Card>
                     );
                   })}
                 </div>
-
-                {/* Mensagem se não houver templates */}
-                {chatTemplates.length === 0 && imageTemplates.length === 0 && (
-                  <div className="text-center py-12 text-muted-foreground">
-                    <p>Nenhum template configurado para este cliente</p>
-                    <div className="mt-4">
-                      <TemplateManager clientId={selectedClientId} />
-                    </div>
-                  </div>
-                )}
               </div>
             )}
-        </div>
+
+            {/* Empty State */}
+            {chatTemplates.length === 0 && imageTemplates.length === 0 && (
+              <div className="text-center py-12 text-muted-foreground border border-dashed border-border rounded-lg">
+                <p className="mb-3">Nenhum template configurado para este cliente</p>
+                <TemplateManager clientId={selectedClientId} />
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
