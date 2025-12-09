@@ -20,7 +20,7 @@ import { ChatInput } from "@/components/ChatInput";
 import { TaskSuggestions } from "@/components/chat/TaskSuggestions";
 import { WorkflowVisualization } from "@/components/chat/WorkflowVisualization";
 import { MultiAgentProgress } from "@/components/chat/MultiAgentProgress";
-import { ConversationSidebar } from "@/components/assistant/ConversationSidebar";
+import { ChatOptionsSidebar } from "@/components/assistant/ChatOptionsSidebar";
 import { useClientChat } from "@/hooks/useClientChat";
 import { useSmoothScroll } from "@/hooks/useSmoothScroll";
 import kaleidosLogo from "@/assets/kaleidos-logo.svg";
@@ -132,13 +132,25 @@ const ClientChat = () => {
 
   return (
     <div className="flex h-screen bg-background">
-      {/* Sidebar de histórico */}
+      {/* Sidebar de opções */}
       {sidebarOpen && (
-        <ConversationSidebar
+        <ChatOptionsSidebar
           clientId={clientId!}
           currentConversationId={conversationId}
+          onSelectTemplate={(templateId, templateName) => {
+            const newParams = new URLSearchParams();
+            if (templateId) newParams.set("templateId", templateId);
+            setSearchParams(newParams);
+            handleNewConversation();
+          }}
           onSelectConversation={handleSelectConversation}
-          onNewConversation={handleNewConversation}
+          onSelectMode={(mode) => {
+            // For modes, start new conversation without template
+            const newParams = new URLSearchParams();
+            newParams.set("mode", mode);
+            setSearchParams(newParams);
+            handleNewConversation();
+          }}
         />
       )}
 
