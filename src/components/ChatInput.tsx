@@ -7,6 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { QualitySelector } from "@/components/chat/QualitySelector";
 import { ModeSelector, ChatMode } from "@/components/chat/ModeSelector";
+import { QuickActionChips } from "@/components/chat/QuickActionChips";
 
 interface ChatInputProps {
   onSend: (message: string, imageUrls?: string[], quality?: "fast" | "high", mode?: ChatMode) => void;
@@ -117,9 +118,22 @@ export const ChatInput = ({ onSend, disabled, showQualitySelector = true }: Chat
 
   const isSubmitDisabled = (!input.trim() && imageFiles.length === 0) || disabled || charCount > maxChars || uploadingImages;
 
+  const handleQuickAction = (prompt: string) => {
+    setInput(prompt);
+    textareaRef.current?.focus();
+  };
+
   return (
     <div className="border-t bg-background/95 backdrop-blur-sm p-3 sm:p-4">
       <div className="max-w-4xl mx-auto space-y-3">
+        {/* Quick Action Chips */}
+        {showQualitySelector && !input && mode === "content" && (
+          <QuickActionChips 
+            onSelect={handleQuickAction} 
+            disabled={disabled || uploadingImages} 
+          />
+        )}
+
         {/* Seletores de modo e qualidade */}
         {showQualitySelector && (
           <div className="flex items-center justify-between gap-2 flex-wrap">

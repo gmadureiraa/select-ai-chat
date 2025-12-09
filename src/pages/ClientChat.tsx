@@ -179,27 +179,6 @@ const ClientChat = () => {
                 )}
               </div>
             </div>
-          <div className="flex items-center gap-3">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => navigate("/assistant")}
-              className="hover:bg-muted h-9 w-9"
-            >
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-            <div className="flex items-center gap-2">
-              <img src={kaleidosLogo} alt="kAI" className="h-5 w-5" />
-              <span className="text-xs text-muted-foreground">•</span>
-              <span className="text-sm font-medium">{client.name}</span>
-              {template && (
-                <>
-                  <span className="text-xs text-muted-foreground">•</span>
-                  <span className="text-xs text-muted-foreground">{template.name}</span>
-                </>
-              )}
-            </div>
-          </div>
           
             {messages.length > 0 && (
               <AlertDialog>
