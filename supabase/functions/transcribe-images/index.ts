@@ -22,12 +22,12 @@ serve(async (req) => {
       throw new Error("Maximum 10 images allowed");
     }
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY not configured");
+    const GOOGLE_API_KEY = Deno.env.get("GOOGLE_AI_STUDIO_API_KEY");
+    if (!GOOGLE_API_KEY) {
+      throw new Error("GOOGLE_AI_STUDIO_API_KEY not configured");
     }
 
-    console.log(`Transcribing ${imageUrls.length} images with Lovable AI`);
+    console.log(`Transcribing ${imageUrls.length} images with Gemini`);
 
     const systemPrompt = "Você é um especialista em análise e transcrição de conteúdo visual. Sua tarefa é DESCREVER COMPLETAMENTE a imagem E extrair todo o texto presente. Inclua: 1) DESCRIÇÃO VISUAL: layout, composição, cores dominantes, estilo gráfico, elementos visuais (ícones, ilustrações, fotos), hierarquia visual, e atmosfera geral. 2) TRANSCRIÇÃO: todo o conteúdo textual visível (títulos, subtítulos, corpo de texto, CTAs, legendas). 3) CONTEXTO: tipo de conteúdo (post, carousel, anúncio, etc.) e objetivo aparente. Se for um carrossel do Instagram, separe cada página com '---PÁGINA N---'. Seja extremamente detalhado e preciso - a descrição deve permitir que alguém visualize mentalmente a imagem sem vê-la.";
 
@@ -35,69 +35,82 @@ serve(async (req) => {
       ? "Analise esta imagem completamente: DESCREVA todos os elementos visuais (layout, cores, estilo, composição, elementos gráficos) E TRANSCREVA todo o texto presente. Seja extremamente detalhado na descrição visual para que possa servir como referência de estilo e estrutura:"
       : `Analise estas ${imageUrls.length} imagens completamente: para cada uma, DESCREVA todos os elementos visuais (layout, cores, estilo, composição, elementos gráficos) E TRANSCREVA todo o texto presente. Se for um carrossel, separe cada página com '---PÁGINA N---'. Seja extremamente detalhado nas descrições visuais:`;
 
-    // Build multimodal content for Lovable AI
-    const content: any[] = [
-      { type: "text", text: `${systemPrompt}\n\n${userPrompt}` }
+    // Build parts for Gemini API
+    const parts: any[] = [
+      { text: `${systemPrompt}\n\n${userPrompt}` }
     ];
 
-    // Add images
+    // Add images as inline data
     for (const url of imageUrls) {
+      let base64Data: string;
+      let mimeType: string;
+
       if (url.startsWith("data:")) {
-        // Already base64
-        content.push({
-          type: "image_url",
-          image_url: { url }
-        });
+        // Parse data URL
+        const matches = url.match(/^data:([^;]+);base64,(.+)$/);
+        if (matches) {
+          mimeType = matches[1];
+          base64Data = matches[2];
+        } else {
+          console.warn(`Invalid data URL format: ${url.substring(0, 50)}...`);
+          continue;
+        }
       } else {
         // URL-based image - fetch and convert to base64
         try {
           const imageResponse = await fetch(url);
           if (imageResponse.ok) {
             const arrayBuffer = await imageResponse.arrayBuffer();
-            // Use proper base64 encoding that handles large files
-            const base64 = encodeBase64(arrayBuffer);
-            const contentType = imageResponse.headers.get("content-type") || "image/jpeg";
-            content.push({
-              type: "image_url",
-              image_url: { url: `data:${contentType};base64,${base64}` }
-            });
+            base64Data = encodeBase64(arrayBuffer);
+            mimeType = imageResponse.headers.get("content-type") || "image/jpeg";
           } else {
             console.warn(`Failed to fetch image: ${url}`);
+            continue;
           }
         } catch (fetchError) {
           console.warn(`Error fetching image ${url}:`, fetchError);
+          continue;
         }
       }
+
+      parts.push({
+        inline_data: {
+          mime_type: mimeType,
+          data: base64Data
+        }
+      });
     }
 
-    // Call Lovable AI Gateway with Gemini for vision
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          {
-            role: "user",
-            content: content
-          }
-        ],
-        temperature: 0.3,
-        max_tokens: 8192,
-      }),
-    });
+    // Call Gemini API directly
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GOOGLE_API_KEY}`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: parts
+            }
+          ],
+          generationConfig: {
+            temperature: 0.3,
+            maxOutputTokens: 8192,
+          },
+        }),
+      }
+    );
 
     if (!response.ok) {
       const error = await response.text();
-      console.error("Lovable AI error:", error);
-      throw new Error(`Lovable AI error: ${response.status}`);
+      console.error("Gemini API error:", error);
+      throw new Error(`Gemini API error: ${response.status}`);
     }
 
     const data = await response.json();
-    const transcription = data.choices?.[0]?.message?.content || "";
+    const transcription = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
 
     console.log("Transcription completed successfully");
 
