@@ -50,9 +50,9 @@ serve(async (req) => {
       );
     }
 
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) {
-      console.error('LOVABLE_API_KEY not configured');
+    const GOOGLE_API_KEY = Deno.env.get('GOOGLE_AI_STUDIO_API_KEY');
+    if (!GOOGLE_API_KEY) {
+      console.error('GOOGLE_AI_STUDIO_API_KEY not configured');
       return new Response(
         JSON.stringify({ error: 'API key not configured' }),
         { 
@@ -98,72 +98,62 @@ serve(async (req) => {
       }
     }
 
-    console.log(`Generating image with Nano Banana (Gemini 2.5 Flash Image) - ${processedReferences.length} references`);
+    console.log(`Generating image with Google AI Studio (Gemini Image) - ${processedReferences.length} references`);
 
-    // Construir conteúdo multimodal
-    let content: any;
+    // Construir conteúdo para Google AI Studio
+    const parts: any[] = [];
     
     if (processedReferences.length > 0) {
-      // Formato multimodal com imagens reais como referência
-      const contentArray: any[] = [
-        { 
-          type: "text", 
-          text: `${prompt}\n\nIMPORTANTE: Use as ${processedReferences.length} imagem(ns) anexada(s) como REFERÊNCIA VISUAL. Inspire-se no estilo, composição, cores e elementos dessas referências para criar uma nova imagem original.` 
-        }
-      ];
+      // Adicionar texto com instruções
+      parts.push({ 
+        text: `${prompt}\n\nIMPORTANTE: Use as ${processedReferences.length} imagem(ns) anexada(s) como REFERÊNCIA VISUAL. Inspire-se no estilo, composição, cores e elementos dessas referências para criar uma nova imagem original.` 
+      });
       
       // Adicionar cada imagem de referência
       for (const base64 of processedReferences) {
-        contentArray.push({
-          type: "image_url",
-          image_url: { url: base64 }
-        });
+        // Extrair mime type e dados do base64
+        const matches = base64.match(/^data:([^;]+);base64,(.+)$/);
+        if (matches) {
+          parts.push({
+            inlineData: {
+              mimeType: matches[1],
+              data: matches[2]
+            }
+          });
+        }
       }
       
-      content = contentArray;
       console.log(`Built multimodal request with ${processedReferences.length} reference images`);
     } else {
       // Formato simples sem referências
-      content = prompt;
+      parts.push({ text: prompt });
     }
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash-image-preview",
-        messages: [
-          {
-            role: "user",
-            content: content
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-preview-image-generation:generateContent?key=${GOOGLE_API_KEY}`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          contents: [{ parts }],
+          generationConfig: {
+            responseModalities: ["TEXT", "IMAGE"]
           }
-        ],
-        modalities: ["image", "text"]
-      }),
-    });
+        }),
+      }
+    );
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Lovable AI Gateway error:', response.status, errorText);
+      console.error('Google AI Studio error:', response.status, errorText);
       
       if (response.status === 429) {
         return new Response(
           JSON.stringify({ error: 'Limite de requisições atingido. Tente novamente em alguns instantes.' }),
           { 
             status: 429,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-          }
-        );
-      }
-      
-      if (response.status === 402) {
-        return new Response(
-          JSON.stringify({ error: 'Créditos insuficientes. Adicione créditos na sua workspace Lovable.' }),
-          { 
-            status: 402,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }
           }
         );
@@ -180,8 +170,17 @@ serve(async (req) => {
 
     const data = await response.json();
     
-    // Nano Banana returns images in choices[0].message.images[0].image_url.url format
-    const imageUrl = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+    // Google AI Studio returns images in candidates[0].content.parts[].inlineData format
+    const parts_response = data.candidates?.[0]?.content?.parts || [];
+    let imageUrl = null;
+    
+    for (const part of parts_response) {
+      if (part.inlineData) {
+        const { mimeType, data: imageData } = part.inlineData;
+        imageUrl = `data:${mimeType};base64,${imageData}`;
+        break;
+      }
+    }
 
     if (!imageUrl) {
       console.error('No image in response:', JSON.stringify(data));
@@ -194,7 +193,7 @@ serve(async (req) => {
       );
     }
 
-    console.log(`Image generated successfully with Nano Banana (${processedReferences.length} references used)`);
+    console.log(`Image generated successfully with Google AI Studio (${processedReferences.length} references used)`);
 
     return new Response(
       JSON.stringify({ imageUrl }),
