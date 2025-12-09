@@ -60,49 +60,17 @@ async function logAIUsage(
   }
 }
 
-// Chamada para Lovable AI (OpenAI compatible)
-async function callLovableAI(
-  messages: any[],
-  model: string = "google/gemini-2.5-flash",
-  stream: boolean = false
-): Promise<{ content: string; inputTokens: number; outputTokens: number }> {
-  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-  if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY não configurada");
-
-  console.log(`[MULTI-AGENT] Calling Lovable AI with model: ${model}`);
-
-  const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${LOVABLE_API_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model,
-      messages,
-      stream: false, // Non-streaming for intermediate steps
-    }),
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error(`[MULTI-AGENT] Lovable AI error: ${response.status}`, errorText);
-    
-    if (response.status === 429) {
-      throw new Error("Rate limit exceeded");
-    }
-    if (response.status === 402) {
-      throw new Error("Payment required");
-    }
-    throw new Error(`Lovable AI error: ${response.status}`);
-  }
-
-  const data = await response.json();
-  const content = data.choices?.[0]?.message?.content || "";
-  const inputTokens = data.usage?.prompt_tokens || 0;
-  const outputTokens = data.usage?.completion_tokens || 0;
-
-  return { content, inputTokens, outputTokens };
+// Mapeia nomes de modelo para formato Gemini
+function mapToGeminiModel(model: string): string {
+  const modelMap: Record<string, string> = {
+    "google/gemini-2.5-flash": "gemini-2.5-flash-preview-05-20",
+    "google/gemini-2.5-pro": "gemini-2.5-pro-preview-06-05",
+    "google/gemini-2.5-flash-lite": "gemini-2.5-flash-lite-preview-06-17",
+    "gemini-2.5-flash": "gemini-2.5-flash-preview-05-20",
+    "gemini-2.5-pro": "gemini-2.5-pro-preview-06-05",
+    "gemini-2.5-flash-lite": "gemini-2.5-flash-lite-preview-06-17",
+  };
+  return modelMap[model] || model;
 }
 
 // Chamada para Google Gemini
@@ -219,7 +187,7 @@ ${userMessage}
 Analise e selecione os materiais mais relevantes para criar este conteúdo.` }
   ];
 
-  const result = await callLovableAI(messages, "google/gemini-2.5-flash");
+  const result = await callGemini(messages, "gemini-2.5-flash-preview-05-20");
   
   // Extrair IDs dos materiais mencionados
   const selectedIds = contentLibrary
@@ -289,7 +257,7 @@ ${userMessage}
 Crie agora o primeiro rascunho do conteúdo solicitado.` }
   ];
 
-  const result = await callLovableAI(messages, writerModel);
+  const result = await callGemini(messages, mapToGeminiModel(writerModel));
   console.log(`[AGENT-2] Draft created: ${result.content.length} chars`);
   
   return result.content;
@@ -350,7 +318,7 @@ O leitor não deve perceber que foi escrito por IA.
 Mantenha todo o conteúdo, mas refine completamente o estilo.` }
   ];
 
-  const result = await callLovableAI(messages, editorModel);
+  const result = await callGemini(messages, mapToGeminiModel(editorModel));
   console.log(`[AGENT-3] Refined: ${result.content.length} chars`);
   
   return result.content;
@@ -396,7 +364,7 @@ ${content}
 Faça a revisão final e retorne a versão PRONTA PARA PUBLICAÇÃO.` }
   ];
 
-  const result = await callLovableAI(messages, "google/gemini-2.5-flash");
+  const result = await callGemini(messages, "gemini-2.5-flash-preview-05-20");
   console.log(`[AGENT-4] Final version: ${result.content.length} chars`);
   
   return result.content;
