@@ -12,6 +12,7 @@ const MODEL_PRICING: Record<string, { input: number; output: number }> = {
   "gemini-3-pro-preview": { input: 0.00, output: 0.00 },
   "gemini-2.5-flash": { input: 0.075, output: 0.30 },
   "gemini-2.5-flash-lite": { input: 0.0375, output: 0.15 },
+  "gemini-2.0-flash-lite": { input: 0.0375, output: 0.15 },
   "gemini-2.5-pro": { input: 1.25, output: 5.00 },
   "gpt-5": { input: 2.50, output: 10.00 },
   "claude-sonnet-4-5": { input: 3.00, output: 15.00 },
@@ -63,6 +64,9 @@ async function logAIUsage(
 // Mapeia nomes de modelo para formato Gemini API
 function mapToGeminiModel(model: string): string {
   const modelMap: Record<string, string> = {
+    "flash": "gemini-2.5-flash",
+    "pro": "gemini-2.5-pro",
+    "flash-lite": "gemini-2.0-flash-lite",
     "google/gemini-2.5-flash": "gemini-2.5-flash",
     "google/gemini-2.5-pro": "gemini-2.5-pro",
     "google/gemini-2.5-flash-lite": "gemini-2.0-flash-lite",
@@ -79,7 +83,8 @@ async function callGemini(
   const GOOGLE_API_KEY = Deno.env.get("GOOGLE_AI_STUDIO_API_KEY");
   if (!GOOGLE_API_KEY) throw new Error("GOOGLE_AI_STUDIO_API_KEY não configurada");
 
-  console.log(`[MULTI-AGENT] Calling Gemini with model: ${model}`);
+  const geminiModel = mapToGeminiModel(model);
+  console.log(`[MULTI-AGENT] Calling Gemini with model: ${geminiModel}`);
 
   // Convert to Gemini format
   const contents = messages
@@ -104,7 +109,7 @@ async function callGemini(
   }
 
   const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GOOGLE_API_KEY}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${GOOGLE_API_KEY}`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -126,185 +131,105 @@ async function callGemini(
   return { content, inputTokens, outputTokens };
 }
 
-// ============ AGENTES ESPECIALIZADOS ============
+// ============ INTERFACE DO PIPELINE ============
+interface PipelineAgent {
+  id: string;
+  name: string;
+  description: string;
+  systemPrompt: string;
+  model: "flash" | "pro" | "flash-lite";
+}
 
-// AGENTE 1: PESQUISADOR - Seleciona materiais relevantes
-async function agentResearcher(
-  userMessage: string,
-  contentLibrary: any[],
-  referenceLibrary: any[],
-  clientName: string
-): Promise<{ selectedMaterials: any[]; insights: string }> {
-  console.log(`[AGENT-1] Researcher analyzing request...`);
+interface PipelineConfig {
+  id: string;
+  name: string;
+  agents: PipelineAgent[];
+}
 
-  const systemPrompt = `Você é o AGENTE PESQUISADOR especializado em análise de bibliotecas de conteúdo.
+// ============ EXECUÇÃO GENÉRICA DE AGENTE ============
+async function executeAgent(
+  agent: PipelineAgent,
+  context: {
+    userMessage: string;
+    clientName: string;
+    identityGuide: string;
+    copywritingGuide: string;
+    contentLibrary: any[];
+    referenceLibrary: any[];
+    previousOutputs: Record<string, string>;
+    contentType: string;
+  }
+): Promise<{ content: string; inputTokens: number; outputTokens: number }> {
+  console.log(`[AGENT-${agent.id}] Executing: ${agent.name} with model: ${agent.model}`);
 
-Sua função é:
-1. Analisar a solicitação do usuário
-2. Identificar os materiais MAIS RELEVANTES da biblioteca de conteúdo
-3. Priorizar conteúdos com TOM, ESTRUTURA e ESTILO similares ao que será criado
-4. Extrair insights sobre padrões de sucesso
+  // Construir contexto baseado no tipo de agente
+  let userPrompt = "";
 
-IMPORTANTE:
-- Selecione no MÁXIMO 5 materiais (os mais relevantes)
-- Priorize conteúdos do MESMO TIPO do que está sendo pedido
-- Identifique padrões de linguagem, estrutura e abordagem
+  if (agent.id === "researcher") {
+    const libraryContext = context.contentLibrary.slice(0, 20).map(c => 
+      `ID: ${c.id}\nTítulo: ${c.title}\nTipo: ${c.content_type}\nPreview: ${c.content.substring(0, 500)}...`
+    ).join("\n\n---\n\n");
 
-Retorne sua análise em formato estruturado:
+    const refContext = context.referenceLibrary.slice(0, 10).map(r =>
+      `ID: ${r.id}\nTítulo: ${r.title}\nTipo: ${r.reference_type}\nPreview: ${r.content.substring(0, 300)}...`
+    ).join("\n\n---\n\n");
 
-## MATERIAIS SELECIONADOS
-[Liste os IDs e títulos dos materiais selecionados, explicando brevemente por quê cada um é relevante]
+    userPrompt = `Cliente: ${context.clientName}
 
-## PADRÕES IDENTIFICADOS
-[Descreva padrões de estrutura, linguagem e abordagem que você identificou]
-
-## INSIGHTS PARA CRIAÇÃO
-[Dicas específicas baseadas na análise para guiar a criação do novo conteúdo]`;
-
-  const libraryContext = contentLibrary.slice(0, 20).map(c => 
-    `ID: ${c.id}\nTítulo: ${c.title}\nTipo: ${c.content_type}\nPreview: ${c.content.substring(0, 500)}...`
-  ).join("\n\n---\n\n");
-
-  const refContext = referenceLibrary.slice(0, 10).map(r =>
-    `ID: ${r.id}\nTítulo: ${r.title}\nTipo: ${r.reference_type}\nPreview: ${r.content.substring(0, 300)}...`
-  ).join("\n\n---\n\n");
-
-  const messages = [
-    { role: "system", content: systemPrompt },
-    { role: "user", content: `Cliente: ${clientName}
-
-## BIBLIOTECA DE CONTEÚDO (${contentLibrary.length} itens):
+## BIBLIOTECA DE CONTEÚDO (${context.contentLibrary.length} itens):
 ${libraryContext}
 
-## BIBLIOTECA DE REFERÊNCIAS (${referenceLibrary.length} itens):
+## BIBLIOTECA DE REFERÊNCIAS (${context.referenceLibrary.length} itens):
 ${refContext}
 
 ## SOLICITAÇÃO DO USUÁRIO:
-${userMessage}
+${context.userMessage}
 
-Analise e selecione os materiais mais relevantes para criar este conteúdo.` }
-  ];
+Analise e selecione os materiais mais relevantes para criar este conteúdo.`;
+  } else if (agent.id === "writer") {
+    // Extrair materiais selecionados pelo pesquisador
+    const researchOutput = context.previousOutputs["researcher"] || "";
+    const selectedMaterials = context.contentLibrary.filter(c => 
+      researchOutput.includes(c.id) || researchOutput.includes(c.title)
+    ).slice(0, 5);
 
-  // Usar modelo flash para pesquisa (mais rápido)
-  const result = await callGemini(messages, "gemini-2.5-flash");
-  
-  // Extrair IDs dos materiais mencionados
-  const selectedIds = contentLibrary
-    .filter(c => result.content.includes(c.id) || result.content.includes(c.title))
-    .slice(0, 5);
+    const materialsContext = selectedMaterials.map(m => 
+      `### ${m.title} (${m.content_type})\n${m.content}`
+    ).join("\n\n---\n\n");
 
-  console.log(`[AGENT-1] Selected ${selectedIds.length} materials`);
-
-  return {
-    selectedMaterials: selectedIds,
-    insights: result.content
-  };
-}
-
-// AGENTE 2: ESCRITOR - Cria o primeiro rascunho
-async function agentWriter(
-  userMessage: string,
-  selectedMaterials: any[],
-  identityGuide: string,
-  clientName: string,
-  researchInsights: string,
-  writerModel: string = "google/gemini-2.5-pro"
-): Promise<string> {
-  console.log(`[AGENT-2] Writer creating first draft with model: ${writerModel}...`);
-
-  const materialsContext = selectedMaterials.map(m => 
-    `### ${m.title} (${m.content_type})\n${m.content}`
-  ).join("\n\n---\n\n");
-
-  const systemPrompt = `Você é o AGENTE ESCRITOR especializado em criação de conteúdo de alta qualidade.
-
-Sua função é criar um PRIMEIRO RASCUNHO completo baseado em:
-1. A solicitação específica do usuário
-2. O guia de identidade do cliente
-3. Os materiais de referência selecionados pelo Pesquisador
-4. Os insights e padrões identificados
-
-DIRETRIZES:
-- Crie conteúdo COMPLETO e bem estruturado
-- SIGA os padrões de estrutura dos materiais de referência
-- ADAPTE o tom de voz ao guia de identidade
-- Seja ORIGINAL - não copie, mas siga os padrões
-- Use dados e informações precisas
-- Inclua todos os elementos necessários (hooks, CTAs, etc.)
-
-IMPORTANTE: Seu rascunho será REFINADO por outro agente, então foque em:
-- Conteúdo correto e completo
-- Estrutura adequada
-- Informações precisas`;
-
-  const messages = [
-    { role: "system", content: systemPrompt },
-    { role: "user", content: `## CLIENTE: ${clientName}
+    userPrompt = `## CLIENTE: ${context.clientName}
 
 ## GUIA DE IDENTIDADE:
-${identityGuide || "Não disponível - use tom profissional e acessível"}
+${context.identityGuide || "Não disponível - use tom profissional e acessível"}
 
 ## MATERIAIS DE REFERÊNCIA:
 ${materialsContext || "Nenhum material selecionado"}
 
 ## INSIGHTS DO PESQUISADOR:
-${researchInsights}
+${researchOutput}
+
+## TIPO DE CONTEÚDO: ${context.contentType}
 
 ## SOLICITAÇÃO:
-${userMessage}
+${context.userMessage}
 
-Crie agora o primeiro rascunho do conteúdo solicitado.` }
-  ];
+Crie agora o primeiro rascunho do conteúdo solicitado.`;
+  } else if (agent.id === "editor") {
+    const draft = context.previousOutputs["writer"] || "";
+    const researchOutput = context.previousOutputs["researcher"] || "";
+    
+    const selectedMaterials = context.contentLibrary.filter(c => 
+      researchOutput.includes(c.id) || researchOutput.includes(c.title)
+    ).slice(0, 3);
 
-  const result = await callGemini(messages, mapToGeminiModel(writerModel));
-  console.log(`[AGENT-2] Draft created: ${result.content.length} chars`);
-  
-  return result.content;
-}
+    const examples = selectedMaterials.map(m => 
+      `### EXEMPLO: ${m.title}\n${m.content}`
+    ).join("\n\n---\n\n");
 
-// AGENTE 3: EDITOR DE ESTILO - Refina para parecer com a biblioteca
-async function agentStyleEditor(
-  draft: string,
-  selectedMaterials: any[],
-  copywritingGuide: string,
-  clientName: string,
-  editorModel: string = "google/gemini-2.5-pro"
-): Promise<string> {
-  console.log(`[AGENT-3] Style Editor refining with model: ${editorModel}...`);
-
-  // Pegar exemplos completos para comparação
-  const examples = selectedMaterials.slice(0, 3).map(m => 
-    `### EXEMPLO: ${m.title}\n${m.content}`
-  ).join("\n\n---\n\n");
-
-  const systemPrompt = `Você é o AGENTE EDITOR DE ESTILO especializado em refinar conteúdo para máxima qualidade.
-
-Sua função CRÍTICA é:
-1. Comparar o rascunho com os EXEMPLOS REAIS da biblioteca do cliente
-2. Ajustar o TOM DE VOZ para soar EXATAMENTE como os exemplos
-3. Refinar VOCABULÁRIO, expressões e estilo de escrita
-4. Aplicar as regras do guia de copywriting
-5. Garantir que o conteúdo pareça ESCRITO PELO CLIENTE, não por IA
-
-PROCESSO DE REFINAMENTO:
-1. Analise os exemplos: Como eles começam? Que palavras usam? Qual o ritmo?
-2. Compare com o rascunho: O que está diferente? O que precisa mudar?
-3. Refine cada seção: Reescreva mantendo a essência mas melhorando o estilo
-4. Verifique: O resultado parece ter sido escrito pelo cliente?
-
-REGRAS ABSOLUTAS:
-- NUNCA use linguagem genérica de IA
-- SEMPRE use o vocabulário específico do cliente
-- MANTENHA a estrutura dos exemplos de referência
-- USE as mesmas expressões e turns of phrase
-- ADAPTE hooks e CTAs ao estilo do cliente`;
-
-  const messages = [
-    { role: "system", content: systemPrompt },
-    { role: "user", content: `## CLIENTE: ${clientName}
+    userPrompt = `## CLIENTE: ${context.clientName}
 
 ## GUIA DE COPYWRITING:
-${copywritingGuide || "Use tom conversacional, direto e envolvente. Evite jargões desnecessários."}
+${context.copywritingGuide || "Use tom conversacional, direto e envolvente. Evite jargões desnecessários."}
 
 ## EXEMPLOS REAIS DO CLIENTE (USE COMO REFERÊNCIA DE ESTILO):
 ${examples || "Sem exemplos disponíveis"}
@@ -314,60 +239,36 @@ ${draft}
 
 TAREFA: Reescreva o rascunho para que soe EXATAMENTE como os exemplos do cliente.
 O leitor não deve perceber que foi escrito por IA.
-Mantenha todo o conteúdo, mas refine completamente o estilo.` }
-  ];
+Mantenha todo o conteúdo, mas refine completamente o estilo.`;
+  } else if (agent.id === "reviewer") {
+    const contentToReview = context.previousOutputs["editor"] || context.previousOutputs["writer"] || "";
 
-  const result = await callGemini(messages, mapToGeminiModel(editorModel));
-  console.log(`[AGENT-3] Refined: ${result.content.length} chars`);
-  
-  return result.content;
-}
-
-// AGENTE 4: REVISOR FINAL - Checklist de qualidade
-async function agentReviewer(
-  content: string,
-  contentType: string,
-  clientName: string
-): Promise<string> {
-  console.log(`[AGENT-4] Reviewer doing final check...`);
-
-  const systemPrompt = `Você é o AGENTE REVISOR FINAL responsável pelo polish e verificação de qualidade.
-
-CHECKLIST DE QUALIDADE:
-1. ✓ Sem erros de gramática ou ortografia
-2. ✓ Sem emojis no meio de frases (apenas início/fim de seções)
-3. ✓ CTAs claros e persuasivos
-4. ✓ Hook forte e envolvente
-5. ✓ Formatação correta para o tipo de conteúdo
-6. ✓ Fluxo lógico e coeso
-7. ✓ Sem linguagem genérica de IA ("certamente", "com certeza", etc.)
-8. ✓ Separadores de página/slide quando aplicável
-
-REGRAS DE FORMATAÇÃO:
-- Para carrosséis: Use "---PÁGINA N---" entre slides
-- Para stories: Use "---STORIE N---" entre stories
-- Para threads: Use "---TWEET N---" entre tweets
-- Sempre termine com CTA claro
-
-Se encontrar problemas, CORRIJA diretamente.
-Retorne a versão FINAL polida e pronta para publicação.`;
-
-  const messages = [
-    { role: "system", content: systemPrompt },
-    { role: "user", content: `## CLIENTE: ${clientName}
-## TIPO DE CONTEÚDO: ${contentType || "geral"}
+    userPrompt = `## CLIENTE: ${context.clientName}
+## TIPO DE CONTEÚDO: ${context.contentType || "geral"}
 
 ## CONTEÚDO PARA REVISÃO:
-${content}
+${contentToReview}
 
-Faça a revisão final e retorne a versão PRONTA PARA PUBLICAÇÃO.` }
+Faça a revisão final e retorne a versão PRONTA PARA PUBLICAÇÃO.`;
+  } else {
+    // Agente customizado - usar output anterior
+    const lastOutput = Object.values(context.previousOutputs).pop() || "";
+    userPrompt = `## CLIENTE: ${context.clientName}
+## CONTEXTO ANTERIOR:
+${lastOutput}
+
+## SOLICITAÇÃO:
+${context.userMessage}
+
+Execute sua função.`;
+  }
+
+  const messages = [
+    { role: "system", content: agent.systemPrompt },
+    { role: "user", content: userPrompt }
   ];
 
-  // Usar modelo flash para revisão final (mais rápido)
-  const result = await callGemini(messages, "gemini-2.5-flash");
-  console.log(`[AGENT-4] Final version: ${result.content.length} chars`);
-  
-  return result.content;
+  return await callGemini(messages, agent.model);
 }
 
 // ============ PIPELINE PRINCIPAL ============
@@ -386,12 +287,13 @@ serve(async (req) => {
       contentType,
       userId,
       clientId,
-      writerModel = "google/gemini-2.5-pro",
-      editorModel = "google/gemini-2.5-pro"
+      pipeline // Novo: recebe a configuração do pipeline
     } = await req.json();
 
     console.log(`[MULTI-AGENT] Starting pipeline for ${clientName}`);
-    console.log(`[MULTI-AGENT] Writer model: ${writerModel}, Editor model: ${editorModel}`);
+    console.log(`[MULTI-AGENT] Content type: ${contentType}`);
+    console.log(`[MULTI-AGENT] Pipeline: ${pipeline?.name || "default"}`);
+    console.log(`[MULTI-AGENT] Agents: ${pipeline?.agents?.map((a: any) => a.id).join(" → ") || "default"}`);
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -400,60 +302,82 @@ serve(async (req) => {
     let totalInputTokens = 0;
     let totalOutputTokens = 0;
 
+    // Usar pipeline recebido ou fallback para pipeline padrão
+    const agents: PipelineAgent[] = pipeline?.agents || [
+      {
+        id: "researcher",
+        name: "Pesquisador",
+        model: "flash",
+        systemPrompt: "Analise e selecione materiais relevantes da biblioteca."
+      },
+      {
+        id: "writer",
+        name: "Escritor",
+        model: "pro",
+        systemPrompt: "Crie o primeiro rascunho do conteúdo."
+      },
+      {
+        id: "editor",
+        name: "Editor de Estilo",
+        model: "pro",
+        systemPrompt: "Refine o conteúdo para soar como o cliente."
+      },
+      {
+        id: "reviewer",
+        name: "Revisor Final",
+        model: "flash",
+        systemPrompt: "Faça revisão final e polish."
+      }
+    ];
+
     // Stream de progresso
     const encoder = new TextEncoder();
     const stream = new ReadableStream({
       async start(controller) {
-        const sendProgress = (step: string, status: string, content?: string) => {
-          const data = JSON.stringify({ step, status, content });
+        const sendProgress = (step: string, status: string, content?: string, agentName?: string) => {
+          const data = JSON.stringify({ step, status, content, agentName });
           controller.enqueue(encoder.encode(`data: ${data}\n\n`));
         };
 
         try {
-          // FASE 1: Pesquisador
-          sendProgress("researcher", "running");
-          const research = await agentResearcher(
+          const context = {
             userMessage,
+            clientName,
+            identityGuide,
+            copywritingGuide,
             contentLibrary,
             referenceLibrary,
-            clientName
-          );
-          sendProgress("researcher", "completed", `Selecionados ${research.selectedMaterials.length} materiais`);
+            previousOutputs: {} as Record<string, string>,
+            contentType: contentType || "geral"
+          };
 
-          // FASE 2: Escritor
-          sendProgress("writer", "running");
-          const draft = await agentWriter(
-            userMessage,
-            research.selectedMaterials,
-            identityGuide,
-            clientName,
-            research.insights,
-            writerModel
-          );
-          sendProgress("writer", "completed", `Rascunho: ${draft.length} caracteres`);
+          // Executar cada agente em sequência
+          for (let i = 0; i < agents.length; i++) {
+            const agent = agents[i];
+            const isLast = i === agents.length - 1;
 
-          // FASE 3: Editor de Estilo
-          sendProgress("editor", "running");
-          const refined = await agentStyleEditor(
-            draft,
-            research.selectedMaterials,
-            copywritingGuide,
-            clientName,
-            editorModel
-          );
-          sendProgress("editor", "completed", `Refinado: ${refined.length} caracteres`);
+            sendProgress(agent.id, "running", `${agent.description || agent.name}...`, agent.name);
 
-          // FASE 4: Revisor Final
-          sendProgress("reviewer", "running");
-          const final = await agentReviewer(
-            refined,
-            contentType,
-            clientName
-          );
-          sendProgress("reviewer", "completed");
+            try {
+              const result = await executeAgent(agent, context);
+              
+              // Armazenar output para próximo agente
+              context.previousOutputs[agent.id] = result.content;
+              totalInputTokens += result.inputTokens;
+              totalOutputTokens += result.outputTokens;
 
-          // Enviar resultado final
-          sendProgress("complete", "done", final);
+              if (isLast) {
+                // Último agente - enviar resultado final
+                sendProgress(agent.id, "completed", `Finalizado`, agent.name);
+                sendProgress("complete", "done", result.content);
+              } else {
+                sendProgress(agent.id, "completed", `${result.content.length} caracteres`, agent.name);
+              }
+            } catch (agentError: any) {
+              console.error(`[AGENT-${agent.id}] Error:`, agentError);
+              throw new Error(`Erro no agente ${agent.name}: ${agentError.message}`);
+            }
+          }
 
           // Log usage
           if (userId) {
@@ -464,7 +388,12 @@ serve(async (req) => {
               "chat-multi-agent",
               totalInputTokens,
               totalOutputTokens,
-              { clientId, contentType, writerModel, editorModel }
+              { 
+                clientId, 
+                contentType, 
+                pipelineId: pipeline?.id || "default",
+                agentCount: agents.length 
+              }
             );
           }
 
