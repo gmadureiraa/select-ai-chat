@@ -116,143 +116,143 @@ export const AdvancedProgress = ({
   const Icon = stepIcons[multiAgentStep || currentStep || "analyzing"] || Brain;
 
   return (
-    <div className="space-y-4 p-4 rounded-xl border border-primary/20 bg-gradient-to-br from-primary/5 to-transparent backdrop-blur-sm">
+    <div className="space-y-3 p-4 rounded-2xl border border-border/60 bg-card/50 backdrop-blur-sm">
       {/* Header com status principal */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="relative">
-            <div className="absolute inset-0 bg-primary/30 rounded-full blur-md animate-pulse" />
-            <div className="relative p-2.5 rounded-full bg-primary/20 border border-primary/30">
-              <Icon className="h-5 w-5 text-primary animate-pulse" />
+            <div className="absolute inset-0 bg-primary/20 rounded-xl blur-lg animate-pulse" />
+            <div className="relative p-2 rounded-xl bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20">
+              <Icon className="h-4 w-4 text-primary" />
             </div>
           </div>
-          <div>
-            <p className="text-sm font-medium">{getCurrentStepLabel()}</p>
+          <div className="space-y-0.5">
+            <p className="text-sm font-medium text-foreground">{getCurrentStepLabel()}</p>
             {isAutonomous && (
-              <Badge variant="outline" className="text-[10px] bg-amber-500/20 border-amber-500/40 text-amber-600 mt-1">
-                <Zap className="h-2.5 w-2.5 mr-1" />
-                Modo Autônomo
+              <Badge variant="outline" className="text-[9px] h-4 px-1.5 bg-amber-500/10 border-amber-500/30 text-amber-600">
+                <Zap className="h-2 w-2 mr-0.5" />
+                Multi-Agente
               </Badge>
             )}
           </div>
         </div>
         
-        <div className="flex items-center gap-3 text-xs text-muted-foreground">
-          <div className="flex items-center gap-1">
-            <Clock className="h-3 w-3" />
-            <span>{formatTime(elapsedTime)}</span>
-          </div>
-          {estimatedTimeRemaining && (
-            <span className="text-primary">~{formatTime(estimatedTimeRemaining)} restante</span>
-          )}
+        <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+          <Clock className="h-3 w-3" />
+          <span className="tabular-nums">{formatTime(elapsedTime)}</span>
         </div>
       </div>
 
       {/* Barra de progresso */}
-      <div className="space-y-1.5">
-        <Progress value={getProgressPercentage()} className="h-1.5" />
+      <div className="space-y-1">
+        <Progress value={getProgressPercentage()} className="h-1" />
         <div className="flex justify-between text-[10px] text-muted-foreground">
-          <span>{getProgressPercentage()}% completo</span>
+          <span>{getProgressPercentage()}%</span>
           {multiAgentStep && (
-            <span>Etapa {["researcher", "writer", "editor", "reviewer", "complete"].indexOf(multiAgentStep) + 1}/5</span>
+            <span className="text-primary/80">
+              {["researcher", "writer", "editor", "reviewer", "complete"].indexOf(multiAgentStep) + 1}/5
+            </span>
           )}
         </div>
       </div>
 
       {/* Sub-tarefas (se houver) */}
       {subTasks.length > 0 && (
-        <div className="space-y-1.5 pt-2 border-t border-border/30">
-          <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Sub-tarefas</p>
+        <div className="space-y-1 pt-2 border-t border-border/40">
+          <p className="text-[9px] font-medium text-muted-foreground uppercase tracking-wider mb-1">Sub-tarefas</p>
           {subTasks.map((task) => (
             <div 
               key={task.id} 
               className={cn(
-                "flex items-center gap-2 p-2 rounded-lg transition-all",
-                task.status === "running" && "bg-primary/10",
-                task.status === "completed" && "bg-muted/30",
-                task.status === "error" && "bg-destructive/10"
+                "flex items-center gap-2 py-1.5 px-2 rounded-lg transition-all text-xs",
+                task.status === "running" && "bg-primary/5",
+                task.status === "completed" && "opacity-60"
               )}
             >
-              <div className="flex-shrink-0">
-                {task.status === "completed" && <CheckCircle2 className="h-3.5 w-3.5 text-primary" />}
-                {task.status === "running" && <Loader2 className="h-3.5 w-3.5 text-primary animate-spin" />}
-                {task.status === "pending" && <Circle className="h-3.5 w-3.5 text-muted-foreground/50" />}
-                {task.status === "error" && <Circle className="h-3.5 w-3.5 text-destructive" />}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className={cn(
-                  "text-xs",
-                  task.status === "running" && "text-primary font-medium",
-                  task.status === "completed" && "text-muted-foreground",
-                  task.status === "pending" && "text-muted-foreground/60"
-                )}>
-                  {task.label}
-                </p>
-                {task.description && task.status === "running" && (
-                  <p className="text-[10px] text-muted-foreground truncate">{task.description}</p>
-                )}
-              </div>
-              {task.duration && task.status === "completed" && (
-                <span className="text-[10px] text-muted-foreground">{task.duration}ms</span>
-              )}
+              {task.status === "completed" && <CheckCircle2 className="h-3 w-3 text-primary" />}
+              {task.status === "running" && <Loader2 className="h-3 w-3 text-primary animate-spin" />}
+              {task.status === "pending" && <Circle className="h-3 w-3 text-muted-foreground/40" />}
+              <span className={cn(
+                task.status === "running" && "text-primary font-medium",
+                task.status === "pending" && "text-muted-foreground/60"
+              )}>
+                {task.label}
+              </span>
             </div>
           ))}
         </div>
       )}
 
-      {/* Multi-agent details */}
+      {/* Multi-agent pipeline visualization */}
       {multiAgentStep && Object.keys(multiAgentDetails).length > 0 && (
-        <div className="space-y-1.5 pt-2 border-t border-border/30">
-          <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Pipeline Multi-Agente</p>
-          {["researcher", "writer", "editor", "reviewer"].map((agent) => {
-            const detail = multiAgentDetails[agent];
-            const isActive = agent === multiAgentStep;
-            const isCompleted = ["researcher", "writer", "editor", "reviewer"].indexOf(agent) < 
-                               ["researcher", "writer", "editor", "reviewer"].indexOf(multiAgentStep);
-            
-            return (
-              <div 
-                key={agent}
-                className={cn(
-                  "flex items-center gap-2 p-2 rounded-lg transition-all",
-                  isActive && "bg-primary/10",
-                  isCompleted && "bg-muted/30"
-                )}
-              >
-                {isCompleted && <CheckCircle2 className="h-3.5 w-3.5 text-primary" />}
-                {isActive && <Loader2 className="h-3.5 w-3.5 text-primary animate-spin" />}
-                {!isCompleted && !isActive && <Circle className="h-3.5 w-3.5 text-muted-foreground/50" />}
-                <span className={cn(
-                  "text-xs capitalize",
-                  isActive && "text-primary font-medium",
-                  isCompleted && "text-muted-foreground"
-                )}>
-                  {agent === "researcher" && "🔍 Pesquisador"}
-                  {agent === "writer" && "✍️ Escritor"}
-                  {agent === "editor" && "📝 Editor de Estilo"}
-                  {agent === "reviewer" && "✅ Revisor"}
-                </span>
-                {detail && isActive && (
-                  <span className="text-[10px] text-muted-foreground truncate ml-2">{detail}</span>
-                )}
-              </div>
-            );
-          })}
+        <div className="pt-2 border-t border-border/40">
+          <div className="flex items-center gap-1">
+            {["researcher", "writer", "editor", "reviewer"].map((agent, i) => {
+              const isActive = agent === multiAgentStep;
+              const isCompleted = ["researcher", "writer", "editor", "reviewer"].indexOf(agent) < 
+                                 ["researcher", "writer", "editor", "reviewer"].indexOf(multiAgentStep);
+              
+              const icons = {
+                researcher: "🔍",
+                writer: "✍️",
+                editor: "📝",
+                reviewer: "✅"
+              };
+              
+              return (
+                <div key={agent} className="flex items-center flex-1">
+                  <div 
+                    className={cn(
+                      "flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg text-[10px] transition-all",
+                      isActive && "bg-primary/10 text-primary font-medium",
+                      isCompleted && "bg-muted/50 text-muted-foreground",
+                      !isActive && !isCompleted && "text-muted-foreground/50"
+                    )}
+                  >
+                    {isCompleted ? (
+                      <CheckCircle2 className="h-3 w-3" />
+                    ) : isActive ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <span>{icons[agent as keyof typeof icons]}</span>
+                    )}
+                    <span className="hidden sm:inline capitalize">
+                      {agent === "researcher" && "Pesq."}
+                      {agent === "writer" && "Escr."}
+                      {agent === "editor" && "Edit."}
+                      {agent === "reviewer" && "Rev."}
+                    </span>
+                  </div>
+                  {i < 3 && (
+                    <div className={cn(
+                      "w-3 h-px mx-0.5",
+                      isCompleted ? "bg-primary/50" : "bg-border"
+                    )} />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+          {multiAgentDetails[multiAgentStep] && (
+            <p className="text-[10px] text-muted-foreground text-center mt-2 animate-fade-in">
+              {multiAgentDetails[multiAgentStep]}
+            </p>
+          )}
         </div>
       )}
 
       {/* Thought Process (collapsible) */}
       {thoughtProcess.length > 0 && (
         <Collapsible open={isThoughtOpen} onOpenChange={setIsThoughtOpen}>
-          <CollapsibleTrigger className="flex items-center gap-2 w-full pt-2 border-t border-border/30 text-xs text-muted-foreground hover:text-foreground transition-colors">
+          <CollapsibleTrigger className="flex items-center gap-2 w-full pt-2 border-t border-border/40 text-[10px] text-muted-foreground hover:text-foreground transition-colors">
             {isThoughtOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
             <MessageSquare className="h-3 w-3" />
-            <span>Processo de Pensamento ({thoughtProcess.length} etapas)</span>
+            <span>Processo ({thoughtProcess.length})</span>
           </CollapsibleTrigger>
           <CollapsibleContent className="pt-2">
-            <div className="space-y-1.5 pl-5 border-l-2 border-primary/20">
+            <div className="space-y-1 pl-4 border-l border-primary/20">
               {thoughtProcess.map((thought, i) => (
-                <p key={i} className="text-[11px] text-muted-foreground">
+                <p key={i} className="text-[10px] text-muted-foreground">
                   {thought}
                 </p>
               ))}

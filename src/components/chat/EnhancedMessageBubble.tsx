@@ -99,37 +99,37 @@ export const EnhancedMessageBubble = ({
   return (
     <>
       <div className={cn(
-        "flex gap-3 px-4 py-4 animate-fade-in group",
+        "flex gap-3 px-4 py-3 group transition-colors hover:bg-muted/20",
         isUser ? "justify-end" : "justify-start"
       )}>
         {/* Avatar do assistente */}
         {!isUser && (
-          <div className="flex-shrink-0 w-8 h-8 rounded-full bg-card border border-primary/20 flex items-center justify-center">
-            <img src={kaleidosLogo} alt="kAI" className="h-5 w-5 object-contain" />
+          <div className="flex-shrink-0 w-7 h-7 rounded-lg bg-gradient-to-br from-primary/10 to-transparent border border-primary/10 flex items-center justify-center mt-0.5">
+            <img src={kaleidosLogo} alt="kAI" className="h-4 w-4 object-contain" />
           </div>
         )}
         
-        <div className="flex flex-col gap-2 max-w-[85%]">
+        <div className="flex flex-col gap-2 max-w-[85%] min-w-0">
           {/* Imagens */}
           {hasImages && (
             <div className={cn(
               "relative",
               isUser ? "order-first" : "",
-              isSingleImage ? "max-w-md" : "max-w-lg"
+              isSingleImage ? "max-w-sm" : "max-w-md"
             )}>
               {/* Badge de imagem gerada */}
               {isGeneratedImage && !isUser && (
                 <Badge 
                   variant="secondary" 
-                  className="absolute -top-2 -left-2 z-10 text-[10px] bg-primary/90 text-primary-foreground"
+                  className="absolute -top-1.5 -left-1.5 z-10 text-[9px] h-5 bg-gradient-to-r from-primary to-primary/80 text-primary-foreground border-0"
                 >
-                  <Sparkles className="h-2.5 w-2.5 mr-1" />
+                  <Sparkles className="h-2.5 w-2.5 mr-0.5" />
                   IA
                 </Badge>
               )}
               
               <div className={cn(
-                "grid gap-2",
+                "grid gap-1.5",
                 isMultipleImages && imageUrls.length === 2 && "grid-cols-2",
                 isMultipleImages && imageUrls.length === 3 && "grid-cols-3",
                 isMultipleImages && imageUrls.length >= 4 && "grid-cols-2"
@@ -137,21 +137,20 @@ export const EnhancedMessageBubble = ({
                 {imageUrls.map((url, index) => (
                   <div 
                     key={index} 
-                    className="relative group/img cursor-pointer overflow-hidden rounded-lg border border-border"
+                    className="relative group/img cursor-pointer overflow-hidden rounded-xl border border-border/50"
                     onClick={() => setLightboxImage(url)}
                   >
                     <img
                       src={url}
                       alt={isGeneratedImage ? "Imagem gerada por IA" : `Anexo ${index + 1}`}
                       className={cn(
-                        "w-full h-auto object-cover transition-transform duration-200 group-hover/img:scale-105",
-                        isSingleImage && "max-h-80",
+                        "w-full h-auto object-cover transition-transform duration-300 group-hover/img:scale-105",
+                        isSingleImage && "max-h-72",
                         isMultipleImages && "aspect-square object-cover"
                       )}
                     />
-                    {/* Overlay de zoom */}
-                    <div className="absolute inset-0 bg-black/0 group-hover/img:bg-black/20 transition-colors flex items-center justify-center">
-                      <ZoomIn className="h-6 w-6 text-white opacity-0 group-hover/img:opacity-100 transition-opacity" />
+                    <div className="absolute inset-0 bg-black/0 group-hover/img:bg-black/10 transition-colors flex items-center justify-center">
+                      <ZoomIn className="h-5 w-5 text-white opacity-0 group-hover/img:opacity-100 transition-opacity drop-shadow-lg" />
                     </div>
                   </div>
                 ))}
@@ -181,8 +180,8 @@ export const EnhancedMessageBubble = ({
               className={cn(
                 "rounded-2xl px-4 py-3 break-words relative",
                 isUser
-                  ? "bg-muted border border-border"
-                  : "bg-card border border-border"
+                  ? "bg-primary/5 border border-primary/10"
+                  : "bg-card border border-border/50"
               )}
             >
               {/* Quick download button for long content */}
@@ -190,15 +189,15 @@ export const EnhancedMessageBubble = ({
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="absolute -top-2 -right-2 h-7 px-2 bg-background border border-border shadow-sm hover:bg-muted"
+                  className="absolute -top-2 -right-2 h-6 px-2 bg-card border border-border/60 shadow-sm hover:bg-muted text-[9px] rounded-lg"
                   onClick={handleDownloadAsPDF}
                 >
                   <FileDown className="h-3 w-3 mr-1" />
-                  <span className="text-[10px]">PDF</span>
+                  PDF
                 </Button>
               )}
               
-              <div className="prose prose-sm dark:prose-invert max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
+              <div className="prose prose-sm dark:prose-invert max-w-none text-sm leading-relaxed [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 [&_p]:my-2 [&_ul]:my-2 [&_ol]:my-2 [&_li]:my-0.5">
                 <ReactMarkdown>{textContent}</ReactMarkdown>
               </div>
             </div>
@@ -218,21 +217,21 @@ export const EnhancedMessageBubble = ({
 
         {/* Avatar do usuário */}
         {isUser && (
-          <div className="flex-shrink-0 w-8 h-8 rounded-full bg-muted border border-border flex items-center justify-center">
-            <User className="h-4 w-4 text-foreground" />
+          <div className="flex-shrink-0 w-7 h-7 rounded-lg bg-muted border border-border/50 flex items-center justify-center mt-0.5">
+            <User className="h-3.5 w-3.5 text-muted-foreground" />
           </div>
         )}
       </div>
 
       {/* Lightbox para visualização ampliada */}
       <Dialog open={!!lightboxImage} onOpenChange={() => setLightboxImage(null)}>
-        <DialogContent className="max-w-4xl p-2 bg-background/95 backdrop-blur-sm">
+        <DialogContent className="max-w-4xl p-2 bg-background/95 backdrop-blur-lg border-border/50">
           <DialogTitle className="sr-only">Visualização da imagem</DialogTitle>
           {lightboxImage && (
             <img
               src={lightboxImage}
               alt="Imagem ampliada"
-              className="w-full h-auto max-h-[85vh] object-contain rounded-lg"
+              className="w-full h-auto max-h-[85vh] object-contain rounded-xl"
             />
           )}
         </DialogContent>

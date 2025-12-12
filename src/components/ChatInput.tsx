@@ -118,12 +118,12 @@ export const ChatInput = ({ onSend, disabled, showQualitySelector = true }: Chat
   const isSubmitDisabled = (!input.trim() && imageFiles.length === 0) || disabled || charCount > maxChars || uploadingImages;
 
   return (
-    <div className="border-t bg-background/95 backdrop-blur-sm p-3 sm:p-4">
-      <div className="max-w-4xl mx-auto space-y-3">
+    <div className="border-t bg-background/80 backdrop-blur-xl p-3">
+      <div className="max-w-3xl mx-auto space-y-2.5">
         {/* Seletores de modo e qualidade */}
         {showQualitySelector && (
-          <div className="flex items-center justify-between gap-2 flex-wrap">
-            <div className="flex items-center gap-3">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
               <ModeSelector 
                 mode={mode} 
                 onChange={setMode} 
@@ -137,14 +137,14 @@ export const ChatInput = ({ onSend, disabled, showQualitySelector = true }: Chat
                 />
               )}
             </div>
-            <span className="text-[10px] text-muted-foreground">
+            <span className="text-[10px] text-muted-foreground/70">
               {mode === "free_chat"
-                ? "Conversa livre com dados reais"
+                ? "Chat livre"
                 : mode === "ideas" 
-                  ? "Gera ideias baseadas na biblioteca" 
+                  ? "Modo ideias" 
                   : quality === "high" 
-                    ? "Pipeline 4 agentes" 
-                    : "Resposta rápida"
+                    ? "4 agentes" 
+                    : "Rápido"
               }
             </span>
           </div>
@@ -152,24 +152,24 @@ export const ChatInput = ({ onSend, disabled, showQualitySelector = true }: Chat
 
         {/* Preview de imagens */}
         {imageFiles.length > 0 && (
-          <div className="flex gap-2 flex-wrap p-2 bg-muted/30 rounded-lg">
+          <div className="flex gap-1.5 flex-wrap p-2 bg-muted/30 rounded-xl border border-border/40">
             {imageFiles.map((file, index) => (
               <div key={index} className="relative group">
                 <img
                   src={URL.createObjectURL(file)}
                   alt={`Preview ${index + 1}`}
-                  className="h-14 w-14 object-cover rounded-md border border-border"
+                  className="h-12 w-12 object-cover rounded-lg border border-border/50"
                 />
                 <button
                   onClick={() => removeImage(index)}
-                  className="absolute -top-1.5 -right-1.5 bg-destructive text-destructive-foreground rounded-full p-0.5 shadow-sm hover:bg-destructive/90 transition-colors"
+                  className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground rounded-full p-0.5 shadow-sm hover:bg-destructive/90 transition-colors"
                 >
-                  <X className="h-3 w-3" />
+                  <X className="h-2.5 w-2.5" />
                 </button>
               </div>
             ))}
-            <span className="text-xs text-muted-foreground self-end pb-1">
-              {imageFiles.length}/5 imagens
+            <span className="text-[10px] text-muted-foreground self-end pb-0.5">
+              {imageFiles.length}/5
             </span>
           </div>
         )}
@@ -191,10 +191,10 @@ export const ChatInput = ({ onSend, disabled, showQualitySelector = true }: Chat
             variant="ghost"
             size="icon"
             disabled={disabled || uploadingImages}
-            className="h-10 w-10 flex-shrink-0 hover:bg-muted rounded-xl"
+            className="h-9 w-9 flex-shrink-0 hover:bg-muted/60 rounded-xl"
             title="Anexar imagem"
           >
-            <ImageIcon className="h-5 w-5 text-muted-foreground" />
+            <ImageIcon className="h-4 w-4 text-muted-foreground" />
           </Button>
 
           {/* Campo de texto */}
@@ -206,14 +206,15 @@ export const ChatInput = ({ onSend, disabled, showQualitySelector = true }: Chat
               onKeyDown={handleKeyDown}
               placeholder={
                 imageFiles.length > 0 
-                  ? "Descreva o que você quer sobre as imagens..." 
+                  ? "Descreva o que você quer..." 
                   : "Digite sua mensagem..."
               }
               disabled={disabled || uploadingImages}
               className={cn(
-                "min-h-[44px] max-h-[180px] resize-none pr-12 rounded-xl border-border",
-                "focus:border-primary/50 focus:ring-1 focus:ring-primary/20",
-                "placeholder:text-muted-foreground/60"
+                "min-h-[40px] max-h-[160px] resize-none pr-11 rounded-xl border-border/60 text-sm",
+                "bg-card/50 focus:bg-card",
+                "focus:border-primary/40 focus:ring-1 focus:ring-primary/10",
+                "placeholder:text-muted-foreground/50"
               )}
               rows={1}
             />
@@ -224,14 +225,14 @@ export const ChatInput = ({ onSend, disabled, showQualitySelector = true }: Chat
               disabled={isSubmitDisabled}
               size="icon"
               className={cn(
-                "absolute right-1.5 bottom-1.5 h-8 w-8 rounded-lg transition-all",
-                !isSubmitDisabled && "bg-primary hover:bg-primary/90"
+                "absolute right-1 bottom-1 h-7 w-7 rounded-lg transition-all",
+                !isSubmitDisabled && "bg-primary hover:bg-primary/90 shadow-sm"
               )}
             >
               {uploadingImages ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
               ) : (
-                <Send className="h-4 w-4" />
+                <Send className="h-3.5 w-3.5" />
               )}
             </Button>
           </div>
@@ -239,7 +240,7 @@ export const ChatInput = ({ onSend, disabled, showQualitySelector = true }: Chat
 
         {/* Contador de caracteres */}
         {charCount > maxChars * 0.8 && (
-          <div className="text-xs text-right px-1">
+          <div className="text-[10px] text-right">
             <span className={cn(
               charCount > maxChars * 0.9 && charCount <= maxChars && "text-yellow-500",
               charCount >= maxChars && "text-destructive"
