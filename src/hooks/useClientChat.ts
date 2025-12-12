@@ -27,11 +27,13 @@ import {
   CONTENT_CREATION_RULES,
   detectContentType,
   parseIdeaRequest,
-  ContentFormatType
+  ContentFormatType,
+  TEMPLATE_NAME_TO_CONTENT_TYPE
 } from "@/types/template";
+import { getPipelineForContentType, PipelineConfig } from "@/types/pipelines";
 
 // Tipos de conteúdo que se beneficiam do pipeline multi-agente
-const MULTI_AGENT_CONTENT_TYPES = ["newsletter", "blog_post", "linkedin_post", "thread", "carousel"];
+const MULTI_AGENT_CONTENT_TYPES = ["newsletter", "blog_post", "linkedin_post", "thread", "carousel", "stories", "short_video", "long_video", "tweet"];
 
 export const useClientChat = (clientId: string, templateId?: string, conversationIdParam?: string) => {
   const [selectedModel, setSelectedModel] = useState("gemini-2.5-flash");
@@ -594,10 +596,26 @@ INSTRUÇÕES:
       ));
 
       if (shouldUseMultiAgent) {
-        console.log("[CHAT] Using multi-agent pipeline for:", earlyDetectedType, "quality:", quality);
+        // Determinar tipo de conteúdo baseado no template ou detecção automática
+        let contentTypeForPipeline: string | ContentFormatType | null = earlyDetectedType;
+        
+        // Se tem template, usar o tipo do template
+        if (template?.name) {
+          const templateContentType = TEMPLATE_NAME_TO_CONTENT_TYPE[template.name];
+          if (templateContentType) {
+            contentTypeForPipeline = templateContentType as ContentFormatType;
+            console.log("[CHAT] Using template content type:", templateContentType);
+          }
+        }
+        
+        // Obter pipeline específico para o tipo de conteúdo
+        const pipeline = getPipelineForContentType(contentTypeForPipeline);
+        console.log("[CHAT] Using pipeline:", pipeline.name, "for content type:", contentTypeForPipeline);
+        console.log("[CHAT] Pipeline agents:", pipeline.agents.map(a => a.id).join(" → "));
+        
         setCurrentStep("multi_agent");
-        setMultiAgentStep("researcher");
-        setMultiAgentDetails({ researcher: "Analisando biblioteca de conteúdo..." });
+        setMultiAgentStep(pipeline.agents[0]?.id as any || "researcher");
+        setMultiAgentDetails({ [pipeline.agents[0]?.id || "researcher"]: `${pipeline.agents[0]?.description || "Iniciando"}...` });
 
         try {
           // Buscar guia de copywriting do cliente (de knowledgeFiles se disponível)
@@ -624,11 +642,10 @@ INSTRUÇÕES:
               identityGuide: identityGuide || client.identity_guide || "",
               copywritingGuide,
               clientName: client.name,
-              contentType: earlyDetectedType,
+              contentType: contentTypeForPipeline,
               userId: user?.id,
               clientId,
-              writerModel: "google/gemini-2.5-pro",
-              editorModel: "google/gemini-2.5-pro"
+              pipeline // Enviar configuração do pipeline para o edge function
             },
           });
 
@@ -658,7 +675,7 @@ INSTRUÇÕES:
 
                 try {
                   const parsed = JSON.parse(jsonStr);
-                  const { step, status, content: stepContent } = parsed;
+                  const { step, status, content: stepContent, agentName } = parsed;
 
                   // Atualizar progresso visual
                   if (step && status) {
@@ -669,10 +686,10 @@ INSTRUÇÕES:
                       throw new Error(stepContent || "Erro no pipeline");
                     } else {
                       setMultiAgentStep(step as any);
-                      if (stepContent) {
+                      if (stepContent || agentName) {
                         setMultiAgentDetails(prev => ({
                           ...prev,
-                          [step]: stepContent
+                          [step]: stepContent || agentName || step
                         }));
                       }
                     }
@@ -698,10 +715,13 @@ INSTRUÇÕES:
               entityType: "conversation",
               entityId: conversationId,
               entityName: client.name,
-              description: `Conteúdo gerado via pipeline multi-agente para ${client.name}`,
+              description: `Conteúdo gerado via ${pipeline.name} para ${client.name}`,
               metadata: { 
                 model: "multi-agent-pipeline",
-                contentType: earlyDetectedType,
+                pipelineId: pipeline.id,
+                pipelineName: pipeline.name,
+                agentCount: pipeline.agents.length,
+                contentType: contentTypeForPipeline,
                 responseLength: finalContent.length
               },
             });
