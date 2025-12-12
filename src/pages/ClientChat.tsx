@@ -167,7 +167,7 @@ const ClientChat = () => {
   }
 
   return (
-    <div className="flex h-screen bg-background">
+    <div className="flex h-screen bg-background overflow-hidden">
       {/* Sidebar de opções */}
       {sidebarOpen && (
         <ChatOptionsSidebar
@@ -183,41 +183,45 @@ const ClientChat = () => {
         />
       )}
 
-      <div className="flex flex-1 flex-col">
+      <div className="flex flex-1 flex-col min-w-0">
         {/* Header minimalista */}
-        <header className="border-b bg-background/95 backdrop-blur-sm sticky top-0 z-10">
-          <div className="flex items-center justify-between h-14 px-4">
-            <div className="flex items-center gap-2">
+        <header className="border-b bg-background/80 backdrop-blur-xl sticky top-0 z-10">
+          <div className="flex items-center justify-between h-12 px-3">
+            <div className="flex items-center gap-1.5">
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={() => setSidebarOpen(!sidebarOpen)}
-                className="hover:bg-muted h-9 w-9"
+                className="h-8 w-8 hover:bg-muted/60"
               >
                 {sidebarOpen ? (
-                  <PanelLeftClose className="h-4 w-4" />
+                  <PanelLeftClose className="h-4 w-4 text-muted-foreground" />
                 ) : (
-                  <PanelLeft className="h-4 w-4" />
+                  <PanelLeft className="h-4 w-4 text-muted-foreground" />
                 )}
               </Button>
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={() => navigate("/assistant")}
-                className="hover:bg-muted h-9 w-9"
+                className="h-8 w-8 hover:bg-muted/60"
               >
-                <ArrowLeft className="h-4 w-4" />
+                <ArrowLeft className="h-4 w-4 text-muted-foreground" />
               </Button>
+              <div className="h-4 w-px bg-border mx-1" />
               <div className="flex items-center gap-2">
-                <img src={kaleidosLogo} alt="kAI" className="h-5 w-5" />
-                <span className="text-xs text-muted-foreground">•</span>
-                <span className="text-sm font-medium">{client.name}</span>
-                {template && (
-                  <>
-                    <span className="text-xs text-muted-foreground">•</span>
-                    <span className="text-xs text-muted-foreground">{template.name}</span>
-                  </>
-                )}
+                <div className="h-6 w-6 rounded-lg bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/10 flex items-center justify-center">
+                  <img src={kaleidosLogo} alt="kAI" className="h-3.5 w-3.5" />
+                </div>
+                <div className="flex items-center gap-1.5 text-sm">
+                  <span className="font-medium text-foreground">{client.name}</span>
+                  {template && (
+                    <>
+                      <span className="text-muted-foreground/40">/</span>
+                      <span className="text-muted-foreground text-xs">{template.name}</span>
+                    </>
+                  )}
+                </div>
               </div>
             </div>
           
@@ -227,9 +231,9 @@ const ClientChat = () => {
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="hover:bg-destructive/10 hover:text-destructive h-9 w-9"
+                    className="h-8 w-8 hover:bg-destructive/10 hover:text-destructive"
                   >
-                    <Trash2 className="h-4 w-4" />
+                    <Trash2 className="h-3.5 w-3.5" />
                   </Button>
                 </AlertDialogTrigger>
                 <AlertDialogContent>
@@ -258,29 +262,33 @@ const ClientChat = () => {
         <ScrollArea className="flex-1">
           <div ref={scrollRef} className="min-h-full">
             {messages.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center px-4 py-12">
-                <div className="text-center space-y-6 max-w-2xl w-full animate-fade-in">
+              <div className="h-full flex flex-col items-center justify-center px-4 py-16">
+                <div className="text-center space-y-8 max-w-xl w-full animate-fade-in">
                   {/* Logo e título */}
-                  <div className="space-y-3">
+                  <div className="space-y-4">
                     <div className="relative inline-block">
                       <div className="absolute inset-0 flex items-center justify-center">
-                        <div className="w-16 h-16 bg-primary/10 rounded-full blur-xl" />
+                        <div className="w-20 h-20 bg-gradient-to-br from-primary/20 to-primary/5 rounded-2xl blur-2xl" />
                       </div>
-                      <img 
-                        src={kaleidosLogo} 
-                        alt="kAI" 
-                        className="h-12 w-12 object-contain relative z-10" 
-                      />
+                      <div className="relative h-14 w-14 rounded-2xl bg-gradient-to-br from-primary/10 to-transparent border border-primary/10 flex items-center justify-center">
+                        <img 
+                          src={kaleidosLogo} 
+                          alt="kAI" 
+                          className="h-8 w-8 object-contain" 
+                        />
+                      </div>
                     </div>
-                    <h1 className="text-2xl font-semibold tracking-tight">
-                      {template ? template.name : "Como posso ajudar?"}
-                    </h1>
-                    <p className="text-sm text-muted-foreground">
-                      {template 
-                        ? "Descreva o que você precisa"
-                        : "Escolha uma sugestão ou digite sua mensagem"
-                      }
-                    </p>
+                    <div>
+                      <h1 className="text-xl font-semibold tracking-tight text-foreground">
+                        {template ? template.name : "Como posso ajudar?"}
+                      </h1>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        {template 
+                          ? "Descreva o que você precisa"
+                          : "Escolha uma sugestão ou digite sua mensagem"
+                        }
+                      </p>
+                    </div>
                   </div>
 
                   {/* Sugestões rápidas */}
@@ -288,12 +296,14 @@ const ClientChat = () => {
 
                   {/* Contexto do cliente */}
                   {client.context_notes && (
-                    <div className="p-3 bg-muted/30 border border-border/50 rounded-lg text-left">
-                      <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1 flex items-center gap-1.5">
-                        <span className="w-1 h-1 bg-primary rounded-full" />
-                        Contexto ativo
-                      </p>
-                      <p className="text-xs text-foreground/70 line-clamp-2">
+                    <div className="p-3 bg-muted/30 border border-border/40 rounded-xl text-left">
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <div className="h-1.5 w-1.5 rounded-full bg-primary" />
+                        <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+                          Contexto ativo
+                        </p>
+                      </div>
+                      <p className="text-xs text-foreground/70 line-clamp-2 leading-relaxed">
                         {client.context_notes}
                       </p>
                     </div>
@@ -301,7 +311,7 @@ const ClientChat = () => {
                 </div>
               </div>
             ) : (
-              <div className="max-w-4xl mx-auto pb-4">
+              <div className="max-w-3xl mx-auto py-4">
                 {messages.map((message, idx) => (
                   <EnhancedMessageBubble 
                     key={message.id || idx} 
@@ -319,7 +329,7 @@ const ClientChat = () => {
                 
                 {/* Visualização avançada do progresso */}
                 {isLoading && (
-                  <div className="px-4 py-4 animate-fade-in">
+                  <div className="px-4 py-6 animate-fade-in">
                     <AdvancedProgress 
                       currentStep={currentStep}
                       multiAgentStep={multiAgentStep}
