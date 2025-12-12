@@ -15,11 +15,11 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { MessageBubble } from "@/components/MessageBubble";
+import { EnhancedMessageBubble } from "@/components/chat/EnhancedMessageBubble";
 import { ChatInput } from "@/components/ChatInput";
 import { TaskSuggestions } from "@/components/chat/TaskSuggestions";
 import { WorkflowVisualization } from "@/components/chat/WorkflowVisualization";
-import { MultiAgentProgress } from "@/components/chat/MultiAgentProgress";
+import { AdvancedProgress } from "@/components/chat/AdvancedProgress";
 import { ChatOptionsSidebar } from "@/components/assistant/ChatOptionsSidebar";
 import { useClientChat } from "@/hooks/useClientChat";
 import { useSmoothScroll } from "@/hooks/useSmoothScroll";
@@ -303,7 +303,7 @@ const ClientChat = () => {
             ) : (
               <div className="max-w-4xl mx-auto pb-4">
                 {messages.map((message, idx) => (
-                  <MessageBubble 
+                  <EnhancedMessageBubble 
                     key={message.id || idx} 
                     role={message.role} 
                     content={message.content}
@@ -317,22 +317,15 @@ const ClientChat = () => {
                   />
                 ))}
                 
-                {/* Visualização do workflow durante loading */}
+                {/* Visualização avançada do progresso */}
                 {isLoading && (
                   <div className="px-4 py-4 animate-fade-in">
-                    {multiAgentStep ? (
-                      <MultiAgentProgress 
-                        currentStep={multiAgentStep} 
-                        stepDetails={multiAgentDetails}
-                      />
-                    ) : (
-                      <WorkflowVisualization 
-                        currentStep={currentStep} 
-                        workflowState={workflowState}
-                        isIdeaMode={isIdeaMode}
-                        isFreeChatMode={isFreeChatMode}
-                      />
-                    )}
+                    <AdvancedProgress 
+                      currentStep={currentStep}
+                      multiAgentStep={multiAgentStep}
+                      multiAgentDetails={multiAgentDetails}
+                      isAutonomous={multiAgentStep !== null}
+                    />
                   </div>
                 )}
               </div>
