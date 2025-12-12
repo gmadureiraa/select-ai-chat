@@ -346,7 +346,8 @@ const ClientChat = () => {
         {/* Input de chat */}
         <ChatInput 
           onSend={(content, imageUrls, quality, mode) => sendMessage(content, imageUrls, quality, mode)} 
-          disabled={isLoading} 
+          disabled={isLoading}
+          templateType={template?.name?.toLowerCase().includes("chat livre") || template?.name?.toLowerCase().includes("free chat") ? "free_chat" : "content"}
         />
       </div>
     </div>
