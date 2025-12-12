@@ -15,27 +15,28 @@ interface ModeSelectorProps {
   disabled?: boolean;
 }
 
-const modes = [
-  {
-    id: "free_chat" as const,
-    icon: MessageCircle,
-    label: "Chat",
-    description: "Conversa livre com dados reais do cliente. Ideal para perguntas e análises.",
-    activeClass: "bg-emerald-500/10 text-emerald-600 border border-emerald-500/20",
-  },
+// Modos disponíveis para templates de conteúdo (sem free_chat)
+const contentModes = [
   {
     id: "content" as const,
     icon: FileText,
     label: "Conteúdo",
-    description: "Gera conteúdo pronto para publicar com regras de formato.",
-    activeClass: "bg-background text-foreground shadow-sm",
+    description: "Gera conteúdo completo com 4 agentes especializados (alta qualidade).",
+    activeClass: "bg-primary/10 text-primary border border-primary/20",
   },
   {
     id: "ideas" as const,
     icon: Lightbulb,
     label: "Ideias",
-    description: "Gera ideias criativas baseadas na biblioteca do cliente.",
+    description: "Gera ideias criativas baseadas na biblioteca do cliente (rápido).",
     activeClass: "bg-amber-500/10 text-amber-600 border border-amber-500/20",
+  },
+  {
+    id: "free_chat" as const,
+    icon: MessageCircle,
+    label: "Chat",
+    description: "Conversa livre com dados reais do cliente (rápido).",
+    activeClass: "bg-emerald-500/10 text-emerald-600 border border-emerald-500/20",
   },
 ];
 
@@ -43,7 +44,7 @@ export const ModeSelector = ({ mode, onChange, disabled }: ModeSelectorProps) =>
   return (
     <TooltipProvider delayDuration={300}>
       <div className="flex items-center gap-1 p-1 bg-muted/50 rounded-lg">
-        {modes.map((m) => (
+        {contentModes.map((m) => (
           <Tooltip key={m.id}>
             <TooltipTrigger asChild>
               <button

@@ -5,26 +5,33 @@ import { Send, Image as ImageIcon, X, Loader2 } from "lucide-react";
 import { uploadAndGetSignedUrl } from "@/lib/storage";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { QualitySelector } from "@/components/chat/QualitySelector";
 import { ModeSelector, ChatMode } from "@/components/chat/ModeSelector";
 
 interface ChatInputProps {
   onSend: (message: string, imageUrls?: string[], quality?: "fast" | "high", mode?: ChatMode) => void;
   disabled?: boolean;
-  showQualitySelector?: boolean;
+  templateType?: "free_chat" | "content"; // "free_chat" = chat livre, "content" = templates de conteúdo
 }
 
-export const ChatInput = ({ onSend, disabled, showQualitySelector = true }: ChatInputProps) => {
+export const ChatInput = ({ onSend, disabled, templateType = "content" }: ChatInputProps) => {
   const [input, setInput] = useState("");
   const [charCount, setCharCount] = useState(0);
   const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [uploadingImages, setUploadingImages] = useState(false);
-  const [quality, setQuality] = useState<"fast" | "high">("fast");
-  const [mode, setMode] = useState<ChatMode>("content");
+  const [mode, setMode] = useState<ChatMode>(templateType === "free_chat" ? "free_chat" : "content");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const maxChars = 10000;
+
+  // Reset mode when templateType changes
+  useEffect(() => {
+    if (templateType === "free_chat") {
+      setMode("free_chat");
+    } else if (mode === "free_chat") {
+      setMode("content");
+    }
+  }, [templateType]);
 
   useEffect(() => {
     if (textareaRef.current) {
@@ -46,6 +53,13 @@ export const ChatInput = ({ onSend, disabled, showQualitySelector = true }: Chat
       setInput(value);
       setCharCount(value.length);
     }
+  };
+
+  // Qualidade é determinada automaticamente pelo modo:
+  // - content = sempre "high" (4 agentes)
+  // - ideas/free_chat = sempre "fast" (rápido)
+  const getQualityForMode = (m: ChatMode): "fast" | "high" => {
+    return m === "content" ? "high" : "fast";
   };
 
   const handleSubmit = async () => {
@@ -78,7 +92,10 @@ export const ChatInput = ({ onSend, disabled, showQualitySelector = true }: Chat
       setUploadingImages(false);
     }
 
-    onSend(trimmed || "Analise esta imagem", imageUrls, quality, mode);
+    const effectiveMode = templateType === "free_chat" ? "free_chat" : mode;
+    const quality = getQualityForMode(effectiveMode);
+    
+    onSend(trimmed || "Analise esta imagem", imageUrls, quality, effectiveMode);
     setInput("");
     setCharCount(0);
     setImageFiles([]);
@@ -117,35 +134,42 @@ export const ChatInput = ({ onSend, disabled, showQualitySelector = true }: Chat
 
   const isSubmitDisabled = (!input.trim() && imageFiles.length === 0) || disabled || charCount > maxChars || uploadingImages;
 
+  // Texto de status baseado no modo
+  const getStatusText = () => {
+    if (templateType === "free_chat") {
+      return "Chat livre • Dados reais";
+    }
+    if (mode === "content") {
+      return "Alta qualidade • 4 agentes";
+    }
+    if (mode === "ideas") {
+      return "Modo ideias • Rápido";
+    }
+    return "Chat • Rápido";
+  };
+
   return (
     <div className="border-t bg-background/80 backdrop-blur-xl p-3">
       <div className="max-w-3xl mx-auto space-y-2.5">
-        {/* Seletores de modo e qualidade */}
-        {showQualitySelector && (
+        {/* Seletor de modo - só aparece para templates de conteúdo */}
+        {templateType === "content" && (
           <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <ModeSelector 
-                mode={mode} 
-                onChange={setMode} 
-                disabled={disabled || uploadingImages}
-              />
-              {mode === "content" && (
-                <QualitySelector 
-                  quality={quality} 
-                  onChange={setQuality} 
-                  disabled={disabled || uploadingImages}
-                />
-              )}
-            </div>
+            <ModeSelector 
+              mode={mode} 
+              onChange={setMode} 
+              disabled={disabled || uploadingImages}
+            />
             <span className="text-[10px] text-muted-foreground/70">
-              {mode === "free_chat"
-                ? "Chat livre"
-                : mode === "ideas" 
-                  ? "Modo ideias" 
-                  : quality === "high" 
-                    ? "4 agentes" 
-                    : "Rápido"
-              }
+              {getStatusText()}
+            </span>
+          </div>
+        )}
+
+        {/* Status simples para chat livre */}
+        {templateType === "free_chat" && (
+          <div className="flex items-center justify-end">
+            <span className="text-[10px] text-muted-foreground/70">
+              {getStatusText()}
             </span>
           </div>
         )}
@@ -205,9 +229,11 @@ export const ChatInput = ({ onSend, disabled, showQualitySelector = true }: Chat
               onChange={handleInputChange}
               onKeyDown={handleKeyDown}
               placeholder={
-                imageFiles.length > 0 
-                  ? "Descreva o que você quer..." 
-                  : "Digite sua mensagem..."
+                templateType === "free_chat"
+                  ? "Pergunte sobre o cliente..."
+                  : imageFiles.length > 0 
+                    ? "Descreva o que você quer..." 
+                    : "Digite sua mensagem..."
               }
               disabled={disabled || uploadingImages}
               className={cn(
