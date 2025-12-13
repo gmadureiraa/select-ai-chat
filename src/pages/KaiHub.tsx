@@ -191,7 +191,7 @@ const KaiHub = () => {
                   <Hammer className="h-4 w-4 mr-2" />
                   Agent Builder
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate("/research")}>
+                <DropdownMenuItem onClick={() => navigate("/research-lab")}>
                   <FlaskConical className="h-4 w-4 mr-2" />
                   Laboratório de Pesquisa
                 </DropdownMenuItem>
