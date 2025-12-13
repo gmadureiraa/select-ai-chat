@@ -10,7 +10,7 @@ import { ModeSelector, ChatMode } from "@/components/chat/ModeSelector";
 interface ChatInputProps {
   onSend: (message: string, imageUrls?: string[], quality?: "fast" | "high", mode?: ChatMode) => void;
   disabled?: boolean;
-  templateType?: "free_chat" | "content"; // "free_chat" = chat livre, "content" = templates de conteúdo
+  templateType?: "free_chat" | "content";
 }
 
 export const ChatInput = ({ onSend, disabled, templateType = "content" }: ChatInputProps) => {
@@ -24,7 +24,6 @@ export const ChatInput = ({ onSend, disabled, templateType = "content" }: ChatIn
   const { toast } = useToast();
   const maxChars = 10000;
 
-  // Reset mode when templateType changes
   useEffect(() => {
     if (templateType === "free_chat") {
       setMode("free_chat");
@@ -36,11 +35,10 @@ export const ChatInput = ({ onSend, disabled, templateType = "content" }: ChatIn
   useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
-      textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 180) + "px";
+      textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 160) + "px";
     }
   }, [input]);
 
-  // Focus no textarea quando não estiver desabilitado
   useEffect(() => {
     if (!disabled && textareaRef.current) {
       textareaRef.current.focus();
@@ -55,9 +53,6 @@ export const ChatInput = ({ onSend, disabled, templateType = "content" }: ChatIn
     }
   };
 
-  // Qualidade é determinada automaticamente pelo modo:
-  // - content = sempre "high" (4 agentes)
-  // - ideas/free_chat = sempre "fast" (rápido)
   const getQualityForMode = (m: ChatMode): "fast" | "high" => {
     return m === "content" ? "high" : "fast";
   };
@@ -134,147 +129,134 @@ export const ChatInput = ({ onSend, disabled, templateType = "content" }: ChatIn
 
   const isSubmitDisabled = (!input.trim() && imageFiles.length === 0) || disabled || charCount > maxChars || uploadingImages;
 
-  // Texto de status baseado no modo
   const getStatusText = () => {
-    if (templateType === "free_chat") {
-      return "Chat livre • Dados reais";
-    }
-    if (mode === "content") {
-      return "Alta qualidade • 4 agentes";
-    }
-    if (mode === "ideas") {
-      return "Modo ideias • Rápido";
-    }
+    if (templateType === "free_chat") return null;
+    if (mode === "content") return "Alta qualidade • 4 agentes";
+    if (mode === "ideas") return "Ideias • Rápido";
     return "Chat • Rápido";
   };
 
+  const getPlaceholder = () => {
+    if (templateType === "free_chat") {
+      return "Pergunte sobre o cliente...";
+    }
+    if (imageFiles.length > 0) {
+      return "Descreva o que você quer...";
+    }
+    return "Digite sua mensagem...";
+  };
+
   return (
-    <div className="border-t bg-background/80 backdrop-blur-xl p-3">
-      <div className="max-w-3xl mx-auto space-y-2.5">
-        {/* Seletor de modo - só aparece para templates de conteúdo */}
+    <div className="p-4">
+      <div className="space-y-3">
+        {/* Mode Selector - Compact pill style for content templates */}
         {templateType === "content" && (
-          <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center justify-center">
             <ModeSelector 
               mode={mode} 
               onChange={setMode} 
               disabled={disabled || uploadingImages}
             />
-            <span className="text-[10px] text-muted-foreground/70">
-              {getStatusText()}
-            </span>
           </div>
         )}
 
-        {/* Status simples para chat livre */}
-        {templateType === "free_chat" && (
-          <div className="flex items-center justify-end">
-            <span className="text-[10px] text-muted-foreground/70">
-              {getStatusText()}
-            </span>
-          </div>
-        )}
-
-        {/* Preview de imagens */}
+        {/* Image Preview */}
         {imageFiles.length > 0 && (
-          <div className="flex gap-1.5 flex-wrap p-2 bg-muted/30 rounded-xl border border-border/40">
+          <div className="flex gap-2 flex-wrap">
             {imageFiles.map((file, index) => (
               <div key={index} className="relative group">
                 <img
                   src={URL.createObjectURL(file)}
                   alt={`Preview ${index + 1}`}
-                  className="h-12 w-12 object-cover rounded-lg border border-border/50"
+                  className="h-14 w-14 object-cover rounded-lg border border-border/50"
                 />
                 <button
                   onClick={() => removeImage(index)}
-                  className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground rounded-full p-0.5 shadow-sm hover:bg-destructive/90 transition-colors"
+                  className="absolute -top-1.5 -right-1.5 bg-destructive text-destructive-foreground rounded-full p-0.5 shadow-sm hover:bg-destructive/90 transition-colors opacity-0 group-hover:opacity-100"
                 >
-                  <X className="h-2.5 w-2.5" />
+                  <X className="h-3 w-3" />
                 </button>
               </div>
             ))}
-            <span className="text-[10px] text-muted-foreground self-end pb-0.5">
-              {imageFiles.length}/5
-            </span>
           </div>
         )}
 
-        {/* Input principal */}
-        <div className="flex gap-2 items-end">
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            multiple
-            onChange={handleImageSelect}
-            className="hidden"
+        {/* Main Input Area - Gemini/Manus Style */}
+        <div className="relative bg-muted/30 rounded-2xl border border-border/40 focus-within:border-primary/30 focus-within:bg-muted/50 transition-all">
+          <Textarea
+            ref={textareaRef}
+            value={input}
+            onChange={handleInputChange}
+            onKeyDown={handleKeyDown}
+            placeholder={getPlaceholder()}
+            disabled={disabled || uploadingImages}
+            className={cn(
+              "min-h-[48px] max-h-[140px] resize-none border-0 bg-transparent text-sm px-4 py-3.5 pr-24",
+              "focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0",
+              "placeholder:text-muted-foreground/50"
+            )}
+            rows={1}
           />
           
-          {/* Botão de imagem */}
-          <Button
-            onClick={() => fileInputRef.current?.click()}
-            variant="ghost"
-            size="icon"
-            disabled={disabled || uploadingImages}
-            className="h-9 w-9 flex-shrink-0 hover:bg-muted/60 rounded-xl"
-            title="Anexar imagem"
-          >
-            <ImageIcon className="h-4 w-4 text-muted-foreground" />
-          </Button>
-
-          {/* Campo de texto */}
-          <div className="flex-1 relative">
-            <Textarea
-              ref={textareaRef}
-              value={input}
-              onChange={handleInputChange}
-              onKeyDown={handleKeyDown}
-              placeholder={
-                templateType === "free_chat"
-                  ? "Pergunte sobre o cliente..."
-                  : imageFiles.length > 0 
-                    ? "Descreva o que você quer..." 
-                    : "Digite sua mensagem..."
-              }
-              disabled={disabled || uploadingImages}
-              className={cn(
-                "min-h-[40px] max-h-[160px] resize-none pr-11 rounded-xl border-border/60 text-sm",
-                "bg-card/50 focus:bg-card",
-                "focus:border-primary/40 focus:ring-1 focus:ring-primary/10",
-                "placeholder:text-muted-foreground/50"
-              )}
-              rows={1}
+          {/* Action Buttons */}
+          <div className="absolute right-2 bottom-2 flex items-center gap-1">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={handleImageSelect}
+              className="hidden"
             />
             
-            {/* Botão de enviar */}
+            <Button
+              onClick={() => fileInputRef.current?.click()}
+              variant="ghost"
+              size="icon"
+              disabled={disabled || uploadingImages}
+              className="h-8 w-8 rounded-lg hover:bg-muted/60"
+              title="Anexar imagem"
+            >
+              <ImageIcon className="h-4 w-4 text-muted-foreground" />
+            </Button>
+
             <Button
               onClick={handleSubmit}
               disabled={isSubmitDisabled}
               size="icon"
               className={cn(
-                "absolute right-1 bottom-1 h-7 w-7 rounded-lg transition-all",
+                "h-8 w-8 rounded-lg transition-all",
                 !isSubmitDisabled && "bg-primary hover:bg-primary/90 shadow-sm"
               )}
             >
               {uploadingImages ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
-                <Send className="h-3.5 w-3.5" />
+                <Send className="h-4 w-4" />
               )}
             </Button>
           </div>
         </div>
 
-        {/* Contador de caracteres */}
-        {charCount > maxChars * 0.8 && (
-          <div className="text-[10px] text-right">
-            <span className={cn(
-              charCount > maxChars * 0.9 && charCount <= maxChars && "text-yellow-500",
-              charCount >= maxChars && "text-destructive"
-            )}>
-              {charCount.toLocaleString()}/{maxChars.toLocaleString()}
-            </span>
+        {/* Status Footer */}
+        <div className="flex items-center justify-between px-1">
+          <div className="flex items-center gap-2">
+            {charCount > maxChars * 0.8 && (
+              <span className={cn(
+                "text-[10px]",
+                charCount > maxChars * 0.9 && charCount <= maxChars && "text-yellow-500",
+                charCount >= maxChars && "text-destructive"
+              )}>
+                {charCount.toLocaleString()}/{maxChars.toLocaleString()}
+              </span>
+            )}
           </div>
-        )}
+          {getStatusText() && (
+            <span className="text-[10px] text-muted-foreground/60">
+              {getStatusText()}
+            </span>
+          )}
+        </div>
       </div>
     </div>
   );
