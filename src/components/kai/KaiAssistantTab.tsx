@@ -1,15 +1,16 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Sparkles, MessageSquare, Trash2 } from "lucide-react";
+import { Sparkles, MessageSquare, Trash2, PanelLeftClose, PanelLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Card } from "@/components/ui/card";
 import { useClientTemplates } from "@/hooks/useClientTemplates";
 import { useClientChat } from "@/hooks/useClientChat";
-import { ChatInput } from "@/components/ChatInput";
+import { FloatingInput, ChatMode } from "@/components/chat/FloatingInput";
 import { EnhancedMessageBubble } from "@/components/chat/EnhancedMessageBubble";
 import { AdvancedProgress } from "@/components/chat/AdvancedProgress";
+import { QuickSuggestions } from "@/components/chat/QuickSuggestions";
 import { Client } from "@/hooks/useClients";
+import { cn } from "@/lib/utils";
 import KaleidosLogo from "@/assets/kaleidos-logo.svg";
 
 interface KaiAssistantTabProps {
@@ -22,7 +23,9 @@ export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(
     searchParams.get("template")
   );
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const { templates } = useClientTemplates(clientId);
   const selectedTemplate = templates?.find(t => t.id === selectedTemplateId);
@@ -53,14 +56,31 @@ export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
     }
   }, [selectedTemplateId, setSearchParams]);
 
-  // Auto-scroll to bottom
-  useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+  // Scroll to bottom function
+  const scrollToBottom = useCallback((smooth = true) => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ 
+        behavior: smooth ? "smooth" : "auto",
+        block: "end" 
+      });
     }
-  }, [messages]);
+  }, []);
 
-  const handleSend = async (content: string, images?: string[], quality?: "fast" | "high", mode?: "content" | "ideas" | "free_chat") => {
+  // Auto-scroll on new messages
+  useEffect(() => {
+    scrollToBottom(true);
+  }, [messages, scrollToBottom]);
+
+  // Initial scroll on mount/template change
+  useEffect(() => {
+    // Small delay to ensure DOM is ready
+    const timer = setTimeout(() => {
+      scrollToBottom(false);
+    }, 100);
+    return () => clearTimeout(timer);
+  }, [selectedTemplateId, scrollToBottom]);
+
+  const handleSend = async (content: string, images?: string[], quality?: "fast" | "high", mode?: ChatMode) => {
     if (!content.trim() && (!images || images.length === 0)) return;
     await sendMessage(content, images, quality, mode);
   };
@@ -75,36 +95,61 @@ export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
   const templateType = selectedTemplate ? "content" : "free_chat";
 
   return (
-    <div className="flex gap-5 h-[calc(100vh-140px)]">
-      {/* Sidebar - Templates */}
-      <Card className="w-64 shrink-0 flex flex-col border-border/50 bg-card/50">
-        <div className="p-4 border-b border-border/50">
-          <h3 className="font-semibold text-sm text-foreground/90">Templates</h3>
+    <div className="flex h-[calc(100vh-140px)] relative">
+      {/* Collapsible Sidebar - Templates */}
+      <div
+        className={cn(
+          "shrink-0 flex flex-col border-r border-border/30 bg-card/30 transition-all duration-300 ease-in-out",
+          sidebarCollapsed ? "w-0 opacity-0 overflow-hidden" : "w-56"
+        )}
+      >
+        <div className="p-3 border-b border-border/30 flex items-center justify-between">
+          <h3 className="font-medium text-xs uppercase tracking-wider text-muted-foreground">Templates</h3>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setSidebarCollapsed(true)}
+            className="h-7 w-7 hover:bg-muted/50"
+          >
+            <PanelLeftClose className="h-3.5 w-3.5" />
+          </Button>
         </div>
         <ScrollArea className="flex-1">
-          <div className="p-2 space-y-1">
+          <div className="p-2 space-y-0.5">
             {/* Free Chat Option */}
             <Button
-              variant={!selectedTemplateId ? "secondary" : "ghost"}
-              className={`w-full justify-start text-sm h-10 px-3 ${!selectedTemplateId ? 'bg-primary/15 text-primary hover:bg-primary/20 border border-primary/20' : 'hover:bg-muted/50'}`}
+              variant="ghost"
+              className={cn(
+                "w-full justify-start text-sm h-9 px-3 rounded-lg",
+                !selectedTemplateId 
+                  ? "bg-primary/10 text-primary font-medium" 
+                  : "text-foreground/70 hover:bg-muted/50 hover:text-foreground"
+              )}
               onClick={() => setSelectedTemplateId(null)}
             >
-              <MessageSquare className="h-4 w-4 mr-3" />
-              Chat Livre
+              <MessageSquare className="h-4 w-4 mr-2.5 shrink-0" />
+              <span className="truncate">Chat Livre</span>
             </Button>
 
             {/* Content Templates */}
             {chatTemplates.length > 0 && (
-              <div className="pt-3">
-                <p className="text-xs text-muted-foreground/70 px-3 py-2 font-medium uppercase tracking-wider">Conteúdo</p>
+              <div className="pt-2">
+                <p className="text-[10px] text-muted-foreground/50 px-3 py-1.5 font-medium uppercase tracking-wider">
+                  Conteúdo
+                </p>
                 {chatTemplates.map((template) => (
                   <Button
                     key={template.id}
-                    variant={selectedTemplateId === template.id ? "secondary" : "ghost"}
-                    className={`w-full justify-start text-sm h-10 px-3 ${selectedTemplateId === template.id ? 'bg-primary/15 text-primary hover:bg-primary/20 border border-primary/20' : 'hover:bg-muted/50'}`}
+                    variant="ghost"
+                    className={cn(
+                      "w-full justify-start text-sm h-9 px-3 rounded-lg",
+                      selectedTemplateId === template.id
+                        ? "bg-primary/10 text-primary font-medium"
+                        : "text-foreground/70 hover:bg-muted/50 hover:text-foreground"
+                    )}
                     onClick={() => setSelectedTemplateId(template.id)}
                   >
-                    <Sparkles className="h-4 w-4 mr-3" />
+                    <Sparkles className="h-4 w-4 mr-2.5 shrink-0" />
                     <span className="truncate">{template.name}</span>
                   </Button>
                 ))}
@@ -113,16 +158,23 @@ export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
 
             {/* Image Templates */}
             {imageTemplates.length > 0 && (
-              <div className="pt-3">
-                <p className="text-xs text-muted-foreground/70 px-3 py-2 font-medium uppercase tracking-wider">Imagens</p>
+              <div className="pt-2">
+                <p className="text-[10px] text-muted-foreground/50 px-3 py-1.5 font-medium uppercase tracking-wider">
+                  Imagens
+                </p>
                 {imageTemplates.map((template) => (
                   <Button
                     key={template.id}
-                    variant={selectedTemplateId === template.id ? "secondary" : "ghost"}
-                    className={`w-full justify-start text-sm h-10 px-3 ${selectedTemplateId === template.id ? 'bg-primary/15 text-primary hover:bg-primary/20 border border-primary/20' : 'hover:bg-muted/50'}`}
+                    variant="ghost"
+                    className={cn(
+                      "w-full justify-start text-sm h-9 px-3 rounded-lg",
+                      selectedTemplateId === template.id
+                        ? "bg-primary/10 text-primary font-medium"
+                        : "text-foreground/70 hover:bg-muted/50 hover:text-foreground"
+                    )}
                     onClick={() => setSelectedTemplateId(template.id)}
                   >
-                    <Sparkles className="h-4 w-4 mr-3" />
+                    <Sparkles className="h-4 w-4 mr-2.5 shrink-0" />
                     <span className="truncate">{template.name}</span>
                   </Button>
                 ))}
@@ -130,75 +182,70 @@ export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
             )}
           </div>
         </ScrollArea>
-      </Card>
+      </div>
 
       {/* Main Chat Area */}
-      <Card className="flex-1 flex flex-col border-border/50 bg-card/30 overflow-hidden">
+      <div className="flex-1 flex flex-col min-w-0 bg-background/50">
+        {/* Collapsed Sidebar Toggle + Context Header */}
+        <div className="flex items-center gap-2 px-4 py-2 border-b border-border/20">
+          {sidebarCollapsed && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setSidebarCollapsed(false)}
+              className="h-8 w-8 hover:bg-muted/50"
+            >
+              <PanelLeft className="h-4 w-4" />
+            </Button>
+          )}
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            <span className="text-sm font-medium text-foreground/80 truncate">
+              {selectedTemplate?.name || "Chat Livre"}
+            </span>
+            <span className="text-muted-foreground/40">•</span>
+            <span className="text-xs text-muted-foreground truncate">{client.name}</span>
+          </div>
+          {conversationId && messages.length > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleClearConversation}
+              className="text-muted-foreground hover:text-destructive h-7 px-2 shrink-0"
+            >
+              <Trash2 className="h-3.5 w-3.5 mr-1" />
+              <span className="text-xs">Limpar</span>
+            </Button>
+          )}
+        </div>
+
         {/* Messages Area */}
-        <ScrollArea className="flex-1" ref={scrollRef}>
-          <div className="p-6 min-h-full">
+        <ScrollArea className="flex-1" ref={scrollAreaRef}>
+          <div className="min-h-full flex flex-col">
             {messages.length === 0 ? (
-              /* Empty State - Manus/Gemini Style */
-              <div className="flex flex-col items-center justify-center min-h-[60vh]">
-                <div className="h-16 w-16 rounded-2xl bg-primary flex items-center justify-center mb-6">
-                  <img src={KaleidosLogo} alt="kAI" className="h-10 w-10" />
+              /* Empty State - Centered, Minimal */
+              <div className="flex-1 flex flex-col items-center justify-center px-6 py-12">
+                <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/20 flex items-center justify-center mb-5">
+                  <img src={KaleidosLogo} alt="kAI" className="h-8 w-8" />
                 </div>
-                <h2 className="text-2xl font-semibold mb-2 text-center">
-                  {selectedTemplate ? `Criar ${selectedTemplate.name}` : "O que posso fazer por você?"}
+                <h2 className="text-xl font-semibold mb-1.5 text-center text-foreground/90">
+                  {selectedTemplate ? `${selectedTemplate.name}` : "Como posso ajudar?"}
                 </h2>
-                <p className="text-muted-foreground text-center max-w-md mb-8">
+                <p className="text-sm text-muted-foreground text-center max-w-sm mb-6">
                   {selectedTemplate
-                    ? `Gere conteúdo de ${selectedTemplate.name} otimizado para ${client.name}`
-                    : `Converse sobre ${client.name}, analise dados, explore ideias`
+                    ? `Gere conteúdo otimizado para ${client.name}`
+                    : `Converse sobre ${client.name}, analise dados ou explore ideias`
                   }
                 </p>
                 
-                {/* Quick Suggestions - Manus Style */}
-                {!selectedTemplate && (
-                  <div className="flex flex-wrap gap-2 justify-center max-w-lg">
-                    {[
-                      "Métricas da semana",
-                      "Análise de engajamento",
-                      "Sugestões de conteúdo",
-                      "Comparar performance"
-                    ].map((suggestion) => (
-                      <Button
-                        key={suggestion}
-                        variant="outline"
-                        size="sm"
-                        className="rounded-full border-border/60 hover:border-primary/40 hover:bg-primary/5 text-sm"
-                        onClick={() => handleSend(suggestion)}
-                      >
-                        {suggestion}
-                      </Button>
-                    ))}
-                  </div>
-                )}
+                {/* Quick Suggestions */}
+                <QuickSuggestions 
+                  onSelect={(suggestion) => handleSend(suggestion)}
+                  clientName={client.name}
+                  isContentTemplate={!!selectedTemplate}
+                />
               </div>
             ) : (
-              <div className="space-y-4 max-w-4xl mx-auto">
-                {/* Minimal Header with Clear Button */}
-                <div className="flex items-center justify-between pb-4 border-b border-border/30">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-foreground/80">
-                      {selectedTemplate?.name || "Chat Livre"}
-                    </span>
-                    <span className="text-xs text-muted-foreground">•</span>
-                    <span className="text-xs text-muted-foreground">{client.name}</span>
-                  </div>
-                  {conversationId && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={handleClearConversation}
-                      className="text-muted-foreground hover:text-destructive h-8 px-2"
-                    >
-                      <Trash2 className="h-3.5 w-3.5 mr-1" />
-                      <span className="text-xs">Limpar</span>
-                    </Button>
-                  )}
-                </div>
-
+              <div className="space-y-4 px-4 py-4 max-w-3xl mx-auto w-full">
                 {messages.map((message) => (
                   <EnhancedMessageBubble
                     key={message.id}
@@ -217,22 +264,26 @@ export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
                     multiAgentDetails={multiAgentDetails}
                   />
                 )}
+                
+                {/* Scroll anchor */}
+                <div ref={messagesEndRef} className="h-1" />
               </div>
             )}
           </div>
         </ScrollArea>
 
-        {/* Input - Clean Bottom Bar */}
-        <div className="border-t border-border/30 bg-background/60 backdrop-blur-sm">
-          <div className="max-w-4xl mx-auto">
-            <ChatInput
+        {/* Floating Input - Bottom */}
+        <div className="border-t border-border/20 bg-background/80 backdrop-blur-sm">
+          <div className="max-w-3xl mx-auto">
+            <FloatingInput
               onSend={handleSend}
               disabled={isLoading}
               templateType={templateType}
+              placeholder={selectedTemplate ? `Criar ${selectedTemplate.name}...` : "Pergunte sobre o cliente..."}
             />
           </div>
         </div>
-      </Card>
+      </div>
     </div>
   );
 };
