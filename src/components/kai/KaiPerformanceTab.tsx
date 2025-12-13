@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { BarChart3, TrendingUp, Users, Eye, Heart, MessageCircle, Instagram, Twitter, Upload } from "lucide-react";
+import { BarChart3, Users, Eye, Instagram, Twitter, TrendingUp } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { usePerformanceMetrics } from "@/hooks/usePerformanceMetrics";
@@ -9,13 +9,10 @@ import { EnhancedKPICard } from "@/components/performance/EnhancedKPICard";
 import { YouTubeConnectionCard } from "@/components/performance/YouTubeConnectionCard";
 import { TwitterConnectionCard } from "@/components/performance/TwitterConnectionCard";
 import { OverviewInsightsCard } from "@/components/performance/OverviewInsightsCard";
-import { InstagramPostsTable } from "@/components/performance/InstagramPostsTable";
 import { YouTubeVideosTable } from "@/components/performance/YouTubeVideosTable";
-import { SmartCSVUpload } from "@/components/performance/SmartCSVUpload";
+import { InstagramDashboard } from "@/components/performance/InstagramDashboard";
 import { Client } from "@/hooks/useClients";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Button } from "@/components/ui/button";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 interface KaiPerformanceTabProps {
   clientId: string;
@@ -32,28 +29,10 @@ const channels = [
 
 export const KaiPerformanceTab = ({ clientId, client }: KaiPerformanceTabProps) => {
   const [activeChannel, setActiveChannel] = useState("overview");
-  const [showInstagramUpload, setShowInstagramUpload] = useState(false);
   
-  const { data: instagramMetrics, isLoading: isLoadingInstagram } = usePerformanceMetrics(clientId, "instagram", 30);
-  const { data: instagramPosts, isLoading: isLoadingInstagramPosts } = useInstagramPosts(clientId);
+  const { data: instagramMetrics, isLoading: isLoadingInstagram } = usePerformanceMetrics(clientId, "instagram", 90);
+  const { data: instagramPosts, isLoading: isLoadingInstagramPosts } = useInstagramPosts(clientId, 500);
   const { data: videos, isLoading: isLoadingVideos } = useYouTubeVideos(clientId, 100);
-
-  // Instagram aggregated metrics (from latest record)
-  const latestInstagram = instagramMetrics?.[0];
-  const previousInstagram = instagramMetrics?.[1];
-  
-  const instagramFollowers = latestInstagram?.subscribers || 0;
-  const instagramLikes = latestInstagram?.likes || 0;
-  const instagramComments = latestInstagram?.comments || 0;
-  const instagramEngagement = latestInstagram?.engagement_rate || 0;
-
-  // Calculate changes
-  const followersChange = previousInstagram?.subscribers 
-    ? Math.round(((instagramFollowers - previousInstagram.subscribers) / previousInstagram.subscribers) * 100)
-    : 0;
-  const likesChange = previousInstagram?.likes
-    ? Math.round(((instagramLikes - previousInstagram.likes) / previousInstagram.likes) * 100)
-    : 0;
 
   // YouTube metrics from videos
   const totalViews = videos?.reduce((sum, v) => sum + (v.total_views || 0), 0) || 0;
@@ -96,64 +75,15 @@ export const KaiPerformanceTab = ({ clientId, client }: KaiPerformanceTabProps) 
           <OverviewInsightsCard clientId={clientId} clientName={client.name} />
         </TabsContent>
 
-        {/* Instagram */}
-        <TabsContent value="instagram" className="space-y-4 mt-4">
-          {/* KPIs */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            <EnhancedKPICard
-              title="Seguidores"
-              value={instagramFollowers}
-              icon={Users}
-              change={followersChange}
-            />
-            <EnhancedKPICard
-              title="Curtidas Totais"
-              value={instagramLikes}
-              icon={Heart}
-              change={likesChange}
-            />
-            <EnhancedKPICard
-              title="Comentários"
-              value={instagramComments}
-              icon={MessageCircle}
-              change={0}
-            />
-            <EnhancedKPICard
-              title="Engajamento"
-              value={Math.round(instagramEngagement * 100) / 100}
-              icon={TrendingUp}
-              change={0}
-              formatter={(v) => `${v.toFixed(2)}%`}
-            />
-          </div>
-
-          {/* Upload Section */}
-          <Collapsible open={showInstagramUpload} onOpenChange={setShowInstagramUpload}>
-            <div className="flex justify-end">
-              <CollapsibleTrigger asChild>
-                <Button variant="outline" size="sm">
-                  <Upload className="h-4 w-4 mr-2" />
-                  {showInstagramUpload ? "Ocultar Upload" : "Importar CSV"}
-                </Button>
-              </CollapsibleTrigger>
-            </div>
-            <CollapsibleContent className="mt-4">
-              <SmartCSVUpload clientId={clientId} platform="instagram" />
-            </CollapsibleContent>
-          </Collapsible>
-
-          {/* Posts Table */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm sm:text-base">Todos os Posts</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <InstagramPostsTable 
-                posts={instagramPosts || []} 
-                isLoading={isLoadingInstagramPosts}
-              />
-            </CardContent>
-          </Card>
+        {/* Instagram - Full Dashboard */}
+        <TabsContent value="instagram" className="mt-4">
+          <InstagramDashboard
+            clientId={clientId}
+            posts={instagramPosts || []}
+            metrics={instagramMetrics || []}
+            isLoadingPosts={isLoadingInstagramPosts}
+            isLoadingMetrics={isLoadingInstagram}
+          />
         </TabsContent>
 
         {/* YouTube */}

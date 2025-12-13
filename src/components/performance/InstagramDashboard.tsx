@@ -1,0 +1,319 @@
+import { useState, useMemo } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Users, Heart, MessageCircle, TrendingUp, Eye, Bookmark, Upload, Calendar } from "lucide-react";
+import { InstagramPost } from "@/hooks/useInstagramPosts";
+import { PerformanceMetrics } from "@/hooks/usePerformanceMetrics";
+import { InstagramPostsTable } from "./InstagramPostsTable";
+import { SmartCSVUpload } from "./SmartCSVUpload";
+import { EnhancedAreaChart } from "./EnhancedAreaChart";
+import { format, subDays, isAfter, parseISO, startOfDay } from "date-fns";
+import { ptBR } from "date-fns/locale";
+
+interface InstagramDashboardProps {
+  clientId: string;
+  posts: InstagramPost[];
+  metrics: PerformanceMetrics[];
+  isLoadingPosts?: boolean;
+  isLoadingMetrics?: boolean;
+}
+
+const periodOptions = [
+  { value: "7", label: "Últimos 7 dias" },
+  { value: "14", label: "Últimos 14 dias" },
+  { value: "30", label: "Últimos 30 dias" },
+  { value: "60", label: "Últimos 60 dias" },
+  { value: "90", label: "Últimos 90 dias" },
+  { value: "all", label: "Todo período" },
+];
+
+const metricOptions = [
+  { value: "views", label: "Visualizações", icon: Eye },
+  { value: "likes", label: "Curtidas", icon: Heart },
+  { value: "subscribers", label: "Seguidores", icon: Users },
+  { value: "engagement_rate", label: "Engajamento", icon: TrendingUp },
+  { value: "comments", label: "Comentários", icon: MessageCircle },
+];
+
+export function InstagramDashboard({ 
+  clientId, 
+  posts, 
+  metrics, 
+  isLoadingPosts, 
+  isLoadingMetrics 
+}: InstagramDashboardProps) {
+  const [period, setPeriod] = useState("30");
+  const [selectedMetric, setSelectedMetric] = useState("views");
+  const [showUpload, setShowUpload] = useState(false);
+
+  // Filter data by period
+  const cutoffDate = useMemo(() => {
+    if (period === "all") return null;
+    return startOfDay(subDays(new Date(), parseInt(period)));
+  }, [period]);
+
+  const filteredPosts = useMemo(() => {
+    if (!cutoffDate) return posts;
+    return posts.filter(post => 
+      post.posted_at && isAfter(parseISO(post.posted_at), cutoffDate)
+    );
+  }, [posts, cutoffDate]);
+
+  const filteredMetrics = useMemo(() => {
+    if (!cutoffDate) return metrics;
+    return metrics.filter(m => 
+      m.metric_date && isAfter(parseISO(m.metric_date), cutoffDate)
+    );
+  }, [metrics, cutoffDate]);
+
+  // Calculate KPIs from filtered data
+  const kpis = useMemo(() => {
+    const latestMetric = filteredMetrics[0];
+    const previousMetric = filteredMetrics[filteredMetrics.length - 1];
+
+    const totalLikes = filteredPosts.reduce((sum, p) => sum + (p.likes || 0), 0);
+    const totalComments = filteredPosts.reduce((sum, p) => sum + (p.comments || 0), 0);
+    const totalSaves = filteredPosts.reduce((sum, p) => sum + (p.saves || 0), 0);
+    const totalShares = filteredPosts.reduce((sum, p) => sum + (p.shares || 0), 0);
+    const totalReach = filteredPosts.reduce((sum, p) => sum + (p.reach || 0), 0);
+    const avgEngagement = filteredPosts.length > 0
+      ? filteredPosts.reduce((sum, p) => sum + (p.engagement_rate || 0), 0) / filteredPosts.length
+      : 0;
+
+    // Calculate views from metrics
+    const totalViews = filteredMetrics.reduce((sum, m) => sum + (m.views || 0), 0);
+    
+    // Current followers from latest metric
+    const currentFollowers = latestMetric?.subscribers || 0;
+    const previousFollowers = previousMetric?.subscribers || currentFollowers;
+    const followersGrowth = currentFollowers - previousFollowers;
+    const followersGrowthPercent = previousFollowers > 0 
+      ? Math.round((followersGrowth / previousFollowers) * 100 * 10) / 10
+      : 0;
+
+    return {
+      currentFollowers,
+      followersGrowth,
+      followersGrowthPercent,
+      totalPosts: filteredPosts.length,
+      totalLikes,
+      totalComments,
+      totalSaves,
+      totalShares,
+      totalReach,
+      totalViews,
+      avgEngagement: Math.round(avgEngagement * 100) / 100,
+    };
+  }, [filteredPosts, filteredMetrics]);
+
+  // Prepare chart data
+  const chartData = useMemo(() => {
+    return filteredMetrics
+      .slice()
+      .reverse()
+      .map(m => ({
+        date: format(parseISO(m.metric_date), "dd/MM", { locale: ptBR }),
+        fullDate: m.metric_date,
+        views: m.views || 0,
+        likes: m.likes || 0,
+        subscribers: m.subscribers || 0,
+        engagement_rate: m.engagement_rate || 0,
+        comments: m.comments || 0,
+      }));
+  }, [filteredMetrics]);
+
+  // Get best performing post
+  const bestPost = useMemo(() => {
+    if (filteredPosts.length === 0) return null;
+    return filteredPosts.reduce((best, post) => 
+      (post.engagement_rate || 0) > (best.engagement_rate || 0) ? post : best
+    , filteredPosts[0]);
+  }, [filteredPosts]);
+
+  const formatNumber = (num: number) => {
+    if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
+    if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
+    return num.toLocaleString();
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Header with Period Selector */}
+      <div className="flex flex-col sm:flex-row justify-between gap-4">
+        <div className="flex items-center gap-2">
+          <Calendar className="h-4 w-4 text-muted-foreground" />
+          <Select value={period} onValueChange={setPeriod}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {periodOptions.map(opt => (
+                <SelectItem key={opt.value} value={opt.value}>
+                  {opt.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <Collapsible open={showUpload} onOpenChange={setShowUpload}>
+          <CollapsibleTrigger asChild>
+            <Button variant="outline" size="sm">
+              <Upload className="h-4 w-4 mr-2" />
+              {showUpload ? "Ocultar" : "Importar CSV"}
+            </Button>
+          </CollapsibleTrigger>
+        </Collapsible>
+      </div>
+
+      {/* CSV Upload (Collapsible) */}
+      <Collapsible open={showUpload} onOpenChange={setShowUpload}>
+        <CollapsibleContent>
+          <SmartCSVUpload clientId={clientId} platform="instagram" />
+        </CollapsibleContent>
+      </Collapsible>
+
+      {/* KPI Cards Grid */}
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
+        <Card className="bg-gradient-to-br from-pink-500/10 to-purple-500/10 border-pink-500/20">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 text-muted-foreground mb-1">
+              <Users className="h-4 w-4" />
+              <span className="text-xs">Seguidores</span>
+            </div>
+            <p className="text-2xl font-bold">{formatNumber(kpis.currentFollowers)}</p>
+            {kpis.followersGrowth !== 0 && (
+              <p className={`text-xs ${kpis.followersGrowth > 0 ? "text-green-500" : "text-red-500"}`}>
+                {kpis.followersGrowth > 0 ? "+" : ""}{formatNumber(kpis.followersGrowth)} ({kpis.followersGrowthPercent}%)
+              </p>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 text-muted-foreground mb-1">
+              <Eye className="h-4 w-4" />
+              <span className="text-xs">Visualizações</span>
+            </div>
+            <p className="text-2xl font-bold">{formatNumber(kpis.totalViews)}</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 text-muted-foreground mb-1">
+              <Heart className="h-4 w-4" />
+              <span className="text-xs">Curtidas</span>
+            </div>
+            <p className="text-2xl font-bold">{formatNumber(kpis.totalLikes)}</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 text-muted-foreground mb-1">
+              <MessageCircle className="h-4 w-4" />
+              <span className="text-xs">Comentários</span>
+            </div>
+            <p className="text-2xl font-bold">{formatNumber(kpis.totalComments)}</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 text-muted-foreground mb-1">
+              <Bookmark className="h-4 w-4" />
+              <span className="text-xs">Salvos</span>
+            </div>
+            <p className="text-2xl font-bold">{formatNumber(kpis.totalSaves)}</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 text-muted-foreground mb-1">
+              <TrendingUp className="h-4 w-4" />
+              <span className="text-xs">Engajamento</span>
+            </div>
+            <p className="text-2xl font-bold">{kpis.avgEngagement.toFixed(2)}%</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Chart Section */}
+      {chartData.length > 0 && (
+        <EnhancedAreaChart
+          data={chartData}
+          metrics={metricOptions.map(opt => ({
+            key: opt.value,
+            label: opt.label,
+            dataKey: opt.value,
+            color: opt.value === "likes" ? "hsl(340, 82%, 52%)" :
+                   opt.value === "views" ? "hsl(217, 91%, 60%)" :
+                   opt.value === "subscribers" ? "hsl(142, 76%, 36%)" :
+                   opt.value === "engagement_rate" ? "hsl(45, 93%, 47%)" :
+                   "hsl(280, 87%, 65%)"
+          }))}
+          selectedMetric={selectedMetric}
+          onMetricChange={setSelectedMetric}
+          title="Evolução das Métricas"
+        />
+      )}
+
+      {/* Best Post Highlight */}
+      {bestPost && (
+        <Card className="bg-gradient-to-r from-amber-500/10 to-orange-500/10 border-amber-500/20">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center gap-2">
+              🏆 Melhor Post do Período
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex gap-4">
+              {bestPost.thumbnail_url && (
+                <img 
+                  src={bestPost.thumbnail_url} 
+                  alt="" 
+                  className="w-16 h-16 rounded-lg object-cover"
+                />
+              )}
+              <div className="flex-1 min-w-0">
+                <p className="text-sm line-clamp-2 mb-2">
+                  {bestPost.caption || "Sem legenda"}
+                </p>
+                <div className="flex gap-4 text-sm text-muted-foreground">
+                  <span className="flex items-center gap-1">
+                    <Heart className="h-3 w-3" /> {formatNumber(bestPost.likes || 0)}
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <MessageCircle className="h-3 w-3" /> {formatNumber(bestPost.comments || 0)}
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <TrendingUp className="h-3 w-3" /> {(bestPost.engagement_rate || 0).toFixed(1)}%
+                  </span>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Posts Table */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">
+            Todos os Posts ({filteredPosts.length})
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <InstagramPostsTable 
+            posts={filteredPosts} 
+            isLoading={isLoadingPosts}
+          />
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
