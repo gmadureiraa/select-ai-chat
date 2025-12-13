@@ -79,7 +79,7 @@ export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
   const templateType = selectedTemplate ? "content" : "free_chat";
 
   return (
-    <div className="flex gap-4 h-[calc(100vh-180px)]">
+    <div className="flex gap-4 h-[calc(100vh-140px)]">
       {/* Sidebar - Templates */}
       <Card className="w-64 shrink-0 flex flex-col">
         <div className="p-3 border-b">
