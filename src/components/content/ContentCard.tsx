@@ -33,49 +33,51 @@ export const ContentCard = ({ content, onEdit, onDelete, onView }: ContentCardPr
   const label = getContentTypeLabel(content.content_type);
 
   return (
-    <Card className="group cursor-pointer hover:border-primary/50 transition-all" onClick={() => onView(content)}>
-      <CardHeader>
-        <div className="flex items-start justify-between">
+    <Card className="group cursor-pointer hover:border-primary/50 transition-all h-[220px] flex flex-col" onClick={() => onView(content)}>
+      <CardHeader className="pb-2">
+        <div className="flex items-start justify-between gap-2">
           <div className="flex items-center gap-2">
-            <div className={`p-2 rounded-lg ${config.color}`}>
-              <Icon className="h-4 w-4" />
+            <div className={`p-1.5 rounded-lg ${config.color} shrink-0`}>
+              <Icon className="h-3.5 w-3.5" />
             </div>
-            <Badge variant="secondary" className="text-xs">
+            <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
               {label}
             </Badge>
           </div>
         </div>
-        <CardTitle className="text-lg mt-2">{content.title}</CardTitle>
+        <CardTitle className="text-sm font-medium mt-1.5 line-clamp-2">{content.title}</CardTitle>
       </CardHeader>
-      <CardContent>
-        <p className="text-sm text-muted-foreground line-clamp-3">
+      <CardContent className="flex-1 py-0">
+        <p className="text-xs text-muted-foreground line-clamp-4">
           {content.content}
         </p>
       </CardContent>
-      <CardFooter className="flex justify-between items-center pt-4 border-t">
-        <span className="text-xs text-muted-foreground">
+      <CardFooter className="flex justify-between items-center pt-3 pb-3 border-t mt-auto">
+        <span className="text-[10px] text-muted-foreground">
           {new Date(content.created_at).toLocaleDateString("pt-BR")}
         </span>
-        <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
           <Button
             variant="ghost"
-            size="sm"
+            size="icon"
+            className="h-7 w-7"
             onClick={(e) => {
               e.stopPropagation();
               onEdit(content);
             }}
           >
-            <Edit className="h-4 w-4" />
+            <Edit className="h-3.5 w-3.5" />
           </Button>
           <Button
             variant="ghost"
-            size="sm"
+            size="icon"
+            className="h-7 w-7"
             onClick={(e) => {
               e.stopPropagation();
               onDelete(content.id);
             }}
           >
-            <Trash2 className="h-4 w-4" />
+            <Trash2 className="h-3.5 w-3.5" />
           </Button>
         </div>
       </CardFooter>

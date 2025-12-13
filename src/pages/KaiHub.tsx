@@ -100,21 +100,21 @@ const KaiHub = () => {
     <div className="min-h-screen bg-background flex flex-col">
       {/* Header with Client Selector */}
       <header className="border-b border-border/50 bg-card/80 backdrop-blur-md sticky top-0 z-50">
-        <div className="w-full px-6 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-6">
+        <div className="w-full px-3 sm:px-6 py-2.5 sm:py-3 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 sm:gap-6 min-w-0">
             {/* Kaleidos Logo */}
-            <div className="flex items-center gap-3">
-              <div className="h-9 w-9 rounded-xl bg-primary flex items-center justify-center">
-                <img src={KaleidosLogo} alt="Kaleidos" className="h-6 w-6" />
+            <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+              <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-xl bg-primary flex items-center justify-center">
+                <img src={KaleidosLogo} alt="Kaleidos" className="h-5 w-5 sm:h-6 sm:w-6" />
               </div>
-              <div className="flex flex-col">
+              <div className="flex flex-col hidden sm:flex">
                 <span className="font-bold text-lg tracking-tight">kAI</span>
                 <span className="text-[10px] text-muted-foreground -mt-1">by Kaleidos</span>
               </div>
             </div>
 
             {/* Separator */}
-            <div className="h-8 w-px bg-border/50" />
+            <div className="h-6 sm:h-8 w-px bg-border/50 hidden sm:block" />
             
             {/* Client Selector */}
             <Popover open={clientSelectorOpen} onOpenChange={setClientSelectorOpen}>
@@ -123,21 +123,21 @@ const KaiHub = () => {
                   variant="ghost"
                   role="combobox"
                   aria-expanded={clientSelectorOpen}
-                  className="min-w-[220px] justify-between h-10 px-4 hover:bg-muted/50"
+                  className="min-w-0 sm:min-w-[180px] lg:min-w-[220px] justify-between h-9 sm:h-10 px-2 sm:px-4 hover:bg-muted/50"
                 >
                   {selectedClient ? (
-                    <div className="flex items-center gap-2">
-                      <div className="h-6 w-6 rounded-md bg-primary/20 flex items-center justify-center">
-                        <span className="text-xs font-semibold text-primary">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="h-5 w-5 sm:h-6 sm:w-6 rounded-md bg-primary/20 flex items-center justify-center shrink-0">
+                        <span className="text-[10px] sm:text-xs font-semibold text-primary">
                           {selectedClient.name.charAt(0).toUpperCase()}
                         </span>
                       </div>
-                      <span className="truncate font-medium">{selectedClient.name}</span>
+                      <span className="truncate font-medium text-sm sm:text-base max-w-[100px] sm:max-w-none">{selectedClient.name}</span>
                     </div>
                   ) : (
-                    <span className="text-muted-foreground">Selecionar cliente...</span>
+                    <span className="text-muted-foreground text-sm">Selecionar...</span>
                   )}
-                  <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  <ChevronDown className="ml-1 sm:ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-[320px] p-0" align="start">
@@ -190,21 +190,21 @@ const KaiHub = () => {
               variant="ghost"
               size="sm"
               onClick={() => setClientDialogOpen(true)}
-              className="h-9 gap-2 text-muted-foreground hover:text-foreground"
+              className="h-8 sm:h-9 gap-2 text-muted-foreground hover:text-foreground shrink-0"
             >
               <Plus className="h-4 w-4" />
-              <span className="hidden md:inline">Novo Cliente</span>
+              <span className="hidden lg:inline">Novo Cliente</span>
             </Button>
           </div>
 
           {/* Right Side Menu */}
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-0.5 sm:gap-1 shrink-0">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="h-9 gap-2 text-muted-foreground hover:text-foreground">
+                <Button variant="ghost" size="sm" className="h-8 sm:h-9 gap-1 sm:gap-2 text-muted-foreground hover:text-foreground px-2 sm:px-3">
                   <Hammer className="h-4 w-4" />
-                  <span className="hidden lg:inline">Ferramentas</span>
-                  <ChevronDown className="h-3 w-3" />
+                  <span className="hidden xl:inline">Ferramentas</span>
+                  <ChevronDown className="h-3 w-3 hidden sm:inline" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
@@ -235,9 +235,9 @@ const KaiHub = () => {
             {/* User Menu */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="h-9 px-2 gap-2">
-                  <Avatar className="h-7 w-7">
-                    <AvatarFallback className="bg-primary text-primary-foreground text-xs font-medium">
+                <Button variant="ghost" className="h-8 sm:h-9 px-1.5 sm:px-2 gap-2">
+                  <Avatar className="h-6 w-6 sm:h-7 sm:w-7">
+                    <AvatarFallback className="bg-primary text-primary-foreground text-[10px] sm:text-xs font-medium">
                       {userInitials}
                     </AvatarFallback>
                   </Avatar>
@@ -321,17 +321,17 @@ const KaiHub = () => {
           <div className="w-full">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
               {/* Tab Navigation */}
-              <div className="border-b border-border/50 bg-card/30 sticky top-[57px] z-40">
-                <div className="px-6">
-                  <TabsList className="h-12 bg-transparent gap-2 p-0">
+              <div className="border-b border-border/50 bg-card/30 sticky top-[49px] sm:top-[57px] z-40 overflow-x-auto">
+                <div className="px-3 sm:px-6">
+                  <TabsList className="h-10 sm:h-12 bg-transparent gap-1 sm:gap-2 p-0 inline-flex min-w-max">
                     {tabs.map((tab) => (
                       <TabsTrigger
                         key={tab.id}
                         value={tab.id}
-                        className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-none px-5 py-2.5 gap-2.5 rounded-lg font-medium transition-all"
+                        className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-none px-2.5 sm:px-5 py-2 sm:py-2.5 gap-1.5 sm:gap-2.5 rounded-lg font-medium transition-all text-xs sm:text-sm"
                       >
-                        <tab.icon className="h-4 w-4" />
-                        <span className="hidden sm:inline">{tab.label}</span>
+                        <tab.icon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                        <span className="hidden xs:inline sm:inline">{tab.label}</span>
                       </TabsTrigger>
                     ))}
                   </TabsList>
@@ -339,7 +339,7 @@ const KaiHub = () => {
               </div>
 
               {/* Tab Content */}
-              <div className="p-6">
+              <div className="p-3 sm:p-6">
                 <TabsContent value="assistant" className="mt-0 focus-visible:outline-none">
                   <KaiAssistantTab clientId={selectedClientId} client={selectedClient} />
                 </TabsContent>

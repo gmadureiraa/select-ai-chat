@@ -70,20 +70,20 @@ export const KaiLibraryTab = ({ clientId, client }: KaiLibraryTabProps) => {
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <Library className="h-5 w-5 text-primary" />
           <h2 className="font-semibold">Biblioteca</h2>
         </div>
         
-        <div className="flex items-center gap-2">
-          <div className="relative">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
+          <div className="relative flex-1 sm:flex-initial">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Buscar..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 w-64"
+              className="pl-9 w-full sm:w-56 lg:w-64"
             />
           </div>
           <Button
@@ -96,9 +96,11 @@ export const KaiLibraryTab = ({ clientId, client }: KaiLibraryTabProps) => {
                 setReferenceDialogOpen(true);
               }
             }}
+            className="shrink-0"
           >
             <Plus className="h-4 w-4 mr-2" />
-            Adicionar
+            <span className="hidden sm:inline">Adicionar</span>
+            <span className="sm:hidden">Novo</span>
           </Button>
         </div>
       </div>
@@ -141,7 +143,7 @@ export const KaiLibraryTab = ({ clientId, client }: KaiLibraryTabProps) => {
               </CardContent>
             </Card>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
               {filteredContents.map((content) => (
                 <ContentCard
                   key={content.id}
@@ -184,7 +186,7 @@ export const KaiLibraryTab = ({ clientId, client }: KaiLibraryTabProps) => {
               </CardContent>
             </Card>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
               {filteredReferences.map((reference) => (
                 <ReferenceCard
                   key={reference.id}
