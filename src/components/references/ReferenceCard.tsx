@@ -12,7 +12,27 @@ interface ReferenceCardProps {
   onView: (reference: ReferenceItem) => void;
 }
 
+// Clean markdown and page separators from content for preview
+const cleanContentForPreview = (text: string): string => {
+  if (!text) return "";
+  return text
+    .replace(/---\s*(PÁGINA|SLIDE|PAGE)\s*\d+\s*---/gi, "") // Remove page separators
+    .replace(/\*\*([^*]+)\*\*/g, "$1") // Remove bold markdown
+    .replace(/\*([^*]+)\*/g, "$1") // Remove italic markdown
+    .replace(/#{1,6}\s/g, "") // Remove headers
+    .replace(/`([^`]+)`/g, "$1") // Remove inline code
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1") // Remove links, keep text
+    .replace(/!\[([^\]]*)\]\([^)]+\)/g, "") // Remove images
+    .replace(/^\s*[-*+]\s/gm, "") // Remove list markers
+    .replace(/^\s*\d+\.\s/gm, "") // Remove numbered list markers
+    .replace(/\n{2,}/g, " ") // Replace multiple newlines with space
+    .replace(/\n/g, " ") // Replace single newlines with space
+    .trim();
+};
+
 export function ReferenceCard({ reference, onEdit, onDelete, onView }: ReferenceCardProps) {
+  const cleanedContent = cleanContentForPreview(reference.content);
+  
   return (
     <Card className="bg-card/50 border-border/50 hover:border-border transition-all h-[220px] flex flex-col group cursor-pointer" onClick={() => onView(reference)}>
       <CardHeader className="pb-2">
@@ -25,7 +45,7 @@ export function ReferenceCard({ reference, onEdit, onDelete, onView }: Reference
       </CardHeader>
       <CardContent className="flex-1 py-0">
         <p className="text-xs text-muted-foreground line-clamp-4">
-          {reference.content}
+          {cleanedContent}
         </p>
         {reference.source_url && (
           <a
