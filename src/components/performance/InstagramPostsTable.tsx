@@ -157,14 +157,17 @@ export function InstagramPostsTable({ posts, isLoading }: InstagramPostsTablePro
                       {post.caption || "Sem legenda"}
                     </p>
                     {post.permalink && (
-                      <a 
-                        href={post.permalink} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="opacity-0 group-hover:opacity-100 transition-opacity"
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                        onClick={() => {
+                          navigator.clipboard.writeText(post.permalink!);
+                          window.open(post.permalink!, "_blank", "noopener,noreferrer");
+                        }}
                       >
-                        <ExternalLink className="h-4 w-4 text-muted-foreground hover:text-foreground" />
-                      </a>
+                        <ExternalLink className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground" />
+                      </Button>
                     )}
                   </div>
                   <Badge variant="outline" className="mt-1 text-xs">
