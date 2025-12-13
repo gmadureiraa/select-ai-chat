@@ -27,10 +27,29 @@ const contentTypeConfig: Record<string, { icon: any; color: string }> = {
   other: { icon: FileText, color: "bg-gray-500/10 text-gray-500" },
 };
 
+// Clean markdown and page separators from content for preview
+const cleanContentForPreview = (text: string): string => {
+  if (!text) return "";
+  return text
+    .replace(/---\s*(PÁGINA|SLIDE|PAGE)\s*\d+\s*---/gi, "") // Remove page separators
+    .replace(/\*\*([^*]+)\*\*/g, "$1") // Remove bold markdown
+    .replace(/\*([^*]+)\*/g, "$1") // Remove italic markdown
+    .replace(/#{1,6}\s/g, "") // Remove headers
+    .replace(/`([^`]+)`/g, "$1") // Remove inline code
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1") // Remove links, keep text
+    .replace(/!\[([^\]]*)\]\([^)]+\)/g, "") // Remove images
+    .replace(/^\s*[-*+]\s/gm, "") // Remove list markers
+    .replace(/^\s*\d+\.\s/gm, "") // Remove numbered list markers
+    .replace(/\n{2,}/g, " ") // Replace multiple newlines with space
+    .replace(/\n/g, " ") // Replace single newlines with space
+    .trim();
+};
+
 export const ContentCard = ({ content, onEdit, onDelete, onView }: ContentCardProps) => {
   const config = contentTypeConfig[content.content_type] || contentTypeConfig.other;
   const Icon = config.icon;
   const label = getContentTypeLabel(content.content_type);
+  const cleanedContent = cleanContentForPreview(content.content);
 
   return (
     <Card className="group cursor-pointer hover:border-primary/50 transition-all h-[220px] flex flex-col" onClick={() => onView(content)}>
@@ -49,7 +68,7 @@ export const ContentCard = ({ content, onEdit, onDelete, onView }: ContentCardPr
       </CardHeader>
       <CardContent className="flex-1 py-0">
         <p className="text-xs text-muted-foreground line-clamp-4">
-          {content.content}
+          {cleanedContent}
         </p>
       </CardContent>
       <CardFooter className="flex justify-between items-center pt-3 pb-3 border-t mt-auto">
