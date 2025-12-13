@@ -1,5 +1,10 @@
-import { useState } from "react";
-import { Settings, Save, Trash2, Globe, Instagram, Twitter, Linkedin, Youtube, FileText, Upload } from "lucide-react";
+import { useState, useEffect } from "react";
+import { 
+  Settings, Save, Trash2, Globe, Instagram, Twitter, Linkedin, Youtube, 
+  FileText, BookOpen, Sparkles, Loader2, RefreshCw, Palette, Target, 
+  Users, MessageSquare, Hash, Building, Mail, Phone, MapPin, Calendar,
+  TrendingUp, Award, Megaphone, Eye
+} from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,10 +13,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
 import { useClients, Client } from "@/hooks/useClients";
 import { useClientDocuments } from "@/hooks/useClientDocuments";
 import { useClientWebsites } from "@/hooks/useClientWebsites";
+import { useGlobalKnowledge } from "@/hooks/useGlobalKnowledge";
 import { ClientDocumentsManager } from "@/components/clients/ClientDocumentsManager";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 interface KaiSettingsTabProps {
@@ -22,7 +30,8 @@ interface KaiSettingsTabProps {
 export const KaiSettingsTab = ({ clientId, client }: KaiSettingsTabProps) => {
   const { updateClient, deleteClient } = useClients();
   const { documents } = useClientDocuments(clientId);
-  const { websites } = useClientWebsites(clientId);
+  const { websites, addWebsite, deleteWebsite } = useClientWebsites(clientId);
+  const { knowledge, isLoading: loadingKnowledge } = useGlobalKnowledge();
 
   const [formData, setFormData] = useState({
     name: client.name,
@@ -30,9 +39,24 @@ export const KaiSettingsTab = ({ clientId, client }: KaiSettingsTabProps) => {
     identity_guide: client.identity_guide || "",
     context_notes: client.context_notes || "",
     social_media: client.social_media || {},
+    tags: client.tags || {},
   });
 
+  const [newWebsite, setNewWebsite] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [isRegenerating, setIsRegenerating] = useState(false);
+
+  // Update form when client changes
+  useEffect(() => {
+    setFormData({
+      name: client.name,
+      description: client.description || "",
+      identity_guide: client.identity_guide || "",
+      context_notes: client.context_notes || "",
+      social_media: client.social_media || {},
+      tags: client.tags || {},
+    });
+  }, [client]);
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -62,12 +86,91 @@ export const KaiSettingsTab = ({ clientId, client }: KaiSettingsTabProps) => {
     }
   };
 
+  const handleAddWebsite = async () => {
+    if (!newWebsite.trim()) return;
+    try {
+      await addWebsite.mutateAsync(newWebsite);
+      setNewWebsite("");
+    } catch (error) {
+      console.error("Error adding website:", error);
+    }
+  };
+
+  const handleRegenerateContext = async () => {
+    setIsRegenerating(true);
+    try {
+      // Regenerate client context using AI
+      const { data, error } = await supabase.functions.invoke("chat", {
+        body: {
+          messages: [{
+            role: "user",
+            content: `Analise todas as informações do cliente "${client.name}" e gere um documento completo de contexto em markdown, incluindo:
+            
+- Descrição: ${formData.description}
+- Tags: ${JSON.stringify(formData.tags)}
+- Redes Sociais: ${JSON.stringify(formData.social_media)}
+- Websites cadastrados: ${websites?.map(w => w.url).join(", ")}
+- Documentos: ${documents?.map(d => d.name).join(", ")}
+
+Estruture o documento com seções para: Visão Geral, Posicionamento, Tom de Voz, Público-Alvo, Presença Digital, Pontos-Chave para Conteúdo.`
+          }],
+          systemPrompt: "Você é um especialista em branding e marketing digital. Gere documentos de contexto completos e bem estruturados para clientes.",
+        },
+      });
+
+      if (error) throw error;
+
+      // Parse streaming response
+      if (data) {
+        const reader = data.getReader();
+        const decoder = new TextDecoder();
+        let result = "";
+        
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          const chunk = decoder.decode(value);
+          const lines = chunk.split("\n");
+          for (const line of lines) {
+            if (line.startsWith("data: ") && !line.includes("[DONE]")) {
+              try {
+                const json = JSON.parse(line.slice(6));
+                result += json.choices?.[0]?.delta?.content || "";
+              } catch {}
+            }
+          }
+        }
+
+        setFormData(prev => ({ ...prev, context_notes: result }));
+        toast.success("Contexto regenerado com IA");
+      }
+    } catch (error) {
+      console.error("Error regenerating context:", error);
+      toast.error("Erro ao regenerar contexto");
+    } finally {
+      setIsRegenerating(false);
+    }
+  };
+
   const socialMediaFields = [
-    { key: "website", label: "Website", icon: Globe, placeholder: "https://..." },
+    { key: "website", label: "Website Principal", icon: Globe, placeholder: "https://..." },
     { key: "instagram", label: "Instagram", icon: Instagram, placeholder: "@usuario" },
     { key: "twitter", label: "X/Twitter", icon: Twitter, placeholder: "@usuario" },
     { key: "linkedin", label: "LinkedIn", icon: Linkedin, placeholder: "linkedin.com/in/..." },
     { key: "youtube", label: "YouTube", icon: Youtube, placeholder: "@canal" },
+    { key: "tiktok", label: "TikTok", icon: Megaphone, placeholder: "@usuario" },
+    { key: "newsletter", label: "Newsletter", icon: Mail, placeholder: "link ou plataforma" },
+  ];
+
+  const tagFields = [
+    { key: "segment", label: "Segmento/Indústria", icon: Building, placeholder: "Ex: E-commerce, SaaS, Educação" },
+    { key: "tone", label: "Tom de Voz", icon: MessageSquare, placeholder: "Ex: Profissional, Descontraído, Inspirador" },
+    { key: "audience", label: "Público-Alvo", icon: Users, placeholder: "Descrição do público principal" },
+    { key: "objectives", label: "Objetivos", icon: Target, placeholder: "Principais metas e objetivos" },
+    { key: "keywords", label: "Palavras-Chave", icon: Hash, placeholder: "Separadas por vírgula" },
+    { key: "competitors", label: "Concorrentes", icon: Eye, placeholder: "Principais concorrentes" },
+    { key: "differentials", label: "Diferenciais", icon: Award, placeholder: "O que diferencia o cliente" },
+    { key: "content_pillars", label: "Pilares de Conteúdo", icon: TrendingUp, placeholder: "Temas principais" },
   ];
 
   return (
@@ -78,6 +181,10 @@ export const KaiSettingsTab = ({ clientId, client }: KaiSettingsTabProps) => {
           <h2 className="font-semibold">Configurações do Cliente</h2>
         </div>
         <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={handleRegenerateContext} disabled={isRegenerating}>
+            {isRegenerating ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Sparkles className="h-4 w-4 mr-2" />}
+            Regenerar Contexto
+          </Button>
           <Button variant="destructive" size="sm" onClick={handleDelete}>
             <Trash2 className="h-4 w-4 mr-2" />
             Excluir
@@ -90,11 +197,13 @@ export const KaiSettingsTab = ({ clientId, client }: KaiSettingsTabProps) => {
       </div>
 
       <Tabs defaultValue="general">
-        <TabsList>
+        <TabsList className="grid grid-cols-6 w-full">
           <TabsTrigger value="general">Geral</TabsTrigger>
-          <TabsTrigger value="identity">Identidade</TabsTrigger>
-          <TabsTrigger value="social">Redes Sociais</TabsTrigger>
+          <TabsTrigger value="brand">Marca</TabsTrigger>
+          <TabsTrigger value="social">Redes</TabsTrigger>
+          <TabsTrigger value="websites">Websites</TabsTrigger>
           <TabsTrigger value="documents">Documentos</TabsTrigger>
+          <TabsTrigger value="knowledge">Conhecimento</TabsTrigger>
         </TabsList>
 
         {/* General */}
@@ -104,13 +213,26 @@ export const KaiSettingsTab = ({ clientId, client }: KaiSettingsTabProps) => {
               <CardTitle className="text-base">Informações Básicas</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label>Nome do Cliente</Label>
-                <Input
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="Nome do cliente"
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Nome do Cliente</Label>
+                  <Input
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    placeholder="Nome do cliente"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Segmento</Label>
+                  <Input
+                    value={(formData.tags as any)?.segment || ""}
+                    onChange={(e) => setFormData({
+                      ...formData,
+                      tags: { ...formData.tags, segment: e.target.value },
+                    })}
+                    placeholder="Ex: E-commerce, SaaS"
+                  />
+                </div>
               </div>
               <div className="space-y-2">
                 <Label>Descrição</Label>
@@ -121,24 +243,79 @@ export const KaiSettingsTab = ({ clientId, client }: KaiSettingsTabProps) => {
                   rows={3}
                 />
               </div>
-              <div className="space-y-2">
-                <Label>Notas de Contexto</Label>
-                <Textarea
-                  value={formData.context_notes}
-                  onChange={(e) => setFormData({ ...formData, context_notes: e.target.value })}
-                  placeholder="Notas importantes, objetivos, público-alvo, etc."
-                  rows={4}
-                />
-              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Estratégia e Posicionamento</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {tagFields.slice(0, 4).map((field) => (
+                <div key={field.key} className="space-y-2">
+                  <Label className="flex items-center gap-2">
+                    <field.icon className="h-4 w-4 text-muted-foreground" />
+                    {field.label}
+                  </Label>
+                  {field.key === "objectives" || field.key === "audience" ? (
+                    <Textarea
+                      value={(formData.tags as any)?.[field.key] || ""}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        tags: { ...formData.tags, [field.key]: e.target.value },
+                      })}
+                      placeholder={field.placeholder}
+                      rows={2}
+                    />
+                  ) : (
+                    <Input
+                      value={(formData.tags as any)?.[field.key] || ""}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        tags: { ...formData.tags, [field.key]: e.target.value },
+                      })}
+                      placeholder={field.placeholder}
+                    />
+                  )}
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Diferenciação e Conteúdo</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {tagFields.slice(4).map((field) => (
+                <div key={field.key} className="space-y-2">
+                  <Label className="flex items-center gap-2">
+                    <field.icon className="h-4 w-4 text-muted-foreground" />
+                    {field.label}
+                  </Label>
+                  <Textarea
+                    value={(formData.tags as any)?.[field.key] || ""}
+                    onChange={(e) => setFormData({
+                      ...formData,
+                      tags: { ...formData.tags, [field.key]: e.target.value },
+                    })}
+                    placeholder={field.placeholder}
+                    rows={2}
+                  />
+                </div>
+              ))}
             </CardContent>
           </Card>
         </TabsContent>
 
-        {/* Identity Guide */}
-        <TabsContent value="identity" className="space-y-4">
+        {/* Brand Identity */}
+        <TabsContent value="brand" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Guia de Identidade</CardTitle>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Palette className="h-4 w-4" />
+                Guia de Identidade
+              </CardTitle>
               <CardDescription>
                 Documentação completa de posicionamento, tom de voz e estratégia de conteúdo
               </CardDescription>
@@ -147,8 +324,29 @@ export const KaiSettingsTab = ({ clientId, client }: KaiSettingsTabProps) => {
               <Textarea
                 value={formData.identity_guide}
                 onChange={(e) => setFormData({ ...formData, identity_guide: e.target.value })}
-                placeholder="# Posicionamento&#10;...&#10;&#10;# Tom de Voz&#10;...&#10;&#10;# Estratégia de Conteúdo&#10;..."
+                placeholder="# Posicionamento&#10;...&#10;&#10;# Tom de Voz&#10;...&#10;&#10;# Paleta de Cores&#10;...&#10;&#10;# Tipografia&#10;..."
                 rows={20}
+                className="font-mono text-sm"
+              />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <FileText className="h-4 w-4" />
+                Documento de Contexto (Gerado por IA)
+              </CardTitle>
+              <CardDescription>
+                Documento gerado automaticamente com base em todas as informações do cliente
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Textarea
+                value={formData.context_notes}
+                onChange={(e) => setFormData({ ...formData, context_notes: e.target.value })}
+                placeholder="O documento de contexto será gerado automaticamente..."
+                rows={15}
                 className="font-mono text-sm"
               />
             </CardContent>
@@ -159,7 +357,7 @@ export const KaiSettingsTab = ({ clientId, client }: KaiSettingsTabProps) => {
         <TabsContent value="social" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Redes Sociais</CardTitle>
+              <CardTitle className="text-base">Redes Sociais e Presença Digital</CardTitle>
               <CardDescription>
                 Links e handles das redes sociais do cliente
               </CardDescription>
@@ -169,6 +367,7 @@ export const KaiSettingsTab = ({ clientId, client }: KaiSettingsTabProps) => {
                 <div key={field.key} className="flex items-center gap-3">
                   <field.icon className="h-5 w-5 text-muted-foreground shrink-0" />
                   <div className="flex-1">
+                    <Label className="text-xs text-muted-foreground">{field.label}</Label>
                     <Input
                       value={(formData.social_media as any)?.[field.key] || ""}
                       onChange={(e) => setFormData({
@@ -185,32 +384,127 @@ export const KaiSettingsTab = ({ clientId, client }: KaiSettingsTabProps) => {
               ))}
             </CardContent>
           </Card>
+        </TabsContent>
 
-          {/* Websites */}
-          {websites && websites.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Websites Indexados</CardTitle>
-              </CardHeader>
-              <CardContent>
+        {/* Websites */}
+        <TabsContent value="websites" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Websites Indexados</CardTitle>
+              <CardDescription>
+                Websites que são automaticamente extraídos para contexto do cliente
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex gap-2">
+                <Input
+                  value={newWebsite}
+                  onChange={(e) => setNewWebsite(e.target.value)}
+                  placeholder="https://exemplo.com"
+                  onKeyPress={(e) => e.key === "Enter" && handleAddWebsite()}
+                />
+                <Button onClick={handleAddWebsite} disabled={addWebsite.isPending}>
+                  {addWebsite.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Adicionar"}
+                </Button>
+              </div>
+
+              {websites && websites.length > 0 ? (
                 <div className="space-y-2">
                   {websites.map((website) => (
-                    <div key={website.id} className="flex items-center justify-between p-2 bg-muted/50 rounded">
-                      <span className="text-sm truncate">{website.url}</span>
-                      <Badge variant="outline" className="text-xs">
-                        {website.last_scraped_at ? "Indexado" : "Pendente"}
-                      </Badge>
+                    <div key={website.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                      <div className="flex-1">
+                        <p className="text-sm font-medium truncate">{website.url}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {website.last_scraped_at 
+                            ? `Indexado em ${new Date(website.last_scraped_at).toLocaleDateString()}`
+                            : "Aguardando indexação"
+                          }
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge variant={website.last_scraped_at ? "default" : "outline"}>
+                          {website.last_scraped_at ? "Indexado" : "Pendente"}
+                        </Badge>
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => deleteWebsite.mutate(website.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
                   ))}
                 </div>
-              </CardContent>
-            </Card>
-          )}
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Globe className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                  <p className="text-sm">Nenhum website indexado</p>
+                  <p className="text-xs">Adicione websites para extrair contexto automaticamente</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
 
         {/* Documents */}
         <TabsContent value="documents" className="space-y-4">
           <ClientDocumentsManager clientId={clientId} />
+        </TabsContent>
+
+        {/* Global Knowledge */}
+        <TabsContent value="knowledge" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <BookOpen className="h-4 w-4" />
+                Base de Conhecimento Global
+              </CardTitle>
+              <CardDescription>
+                Conhecimentos de criação de conteúdo disponíveis para o assistente kAI
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex justify-end mb-4">
+                <Button variant="outline" size="sm" onClick={() => window.location.href = "/knowledge-base"}>
+                  Gerenciar Conhecimento
+                </Button>
+              </div>
+
+              {loadingKnowledge ? (
+                <div className="space-y-2">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="h-16 bg-muted/50 rounded animate-pulse" />
+                  ))}
+                </div>
+              ) : knowledge && knowledge.length > 0 ? (
+                <div className="space-y-2">
+                  {knowledge.slice(0, 10).map((item) => (
+                    <div key={item.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                      <div className="flex-1">
+                        <p className="text-sm font-medium">{item.title}</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <Badge variant="outline" className="text-xs">{item.category}</Badge>
+                          {item.tags?.map((tag) => (
+                            <Badge key={tag} variant="secondary" className="text-xs">{tag}</Badge>
+                          ))}
+                        </div>
+                      </div>
+                      <span className="text-xs text-muted-foreground">
+                        {new Date(item.created_at).toLocaleDateString()}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  <BookOpen className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                  <p className="text-sm">Nenhum conhecimento cadastrado</p>
+                  <p className="text-xs">Adicione guias de copywriting, frameworks e mais</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>
