@@ -17,7 +17,7 @@ import { Switch } from "@/components/ui/switch";
 import { useClients, Client } from "@/hooks/useClients";
 import { useClientDocuments } from "@/hooks/useClientDocuments";
 import { useClientWebsites } from "@/hooks/useClientWebsites";
-import { useGlobalKnowledge } from "@/hooks/useGlobalKnowledge";
+
 import { ClientDocumentsManager } from "@/components/clients/ClientDocumentsManager";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -31,7 +31,7 @@ export const KaiSettingsTab = ({ clientId, client }: KaiSettingsTabProps) => {
   const { updateClient, deleteClient } = useClients();
   const { documents } = useClientDocuments(clientId);
   const { websites, addWebsite, deleteWebsite } = useClientWebsites(clientId);
-  const { knowledge, isLoading: loadingKnowledge } = useGlobalKnowledge();
+  
 
   const [formData, setFormData] = useState({
     name: client.name,
@@ -197,13 +197,12 @@ Estruture o documento com seções para: Visão Geral, Posicionamento, Tom de Vo
       </div>
 
       <Tabs defaultValue="general">
-        <TabsList className="grid grid-cols-6 w-full">
+        <TabsList className="grid grid-cols-5 w-full">
           <TabsTrigger value="general">Geral</TabsTrigger>
           <TabsTrigger value="brand">Marca</TabsTrigger>
           <TabsTrigger value="social">Redes</TabsTrigger>
           <TabsTrigger value="websites">Websites</TabsTrigger>
           <TabsTrigger value="documents">Documentos</TabsTrigger>
-          <TabsTrigger value="knowledge">Conhecimento</TabsTrigger>
         </TabsList>
 
         {/* General */}
@@ -452,60 +451,6 @@ Estruture o documento com seções para: Visão Geral, Posicionamento, Tom de Vo
           <ClientDocumentsManager clientId={clientId} />
         </TabsContent>
 
-        {/* Global Knowledge */}
-        <TabsContent value="knowledge" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base flex items-center gap-2">
-                <BookOpen className="h-4 w-4" />
-                Base de Conhecimento Global
-              </CardTitle>
-              <CardDescription>
-                Conhecimentos de criação de conteúdo disponíveis para o assistente kAI
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex justify-end mb-4">
-                <Button variant="outline" size="sm" onClick={() => window.location.href = "/knowledge-base"}>
-                  Gerenciar Conhecimento
-                </Button>
-              </div>
-
-              {loadingKnowledge ? (
-                <div className="space-y-2">
-                  {[1, 2, 3].map((i) => (
-                    <div key={i} className="h-16 bg-muted/50 rounded animate-pulse" />
-                  ))}
-                </div>
-              ) : knowledge && knowledge.length > 0 ? (
-                <div className="space-y-2">
-                  {knowledge.slice(0, 10).map((item) => (
-                    <div key={item.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                      <div className="flex-1">
-                        <p className="text-sm font-medium">{item.title}</p>
-                        <div className="flex items-center gap-2 mt-1">
-                          <Badge variant="outline" className="text-xs">{item.category}</Badge>
-                          {item.tags?.map((tag) => (
-                            <Badge key={tag} variant="secondary" className="text-xs">{tag}</Badge>
-                          ))}
-                        </div>
-                      </div>
-                      <span className="text-xs text-muted-foreground">
-                        {new Date(item.created_at).toLocaleDateString()}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-8 text-muted-foreground">
-                  <BookOpen className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                  <p className="text-sm">Nenhum conhecimento cadastrado</p>
-                  <p className="text-xs">Adicione guias de copywriting, frameworks e mais</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
       </Tabs>
     </div>
   );
