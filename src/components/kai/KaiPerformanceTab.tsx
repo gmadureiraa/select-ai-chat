@@ -11,7 +11,7 @@ import { TwitterConnectionCard } from "@/components/performance/TwitterConnectio
 import { OverviewInsightsCard } from "@/components/performance/OverviewInsightsCard";
 import { InstagramPostsTable } from "@/components/performance/InstagramPostsTable";
 import { YouTubeVideosTable } from "@/components/performance/YouTubeVideosTable";
-import { InstagramCSVUpload } from "@/components/performance/InstagramCSVUpload";
+import { SmartCSVUpload } from "@/components/performance/SmartCSVUpload";
 import { Client } from "@/hooks/useClients";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -138,7 +138,7 @@ export const KaiPerformanceTab = ({ clientId, client }: KaiPerformanceTabProps) 
               </CollapsibleTrigger>
             </div>
             <CollapsibleContent className="mt-4">
-              <InstagramCSVUpload clientId={clientId} />
+              <SmartCSVUpload clientId={clientId} platform="instagram" />
             </CollapsibleContent>
           </Collapsible>
 
