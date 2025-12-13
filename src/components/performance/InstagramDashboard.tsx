@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Users, Heart, MessageCircle, TrendingUp, Eye, Bookmark, Upload, Calendar } from "lucide-react";
+import { Users, Heart, MessageCircle, TrendingUp, Eye, Bookmark, Upload, Calendar, Share2, Target } from "lucide-react";
 import { InstagramPost } from "@/hooks/useInstagramPosts";
 import { PerformanceMetrics } from "@/hooks/usePerformanceMetrics";
 import { InstagramPostsTable } from "./InstagramPostsTable";
@@ -70,9 +70,7 @@ export function InstagramDashboard({
 
   // Calculate KPIs from filtered data
   const kpis = useMemo(() => {
-    const latestMetric = filteredMetrics[0];
-    const previousMetric = filteredMetrics[filteredMetrics.length - 1];
-
+    // Sum posts metrics
     const totalLikes = filteredPosts.reduce((sum, p) => sum + (p.likes || 0), 0);
     const totalComments = filteredPosts.reduce((sum, p) => sum + (p.comments || 0), 0);
     const totalSaves = filteredPosts.reduce((sum, p) => sum + (p.saves || 0), 0);
@@ -82,28 +80,24 @@ export function InstagramDashboard({
       ? filteredPosts.reduce((sum, p) => sum + (p.engagement_rate || 0), 0) / filteredPosts.length
       : 0;
 
-    // Calculate views from metrics
+    // Calculate views and followers gained from daily metrics
     const totalViews = filteredMetrics.reduce((sum, m) => sum + (m.views || 0), 0);
     
-    // Current followers from latest metric
-    const currentFollowers = latestMetric?.subscribers || 0;
-    const previousFollowers = previousMetric?.subscribers || currentFollowers;
-    const followersGrowth = currentFollowers - previousFollowers;
-    const followersGrowthPercent = previousFollowers > 0 
-      ? Math.round((followersGrowth / previousFollowers) * 100 * 10) / 10
-      : 0;
+    // Followers gained = sum of daily subscriber gains (not total count)
+    const followersGained = filteredMetrics.reduce((sum, m) => sum + (m.subscribers || 0), 0);
+
+    // Calculate from posts if available (more accurate for impressions)
+    const totalImpressions = filteredPosts.reduce((sum, p) => sum + (p.impressions || 0), 0);
 
     return {
-      currentFollowers,
-      followersGrowth,
-      followersGrowthPercent,
+      followersGained,
       totalPosts: filteredPosts.length,
       totalLikes,
       totalComments,
       totalSaves,
       totalShares,
       totalReach,
-      totalViews,
+      totalViews: totalViews || totalImpressions,
       avgEngagement: Math.round(avgEngagement * 100) / 100,
     };
   }, [filteredPosts, filteredMetrics]);
@@ -175,69 +169,84 @@ export function InstagramDashboard({
       </Collapsible>
 
       {/* KPI Cards Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
-        <Card className="bg-gradient-to-br from-pink-500/10 to-purple-500/10 border-pink-500/20">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 text-muted-foreground mb-1">
-              <Users className="h-4 w-4" />
-              <span className="text-xs">Seguidores</span>
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
+        <Card className="bg-gradient-to-br from-green-500/10 to-emerald-500/10 border-green-500/20">
+          <CardContent className="p-3">
+            <div className="flex items-center gap-1.5 text-muted-foreground mb-1">
+              <Users className="h-3.5 w-3.5" />
+              <span className="text-xs">Novos Seguidores</span>
             </div>
-            <p className="text-2xl font-bold">{formatNumber(kpis.currentFollowers)}</p>
-            {kpis.followersGrowth !== 0 && (
-              <p className={`text-xs ${kpis.followersGrowth > 0 ? "text-green-500" : "text-red-500"}`}>
-                {kpis.followersGrowth > 0 ? "+" : ""}{formatNumber(kpis.followersGrowth)} ({kpis.followersGrowthPercent}%)
-              </p>
-            )}
+            <p className="text-xl font-bold text-green-500">+{formatNumber(kpis.followersGained)}</p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 text-muted-foreground mb-1">
-              <Eye className="h-4 w-4" />
+          <CardContent className="p-3">
+            <div className="flex items-center gap-1.5 text-muted-foreground mb-1">
+              <Eye className="h-3.5 w-3.5" />
               <span className="text-xs">Visualizações</span>
             </div>
-            <p className="text-2xl font-bold">{formatNumber(kpis.totalViews)}</p>
+            <p className="text-xl font-bold">{formatNumber(kpis.totalViews)}</p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 text-muted-foreground mb-1">
-              <Heart className="h-4 w-4" />
+          <CardContent className="p-3">
+            <div className="flex items-center gap-1.5 text-muted-foreground mb-1">
+              <Target className="h-3.5 w-3.5" />
+              <span className="text-xs">Alcance</span>
+            </div>
+            <p className="text-xl font-bold">{formatNumber(kpis.totalReach)}</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-3">
+            <div className="flex items-center gap-1.5 text-muted-foreground mb-1">
+              <Heart className="h-3.5 w-3.5" />
               <span className="text-xs">Curtidas</span>
             </div>
-            <p className="text-2xl font-bold">{formatNumber(kpis.totalLikes)}</p>
+            <p className="text-xl font-bold">{formatNumber(kpis.totalLikes)}</p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 text-muted-foreground mb-1">
-              <MessageCircle className="h-4 w-4" />
+          <CardContent className="p-3">
+            <div className="flex items-center gap-1.5 text-muted-foreground mb-1">
+              <MessageCircle className="h-3.5 w-3.5" />
               <span className="text-xs">Comentários</span>
             </div>
-            <p className="text-2xl font-bold">{formatNumber(kpis.totalComments)}</p>
+            <p className="text-xl font-bold">{formatNumber(kpis.totalComments)}</p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 text-muted-foreground mb-1">
-              <Bookmark className="h-4 w-4" />
+          <CardContent className="p-3">
+            <div className="flex items-center gap-1.5 text-muted-foreground mb-1">
+              <Share2 className="h-3.5 w-3.5" />
+              <span className="text-xs">Compartilhamentos</span>
+            </div>
+            <p className="text-xl font-bold">{formatNumber(kpis.totalShares)}</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-3">
+            <div className="flex items-center gap-1.5 text-muted-foreground mb-1">
+              <Bookmark className="h-3.5 w-3.5" />
               <span className="text-xs">Salvos</span>
             </div>
-            <p className="text-2xl font-bold">{formatNumber(kpis.totalSaves)}</p>
+            <p className="text-xl font-bold">{formatNumber(kpis.totalSaves)}</p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 text-muted-foreground mb-1">
-              <TrendingUp className="h-4 w-4" />
+          <CardContent className="p-3">
+            <div className="flex items-center gap-1.5 text-muted-foreground mb-1">
+              <TrendingUp className="h-3.5 w-3.5" />
               <span className="text-xs">Engajamento</span>
             </div>
-            <p className="text-2xl font-bold">{kpis.avgEngagement.toFixed(2)}%</p>
+            <p className="text-xl font-bold">{kpis.avgEngagement.toFixed(2)}%</p>
           </CardContent>
         </Card>
       </div>

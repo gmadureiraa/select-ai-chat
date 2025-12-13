@@ -77,7 +77,7 @@ export function EnhancedAreaChart({
           </ToggleGroup>
         </div>
       </CardHeader>
-      <CardContent className="pt-4">
+      <CardContent className="pt-4 px-2 sm:px-6">
         <ChartContainer
           config={{
             [currentMetric.dataKey]: { 
@@ -85,7 +85,7 @@ export function EnhancedAreaChart({
               color: currentMetric.color 
             },
           }}
-          className="h-[300px]"
+          className="h-[350px] w-full"
         >
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
