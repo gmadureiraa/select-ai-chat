@@ -227,6 +227,14 @@ const App = () => (
               </ProtectedRoute>
             }
           />
+          <Route
+            path="/kai"
+            element={
+              <ProtectedRoute>
+                <KaiHub />
+              </ProtectedRoute>
+            }
+          />
         <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
