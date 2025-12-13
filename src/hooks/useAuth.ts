@@ -72,7 +72,7 @@ export const useAuth = () => {
         description: "Login realizado com sucesso.",
       });
 
-      navigate("/clients");
+      navigate("/kai");
       return { data, error: null };
     } catch (error) {
       const authError = error as AuthError;
