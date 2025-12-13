@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -16,6 +15,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { uploadAndGetSignedUrl } from "@/lib/storage";
 import { toast } from "sonner";
 import { TagsInput } from "@/components/knowledge/TagsInput";
+import { SecondaryLayout } from "@/components/SecondaryLayout";
 
 export default function KnowledgeBase() {
   const { knowledge, isLoading, createKnowledge, updateKnowledge, deleteKnowledge } = useGlobalKnowledge();
@@ -185,11 +185,8 @@ export default function KnowledgeBase() {
   };
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Base de Conhecimento"
-        subtitle="Adicione materiais de referência para melhorar a criação de conteúdo"
-      />
+    <SecondaryLayout title="Base de Conhecimento">
+      <div className="max-w-6xl mx-auto px-6 py-8 space-y-6">
 
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
         <div className="flex flex-1 gap-3 w-full sm:w-auto flex-wrap">
@@ -563,6 +560,7 @@ export default function KnowledgeBase() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+      </div>
+    </SecondaryLayout>
   );
 }

@@ -8,7 +8,7 @@ import { ptBR } from "date-fns/locale";
 import { Activity, Search, Filter, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { PageHeader } from "@/components/PageHeader";
+import { SecondaryLayout } from "@/components/SecondaryLayout";
 import {
   Select,
   SelectContent,
@@ -76,23 +76,22 @@ const Activities = () => {
 
   if (isLoading) {
     return (
-      <div className="max-w-6xl mx-auto px-6 py-8 space-y-6">
-        <Skeleton className="h-12 w-64" />
-        <div className="space-y-4">
-          {[...Array(10)].map((_, i) => (
-            <Skeleton key={i} className="h-24" />
-          ))}
+      <SecondaryLayout title="Atividades">
+        <div className="max-w-6xl mx-auto px-6 py-8 space-y-6">
+          <Skeleton className="h-12 w-64" />
+          <div className="space-y-4">
+            {[...Array(10)].map((_, i) => (
+              <Skeleton key={i} className="h-24" />
+            ))}
+          </div>
         </div>
-      </div>
+      </SecondaryLayout>
     );
   }
 
   return (
-    <div className="max-w-6xl mx-auto px-6 py-8 space-y-6">
-      <PageHeader 
-        title="Registro de Atividades" 
-        subtitle="Histórico completo de todas as suas ações no sistema"
-      />
+    <SecondaryLayout title="Atividades">
+      <div className="max-w-6xl mx-auto px-6 py-8 space-y-6">
 
       {/* Filters */}
       <Card className="border-border/50 bg-card/50">
@@ -225,7 +224,8 @@ const Activities = () => {
           ))}
         </div>
       )}
-    </div>
+      </div>
+    </SecondaryLayout>
   );
 };
 
