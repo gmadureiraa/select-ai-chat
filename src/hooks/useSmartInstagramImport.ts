@@ -28,18 +28,19 @@ const cleanText = (text: string): string => {
 
 // Parse CSV with various encodings and formats
 const parseCSV = (text: string): Record<string, string>[] => {
-  // Handle UTF-16 encoding (spaces between chars)
-  const isUTF16 = text.includes(' " ') || text.includes(' , ');
-  
+  // Handle UTF-16 encoding (spaces between chars like " D a t a ")
   let cleanedText = text;
-  if (isUTF16) {
-    // Remove the extra spaces between characters
+  
+  // Detect UTF-16 with BOM or spaced characters
+  if (text.charCodeAt(0) === 0xFEFF || text.includes(' " ') || /^[^\n]*\s[A-Za-z]\s[A-Za-z]/.test(text)) {
+    // Remove BOM and fix spaced UTF-16
     cleanedText = text
+      .replace(/^\uFEFF/, '')
       .split('\n')
       .map(line => {
-        // Check if line has spaced characters
-        if (line.includes(' " ')) {
-          return line.replace(/ /g, '').replace(/"/g, '"');
+        // If line has alternating spaces (UTF-16 artifact)
+        if (/^\s*"\s*[A-Z]\s+[a-z]/.test(line) || line.includes(' " ')) {
+          return line.replace(/ /g, '').replace(/""/g, '"');
         }
         return line;
       })
@@ -49,10 +50,17 @@ const parseCSV = (text: string): Record<string, string>[] => {
   const lines = cleanedText.split('\n').filter(line => line.trim());
   if (lines.length < 2) return [];
   
-  // Find the header line (skip metadata lines)
+  // Find the header line (skip metadata lines like "sep=," or title lines)
   let headerIndex = 0;
   for (let i = 0; i < lines.length; i++) {
-    if (lines[i].includes('Data') || lines[i].includes('Identificação')) {
+    const line = lines[i].toLowerCase();
+    // Look for header indicators
+    if (line.includes('data') && (line.includes('primary') || line.includes('identificação'))) {
+      headerIndex = i;
+      break;
+    }
+    // Posts CSV header pattern
+    if (line.includes('identificação do post') || line.includes('link permanente')) {
       headerIndex = i;
       break;
     }
@@ -61,18 +69,8 @@ const parseCSV = (text: string): Record<string, string>[] => {
   const headerLine = lines[headerIndex];
   const delimiter = headerLine.includes(';') ? ';' : ',';
   
-  // Parse headers
-  const headers = headerLine
-    .split(delimiter)
-    .map(h => cleanText(h.replace(/"/g, '').toLowerCase()));
-  
-  const results: Record<string, string>[] = [];
-  
-  for (let i = headerIndex + 1; i < lines.length; i++) {
-    const line = lines[i].trim();
-    if (!line || line.startsWith('sep=')) continue;
-    
-    // Handle quoted values with commas
+  // Parse headers - handle quoted headers
+  const parseRow = (line: string): string[] => {
     const values: string[] = [];
     let current = '';
     let inQuotes = false;
@@ -80,7 +78,7 @@ const parseCSV = (text: string): Record<string, string>[] => {
     for (const char of line) {
       if (char === '"') {
         inQuotes = !inQuotes;
-      } else if ((char === delimiter || char === ',') && !inQuotes) {
+      } else if (char === delimiter && !inQuotes) {
         values.push(cleanText(current.replace(/"/g, '')));
         current = '';
       } else {
@@ -88,11 +86,22 @@ const parseCSV = (text: string): Record<string, string>[] => {
       }
     }
     values.push(cleanText(current.replace(/"/g, '')));
+    return values;
+  };
+  
+  const headers = parseRow(headerLine).map(h => h.toLowerCase());
+  const results: Record<string, string>[] = [];
+  
+  for (let i = headerIndex + 1; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line || line.startsWith('sep=')) continue;
+    
+    const values = parseRow(line);
     
     if (values.length >= 2) {
       const row: Record<string, string> = {};
       headers.forEach((header, idx) => {
-        if (values[idx] !== undefined) {
+        if (values[idx] !== undefined && header) {
           row[header] = values[idx];
         }
       });
@@ -151,16 +160,20 @@ const detectCSVType = (text: string, data: Record<string, string>[]): DetectedCS
   return { type: "unknown", label: "Desconhecido", data };
 };
 
-// Process posts CSV
+// Process posts CSV - handles the detailed Instagram export format
 const processPostsCSV = (data: Record<string, string>[], clientId: string) => {
   return data
-    .filter(row => row['comentário de dados']?.toLowerCase() === 'total' || !row['comentário de dados'])
+    .filter(row => {
+      // Only process "Total" rows from Instagram exports, or rows without this field
+      const commentData = row['comentário de dados']?.toLowerCase();
+      return commentData === 'total' || !commentData;
+    })
     .map(row => {
       // Parse date from various formats
       let postedAt: string | null = null;
       const dateStr = row['horário de publicação'] || row['data'] || row['posted_at'];
       if (dateStr) {
-        // Handle format: "12/10/2025 06:54"
+        // Handle format: "12/10/2025 06:54" (MM/DD/YYYY HH:mm)
         const parts = dateStr.match(/(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})/);
         if (parts) {
           postedAt = `${parts[3]}-${parts[1]}-${parts[2]}T${parts[4]}:${parts[5]}:00`;
@@ -169,31 +182,40 @@ const processPostsCSV = (data: Record<string, string>[], clientId: string) => {
         }
       }
 
-      // Map post type
+      // Map post type from Portuguese
       let postType = 'image';
       const typeStr = (row['tipo de post'] || row['post_type'] || '').toLowerCase();
       if (typeStr.includes('carrossel') || typeStr.includes('carousel')) postType = 'carousel';
-      else if (typeStr.includes('reel') || typeStr.includes('vídeo')) postType = 'reel';
+      else if (typeStr.includes('reel')) postType = 'reel';
       else if (typeStr.includes('story') || typeStr.includes('stories')) postType = 'story';
+      else if (typeStr.includes('imagem') || typeStr.includes('image')) postType = 'image';
+
+      // Parse all numeric fields carefully
+      const parseNum = (val: string | undefined): number => {
+        if (!val) return 0;
+        const num = parseInt(val.replace(/[^\d-]/g, ''), 10);
+        return isNaN(num) ? 0 : num;
+      };
 
       return {
         client_id: clientId,
-        post_id: row['identificação do post'] || row['post_id'] || `post_${Date.now()}_${Math.random()}`,
+        post_id: row['identificação do post'] || row['post_id'] || `post_${Date.now()}_${Math.random().toString(36).slice(2)}`,
         post_type: postType,
         caption: row['descrição'] || row['caption'] || row['legenda'] || null,
         posted_at: postedAt,
-        likes: parseInt(row['curtidas'] || row['likes'] || '0') || 0,
-        comments: parseInt(row['comentários'] || row['comments'] || '0') || 0,
-        shares: parseInt(row['compartilhamentos'] || row['shares'] || '0') || 0,
-        saves: parseInt(row['salvamentos'] || row['saves'] || '0') || 0,
-        reach: parseInt(row['alcance'] || row['reach'] || '0') || 0,
-        impressions: parseInt(row['visualizações'] || row['impressions'] || '0') || 0,
+        likes: parseNum(row['curtidas'] || row['likes']),
+        comments: parseNum(row['comentários'] || row['comments']),
+        shares: parseNum(row['compartilhamentos'] || row['shares']),
+        saves: parseNum(row['salvamentos'] || row['saves']),
+        reach: parseNum(row['alcance'] || row['reach']),
+        impressions: parseNum(row['visualizações'] || row['impressions'] || row['views']),
         engagement_rate: parseFloat(row['taxa de engajamento'] || row['engagement_rate'] || '0') || 0,
         permalink: row['link permanente'] || row['permalink'] || null,
         metadata: {
           account_name: row['nome da conta'] || null,
           username: row['nome de usuário da conta'] || null,
-          follows_from_post: parseInt(row['seguimentos'] || '0') || 0,
+          follows_from_post: parseNum(row['seguimentos'] || row['follows']),
+          duration_seconds: parseNum(row['duração (s)'] || row['duration']),
         }
       };
     });
