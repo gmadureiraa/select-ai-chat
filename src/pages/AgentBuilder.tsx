@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, Save, ChevronLeft, MoreHorizontal, Settings, Trash2, Sparkles, LayoutTemplate, Play } from "lucide-react";
+import { Plus, Save, MoreHorizontal, Settings, Trash2, Sparkles, LayoutTemplate, Play, ArrowLeft, Home } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -165,16 +165,26 @@ export default function AgentBuilder() {
   if (!selectedWorkflowId) {
     return (
       <div className="min-h-screen bg-background">
+        {/* Header */}
+        <header className="sticky top-0 z-50 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+          <div className="flex h-14 items-center gap-4 px-6">
+            <Button variant="ghost" size="sm" onClick={() => navigate("/kai")} className="gap-2">
+              <ArrowLeft className="h-4 w-4" />
+              Voltar
+            </Button>
+            <div className="h-6 w-px bg-border" />
+            <span className="font-semibold text-lg">Agent Builder</span>
+            <div className="flex-1" />
+            <Button variant="ghost" size="icon" onClick={() => navigate("/kai")} className="h-8 w-8">
+              <Home className="h-4 w-4" />
+            </Button>
+          </div>
+        </header>
+        
         <div className="container mx-auto py-8 px-4">
           <div className="flex items-center justify-between mb-8">
-            <div className="flex items-center gap-4">
-              <Button variant="ghost" size="icon" onClick={() => navigate("/agents")}>
-                <ChevronLeft className="h-5 w-5" />
-              </Button>
-              <div>
-                <h1 className="text-3xl font-bold">Agent Builder</h1>
-                <p className="text-muted-foreground">Crie e gerencie workflows de agentes de IA</p>
-              </div>
+            <div>
+              <p className="text-muted-foreground">Crie e gerencie workflows de agentes de IA</p>
             </div>
             <div className="flex gap-2">
               <Button variant="outline" onClick={() => setIsTemplateDialogOpen(true)}>
@@ -306,7 +316,7 @@ export default function AgentBuilder() {
       <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-card">
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="icon" onClick={() => setSelectedWorkflowId(null)}>
-            <ChevronLeft className="h-5 w-5" />
+            <ArrowLeft className="h-5 w-5" />
           </Button>
           <div>
             <Input

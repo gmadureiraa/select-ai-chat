@@ -6,7 +6,6 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
-import { AppLayout } from "@/components/AppLayout";
 import Activities from "./pages/Activities";
 import ResearchLab from "./pages/ResearchLab";
 import Settings from "./pages/Settings";
@@ -24,79 +23,71 @@ const App = () => (
       <TooltipProvider>
         <Toaster />
         <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route path="/" element={<Navigate to="/kai" replace />} />
-          <Route
-            path="/kai"
-            element={
-              <ProtectedRoute>
-                <KaiHub />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/activities"
-            element={
-              <ProtectedRoute>
-                <AppLayout>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route path="/" element={<Navigate to="/kai" replace />} />
+            <Route
+              path="/kai"
+              element={
+                <ProtectedRoute>
+                  <KaiHub />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/activities"
+              element={
+                <ProtectedRoute>
                   <Activities />
-                </AppLayout>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/settings"
-            element={
-              <ProtectedRoute>
-                <AppLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/settings"
+              element={
+                <ProtectedRoute>
                   <Settings />
-                </AppLayout>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/knowledge"
-            element={
-              <ProtectedRoute>
-                <AppLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/knowledge"
+              element={
+                <ProtectedRoute>
                   <KnowledgeBase />
-                </AppLayout>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/research-lab"
-            element={
-              <ProtectedRoute>
-                <ResearchLab />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/social-publisher"
-            element={
-              <ProtectedRoute>
-                <AppLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/research-lab"
+              element={
+                <ProtectedRoute>
+                  <ResearchLab />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/social-publisher"
+              element={
+                <ProtectedRoute>
                   <SocialPublisher />
-                </AppLayout>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/agent-builder"
-            element={
-              <ProtectedRoute>
-                <AgentBuilder />
-              </ProtectedRoute>
-            }
-          />
-        <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/agent-builder"
+              element={
+                <ProtectedRoute>
+                  <AgentBuilder />
+                </ProtectedRoute>
+              }
+            />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </BrowserRouter>
+      </TooltipProvider>
+    </QueryClientProvider>
   </ThemeProvider>
 );
 

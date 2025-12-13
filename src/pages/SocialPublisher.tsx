@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
-import { PageHeader } from "@/components/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -17,6 +16,7 @@ import { toast } from "sonner";
 import { Twitter, Linkedin, Send, Loader2, CheckCircle, AlertCircle, Image, Calendar, Clock, Trash2, Link2, Link2Off, FileText, Edit, Upload, X } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { SecondaryLayout } from "@/components/SecondaryLayout";
 
 interface PublishResult {
   platform: string;
@@ -349,12 +349,8 @@ const SocialPublisher = () => {
   };
 
   return (
-    <div className="max-w-5xl mx-auto px-6 py-8 space-y-8">
-      <PageHeader
-        title="Publicador Social"
-        subtitle="Publique, agende e gerencie conteúdo no Twitter e LinkedIn"
-        backTo="/agents"
-      />
+    <SecondaryLayout title="Publicador Social">
+      <div className="max-w-5xl mx-auto px-6 py-8 space-y-8">
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="grid w-full grid-cols-3">
@@ -731,7 +727,8 @@ const SocialPublisher = () => {
           </Card>
         </TabsContent>
       </Tabs>
-    </div>
+      </div>
+    </SecondaryLayout>
   );
 };
 

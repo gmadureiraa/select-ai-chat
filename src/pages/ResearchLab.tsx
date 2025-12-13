@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { AppLayout } from "@/components/AppLayout";
+import { SecondaryLayout } from "@/components/SecondaryLayout";
 import { ProjectSelector } from "@/components/research/ProjectSelector";
 import { ResearchCanvas, ResearchCanvasRef } from "@/components/research/ResearchCanvas";
 import { PresentationMode } from "@/components/research/PresentationMode";
@@ -49,11 +49,10 @@ const ResearchLab = () => {
   };
 
   return (
-    <AppLayout>
-      <div className="flex flex-col h-[calc(100vh-4rem)]">
+    <SecondaryLayout title="Laboratório de Pesquisa">
+      <div className="flex flex-col h-[calc(100vh-3.5rem)]">
         <div className="p-4 border-b flex items-center justify-between bg-card">
           <div className="flex items-center gap-4">
-            <h1 className="text-2xl font-bold">Laboratório de Pesquisa</h1>
             <ProjectSelector
               selectedProjectId={selectedProjectId}
               onSelectProject={setSelectedProjectId}
@@ -187,7 +186,7 @@ const ResearchLab = () => {
           onClose={() => setShowPresentation(false)}
         />
       )}
-    </AppLayout>
+    </SecondaryLayout>
   );
 };
 

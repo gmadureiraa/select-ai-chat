@@ -6,11 +6,11 @@ import { useWorkspace } from "@/hooks/useWorkspace";
 import { User, Zap, CreditCard, TrendingUp, Activity, Sun, Moon, Palette, Users } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
-import { PageHeader } from "@/components/PageHeader";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { useTheme } from "next-themes";
 import { TeamManagement } from "@/components/settings/TeamManagement";
+import { SecondaryLayout } from "@/components/SecondaryLayout";
 
 export default function Settings() {
   const { user } = useAuth();
@@ -34,13 +34,8 @@ export default function Settings() {
   };
 
   return (
-    <div className="max-w-6xl mx-auto px-6 py-8 space-y-6">
-      <PageHeader 
-        title="Configurações" 
-        subtitle="Gerencie suas preferências e informações da conta"
-      />
-
-      <div className="space-y-6">
+    <SecondaryLayout title="Configurações">
+      <div className="max-w-6xl mx-auto px-6 py-8 space-y-6">
         {/* Aparência */}
         <Card>
           <CardHeader>
@@ -288,6 +283,6 @@ export default function Settings() {
           </CardContent>
         </Card>
       </div>
-    </div>
+    </SecondaryLayout>
   );
 }
