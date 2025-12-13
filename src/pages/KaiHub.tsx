@@ -39,6 +39,7 @@ import { KaiSettingsTab } from "@/components/kai/KaiSettingsTab";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ClientDialog } from "@/components/clients/ClientDialog";
+import KaleidosLogo from "@/assets/kaleidos-logo.svg";
 
 const KaiHub = () => {
   const navigate = useNavigate();
@@ -87,9 +88,9 @@ const KaiHub = () => {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background p-6">
-        <div className="max-w-7xl mx-auto space-y-6">
-          <Skeleton className="h-12 w-64" />
-          <Skeleton className="h-[600px] w-full" />
+        <div className="w-full space-y-6">
+          <Skeleton className="h-14 w-full" />
+          <Skeleton className="h-[calc(100vh-120px)] w-full" />
         </div>
       </div>
     );
@@ -98,37 +99,51 @@ const KaiHub = () => {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* Header with Client Selector */}
-      <header className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
-                <Bot className="h-5 w-5 text-primary" />
+      <header className="border-b border-border/50 bg-card/80 backdrop-blur-md sticky top-0 z-50">
+        <div className="w-full px-6 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-6">
+            {/* Kaleidos Logo */}
+            <div className="flex items-center gap-3">
+              <div className="h-9 w-9 rounded-xl bg-primary flex items-center justify-center">
+                <img src={KaleidosLogo} alt="Kaleidos" className="h-6 w-6" />
               </div>
-              <span className="font-semibold text-lg">kAI</span>
+              <div className="flex flex-col">
+                <span className="font-bold text-lg tracking-tight">kAI</span>
+                <span className="text-[10px] text-muted-foreground -mt-1">by Kaleidos</span>
+              </div>
             </div>
+
+            {/* Separator */}
+            <div className="h-8 w-px bg-border/50" />
             
             {/* Client Selector */}
             <Popover open={clientSelectorOpen} onOpenChange={setClientSelectorOpen}>
               <PopoverTrigger asChild>
                 <Button
-                  variant="outline"
+                  variant="ghost"
                   role="combobox"
                   aria-expanded={clientSelectorOpen}
-                  className="min-w-[200px] justify-between"
+                  className="min-w-[220px] justify-between h-10 px-4 hover:bg-muted/50"
                 >
                   {selectedClient ? (
-                    <span className="truncate">{selectedClient.name}</span>
+                    <div className="flex items-center gap-2">
+                      <div className="h-6 w-6 rounded-md bg-primary/20 flex items-center justify-center">
+                        <span className="text-xs font-semibold text-primary">
+                          {selectedClient.name.charAt(0).toUpperCase()}
+                        </span>
+                      </div>
+                      <span className="truncate font-medium">{selectedClient.name}</span>
+                    </div>
                   ) : (
                     <span className="text-muted-foreground">Selecionar cliente...</span>
                   )}
                   <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-[300px] p-0" align="start">
+              <PopoverContent className="w-[320px] p-0" align="start">
                 <Command>
-                  <CommandInput placeholder="Buscar cliente..." />
-                  <CommandList>
+                  <CommandInput placeholder="Buscar cliente..." className="h-11" />
+                  <CommandList className="max-h-[300px]">
                     <CommandEmpty>Nenhum cliente encontrado.</CommandEmpty>
                     <CommandGroup>
                       {clients?.map((client) => (
@@ -139,20 +154,28 @@ const KaiHub = () => {
                             setSelectedClientId(client.id);
                             setClientSelectorOpen(false);
                           }}
+                          className="py-3"
                         >
-                          <Check
-                            className={cn(
-                              "mr-2 h-4 w-4",
-                              selectedClientId === client.id ? "opacity-100" : "opacity-0"
-                            )}
-                          />
-                          <div className="flex flex-col">
-                            <span>{client.name}</span>
-                            {client.description && (
-                              <span className="text-xs text-muted-foreground truncate max-w-[220px]">
-                                {client.description}
+                          <div className="flex items-center gap-3 w-full">
+                            <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                              <span className="text-sm font-semibold text-primary">
+                                {client.name.charAt(0).toUpperCase()}
                               </span>
-                            )}
+                            </div>
+                            <div className="flex flex-col flex-1 min-w-0">
+                              <span className="font-medium">{client.name}</span>
+                              {client.description && (
+                                <span className="text-xs text-muted-foreground truncate">
+                                  {client.description}
+                                </span>
+                              )}
+                            </div>
+                            <Check
+                              className={cn(
+                                "h-4 w-4 shrink-0",
+                                selectedClientId === client.id ? "opacity-100 text-primary" : "opacity-0"
+                              )}
+                            />
                           </div>
                         </CommandItem>
                       ))}
@@ -165,44 +188,45 @@ const KaiHub = () => {
             {/* Add Client Button */}
             <Button
               variant="ghost"
-              size="icon"
+              size="sm"
               onClick={() => setClientDialogOpen(true)}
-              className="h-9 w-9"
+              className="h-9 gap-2 text-muted-foreground hover:text-foreground"
             >
               <Plus className="h-4 w-4" />
+              <span className="hidden md:inline">Novo Cliente</span>
             </Button>
           </div>
 
           {/* Right Side Menu */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-9 w-9">
-                  <MoreVertical className="h-4 w-4" />
+                <Button variant="ghost" size="sm" className="h-9 gap-2 text-muted-foreground hover:text-foreground">
+                  <Hammer className="h-4 w-4" />
+                  <span className="hidden lg:inline">Ferramentas</span>
+                  <ChevronDown className="h-3 w-3" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuLabel>Ferramentas</DropdownMenuLabel>
-                <DropdownMenuItem onClick={() => navigate("/social-publisher")}>
-                  <Send className="h-4 w-4 mr-2" />
+                <DropdownMenuItem onClick={() => navigate("/social-publisher")} className="py-2.5">
+                  <Send className="h-4 w-4 mr-3" />
                   Publicador Social
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate("/agent-builder")}>
-                  <Hammer className="h-4 w-4 mr-2" />
+                <DropdownMenuItem onClick={() => navigate("/agent-builder")} className="py-2.5">
+                  <Hammer className="h-4 w-4 mr-3" />
                   Agent Builder
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate("/research-lab")}>
-                  <FlaskConical className="h-4 w-4 mr-2" />
+                <DropdownMenuItem onClick={() => navigate("/research-lab")} className="py-2.5">
+                  <FlaskConical className="h-4 w-4 mr-3" />
                   Laboratório de Pesquisa
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuLabel>Sistema</DropdownMenuLabel>
-                <DropdownMenuItem onClick={() => navigate("/knowledge-base")}>
-                  <BookOpen className="h-4 w-4 mr-2" />
+                <DropdownMenuItem onClick={() => navigate("/knowledge-base")} className="py-2.5">
+                  <BookOpen className="h-4 w-4 mr-3" />
                   Base de Conhecimento
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate("/activities")}>
-                  <Activity className="h-4 w-4 mr-2" />
+                <DropdownMenuItem onClick={() => navigate("/activities")} className="py-2.5">
+                  <Activity className="h-4 w-4 mr-3" />
                   Atividades
                 </DropdownMenuItem>
               </DropdownMenuContent>
@@ -213,11 +237,10 @@ const KaiHub = () => {
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="h-9 px-2 gap-2">
                   <Avatar className="h-7 w-7">
-                    <AvatarFallback className="bg-primary/10 text-primary text-xs">
+                    <AvatarFallback className="bg-primary text-primary-foreground text-xs font-medium">
                       {userInitials}
                     </AvatarFallback>
                   </Avatar>
-                  <ChevronDown className="h-3 w-3 opacity-50" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
@@ -228,13 +251,13 @@ const KaiHub = () => {
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => navigate("/settings")}>
-                  <User className="h-4 w-4 mr-2" />
+                <DropdownMenuItem onClick={() => navigate("/settings")} className="py-2.5">
+                  <User className="h-4 w-4 mr-3" />
                   Configurações
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => signOut()} className="text-destructive">
-                  <LogOut className="h-4 w-4 mr-2" />
+                <DropdownMenuItem onClick={() => signOut()} className="text-destructive py-2.5">
+                  <LogOut className="h-4 w-4 mr-3" />
                   Sair
                 </DropdownMenuItem>
               </DropdownMenuContent>
@@ -250,52 +273,62 @@ const KaiHub = () => {
       <main className="flex-1">
         {!selectedClient ? (
           /* Client Selection Empty State */
-          <div className="flex flex-col items-center justify-center min-h-[70vh] p-6">
-            <div className="text-center max-w-md space-y-4">
-              <div className="h-16 w-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto">
-                <Bot className="h-8 w-8 text-primary" />
+          <div className="flex flex-col items-center justify-center min-h-[calc(100vh-64px)] p-6">
+            <div className="text-center max-w-lg space-y-6">
+              <div className="h-20 w-20 rounded-2xl bg-primary flex items-center justify-center mx-auto">
+                <img src={KaleidosLogo} alt="Kaleidos" className="h-12 w-12" />
               </div>
-              <h1 className="text-2xl font-bold">Bem-vindo ao kAI</h1>
-              <p className="text-muted-foreground">
-                Selecione um cliente no menu acima para começar a trabalhar com o assistente, 
-                analisar performance, gerenciar conteúdo e automações.
-              </p>
+              <div className="space-y-2">
+                <h1 className="text-3xl font-bold">Bem-vindo ao kAI</h1>
+                <p className="text-muted-foreground text-lg">
+                  Selecione um cliente para começar a trabalhar com o assistente inteligente.
+                </p>
+              </div>
               
               {/* Quick Client Cards */}
-              <div className="grid gap-2 pt-4">
-                {clients?.slice(0, 5).map((client) => (
-                  <Button
-                    key={client.id}
-                    variant="outline"
-                    className="justify-start h-auto py-3 px-4"
-                    onClick={() => setSelectedClientId(client.id)}
-                  >
-                    <div className="flex flex-col items-start">
-                      <span className="font-medium">{client.name}</span>
-                      {client.description && (
-                        <span className="text-xs text-muted-foreground truncate max-w-[300px]">
-                          {client.description}
-                        </span>
-                      )}
-                    </div>
-                  </Button>
-                ))}
-              </div>
+              {clients && clients.length > 0 && (
+                <div className="grid gap-2 pt-4 max-w-md mx-auto">
+                  {clients.slice(0, 5).map((client) => (
+                    <Button
+                      key={client.id}
+                      variant="outline"
+                      className="justify-start h-auto py-4 px-5 hover:bg-primary/5 hover:border-primary/30 transition-all"
+                      onClick={() => setSelectedClientId(client.id)}
+                    >
+                      <div className="flex items-center gap-4 w-full">
+                        <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                          <span className="text-base font-semibold text-primary">
+                            {client.name.charAt(0).toUpperCase()}
+                          </span>
+                        </div>
+                        <div className="flex flex-col items-start text-left">
+                          <span className="font-medium">{client.name}</span>
+                          {client.description && (
+                            <span className="text-xs text-muted-foreground truncate max-w-[280px]">
+                              {client.description}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </Button>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         ) : (
           /* Client Hub with Tabs */
-          <div className="max-w-7xl mx-auto">
+          <div className="w-full">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
               {/* Tab Navigation */}
-              <div className="border-b bg-card/30 sticky top-[57px] z-40">
-                <div className="px-4">
-                  <TabsList className="h-12 bg-transparent gap-1 p-0">
+              <div className="border-b border-border/50 bg-card/30 sticky top-[57px] z-40">
+                <div className="px-6">
+                  <TabsList className="h-12 bg-transparent gap-2 p-0">
                     {tabs.map((tab) => (
                       <TabsTrigger
                         key={tab.id}
                         value={tab.id}
-                        className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-none px-4 py-2 gap-2 rounded-lg"
+                        className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-none px-5 py-2.5 gap-2.5 rounded-lg font-medium transition-all"
                       >
                         <tab.icon className="h-4 w-4" />
                         <span className="hidden sm:inline">{tab.label}</span>
@@ -306,7 +339,7 @@ const KaiHub = () => {
               </div>
 
               {/* Tab Content */}
-              <div className="p-4">
+              <div className="p-6">
                 <TabsContent value="assistant" className="mt-0 focus-visible:outline-none">
                   <KaiAssistantTab clientId={selectedClientId} client={selectedClient} />
                 </TabsContent>
