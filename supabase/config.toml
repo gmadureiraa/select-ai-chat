@@ -101,3 +101,6 @@ verify_jwt = true
 
 [functions.weekly-metrics-update]
 verify_jwt = false
+
+[functions.generate-performance-insights]
+verify_jwt = true

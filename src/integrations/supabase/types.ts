@@ -904,6 +904,77 @@ export type Database = {
           },
         ]
       }
+      instagram_posts: {
+        Row: {
+          caption: string | null
+          client_id: string
+          comments: number | null
+          created_at: string
+          engagement_rate: number | null
+          id: string
+          impressions: number | null
+          likes: number | null
+          metadata: Json | null
+          permalink: string | null
+          post_id: string | null
+          post_type: string | null
+          posted_at: string | null
+          reach: number | null
+          saves: number | null
+          shares: number | null
+          thumbnail_url: string | null
+          updated_at: string
+        }
+        Insert: {
+          caption?: string | null
+          client_id: string
+          comments?: number | null
+          created_at?: string
+          engagement_rate?: number | null
+          id?: string
+          impressions?: number | null
+          likes?: number | null
+          metadata?: Json | null
+          permalink?: string | null
+          post_id?: string | null
+          post_type?: string | null
+          posted_at?: string | null
+          reach?: number | null
+          saves?: number | null
+          shares?: number | null
+          thumbnail_url?: string | null
+          updated_at?: string
+        }
+        Update: {
+          caption?: string | null
+          client_id?: string
+          comments?: number | null
+          created_at?: string
+          engagement_rate?: number | null
+          id?: string
+          impressions?: number | null
+          likes?: number | null
+          metadata?: Json | null
+          permalink?: string | null
+          post_id?: string | null
+          post_type?: string | null
+          posted_at?: string | null
+          reach?: number | null
+          saves?: number | null
+          shares?: number | null
+          thumbnail_url?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "instagram_posts_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       linkedin_tokens: {
         Row: {
           access_token: string
