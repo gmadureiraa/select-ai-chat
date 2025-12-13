@@ -52,7 +52,7 @@ const App = () => (
               }
             />
             <Route
-              path="/knowledge"
+              path="/knowledge-base"
               element={
                 <ProtectedRoute>
                   <KnowledgeBase />
