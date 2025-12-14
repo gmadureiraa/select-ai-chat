@@ -281,8 +281,6 @@ export function YouTubeDashboard({ clientId, videos, isLoading }: YouTubeDashboa
           <YouTubeVideosTable videos={videos as any} isLoading={isLoading} />
         </CardContent>
       </Card>
-        </CardContent>
-      </Card>
     </div>
   );
 }
