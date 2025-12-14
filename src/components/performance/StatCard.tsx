@@ -1,5 +1,6 @@
 import { ReactNode, useMemo } from "react";
 import { TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { motion } from "framer-motion";
 
 interface StatCardProps {
   icon: React.ElementType;
@@ -100,10 +101,14 @@ export function StatCard({
   };
 
   return (
-    <div
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3, ease: "easeOut" }}
+      whileHover={{ scale: 1.02, y: -2 }}
       className={`
         relative overflow-hidden rounded-xl border bg-card p-4
-        transition-all duration-200 hover:shadow-lg hover:border-border/80
+        transition-colors duration-200 hover:shadow-lg hover:border-border/80 cursor-default
         ${highlight ? 'border-primary/30 shadow-primary/5 shadow-lg' : 'border-border/50'}
       `}
     >
@@ -141,6 +146,6 @@ export function StatCard({
           </div>
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }

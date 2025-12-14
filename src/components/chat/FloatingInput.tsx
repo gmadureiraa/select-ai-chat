@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Send, X, Loader2, Mic, Image as ImageIcon } from "lucide-react";
+import { Send, X, Loader2, Image as ImageIcon, FileText, Lightbulb, MessageCircle, Sparkles, Zap } from "lucide-react";
 import { uploadAndGetSignedUrl } from "@/lib/storage";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -22,18 +22,27 @@ const modeConfig = {
     description: "4 agentes",
     quality: "high" as const,
     activeClass: "bg-primary/15 text-primary border-primary/30",
+    icon: FileText,
+    badge: "PRO",
+    badgeClass: "bg-primary/20 text-primary",
   },
   ideas: {
     label: "Ideias",
     description: "Rápido",
     quality: "fast" as const,
     activeClass: "bg-amber-500/15 text-amber-600 border-amber-500/30",
+    icon: Lightbulb,
+    badge: null,
+    badgeClass: "",
   },
   free_chat: {
     label: "Chat",
     description: "Rápido",
     quality: "fast" as const,
     activeClass: "bg-emerald-500/15 text-emerald-600 border-emerald-500/30",
+    icon: MessageCircle,
+    badge: null,
+    badgeClass: "",
   },
 };
 
@@ -237,24 +246,34 @@ export const FloatingInput = ({
       {/* Mode Selector Pills - Only for content templates */}
       {templateType === "content" && (
         <div className="flex items-center justify-center gap-2">
-          {(["content", "ideas", "free_chat"] as ChatMode[]).map((m) => (
-            <button
-              key={m}
-              onClick={() => setMode(m)}
-              disabled={disabled}
-              className={cn(
-                "px-3 py-1.5 rounded-full text-xs font-medium transition-all border",
-                mode === m
-                  ? modeConfig[m].activeClass
-                  : "text-muted-foreground border-transparent hover:bg-muted/50"
-              )}
-            >
-              {modeConfig[m].label}
-              {mode === m && (
-                <span className="ml-1 opacity-70">• {modeConfig[m].description}</span>
-              )}
-            </button>
-          ))}
+          {(["content", "ideas", "free_chat"] as ChatMode[]).map((m) => {
+            const config = modeConfig[m];
+            const Icon = config.icon;
+            return (
+              <button
+                key={m}
+                onClick={() => setMode(m)}
+                disabled={disabled}
+                className={cn(
+                  "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all border",
+                  mode === m
+                    ? config.activeClass
+                    : "text-muted-foreground border-transparent hover:bg-muted/50"
+                )}
+              >
+                <Icon className="h-3 w-3" />
+                {config.label}
+                {mode === m && config.badge && (
+                  <span className={cn("ml-1 px-1.5 py-0.5 rounded text-[10px] font-semibold", config.badgeClass)}>
+                    {config.badge}
+                  </span>
+                )}
+                {mode === m && !config.badge && (
+                  <Zap className="h-2.5 w-2.5 ml-0.5 opacity-70" />
+                )}
+              </button>
+            );
+          })}
         </div>
       )}
     </div>

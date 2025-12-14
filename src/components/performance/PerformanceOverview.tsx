@@ -18,6 +18,8 @@ import { format, subDays, parseISO, isAfter } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Area, AreaChart, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
 import { ChartContainer } from "@/components/ui/chart";
+import { EmptyState } from "@/components/ui/empty-state";
+import { motion } from "framer-motion";
 
 interface PerformanceOverviewProps {
   clientId: string;
@@ -244,25 +246,32 @@ export function PerformanceOverview({ clientId, clientName }: PerformanceOvervie
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {kpiCards.map((kpi) => (
-          <Card key={kpi.label} className="border-border/50 bg-card/50 hover:border-border transition-colors">
-            <CardContent className="p-4">
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-xs text-muted-foreground flex items-center gap-1">
-                    {kpi.label}
-                    <Badge variant="outline" className="text-[10px] px-1 py-0 ml-1">
-                      {kpi.platform}
-                    </Badge>
-                  </p>
-                  <p className="text-2xl font-bold mt-1">{formatNumber(kpi.value)}</p>
+        {kpiCards.map((kpi, index) => (
+          <motion.div
+            key={kpi.label}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, delay: index * 0.1 }}
+          >
+            <Card className="border-border/50 bg-card/50 hover:border-border transition-colors">
+              <CardContent className="p-4">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="text-xs text-muted-foreground flex items-center gap-1">
+                      {kpi.label}
+                      <Badge variant="outline" className="text-[10px] px-1 py-0 ml-1">
+                        {kpi.platform}
+                      </Badge>
+                    </p>
+                    <p className="text-2xl font-bold mt-1">{formatNumber(kpi.value)}</p>
+                  </div>
+                  <div className={`p-2 rounded-lg bg-${kpi.color}-500/10`}>
+                    <kpi.icon className={`h-5 w-5 text-${kpi.color}-500`} />
+                  </div>
                 </div>
-                <div className={`p-2 rounded-lg bg-${kpi.color}-500/10`}>
-                  <kpi.icon className={`h-5 w-5 text-${kpi.color}-500`} />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </motion.div>
         ))}
       </div>
 
@@ -330,12 +339,12 @@ export function PerformanceOverview({ clientId, clientName }: PerformanceOvervie
                   </ResponsiveContainer>
                 </ChartContainer>
               ) : (
-                <div className="h-[280px] flex items-center justify-center text-muted-foreground">
-                  <div className="text-center">
-                    <BarChart3 className="h-12 w-12 mx-auto mb-3 opacity-30" />
-                    <p>Importe dados para ver o gráfico</p>
-                  </div>
-                </div>
+                <EmptyState
+                  variant="chart"
+                  title="Sem dados ainda"
+                  description="Importe métricas para visualizar a evolução"
+                  className="h-[280px]"
+                />
               )}
             </CardContent>
           </Card>
@@ -373,12 +382,12 @@ export function PerformanceOverview({ clientId, clientName }: PerformanceOvervie
                 })}
               </div>
             ) : (
-              <div className="h-[200px] flex items-center justify-center text-muted-foreground">
-                <div className="text-center">
-                  <Target className="h-10 w-10 mx-auto mb-2 opacity-30" />
-                  <p className="text-sm">Defina metas no dashboard de cada rede</p>
-                </div>
-              </div>
+              <EmptyState
+                variant="default"
+                title="Nenhuma meta definida"
+                description="Defina metas no dashboard de cada rede"
+                className="h-[200px] py-6"
+              />
             )}
           </CardContent>
         </Card>
