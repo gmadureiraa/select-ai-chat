@@ -1,8 +1,8 @@
 import { useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Collapsible, CollapsibleContent } from "@/components/ui/collapsible";
-import { Eye, Clock, Users, TrendingUp, MousePointer, Upload, ThumbsUp, MessageCircle } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Eye, Clock, Users, TrendingUp, MousePointer, Upload, ThumbsUp, MessageCircle, ChevronDown } from "lucide-react";
 import { StatCard } from "./StatCard";
 import { EnhancedAreaChart } from "./EnhancedAreaChart";
 import { GoalsPanel } from "./GoalsPanel";
@@ -173,15 +173,15 @@ export function YouTubeDashboard({ clientId, videos, isLoading }: YouTubeDashboa
               </Button>
             ))}
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-7 gap-1.5"
-            onClick={() => setShowUpload(!showUpload)}
-          >
-            <Upload className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Importar</span>
-          </Button>
+          <Collapsible open={showUpload} onOpenChange={setShowUpload}>
+            <CollapsibleTrigger asChild>
+              <Button variant="outline" size="sm" className="h-7 gap-1.5">
+                <Upload className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Importar</span>
+                <ChevronDown className={`h-3.5 w-3.5 transition-transform ${showUpload ? 'rotate-180' : ''}`} />
+              </Button>
+            </CollapsibleTrigger>
+          </Collapsible>
         </div>
       </div>
 
