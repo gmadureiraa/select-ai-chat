@@ -3,7 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Users, Heart, MessageCircle, Eye, Bookmark, Upload, Calendar, Share2, Target, ChevronDown, TrendingUp } from "lucide-react";
+import { Users, Heart, MessageCircle, Eye, Bookmark, Upload, Calendar, Share2, Target, ChevronDown, TrendingUp, Settings } from "lucide-react";
+import { GoalsPanel } from "./GoalsPanel";
 import { InstagramPost } from "@/hooks/useInstagramPosts";
 import { PerformanceMetrics } from "@/hooks/usePerformanceMetrics";
 import { usePerformanceGoals } from "@/hooks/usePerformanceGoals";
@@ -106,9 +107,22 @@ export function InstagramDashboard({
     const totalSaves = filteredPosts.reduce((sum, p) => sum + (p.saves || 0), 0);
     const totalShares = filteredPosts.reduce((sum, p) => sum + (p.shares || 0), 0);
     const totalReachFromPosts = filteredPosts.reduce((sum, p) => sum + (p.reach || 0), 0);
-    const avgEngagement = filteredPosts.length > 0
-      ? filteredPosts.reduce((sum, p) => sum + (p.engagement_rate || 0), 0) / filteredPosts.length
-      : 0;
+    
+    // Calculate average engagement: if posts have engagement_rate use it, otherwise calculate
+    let avgEngagement = 0;
+    if (filteredPosts.length > 0) {
+      const postsWithEngagement = filteredPosts.filter(p => p.engagement_rate && p.engagement_rate > 0);
+      if (postsWithEngagement.length > 0) {
+        avgEngagement = postsWithEngagement.reduce((sum, p) => sum + (p.engagement_rate || 0), 0) / postsWithEngagement.length;
+      } else {
+        // Calculate engagement from interactions / reach
+        const totalInteractions = totalLikes + totalComments + totalSaves + totalShares;
+        const totalReach = totalReachFromPosts || filteredPosts.reduce((sum, p) => sum + (p.impressions || 0), 0);
+        if (totalReach > 0) {
+          avgEngagement = (totalInteractions / totalReach) * 100;
+        }
+      }
+    }
 
     const totalViews = filteredMetrics.reduce((sum, m) => sum + (m.views || 0), 0);
     const followersGained = filteredMetrics.reduce((sum, m) => sum + (m.subscribers || 0), 0);
@@ -346,13 +360,16 @@ export function InstagramDashboard({
           )}
         </div>
 
-        {/* Goal Gauge */}
+        {/* Goals Panel */}
         <div>
-          <GoalGauge
-            label="Meta de Seguidores"
-            currentValue={instagramGoal?.current_value || kpis.followersGained}
-            targetValue={instagramGoal?.target_value || 0}
-            color="emerald"
+          <GoalsPanel
+            clientId={clientId}
+            platform="instagram"
+            currentMetrics={{
+              followers: kpis.followersGained,
+              views: kpis.totalViews,
+              engagement: kpis.avgEngagement,
+            }}
           />
         </div>
       </div>

@@ -89,10 +89,10 @@ export function EnhancedAreaChart({
               <ToggleGroupItem 
                 key={metric.key} 
                 value={metric.key} 
-                className="text-xs px-2 sm:px-3 h-8 data-[state=on]:bg-background data-[state=on]:shadow-sm transition-all flex flex-col items-center gap-0.5"
+                className="text-xs px-2 sm:px-3 h-8 data-[state=on]:bg-background data-[state=on]:text-foreground data-[state=on]:shadow-sm text-muted-foreground hover:text-foreground transition-all flex flex-col items-center gap-0.5"
               >
-                <span>{metric.label}</span>
-                <span className="text-[10px] text-muted-foreground font-normal">
+                <span className="text-inherit">{metric.label}</span>
+                <span className="text-[10px] opacity-70 font-normal">
                   {formatTotal(metricTotals[metric.key] || 0)}
                 </span>
               </ToggleGroupItem>

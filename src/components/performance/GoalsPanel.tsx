@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Target, Plus, Trash2, TrendingUp } from "lucide-react";
+import { Target, Plus, Trash2, TrendingUp, Gauge, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -16,6 +16,7 @@ interface GoalsPanelProps {
     followers?: number;
     views?: number;
     engagement?: number;
+    reach?: number;
   };
 }
 
@@ -41,6 +42,17 @@ const METRIC_OPTIONS: Record<string, { label: string; value: string }[]> = {
     { label: "Taxa de Abertura (%)", value: "open_rate" },
     { label: "Taxa de Cliques (%)", value: "click_rate" },
   ],
+  tiktok: [
+    { label: "Seguidores", value: "followers" },
+    { label: "Visualizações", value: "views" },
+    { label: "Engajamento (%)", value: "engagement" },
+  ],
+};
+
+const formatNumber = (num: number) => {
+  if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
+  if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
+  return num.toLocaleString('pt-BR');
 };
 
 export const GoalsPanel = ({ clientId, platform, currentMetrics }: GoalsPanelProps) => {
@@ -54,7 +66,7 @@ export const GoalsPanel = ({ clientId, platform, currentMetrics }: GoalsPanelPro
   });
 
   const platformGoals = goals.filter((g) => g.platform === platform);
-  const metricOptions = METRIC_OPTIONS[platform] || [];
+  const metricOptions = METRIC_OPTIONS[platform] || METRIC_OPTIONS.instagram;
 
   const handleCreate = async () => {
     if (!formData.metric_name || !formData.target_value) return;
@@ -84,6 +96,10 @@ export const GoalsPanel = ({ clientId, platform, currentMetrics }: GoalsPanelPro
         currentValue = currentMetrics.followers;
       } else if (goal.metric_name === "views" && currentMetrics.views) {
         currentValue = currentMetrics.views;
+      } else if (goal.metric_name === "reach" && currentMetrics.reach) {
+        currentValue = currentMetrics.reach;
+      } else if (goal.metric_name === "engagement" && currentMetrics.engagement) {
+        currentValue = currentMetrics.engagement;
       }
     }
 
@@ -91,14 +107,26 @@ export const GoalsPanel = ({ clientId, platform, currentMetrics }: GoalsPanelPro
     return { currentValue, progress };
   };
 
+  const getProgressColor = (progress: number) => {
+    if (progress >= 100) return "bg-emerald-500";
+    if (progress >= 75) return "bg-emerald-400";
+    if (progress >= 50) return "bg-amber-500";
+    return "bg-rose-500";
+  };
+
   if (platformGoals.length === 0 && !isDialogOpen) {
     return (
-      <Card className="border-dashed">
-        <CardContent className="flex flex-col items-center justify-center py-6">
-          <Target className="h-8 w-8 text-muted-foreground mb-2" />
-          <p className="text-sm text-muted-foreground mb-3">Nenhuma meta definida</p>
-          <Button size="sm" variant="outline" onClick={() => setIsDialogOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" />
+      <Card className="border-border/50 bg-card/50 h-full">
+        <CardContent className="flex flex-col items-center justify-center py-10 h-full min-h-[300px]">
+          <div className="p-4 rounded-full bg-muted/50 mb-4">
+            <Target className="h-8 w-8 text-muted-foreground" />
+          </div>
+          <h3 className="text-base font-medium mb-1">Nenhuma meta definida</h3>
+          <p className="text-sm text-muted-foreground mb-4 text-center max-w-[200px]">
+            Defina metas para acompanhar seu progresso
+          </p>
+          <Button size="sm" onClick={() => setIsDialogOpen(true)} className="gap-2">
+            <Plus className="h-4 w-4" />
             Criar Meta
           </Button>
         </CardContent>
@@ -108,14 +136,14 @@ export const GoalsPanel = ({ clientId, platform, currentMetrics }: GoalsPanelPro
 
   return (
     <>
-      <Card>
-        <CardHeader className="pb-2">
+      <Card className="border-border/50 bg-card/50 h-full">
+        <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <CardTitle className="text-base flex items-center gap-2">
-              <Target className="h-4 w-4" />
+              <Target className="h-4 w-4 text-primary" />
               Metas
             </CardTitle>
-            <Button size="sm" variant="ghost" onClick={() => setIsDialogOpen(true)}>
+            <Button size="sm" variant="ghost" onClick={() => setIsDialogOpen(true)} className="h-8 w-8 p-0">
               <Plus className="h-4 w-4" />
             </Button>
           </div>
@@ -123,30 +151,61 @@ export const GoalsPanel = ({ clientId, platform, currentMetrics }: GoalsPanelPro
         <CardContent className="space-y-4">
           {platformGoals.map((goal) => {
             const { currentValue, progress } = calculateProgress(goal);
+            const isPercentMetric = goal.metric_name === "engagement" || goal.metric_name === "open_rate" || goal.metric_name === "click_rate";
+            
             return (
-              <div key={goal.id} className="space-y-2">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="font-medium">{getMetricLabel(goal.metric_name)}</span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-muted-foreground">
-                      {currentValue.toLocaleString()} / {goal.target_value.toLocaleString()}
+              <div key={goal.id} className="relative p-4 rounded-xl border border-border/50 bg-background/50">
+                <div className="flex items-start justify-between mb-3">
+                  <div>
+                    <p className="text-sm font-medium">{getMetricLabel(goal.metric_name)}</p>
+                    <p className="text-xs text-muted-foreground capitalize">{goal.period}</p>
+                  </div>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-6 w-6 opacity-50 hover:opacity-100"
+                    onClick={() => deleteGoal.mutate(goal.id)}
+                  >
+                    <Trash2 className="h-3 w-3 text-destructive" />
+                  </Button>
+                </div>
+                
+                {/* Visual Gauge */}
+                <div className="flex items-end gap-4 mb-3">
+                  <div className="flex-1">
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-2xl font-bold">
+                        {isPercentMetric ? `${currentValue.toFixed(1)}%` : formatNumber(currentValue)}
+                      </span>
+                      <span className="text-sm text-muted-foreground">
+                        / {isPercentMetric ? `${goal.target_value}%` : formatNumber(goal.target_value)}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <span className={`text-lg font-semibold ${progress >= 100 ? 'text-emerald-500' : progress >= 50 ? 'text-amber-500' : 'text-rose-500'}`}>
+                      {progress.toFixed(0)}%
                     </span>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="h-6 w-6"
-                      onClick={() => deleteGoal.mutate(goal.id)}
-                    >
-                      <Trash2 className="h-3 w-3 text-destructive" />
-                    </Button>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Progress value={progress} className="flex-1" />
-                  <span className="text-xs text-muted-foreground w-12 text-right">
-                    {progress.toFixed(0)}%
-                  </span>
+                
+                {/* Progress Bar */}
+                <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
+                  <div 
+                    className={`h-full transition-all duration-500 rounded-full ${getProgressColor(progress)}`}
+                    style={{ width: `${Math.min(progress, 100)}%` }}
+                  />
                 </div>
+                
+                {/* Status */}
+                <p className="text-xs text-muted-foreground mt-2">
+                  {progress >= 100 
+                    ? "✅ Meta atingida!" 
+                    : `Faltam ${isPercentMetric 
+                        ? `${(goal.target_value - currentValue).toFixed(1)}%` 
+                        : formatNumber(goal.target_value - currentValue)}`
+                  }
+                </p>
               </div>
             );
           })}
@@ -156,7 +215,10 @@ export const GoalsPanel = ({ clientId, platform, currentMetrics }: GoalsPanelPro
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Criar Nova Meta</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <Target className="h-5 w-5 text-primary" />
+              Criar Nova Meta
+            </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
@@ -208,7 +270,7 @@ export const GoalsPanel = ({ clientId, platform, currentMetrics }: GoalsPanelPro
             <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
               Cancelar
             </Button>
-            <Button onClick={handleCreate} disabled={createGoal.isPending}>
+            <Button onClick={handleCreate} disabled={createGoal.isPending || !formData.metric_name || !formData.target_value}>
               Criar Meta
             </Button>
           </DialogFooter>
