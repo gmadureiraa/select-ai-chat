@@ -161,12 +161,27 @@ export function InstagramCarouselImporter({
                     {extractedData.images.slice(0, 8).map((img, idx) => (
                       <div
                         key={idx}
-                        className="aspect-square rounded-md overflow-hidden bg-muted border"
+                        className="aspect-square rounded-md overflow-hidden bg-muted border relative"
                       >
                         <img
                           src={img}
                           alt={`Slide ${idx + 1}`}
                           className="w-full h-full object-cover"
+                          onError={(e) => {
+                            // Hide broken image and show placeholder
+                            const target = e.target as HTMLImageElement;
+                            target.style.display = 'none';
+                            const parent = target.parentElement;
+                            if (parent && !parent.querySelector('.placeholder-icon')) {
+                              const placeholder = document.createElement('div');
+                              placeholder.className = 'placeholder-icon absolute inset-0 flex flex-col items-center justify-center text-muted-foreground';
+                              placeholder.innerHTML = `
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mb-1 opacity-50"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+                                <span class="text-xs">Slide ${idx + 1}</span>
+                              `;
+                              parent.appendChild(placeholder);
+                            }
+                          }}
                         />
                       </div>
                     ))}
