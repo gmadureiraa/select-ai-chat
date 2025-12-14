@@ -1,18 +1,14 @@
 import { useState } from "react";
-import { BarChart3, Users, Eye, Instagram, Twitter, TrendingUp } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { BarChart3, Users, Eye, Instagram, Twitter, Mail } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { usePerformanceMetrics } from "@/hooks/usePerformanceMetrics";
 import { useYouTubeVideos } from "@/hooks/useYouTubeMetrics";
 import { useInstagramPosts } from "@/hooks/useInstagramPosts";
-import { EnhancedKPICard } from "@/components/performance/EnhancedKPICard";
-import { YouTubeConnectionCard } from "@/components/performance/YouTubeConnectionCard";
-import { TwitterConnectionCard } from "@/components/performance/TwitterConnectionCard";
-import { TwitterCSVUpload } from "@/components/performance/TwitterCSVUpload";
-import { YouTubeCSVUpload } from "@/components/performance/YouTubeCSVUpload";
 import { PerformanceOverview } from "@/components/performance/PerformanceOverview";
-import { YouTubeVideosTable } from "@/components/performance/YouTubeVideosTable";
 import { InstagramDashboard } from "@/components/performance/InstagramDashboard";
+import { TwitterDashboard } from "@/components/performance/TwitterDashboard";
+import { YouTubeDashboard } from "@/components/performance/YouTubeDashboard";
+import { NewsletterDashboard } from "@/components/performance/NewsletterDashboard";
 import { Client } from "@/hooks/useClients";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -26,7 +22,7 @@ const channels = [
   { id: "instagram", label: "Instagram", icon: Instagram },
   { id: "youtube", label: "YouTube", icon: Eye },
   { id: "twitter", label: "X", icon: Twitter },
-  { id: "newsletter", label: "Newsletter", icon: Users },
+  { id: "newsletter", label: "Newsletter", icon: Mail },
 ];
 
 export const KaiPerformanceTab = ({ clientId, client }: KaiPerformanceTabProps) => {
@@ -35,20 +31,8 @@ export const KaiPerformanceTab = ({ clientId, client }: KaiPerformanceTabProps) 
   const { data: instagramMetrics, isLoading: isLoadingInstagram } = usePerformanceMetrics(clientId, "instagram", 365);
   const { data: instagramPosts, isLoading: isLoadingInstagramPosts } = useInstagramPosts(clientId, 500);
   const { data: videos, isLoading: isLoadingVideos } = useYouTubeVideos(clientId, 100);
-  const { data: twitterMetrics } = usePerformanceMetrics(clientId, "twitter", 90);
-
-  // YouTube metrics from videos
-  const totalViews = videos?.reduce((sum, v) => sum + (v.total_views || 0), 0) || 0;
-  const totalWatchHours = videos?.reduce((sum, v) => sum + (v.watch_hours || 0), 0) || 0;
-  const totalSubscribersGained = videos?.reduce((sum, v) => sum + (v.subscribers_gained || 0), 0) || 0;
-  const avgCTR = videos?.length 
-    ? videos.reduce((sum, v) => sum + (v.click_rate || 0), 0) / videos.length 
-    : 0;
-
-  // Twitter metrics
-  const twitterTotalImpressions = twitterMetrics?.reduce((sum, m) => sum + (m.views || 0), 0) || 0;
-  const twitterTotalLikes = twitterMetrics?.reduce((sum, m) => sum + (m.likes || 0), 0) || 0;
-  const twitterNewFollowers = twitterMetrics?.reduce((sum, m) => sum + (m.subscribers || 0), 0) || 0;
+  const { data: twitterMetrics, isLoading: isLoadingTwitter } = usePerformanceMetrics(clientId, "twitter", 365);
+  const { data: newsletterMetrics, isLoading: isLoadingNewsletter } = usePerformanceMetrics(clientId, "newsletter", 365);
 
   const isLoading = isLoadingInstagram;
 
@@ -94,103 +78,31 @@ export const KaiPerformanceTab = ({ clientId, client }: KaiPerformanceTabProps) 
           />
         </TabsContent>
 
-        {/* YouTube */}
-        <TabsContent value="youtube" className="space-y-4 mt-4">
-          {/* Connection & Import Cards */}
-          <div className="grid gap-4 md:grid-cols-2">
-            <YouTubeConnectionCard clientId={clientId} />
-            <YouTubeCSVUpload clientId={clientId} />
-          </div>
-
-          {/* KPIs */}
-          {videos && videos.length > 0 && (
-            <>
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                <EnhancedKPICard
-                  title="Total Views"
-                  value={totalViews}
-                  icon={Eye}
-                />
-                <EnhancedKPICard
-                  title="Watch Hours"
-                  value={totalWatchHours}
-                  icon={TrendingUp}
-                  formatter={(v) => v.toLocaleString()}
-                />
-                <EnhancedKPICard
-                  title="Subs Ganhos"
-                  value={totalSubscribersGained}
-                  icon={Users}
-                />
-                <EnhancedKPICard
-                  title="CTR Médio"
-                  value={avgCTR}
-                  icon={BarChart3}
-                  formatter={(v) => `${v.toFixed(1)}%`}
-                />
-              </div>
-
-              {/* Videos Table */}
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm sm:text-base">Todos os Vídeos</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <YouTubeVideosTable 
-                    videos={videos} 
-                    isLoading={isLoadingVideos}
-                  />
-                </CardContent>
-              </Card>
-            </>
-          )}
+        {/* YouTube - Full Dashboard */}
+        <TabsContent value="youtube" className="mt-4">
+          <YouTubeDashboard
+            clientId={clientId}
+            videos={videos || []}
+            isLoading={isLoadingVideos}
+          />
         </TabsContent>
 
-        {/* Twitter */}
-        <TabsContent value="twitter" className="space-y-4 mt-4">
-          {/* Connection & Import Cards */}
-          <div className="grid gap-4 md:grid-cols-2">
-            <TwitterConnectionCard clientId={clientId} />
-            <TwitterCSVUpload clientId={clientId} />
-          </div>
-
-          {/* Show KPIs if we have data */}
-          {twitterMetrics && twitterMetrics.length > 0 && (
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-              <EnhancedKPICard
-                title="Impressões"
-                value={twitterTotalImpressions}
-                icon={Eye}
-              />
-              <EnhancedKPICard
-                title="Curtidas"
-                value={twitterTotalLikes}
-                icon={TrendingUp}
-              />
-              <EnhancedKPICard
-                title="Novos Seguidores"
-                value={twitterNewFollowers}
-                icon={Users}
-              />
-              <EnhancedKPICard
-                title="Dias de Dados"
-                value={twitterMetrics.length}
-                icon={BarChart3}
-              />
-            </div>
-          )}
+        {/* Twitter - Full Dashboard */}
+        <TabsContent value="twitter" className="mt-4">
+          <TwitterDashboard
+            clientId={clientId}
+            metrics={twitterMetrics || []}
+            isLoading={isLoadingTwitter}
+          />
         </TabsContent>
 
-        {/* Newsletter */}
-        <TabsContent value="newsletter" className="space-y-4 mt-4">
-          <Card>
-            <CardContent className="pt-6">
-              <div className="text-center py-8 text-muted-foreground">
-                <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p className="text-sm">Configure sua integração de newsletter para ver métricas</p>
-              </div>
-            </CardContent>
-          </Card>
+        {/* Newsletter - Full Dashboard */}
+        <TabsContent value="newsletter" className="mt-4">
+          <NewsletterDashboard
+            clientId={clientId}
+            metrics={newsletterMetrics || []}
+            isLoading={isLoadingNewsletter}
+          />
         </TabsContent>
       </Tabs>
     </div>
