@@ -10,6 +10,13 @@ export type KnowledgeCategory =
   | 'psychology'
   | 'structure'
   | 'engagement'
+  | 'marketing_strategy'
+  | 'growth_hacking'
+  | 'social_media'
+  | 'seo'
+  | 'branding'
+  | 'analytics'
+  | 'audience'
   | 'other';
 
 export interface GlobalKnowledge {
@@ -43,6 +50,13 @@ export const KNOWLEDGE_CATEGORIES: { value: KnowledgeCategory; label: string }[]
   { value: 'psychology', label: 'Psicologia da Persuasão' },
   { value: 'structure', label: 'Estruturas de Conteúdo' },
   { value: 'engagement', label: 'Engajamento' },
+  { value: 'marketing_strategy', label: 'Estratégia de Marketing' },
+  { value: 'growth_hacking', label: 'Growth Hacking' },
+  { value: 'social_media', label: 'Social Media' },
+  { value: 'seo', label: 'SEO & Tráfego' },
+  { value: 'branding', label: 'Branding & Posicionamento' },
+  { value: 'analytics', label: 'Analytics & Métricas' },
+  { value: 'audience', label: 'Audiência & Persona' },
   { value: 'other', label: 'Outros' },
 ];
 
