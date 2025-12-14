@@ -451,11 +451,11 @@ export const useSmartInstagramImport = (clientId: string) => {
             metric_date: date,
             views: metrics.views || null,
             subscribers: metrics.followers || null,
-            likes: metrics.interactions || null,
             metadata: {
               reach: metrics.reach || null,
-              profile_visits: metrics.profile_visits || null,
-              link_clicks: metrics.link_clicks || null,
+              interactions: metrics.interactions || null,
+              profileVisits: metrics.profile_visits || null,
+              linkClicks: metrics.link_clicks || null,
             }
           };
           
