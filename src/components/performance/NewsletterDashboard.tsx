@@ -2,10 +2,14 @@ import { useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Mail, Eye, MousePointer, Users, TrendingUp, Upload, FileSpreadsheet, CheckCircle, AlertCircle, ChevronDown, UserPlus } from "lucide-react";
+import { Mail, Eye, MousePointer, Users, TrendingUp, Upload, FileSpreadsheet, CheckCircle, AlertCircle, ChevronDown, UserPlus, UserMinus, Bookmark } from "lucide-react";
 import { StatCard } from "./StatCard";
 import { EnhancedAreaChart } from "./EnhancedAreaChart";
 import { GoalsPanel } from "./GoalsPanel";
+import { MetricMiniCard } from "./MetricMiniCard";
+import { NewsletterInsightsCard } from "./NewsletterInsightsCard";
+import { BestNewsletterCard } from "./BestNewsletterCard";
+import { NewsletterEditionsTable } from "./NewsletterEditionsTable";
 import { subDays, format, parseISO, isAfter } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useSmartNewsletterImport } from "@/hooks/useSmartNewsletterImport";
@@ -149,6 +153,14 @@ export function NewsletterDashboard({ clientId, metrics, isLoading }: Newsletter
       chartData.some(d => (d as any)[metric.dataKey] > 0)
     );
   }, [chartData]);
+
+  // Get best performing edition (highest open rate)
+  const bestEdition = useMemo(() => {
+    if (filteredMetrics.length === 0) return null;
+    return filteredMetrics.reduce((best, edition) => 
+      (edition.open_rate || 0) > (best.open_rate || 0) ? edition : best
+    , filteredMetrics[0]);
+  }, [filteredMetrics]);
 
   const currentMetrics = {
     followers: kpis.subscribers,
@@ -366,36 +378,52 @@ export function NewsletterDashboard({ clientId, metrics, isLoading }: Newsletter
       </div>
 
       {/* Secondary Metrics */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <Card className="p-3">
-          <div className="flex items-center gap-2 text-muted-foreground mb-1">
-            <Eye className="h-3.5 w-3.5" />
-            <span className="text-xs">Total Aberturas</span>
-          </div>
-          <p className="text-lg font-semibold">{kpis.totalOpens.toLocaleString()}</p>
-        </Card>
-        <Card className="p-3">
-          <div className="flex items-center gap-2 text-muted-foreground mb-1">
-            <MousePointer className="h-3.5 w-3.5" />
-            <span className="text-xs">Total Cliques</span>
-          </div>
-          <p className="text-lg font-semibold">{kpis.totalClicks.toLocaleString()}</p>
-        </Card>
-        <Card className="p-3">
-          <div className="flex items-center gap-2 text-muted-foreground mb-1">
-            <Mail className="h-3.5 w-3.5" />
-            <span className="text-xs">Edições</span>
-          </div>
-          <p className="text-lg font-semibold">{kpis.editionsCount}</p>
-        </Card>
-        <Card className="p-3">
-          <div className="flex items-center gap-2 text-muted-foreground mb-1">
-            <TrendingUp className="h-3.5 w-3.5" />
-            <span className="text-xs">Média Abertura</span>
-          </div>
-          <p className="text-lg font-semibold">{kpis.avgOpenRate.toFixed(1)}%</p>
-        </Card>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <MetricMiniCard
+          icon={Eye}
+          label="Total Aberturas"
+          value={kpis.totalOpens}
+          sparklineData={filteredMetrics.slice(-14).map(m => m.metadata?.opens || 0)}
+          color="blue"
+        />
+        <MetricMiniCard
+          icon={MousePointer}
+          label="Total Cliques"
+          value={kpis.totalClicks}
+          sparklineData={filteredMetrics.slice(-14).map(m => m.metadata?.clicks || 0)}
+          color="emerald"
+        />
+        <MetricMiniCard
+          icon={UserPlus}
+          label="Novos Inscritos"
+          value={kpis.totalNewSubs}
+          sparklineData={filteredMetrics.slice(-14).map(m => m.metadata?.newSubscribers || 0)}
+          color="violet"
+        />
+        <MetricMiniCard
+          icon={UserMinus}
+          label="Descadastros"
+          value={kpis.totalUnsubscribes}
+          sparklineData={filteredMetrics.slice(-14).map(m => m.metadata?.unsubscribes || 0)}
+          color="rose"
+        />
       </div>
+
+      {/* Insights and Best Edition */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <NewsletterInsightsCard metrics={filteredMetrics} />
+        {bestEdition && <BestNewsletterCard edition={bestEdition} />}
+      </div>
+
+      {/* Editions Table */}
+      <Card className="border-border/50">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg">Edições Recentes</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <NewsletterEditionsTable editions={filteredMetrics} />
+        </CardContent>
+      </Card>
     </div>
   );
 }
