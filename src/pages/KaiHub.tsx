@@ -84,7 +84,6 @@ const KaiHub = () => {
     { id: "assistant", label: "Assistente", icon: Bot },
     { id: "performance", label: "Performance", icon: BarChart3 },
     { id: "library", label: "Biblioteca", icon: Library },
-    { id: "automations", label: "Automações", icon: Zap },
     { id: "settings", label: "Configurações", icon: Settings },
   ];
 
@@ -216,6 +215,14 @@ const KaiHub = () => {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuItem 
+                  onClick={() => setActiveTab("automations")} 
+                  className="py-2.5"
+                  disabled={!selectedClient}
+                >
+                  <Zap className="h-4 w-4 mr-3" />
+                  Automações
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate("/social-publisher")} className="py-2.5">
                   <Send className="h-4 w-4 mr-3" />
                   Publicador Social
@@ -330,8 +337,8 @@ const KaiHub = () => {
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
               {/* Tab Navigation */}
               <div className={cn(
-                "border-b border-border/50 bg-card/30 sticky z-40 overflow-x-auto transition-all duration-300",
-                scrollDirection === "down" && !isAtTop ? "top-0" : "top-[49px] sm:top-[57px]"
+                "border-b border-border/50 bg-card/30 backdrop-blur-md sticky z-40 overflow-x-auto transition-transform duration-300",
+                scrollDirection === "down" && !isAtTop ? "-translate-y-full top-0" : "translate-y-0 top-[49px] sm:top-[57px]"
               )}>
                 <div className="px-3 sm:px-6">
                   <TabsList className="h-10 sm:h-12 bg-transparent gap-1 sm:gap-2 p-0 inline-flex min-w-max">
