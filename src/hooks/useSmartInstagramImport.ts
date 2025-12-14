@@ -114,49 +114,61 @@ const parseCSV = (text: string): Record<string, string>[] => {
 
 // Detect CSV type based on content and headers
 const detectCSVType = (text: string, data: Record<string, string>[]): DetectedCSV => {
+  // IMPORTANT: many Instagram exports come in UTF-16 with spaced characters,
+  // so we should NOT rely only on the raw text. Prefer headers parsed from data.
   const lowerText = text.toLowerCase();
   const firstRow = data[0] || {};
-  const headers = Object.keys(firstRow);
-  
+  const headers = Object.keys(firstRow).map((h) => h.toLowerCase());
+
+  const headerIncludes = (needle: string) =>
+    headers.some((h) => h.includes(needle));
+
   // Posts CSV - has post identification columns
   if (
-    headers.some(h => h.includes('identificação do post') || h.includes('post_id')) ||
-    lowerText.includes('identificação do post') ||
-    lowerText.includes('link permanente')
+    headerIncludes("identificação do post") ||
+    headerIncludes("identificacao do post") ||
+    headerIncludes("post_id") ||
+    lowerText.includes("identificação do post") ||
+    lowerText.includes("link permanente")
   ) {
     return { type: "posts", label: "Posts do Instagram", data };
   }
-  
+
   // Reach CSV
-  if (lowerText.includes('"alcance"') || lowerText.includes('alcance')) {
+  if (headerIncludes("alcance") || lowerText.includes("\"alcance\"") || lowerText.includes("alcance")) {
     return { type: "reach", label: "Alcance", data };
   }
-  
-  // Followers CSV
-  if (lowerText.includes('seguidores no instagram') || lowerText.includes('seguidores')) {
+
+  // Followers CSV (daily gains)
+  if (
+    headerIncludes("seguidores no instagram") ||
+    headerIncludes("seguidores") ||
+    lowerText.includes("seguidores no instagram") ||
+    lowerText.includes("seguidores")
+  ) {
     return { type: "followers", label: "Seguidores", data };
   }
-  
+
   // Views CSV
-  if (lowerText.includes('"visualizações"') || lowerText.includes('visualizacoes')) {
+  if (headerIncludes("visualizações") || headerIncludes("visualizacoes") || lowerText.includes("\"visualizações\"") || lowerText.includes("visualizacoes")) {
     return { type: "views", label: "Visualizações", data };
   }
-  
+
   // Interactions CSV
-  if (lowerText.includes('interações') || lowerText.includes('interacoes')) {
+  if (headerIncludes("interações") || headerIncludes("interacoes") || lowerText.includes("interações") || lowerText.includes("interacoes")) {
     return { type: "interactions", label: "Interações", data };
   }
-  
+
   // Profile visits CSV
-  if (lowerText.includes('visitas ao perfil')) {
+  if (headerIncludes("visitas ao perfil") || lowerText.includes("visitas ao perfil")) {
     return { type: "profile_visits", label: "Visitas ao Perfil", data };
   }
-  
+
   // Link clicks CSV
-  if (lowerText.includes('cliques no link')) {
+  if (headerIncludes("cliques no link") || lowerText.includes("cliques no link")) {
     return { type: "link_clicks", label: "Cliques no Link", data };
   }
-  
+
   return { type: "unknown", label: "Desconhecido", data };
 };
 
