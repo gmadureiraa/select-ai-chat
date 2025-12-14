@@ -2,28 +2,30 @@ import { useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Mail, Eye, MousePointer, Users, TrendingUp, Upload, FileSpreadsheet, CheckCircle, AlertCircle, ChevronDown } from "lucide-react";
+import { Mail, Eye, MousePointer, Users, TrendingUp, Upload, FileSpreadsheet, CheckCircle, AlertCircle, ChevronDown, UserPlus } from "lucide-react";
 import { StatCard } from "./StatCard";
 import { EnhancedAreaChart } from "./EnhancedAreaChart";
 import { GoalsPanel } from "./GoalsPanel";
 import { subDays, format, parseISO, isAfter } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { useToast } from "@/hooks/use-toast";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { useSmartNewsletterImport } from "@/hooks/useSmartNewsletterImport";
 
 interface NewsletterMetric {
   id: string;
   metric_date: string;
-  views?: number | null;
+  views?: number | null; // delivered/enviados
   subscribers?: number | null;
   open_rate?: number | null;
   click_rate?: number | null;
   metadata?: {
-    emails_sent?: number;
+    delivered?: number;
     opens?: number;
     clicks?: number;
     unsubscribes?: number;
+    spamReports?: number;
+    newSubscribers?: number;
+    verifiedClickRate?: number;
+    acquisitionSources?: Record<string, number>;
   } | null;
 }
 
@@ -36,11 +38,10 @@ interface NewsletterDashboardProps {
 export function NewsletterDashboard({ clientId, metrics, isLoading }: NewsletterDashboardProps) {
   const [period, setPeriod] = useState<7 | 30 | 90>(30);
   const [showUpload, setShowUpload] = useState(false);
-  const [selectedMetric, setSelectedMetric] = useState("subscribers");
+  const [selectedMetric, setSelectedMetric] = useState("delivered");
   const [isDragging, setIsDragging] = useState(false);
-  const [parseResult, setParseResult] = useState<{ success: boolean; count: number; error?: string } | null>(null);
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
+  
+  const { importFile, importMultipleFiles, isImporting, result, reset } = useSmartNewsletterImport(clientId);
 
   const cutoffDate = useMemo(() => subDays(new Date(), period), [period]);
   const previousPeriodCutoff = useMemo(() => subDays(cutoffDate, period), [cutoffDate, period]);
@@ -62,18 +63,31 @@ export function NewsletterDashboard({ clientId, metrics, isLoading }: Newsletter
   const kpis = useMemo(() => {
     const latestMetric = [...metrics].sort((a, b) => b.metric_date.localeCompare(a.metric_date))[0];
     const currentSubs = latestMetric?.subscribers || 0;
+    
+    // Calculate averages
     const avgOpenRate = filteredMetrics.length > 0
       ? filteredMetrics.reduce((sum, m) => sum + (m.open_rate || 0), 0) / filteredMetrics.length
       : 0;
     const avgClickRate = filteredMetrics.length > 0
       ? filteredMetrics.reduce((sum, m) => sum + (m.click_rate || 0), 0) / filteredMetrics.length
       : 0;
+    
+    // Totals from metadata
+    const totalDelivered = filteredMetrics.reduce((sum, m) => sum + (m.views || m.metadata?.delivered || 0), 0);
     const totalOpens = filteredMetrics.reduce((sum, m) => sum + (m.metadata?.opens || 0), 0);
     const totalClicks = filteredMetrics.reduce((sum, m) => sum + (m.metadata?.clicks || 0), 0);
-    const totalSent = filteredMetrics.reduce((sum, m) => sum + (m.metadata?.emails_sent || 0), 0);
+    const totalNewSubs = filteredMetrics.reduce((sum, m) => sum + (m.metadata?.newSubscribers || 0), 0);
+    const totalUnsubscribes = filteredMetrics.reduce((sum, m) => sum + (m.metadata?.unsubscribes || 0), 0);
 
+    // Previous period for trends
     const prevSubs = previousPeriodMetrics.length > 0
       ? [...previousPeriodMetrics].sort((a, b) => b.metric_date.localeCompare(a.metric_date))[0]?.subscribers || 0
+      : 0;
+    const prevAvgOpenRate = previousPeriodMetrics.length > 0
+      ? previousPeriodMetrics.reduce((sum, m) => sum + (m.open_rate || 0), 0) / previousPeriodMetrics.length
+      : 0;
+    const prevAvgClickRate = previousPeriodMetrics.length > 0
+      ? previousPeriodMetrics.reduce((sum, m) => sum + (m.click_rate || 0), 0) / previousPeriodMetrics.length
       : 0;
 
     const calcTrend = (current: number, prev: number) => prev > 0 ? ((current - prev) / prev) * 100 : 0;
@@ -82,110 +96,69 @@ export function NewsletterDashboard({ clientId, metrics, isLoading }: Newsletter
       subscribers: currentSubs,
       subscribersTrend: calcTrend(currentSubs, prevSubs),
       avgOpenRate,
+      avgOpenRateTrend: calcTrend(avgOpenRate, prevAvgOpenRate),
       avgClickRate,
+      avgClickRateTrend: calcTrend(avgClickRate, prevAvgClickRate),
+      totalDelivered,
       totalOpens,
       totalClicks,
-      totalSent,
+      totalNewSubs,
+      totalUnsubscribes,
       editionsCount: filteredMetrics.length,
     };
   }, [metrics, filteredMetrics, previousPeriodMetrics]);
+
+  // Sparkline data for KPIs
+  const getSparklineData = (key: string) => {
+    return filteredMetrics.slice(-14).map(m => {
+      switch (key) {
+        case "subscribers": return m.subscribers || 0;
+        case "openRate": return m.open_rate || 0;
+        case "clickRate": return m.click_rate || 0;
+        case "delivered": return m.views || m.metadata?.delivered || 0;
+        default: return 0;
+      }
+    });
+  };
 
   const chartData = useMemo(() => {
     return filteredMetrics.map(m => ({
       date: format(parseISO(m.metric_date), "dd/MM", { locale: ptBR }),
       fullDate: m.metric_date,
-      subscribers: m.subscribers || 0,
+      delivered: m.views || m.metadata?.delivered || 0,
       openRate: m.open_rate || 0,
       clickRate: m.click_rate || 0,
       opens: m.metadata?.opens || 0,
       clicks: m.metadata?.clicks || 0,
+      subscribers: m.subscribers || 0,
+      newSubscribers: m.metadata?.newSubscribers || 0,
     }));
   }, [filteredMetrics]);
 
-  const chartMetrics = [
-    { key: "subscribers", label: "Inscritos", dataKey: "subscribers", color: "hsl(var(--primary))" },
-    { key: "openRate", label: "Taxa de Abertura", dataKey: "openRate", color: "hsl(var(--chart-2))" },
-    { key: "clickRate", label: "Taxa de Clique", dataKey: "clickRate", color: "hsl(var(--chart-3))" },
-    { key: "opens", label: "Aberturas", dataKey: "opens", color: "hsl(var(--chart-4))" },
-  ];
+  // Only show metrics that have data
+  const availableMetrics = useMemo(() => {
+    const allMetrics = [
+      { key: "delivered", label: "Enviados", dataKey: "delivered", color: "hsl(var(--primary))" },
+      { key: "openRate", label: "Taxa de Abertura (%)", dataKey: "openRate", color: "hsl(var(--chart-2))" },
+      { key: "clickRate", label: "Taxa de Clique (%)", dataKey: "clickRate", color: "hsl(var(--chart-3))" },
+      { key: "subscribers", label: "Inscritos", dataKey: "subscribers", color: "hsl(var(--chart-4))" },
+      { key: "newSubscribers", label: "Novos Inscritos", dataKey: "newSubscribers", color: "hsl(var(--chart-5))" },
+    ];
+
+    return allMetrics.filter(metric => 
+      chartData.some(d => (d as any)[metric.dataKey] > 0)
+    );
+  }, [chartData]);
 
   const currentMetrics = {
     followers: kpis.subscribers,
     engagement: kpis.avgOpenRate,
   };
 
-  // CSV Import
-  const importMutation = useMutation({
-    mutationFn: async (file: File) => {
-      const text = await file.text();
-      const lines = text.trim().split("\n");
-      if (lines.length < 2) throw new Error("CSV vazio");
-
-      const headers = lines[0].split(",").map(h => h.trim().toLowerCase().replace(/['"]/g, ""));
-      const records: any[] = [];
-
-      for (let i = 1; i < lines.length; i++) {
-        const values = lines[i].split(",").map(v => v.trim().replace(/['"]/g, ""));
-        const record: any = {};
-
-        headers.forEach((header, idx) => {
-          const value = values[idx];
-          if (!value) return;
-
-          if (header.includes("date") || header.includes("data")) {
-            record.metric_date = value;
-          } else if (header.includes("subscriber") || header.includes("inscrit")) {
-            record.subscribers = parseInt(value) || 0;
-          } else if (header.includes("open_rate") || header.includes("taxa_abertura")) {
-            record.open_rate = parseFloat(value) || 0;
-          } else if (header.includes("click_rate") || header.includes("taxa_clique")) {
-            record.click_rate = parseFloat(value) || 0;
-          } else if (header.includes("opens") || header.includes("aberturas")) {
-            record.opens = parseInt(value) || 0;
-          } else if (header.includes("clicks") || header.includes("cliques")) {
-            record.clicks = parseInt(value) || 0;
-          } else if (header.includes("sent") || header.includes("enviados")) {
-            record.emails_sent = parseInt(value) || 0;
-          }
-        });
-
-        if (record.metric_date) {
-          records.push(record);
-        }
-      }
-
-      for (const record of records) {
-        await supabase.from("platform_metrics").upsert({
-          client_id: clientId,
-          platform: "newsletter",
-          metric_date: record.metric_date,
-          subscribers: record.subscribers,
-          open_rate: record.open_rate,
-          click_rate: record.click_rate,
-          metadata: {
-            opens: record.opens,
-            clicks: record.clicks,
-            emails_sent: record.emails_sent,
-          }
-        }, { onConflict: "client_id,platform,metric_date" });
-      }
-
-      return records.length;
-    },
-    onSuccess: (count) => {
-      setParseResult({ success: true, count });
-      queryClient.invalidateQueries({ queryKey: ["performance-metrics", clientId] });
-      localStorage.removeItem(`insights-${clientId}`);
-      toast({ title: "Importação concluída", description: `${count} registros importados` });
-    },
-    onError: (error) => {
-      setParseResult({ success: false, count: 0, error: error.message });
-    }
-  });
-
-  const handleFile = (file: File) => {
-    setParseResult(null);
-    importMutation.mutate(file);
+  const handleFiles = (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    reset();
+    importMultipleFiles(files);
   };
 
   const hasData = metrics.length > 0;
@@ -197,7 +170,7 @@ export function NewsletterDashboard({ clientId, metrics, isLoading }: Newsletter
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
               <FileSpreadsheet className="h-5 w-5 text-primary" />
-              Importar Métricas de Newsletter
+              Importar Métricas de Newsletter (Beehiiv)
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -210,33 +183,48 @@ export function NewsletterDashboard({ clientId, metrics, isLoading }: Newsletter
               onDrop={(e) => {
                 e.preventDefault();
                 setIsDragging(false);
-                const file = e.dataTransfer.files[0];
-                if (file?.name.endsWith(".csv")) handleFile(file);
+                handleFiles(e.dataTransfer.files);
               }}
             >
               <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
               <p className="text-sm text-muted-foreground mb-2">
-                Arraste o arquivo CSV ou clique para selecionar
+                Arraste os arquivos CSV ou clique para selecionar
+              </p>
+              <p className="text-xs text-muted-foreground mb-3">
+                Suporta múltiplos arquivos: Performance, Posts e Assinantes
               </p>
               <input
                 type="file"
                 accept=".csv"
+                multiple
                 className="hidden"
                 id="newsletter-csv-upload"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) handleFile(file);
-                }}
+                onChange={(e) => handleFiles(e.target.files)}
               />
-              <Button variant="outline" size="sm" asChild>
+              <Button variant="outline" size="sm" asChild disabled={isImporting}>
                 <label htmlFor="newsletter-csv-upload" className="cursor-pointer">
-                  Selecionar Arquivo
+                  {isImporting ? "Importando..." : "Selecionar Arquivos"}
                 </label>
               </Button>
             </div>
+            {result && (
+              <div className={`mt-4 flex items-center gap-2 text-sm ${
+                result.success ? "text-green-600" : "text-destructive"
+              }`}>
+                {result.success ? (
+                  <><CheckCircle className="h-4 w-4" />{result.count} registros importados</>
+                ) : (
+                  <><AlertCircle className="h-4 w-4" />{result.error}</>
+                )}
+              </div>
+            )}
             <div className="mt-4 text-xs text-muted-foreground">
-              <p className="font-medium mb-1">Colunas aceitas:</p>
-              <p>date, subscribers, open_rate, click_rate, opens, clicks, sent</p>
+              <p className="font-medium mb-1">CSVs aceitos do Beehiiv:</p>
+              <ul className="list-disc list-inside space-y-0.5">
+                <li>email_performance_by_date (Date, Delivered, Open Rate, Click-Through Rate)</li>
+                <li>posts_by_date (Date, Subject, Sent, Opens, Clicks...)</li>
+                <li>subscriber_acquisitions_by_day (Created At, Acquisition Source, Count)</li>
+              </ul>
             </div>
           </CardContent>
         </Card>
@@ -294,35 +282,32 @@ export function NewsletterDashboard({ clientId, metrics, isLoading }: Newsletter
                 onDrop={(e) => {
                   e.preventDefault();
                   setIsDragging(false);
-                  const file = e.dataTransfer.files[0];
-                  if (file?.name.endsWith(".csv")) handleFile(file);
+                  handleFiles(e.dataTransfer.files);
                 }}
               >
                 <input
                   type="file"
                   accept=".csv"
+                  multiple
                   className="hidden"
                   id="newsletter-csv-upload-2"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) handleFile(file);
-                  }}
+                  onChange={(e) => handleFiles(e.target.files)}
                 />
-                <Button variant="outline" size="sm" asChild>
+                <Button variant="outline" size="sm" asChild disabled={isImporting}>
                   <label htmlFor="newsletter-csv-upload-2" className="cursor-pointer">
                     <Upload className="h-4 w-4 mr-2" />
-                    Selecionar CSV
+                    {isImporting ? "Importando..." : "Selecionar CSVs"}
                   </label>
                 </Button>
               </div>
-              {parseResult && (
+              {result && (
                 <div className={`mt-3 flex items-center gap-2 text-sm ${
-                  parseResult.success ? "text-green-600" : "text-destructive"
+                  result.success ? "text-green-600" : "text-destructive"
                 }`}>
-                  {parseResult.success ? (
-                    <><CheckCircle className="h-4 w-4" />{parseResult.count} registros importados</>
+                  {result.success ? (
+                    <><CheckCircle className="h-4 w-4" />{result.count} registros importados</>
                   ) : (
-                    <><AlertCircle className="h-4 w-4" />{parseResult.error}</>
+                    <><AlertCircle className="h-4 w-4" />{result.error}</>
                   )}
                 </div>
               )}
@@ -338,21 +323,27 @@ export function NewsletterDashboard({ clientId, metrics, isLoading }: Newsletter
           value={kpis.subscribers}
           change={kpis.subscribersTrend}
           icon={Users}
+          sparklineData={getSparklineData("subscribers")}
         />
         <StatCard
           label="Taxa de Abertura"
           value={`${kpis.avgOpenRate.toFixed(1)}%`}
+          change={kpis.avgOpenRateTrend}
           icon={Eye}
+          sparklineData={getSparklineData("openRate")}
         />
         <StatCard
           label="Taxa de Clique"
           value={`${kpis.avgClickRate.toFixed(1)}%`}
+          change={kpis.avgClickRateTrend}
           icon={MousePointer}
+          sparklineData={getSparklineData("clickRate")}
         />
         <StatCard
           label="Total Enviados"
-          value={kpis.totalSent}
+          value={kpis.totalDelivered}
           icon={Mail}
+          sparklineData={getSparklineData("delivered")}
         />
       </div>
 
@@ -361,7 +352,7 @@ export function NewsletterDashboard({ clientId, metrics, isLoading }: Newsletter
         <div className="lg:col-span-2">
           <EnhancedAreaChart
             data={chartData}
-            metrics={chartMetrics}
+            metrics={availableMetrics}
             selectedMetric={selectedMetric}
             onMetricChange={setSelectedMetric}
             title="Evolução de Métricas"
