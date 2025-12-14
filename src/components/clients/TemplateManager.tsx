@@ -10,12 +10,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Plus, Trash2, Settings, Edit2, MessageSquare, Image, Zap } from "lucide-react";
+import { Plus, Trash2, Settings, Edit2, MessageSquare, Image, Zap, Copy } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useClientTemplates } from "@/hooks/useClientTemplates";
 import { TemplateRulesDialog } from "./TemplateRulesDialog";
 import { ClientTemplate, TemplateRule, getDefaultRulesForTemplateName } from "@/types/template";
 import { CONTENT_TYPE_OPTIONS, getContentTypeLabel } from "@/types/contentTypes";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface TemplateManagerProps {
   clientId: string;
@@ -75,6 +76,25 @@ export const TemplateManager = ({ clientId }: TemplateManagerProps) => {
 
   const handleRemoveTemplate = (id: string) => {
     deleteTemplate.mutate(id);
+  };
+
+  const handleDuplicateTemplate = (template: ClientTemplate) => {
+    const newRules = template.rules.map((rule) => ({
+      ...rule,
+      id: crypto.randomUUID(),
+    }));
+    
+    createTemplate.mutate({
+      client_id: clientId,
+      name: `${template.name} (cópia)`,
+      type: template.type,
+      rules: newRules,
+    });
+    
+    toast({
+      title: "Template duplicado",
+      description: `"${template.name}" foi duplicado com sucesso.`,
+    });
   };
 
   const handleSaveRules = (rules: TemplateRule[]) => {
@@ -149,15 +169,31 @@ export const TemplateManager = ({ clientId }: TemplateManagerProps) => {
                       </div>
                       <div className="flex gap-1">
                         {template.type !== 'automation' && (
-                          <Button
-                            onClick={() => setEditingTemplate(template)}
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 gap-2"
-                          >
-                            <Edit2 className="h-3 w-3" />
-                            Editar Regras
-                          </Button>
+                          <>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  onClick={() => handleDuplicateTemplate(template)}
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-8 w-8 p-0"
+                                  disabled={createTemplate.isPending}
+                                >
+                                  <Copy className="h-3.5 w-3.5" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Duplicar template</TooltipContent>
+                            </Tooltip>
+                            <Button
+                              onClick={() => setEditingTemplate(template)}
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 gap-2"
+                            >
+                              <Edit2 className="h-3 w-3" />
+                              Editar Regras
+                            </Button>
+                          </>
                         )}
                         <Button
                           onClick={() => handleRemoveTemplate(template.id)}

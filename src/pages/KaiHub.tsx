@@ -4,7 +4,7 @@ import { useSearchParams, useNavigate } from "react-router-dom";
 import { 
   Bot, BarChart3, Library, Zap, Settings, ChevronDown, Check, 
   User, Activity, BookOpen, Send, Hammer, FlaskConical, LogOut,
-  Plus, MoreVertical
+  Plus, Search
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -40,6 +40,8 @@ import { KaiSettingsTab } from "@/components/kai/KaiSettingsTab";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ClientDialog } from "@/components/clients/ClientDialog";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { CommandPalette } from "@/components/ui/command-palette";
 import KaleidosLogo from "@/assets/kaleidos-logo.svg";
 
 const KaiHub = () => {
@@ -51,6 +53,7 @@ const KaiHub = () => {
   const [activeTab, setActiveTab] = useState(searchParams.get("tab") || "assistant");
   const [clientSelectorOpen, setClientSelectorOpen] = useState(false);
   const [clientDialogOpen, setClientDialogOpen] = useState(false);
+  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   
   const { clients, isLoading } = useClients();
   const { user, signOut } = useAuth();
@@ -73,6 +76,19 @@ const KaiHub = () => {
   }, [selectedClientId, setSearchParams]);
 
   // Update URL when tab changes
+  // Keyboard shortcut for command palette (Cmd+K / Ctrl+K)
+  useEffect(() => {
+    const down = (e: KeyboardEvent) => {
+      if (e.key === "k" && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        setCommandPaletteOpen((open) => !open);
+      }
+    };
+
+    document.addEventListener("keydown", down);
+    return () => document.removeEventListener("keydown", down);
+  }, []);
+
   useEffect(() => {
     setSearchParams(prev => {
       prev.set("tab", activeTab);
@@ -206,6 +222,23 @@ const KaiHub = () => {
 
           {/* Right Side Menu */}
           <div className="flex items-center gap-0.5 sm:gap-1 shrink-0">
+            {/* Command Palette Button */}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setCommandPaletteOpen(true)}
+              className="h-8 sm:h-9 gap-1.5 sm:gap-2 text-muted-foreground hover:text-foreground px-2 sm:px-3"
+            >
+              <Search className="h-4 w-4" />
+              <span className="hidden lg:inline text-xs">Buscar</span>
+              <kbd className="hidden md:inline-flex pointer-events-none h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
+                <span className="text-xs">⌘</span>K
+              </kbd>
+            </Button>
+
+            {/* Theme Toggle */}
+            <ThemeToggle />
+
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="sm" className="h-8 sm:h-9 gap-1 sm:gap-2 text-muted-foreground hover:text-foreground px-2 sm:px-3">
@@ -283,6 +316,14 @@ const KaiHub = () => {
 
       {/* Client Dialog */}
       <ClientDialog open={clientDialogOpen} onOpenChange={setClientDialogOpen} />
+
+      {/* Command Palette */}
+      <CommandPalette
+        open={commandPaletteOpen}
+        onOpenChange={setCommandPaletteOpen}
+        onSelectClient={(clientId) => setSelectedClientId(clientId)}
+        onSelectTab={(tab) => setActiveTab(tab)}
+      />
 
       {/* Main Content */}
       <main className="flex-1">
