@@ -3,13 +3,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Users, Heart, MessageCircle, TrendingUp, TrendingDown, Eye, Bookmark, Upload, Calendar, Share2, Target, Minus } from "lucide-react";
+import { Users, Heart, MessageCircle, TrendingUp, TrendingDown, Eye, Bookmark, Upload, Calendar, Share2, Target, Minus, Sparkles } from "lucide-react";
 import { InstagramPost } from "@/hooks/useInstagramPosts";
 import { PerformanceMetrics } from "@/hooks/usePerformanceMetrics";
 import { InstagramPostsTable } from "./InstagramPostsTable";
 import { SmartCSVUpload } from "./SmartCSVUpload";
 import { EnhancedAreaChart } from "./EnhancedAreaChart";
-import { PeriodComparisonCard } from "./PeriodComparisonCard";
 import { AutoInsightsCard } from "./AutoInsightsCard";
 import { format, subDays, isAfter, parseISO, startOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -23,11 +22,11 @@ interface InstagramDashboardProps {
 }
 
 const periodOptions = [
-  { value: "7", label: "Últimos 7 dias" },
-  { value: "14", label: "Últimos 14 dias" },
-  { value: "30", label: "Últimos 30 dias" },
-  { value: "60", label: "Últimos 60 dias" },
-  { value: "90", label: "Últimos 90 dias" },
+  { value: "7", label: "7 dias" },
+  { value: "14", label: "14 dias" },
+  { value: "30", label: "30 dias" },
+  { value: "60", label: "60 dias" },
+  { value: "90", label: "90 dias" },
   { value: "all", label: "Todo período" },
 ];
 
@@ -94,7 +93,6 @@ export function InstagramDashboard({
 
   // Calculate KPIs from filtered data with trends
   const kpis = useMemo(() => {
-    // Sum posts metrics
     const totalLikes = filteredPosts.reduce((sum, p) => sum + (p.likes || 0), 0);
     const totalComments = filteredPosts.reduce((sum, p) => sum + (p.comments || 0), 0);
     const totalSaves = filteredPosts.reduce((sum, p) => sum + (p.saves || 0), 0);
@@ -104,20 +102,17 @@ export function InstagramDashboard({
       ? filteredPosts.reduce((sum, p) => sum + (p.engagement_rate || 0), 0) / filteredPosts.length
       : 0;
 
-    // Calculate from daily metrics
     const totalViews = filteredMetrics.reduce((sum, m) => sum + (m.views || 0), 0);
     const followersGained = filteredMetrics.reduce((sum, m) => sum + (m.subscribers || 0), 0);
     const totalReachFromMetrics = filteredMetrics.reduce((sum, m) => sum + getReachFromMetric(m), 0);
     const totalInteractions = filteredMetrics.reduce((sum, m) => sum + (m.likes || 0), 0);
     const totalImpressions = filteredPosts.reduce((sum, p) => sum + (p.impressions || 0), 0);
 
-    // Previous period totals for comparison
     const prevViews = previousPeriodMetrics.reduce((sum, m) => sum + (m.views || 0), 0);
     const prevFollowers = previousPeriodMetrics.reduce((sum, m) => sum + (m.subscribers || 0), 0);
     const prevReach = previousPeriodMetrics.reduce((sum, m) => sum + getReachFromMetric(m), 0);
     const prevInteractions = previousPeriodMetrics.reduce((sum, m) => sum + (m.likes || 0), 0);
 
-    // Calculate percentage changes
     const calcChange = (current: number, previous: number) => {
       if (previous === 0) return current > 0 ? 100 : 0;
       return ((current - previous) / previous) * 100;
@@ -158,7 +153,6 @@ export function InstagramDashboard({
       return { chartData: [], availableMetrics: [] };
     }
 
-    // Check which metrics have data
     const hasViews = filteredMetrics.some(m => (m.views || 0) > 0);
     const hasSubscribers = filteredMetrics.some(m => (m.subscribers || 0) > 0);
     const hasReach = filteredMetrics.some(m => getReachFromMetric(m) > 0);
@@ -172,7 +166,6 @@ export function InstagramDashboard({
       return false;
     });
 
-    // Build chart data with all metrics
     const data = filteredMetrics
       .slice()
       .reverse()
@@ -203,9 +196,9 @@ export function InstagramDashboard({
   };
 
   const getTrendIcon = (change: number) => {
-    if (change > 0) return <TrendingUp className="h-3 w-3 text-green-500" />;
-    if (change < 0) return <TrendingDown className="h-3 w-3 text-red-500" />;
-    return <Minus className="h-3 w-3 text-muted-foreground" />;
+    if (change > 0) return <TrendingUp className="h-3 w-3" />;
+    if (change < 0) return <TrendingDown className="h-3 w-3" />;
+    return <Minus className="h-3 w-3" />;
   };
 
   const getTrendColor = (change: number) => {
@@ -220,8 +213,8 @@ export function InstagramDashboard({
     const max = Math.max(...data);
     const min = Math.min(...data);
     const range = max - min || 1;
-    const width = 60;
-    const height = 20;
+    const width = 48;
+    const height = 16;
     
     const points = data.map((val, i) => {
       const x = (i / (data.length - 1)) * width;
@@ -230,7 +223,7 @@ export function InstagramDashboard({
     }).join(' ');
 
     return (
-      <svg width={width} height={height} className="opacity-70">
+      <svg width={width} height={height} className="opacity-60">
         <polyline
           fill="none"
           stroke={color}
@@ -241,14 +234,56 @@ export function InstagramDashboard({
     );
   };
 
+  // KPI Card Component
+  const KPICard = ({ 
+    icon: Icon, 
+    label, 
+    value, 
+    change, 
+    sparkline, 
+    sparklineColor,
+    highlight 
+  }: { 
+    icon: React.ElementType;
+    label: string;
+    value: string | number;
+    change?: number;
+    sparkline?: number[];
+    sparklineColor?: string;
+    highlight?: boolean;
+  }) => (
+    <Card className={highlight ? "border-primary/30 bg-primary/5" : ""}>
+      <CardContent className="p-4">
+        <div className="flex items-start justify-between">
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <Icon className="h-4 w-4" />
+            <span className="text-xs font-medium">{label}</span>
+          </div>
+          {sparkline && sparklineColor && (
+            <Sparkline data={sparkline} color={sparklineColor} />
+          )}
+        </div>
+        <p className={`text-2xl font-bold mt-2 ${highlight ? "text-primary" : ""}`}>
+          {typeof value === "number" ? formatNumber(value) : value}
+        </p>
+        {change !== undefined && period !== "all" && (
+          <div className={`flex items-center gap-1 text-xs mt-1 ${getTrendColor(change)}`}>
+            {getTrendIcon(change)}
+            <span>{change > 0 ? "+" : ""}{change.toFixed(0)}%</span>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+
   return (
     <div className="space-y-6">
-      {/* Header with Period Selector */}
-      <div className="flex flex-col sm:flex-row justify-between gap-4">
-        <div className="flex items-center gap-2">
-          <Calendar className="h-4 w-4 text-muted-foreground" />
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
           <Select value={period} onValueChange={setPeriod}>
-            <SelectTrigger className="w-[180px]">
+            <SelectTrigger className="w-[130px] h-9">
+              <Calendar className="h-3.5 w-3.5 mr-2 text-muted-foreground" />
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -259,135 +294,102 @@ export function InstagramDashboard({
               ))}
             </SelectContent>
           </Select>
+          <span className="text-xs text-muted-foreground">
+            {filteredPosts.length} posts • {filteredMetrics.length} dias de dados
+          </span>
         </div>
         <Collapsible open={showUpload} onOpenChange={setShowUpload}>
           <CollapsibleTrigger asChild>
-            <Button variant="outline" size="sm">
-              <Upload className="h-4 w-4 mr-2" />
-              {showUpload ? "Ocultar" : "Importar CSV"}
+            <Button variant="outline" size="sm" className="h-9">
+              <Upload className="h-3.5 w-3.5 mr-2" />
+              Importar
             </Button>
           </CollapsibleTrigger>
         </Collapsible>
       </div>
 
-      {/* CSV Upload (Collapsible) */}
+      {/* CSV Upload */}
       <Collapsible open={showUpload} onOpenChange={setShowUpload}>
         <CollapsibleContent>
           <SmartCSVUpload clientId={clientId} platform="instagram" />
         </CollapsibleContent>
       </Collapsible>
 
-      {/* KPI Cards Grid - Enhanced with sparklines and trends */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
-        <Card className="bg-gradient-to-br from-green-500/10 to-emerald-500/10 border-green-500/20">
-          <CardContent className="p-3">
-            <div className="flex items-center justify-between mb-1">
-              <div className="flex items-center gap-1.5 text-muted-foreground">
-                <Users className="h-3.5 w-3.5" />
-                <span className="text-xs">Novos Seguidores</span>
-              </div>
-              <Sparkline data={sparklineData.followers} color="hsl(var(--chart-2))" />
+      {/* Hero KPIs - 4 main metrics */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <KPICard
+          icon={Users}
+          label="Novos Seguidores"
+          value={`+${formatNumber(kpis.followersGained)}`}
+          change={kpis.followersChange}
+          sparkline={sparklineData.followers}
+          sparklineColor="hsl(var(--chart-2))"
+          highlight
+        />
+        <KPICard
+          icon={Eye}
+          label="Visualizações"
+          value={kpis.totalViews}
+          change={kpis.viewsChange}
+          sparkline={sparklineData.views}
+          sparklineColor="hsl(var(--primary))"
+        />
+        <KPICard
+          icon={Target}
+          label="Alcance"
+          value={kpis.totalReach}
+          change={kpis.reachChange}
+          sparkline={sparklineData.reach}
+          sparklineColor="hsl(var(--chart-3))"
+        />
+        <KPICard
+          icon={TrendingUp}
+          label="Engajamento Médio"
+          value={`${kpis.avgEngagement.toFixed(2)}%`}
+        />
+      </div>
+
+      {/* Secondary KPIs */}
+      <div className="grid grid-cols-4 gap-3">
+        <Card>
+          <CardContent className="p-3 flex items-center gap-3">
+            <Heart className="h-4 w-4 text-red-500" />
+            <div>
+              <p className="text-xs text-muted-foreground">Curtidas</p>
+              <p className="text-lg font-semibold">{formatNumber(kpis.totalLikes)}</p>
             </div>
-            <p className="text-xl font-bold text-green-500">+{formatNumber(kpis.followersGained)}</p>
-            {period !== "all" && (
-              <div className={`flex items-center gap-1 text-xs mt-1 ${getTrendColor(kpis.followersChange)}`}>
-                {getTrendIcon(kpis.followersChange)}
-                <span>{Math.abs(kpis.followersChange).toFixed(0)}% vs anterior</span>
-              </div>
-            )}
           </CardContent>
         </Card>
-
         <Card>
-          <CardContent className="p-3">
-            <div className="flex items-center justify-between mb-1">
-              <div className="flex items-center gap-1.5 text-muted-foreground">
-                <Eye className="h-3.5 w-3.5" />
-                <span className="text-xs">Visualizações</span>
-              </div>
-              <Sparkline data={sparklineData.views} color="hsl(var(--primary))" />
+          <CardContent className="p-3 flex items-center gap-3">
+            <MessageCircle className="h-4 w-4 text-blue-500" />
+            <div>
+              <p className="text-xs text-muted-foreground">Comentários</p>
+              <p className="text-lg font-semibold">{formatNumber(kpis.totalComments)}</p>
             </div>
-            <p className="text-xl font-bold">{formatNumber(kpis.totalViews)}</p>
-            {period !== "all" && (
-              <div className={`flex items-center gap-1 text-xs mt-1 ${getTrendColor(kpis.viewsChange)}`}>
-                {getTrendIcon(kpis.viewsChange)}
-                <span>{Math.abs(kpis.viewsChange).toFixed(0)}% vs anterior</span>
-              </div>
-            )}
           </CardContent>
         </Card>
-
         <Card>
-          <CardContent className="p-3">
-            <div className="flex items-center justify-between mb-1">
-              <div className="flex items-center gap-1.5 text-muted-foreground">
-                <Target className="h-3.5 w-3.5" />
-                <span className="text-xs">Alcance</span>
-              </div>
-              <Sparkline data={sparklineData.reach} color="hsl(var(--chart-3))" />
+          <CardContent className="p-3 flex items-center gap-3">
+            <Share2 className="h-4 w-4 text-green-500" />
+            <div>
+              <p className="text-xs text-muted-foreground">Compartilhamentos</p>
+              <p className="text-lg font-semibold">{formatNumber(kpis.totalShares)}</p>
             </div>
-            <p className="text-xl font-bold">{formatNumber(kpis.totalReach)}</p>
-            {period !== "all" && (
-              <div className={`flex items-center gap-1 text-xs mt-1 ${getTrendColor(kpis.reachChange)}`}>
-                {getTrendIcon(kpis.reachChange)}
-                <span>{Math.abs(kpis.reachChange).toFixed(0)}% vs anterior</span>
-              </div>
-            )}
           </CardContent>
         </Card>
-
         <Card>
-          <CardContent className="p-3">
-            <div className="flex items-center gap-1.5 text-muted-foreground mb-1">
-              <Heart className="h-3.5 w-3.5" />
-              <span className="text-xs">Curtidas</span>
+          <CardContent className="p-3 flex items-center gap-3">
+            <Bookmark className="h-4 w-4 text-amber-500" />
+            <div>
+              <p className="text-xs text-muted-foreground">Salvos</p>
+              <p className="text-lg font-semibold">{formatNumber(kpis.totalSaves)}</p>
             </div>
-            <p className="text-xl font-bold">{formatNumber(kpis.totalLikes)}</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-3">
-            <div className="flex items-center gap-1.5 text-muted-foreground mb-1">
-              <MessageCircle className="h-3.5 w-3.5" />
-              <span className="text-xs">Comentários</span>
-            </div>
-            <p className="text-xl font-bold">{formatNumber(kpis.totalComments)}</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-3">
-            <div className="flex items-center gap-1.5 text-muted-foreground mb-1">
-              <Share2 className="h-3.5 w-3.5" />
-              <span className="text-xs">Compartilhamentos</span>
-            </div>
-            <p className="text-xl font-bold">{formatNumber(kpis.totalShares)}</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-3">
-            <div className="flex items-center gap-1.5 text-muted-foreground mb-1">
-              <Bookmark className="h-3.5 w-3.5" />
-              <span className="text-xs">Salvos</span>
-            </div>
-            <p className="text-xl font-bold">{formatNumber(kpis.totalSaves)}</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-3">
-            <div className="flex items-center gap-1.5 text-muted-foreground mb-1">
-              <TrendingUp className="h-3.5 w-3.5" />
-              <span className="text-xs">Engajamento</span>
-            </div>
-            <p className="text-xl font-bold">{kpis.avgEngagement.toFixed(2)}%</p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Chart Section - Fixed to show only selected metric */}
+      {/* Chart */}
       {chartData.length > 0 && availableMetrics.length > 0 && (
         <EnhancedAreaChart
           data={chartData}
@@ -398,76 +400,63 @@ export function InstagramDashboard({
         />
       )}
 
-      {/* Insights and Comparison Cards */}
+      {/* Insights and Best Post */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <PeriodComparisonCard
-          currentPeriod={period}
-          currentMetrics={{
-            views: kpis.totalViews,
-            followers: kpis.followersGained,
-            reach: kpis.totalReach,
-            interactions: kpis.totalInteractions,
-          }}
-          previousMetrics={{
-            views: previousPeriodMetrics.reduce((sum, m) => sum + (m.views || 0), 0),
-            followers: previousPeriodMetrics.reduce((sum, m) => sum + (m.subscribers || 0), 0),
-            reach: previousPeriodMetrics.reduce((sum, m) => sum + getReachFromMetric(m), 0),
-            interactions: previousPeriodMetrics.reduce((sum, m) => sum + (m.likes || 0), 0),
-          }}
-        />
         <AutoInsightsCard posts={filteredPosts} metrics={filteredMetrics} />
-      </div>
-
-      {/* Best Post Highlight */}
-      {bestPost && (
-        <Card className="bg-gradient-to-r from-amber-500/10 to-orange-500/10 border-amber-500/20">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm flex items-center gap-2">
-              🏆 Melhor Post do Período
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex gap-4">
-              {bestPost.thumbnail_url && (
-                <img 
-                  src={bestPost.thumbnail_url} 
-                  alt="" 
-                  className="w-16 h-16 rounded-lg object-cover"
-                />
-              )}
-              <div className="flex-1 min-w-0">
-                <p className="text-sm line-clamp-2 mb-2">
-                  {bestPost.caption || "Sem legenda"}
-                </p>
-                <div className="flex gap-4 text-sm text-muted-foreground">
-                  <span className="flex items-center gap-1">
-                    <Heart className="h-3 w-3" /> {formatNumber(bestPost.likes || 0)}
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <MessageCircle className="h-3 w-3" /> {formatNumber(bestPost.comments || 0)}
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <TrendingUp className="h-3 w-3" /> {(bestPost.engagement_rate || 0).toFixed(1)}%
-                  </span>
+        
+        {/* Best Post Card */}
+        {bestPost && (
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-amber-500" />
+                Melhor Post do Período
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex gap-4">
+                {bestPost.thumbnail_url ? (
+                  <img 
+                    src={bestPost.thumbnail_url} 
+                    alt="" 
+                    className="w-20 h-20 rounded-lg object-cover shrink-0"
+                  />
+                ) : (
+                  <div className="w-20 h-20 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                    <Eye className="h-6 w-6 text-muted-foreground" />
+                  </div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm line-clamp-2 mb-3">
+                    {bestPost.caption || "Sem legenda"}
+                  </p>
+                  <div className="flex items-center gap-4 text-xs">
+                    <span className="flex items-center gap-1">
+                      <Heart className="h-3.5 w-3.5 text-red-500" />
+                      {formatNumber(bestPost.likes || 0)}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <MessageCircle className="h-3.5 w-3.5 text-blue-500" />
+                      {formatNumber(bestPost.comments || 0)}
+                    </span>
+                    <span className="flex items-center gap-1 text-primary font-medium">
+                      {bestPost.engagement_rate?.toFixed(1)}% eng.
+                    </span>
+                  </div>
                 </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+            </CardContent>
+          </Card>
+        )}
+      </div>
 
       {/* Posts Table */}
       <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">
-            Todos os Posts ({filteredPosts.length})
-          </CardTitle>
+        <CardHeader>
+          <CardTitle className="text-base">Posts</CardTitle>
         </CardHeader>
         <CardContent>
-          <InstagramPostsTable 
-            posts={filteredPosts} 
-            isLoading={isLoadingPosts}
-          />
+          <InstagramPostsTable posts={filteredPosts} isLoading={isLoadingPosts} />
         </CardContent>
       </Card>
     </div>
