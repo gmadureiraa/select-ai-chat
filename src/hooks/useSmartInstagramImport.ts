@@ -114,62 +114,74 @@ const parseCSV = (text: string): Record<string, string>[] => {
 
 // Detect CSV type based on content and headers
 const detectCSVType = (text: string, data: Record<string, string>[]): DetectedCSV => {
-  // IMPORTANT: many Instagram exports come in UTF-16 with spaced characters,
-  // so we should NOT rely only on the raw text. Prefer headers parsed from data.
-  const lowerText = text.toLowerCase();
+  // Normalize only the first lines to handle UTF-16 titles like "A l c a n c e"
+  const rawSample = text.split('\n').slice(0, 6).join(' ');
+  const normalizedSample = rawSample
+    .replace(/\0/g, '')
+    .replace(/\s+/g, ' ')
+    .toLowerCase();
+
   const firstRow = data[0] || {};
   const headers = Object.keys(firstRow).map((h) => h.toLowerCase());
-
-  const headerIncludes = (needle: string) =>
-    headers.some((h) => h.includes(needle));
+  const headerIncludes = (needle: string) => headers.some((h) => h.includes(needle));
 
   // Posts CSV - has post identification columns
   if (
-    headerIncludes("identificação do post") ||
-    headerIncludes("identificacao do post") ||
-    headerIncludes("post_id") ||
-    lowerText.includes("identificação do post") ||
-    lowerText.includes("link permanente")
+    headerIncludes('identificação do post') ||
+    headerIncludes('identificacao do post') ||
+    headerIncludes('post_id') ||
+    normalizedSample.includes('identificação do post') ||
+    normalizedSample.includes('identificacao do post') ||
+    normalizedSample.includes('link permanente')
   ) {
-    return { type: "posts", label: "Posts do Instagram", data };
+    return { type: 'posts', label: 'Posts do Instagram', data };
   }
 
   // Reach CSV
-  if (headerIncludes("alcance") || lowerText.includes("\"alcance\"") || lowerText.includes("alcance")) {
-    return { type: "reach", label: "Alcance", data };
+  if (headerIncludes('alcance') || normalizedSample.includes('alcance')) {
+    return { type: 'reach', label: 'Alcance', data };
   }
 
   // Followers CSV (daily gains)
   if (
-    headerIncludes("seguidores no instagram") ||
-    headerIncludes("seguidores") ||
-    lowerText.includes("seguidores no instagram") ||
-    lowerText.includes("seguidores")
+    headerIncludes('seguidores no instagram') ||
+    headerIncludes('seguidores') ||
+    normalizedSample.includes('seguidores no instagram') ||
+    normalizedSample.includes('seguidores no insta')
   ) {
-    return { type: "followers", label: "Seguidores", data };
+    return { type: 'followers', label: 'Seguidores', data };
   }
 
   // Views CSV
-  if (headerIncludes("visualizações") || headerIncludes("visualizacoes") || lowerText.includes("\"visualizações\"") || lowerText.includes("visualizacoes")) {
-    return { type: "views", label: "Visualizações", data };
+  if (headerIncludes('visualizações') || headerIncludes('visualizacoes') || normalizedSample.includes('visualiza')) {
+    return { type: 'views', label: 'Visualizações', data };
   }
 
   // Interactions CSV
-  if (headerIncludes("interações") || headerIncludes("interacoes") || lowerText.includes("interações") || lowerText.includes("interacoes")) {
-    return { type: "interactions", label: "Interações", data };
+  if (
+    headerIncludes('interações') ||
+    headerIncludes('interacoes') ||
+    normalizedSample.includes('interações com o conteúdo') ||
+    normalizedSample.includes('interacoes com o conteudo')
+  ) {
+    return { type: 'interactions', label: 'Interações', data };
   }
 
   // Profile visits CSV
-  if (headerIncludes("visitas ao perfil") || lowerText.includes("visitas ao perfil")) {
-    return { type: "profile_visits", label: "Visitas ao Perfil", data };
+  if (
+    headerIncludes('visitas ao perfil') ||
+    normalizedSample.includes('visitas ao perfil do instagram') ||
+    normalizedSample.includes('visitas ao perfil')
+  ) {
+    return { type: 'profile_visits', label: 'Visitas ao Perfil', data };
   }
 
   // Link clicks CSV
-  if (headerIncludes("cliques no link") || lowerText.includes("cliques no link")) {
-    return { type: "link_clicks", label: "Cliques no Link", data };
+  if (headerIncludes('cliques no link') || normalizedSample.includes('cliques no link')) {
+    return { type: 'link_clicks', label: 'Cliques no Link', data };
   }
 
-  return { type: "unknown", label: "Desconhecido", data };
+  return { type: 'unknown', label: 'Desconhecido', data };
 };
 
 // Process posts CSV - handles the detailed Instagram export format
