@@ -15,16 +15,8 @@ interface InstagramPostsTableProps {
   isLoading?: boolean;
 }
 
-type SortField = "posted_at" | "likes" | "comments" | "engagement_rate" | "saves";
+type SortField = "posted_at" | "likes" | "comments" | "saves" | "shares" | "reach" | "impressions";
 type SortOrder = "asc" | "desc";
-
-const getPerformanceBadge = (engagement: number | null) => {
-  if (!engagement) return null;
-  if (engagement >= 8) return <Badge className="bg-orange-500/10 text-orange-500 border-orange-500/20 text-[10px]">🔥 Viral</Badge>;
-  if (engagement >= 4) return <Badge className="bg-green-500/10 text-green-500 border-green-500/20 text-[10px]">✓ Bom</Badge>;
-  if (engagement >= 2) return <Badge className="bg-yellow-500/10 text-yellow-500 border-yellow-500/20 text-[10px]">Médio</Badge>;
-  return <Badge className="bg-muted text-muted-foreground text-[10px]">Baixo</Badge>;
-};
 
 export function InstagramPostsTable({ posts, isLoading }: InstagramPostsTableProps) {
   const [search, setSearch] = useState("");
@@ -136,27 +128,41 @@ export function InstagramPostsTable({ posts, isLoading }: InstagramPostsTablePro
             <TableRow className="bg-muted/30 hover:bg-muted/30">
               <TableHead className="w-[50px]"></TableHead>
               <TableHead className="min-w-[180px]">Legenda</TableHead>
-              <TableHead className="w-[90px]">
+              <TableHead className="w-[80px]">
                 <Button variant="ghost" size="sm" className="h-7 px-1.5 text-xs" onClick={() => handleSort("posted_at")}>
                   Data <ArrowUpDown className="ml-1 h-3 w-3" />
                 </Button>
               </TableHead>
-              <TableHead className="w-[70px] text-right">
+              <TableHead className="w-[65px] text-right">
+                <Button variant="ghost" size="sm" className="h-7 px-1.5 text-xs" onClick={() => handleSort("impressions")}>
+                  Impr. <ArrowUpDown className="ml-1 h-3 w-3" />
+                </Button>
+              </TableHead>
+              <TableHead className="w-[65px] text-right">
+                <Button variant="ghost" size="sm" className="h-7 px-1.5 text-xs" onClick={() => handleSort("reach")}>
+                  Alc. <ArrowUpDown className="ml-1 h-3 w-3" />
+                </Button>
+              </TableHead>
+              <TableHead className="w-[55px] text-right">
                 <Button variant="ghost" size="sm" className="h-7 px-1.5 text-xs" onClick={() => handleSort("likes")}>
                   Likes <ArrowUpDown className="ml-1 h-3 w-3" />
                 </Button>
               </TableHead>
-              <TableHead className="w-[70px] text-right">
+              <TableHead className="w-[55px] text-right">
                 <Button variant="ghost" size="sm" className="h-7 px-1.5 text-xs" onClick={() => handleSort("comments")}>
                   Com. <ArrowUpDown className="ml-1 h-3 w-3" />
                 </Button>
               </TableHead>
-              <TableHead className="w-[70px] text-right">
-                <Button variant="ghost" size="sm" className="h-7 px-1.5 text-xs" onClick={() => handleSort("engagement_rate")}>
-                  Eng. <ArrowUpDown className="ml-1 h-3 w-3" />
+              <TableHead className="w-[55px] text-right">
+                <Button variant="ghost" size="sm" className="h-7 px-1.5 text-xs" onClick={() => handleSort("shares")}>
+                  Env. <ArrowUpDown className="ml-1 h-3 w-3" />
                 </Button>
               </TableHead>
-              <TableHead className="w-[80px]">Status</TableHead>
+              <TableHead className="w-[55px] text-right">
+                <Button variant="ghost" size="sm" className="h-7 px-1.5 text-xs" onClick={() => handleSort("saves")}>
+                  Salv. <ArrowUpDown className="ml-1 h-3 w-3" />
+                </Button>
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -220,17 +226,23 @@ export function InstagramPostsTable({ posts, isLoading }: InstagramPostsTablePro
                     : "-"
                   }
                 </TableCell>
+                <TableCell className="text-right text-xs py-2">
+                  {post.impressions?.toLocaleString() || "-"}
+                </TableCell>
+                <TableCell className="text-right text-xs py-2">
+                  {post.reach?.toLocaleString() || "-"}
+                </TableCell>
                 <TableCell className="text-right font-medium text-xs py-2">
                   {post.likes?.toLocaleString() || 0}
                 </TableCell>
                 <TableCell className="text-right text-xs text-muted-foreground py-2">
                   {post.comments?.toLocaleString() || 0}
                 </TableCell>
-                <TableCell className="text-right font-medium text-xs py-2">
-                  {post.engagement_rate?.toFixed(1) || 0}%
+                <TableCell className="text-right text-xs py-2">
+                  {post.shares?.toLocaleString() || 0}
                 </TableCell>
-                <TableCell className="py-2">
-                  {getPerformanceBadge(post.engagement_rate)}
+                <TableCell className="text-right text-xs py-2">
+                  {post.saves?.toLocaleString() || 0}
                 </TableCell>
               </TableRow>
             ))}
