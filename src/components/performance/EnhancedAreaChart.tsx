@@ -79,22 +79,22 @@ export function EnhancedAreaChart({
       </CardHeader>
       <CardContent className="pt-4 px-2 sm:px-6">
         <ChartContainer
-          config={{
-            [currentMetric.dataKey]: { 
-              label: currentMetric.label, 
-              color: currentMetric.color 
-            },
-          }}
+          config={metrics.reduce((cfg, m) => {
+            cfg[m.dataKey] = { label: m.label, color: m.color };
+            return cfg;
+          }, {} as Record<string, { label: string; color: string }>) }
           className="h-[350px] w-full"
         >
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
               <defs>
-                <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={currentMetric.color} stopOpacity={0.3} />
-                  <stop offset="50%" stopColor={currentMetric.color} stopOpacity={0.1} />
-                  <stop offset="100%" stopColor={currentMetric.color} stopOpacity={0} />
-                </linearGradient>
+                {metrics.map((metric) => (
+                  <linearGradient key={metric.key} id={`chartGradient-${metric.key}`} x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor={metric.color} stopOpacity={0.3} />
+                    <stop offset="50%" stopColor={metric.color} stopOpacity={0.1} />
+                    <stop offset="100%" stopColor={metric.color} stopOpacity={0} />
+                  </linearGradient>
+                ))}
               </defs>
               <CartesianGrid 
                 strokeDasharray="3 3" 
@@ -121,25 +121,29 @@ export function EnhancedAreaChart({
                 }}
               />
               <Tooltip content={<CustomTooltip />} />
-              <Area
-                type="monotone"
-                dataKey={currentMetric.dataKey}
-                stroke={currentMetric.color}
-                strokeWidth={2.5}
-                fill="url(#chartGradient)"
-                dot={data.length <= 30 ? { 
-                  r: 3, 
-                  fill: currentMetric.color,
-                  stroke: 'hsl(var(--background))',
-                  strokeWidth: 2
-                } : false}
-                activeDot={{ 
-                  r: 6, 
-                  stroke: currentMetric.color, 
-                  strokeWidth: 2, 
-                  fill: 'hsl(var(--background))',
-                }}
-              />
+              {metrics.map((metric) => (
+                <Area
+                  key={metric.key}
+                  type="monotone"
+                  dataKey={metric.dataKey}
+                  stroke={metric.color}
+                  strokeWidth={metric.key === selectedMetric ? 2.5 : 1.5}
+                  fill={`url(#chartGradient-${metric.key})`}
+                  dot={data.length <= 30 ? { 
+                    r: metric.key === selectedMetric ? 3 : 2, 
+                    fill: metric.color,
+                    stroke: 'hsl(var(--background))',
+                    strokeWidth: 2
+                  } : false}
+                  activeDot={{ 
+                    r: 6, 
+                    stroke: metric.color, 
+                    strokeWidth: 2, 
+                    fill: 'hsl(var(--background))',
+                  }}
+                  opacity={metric.key === selectedMetric ? 1 : 0.4}
+                />
+              ))}
             </AreaChart>
           </ResponsiveContainer>
         </ChartContainer>
