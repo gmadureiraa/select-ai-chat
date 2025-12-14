@@ -197,12 +197,27 @@ const processPostsCSV = (data: Record<string, string>[], clientId: string) => {
       let postedAt: string | null = null;
       const dateStr = row['horário de publicação'] || row['data'] || row['posted_at'];
       if (dateStr) {
-        // Handle format: "12/10/2025 06:54" (MM/DD/YYYY HH:mm)
-        const parts = dateStr.match(/(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})/);
+        // Try multiple date formats
+        // Format 1: "12/10/2025 06:54" (MM/DD/YYYY HH:mm)
+        let parts = dateStr.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2})/);
         if (parts) {
-          postedAt = `${parts[3]}-${parts[1]}-${parts[2]}T${parts[4]}:${parts[5]}:00`;
+          const month = parts[1].padStart(2, '0');
+          const day = parts[2].padStart(2, '0');
+          const hour = parts[4].padStart(2, '0');
+          postedAt = `${parts[3]}-${month}-${day}T${hour}:${parts[5]}:00`;
         } else {
-          postedAt = dateStr;
+          // Format 2: "2025-01-15T10:30:00" (ISO)
+          if (dateStr.includes('T') || dateStr.includes('-')) {
+            postedAt = dateStr;
+          } else {
+            // Format 3: "15/01/2025" (DD/MM/YYYY)
+            parts = dateStr.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+            if (parts) {
+              const day = parts[1].padStart(2, '0');
+              const month = parts[2].padStart(2, '0');
+              postedAt = `${parts[3]}-${month}-${day}T00:00:00`;
+            }
+          }
         }
       }
 

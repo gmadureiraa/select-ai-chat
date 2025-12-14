@@ -28,17 +28,37 @@ export function EnhancedAreaChart({
   title,
   dateRange,
 }: EnhancedAreaChartProps) {
-  const currentMetric = useMemo(() => 
-    metrics.find(m => m.key === selectedMetric) || metrics[0],
-    [metrics, selectedMetric]
-  );
+  // Get current metric, fallback to first available if selected not available
+  const currentMetric = useMemo(() => {
+    const found = metrics.find(m => m.key === selectedMetric);
+    if (found) return found;
+    // Fallback to first metric with data
+    return metrics[0] || null;
+  }, [metrics, selectedMetric]);
+
+  // Calculate totals for each metric
+  const metricTotals = useMemo(() => {
+    const totals: Record<string, number> = {};
+    metrics.forEach(m => {
+      totals[m.key] = data.reduce((sum, d) => sum + (d[m.dataKey] || 0), 0);
+    });
+    return totals;
+  }, [data, metrics]);
+
+  const formatTotal = (num: number) => {
+    if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
+    if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
+    return num.toLocaleString('pt-BR');
+  };
+
+  if (!currentMetric) return null;
 
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (!active || !payload?.length) return null;
     
     return (
-      <div className="bg-card border border-border rounded-lg shadow-xl p-3 min-w-[140px]">
-        <p className="text-xs text-muted-foreground mb-1">{label}</p>
+      <div className="bg-card border border-border rounded-lg shadow-xl p-3 min-w-[160px]">
+        <p className="text-xs text-muted-foreground mb-2">{label}</p>
         <p className="text-lg font-semibold" style={{ color: currentMetric.color }}>
           {payload[0]?.value?.toLocaleString('pt-BR')}
         </p>
@@ -63,15 +83,18 @@ export function EnhancedAreaChart({
             type="single" 
             value={selectedMetric} 
             onValueChange={(v) => v && onMetricChange(v)}
-            className="bg-muted/50 p-1 rounded-lg"
+            className="bg-muted/50 p-1 rounded-lg flex-wrap"
           >
             {metrics.map((metric) => (
               <ToggleGroupItem 
                 key={metric.key} 
                 value={metric.key} 
-                className="text-xs px-3 h-8 data-[state=on]:bg-background data-[state=on]:shadow-sm transition-all"
+                className="text-xs px-2 sm:px-3 h-8 data-[state=on]:bg-background data-[state=on]:shadow-sm transition-all flex flex-col items-center gap-0.5"
               >
-                {metric.label}
+                <span>{metric.label}</span>
+                <span className="text-[10px] text-muted-foreground font-normal">
+                  {formatTotal(metricTotals[metric.key] || 0)}
+                </span>
               </ToggleGroupItem>
             ))}
           </ToggleGroup>
@@ -79,22 +102,22 @@ export function EnhancedAreaChart({
       </CardHeader>
       <CardContent className="pt-4 px-2 sm:px-6">
         <ChartContainer
-          config={metrics.reduce((cfg, m) => {
-            cfg[m.dataKey] = { label: m.label, color: m.color };
-            return cfg;
-          }, {} as Record<string, { label: string; color: string }>) }
+          config={{
+            [currentMetric.dataKey]: { 
+              label: currentMetric.label, 
+              color: currentMetric.color 
+            },
+          }}
           className="h-[350px] w-full"
         >
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
               <defs>
-                {metrics.map((metric) => (
-                  <linearGradient key={metric.key} id={`chartGradient-${metric.key}`} x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor={metric.color} stopOpacity={0.3} />
-                    <stop offset="50%" stopColor={metric.color} stopOpacity={0.1} />
-                    <stop offset="100%" stopColor={metric.color} stopOpacity={0} />
-                  </linearGradient>
-                ))}
+                <linearGradient id={`chartGradient-${currentMetric.key}`} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={currentMetric.color} stopOpacity={0.4} />
+                  <stop offset="50%" stopColor={currentMetric.color} stopOpacity={0.15} />
+                  <stop offset="100%" stopColor={currentMetric.color} stopOpacity={0} />
+                </linearGradient>
               </defs>
               <CartesianGrid 
                 strokeDasharray="3 3" 
@@ -121,29 +144,25 @@ export function EnhancedAreaChart({
                 }}
               />
               <Tooltip content={<CustomTooltip />} />
-              {metrics.map((metric) => (
-                <Area
-                  key={metric.key}
-                  type="monotone"
-                  dataKey={metric.dataKey}
-                  stroke={metric.color}
-                  strokeWidth={metric.key === selectedMetric ? 2.5 : 1.5}
-                  fill={`url(#chartGradient-${metric.key})`}
-                  dot={data.length <= 30 ? { 
-                    r: metric.key === selectedMetric ? 3 : 2, 
-                    fill: metric.color,
-                    stroke: 'hsl(var(--background))',
-                    strokeWidth: 2
-                  } : false}
-                  activeDot={{ 
-                    r: 6, 
-                    stroke: metric.color, 
-                    strokeWidth: 2, 
-                    fill: 'hsl(var(--background))',
-                  }}
-                  opacity={metric.key === selectedMetric ? 1 : 0.4}
-                />
-              ))}
+              <Area
+                type="monotone"
+                dataKey={currentMetric.dataKey}
+                stroke={currentMetric.color}
+                strokeWidth={2.5}
+                fill={`url(#chartGradient-${currentMetric.key})`}
+                dot={data.length <= 30 ? { 
+                  r: 3, 
+                  fill: currentMetric.color,
+                  stroke: 'hsl(var(--background))',
+                  strokeWidth: 2
+                } : false}
+                activeDot={{ 
+                  r: 6, 
+                  stroke: currentMetric.color, 
+                  strokeWidth: 2, 
+                  fill: 'hsl(var(--background))',
+                }}
+              />
             </AreaChart>
           </ResponsiveContainer>
         </ChartContainer>

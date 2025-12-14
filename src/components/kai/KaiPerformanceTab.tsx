@@ -30,7 +30,7 @@ const channels = [
 export const KaiPerformanceTab = ({ clientId, client }: KaiPerformanceTabProps) => {
   const [activeChannel, setActiveChannel] = useState("overview");
   
-  const { data: instagramMetrics, isLoading: isLoadingInstagram } = usePerformanceMetrics(clientId, "instagram", 90);
+  const { data: instagramMetrics, isLoading: isLoadingInstagram } = usePerformanceMetrics(clientId, "instagram", 365);
   const { data: instagramPosts, isLoading: isLoadingInstagramPosts } = useInstagramPosts(clientId, 500);
   const { data: videos, isLoading: isLoadingVideos } = useYouTubeVideos(clientId, 100);
 
