@@ -114,9 +114,9 @@ const KaiHub = () => {
               <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-xl bg-primary flex items-center justify-center">
                 <img src={KaleidosLogo} alt="Kaleidos" className="h-5 w-5 sm:h-6 sm:w-6" />
               </div>
-              <div className="flex flex-col hidden sm:flex">
-                <span className="font-bold text-lg tracking-tight">kAI</span>
-                <span className="text-[10px] text-muted-foreground -mt-1">by Kaleidos</span>
+              <div className="flex flex-col">
+                <span className="font-bold text-base sm:text-lg tracking-tight">kAI</span>
+                <span className="text-[9px] sm:text-[10px] text-muted-foreground -mt-0.5 sm:-mt-1 hidden sm:block">by Kaleidos</span>
               </div>
             </div>
 
