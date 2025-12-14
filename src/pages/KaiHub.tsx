@@ -177,22 +177,15 @@ const KaiHub = () => {
                             setSelectedClientId(client.id);
                             setClientSelectorOpen(false);
                           }}
-                          className="py-3"
+                          className="py-2.5"
                         >
                           <div className="flex items-center gap-3 w-full">
-                            <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                              <span className="text-sm font-semibold text-primary">
+                            <div className="h-7 w-7 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                              <span className="text-xs font-semibold text-primary">
                                 {client.name.charAt(0).toUpperCase()}
                               </span>
                             </div>
-                            <div className="flex flex-col flex-1 min-w-0">
-                              <span className="font-medium">{client.name}</span>
-                              {client.description && (
-                                <span className="text-xs text-muted-foreground truncate">
-                                  {client.description}
-                                </span>
-                              )}
-                            </div>
+                            <span className="font-medium flex-1">{client.name}</span>
                             <Check
                               className={cn(
                                 "h-4 w-4 shrink-0",
