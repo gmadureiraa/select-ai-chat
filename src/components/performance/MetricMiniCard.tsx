@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { memo, useMemo } from "react";
 import { TrendingUp, TrendingDown, Minus } from "lucide-react";
 
 interface MetricMiniCardProps {
@@ -18,7 +18,7 @@ const colorMap = {
   violet: "hsl(270, 70%, 55%)",
 };
 
-export function MetricMiniCard({
+export const MetricMiniCard = memo(function MetricMiniCard({
   icon: Icon,
   label,
   value,
@@ -110,4 +110,6 @@ export function MetricMiniCard({
       {sparkline}
     </div>
   );
-}
+});
+
+MetricMiniCard.displayName = 'MetricMiniCard';

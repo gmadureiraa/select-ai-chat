@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { memo } from "react";
 import { Target, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -33,7 +33,7 @@ const colorMap = {
   },
 };
 
-export function GoalGauge({
+export const GoalGauge = memo(function GoalGauge({
   label,
   currentValue,
   targetValue,
@@ -152,4 +152,6 @@ export function GoalGauge({
       )}
     </div>
   );
-}
+});
+
+GoalGauge.displayName = 'GoalGauge';

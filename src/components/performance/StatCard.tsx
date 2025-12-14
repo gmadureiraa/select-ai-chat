@@ -1,4 +1,4 @@
-import { ReactNode, useMemo } from "react";
+import { memo, useMemo } from "react";
 import { TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -24,7 +24,7 @@ const colorMap = {
   blue: "hsl(210, 80%, 55%)",
 };
 
-export function StatCard({
+export const StatCard = memo(function StatCard({
   icon: Icon,
   label,
   value,
@@ -148,4 +148,6 @@ export function StatCard({
       </div>
     </motion.div>
   );
-}
+});
+
+StatCard.displayName = 'StatCard';
