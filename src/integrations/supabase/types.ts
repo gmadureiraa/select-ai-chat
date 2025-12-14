@@ -906,6 +906,7 @@ export type Database = {
       }
       instagram_posts: {
         Row: {
+          analyzed_at: string | null
           caption: string | null
           client_id: string
           comments: number | null
@@ -926,6 +927,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          analyzed_at?: string | null
           caption?: string | null
           client_id: string
           comments?: number | null
@@ -946,6 +948,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          analyzed_at?: string | null
           caption?: string | null
           client_id?: string
           comments?: number | null
@@ -1045,6 +1048,7 @@ export type Database = {
           end_date: string | null
           id: string
           metric_name: string
+          notes: string | null
           period: string | null
           platform: string
           start_date: string | null
@@ -1059,6 +1063,7 @@ export type Database = {
           end_date?: string | null
           id?: string
           metric_name: string
+          notes?: string | null
           period?: string | null
           platform: string
           start_date?: string | null
@@ -1073,6 +1078,7 @@ export type Database = {
           end_date?: string | null
           id?: string
           metric_name?: string
+          notes?: string | null
           period?: string | null
           platform?: string
           start_date?: string | null
