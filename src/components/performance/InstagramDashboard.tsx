@@ -38,9 +38,11 @@ const periodOptions = [
 
 const metricOptions = [
   { key: "views", label: "Visualizações", dataKey: "views", color: "hsl(270, 70%, 55%)" },
+  { key: "reach", label: "Alcance", dataKey: "reach", color: "hsl(290, 70%, 55%)" },
+  { key: "interactions", label: "Interações", dataKey: "interactions", color: "hsl(45, 80%, 50%)" },
+  { key: "linkClicks", label: "Clique no Link", dataKey: "linkClicks", color: "hsl(200, 80%, 55%)" },
   { key: "subscribers", label: "Seguidores", dataKey: "subscribers", color: "hsl(145, 80%, 45%)" },
-  { key: "likes", label: "Curtidas", dataKey: "likes", color: "hsl(350, 80%, 55%)" },
-  { key: "comments", label: "Comentários", dataKey: "comments", color: "hsl(210, 80%, 55%)" },
+  { key: "profileVisits", label: "Visitas", dataKey: "profileVisits", color: "hsl(350, 80%, 55%)" },
 ];
 
 export function InstagramDashboard({ 
@@ -93,11 +95,11 @@ export function InstagramDashboard({
     });
   }, [metrics, previousPeriodCutoff, cutoffDate]);
 
-  // Helper to extract reach from metadata safely
-  const getReachFromMetric = (m: PerformanceMetrics): number => {
+  // Helper to extract metrics from metadata safely
+  const getMetadataValue = (m: PerformanceMetrics, key: string): number => {
     if (!m.metadata) return 0;
     const meta = typeof m.metadata === 'string' ? JSON.parse(m.metadata) : m.metadata;
-    return meta?.reach || 0;
+    return meta?.[key] || 0;
   };
 
   // Calculate KPIs from filtered data with trends
@@ -126,14 +128,18 @@ export function InstagramDashboard({
 
     const totalViews = filteredMetrics.reduce((sum, m) => sum + (m.views || 0), 0);
     const followersGained = filteredMetrics.reduce((sum, m) => sum + (m.subscribers || 0), 0);
-    const totalReachFromMetrics = filteredMetrics.reduce((sum, m) => sum + getReachFromMetric(m), 0);
+    const totalReachFromMetrics = filteredMetrics.reduce((sum, m) => sum + getMetadataValue(m, 'reach'), 0);
     const totalImpressions = filteredPosts.reduce((sum, p) => sum + (p.impressions || 0), 0);
+    const totalInteractions = filteredMetrics.reduce((sum, m) => sum + getMetadataValue(m, 'interactions'), 0);
+    const totalLinkClicks = filteredMetrics.reduce((sum, m) => sum + getMetadataValue(m, 'linkClicks'), 0);
+    const totalProfileVisits = filteredMetrics.reduce((sum, m) => sum + getMetadataValue(m, 'profileVisits'), 0);
 
     const prevViews = previousPeriodMetrics.reduce((sum, m) => sum + (m.views || 0), 0);
     const prevFollowers = previousPeriodMetrics.reduce((sum, m) => sum + (m.subscribers || 0), 0);
-    const prevReach = previousPeriodMetrics.reduce((sum, m) => sum + getReachFromMetric(m), 0);
-    const prevLikes = previousPeriodMetrics.reduce((sum, m) => sum + (m.likes || 0), 0);
-    const prevComments = previousPeriodMetrics.reduce((sum, m) => sum + (m.comments || 0), 0);
+    const prevReach = previousPeriodMetrics.reduce((sum, m) => sum + getMetadataValue(m, 'reach'), 0);
+    const prevInteractions = previousPeriodMetrics.reduce((sum, m) => sum + getMetadataValue(m, 'interactions'), 0);
+    const prevLinkClicks = previousPeriodMetrics.reduce((sum, m) => sum + getMetadataValue(m, 'linkClicks'), 0);
+    const prevProfileVisits = previousPeriodMetrics.reduce((sum, m) => sum + getMetadataValue(m, 'profileVisits'), 0);
 
     const calcChange = (current: number, previous: number) => {
       if (previous === 0) return current > 0 ? 100 : 0;
@@ -145,15 +151,19 @@ export function InstagramDashboard({
       followersChange: calcChange(followersGained, prevFollowers),
       totalPosts: filteredPosts.length,
       totalLikes,
-      likesChange: calcChange(totalLikes, prevLikes),
       totalComments,
-      commentsChange: calcChange(totalComments, prevComments),
       totalSaves,
       totalShares,
       totalReach: totalReachFromMetrics || totalReachFromPosts,
       reachChange: calcChange(totalReachFromMetrics, prevReach),
       totalViews: totalViews || totalImpressions,
       viewsChange: calcChange(totalViews, prevViews),
+      totalInteractions: totalInteractions,
+      interactionsChange: calcChange(totalInteractions, prevInteractions),
+      totalLinkClicks: totalLinkClicks,
+      linkClicksChange: calcChange(totalLinkClicks, prevLinkClicks),
+      totalProfileVisits: totalProfileVisits,
+      profileVisitsChange: calcChange(totalProfileVisits, prevProfileVisits),
       avgEngagement: Math.round(avgEngagement * 100) / 100,
     };
   }, [filteredPosts, filteredMetrics, previousPeriodMetrics]);
@@ -164,9 +174,10 @@ export function InstagramDashboard({
     return {
       views: recent.map(m => m.views || 0),
       followers: recent.map(m => m.subscribers || 0),
-      reach: recent.map(m => getReachFromMetric(m)),
-      likes: recent.map(m => m.likes || 0),
-      comments: recent.map(m => m.comments || 0),
+      reach: recent.map(m => getMetadataValue(m, 'reach')),
+      interactions: recent.map(m => getMetadataValue(m, 'interactions')),
+      linkClicks: recent.map(m => getMetadataValue(m, 'linkClicks')),
+      profileVisits: recent.map(m => getMetadataValue(m, 'profileVisits')),
     };
   }, [filteredMetrics]);
 
@@ -182,69 +193,67 @@ export function InstagramDashboard({
 
   // Prepare chart data
   const { chartData, availableMetrics } = useMemo(() => {
-    const postsByDate: Record<string, { likes: number; comments: number; views: number; count: number }> = {};
-    
-    filteredPosts.forEach(post => {
-      if (!post.posted_at) return;
-      const dateKey = format(parseISO(post.posted_at), "yyyy-MM-dd");
-      if (!postsByDate[dateKey]) {
-        postsByDate[dateKey] = { likes: 0, comments: 0, views: 0, count: 0 };
-      }
-      postsByDate[dateKey].likes += post.likes || 0;
-      postsByDate[dateKey].comments += post.comments || 0;
-      postsByDate[dateKey].views += post.impressions || 0;
-      postsByDate[dateKey].count += 1;
-    });
-
-    const metricsMap: Record<string, { views: number; subscribers: number; likes: number; comments: number }> = {};
+    const metricsMap: Record<string, { 
+      views: number; 
+      reach: number;
+      interactions: number;
+      linkClicks: number;
+      subscribers: number; 
+      profileVisits: number;
+    }> = {};
     
     filteredMetrics.forEach(m => {
+      const meta = m.metadata ? (typeof m.metadata === 'string' ? JSON.parse(m.metadata) : m.metadata) : {};
       metricsMap[m.metric_date] = {
         views: m.views || 0,
+        reach: meta?.reach || 0,
+        interactions: meta?.interactions || 0,
+        linkClicks: meta?.linkClicks || 0,
         subscribers: m.subscribers || 0,
-        likes: m.likes || 0,
-        comments: m.comments || 0,
+        profileVisits: meta?.profileVisits || 0,
       };
     });
 
-    const allDates = [...new Set([
-      ...Object.keys(postsByDate),
-      ...Object.keys(metricsMap)
-    ])].sort();
+    const allDates = Object.keys(metricsMap).sort();
 
     if (allDates.length === 0) {
       return { chartData: [], availableMetrics: [] };
     }
 
     const data = allDates.map(dateKey => {
-      const postData = postsByDate[dateKey] || { likes: 0, comments: 0, views: 0 };
-      const metricData = metricsMap[dateKey] || { views: 0, subscribers: 0, likes: 0, comments: 0 };
+      const metricData = metricsMap[dateKey];
       
       return {
         date: format(parseISO(dateKey), "dd/MM", { locale: ptBR }),
         fullDate: dateKey,
-        views: metricData.views || postData.views,
+        views: metricData.views,
+        reach: metricData.reach,
+        interactions: metricData.interactions,
+        linkClicks: metricData.linkClicks,
         subscribers: metricData.subscribers,
-        likes: postData.likes || metricData.likes,
-        comments: postData.comments || metricData.comments,
+        profileVisits: metricData.profileVisits,
       };
     });
 
     const hasViews = data.some(d => d.views > 0);
+    const hasReach = data.some(d => d.reach > 0);
+    const hasInteractions = data.some(d => d.interactions > 0);
+    const hasLinkClicks = data.some(d => d.linkClicks > 0);
     const hasSubscribers = data.some(d => d.subscribers > 0);
-    const hasLikes = data.some(d => d.likes > 0);
-    const hasComments = data.some(d => d.comments > 0);
+    const hasProfileVisits = data.some(d => d.profileVisits > 0);
 
     const available = metricOptions.filter(opt => {
       if (opt.key === "views") return hasViews;
+      if (opt.key === "reach") return hasReach;
+      if (opt.key === "interactions") return hasInteractions;
+      if (opt.key === "linkClicks") return hasLinkClicks;
       if (opt.key === "subscribers") return hasSubscribers;
-      if (opt.key === "likes") return hasLikes;
-      if (opt.key === "comments") return hasComments;
+      if (opt.key === "profileVisits") return hasProfileVisits;
       return false;
     });
 
     return { chartData: data, availableMetrics: available.length > 0 ? available : metricOptions };
-  }, [filteredPosts, filteredMetrics]);
+  }, [filteredMetrics]);
 
   // Get best performing post
   const bestPost = useMemo(() => {
@@ -299,15 +308,15 @@ export function InstagramDashboard({
         </CollapsibleContent>
       </Collapsible>
 
-      {/* Primary KPIs - 5 cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+      {/* Primary KPIs - 6 cards */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         <StatCard
-          icon={Users}
-          label="Novos Seguidores"
-          value={kpis.followersGained}
-          change={period !== "all" ? kpis.followersChange : undefined}
-          sparklineData={sparklineData.followers}
-          color="emerald"
+          icon={Eye}
+          label="Visualizações"
+          value={kpis.totalViews}
+          change={period !== "all" ? kpis.viewsChange : undefined}
+          sparklineData={sparklineData.views}
+          color="violet"
           highlight
         />
         <StatCard
@@ -316,31 +325,39 @@ export function InstagramDashboard({
           value={kpis.totalReach}
           change={period !== "all" ? kpis.reachChange : undefined}
           sparklineData={sparklineData.reach}
-          color="violet"
-        />
-        <StatCard
-          icon={Eye}
-          label="Visualizações"
-          value={kpis.totalViews}
-          change={period !== "all" ? kpis.viewsChange : undefined}
-          sparklineData={sparklineData.views}
           color="blue"
         />
         <StatCard
           icon={Heart}
-          label="Curtidas"
-          value={kpis.totalLikes}
-          change={period !== "all" ? kpis.likesChange : undefined}
-          sparklineData={sparklineData.likes}
+          label="Interações"
+          value={kpis.totalInteractions}
+          change={period !== "all" ? kpis.interactionsChange : undefined}
+          sparklineData={sparklineData.interactions}
           color="rose"
         />
         <StatCard
-          icon={MessageCircle}
-          label="Comentários"
-          value={kpis.totalComments}
-          change={period !== "all" ? kpis.commentsChange : undefined}
-          sparklineData={sparklineData.comments}
+          icon={Share2}
+          label="Cliques no Link"
+          value={kpis.totalLinkClicks}
+          change={period !== "all" ? kpis.linkClicksChange : undefined}
+          sparklineData={sparklineData.linkClicks}
+          color="emerald"
+        />
+        <StatCard
+          icon={Users}
+          label="Novos Seguidores"
+          value={kpis.followersGained}
+          change={period !== "all" ? kpis.followersChange : undefined}
+          sparklineData={sparklineData.followers}
           color="amber"
+        />
+        <StatCard
+          icon={MessageCircle}
+          label="Visitas ao Perfil"
+          value={kpis.totalProfileVisits}
+          change={period !== "all" ? kpis.profileVisitsChange : undefined}
+          sparklineData={sparklineData.profileVisits}
+          color="secondary"
         />
       </div>
 
