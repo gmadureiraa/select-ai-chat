@@ -312,13 +312,45 @@ const processPostsCSV = (data: Record<string, string>[], clientId: string): Inst
   return validPosts;
 };
 
+// Check if a row is a total/summary row (last row with aggregated metrics)
+const isTotalRow = (row: Record<string, string>, allRows: Record<string, string>[]): boolean => {
+  // Check if date is missing or invalid
+  const dateStr = row['data'] || row['date'] || Object.values(row)[0] || '';
+  if (!dateStr || dateStr.toLowerCase().includes('total')) return true;
+  
+  // Check if it's the last row with unusually high values compared to others
+  const value = parseInt(row['primary'] || Object.values(row)[1] || '0') || 0;
+  
+  // Get average of other values (excluding this row)
+  const otherValues = allRows
+    .filter(r => r !== row)
+    .map(r => parseInt(r['primary'] || Object.values(r)[1] || '0') || 0)
+    .filter(v => v > 0);
+  
+  if (otherValues.length === 0) return false;
+  
+  const avg = otherValues.reduce((a, b) => a + b, 0) / otherValues.length;
+  const max = Math.max(...otherValues);
+  
+  // If value is more than 10x the average and more than 2x the max, it's likely a total
+  if (value > avg * 10 && value > max * 2) {
+    console.log(`Detected total row: value=${value}, avg=${avg.toFixed(0)}, max=${max}`);
+    return true;
+  }
+  
+  return false;
+};
+
 // Process daily metrics CSV
 const processDailyMetricsCSV = (
   data: Record<string, string>[], 
   clientId: string,
   metricType: string
 ) => {
-  return data.map(row => {
+  // Filter out total/summary rows
+  const filteredData = data.filter(row => !isTotalRow(row, data));
+  
+  return filteredData.map(row => {
     let dateStr = row['data'] || row['date'] || Object.values(row)[0];
     if (dateStr?.includes('T')) {
       dateStr = dateStr.split('T')[0];
