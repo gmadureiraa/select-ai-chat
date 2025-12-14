@@ -106,15 +106,15 @@ export function InstagramCarouselImporter({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
-        <DialogHeader>
+      <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col overflow-hidden">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <Instagram className="h-5 w-5" />
             Importar do Instagram
           </DialogTitle>
         </DialogHeader>
 
-        <div className="flex-1 overflow-hidden flex flex-col gap-4">
+        <div className="flex-1 min-h-0 flex flex-col gap-4 overflow-hidden">
           {/* URL Input */}
           <div className="flex gap-2">
             <Input
@@ -149,7 +149,7 @@ export function InstagramCarouselImporter({
 
           {/* Results */}
           {step === "ready" && result && extractedData && (
-            <ScrollArea className="flex-1">
+            <ScrollArea className="flex-1 min-h-0" style={{ maxHeight: "calc(85vh - 200px)" }}>
               <div className="space-y-4 pr-4">
                 {/* Image Preview */}
                 <div>

@@ -29,11 +29,11 @@ serve(async (req) => {
 
     console.log(`Transcribing ${imageUrls.length} images with Gemini`);
 
-    const systemPrompt = "Você é um especialista em análise e transcrição de conteúdo visual. Sua tarefa é DESCREVER COMPLETAMENTE a imagem E extrair todo o texto presente. Inclua: 1) DESCRIÇÃO VISUAL: layout, composição, cores dominantes, estilo gráfico, elementos visuais (ícones, ilustrações, fotos), hierarquia visual, e atmosfera geral. 2) TRANSCRIÇÃO: todo o conteúdo textual visível (títulos, subtítulos, corpo de texto, CTAs, legendas). 3) CONTEXTO: tipo de conteúdo (post, carousel, anúncio, etc.) e objetivo aparente. Se for um carrossel do Instagram, separe cada página com '---PÁGINA N---'. Seja extremamente detalhado e preciso - a descrição deve permitir que alguém visualize mentalmente a imagem sem vê-la.";
+    const systemPrompt = "Você é um transcritor de texto. Sua ÚNICA tarefa é extrair o texto visível nas imagens. NÃO descreva a imagem, NÃO mencione cores, layout, design, ou elementos visuais. APENAS transcreva o texto que está escrito. Se for um carrossel do Instagram, separe cada página com '---PÁGINA N---' e transcreva apenas o texto dessa página. Retorne SOMENTE o texto extraído, nada mais.";
 
     const userPrompt = imageUrls.length === 1 
-      ? "Analise esta imagem completamente: DESCREVA todos os elementos visuais (layout, cores, estilo, composição, elementos gráficos) E TRANSCREVA todo o texto presente. Seja extremamente detalhado na descrição visual para que possa servir como referência de estilo e estrutura:"
-      : `Analise estas ${imageUrls.length} imagens completamente: para cada uma, DESCREVA todos os elementos visuais (layout, cores, estilo, composição, elementos gráficos) E TRANSCREVA todo o texto presente. Se for um carrossel, separe cada página com '---PÁGINA N---'. Seja extremamente detalhado nas descrições visuais:`;
+      ? "Transcreva APENAS o texto visível nesta imagem. Não descreva a imagem, apenas extraia o texto:"
+      : `Transcreva APENAS o texto visível nestas ${imageUrls.length} imagens. NÃO descreva as imagens. Separe cada página com '---PÁGINA N---' e transcreva apenas o texto de cada uma:`;
 
     // Build parts for Gemini API
     const parts: any[] = [

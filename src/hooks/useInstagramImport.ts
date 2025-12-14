@@ -79,9 +79,9 @@ export function useInstagramImport() {
       const imageTranscription = transcribeData.transcription || "";
       setTranscription(imageTranscription);
 
-      // Step 3: Combine and prepare result
-      const title = extractTitle(extracted.caption, url);
-      const content = formatContent(extracted.caption, imageTranscription);
+      // Step 3: Combine and prepare result - title from first page text
+      const title = extractTitleFromTranscription(imageTranscription, url);
+      const content = imageTranscription; // Only transcription, no caption formatting
 
       const importResult: ImportResult = {
         title,
@@ -113,10 +113,11 @@ export function useInstagramImport() {
 
   const updateTranscription = (newTranscription: string) => {
     setTranscription(newTranscription);
-    if (result && extractedData) {
+    if (result) {
       setResult({
         ...result,
-        content: formatContent(extractedData.caption, newTranscription),
+        title: extractTitleFromTranscription(newTranscription, result.sourceUrl),
+        content: newTranscription,
       });
     }
   };
@@ -133,25 +134,23 @@ export function useInstagramImport() {
   };
 }
 
-function extractTitle(caption: string, url: string): string {
-  if (!caption) {
+function extractTitleFromTranscription(transcription: string, url: string): string {
+  if (!transcription || transcription.trim() === "") {
     const match = url.match(/\/(p|reel)\/([a-zA-Z0-9_-]+)/);
     return match ? `Post ${match[2]}` : "Post Instagram";
   }
-  const firstLine = caption.split("\n")[0];
+  
+  // Remove page separators and get first page text
+  const cleanText = transcription
+    .replace(/---PÁGINA \d+---/gi, "")
+    .trim();
+  
+  const firstLine = cleanText.split("\n")[0].trim();
+  
+  if (!firstLine) {
+    const match = url.match(/\/(p|reel)\/([a-zA-Z0-9_-]+)/);
+    return match ? `Post ${match[2]}` : "Post Instagram";
+  }
+  
   return firstLine.length > 60 ? firstLine.substring(0, 57) + "..." : firstLine;
-}
-
-function formatContent(caption: string, transcription: string): string {
-  let content = "";
-
-  if (caption) {
-    content += `📝 LEGENDA ORIGINAL:\n${caption}\n\n`;
-  }
-
-  if (transcription) {
-    content += `🖼️ TRANSCRIÇÃO DAS IMAGENS:\n${transcription}`;
-  }
-
-  return content.trim();
 }
