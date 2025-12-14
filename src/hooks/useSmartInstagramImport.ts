@@ -441,9 +441,10 @@ export const useSmartInstagramImport = (clientId: string) => {
       
       return results;
     },
-    onSuccess: (results) => {
+    onSuccess: async (results) => {
       queryClient.invalidateQueries({ queryKey: ["instagram-posts", clientId] });
       queryClient.invalidateQueries({ queryKey: ["performance-metrics", clientId] });
+      queryClient.invalidateQueries({ queryKey: ["performance-context", clientId] });
       
       const summary = results.map(r => {
         if (r.invalid && r.invalid > 0) {
@@ -456,6 +457,9 @@ export const useSmartInstagramImport = (clientId: string) => {
         title: "Importação concluída",
         description: `Importados: ${summary}`,
       });
+
+      // Clear cached insights to trigger regeneration
+      localStorage.removeItem(`insights-${clientId}`);
     },
     onError: (error) => {
       console.error("Import error:", error);
