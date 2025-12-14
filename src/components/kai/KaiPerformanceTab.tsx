@@ -8,6 +8,8 @@ import { useInstagramPosts } from "@/hooks/useInstagramPosts";
 import { EnhancedKPICard } from "@/components/performance/EnhancedKPICard";
 import { YouTubeConnectionCard } from "@/components/performance/YouTubeConnectionCard";
 import { TwitterConnectionCard } from "@/components/performance/TwitterConnectionCard";
+import { TwitterCSVUpload } from "@/components/performance/TwitterCSVUpload";
+import { YouTubeCSVUpload } from "@/components/performance/YouTubeCSVUpload";
 import { PerformanceOverview } from "@/components/performance/PerformanceOverview";
 import { YouTubeVideosTable } from "@/components/performance/YouTubeVideosTable";
 import { InstagramDashboard } from "@/components/performance/InstagramDashboard";
@@ -33,6 +35,7 @@ export const KaiPerformanceTab = ({ clientId, client }: KaiPerformanceTabProps) 
   const { data: instagramMetrics, isLoading: isLoadingInstagram } = usePerformanceMetrics(clientId, "instagram", 365);
   const { data: instagramPosts, isLoading: isLoadingInstagramPosts } = useInstagramPosts(clientId, 500);
   const { data: videos, isLoading: isLoadingVideos } = useYouTubeVideos(clientId, 100);
+  const { data: twitterMetrics } = usePerformanceMetrics(clientId, "twitter", 90);
 
   // YouTube metrics from videos
   const totalViews = videos?.reduce((sum, v) => sum + (v.total_views || 0), 0) || 0;
@@ -41,6 +44,11 @@ export const KaiPerformanceTab = ({ clientId, client }: KaiPerformanceTabProps) 
   const avgCTR = videos?.length 
     ? videos.reduce((sum, v) => sum + (v.click_rate || 0), 0) / videos.length 
     : 0;
+
+  // Twitter metrics
+  const twitterTotalImpressions = twitterMetrics?.reduce((sum, m) => sum + (m.views || 0), 0) || 0;
+  const twitterTotalLikes = twitterMetrics?.reduce((sum, m) => sum + (m.likes || 0), 0) || 0;
+  const twitterNewFollowers = twitterMetrics?.reduce((sum, m) => sum + (m.subscribers || 0), 0) || 0;
 
   const isLoading = isLoadingInstagram;
 
@@ -88,8 +96,11 @@ export const KaiPerformanceTab = ({ clientId, client }: KaiPerformanceTabProps) 
 
         {/* YouTube */}
         <TabsContent value="youtube" className="space-y-4 mt-4">
-          {/* Connection Card */}
-          <YouTubeConnectionCard clientId={clientId} />
+          {/* Connection & Import Cards */}
+          <div className="grid gap-4 md:grid-cols-2">
+            <YouTubeConnectionCard clientId={clientId} />
+            <YouTubeCSVUpload clientId={clientId} />
+          </div>
 
           {/* KPIs */}
           {videos && videos.length > 0 && (
@@ -137,7 +148,37 @@ export const KaiPerformanceTab = ({ clientId, client }: KaiPerformanceTabProps) 
 
         {/* Twitter */}
         <TabsContent value="twitter" className="space-y-4 mt-4">
-          <TwitterConnectionCard clientId={clientId} />
+          {/* Connection & Import Cards */}
+          <div className="grid gap-4 md:grid-cols-2">
+            <TwitterConnectionCard clientId={clientId} />
+            <TwitterCSVUpload clientId={clientId} />
+          </div>
+
+          {/* Show KPIs if we have data */}
+          {twitterMetrics && twitterMetrics.length > 0 && (
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              <EnhancedKPICard
+                title="Impressões"
+                value={twitterTotalImpressions}
+                icon={Eye}
+              />
+              <EnhancedKPICard
+                title="Curtidas"
+                value={twitterTotalLikes}
+                icon={TrendingUp}
+              />
+              <EnhancedKPICard
+                title="Novos Seguidores"
+                value={twitterNewFollowers}
+                icon={Users}
+              />
+              <EnhancedKPICard
+                title="Dias de Dados"
+                value={twitterMetrics.length}
+                icon={BarChart3}
+              />
+            </div>
+          )}
         </TabsContent>
 
         {/* Newsletter */}
