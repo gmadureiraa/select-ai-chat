@@ -1,10 +1,8 @@
 import { useMemo } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Lightbulb, Calendar, TrendingUp, Clock } from "lucide-react";
+import { Lightbulb, Calendar, TrendingUp, TrendingDown, Clock, Sparkles, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { InstagramPost } from "@/hooks/useInstagramPosts";
 import { PerformanceMetrics } from "@/hooks/usePerformanceMetrics";
-import { format, parseISO, getDay, getHours } from "date-fns";
-import { ptBR } from "date-fns/locale";
+import { getDay, parseISO, getHours } from "date-fns";
 
 interface AutoInsightsCardProps {
   posts: InstagramPost[];
@@ -47,7 +45,7 @@ export function AutoInsightsCard({ posts, metrics }: AutoInsightsCardProps) {
       if (bestDay >= 0) {
         result.push({
           icon: Calendar,
-          text: `${dayNames[bestDay]} é o melhor dia para postar (${bestAvg.toFixed(1)}% engajamento médio)`,
+          text: `${dayNames[bestDay]} é o melhor dia para postar (${bestAvg.toFixed(1)}% engajamento)`,
           type: "success",
         });
       }
@@ -69,7 +67,7 @@ export function AutoInsightsCard({ posts, metrics }: AutoInsightsCardProps) {
       let bestType = "";
       let bestAvg = 0;
       Object.entries(typeEngagement).forEach(([type, data]) => {
-        if (data.count >= 2) { // At least 2 posts of this type
+        if (data.count >= 2) {
           const avg = data.total / data.count;
           if (avg > bestAvg) {
             bestAvg = avg;
@@ -87,8 +85,8 @@ export function AutoInsightsCard({ posts, metrics }: AutoInsightsCardProps) {
 
       if (bestType) {
         result.push({
-          icon: TrendingUp,
-          text: `${typeLabels[bestType] || bestType} têm melhor performance (${bestAvg.toFixed(1)}% engajamento)`,
+          icon: Sparkles,
+          text: `${typeLabels[bestType] || bestType} têm melhor performance (${bestAvg.toFixed(1)}% eng.)`,
           type: "success",
         });
       }
@@ -120,10 +118,10 @@ export function AutoInsightsCard({ posts, metrics }: AutoInsightsCardProps) {
       });
 
       if (bestHour >= 0) {
-        const timeRange = `${bestHour.toString().padStart(2, '0')}:00 - ${(bestHour + 1).toString().padStart(2, '0')}:00`;
+        const timeRange = `${bestHour.toString().padStart(2, '0')}h - ${(bestHour + 1).toString().padStart(2, '0')}h`;
         result.push({
           icon: Clock,
-          text: `Melhor horário para postar: ${timeRange}`,
+          text: `Melhor horário: ${timeRange}`,
           type: "info",
         });
       }
@@ -143,10 +141,10 @@ export function AutoInsightsCard({ posts, metrics }: AutoInsightsCardProps) {
         const change = ((recentAvg - olderAvg) / olderAvg) * 100;
         if (Math.abs(change) > 10) {
           result.push({
-            icon: TrendingUp,
+            icon: change > 0 ? TrendingUp : TrendingDown,
             text: change > 0 
-              ? `Visualizações cresceram ${change.toFixed(0)}% nos últimos 7 dias`
-              : `Atenção: Visualizações caíram ${Math.abs(change).toFixed(0)}% nos últimos 7 dias`,
+              ? `Visualizações +${change.toFixed(0)}% últimos 7 dias`
+              : `Visualizações ${change.toFixed(0)}% últimos 7 dias`,
             type: change > 0 ? "success" : "warning",
           });
         }
@@ -156,35 +154,65 @@ export function AutoInsightsCard({ posts, metrics }: AutoInsightsCardProps) {
     return result.length > 0 ? result : [{ icon: Lightbulb, text: "Continue postando para gerar mais insights", type: "info" as const }];
   }, [posts, metrics]);
 
-  const getInsightStyle = (type: "success" | "info" | "warning") => {
+  const getInsightIcon = (type: "success" | "info" | "warning") => {
     switch (type) {
       case "success":
-        return "bg-green-500/10 border-green-500/20 text-green-700 dark:text-green-400";
+        return CheckCircle2;
       case "warning":
-        return "bg-amber-500/10 border-amber-500/20 text-amber-700 dark:text-amber-400";
+        return AlertTriangle;
       default:
-        return "bg-blue-500/10 border-blue-500/20 text-blue-700 dark:text-blue-400";
+        return Lightbulb;
+    }
+  };
+
+  const getInsightStyles = (type: "success" | "info" | "warning") => {
+    switch (type) {
+      case "success":
+        return {
+          bg: "bg-emerald-500/10",
+          border: "border-emerald-500/20",
+          icon: "text-emerald-500",
+          text: "text-emerald-700 dark:text-emerald-400",
+        };
+      case "warning":
+        return {
+          bg: "bg-amber-500/10",
+          border: "border-amber-500/20",
+          icon: "text-amber-500",
+          text: "text-amber-700 dark:text-amber-400",
+        };
+      default:
+        return {
+          bg: "bg-blue-500/10",
+          border: "border-blue-500/20",
+          icon: "text-blue-500",
+          text: "text-blue-700 dark:text-blue-400",
+        };
     }
   };
 
   return (
-    <Card>
-      <CardHeader className="pb-3">
-        <CardTitle className="text-sm flex items-center gap-2">
-          💡 Insights Automáticos
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-2">
-        {insights.map((insight, i) => (
-          <div
-            key={i}
-            className={`flex items-center gap-3 p-3 rounded-lg border ${getInsightStyle(insight.type)}`}
-          >
-            <insight.icon className="h-4 w-4 shrink-0" />
-            <p className="text-sm">{insight.text}</p>
-          </div>
-        ))}
-      </CardContent>
-    </Card>
+    <div className="rounded-xl border border-border/50 bg-card/50 overflow-hidden">
+      <div className="p-4 border-b border-border/50">
+        <div className="flex items-center gap-2">
+          <Lightbulb className="h-4 w-4 text-amber-500" />
+          <span className="text-sm font-medium">Insights Automáticos</span>
+        </div>
+      </div>
+      <div className="p-4 space-y-3">
+        {insights.map((insight, i) => {
+          const styles = getInsightStyles(insight.type);
+          return (
+            <div
+              key={i}
+              className={`flex items-center gap-3 p-3 rounded-lg border ${styles.bg} ${styles.border}`}
+            >
+              <insight.icon className={`h-4 w-4 shrink-0 ${styles.icon}`} />
+              <p className={`text-sm font-medium ${styles.text}`}>{insight.text}</p>
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 }
