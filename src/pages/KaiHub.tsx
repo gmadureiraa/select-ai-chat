@@ -4,7 +4,7 @@ import { useSearchParams, useNavigate } from "react-router-dom";
 import { 
   Bot, BarChart3, Library, Zap, Settings, ChevronDown, Check, 
   User, Activity, BookOpen, Send, Hammer, FlaskConical, LogOut,
-  Plus, Search
+  Plus
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -222,19 +222,6 @@ const KaiHub = () => {
 
           {/* Right Side Menu */}
           <div className="flex items-center gap-0.5 sm:gap-1 shrink-0">
-            {/* Command Palette Button */}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setCommandPaletteOpen(true)}
-              className="h-8 sm:h-9 gap-1.5 sm:gap-2 text-muted-foreground hover:text-foreground px-2 sm:px-3"
-            >
-              <Search className="h-4 w-4" />
-              <span className="hidden lg:inline text-xs">Buscar</span>
-              <kbd className="hidden md:inline-flex pointer-events-none h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
-                <span className="text-xs">⌘</span>K
-              </kbd>
-            </Button>
 
             {/* Theme Toggle */}
             <ThemeToggle />
