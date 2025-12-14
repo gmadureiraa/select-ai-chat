@@ -169,30 +169,10 @@ export function InstagramPostsTable({ posts, isLoading }: InstagramPostsTablePro
             {paginatedPosts.map((post) => (
               <TableRow key={post.id} className="group">
                 <TableCell className="py-2">
-                  {post.thumbnail_url ? (
-                    <img 
-                      src={post.thumbnail_url} 
-                      alt="" 
-                      className="w-9 h-9 rounded object-cover"
-                      onError={(e) => {
-                        e.currentTarget.style.display = 'none';
-                        e.currentTarget.nextElementSibling?.classList.remove('hidden');
-                      }}
-                    />
-                  ) : null}
-                  {post.permalink ? (
-                    <img 
-                      src={`https://www.instagram.com/p/${post.permalink.split('/p/')[1]?.split('/')[0]}/media/?size=t`} 
-                      alt="" 
-                      className={`w-9 h-9 rounded object-cover ${post.thumbnail_url ? 'hidden' : ''}`}
-                      onError={(e) => {
-                        e.currentTarget.style.display = 'none';
-                        (e.currentTarget.nextElementSibling as HTMLElement)?.classList.remove('hidden');
-                      }}
-                    />
-                  ) : null}
-                  <div className={`w-9 h-9 rounded bg-muted flex items-center justify-center ${post.thumbnail_url || post.permalink ? 'hidden' : ''}`}>
-                    <ImageIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                  <div className="w-9 h-9 rounded bg-gradient-to-br from-pink-500 via-purple-500 to-orange-500 flex items-center justify-center text-white text-[10px] font-medium">
+                    {post.post_type === 'carousel' ? 'CAR' : 
+                     post.post_type === 'reel' ? 'REEL' : 
+                     post.post_type === 'story' ? 'ST' : 'IMG'}
                   </div>
                 </TableCell>
                 <TableCell className="py-2">
