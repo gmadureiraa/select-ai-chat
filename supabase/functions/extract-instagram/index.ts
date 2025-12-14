@@ -39,7 +39,7 @@ serve(async (req) => {
 
     // Call Apify API with the Instagram scraper
     const apifyResponse = await fetch(
-      `https://api.apify.com/v2/acts/apify~instagram-post-scraper/run-sync-get-dataset-items?token=${apifyApiKey}`,
+      `https://api.apify.com/v2/acts/apify~instagram-scraper/run-sync-get-dataset-items?token=${apifyApiKey}`,
       {
         method: 'POST',
         headers: {
@@ -49,8 +49,6 @@ serve(async (req) => {
           directUrls: [url],
           resultsType: 'posts',
           resultsLimit: 1,
-          searchType: 'hashtag',
-          searchLimit: 1,
         }),
       }
     );
