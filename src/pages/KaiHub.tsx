@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useScrollDirection } from "@/hooks/useScrollDirection";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { 
   Bot, BarChart3, Library, Zap, Settings, ChevronDown, Check, 
@@ -54,6 +55,8 @@ const KaiHub = () => {
   const { clients, isLoading } = useClients();
   const { user, signOut } = useAuth();
   
+  const { scrollDirection, isAtTop } = useScrollDirection();
+  
   const selectedClient = clients?.find(c => c.id === selectedClientId);
   
   const userInitials = user?.email?.substring(0, 2).toUpperCase() || "KA";
@@ -99,7 +102,12 @@ const KaiHub = () => {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* Header with Client Selector */}
-      <header className="border-b border-border/50 bg-card/80 backdrop-blur-md sticky top-0 z-50">
+      <header 
+        className={cn(
+          "border-b border-border/50 bg-card/80 backdrop-blur-md sticky top-0 z-50 transition-transform duration-300",
+          scrollDirection === "down" && !isAtTop ? "-translate-y-full" : "translate-y-0"
+        )}
+      >
         <div className="w-full px-3 sm:px-6 py-2.5 sm:py-3 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 sm:gap-6 min-w-0">
             {/* Kaleidos Logo */}
@@ -321,7 +329,10 @@ const KaiHub = () => {
           <div className="w-full">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
               {/* Tab Navigation */}
-              <div className="border-b border-border/50 bg-card/30 sticky top-[49px] sm:top-[57px] z-40 overflow-x-auto">
+              <div className={cn(
+                "border-b border-border/50 bg-card/30 sticky z-40 overflow-x-auto transition-all duration-300",
+                scrollDirection === "down" && !isAtTop ? "top-0" : "top-[49px] sm:top-[57px]"
+              )}>
                 <div className="px-3 sm:px-6">
                   <TabsList className="h-10 sm:h-12 bg-transparent gap-1 sm:gap-2 p-0 inline-flex min-w-max">
                     {tabs.map((tab) => (
