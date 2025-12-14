@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Library, FileText, Link2, Plus, Search } from "lucide-react";
+import { Library, FileText, Link2, Plus, Search, Instagram } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,7 @@ import { ContentViewDialog } from "@/components/content/ContentViewDialog";
 import { ReferenceCard } from "@/components/references/ReferenceCard";
 import { ReferenceDialog } from "@/components/references/ReferenceDialog";
 import { ReferenceViewDialog } from "@/components/references/ReferenceViewDialog";
+import { InstagramCarouselImporter } from "@/components/images/InstagramCarouselImporter";
 import { Client } from "@/hooks/useClients";
 
 interface KaiLibraryTabProps {
@@ -34,6 +35,9 @@ export const KaiLibraryTab = ({ clientId, client }: KaiLibraryTabProps) => {
   const [referenceDialogOpen, setReferenceDialogOpen] = useState(false);
   const [selectedReference, setSelectedReference] = useState<ReferenceItem | null>(null);
   const [referenceViewOpen, setReferenceViewOpen] = useState(false);
+
+  // Instagram Importer
+  const [instagramImporterOpen, setInstagramImporterOpen] = useState(false);
   const { references, createReference, updateReference, deleteReference } = useReferenceLibrary(clientId);
 
   // Filter content
@@ -86,6 +90,15 @@ export const KaiLibraryTab = ({ clientId, client }: KaiLibraryTabProps) => {
               className="pl-9 w-full sm:w-56 lg:w-64"
             />
           </div>
+          <Button
+            variant="outline"
+            onClick={() => setInstagramImporterOpen(true)}
+            className="shrink-0"
+          >
+            <Instagram className="h-4 w-4 mr-2" />
+            <span className="hidden sm:inline">Importar Instagram</span>
+            <span className="sm:hidden">Instagram</span>
+          </Button>
           <Button
             onClick={() => {
               if (activeTab === "content") {
@@ -244,6 +257,12 @@ export const KaiLibraryTab = ({ clientId, client }: KaiLibraryTabProps) => {
           setSelectedReference(null);
         }}
         reference={selectedReference || undefined}
+      />
+
+      <InstagramCarouselImporter
+        open={instagramImporterOpen}
+        onOpenChange={setInstagramImporterOpen}
+        clientId={clientId}
       />
     </div>
   );
