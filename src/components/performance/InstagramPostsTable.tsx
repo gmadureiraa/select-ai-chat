@@ -4,10 +4,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowUpDown, Search, ExternalLink, Image as ImageIcon } from "lucide-react";
+import { ArrowUpDown, Search, ExternalLink, Image as ImageIcon, Copy, ChevronLeft, ChevronRight } from "lucide-react";
 import { InstagramPost } from "@/hooks/useInstagramPosts";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { useToast } from "@/hooks/use-toast";
 
 interface InstagramPostsTableProps {
   posts: InstagramPost[];
@@ -30,6 +31,10 @@ export function InstagramPostsTable({ posts, isLoading }: InstagramPostsTablePro
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [sortField, setSortField] = useState<SortField>("posted_at");
   const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
+  const [currentPage, setCurrentPage] = useState(1);
+  const { toast } = useToast();
+  
+  const ITEMS_PER_PAGE = 20;
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -38,6 +43,7 @@ export function InstagramPostsTable({ posts, isLoading }: InstagramPostsTablePro
       setSortField(field);
       setSortOrder("desc");
     }
+    setCurrentPage(1); // Reset to first page when sorting
   };
 
   const filteredPosts = posts
@@ -55,6 +61,21 @@ export function InstagramPostsTable({ posts, isLoading }: InstagramPostsTablePro
       }
       return aVal < bVal ? 1 : -1;
     });
+
+  // Pagination
+  const totalPages = Math.ceil(filteredPosts.length / ITEMS_PER_PAGE);
+  const paginatedPosts = filteredPosts.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast({
+      title: "Link copiado!",
+      description: "O link foi copiado para a área de transferência.",
+    });
+  };
 
   if (isLoading) {
     return (
@@ -83,11 +104,17 @@ export function InstagramPostsTable({ posts, isLoading }: InstagramPostsTablePro
           <Input
             placeholder="Buscar por legenda..."
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setCurrentPage(1);
+            }}
             className="pl-9"
           />
         </div>
-        <Select value={typeFilter} onValueChange={setTypeFilter}>
+        <Select value={typeFilter} onValueChange={(v) => {
+          setTypeFilter(v);
+          setCurrentPage(1);
+        }}>
           <SelectTrigger className="w-[150px]">
             <SelectValue placeholder="Tipo" />
           </SelectTrigger>
@@ -136,7 +163,7 @@ export function InstagramPostsTable({ posts, isLoading }: InstagramPostsTablePro
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredPosts.map((post) => (
+            {paginatedPosts.map((post) => (
               <TableRow key={post.id} className="group">
                 <TableCell>
                   {post.thumbnail_url ? (
@@ -157,17 +184,26 @@ export function InstagramPostsTable({ posts, isLoading }: InstagramPostsTablePro
                       {post.caption || "Sem legenda"}
                     </p>
                     {post.permalink && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
-                        onClick={() => {
-                          navigator.clipboard.writeText(post.permalink!);
-                          window.open(post.permalink!, "_blank", "noopener,noreferrer");
-                        }}
-                      >
-                        <ExternalLink className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground" />
-                      </Button>
+                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6"
+                          onClick={() => copyToClipboard(post.permalink!)}
+                          title="Copiar link"
+                        >
+                          <Copy className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6"
+                          onClick={() => window.open(post.permalink!, "_blank", "noopener,noreferrer")}
+                          title="Abrir no Instagram"
+                        >
+                          <ExternalLink className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground" />
+                        </Button>
+                      </div>
                     )}
                   </div>
                   <Badge variant="outline" className="mt-1 text-xs">
@@ -201,9 +237,35 @@ export function InstagramPostsTable({ posts, isLoading }: InstagramPostsTablePro
         </Table>
       </div>
 
-      <p className="text-xs text-muted-foreground text-center">
-        Mostrando {filteredPosts.length} de {posts.length} posts
-      </p>
+      {/* Pagination */}
+      <div className="flex items-center justify-between">
+        <p className="text-xs text-muted-foreground">
+          Mostrando {((currentPage - 1) * ITEMS_PER_PAGE) + 1}-{Math.min(currentPage * ITEMS_PER_PAGE, filteredPosts.length)} de {filteredPosts.length} posts
+        </p>
+        {totalPages > 1 && (
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <span className="text-sm text-muted-foreground">
+              {currentPage} / {totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
