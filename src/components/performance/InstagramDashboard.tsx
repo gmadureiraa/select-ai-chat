@@ -31,10 +31,10 @@ const periodOptions = [
 ];
 
 const metricOptions = [
-  { key: "views", label: "Visualizações", dataKey: "views", color: "hsl(var(--primary))" },
-  { key: "subscribers", label: "Seguidores", dataKey: "subscribers", color: "hsl(var(--chart-2))" },
-  { key: "reach", label: "Alcance", dataKey: "reach", color: "hsl(var(--chart-3))" },
-  { key: "interactions", label: "Interações", dataKey: "interactions", color: "hsl(var(--chart-4))" },
+  { key: "views", label: "Visualizações", dataKey: "views", color: "#8b5cf6" },
+  { key: "subscribers", label: "Seguidores", dataKey: "subscribers", color: "#22c55e" },
+  { key: "likes", label: "Curtidas", dataKey: "likes", color: "#f43f5e" },
+  { key: "comments", label: "Comentários", dataKey: "comments", color: "#3b82f6" },
 ];
 
 export function InstagramDashboard({ 
@@ -147,39 +147,75 @@ export function InstagramDashboard({
     };
   }, [filteredMetrics]);
 
-  // Prepare chart data
+  // Prepare chart data - prioritize posts data for engagement metrics
   const { chartData, availableMetrics } = useMemo(() => {
-    if (!filteredMetrics.length) {
+    // Aggregate posts by date
+    const postsByDate: Record<string, { likes: number; comments: number; views: number; count: number }> = {};
+    
+    filteredPosts.forEach(post => {
+      if (!post.posted_at) return;
+      const dateKey = format(parseISO(post.posted_at), "yyyy-MM-dd");
+      if (!postsByDate[dateKey]) {
+        postsByDate[dateKey] = { likes: 0, comments: 0, views: 0, count: 0 };
+      }
+      postsByDate[dateKey].likes += post.likes || 0;
+      postsByDate[dateKey].comments += post.comments || 0;
+      postsByDate[dateKey].views += post.impressions || 0;
+      postsByDate[dateKey].count += 1;
+    });
+
+    // Merge with daily metrics
+    const metricsMap: Record<string, { views: number; subscribers: number; likes: number; comments: number }> = {};
+    
+    filteredMetrics.forEach(m => {
+      metricsMap[m.metric_date] = {
+        views: m.views || 0,
+        subscribers: m.subscribers || 0,
+        likes: m.likes || 0,
+        comments: m.comments || 0,
+      };
+    });
+
+    // Combine all dates
+    const allDates = [...new Set([
+      ...Object.keys(postsByDate),
+      ...Object.keys(metricsMap)
+    ])].sort();
+
+    if (allDates.length === 0) {
       return { chartData: [], availableMetrics: [] };
     }
 
-    const hasViews = filteredMetrics.some(m => (m.views || 0) > 0);
-    const hasSubscribers = filteredMetrics.some(m => (m.subscribers || 0) > 0);
-    const hasReach = filteredMetrics.some(m => getReachFromMetric(m) > 0);
-    const hasInteractions = filteredMetrics.some(m => (m.likes || 0) > 0);
+    const data = allDates.map(dateKey => {
+      const postData = postsByDate[dateKey] || { likes: 0, comments: 0, views: 0 };
+      const metricData = metricsMap[dateKey] || { views: 0, subscribers: 0, likes: 0, comments: 0 };
+      
+      return {
+        date: format(parseISO(dateKey), "dd/MM", { locale: ptBR }),
+        fullDate: dateKey,
+        views: metricData.views || postData.views,
+        subscribers: metricData.subscribers,
+        likes: postData.likes || metricData.likes,
+        comments: postData.comments || metricData.comments,
+      };
+    });
+
+    // Check which metrics have data
+    const hasViews = data.some(d => d.views > 0);
+    const hasSubscribers = data.some(d => d.subscribers > 0);
+    const hasLikes = data.some(d => d.likes > 0);
+    const hasComments = data.some(d => d.comments > 0);
 
     const available = metricOptions.filter(opt => {
       if (opt.key === "views") return hasViews;
       if (opt.key === "subscribers") return hasSubscribers;
-      if (opt.key === "reach") return hasReach;
-      if (opt.key === "interactions") return hasInteractions;
+      if (opt.key === "likes") return hasLikes;
+      if (opt.key === "comments") return hasComments;
       return false;
     });
 
-    const data = filteredMetrics
-      .slice()
-      .reverse()
-      .map(m => ({
-        date: format(parseISO(m.metric_date), "dd/MM", { locale: ptBR }),
-        fullDate: m.metric_date,
-        views: m.views || 0,
-        subscribers: m.subscribers || 0,
-        reach: getReachFromMetric(m),
-        interactions: m.likes || 0,
-      }));
-
-    return { chartData: data, availableMetrics: available };
-  }, [filteredMetrics]);
+    return { chartData: data, availableMetrics: available.length > 0 ? available : metricOptions };
+  }, [filteredPosts, filteredMetrics]);
 
   // Get best performing post
   const bestPost = useMemo(() => {
