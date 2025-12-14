@@ -8,7 +8,7 @@ import { useInstagramPosts } from "@/hooks/useInstagramPosts";
 import { EnhancedKPICard } from "@/components/performance/EnhancedKPICard";
 import { YouTubeConnectionCard } from "@/components/performance/YouTubeConnectionCard";
 import { TwitterConnectionCard } from "@/components/performance/TwitterConnectionCard";
-import { OverviewInsightsCard } from "@/components/performance/OverviewInsightsCard";
+import { PerformanceOverview } from "@/components/performance/PerformanceOverview";
 import { YouTubeVideosTable } from "@/components/performance/YouTubeVideosTable";
 import { InstagramDashboard } from "@/components/performance/InstagramDashboard";
 import { Client } from "@/hooks/useClients";
@@ -70,9 +70,9 @@ export const KaiPerformanceTab = ({ clientId, client }: KaiPerformanceTabProps) 
           </TabsList>
         </div>
 
-        {/* Overview - AI Insights */}
+        {/* Overview - Full Dashboard */}
         <TabsContent value="overview" className="space-y-4 mt-4">
-          <OverviewInsightsCard clientId={clientId} clientName={client.name} />
+          <PerformanceOverview clientId={clientId} clientName={client.name} />
         </TabsContent>
 
         {/* Instagram - Full Dashboard */}
