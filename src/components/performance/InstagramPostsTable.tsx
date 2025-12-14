@@ -191,16 +191,20 @@ export function InstagramPostsTable({ posts, isLoading }: InstagramPostsTablePro
                           variant="ghost"
                           size="icon"
                           className="h-6 w-6"
-                          onClick={() => copyToClipboard(post.permalink!)}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            copyToClipboard(post.permalink!);
+                          }}
                           title="Copiar link"
                         >
                           <Copy className="h-3 w-3 text-muted-foreground" />
                         </Button>
-                        {/* Use native anchor tag to avoid iframe sandbox blocking */}
                         <a
                           href={post.permalink}
                           target="_blank"
                           rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
                           className="inline-flex items-center justify-center h-6 w-6 rounded-md hover:bg-accent"
                           title="Abrir no Instagram"
                         >
