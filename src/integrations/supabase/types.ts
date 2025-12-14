@@ -2027,6 +2027,13 @@ export type Database = {
         | "structure"
         | "engagement"
         | "other"
+        | "marketing_strategy"
+        | "growth_hacking"
+        | "social_media"
+        | "seo"
+        | "branding"
+        | "analytics"
+        | "audience"
       share_permission: "view" | "edit" | "admin"
       workspace_role: "owner" | "admin" | "member"
     }
@@ -2205,6 +2212,13 @@ export const Constants = {
         "structure",
         "engagement",
         "other",
+        "marketing_strategy",
+        "growth_hacking",
+        "social_media",
+        "seo",
+        "branding",
+        "analytics",
+        "audience",
       ],
       share_permission: ["view", "edit", "admin"],
       workspace_role: ["owner", "admin", "member"],

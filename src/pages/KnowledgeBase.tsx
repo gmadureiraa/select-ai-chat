@@ -172,6 +172,13 @@ export default function KnowledgeBase() {
       psychology: { bg: 'bg-pink-500/10', text: 'text-pink-400', border: 'border-pink-500/30' },
       structure: { bg: 'bg-emerald-500/10', text: 'text-emerald-400', border: 'border-emerald-500/30' },
       engagement: { bg: 'bg-cyan-500/10', text: 'text-cyan-400', border: 'border-cyan-500/30' },
+      marketing_strategy: { bg: 'bg-indigo-500/10', text: 'text-indigo-400', border: 'border-indigo-500/30' },
+      growth_hacking: { bg: 'bg-orange-500/10', text: 'text-orange-400', border: 'border-orange-500/30' },
+      social_media: { bg: 'bg-sky-500/10', text: 'text-sky-400', border: 'border-sky-500/30' },
+      seo: { bg: 'bg-lime-500/10', text: 'text-lime-400', border: 'border-lime-500/30' },
+      branding: { bg: 'bg-rose-500/10', text: 'text-rose-400', border: 'border-rose-500/30' },
+      analytics: { bg: 'bg-teal-500/10', text: 'text-teal-400', border: 'border-teal-500/30' },
+      audience: { bg: 'bg-violet-500/10', text: 'text-violet-400', border: 'border-violet-500/30' },
       other: { bg: 'bg-muted/50', text: 'text-muted-foreground', border: 'border-border' },
     };
     return configs[category];
