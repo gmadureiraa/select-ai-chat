@@ -29,12 +29,11 @@ const periodOptions = [
   { value: "all", label: "Todo período" },
 ];
 
-const metricOptions = [
+const baseMetricOptions = [
   { value: "views", label: "Visualizações", icon: Eye },
-  { value: "likes", label: "Curtidas", icon: Heart },
   { value: "subscribers", label: "Seguidores", icon: Users },
-  { value: "engagement_rate", label: "Engajamento", icon: TrendingUp },
-  { value: "comments", label: "Comentários", icon: MessageCircle },
+  { value: "reach", label: "Alcance", icon: Target },
+  { value: "interactions", label: "Interações", icon: Heart },
 ];
 
 export function InstagramDashboard({ 
@@ -102,20 +101,38 @@ export function InstagramDashboard({
     };
   }, [filteredPosts, filteredMetrics]);
 
-  // Prepare chart data
-  const chartData = useMemo(() => {
-    return filteredMetrics
+  // Prepare chart data only for metrics that actually exist in daily CSVs
+  const { chartData, chartMetrics } = useMemo(() => {
+    if (!filteredMetrics.length) {
+      return { chartData: [], chartMetrics: [] as { key: string; label: string; icon: any; }[] };
+    }
+
+    const hasViews = filteredMetrics.some(m => (m.views || 0) > 0);
+    const hasSubscribers = filteredMetrics.some(m => (m.subscribers || 0) > 0);
+    const hasReach = filteredMetrics.some(m => (m.metadata as any)?.reach > 0);
+    const hasInteractions = filteredMetrics.some(m => (m.likes || 0) > 0);
+
+    const metrics = baseMetricOptions.filter(opt => {
+      if (opt.value === "views") return hasViews;
+      if (opt.value === "subscribers") return hasSubscribers;
+      if (opt.value === "reach") return hasReach;
+      if (opt.value === "interactions") return hasInteractions;
+      return false;
+    });
+
+    const data = filteredMetrics
       .slice()
       .reverse()
       .map(m => ({
         date: format(parseISO(m.metric_date), "dd/MM", { locale: ptBR }),
         fullDate: m.metric_date,
         views: m.views || 0,
-        likes: m.likes || 0,
         subscribers: m.subscribers || 0,
-        engagement_rate: m.engagement_rate || 0,
-        comments: m.comments || 0,
+        reach: (m.metadata as any)?.reach || 0,
+        interactions: m.likes || 0,
       }));
+
+    return { chartData: data, chartMetrics: metrics };
   }, [filteredMetrics]);
 
   // Get best performing post
@@ -252,18 +269,21 @@ export function InstagramDashboard({
       </div>
 
       {/* Chart Section */}
-      {chartData.length > 0 && (
+      {chartData.length > 0 && chartMetrics.length > 0 && (
         <EnhancedAreaChart
           data={chartData}
-          metrics={metricOptions.map(opt => ({
+          metrics={chartMetrics.map(opt => ({
             key: opt.value,
             label: opt.label,
             dataKey: opt.value,
-            color: opt.value === "likes" ? "hsl(340, 82%, 52%)" :
-                   opt.value === "views" ? "hsl(217, 91%, 60%)" :
-                   opt.value === "subscribers" ? "hsl(142, 76%, 36%)" :
-                   opt.value === "engagement_rate" ? "hsl(45, 93%, 47%)" :
-                   "hsl(280, 87%, 65%)"
+            color:
+              opt.value === "views"
+                ? "hsl(var(--primary))"
+                : opt.value === "subscribers"
+                  ? "hsl(var(--chart-2))"
+                  : opt.value === "reach"
+                    ? "hsl(var(--chart-3))"
+                    : "hsl(var(--chart-4))",
           }))}
           selectedMetric={selectedMetric}
           onMetricChange={setSelectedMetric}
