@@ -13,6 +13,7 @@ import { NewsletterMetricsTable } from "./NewsletterMetricsTable";
 import { subDays, format, parseISO, isAfter } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useSmartNewsletterImport } from "@/hooks/useSmartNewsletterImport";
+import { useNewsletterPosts } from "@/hooks/usePerformanceMetrics";
 
 interface NewsletterMetric {
   id: string;
@@ -52,6 +53,9 @@ export function NewsletterDashboard({ clientId, metrics, isLoading }: Newsletter
   const [isDragging, setIsDragging] = useState(false);
   
   const { importFile, importMultipleFiles, isImporting, result, reset } = useSmartNewsletterImport(clientId);
+  
+  // Fetch newsletter posts separately
+  const { data: newsletterPosts = [], isLoading: isLoadingPosts } = useNewsletterPosts(clientId);
 
   const cutoffDate = useMemo(() => subDays(new Date(), period), [period]);
   const previousPeriodCutoff = useMemo(() => subDays(cutoffDate, period), [cutoffDate, period]);
@@ -440,7 +444,7 @@ export function NewsletterDashboard({ clientId, metrics, isLoading }: Newsletter
           <CardTitle className="text-lg">Posts</CardTitle>
         </CardHeader>
         <CardContent>
-          <NewsletterMetricsTable metrics={metrics} />
+          <NewsletterMetricsTable metrics={newsletterPosts} isLoading={isLoadingPosts} />
         </CardContent>
       </Card>
     </div>

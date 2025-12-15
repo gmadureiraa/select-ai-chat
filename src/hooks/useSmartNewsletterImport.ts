@@ -209,28 +209,56 @@ export function useSmartNewsletterImport(clientId: string) {
           // Skip posts with no data (likely drafts or failed sends)
           if (sent === 0 && delivered === 0) continue;
 
-          // Use postId as part of the metric_date to make each post unique
-          const uniqueDate = `${date}T${postId.slice(0, 8)}`;
+          // Check if this post already exists by post_id
+          const { data: existingPost } = await supabase
+            .from("platform_metrics")
+            .select("id")
+            .eq("client_id", clientId)
+            .eq("platform", "newsletter_post")
+            .eq("metadata->>post_id", postId)
+            .maybeSingle();
 
-          await supabase.from("platform_metrics").upsert({
-            client_id: clientId,
-            platform: "newsletter",
-            metric_date: date,
-            views: delivered,
-            open_rate: openRate,
-            click_rate: clickRate,
-            metadata: {
-              post_id: postId,
-              subject,
-              sent,
-              delivered,
-              totalOpens,
-              uniqueOpens,
-              uniqueClicks,
-              unsubscribes,
-              spamReports,
-            }
-          }, { onConflict: "client_id,platform,metric_date" });
+          if (existingPost) {
+            // Update existing post
+            await supabase.from("platform_metrics").update({
+              metric_date: date,
+              views: delivered,
+              open_rate: openRate,
+              click_rate: clickRate,
+              metadata: {
+                post_id: postId,
+                subject,
+                sent,
+                delivered,
+                totalOpens,
+                uniqueOpens,
+                uniqueClicks,
+                unsubscribes,
+                spamReports,
+              }
+            }).eq("id", existingPost.id);
+          } else {
+            // Insert new post with unique platform identifier
+            await supabase.from("platform_metrics").insert({
+              client_id: clientId,
+              platform: "newsletter_post",
+              metric_date: date,
+              views: delivered,
+              open_rate: openRate,
+              click_rate: clickRate,
+              metadata: {
+                post_id: postId,
+                subject,
+                sent,
+                delivered,
+                totalOpens,
+                uniqueOpens,
+                uniqueClicks,
+                unsubscribes,
+                spamReports,
+              }
+            });
+          }
 
           count++;
         }

@@ -62,9 +62,9 @@ export function NewsletterMetricsTable({ metrics, isLoading }: NewsletterMetrics
     );
   }
 
-  // Filter only metrics that have actual newsletter data with subject
+  // Filter only posts that have actual data
   const validMetrics = metrics.filter(m => 
-    ((m.views && m.views > 0) || (m.open_rate && m.open_rate > 0)) && m.metadata?.subject
+    (m.views && m.views > 0) || (m.open_rate && m.open_rate > 0)
   );
 
   if (validMetrics.length === 0) {
