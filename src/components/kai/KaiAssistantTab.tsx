@@ -93,7 +93,8 @@ export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
   const chatTemplates = templates?.filter(t => t.type === "chat") || [];
   const imageTemplates = templates?.filter(t => t.type === "image") || [];
 
-  const templateType = selectedTemplate ? "content" : "free_chat";
+  const templateType = !selectedTemplate ? "free_chat" : 
+                       selectedTemplate.type === "image" ? "image" : "content";
 
   return (
     <div className="flex h-[calc(100vh-140px)] relative">

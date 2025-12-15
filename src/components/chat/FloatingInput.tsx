@@ -7,12 +7,12 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { ActionMenuPopover } from "./ActionMenuPopover";
 
-export type ChatMode = "content" | "ideas" | "free_chat";
+export type ChatMode = "content" | "ideas" | "free_chat" | "image";
 
 interface FloatingInputProps {
   onSend: (message: string, imageUrls?: string[], quality?: "fast" | "high", mode?: ChatMode) => void;
   disabled?: boolean;
-  templateType?: "free_chat" | "content";
+  templateType?: "free_chat" | "content" | "image";
   placeholder?: string;
 }
 
@@ -55,7 +55,10 @@ export const FloatingInput = ({
   const [input, setInput] = useState("");
   const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [uploadingImages, setUploadingImages] = useState(false);
-  const [mode, setMode] = useState<ChatMode>(templateType === "free_chat" ? "free_chat" : "content");
+  const [mode, setMode] = useState<ChatMode>(
+    templateType === "free_chat" ? "free_chat" : 
+    templateType === "image" ? "image" : "content"
+  );
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
@@ -64,7 +67,9 @@ export const FloatingInput = ({
   useEffect(() => {
     if (templateType === "free_chat") {
       setMode("free_chat");
-    } else if (mode === "free_chat") {
+    } else if (templateType === "image") {
+      setMode("image");
+    } else if (mode === "free_chat" || mode === "image") {
       setMode("content");
     }
   }, [templateType, mode]);
@@ -112,8 +117,9 @@ export const FloatingInput = ({
       setUploadingImages(false);
     }
 
-    const effectiveMode = templateType === "free_chat" ? "free_chat" : mode;
-    const quality = modeConfig[effectiveMode].quality;
+    const effectiveMode = templateType === "free_chat" ? "free_chat" : 
+                          templateType === "image" ? "image" : mode;
+    const quality = templateType === "image" ? "high" : (modeConfig[effectiveMode as keyof typeof modeConfig]?.quality || "fast");
     
     onSend(trimmed || "Analise esta imagem", imageUrls, quality, effectiveMode);
     setInput("");
@@ -243,7 +249,7 @@ export const FloatingInput = ({
         </div>
       </div>
 
-      {/* Mode Selector Pills - Only for content templates */}
+      {/* Mode Selector Pills - Only for content templates (NOT for image templates) */}
       {templateType === "content" && (
         <div className="flex items-center justify-center gap-2">
           {(["content", "ideas", "free_chat"] as ChatMode[]).map((m) => {
@@ -274,6 +280,16 @@ export const FloatingInput = ({
               </button>
             );
           })}
+        </div>
+      )}
+
+      {/* Image Template Indicator */}
+      {templateType === "image" && (
+        <div className="flex items-center justify-center">
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-violet-500/15 text-violet-600 border border-violet-500/30">
+            <Sparkles className="h-3 w-3" />
+            Geração de Imagem
+          </div>
         </div>
       )}
     </div>

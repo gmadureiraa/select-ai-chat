@@ -288,7 +288,7 @@ export const useClientChat = (clientId: string, templateId?: string, conversatio
     enabled: !!workspace?.id,
   });
 
-  const sendMessage = useCallback(async (content: string, imageUrls?: string[], quality?: "fast" | "high", explicitMode?: "content" | "ideas" | "free_chat") => {
+  const sendMessage = useCallback(async (content: string, imageUrls?: string[], quality?: "fast" | "high", explicitMode?: "content" | "ideas" | "free_chat" | "image") => {
     // Validações
     const validationError = validateMessage(content);
     if (validationError) {
@@ -341,20 +341,26 @@ export const useClientChat = (clientId: string, templateId?: string, conversatio
       if (insertError) throw insertError;
 
       // DETECTAR PEDIDO DE GERAÇÃO DE IMAGEM
+      // Modo "image" (template de imagem) OU detecção automática de pedido de imagem
+      const isImageTemplateMode = explicitMode === "image";
       const imageGenRequest = detectImageGenerationRequest(content);
+      const shouldGenerateImage = isImageTemplateMode || imageGenRequest.isImageRequest;
       
-      if (imageGenRequest.isImageRequest) {
+      if (shouldGenerateImage) {
         setCurrentStep("generating_image");
         
         try {
-          console.log("[CHAT] Image generation detected, prompt:", imageGenRequest.prompt);
+          // Para templates de imagem, usa o conteúdo diretamente como prompt
+          // Para detecção automática, usa o prompt extraído
+          const imagePrompt = isImageTemplateMode ? content : (imageGenRequest.prompt || content);
+          console.log("[CHAT] Image generation - mode:", isImageTemplateMode ? "template" : "auto-detect", "prompt:", imagePrompt);
           
           // Combine template image references with user-attached images
           let allReferenceImages: Array<{ url?: string; base64?: string; description?: string }> = [];
           
           // Add template image references first (style guidance)
           if (references.imageReferences && references.imageReferences.length > 0) {
-            console.log("[CHAT] Adding", references.imageReferences.length, "template reference images");
+            console.log("[CHAT] Adding", references.imageReferences.length, "template reference images for style guidance");
             allReferenceImages.push(...references.imageReferences.map(ref => ({
               url: ref.url,
               description: ref.description || "Referência de estilo do template"
@@ -377,7 +383,7 @@ export const useClientChat = (clientId: string, templateId?: string, conversatio
           
           const { data: imageData, error: imageError } = await supabase.functions.invoke("generate-image", {
             body: {
-              prompt: imageGenRequest.prompt || content,
+              prompt: imagePrompt,
               referenceImages: allReferenceImages.length > 0 ? allReferenceImages : undefined,
             },
           });
@@ -389,7 +395,7 @@ export const useClientChat = (clientId: string, templateId?: string, conversatio
             await supabase.from("messages").insert({
               conversation_id: conversationId,
               role: "assistant",
-              content: `Imagem gerada com sucesso! 🎨\n\n**Prompt utilizado:** ${imageGenRequest.prompt || content}`,
+              content: `Imagem gerada com sucesso! 🎨\n\n**Prompt utilizado:** ${imagePrompt}`,
               image_urls: [imageData.imageUrl],
             });
 
