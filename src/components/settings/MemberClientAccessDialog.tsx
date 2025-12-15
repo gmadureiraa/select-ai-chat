@@ -34,10 +34,10 @@ export function MemberClientAccessDialog({
 
   // Initialize selected clients when dialog opens or member changes
   useEffect(() => {
-    if (open && member && !isLoadingAccess) {
-      setSelectedClients(clientIds);
-    }
-  }, [open, member, clientIds, isLoadingAccess]);
+    if (!open || !member || isLoadingAccess) return;
+    setSelectedClients(clientIds);
+    // NOTE: clientIds is memoized in the hook; we only re-init on open/member change.
+  }, [open, member?.id, isLoadingAccess, clientIds]);
 
   const handleToggleClient = (clientId: string) => {
     setSelectedClients(prev =>

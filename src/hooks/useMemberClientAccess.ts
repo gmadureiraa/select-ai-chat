@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -82,11 +83,16 @@ export const useMemberClientAccess = (workspaceMemberId?: string) => {
     },
   });
 
+  const clientIds = useMemo(
+    () => memberClients.map((mc) => mc.client_id),
+    [memberClients]
+  );
+
   return {
     memberClients,
     isLoading,
     updateMemberClients,
-    clientIds: memberClients.map(mc => mc.client_id),
+    clientIds,
   };
 };
 
