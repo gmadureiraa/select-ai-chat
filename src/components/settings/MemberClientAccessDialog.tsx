@@ -128,13 +128,16 @@ export function MemberClientAccessDialog({
                   </div>
                 ) : (
                   clients.map((client) => (
-                    <label
+                    <div
                       key={client.id}
+                      onClick={() => handleToggleClient(client.id)}
                       className="flex items-center gap-3 p-2.5 rounded-md hover:bg-muted/50 cursor-pointer transition-colors"
                     >
                       <Checkbox
+                        id={`client-${client.id}`}
                         checked={selectedClients.includes(client.id)}
                         onCheckedChange={() => handleToggleClient(client.id)}
+                        onClick={(e) => e.stopPropagation()}
                       />
                       <div className="flex items-center gap-2 flex-1 min-w-0">
                         <div className="h-7 w-7 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
@@ -144,7 +147,7 @@ export function MemberClientAccessDialog({
                         </div>
                         <span className="text-sm font-medium truncate">{client.name}</span>
                       </div>
-                    </label>
+                    </div>
                   ))
                 )}
               </div>
