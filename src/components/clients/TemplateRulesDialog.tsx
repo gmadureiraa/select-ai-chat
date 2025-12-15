@@ -10,10 +10,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Plus, Trash2, Edit2, Check, X, Image, FileText, Type, Upload } from "lucide-react";
+import { Plus, Trash2, Edit2, Check, X, Image, FileText, Type, Upload, Loader2, Sparkles } from "lucide-react";
 import { ClientTemplate, TemplateRule } from "@/types/template";
 import { uploadAndGetSignedUrl } from "@/lib/storage";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 interface TemplateRulesDialogProps {
   open: boolean;
@@ -32,9 +33,14 @@ export const TemplateRulesDialog = ({
   const [newRule, setNewRule] = useState("");
   const [newRuleType, setNewRuleType] = useState<'text' | 'image_reference' | 'content_reference'>('text');
   const [uploadingFile, setUploadingFile] = useState(false);
+  const [analyzingStyle, setAnalyzingStyle] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingContent, setEditingContent] = useState("");
   const { toast } = useToast();
+
+  // Check if we have style analysis already
+  const hasStyleAnalysis = rules.some(r => (r as any).styleAnalysis);
+  const imageReferenceCount = rules.filter(r => r.type === 'image_reference').length;
 
   useEffect(() => {
     if (template) {
@@ -123,6 +129,59 @@ export const TemplateRulesDialog = ({
     setEditingContent("");
   };
 
+  // Analyze all image references to extract style
+  const handleAnalyzeStyle = async () => {
+    const imageRules = rules.filter(r => r.type === 'image_reference' && r.file_url);
+    
+    if (imageRules.length === 0) {
+      toast({
+        title: "Sem imagens",
+        description: "Adicione imagens de referência primeiro.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setAnalyzingStyle(true);
+    try {
+      const imageUrls = imageRules.map(r => r.file_url).filter(Boolean);
+      
+      const { data, error } = await supabase.functions.invoke("analyze-style", {
+        body: { imageUrls },
+      });
+
+      if (error) throw error;
+
+      if (data?.styleAnalysis) {
+        // Add style analysis as a special rule
+        const styleRule: TemplateRule = {
+          id: crypto.randomUUID(),
+          content: `Análise de estilo visual: ${data.styleAnalysis.style_summary || 'Estilo analisado'}`,
+          type: 'text',
+          styleAnalysis: data.styleAnalysis,
+        };
+
+        // Remove any previous style analysis rule
+        const filteredRules = rules.filter(r => !(r as any).styleAnalysis);
+        setRules([...filteredRules, styleRule]);
+
+        toast({
+          title: "Estilo analisado!",
+          description: "A análise será usada automaticamente na geração de imagens.",
+        });
+      }
+    } catch (error: any) {
+      console.error("Style analysis error:", error);
+      toast({
+        title: "Erro na análise",
+        description: error.message || "Não foi possível analisar o estilo.",
+        variant: "destructive",
+      });
+    } finally {
+      setAnalyzingStyle(false);
+    }
+  };
+
   const handleSave = () => {
     onSave(rules);
     onOpenChange(false);
@@ -139,6 +198,55 @@ export const TemplateRulesDialog = ({
         </DialogHeader>
 
         <div className="space-y-6 py-4">
+          {/* Style Analysis Button for Image Templates */}
+          {template?.type === 'image' && imageReferenceCount > 0 && (
+            <div className="p-4 bg-primary/5 border border-primary/20 rounded-lg space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="font-medium flex items-center gap-2">
+                    <Sparkles className="h-4 w-4 text-primary" />
+                    Análise de Estilo Visual
+                  </h4>
+                  <p className="text-sm text-muted-foreground">
+                    {hasStyleAnalysis 
+                      ? "Estilo já analisado. Clique para atualizar."
+                      : `Analise ${imageReferenceCount} imagem(ns) para extrair o estilo visual`
+                    }
+                  </p>
+                </div>
+                <Button
+                  onClick={handleAnalyzeStyle}
+                  disabled={analyzingStyle}
+                  variant={hasStyleAnalysis ? "outline" : "default"}
+                  className="gap-2"
+                >
+                  {analyzingStyle ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Analisando...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="h-4 w-4" />
+                      {hasStyleAnalysis ? "Reanalisar" : "Analisar Estilo"}
+                    </>
+                  )}
+                </Button>
+              </div>
+              
+              {/* Show current style analysis */}
+              {hasStyleAnalysis && (
+                <div className="text-xs p-2 bg-background rounded border">
+                  {(() => {
+                    const styleRule = rules.find(r => (r as any).styleAnalysis);
+                    const analysis = (styleRule as any)?.styleAnalysis;
+                    return analysis?.style_summary || "Estilo analisado com sucesso";
+                  })()}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Lista de regras */}
           <div className="space-y-3">
             <Label>Regras Atuais</Label>
@@ -151,7 +259,9 @@ export const TemplateRulesDialog = ({
                 {rules.map((rule, index) => (
                   <div
                     key={rule.id}
-                    className="flex items-start gap-2 p-3 bg-muted rounded-lg"
+                    className={`flex items-start gap-2 p-3 rounded-lg ${
+                      (rule as any).styleAnalysis ? 'bg-primary/10 border border-primary/20' : 'bg-muted'
+                    }`}
                   >
                     <span className="text-xs font-medium text-muted-foreground mt-1 shrink-0">
                       {index + 1}.
@@ -209,21 +319,29 @@ export const TemplateRulesDialog = ({
                               <span>Arquivo de referência anexado</span>
                             </div>
                           )}
-                          {rule.type && rule.type !== 'text' && (
+                          {(rule as any).styleAnalysis && (
+                            <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-primary/20 text-primary mt-1">
+                              <Sparkles className="h-3 w-3" />
+                              Análise de Estilo
+                            </span>
+                          )}
+                          {rule.type && rule.type !== 'text' && !(rule as any).styleAnalysis && (
                             <span className="inline-block text-xs px-2 py-0.5 rounded-full bg-background border mt-1">
                               {rule.type === 'image_reference' ? 'Imagem Ref.' : 'Conteúdo Ref.'}
                             </span>
                           )}
                         </div>
                         <div className="flex gap-1 shrink-0">
-                          <Button
-                            onClick={() => handleStartEdit(rule)}
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 w-8 p-0"
-                          >
-                            <Edit2 className="h-3 w-3" />
-                          </Button>
+                          {!(rule as any).styleAnalysis && (
+                            <Button
+                              onClick={() => handleStartEdit(rule)}
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0"
+                            >
+                              <Edit2 className="h-3 w-3" />
+                            </Button>
+                          )}
                           <Button
                             onClick={() => handleRemoveRule(rule.id)}
                             variant="ghost"
@@ -334,7 +452,7 @@ export const TemplateRulesDialog = ({
                   </div>
                   {newRuleType === 'image_reference' && (
                     <p className="text-xs text-muted-foreground">
-                      Use para mostrar estilo, composição ou elementos visuais desejados
+                      Adicione imagens para definir o estilo visual. Depois clique em "Analisar Estilo" para extrair as características automaticamente.
                     </p>
                   )}
                   {newRuleType === 'content_reference' && (
