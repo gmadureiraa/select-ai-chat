@@ -3,6 +3,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useClientDocuments, ClientDocument } from "@/hooks/useClientDocuments";
+import { getSignedUrl } from "@/lib/storage";
+import { useToast } from "@/hooks/use-toast";
 import { 
   FileText, 
   Image, 
@@ -10,9 +12,10 @@ import {
   Trash2, 
   Upload, 
   Loader2,
-  Eye,
+  Download,
   ChevronDown,
-  ChevronRight
+  ChevronRight,
+  ExternalLink
 } from "lucide-react";
 import {
   AlertDialog,
@@ -31,6 +34,12 @@ import {
 } from "@/components/ui/collapsible";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface ClientDocumentsManagerProps {
   clientId: string;
@@ -53,8 +62,11 @@ const getFileTypeLabel = (fileType: string) => {
 
 export const ClientDocumentsManager = ({ clientId }: ClientDocumentsManagerProps) => {
   const { documents, isLoading, uploadDocument, deleteDocument } = useClientDocuments(clientId);
+  const { toast } = useToast();
   const [deleteTarget, setDeleteTarget] = useState<ClientDocument | null>(null);
   const [expandedDoc, setExpandedDoc] = useState<string | null>(null);
+  const [viewingDoc, setViewingDoc] = useState<ClientDocument | null>(null);
+  const [isDownloading, setIsDownloading] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -75,6 +87,32 @@ export const ClientDocumentsManager = ({ clientId }: ClientDocumentsManagerProps
     if (deleteTarget) {
       await deleteDocument.mutateAsync(deleteTarget);
       setDeleteTarget(null);
+    }
+  };
+
+  const handleDownload = async (doc: ClientDocument) => {
+    setIsDownloading(doc.id);
+    try {
+      const signedUrl = await getSignedUrl(doc.file_path);
+      if (signedUrl) {
+        // Open in new tab for viewing/downloading
+        window.open(signedUrl, "_blank");
+      } else {
+        toast({
+          title: "Erro",
+          description: "Não foi possível gerar o link do arquivo.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Error downloading file:", error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível baixar o arquivo.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDownloading(null);
     }
   };
 
@@ -150,9 +188,26 @@ export const ClientDocumentsManager = ({ clientId }: ClientDocumentsManagerProps
                       </div>
                       
                       <div className="flex items-center gap-1">
+                        {/* Download/View button */}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => handleDownload(doc)}
+                          disabled={isDownloading === doc.id}
+                          title="Abrir/Baixar arquivo"
+                        >
+                          {isDownloading === doc.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <ExternalLink className="h-4 w-4" />
+                          )}
+                        </Button>
+                        
+                        {/* View extracted content */}
                         {doc.extracted_content && (
                           <CollapsibleTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <Button variant="ghost" size="icon" className="h-8 w-8" title="Ver conteúdo extraído">
                               {expandedDoc === doc.id ? (
                                 <ChevronDown className="h-4 w-4" />
                               ) : (
@@ -161,11 +216,13 @@ export const ClientDocumentsManager = ({ clientId }: ClientDocumentsManagerProps
                             </Button>
                           </CollapsibleTrigger>
                         )}
+                        
                         <Button
                           variant="ghost"
                           size="icon"
                           className="h-8 w-8 text-destructive hover:text-destructive"
                           onClick={() => setDeleteTarget(doc)}
+                          title="Remover documento"
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -175,12 +232,24 @@ export const ClientDocumentsManager = ({ clientId }: ClientDocumentsManagerProps
                     <CollapsibleContent>
                       {doc.extracted_content && (
                         <div className="px-3 pb-3 border-t pt-3">
-                          <Label className="text-xs text-muted-foreground mb-2 block">
-                            Conteúdo Extraído:
-                          </Label>
-                          <ScrollArea className="h-[200px]">
+                          <div className="flex items-center justify-between mb-2">
+                            <Label className="text-xs text-muted-foreground">
+                              Conteúdo Extraído:
+                            </Label>
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="h-6 text-xs gap-1"
+                              onClick={() => setViewingDoc(doc)}
+                            >
+                              <ExternalLink className="h-3 w-3" />
+                              Ver completo
+                            </Button>
+                          </div>
+                          <ScrollArea className="h-[150px]">
                             <pre className="text-xs whitespace-pre-wrap bg-muted/50 p-3 rounded-md font-mono">
-                              {doc.extracted_content}
+                              {doc.extracted_content.substring(0, 1000)}
+                              {doc.extracted_content.length > 1000 && "..."}
                             </pre>
                           </ScrollArea>
                         </div>
@@ -202,6 +271,7 @@ export const ClientDocumentsManager = ({ clientId }: ClientDocumentsManagerProps
         </div>
       )}
 
+      {/* Delete confirmation dialog */}
       <AlertDialog open={!!deleteTarget} onOpenChange={() => setDeleteTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -218,6 +288,36 @@ export const ClientDocumentsManager = ({ clientId }: ClientDocumentsManagerProps
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Full content view dialog */}
+      <Dialog open={!!viewingDoc} onOpenChange={() => setViewingDoc(null)}>
+        <DialogContent className="max-w-4xl max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {viewingDoc && getFileIcon(viewingDoc.file_type)}
+              {viewingDoc?.name}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex gap-2 mb-2">
+            {viewingDoc && (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="gap-2"
+                onClick={() => handleDownload(viewingDoc)}
+              >
+                <Download className="h-4 w-4" />
+                Baixar original
+              </Button>
+            )}
+          </div>
+          <ScrollArea className="h-[60vh]">
+            <pre className="text-sm whitespace-pre-wrap bg-muted/50 p-4 rounded-md font-mono">
+              {viewingDoc?.extracted_content || "Sem conteúdo extraído."}
+            </pre>
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
