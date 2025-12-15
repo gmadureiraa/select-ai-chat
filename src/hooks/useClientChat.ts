@@ -349,22 +349,36 @@ export const useClientChat = (clientId: string, templateId?: string, conversatio
         try {
           console.log("[CHAT] Image generation detected, prompt:", imageGenRequest.prompt);
           
-          // Process attached images as references
-          let referenceImages: Array<{ base64: string; description?: string }> = [];
+          // Combine template image references with user-attached images
+          let allReferenceImages: Array<{ url?: string; base64?: string; description?: string }> = [];
+          
+          // Add template image references first (style guidance)
+          if (references.imageReferences && references.imageReferences.length > 0) {
+            console.log("[CHAT] Adding", references.imageReferences.length, "template reference images");
+            allReferenceImages.push(...references.imageReferences.map(ref => ({
+              url: ref.url,
+              description: ref.description || "Referência de estilo do template"
+            })));
+          }
+          
+          // Process user-attached images as additional references
           if (imageUrls && imageUrls.length > 0) {
             console.log("[CHAT] Processing", imageUrls.length, "attached images as references");
             const { processReferenceImages } = await import("@/lib/imageUtils");
-            referenceImages = await processReferenceImages(
+            const processedUserImages = await processReferenceImages(
               imageUrls.map(url => ({ url, description: "Referência do usuário" })),
               3,
               1024
             );
+            allReferenceImages.push(...processedUserImages);
           }
+          
+          console.log("[CHAT] Total reference images:", allReferenceImages.length);
           
           const { data: imageData, error: imageError } = await supabase.functions.invoke("generate-image", {
             body: {
               prompt: imageGenRequest.prompt || content,
-              referenceImages: referenceImages.length > 0 ? referenceImages : undefined,
+              referenceImages: allReferenceImages.length > 0 ? allReferenceImages : undefined,
             },
           });
 
