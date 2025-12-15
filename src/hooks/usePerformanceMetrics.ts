@@ -39,6 +39,25 @@ export const usePerformanceMetrics = (clientId: string, platform: string, limit:
   });
 };
 
+export const useNewsletterPosts = (clientId: string, limit: number = 100) => {
+  return useQuery({
+    queryKey: ['newsletter-posts', clientId, limit],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('platform_metrics')
+        .select('*')
+        .eq('client_id', clientId)
+        .eq('platform', 'newsletter_post')
+        .order('metric_date', { ascending: false })
+        .limit(limit);
+
+      if (error) throw error;
+      return data as PerformanceMetrics[];
+    },
+    enabled: !!clientId,
+  });
+};
+
 export const useFetchBeehiivMetrics = () => {
   const queryClient = useQueryClient();
 
