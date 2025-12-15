@@ -110,15 +110,19 @@ export const TemplateManager = ({ clientId }: TemplateManagerProps) => {
 
   return (
     <>
-      <Button
-        onClick={() => setIsOpen(true)}
-        variant="outline"
-        className="gap-2"
-        size="sm"
-      >
-        <Settings className="h-4 w-4" />
-        Gerenciar Templates
-      </Button>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            onClick={() => setIsOpen(true)}
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 hover:bg-muted/50"
+          >
+            <Plus className="h-3.5 w-3.5" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>Gerenciar Templates</TooltipContent>
+      </Tooltip>
 
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
