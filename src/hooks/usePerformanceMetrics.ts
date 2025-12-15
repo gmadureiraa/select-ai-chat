@@ -43,8 +43,24 @@ export const useNewsletterPosts = (clientId: string, limit: number = 100) => {
   return useQuery({
     queryKey: ['newsletter-posts', clientId, limit],
     queryFn: async () => {
-      // Fetch newsletter metrics that have open_rate (actual posts, not just subscriber data)
-      const { data, error } = await supabase
+      // First try to get newsletter_post entries (newer format with subject)
+      const { data: posts, error: postsError } = await supabase
+        .from('platform_metrics')
+        .select('*')
+        .eq('client_id', clientId)
+        .eq('platform', 'newsletter_post')
+        .order('metric_date', { ascending: false })
+        .limit(limit);
+
+      if (postsError) throw postsError;
+      
+      // If we have posts with subject, return those
+      if (posts && posts.length > 0) {
+        return posts as PerformanceMetrics[];
+      }
+      
+      // Fallback: get newsletter metrics with open_rate (legacy format)
+      const { data: legacyPosts, error: legacyError } = await supabase
         .from('platform_metrics')
         .select('*')
         .eq('client_id', clientId)
@@ -53,8 +69,8 @@ export const useNewsletterPosts = (clientId: string, limit: number = 100) => {
         .order('metric_date', { ascending: false })
         .limit(limit);
 
-      if (error) throw error;
-      return data as PerformanceMetrics[];
+      if (legacyError) throw legacyError;
+      return legacyPosts as PerformanceMetrics[];
     },
     enabled: !!clientId,
   });

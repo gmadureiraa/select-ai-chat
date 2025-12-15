@@ -70,15 +70,15 @@ function parsePercentage(value: string): number {
 function detectCsvType(headers: string[]): "daily_performance" | "posts" | "subscribers" | "unknown" {
   const lowerHeaders = headers.map(h => h.toLowerCase().replace(/['"]/g, "").trim());
   
-  // Check for daily performance CSV (Date, Delivered, Open Rate, Click-Through Rate)
-  if (lowerHeaders.includes("delivered") && lowerHeaders.includes("open rate")) {
-    return "daily_performance";
-  }
-  
-  // Check for posts CSV (has Subject or Title, Post ID, etc.)
+  // Check for posts CSV FIRST (has Subject or Title, Post ID, etc.) - more specific
   if (lowerHeaders.some(h => h.includes("subject") || h.includes("title")) && 
       lowerHeaders.some(h => h.includes("post id"))) {
     return "posts";
+  }
+  
+  // Check for daily performance CSV (Date, Delivered, Open Rate, Click-Through Rate)
+  if (lowerHeaders.includes("delivered") && lowerHeaders.includes("open rate")) {
+    return "daily_performance";
   }
   
   // Check for subscriber acquisitions (Created At, Acquisition Source, Count)
