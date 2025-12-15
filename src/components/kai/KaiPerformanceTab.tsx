@@ -17,7 +17,7 @@ interface KaiPerformanceTabProps {
   client: Client;
 }
 
-const channels = [
+const allChannels = [
   { id: "overview", label: "Geral", icon: BarChart3 },
   { id: "instagram", label: "Instagram", icon: Instagram },
   { id: "youtube", label: "YouTube", icon: Eye },
@@ -26,6 +26,14 @@ const channels = [
 ];
 
 export const KaiPerformanceTab = ({ clientId, client }: KaiPerformanceTabProps) => {
+  // Get archived channels from client social_media settings
+  const archivedChannels = (client.social_media as any)?.archived_channels || [];
+  
+  // Filter out archived channels (overview is always visible)
+  const channels = allChannels.filter(
+    channel => channel.id === "overview" || !archivedChannels.includes(channel.id)
+  );
+  
   const [activeChannel, setActiveChannel] = useState("overview");
   
   const { data: instagramMetrics, isLoading: isLoadingInstagram } = usePerformanceMetrics(clientId, "instagram", 365);
