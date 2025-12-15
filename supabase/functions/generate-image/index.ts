@@ -5,26 +5,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Converte URL de imagem para base64
-async function urlToBase64(url: string): Promise<string | null> {
-  try {
-    const response = await fetch(url);
-    if (!response.ok) {
-      console.error(`Failed to fetch image from URL: ${url}, status: ${response.status}`);
-      return null;
-    }
-    
-    const arrayBuffer = await response.arrayBuffer();
-    const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
-    const contentType = response.headers.get('content-type') || 'image/jpeg';
-    
-    return `data:${contentType};base64,${base64}`;
-  } catch (error) {
-    console.error(`Error converting URL to base64: ${url}`, error);
-    return null;
-  }
-}
-
 interface ReferenceImage {
   url?: string;
   base64?: string;
@@ -50,9 +30,9 @@ serve(async (req) => {
       );
     }
 
-    const GOOGLE_API_KEY = Deno.env.get('GOOGLE_AI_STUDIO_API_KEY');
-    if (!GOOGLE_API_KEY) {
-      console.error('GOOGLE_AI_STUDIO_API_KEY not configured');
+    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+    if (!LOVABLE_API_KEY) {
+      console.error('LOVABLE_API_KEY not configured');
       return new Response(
         JSON.stringify({ error: 'API key not configured' }),
         { 
@@ -62,92 +42,50 @@ serve(async (req) => {
       );
     }
 
-    // Processar referências de imagem (novo formato com base64 real)
-    const processedReferences: string[] = [];
+    // Build message content
+    const content: any[] = [{ type: "text", text: prompt }];
     
-    // Novo formato: referenceImages com base64 já convertido
-    if (referenceImages && Array.isArray(referenceImages) && referenceImages.length > 0) {
-      console.log(`Processing ${referenceImages.length} reference images (new format)`);
-      
-      for (const ref of referenceImages.slice(0, 3)) { // Max 3 images
-        if (ref.base64) {
-          processedReferences.push(ref.base64);
-          console.log(`Added base64 reference image${ref.description ? `: ${ref.description}` : ''}`);
-        } else if (ref.url) {
-          const base64 = await urlToBase64(ref.url);
-          if (base64) {
-            processedReferences.push(base64);
-            console.log(`Converted URL to base64: ${ref.url.substring(0, 50)}...`);
-          }
-        }
-      }
-    }
+    // Process reference images
+    const allRefs = [...(referenceImages || []), ...(imageReferences || [])];
     
-    // Fallback: formato antigo (imageReferences com URLs e descrições)
-    if (processedReferences.length === 0 && imageReferences && Array.isArray(imageReferences) && imageReferences.length > 0) {
-      console.log(`Processing ${imageReferences.length} image references (legacy format)`);
+    if (allRefs.length > 0) {
+      console.log(`Processing ${allRefs.length} reference images`);
       
-      for (const ref of imageReferences.slice(0, 3)) {
-        if (ref.url) {
-          const base64 = await urlToBase64(ref.url);
-          if (base64) {
-            processedReferences.push(base64);
-            console.log(`Converted legacy URL to base64: ${ref.url.substring(0, 50)}...`);
-          }
-        }
-      }
-    }
-
-    console.log(`Generating image with Google AI Studio (Gemini Image) - ${processedReferences.length} references`);
-
-    // Construir conteúdo para Google AI Studio
-    const parts: any[] = [];
-    
-    if (processedReferences.length > 0) {
-      // Adicionar texto com instruções
-      parts.push({ 
-        text: `${prompt}\n\nIMPORTANTE: Use as ${processedReferences.length} imagem(ns) anexada(s) como REFERÊNCIA VISUAL. Inspire-se no estilo, composição, cores e elementos dessas referências para criar uma nova imagem original.` 
-      });
-      
-      // Adicionar cada imagem de referência
-      for (const base64 of processedReferences) {
-        // Extrair mime type e dados do base64
-        const matches = base64.match(/^data:([^;]+);base64,(.+)$/);
-        if (matches) {
-          parts.push({
-            inlineData: {
-              mimeType: matches[1],
-              data: matches[2]
-            }
+      for (const ref of allRefs.slice(0, 3)) {
+        const imageUrl = ref.base64 || ref.url;
+        if (imageUrl) {
+          content.push({
+            type: "image_url",
+            image_url: { url: imageUrl }
           });
+          console.log(`Added reference image${ref.description ? `: ${ref.description}` : ''}`);
         }
       }
-      
-      console.log(`Built multimodal request with ${processedReferences.length} reference images`);
-    } else {
-      // Formato simples sem referências
-      parts.push({ text: prompt });
     }
 
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-preview-image-generation:generateContent?key=${GOOGLE_API_KEY}`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          contents: [{ parts }],
-          generationConfig: {
-            responseModalities: ["TEXT", "IMAGE"]
+    console.log(`Generating image with Lovable AI Gateway (gemini-2.5-flash-image-preview)`);
+
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash-image-preview",
+        messages: [
+          {
+            role: "user",
+            content: content
           }
-        }),
-      }
-    );
+        ],
+        modalities: ["image", "text"]
+      }),
+    });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Google AI Studio error:', response.status, errorText);
+      console.error('Lovable AI Gateway error:', response.status, errorText);
       
       if (response.status === 429) {
         return new Response(
@@ -170,17 +108,8 @@ serve(async (req) => {
 
     const data = await response.json();
     
-    // Google AI Studio returns images in candidates[0].content.parts[].inlineData format
-    const parts_response = data.candidates?.[0]?.content?.parts || [];
-    let imageUrl = null;
-    
-    for (const part of parts_response) {
-      if (part.inlineData) {
-        const { mimeType, data: imageData } = part.inlineData;
-        imageUrl = `data:${mimeType};base64,${imageData}`;
-        break;
-      }
-    }
+    // Extract image from response
+    const imageUrl = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
 
     if (!imageUrl) {
       console.error('No image in response:', JSON.stringify(data));
@@ -193,7 +122,7 @@ serve(async (req) => {
       );
     }
 
-    console.log(`Image generated successfully with Google AI Studio (${processedReferences.length} references used)`);
+    console.log(`Image generated successfully`);
 
     return new Response(
       JSON.stringify({ imageUrl }),
