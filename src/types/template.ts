@@ -1,8 +1,32 @@
+export interface StyleAnalysis {
+  style_summary?: string;
+  visual_elements?: {
+    photography_style?: string;
+    lighting?: string;
+    color_palette?: string[];
+    dominant_mood?: string;
+    composition?: string;
+  };
+  recurring_elements?: string[];
+  brand_elements?: {
+    logo_style?: string;
+    typography?: string;
+    product_presentation?: string;
+  };
+  technical_specs?: {
+    aspect_ratio?: string;
+    resolution_feel?: string;
+    post_processing?: string;
+  };
+  generation_prompt_template?: string;
+}
+
 export interface TemplateRule {
   id: string;
   content: string;
   type?: 'text' | 'image_reference' | 'content_reference';
   file_url?: string; // For image references or content files
+  styleAnalysis?: StyleAnalysis; // For style analysis rules
 }
 
 export interface ClientTemplate {

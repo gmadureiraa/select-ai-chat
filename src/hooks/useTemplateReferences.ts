@@ -1,16 +1,17 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { TemplateRule } from "@/types/template";
+import { TemplateRule, StyleAnalysis } from "@/types/template";
 
 export interface ProcessedReferences {
   textRules: string[];
   imageReferences: Array<{ url: string; description: string }>;
   contentReferences: Array<{ content: string; description: string }>;
+  styleAnalysis?: StyleAnalysis;
 }
 
 /**
  * Hook to fetch and process template references
- * Handles image references, content references, and text rules
+ * Handles image references, content references, text rules, and style analysis
  */
 export const useTemplateReferences = (templateId?: string) => {
   const { data: template, isLoading } = useQuery({
@@ -41,9 +42,16 @@ export const useTemplateReferences = (templateId?: string) => {
       const textRules: string[] = [];
       const imageReferences: Array<{ url: string; description: string }> = [];
       const contentReferences: Array<{ content: string; description: string }> = [];
+      let styleAnalysis: StyleAnalysis | undefined;
 
       for (const rule of rules) {
         const ruleData = rule as any; // Use any for JSON data
+
+        // Check for style analysis rule first
+        if (ruleData.styleAnalysis) {
+          styleAnalysis = ruleData.styleAnalysis;
+          continue;
+        }
 
         if (ruleData.type === 'image_reference' && ruleData.file_url) {
           // Try public URL first, fallback to signed URL
@@ -100,7 +108,7 @@ export const useTemplateReferences = (templateId?: string) => {
         }
       }
 
-      return { textRules, imageReferences, contentReferences };
+      return { textRules, imageReferences, contentReferences, styleAnalysis };
     },
     enabled: !!template,
   });

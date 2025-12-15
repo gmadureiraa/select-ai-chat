@@ -380,11 +380,13 @@ export const useClientChat = (clientId: string, templateId?: string, conversatio
           }
           
           console.log("[CHAT] Total reference images:", allReferenceImages.length);
+          console.log("[CHAT] Style analysis available:", !!references.styleAnalysis);
           
           const { data: imageData, error: imageError } = await supabase.functions.invoke("generate-image", {
             body: {
               prompt: imagePrompt,
               referenceImages: allReferenceImages.length > 0 ? allReferenceImages : undefined,
+              styleAnalysis: references.styleAnalysis || undefined,
             },
           });
 

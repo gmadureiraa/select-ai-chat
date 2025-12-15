@@ -9,6 +9,21 @@ interface ReferenceImage {
   url?: string;
   base64?: string;
   description?: string;
+  styleAnalysis?: any;
+}
+
+// Helper function to convert array buffer to base64 without stack overflow
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  let binary = '';
+  const chunkSize = 8192; // Process in chunks to avoid stack overflow
+  
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    const chunk = bytes.slice(i, i + chunkSize);
+    binary += String.fromCharCode(...chunk);
+  }
+  
+  return btoa(binary);
 }
 
 serve(async (req) => {
@@ -18,7 +33,7 @@ serve(async (req) => {
   }
 
   try {
-    const { prompt, imageReferences, referenceImages } = await req.json();
+    const { prompt, imageReferences, referenceImages, styleAnalysis } = await req.json();
 
     if (!prompt || typeof prompt !== 'string') {
       return new Response(
@@ -47,33 +62,35 @@ serve(async (req) => {
 
     // Build parts for Gemini API
     const parts: any[] = [];
+    let processedImageCount = 0;
     
     // Add reference images first if available
     if (allRefs.length > 0) {
       console.log(`Processing ${allRefs.length} reference images`);
       
-      for (const ref of allRefs.slice(0, 3)) {
+      for (const ref of allRefs.slice(0, 4)) {
         const imageData = ref.base64 || ref.url;
         if (imageData) {
-          // Handle base64 data
-          if (imageData.startsWith('data:')) {
-            const matches = imageData.match(/^data:([^;]+);base64,(.+)$/);
-            if (matches) {
-              parts.push({
-                inlineData: {
-                  mimeType: matches[1],
-                  data: matches[2]
-                }
-              });
-              console.log(`Added base64 reference image${ref.description ? `: ${ref.description}` : ''}`);
-            }
-          } else if (imageData.startsWith('http')) {
-            // Fetch external image and convert to base64
-            try {
+          try {
+            // Handle base64 data
+            if (imageData.startsWith('data:')) {
+              const matches = imageData.match(/^data:([^;]+);base64,(.+)$/);
+              if (matches) {
+                parts.push({
+                  inlineData: {
+                    mimeType: matches[1],
+                    data: matches[2]
+                  }
+                });
+                processedImageCount++;
+                console.log(`Added base64 reference image${ref.description ? `: ${ref.description}` : ''}`);
+              }
+            } else if (imageData.startsWith('http')) {
+              // Fetch external image and convert to base64 using chunked conversion
               const imgResponse = await fetch(imageData);
               if (imgResponse.ok) {
                 const arrayBuffer = await imgResponse.arrayBuffer();
-                const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+                const base64 = arrayBufferToBase64(arrayBuffer);
                 const contentType = imgResponse.headers.get('content-type') || 'image/jpeg';
                 parts.push({
                   inlineData: {
@@ -81,35 +98,81 @@ serve(async (req) => {
                     data: base64
                   }
                 });
+                processedImageCount++;
                 console.log(`Added URL reference image${ref.description ? `: ${ref.description}` : ''}`);
               }
-            } catch (e) {
-              console.warn(`Failed to fetch reference image: ${e}`);
             }
+          } catch (e) {
+            console.warn(`Failed to process reference image: ${e}`);
           }
         }
       }
     }
     
-    // Build the prompt with context about reference images
+    // Build enhanced prompt with style analysis context
     let enhancedPrompt = prompt;
-    if (parts.length > 0) {
+    
+    // If we have style analysis from template, use it for rich context
+    if (styleAnalysis) {
+      const styleSummary = styleAnalysis.style_summary || '';
+      const promptTemplate = styleAnalysis.generation_prompt_template || '';
+      const visualElements = styleAnalysis.visual_elements || {};
+      const recurringElements = styleAnalysis.recurring_elements || [];
+      const brandElements = styleAnalysis.brand_elements || {};
+      
+      let styleContext = '';
+      
+      if (promptTemplate) {
+        styleContext = promptTemplate;
+      } else if (styleSummary) {
+        styleContext = styleSummary;
+      }
+      
+      // Add visual elements details
+      if (visualElements.photography_style) {
+        styleContext += ` Estilo fotográfico: ${visualElements.photography_style}.`;
+      }
+      if (visualElements.color_palette && visualElements.color_palette.length > 0) {
+        styleContext += ` Paleta de cores: ${visualElements.color_palette.join(', ')}.`;
+      }
+      if (visualElements.lighting) {
+        styleContext += ` Iluminação: ${visualElements.lighting}.`;
+      }
+      if (visualElements.dominant_mood) {
+        styleContext += ` Mood: ${visualElements.dominant_mood}.`;
+      }
+      
+      // Add recurring elements
+      if (recurringElements.length > 0) {
+        styleContext += ` Elementos recorrentes: ${recurringElements.join(', ')}.`;
+      }
+      
+      // Add brand elements
+      if (brandElements.product_presentation) {
+        styleContext += ` Apresentação de produtos: ${brandElements.product_presentation}.`;
+      }
+      
+      enhancedPrompt = `ESTILO VISUAL A SEGUIR:\n${styleContext}\n\nPEDIDO ESPECÍFICO:\n${prompt}\n\nGere uma imagem que combine o estilo visual descrito com o pedido específico. A imagem deve parecer parte da mesma campanha/marca das referências.`;
+      
+      console.log('Using style analysis for generation');
+    } else if (processedImageCount > 0) {
+      // Fallback: basic reference description if no style analysis
       const refDescriptions = allRefs
         .filter(r => r.description)
         .map(r => r.description)
         .join(", ");
       
       if (refDescriptions) {
-        enhancedPrompt = `Use as imagens de referência fornecidas como inspiração de estilo (${refDescriptions}). ${prompt}`;
+        enhancedPrompt = `Analise as imagens de referência fornecidas e capture seu estilo visual (composição, cores, iluminação, elementos visuais, qualidade). Use esse estilo como base para gerar: ${prompt}. A imagem gerada deve parecer da mesma série/campanha das referências.`;
       } else {
-        enhancedPrompt = `Use as imagens de referência fornecidas como inspiração de estilo visual. ${prompt}`;
+        enhancedPrompt = `Observe as imagens de referência fornecidas. Capture o estilo visual, qualidade, composição e elementos. Gere uma nova imagem nesse mesmo estilo: ${prompt}`;
       }
     }
     
     // Add text prompt
     parts.push({ text: enhancedPrompt });
 
-    console.log(`Generating image with Gemini 2.0 Flash (gemini-2.0-flash-exp)`);
+    console.log(`Generating image with Gemini 2.0 Flash (gemini-2.0-flash-exp), ${processedImageCount} reference images`);
 
     // Use Gemini 2.0 Flash with image generation modality
     const response = await fetch(
