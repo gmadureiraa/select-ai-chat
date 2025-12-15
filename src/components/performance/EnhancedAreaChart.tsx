@@ -36,16 +36,45 @@ export function EnhancedAreaChart({
     return metrics[0] || null;
   }, [metrics, selectedMetric]);
 
-  // Calculate totals for each metric
-  const metricTotals = useMemo(() => {
-    const totals: Record<string, number> = {};
+  // Calculate summary values for each metric - handle different metric types appropriately
+  const metricSummaries = useMemo(() => {
+    const summaries: Record<string, number> = {};
     metrics.forEach(m => {
-      totals[m.key] = data.reduce((sum, d) => sum + (d[m.dataKey] || 0), 0);
+      const values = data.map(d => d[m.dataKey] || 0).filter(v => v > 0);
+      
+      // For rate/percentage metrics, show average not sum
+      const isRateMetric = m.key.toLowerCase().includes('rate') || 
+                           m.label.toLowerCase().includes('%') ||
+                           m.label.toLowerCase().includes('taxa');
+      
+      // For cumulative metrics like subscribers, show the latest value not sum
+      const isCumulativeMetric = m.key === 'subscribers' || 
+                                 m.key === 'followers' ||
+                                 m.key.toLowerCase().includes('inscritos');
+      
+      if (values.length === 0) {
+        summaries[m.key] = 0;
+      } else if (isRateMetric) {
+        // Average for rates
+        summaries[m.key] = values.reduce((a, b) => a + b, 0) / values.length;
+      } else if (isCumulativeMetric) {
+        // Latest value for cumulative metrics
+        summaries[m.key] = values[values.length - 1] || 0;
+      } else {
+        // Sum for additive metrics (views, clicks, etc.)
+        summaries[m.key] = values.reduce((a, b) => a + b, 0);
+      }
     });
-    return totals;
+    return summaries;
   }, [data, metrics]);
 
-  const formatTotal = (num: number) => {
+  const formatSummary = (num: number, metricKey: string) => {
+    const isRateMetric = metricKey.toLowerCase().includes('rate') || 
+                         metrics.find(m => m.key === metricKey)?.label.toLowerCase().includes('%');
+    
+    if (isRateMetric) {
+      return `${num.toFixed(1)}%`;
+    }
     if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
     if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
     return num.toLocaleString('pt-BR');
@@ -93,7 +122,7 @@ export function EnhancedAreaChart({
               >
                 <span className="text-inherit">{metric.label}</span>
                 <span className="text-[10px] opacity-70 font-normal">
-                  {formatTotal(metricTotals[metric.key] || 0)}
+                  {formatSummary(metricSummaries[metric.key] || 0, metric.key)}
                 </span>
               </ToggleGroupItem>
             ))}

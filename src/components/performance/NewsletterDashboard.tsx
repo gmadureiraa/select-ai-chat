@@ -65,15 +65,20 @@ export function NewsletterDashboard({ clientId, metrics, isLoading }: Newsletter
   );
 
   const kpis = useMemo(() => {
-    const latestMetric = [...metrics].sort((a, b) => b.metric_date.localeCompare(a.metric_date))[0];
-    const currentSubs = latestMetric?.subscribers || 0;
+    // Get latest subscriber count (find most recent with actual subscriber data)
+    const metricsWithSubs = metrics.filter(m => m.subscribers && m.subscribers > 0);
+    const latestWithSubs = [...metricsWithSubs].sort((a, b) => b.metric_date.localeCompare(a.metric_date))[0];
+    const currentSubs = latestWithSubs?.subscribers || 0;
     
-    // Calculate averages
-    const avgOpenRate = filteredMetrics.length > 0
-      ? filteredMetrics.reduce((sum, m) => sum + (m.open_rate || 0), 0) / filteredMetrics.length
+    // Calculate averages ONLY from metrics that have actual data (not null/0)
+    const metricsWithOpenRate = filteredMetrics.filter(m => m.open_rate && m.open_rate > 0);
+    const avgOpenRate = metricsWithOpenRate.length > 0
+      ? metricsWithOpenRate.reduce((sum, m) => sum + (m.open_rate || 0), 0) / metricsWithOpenRate.length
       : 0;
-    const avgClickRate = filteredMetrics.length > 0
-      ? filteredMetrics.reduce((sum, m) => sum + (m.click_rate || 0), 0) / filteredMetrics.length
+    
+    const metricsWithClickRate = filteredMetrics.filter(m => m.click_rate && m.click_rate > 0);
+    const avgClickRate = metricsWithClickRate.length > 0
+      ? metricsWithClickRate.reduce((sum, m) => sum + (m.click_rate || 0), 0) / metricsWithClickRate.length
       : 0;
     
     // Totals from metadata
@@ -83,18 +88,26 @@ export function NewsletterDashboard({ clientId, metrics, isLoading }: Newsletter
     const totalNewSubs = filteredMetrics.reduce((sum, m) => sum + (m.metadata?.newSubscribers || 0), 0);
     const totalUnsubscribes = filteredMetrics.reduce((sum, m) => sum + (m.metadata?.unsubscribes || 0), 0);
 
-    // Previous period for trends
-    const prevSubs = previousPeriodMetrics.length > 0
-      ? [...previousPeriodMetrics].sort((a, b) => b.metric_date.localeCompare(a.metric_date))[0]?.subscribers || 0
+    // Previous period for trends - only compare metrics with data
+    const prevMetricsWithSubs = previousPeriodMetrics.filter(m => m.subscribers && m.subscribers > 0);
+    const prevSubs = prevMetricsWithSubs.length > 0
+      ? [...prevMetricsWithSubs].sort((a, b) => b.metric_date.localeCompare(a.metric_date))[0]?.subscribers || 0
       : 0;
-    const prevAvgOpenRate = previousPeriodMetrics.length > 0
-      ? previousPeriodMetrics.reduce((sum, m) => sum + (m.open_rate || 0), 0) / previousPeriodMetrics.length
+    
+    const prevMetricsWithOpenRate = previousPeriodMetrics.filter(m => m.open_rate && m.open_rate > 0);
+    const prevAvgOpenRate = prevMetricsWithOpenRate.length > 0
+      ? prevMetricsWithOpenRate.reduce((sum, m) => sum + (m.open_rate || 0), 0) / prevMetricsWithOpenRate.length
       : 0;
-    const prevAvgClickRate = previousPeriodMetrics.length > 0
-      ? previousPeriodMetrics.reduce((sum, m) => sum + (m.click_rate || 0), 0) / previousPeriodMetrics.length
+    
+    const prevMetricsWithClickRate = previousPeriodMetrics.filter(m => m.click_rate && m.click_rate > 0);
+    const prevAvgClickRate = prevMetricsWithClickRate.length > 0
+      ? prevMetricsWithClickRate.reduce((sum, m) => sum + (m.click_rate || 0), 0) / prevMetricsWithClickRate.length
       : 0;
 
     const calcTrend = (current: number, prev: number) => prev > 0 ? ((current - prev) / prev) * 100 : 0;
+
+    // Count only editions with actual send data (open_rate indicates an actual send)
+    const editionsWithData = filteredMetrics.filter(m => m.open_rate && m.open_rate > 0);
 
     return {
       subscribers: currentSubs,
@@ -108,7 +121,7 @@ export function NewsletterDashboard({ clientId, metrics, isLoading }: Newsletter
       totalClicks,
       totalNewSubs,
       totalUnsubscribes,
-      editionsCount: filteredMetrics.length,
+      editionsCount: editionsWithData.length,
     };
   }, [metrics, filteredMetrics, previousPeriodMetrics]);
 
