@@ -383,6 +383,51 @@ Estruture o documento com seções para: Visão Geral, Posicionamento, Tom de Vo
               ))}
             </CardContent>
           </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Canais de Performance</CardTitle>
+              <CardDescription>
+                Desative os canais que não são utilizados por este cliente para ocultar das métricas
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {[
+                { key: "instagram", label: "Instagram", icon: Instagram },
+                { key: "youtube", label: "YouTube", icon: Eye },
+                { key: "twitter", label: "X/Twitter", icon: Twitter },
+                { key: "newsletter", label: "Newsletter", icon: Mail },
+              ].map((channel) => {
+                const archivedChannels = (formData.social_media as any)?.archived_channels || [];
+                const isArchived = archivedChannels.includes(channel.key);
+                
+                return (
+                  <div key={channel.key} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <channel.icon className="h-5 w-5 text-muted-foreground" />
+                      <span className="text-sm font-medium">{channel.label}</span>
+                    </div>
+                    <Switch
+                      checked={!isArchived}
+                      onCheckedChange={(checked) => {
+                        const currentArchived = (formData.social_media as any)?.archived_channels || [];
+                        const newArchived = checked
+                          ? currentArchived.filter((c: string) => c !== channel.key)
+                          : [...currentArchived, channel.key];
+                        setFormData({
+                          ...formData,
+                          social_media: {
+                            ...formData.social_media,
+                            archived_channels: newArchived,
+                          },
+                        });
+                      }}
+                    />
+                  </div>
+                );
+              })}
+            </CardContent>
+          </Card>
         </TabsContent>
 
         {/* Websites */}
