@@ -1759,6 +1759,42 @@ export type Database = {
           },
         ]
       }
+      workspace_member_clients: {
+        Row: {
+          client_id: string
+          created_at: string
+          id: string
+          workspace_member_id: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          id?: string
+          workspace_member_id: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          id?: string
+          workspace_member_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workspace_member_clients_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workspace_member_clients_workspace_member_id_fkey"
+            columns: ["workspace_member_id"]
+            isOneToOne: false
+            referencedRelation: "workspace_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       workspace_members: {
         Row: {
           created_at: string | null
@@ -1929,6 +1965,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      can_access_client: {
+        Args: { p_client_id: string; p_user_id: string }
+        Returns: boolean
+      }
       can_delete_in_workspace: { Args: { p_user_id: string }; Returns: boolean }
       can_view_workspace_ai_usage: {
         Args: { p_target_user_id: string; p_user_id: string }

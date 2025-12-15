@@ -6,10 +6,12 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Users, UserPlus, Crown, Shield, User, X, Mail, Clock } from "lucide-react";
-import { useWorkspace, WorkspaceRole } from "@/hooks/useWorkspace";
+import { Users, UserPlus, Crown, Shield, User, X, Mail, Clock, Building2 } from "lucide-react";
+import { useWorkspace, WorkspaceRole, WorkspaceMember } from "@/hooks/useWorkspace";
 import { useTeamMembers } from "@/hooks/useTeamMembers";
 import { useAuth } from "@/hooks/useAuth";
+import { useAllMemberClientAccess } from "@/hooks/useMemberClientAccess";
+import { MemberClientAccessDialog } from "./MemberClientAccessDialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -20,6 +22,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { format, formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -45,10 +48,17 @@ export function TeamManagement() {
   const { user } = useAuth();
   const { workspace, canManageTeam, isOwner } = useWorkspace();
   const { members, invites, isLoadingMembers, isLoadingInvites, inviteMember, updateMemberRole, removeMember, cancelInvite } = useTeamMembers();
+  const { data: allMemberAccess = [] } = useAllMemberClientAccess(workspace?.id);
   
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<WorkspaceRole>("member");
   const [memberToRemove, setMemberToRemove] = useState<string | null>(null);
+  const [memberToEditAccess, setMemberToEditAccess] = useState<WorkspaceMember | null>(null);
+
+  // Helper to get client access count for a member
+  const getMemberClientCount = (memberId: string): number => {
+    return allMemberAccess.filter(a => a.workspace_member_id === memberId).length;
+  };
 
   const handleInvite = (e: React.FormEvent) => {
     e.preventDefault();
@@ -165,8 +175,11 @@ export function TeamManagement() {
                 const RoleIcon = roleIcons[member.role];
                 const isCurrentUser = member.user_id === user?.id;
                 const isMemberOwner = member.role === "owner";
+                const isMemberAdmin = member.role === "admin";
                 const canChangeRole = isOwner && !isMemberOwner && !isCurrentUser;
                 const canRemove = canManageTeam && !isMemberOwner && !isCurrentUser;
+                const canEditClientAccess = canManageTeam && member.role === "member" && !isCurrentUser;
+                const clientAccessCount = getMemberClientCount(member.id);
 
                 return (
                   <div
@@ -184,12 +197,39 @@ export function TeamManagement() {
                             <span className="text-xs text-muted-foreground">(você)</span>
                           )}
                         </div>
-                        <div className="text-xs text-muted-foreground">
+                        <div className="text-xs text-muted-foreground flex items-center gap-2">
                           {member.profile?.email}
+                          {member.role === "member" && clientAccessCount > 0 && (
+                            <Badge variant="outline" className="text-[10px] h-4 px-1.5 bg-amber-500/10 text-amber-600 border-amber-500/20">
+                              {clientAccessCount} cliente{clientAccessCount > 1 ? "s" : ""}
+                            </Badge>
+                          )}
                         </div>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
+                      {/* Client Access Button (only for members) */}
+                      {canEditClientAccess && (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setMemberToEditAccess(member)}
+                                className="h-8 gap-1.5"
+                              >
+                                <Building2 className="h-3.5 w-3.5" />
+                                <span className="hidden sm:inline">Clientes</span>
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              Gerenciar acesso a clientes
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      )}
+
                       {canChangeRole ? (
                         <Select
                           value={member.role}
@@ -241,7 +281,7 @@ export function TeamManagement() {
             </div>
             <div className="flex items-center gap-2">
               <User className="h-3 w-3" />
-              <span><strong>Membro:</strong> Pode ver, criar e editar, mas não excluir</span>
+              <span><strong>Membro:</strong> Pode ver, criar e editar, mas não excluir. Pode ter acesso restrito a clientes específicos.</span>
             </div>
           </div>
         </div>
@@ -272,6 +312,13 @@ export function TeamManagement() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Member Client Access Dialog */}
+      <MemberClientAccessDialog
+        open={!!memberToEditAccess}
+        onOpenChange={(open) => !open && setMemberToEditAccess(null)}
+        member={memberToEditAccess}
+      />
     </Card>
   );
 }
