@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Sparkles, MessageSquare, Trash2, PanelLeftClose, PanelLeft } from "lucide-react";
+import { Sparkles, MessageSquare, Trash2, PanelLeftClose, PanelLeft, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useClientTemplates } from "@/hooks/useClientTemplates";
@@ -9,6 +9,7 @@ import { FloatingInput, ChatMode } from "@/components/chat/FloatingInput";
 import { EnhancedMessageBubble } from "@/components/chat/EnhancedMessageBubble";
 import { AdvancedProgress } from "@/components/chat/AdvancedProgress";
 import { QuickSuggestions } from "@/components/chat/QuickSuggestions";
+import { TemplateManager } from "@/components/clients/TemplateManager";
 import { Client } from "@/hooks/useClients";
 import { cn } from "@/lib/utils";
 import KaleidosLogo from "@/assets/kaleidos-logo.svg";
@@ -103,16 +104,19 @@ export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
           sidebarCollapsed ? "w-0 opacity-0 overflow-hidden" : "w-56"
         )}
       >
-        <div className="p-3 border-b border-border/30 flex items-center justify-between">
+        <div className="p-3 border-b border-border/30 flex items-center justify-between gap-2">
           <h3 className="font-medium text-xs uppercase tracking-wider text-muted-foreground">Templates</h3>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setSidebarCollapsed(true)}
-            className="h-7 w-7 hover:bg-muted/50"
-          >
-            <PanelLeftClose className="h-3.5 w-3.5" />
-          </Button>
+          <div className="flex items-center gap-1">
+            <TemplateManager clientId={clientId} />
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setSidebarCollapsed(true)}
+              className="h-7 w-7 hover:bg-muted/50"
+            >
+              <PanelLeftClose className="h-3.5 w-3.5" />
+            </Button>
+          </div>
         </div>
         <ScrollArea className="flex-1">
           <div className="p-2 space-y-0.5">
