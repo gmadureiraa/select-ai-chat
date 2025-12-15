@@ -9,7 +9,7 @@ import { GoalsPanel } from "./GoalsPanel";
 import { MetricMiniCard } from "./MetricMiniCard";
 import { NewsletterInsightsCard } from "./NewsletterInsightsCard";
 import { BestNewsletterCard } from "./BestNewsletterCard";
-import { NewsletterEditionsTable } from "./NewsletterEditionsTable";
+import { NewsletterMetricsTable } from "./NewsletterMetricsTable";
 import { subDays, format, parseISO, isAfter } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useSmartNewsletterImport } from "@/hooks/useSmartNewsletterImport";
@@ -415,13 +415,13 @@ export function NewsletterDashboard({ clientId, metrics, isLoading }: Newsletter
         {bestEdition && <BestNewsletterCard edition={bestEdition} />}
       </div>
 
-      {/* Editions Table */}
+      {/* Metrics Table */}
       <Card className="border-border/50">
         <CardHeader className="pb-3">
-          <CardTitle className="text-lg">Edições Recentes</CardTitle>
+          <CardTitle className="text-lg">Histórico de Envios</CardTitle>
         </CardHeader>
         <CardContent>
-          <NewsletterEditionsTable editions={filteredMetrics} />
+          <NewsletterMetricsTable metrics={filteredMetrics} />
         </CardContent>
       </Card>
     </div>
