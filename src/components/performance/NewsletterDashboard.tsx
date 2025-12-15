@@ -22,9 +22,15 @@ interface NewsletterMetric {
   open_rate?: number | null;
   click_rate?: number | null;
   metadata?: {
+    subject?: string;
+    post_id?: string;
+    sent?: number;
     delivered?: number;
+    totalOpens?: number;
+    uniqueOpens?: number;
     opens?: number;
     clicks?: number;
+    uniqueClicks?: number;
     unsubscribes?: number;
     spamReports?: number;
     newSubscribers?: number;
@@ -428,13 +434,13 @@ export function NewsletterDashboard({ clientId, metrics, isLoading }: Newsletter
         {bestEdition && <BestNewsletterCard edition={bestEdition} />}
       </div>
 
-      {/* Metrics Table */}
+      {/* Posts Table */}
       <Card className="border-border/50">
         <CardHeader className="pb-3">
-          <CardTitle className="text-lg">Histórico de Envios</CardTitle>
+          <CardTitle className="text-lg">Posts</CardTitle>
         </CardHeader>
         <CardContent>
-          <NewsletterMetricsTable metrics={filteredMetrics} />
+          <NewsletterMetricsTable metrics={metrics} />
         </CardContent>
       </Card>
     </div>

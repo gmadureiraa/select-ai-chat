@@ -174,8 +174,9 @@ export function useSmartNewsletterImport(clientId: string) {
           count++;
         }
       } else if (csvType === "posts") {
-        // Process individual posts - aggregate by date
+        // Process individual posts - save each post with its subject/title
         const dateIdx = headers.findIndex(h => h.toLowerCase().includes("date"));
+        const subjectIdx = headers.findIndex(h => h.toLowerCase().includes("subject") || h.toLowerCase().includes("title"));
         const sentIdx = headers.findIndex(h => h.toLowerCase() === "sent");
         const deliveredIdx = headers.findIndex(h => h.toLowerCase() === "delivered");
         const totalOpensIdx = headers.findIndex(h => h.toLowerCase().includes("total opens"));
@@ -185,8 +186,7 @@ export function useSmartNewsletterImport(clientId: string) {
         const clickRateIdx = headers.findIndex(h => h.toLowerCase() === "click-through rate");
         const unsubscribedIdx = headers.findIndex(h => h.toLowerCase().includes("unsubscribed"));
         const spamIdx = headers.findIndex(h => h.toLowerCase().includes("spam reported"));
-
-        const dailyData: DailyMetrics = {};
+        const postIdIdx = headers.findIndex(h => h.toLowerCase().includes("post id"));
 
         for (let i = 1; i < lines.length; i++) {
           const values = parseCSVLine(lines[i]);
@@ -194,108 +194,41 @@ export function useSmartNewsletterImport(clientId: string) {
           
           if (!date) continue;
 
-          if (!dailyData[date]) {
-            dailyData[date] = {
-              delivered: 0,
-              openRate: 0,
-              clickRate: 0,
-              verifiedClickRate: 0,
-              subscribers: 0,
-              opens: 0,
-              clicks: 0,
-              unsubscribes: 0,
-              spamReports: 0,
-            };
-          }
-
-          dailyData[date].delivered += parseNumber(values[deliveredIdx]);
-          dailyData[date].opens += parseNumber(values[totalOpensIdx >= 0 ? totalOpensIdx : uniqueOpensIdx]);
-          dailyData[date].clicks += parseNumber(values[uniqueClicksIdx]);
-          dailyData[date].unsubscribes += parseNumber(values[unsubscribedIdx]);
-          dailyData[date].spamReports += parseNumber(values[spamIdx]);
-          
-          // Take the average open/click rate for the day
+          const subject = values[subjectIdx]?.replace(/['"]/g, "").trim() || "";
+          const postId = values[postIdIdx]?.replace(/['"]/g, "").trim() || `post-${date}-${i}`;
+          const sent = parseNumber(values[sentIdx]);
+          const delivered = parseNumber(values[deliveredIdx]);
+          const totalOpens = parseNumber(values[totalOpensIdx]);
+          const uniqueOpens = parseNumber(values[uniqueOpensIdx]);
           const openRate = parsePercentage(values[openRateIdx]);
+          const uniqueClicks = parseNumber(values[uniqueClicksIdx]);
           const clickRate = parsePercentage(values[clickRateIdx]);
-          
-          if (openRate > 0) {
-            dailyData[date].openRate = (dailyData[date].openRate + openRate) / 2 || openRate;
-          }
-          if (clickRate > 0) {
-            dailyData[date].clickRate = (dailyData[date].clickRate + clickRate) / 2 || clickRate;
-          }
-        }
+          const unsubscribes = parseNumber(values[unsubscribedIdx]);
+          const spamReports = parseNumber(values[spamIdx]);
 
-        for (const [date, data] of Object.entries(dailyData)) {
-          await supabase.from("platform_metrics").upsert({
-            client_id: clientId,
-            platform: "newsletter",
-            metric_date: date,
-            views: data.delivered,
-            open_rate: data.openRate,
-            click_rate: data.clickRate,
-            metadata: {
-              delivered: data.delivered,
-              opens: data.opens,
-              clicks: data.clicks,
-              unsubscribes: data.unsubscribes,
-              spamReports: data.spamReports,
-            }
-          }, { onConflict: "client_id,platform,metric_date" });
+          // Skip posts with no data (likely drafts or failed sends)
+          if (sent === 0 && delivered === 0) continue;
 
-          count++;
-        }
-      } else if (csvType === "subscribers") {
-        // Process subscriber acquisitions - aggregate by date
-        const dateIdx = headers.findIndex(h => h.toLowerCase().includes("created at"));
-        const sourceIdx = headers.findIndex(h => h.toLowerCase().includes("acquisition source"));
-        const countIdx = headers.findIndex(h => h.toLowerCase() === "count");
-
-        const dailySubs: Record<string, { total: number; sources: Record<string, number> }> = {};
-
-        for (let i = 1; i < lines.length; i++) {
-          const values = parseCSVLine(lines[i]);
-          const date = parseBeehiivDate(values[dateIdx]);
-          
-          if (!date) continue;
-
-          const source = values[sourceIdx]?.replace(/['"]/g, "").trim() || "unknown";
-          const subCount = parseNumber(values[countIdx]);
-
-          if (!dailySubs[date]) {
-            dailySubs[date] = { total: 0, sources: {} };
-          }
-          
-          dailySubs[date].total += subCount;
-          dailySubs[date].sources[source] = (dailySubs[date].sources[source] || 0) + subCount;
-        }
-
-        // Calculate cumulative subscribers
-        const sortedDates = Object.keys(dailySubs).sort();
-        let cumulativeTotal = 0;
-
-        // Get existing subscriber count to add to
-        const { data: existingMetrics } = await supabase
-          .from("platform_metrics")
-          .select("subscribers")
-          .eq("client_id", clientId)
-          .eq("platform", "newsletter")
-          .order("metric_date", { ascending: false })
-          .limit(1);
-
-        const baseSubscribers = existingMetrics?.[0]?.subscribers || 0;
-
-        for (const date of sortedDates) {
-          cumulativeTotal += dailySubs[date].total;
+          // Use postId as part of the metric_date to make each post unique
+          const uniqueDate = `${date}T${postId.slice(0, 8)}`;
 
           await supabase.from("platform_metrics").upsert({
             client_id: clientId,
             platform: "newsletter",
             metric_date: date,
-            subscribers: baseSubscribers > 0 ? null : cumulativeTotal, // Only update if we don't have base
+            views: delivered,
+            open_rate: openRate,
+            click_rate: clickRate,
             metadata: {
-              newSubscribers: dailySubs[date].total,
-              acquisitionSources: dailySubs[date].sources,
+              post_id: postId,
+              subject,
+              sent,
+              delivered,
+              totalOpens,
+              uniqueOpens,
+              uniqueClicks,
+              unsubscribes,
+              spamReports,
             }
           }, { onConflict: "client_id,platform,metric_date" });
 
