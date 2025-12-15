@@ -5,12 +5,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-interface ReferenceImage {
-  url?: string;
-  base64?: string;
-  description?: string;
-}
-
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -42,71 +36,31 @@ serve(async (req) => {
       );
     }
 
-    // Build parts for Gemini API
-    const parts: any[] = [{ text: prompt }];
-    
-    // Process reference images
+    // Check if we have reference images for image editing
     const allRefs = [...(referenceImages || []), ...(imageReferences || [])];
-    
-    if (allRefs.length > 0) {
-      console.log(`Processing ${allRefs.length} reference images`);
-      
-      for (const ref of allRefs.slice(0, 3)) {
-        const imageData = ref.base64 || ref.url;
-        if (imageData) {
-          // Handle base64 data
-          if (imageData.startsWith('data:')) {
-            const matches = imageData.match(/^data:([^;]+);base64,(.+)$/);
-            if (matches) {
-              parts.push({
-                inline_data: {
-                  mime_type: matches[1],
-                  data: matches[2]
-                }
-              });
-              console.log(`Added base64 reference image${ref.description ? `: ${ref.description}` : ''}`);
-            }
-          } else if (imageData.startsWith('http')) {
-            // Fetch external image and convert to base64
-            try {
-              const imgResponse = await fetch(imageData);
-              if (imgResponse.ok) {
-                const arrayBuffer = await imgResponse.arrayBuffer();
-                const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
-                const contentType = imgResponse.headers.get('content-type') || 'image/jpeg';
-                parts.push({
-                  inline_data: {
-                    mime_type: contentType,
-                    data: base64
-                  }
-                });
-                console.log(`Added URL reference image${ref.description ? `: ${ref.description}` : ''}`);
-              }
-            } catch (e) {
-              console.warn(`Failed to fetch reference image: ${e}`);
-            }
-          }
-        }
-      }
-    }
+    const hasReferenceImages = allRefs.length > 0;
 
-    console.log(`Generating image with Google Gemini (gemini-2.0-flash-preview-image-generation)`);
+    console.log(`Generating image with Google Imagen 3 (imagen-3.0-generate-002)`);
 
+    // Use Imagen 3 for image generation
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-preview-image-generation:generateContent?key=${GOOGLE_API_KEY}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${GOOGLE_API_KEY}`,
       {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          contents: [
+          instances: [
             {
-              parts: parts
+              prompt: prompt
             }
           ],
-          generationConfig: {
-            responseModalities: ["TEXT", "IMAGE"]
+          parameters: {
+            sampleCount: 1,
+            aspectRatio: "1:1",
+            safetyFilterLevel: "BLOCK_MEDIUM_AND_ABOVE",
+            personGeneration: "ALLOW_ADULT"
           }
         }),
       }
@@ -114,7 +68,7 @@ serve(async (req) => {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Google Gemini API error:', response.status, errorText);
+      console.error('Google Imagen API error:', response.status, errorText);
       
       if (response.status === 429) {
         return new Response(
@@ -124,6 +78,43 @@ serve(async (req) => {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }
           }
         );
+      }
+
+      // Try fallback to OpenAI if Imagen fails
+      console.log('Trying fallback to OpenAI gpt-image-1...');
+      const openaiKey = Deno.env.get('OPENAI_API_KEY');
+      if (openaiKey) {
+        const openaiResponse = await fetch('https://api.openai.com/v1/images/generations', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${openaiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: 'gpt-image-1',
+            prompt: prompt,
+            n: 1,
+            size: '1024x1024',
+          }),
+        });
+
+        if (openaiResponse.ok) {
+          const openaiData = await openaiResponse.json();
+          const imageB64 = openaiData.data?.[0]?.b64_json;
+          if (imageB64) {
+            console.log('Image generated successfully via OpenAI fallback');
+            return new Response(
+              JSON.stringify({ imageUrl: `data:image/png;base64,${imageB64}` }),
+              { 
+                status: 200,
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+              }
+            );
+          }
+        } else {
+          const openaiError = await openaiResponse.text();
+          console.error('OpenAI fallback error:', openaiError);
+        }
       }
 
       return new Response(
@@ -137,23 +128,14 @@ serve(async (req) => {
 
     const data = await response.json();
     
-    // Extract image from Gemini response format
-    const candidates = data.candidates || [];
+    // Extract image from Imagen response format
+    const predictions = data.predictions || [];
     let imageUrl = null;
     
-    for (const candidate of candidates) {
-      const content = candidate.content || {};
-      const responseParts = content.parts || [];
-      
-      for (const part of responseParts) {
-        if (part.inlineData) {
-          const mimeType = part.inlineData.mimeType || 'image/png';
-          const base64Data = part.inlineData.data;
-          imageUrl = `data:${mimeType};base64,${base64Data}`;
-          break;
-        }
-      }
-      if (imageUrl) break;
+    if (predictions.length > 0 && predictions[0].bytesBase64Encoded) {
+      const base64Data = predictions[0].bytesBase64Encoded;
+      const mimeType = predictions[0].mimeType || 'image/png';
+      imageUrl = `data:${mimeType};base64,${base64Data}`;
     }
 
     if (!imageUrl) {
