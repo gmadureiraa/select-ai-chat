@@ -1,7 +1,8 @@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Eye, MousePointer, Mail, Users, TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { Eye, MousePointer, Mail, TrendingUp, TrendingDown, Minus } from "lucide-react";
 
 interface NewsletterMetric {
   id: string;
@@ -11,9 +12,15 @@ interface NewsletterMetric {
   open_rate?: number | null;
   click_rate?: number | null;
   metadata?: {
+    subject?: string;
+    post_id?: string;
+    sent?: number;
     delivered?: number;
-    opens?: number;
-    clicks?: number;
+    totalOpens?: number;
+    uniqueOpens?: number;
+    uniqueClicks?: number;
+    unsubscribes?: number;
+    spamReports?: number;
     newSubscribers?: number;
   } | null;
 }
@@ -28,6 +35,13 @@ export function NewsletterMetricsTable({ metrics, isLoading }: NewsletterMetrics
     if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
     if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
     return num.toLocaleString();
+  };
+
+  const getOpenRateBadge = (rate: number) => {
+    if (rate >= 40) return <Badge className="bg-emerald-500/20 text-emerald-600 border-emerald-500/30 text-[10px]">Excelente</Badge>;
+    if (rate >= 30) return <Badge className="bg-blue-500/20 text-blue-600 border-blue-500/30 text-[10px]">Bom</Badge>;
+    if (rate >= 20) return <Badge className="bg-amber-500/20 text-amber-600 border-amber-500/30 text-[10px]">Médio</Badge>;
+    return <Badge className="bg-red-500/20 text-red-600 border-red-500/30 text-[10px]">Baixo</Badge>;
   };
 
   const getTrend = (current: number | null | undefined, previous: number | null | undefined) => {
@@ -48,17 +62,17 @@ export function NewsletterMetricsTable({ metrics, isLoading }: NewsletterMetrics
     );
   }
 
-  // Filter only metrics that have actual newsletter data (views or open_rate)
+  // Filter only metrics that have actual newsletter data with subject
   const validMetrics = metrics.filter(m => 
-    (m.views && m.views > 0) || (m.open_rate && m.open_rate > 0)
+    ((m.views && m.views > 0) || (m.open_rate && m.open_rate > 0)) && m.metadata?.subject
   );
 
   if (validMetrics.length === 0) {
     return (
       <div className="text-center py-8 text-muted-foreground">
         <Mail className="h-8 w-8 mx-auto mb-2 opacity-50" />
-        <p className="text-sm">Nenhum dado de envio encontrado</p>
-        <p className="text-xs mt-1">Importe CSVs de performance do Beehiiv</p>
+        <p className="text-sm">Nenhum post encontrado</p>
+        <p className="text-xs mt-1">Importe o CSV "posts_by_date" do Beehiiv</p>
       </div>
     );
   }
@@ -72,6 +86,7 @@ export function NewsletterMetricsTable({ metrics, isLoading }: NewsletterMetrics
         <TableHeader>
           <TableRow className="border-border/50">
             <TableHead className="text-xs">Data</TableHead>
+            <TableHead className="text-xs">Título</TableHead>
             <TableHead className="text-xs text-center">
               <div className="flex items-center justify-center gap-1">
                 <Mail className="h-3 w-3" />
@@ -90,28 +105,27 @@ export function NewsletterMetricsTable({ metrics, isLoading }: NewsletterMetrics
                 Cliques
               </div>
             </TableHead>
-            <TableHead className="text-xs text-center">
-              <div className="flex items-center justify-center gap-1">
-                <Users className="h-3 w-3" />
-                Novos Inscritos
-              </div>
-            </TableHead>
+            <TableHead className="text-xs text-center">Status</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {sortedMetrics.slice(0, 15).map((metric, index) => {
-            const delivered = metric.views || metric.metadata?.delivered || 0;
+            const subject = metric.metadata?.subject || "-";
+            const sent = metric.metadata?.sent || metric.views || 0;
+            const delivered = metric.metadata?.delivered || metric.views || 0;
             const openRate = metric.open_rate || 0;
             const clickRate = metric.click_rate || 0;
-            const newSubs = metric.metadata?.newSubscribers || 0;
             
             const previousMetric = sortedMetrics[index + 1];
             const previousOpenRate = previousMetric?.open_rate;
 
             return (
               <TableRow key={metric.id} className="border-border/30">
-                <TableCell className="text-xs font-medium">
-                  {format(parseISO(metric.metric_date), "dd MMM yyyy", { locale: ptBR })}
+                <TableCell className="text-xs font-medium whitespace-nowrap">
+                  {format(parseISO(metric.metric_date), "dd MMM", { locale: ptBR })}
+                </TableCell>
+                <TableCell className="text-xs max-w-[200px] truncate" title={subject}>
+                  {subject}
                 </TableCell>
                 <TableCell className="text-xs text-center font-medium">
                   {delivered > 0 ? formatNumber(delivered) : "-"}
@@ -134,11 +148,7 @@ export function NewsletterMetricsTable({ metrics, isLoading }: NewsletterMetrics
                   )}
                 </TableCell>
                 <TableCell className="text-center">
-                  {newSubs > 0 ? (
-                    <span className="text-xs font-medium text-emerald-600">+{newSubs}</span>
-                  ) : (
-                    <span className="text-xs text-muted-foreground">-</span>
-                  )}
+                  {openRate > 0 ? getOpenRateBadge(openRate) : "-"}
                 </TableCell>
               </TableRow>
             );
