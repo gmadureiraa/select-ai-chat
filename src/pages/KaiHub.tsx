@@ -32,6 +32,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useClients } from "@/hooks/useClients";
 import { useAuth } from "@/hooks/useAuth";
+import { useWorkspace } from "@/hooks/useWorkspace";
 import { KaiAssistantTab } from "@/components/kai/KaiAssistantTab";
 import { KaiPerformanceTab } from "@/components/kai/KaiPerformanceTab";
 import { KaiLibraryTab } from "@/components/kai/KaiLibraryTab";
@@ -57,8 +58,11 @@ const KaiHub = () => {
   
   const { clients, isLoading } = useClients();
   const { user, signOut } = useAuth();
+  const { userRole } = useWorkspace();
   
   const { scrollDirection, isAtTop } = useScrollDirection();
+  
+  const isMember = userRole === "member";
   
   const selectedClient = clients?.find(c => c.id === selectedClientId);
   
@@ -201,16 +205,18 @@ const KaiHub = () => {
               </PopoverContent>
             </Popover>
 
-            {/* Add Client Button */}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setClientDialogOpen(true)}
-              className="h-8 sm:h-9 gap-2 text-muted-foreground hover:text-foreground shrink-0"
-            >
-              <Plus className="h-4 w-4" />
-              <span className="hidden lg:inline">Novo Cliente</span>
-            </Button>
+            {/* Add Client Button - Only for owners/admins */}
+            {!isMember && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setClientDialogOpen(true)}
+                className="h-8 sm:h-9 gap-2 text-muted-foreground hover:text-foreground shrink-0"
+              >
+                <Plus className="h-4 w-4" />
+                <span className="hidden lg:inline">Novo Cliente</span>
+              </Button>
+            )}
           </div>
 
           {/* Right Side Menu */}
@@ -219,46 +225,71 @@ const KaiHub = () => {
             {/* Theme Toggle */}
             <ThemeToggle />
 
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="h-8 sm:h-9 gap-1 sm:gap-2 text-muted-foreground hover:text-foreground px-2 sm:px-3">
-                  <Hammer className="h-4 w-4" />
-                  <span className="hidden xl:inline">Ferramentas</span>
-                  <ChevronDown className="h-3 w-3 hidden sm:inline" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuItem 
-                  onClick={() => setActiveTab("automations")} 
-                  className="py-2.5"
-                  disabled={!selectedClient}
-                >
-                  <Zap className="h-4 w-4 mr-3" />
-                  Automações
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate("/social-publisher")} className="py-2.5">
-                  <Send className="h-4 w-4 mr-3" />
-                  Publicador Social
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate("/agent-builder")} className="py-2.5">
-                  <Hammer className="h-4 w-4 mr-3" />
-                  Agent Builder
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate("/research-lab")} className="py-2.5">
-                  <FlaskConical className="h-4 w-4 mr-3" />
-                  Laboratório de Pesquisa
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => navigate("/knowledge-base")} className="py-2.5">
-                  <BookOpen className="h-4 w-4 mr-3" />
-                  Base de Conhecimento
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate("/activities")} className="py-2.5">
-                  <Activity className="h-4 w-4 mr-3" />
-                  Atividades
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            {/* Tools Menu - Different for members */}
+            {isMember ? (
+              /* Members only see Activities and Knowledge Base */
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="sm" className="h-8 sm:h-9 gap-1 sm:gap-2 text-muted-foreground hover:text-foreground px-2 sm:px-3">
+                    <BookOpen className="h-4 w-4" />
+                    <span className="hidden xl:inline">Menu</span>
+                    <ChevronDown className="h-3 w-3 hidden sm:inline" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuItem onClick={() => navigate("/knowledge-base")} className="py-2.5">
+                    <BookOpen className="h-4 w-4 mr-3" />
+                    Base de Conhecimento
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate("/activities")} className="py-2.5">
+                    <Activity className="h-4 w-4 mr-3" />
+                    Atividades
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              /* Owners and Admins see full tools menu */
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="sm" className="h-8 sm:h-9 gap-1 sm:gap-2 text-muted-foreground hover:text-foreground px-2 sm:px-3">
+                    <Hammer className="h-4 w-4" />
+                    <span className="hidden xl:inline">Ferramentas</span>
+                    <ChevronDown className="h-3 w-3 hidden sm:inline" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuItem 
+                    onClick={() => setActiveTab("automations")} 
+                    className="py-2.5"
+                    disabled={!selectedClient}
+                  >
+                    <Zap className="h-4 w-4 mr-3" />
+                    Automações
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate("/social-publisher")} className="py-2.5">
+                    <Send className="h-4 w-4 mr-3" />
+                    Publicador Social
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate("/agent-builder")} className="py-2.5">
+                    <Hammer className="h-4 w-4 mr-3" />
+                    Agent Builder
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate("/research-lab")} className="py-2.5">
+                    <FlaskConical className="h-4 w-4 mr-3" />
+                    Laboratório de Pesquisa
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => navigate("/knowledge-base")} className="py-2.5">
+                    <BookOpen className="h-4 w-4 mr-3" />
+                    Base de Conhecimento
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate("/activities")} className="py-2.5">
+                    <Activity className="h-4 w-4 mr-3" />
+                    Atividades
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
 
             {/* User Menu */}
             <DropdownMenu>
