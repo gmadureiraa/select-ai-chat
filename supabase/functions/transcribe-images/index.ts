@@ -6,6 +6,114 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+const BATCH_SIZE = 5; // Process images in batches to ensure all are transcribed
+
+async function transcribeBatch(
+  imageUrls: string[],
+  startIndex: number,
+  apiKey: string
+): Promise<string> {
+  const parts: any[] = [];
+  
+  const systemPrompt = `Você é um transcritor de texto preciso. Sua ÚNICA tarefa é extrair TODO o texto visível nas imagens.
+
+REGRAS IMPORTANTES:
+- NÃO descreva a imagem, NÃO mencione cores, layout, design, ou elementos visuais
+- APENAS transcreva o texto que está escrito
+- Transcreva CADA imagem separadamente
+- Use o formato "---PÁGINA N---" antes do texto de cada imagem
+- Se uma imagem não tiver texto, escreva "(sem texto)"
+- NÃO pule nenhuma imagem
+
+Você receberá ${imageUrls.length} imagens (páginas ${startIndex + 1} a ${startIndex + imageUrls.length}).`;
+
+  parts.push({ text: systemPrompt });
+
+  let validImageCount = 0;
+  for (let i = 0; i < imageUrls.length; i++) {
+    const url = imageUrls[i];
+    let base64Data: string;
+    let mimeType: string;
+
+    if (url.startsWith("data:")) {
+      const matches = url.match(/^data:([^;]+);base64,(.+)$/);
+      if (matches) {
+        mimeType = matches[1];
+        base64Data = matches[2];
+        validImageCount++;
+      } else {
+        console.warn(`Invalid data URL format for image ${startIndex + i + 1}`);
+        continue;
+      }
+    } else {
+      try {
+        const imageResponse = await fetch(url, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+          }
+        });
+        if (imageResponse.ok) {
+          const arrayBuffer = await imageResponse.arrayBuffer();
+          base64Data = encodeBase64(arrayBuffer);
+          mimeType = imageResponse.headers.get("content-type") || "image/jpeg";
+          validImageCount++;
+        } else {
+          console.warn(`Failed to fetch image ${startIndex + i + 1}: ${imageResponse.status}`);
+          continue;
+        }
+      } catch (fetchError) {
+        console.warn(`Error fetching image ${startIndex + i + 1}:`, fetchError);
+        continue;
+      }
+    }
+
+    parts.push({
+      inline_data: {
+        mime_type: mimeType,
+        data: base64Data
+      }
+    });
+  }
+
+  if (validImageCount === 0) {
+    return "";
+  }
+
+  console.log(`Processing batch: ${validImageCount} images (pages ${startIndex + 1}-${startIndex + imageUrls.length})`);
+
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        contents: [
+          {
+            parts: parts
+          }
+        ],
+        generationConfig: {
+          temperature: 0.2,
+          maxOutputTokens: 16384,
+        },
+      }),
+    }
+  );
+
+  if (!response.ok) {
+    const error = await response.text();
+    console.error("Gemini API error:", error);
+    throw new Error(`Gemini API error: ${response.status}`);
+  }
+
+  const data = await response.json();
+  const transcription = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+  
+  return transcription;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -18,8 +126,8 @@ serve(async (req) => {
       throw new Error("imageUrls array is required");
     }
 
-    if (imageUrls.length > 20) {
-      throw new Error("Maximum 20 images allowed");
+    if (imageUrls.length > 25) {
+      throw new Error("Maximum 25 images allowed");
     }
 
     const GOOGLE_API_KEY = Deno.env.get("GOOGLE_AI_STUDIO_API_KEY");
@@ -27,95 +135,54 @@ serve(async (req) => {
       throw new Error("GOOGLE_AI_STUDIO_API_KEY not configured");
     }
 
-    console.log(`Transcribing ${imageUrls.length} images with Gemini`);
+    console.log(`Transcribing ${imageUrls.length} images with Gemini (batch size: ${BATCH_SIZE})`);
 
-    const systemPrompt = "Você é um transcritor de texto. Sua ÚNICA tarefa é extrair o texto visível nas imagens. NÃO descreva a imagem, NÃO mencione cores, layout, design, ou elementos visuais. APENAS transcreva o texto que está escrito. Se for um carrossel do Instagram, separe cada página com '---PÁGINA N---' e transcreva apenas o texto dessa página. Retorne SOMENTE o texto extraído, nada mais.";
+    // Process images in batches
+    const batches: string[][] = [];
+    for (let i = 0; i < imageUrls.length; i += BATCH_SIZE) {
+      batches.push(imageUrls.slice(i, i + BATCH_SIZE));
+    }
 
-    const userPrompt = imageUrls.length === 1 
-      ? "Transcreva APENAS o texto visível nesta imagem. Não descreva a imagem, apenas extraia o texto:"
-      : `Transcreva APENAS o texto visível nestas ${imageUrls.length} imagens. NÃO descreva as imagens. Separe cada página com '---PÁGINA N---' e transcreva apenas o texto de cada uma:`;
+    console.log(`Split into ${batches.length} batches`);
 
-    // Build parts for Gemini API
-    const parts: any[] = [
-      { text: `${systemPrompt}\n\n${userPrompt}` }
-    ];
+    const transcriptions: string[] = [];
+    let globalPageIndex = 0;
 
-    // Add images as inline data
-    for (const url of imageUrls) {
-      let base64Data: string;
-      let mimeType: string;
-
-      if (url.startsWith("data:")) {
-        // Parse data URL
-        const matches = url.match(/^data:([^;]+);base64,(.+)$/);
-        if (matches) {
-          mimeType = matches[1];
-          base64Data = matches[2];
-        } else {
-          console.warn(`Invalid data URL format: ${url.substring(0, 50)}...`);
-          continue;
-        }
-      } else {
-        // URL-based image - fetch and convert to base64
-        try {
-          const imageResponse = await fetch(url);
-          if (imageResponse.ok) {
-            const arrayBuffer = await imageResponse.arrayBuffer();
-            base64Data = encodeBase64(arrayBuffer);
-            mimeType = imageResponse.headers.get("content-type") || "image/jpeg";
-          } else {
-            console.warn(`Failed to fetch image: ${url}`);
-            continue;
+    for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
+      const batch = batches[batchIndex];
+      const batchTranscription = await transcribeBatch(batch, globalPageIndex, GOOGLE_API_KEY);
+      
+      if (batchTranscription) {
+        // Renumber pages if needed to maintain global numbering
+        let adjustedTranscription = batchTranscription;
+        
+        // If this is not the first batch, we need to adjust page numbers
+        if (batchIndex > 0) {
+          // The batch transcription uses pages 1-N, we need to adjust to globalPageIndex+1 to globalPageIndex+N
+          for (let i = batch.length; i >= 1; i--) {
+            const oldPage = `---PÁGINA ${i}---`;
+            const newPage = `---PÁGINA ${globalPageIndex + i}---`;
+            adjustedTranscription = adjustedTranscription.replace(new RegExp(oldPage, 'g'), newPage);
           }
-        } catch (fetchError) {
-          console.warn(`Error fetching image ${url}:`, fetchError);
-          continue;
         }
+        
+        transcriptions.push(adjustedTranscription);
       }
-
-      parts.push({
-        inline_data: {
-          mime_type: mimeType,
-          data: base64Data
-        }
-      });
+      
+      globalPageIndex += batch.length;
+      
+      // Small delay between batches to avoid rate limiting
+      if (batchIndex < batches.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
     }
 
-    // Call Gemini API directly
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GOOGLE_API_KEY}`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          contents: [
-            {
-              parts: parts
-            }
-          ],
-          generationConfig: {
-            temperature: 0.3,
-            maxOutputTokens: 8192,
-          },
-        }),
-      }
-    );
-
-    if (!response.ok) {
-      const error = await response.text();
-      console.error("Gemini API error:", error);
-      throw new Error(`Gemini API error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    const transcription = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-
-    console.log("Transcription completed successfully");
+    const fullTranscription = transcriptions.join('\n\n');
+    
+    console.log(`Transcription completed: ${batches.length} batches processed`);
 
     return new Response(
-      JSON.stringify({ transcription }),
+      JSON.stringify({ transcription: fullTranscription }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       }
