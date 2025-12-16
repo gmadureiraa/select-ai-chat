@@ -107,3 +107,6 @@ verify_jwt = true
 
 [functions.analyze-style]
 verify_jwt = true
+
+[functions.scrape-newsletter]
+verify_jwt = true
