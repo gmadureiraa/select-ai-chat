@@ -36,57 +36,86 @@ serve(async (req) => {
     
     // Extract title
     const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
-    const title = titleMatch ? titleMatch[1].trim() : "Newsletter";
-
-    // Extract all images with their URLs
-    const images: Array<{ url: string; alt?: string }> = [];
-    const imgRegex = /<img[^>]+src=["']([^"']+)["'][^>]*(?:alt=["']([^"']*)["'])?[^>]*>/gi;
-    let imgMatch;
+    let title = titleMatch ? titleMatch[1].trim() : "Newsletter";
     
-    while ((imgMatch = imgRegex.exec(html)) !== null) {
-      let imgUrl = imgMatch[1];
-      const imgAlt = imgMatch[2] || "";
-      
-      // Skip tracking pixels and tiny images
-      if (imgUrl.includes("tracking") || 
-          imgUrl.includes("pixel") || 
-          imgUrl.includes("1x1") ||
-          imgUrl.includes("spacer") ||
-          imgUrl.includes("blank.gif") ||
-          imgUrl.length < 10) {
-        continue;
-      }
-      
-      // Convert relative URLs to absolute
-      if (imgUrl.startsWith("//")) {
-        imgUrl = "https:" + imgUrl;
-      } else if (imgUrl.startsWith("/")) {
-        const urlObj = new URL(url);
-        imgUrl = urlObj.origin + imgUrl;
-      } else if (!imgUrl.startsWith("http")) {
-        const urlObj = new URL(url);
-        imgUrl = urlObj.origin + "/" + imgUrl;
-      }
-      
-      // Skip data URIs and very short URLs
-      if (!imgUrl.startsWith("data:") && imgUrl.length > 20) {
-        images.push({ url: imgUrl, alt: imgAlt });
+    // Also try og:title
+    const ogTitleMatch = html.match(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i);
+    if (ogTitleMatch) {
+      title = ogTitleMatch[1].trim();
+    }
+
+    // Extract all images with their URLs - improved regex
+    const images: Array<{ url: string; alt?: string }> = [];
+    
+    // Multiple patterns to catch different image formats
+    const imgPatterns = [
+      /<img[^>]+src=["']([^"']+)["'][^>]*>/gi,
+      /<img[^>]+data-src=["']([^"']+)["'][^>]*>/gi,
+      /background-image:\s*url\(["']?([^"')]+)["']?\)/gi,
+      /<source[^>]+srcset=["']([^"'\s]+)/gi,
+    ];
+    
+    for (const pattern of imgPatterns) {
+      let match;
+      while ((match = pattern.exec(html)) !== null) {
+        let imgUrl = match[1];
+        
+        // Skip tracking pixels, tiny images, and common non-content images
+        if (imgUrl.includes("tracking") || 
+            imgUrl.includes("pixel") || 
+            imgUrl.includes("1x1") ||
+            imgUrl.includes("spacer") ||
+            imgUrl.includes("blank.gif") ||
+            imgUrl.includes("beacon") ||
+            imgUrl.includes("open.gif") ||
+            imgUrl.includes("logo") ||
+            imgUrl.includes("icon") ||
+            imgUrl.length < 15) {
+          continue;
+        }
+        
+        // Convert relative URLs to absolute
+        if (imgUrl.startsWith("//")) {
+          imgUrl = "https:" + imgUrl;
+        } else if (imgUrl.startsWith("/")) {
+          const urlObj = new URL(url);
+          imgUrl = urlObj.origin + imgUrl;
+        } else if (!imgUrl.startsWith("http")) {
+          const urlObj = new URL(url);
+          const pathParts = urlObj.pathname.split("/");
+          pathParts.pop();
+          imgUrl = urlObj.origin + pathParts.join("/") + "/" + imgUrl;
+        }
+        
+        // Skip data URIs and duplicates
+        if (!imgUrl.startsWith("data:") && imgUrl.length > 20) {
+          const exists = images.some(img => img.url === imgUrl);
+          if (!exists) {
+            // Try to extract alt text
+            const altMatch = html.match(new RegExp(`<img[^>]*src=["']${imgUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}["'][^>]*alt=["']([^"']*)["']`, 'i'));
+            images.push({ 
+              url: imgUrl, 
+              alt: altMatch ? altMatch[1] : undefined 
+            });
+          }
+        }
       }
     }
 
-    // Extract text content by sections
-    // First, remove script and style tags
+    console.log(`Found ${images.length} images`);
+
+    // Remove script, style, and comments
     let cleanHtml = html
       .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
       .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
-      .replace(/<!--[\s\S]*?-->/g, '');
+      .replace(/<!--[\s\S]*?-->/g, '')
+      .replace(/<header[^>]*>[\s\S]*?<\/header>/gi, '')
+      .replace(/<footer[^>]*>[\s\S]*?<\/footer>/gi, '')
+      .replace(/<nav[^>]*>[\s\S]*?<\/nav>/gi, '');
 
-    // Try to extract main content sections
-    const sections: Array<{ heading?: string; content: string; images: string[] }> = [];
-    
-    // Extract headings and their following content
-    const headingRegex = /<(h[1-6])[^>]*>([\s\S]*?)<\/\1>/gi;
-    const headings: Array<{ tag: string; text: string; index: number }> = [];
+    // Extract headings
+    const headings: Array<{ tag: string; text: string }> = [];
+    const headingRegex = /<(h[1-3])[^>]*>([\s\S]*?)<\/\1>/gi;
     let headingMatch;
     
     while ((headingMatch = headingRegex.exec(cleanHtml)) !== null) {
@@ -94,11 +123,10 @@ serve(async (req) => {
         .replace(/<[^>]+>/g, '')
         .replace(/\s+/g, ' ')
         .trim();
-      if (headingText.length > 0) {
+      if (headingText.length > 3 && headingText.length < 200) {
         headings.push({
           tag: headingMatch[1],
-          text: headingText,
-          index: headingMatch.index
+          text: headingText
         });
       }
     }
@@ -110,86 +138,132 @@ serve(async (req) => {
     
     while ((pMatch = pRegex.exec(cleanHtml)) !== null) {
       const pText = pMatch[1]
+        .replace(/<br\s*\/?>/gi, '\n')
         .replace(/<[^>]+>/g, '')
+        .replace(/&nbsp;/g, ' ')
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'")
         .replace(/\s+/g, ' ')
         .trim();
-      if (pText.length > 20) { // Skip very short paragraphs
+      if (pText.length > 30) {
         paragraphs.push(pText);
       }
     }
 
-    // If no paragraphs found, try to extract from divs and tds (common in email newsletters)
-    if (paragraphs.length === 0) {
-      const divRegex = /<(?:div|td)[^>]*>([\s\S]*?)<\/(?:div|td)>/gi;
+    // If few paragraphs, also extract from divs and tds
+    if (paragraphs.length < 5) {
+      const divRegex = /<(?:div|td)[^>]*class=["'][^"']*(?:content|body|text|article|post)[^"']*["'][^>]*>([\s\S]*?)<\/(?:div|td)>/gi;
       let divMatch;
       
       while ((divMatch = divRegex.exec(cleanHtml)) !== null) {
         const divText = divMatch[1]
+          .replace(/<br\s*\/?>/gi, '\n')
           .replace(/<[^>]+>/g, '')
+          .replace(/&nbsp;/g, ' ')
           .replace(/\s+/g, ' ')
           .trim();
-        if (divText.length > 50) {
+        if (divText.length > 50 && !paragraphs.includes(divText)) {
           paragraphs.push(divText);
         }
       }
     }
 
-    // Build structured content
-    const content = paragraphs.join('\n\n');
-
-    // Format for carousel with images
-    const carouselContent: Array<{
-      slideNumber: number;
-      text: string;
-      imageUrl?: string;
-    }> = [];
-
-    // Distribute images across content sections
-    const chunkSize = Math.ceil(paragraphs.length / Math.max(images.length, 1));
+    // Extract blockquotes and highlights
+    const highlights: string[] = [];
+    const quoteRegex = /<(?:blockquote|strong|b|em)[^>]*>([\s\S]*?)<\/(?:blockquote|strong|b|em)>/gi;
+    let quoteMatch;
     
-    images.forEach((img, idx) => {
-      const startIdx = idx * chunkSize;
-      const endIdx = Math.min(startIdx + chunkSize, paragraphs.length);
-      const slideText = paragraphs.slice(startIdx, endIdx).join('\n\n');
-      
-      carouselContent.push({
-        slideNumber: idx + 1,
-        text: slideText || `Slide ${idx + 1}`,
-        imageUrl: img.url
-      });
-    });
-
-    // If no images, create slides from content only
-    if (carouselContent.length === 0 && paragraphs.length > 0) {
-      const slidesCount = Math.min(10, Math.ceil(paragraphs.length / 3));
-      const paraPerSlide = Math.ceil(paragraphs.length / slidesCount);
-      
-      for (let i = 0; i < slidesCount; i++) {
-        const startIdx = i * paraPerSlide;
-        const endIdx = Math.min(startIdx + paraPerSlide, paragraphs.length);
-        const slideText = paragraphs.slice(startIdx, endIdx).join('\n\n');
-        
-        carouselContent.push({
-          slideNumber: i + 1,
-          text: slideText
-        });
+    while ((quoteMatch = quoteRegex.exec(cleanHtml)) !== null) {
+      const quoteText = quoteMatch[1]
+        .replace(/<[^>]+>/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+      if (quoteText.length > 20 && quoteText.length < 300) {
+        highlights.push(quoteText);
       }
     }
 
-    console.log(`Newsletter scraped: ${title}, ${images.length} images, ${paragraphs.length} paragraphs`);
+    // Build carousel content - structured approach
+    const carouselSlides: Array<{
+      slideNumber: number;
+      type: 'hook' | 'bridge' | 'content' | 'cta';
+      text: string;
+      imageUrl?: string;
+      heading?: string;
+    }> = [];
+
+    // Slide 1: Hook - use first heading or strong paragraph
+    const hookText = headings[0]?.text || highlights[0] || paragraphs[0]?.substring(0, 150) || title;
+    carouselSlides.push({
+      slideNumber: 1,
+      type: 'hook',
+      text: hookText,
+      imageUrl: images[0]?.url,
+      heading: "GANCHO"
+    });
+
+    // Slide 2: Bridge - context/problem
+    const bridgeText = paragraphs[0] || headings[1]?.text || "Contexto da newsletter";
+    carouselSlides.push({
+      slideNumber: 2,
+      type: 'bridge',
+      text: bridgeText.substring(0, 300),
+      imageUrl: images[1]?.url,
+      heading: "PONTE"
+    });
+
+    // Slides 3-6: Content - main points
+    const contentParagraphs = paragraphs.slice(1, 5);
+    contentParagraphs.forEach((para, idx) => {
+      carouselSlides.push({
+        slideNumber: idx + 3,
+        type: 'content',
+        text: para.substring(0, 350),
+        imageUrl: images[idx + 2]?.url,
+        heading: headings[idx + 1]?.text
+      });
+    });
+
+    // Fill up to 6 content slides if needed
+    while (carouselSlides.length < 6 && paragraphs.length > carouselSlides.length - 2) {
+      const idx = carouselSlides.length - 2;
+      carouselSlides.push({
+        slideNumber: carouselSlides.length + 1,
+        type: 'content',
+        text: paragraphs[idx]?.substring(0, 350) || "",
+        imageUrl: images[carouselSlides.length]?.url
+      });
+    }
+
+    // Slide 7: CTA
+    const ctaText = paragraphs[paragraphs.length - 1] || "Acesse o conteúdo completo no link original.";
+    carouselSlides.push({
+      slideNumber: carouselSlides.length + 1,
+      type: 'cta',
+      text: ctaText.substring(0, 200),
+      heading: "CTA"
+    });
+
+    console.log(`Newsletter scraped: ${title}, ${images.length} images, ${paragraphs.length} paragraphs, ${carouselSlides.length} slides`);
 
     return new Response(JSON.stringify({
       success: true,
       data: {
         title,
         url,
-        images: images.slice(0, 20), // Limit to 20 images
-        headings: headings.slice(0, 20),
-        content: content.substring(0, 15000), // Limit content size
-        paragraphs: paragraphs.slice(0, 50),
-        carouselContent: carouselContent.slice(0, 15),
-        rawTextLength: content.length,
-        imageCount: images.length
+        images: images.slice(0, 25),
+        headings: headings.slice(0, 15),
+        highlights: highlights.slice(0, 10),
+        paragraphs: paragraphs.slice(0, 30),
+        carouselSlides,
+        stats: {
+          imageCount: images.length,
+          paragraphCount: paragraphs.length,
+          headingCount: headings.length
+        }
       }
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
