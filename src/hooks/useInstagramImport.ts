@@ -68,15 +68,26 @@ export function useInstagramImport() {
       // Step 2: Transcribe images
       setStep("transcribing");
 
+      console.log("Starting transcription for", extracted.images.length, "images");
+
       const { data: transcribeData, error: transcribeError } = await supabase.functions.invoke(
         "transcribe-images",
         { body: { imageUrls: extracted.images } }
       );
 
-      if (transcribeError) throw new Error(transcribeError.message);
-      if (transcribeData.error) throw new Error(transcribeData.error);
+      if (transcribeError) {
+        console.error("Transcribe error:", transcribeError);
+        throw new Error(transcribeError.message);
+      }
+      if (transcribeData?.error) {
+        console.error("Transcribe data error:", transcribeData.error);
+        throw new Error(transcribeData.error);
+      }
 
-      const imageTranscription = transcribeData.transcription || "";
+      const imageTranscription = transcribeData?.transcription || "";
+      console.log("Transcription received, length:", imageTranscription.length);
+      
+      // Set transcription state BEFORE creating result
       setTranscription(imageTranscription);
 
       // Step 3: Combine and prepare result - title from first page text
@@ -91,6 +102,8 @@ export function useInstagramImport() {
         images: extracted.images,
         caption: extracted.caption,
       };
+
+      console.log("Import result ready:", { title, contentLength: content.length, imageCount: extracted.images.length });
 
       setResult(importResult);
       setStep("ready");

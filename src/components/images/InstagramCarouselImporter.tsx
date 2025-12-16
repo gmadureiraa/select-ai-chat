@@ -25,7 +25,7 @@ export function InstagramCarouselImporter({
 }: InstagramCarouselImporterProps) {
   const { toast } = useToast();
   const [url, setUrl] = useState("");
-  const [targetLibrary, setTargetLibrary] = useState<"content" | "reference">("content");
+  const [targetLibrary, setTargetLibrary] = useState<"content" | "reference">("reference");
   const [isSaving, setIsSaving] = useState(false);
 
   const {
@@ -151,6 +151,26 @@ export function InstagramCarouselImporter({
           {step === "ready" && result && extractedData && (
             <ScrollArea className="flex-1 min-h-0" style={{ maxHeight: "calc(85vh - 200px)" }}>
               <div className="space-y-4 pr-4">
+                {/* Transcription - FIRST and PROMINENT */}
+                <div className="border-2 border-primary/30 rounded-lg p-4 bg-primary/5">
+                  <Label className="text-sm font-semibold flex items-center gap-2 mb-2 text-primary">
+                    <FileText className="h-4 w-4" />
+                    Transcrição das Imagens (edite se necessário)
+                  </Label>
+                  <Textarea
+                    value={transcription}
+                    onChange={(e) => updateTranscription(e.target.value)}
+                    rows={10}
+                    className="text-sm font-mono"
+                    placeholder="Transcrição do texto das imagens..."
+                  />
+                  {transcription && (
+                    <p className="text-xs text-muted-foreground mt-2">
+                      {transcription.split('---PÁGINA').length - 1} páginas transcritas
+                    </p>
+                  )}
+                </div>
+
                 {/* Image Preview */}
                 <div>
                   <Label className="text-sm font-medium flex items-center gap-2 mb-2">
@@ -203,23 +223,8 @@ export function InstagramCarouselImporter({
                   </div>
                 )}
 
-                {/* Transcription */}
-                <div>
-                  <Label className="text-sm font-medium flex items-center gap-2 mb-2">
-                    <FileText className="h-4 w-4" />
-                    Transcrição das Imagens
-                  </Label>
-                  <Textarea
-                    value={transcription}
-                    onChange={(e) => updateTranscription(e.target.value)}
-                    rows={8}
-                    className="text-sm"
-                    placeholder="Transcrição do texto das imagens..."
-                  />
-                </div>
-
-                {/* Target Library */}
-                <div>
+                {/* Target Library - Default to Reference */}
+                <div className="border rounded-lg p-3 bg-muted/50">
                   <Label className="text-sm font-medium mb-2 block">Salvar em</Label>
                   <RadioGroup
                     value={targetLibrary}
@@ -227,15 +232,15 @@ export function InstagramCarouselImporter({
                     className="flex gap-4"
                   >
                     <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="content" id="content" />
-                      <Label htmlFor="content" className="font-normal cursor-pointer">
-                        Biblioteca de Conteúdo
-                      </Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
                       <RadioGroupItem value="reference" id="reference" />
                       <Label htmlFor="reference" className="font-normal cursor-pointer">
                         Biblioteca de Referências
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="content" id="content" />
+                      <Label htmlFor="content" className="font-normal cursor-pointer">
+                        Conteúdo Produzido
                       </Label>
                     </div>
                   </RadioGroup>
