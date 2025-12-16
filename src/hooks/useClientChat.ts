@@ -434,6 +434,97 @@ export const useClientChat = (clientId: string, templateId?: string, conversatio
       }
 
       // =====================================================
+      // DETECTAR PEDIDO DE EXTRAÇÃO DE NEWSLETTER
+      // =====================================================
+      const newsletterUrlMatch = content.match(/https?:\/\/[^\s]+/gi);
+      const isNewsletterExtractionRequest = (
+        newsletterUrlMatch && 
+        (content.toLowerCase().includes("newsletter") ||
+         content.toLowerCase().includes("extrai") ||
+         content.toLowerCase().includes("extraia") ||
+         content.toLowerCase().includes("extrair") ||
+         content.toLowerCase().includes("pega") ||
+         content.toLowerCase().includes("carrossel") ||
+         content.toLowerCase().includes("carousel") ||
+         content.toLowerCase().includes("conteúdo") ||
+         content.toLowerCase().includes("conteudo") ||
+         content.toLowerCase().includes("imagens"))
+      );
+      
+      if (isNewsletterExtractionRequest && newsletterUrlMatch) {
+        console.log("[CHAT] Newsletter extraction detected for URL:", newsletterUrlMatch[0]);
+        setCurrentStep("analyzing");
+        
+        try {
+          const { data: newsletterData, error: newsletterError } = await supabase.functions.invoke("scrape-newsletter", {
+            body: { url: newsletterUrlMatch[0] },
+          });
+
+          if (newsletterError) throw newsletterError;
+          
+          if (newsletterData?.success && newsletterData?.data) {
+            const { title, images, paragraphs, carouselContent } = newsletterData.data;
+            
+            // Formatar resposta com imagens inline
+            let responseContent = `## 📰 Newsletter Extraída: ${title}\n\n`;
+            
+            if (carouselContent && carouselContent.length > 0) {
+              responseContent += `### 🎠 Conteúdo para Carrossel (${carouselContent.length} slides)\n\n`;
+              
+              carouselContent.forEach((slide: any, idx: number) => {
+                responseContent += `---SLIDE ${idx + 1}---\n\n`;
+                if (slide.text) {
+                  responseContent += `${slide.text}\n\n`;
+                }
+                if (slide.imageUrl) {
+                  responseContent += `🖼️ **Imagem:** ${slide.imageUrl}\n\n`;
+                }
+              });
+            } else if (paragraphs && paragraphs.length > 0) {
+              responseContent += `### 📝 Conteúdo Extraído\n\n`;
+              responseContent += paragraphs.slice(0, 10).join('\n\n');
+            }
+            
+            // Coletar URLs de imagens para exibição
+            const imageUrlsFromNewsletter = images?.slice(0, 10).map((img: any) => img.url) || [];
+            
+            if (imageUrlsFromNewsletter.length > 0) {
+              responseContent += `\n\n### 🖼️ Imagens Encontradas (${images.length} total)\n\n`;
+              imageUrlsFromNewsletter.forEach((imgUrl: string, idx: number) => {
+                responseContent += `${idx + 1}. ${imgUrl}\n`;
+              });
+            }
+            
+            // Salvar resposta com as imagens
+            await supabase.from("messages").insert({
+              conversation_id: conversationId,
+              role: "assistant",
+              content: responseContent,
+              image_urls: imageUrlsFromNewsletter.length > 0 ? imageUrlsFromNewsletter : null,
+            });
+            
+            queryClient.invalidateQueries({ queryKey: ["messages", conversationId] });
+          } else {
+            throw new Error(newsletterData?.error || "Erro ao extrair newsletter");
+          }
+        } catch (nlError: any) {
+          console.error("Newsletter extraction error:", nlError);
+          
+          await supabase.from("messages").insert({
+            conversation_id: conversationId,
+            role: "assistant",
+            content: `Não foi possível extrair a newsletter. ${nlError.message || "Verifique se o link está correto e tente novamente."}`,
+          });
+          
+          queryClient.invalidateQueries({ queryKey: ["messages", conversationId] });
+        }
+        
+        setIsLoading(false);
+        setCurrentStep(null);
+        return;
+      }
+
+      // =====================================================
       // FLUXO CHAT LIVRE (conversa com dados reais, nunca inventa)
       // =====================================================
       if (isFreeChatModeExplicit) {
