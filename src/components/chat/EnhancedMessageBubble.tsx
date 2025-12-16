@@ -212,7 +212,20 @@ export const EnhancedMessageBubble = ({
                 [&_hr]:border-border [&_hr]:my-4
                 [&_a]:text-primary [&_a]:underline [&_a]:underline-offset-2
               ">
-                <ReactMarkdown>{textContent}</ReactMarkdown>
+                <ReactMarkdown
+                  components={{
+                    img: ({ src, alt }) => (
+                      <img 
+                        src={src} 
+                        alt={alt || "Imagem"} 
+                        className="max-w-full h-auto rounded-lg border border-border/50 my-2 cursor-pointer hover:opacity-90 transition-opacity"
+                        onClick={() => src && setLightboxImage(src)}
+                      />
+                    ),
+                  }}
+                >
+                  {textContent}
+                </ReactMarkdown>
               </div>
             </div>
           )}
