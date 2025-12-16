@@ -465,7 +465,10 @@ export const useClientChat = (clientId: string, templateId?: string, conversatio
           if (newsletterData?.success && newsletterData?.data) {
             const { title, images, paragraphs, carouselContent } = newsletterData.data;
             
-            // Formatar resposta com imagens inline
+            // Coletar todas as URLs de imagens
+            const imageUrlsFromNewsletter = images?.slice(0, 15).map((img: any) => img.url) || [];
+            
+            // Formatar resposta com imagens inline usando markdown
             let responseContent = `## 📰 Newsletter Extraída: ${title}\n\n`;
             
             if (carouselContent && carouselContent.length > 0) {
@@ -473,11 +476,14 @@ export const useClientChat = (clientId: string, templateId?: string, conversatio
               
               carouselContent.forEach((slide: any, idx: number) => {
                 responseContent += `---SLIDE ${idx + 1}---\n\n`;
+                
+                // Se o slide tem imagem, mostrar com markdown
+                if (slide.imageUrl) {
+                  responseContent += `![Slide ${idx + 1}](${slide.imageUrl})\n\n`;
+                }
+                
                 if (slide.text) {
                   responseContent += `${slide.text}\n\n`;
-                }
-                if (slide.imageUrl) {
-                  responseContent += `🖼️ **Imagem:** ${slide.imageUrl}\n\n`;
                 }
               });
             } else if (paragraphs && paragraphs.length > 0) {
@@ -485,17 +491,16 @@ export const useClientChat = (clientId: string, templateId?: string, conversatio
               responseContent += paragraphs.slice(0, 10).join('\n\n');
             }
             
-            // Coletar URLs de imagens para exibição
-            const imageUrlsFromNewsletter = images?.slice(0, 10).map((img: any) => img.url) || [];
-            
+            // Listar todas as imagens encontradas com preview markdown
             if (imageUrlsFromNewsletter.length > 0) {
-              responseContent += `\n\n### 🖼️ Imagens Encontradas (${images.length} total)\n\n`;
+              responseContent += `\n\n### 🖼️ Todas as Imagens (${images?.length || 0} encontradas)\n\n`;
               imageUrlsFromNewsletter.forEach((imgUrl: string, idx: number) => {
-                responseContent += `${idx + 1}. ${imgUrl}\n`;
+                responseContent += `**${idx + 1}.** ![Imagem ${idx + 1}](${imgUrl})\n\n`;
+                responseContent += `\`${imgUrl}\`\n\n`;
               });
             }
             
-            // Salvar resposta com as imagens
+            // Salvar resposta com as imagens para galeria
             await supabase.from("messages").insert({
               conversation_id: conversationId,
               role: "assistant",
