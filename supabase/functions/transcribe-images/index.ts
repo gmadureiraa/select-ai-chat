@@ -18,8 +18,8 @@ serve(async (req) => {
       throw new Error("imageUrls array is required");
     }
 
-    if (imageUrls.length > 10) {
-      throw new Error("Maximum 10 images allowed");
+    if (imageUrls.length > 20) {
+      throw new Error("Maximum 20 images allowed");
     }
 
     const GOOGLE_API_KEY = Deno.env.get("GOOGLE_AI_STUDIO_API_KEY");
