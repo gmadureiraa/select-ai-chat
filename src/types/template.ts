@@ -110,6 +110,8 @@ export const GLOBAL_CONTENT_RULES = {
   cta: "SEMPRE tenha um CTA. 1 CTA por conteúdo. Não confunda o usuário.",
   value: "Se não é útil, educativo, inspirador ou divertido, não publique.",
   slideFormatting: "SEMPRE pule uma linha em branco após o fim de cada slide/página em conteúdos multi-página (carrossel, stories, threads). Use '---PÁGINA N---' ou '---SLIDE N---' como separador, seguido de linha em branco antes do próximo conteúdo.",
+  antiRepetition: "PROIBIDO repetir estruturas de frase, palavras-chave emocionais ou transições entre slides/páginas. Cada parte do conteúdo deve ter linguagem única e variada.",
+  storytelling: "PRIORIZE storytelling e fatos concretos sobre frases de impacto genéricas. Conte histórias reais, use dados específicos, mostre ao invés de afirmar.",
 };
 
 // =====================================================
@@ -150,122 +152,143 @@ export const STATIC_POST_FORMAT_RULES = `
 export const CAROUSEL_FORMAT_RULES = `
 ## FORMATO OBRIGATÓRIO PARA CARROSSEL
 
-### A REGRA DE OURO DO SLIDE 1
-O primeiro slide tem **1 único objetivo**: fazer a pessoa deslizar para o próximo.
-Não é para educar. Não é para explicar. É para **criar curiosidade irresistível**.
-Se o Slide 1 não parar o scroll, o resto não importa. **Slide 1 é 80% do sucesso.**
+### 🚫 REGRAS ANTI-REPETIÇÃO (CRÍTICAS!)
 
-### SLIDE 1: O GANCHO IRRESISTÍVEL (Máximo 20 palavras)
+**PROIBIÇÕES ABSOLUTAS:**
+- ❌ Usar mais de 1 frase de impacto por carrossel inteiro
+- ❌ Repetir estruturas de frase entre slides ("Você está perdendo X", "Você não sabe Y", "O segredo é Z")
+- ❌ Usar as mesmas transições ("E tem mais", "Mas calma", "Agora vem o melhor") mais de uma vez
+- ❌ Repetir palavras-chave emocionais (perder, segredo, chocante, transformar) em slides consecutivos
+- ❌ Começar slides com a mesma estrutura ("Passo 1:", "Passo 2:" pode, mas variando a estrutura da frase)
 
-**O que NÃO fazer no Slide 1:**
-❌ "Entenda como X afeta Y"
-❌ "Neste carrossel você vai aprender sobre..."
-❌ "Vamos falar sobre X hoje"
-❌ "Descubra tudo sobre Y"
-❌ "Guia completo de Z"
-**Por quê?** Não cria urgência. Não cria curiosidade. Soa como aula chata.
+**PALAVRAS/FRASES COM LIMITE (máximo 1 ocorrência por carrossel):**
+- "segredo", "revelação", "chocante", "ninguém te conta"
+- "você está perdendo", "a maioria não sabe", "poucos conhecem"
+- "transformar/transformação", "mudar sua vida"
+- "urgente", "última chance", "antes que seja tarde"
 
-**O que FAZER no Slide 1:**
+### 📖 STORYTELLING > FRASES DE IMPACTO
 
-✅ **Fórmula 1: Dor + Promessa de Solução**
-Linha 1 (DOR): Problema específico com número
-Linha 2 (PROMESSA): "Mas existe um segredo que..."
-Exemplo: "Cada dia que seu dinheiro fica parado, você perde 0,5% dele. Mas existe um segredo que poucos conhecem..."
-
-✅ **Fórmula 2: Pergunta Provocativa + Revelação**
-Linha 1 (PERGUNTA): Pergunta que causa desconforto
-Linha 2 (REVELAÇÃO): "A resposta vai te chocar..."
-Exemplo: "Por que seu dinheiro vale menos hoje do que valia ontem? A resposta vai te chocar (e mostrar o que fazer agora)."
-
-✅ **Fórmula 3: Contraste Chocante + Curiosidade**
-Linha 1 (CONTRASTE): Comparação impactante com números
-Linha 2 (CURIOSIDADE): "E tem gente fazendo o oposto..."
-Exemplo: "R$10.000 em 2020 = R$6.000 hoje. E tem gente fazendo o oposto (aumentando patrimônio enquanto outros perdem)."
-
-✅ **Fórmula 4: Erro Comum + Consequência**
-Linha 1 (ERRO): "X% das pessoas cometem este erro..."
-Linha 2 (CONSEQUÊNCIA): "E estão perdendo R$X por ano sem perceber."
-
-✅ **Fórmula 5: Segredo Revelado + Urgência**
-Linha 1 (SEGREDO): "O segredo que [grupo] usa para [benefício]"
-Linha 2 (URGÊNCIA): "E você pode começar a usar hoje."
-
-### SLIDE 2: A PONTE (Aprofunda a dor, NÃO entrega solução)
-
-**Objetivo**: Validar a dor e criar mais curiosidade
-**Regras**:
-- Aprofunde a dor mencionada no Slide 1
-- Mostre que você entende o problema
-- NÃO entregue a solução ainda
-- Termine com gancho: "Mas tem solução →", "E tem mais →", "Aqui está o problema →"
-
-### SLIDES 3-6: O DESENVOLVIMENTO (Máximo 30 palavras por slide)
-
-**Objetivo**: Entregar valor, educar, construir credibilidade
-
-**Tipos de estrutura:**
-
-**Tipo 1: Revelação de Segredo**
-S3: "O segredo é [X]"
-S4: "Como funciona: [explicação simples]"
-S5: "Por que funciona: [dados/prova]"
-S6: "Como você pode usar: [aplicação prática]"
-
-**Tipo 2: Passo a Passo**
-S3: "Passo 1: [ação específica]"
-S4: "Passo 2: [ação específica]"
-S5: "Passo 3: [ação específica]"
-S6: "O resultado: [benefício concreto]"
-
-**Tipo 3: Erros Comuns**
-S3: "Erro 1: [erro] → Faça isso: [correção]"
-S4: "Erro 2: [erro] → Faça isso: [correção]"
-S5: "Erro 3: [erro] → Faça isso: [correção]"
-S6: "Resultado de corrigir: [benefício]"
-
-**Regras dos Slides 3-6:**
-- 1 ideia por slide (NUNCA misture)
-- Seja específico: números > adjetivos
-- Use transições: "E tem mais →", "Mas não para por aí →", "Aqui está o melhor →"
-- Crie progressão: cada slide leva naturalmente ao próximo
-
-### SLIDE 7: O CTA (Recapitula + Direciona)
-
-**O que NÃO fazer:**
-❌ "Gostou? Siga para mais"
-❌ "Link na bio"
-❌ "Comente o que achou"
+**PRINCÍPIO FUNDAMENTAL:** Conte uma história, não faça declarações vazias.
 
 **O que FAZER:**
-✅ Recapitule o benefício + CTA específico
+✅ Use casos reais: "João tinha R$10.000 parados. Em 12 meses, esse dinheiro rendeu R$800."
+✅ Dê fatos específicos: "Em 2024, a inflação acumulada foi 4,62%"
+✅ Mostre, não diga: "Gastei 2h por dia por 6 meses = 360 horas investidas" (ao invés de "dediquei muito tempo")
+✅ Conte jornadas: "Comecei com R$500. Errei, ajustei, aprendi. Hoje tenho X."
+✅ Use comparações concretas: "R$1.000 em 2020 = R$740 de poder de compra hoje"
 
-**Fórmula**:
-Linha 1 (RECAPITULAÇÃO): "Agora você sabe como [benefício alcançado]."
-Linha 2 (CTA): "Quer começar hoje? Link na bio para [ação específica]."
+**O que NÃO fazer:**
+❌ "Você está perdendo dinheiro!" (vago, sem contexto)
+❌ "O segredo que vai mudar sua vida" (promessa vazia)
+❌ "A maioria das pessoas não sabe disso" (genérico)
+❌ Acumular palavras de impacto sem substância
 
-**Exemplos de CTA forte:**
-- "Seu dinheiro parado está perdendo valor agora. Comece a proteger seu patrimônio hoje. Link na bio."
-- "Você acabou de descobrir o que 90% das pessoas não sabe. Não deixe esse conhecimento parado. Salve este carrossel."
-- "A diferença entre ficar mais pobre e ficar mais rico é uma escolha. Faça a escolha certa. Link na bio."
+### 🎭 TOM DE VOZ POR SLIDE (Variedade Obrigatória)
 
-### REGRAS DE OURO (OBRIGATÓRIAS):
+**Slide 1 - TOM: CURIOSIDADE**
+- Objetivo: Despertar interesse genuíno, não urgência artificial
+- Use: Pergunta intrigante, dado surpreendente, história iniciada
+- Evite: "URGENTE!", "VOCÊ PRECISA SABER!", exclamações excessivas
+- Exemplo: "Meu avô guardava dinheiro no colchão. Descobri quanto ele perdeu em 40 anos."
 
-1. **Slide 1 é 80% do sucesso**: Se não parar o scroll, o resto não importa
-2. **Crie loops de curiosidade**: Use setas (→), reticências (...), "E tem mais", "Mas calma"
-3. **Não seja educativo demais**: Carrossel é conversa persuasiva, não aula
-   - EVITE: "Entenda", "Aprenda", "Descubra", "Vamos falar sobre"
-   - USE: "Você está perdendo", "O segredo é", "Aqui está como", "Faça isso"
-4. **Use números específicos**: "R$150 por mês" > "dinheiro" 
-5. **Crie urgência real**: "Cada dia que passa, você perde mais" (não "ÚLTIMA CHANCE!!!")
-6. **Prometa e entregue**: Se prometeu segredo, revele. Se prometeu 3 passos, dê os 3.
-7. **CTA claro no final**: Nunca deixe sem direção
+**Slide 2 - TOM: EMPATIA/VALIDAÇÃO**
+- Objetivo: Conectar-se com a dor/situação do leitor
+- Use: "Eu também passei por isso", "É frustrante quando...", dados que validam
+- Evite: Julgamento, superioridade, mais urgência
+- Exemplo: "Quando vi minha primeira fatura de cartão, entendi a sensação de perder o controle."
 
-### CHECKLIST OBRIGATÓRIO:
-- [ ] Slide 1: Cria dor/urgência/curiosidade (máx 20 palavras)
-- [ ] Slide 2: Aprofunda sem entregar solução, termina com gancho
-- [ ] Slides 3-6: 1 ideia por slide, específico, máx 30 palavras
-- [ ] Slide 7: Recapitula benefício + CTA específico (não genérico)
-- [ ] Geral: Numeração (1/7, 2/7...), tom consistente, entrega o prometido
+**Slides 3-5 - TOM: EDUCATIVO/INFORMATIVO**
+- Objetivo: Entregar valor real com dados e exemplos
+- Use: Números específicos, passos práticos, exemplos reais
+- Evite: Frases motivacionais vazias, repetir o gancho
+- Exemplo: "Passo 1: Anote TODOS os gastos por 30 dias. Use planilha ou app - o método importa menos que a consistência."
+
+**Slide 6 - TOM: PRÁTICO/APLICAÇÃO**
+- Objetivo: Dar o próximo passo concreto
+- Use: "Faça isso agora:", "Comece por:", ação específica
+- Evite: Teoria, mais dados, filosofia
+- Exemplo: "Hoje: Abra seu extrato e some seus gastos fixos. Esse número é seu ponto de partida."
+
+**Slide 7 - TOM: INSPIRAÇÃO SUTIL + CTA**
+- Objetivo: Fechar com esperança realista e direção clara
+- Use: Resultado alcançável, CTA específico
+- Evite: Promessas irreais, urgência falsa, "ÚLTIMA CHANCE"
+- Exemplo: "Daqui 6 meses, você pode olhar pra trás e ver a diferença. O primeiro passo é hoje."
+
+### 📐 ESTRUTURA DE SLIDES
+
+**SLIDE 1: O GANCHO (Máximo 20 palavras)**
+Use UMA destas fórmulas (escolha a mais adequada):
+
+**Fórmula 1: História Iniciada**
+"[Situação pessoal ou de alguém]. [O que descobri/aconteceu]."
+Ex: "Meu pai nunca investiu. Calculei quanto ele perdeu em 30 anos."
+
+**Fórmula 2: Dado + Consequência**
+"[Estatística específica]. [O que isso significa para você]."
+Ex: "R$1.000 em 2015 = R$620 de poder de compra hoje. Sua poupança fez isso com você."
+
+**Fórmula 3: Pergunta Genuína**
+"[Pergunta sobre situação comum]?"
+Ex: "Quanto do seu salário sobra no dia 30? Se a resposta te incomoda, leia até o fim."
+
+**Fórmula 4: Contraste Real**
+"[Situação A] vs [Situação B]. [Observação]."
+Ex: "Dois amigos, mesmo salário. Um tem R$50k guardados, outro deve R$20k. A diferença não é sorte."
+
+**SLIDE 2: A PONTE (Máximo 30 palavras)**
+- Aprofunde o contexto do Slide 1
+- Mostre que você entende a situação
+- Termine com transição natural (não forçada)
+- Ex: "Eu era o segundo amigo. Vivia no vermelho achando que o problema era ganhar pouco. Não era."
+
+**SLIDES 3-6: O DESENVOLVIMENTO (Máximo 30 palavras cada)**
+
+**Estrutura Recomendada - Jornada/Caso Real:**
+S3: "O primeiro passo foi [ação específica]. Resultado: [o que mudou]"
+S4: "Depois, [próxima ação]. Isso revelou que [insight]"
+S5: "O ponto de virada: [momento específico com dados]"
+S6: "Hoje: [situação atual com números concretos]"
+
+**Estrutura Alternativa - Passos Práticos:**
+S3: "Passo 1: [ação] - [por que funciona em 1 frase]"
+S4: "Passo 2: [ação] - [exemplo prático]"
+S5: "Passo 3: [ação] - [resultado esperado com prazo]"
+S6: "O que esperar: [timeline realista]"
+
+**SLIDE 7: O FECHAMENTO (Máximo 25 palavras)**
+- Recapitule o benefício de forma sutil
+- CTA específico (não genérico)
+- Ex: "6 meses de consistência mudaram minha relação com dinheiro. O primeiro passo? Anotar hoje."
+
+### ✅ CHECKLIST OBRIGATÓRIO:
+
+**Anti-Repetição:**
+- [ ] Máximo 1 frase de impacto em TODO o carrossel
+- [ ] Nenhuma palavra/expressão proibida repetida
+- [ ] Cada slide tem estrutura de frase diferente
+- [ ] Transições variadas (não repete "E tem mais", "Mas calma")
+
+**Storytelling:**
+- [ ] Pelo menos 1 caso real ou história pessoal
+- [ ] Mínimo 2 dados/números específicos no carrossel
+- [ ] Mais fatos do que afirmações de impacto
+- [ ] "Mostrar" > "Dizer" (exemplos concretos)
+
+**Tom de Voz:**
+- [ ] Slide 1: Tom de curiosidade (não urgência)
+- [ ] Slide 2: Tom empático/conectivo
+- [ ] Slides 3-5: Tom educativo com dados
+- [ ] Slide 6: Tom prático/ação
+- [ ] Slide 7: Tom inspirador sutil + CTA claro
+
+**Estrutura:**
+- [ ] Slide 1: Máx 20 palavras, cria curiosidade
+- [ ] Slide 2: Aprofunda sem entregar solução
+- [ ] Slides 3-6: 1 ideia por slide, máx 30 palavras
+- [ ] Slide 7: Recapitula + CTA específico
+- [ ] Numeração (1/7, 2/7...) presente
 `;
 
 // Regras específicas para Stories
