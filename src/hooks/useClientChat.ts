@@ -463,39 +463,66 @@ export const useClientChat = (clientId: string, templateId?: string, conversatio
           if (newsletterError) throw newsletterError;
           
           if (newsletterData?.success && newsletterData?.data) {
-            const { title, images, paragraphs, carouselContent } = newsletterData.data;
+            const { title, images, headings, highlights, paragraphs, carouselSlides, stats } = newsletterData.data;
             
-            // Coletar todas as URLs de imagens
-            const imageUrlsFromNewsletter = images?.slice(0, 15).map((img: any) => img.url) || [];
+            // Coletar todas as URLs de imagens válidas
+            const imageUrlsFromNewsletter = images?.slice(0, 20).map((img: any) => img.url).filter(Boolean) || [];
             
-            // Formatar resposta com imagens inline usando markdown
-            let responseContent = `## 📰 Newsletter Extraída: ${title}\n\n`;
+            // Formatar resposta estruturada para carrossel seguindo guia
+            let responseContent = `## 📰 ${title}\n\n`;
+            responseContent += `**Fonte:** [${newsletterData.data.url}](${newsletterData.data.url})\n\n`;
+            responseContent += `**Estatísticas:** ${stats?.imageCount || 0} imagens | ${stats?.paragraphCount || 0} parágrafos\n\n`;
+            responseContent += `---\n\n`;
             
-            if (carouselContent && carouselContent.length > 0) {
-              responseContent += `### 🎠 Conteúdo para Carrossel (${carouselContent.length} slides)\n\n`;
+            // Carrossel estruturado seguindo guia
+            if (carouselSlides && carouselSlides.length > 0) {
+              responseContent += `### 🎠 ESTRUTURA DO CARROSSEL (${carouselSlides.length} slides)\n\n`;
               
-              carouselContent.forEach((slide: any, idx: number) => {
-                responseContent += `---SLIDE ${idx + 1}---\n\n`;
+              carouselSlides.forEach((slide: any) => {
+                const slideType = slide.type === 'hook' ? '🎯 GANCHO' : 
+                                  slide.type === 'bridge' ? '🌉 PONTE' : 
+                                  slide.type === 'cta' ? '📢 CTA' : '📝 CONTEÚDO';
                 
-                // Se o slide tem imagem, mostrar com markdown
-                if (slide.imageUrl) {
-                  responseContent += `![Slide ${idx + 1}](${slide.imageUrl})\n\n`;
+                responseContent += `---SLIDE ${slide.slideNumber}/${carouselSlides.length}---\n`;
+                responseContent += `**${slideType}**\n\n`;
+                
+                // Heading se existir
+                if (slide.heading && slide.type === 'content') {
+                  responseContent += `### ${slide.heading}\n\n`;
                 }
                 
+                // Texto do slide
                 if (slide.text) {
                   responseContent += `${slide.text}\n\n`;
                 }
+                
+                // Imagem com preview e link
+                if (slide.imageUrl) {
+                  responseContent += `**🖼️ Imagem sugerida:**\n\n`;
+                  responseContent += `![Slide ${slide.slideNumber}](${slide.imageUrl})\n\n`;
+                  responseContent += `Link: \`${slide.imageUrl}\`\n\n`;
+                }
+                
+                responseContent += `\n`;
               });
-            } else if (paragraphs && paragraphs.length > 0) {
-              responseContent += `### 📝 Conteúdo Extraído\n\n`;
-              responseContent += paragraphs.slice(0, 10).join('\n\n');
             }
             
-            // Listar todas as imagens encontradas com preview markdown
+            // Destaques/citações importantes
+            if (highlights && highlights.length > 0) {
+              responseContent += `### 💡 Destaques Importantes\n\n`;
+              highlights.slice(0, 5).forEach((h: string, idx: number) => {
+                responseContent += `> "${h}"\n\n`;
+              });
+            }
+            
+            // Banco de imagens completo
             if (imageUrlsFromNewsletter.length > 0) {
-              responseContent += `\n\n### 🖼️ Todas as Imagens (${images?.length || 0} encontradas)\n\n`;
+              responseContent += `### 🖼️ BANCO DE IMAGENS (${images?.length || 0} encontradas)\n\n`;
+              responseContent += `Use estas imagens nos slides do carrossel:\n\n`;
+              
               imageUrlsFromNewsletter.forEach((imgUrl: string, idx: number) => {
-                responseContent += `**${idx + 1}.** ![Imagem ${idx + 1}](${imgUrl})\n\n`;
+                responseContent += `**Imagem ${idx + 1}:**\n`;
+                responseContent += `![Img ${idx + 1}](${imgUrl})\n`;
                 responseContent += `\`${imgUrl}\`\n\n`;
               });
             }
