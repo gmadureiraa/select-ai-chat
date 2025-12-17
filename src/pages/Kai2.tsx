@@ -24,6 +24,7 @@ export default function Kai2() {
   const selectedClient = clients?.find(c => c.id === clientId);
   
   const [pendingMessage, setPendingMessage] = useState<string | null>(null);
+  const [pendingContentType, setPendingContentType] = useState<string | null>(null);
 
   const handleTabChange = (newTab: string) => {
     const params = new URLSearchParams(searchParams);
@@ -44,8 +45,9 @@ export default function Kai2() {
     }
   }, [clientId, clients]);
 
-  const handleSendMessage = (content: string) => {
+  const handleSendMessage = (content: string, contentType?: string) => {
     setPendingMessage(content);
+    setPendingContentType(contentType || null);
     handleTabChange("assistant");
   };
 
@@ -114,7 +116,11 @@ export default function Kai2() {
             clientId={selectedClient.id}
             client={selectedClient}
             initialMessage={pendingMessage || undefined}
-            onInitialMessageSent={() => setPendingMessage(null)}
+            initialContentType={pendingContentType || undefined}
+            onInitialMessageSent={() => {
+              setPendingMessage(null);
+              setPendingContentType(null);
+            }}
           />
         );
       
