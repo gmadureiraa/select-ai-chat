@@ -1,18 +1,12 @@
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
-import KaiHub from "./pages/KaiHub";
 import Kai2 from "./pages/Kai2";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
-import Activities from "./pages/Activities";
-import ResearchLab from "./pages/ResearchLab";
 import Settings from "./pages/Settings";
-import SocialPublisher from "./pages/SocialPublisher";
-import KnowledgeBase from "./pages/KnowledgeBase";
-import AgentBuilder from "./pages/AgentBuilder";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 
@@ -32,23 +26,7 @@ const App = () => (
               path="/kai"
               element={
                 <ProtectedRoute>
-                  <KaiHub />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/kai2"
-              element={
-                <ProtectedRoute>
                   <Kai2 />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/activities"
-              element={
-                <ProtectedRoute>
-                  <Activities />
                 </ProtectedRoute>
               }
             />
@@ -57,38 +35,6 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <Settings />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/knowledge-base"
-              element={
-                <ProtectedRoute>
-                  <KnowledgeBase />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/research-lab"
-              element={
-                <ProtectedRoute>
-                  <ResearchLab />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/social-publisher"
-              element={
-                <ProtectedRoute>
-                  <SocialPublisher />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/agent-builder"
-              element={
-                <ProtectedRoute>
-                  <AgentBuilder />
                 </ProtectedRoute>
               }
             />

@@ -1,0 +1,303 @@
+import { useState, useRef, useEffect, useCallback } from "react";
+import { useSearchParams } from "react-router-dom";
+import { Trash2, PanelLeftClose, PanelLeft } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { useClientTemplates } from "@/hooks/useClientTemplates";
+import { useClientChat } from "@/hooks/useClientChat";
+import { FloatingInput, ChatMode } from "@/components/chat/FloatingInput";
+import { EnhancedMessageBubble } from "@/components/chat/EnhancedMessageBubble";
+import { MinimalProgress } from "@/components/chat/MinimalProgress";
+import { QuickSuggestions } from "@/components/chat/QuickSuggestions";
+import { TemplateManager } from "@/components/clients/TemplateManager";
+import { Client } from "@/hooks/useClients";
+import { cn } from "@/lib/utils";
+import KaleidosLogo from "@/assets/kaleidos-logo.svg";
+
+interface Kai2AssistantTabProps {
+  clientId: string;
+  client: Client;
+  initialMessage?: string;
+  onInitialMessageSent?: () => void;
+}
+
+export const Kai2AssistantTab = ({ 
+  clientId, 
+  client, 
+  initialMessage,
+  onInitialMessageSent 
+}: Kai2AssistantTabProps) => {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(
+    searchParams.get("template")
+  );
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const initialMessageSentRef = useRef(false);
+
+  const { templates } = useClientTemplates(clientId);
+  const selectedTemplate = templates?.find(t => t.id === selectedTemplateId);
+
+  const {
+    messages,
+    isLoading,
+    sendMessage,
+    clearConversation,
+    conversationId,
+    currentStep,
+    multiAgentStep,
+  } = useClientChat(clientId, selectedTemplateId || undefined);
+
+  // Handle initial message from hero
+  useEffect(() => {
+    if (initialMessage && !initialMessageSentRef.current && !isLoading) {
+      initialMessageSentRef.current = true;
+      sendMessage(initialMessage).then(() => {
+        onInitialMessageSent?.();
+      });
+    }
+  }, [initialMessage, isLoading, sendMessage, onInitialMessageSent]);
+
+  // Update URL when template changes
+  useEffect(() => {
+    if (selectedTemplateId) {
+      setSearchParams(prev => {
+        prev.set("template", selectedTemplateId);
+        return prev;
+      });
+    } else {
+      setSearchParams(prev => {
+        prev.delete("template");
+        return prev;
+      });
+    }
+  }, [selectedTemplateId, setSearchParams]);
+
+  // Scroll to bottom function
+  const scrollToBottom = useCallback((smooth = true) => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ 
+        behavior: smooth ? "smooth" : "auto",
+        block: "end" 
+      });
+    }
+  }, []);
+
+  // Auto-scroll on new messages
+  useEffect(() => {
+    scrollToBottom(true);
+  }, [messages, scrollToBottom]);
+
+  // Initial scroll on mount/template change
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      scrollToBottom(false);
+    }, 100);
+    return () => clearTimeout(timer);
+  }, [selectedTemplateId, scrollToBottom]);
+
+  const handleSend = async (content: string, images?: string[], quality?: "fast" | "high", mode?: ChatMode) => {
+    if (!content.trim() && (!images || images.length === 0)) return;
+    await sendMessage(content, images, quality, mode);
+  };
+
+  const handleClearConversation = async () => {
+    await clearConversation();
+  };
+
+  const chatTemplates = templates?.filter(t => t.type === "chat") || [];
+  const imageTemplates = templates?.filter(t => t.type === "image") || [];
+
+  const templateType = !selectedTemplate ? "free_chat" : 
+                       selectedTemplate.type === "image" ? "image" : "content";
+
+  return (
+    <div className="flex h-full relative">
+      {/* Collapsible Sidebar - Templates */}
+      <div
+        className={cn(
+          "shrink-0 flex flex-col border-r border-border/30 bg-card/30 transition-all duration-300 ease-in-out",
+          sidebarCollapsed ? "w-0 opacity-0 overflow-hidden" : "w-56"
+        )}
+      >
+        <div className="p-3 border-b border-border/30 flex items-center justify-between gap-2">
+          <h3 className="font-medium text-xs uppercase tracking-wider text-muted-foreground">Templates</h3>
+          <div className="flex items-center gap-1">
+            <TemplateManager clientId={clientId} />
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setSidebarCollapsed(true)}
+              className="h-7 w-7 hover:bg-muted/50"
+            >
+              <PanelLeftClose className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        </div>
+        <ScrollArea className="flex-1">
+          <div className="p-2 space-y-0.5">
+            {/* Free Chat Option */}
+            <button
+              className={cn(
+                "w-full text-left text-sm py-2 px-3 rounded-md transition-colors",
+                !selectedTemplateId 
+                  ? "bg-muted/60 text-foreground font-medium" 
+                  : "text-muted-foreground hover:bg-muted/30 hover:text-foreground"
+              )}
+              onClick={() => setSelectedTemplateId(null)}
+            >
+              Chat Livre
+            </button>
+
+            {/* Content Templates */}
+            {chatTemplates.length > 0 && (
+              <div className="pt-3">
+                <p className="text-[10px] text-muted-foreground/40 px-3 py-1 font-medium uppercase tracking-wider">
+                  Conteúdo
+                </p>
+                {chatTemplates.map((template) => (
+                  <button
+                    key={template.id}
+                    className={cn(
+                      "w-full text-left text-sm py-2 px-3 rounded-md transition-colors",
+                      selectedTemplateId === template.id
+                        ? "bg-muted/60 text-foreground font-medium"
+                        : "text-muted-foreground hover:bg-muted/30 hover:text-foreground"
+                    )}
+                    onClick={() => setSelectedTemplateId(template.id)}
+                  >
+                    {template.name}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Image Templates */}
+            {imageTemplates.length > 0 && (
+              <div className="pt-3">
+                <p className="text-[10px] text-muted-foreground/40 px-3 py-1 font-medium uppercase tracking-wider">
+                  Imagens
+                </p>
+                {imageTemplates.map((template) => (
+                  <button
+                    key={template.id}
+                    className={cn(
+                      "w-full text-left text-sm py-2 px-3 rounded-md transition-colors",
+                      selectedTemplateId === template.id
+                        ? "bg-muted/60 text-foreground font-medium"
+                        : "text-muted-foreground hover:bg-muted/30 hover:text-foreground"
+                    )}
+                    onClick={() => setSelectedTemplateId(template.id)}
+                  >
+                    {template.name}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </ScrollArea>
+      </div>
+
+      {/* Main Chat Area */}
+      <div className="flex-1 flex flex-col min-w-0 bg-background/50">
+        {/* Collapsed Sidebar Toggle + Context Header */}
+        <div className="flex items-center gap-2 px-4 py-2 border-b border-border/20">
+          {sidebarCollapsed && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setSidebarCollapsed(false)}
+              className="h-8 w-8 hover:bg-muted/50"
+            >
+              <PanelLeft className="h-4 w-4" />
+            </Button>
+          )}
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            <span className="text-sm font-medium text-foreground/80 truncate">
+              {selectedTemplate?.name || "Chat Livre"}
+            </span>
+            <span className="text-muted-foreground/40">•</span>
+            <span className="text-xs text-muted-foreground truncate">{client.name}</span>
+          </div>
+          {conversationId && messages.length > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleClearConversation}
+              className="text-muted-foreground hover:text-destructive h-7 px-2 shrink-0"
+            >
+              <Trash2 className="h-3.5 w-3.5 mr-1" />
+              <span className="text-xs">Limpar</span>
+            </Button>
+          )}
+        </div>
+
+        {/* Messages Area */}
+        <ScrollArea className="flex-1" ref={scrollAreaRef}>
+          <div className="min-h-full flex flex-col">
+            {messages.length === 0 && !initialMessage ? (
+              /* Empty State - Centered, Minimal */
+              <div className="flex-1 flex flex-col items-center justify-center px-6 py-12">
+                <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/20 flex items-center justify-center mb-5">
+                  <img src={KaleidosLogo} alt="kAI" className="h-8 w-8" />
+                </div>
+                <h2 className="text-xl font-semibold mb-1.5 text-center text-foreground/90">
+                  {selectedTemplate ? `${selectedTemplate.name}` : "Como posso ajudar?"}
+                </h2>
+                <p className="text-sm text-muted-foreground text-center max-w-sm mb-6">
+                  {selectedTemplate
+                    ? `Gere conteúdo otimizado para ${client.name}`
+                    : `Converse sobre ${client.name}, analise dados ou explore ideias`
+                  }
+                </p>
+                
+                {/* Quick Suggestions */}
+                <QuickSuggestions 
+                  onSelect={(suggestion) => handleSend(suggestion)}
+                  clientName={client.name}
+                  isContentTemplate={!!selectedTemplate}
+                />
+              </div>
+            ) : (
+              <div className="space-y-1 px-4 py-6 max-w-3xl mx-auto w-full">
+                {messages.map((message) => (
+                  <EnhancedMessageBubble
+                    key={message.id}
+                    role={message.role as "user" | "assistant"}
+                    content={message.content}
+                    imageUrls={message.image_urls}
+                    clientId={clientId}
+                    clientName={client.name}
+                  />
+                ))}
+
+                {isLoading && (
+                  <MinimalProgress 
+                    currentStep={currentStep}
+                    multiAgentStep={multiAgentStep}
+                  />
+                )}
+                
+                {/* Scroll anchor */}
+                <div ref={messagesEndRef} className="h-1" />
+              </div>
+            )}
+          </div>
+        </ScrollArea>
+
+        {/* Floating Input - Bottom */}
+        <div className="border-t border-border/10 bg-background/60 backdrop-blur-sm">
+          <div className="max-w-3xl mx-auto">
+            <FloatingInput
+              onSend={handleSend}
+              disabled={isLoading}
+              templateType={templateType}
+              placeholder={selectedTemplate ? `Criar ${selectedTemplate.name}...` : "Pergunte sobre o cliente..."}
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
