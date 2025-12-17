@@ -23,13 +23,24 @@ interface Kai2AssistantTabProps {
   clientId: string;
   client: Client;
   initialMessage?: string;
+  initialContentType?: string;
   onInitialMessageSent?: () => void;
 }
+
+// Map content types from GradientHero to template names
+const CONTENT_TYPE_TO_TEMPLATE_NAME: Record<string, string[]> = {
+  "text": ["Tweet", "Thread", "Tweet/Thread"],
+  "carousel": ["Carrossel", "Carousel", "Carrossel Instagram"],
+  "video": ["Roteiro", "Reels", "Roteiro de Vídeo", "Script"],
+  "newsletter": ["Newsletter"],
+  "image": [], // Image templates are handled separately
+};
 
 export const Kai2AssistantTab = ({ 
   clientId, 
   client, 
   initialMessage,
+  initialContentType,
   onInitialMessageSent 
 }: Kai2AssistantTabProps) => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -41,8 +52,41 @@ export const Kai2AssistantTab = ({
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const initialMessageSentRef = useRef(false);
+  const templateSelectedRef = useRef(false);
 
-  const { templates } = useClientTemplates(clientId);
+  const { templates, isLoading: isLoadingTemplates } = useClientTemplates(clientId);
+  
+  // Find matching template based on content type from GradientHero
+  useEffect(() => {
+    if (initialContentType && templates && !templateSelectedRef.current && !searchParams.get("template")) {
+      templateSelectedRef.current = true;
+      
+      // Check if it's an image type - find image template
+      if (initialContentType === "image") {
+        const imageTemplate = templates.find(t => t.type === "image");
+        if (imageTemplate) {
+          setSelectedTemplateId(imageTemplate.id);
+          return;
+        }
+      }
+      
+      // Find matching chat template by name
+      const possibleNames = CONTENT_TYPE_TO_TEMPLATE_NAME[initialContentType] || [];
+      const matchingTemplate = templates.find(t => 
+        t.type === "chat" && possibleNames.some(name => 
+          t.name.toLowerCase().includes(name.toLowerCase())
+        )
+      );
+      
+      if (matchingTemplate) {
+        setSelectedTemplateId(matchingTemplate.id);
+      } else {
+        // No matching template found - use free chat (null)
+        setSelectedTemplateId(null);
+      }
+    }
+  }, [initialContentType, templates, searchParams]);
+
   const selectedTemplate = templates?.find(t => t.id === selectedTemplateId);
 
   const {
@@ -106,15 +150,15 @@ export const Kai2AssistantTab = ({
     }
   }, [isLoading, currentStep, multiAgentStep, tasksActive]);
 
-  // Handle initial message from hero
+  // Handle initial message from hero - wait for conversationId to be ready
   useEffect(() => {
-    if (initialMessage && !initialMessageSentRef.current && !isLoading) {
+    if (initialMessage && !initialMessageSentRef.current && !isLoading && conversationId) {
       initialMessageSentRef.current = true;
       sendMessage(initialMessage).then(() => {
         onInitialMessageSent?.();
       });
     }
-  }, [initialMessage, isLoading, sendMessage, onInitialMessageSent]);
+  }, [initialMessage, isLoading, sendMessage, onInitialMessageSent, conversationId]);
 
   // Update URL when template changes
   useEffect(() => {
