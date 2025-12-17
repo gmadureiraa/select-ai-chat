@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Plus, FileText, Trash2, Edit, Upload, Loader2, Search, BookOpen, Download, ExternalLink, Tag } from "lucide-react";
 import { useGlobalKnowledge, KNOWLEDGE_CATEGORIES, KnowledgeCategory, GlobalKnowledge } from "@/hooks/useGlobalKnowledge";
 import { supabase } from "@/integrations/supabase/client";
-import { uploadAndGetSignedUrl } from "@/lib/storage";
+import { uploadAndGetSignedUrl, openFileInNewTab, downloadFile } from "@/lib/storage";
 import { toast } from "sonner";
 import { TagsInput } from "@/components/knowledge/TagsInput";
 import { SecondaryLayout } from "@/components/SecondaryLayout";
@@ -196,25 +196,13 @@ export default function KnowledgeBase() {
   const handleOpenPdf = async (item: GlobalKnowledge) => {
     const pdfPath = getPdfPath(item);
     if (!pdfPath) return;
-    
-    try {
-      // If it's a legacy full URL, just open it
-      if (pdfPath.startsWith('http')) {
-        window.open(pdfPath, '_blank');
-        return;
-      }
-      
-      // Generate fresh signed URL
-      const { data, error } = await supabase.storage
-        .from('client-files')
-        .createSignedUrl(pdfPath, 3600);
-      
-      if (error) throw error;
-      window.open(data.signedUrl, '_blank');
-    } catch (error: any) {
-      console.error('Error opening PDF:', error);
-      toast.error('Erro ao abrir PDF: ' + error.message);
-    }
+    await openFileInNewTab(pdfPath);
+  };
+
+  const handleDownloadPdf = async (item: GlobalKnowledge) => {
+    const pdfPath = getPdfPath(item);
+    if (!pdfPath) return;
+    await downloadFile(pdfPath, item.source_file || `${item.title}.pdf`);
   };
 
   return (
@@ -561,15 +549,26 @@ export default function KnowledgeBase() {
                     </span>
                   )}
                   {hasPdf && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleOpenPdf(selectedKnowledge)}
-                      className="h-7 text-xs"
-                    >
-                      <ExternalLink className="h-3 w-3 mr-1.5" />
-                      Abrir PDF original
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleOpenPdf(selectedKnowledge)}
+                        className="h-7 text-xs gap-1.5"
+                      >
+                        <ExternalLink className="h-3 w-3" />
+                        Abrir
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleDownloadPdf(selectedKnowledge)}
+                        className="h-7 text-xs gap-1.5"
+                      >
+                        <Download className="h-3 w-3" />
+                        Baixar
+                      </Button>
+                    </div>
                   )}
                 </div>
 
