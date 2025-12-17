@@ -45,7 +45,8 @@ export const Kai2AssistantTab = ({
 }: Kai2AssistantTabProps) => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(
-    searchParams.get("template")
+    // If coming from hero with content type, don't use URL template
+    initialContentType ? null : searchParams.get("template")
   );
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [sidebarTab, setSidebarTab] = useState<"templates" | "history">("templates");
@@ -58,7 +59,7 @@ export const Kai2AssistantTab = ({
   
   // Find matching template based on content type from GradientHero
   useEffect(() => {
-    if (initialContentType && templates && !templateSelectedRef.current && !searchParams.get("template")) {
+    if (initialContentType && templates && templates.length > 0 && !templateSelectedRef.current) {
       templateSelectedRef.current = true;
       
       // Check if it's an image type - find image template
@@ -66,26 +67,43 @@ export const Kai2AssistantTab = ({
         const imageTemplate = templates.find(t => t.type === "image");
         if (imageTemplate) {
           setSelectedTemplateId(imageTemplate.id);
+          // Update URL
+          setSearchParams(prev => {
+            prev.set("template", imageTemplate.id);
+            return prev;
+          });
           return;
         }
       }
       
-      // Find matching chat template by name
+      // Find matching chat template by name - more flexible matching
       const possibleNames = CONTENT_TYPE_TO_TEMPLATE_NAME[initialContentType] || [];
       const matchingTemplate = templates.find(t => 
-        t.type === "chat" && possibleNames.some(name => 
-          t.name.toLowerCase().includes(name.toLowerCase())
-        )
+        t.type === "chat" && possibleNames.some(name => {
+          const templateNameLower = t.name.toLowerCase();
+          const searchNameLower = name.toLowerCase();
+          return templateNameLower.includes(searchNameLower) || searchNameLower.includes(templateNameLower);
+        })
       );
       
       if (matchingTemplate) {
         setSelectedTemplateId(matchingTemplate.id);
+        // Update URL
+        setSearchParams(prev => {
+          prev.set("template", matchingTemplate.id);
+          return prev;
+        });
       } else {
         // No matching template found - use free chat (null)
         setSelectedTemplateId(null);
+        // Clear template from URL
+        setSearchParams(prev => {
+          prev.delete("template");
+          return prev;
+        });
       }
     }
-  }, [initialContentType, templates, searchParams]);
+  }, [initialContentType, templates, setSearchParams]);
 
   const selectedTemplate = templates?.find(t => t.id === selectedTemplateId);
 
