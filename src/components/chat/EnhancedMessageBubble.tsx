@@ -99,17 +99,17 @@ export const EnhancedMessageBubble = ({
   return (
     <>
       <div className={cn(
-        "flex gap-3 px-4 py-3 group transition-colors hover:bg-muted/20",
+        "flex gap-4 py-5 group transition-colors",
         isUser ? "justify-end" : "justify-start"
       )}>
         {/* Avatar do assistente */}
         {!isUser && (
-          <div className="flex-shrink-0 w-7 h-7 rounded-lg bg-gradient-to-br from-primary/10 to-transparent border border-primary/10 flex items-center justify-center mt-0.5">
-            <img src={kaleidosLogo} alt="kAI" className="h-4 w-4 object-contain" />
+          <div className="flex-shrink-0 w-6 h-6 rounded-full bg-muted/50 flex items-center justify-center mt-1">
+            <img src={kaleidosLogo} alt="kAI" className="h-3.5 w-3.5 object-contain opacity-70" />
           </div>
         )}
         
-        <div className="flex flex-col gap-2 max-w-[85%] min-w-0">
+        <div className="flex flex-col gap-3 max-w-[88%] min-w-0">
           {/* Imagens */}
           {hasImages && (
             <div className={cn(
@@ -121,7 +121,7 @@ export const EnhancedMessageBubble = ({
               {isGeneratedImage && !isUser && (
                 <Badge 
                   variant="secondary" 
-                  className="absolute -top-1.5 -left-1.5 z-10 text-[9px] h-5 bg-gradient-to-r from-primary to-primary/80 text-primary-foreground border-0"
+                  className="absolute -top-1.5 -left-1.5 z-10 text-[9px] h-5 bg-muted text-muted-foreground border border-border/50"
                 >
                   <Sparkles className="h-2.5 w-2.5 mr-0.5" />
                   IA
@@ -178,10 +178,10 @@ export const EnhancedMessageBubble = ({
           {textContent && (
             <div
               className={cn(
-                "rounded-2xl px-4 py-3 break-words relative",
+                "break-words relative",
                 isUser
-                  ? "bg-primary/5 border border-primary/10"
-                  : "bg-card border border-border/50"
+                  ? "rounded-2xl px-4 py-3 bg-muted/30 border border-border/30"
+                  : "px-0 py-0"
               )}
             >
               {/* Quick download button for long content */}
@@ -244,8 +244,8 @@ export const EnhancedMessageBubble = ({
 
         {/* Avatar do usuário */}
         {isUser && (
-          <div className="flex-shrink-0 w-7 h-7 rounded-lg bg-muted border border-border/50 flex items-center justify-center mt-0.5">
-            <User className="h-3.5 w-3.5 text-muted-foreground" />
+          <div className="flex-shrink-0 w-6 h-6 rounded-full bg-muted/40 flex items-center justify-center mt-1">
+            <User className="h-3 w-3 text-muted-foreground/60" />
           </div>
         )}
       </div>
