@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Send, Sparkles, Image, FileText, Video, Mail, Paperclip } from "lucide-react";
+import { Send, Sparkles, Image, FileText, Video, Mail, Paperclip, Layers, BarChart3, Library } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 
@@ -10,19 +10,20 @@ interface ContentTypeChip {
 }
 
 const contentTypes: ContentTypeChip[] = [
-  { id: "text", label: "Texto", icon: <FileText className="h-3.5 w-3.5" /> },
+  { id: "text", label: "Tweet/Thread", icon: <FileText className="h-3.5 w-3.5" /> },
   { id: "carousel", label: "Carrossel", icon: <Sparkles className="h-3.5 w-3.5" /> },
-  { id: "video", label: "Vídeo", icon: <Video className="h-3.5 w-3.5" /> },
+  { id: "video", label: "Roteiro", icon: <Video className="h-3.5 w-3.5" /> },
   { id: "newsletter", label: "Newsletter", icon: <Mail className="h-3.5 w-3.5" /> },
   { id: "image", label: "Imagem", icon: <Image className="h-3.5 w-3.5" /> },
 ];
 
 interface GradientHeroProps {
   onSubmit: (message: string, contentType?: string) => void;
+  onQuickAction?: (action: string) => void;
   clientName?: string;
 }
 
-export function GradientHero({ onSubmit, clientName }: GradientHeroProps) {
+export function GradientHero({ onSubmit, onQuickAction, clientName }: GradientHeroProps) {
   const [input, setInput] = useState("");
   const [selectedType, setSelectedType] = useState<string | null>(null);
 
@@ -64,21 +65,24 @@ export function GradientHero({ onSubmit, clientName }: GradientHeroProps) {
         className="relative z-10 w-full max-w-2xl"
       >
         {/* Tagline */}
-        <h1 className="text-4xl md:text-5xl font-light text-center text-white mb-4 tracking-tight">
-          <span className="font-medium">Descreva.</span>{" "}
-          <span className="text-white/70">Crie.</span>{" "}
-          <span className="text-white/70">Publique.</span>{" "}
-          <span className="font-medium">Envie.</span>
+        <h1 className="text-4xl md:text-5xl font-light text-center text-white mb-3 tracking-tight">
+          O que vamos <span className="font-semibold text-primary">criar</span> hoje?
         </h1>
         
         {clientName && (
+          <p className="text-center text-white/50 mb-8 text-lg">
+            Trabalhando com <span className="text-white/70 font-medium">{clientName}</span>
+          </p>
+        )}
+
+        {!clientName && (
           <p className="text-center text-white/40 mb-8">
-            Trabalhando com <span className="text-white/60">{clientName}</span>
+            Seu assistente de conteúdo inteligente
           </p>
         )}
 
         {/* Content Type Pills */}
-        <div className="flex items-center justify-center gap-2 mb-6">
+        <div className="flex items-center justify-center gap-2 mb-6 flex-wrap">
           {contentTypes.map((type) => (
             <button
               key={type.id}
@@ -118,7 +122,7 @@ export function GradientHero({ onSubmit, clientName }: GradientHeroProps) {
                     handleSubmit();
                   }
                 }}
-                placeholder="O que você quer criar hoje?"
+                placeholder="Descreva o conteúdo que você quer criar..."
                 className={cn(
                   "w-full bg-transparent resize-none outline-none",
                   "text-white placeholder:text-white/30",
@@ -135,9 +139,12 @@ export function GradientHero({ onSubmit, clientName }: GradientHeroProps) {
                   <Paperclip className="h-3.5 w-3.5" />
                   <span>Anexar</span>
                 </button>
-                <button className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs text-white/50 hover:text-white/70 hover:bg-white/5 transition-colors">
-                  <Sparkles className="h-3.5 w-3.5" />
-                  <span>Kit de Marca</span>
+                <button 
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs text-white/50 hover:text-white/70 hover:bg-white/5 transition-colors"
+                  onClick={() => onQuickAction?.("templates")}
+                >
+                  <Layers className="h-3.5 w-3.5" />
+                  <span>Templates</span>
                 </button>
               </div>
 
@@ -167,17 +174,29 @@ export function GradientHero({ onSubmit, clientName }: GradientHeroProps) {
         </div>
 
         {/* Quick Actions */}
-        <div className="flex items-center justify-center gap-3 mt-6">
-          <button className="text-sm text-white/40 hover:text-white/60 transition-colors">
-            Começar do zero
+        <div className="flex items-center justify-center gap-4 mt-8">
+          <button 
+            onClick={() => onQuickAction?.("assistant")}
+            className="flex items-center gap-2 text-sm text-white/40 hover:text-white/70 transition-colors px-3 py-2 rounded-lg hover:bg-white/5"
+          >
+            <Sparkles className="h-4 w-4" />
+            <span>Chat livre</span>
           </button>
           <span className="text-white/20">•</span>
-          <button className="text-sm text-white/40 hover:text-white/60 transition-colors">
-            Ver templates
+          <button 
+            onClick={() => onQuickAction?.("performance")}
+            className="flex items-center gap-2 text-sm text-white/40 hover:text-white/70 transition-colors px-3 py-2 rounded-lg hover:bg-white/5"
+          >
+            <BarChart3 className="h-4 w-4" />
+            <span>Ver métricas</span>
           </button>
           <span className="text-white/20">•</span>
-          <button className="text-sm text-white/40 hover:text-white/60 transition-colors">
-            Importar conteúdo
+          <button 
+            onClick={() => onQuickAction?.("library")}
+            className="flex items-center gap-2 text-sm text-white/40 hover:text-white/70 transition-colors px-3 py-2 rounded-lg hover:bg-white/5"
+          >
+            <Library className="h-4 w-4" />
+            <span>Biblioteca</span>
           </button>
         </div>
       </motion.div>
