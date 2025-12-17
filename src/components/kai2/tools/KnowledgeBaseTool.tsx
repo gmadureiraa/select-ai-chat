@@ -34,7 +34,7 @@ export const KnowledgeBaseTool = () => {
   const [formCategory, setFormCategory] = useState<KnowledgeCategory>("other");
   const [formSourceFile, setFormSourceFile] = useState("");
   const [formPageCount, setFormPageCount] = useState<number | null>(null);
-  const [formPdfUrl, setFormPdfUrl] = useState<string | null>(null);
+  const [formPdfPath, setFormPdfPath] = useState<string | null>(null);
   const [formTags, setFormTags] = useState<string[]>([]);
 
   const resetForm = () => {
@@ -43,7 +43,7 @@ export const KnowledgeBaseTool = () => {
     setFormCategory("other");
     setFormSourceFile("");
     setFormPageCount(null);
-    setFormPdfUrl(null);
+    setFormPdfPath(null);
     setFormTags([]);
   };
 
@@ -68,7 +68,7 @@ export const KnowledgeBaseTool = () => {
     try {
       advanceToTask("upload");
       const sanitizedName = sanitizeFileName(file.name);
-      const { signedUrl, error: uploadError } = await uploadAndGetSignedUrl(
+      const { path, signedUrl, error: uploadError } = await uploadAndGetSignedUrl(
         new File([file], `${Date.now()}_${sanitizedName}`, { type: file.type }),
         "knowledge"
       );
@@ -87,7 +87,7 @@ export const KnowledgeBaseTool = () => {
       setFormContent(data.content || '');
       setFormSourceFile(file.name);
       setFormPageCount(data.pageCount || null);
-      setFormPdfUrl(signedUrl);
+      setFormPdfPath(path); // Store path, not signed URL
       
       completeAllTasks();
       toast.success('PDF extraído com sucesso!');
@@ -110,7 +110,7 @@ export const KnowledgeBaseTool = () => {
       category: formCategory,
       source_file: formSourceFile || undefined,
       page_count: formPageCount || undefined,
-      metadata: formPdfUrl ? { pdf_url: formPdfUrl } : undefined,
+      metadata: formPdfPath ? { pdf_path: formPdfPath } : undefined,
       tags: formTags,
     });
 
@@ -181,11 +181,34 @@ export const KnowledgeBaseTool = () => {
     return configs[category];
   };
 
-  const getPdfUrl = (item: GlobalKnowledge) => {
-    if (item.metadata && typeof item.metadata === 'object' && 'pdf_url' in item.metadata) {
-      return (item.metadata as { pdf_url?: string }).pdf_url;
+  const getPdfPath = (item: GlobalKnowledge) => {
+    if (item.metadata && typeof item.metadata === 'object') {
+      const meta = item.metadata as { pdf_path?: string; pdf_url?: string };
+      return meta.pdf_path || meta.pdf_url || null;
     }
     return null;
+  };
+
+  const handleOpenPdf = async (item: GlobalKnowledge) => {
+    const pdfPath = getPdfPath(item);
+    if (!pdfPath) return;
+    
+    try {
+      if (pdfPath.startsWith('http')) {
+        window.open(pdfPath, '_blank');
+        return;
+      }
+      
+      const { data, error } = await supabase.storage
+        .from('client-files')
+        .createSignedUrl(pdfPath, 3600);
+      
+      if (error) throw error;
+      window.open(data.signedUrl, '_blank');
+    } catch (error: any) {
+      console.error('Error opening PDF:', error);
+      toast.error('Erro ao abrir PDF: ' + error.message);
+    }
   };
 
   return (
@@ -243,7 +266,7 @@ export const KnowledgeBaseTool = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredKnowledge.map((item) => {
               const categoryConfig = getCategoryConfig(item.category);
-              const pdfUrl = getPdfUrl(item);
+              const hasPdf = !!getPdfPath(item);
               
               return (
                 <Card 
@@ -292,14 +315,14 @@ export const KnowledgeBaseTool = () => {
                       <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium border ${categoryConfig.bg} ${categoryConfig.text} ${categoryConfig.border}`}>
                         {getCategoryLabel(item.category)}
                       </span>
-                      {pdfUrl && (
+                      {hasPdf && (
                         <Button
                           size="sm"
                           variant="outline"
                           className="h-7 text-xs gap-1.5"
                           onClick={(e) => {
                             e.stopPropagation();
-                            window.open(pdfUrl, '_blank');
+                            handleOpenPdf(item);
                           }}
                         >
                           <FileText className="h-3 w-3" />
@@ -418,12 +441,12 @@ export const KnowledgeBaseTool = () => {
                   <>
                     <div className="flex items-center justify-between gap-3">
                       <Badge>{getCategoryLabel(selectedKnowledge.category)}</Badge>
-                      {getPdfUrl(selectedKnowledge) && (
+                      {getPdfPath(selectedKnowledge) && (
                         <Button
                           variant="default"
                           size="sm"
                           className="gap-2"
-                          onClick={() => window.open(getPdfUrl(selectedKnowledge)!, '_blank')}
+                          onClick={() => handleOpenPdf(selectedKnowledge)}
                         >
                           <FileText className="h-4 w-4" />
                           Abrir PDF Original

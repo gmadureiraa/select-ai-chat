@@ -34,7 +34,7 @@ export default function KnowledgeBase() {
   const [formCategory, setFormCategory] = useState<KnowledgeCategory>("other");
   const [formSourceFile, setFormSourceFile] = useState("");
   const [formPageCount, setFormPageCount] = useState<number | null>(null);
-  const [formPdfUrl, setFormPdfUrl] = useState<string | null>(null);
+  const [formPdfPath, setFormPdfPath] = useState<string | null>(null);
   const [formTags, setFormTags] = useState<string[]>([]);
 
   const resetForm = () => {
@@ -43,7 +43,7 @@ export default function KnowledgeBase() {
     setFormCategory("other");
     setFormSourceFile("");
     setFormPageCount(null);
-    setFormPdfUrl(null);
+    setFormPdfPath(null);
     setFormTags([]);
   };
 
@@ -89,7 +89,7 @@ export default function KnowledgeBase() {
       setFormContent(data.content || '');
       setFormSourceFile(file.name);
       setFormPageCount(data.pageCount || null);
-      setFormPdfUrl(signedUrl);
+      setFormPdfPath(path); // Store path, not signed URL
       
       toast.success('PDF extraído com sucesso! Revise o conteúdo abaixo.');
     } catch (error: any) {
@@ -112,7 +112,7 @@ export default function KnowledgeBase() {
       category: formCategory,
       source_file: formSourceFile || undefined,
       page_count: formPageCount || undefined,
-      metadata: formPdfUrl ? { pdf_url: formPdfUrl } : undefined,
+      metadata: formPdfPath ? { pdf_path: formPdfPath } : undefined,
       tags: formTags,
     });
 
@@ -184,11 +184,37 @@ export default function KnowledgeBase() {
     return configs[category];
   };
 
-  const getPdfUrl = (item: GlobalKnowledge) => {
-    if (item.metadata && typeof item.metadata === 'object' && 'pdf_url' in item.metadata) {
-      return (item.metadata as { pdf_url?: string }).pdf_url;
+  const getPdfPath = (item: GlobalKnowledge) => {
+    if (item.metadata && typeof item.metadata === 'object') {
+      // Support both new pdf_path and legacy pdf_url
+      const meta = item.metadata as { pdf_path?: string; pdf_url?: string };
+      return meta.pdf_path || meta.pdf_url || null;
     }
     return null;
+  };
+
+  const handleOpenPdf = async (item: GlobalKnowledge) => {
+    const pdfPath = getPdfPath(item);
+    if (!pdfPath) return;
+    
+    try {
+      // If it's a legacy full URL, just open it
+      if (pdfPath.startsWith('http')) {
+        window.open(pdfPath, '_blank');
+        return;
+      }
+      
+      // Generate fresh signed URL
+      const { data, error } = await supabase.storage
+        .from('client-files')
+        .createSignedUrl(pdfPath, 3600);
+      
+      if (error) throw error;
+      window.open(data.signedUrl, '_blank');
+    } catch (error: any) {
+      console.error('Error opening PDF:', error);
+      toast.error('Erro ao abrir PDF: ' + error.message);
+    }
   };
 
   return (
@@ -257,7 +283,7 @@ export default function KnowledgeBase() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredKnowledge.map((item) => {
             const categoryConfig = getCategoryConfig(item.category);
-            const pdfUrl = getPdfUrl(item);
+            const hasPdf = !!getPdfPath(item);
             
             return (
               <Card 
@@ -274,12 +300,12 @@ export default function KnowledgeBase() {
                       <CardTitle className="text-sm font-medium line-clamp-2 leading-tight">{item.title}</CardTitle>
                     </div>
                     <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" onClick={e => e.stopPropagation()}>
-                      {pdfUrl && (
+                      {hasPdf && (
                         <Button 
                           size="icon" 
                           variant="ghost" 
                           className="h-7 w-7" 
-                          onClick={() => window.open(pdfUrl, '_blank')}
+                          onClick={() => handleOpenPdf(item)}
                           title="Abrir PDF original"
                         >
                           <ExternalLink className="h-3.5 w-3.5" />
@@ -332,7 +358,7 @@ export default function KnowledgeBase() {
                         ~{item.page_count} páginas
                       </span>
                     )}
-                    {pdfUrl && (
+                    {hasPdf && (
                       <span className="text-[11px] text-primary/70 flex items-center gap-1">
                         <Download className="h-3 w-3" />
                         PDF anexado
@@ -516,7 +542,7 @@ export default function KnowledgeBase() {
 
           {selectedKnowledge && (() => {
             const categoryConfig = getCategoryConfig(selectedKnowledge.category);
-            const pdfUrl = getPdfUrl(selectedKnowledge);
+            const hasPdf = !!getPdfPath(selectedKnowledge);
             
             return (
               <div className="space-y-4">
@@ -534,11 +560,11 @@ export default function KnowledgeBase() {
                       • {selectedKnowledge.source_file}
                     </span>
                   )}
-                  {pdfUrl && (
+                  {hasPdf && (
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => window.open(pdfUrl, '_blank')}
+                      onClick={() => handleOpenPdf(selectedKnowledge)}
                       className="h-7 text-xs"
                     >
                       <ExternalLink className="h-3 w-3 mr-1.5" />
