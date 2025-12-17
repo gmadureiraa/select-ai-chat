@@ -7,9 +7,11 @@ import { useClientTemplates } from "@/hooks/useClientTemplates";
 import { useClientChat } from "@/hooks/useClientChat";
 import { FloatingInput, ChatMode } from "@/components/chat/FloatingInput";
 import { EnhancedMessageBubble } from "@/components/chat/EnhancedMessageBubble";
-import { MinimalProgress } from "@/components/chat/MinimalProgress";
 import { QuickSuggestions } from "@/components/chat/QuickSuggestions";
 import { TemplateManager } from "@/components/clients/TemplateManager";
+import { TasksPanel } from "@/components/kai2/TasksPanel";
+import { useContextualTasks } from "@/hooks/useContextualTasks";
+import { ContextType } from "@/config/contextualTasks";
 import { Client } from "@/hooks/useClients";
 import { cn } from "@/lib/utils";
 import KaleidosLogo from "@/assets/kaleidos-logo.svg";
@@ -48,6 +50,57 @@ export const Kai2AssistantTab = ({
     currentStep,
     multiAgentStep,
   } = useClientChat(clientId, selectedTemplateId || undefined);
+
+  // Contextual tasks
+  const {
+    tasks,
+    isActive: tasksActive,
+    startTasks,
+    advanceToTask,
+    completeTask,
+    completeAllTasks,
+    reset: resetTasks,
+  } = useContextualTasks();
+
+  // Determine context type based on template
+  const getContextType = (): ContextType => {
+    if (!selectedTemplate) return "assistant-simple";
+    if (selectedTemplate.type === "image") return "assistant-simple";
+    // Check if multi-agent based on template rules
+    const rules = selectedTemplate.rules as any;
+    if (rules?.useMultiAgent) return "assistant-multi-agent";
+    return "assistant-library";
+  };
+
+  // Simulate task progression based on loading state and steps
+  useEffect(() => {
+    if (isLoading && !tasksActive) {
+      startTasks(getContextType());
+    } else if (isLoading && tasksActive) {
+      // Advance tasks based on currentStep or multiAgentStep
+      if (multiAgentStep) {
+        const stepMap: Record<string, string> = {
+          "researcher": "agent-researcher",
+          "writer": "agent-writer",
+          "editor": "agent-editor",
+          "reviewer": "agent-reviewer",
+        };
+        const taskId = stepMap[multiAgentStep];
+        if (taskId) advanceToTask(taskId);
+      } else if (currentStep) {
+        const stepMap: Record<string, string> = {
+          "analyzing": "analyze",
+          "searching": "search-library",
+          "generating": "generate",
+          "formatting": "format",
+        };
+        const taskId = stepMap[currentStep] || "generate";
+        advanceToTask(taskId);
+      }
+    } else if (!isLoading && tasksActive) {
+      completeAllTasks();
+    }
+  }, [isLoading, currentStep, multiAgentStep, tasksActive]);
 
   // Handle initial message from hero
   useEffect(() => {
@@ -273,9 +326,10 @@ export const Kai2AssistantTab = ({
                 ))}
 
                 {isLoading && (
-                  <MinimalProgress 
-                    currentStep={currentStep}
-                    multiAgentStep={multiAgentStep}
+                  <TasksPanel 
+                    tasks={tasks}
+                    isActive={tasksActive}
+                    className="mx-auto max-w-md"
                   />
                 )}
                 

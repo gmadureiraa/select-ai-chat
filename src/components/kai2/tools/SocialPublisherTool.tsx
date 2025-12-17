@@ -3,7 +3,6 @@ import { useSearchParams } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -13,9 +12,11 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useLinkedInConnection } from "@/hooks/useLinkedInConnection";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Twitter, Linkedin, Send, Loader2, CheckCircle, Image, Calendar, Trash2, FileText, Edit, Upload, X } from "lucide-react";
+import { Twitter, Linkedin, Send, Loader2, CheckCircle, Calendar, Trash2, FileText, Edit } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { TasksPanel } from "@/components/kai2/TasksPanel";
+import { useContextualTasks } from "@/hooks/useContextualTasks";
 
 interface PublishResult {
   platform: string;
@@ -34,7 +35,7 @@ export const SocialPublisherTool = () => {
   const deletePost = useDeleteScheduledPost();
   const updatePost = useUpdateScheduledPost();
   const { isConnected: linkedInConnected, isLoading: linkedInLoading, initiateOAuth, disconnect, refetch: refetchLinkedIn } = useLinkedInConnection();
-
+  const { tasks, isActive: tasksActive, startTasks, advanceToTask, completeAllTasks } = useContextualTasks();
   const [selectedClientId, setSelectedClientId] = useState<string>("");
   const [content, setContent] = useState("");
   const [imageUrl, setImageUrl] = useState("");
@@ -90,11 +91,15 @@ export const SocialPublisherTool = () => {
 
     setIsPublishing(true);
     setPublishResults([]);
+    startTasks("social-publisher");
 
     const results: PublishResult[] = [];
     const session = await supabase.auth.getSession();
 
     for (const platform of selectedPlatforms) {
+      if (platform === "twitter") advanceToTask("publish-twitter");
+      if (platform === "linkedin") advanceToTask("publish-linkedin");
+      
       try {
         if (platform === "twitter") {
           const { data, error } = await supabase.functions.invoke('post-twitter', {
@@ -142,8 +147,10 @@ export const SocialPublisherTool = () => {
       }
     }
 
+    advanceToTask("save");
     setPublishResults(results);
     setIsPublishing(false);
+    completeAllTasks();
 
     const successCount = results.filter(r => r.success).length;
     if (successCount === results.length) {
@@ -357,6 +364,15 @@ export const SocialPublisherTool = () => {
                     Salvar Rascunho
                   </Button>
                 </div>
+
+                {/* Tasks Panel */}
+                {tasksActive && (
+                  <TasksPanel 
+                    tasks={tasks}
+                    isActive={tasksActive}
+                    className="mt-4"
+                  />
+                )}
               </CardContent>
             </Card>
           </TabsContent>

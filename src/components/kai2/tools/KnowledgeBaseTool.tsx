@@ -9,15 +9,18 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
-import { Plus, FileText, Trash2, Edit, Upload, Loader2, Search, BookOpen, Download, ExternalLink, Tag } from "lucide-react";
+import { Plus, FileText, Trash2, Edit, Upload, Loader2, Search, BookOpen } from "lucide-react";
 import { useGlobalKnowledge, KNOWLEDGE_CATEGORIES, KnowledgeCategory, GlobalKnowledge } from "@/hooks/useGlobalKnowledge";
 import { supabase } from "@/integrations/supabase/client";
 import { uploadAndGetSignedUrl } from "@/lib/storage";
 import { toast } from "sonner";
 import { TagsInput } from "@/components/knowledge/TagsInput";
+import { TasksPanel } from "@/components/kai2/TasksPanel";
+import { useContextualTasks } from "@/hooks/useContextualTasks";
 
 export const KnowledgeBaseTool = () => {
   const { knowledge, isLoading, createKnowledge, updateKnowledge, deleteKnowledge } = useGlobalKnowledge();
+  const { tasks, isActive: tasksActive, startTasks, advanceToTask, completeAllTasks } = useContextualTasks();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
@@ -61,7 +64,9 @@ export const KnowledgeBaseTool = () => {
     }
 
     setIsUploading(true);
+    startTasks("knowledge-base");
     try {
+      advanceToTask("upload");
       const sanitizedName = sanitizeFileName(file.name);
       const { signedUrl, error: uploadError } = await uploadAndGetSignedUrl(
         new File([file], `${Date.now()}_${sanitizedName}`, { type: file.type }),
@@ -70,18 +75,21 @@ export const KnowledgeBaseTool = () => {
 
       if (uploadError) throw uploadError;
 
+      advanceToTask("extract");
       const { data, error } = await supabase.functions.invoke('extract-pdf', {
         body: { fileUrl: signedUrl, fileName: file.name }
       });
 
       if (error) throw error;
 
+      advanceToTask("categorize");
       setFormTitle(file.name.replace('.pdf', ''));
       setFormContent(data.content || '');
       setFormSourceFile(file.name);
       setFormPageCount(data.pageCount || null);
       setFormPdfUrl(signedUrl);
       
+      completeAllTasks();
       toast.success('PDF extraído com sucesso!');
     } catch (error: any) {
       toast.error('Erro ao processar PDF: ' + error.message);
@@ -312,9 +320,14 @@ export const KnowledgeBaseTool = () => {
                 />
                 <label htmlFor="pdf-upload" className="cursor-pointer">
                   {isUploading ? (
-                    <div className="flex flex-col items-center gap-2">
+                    <div className="flex flex-col items-center gap-3">
                       <Loader2 className="h-10 w-10 animate-spin text-muted-foreground" />
-                      <p className="text-sm text-muted-foreground">Extraindo conteúdo...</p>
+                      <TasksPanel 
+                        tasks={tasks}
+                        isActive={tasksActive}
+                        collapsible={false}
+                        className="w-full max-w-xs"
+                      />
                     </div>
                   ) : (
                     <div className="flex flex-col items-center gap-2">
