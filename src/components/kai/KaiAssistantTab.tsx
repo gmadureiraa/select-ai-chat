@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Sparkles, MessageSquare, Trash2, PanelLeftClose, PanelLeft, Plus } from "lucide-react";
+import { Trash2, PanelLeftClose, PanelLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useClientTemplates } from "@/hooks/useClientTemplates";
@@ -122,66 +122,60 @@ export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
         <ScrollArea className="flex-1">
           <div className="p-2 space-y-0.5">
             {/* Free Chat Option */}
-            <Button
-              variant="ghost"
+            <button
               className={cn(
-                "w-full justify-start text-sm h-9 px-3 rounded-lg",
+                "w-full text-left text-sm py-2 px-3 rounded-md transition-colors",
                 !selectedTemplateId 
-                  ? "bg-primary/10 text-primary font-medium" 
-                  : "text-foreground/70 hover:bg-muted/50 hover:text-foreground"
+                  ? "bg-muted/60 text-foreground font-medium" 
+                  : "text-muted-foreground hover:bg-muted/30 hover:text-foreground"
               )}
               onClick={() => setSelectedTemplateId(null)}
             >
-              <MessageSquare className="h-4 w-4 mr-2.5 shrink-0" />
-              <span className="truncate">Chat Livre</span>
-            </Button>
+              Chat Livre
+            </button>
 
             {/* Content Templates */}
             {chatTemplates.length > 0 && (
-              <div className="pt-2">
-                <p className="text-[10px] text-muted-foreground/50 px-3 py-1.5 font-medium uppercase tracking-wider">
+              <div className="pt-3">
+                <p className="text-[10px] text-muted-foreground/40 px-3 py-1 font-medium uppercase tracking-wider">
                   Conteúdo
                 </p>
                 {chatTemplates.map((template) => (
-                  <Button
+                  <button
                     key={template.id}
-                    variant="ghost"
                     className={cn(
-                      "w-full justify-start text-sm h-9 px-3 rounded-lg",
+                      "w-full text-left text-sm py-2 px-3 rounded-md transition-colors",
                       selectedTemplateId === template.id
-                        ? "bg-primary/10 text-primary font-medium"
-                        : "text-foreground/70 hover:bg-muted/50 hover:text-foreground"
+                        ? "bg-muted/60 text-foreground font-medium"
+                        : "text-muted-foreground hover:bg-muted/30 hover:text-foreground"
                     )}
                     onClick={() => setSelectedTemplateId(template.id)}
                   >
-                    <Sparkles className="h-4 w-4 mr-2.5 shrink-0" />
-                    <span className="truncate">{template.name}</span>
-                  </Button>
+                    {template.name}
+                  </button>
                 ))}
               </div>
             )}
 
             {/* Image Templates */}
             {imageTemplates.length > 0 && (
-              <div className="pt-2">
-                <p className="text-[10px] text-muted-foreground/50 px-3 py-1.5 font-medium uppercase tracking-wider">
+              <div className="pt-3">
+                <p className="text-[10px] text-muted-foreground/40 px-3 py-1 font-medium uppercase tracking-wider">
                   Imagens
                 </p>
                 {imageTemplates.map((template) => (
-                  <Button
+                  <button
                     key={template.id}
-                    variant="ghost"
                     className={cn(
-                      "w-full justify-start text-sm h-9 px-3 rounded-lg",
+                      "w-full text-left text-sm py-2 px-3 rounded-md transition-colors",
                       selectedTemplateId === template.id
-                        ? "bg-primary/10 text-primary font-medium"
-                        : "text-foreground/70 hover:bg-muted/50 hover:text-foreground"
+                        ? "bg-muted/60 text-foreground font-medium"
+                        : "text-muted-foreground hover:bg-muted/30 hover:text-foreground"
                     )}
                     onClick={() => setSelectedTemplateId(template.id)}
                   >
-                    <Sparkles className="h-4 w-4 mr-2.5 shrink-0" />
-                    <span className="truncate">{template.name}</span>
-                  </Button>
+                    {template.name}
+                  </button>
                 ))}
               </div>
             )}

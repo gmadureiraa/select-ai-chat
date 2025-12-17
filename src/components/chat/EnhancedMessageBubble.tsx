@@ -99,17 +99,17 @@ export const EnhancedMessageBubble = ({
   return (
     <>
       <div className={cn(
-        "flex gap-4 py-5 group transition-colors",
+        "flex gap-4 py-4 group transition-colors",
         isUser ? "justify-end" : "justify-start"
       )}>
-        {/* Avatar do assistente */}
+        {/* Avatar do assistente - maior e mais visível */}
         {!isUser && (
-          <div className="flex-shrink-0 w-6 h-6 rounded-full bg-muted/50 flex items-center justify-center mt-1">
-            <img src={kaleidosLogo} alt="kAI" className="h-3.5 w-3.5 object-contain opacity-70" />
+          <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center mt-0.5">
+            <img src={kaleidosLogo} alt="kAI" className="h-5 w-5 object-contain" />
           </div>
         )}
         
-        <div className="flex flex-col gap-3 max-w-[88%] min-w-0">
+        <div className="flex flex-col gap-3 max-w-[85%] min-w-0">
           {/* Imagens */}
           {hasImages && (
             <div className={cn(
@@ -137,7 +137,7 @@ export const EnhancedMessageBubble = ({
                 {imageUrls.map((url, index) => (
                   <div 
                     key={index} 
-                    className="relative group/img cursor-pointer overflow-hidden rounded-xl border border-border/50"
+                    className="relative group/img cursor-pointer overflow-hidden rounded-xl border border-border"
                     onClick={() => setLightboxImage(url)}
                   >
                     <img
@@ -174,14 +174,14 @@ export const EnhancedMessageBubble = ({
             </div>
           )}
 
-          {/* Conteúdo de texto */}
+          {/* Conteúdo de texto - com bordas visíveis */}
           {textContent && (
             <div
               className={cn(
-                "break-words relative",
+                "break-words relative rounded-2xl px-4 py-3",
                 isUser
-                  ? "rounded-2xl px-4 py-3 bg-muted/30 border border-border/30"
-                  : "px-0 py-0"
+                  ? "bg-primary/10 border border-primary/20"
+                  : "bg-muted/40 border border-border/60"
               )}
             >
               {/* Quick download button for long content */}
@@ -189,7 +189,7 @@ export const EnhancedMessageBubble = ({
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="absolute -top-2 -right-2 h-6 px-2 bg-card border border-border/60 shadow-sm hover:bg-muted text-[9px] rounded-lg"
+                  className="absolute -top-2 -right-2 h-6 px-2 bg-card border border-border shadow-sm hover:bg-muted text-[9px] rounded-lg"
                   onClick={handleDownloadAsPDF}
                 >
                   <FileDown className="h-3 w-3 mr-1" />
@@ -242,10 +242,10 @@ export const EnhancedMessageBubble = ({
           />
         </div>
 
-        {/* Avatar do usuário */}
+        {/* Avatar do usuário - maior e mais visível */}
         {isUser && (
-          <div className="flex-shrink-0 w-6 h-6 rounded-full bg-muted/40 flex items-center justify-center mt-1">
-            <User className="h-3 w-3 text-muted-foreground/60" />
+          <div className="flex-shrink-0 w-8 h-8 rounded-full bg-muted border border-border flex items-center justify-center mt-0.5">
+            <User className="h-4 w-4 text-muted-foreground" />
           </div>
         )}
       </div>
