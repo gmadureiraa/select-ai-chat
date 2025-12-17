@@ -1,9 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { 
   Settings, Save, Trash2, Globe, Instagram, Twitter, Linkedin, Youtube, 
   FileText, BookOpen, Sparkles, Loader2, RefreshCw, Palette, Target, 
   Users, MessageSquare, Hash, Building, Mail, Phone, MapPin, Calendar,
-  TrendingUp, Award, Megaphone, Eye
+  TrendingUp, Award, Megaphone, Eye, Check
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,8 @@ import { Switch } from "@/components/ui/switch";
 import { useClients, Client } from "@/hooks/useClients";
 import { useClientDocuments } from "@/hooks/useClientDocuments";
 import { useClientWebsites } from "@/hooks/useClientWebsites";
+import { ClientCompletenessIndicator } from "@/components/kai2/ClientCompletenessIndicator";
+import { useDebounce } from "@/hooks/useDebounce";
 
 import { ClientDocumentsManager } from "@/components/clients/ClientDocumentsManager";
 import { supabase } from "@/integrations/supabase/client";
@@ -45,6 +47,12 @@ export const KaiSettingsTab = ({ clientId, client }: KaiSettingsTabProps) => {
   const [newWebsite, setNewWebsite] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [isRegenerating, setIsRegenerating] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [autoSaveStatus, setAutoSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
+  const [activeSettingsTab, setActiveSettingsTab] = useState("general");
+  
+  // Debounced form data for auto-save
+  const debouncedFormData = useDebounce(formData, 3000);
 
   // Update form when client changes
   useEffect(() => {
@@ -56,7 +64,36 @@ export const KaiSettingsTab = ({ clientId, client }: KaiSettingsTabProps) => {
       social_media: client.social_media || {},
       tags: client.tags || {},
     });
+    setHasUnsavedChanges(false);
   }, [client]);
+
+  // Track changes
+  const updateFormData = (updates: Partial<typeof formData>) => {
+    setFormData(prev => ({ ...prev, ...updates }));
+    setHasUnsavedChanges(true);
+  };
+
+  // Auto-save effect
+  useEffect(() => {
+    if (hasUnsavedChanges && debouncedFormData) {
+      const autoSave = async () => {
+        setAutoSaveStatus("saving");
+        try {
+          await updateClient.mutateAsync({
+            id: clientId,
+            ...debouncedFormData,
+          });
+          setAutoSaveStatus("saved");
+          setHasUnsavedChanges(false);
+          setTimeout(() => setAutoSaveStatus("idle"), 2000);
+        } catch (error) {
+          console.error("Auto-save failed:", error);
+          setAutoSaveStatus("idle");
+        }
+      };
+      autoSave();
+    }
+  }, [debouncedFormData]);
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -65,6 +102,7 @@ export const KaiSettingsTab = ({ clientId, client }: KaiSettingsTabProps) => {
         id: clientId,
         ...formData,
       });
+      setHasUnsavedChanges(false);
       toast.success("Cliente atualizado com sucesso");
     } catch (error) {
       toast.error("Erro ao atualizar cliente");
@@ -179,6 +217,18 @@ Estruture o documento com seções para: Visão Geral, Posicionamento, Tom de Vo
         <div className="flex items-center gap-2">
           <Settings className="h-5 w-5 text-primary" />
           <h2 className="font-semibold">Configurações do Cliente</h2>
+          {autoSaveStatus === "saving" && (
+            <Badge variant="outline" className="gap-1 text-xs">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              Salvando...
+            </Badge>
+          )}
+          {autoSaveStatus === "saved" && (
+            <Badge variant="outline" className="gap-1 text-xs text-green-600">
+              <Check className="h-3 w-3" />
+              Salvo
+            </Badge>
+          )}
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={handleRegenerateContext} disabled={isRegenerating}>
@@ -189,14 +239,22 @@ Estruture o documento com seções para: Visão Geral, Posicionamento, Tom de Vo
             <Trash2 className="h-4 w-4 mr-2" />
             Excluir
           </Button>
-          <Button onClick={handleSave} disabled={isSaving}>
+          <Button onClick={handleSave} disabled={isSaving || !hasUnsavedChanges}>
             <Save className="h-4 w-4 mr-2" />
             {isSaving ? "Salvando..." : "Salvar"}
           </Button>
         </div>
       </div>
 
-      <Tabs defaultValue="general">
+      {/* Completeness Indicator */}
+      <ClientCompletenessIndicator
+        client={client}
+        documentsCount={documents?.length || 0}
+        websitesCount={websites?.length || 0}
+        onNavigateToTab={setActiveSettingsTab}
+      />
+
+      <Tabs value={activeSettingsTab} onValueChange={setActiveSettingsTab}>
         <TabsList className="grid grid-cols-5 w-full">
           <TabsTrigger value="general">Geral</TabsTrigger>
           <TabsTrigger value="brand">Marca</TabsTrigger>
@@ -217,7 +275,7 @@ Estruture o documento com seções para: Visão Geral, Posicionamento, Tom de Vo
                   <Label>Nome do Cliente</Label>
                   <Input
                     value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    onChange={(e) => updateFormData({ name: e.target.value })}
                     placeholder="Nome do cliente"
                   />
                 </div>
@@ -225,8 +283,7 @@ Estruture o documento com seções para: Visão Geral, Posicionamento, Tom de Vo
                   <Label>Segmento</Label>
                   <Input
                     value={(formData.tags as any)?.segment || ""}
-                    onChange={(e) => setFormData({
-                      ...formData,
+                    onChange={(e) => updateFormData({
                       tags: { ...formData.tags, segment: e.target.value },
                     })}
                     placeholder="Ex: E-commerce, SaaS"
@@ -237,7 +294,7 @@ Estruture o documento com seções para: Visão Geral, Posicionamento, Tom de Vo
                 <Label>Descrição</Label>
                 <Textarea
                   value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  onChange={(e) => updateFormData({ description: e.target.value })}
                   placeholder="Breve descrição do cliente e seu negócio"
                   rows={3}
                 />

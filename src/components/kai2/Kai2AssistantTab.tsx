@@ -1,8 +1,10 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Trash2, PanelLeftClose, PanelLeft } from "lucide-react";
+import { Trash2, PanelLeftClose, PanelLeft, History, MessageSquare, Sparkles, Zap, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
 import { useClientTemplates } from "@/hooks/useClientTemplates";
 import { useClientChat } from "@/hooks/useClientChat";
 import { FloatingInput, ChatMode } from "@/components/chat/FloatingInput";
@@ -10,6 +12,7 @@ import { EnhancedMessageBubble } from "@/components/chat/EnhancedMessageBubble";
 import { QuickSuggestions } from "@/components/chat/QuickSuggestions";
 import { TemplateManager } from "@/components/clients/TemplateManager";
 import { TasksPanel } from "@/components/kai2/TasksPanel";
+import { ConversationHistorySidebar } from "@/components/kai2/ConversationHistorySidebar";
 import { useContextualTasks } from "@/hooks/useContextualTasks";
 import { ContextType } from "@/config/contextualTasks";
 import { Client } from "@/hooks/useClients";
@@ -34,6 +37,7 @@ export const Kai2AssistantTab = ({
     searchParams.get("template")
   );
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarTab, setSidebarTab] = useState<"templates" | "history">("templates");
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const initialMessageSentRef = useRef(false);
@@ -167,89 +171,130 @@ export const Kai2AssistantTab = ({
 
   return (
     <div className="flex h-full relative">
-      {/* Collapsible Sidebar - Templates */}
+      {/* Collapsible Sidebar - Templates & History */}
       <div
         className={cn(
           "shrink-0 flex flex-col border-r border-border/30 bg-card/30 transition-all duration-300 ease-in-out",
-          sidebarCollapsed ? "w-0 opacity-0 overflow-hidden" : "w-56"
+          sidebarCollapsed ? "w-0 opacity-0 overflow-hidden" : "w-60"
         )}
       >
-        <div className="p-3 border-b border-border/30 flex items-center justify-between gap-2">
-          <h3 className="font-medium text-xs uppercase tracking-wider text-muted-foreground">Templates</h3>
-          <div className="flex items-center gap-1">
-            <TemplateManager clientId={clientId} />
+        {/* Sidebar Header with Tabs */}
+        <div className="border-b border-border/30">
+          <div className="px-2 pt-2 pb-1">
+            <Tabs value={sidebarTab} onValueChange={(v) => setSidebarTab(v as "templates" | "history")}>
+              <TabsList className="w-full h-8 p-0.5">
+                <TabsTrigger value="templates" className="flex-1 h-7 text-xs gap-1.5">
+                  <FileText className="h-3 w-3" />
+                  Templates
+                </TabsTrigger>
+                <TabsTrigger value="history" className="flex-1 h-7 text-xs gap-1.5">
+                  <History className="h-3 w-3" />
+                  Histórico
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </div>
+          <div className="px-3 pb-2 flex items-center justify-between">
+            {sidebarTab === "templates" && <TemplateManager clientId={clientId} />}
             <Button
               variant="ghost"
               size="icon"
               onClick={() => setSidebarCollapsed(true)}
-              className="h-7 w-7 hover:bg-muted/50"
+              className="h-7 w-7 hover:bg-muted/50 ml-auto"
             >
               <PanelLeftClose className="h-3.5 w-3.5" />
             </Button>
           </div>
         </div>
-        <ScrollArea className="flex-1">
-          <div className="p-2 space-y-0.5">
-            {/* Free Chat Option */}
-            <button
-              className={cn(
-                "w-full text-left text-sm py-2 px-3 rounded-md transition-colors",
-                !selectedTemplateId 
-                  ? "bg-muted/60 text-foreground font-medium" 
-                  : "text-muted-foreground hover:bg-muted/30 hover:text-foreground"
+
+        {/* Templates Tab */}
+        {sidebarTab === "templates" && (
+          <ScrollArea className="flex-1">
+            <div className="p-2 space-y-0.5">
+              {/* Free Chat Option */}
+              <button
+                className={cn(
+                  "w-full flex items-center gap-2 text-left text-sm py-2 px-3 rounded-md transition-colors",
+                  !selectedTemplateId 
+                    ? "bg-primary/10 text-primary border-l-2 border-primary" 
+                    : "text-muted-foreground hover:bg-muted/30 hover:text-foreground"
+                )}
+                onClick={() => setSelectedTemplateId(null)}
+              >
+                <MessageSquare className="h-3.5 w-3.5" />
+                Chat Livre
+              </button>
+
+              {/* Content Templates */}
+              {chatTemplates.length > 0 && (
+                <div className="pt-3">
+                  <p className="text-[10px] text-muted-foreground/40 px-3 py-1 font-medium uppercase tracking-wider flex items-center gap-1.5">
+                    <Sparkles className="h-3 w-3" />
+                    Conteúdo
+                    <Badge variant="secondary" className="ml-auto text-[9px] h-4 px-1">
+                      {chatTemplates.length}
+                    </Badge>
+                  </p>
+                  {chatTemplates.map((template) => (
+                    <button
+                      key={template.id}
+                      className={cn(
+                        "w-full text-left text-sm py-2 px-3 rounded-md transition-colors",
+                        selectedTemplateId === template.id
+                          ? "bg-primary/10 text-primary border-l-2 border-primary"
+                          : "text-muted-foreground hover:bg-muted/30 hover:text-foreground"
+                      )}
+                      onClick={() => setSelectedTemplateId(template.id)}
+                    >
+                      {template.name}
+                    </button>
+                  ))}
+                </div>
               )}
-              onClick={() => setSelectedTemplateId(null)}
-            >
-              Chat Livre
-            </button>
 
-            {/* Content Templates */}
-            {chatTemplates.length > 0 && (
-              <div className="pt-3">
-                <p className="text-[10px] text-muted-foreground/40 px-3 py-1 font-medium uppercase tracking-wider">
-                  Conteúdo
-                </p>
-                {chatTemplates.map((template) => (
-                  <button
-                    key={template.id}
-                    className={cn(
-                      "w-full text-left text-sm py-2 px-3 rounded-md transition-colors",
-                      selectedTemplateId === template.id
-                        ? "bg-muted/60 text-foreground font-medium"
-                        : "text-muted-foreground hover:bg-muted/30 hover:text-foreground"
-                    )}
-                    onClick={() => setSelectedTemplateId(template.id)}
-                  >
-                    {template.name}
-                  </button>
-                ))}
-              </div>
-            )}
+              {/* Image Templates */}
+              {imageTemplates.length > 0 && (
+                <div className="pt-3">
+                  <p className="text-[10px] text-muted-foreground/40 px-3 py-1 font-medium uppercase tracking-wider flex items-center gap-1.5">
+                    <Zap className="h-3 w-3" />
+                    Imagens
+                    <Badge variant="secondary" className="ml-auto text-[9px] h-4 px-1">
+                      {imageTemplates.length}
+                    </Badge>
+                  </p>
+                  {imageTemplates.map((template) => (
+                    <button
+                      key={template.id}
+                      className={cn(
+                        "w-full text-left text-sm py-2 px-3 rounded-md transition-colors",
+                        selectedTemplateId === template.id
+                          ? "bg-primary/10 text-primary border-l-2 border-primary"
+                          : "text-muted-foreground hover:bg-muted/30 hover:text-foreground"
+                      )}
+                      onClick={() => setSelectedTemplateId(template.id)}
+                    >
+                      {template.name}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </ScrollArea>
+        )}
 
-            {/* Image Templates */}
-            {imageTemplates.length > 0 && (
-              <div className="pt-3">
-                <p className="text-[10px] text-muted-foreground/40 px-3 py-1 font-medium uppercase tracking-wider">
-                  Imagens
-                </p>
-                {imageTemplates.map((template) => (
-                  <button
-                    key={template.id}
-                    className={cn(
-                      "w-full text-left text-sm py-2 px-3 rounded-md transition-colors",
-                      selectedTemplateId === template.id
-                        ? "bg-muted/60 text-foreground font-medium"
-                        : "text-muted-foreground hover:bg-muted/30 hover:text-foreground"
-                    )}
-                    onClick={() => setSelectedTemplateId(template.id)}
-                  >
-                    {template.name}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        </ScrollArea>
+        {/* History Tab */}
+        {sidebarTab === "history" && (
+          <ConversationHistorySidebar
+            clientId={clientId}
+            currentConversationId={conversationId}
+            onSelectConversation={(id, templateId) => {
+              if (templateId) {
+                setSelectedTemplateId(templateId);
+              }
+              // Note: We'd need to implement conversation loading here
+            }}
+          />
+        )}
       </div>
 
       {/* Main Chat Area */}
