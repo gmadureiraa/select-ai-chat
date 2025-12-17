@@ -1,9 +1,36 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { logAIUsage, estimateTokens } from "../_shared/ai-usage.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+async function fetchImageAsBase64(url: string): Promise<string> {
+  try {
+    const response = await fetch(url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+      },
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Failed to fetch image: ${response.statusText}`);
+    }
+    
+    const arrayBuffer = await response.arrayBuffer();
+    const uint8Array = new Uint8Array(arrayBuffer);
+    let binary = '';
+    for (let i = 0; i < uint8Array.length; i++) {
+      binary += String.fromCharCode(uint8Array[i]);
+    }
+    return btoa(binary);
+  } catch (error) {
+    console.error("[scrape-research-link] Error fetching image:", error);
+    throw error;
+  }
+}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -11,13 +38,13 @@ serve(async (req) => {
   }
 
   try {
-    const { url } = await req.json();
+    const { url, userId } = await req.json();
     
     if (!url) {
       throw new Error("URL is required");
     }
 
-    console.log("Scraping research link:", url);
+    console.log("[scrape-research-link] Scraping:", url);
 
     // Fetch website content
     const response = await fetch(url, {
@@ -48,13 +75,12 @@ serve(async (req) => {
                          html.match(/<meta[^>]*content=["']([^"']+)["'][^>]*property=["']og:image["']/i);
     const ogImage = ogImageMatch ? ogImageMatch[1] : null;
 
-    // Extract all images from the page
+    // Extract all images
     const imgRegex = /<img[^>]+src=["']([^"']+)["'][^>]*>/gi;
     const imageUrls: string[] = [];
     let match;
     while ((match = imgRegex.exec(html)) !== null) {
       let imgUrl = match[1];
-      // Convert relative URLs to absolute
       if (imgUrl.startsWith("//")) {
         imgUrl = "https:" + imgUrl;
       } else if (imgUrl.startsWith("/")) {
@@ -64,7 +90,6 @@ serve(async (req) => {
         const urlObj = new URL(url);
         imgUrl = urlObj.origin + "/" + imgUrl;
       }
-      // Filter out tiny images, icons, and tracking pixels
       if (!imgUrl.includes("1x1") && 
           !imgUrl.includes("pixel") && 
           !imgUrl.includes("tracking") &&
@@ -74,10 +99,9 @@ serve(async (req) => {
       }
     }
 
-    // Limit to first 10 meaningful images
     const filteredImages = imageUrls.slice(0, 10);
 
-    // Extract text content from HTML
+    // Extract text content
     let textContent = html
       .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
       .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
@@ -96,35 +120,36 @@ serve(async (req) => {
       .replace(/\s+/g, ' ')
       .trim();
 
-    // Limit text to 15000 chars
     textContent = textContent.substring(0, 15000);
 
-    // Transcribe images using GPT-4o Vision if we have images
+    // Transcribe images using Gemini
     let imageTranscriptions = "";
+    let totalInputTokens = 0;
+    let totalOutputTokens = 0;
     const GOOGLE_API_KEY = Deno.env.get("GOOGLE_AI_STUDIO_API_KEY");
+    const MODEL = "gemini-2.5-flash";
     
     if (filteredImages.length > 0 && GOOGLE_API_KEY) {
-      console.log(`Transcribing ${filteredImages.length} images...`);
+      console.log(`[scrape-research-link] Transcribing ${filteredImages.length} images...`);
       
-      // Transcribe up to 5 most relevant images
       const imagesToTranscribe = filteredImages.slice(0, 5);
       
       for (let i = 0; i < imagesToTranscribe.length; i++) {
         const imgUrl = imagesToTranscribe[i];
         try {
-          console.log(`Transcribing image ${i + 1}: ${imgUrl}`);
+          console.log(`[scrape-research-link] Transcribing image ${i + 1}: ${imgUrl}`);
+          
+          const imagePrompt = "Descreva esta imagem em detalhes em português. Inclua: 1) Texto visível na imagem, 2) Elementos visuais principais, 3) Cores e estilo, 4) Contexto ou propósito aparente da imagem. Seja conciso mas completo.";
           
           const visionResponse = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GOOGLE_API_KEY}`,
+            `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${GOOGLE_API_KEY}`,
             {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
                 contents: [{
                   parts: [
-                    {
-                      text: "Descreva esta imagem em detalhes em português. Inclua: 1) Texto visível na imagem, 2) Elementos visuais principais, 3) Cores e estilo, 4) Contexto ou propósito aparente da imagem. Seja conciso mas completo."
-                    },
+                    { text: imagePrompt },
                     {
                       inlineData: {
                         mimeType: "image/jpeg",
@@ -144,14 +169,36 @@ serve(async (req) => {
           if (visionResponse.ok) {
             const visionData = await visionResponse.json();
             const transcription = visionData.candidates?.[0]?.content?.parts?.[0]?.text || "";
+            
+            // Accumulate tokens
+            totalInputTokens += visionData.usageMetadata?.promptTokenCount || (estimateTokens(imagePrompt) + 258);
+            totalOutputTokens += visionData.usageMetadata?.candidatesTokenCount || estimateTokens(transcription);
+            
             if (transcription) {
               imageTranscriptions += `\n\n[IMAGEM ${i + 1}]: ${transcription}`;
             }
           }
         } catch (imgError) {
-          console.error(`Error transcribing image ${imgUrl}:`, imgError);
+          console.error(`[scrape-research-link] Error transcribing image ${imgUrl}:`, imgError);
         }
       }
+    }
+
+    // Log AI usage if images were transcribed
+    if (userId && (totalInputTokens > 0 || totalOutputTokens > 0)) {
+      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+      const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+      const supabase = createClient(supabaseUrl, supabaseServiceKey);
+      
+      await logAIUsage(
+        supabase,
+        userId,
+        MODEL,
+        "scrape-research-link",
+        totalInputTokens,
+        totalOutputTokens,
+        { url, imagesTranscribed: filteredImages.slice(0, 5).length }
+      );
     }
 
     // Create comprehensive content
@@ -167,7 +214,7 @@ ${description ? `\n**Descrição:** ${description}` : ""}
 ${textContent}
 ${imageTranscriptions ? `\n\n---\n\n## Descrição das Imagens${imageTranscriptions}` : ""}`;
 
-    console.log("Website scraped successfully:", title);
+    console.log(`[scrape-research-link] Success - ${totalInputTokens + totalOutputTokens} tokens used for images`);
 
     return new Response(JSON.stringify({ 
       success: true, 
@@ -184,7 +231,7 @@ ${imageTranscriptions ? `\n\n---\n\n## Descrição das Imagens${imageTranscripti
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
-    console.error("Error scraping website:", error);
+    console.error("[scrape-research-link] Error:", error);
     return new Response(
       JSON.stringify({ 
         error: error instanceof Error ? error.message : "Unknown error" 
@@ -196,29 +243,3 @@ ${imageTranscriptions ? `\n\n---\n\n## Descrição das Imagens${imageTranscripti
     );
   }
 });
-
-// Helper function to fetch image and convert to base64
-async function fetchImageAsBase64(url: string): Promise<string> {
-  try {
-    const response = await fetch(url, {
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-      },
-    });
-    
-    if (!response.ok) {
-      throw new Error(`Failed to fetch image: ${response.statusText}`);
-    }
-    
-    const arrayBuffer = await response.arrayBuffer();
-    const uint8Array = new Uint8Array(arrayBuffer);
-    let binary = '';
-    for (let i = 0; i < uint8Array.length; i++) {
-      binary += String.fromCharCode(uint8Array[i]);
-    }
-    return btoa(binary);
-  } catch (error) {
-    console.error("Error fetching image:", error);
-    throw error;
-  }
-}

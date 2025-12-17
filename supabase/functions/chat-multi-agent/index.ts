@@ -1,65 +1,12 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { logAIUsage, estimateTokens } from "../_shared/ai-usage.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type",
 };
-
-// Pricing por 1M tokens (USD)
-const MODEL_PRICING: Record<string, { input: number; output: number }> = {
-  "gemini-3-pro-preview": { input: 0.00, output: 0.00 },
-  "gemini-2.5-flash": { input: 0.075, output: 0.30 },
-  "gemini-2.5-flash-lite": { input: 0.0375, output: 0.15 },
-  "gemini-2.0-flash-lite": { input: 0.0375, output: 0.15 },
-  "gemini-2.5-pro": { input: 1.25, output: 5.00 },
-  "gpt-5": { input: 2.50, output: 10.00 },
-  "claude-sonnet-4-5": { input: 3.00, output: 15.00 },
-};
-
-function estimateCost(model: string, inputTokens: number, outputTokens: number): number {
-  const pricing = MODEL_PRICING[model] || { input: 0, output: 0 };
-  return (inputTokens / 1_000_000) * pricing.input + (outputTokens / 1_000_000) * pricing.output;
-}
-
-function getProvider(model: string): string {
-  if (model.includes("gemini")) return "google";
-  if (model.includes("gpt-")) return "openai";
-  if (model.includes("claude")) return "anthropic";
-  return "lovable";
-}
-
-async function logAIUsage(
-  supabase: any,
-  userId: string,
-  model: string,
-  edgeFunction: string,
-  inputTokens: number,
-  outputTokens: number,
-  metadata: Record<string, any> = {}
-) {
-  try {
-    const totalTokens = inputTokens + outputTokens;
-    const estimatedCost = estimateCost(model, inputTokens, outputTokens);
-    const provider = getProvider(model);
-
-    await supabase.from("ai_usage_logs").insert({
-      user_id: userId,
-      model_name: model,
-      provider,
-      edge_function: edgeFunction,
-      input_tokens: inputTokens,
-      output_tokens: outputTokens,
-      total_tokens: totalTokens,
-      estimated_cost_usd: estimatedCost,
-      metadata,
-    });
-    console.log(`[USAGE] Logged: ${model} - ${totalTokens} tokens - $${estimatedCost.toFixed(6)}`);
-  } catch (error) {
-    console.error("[USAGE] Error:", error);
-  }
-}
 
 // Mapeia nomes de modelo para formato Gemini API
 function mapToGeminiModel(model: string): string {
@@ -162,7 +109,6 @@ async function executeAgent(
 ): Promise<{ content: string; inputTokens: number; outputTokens: number }> {
   console.log(`[AGENT-${agent.id}] Executing: ${agent.name} with model: ${agent.model}`);
 
-  // Construir contexto baseado no tipo de agente
   let userPrompt = "";
 
   if (agent.id === "researcher") {
@@ -187,7 +133,6 @@ ${context.userMessage}
 
 Analise e selecione os materiais mais relevantes para criar este conteúdo.`;
   } else if (agent.id === "writer") {
-    // Extrair materiais selecionados pelo pesquisador
     const researchOutput = context.previousOutputs["researcher"] || "";
     const selectedMaterials = context.contentLibrary.filter(c => 
       researchOutput.includes(c.id) || researchOutput.includes(c.title)
@@ -251,7 +196,6 @@ ${contentToReview}
 
 Faça a revisão final e retorne a versão PRONTA PARA PUBLICAÇÃO.`;
   } else {
-    // Agente customizado - usar output anterior
     const lastOutput = Object.values(context.previousOutputs).pop() || "";
     userPrompt = `## CLIENTE: ${context.clientName}
 ## CONTEXTO ANTERIOR:
@@ -287,7 +231,7 @@ serve(async (req) => {
       contentType,
       userId,
       clientId,
-      pipeline // Novo: recebe a configuração do pipeline
+      pipeline
     } = await req.json();
 
     console.log(`[MULTI-AGENT] Starting pipeline for ${clientName}`);
@@ -299,10 +243,7 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    let totalInputTokens = 0;
-    let totalOutputTokens = 0;
-
-    // Usar pipeline recebido ou fallback para pipeline padrão
+    // Use pipeline received or fallback to default
     const agents: PipelineAgent[] = pipeline?.agents || [
       {
         id: "researcher",
@@ -351,7 +292,7 @@ serve(async (req) => {
             contentType: contentType || "geral"
           };
 
-          // Executar cada agente em sequência
+          // Execute each agent and LOG INDIVIDUALLY
           for (let i = 0; i < agents.length; i++) {
             const agent = agents[i];
             const isLast = i === agents.length - 1;
@@ -361,13 +302,29 @@ serve(async (req) => {
             try {
               const result = await executeAgent(agent, context);
               
-              // Armazenar output para próximo agente
               context.previousOutputs[agent.id] = result.content;
-              totalInputTokens += result.inputTokens;
-              totalOutputTokens += result.outputTokens;
+
+              // LOG EACH AGENT INDIVIDUALLY with correct model
+              const geminiModel = mapToGeminiModel(agent.model);
+              if (userId) {
+                await logAIUsage(
+                  supabase,
+                  userId,
+                  geminiModel,
+                  `chat-multi-agent/${agent.id}`,
+                  result.inputTokens,
+                  result.outputTokens,
+                  { 
+                    clientId, 
+                    contentType, 
+                    agentId: agent.id,
+                    agentName: agent.name,
+                    pipelineId: pipeline?.id || "default"
+                  }
+                );
+              }
 
               if (isLast) {
-                // Último agente - enviar resultado final
                 sendProgress(agent.id, "completed", `Finalizado`, agent.name);
                 sendProgress("complete", "done", result.content);
               } else {
@@ -377,24 +334,6 @@ serve(async (req) => {
               console.error(`[AGENT-${agent.id}] Error:`, agentError);
               throw new Error(`Erro no agente ${agent.name}: ${agentError.message}`);
             }
-          }
-
-          // Log usage
-          if (userId) {
-            await logAIUsage(
-              supabase,
-              userId,
-              "multi-agent-pipeline",
-              "chat-multi-agent",
-              totalInputTokens,
-              totalOutputTokens,
-              { 
-                clientId, 
-                contentType, 
-                pipelineId: pipeline?.id || "default",
-                agentCount: agents.length 
-              }
-            );
           }
 
           controller.enqueue(encoder.encode("data: [DONE]\n\n"));

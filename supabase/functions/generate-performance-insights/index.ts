@@ -1,4 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { logAIUsage, estimateTokens } from "../_shared/ai-usage.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -11,7 +13,7 @@ serve(async (req) => {
   }
 
   try {
-    const { clientId, clientName, context } = await req.json();
+    const { clientId, clientName, context, userId } = await req.json();
 
     if (!context) {
       throw new Error("Context is required");
@@ -59,8 +61,9 @@ Gere um resumo executivo breve (máximo 4-5 frases) com:
 
 Seja direto, prático e específico. Evite generalidades. Use números quando relevante.`;
 
+    const MODEL = "gemini-2.0-flash";
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GOOGLE_API_KEY}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${GOOGLE_API_KEY}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -76,19 +79,42 @@ Seja direto, prático e específico. Evite generalidades. Use números quando re
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("Gemini API error:", errorText);
+      console.error("[generate-performance-insights] Gemini API error:", errorText);
       throw new Error(`Gemini API error: ${response.status}`);
     }
 
     const data = await response.json();
     const insights = data.candidates?.[0]?.content?.parts?.[0]?.text || "Não foi possível gerar insights.";
+    
+    // Get token usage
+    const inputTokens = data.usageMetadata?.promptTokenCount || estimateTokens(prompt);
+    const outputTokens = data.usageMetadata?.candidatesTokenCount || estimateTokens(insights);
+
+    // Log AI usage
+    if (userId) {
+      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+      const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+      const supabase = createClient(supabaseUrl, supabaseServiceKey);
+      
+      await logAIUsage(
+        supabase,
+        userId,
+        MODEL,
+        "generate-performance-insights",
+        inputTokens,
+        outputTokens,
+        { clientId, clientName }
+      );
+    }
+
+    console.log(`[generate-performance-insights] Complete - ${inputTokens + outputTokens} tokens`);
 
     return new Response(
       JSON.stringify({ insights }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
-    console.error("Error generating insights:", error);
+    console.error("[generate-performance-insights] Error:", error);
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
     return new Response(
       JSON.stringify({ error: errorMessage }),

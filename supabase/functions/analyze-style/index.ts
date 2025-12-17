@@ -1,15 +1,16 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { logAIUsage, estimateImageTokens, estimateTokens } from "../_shared/ai-usage.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Helper function to convert array buffer to base64 without stack overflow
 function arrayBufferToBase64(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer);
   let binary = '';
-  const chunkSize = 8192; // Process in chunks to avoid stack overflow
+  const chunkSize = 8192;
   
   for (let i = 0; i < bytes.length; i += chunkSize) {
     const chunk = bytes.slice(i, i + chunkSize);
@@ -25,7 +26,7 @@ serve(async (req) => {
   }
 
   try {
-    const { imageUrls } = await req.json();
+    const { imageUrls, userId, clientId } = await req.json();
 
     if (!imageUrls || !Array.isArray(imageUrls) || imageUrls.length === 0) {
       return new Response(
@@ -42,46 +43,37 @@ serve(async (req) => {
       );
     }
 
-    console.log(`Analyzing ${imageUrls.length} reference images for style extraction`);
+    console.log(`[analyze-style] Analyzing ${imageUrls.length} images`);
 
-    // Build parts array with all images
     const parts: any[] = [];
-    const imageDescriptions: string[] = [];
+    let validImageCount = 0;
 
     for (let i = 0; i < Math.min(imageUrls.length, 6); i++) {
       const url = imageUrls[i];
       
       try {
         if (url.startsWith('data:')) {
-          // Handle base64 data URL
           const matches = url.match(/^data:([^;]+);base64,(.+)$/);
           if (matches) {
             parts.push({
-              inlineData: {
-                mimeType: matches[1],
-                data: matches[2]
-              }
+              inlineData: { mimeType: matches[1], data: matches[2] }
             });
-            console.log(`Added base64 image ${i + 1}`);
+            validImageCount++;
           }
         } else if (url.startsWith('http')) {
-          // Fetch external image
           const response = await fetch(url);
           if (response.ok) {
             const arrayBuffer = await response.arrayBuffer();
             const base64 = arrayBufferToBase64(arrayBuffer);
             const contentType = response.headers.get('content-type') || 'image/jpeg';
             parts.push({
-              inlineData: {
-                mimeType: contentType,
-                data: base64
-              }
+              inlineData: { mimeType: contentType, data: base64 }
             });
-            console.log(`Added URL image ${i + 1}`);
+            validImageCount++;
           }
         }
       } catch (e) {
-        console.warn(`Failed to process image ${i + 1}:`, e);
+        console.warn(`[analyze-style] Failed to process image ${i + 1}:`, e);
       }
     }
 
@@ -92,9 +84,7 @@ serve(async (req) => {
       );
     }
 
-    // Add analysis prompt
-    parts.push({
-      text: `Analise estas ${parts.length} imagens de referência para geração de imagens e extraia um JSON estruturado com as características visuais.
+    const analysisPrompt = `Analise estas ${parts.length} imagens de referência para geração de imagens e extraia um JSON estruturado com as características visuais.
 
 RETORNE APENAS O JSON, sem markdown ou explicações:
 
@@ -107,9 +97,7 @@ RETORNE APENAS O JSON, sem markdown ou explicações:
     "dominant_mood": "atmosfera/mood geral",
     "composition": "tipo de composição comum"
   },
-  "recurring_elements": [
-    "elemento visual que aparece frequentemente"
-  ],
+  "recurring_elements": ["elemento visual que aparece frequentemente"],
   "brand_elements": {
     "logo_style": "descrição se houver logo visível",
     "typography": "estilo tipográfico se visível",
@@ -120,13 +108,14 @@ RETORNE APENAS O JSON, sem markdown ou explicações:
     "resolution_feel": "alta qualidade, lifestyle, etc",
     "post_processing": "estilo de edição/filtros"
   },
-  "generation_prompt_template": "Um template de prompt detalhado para recriar este estilo: [descrição completa incluindo estilo fotográfico, cores, elementos, mood, composição e qualidade técnica]"
-}`
-    });
+  "generation_prompt_template": "Um template de prompt detalhado para recriar este estilo"
+}`;
 
-    // Call Gemini Vision API
+    parts.push({ text: analysisPrompt });
+
+    const MODEL = "gemini-2.5-flash";
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GOOGLE_API_KEY}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${GOOGLE_API_KEY}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -142,7 +131,7 @@ RETORNE APENAS O JSON, sem markdown ou explicações:
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Gemini API error:', response.status, errorText);
+      console.error('[analyze-style] Gemini API error:', response.status, errorText);
       return new Response(
         JSON.stringify({ error: 'Failed to analyze images' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -152,10 +141,30 @@ RETORNE APENAS O JSON, sem markdown ou explicações:
     const data = await response.json();
     const textContent = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
     
+    // Get token usage
+    const inputTokens = data.usageMetadata?.promptTokenCount || (estimateImageTokens(validImageCount) + estimateTokens(analysisPrompt));
+    const outputTokens = data.usageMetadata?.candidatesTokenCount || estimateTokens(textContent);
+
+    // Log AI usage
+    if (userId) {
+      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+      const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+      const supabase = createClient(supabaseUrl, supabaseServiceKey);
+      
+      await logAIUsage(
+        supabase,
+        userId,
+        MODEL,
+        "analyze-style",
+        inputTokens,
+        outputTokens,
+        { imageCount: validImageCount, clientId }
+      );
+    }
+    
     // Extract JSON from response
     let styleAnalysis;
     try {
-      // Try to find JSON in the response
       const jsonMatch = textContent.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         styleAnalysis = JSON.parse(jsonMatch[0]);
@@ -163,15 +172,14 @@ RETORNE APENAS O JSON, sem markdown ou explicações:
         throw new Error('No JSON found in response');
       }
     } catch (parseError) {
-      console.error('Failed to parse style analysis:', parseError);
-      // Return a basic analysis if parsing fails
+      console.error('[analyze-style] Failed to parse:', parseError);
       styleAnalysis = {
         style_summary: textContent.substring(0, 500),
-        generation_prompt_template: `Imagem no estilo das referências fornecidas: ${textContent.substring(0, 300)}`
+        generation_prompt_template: `Imagem no estilo das referências: ${textContent.substring(0, 300)}`
       };
     }
 
-    console.log('Style analysis complete');
+    console.log(`[analyze-style] Complete - ${inputTokens + outputTokens} tokens`);
 
     return new Response(
       JSON.stringify({ styleAnalysis }),
@@ -179,7 +187,7 @@ RETORNE APENAS O JSON, sem markdown ou explicações:
     );
 
   } catch (error) {
-    console.error('Error in analyze-style function:', error);
+    console.error('[analyze-style] Error:', error);
     return new Response(
       JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
