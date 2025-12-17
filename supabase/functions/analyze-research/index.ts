@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { logAIUsage, estimateTokens } from "../_shared/ai-usage.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -12,7 +13,7 @@ serve(async (req) => {
   }
 
   try {
-    const { projectId, conversationId, userMessage, model = "google/gemini-2.5-flash", connectedItemIds, clientId } = await req.json();
+    const { projectId, conversationId, userMessage, model = "google/gemini-2.5-flash", connectedItemIds, clientId, userId } = await req.json();
 
     if (!projectId || !userMessage) {
       throw new Error("projectId e userMessage são obrigatórios");
@@ -28,9 +29,8 @@ serve(async (req) => {
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    console.log("Analisando pesquisa para projeto:", projectId);
-    console.log("connectedItemIds recebidos:", connectedItemIds);
-    console.log("clientId:", clientId);
+    console.log("[analyze-research] Project:", projectId);
+    console.log("[analyze-research] connectedItemIds:", connectedItemIds);
 
     // Se clientId fornecido, buscar informações do cliente
     let clientContext = "";
@@ -49,33 +49,29 @@ serve(async (req) => {
       }
     }
 
-    // Buscar itens e conexões do projeto
-    // Se connectedItemIds for fornecido, buscar apenas esses items
+    // Buscar itens e conexões
     let itemsQuery = supabase
       .from("research_items")
       .select("*")
       .eq("project_id", projectId);
     
     if (connectedItemIds && connectedItemIds.length > 0) {
-      console.log("Filtrando por items conectados:", connectedItemIds);
+      console.log("[analyze-research] Filtering by connected items:", connectedItemIds);
       itemsQuery = itemsQuery.in("id", connectedItemIds);
     }
     
     const { data: items, error: itemsError } = await itemsQuery;
-    console.log("Items encontrados:", items?.length || 0);
-    if (items && items.length > 0) {
-      console.log("Primeiro item:", items[0]?.title, "- Content length:", items[0]?.content?.length || 0);
-    }
+    console.log("[analyze-research] Items found:", items?.length || 0);
 
-      const { data: connections, error: connectionsError } = await supabase
-        .from("research_connections")
-        .select("*")
-        .eq("project_id", projectId);
+    const { data: connections, error: connectionsError } = await supabase
+      .from("research_connections")
+      .select("*")
+      .eq("project_id", projectId);
 
-      if (itemsError) throw itemsError;
-      if (connectionsError) throw connectionsError;
+    if (itemsError) throw itemsError;
+    if (connectionsError) throw connectionsError;
 
-    // Buscar mensagens anteriores da conversa
+    // Buscar mensagens anteriores
     const { data: previousMessages, error: messagesError } = await supabase
       .from("research_messages")
       .select("*")
@@ -84,7 +80,7 @@ serve(async (req) => {
 
     if (messagesError) throw messagesError;
 
-    // Construir contexto dos materiais com conexões - ANÁLISE SEQUENCIAL
+    // Construir contexto dos materiais
     let materialsContext = connectedItemIds 
       ? "### Materiais Conectados (Análise Sequencial)\n\n" 
       : "### Materiais do Projeto\n\n";
@@ -92,10 +88,8 @@ serve(async (req) => {
     const progressSteps: string[] = [];
     
     if (items && items.length > 0) {
-      // Processar items em ordem sequencial
       for (let i = 0; i < items.length; i++) {
         const item = items[i];
-        console.log(`Processando item ${i + 1}/${items.length}: ${item.title}`);
         progressSteps.push(`Analisando: ${item.title || item.type} (${i + 1}/${items.length})`);
         
         materialsContext += `**[${i + 1}/${items.length}] ${item.title || item.type.toUpperCase()}** (${item.type})\n`;
@@ -107,7 +101,6 @@ serve(async (req) => {
         }
       }
 
-      // Adicionar informações sobre conexões
       if (connections && connections.length > 0) {
         materialsContext += "\n### Conexões entre Materiais\n\n";
         const itemsMap = new Map(items.map((item: any) => [item.id, item]));
@@ -125,40 +118,33 @@ serve(async (req) => {
       materialsContext += "Nenhum material adicionado ainda.\n\n";
     }
 
-    // Construir mensagens para a IA
-    const messages = [
-      {
-        role: "system",
-        content: `Você é um assistente de pesquisa especializado em analisar materiais multimodais (vídeos, textos, áudios, imagens).
+    const systemPrompt = `Você é um assistente de pesquisa especializado em analisar materiais multimodais.
 
 Você tem acesso aos seguintes materiais do projeto:
 ${clientContext}
 ${materialsContext}
 
 Sua função é:
-- Analisar e sintetizar informações dos materiais disponíveis (em ordem sequencial quando materiais estão conectados)
+- Analisar e sintetizar informações dos materiais disponíveis
 - Responder perguntas sobre o conteúdo
 - Identificar padrões e insights
-- Fazer conexões entre diferentes materiais (considere as conexões já estabelecidas!)
+- Fazer conexões entre diferentes materiais
 - Sugerir próximos passos de pesquisa
-- Quando houver conexões entre materiais, use-as para dar respostas mais completas e contextualizadas
-${clientId ? "- Considere sempre o contexto do cliente ao gerar respostas" : ""}
+${clientId ? "- Considerar sempre o contexto do cliente ao gerar respostas" : ""}
 
-Seja conciso, objetivo e baseie suas respostas nos materiais fornecidos.`,
-      },
+Seja conciso, objetivo e baseie suas respostas nos materiais fornecidos.`;
+
+    const messages = [
+      { role: "system", content: systemPrompt },
       ...previousMessages.map((msg) => ({
         role: msg.role,
         content: msg.content,
       })),
-      {
-        role: "user",
-        content: userMessage,
-      },
+      { role: "user", content: userMessage },
     ];
 
-    console.log("Chamando Lovable AI com modelo:", model);
+    console.log("[analyze-research] Calling Lovable AI with model:", model);
 
-    // Chamar Lovable AI
     const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -174,14 +160,31 @@ Seja conciso, objetivo e baseie suas respostas nos materiais fornecidos.`,
 
     if (!aiResponse.ok) {
       const errorText = await aiResponse.text();
-      console.error("Erro na chamada AI:", aiResponse.status, errorText);
+      console.error("[analyze-research] AI error:", aiResponse.status, errorText);
       throw new Error(`Erro na IA: ${aiResponse.status}`);
     }
 
     const aiData = await aiResponse.json();
     const response = aiData.choices[0].message.content;
+    
+    // Get token usage from response
+    const inputTokens = aiData.usage?.prompt_tokens || estimateTokens(systemPrompt + userMessage);
+    const outputTokens = aiData.usage?.completion_tokens || estimateTokens(response);
 
-    console.log("Resposta gerada com sucesso");
+    // Log AI usage
+    if (userId) {
+      await logAIUsage(
+        supabase,
+        userId,
+        model,
+        "analyze-research",
+        inputTokens,
+        outputTokens,
+        { projectId, clientId, itemCount: items?.length || 0, connectionCount: connections?.length || 0 }
+      );
+    }
+
+    console.log(`[analyze-research] Complete - ${inputTokens + outputTokens} tokens`);
 
     return new Response(
       JSON.stringify({ response, progress: progressSteps }),
@@ -190,7 +193,7 @@ Seja conciso, objetivo e baseie suas respostas nos materiais fornecidos.`,
       }
     );
   } catch (error) {
-    console.error("Erro em analyze-research:", error);
+    console.error("[analyze-research] Error:", error);
     const errorMessage = error instanceof Error ? error.message : "Erro desconhecido";
     return new Response(
       JSON.stringify({ error: errorMessage }),

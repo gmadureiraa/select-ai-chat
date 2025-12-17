@@ -1,4 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { logAIUsage, estimateTokens } from "../_shared/ai-usage.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -11,13 +13,13 @@ serve(async (req) => {
   }
 
   try {
-    const { fileUrl, fileName } = await req.json();
+    const { fileUrl, fileName, userId } = await req.json();
 
     if (!fileUrl) {
       throw new Error("fileUrl é obrigatório");
     }
 
-    console.log(`Extracting PDF content from: ${fileName || fileUrl}`);
+    console.log(`[extract-pdf] Extracting from: ${fileName || fileUrl}`);
 
     // Fetch the PDF file
     const pdfResponse = await fetch(fileUrl);
@@ -36,8 +38,17 @@ serve(async (req) => {
       throw new Error("GOOGLE_AI_STUDIO_API_KEY not configured");
     }
 
+    const MODEL = "gemini-2.5-flash";
+    const prompt = `Extraia todo o texto deste PDF. 
+Mantenha a estrutura e formatação original o máximo possível.
+Inclua títulos, subtítulos, parágrafos, listas e tabelas.
+Se houver imagens com texto, transcreva o texto das imagens também.
+Ao final, indique aproximadamente quantas páginas o documento possui.
+
+Retorne o conteúdo extraído em formato de texto puro, bem organizado.`;
+
     const geminiResponse = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GOOGLE_AI_STUDIO_API_KEY}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${GOOGLE_AI_STUDIO_API_KEY}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -51,15 +62,7 @@ serve(async (req) => {
                     data: pdfBase64,
                   },
                 },
-                {
-                  text: `Extraia todo o texto deste PDF. 
-Mantenha a estrutura e formatação original o máximo possível.
-Inclua títulos, subtítulos, parágrafos, listas e tabelas.
-Se houver imagens com texto, transcreva o texto das imagens também.
-Ao final, indique aproximadamente quantas páginas o documento possui.
-
-Retorne o conteúdo extraído em formato de texto puro, bem organizado.`,
-                },
+                { text: prompt },
               ],
             },
           ],
@@ -73,18 +76,39 @@ Retorne o conteúdo extraído em formato de texto puro, bem organizado.`,
 
     if (!geminiResponse.ok) {
       const errorText = await geminiResponse.text();
-      console.error("Gemini error:", errorText);
+      console.error("[extract-pdf] Gemini error:", errorText);
       throw new Error(`Gemini API error: ${geminiResponse.status}`);
     }
 
     const geminiData = await geminiResponse.json();
     const extractedText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || "";
+    
+    // Get token usage from response
+    const inputTokens = geminiData.usageMetadata?.promptTokenCount || estimateTokens(prompt) + Math.ceil(pdfBase64.length / 4);
+    const outputTokens = geminiData.usageMetadata?.candidatesTokenCount || estimateTokens(extractedText);
+
+    // Log AI usage
+    if (userId) {
+      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+      const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+      const supabase = createClient(supabaseUrl, supabaseServiceKey);
+      
+      await logAIUsage(
+        supabase,
+        userId,
+        MODEL,
+        "extract-pdf",
+        inputTokens,
+        outputTokens,
+        { fileName, pdfSizeBytes: pdfBuffer.byteLength }
+      );
+    }
 
     // Try to extract page count from the response
     const pageCountMatch = extractedText.match(/(\d+)\s*página/i);
     const estimatedPageCount = pageCountMatch ? parseInt(pageCountMatch[1]) : Math.ceil(extractedText.length / 3000);
 
-    console.log(`Extracted ${extractedText.length} characters, estimated ${estimatedPageCount} pages`);
+    console.log(`[extract-pdf] Extracted ${extractedText.length} chars, ~${estimatedPageCount} pages, ${inputTokens + outputTokens} tokens`);
 
     return new Response(
       JSON.stringify({
@@ -97,7 +121,7 @@ Retorne o conteúdo extraído em formato de texto puro, bem organizado.`,
       }
     );
   } catch (error: any) {
-    console.error("PDF extraction error:", error);
+    console.error("[extract-pdf] Error:", error);
     return new Response(
       JSON.stringify({ error: error.message }),
       {

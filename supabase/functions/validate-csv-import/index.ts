@@ -1,6 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { logAIUsage, estimateTokens } from "../_shared/ai-usage.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -13,13 +14,13 @@ serve(async (req) => {
   }
 
   try {
-    const { clientId, platform, importedCount, dateRange } = await req.json();
+    const { clientId, platform, importedCount, dateRange, userId } = await req.json();
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Fetch recent imported data for analysis
+    // Fetch recent imported data
     const { data: metrics, error: metricsError } = await supabase
       .from('platform_metrics')
       .select('*')
@@ -32,7 +33,6 @@ serve(async (req) => {
       throw new Error(`Failed to fetch metrics: ${metricsError.message}`);
     }
 
-    // Prepare data summary for AI analysis
     const dataSummary = {
       totalRecords: metrics?.length || 0,
       platform,
@@ -59,24 +59,13 @@ serve(async (req) => {
       }
     };
 
-    // Call AI to analyze the data
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
       throw new Error("LOVABLE_API_KEY not configured");
     }
 
-    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          {
-            role: "system",
-            content: `Você é um analista de dados especializado em métricas de redes sociais.
+    const MODEL = "google/gemini-2.5-flash";
+    const systemPrompt = `Você é um analista de dados especializado em métricas de redes sociais.
 Analise os dados importados e forneça um relatório de validação em português brasileiro.
 
 Responda SEMPRE no formato JSON:
@@ -90,14 +79,12 @@ Responda SEMPRE no formato JSON:
 
 Verifique:
 1. Se há dados suficientes para análise
-2. Se os valores parecem consistentes (sem outliers extremos)
+2. Se os valores parecem consistentes
 3. Se há datas duplicadas ou faltando
 4. Se as métricas fazem sentido para a plataforma
-5. Se há valores nulos ou zerados em excesso`
-          },
-          {
-            role: "user",
-            content: `Analise esta importação de dados de ${platform}:
+5. Se há valores nulos ou zerados em excesso`;
+
+    const userPrompt = `Analise esta importação de dados de ${platform}:
 
 Registros importados: ${importedCount}
 Total de registros no banco: ${dataSummary.totalRecords}
@@ -112,8 +99,19 @@ Estatísticas:
 - Datas únicas: ${dataSummary.stats.uniqueDates}
 
 Amostra dos dados (últimos 10 registros):
-${JSON.stringify(dataSummary.sampleData, null, 2)}`
-          }
+${JSON.stringify(dataSummary.sampleData, null, 2)}`;
+
+    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: MODEL,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt }
         ],
         temperature: 0.3
       }),
@@ -121,9 +119,9 @@ ${JSON.stringify(dataSummary.sampleData, null, 2)}`
 
     if (!aiResponse.ok) {
       const errorText = await aiResponse.text();
-      console.error("AI API error:", errorText);
+      console.error("[validate-csv-import] AI API error:", errorText);
       
-      // Return a basic validation without AI
+      // Return basic validation without AI
       return new Response(JSON.stringify({
         status: "success",
         summary: `${importedCount} registros importados com sucesso para ${platform}`,
@@ -141,10 +139,26 @@ ${JSON.stringify(dataSummary.sampleData, null, 2)}`
 
     const aiData = await aiResponse.json();
     const aiContent = aiData.choices?.[0]?.message?.content;
+    
+    // Get token usage
+    const inputTokens = aiData.usage?.prompt_tokens || estimateTokens(systemPrompt + userPrompt);
+    const outputTokens = aiData.usage?.completion_tokens || estimateTokens(aiContent);
+
+    // Log AI usage
+    if (userId) {
+      await logAIUsage(
+        supabase,
+        userId,
+        MODEL,
+        "validate-csv-import",
+        inputTokens,
+        outputTokens,
+        { clientId, platform, importedCount }
+      );
+    }
 
     let validationResult;
     try {
-      // Try to parse JSON from AI response
       const jsonMatch = aiContent.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         validationResult = JSON.parse(jsonMatch[0]);
@@ -152,7 +166,7 @@ ${JSON.stringify(dataSummary.sampleData, null, 2)}`
         throw new Error("No JSON found in response");
       }
     } catch (parseError) {
-      console.error("Failed to parse AI response:", parseError);
+      console.error("[validate-csv-import] Failed to parse AI response:", parseError);
       validationResult = {
         status: "success",
         summary: `${importedCount} registros importados para ${platform}`,
@@ -161,6 +175,8 @@ ${JSON.stringify(dataSummary.sampleData, null, 2)}`
         recommendations: []
       };
     }
+
+    console.log(`[validate-csv-import] Complete - ${inputTokens + outputTokens} tokens`);
 
     return new Response(JSON.stringify({
       ...validationResult,
@@ -171,7 +187,7 @@ ${JSON.stringify(dataSummary.sampleData, null, 2)}`
     });
 
   } catch (error) {
-    console.error('Error in validate-csv-import:', error);
+    console.error('[validate-csv-import] Error:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return new Response(JSON.stringify({ 
       error: errorMessage,

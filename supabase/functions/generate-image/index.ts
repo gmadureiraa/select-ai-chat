@@ -1,4 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { logAIUsage, estimateTokens } from "../_shared/ai-usage.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -12,11 +14,10 @@ interface ReferenceImage {
   styleAnalysis?: any;
 }
 
-// Helper function to convert array buffer to base64 without stack overflow
 function arrayBufferToBase64(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer);
   let binary = '';
-  const chunkSize = 8192; // Process in chunks to avoid stack overflow
+  const chunkSize = 8192;
   
   for (let i = 0; i < bytes.length; i += chunkSize) {
     const chunk = bytes.slice(i, i + chunkSize);
@@ -27,92 +28,76 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
 }
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { prompt, imageReferences, referenceImages, styleAnalysis } = await req.json();
+    const { prompt, imageReferences, referenceImages, styleAnalysis, userId, clientId } = await req.json();
 
     if (!prompt || typeof prompt !== 'string') {
       return new Response(
         JSON.stringify({ error: 'Prompt is required' }),
-        { 
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
     const GOOGLE_API_KEY = Deno.env.get('GOOGLE_AI_STUDIO_API_KEY');
     if (!GOOGLE_API_KEY) {
-      console.error('GOOGLE_AI_STUDIO_API_KEY not configured');
+      console.error('[generate-image] GOOGLE_AI_STUDIO_API_KEY not configured');
       return new Response(
         JSON.stringify({ error: 'API key not configured' }),
-        { 
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Combine all reference images
-    const allRefs: ReferenceImage[] = [...(referenceImages || []), ...(imageReferences || [])];
+    // Setup Supabase for logging
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Build parts for Gemini API
+    const allRefs: ReferenceImage[] = [...(referenceImages || []), ...(imageReferences || [])];
     const parts: any[] = [];
     let processedImageCount = 0;
     
-    // Add reference images first if available
+    // Add reference images
     if (allRefs.length > 0) {
-      console.log(`Processing ${allRefs.length} reference images`);
+      console.log(`[generate-image] Processing ${allRefs.length} reference images`);
       
       for (const ref of allRefs.slice(0, 4)) {
         const imageData = ref.base64 || ref.url;
         if (imageData) {
           try {
-            // Handle base64 data
             if (imageData.startsWith('data:')) {
               const matches = imageData.match(/^data:([^;]+);base64,(.+)$/);
               if (matches) {
                 parts.push({
-                  inlineData: {
-                    mimeType: matches[1],
-                    data: matches[2]
-                  }
+                  inlineData: { mimeType: matches[1], data: matches[2] }
                 });
                 processedImageCount++;
-                console.log(`Added base64 reference image${ref.description ? `: ${ref.description}` : ''}`);
               }
             } else if (imageData.startsWith('http')) {
-              // Fetch external image and convert to base64 using chunked conversion
               const imgResponse = await fetch(imageData);
               if (imgResponse.ok) {
                 const arrayBuffer = await imgResponse.arrayBuffer();
                 const base64 = arrayBufferToBase64(arrayBuffer);
                 const contentType = imgResponse.headers.get('content-type') || 'image/jpeg';
                 parts.push({
-                  inlineData: {
-                    mimeType: contentType,
-                    data: base64
-                  }
+                  inlineData: { mimeType: contentType, data: base64 }
                 });
                 processedImageCount++;
-                console.log(`Added URL reference image${ref.description ? `: ${ref.description}` : ''}`);
               }
             }
           } catch (e) {
-            console.warn(`Failed to process reference image: ${e}`);
+            console.warn(`[generate-image] Failed to process reference image: ${e}`);
           }
         }
       }
     }
     
-    // Build enhanced prompt with style analysis context
+    // Build enhanced prompt with style analysis
     let enhancedPrompt = prompt;
     
-    // If we have style analysis from template, use it for rich context
     if (styleAnalysis) {
       const styleSummary = styleAnalysis.style_summary || '';
       const promptTemplate = styleAnalysis.generation_prompt_template || '';
@@ -120,15 +105,8 @@ serve(async (req) => {
       const recurringElements = styleAnalysis.recurring_elements || [];
       const brandElements = styleAnalysis.brand_elements || {};
       
-      let styleContext = '';
+      let styleContext = promptTemplate || styleSummary;
       
-      if (promptTemplate) {
-        styleContext = promptTemplate;
-      } else if (styleSummary) {
-        styleContext = styleSummary;
-      }
-      
-      // Add visual elements details
       if (visualElements.photography_style) {
         styleContext += ` Estilo fotográfico: ${visualElements.photography_style}.`;
       }
@@ -141,76 +119,58 @@ serve(async (req) => {
       if (visualElements.dominant_mood) {
         styleContext += ` Mood: ${visualElements.dominant_mood}.`;
       }
-      
-      // Add recurring elements
       if (recurringElements.length > 0) {
         styleContext += ` Elementos recorrentes: ${recurringElements.join(', ')}.`;
       }
-      
-      // Add brand elements
       if (brandElements.product_presentation) {
         styleContext += ` Apresentação de produtos: ${brandElements.product_presentation}.`;
       }
       
-      enhancedPrompt = `ESTILO VISUAL A SEGUIR:\n${styleContext}\n\nPEDIDO ESPECÍFICO:\n${prompt}\n\nGere uma imagem que combine o estilo visual descrito com o pedido específico. A imagem deve parecer parte da mesma campanha/marca das referências.`;
-      
-      console.log('Using style analysis for generation');
+      enhancedPrompt = `ESTILO VISUAL A SEGUIR:\n${styleContext}\n\nPEDIDO ESPECÍFICO:\n${prompt}\n\nGere uma imagem que combine o estilo visual descrito com o pedido específico.`;
+      console.log('[generate-image] Using style analysis for generation');
     } else if (processedImageCount > 0) {
-      // Fallback: basic reference description if no style analysis
-      const refDescriptions = allRefs
-        .filter(r => r.description)
-        .map(r => r.description)
-        .join(", ");
+      const refDescriptions = allRefs.filter(r => r.description).map(r => r.description).join(", ");
       
       if (refDescriptions) {
-        enhancedPrompt = `Analise as imagens de referência fornecidas e capture seu estilo visual (composição, cores, iluminação, elementos visuais, qualidade). Use esse estilo como base para gerar: ${prompt}. A imagem gerada deve parecer da mesma série/campanha das referências.`;
+        enhancedPrompt = `Analise as imagens de referência fornecidas e capture seu estilo visual. Use esse estilo como base para gerar: ${prompt}.`;
       } else {
-        enhancedPrompt = `Observe as imagens de referência fornecidas. Capture o estilo visual, qualidade, composição e elementos. Gere uma nova imagem nesse mesmo estilo: ${prompt}`;
+        enhancedPrompt = `Observe as imagens de referência fornecidas. Capture o estilo visual e gere uma nova imagem nesse mesmo estilo: ${prompt}`;
       }
     }
     
-    // Add text prompt
     parts.push({ text: enhancedPrompt });
 
-    console.log(`Generating image with Gemini 2.0 Flash (gemini-2.0-flash-exp), ${processedImageCount} reference images`);
+    const GEMINI_MODEL = "gemini-2.0-flash-exp";
+    console.log(`[generate-image] Generating with ${GEMINI_MODEL}, ${processedImageCount} reference images`);
 
-    // Use Gemini 2.0 Flash with image generation modality
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GOOGLE_API_KEY}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GOOGLE_API_KEY}`,
       {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          contents: [
-            {
-              parts: parts
-            }
-          ],
-          generationConfig: {
-            responseModalities: ["TEXT", "IMAGE"]
-          }
+          contents: [{ parts }],
+          generationConfig: { responseModalities: ["TEXT", "IMAGE"] }
         }),
       }
     );
 
+    // Estimate tokens for logging
+    const inputTokens = estimateTokens(enhancedPrompt) + (processedImageCount * 258);
+
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Gemini API error:', response.status, errorText);
+      console.error('[generate-image] Gemini API error:', response.status, errorText);
       
       if (response.status === 429) {
         return new Response(
-          JSON.stringify({ error: 'Limite de requisições atingido. Tente novamente em alguns instantes.' }),
-          { 
-            status: 429,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-          }
+          JSON.stringify({ error: 'Limite de requisições atingido. Tente novamente.' }),
+          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
-      // Try fallback to OpenAI if Gemini fails
-      console.log('Trying fallback to OpenAI gpt-image-1...');
+      // Try OpenAI fallback
+      console.log('[generate-image] Trying OpenAI fallback...');
       const openaiKey = Deno.env.get('OPENAI_API_KEY');
       if (openaiKey) {
         const openaiResponse = await fetch('https://api.openai.com/v1/images/generations', {
@@ -231,33 +191,37 @@ serve(async (req) => {
           const openaiData = await openaiResponse.json();
           const imageB64 = openaiData.data?.[0]?.b64_json;
           if (imageB64) {
-            console.log('Image generated successfully via OpenAI fallback');
+            // Log OpenAI usage
+            if (userId) {
+              await logAIUsage(
+                supabase,
+                userId,
+                "gpt-image-1",
+                "generate-image",
+                inputTokens,
+                0,
+                { clientId, provider: "openai", fallback: true, referenceCount: processedImageCount }
+              );
+            }
+            
+            console.log('[generate-image] Success via OpenAI fallback');
             return new Response(
               JSON.stringify({ imageUrl: `data:image/png;base64,${imageB64}` }),
-              { 
-                status: 200,
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-              }
+              { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
             );
           }
-        } else {
-          const openaiError = await openaiResponse.text();
-          console.error('OpenAI fallback error:', openaiError);
         }
       }
 
       return new Response(
         JSON.stringify({ error: 'Erro ao gerar imagem. Tente novamente.' }),
-        { 
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
     const data = await response.json();
     
-    // Extract image from Gemini response format
+    // Extract image from response
     const candidates = data.candidates || [];
     let imageUrl = null;
     
@@ -277,10 +241,9 @@ serve(async (req) => {
     }
 
     if (!imageUrl) {
-      console.error('No image in response:', JSON.stringify(data));
+      console.error('[generate-image] No image in response:', JSON.stringify(data).substring(0, 500));
       
-      // Try OpenAI fallback if no image in Gemini response
-      console.log('No image from Gemini, trying OpenAI fallback...');
+      // Try OpenAI fallback
       const openaiKey = Deno.env.get('OPENAI_API_KEY');
       if (openaiKey) {
         const openaiResponse = await fetch('https://api.openai.com/v1/images/generations', {
@@ -301,13 +264,22 @@ serve(async (req) => {
           const openaiData = await openaiResponse.json();
           const imageB64 = openaiData.data?.[0]?.b64_json;
           if (imageB64) {
-            console.log('Image generated successfully via OpenAI fallback');
+            if (userId) {
+              await logAIUsage(
+                supabase,
+                userId,
+                "gpt-image-1",
+                "generate-image",
+                inputTokens,
+                0,
+                { clientId, provider: "openai", fallback: true, referenceCount: processedImageCount }
+              );
+            }
+            
+            console.log('[generate-image] Success via OpenAI fallback');
             return new Response(
               JSON.stringify({ imageUrl: `data:image/png;base64,${imageB64}` }),
-              { 
-                status: 200,
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-              }
+              { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
             );
           }
         }
@@ -315,33 +287,38 @@ serve(async (req) => {
       
       return new Response(
         JSON.stringify({ error: 'Nenhuma imagem foi gerada. Tente um prompt diferente.' }),
-        { 
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    console.log(`Image generated successfully`);
+    // Log successful Gemini usage
+    const outputTokens = data.usageMetadata?.candidatesTokenCount || 500; // Image generation has fixed token cost
+    if (userId) {
+      await logAIUsage(
+        supabase,
+        userId,
+        GEMINI_MODEL,
+        "generate-image",
+        inputTokens,
+        outputTokens,
+        { clientId, referenceCount: processedImageCount, hasStyleAnalysis: !!styleAnalysis }
+      );
+    }
+
+    console.log(`[generate-image] Success - ${inputTokens + outputTokens} tokens`);
 
     return new Response(
       JSON.stringify({ imageUrl }),
-      { 
-        status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      }
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error) {
-    console.error('Error in generate-image function:', error);
+    console.error('[generate-image] Error:', error);
     return new Response(
       JSON.stringify({ 
         error: error instanceof Error ? error.message : 'Erro desconhecido ao gerar imagem'
       }),
-      { 
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      }
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });
