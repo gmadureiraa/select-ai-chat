@@ -1,4 +1,92 @@
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+
+/**
+ * Download a file as a Blob from client-files bucket
+ * This bypasses domain blocking issues by fetching via authenticated API
+ */
+export async function downloadAsBlob(filePath: string): Promise<Blob | null> {
+  // Handle legacy full URLs
+  if (filePath.startsWith("http")) {
+    const bucketMatch = filePath.match(/\/client-files\/(.+?)(?:\?|$)/);
+    if (bucketMatch) {
+      filePath = bucketMatch[1];
+    } else {
+      // External URL - try direct fetch
+      try {
+        const response = await fetch(filePath);
+        return await response.blob();
+      } catch (error) {
+        console.error("Error fetching external URL:", error);
+        return null;
+      }
+    }
+  }
+
+  const { data, error } = await supabase.storage
+    .from("client-files")
+    .download(filePath);
+
+  if (error) {
+    console.error("Error downloading file:", error);
+    return null;
+  }
+
+  return data;
+}
+
+/**
+ * Open a file in a new tab using blob URL
+ */
+export async function openFileInNewTab(
+  filePath: string,
+  showToast = true
+): Promise<boolean> {
+  if (showToast) {
+    toast.info("Carregando arquivo...");
+  }
+
+  const blob = await downloadAsBlob(filePath);
+  if (!blob) {
+    toast.error("Erro ao carregar arquivo");
+    return false;
+  }
+
+  const blobUrl = URL.createObjectURL(blob);
+  window.open(blobUrl, "_blank");
+
+  // Clean up URL after 2 minutes
+  setTimeout(() => URL.revokeObjectURL(blobUrl), 120000);
+  return true;
+}
+
+/**
+ * Download a file to the user's device
+ */
+export async function downloadFile(
+  filePath: string,
+  fileName: string
+): Promise<boolean> {
+  toast.info("Iniciando download...");
+
+  const blob = await downloadAsBlob(filePath);
+  if (!blob) {
+    toast.error("Erro ao baixar arquivo");
+    return false;
+  }
+
+  const blobUrl = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = blobUrl;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+
+  URL.revokeObjectURL(blobUrl);
+  toast.success("Download concluído");
+  return true;
+}
 
 /**
  * Upload a file to the client-files bucket and return the file path

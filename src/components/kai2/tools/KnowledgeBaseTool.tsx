@@ -9,10 +9,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
-import { Plus, FileText, Trash2, Edit, Upload, Loader2, Search, BookOpen } from "lucide-react";
+import { Plus, FileText, Trash2, Edit, Upload, Loader2, Search, BookOpen, Download, ExternalLink } from "lucide-react";
 import { useGlobalKnowledge, KNOWLEDGE_CATEGORIES, KnowledgeCategory, GlobalKnowledge } from "@/hooks/useGlobalKnowledge";
 import { supabase } from "@/integrations/supabase/client";
-import { uploadAndGetSignedUrl } from "@/lib/storage";
+import { uploadAndGetSignedUrl, openFileInNewTab, downloadFile } from "@/lib/storage";
 import { toast } from "sonner";
 import { TagsInput } from "@/components/knowledge/TagsInput";
 import { TasksPanel } from "@/components/kai2/TasksPanel";
@@ -192,23 +192,13 @@ export const KnowledgeBaseTool = () => {
   const handleOpenPdf = async (item: GlobalKnowledge) => {
     const pdfPath = getPdfPath(item);
     if (!pdfPath) return;
-    
-    try {
-      if (pdfPath.startsWith('http')) {
-        window.open(pdfPath, '_blank');
-        return;
-      }
-      
-      const { data, error } = await supabase.storage
-        .from('client-files')
-        .createSignedUrl(pdfPath, 3600);
-      
-      if (error) throw error;
-      window.open(data.signedUrl, '_blank');
-    } catch (error: any) {
-      console.error('Error opening PDF:', error);
-      toast.error('Erro ao abrir PDF: ' + error.message);
-    }
+    await openFileInNewTab(pdfPath);
+  };
+
+  const handleDownloadPdf = async (item: GlobalKnowledge) => {
+    const pdfPath = getPdfPath(item);
+    if (!pdfPath) return;
+    await downloadFile(pdfPath, item.source_file || `${item.title}.pdf`);
   };
 
   return (
@@ -442,15 +432,26 @@ export const KnowledgeBaseTool = () => {
                     <div className="flex items-center justify-between gap-3">
                       <Badge>{getCategoryLabel(selectedKnowledge.category)}</Badge>
                       {getPdfPath(selectedKnowledge) && (
-                        <Button
-                          variant="default"
-                          size="sm"
-                          className="gap-2"
-                          onClick={() => handleOpenPdf(selectedKnowledge)}
-                        >
-                          <FileText className="h-4 w-4" />
-                          Abrir PDF Original
-                        </Button>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="default"
+                            size="sm"
+                            className="gap-2"
+                            onClick={() => handleOpenPdf(selectedKnowledge)}
+                          >
+                            <ExternalLink className="h-4 w-4" />
+                            Abrir
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="gap-2"
+                            onClick={() => handleDownloadPdf(selectedKnowledge)}
+                          >
+                            <Download className="h-4 w-4" />
+                            Baixar
+                          </Button>
+                        </div>
                       )}
                     </div>
                     {selectedKnowledge.tags && selectedKnowledge.tags.length > 0 && (

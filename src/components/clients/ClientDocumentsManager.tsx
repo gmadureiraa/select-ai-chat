@@ -3,8 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useClientDocuments, ClientDocument } from "@/hooks/useClientDocuments";
-import { getSignedUrl } from "@/lib/storage";
-import { useToast } from "@/hooks/use-toast";
+import { openFileInNewTab, downloadFile } from "@/lib/storage";
 import { 
   FileText, 
   Image, 
@@ -62,7 +61,6 @@ const getFileTypeLabel = (fileType: string) => {
 
 export const ClientDocumentsManager = ({ clientId }: ClientDocumentsManagerProps) => {
   const { documents, isLoading, uploadDocument, deleteDocument } = useClientDocuments(clientId);
-  const { toast } = useToast();
   const [deleteTarget, setDeleteTarget] = useState<ClientDocument | null>(null);
   const [expandedDoc, setExpandedDoc] = useState<string | null>(null);
   const [viewingDoc, setViewingDoc] = useState<ClientDocument | null>(null);
@@ -90,27 +88,19 @@ export const ClientDocumentsManager = ({ clientId }: ClientDocumentsManagerProps
     }
   };
 
-  const handleDownload = async (doc: ClientDocument) => {
+  const handleOpenFile = async (doc: ClientDocument) => {
     setIsDownloading(doc.id);
     try {
-      const signedUrl = await getSignedUrl(doc.file_path);
-      if (signedUrl) {
-        // Open in new tab for viewing/downloading
-        window.open(signedUrl, "_blank");
-      } else {
-        toast({
-          title: "Erro",
-          description: "Não foi possível gerar o link do arquivo.",
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      console.error("Error downloading file:", error);
-      toast({
-        title: "Erro",
-        description: "Não foi possível baixar o arquivo.",
-        variant: "destructive",
-      });
+      await openFileInNewTab(doc.file_path);
+    } finally {
+      setIsDownloading(null);
+    }
+  };
+
+  const handleDownloadFile = async (doc: ClientDocument) => {
+    setIsDownloading(doc.id);
+    try {
+      await downloadFile(doc.file_path, doc.name);
     } finally {
       setIsDownloading(null);
     }
@@ -188,14 +178,14 @@ export const ClientDocumentsManager = ({ clientId }: ClientDocumentsManagerProps
                       </div>
                       
                       <div className="flex items-center gap-1">
-                        {/* Download/View button */}
+                        {/* Open file button */}
                         <Button
                           variant="ghost"
                           size="icon"
                           className="h-8 w-8"
-                          onClick={() => handleDownload(doc)}
+                          onClick={() => handleOpenFile(doc)}
                           disabled={isDownloading === doc.id}
-                          title="Abrir/Baixar arquivo"
+                          title="Abrir documento"
                         >
                           {isDownloading === doc.id ? (
                             <Loader2 className="h-4 w-4 animate-spin" />
@@ -300,15 +290,26 @@ export const ClientDocumentsManager = ({ clientId }: ClientDocumentsManagerProps
           </DialogHeader>
           <div className="flex gap-2 mb-2">
             {viewingDoc && (
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className="gap-2"
-                onClick={() => handleDownload(viewingDoc)}
-              >
-                <Download className="h-4 w-4" />
-                Baixar original
-              </Button>
+              <>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="gap-2"
+                  onClick={() => handleOpenFile(viewingDoc)}
+                >
+                  <ExternalLink className="h-4 w-4" />
+                  Abrir original
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="gap-2"
+                  onClick={() => handleDownloadFile(viewingDoc)}
+                >
+                  <Download className="h-4 w-4" />
+                  Baixar
+                </Button>
+              </>
             )}
           </div>
           <ScrollArea className="h-[60vh]">
