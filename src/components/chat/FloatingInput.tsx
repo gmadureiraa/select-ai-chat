@@ -169,13 +169,13 @@ export const FloatingInput = ({
               <img
                 src={URL.createObjectURL(file)}
                 alt={`Preview ${index + 1}`}
-                className="h-16 w-16 object-cover rounded-xl border border-border/50"
+                className="h-14 w-14 object-cover rounded-lg border border-border/30"
               />
               <button
                 onClick={() => removeImage(index)}
-                className="absolute -top-1.5 -right-1.5 bg-destructive text-destructive-foreground rounded-full p-0.5 shadow-sm hover:bg-destructive/90 transition-colors opacity-0 group-hover:opacity-100"
+                className="absolute -top-1 -right-1 bg-muted-foreground/80 text-background rounded-full p-0.5 shadow-sm hover:bg-muted-foreground transition-colors opacity-0 group-hover:opacity-100"
               >
-                <X className="h-3 w-3" />
+                <X className="h-2.5 w-2.5" />
               </button>
             </div>
           ))}
@@ -183,7 +183,7 @@ export const FloatingInput = ({
       )}
 
       {/* Main Input Container */}
-      <div className="relative bg-muted/40 rounded-2xl border border-border/50 focus-within:border-primary/40 focus-within:bg-muted/60 transition-all shadow-sm">
+      <div className="relative bg-muted/20 rounded-xl border border-border/30 focus-within:border-border/50 focus-within:bg-muted/30 transition-all">
         {/* Textarea */}
         <Textarea
           ref={textareaRef}
@@ -193,10 +193,10 @@ export const FloatingInput = ({
           placeholder={placeholder}
           disabled={disabled || uploadingImages}
           className={cn(
-            "min-h-[52px] max-h-[140px] resize-none border-0 bg-transparent text-sm",
-            "px-4 py-3.5 pr-28",
+            "min-h-[48px] max-h-[120px] resize-none border-0 bg-transparent text-sm",
+            "px-4 py-3 pr-24",
             "focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0",
-            "placeholder:text-muted-foreground/50"
+            "placeholder:text-muted-foreground/40"
           )}
           rows={1}
         />
@@ -224,10 +224,10 @@ export const FloatingInput = ({
             variant="ghost"
             size="icon"
             disabled={disabled || uploadingImages}
-            className="h-9 w-9 rounded-xl hover:bg-muted/60 text-muted-foreground"
+            className="h-8 w-8 rounded-lg hover:bg-muted/40 text-muted-foreground/60 hover:text-muted-foreground"
             title="Anexar imagem"
           >
-            <ImageIcon className="h-4 w-4" />
+            <ImageIcon className="h-3.5 w-3.5" />
           </Button>
 
           {/* Send Button */}
@@ -236,14 +236,16 @@ export const FloatingInput = ({
             disabled={isSubmitDisabled}
             size="icon"
             className={cn(
-              "h-9 w-9 rounded-xl transition-all",
-              !isSubmitDisabled && "bg-primary hover:bg-primary/90 shadow-md"
+              "h-8 w-8 rounded-lg transition-all",
+              isSubmitDisabled 
+                ? "bg-muted/50 text-muted-foreground/40" 
+                : "bg-foreground hover:bg-foreground/90 text-background"
             )}
           >
             {uploadingImages ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
             ) : (
-              <Send className="h-4 w-4" />
+              <Send className="h-3.5 w-3.5" />
             )}
           </Button>
         </div>
@@ -251,7 +253,7 @@ export const FloatingInput = ({
 
       {/* Mode Selector Pills - Only for content templates (NOT for image templates) */}
       {templateType === "content" && (
-        <div className="flex items-center justify-center gap-2">
+        <div className="flex items-center justify-center gap-1.5">
           {(["content", "ideas", "free_chat"] as ChatMode[]).map((m) => {
             const config = modeConfig[m];
             const Icon = config.icon;
@@ -261,22 +263,14 @@ export const FloatingInput = ({
                 onClick={() => setMode(m)}
                 disabled={disabled}
                 className={cn(
-                  "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all border",
+                  "flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all",
                   mode === m
-                    ? config.activeClass
-                    : "text-muted-foreground border-transparent hover:bg-muted/50"
+                    ? "bg-muted text-foreground"
+                    : "text-muted-foreground/60 hover:text-muted-foreground hover:bg-muted/30"
                 )}
               >
                 <Icon className="h-3 w-3" />
                 {config.label}
-                {mode === m && config.badge && (
-                  <span className={cn("ml-1 px-1.5 py-0.5 rounded text-[10px] font-semibold", config.badgeClass)}>
-                    {config.badge}
-                  </span>
-                )}
-                {mode === m && !config.badge && (
-                  <Zap className="h-2.5 w-2.5 ml-0.5 opacity-70" />
-                )}
               </button>
             );
           })}
@@ -286,7 +280,7 @@ export const FloatingInput = ({
       {/* Image Template Indicator */}
       {templateType === "image" && (
         <div className="flex items-center justify-center">
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-violet-500/15 text-violet-600 border border-violet-500/30">
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium bg-muted text-muted-foreground">
             <Sparkles className="h-3 w-3" />
             Geração de Imagem
           </div>

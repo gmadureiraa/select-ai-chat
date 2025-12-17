@@ -65,46 +65,46 @@ All colors MUST be HSL.
   }
 
   .dark {
-    /* Dark mode - Kaleidos Black Background */
-    --background: 0 0% 0%;
-    --foreground: 0 0% 100%;
+    /* Dark mode - Refined dark background */
+    --background: 0 0% 4%;
+    --foreground: 0 0% 95%;
 
-    --card: 0 0% 8%;
-    --card-foreground: 0 0% 100%;
+    --card: 0 0% 6%;
+    --card-foreground: 0 0% 95%;
 
-    --popover: 0 0% 8%;
-    --popover-foreground: 0 0% 100%;
+    --popover: 0 0% 6%;
+    --popover-foreground: 0 0% 95%;
 
-    --primary: 145 100% 50%;
+    --primary: 145 80% 45%;
     --primary-foreground: 0 0% 0%;
 
-    --secondary: 330 100% 60%;
+    --secondary: 330 70% 55%;
     --secondary-foreground: 0 0% 100%;
 
-    --accent: 30 100% 55%;
+    --accent: 30 80% 50%;
     --accent-foreground: 0 0% 0%;
 
-    --muted: 0 0% 10%;
-    --muted-foreground: 0 0% 50%;
+    --muted: 0 0% 12%;
+    --muted-foreground: 0 0% 55%;
 
     --destructive: 0 62.8% 50%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 0 0% 15%;
-    --input: 0 0% 8%;
-    --ring: 145 100% 50%;
+    --border: 0 0% 14%;
+    --input: 0 0% 10%;
+    --ring: 145 80% 45%;
 
-    --chat-user-bg: 0 0% 8%;
-    --chat-user-fg: 0 0% 100%;
-    --chat-ai-bg: 0 0% 5%;
-    --chat-ai-fg: 0 0% 100%;
+    --chat-user-bg: 0 0% 10%;
+    --chat-user-fg: 0 0% 95%;
+    --chat-ai-bg: 0 0% 6%;
+    --chat-ai-fg: 0 0% 95%;
 
     /* Chart colors */
-    --chart-1: 145 100% 50%;
-    --chart-2: 200 100% 60%;
-    --chart-3: 280 100% 70%;
-    --chart-4: 30 100% 55%;
-    --chart-5: 330 100% 60%;
+    --chart-1: 145 80% 45%;
+    --chart-2: 200 80% 55%;
+    --chart-3: 280 70% 65%;
+    --chart-4: 30 80% 50%;
+    --chart-5: 330 70% 55%;
   }
 }
 

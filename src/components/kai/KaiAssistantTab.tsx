@@ -7,7 +7,7 @@ import { useClientTemplates } from "@/hooks/useClientTemplates";
 import { useClientChat } from "@/hooks/useClientChat";
 import { FloatingInput, ChatMode } from "@/components/chat/FloatingInput";
 import { EnhancedMessageBubble } from "@/components/chat/EnhancedMessageBubble";
-import { AdvancedProgress } from "@/components/chat/AdvancedProgress";
+import { MinimalProgress } from "@/components/chat/MinimalProgress";
 import { QuickSuggestions } from "@/components/chat/QuickSuggestions";
 import { TemplateManager } from "@/components/clients/TemplateManager";
 import { Client } from "@/hooks/useClients";
@@ -250,7 +250,7 @@ export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
                 />
               </div>
             ) : (
-              <div className="space-y-4 px-4 py-4 max-w-3xl mx-auto w-full">
+              <div className="space-y-1 px-4 py-6 max-w-3xl mx-auto w-full">
                 {messages.map((message) => (
                   <EnhancedMessageBubble
                     key={message.id}
@@ -263,10 +263,9 @@ export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
                 ))}
 
                 {isLoading && (
-                  <AdvancedProgress 
+                  <MinimalProgress 
                     currentStep={currentStep}
                     multiAgentStep={multiAgentStep}
-                    multiAgentDetails={multiAgentDetails}
                   />
                 )}
                 
@@ -278,7 +277,7 @@ export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
         </ScrollArea>
 
         {/* Floating Input - Bottom */}
-        <div className="border-t border-border/20 bg-background/80 backdrop-blur-sm">
+        <div className="border-t border-border/10 bg-background/60 backdrop-blur-sm">
           <div className="max-w-3xl mx-auto">
             <FloatingInput
               onSend={handleSend}
