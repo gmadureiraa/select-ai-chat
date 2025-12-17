@@ -74,6 +74,24 @@ export const useClientDocuments = (clientId: string) => {
           if (!pdfError && pdfData?.content) {
             extractedContent = pdfData.content;
           }
+        } else if (
+          file.type.includes("wordprocessingml") || 
+          file.type.includes("msword") ||
+          file.name.endsWith(".docx") ||
+          file.name.endsWith(".doc")
+        ) {
+          // Use DOCX extraction
+          console.log("Extracting DOCX content...", file.name);
+          const { data: docxData, error: docxError } = await supabase.functions.invoke("extract-docx", {
+            body: { fileUrl: signedUrl, fileName: file.name },
+          });
+
+          if (!docxError && docxData?.content) {
+            extractedContent = docxData.content;
+            console.log(`DOCX extracted: ${extractedContent.length} chars`);
+          } else if (docxError) {
+            console.error("DOCX extraction error:", docxError);
+          }
         } else if (file.type.includes("image")) {
           // Use image transcription
           const { data: imgData, error: imgError } = await supabase.functions.invoke("transcribe-images", {

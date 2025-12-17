@@ -110,3 +110,9 @@ verify_jwt = true
 
 [functions.scrape-newsletter]
 verify_jwt = true
+
+[functions.extract-pdf]
+verify_jwt = true
+
+[functions.extract-docx]
+verify_jwt = true
