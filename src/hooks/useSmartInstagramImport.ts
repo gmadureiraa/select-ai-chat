@@ -141,7 +141,7 @@ const parseCSVRFC4180 = (text: string): Record<string, string>[] => {
   return results;
 };
 
-// Detect CSV type based on content and headers
+// Detect CSV type based on content and headers - ENHANCED VERSION
 const detectCSVType = (text: string, data: Record<string, string>[]): DetectedCSV => {
   const rawSample = text.split('\n').slice(0, 6).join(' ');
   const normalizedSample = rawSample
@@ -194,8 +194,25 @@ const detectCSVType = (text: string, data: Record<string, string>[]): DetectedCS
     return { type: 'profile_visits', label: 'Visitas ao Perfil', data };
   }
 
-  // Link clicks CSV
-  if (headerIncludes('cliques no link') || normalizedSample.includes('cliques no link')) {
+  // Link clicks CSV - ENHANCED DETECTION with many more variations
+  if (
+    headerIncludes('cliques no link') || 
+    headerIncludes('clique no link') ||
+    headerIncludes('link clicks') ||
+    headerIncludes('clicks') ||
+    headerIncludes('cliques externos') ||
+    headerIncludes('cliques link') ||
+    headerIncludes('cliques bio') ||
+    headerIncludes('link bio') ||
+    headerIncludes('cliques na bio') ||
+    headerIncludes('toques no link') ||
+    headerIncludes('taps on link') ||
+    normalizedSample.includes('cliques no link') ||
+    normalizedSample.includes('clique no link') ||
+    normalizedSample.includes('link clicks') ||
+    normalizedSample.includes('cliques externos') ||
+    normalizedSample.includes('toques no link')
+  ) {
     return { type: 'link_clicks', label: 'Cliques no Link', data };
   }
 
