@@ -45,61 +45,111 @@ const cleanContentForPreview = (text: string): string => {
     .trim();
 };
 
+// Get the first image from content metadata
+const getPreviewImage = (content: ContentItem): string | null => {
+  // Check thumbnail_url first
+  if (content.thumbnail_url) return content.thumbnail_url;
+  
+  // Check metadata for image_urls
+  if (content.metadata && typeof content.metadata === 'object') {
+    const meta = content.metadata as any;
+    if (meta.image_urls && Array.isArray(meta.image_urls) && meta.image_urls.length > 0) {
+      return meta.image_urls[0];
+    }
+    if (meta.images && Array.isArray(meta.images) && meta.images.length > 0) {
+      return meta.images[0];
+    }
+  }
+  
+  return null;
+};
+
 export const ContentCard = ({ content, onEdit, onDelete, onView }: ContentCardProps) => {
   const config = contentTypeConfig[content.content_type] || contentTypeConfig.other;
   const Icon = config.icon;
   const label = getContentTypeLabel(content.content_type);
   const cleanedContent = cleanContentForPreview(content.content);
+  const previewImage = getPreviewImage(content);
 
   return (
-    <Card className="group cursor-pointer hover:border-primary/50 transition-all h-[220px] flex flex-col" onClick={() => onView(content)}>
-      <CardHeader className="pb-2">
-        <div className="flex items-start justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <div className={`p-1.5 rounded-lg ${config.color} shrink-0`}>
-              <Icon className="h-3.5 w-3.5" />
-            </div>
-            <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+    <Card className="group cursor-pointer hover:border-primary/50 transition-all h-[280px] flex flex-col overflow-hidden" onClick={() => onView(content)}>
+      {/* Image Preview */}
+      {previewImage ? (
+        <div className="relative h-[100px] bg-muted overflow-hidden shrink-0">
+          <img 
+            src={previewImage} 
+            alt={content.title}
+            className="w-full h-full object-cover"
+            onError={(e) => {
+              // Hide broken images
+              (e.target as HTMLImageElement).style.display = 'none';
+            }}
+          />
+          <div className="absolute top-2 left-2">
+            <Badge variant="secondary" className="text-[10px] px-1.5 py-0 bg-background/80 backdrop-blur-sm">
               {label}
             </Badge>
           </div>
         </div>
-        <CardTitle className="text-sm font-medium mt-1.5 line-clamp-2">{content.title}</CardTitle>
-      </CardHeader>
-      <CardContent className="flex-1 py-0">
-        <p className="text-xs text-muted-foreground line-clamp-4">
-          {cleanedContent}
-        </p>
-      </CardContent>
-      <CardFooter className="flex justify-between items-center pt-3 pb-3 border-t mt-auto">
-        <span className="text-[10px] text-muted-foreground">
-          {new Date(content.created_at).toLocaleDateString("pt-BR")}
-        </span>
-        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7"
-            onClick={(e) => {
-              e.stopPropagation();
-              onEdit(content);
-            }}
-          >
-            <Edit className="h-3.5 w-3.5" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7"
-            onClick={(e) => {
-              e.stopPropagation();
-              onDelete(content.id);
-            }}
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-          </Button>
-        </div>
-      </CardFooter>
+      ) : (
+        <CardHeader className="pb-2">
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <div className={`p-1.5 rounded-lg ${config.color} shrink-0`}>
+                <Icon className="h-3.5 w-3.5" />
+              </div>
+              <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                {label}
+              </Badge>
+            </div>
+          </div>
+        </CardHeader>
+      )}
+      
+      <div className={`flex flex-col flex-1 ${previewImage ? 'p-3' : ''}`}>
+        {!previewImage && (
+          <CardHeader className="pt-0 pb-1">
+            <CardTitle className="text-sm font-medium line-clamp-2">{content.title}</CardTitle>
+          </CardHeader>
+        )}
+        {previewImage && (
+          <h3 className="text-sm font-medium line-clamp-2 mb-1">{content.title}</h3>
+        )}
+        <CardContent className={`flex-1 ${previewImage ? 'p-0' : 'py-0'}`}>
+          <p className="text-xs text-muted-foreground line-clamp-3">
+            {cleanedContent}
+          </p>
+        </CardContent>
+        <CardFooter className={`flex justify-between items-center pt-3 pb-3 border-t mt-auto ${previewImage ? 'px-0' : ''}`}>
+          <span className="text-[10px] text-muted-foreground">
+            {new Date(content.created_at).toLocaleDateString("pt-BR")}
+          </span>
+          <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={(e) => {
+                e.stopPropagation();
+                onEdit(content);
+              }}
+            >
+              <Edit className="h-3.5 w-3.5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete(content.id);
+              }}
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        </CardFooter>
+      </div>
     </Card>
   );
 };

@@ -288,9 +288,25 @@ export const KnowledgeBaseTool = () => {
                     </div>
                   </CardHeader>
                   <CardContent className="pt-0 space-y-3">
-                    <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium border ${categoryConfig.bg} ${categoryConfig.text} ${categoryConfig.border}`}>
-                      {getCategoryLabel(item.category)}
-                    </span>
+                    <div className="flex items-center justify-between">
+                      <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium border ${categoryConfig.bg} ${categoryConfig.text} ${categoryConfig.border}`}>
+                        {getCategoryLabel(item.category)}
+                      </span>
+                      {pdfUrl && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 text-xs gap-1.5"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            window.open(pdfUrl, '_blank');
+                          }}
+                        >
+                          <FileText className="h-3 w-3" />
+                          Abrir PDF
+                        </Button>
+                      )}
+                    </div>
                     <p className="text-xs text-muted-foreground line-clamp-3">
                       {item.content.slice(0, 150)}...
                     </p>
@@ -400,9 +416,29 @@ export const KnowledgeBaseTool = () => {
               <div className="space-y-4">
                 {selectedKnowledge && (
                   <>
-                    <Badge>{getCategoryLabel(selectedKnowledge.category)}</Badge>
+                    <div className="flex items-center justify-between gap-3">
+                      <Badge>{getCategoryLabel(selectedKnowledge.category)}</Badge>
+                      {getPdfUrl(selectedKnowledge) && (
+                        <Button
+                          variant="default"
+                          size="sm"
+                          className="gap-2"
+                          onClick={() => window.open(getPdfUrl(selectedKnowledge)!, '_blank')}
+                        >
+                          <FileText className="h-4 w-4" />
+                          Abrir PDF Original
+                        </Button>
+                      )}
+                    </div>
+                    {selectedKnowledge.tags && selectedKnowledge.tags.length > 0 && (
+                      <div className="flex flex-wrap gap-1">
+                        {selectedKnowledge.tags.map((tag, i) => (
+                          <Badge key={i} variant="outline" className="text-xs">{tag}</Badge>
+                        ))}
+                      </div>
+                    )}
                     <div className="prose prose-sm prose-invert max-w-none">
-                      <pre className="whitespace-pre-wrap text-sm">{selectedKnowledge.content}</pre>
+                      <pre className="whitespace-pre-wrap text-sm bg-muted/30 p-4 rounded-lg border">{selectedKnowledge.content}</pre>
                     </div>
                   </>
                 )}
