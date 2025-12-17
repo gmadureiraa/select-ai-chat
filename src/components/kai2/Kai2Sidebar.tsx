@@ -149,24 +149,10 @@ export function Kai2Sidebar({ activeTab, onTabChange, selectedClientId, onClient
         </div>
 
         <NavItem
-          icon={<Send className="h-4 w-4" />}
-          label="Publicador Social"
-          active={activeTab === "social-publisher"}
-          onClick={() => onTabChange("social-publisher")}
-        />
-
-        <NavItem
-          icon={<Blocks className="h-4 w-4" />}
-          label="Agent Builder"
-          active={activeTab === "agent-builder"}
-          onClick={() => onTabChange("agent-builder")}
-        />
-
-        <NavItem
-          icon={<FlaskConical className="h-4 w-4" />}
-          label="Lab de Pesquisa"
-          active={activeTab === "research-lab"}
-          onClick={() => onTabChange("research-lab")}
+          icon={<Activity className="h-4 w-4" />}
+          label="Atividades"
+          active={activeTab === "activities"}
+          onClick={() => onTabChange("activities")}
         />
 
         <NavItem
@@ -184,10 +170,24 @@ export function Kai2Sidebar({ activeTab, onTabChange, selectedClientId, onClient
         />
 
         <NavItem
-          icon={<Activity className="h-4 w-4" />}
-          label="Atividades"
-          active={activeTab === "activities"}
-          onClick={() => onTabChange("activities")}
+          icon={<Blocks className="h-4 w-4" />}
+          label="Agent Builder"
+          active={activeTab === "agent-builder"}
+          onClick={() => onTabChange("agent-builder")}
+        />
+
+        <NavItem
+          icon={<Send className="h-4 w-4" />}
+          label="Publicador Social"
+          active={activeTab === "social-publisher"}
+          onClick={() => onTabChange("social-publisher")}
+        />
+
+        <NavItem
+          icon={<FlaskConical className="h-4 w-4" />}
+          label="Lab de Pesquisa"
+          active={activeTab === "research-lab"}
+          onClick={() => onTabChange("research-lab")}
         />
       </nav>
 

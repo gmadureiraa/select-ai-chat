@@ -1,10 +1,11 @@
-import { useState } from "react";
-import { Library, FileText, Link2, Plus, Search, Instagram } from "lucide-react";
+import { useState, useMemo } from "react";
+import { Library, FileText, Link2, Plus, Search, Instagram, Trash2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useContentLibrary, ContentItem, CreateContentData } from "@/hooks/useContentLibrary";
 import { useReferenceLibrary, ReferenceItem, CreateReferenceData } from "@/hooks/useReferenceLibrary";
 import { ContentCard } from "@/components/content/ContentCard";
@@ -14,7 +15,10 @@ import { ReferenceCard } from "@/components/references/ReferenceCard";
 import { ReferenceDialog } from "@/components/references/ReferenceDialog";
 import { ReferenceViewDialog } from "@/components/references/ReferenceViewDialog";
 import { InstagramCarouselImporter } from "@/components/images/InstagramCarouselImporter";
+import { LibraryFilters, ContentTypeFilter, SortOption, ViewMode } from "@/components/kai2/LibraryFilters";
 import { Client } from "@/hooks/useClients";
+import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 interface KaiLibraryTabProps {
   clientId: string;
@@ -24,6 +28,12 @@ interface KaiLibraryTabProps {
 export const KaiLibraryTab = ({ clientId, client }: KaiLibraryTabProps) => {
   const [activeTab, setActiveTab] = useState("content");
   const [searchQuery, setSearchQuery] = useState("");
+  
+  // Filters state
+  const [typeFilter, setTypeFilter] = useState<ContentTypeFilter>("all");
+  const [sortOption, setSortOption] = useState<SortOption>("newest");
+  const [viewMode, setViewMode] = useState<ViewMode>("grid");
+  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   
   // Content Library
   const [contentDialogOpen, setContentDialogOpen] = useState(false);
@@ -40,16 +50,73 @@ export const KaiLibraryTab = ({ clientId, client }: KaiLibraryTabProps) => {
   const [instagramImporterOpen, setInstagramImporterOpen] = useState(false);
   const { references, createReference, updateReference, deleteReference } = useReferenceLibrary(clientId);
 
-  // Filter content
-  const filteredContents = contents?.filter(c => 
-    c.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    c.content.toLowerCase().includes(searchQuery.toLowerCase())
-  ) || [];
+  // Filter and sort content
+  const filteredContents = useMemo(() => {
+    let result = contents || [];
+    
+    // Search filter
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      result = result.filter(c => 
+        c.title.toLowerCase().includes(query) ||
+        c.content.toLowerCase().includes(query)
+      );
+    }
+    
+    // Type filter
+    if (typeFilter !== "all") {
+      result = result.filter(c => c.content_type === typeFilter);
+    }
+    
+    // Sort
+    result = [...result].sort((a, b) => {
+      switch (sortOption) {
+        case "newest":
+          return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
+        case "oldest":
+          return new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime();
+        case "a-z":
+          return a.title.localeCompare(b.title);
+        case "z-a":
+          return b.title.localeCompare(a.title);
+        default:
+          return 0;
+      }
+    });
+    
+    return result;
+  }, [contents, searchQuery, typeFilter, sortOption]);
 
-  const filteredReferences = references?.filter(r =>
-    r.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    r.content.toLowerCase().includes(searchQuery.toLowerCase())
-  ) || [];
+  const filteredReferences = useMemo(() => {
+    let result = references || [];
+    
+    // Search filter
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      result = result.filter(r =>
+        r.title.toLowerCase().includes(query) ||
+        r.content.toLowerCase().includes(query)
+      );
+    }
+    
+    // Sort
+    result = [...result].sort((a, b) => {
+      switch (sortOption) {
+        case "newest":
+          return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
+        case "oldest":
+          return new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime();
+        case "a-z":
+          return a.title.localeCompare(b.title);
+        case "z-a":
+          return b.title.localeCompare(a.title);
+        default:
+          return 0;
+      }
+    });
+    
+    return result;
+  }, [references, searchQuery, sortOption]);
 
   const handleSaveContent = (data: CreateContentData) => {
     if (selectedContent) {
@@ -69,6 +136,197 @@ export const KaiLibraryTab = ({ clientId, client }: KaiLibraryTabProps) => {
     }
     setReferenceDialogOpen(false);
     setSelectedReference(null);
+  };
+
+  const toggleSelection = (id: string) => {
+    const newSelected = new Set(selectedItems);
+    if (newSelected.has(id)) {
+      newSelected.delete(id);
+    } else {
+      newSelected.add(id);
+    }
+    setSelectedItems(newSelected);
+  };
+
+  const handleClearSelection = () => {
+    setSelectedItems(new Set());
+  };
+
+  const handleDeleteSelected = async () => {
+    if (selectedItems.size === 0) return;
+    
+    const confirmDelete = window.confirm(`Excluir ${selectedItems.size} item(s) selecionado(s)?`);
+    if (!confirmDelete) return;
+
+    try {
+      const deletePromises = Array.from(selectedItems).map(id => {
+        if (activeTab === "content") {
+          return deleteContent.mutateAsync(id);
+        } else {
+          return deleteReference.mutateAsync(id);
+        }
+      });
+      
+      await Promise.all(deletePromises);
+      setSelectedItems(new Set());
+      toast.success(`${selectedItems.size} item(s) excluído(s)`);
+    } catch (error) {
+      toast.error("Erro ao excluir itens");
+    }
+  };
+
+  const renderContentItem = (content: ContentItem) => {
+    const isSelected = selectedItems.has(content.id);
+    
+    if (viewMode === "list") {
+      return (
+        <div
+          key={content.id}
+          className={cn(
+            "flex items-center gap-3 p-3 rounded-lg border transition-colors",
+            isSelected ? "bg-primary/5 border-primary/30" : "bg-card hover:bg-muted/50"
+          )}
+        >
+          <Checkbox
+            checked={isSelected}
+            onCheckedChange={() => toggleSelection(content.id)}
+          />
+          <div className="flex-1 min-w-0">
+            <p className="font-medium text-sm truncate">{content.title}</p>
+            <p className="text-xs text-muted-foreground truncate">{content.content.slice(0, 100)}...</p>
+          </div>
+          <Badge variant="outline" className="text-[10px] shrink-0">
+            {content.content_type}
+          </Badge>
+          <div className="flex items-center gap-1 shrink-0">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setSelectedContent(content);
+                setContentViewOpen(true);
+              }}
+            >
+              Ver
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setSelectedContent(content);
+                setContentDialogOpen(true);
+              }}
+            >
+              Editar
+            </Button>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div key={content.id} className="relative group">
+        <div className={cn(
+          "absolute top-2 left-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity",
+          isSelected && "opacity-100"
+        )}>
+          <Checkbox
+            checked={isSelected}
+            onCheckedChange={() => toggleSelection(content.id)}
+            className="bg-background"
+          />
+        </div>
+        <ContentCard
+          content={content}
+          onView={() => {
+            setSelectedContent(content);
+            setContentViewOpen(true);
+          }}
+          onEdit={() => {
+            setSelectedContent(content);
+            setContentDialogOpen(true);
+          }}
+          onDelete={() => deleteContent.mutate(content.id)}
+        />
+      </div>
+    );
+  };
+
+  const renderReferenceItem = (reference: ReferenceItem) => {
+    const isSelected = selectedItems.has(reference.id);
+    
+    if (viewMode === "list") {
+      return (
+        <div
+          key={reference.id}
+          className={cn(
+            "flex items-center gap-3 p-3 rounded-lg border transition-colors",
+            isSelected ? "bg-primary/5 border-primary/30" : "bg-card hover:bg-muted/50"
+          )}
+        >
+          <Checkbox
+            checked={isSelected}
+            onCheckedChange={() => toggleSelection(reference.id)}
+          />
+          <div className="flex-1 min-w-0">
+            <p className="font-medium text-sm truncate">{reference.title}</p>
+            <p className="text-xs text-muted-foreground truncate">{reference.content.slice(0, 100)}...</p>
+          </div>
+          <Badge variant="outline" className="text-[10px] shrink-0">
+            {reference.reference_type}
+          </Badge>
+          <div className="flex items-center gap-1 shrink-0">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setSelectedReference(reference);
+                setReferenceViewOpen(true);
+              }}
+            >
+              Ver
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setSelectedReference(reference);
+                setReferenceDialogOpen(true);
+              }}
+            >
+              Editar
+            </Button>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div key={reference.id} className="relative group">
+        <div className={cn(
+          "absolute top-2 left-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity",
+          isSelected && "opacity-100"
+        )}>
+          <Checkbox
+            checked={isSelected}
+            onCheckedChange={() => toggleSelection(reference.id)}
+            className="bg-background"
+          />
+        </div>
+        <ReferenceCard
+          reference={reference}
+          onView={() => {
+            setSelectedReference(reference);
+            setReferenceViewOpen(true);
+          }}
+          onEdit={() => {
+            setSelectedReference(reference);
+            setReferenceDialogOpen(true);
+          }}
+          onDelete={() => deleteReference.mutate(reference.id)}
+        />
+      </div>
+    );
   };
 
   return (
@@ -119,19 +377,33 @@ export const KaiLibraryTab = ({ clientId, client }: KaiLibraryTabProps) => {
       </div>
 
       {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList>
-          <TabsTrigger value="content" className="gap-2">
-            <FileText className="h-4 w-4" />
-            Conteúdo Produzido
-            <Badge variant="secondary" className="ml-1">{contents?.length || 0}</Badge>
-          </TabsTrigger>
-          <TabsTrigger value="references" className="gap-2">
-            <Link2 className="h-4 w-4" />
-            Referências
-            <Badge variant="secondary" className="ml-1">{references?.length || 0}</Badge>
-          </TabsTrigger>
-        </TabsList>
+      <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v); setSelectedItems(new Set()); }}>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <TabsList>
+            <TabsTrigger value="content" className="gap-2">
+              <FileText className="h-4 w-4" />
+              Conteúdo Produzido
+              <Badge variant="secondary" className="ml-1">{contents?.length || 0}</Badge>
+            </TabsTrigger>
+            <TabsTrigger value="references" className="gap-2">
+              <Link2 className="h-4 w-4" />
+              Referências
+              <Badge variant="secondary" className="ml-1">{references?.length || 0}</Badge>
+            </TabsTrigger>
+          </TabsList>
+          
+          <LibraryFilters
+            typeFilter={typeFilter}
+            onTypeFilterChange={setTypeFilter}
+            sortOption={sortOption}
+            onSortChange={setSortOption}
+            viewMode={viewMode}
+            onViewModeChange={setViewMode}
+            selectedCount={selectedItems.size}
+            onClearSelection={handleClearSelection}
+            onDeleteSelected={handleDeleteSelected}
+          />
+        </div>
 
         {/* Content Library */}
         <TabsContent value="content" className="mt-4">
@@ -140,38 +412,30 @@ export const KaiLibraryTab = ({ clientId, client }: KaiLibraryTabProps) => {
               <CardContent className="pt-6">
                 <div className="text-center py-8 text-muted-foreground">
                   <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p>Nenhum conteúdo na biblioteca</p>
-                  <Button
-                    variant="outline"
-                    className="mt-4"
-                    onClick={() => {
-                      setSelectedContent(null);
-                      setContentDialogOpen(true);
-                    }}
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Adicionar Conteúdo
-                  </Button>
+                  <p>{searchQuery || typeFilter !== "all" ? "Nenhum resultado encontrado" : "Nenhum conteúdo na biblioteca"}</p>
+                  {!searchQuery && typeFilter === "all" && (
+                    <Button
+                      variant="outline"
+                      className="mt-4"
+                      onClick={() => {
+                        setSelectedContent(null);
+                        setContentDialogOpen(true);
+                      }}
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Adicionar Conteúdo
+                    </Button>
+                  )}
                 </div>
               </CardContent>
             </Card>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-              {filteredContents.map((content) => (
-                <ContentCard
-                  key={content.id}
-                  content={content}
-                  onView={() => {
-                    setSelectedContent(content);
-                    setContentViewOpen(true);
-                  }}
-                  onEdit={() => {
-                    setSelectedContent(content);
-                    setContentDialogOpen(true);
-                  }}
-                  onDelete={() => deleteContent.mutate(content.id)}
-                />
-              ))}
+            <div className={cn(
+              viewMode === "grid" 
+                ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3"
+                : "space-y-2"
+            )}>
+              {filteredContents.map(renderContentItem)}
             </div>
           )}
         </TabsContent>
@@ -183,38 +447,30 @@ export const KaiLibraryTab = ({ clientId, client }: KaiLibraryTabProps) => {
               <CardContent className="pt-6">
                 <div className="text-center py-8 text-muted-foreground">
                   <Link2 className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p>Nenhuma referência na biblioteca</p>
-                  <Button
-                    variant="outline"
-                    className="mt-4"
-                    onClick={() => {
-                      setSelectedReference(null);
-                      setReferenceDialogOpen(true);
-                    }}
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Adicionar Referência
-                  </Button>
+                  <p>{searchQuery ? "Nenhum resultado encontrado" : "Nenhuma referência na biblioteca"}</p>
+                  {!searchQuery && (
+                    <Button
+                      variant="outline"
+                      className="mt-4"
+                      onClick={() => {
+                        setSelectedReference(null);
+                        setReferenceDialogOpen(true);
+                      }}
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Adicionar Referência
+                    </Button>
+                  )}
                 </div>
               </CardContent>
             </Card>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-              {filteredReferences.map((reference) => (
-                <ReferenceCard
-                  key={reference.id}
-                  reference={reference}
-                  onView={() => {
-                    setSelectedReference(reference);
-                    setReferenceViewOpen(true);
-                  }}
-                  onEdit={() => {
-                    setSelectedReference(reference);
-                    setReferenceDialogOpen(true);
-                  }}
-                  onDelete={() => deleteReference.mutate(reference.id)}
-                />
-              ))}
+            <div className={cn(
+              viewMode === "grid" 
+                ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3"
+                : "space-y-2"
+            )}>
+              {filteredReferences.map(renderReferenceItem)}
             </div>
           )}
         </TabsContent>
