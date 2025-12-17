@@ -2,20 +2,18 @@ import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Kai2Sidebar } from "@/components/kai2/Kai2Sidebar";
 import { GradientHero } from "@/components/kai2/GradientHero";
-import { Kai2ChatArea } from "@/components/kai2/Kai2ChatArea";
+import { Kai2AssistantTab } from "@/components/kai2/Kai2AssistantTab";
 import { KaiPerformanceTab } from "@/components/kai/KaiPerformanceTab";
 import { KaiLibraryTab } from "@/components/kai/KaiLibraryTab";
 import { KaiSettingsTab } from "@/components/kai/KaiSettingsTab";
 import { KaiAutomationsTab } from "@/components/kai/KaiAutomationsTab";
+import { SocialPublisherTool } from "@/components/kai2/tools/SocialPublisherTool";
+import { AgentBuilderTool } from "@/components/kai2/tools/AgentBuilderTool";
+import { ResearchLabTool } from "@/components/kai2/tools/ResearchLabTool";
+import { KnowledgeBaseTool } from "@/components/kai2/tools/KnowledgeBaseTool";
+import { ActivitiesTool } from "@/components/kai2/tools/ActivitiesTool";
 import { useClients } from "@/hooks/useClients";
 import { Loader2 } from "lucide-react";
-
-interface Message {
-  id: string;
-  role: "user" | "assistant";
-  content: string;
-  timestamp: Date;
-}
 
 export default function Kai2() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -25,8 +23,7 @@ export default function Kai2() {
   const { clients, isLoading: isLoadingClients } = useClients();
   const selectedClient = clients?.find(c => c.id === clientId);
   
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [pendingMessage, setPendingMessage] = useState<string | null>(null);
 
   const handleTabChange = (newTab: string) => {
     const params = new URLSearchParams(searchParams);
@@ -38,8 +35,6 @@ export default function Kai2() {
     const params = new URLSearchParams(searchParams);
     params.set("client", newClientId);
     setSearchParams(params);
-    // Reset messages when client changes
-    setMessages([]);
   };
 
   // Auto-select first client if none selected
@@ -49,44 +44,16 @@ export default function Kai2() {
     }
   }, [clientId, clients]);
 
-  const handleSendMessage = async (content: string, contentType?: string) => {
-    const userMessage: Message = {
-      id: crypto.randomUUID(),
-      role: "user",
-      content: contentType ? `[${contentType}] ${content}` : content,
-      timestamp: new Date(),
-    };
-
-    setMessages(prev => [...prev, userMessage]);
-    setIsLoading(true);
-
-    // Change to assistant tab when sending message from home
-    if (tab === "home") {
-      handleTabChange("assistant");
-    }
-
-    // Simulate AI response (replace with actual API call)
-    setTimeout(() => {
-      const assistantMessage: Message = {
-        id: crypto.randomUUID(),
-        role: "assistant",
-        content: `Vou criar conteúdo sobre "${content}" para ${selectedClient?.name || "você"}. Esta é uma resposta de demonstração da nova interface Kai2.`,
-        timestamp: new Date(),
-      };
-      setMessages(prev => [...prev, assistantMessage]);
-      setIsLoading(false);
-    }, 1500);
+  const handleSendMessage = (content: string) => {
+    setPendingMessage(content);
+    handleTabChange("assistant");
   };
 
   const handleQuickAction = (action: string) => {
     handleTabChange(action);
   };
 
-  const showHero = messages.length === 0 && tab === "home";
-
-  // Render content based on active tab
   const renderContent = () => {
-    // Show loading while clients load
     if (isLoadingClients) {
       return (
         <div className="flex items-center justify-center h-full">
@@ -95,17 +62,32 @@ export default function Kai2() {
       );
     }
 
-    // Show message if no client selected
-    if (!selectedClient && clientId) {
-      return (
-        <div className="flex items-center justify-center h-full">
-          <div className="text-center text-muted-foreground">
-            <p>Cliente não encontrado</p>
-          </div>
-        </div>
-      );
+    // Tools that don't need client
+    const toolTabs = ["social-publisher", "agent-builder", "research-lab", "knowledge-base", "activities", "account"];
+    
+    if (toolTabs.includes(tab)) {
+      switch (tab) {
+        case "social-publisher":
+          return <SocialPublisherTool />;
+        case "agent-builder":
+          return <AgentBuilderTool />;
+        case "research-lab":
+          return <ResearchLabTool />;
+        case "knowledge-base":
+          return <KnowledgeBaseTool />;
+        case "activities":
+          return <ActivitiesTool />;
+        case "account":
+          return (
+            <div className="p-6">
+              <h1 className="text-2xl font-semibold mb-4">Configurações da Conta</h1>
+              <p className="text-muted-foreground">Em breve...</p>
+            </div>
+          );
+      }
     }
 
+    // Client-dependent tabs
     if (!selectedClient) {
       return (
         <div className="flex items-center justify-center h-full">
@@ -118,26 +100,21 @@ export default function Kai2() {
 
     switch (tab) {
       case "home":
-        return showHero ? (
+        return (
           <GradientHero 
             onSubmit={handleSendMessage}
             onQuickAction={handleQuickAction}
-            clientName={selectedClient?.name}
-          />
-        ) : (
-          <Kai2ChatArea
-            messages={messages}
-            onSendMessage={handleSendMessage}
-            isLoading={isLoading}
+            clientName={selectedClient.name}
           />
         );
       
       case "assistant":
         return (
-          <Kai2ChatArea
-            messages={messages}
-            onSendMessage={handleSendMessage}
-            isLoading={isLoading}
+          <Kai2AssistantTab
+            clientId={selectedClient.id}
+            client={selectedClient}
+            initialMessage={pendingMessage || undefined}
+            onInitialMessageSent={() => setPendingMessage(null)}
           />
         );
       
@@ -171,16 +148,11 @@ export default function Kai2() {
       
       default:
         return (
-          <div className="flex items-center justify-center h-full">
-            <div className="text-center">
-              <h2 className="text-xl font-medium text-white/80 mb-2">
-                {tab.charAt(0).toUpperCase() + tab.slice(1)}
-              </h2>
-              <p className="text-white/40">
-                Esta seção está em desenvolvimento
-              </p>
-            </div>
-          </div>
+          <GradientHero 
+            onSubmit={handleSendMessage}
+            onQuickAction={handleQuickAction}
+            clientName={selectedClient.name}
+          />
         );
     }
   };

@@ -1,0 +1,340 @@
+import { useState } from "react";
+import { Plus, Save, MoreHorizontal, Settings, Trash2, LayoutTemplate, Play, ArrowLeft } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { AgentBuilderCanvas } from "@/components/agent-builder/AgentBuilderCanvas";
+import { WorkflowExecutionPanel } from "@/components/agent-builder/WorkflowExecutionPanel";
+import { WorkflowRunsPanel } from "@/components/agent-builder/WorkflowRunsPanel";
+import { WorkflowTemplateSelector } from "@/components/agent-builder/WorkflowTemplateSelector";
+import { useAIWorkflows, useWorkflowNodes, useWorkflowConnections } from "@/hooks/useAIWorkflows";
+import { useWorkflowTemplates, WorkflowTemplate } from "@/hooks/useWorkflowTemplates";
+import { useQueryClient } from "@tanstack/react-query";
+import { AnimatePresence } from "framer-motion";
+import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+
+export const AgentBuilderTool = () => {
+  const queryClient = useQueryClient();
+  const { workflows, createWorkflow, updateWorkflow, deleteWorkflow } = useAIWorkflows();
+  const { data: templates } = useWorkflowTemplates();
+  const [selectedWorkflowId, setSelectedWorkflowId] = useState<string | null>(null);
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isTemplateDialogOpen, setIsTemplateDialogOpen] = useState(false);
+  const [newWorkflowName, setNewWorkflowName] = useState("");
+  const [isExecutionOpen, setIsExecutionOpen] = useState(false);
+
+  const { nodes } = useWorkflowNodes(selectedWorkflowId);
+  const { connections } = useWorkflowConnections(selectedWorkflowId);
+
+  const selectedWorkflow = workflows.find(w => w.id === selectedWorkflowId);
+
+  const canvasNodes = nodes.map(n => ({
+    id: n.id,
+    type: n.type,
+    data: {
+      label: n.config?.name || n.type,
+      config: n.config,
+    },
+  }));
+
+  const handleCreateWorkflow = async () => {
+    if (!newWorkflowName.trim()) {
+      toast.error("Nome é obrigatório");
+      return;
+    }
+    
+    const result = await createWorkflow.mutateAsync({
+      name: newWorkflowName,
+      description: "",
+      is_active: false,
+      trigger_config: { type: "manual" },
+    });
+    
+    setSelectedWorkflowId(result.id);
+    setIsCreateDialogOpen(false);
+    setNewWorkflowName("");
+  };
+
+  const handleCreateFromTemplate = async (template: WorkflowTemplate) => {
+    try {
+      const triggerType = (template.workflow_config?.trigger_type || "manual") as "manual" | "webhook" | "schedule" | "user_message" | "event";
+        
+      const result = await createWorkflow.mutateAsync({
+        name: template.name,
+        description: template.description || "",
+        is_active: false,
+        trigger_config: { 
+          type: triggerType,
+          ...(template.workflow_config?.schedule && { schedule: template.workflow_config.schedule }),
+        },
+      });
+
+      const nodeIdMap: Record<string, string> = {};
+
+      if (template.nodes && template.nodes.length > 0) {
+        for (const templateNode of template.nodes) {
+          const { data: newNode, error: nodeError } = await supabase
+            .from("ai_workflow_nodes")
+            .insert({
+              workflow_id: result.id,
+              type: templateNode.type,
+              config: templateNode.config || {},
+              position_x: templateNode.position?.x || 0,
+              position_y: templateNode.position?.y || 0,
+            })
+            .select()
+            .single();
+
+          if (nodeError) continue;
+          nodeIdMap[templateNode.id] = newNode.id;
+        }
+
+        if (template.connections && template.connections.length > 0) {
+          for (const templateConnection of template.connections) {
+            const sourceNodeId = nodeIdMap[templateConnection.source];
+            const targetNodeId = nodeIdMap[templateConnection.target];
+
+            if (sourceNodeId && targetNodeId) {
+              await supabase
+                .from("ai_workflow_connections")
+                .insert({
+                  workflow_id: result.id,
+                  source_node_id: sourceNodeId,
+                  target_node_id: targetNodeId,
+                  connection_type: templateConnection.connection_type || "default",
+                  label: templateConnection.label,
+                });
+            }
+          }
+        }
+      }
+      
+      await queryClient.invalidateQueries({ queryKey: ["workflow-nodes", result.id] });
+      await queryClient.invalidateQueries({ queryKey: ["workflow-connections", result.id] });
+      
+      setSelectedWorkflowId(result.id);
+      setIsTemplateDialogOpen(false);
+      toast.success(`Workflow "${template.name}" criado!`);
+    } catch (error) {
+      toast.error("Erro ao criar workflow");
+    }
+  };
+
+  const handleDeleteWorkflow = async (id: string) => {
+    await deleteWorkflow.mutateAsync(id);
+    if (selectedWorkflowId === id) {
+      setSelectedWorkflowId(null);
+    }
+  };
+
+  const handleToggleActive = async (id: string, isActive: boolean) => {
+    await updateWorkflow.mutateAsync({ id, is_active: !isActive });
+  };
+
+  if (!selectedWorkflowId) {
+    return (
+      <div className="h-full overflow-auto p-6">
+        <div className="max-w-5xl mx-auto space-y-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-semibold">Agent Builder</h1>
+              <p className="text-muted-foreground text-sm">Crie workflows de agentes de IA</p>
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setIsTemplateDialogOpen(true)}>
+                <LayoutTemplate className="h-4 w-4 mr-2" />
+                Usar Template
+              </Button>
+              <Button onClick={() => setIsCreateDialogOpen(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                Novo Workflow
+              </Button>
+            </div>
+          </div>
+
+          {workflows.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <div className="rounded-full bg-primary/10 p-6 mb-4">
+                <Settings className="h-12 w-12 text-primary" />
+              </div>
+              <h2 className="text-xl font-semibold mb-2">Nenhum workflow criado</h2>
+              <p className="text-muted-foreground mb-4 max-w-md">
+                Crie seu primeiro workflow para orquestrar agentes de IA.
+              </p>
+              <Button onClick={() => setIsCreateDialogOpen(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                Criar Workflow
+              </Button>
+            </div>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {workflows.map((workflow) => (
+                <div
+                  key={workflow.id}
+                  className="group relative rounded-xl border border-border bg-card p-6 hover:border-primary/50 transition-all cursor-pointer"
+                  onClick={() => setSelectedWorkflowId(workflow.id)}
+                >
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-semibold truncate">{workflow.name}</h3>
+                      {workflow.description && (
+                        <p className="text-sm text-muted-foreground line-clamp-2 mt-1">
+                          {workflow.description}
+                        </p>
+                      )}
+                    </div>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                        <Button variant="ghost" size="icon" className="opacity-0 group-hover:opacity-100">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={(e) => {
+                          e.stopPropagation();
+                          handleToggleActive(workflow.id, workflow.is_active);
+                        }}>
+                          {workflow.is_active ? "Desativar" : "Ativar"}
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          className="text-destructive"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteWorkflow(workflow.id);
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Excluir
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                  
+                  <div className="flex items-center gap-2">
+                    <Badge variant={workflow.is_active ? "default" : "secondary"}>
+                      {workflow.is_active ? "Ativo" : "Inativo"}
+                    </Badge>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Novo Workflow</DialogTitle>
+              <DialogDescription>
+                Crie um novo workflow para orquestrar agentes de IA
+              </DialogDescription>
+            </DialogHeader>
+            <div className="py-4">
+              <Input
+                placeholder="Nome do workflow"
+                value={newWorkflowName}
+                onChange={(e) => setNewWorkflowName(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleCreateWorkflow()}
+              />
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
+                Cancelar
+              </Button>
+              <Button onClick={handleCreateWorkflow} disabled={createWorkflow.isPending}>
+                Criar
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <WorkflowTemplateSelector
+          open={isTemplateDialogOpen}
+          onOpenChange={setIsTemplateDialogOpen}
+          onSelectTemplate={handleCreateFromTemplate}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="h-full flex flex-col">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-card">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="icon" onClick={() => setSelectedWorkflowId(null)}>
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <div>
+            <Input
+              value={selectedWorkflow?.name || ""}
+              onChange={(e) => updateWorkflow.mutate({ id: selectedWorkflowId!, name: e.target.value })}
+              className="h-8 font-semibold border-none bg-transparent px-0 focus-visible:ring-0"
+            />
+          </div>
+          <Badge variant={selectedWorkflow?.is_active ? "default" : "secondary"}>
+            {selectedWorkflow?.is_active ? "Ativo" : "Inativo"}
+          </Badge>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <WorkflowRunsPanel workflowId={selectedWorkflowId} />
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => {
+              updateWorkflow.mutate({ id: selectedWorkflowId!, name: selectedWorkflow?.name || '' });
+              toast.success('Workflow salvo!');
+            }}
+          >
+            <Save className="h-4 w-4 mr-2" />
+            Salvar
+          </Button>
+          <Button 
+            size="sm"
+            onClick={() => setIsExecutionOpen(true)}
+            className="gap-2"
+          >
+            <Play className="h-4 w-4" />
+            Executar
+          </Button>
+        </div>
+      </div>
+
+      <div className="flex-1">
+        <AgentBuilderCanvas
+          workflowId={selectedWorkflowId}
+          initialNodes={nodes}
+          initialConnections={connections}
+        />
+      </div>
+
+      <AnimatePresence>
+        {isExecutionOpen && (
+          <WorkflowExecutionPanel
+            workflowId={selectedWorkflowId}
+            workflowName={selectedWorkflow?.name || 'Workflow'}
+            nodes={canvasNodes}
+            onClose={() => setIsExecutionOpen(false)}
+          />
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
