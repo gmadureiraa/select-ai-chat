@@ -477,6 +477,7 @@ Texto na tela: [CTA]
 Narração: [call to action verbal]
 `;
 
+
 // Regras específicas para LinkedIn
 export const LINKEDIN_FORMAT_RULES = `
 ## FORMATO OBRIGATÓRIO PARA LINKEDIN
@@ -584,6 +585,404 @@ export const CAPTION_FORMAT_RULES = `
 `;
 
 // =====================================================
+// NOVAS REGRAS ESPECÍFICAS POR FORMATO
+// =====================================================
+
+// Regras específicas para Newsletter (NOVO - baseado em pesquisa)
+export const NEWSLETTER_FORMAT_RULES = `
+## FORMATO OBRIGATÓRIO PARA NEWSLETTER
+
+### 📊 MÉTRICAS DE SUCESSO
+- Taxa de abertura ideal: 20-40%
+- Taxa de clique ideal: 2-5%
+- Comprimento ideal: 500-1500 palavras (depende do formato)
+
+### 📧 ESTRUTURA COMPLETA
+
+**1. LINHA DE ASSUNTO (Subject Line)** - CRÍTICO!
+- Máximo 50 caracteres (40-50 ideal para mobile)
+- Objetivos: Curiosidade, Urgência, Benefício ou Personalização
+- Fórmulas que funcionam:
+  - "Como [resultado] em [tempo]" → "Como dobramos faturamento em 90 dias"
+  - "O que [grupo] está fazendo [ação]" → "O que investidores estão comprando agora"
+  - "[Número] [coisas] para [benefício]" → "5 ferramentas para automatizar seu marketing"
+  - Pergunta direta → "Você está perdendo dinheiro sem saber?"
+- EVITE: ALL CAPS, excesso de emojis, palavras spam (grátis, urgente, última chance)
+
+**2. PREVIEW TEXT (Preheader)**
+- Máximo 90 caracteres
+- Complementa o assunto, não repete
+- Funciona como segundo gancho
+
+**3. ABERTURA (Primeiros 100 palavras)**
+- Gancho forte: História, dado surpreendente ou pergunta
+- Conecte com a dor/desejo do leitor imediatamente
+- Estabeleça relevância: "Por que isso importa AGORA"
+- Tom pessoal: Use "você" e fale diretamente com o leitor
+
+**4. CORPO PRINCIPAL**
+Estruturas recomendadas:
+
+**Formato Curadoria:**
+- 3-5 itens selecionados com valor
+- Cada item: Título + Resumo (2-3 frases) + Link/Recurso
+- Seu comentário/insight sobre cada item
+
+**Formato Educativo:**
+- 1 tema profundo, bem desenvolvido
+- Estrutura: Problema → Contexto → Solução → Aplicação
+- Subseções com headings claros
+- Bullet points para facilitar leitura
+
+**Formato Storytelling:**
+- História pessoal ou case real
+- Arco narrativo: Situação → Conflito → Resolução → Lição
+- Conexão emocional antes de ensinar
+
+**5. CALL-TO-ACTION (CTA)**
+- 1 CTA principal (não confunda o leitor)
+- Botão ou link destacado visualmente
+- Texto de ação específico: "Leia o artigo completo" > "Clique aqui"
+- Posição: Após cada seção importante + final
+
+**6. FECHAMENTO**
+- Assinatura pessoal (humaniza)
+- PS/P.S. opcional (alta taxa de leitura!)
+- Preview do próximo envio (cria expectativa)
+
+### ✅ CHECKLIST OBRIGATÓRIO:
+- [ ] Assunto com menos de 50 caracteres
+- [ ] Preview text complementar (não repetitivo)
+- [ ] Gancho nos primeiros 100 palavras
+- [ ] Parágrafos curtos (máx 3-4 linhas)
+- [ ] Headings para dividir seções
+- [ ] 1 CTA principal claramente destacado
+- [ ] Formatação escaneável (bullet points, negrito)
+- [ ] Tom pessoal e conversacional
+- [ ] Valor real entregue (não apenas promoção)
+- [ ] Links funcionais e relevantes
+
+### 📝 FORMATO DE ENTREGA:
+**ASSUNTO:** [Linha de assunto]
+**PREVIEW:** [Preview text]
+
+---
+
+[Corpo da newsletter completo]
+
+---
+
+**CTA:** [Call-to-action principal]
+`;
+
+// Regras específicas para Vídeo Longo/YouTube (NOVO - baseado em pesquisa)
+export const LONG_VIDEO_FORMAT_RULES = `
+## FORMATO OBRIGATÓRIO PARA VÍDEO LONGO (YOUTUBE)
+
+### 📊 MÉTRICAS DE SUCESSO
+- Retenção ideal: >50% até metade do vídeo
+- CTR de thumbnail: >4%
+- Duração ideal: 8-20 minutos (nicho-dependente)
+- Watch time: Métrica mais importante para algoritmo
+
+### 🎬 ESTRUTURA DE ROTEIRO COMPLETO
+
+**1. GANCHO (0:00-0:30)** - CRÍTICO!
+- Primeiros 5 segundos decidem se continua
+- Objetivo: Prender atenção e criar expectativa
+- Técnicas:
+  - Open loop: "Ao final, você vai entender por que..."
+  - Promessa clara: "Vou te mostrar exatamente como..."
+  - Dado/história impactante que gera curiosidade
+  - Mostrar resultado antes do processo
+- NUNCA: "Oi, tudo bem? Hoje vamos falar sobre..."
+
+**2. INTRODUÇÃO (0:30-2:00)**
+- Apresente o problema/tema claramente
+- Estabeleça credibilidade rapidamente
+- Mencione o que será coberto (roadmap do vídeo)
+- Peça inscrição com motivo: "Inscreva-se para não perder [benefício]"
+
+**3. DESENVOLVIMENTO (2:00 até -2:00)**
+Estruture em capítulos claros (5-7 minutos cada):
+
+**Cada capítulo deve ter:**
+- Título claro (aparece na timeline do YouTube)
+- Mini-gancho de abertura
+- Conteúdo principal
+- Transição para próximo ponto
+- Pattern interrupt a cada 3-5 min (mudança de cena, gráfico, B-roll)
+
+**Técnicas de Retenção:**
+- Storytelling: Conte histórias para ilustrar pontos
+- Dados visuais: Gráficos, animações, exemplos na tela
+- Perguntas retóricas: Engaja o espectador
+- Antecipação: "Mas tem algo mais importante..."
+- Humor/surpresa pontuais para quebrar monotonia
+
+**4. CONCLUSÃO (Últimos 2:00)**
+- Recapitule os pontos principais
+- Call-to-action principal (1 CTA forte)
+- Preview do próximo vídeo (retenção de canal)
+- Sugestão de vídeo relacionado (aumenta watch time)
+
+### 📋 ELEMENTOS ADICIONAIS
+
+**TÍTULO DO VÍDEO:**
+- Máximo 60 caracteres (60-70 visível)
+- Keyword principal no início
+- Gatilho emocional ou numérico
+- Fórmulas: "Como [resultado]", "[Número] [coisas] para [benefício]", "Por que [afirmação contraintuitiva]"
+
+**THUMBNAIL (Descrição):**
+- Rosto com expressão forte (se aplicável)
+- Texto curto (3-4 palavras máximo)
+- Cores contrastantes e vibrantes
+- Não repita o título exatamente
+
+**DESCRIÇÃO:**
+- Primeiras 2 linhas: Resumo + hook (aparecem antes do "mostrar mais")
+- Timestamps/capítulos (OBRIGATÓRIO)
+- Links relevantes
+- Hashtags (3-5 relevantes)
+
+### ✅ CHECKLIST OBRIGATÓRIO:
+- [ ] Gancho nos primeiros 5 segundos
+- [ ] Promessa clara do que será entregue
+- [ ] Divisão em capítulos com títulos
+- [ ] Pattern interrupts a cada 3-5 minutos
+- [ ] CTA de inscrição na introdução
+- [ ] Recapitulação no final
+- [ ] 1 CTA principal claro
+- [ ] Timestamps na descrição
+
+### 📝 FORMATO DE ENTREGA:
+
+**TÍTULO:** [Título do vídeo]
+**THUMBNAIL:** [Descrição visual da thumbnail ideal]
+
+**ROTEIRO:**
+
+[0:00-0:30] GANCHO
+[Texto do gancho com ação/visual]
+
+[0:30-2:00] INTRODUÇÃO
+[Texto da introdução]
+
+[CAPÍTULO 1: Título] (2:00-X:XX)
+[Conteúdo do capítulo]
+
+[CAPÍTULO 2: Título] (X:XX-X:XX)
+[Conteúdo do capítulo]
+
+[Continue para todos os capítulos...]
+
+[CONCLUSÃO] (X:XX até fim)
+[Recapitulação e CTAs]
+
+**DESCRIÇÃO:**
+[Texto da descrição com timestamps]
+`;
+
+// Regras específicas para Blog Post (NOVO - baseado em pesquisa)
+export const BLOG_POST_FORMAT_RULES = `
+## FORMATO OBRIGATÓRIO PARA BLOG POST/ARTIGO
+
+### 📊 MÉTRICAS DE SUCESSO
+- Tempo na página: >3 minutos
+- Taxa de scroll: >70%
+- Compartilhamentos e backlinks
+- Conversão do CTA
+
+### 📝 ESTRUTURA COMPLETA
+
+**1. TÍTULO (H1)** - SEO + Curiosidade
+- Máximo 60 caracteres (SEO)
+- Keyword principal no início
+- Número ou promessa clara
+- Fórmulas:
+  - "Guia Completo: [Tema]"
+  - "[Número] [Coisas] para [Resultado]"
+  - "Como [Resultado] em [Tempo/Passos]"
+  - "[Tema]: Tudo que Você Precisa Saber"
+
+**2. META DESCRIPTION**
+- 150-160 caracteres
+- Keyword natural
+- Proposta de valor clara
+- CTA implícito ("Descubra", "Aprenda", "Entenda")
+
+**3. INTRODUÇÃO (150-200 palavras)**
+- Gancho: Dado, história ou pergunta
+- Estabeleça o problema/necessidade
+- Prometa a solução (o que o artigo vai entregar)
+- Mencione brevemente o que será coberto
+- Bucket brigades: "E é exatamente isso que você vai aprender."
+
+**4. CORPO (1500-3000 palavras)**
+Estruture com hierarquia clara:
+
+**H2: Seção Principal 1**
+- 2-3 parágrafos de contexto
+- Bullet points ou lista numerada
+- Exemplo prático ou dado
+- Transição para próxima seção
+
+**H3: Subseção 1.1** (se necessário)
+- Aprofundamento do tópico
+- Mantenha parágrafos curtos (3-4 linhas)
+
+**Elementos de Formatação:**
+- Negrito para termos importantes
+- Listas para facilitar escaneamento
+- Citações/blockquotes para destaque
+- Imagens/gráficos a cada 300-500 palavras
+
+**5. CONCLUSÃO (100-150 palavras)**
+- Recapitule os pontos principais (3-5 bullets)
+- Reforce o benefício de aplicar o conteúdo
+- CTA claro e específico
+- Pergunta para gerar comentários
+
+### 🔍 OTIMIZAÇÃO SEO:
+- Keyword principal no H1, primeiro parágrafo, 1 H2
+- Keywords secundárias distribuídas naturalmente
+- Links internos (2-5 para outros artigos)
+- Links externos (1-3 para fontes autoritativas)
+- Alt text em todas as imagens
+- URL amigável (keyword-no-titulo)
+
+### ✅ CHECKLIST OBRIGATÓRIO:
+- [ ] Título com keyword e <60 caracteres
+- [ ] Meta description com 150-160 caracteres
+- [ ] Introdução com gancho e promessa
+- [ ] Hierarquia H2/H3 clara
+- [ ] Parágrafos curtos (máx 4 linhas)
+- [ ] Listas e bullet points
+- [ ] Pelo menos 1 imagem/gráfico
+- [ ] Links internos e externos
+- [ ] Conclusão com recapitulação
+- [ ] CTA claro no final
+
+### 📝 FORMATO DE ENTREGA:
+
+**TÍTULO:** [Título H1]
+**META DESCRIPTION:** [Meta description]
+**URL SUGERIDA:** /[url-amigavel]
+
+---
+
+## [Título H1]
+
+[Introdução - 150-200 palavras]
+
+## [H2: Primeira Seção Principal]
+
+[Conteúdo da seção]
+
+### [H3: Subseção se necessário]
+
+[Conteúdo da subseção]
+
+[Continue para todas as seções...]
+
+## Conclusão
+
+[Recapitulação + CTA]
+`;
+
+// Regras específicas para Artigo no X (NOVO - baseado em pesquisa)
+export const X_ARTICLE_FORMAT_RULES = `
+## FORMATO OBRIGATÓRIO PARA ARTIGO NO X (TWITTER)
+
+### 📊 CARACTERÍSTICAS DO FORMATO
+- Máximo: 25.000 caracteres (~4.000 palavras)
+- Formato longo nativo do X
+- Permite imagens inline, formatação rica
+- Diferente de threads: é um artigo único, não tweets conectados
+
+### 📝 ESTRUTURA COMPLETA
+
+**1. TÍTULO**
+- Máximo 100 caracteres
+- Impactante e claro
+- Evite clickbait exagerado
+- Pode usar emoji no início (1 máximo)
+
+**2. IMAGEM DE CAPA** (Obrigatória)
+- Aspecto 16:9 recomendado
+- Visual que represente o tema
+- Texto mínimo (o título já aparece)
+
+**3. ABERTURA (Primeiros 2 parágrafos)**
+- Gancho forte imediato
+- Estabeleça por que o leitor deve continuar
+- Tom pessoal funciona bem no X
+- Pode começar com uma afirmação provocativa
+
+**4. CORPO DO ARTIGO**
+
+**Estrutura recomendada:**
+- Parágrafos curtos (2-3 linhas)
+- Quebras frequentes (escaneabilidade)
+- Use headings para dividir seções
+- Imagens inline para ilustrar pontos
+
+**Formatação disponível:**
+- **Negrito** para ênfase
+- *Itálico* para nuances
+- Listas numeradas e com bullets
+- Citações em bloco
+- Links (use com moderação)
+
+**5. IMAGENS INLINE**
+- Use 2-5 imagens ao longo do artigo
+- Cada imagem deve agregar valor
+- Gráficos, screenshots, exemplos visuais
+- Posicione após o parágrafo que referencia
+
+**6. CONCLUSÃO**
+- Recapitulação breve (não extensa)
+- Opinião ou posicionamento final
+- CTA para engajamento (perguntar opinião)
+
+### 🎯 BOAS PRÁTICAS DO X:
+- Tom conversacional funciona melhor
+- Opiniões fortes geram mais engajamento
+- Dados e exemplos específicos > generalidades
+- Histórias pessoais conectam
+- Controvérsia controlada aumenta alcance
+
+### ✅ CHECKLIST OBRIGATÓRIO:
+- [ ] Título impactante <100 caracteres
+- [ ] Imagem de capa de qualidade
+- [ ] Gancho forte na abertura
+- [ ] Parágrafos curtos e escaneáveis
+- [ ] Pelo menos 3 imagens inline
+- [ ] Seções divididas com headings
+- [ ] Tom pessoal/opinativo
+- [ ] CTA de engajamento no final
+- [ ] Comprimento: 1500-4000 palavras
+
+### 📝 FORMATO DE ENTREGA:
+
+**TÍTULO:** [Título do artigo]
+**CAPA:** [Descrição da imagem de capa]
+
+---
+
+[Corpo completo do artigo com marcações para imagens]
+
+[IMAGEM: descrição da imagem a inserir]
+
+[Continuação do texto...]
+
+---
+
+**CTA FINAL:** [Pergunta ou chamada para engajamento]
+`;
+
+// =====================================================
 // FUNÇÃO PARA OBTER REGRAS POR TIPO DE CONTEÚDO
 // =====================================================
 
@@ -610,12 +1009,12 @@ export const getContentFormatRules = (contentType: ContentFormatType): string =>
     stories: STORIES_FORMAT_RULES,
     tweet: TWEET_FORMAT_RULES,
     thread: THREAD_FORMAT_RULES,
-    x_article: THREAD_FORMAT_RULES, // Similar to thread structure
+    x_article: X_ARTICLE_FORMAT_RULES,
     short_video: REELS_FORMAT_RULES,
-    long_video: REELS_FORMAT_RULES,
+    long_video: LONG_VIDEO_FORMAT_RULES,
     linkedin_post: LINKEDIN_FORMAT_RULES,
-    newsletter: CAPTION_FORMAT_RULES,
-    blog_post: CAPTION_FORMAT_RULES,
+    newsletter: NEWSLETTER_FORMAT_RULES,
+    blog_post: BLOG_POST_FORMAT_RULES,
     other: '',
   };
 

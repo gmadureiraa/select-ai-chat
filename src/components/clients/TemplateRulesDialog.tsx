@@ -10,11 +10,25 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Plus, Trash2, Edit2, Check, X, Image, FileText, Type, Upload, Loader2, Sparkles } from "lucide-react";
-import { ClientTemplate, TemplateRule } from "@/types/template";
+import { Plus, Trash2, Edit2, Check, X, Image, FileText, Type, Upload, Loader2, Sparkles, ChevronRight, Search, PenLine, Wand2, CheckCircle } from "lucide-react";
+import { ClientTemplate, TemplateRule, detectContentTypeFromTemplateName, ContentFormatType } from "@/types/template";
 import { uploadAndGetSignedUrl } from "@/lib/storage";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+
+// Pipeline de agentes por tipo de template
+const AGENT_PIPELINE = {
+  chat: [
+    { id: 'researcher', name: 'Pesquisador', icon: Search, description: 'Analisa biblioteca e extrai padrões do cliente', model: 'Gemini' },
+    { id: 'writer', name: 'Escritor', icon: PenLine, description: 'Cria o conteúdo seguindo regras do formato', model: 'Gemini' },
+    { id: 'style_editor', name: 'Editor de Estilo', icon: Wand2, description: 'Refina para soar como o cliente (CRÍTICO)', model: 'Claude/GPT-5' },
+    { id: 'verifier', name: 'Verificador', icon: CheckCircle, description: 'Valida formato, qualidade e entrega final', model: 'Gemini' },
+  ],
+  image: [
+    { id: 'analyzer', name: 'Analisador Visual', icon: Search, description: 'Analisa referências e extrai estilo', model: 'Gemini Vision' },
+    { id: 'generator', name: 'Gerador', icon: Wand2, description: 'Gera imagem seguindo estilo extraído', model: 'Gemini Image' },
+  ],
+};
 
 interface TemplateRulesDialogProps {
   open: boolean;
@@ -41,6 +55,10 @@ export const TemplateRulesDialog = ({
   // Check if we have style analysis already
   const hasStyleAnalysis = rules.some(r => (r as any).styleAnalysis);
   const imageReferenceCount = rules.filter(r => r.type === 'image_reference').length;
+  
+  // Get content type for this template
+  const contentType = template?.name ? detectContentTypeFromTemplateName(template.name) : null;
+  const pipeline = template?.type === 'image' ? AGENT_PIPELINE.image : AGENT_PIPELINE.chat;
 
   useEffect(() => {
     if (template) {
@@ -198,6 +216,39 @@ export const TemplateRulesDialog = ({
         </DialogHeader>
 
         <div className="space-y-6 py-4">
+          {/* Pipeline de Agentes */}
+          <div className="p-4 bg-muted/30 border rounded-lg space-y-3">
+            <div className="flex items-center justify-between">
+              <h4 className="font-medium text-sm">Pipeline de Geração</h4>
+              {contentType && (
+                <span className="text-xs text-muted-foreground bg-background px-2 py-0.5 rounded">
+                  {contentType.replace('_', ' ').toUpperCase()}
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-2 overflow-x-auto pb-2">
+              {pipeline.map((agent, index) => (
+                <div key={agent.id} className="flex items-center gap-2 shrink-0">
+                  <div className="flex flex-col items-center gap-1.5 p-3 rounded-lg bg-background border min-w-[100px]">
+                    <div className="p-2 rounded-full bg-primary/10">
+                      <agent.icon className="h-4 w-4 text-primary" />
+                    </div>
+                    <span className="text-xs font-medium text-center">{agent.name}</span>
+                    <span className="text-[10px] text-muted-foreground">{agent.model}</span>
+                  </div>
+                  {index < pipeline.length - 1 && (
+                    <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                  )}
+                </div>
+              ))}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {template?.type === 'image' 
+                ? 'O analisador extrai o estilo das referências e o gerador cria imagens no mesmo estilo.'
+                : 'O Editor de Estilo é o agente crítico - compara com exemplos reais da biblioteca para garantir que o conteúdo soe autêntico.'}
+            </p>
+          </div>
+
           {/* Style Analysis Button for Image Templates */}
           {template?.type === 'image' && imageReferenceCount > 0 && (
             <div className="p-4 bg-primary/5 border border-primary/20 rounded-lg space-y-3">
