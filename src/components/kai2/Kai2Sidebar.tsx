@@ -151,25 +151,29 @@ export function Kai2Sidebar({ activeTab, onTabChange, selectedClientId, onClient
         <NavItem
           icon={<Send className="h-4 w-4" />}
           label="Publicador Social"
-          onClick={() => navigate("/social-publisher")}
+          active={activeTab === "social-publisher"}
+          onClick={() => onTabChange("social-publisher")}
         />
 
         <NavItem
           icon={<Blocks className="h-4 w-4" />}
           label="Agent Builder"
-          onClick={() => navigate("/agent-builder")}
+          active={activeTab === "agent-builder"}
+          onClick={() => onTabChange("agent-builder")}
         />
 
         <NavItem
           icon={<FlaskConical className="h-4 w-4" />}
           label="Lab de Pesquisa"
-          onClick={() => navigate("/research-lab")}
+          active={activeTab === "research-lab"}
+          onClick={() => onTabChange("research-lab")}
         />
 
         <NavItem
           icon={<BookOpen className="h-4 w-4" />}
           label="Base de Conhecimento"
-          onClick={() => navigate("/knowledge-base")}
+          active={activeTab === "knowledge-base"}
+          onClick={() => onTabChange("knowledge-base")}
         />
 
         <NavItem
@@ -182,7 +186,8 @@ export function Kai2Sidebar({ activeTab, onTabChange, selectedClientId, onClient
         <NavItem
           icon={<Activity className="h-4 w-4" />}
           label="Atividades"
-          onClick={() => navigate("/activities")}
+          active={activeTab === "activities"}
+          onClick={() => onTabChange("activities")}
         />
       </nav>
 
