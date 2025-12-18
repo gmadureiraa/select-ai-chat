@@ -16,7 +16,8 @@ import {
   Search,
   LogOut,
   HelpCircle,
-  Building2
+  Building2,
+  Palette
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useClients } from "@/hooks/useClients";
@@ -242,6 +243,13 @@ export function Kai2Sidebar({ activeTab, onTabChange, selectedClientId, onClient
             <SectionLabel>Ferramentas</SectionLabel>
 
             <div className="space-y-0.5">
+              <NavItem
+                icon={<Palette className="h-4 w-4" />}
+                label="Criação Visual"
+                active={activeTab === "visual-creator"}
+                onClick={() => onTabChange("visual-creator")}
+              />
+
               <NavItem
                 icon={<BookOpen className="h-4 w-4" />}
                 label="Base de Conhecimento"

@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Library, FileText, Link2, Plus, Search, Instagram, Trash2, Image as ImageIcon } from "lucide-react";
+import { Library, FileText, Link2, Plus, Search, Instagram, Trash2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,6 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useContentLibrary, ContentItem, CreateContentData } from "@/hooks/useContentLibrary";
 import { useReferenceLibrary, ReferenceItem, CreateReferenceData } from "@/hooks/useReferenceLibrary";
-import { useImageGenerations } from "@/hooks/useImageGenerations";
 import { ContentCard } from "@/components/content/ContentCard";
 import { ContentDialog } from "@/components/content/ContentDialog";
 import { ContentViewDialog } from "@/components/content/ContentViewDialog";
@@ -16,7 +15,6 @@ import { ReferenceCard } from "@/components/references/ReferenceCard";
 import { ReferenceDialog } from "@/components/references/ReferenceDialog";
 import { ReferenceViewDialog } from "@/components/references/ReferenceViewDialog";
 import { InstagramCarouselImporter } from "@/components/images/InstagramCarouselImporter";
-import { ImageGallery } from "@/components/posts/ImageGallery";
 import { LibraryFilters, ContentTypeFilter, SortOption, ViewMode } from "@/components/kai2/LibraryFilters";
 import { Client } from "@/hooks/useClients";
 import { cn } from "@/lib/utils";
@@ -51,9 +49,6 @@ export const KaiLibraryTab = ({ clientId, client }: KaiLibraryTabProps) => {
   // Instagram Importer
   const [instagramImporterOpen, setInstagramImporterOpen] = useState(false);
   const { references, createReference, updateReference, deleteReference } = useReferenceLibrary(clientId);
-
-  // Image Gallery
-  const { generations } = useImageGenerations(clientId);
 
   // Filter and sort content
   const filteredContents = useMemo(() => {
@@ -395,11 +390,6 @@ export const KaiLibraryTab = ({ clientId, client }: KaiLibraryTabProps) => {
               <span className="hidden sm:inline">Referências</span>
               <Badge variant="secondary" className="ml-1">{references?.length || 0}</Badge>
             </TabsTrigger>
-            <TabsTrigger value="images" className="gap-2">
-              <ImageIcon className="h-4 w-4" />
-              <span className="hidden sm:inline">Imagens IA</span>
-              <Badge variant="secondary" className="ml-1">{generations?.length || 0}</Badge>
-            </TabsTrigger>
           </TabsList>
           
           <LibraryFilters
@@ -485,16 +475,6 @@ export const KaiLibraryTab = ({ clientId, client }: KaiLibraryTabProps) => {
           )}
         </TabsContent>
 
-        {/* Image Gallery */}
-        <TabsContent value="images" className="mt-4">
-          <ImageGallery 
-            clientId={clientId}
-            onSelectImage={(url) => {
-              navigator.clipboard.writeText(url);
-              toast.success("URL da imagem copiada!");
-            }}
-          />
-        </TabsContent>
       </Tabs>
 
       {/* Dialogs */}
