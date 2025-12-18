@@ -1,21 +1,17 @@
 import { createHmac } from "node:crypto";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const API_KEY = Deno.env.get("TWITTER_CONSUMER_KEY")?.trim();
-const API_SECRET = Deno.env.get("TWITTER_CONSUMER_SECRET")?.trim();
-const ACCESS_TOKEN = Deno.env.get("TWITTER_ACCESS_TOKEN")?.trim();
-const ACCESS_TOKEN_SECRET = Deno.env.get("TWITTER_ACCESS_TOKEN_SECRET")?.trim();
-
-function validateEnvironmentVariables() {
-  if (!API_KEY) throw new Error("Missing TWITTER_CONSUMER_KEY");
-  if (!API_SECRET) throw new Error("Missing TWITTER_CONSUMER_SECRET");
-  if (!ACCESS_TOKEN) throw new Error("Missing TWITTER_ACCESS_TOKEN");
-  if (!ACCESS_TOKEN_SECRET) throw new Error("Missing TWITTER_ACCESS_TOKEN_SECRET");
+interface TwitterCredentials {
+  apiKey: string;
+  apiSecret: string;
+  accessToken: string;
+  accessTokenSecret: string;
 }
 
 function generateOAuthSignature(
@@ -37,13 +33,13 @@ function generateOAuthSignature(
   return signature;
 }
 
-function generateOAuthHeader(method: string, url: string): string {
+function generateOAuthHeader(method: string, url: string, credentials: TwitterCredentials): string {
   const oauthParams = {
-    oauth_consumer_key: API_KEY!,
+    oauth_consumer_key: credentials.apiKey,
     oauth_nonce: Math.random().toString(36).substring(2),
     oauth_signature_method: "HMAC-SHA1",
     oauth_timestamp: Math.floor(Date.now() / 1000).toString(),
-    oauth_token: ACCESS_TOKEN!,
+    oauth_token: credentials.accessToken,
     oauth_version: "1.0",
   };
 
@@ -51,8 +47,8 @@ function generateOAuthHeader(method: string, url: string): string {
     method,
     url,
     oauthParams,
-    API_SECRET!,
-    ACCESS_TOKEN_SECRET!
+    credentials.apiSecret,
+    credentials.accessTokenSecret
   );
 
   const signedOAuthParams = {
@@ -74,11 +70,11 @@ function generateOAuthHeader(method: string, url: string): string {
 
 const BASE_URL = "https://api.x.com/2";
 
-async function sendTweet(tweetText: string): Promise<any> {
+async function sendTweet(tweetText: string, credentials: TwitterCredentials): Promise<any> {
   const url = `${BASE_URL}/tweets`;
   const method = "POST";
 
-  const oauthHeader = generateOAuthHeader(method, url);
+  const oauthHeader = generateOAuthHeader(method, url, credentials);
   console.log("Sending tweet:", tweetText.substring(0, 50) + "...");
 
   const response = await fetch(url, {
@@ -107,17 +103,69 @@ serve(async (req) => {
   }
 
   try {
-    validateEnvironmentVariables();
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Get the authorization header to identify the user
+    const authHeader = req.headers.get("authorization");
+    if (!authHeader) {
+      throw new Error("Missing authorization header");
+    }
+
+    // Verify the JWT and get user
+    const token = authHeader.replace("Bearer ", "");
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     
+    if (authError || !user) {
+      throw new Error("Invalid or expired token");
+    }
+
     const { content, clientId, clientName } = await req.json();
     
     if (!content) {
       throw new Error("Content is required");
     }
 
-    console.log(`Publishing tweet for client: ${clientName || clientId}`);
-    
-    const result = await sendTweet(content);
+    if (!clientId) {
+      throw new Error("Client ID is required");
+    }
+
+    console.log(`Publishing tweet for client: ${clientName || clientId}, user: ${user.id}`);
+
+    // Get the user's Twitter OAuth credentials from twitter_tokens table
+    const { data: tokenData, error: tokenError } = await supabase
+      .from("twitter_tokens")
+      .select("access_token, twitter_api_key, twitter_api_secret")
+      .eq("user_id", user.id)
+      .eq("client_id", clientId)
+      .single();
+
+    if (tokenError || !tokenData) {
+      console.error("Token fetch error:", tokenError);
+      throw new Error("Twitter não conectado para este cliente. Por favor, conecte sua conta Twitter nas configurações.");
+    }
+
+    // Validate that we have all required credentials
+    if (!tokenData.twitter_api_key || !tokenData.twitter_api_secret || !tokenData.access_token) {
+      throw new Error("Credenciais do Twitter incompletas. Por favor, reconecte sua conta Twitter.");
+    }
+
+    // For OAuth 1.0a, we need both the API credentials and the user's access token
+    // The access_token from OAuth flow contains both token and secret separated by a delimiter
+    // or they might be stored separately depending on your OAuth implementation
+    const accessTokenParts = tokenData.access_token.split(":");
+    const accessToken = accessTokenParts[0];
+    const accessTokenSecret = accessTokenParts[1] || accessTokenParts[0]; // Fallback if not separated
+
+    const credentials: TwitterCredentials = {
+      apiKey: tokenData.twitter_api_key,
+      apiSecret: tokenData.twitter_api_secret,
+      accessToken: accessToken,
+      accessTokenSecret: accessTokenSecret,
+    };
+
+    const result = await sendTweet(content, credentials);
     
     console.log("Tweet published successfully:", result.data?.id);
 
