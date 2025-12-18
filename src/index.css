@@ -2,109 +2,112 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
+/* Design System - Orbit/Acme Style
+   Light mode priority with clean, minimal aesthetic
+   All colors MUST be HSL.
 */
 
 @layer base {
   :root {
-    /* Light mode - Kaleidos White Background */
-    --background: 0 0% 98%;
-    --foreground: 0 0% 10%;
+    /* Light mode - Clean white background like Orbit */
+    --background: 0 0% 100%;
+    --foreground: 220 15% 15%;
 
-    /* Cards with subtle elevation */
+    /* Cards - Pure white with subtle borders */
     --card: 0 0% 100%;
-    --card-foreground: 0 0% 10%;
+    --card-foreground: 220 15% 15%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 10%;
+    --popover-foreground: 220 15% 15%;
 
-    /* Kaleidos Neon Green */
-    --primary: 145 100% 40%;
+    /* Kaleidos Primary Green */
+    --primary: 145 80% 42%;
     --primary-foreground: 0 0% 100%;
 
     /* Kaleidos Magenta */
-    --secondary: 330 100% 50%;
+    --secondary: 330 85% 55%;
     --secondary-foreground: 0 0% 100%;
 
-    /* Kaleidos Orange */
-    --accent: 30 100% 50%;
+    /* Orange Accent */
+    --accent: 25 95% 55%;
     --accent-foreground: 0 0% 100%;
 
-    /* Subtle grays */
-    --muted: 0 0% 94%;
-    --muted-foreground: 0 0% 40%;
+    /* Muted backgrounds */
+    --muted: 220 14% 96%;
+    --muted-foreground: 220 10% 45%;
 
-    --destructive: 0 84.2% 60.2%;
+    --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    /* Minimal borders */
-    --border: 0 0% 88%;
-    --input: 0 0% 94%;
-    --ring: 145 100% 40%;
+    /* Clean minimal borders */
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 145 80% 42%;
 
-    --radius: 0.75rem;
+    --radius: 0.5rem;
 
     /* Chat bubbles */
-    --chat-user-bg: 0 0% 94%;
-    --chat-user-fg: 0 0% 10%;
-    --chat-ai-bg: 0 0% 98%;
-    --chat-ai-fg: 0 0% 10%;
+    --chat-user-bg: 220 14% 96%;
+    --chat-user-fg: 220 15% 15%;
+    --chat-ai-bg: 0 0% 100%;
+    --chat-ai-fg: 220 15% 15%;
 
-    --sidebar-width: 280px;
+    --sidebar-width: 260px;
     
     /* Transitions */
-    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-smooth: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 
-    /* Chart colors */
-    --chart-1: 145 100% 40%;
-    --chart-2: 200 100% 50%;
-    --chart-3: 280 100% 60%;
-    --chart-4: 30 100% 50%;
-    --chart-5: 330 100% 50%;
+    /* Vibrant chart colors - Orbit/Acme style */
+    --chart-1: 145 75% 45%;
+    --chart-2: 330 85% 55%;
+    --chart-3: 220 90% 55%;
+    --chart-4: 25 95% 55%;
+    --chart-5: 270 75% 60%;
+    --chart-6: 185 75% 45%;
   }
 
   .dark {
     /* Dark mode - Refined dark background */
-    --background: 0 0% 4%;
+    --background: 220 15% 8%;
     --foreground: 0 0% 95%;
 
-    --card: 0 0% 6%;
+    --card: 220 15% 10%;
     --card-foreground: 0 0% 95%;
 
-    --popover: 0 0% 6%;
+    --popover: 220 15% 10%;
     --popover-foreground: 0 0% 95%;
 
-    --primary: 145 80% 45%;
-    --primary-foreground: 0 0% 0%;
+    --primary: 145 75% 50%;
+    --primary-foreground: 0 0% 5%;
 
-    --secondary: 330 70% 55%;
+    --secondary: 330 80% 60%;
     --secondary-foreground: 0 0% 100%;
 
-    --accent: 30 80% 50%;
-    --accent-foreground: 0 0% 0%;
+    --accent: 25 90% 55%;
+    --accent-foreground: 0 0% 5%;
 
-    --muted: 0 0% 12%;
-    --muted-foreground: 0 0% 55%;
+    --muted: 220 15% 15%;
+    --muted-foreground: 220 10% 55%;
 
-    --destructive: 0 62.8% 50%;
+    --destructive: 0 70% 55%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 0 0% 14%;
-    --input: 0 0% 10%;
-    --ring: 145 80% 45%;
+    --border: 220 15% 18%;
+    --input: 220 15% 15%;
+    --ring: 145 75% 50%;
 
-    --chat-user-bg: 0 0% 10%;
+    --chat-user-bg: 220 15% 12%;
     --chat-user-fg: 0 0% 95%;
-    --chat-ai-bg: 0 0% 6%;
+    --chat-ai-bg: 220 15% 10%;
     --chat-ai-fg: 0 0% 95%;
 
-    /* Chart colors */
-    --chart-1: 145 80% 45%;
-    --chart-2: 200 80% 55%;
-    --chart-3: 280 70% 65%;
-    --chart-4: 30 80% 50%;
-    --chart-5: 330 70% 55%;
+    /* Chart colors - dark mode */
+    --chart-1: 145 75% 50%;
+    --chart-2: 330 80% 60%;
+    --chart-3: 220 85% 60%;
+    --chart-4: 25 90% 55%;
+    --chart-5: 270 70% 65%;
+    --chart-6: 185 70% 50%;
   }
 }
 

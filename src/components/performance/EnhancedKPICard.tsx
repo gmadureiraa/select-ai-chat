@@ -1,8 +1,9 @@
 import { Card, CardContent } from "@/components/ui/card";
-import { TrendingUp, TrendingDown } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { LucideIcon } from "lucide-react";
 import { useMemo } from "react";
 import { Area, AreaChart, ResponsiveContainer } from "recharts";
+import { cn } from "@/lib/utils";
 
 interface EnhancedKPICardProps {
   title: string;
@@ -12,8 +13,36 @@ interface EnhancedKPICardProps {
   icon: LucideIcon;
   formatter?: (v: number) => string;
   sparklineData?: number[];
-  accentColor?: "primary" | "secondary" | "accent";
+  color?: "green" | "pink" | "blue" | "orange" | "purple";
 }
+
+const colorMap = {
+  green: {
+    bg: "bg-emerald-50 dark:bg-emerald-500/10",
+    icon: "text-emerald-600 dark:text-emerald-400",
+    stroke: "hsl(145, 75%, 45%)",
+  },
+  pink: {
+    bg: "bg-pink-50 dark:bg-pink-500/10",
+    icon: "text-pink-600 dark:text-pink-400",
+    stroke: "hsl(330, 85%, 55%)",
+  },
+  blue: {
+    bg: "bg-blue-50 dark:bg-blue-500/10",
+    icon: "text-blue-600 dark:text-blue-400",
+    stroke: "hsl(220, 90%, 55%)",
+  },
+  orange: {
+    bg: "bg-orange-50 dark:bg-orange-500/10",
+    icon: "text-orange-600 dark:text-orange-400",
+    stroke: "hsl(25, 95%, 55%)",
+  },
+  purple: {
+    bg: "bg-violet-50 dark:bg-violet-500/10",
+    icon: "text-violet-600 dark:text-violet-400",
+    stroke: "hsl(270, 75%, 60%)",
+  },
+};
 
 export function EnhancedKPICard({
   title,
@@ -23,27 +52,9 @@ export function EnhancedKPICard({
   icon: Icon,
   formatter = (v: number) => v.toLocaleString("pt-BR"),
   sparklineData = [],
-  accentColor = "primary",
+  color = "green",
 }: EnhancedKPICardProps) {
-  const colorMap = {
-    primary: {
-      gradient: "from-primary/10 to-transparent",
-      stroke: "hsl(var(--primary))",
-      fill: "hsl(var(--primary))",
-    },
-    secondary: {
-      gradient: "from-secondary/10 to-transparent",
-      stroke: "hsl(var(--secondary))",
-      fill: "hsl(var(--secondary))",
-    },
-    accent: {
-      gradient: "from-accent/10 to-transparent",
-      stroke: "hsl(var(--accent))",
-      fill: "hsl(var(--accent))",
-    },
-  };
-
-  const colors = colorMap[accentColor];
+  const colors = colorMap[color];
 
   const chartData = useMemo(() => {
     return sparklineData.map((value, index) => ({ value, index }));
@@ -51,29 +62,33 @@ export function EnhancedKPICard({
 
   const hasValidSparkline = sparklineData.length > 1;
   const isPositive = change !== null && change !== undefined && change >= 0;
+  const isNeutral = change !== null && change !== undefined && change === 0;
 
   return (
-    <Card className="relative overflow-hidden border-border/50 bg-card backdrop-blur-sm transition-all hover:border-border hover:shadow-lg">
-      <CardContent className="p-5">
-        <div className="flex items-start justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <div className={`p-2 rounded-lg bg-${accentColor}/10`}>
-              <Icon className="h-4 w-4 text-muted-foreground" />
-            </div>
-            <span className="text-sm font-medium text-muted-foreground">{title}</span>
+    <Card className="relative overflow-hidden border border-border/50 bg-card shadow-card hover:shadow-card-hover transition-all duration-200">
+      <CardContent className="p-4">
+        {/* Header row: icon + title */}
+        <div className="flex items-center gap-2 mb-3">
+          <div className={cn("p-1.5 rounded-md", colors.bg)}>
+            <Icon className={cn("h-3.5 w-3.5", colors.icon)} />
           </div>
+          <span className="text-xs font-medium text-muted-foreground">{title}</span>
         </div>
         
-        <div className="flex items-end justify-between">
-          <div className="space-y-1">
-            <div className="text-3xl font-bold tracking-tight">
+        {/* Value row */}
+        <div className="flex items-end justify-between gap-3">
+          <div className="space-y-1 min-w-0">
+            <div className="text-2xl font-semibold tracking-tight text-foreground">
               {formatter(value)}
             </div>
             {change !== null && change !== undefined && (
-              <div className={`text-xs flex items-center gap-1 ${
-                isPositive ? "text-emerald-500" : "text-red-500"
-              }`}>
-                {isPositive ? (
+              <div className={cn(
+                "text-xs flex items-center gap-1",
+                isNeutral ? "text-muted-foreground" : isPositive ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"
+              )}>
+                {isNeutral ? (
+                  <Minus className="h-3 w-3" />
+                ) : isPositive ? (
                   <TrendingUp className="h-3 w-3" />
                 ) : (
                   <TrendingDown className="h-3 w-3" />
@@ -81,19 +96,19 @@ export function EnhancedKPICard({
                 <span className="font-medium">
                   {isPositive ? "+" : ""}{change.toFixed(1)}%
                 </span>
-                <span className="text-muted-foreground font-normal">{changeLabel}</span>
+                <span className="text-muted-foreground font-normal hidden sm:inline">{changeLabel}</span>
               </div>
             )}
           </div>
           
           {hasValidSparkline && (
-            <div className="w-20 h-12">
+            <div className="w-16 h-10 flex-shrink-0">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={chartData}>
                   <defs>
-                    <linearGradient id={`sparkline-${accentColor}`} x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor={colors.fill} stopOpacity={0.3} />
-                      <stop offset="100%" stopColor={colors.fill} stopOpacity={0} />
+                    <linearGradient id={`sparkline-gradient-${color}`} x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor={colors.stroke} stopOpacity={0.25} />
+                      <stop offset="100%" stopColor={colors.stroke} stopOpacity={0} />
                     </linearGradient>
                   </defs>
                   <Area
@@ -101,7 +116,7 @@ export function EnhancedKPICard({
                     dataKey="value"
                     stroke={colors.stroke}
                     strokeWidth={1.5}
-                    fill={`url(#sparkline-${accentColor})`}
+                    fill={`url(#sparkline-gradient-${color})`}
                     dot={false}
                   />
                 </AreaChart>
