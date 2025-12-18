@@ -58,40 +58,49 @@ const platformColors: Record<string, string> = {
 
 interface ImportHistoryPanelProps {
   clientId: string;
+  platform?: string; // Optional: filter by specific platform
 }
 
-export function ImportHistoryPanel({ clientId }: ImportHistoryPanelProps) {
-  const { imports, isLoading, deleteImport, clearPlatformData, clearAllData } = useImportHistory(clientId);
+export function ImportHistoryPanel({ clientId, platform }: ImportHistoryPanelProps) {
+  const { imports, isLoading, deleteImport } = useImportHistory(clientId);
   const [isOpen, setIsOpen] = useState(false);
-  const [confirmClear, setConfirmClear] = useState<string | null>(null);
-  const [confirmClearAll, setConfirmClearAll] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
   if (isLoading) {
     return null;
   }
 
-  const groupedImports = imports.reduce((acc, imp) => {
+  // Filter by platform if provided
+  const filteredImports = platform 
+    ? imports.filter(imp => imp.platform === platform)
+    : imports;
+
+  const groupedImports = filteredImports.reduce((acc, imp) => {
     if (!acc[imp.platform]) {
       acc[imp.platform] = [];
     }
     acc[imp.platform].push(imp);
     return acc;
-  }, {} as Record<string, typeof imports>);
+  }, {} as Record<string, typeof filteredImports>);
 
   const platforms = Object.keys(groupedImports);
+
+  const importToDelete = confirmDelete 
+    ? filteredImports.find(i => i.id === confirmDelete) 
+    : null;
 
   return (
     <>
       <Card>
         <Collapsible open={isOpen} onOpenChange={setIsOpen}>
           <CollapsibleTrigger asChild>
-            <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+            <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors py-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <History className="h-4 w-4 text-muted-foreground" />
                   <CardTitle className="text-sm font-medium">Histórico de Importações</CardTitle>
                   <Badge variant="secondary" className="text-xs">
-                    {imports.length} importações
+                    {filteredImports.length}
                   </Badge>
                 </div>
                 {isOpen ? (
@@ -104,21 +113,6 @@ export function ImportHistoryPanel({ clientId }: ImportHistoryPanelProps) {
           </CollapsibleTrigger>
           <CollapsibleContent>
             <CardContent className="pt-0 space-y-4">
-              {/* Clear All Button */}
-              {imports.length > 0 && (
-                <div className="flex justify-end">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setConfirmClearAll(true)}
-                    className="text-destructive hover:text-destructive"
-                  >
-                    <Trash2 className="h-3.5 w-3.5 mr-1.5" />
-                    Limpar Todos os Dados
-                  </Button>
-                </div>
-              )}
-
               {/* Grouped by Platform */}
               {platforms.length === 0 ? (
                 <div className="text-center py-6 text-muted-foreground">
@@ -127,51 +121,40 @@ export function ImportHistoryPanel({ clientId }: ImportHistoryPanelProps) {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {platforms.map((platform) => {
-                    const PlatformIcon = platformIcons[platform] || FileSpreadsheet;
-                    const platformImports = groupedImports[platform];
+                  {platforms.map((plat) => {
+                    const PlatformIcon = platformIcons[plat] || FileSpreadsheet;
+                    const platformImports = groupedImports[plat];
                     const totalRecords = platformImports.reduce((sum, i) => sum + i.records_count, 0);
 
                     return (
-                      <div key={platform} className="border rounded-lg p-3">
-                        <div className="flex items-center justify-between mb-3">
-                          <div className="flex items-center gap-2">
-                            <PlatformIcon className="h-4 w-4" />
-                            <span className="font-medium text-sm">
-                              {platformLabels[platform] || platform}
-                            </span>
-                            <Badge variant="outline" className={platformColors[platform]}>
-                              {totalRecords.toLocaleString()} registros
-                            </Badge>
-                          </div>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setConfirmClear(platform)}
-                            className="h-7 text-xs text-muted-foreground hover:text-destructive"
-                          >
-                            <Trash2 className="h-3 w-3 mr-1" />
-                            Limpar
-                          </Button>
+                      <div key={plat} className="border rounded-lg p-3">
+                        <div className="flex items-center gap-2 mb-3">
+                          <PlatformIcon className="h-4 w-4" />
+                          <span className="font-medium text-sm">
+                            {platformLabels[plat] || plat}
+                          </span>
+                          <Badge variant="outline" className={platformColors[plat]}>
+                            {totalRecords.toLocaleString()} registros
+                          </Badge>
                         </div>
 
                         <div className="space-y-1.5">
-                          {platformImports.slice(0, 5).map((imp) => (
+                          {platformImports.map((imp) => (
                             <div
                               key={imp.id}
                               className="flex items-center justify-between text-xs py-1.5 px-2 rounded bg-muted/30"
                             >
-                              <div className="flex items-center gap-2">
-                                <span className="text-muted-foreground">
+                              <div className="flex items-center gap-2 flex-1 min-w-0">
+                                <span className="text-muted-foreground shrink-0">
                                   {format(new Date(imp.imported_at), "dd/MM/yy HH:mm", { locale: ptBR })}
                                 </span>
                                 {imp.file_name && (
-                                  <span className="text-foreground truncate max-w-[150px]">
+                                  <span className="text-foreground truncate">
                                     {imp.file_name}
                                   </span>
                                 )}
                               </div>
-                              <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-2 shrink-0">
                                 <Badge variant="outline" className="text-[10px] px-1.5">
                                   {imp.records_count} registros
                                 </Badge>
@@ -183,16 +166,22 @@ export function ImportHistoryPanel({ clientId }: ImportHistoryPanelProps) {
                                       : "bg-yellow-500/10 text-yellow-500 border-yellow-500/20 text-[10px] px-1.5"
                                   }
                                 >
-                                  {imp.status === "completed" ? "Completo" : imp.status}
+                                  {imp.status === "completed" ? "OK" : imp.status}
                                 </Badge>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setConfirmDelete(imp.id);
+                                  }}
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
                               </div>
                             </div>
                           ))}
-                          {platformImports.length > 5 && (
-                            <p className="text-xs text-muted-foreground text-center pt-1">
-                              +{platformImports.length - 5} importações anteriores
-                            </p>
-                          )}
                         </div>
                       </div>
                     );
@@ -204,57 +193,43 @@ export function ImportHistoryPanel({ clientId }: ImportHistoryPanelProps) {
         </Collapsible>
       </Card>
 
-      {/* Confirm Clear Platform Dialog */}
-      <AlertDialog open={!!confirmClear} onOpenChange={() => setConfirmClear(null)}>
+      {/* Confirm Delete Import Dialog */}
+      <AlertDialog open={!!confirmDelete} onOpenChange={() => setConfirmDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
               <AlertTriangle className="h-5 w-5 text-destructive" />
-              Limpar dados de {platformLabels[confirmClear || ""] || confirmClear}
+              Excluir importação
             </AlertDialogTitle>
             <AlertDialogDescription>
-              Isso irá remover permanentemente todos os dados de performance e histórico de importação desta plataforma. Esta ação não pode ser desfeita.
+              {importToDelete && (
+                <>
+                  Deseja excluir a importação de{" "}
+                  <strong>{platformLabels[importToDelete.platform] || importToDelete.platform}</strong>
+                  {importToDelete.file_name && (
+                    <> ({importToDelete.file_name})</>
+                  )}
+                  {" "}com <strong>{importToDelete.records_count}</strong> registros?
+                  <br /><br />
+                  <span className="text-muted-foreground">
+                    Nota: Esta ação remove apenas o registro do histórico. Os dados já importados permanecerão no sistema.
+                  </span>
+                </>
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
-                if (confirmClear) {
-                  clearPlatformData.mutate({ clientId, platform: confirmClear });
-                  setConfirmClear(null);
+                if (confirmDelete) {
+                  deleteImport.mutate(confirmDelete);
+                  setConfirmDelete(null);
                 }
               }}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              Limpar Dados
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Confirm Clear All Dialog */}
-      <AlertDialog open={confirmClearAll} onOpenChange={setConfirmClearAll}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-destructive" />
-              Limpar TODOS os dados de performance
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              Isso irá remover permanentemente TODOS os dados de performance de TODAS as plataformas (Instagram, YouTube, Newsletter, etc.) e todo o histórico de importações. Esta ação não pode ser desfeita.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => {
-                clearAllData.mutate(clientId);
-                setConfirmClearAll(false);
-              }}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              Limpar Todos os Dados
+              Excluir
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

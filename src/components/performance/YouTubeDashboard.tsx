@@ -9,6 +9,7 @@ import { GoalsPanel } from "./GoalsPanel";
 import { YouTubeConnectionCard } from "./YouTubeConnectionCard";
 import { YouTubeCSVUpload } from "./YouTubeCSVUpload";
 import { YouTubeVideosTable } from "./YouTubeVideosTable";
+import { ImportHistoryPanel } from "./ImportHistoryPanel";
 import { subDays, format, parseISO, isAfter } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -281,6 +282,9 @@ export function YouTubeDashboard({ clientId, videos, isLoading }: YouTubeDashboa
           <YouTubeVideosTable videos={videos as any} isLoading={isLoading} />
         </CardContent>
       </Card>
+
+      {/* Import History */}
+      <ImportHistoryPanel clientId={clientId} platform="youtube" />
     </div>
   );
 }
