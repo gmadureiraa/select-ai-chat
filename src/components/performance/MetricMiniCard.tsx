@@ -1,5 +1,6 @@
 import { memo, useMemo } from "react";
 import { TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface MetricMiniCardProps {
   icon: React.ElementType;
@@ -10,12 +11,32 @@ interface MetricMiniCardProps {
   color?: "emerald" | "rose" | "blue" | "amber" | "violet";
 }
 
-const colorMap = {
-  emerald: "hsl(145, 80%, 45%)",
-  rose: "hsl(350, 80%, 55%)",
-  blue: "hsl(210, 80%, 55%)",
-  amber: "hsl(40, 95%, 50%)",
-  violet: "hsl(270, 70%, 55%)",
+const colorConfig = {
+  emerald: {
+    bg: "bg-emerald-50 dark:bg-emerald-500/10",
+    icon: "text-emerald-600 dark:text-emerald-400",
+    stroke: "hsl(145, 75%, 45%)",
+  },
+  rose: {
+    bg: "bg-rose-50 dark:bg-rose-500/10",
+    icon: "text-rose-600 dark:text-rose-400",
+    stroke: "hsl(350, 80%, 55%)",
+  },
+  blue: {
+    bg: "bg-blue-50 dark:bg-blue-500/10",
+    icon: "text-blue-600 dark:text-blue-400",
+    stroke: "hsl(210, 80%, 55%)",
+  },
+  amber: {
+    bg: "bg-amber-50 dark:bg-amber-500/10",
+    icon: "text-amber-600 dark:text-amber-400",
+    stroke: "hsl(40, 95%, 50%)",
+  },
+  violet: {
+    bg: "bg-violet-50 dark:bg-violet-500/10",
+    icon: "text-violet-600 dark:text-violet-400",
+    stroke: "hsl(270, 70%, 55%)",
+  },
 };
 
 export const MetricMiniCard = memo(function MetricMiniCard({
@@ -26,15 +47,15 @@ export const MetricMiniCard = memo(function MetricMiniCard({
   sparklineData = [],
   color = "blue",
 }: MetricMiniCardProps) {
-  const strokeColor = colorMap[color];
+  const colors = colorConfig[color];
 
   const sparkline = useMemo(() => {
     if (sparklineData.length < 2) return null;
     const max = Math.max(...sparklineData);
     const min = Math.min(...sparklineData);
     const range = max - min || 1;
-    const width = 60;
-    const height = 28;
+    const width = 56;
+    const height = 24;
 
     const points = sparklineData.map((val, i) => {
       const x = (i / (sparklineData.length - 1)) * width;
@@ -43,24 +64,24 @@ export const MetricMiniCard = memo(function MetricMiniCard({
     }).join(' ');
 
     return (
-      <svg width={width} height={height}>
+      <svg width={width} height={height} className="flex-shrink-0">
         <defs>
           <linearGradient id={`mini-gradient-${color}`} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={strokeColor} stopOpacity={0.3} />
-            <stop offset="100%" stopColor={strokeColor} stopOpacity={0} />
+            <stop offset="0%" stopColor={colors.stroke} stopOpacity={0.25} />
+            <stop offset="100%" stopColor={colors.stroke} stopOpacity={0} />
           </linearGradient>
         </defs>
         <polyline
           fill="none"
-          stroke={strokeColor}
-          strokeWidth="2"
+          stroke={colors.stroke}
+          strokeWidth="1.5"
           points={points}
           strokeLinecap="round"
           strokeLinejoin="round"
         />
       </svg>
     );
-  }, [sparklineData, color, strokeColor]);
+  }, [sparklineData, color, colors.stroke]);
 
   const formatValue = (val: string | number) => {
     if (typeof val === "number") {
@@ -80,26 +101,23 @@ export const MetricMiniCard = memo(function MetricMiniCard({
 
   const getTrendColor = () => {
     if (change === undefined) return "text-muted-foreground";
-    if (change > 0) return "text-emerald-500";
-    if (change < 0) return "text-rose-500";
+    if (change > 0) return "text-emerald-600 dark:text-emerald-400";
+    if (change < 0) return "text-rose-600 dark:text-rose-400";
     return "text-muted-foreground";
   };
 
   return (
-    <div className="flex items-center justify-between p-4 rounded-xl border border-border/50 bg-card/50 hover:border-border/80 transition-colors">
+    <div className="flex items-center justify-between p-3.5 rounded-lg border border-border/50 bg-card shadow-card hover:shadow-card-hover transition-all duration-200">
       <div className="flex items-center gap-3">
-        <div 
-          className="p-2 rounded-lg" 
-          style={{ backgroundColor: `${strokeColor}15` }}
-        >
-          <Icon className="h-4 w-4" style={{ color: strokeColor }} />
+        <div className={cn("p-2 rounded-md", colors.bg)}>
+          <Icon className={cn("h-4 w-4", colors.icon)} />
         </div>
         <div>
-          <p className="text-xs text-muted-foreground">{label}</p>
+          <p className="text-[11px] text-muted-foreground font-medium">{label}</p>
           <div className="flex items-center gap-2">
-            <span className="text-lg font-semibold">{formatValue(value)}</span>
+            <span className="text-base font-semibold">{formatValue(value)}</span>
             {change !== undefined && (
-              <span className={`flex items-center gap-0.5 text-xs ${getTrendColor()}`}>
+              <span className={cn("flex items-center gap-0.5 text-[11px]", getTrendColor())}>
                 {getTrendIcon()}
                 {change > 0 ? "+" : ""}{change.toFixed(0)}%
               </span>

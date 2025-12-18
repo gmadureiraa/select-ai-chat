@@ -12,19 +12,23 @@ import {
   FlaskConical,
   BookOpen,
   Activity,
-  User,
-  Users
+  Users,
+  Search,
+  LogOut
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useClients } from "@/hooks/useClients";
 import { useWorkspace } from "@/hooks/useWorkspace";
 import { usePendingUsers } from "@/hooks/usePendingUsers";
+import { useAuth } from "@/hooks/useAuth";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import kaleidosLogo from "@/assets/kaleidos-logo.svg";
 
 interface NavItemProps {
@@ -40,25 +44,39 @@ function NavItem({ icon, label, active, onClick, badge }: NavItemProps) {
     <button
       onClick={onClick}
       className={cn(
-        "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all duration-200",
-        "hover:bg-white/5",
-        active && "bg-white/10 text-white",
-        !active && "text-white/60"
+        "w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-all duration-150",
+        "hover:bg-muted",
+        active && "bg-muted text-primary font-medium",
+        !active && "text-muted-foreground hover:text-foreground"
       )}
     >
       <span className={cn(
-        "flex-shrink-0",
-        active && "text-primary"
+        "flex-shrink-0 opacity-70",
+        active && "opacity-100 text-primary"
       )}>
         {icon}
       </span>
-      <span className="flex-1 text-left">{label}</span>
+      <span className="flex-1 text-left truncate">{label}</span>
       {badge !== undefined && badge > 0 && (
-        <span className="flex-shrink-0 h-5 min-w-5 px-1.5 rounded-full bg-amber-500 text-white text-xs font-medium flex items-center justify-center">
+        <span className="flex-shrink-0 h-5 min-w-5 px-1.5 rounded-full bg-secondary text-secondary-foreground text-xs font-medium flex items-center justify-center">
           {badge}
         </span>
       )}
     </button>
+  );
+}
+
+interface SectionLabelProps {
+  children: React.ReactNode;
+}
+
+function SectionLabel({ children }: SectionLabelProps) {
+  return (
+    <div className="px-3 pt-5 pb-2">
+      <span className="text-[11px] font-semibold text-muted-foreground/60 uppercase tracking-wider">
+        {children}
+      </span>
+    </div>
   );
 }
 
@@ -74,39 +92,71 @@ export function Kai2Sidebar({ activeTab, onTabChange, selectedClientId, onClient
   const { clients } = useClients();
   const { canManageTeam } = useWorkspace();
   const { pendingCount } = usePendingUsers();
+  const { user, signOut } = useAuth();
   const selectedClient = clients?.find(c => c.id === selectedClientId);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const filteredClients = clients?.filter(c => 
+    c.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const userInitials = user?.email?.slice(0, 2).toUpperCase() || "K";
+  const userName = user?.user_metadata?.full_name || user?.email?.split("@")[0] || "Usuário";
 
   return (
-    <aside className="w-60 h-screen bg-[hsl(0,0%,6%)] border-r border-white/5 flex flex-col">
+    <aside className="w-64 h-screen bg-card border-r border-border flex flex-col">
       {/* Logo */}
-      <div className="p-4 flex items-center gap-2">
-        <img src={kaleidosLogo} alt="Kaleidos" className="h-6 w-6" />
-        <span className="font-semibold text-white">Kaleidos</span>
+      <div className="h-14 px-4 flex items-center gap-2.5 border-b border-border">
+        <img src={kaleidosLogo} alt="Kaleidos" className="h-7 w-7" />
+        <span className="font-semibold text-foreground tracking-tight">Kaleidos</span>
+      </div>
+
+      {/* Search */}
+      <div className="px-3 pt-3">
+        <div className="relative">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50" />
+          <Input
+            placeholder="Buscar..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-8 h-9 bg-muted/50 border-transparent focus:border-border text-sm"
+          />
+        </div>
       </div>
 
       {/* Client Selector */}
-      <div className="px-3 mb-4">
+      <div className="px-3 pt-3">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button className="w-full flex items-center gap-2 px-3 py-2.5 rounded-lg bg-white/5 hover:bg-white/10 transition-colors">
-              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-xs font-bold text-white">
+            <button className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-md bg-muted/50 hover:bg-muted transition-colors border border-transparent hover:border-border">
+              <div className="w-8 h-8 rounded-md bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-xs font-bold text-white shadow-sm">
                 {selectedClient?.name?.charAt(0) || "K"}
               </div>
-              <span className="flex-1 text-left text-sm text-white truncate">
-                {selectedClient?.name || "Selecionar Cliente"}
-              </span>
-              <ChevronDown className="h-4 w-4 text-white/40" />
+              <div className="flex-1 text-left min-w-0">
+                <p className="text-sm font-medium text-foreground truncate">
+                  {selectedClient?.name || "Selecionar Cliente"}
+                </p>
+                <p className="text-[11px] text-muted-foreground">Cliente ativo</p>
+              </div>
+              <ChevronDown className="h-4 w-4 text-muted-foreground flex-shrink-0" />
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-52">
-            {clients?.map((client) => (
+          <DropdownMenuContent align="start" className="w-56 bg-popover border-border shadow-elevated">
+            {filteredClients?.map((client) => (
               <DropdownMenuItem
                 key={client.id}
-                onClick={() => onClientChange(client.id)}
+                onClick={() => {
+                  onClientChange(client.id);
+                  setSearchQuery("");
+                }}
                 className={cn(
-                  selectedClientId === client.id && "bg-primary/10"
+                  "cursor-pointer",
+                  selectedClientId === client.id && "bg-primary/10 text-primary"
                 )}
               >
+                <div className="w-6 h-6 rounded bg-gradient-to-br from-primary/80 to-secondary/80 flex items-center justify-center text-[10px] font-bold text-white mr-2">
+                  {client.name.charAt(0)}
+                </div>
                 {client.name}
               </DropdownMenuItem>
             ))}
@@ -115,102 +165,124 @@ export function Kai2Sidebar({ activeTab, onTabChange, selectedClientId, onClient
       </div>
 
       {/* Main Navigation */}
-      <nav className="flex-1 px-3 space-y-1 overflow-y-auto">
-        <NavItem
-          icon={<Home className="h-4 w-4" />}
-          label="Início"
-          active={activeTab === "home"}
-          onClick={() => onTabChange("home")}
-        />
+      <nav className="flex-1 px-3 overflow-y-auto">
+        <SectionLabel>Cliente</SectionLabel>
         
-        <NavItem
-          icon={<MessageSquare className="h-4 w-4" />}
-          label="Assistente"
-          active={activeTab === "assistant"}
-          onClick={() => onTabChange("assistant")}
-        />
+        <div className="space-y-0.5">
+          <NavItem
+            icon={<Home className="h-4 w-4" />}
+            label="Início"
+            active={activeTab === "home"}
+            onClick={() => onTabChange("home")}
+          />
+          
+          <NavItem
+            icon={<MessageSquare className="h-4 w-4" />}
+            label="Assistente"
+            active={activeTab === "assistant"}
+            onClick={() => onTabChange("assistant")}
+          />
 
-        <NavItem
-          icon={<BarChart3 className="h-4 w-4" />}
-          label="Performance"
-          active={activeTab === "performance"}
-          onClick={() => onTabChange("performance")}
-        />
+          <NavItem
+            icon={<BarChart3 className="h-4 w-4" />}
+            label="Performance"
+            active={activeTab === "performance"}
+            onClick={() => onTabChange("performance")}
+          />
 
-        <NavItem
-          icon={<Library className="h-4 w-4" />}
-          label="Biblioteca"
-          active={activeTab === "library"}
-          onClick={() => onTabChange("library")}
-        />
+          <NavItem
+            icon={<Library className="h-4 w-4" />}
+            label="Biblioteca"
+            active={activeTab === "library"}
+            onClick={() => onTabChange("library")}
+          />
 
-        <NavItem
-          icon={<Settings className="h-4 w-4" />}
-          label="Configurações"
-          active={activeTab === "settings"}
-          onClick={() => onTabChange("settings")}
-        />
-
-        {/* Tools Section */}
-        <div className="pt-6 pb-2">
-          <span className="px-3 text-xs font-medium text-white/30 uppercase tracking-wider">
-            Ferramentas
-          </span>
+          <NavItem
+            icon={<Settings className="h-4 w-4" />}
+            label="Configurações"
+            active={activeTab === "settings"}
+            onClick={() => onTabChange("settings")}
+          />
         </div>
 
-        {canManageTeam && (
+        <SectionLabel>Ferramentas</SectionLabel>
+
+        <div className="space-y-0.5">
+          {canManageTeam && (
+            <NavItem
+              icon={<Users className="h-4 w-4" />}
+              label="Equipe"
+              active={activeTab === "team"}
+              onClick={() => onTabChange("team")}
+              badge={pendingCount}
+            />
+          )}
+
           <NavItem
-            icon={<Users className="h-4 w-4" />}
-            label="Equipe"
-            active={activeTab === "team"}
-            onClick={() => onTabChange("team")}
-            badge={pendingCount}
+            icon={<Activity className="h-4 w-4" />}
+            label="Atividades"
+            active={activeTab === "activities"}
+            onClick={() => onTabChange("activities")}
           />
-        )}
 
-        <NavItem
-          icon={<Activity className="h-4 w-4" />}
-          label="Atividades"
-          active={activeTab === "activities"}
-          onClick={() => onTabChange("activities")}
-        />
+          <NavItem
+            icon={<BookOpen className="h-4 w-4" />}
+            label="Base de Conhecimento"
+            active={activeTab === "knowledge-base"}
+            onClick={() => onTabChange("knowledge-base")}
+          />
 
-        <NavItem
-          icon={<BookOpen className="h-4 w-4" />}
-          label="Base de Conhecimento"
-          active={activeTab === "knowledge-base"}
-          onClick={() => onTabChange("knowledge-base")}
-        />
+          <NavItem
+            icon={<Zap className="h-4 w-4" />}
+            label="Automações"
+            active={activeTab === "automations"}
+            onClick={() => onTabChange("automations")}
+          />
 
-        <NavItem
-          icon={<Zap className="h-4 w-4" />}
-          label="Automações"
-          active={activeTab === "automations"}
-          onClick={() => onTabChange("automations")}
-        />
+          <NavItem
+            icon={<Blocks className="h-4 w-4" />}
+            label="Agent Builder"
+            active={activeTab === "agent-builder"}
+            onClick={() => onTabChange("agent-builder")}
+          />
 
-        <NavItem
-          icon={<Blocks className="h-4 w-4" />}
-          label="Agent Builder"
-          active={activeTab === "agent-builder"}
-          onClick={() => onTabChange("agent-builder")}
-        />
-
-        <NavItem
-          icon={<FlaskConical className="h-4 w-4" />}
-          label="Lab de Pesquisa"
-          active={activeTab === "research-lab"}
-          onClick={() => onTabChange("research-lab")}
-        />
+          <NavItem
+            icon={<FlaskConical className="h-4 w-4" />}
+            label="Lab de Pesquisa"
+            active={activeTab === "research-lab"}
+            onClick={() => onTabChange("research-lab")}
+          />
+        </div>
       </nav>
 
-      {/* Bottom - Account Settings */}
-      <div className="p-3 border-t border-white/5">
-        <NavItem
-          icon={<User className="h-4 w-4" />}
-          label="Conta"
-          onClick={() => navigate("/settings")}
-        />
+      {/* User Footer */}
+      <div className="p-3 border-t border-border">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button className="w-full flex items-center gap-3 px-2 py-2 rounded-md hover:bg-muted transition-colors">
+              <Avatar className="h-8 w-8 border border-border">
+                <AvatarFallback className="bg-muted text-muted-foreground text-xs font-medium">
+                  {userInitials}
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex-1 text-left min-w-0">
+                <p className="text-sm font-medium text-foreground truncate">{userName}</p>
+                <p className="text-[11px] text-muted-foreground truncate">{user?.email}</p>
+              </div>
+              <ChevronDown className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-52 bg-popover border-border shadow-elevated">
+            <DropdownMenuItem onClick={() => navigate("/settings")} className="cursor-pointer">
+              <Settings className="h-4 w-4 mr-2 opacity-70" />
+              Configurações
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={signOut} className="cursor-pointer text-destructive focus:text-destructive">
+              <LogOut className="h-4 w-4 mr-2 opacity-70" />
+              Sair
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </aside>
   );
