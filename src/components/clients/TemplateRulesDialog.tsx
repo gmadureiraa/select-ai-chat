@@ -10,11 +10,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Plus, Trash2, Edit2, Check, X, Image, FileText, Type, Upload, Loader2, Sparkles, ChevronRight, Search, PenLine, Wand2, CheckCircle } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Plus, Trash2, Edit2, Check, X, Image, FileText, Type, Upload, Loader2, Sparkles, ChevronRight, Search, PenLine, Wand2, CheckCircle, Database, Lock } from "lucide-react";
 import { ClientTemplate, TemplateRule, detectContentTypeFromTemplateName, ContentFormatType } from "@/types/template";
 import { uploadAndGetSignedUrl } from "@/lib/storage";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { CONTENT_AGENTS, ContentAgentType } from "@/types/contentAgents";
 
 // Pipeline de agentes por tipo de template
 const AGENT_PIPELINE = {
@@ -29,6 +32,30 @@ const AGENT_PIPELINE = {
     { id: 'generator', name: 'Gerador', icon: Wand2, description: 'Gera imagem seguindo estilo extraído', model: 'Gemini Image' },
   ],
 };
+
+// Map template names to content agent types
+function detectContentAgentFromTemplate(name: string): ContentAgentType | null {
+  const patterns: Record<ContentAgentType, RegExp[]> = {
+    newsletter_agent: [/newsletter/i, /news\s*letter/i],
+    email_marketing_agent: [/email\s*marketing/i, /email\s*promocional/i],
+    carousel_agent: [/carrossel/i, /carousel/i, /carrosel/i],
+    static_post_agent: [/post\s*(estático|único|simples)/i, /imagem\s*instagram/i],
+    reels_agent: [/reels?/i, /shorts?/i, /vídeo\s*curto/i],
+    long_video_agent: [/vídeo\s*longo/i, /youtube/i, /roteiro\s*vídeo/i],
+    tweet_agent: [/tweet\s*(único|simples)?$/i, /^tweet$/i],
+    thread_agent: [/thread/i, /fio/i],
+    linkedin_agent: [/linkedin/i],
+    article_agent: [/artigo/i, /article/i],
+    blog_agent: [/blog/i]
+  };
+
+  for (const [agentType, regexes] of Object.entries(patterns)) {
+    if (regexes.some(r => r.test(name))) {
+      return agentType as ContentAgentType;
+    }
+  }
+  return null;
+}
 
 interface TemplateRulesDialogProps {
   open: boolean;
@@ -56,8 +83,10 @@ export const TemplateRulesDialog = ({
   const hasStyleAnalysis = rules.some(r => (r as any).styleAnalysis);
   const imageReferenceCount = rules.filter(r => r.type === 'image_reference').length;
   
-  // Get content type for this template
+  // Get content type and agent for this template
   const contentType = template?.name ? detectContentTypeFromTemplateName(template.name) : null;
+  const contentAgent = template?.name ? detectContentAgentFromTemplate(template.name) : null;
+  const agentConfig = contentAgent ? CONTENT_AGENTS[contentAgent] : null;
   const pipeline = template?.type === 'image' ? AGENT_PIPELINE.image : AGENT_PIPELINE.chat;
 
   useEffect(() => {
@@ -298,9 +327,41 @@ export const TemplateRulesDialog = ({
             </div>
           )}
 
-          {/* Lista de regras */}
+          {/* Base Agent Rules (read-only from CONTENT_AGENTS) */}
+          {agentConfig && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <Label className="flex items-center gap-2">
+                  <Lock className="h-3.5 w-3.5 text-muted-foreground" />
+                  Regras Padrão do Agente
+                </Label>
+                <Badge variant="outline" className="text-xs">
+                  {agentConfig.name}
+                </Badge>
+              </div>
+              <div className="p-3 rounded-lg bg-muted/30 border border-dashed">
+                <p className="text-xs text-muted-foreground whitespace-pre-wrap leading-relaxed">
+                  {agentConfig.systemPrompt.split('\n').slice(0, 15).join('\n')}
+                  {agentConfig.systemPrompt.split('\n').length > 15 && '...'}
+                </p>
+                <div className="mt-3 pt-3 border-t border-border/50">
+                  <p className="text-xs text-muted-foreground flex items-center gap-1">
+                    <Database className="h-3 w-3" />
+                    Dados usados: {agentConfig.requiredData.join(', ')}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Custom Rules (editable) */}
           <div className="space-y-3">
-            <Label>Regras Atuais</Label>
+            <Label className="flex items-center justify-between">
+              <span>Regras Personalizadas</span>
+              <span className="text-xs text-muted-foreground font-normal">
+                {rules.length} regra(s)
+              </span>
+            </Label>
             {rules.length === 0 ? (
               <p className="text-sm text-muted-foreground py-4 text-center border border-dashed rounded-lg">
                 Nenhuma regra definida ainda
