@@ -793,10 +793,14 @@ export type Database = {
           category: Database["public"]["Enums"]["knowledge_category"]
           content: string
           created_at: string
+          embedding: string | null
           id: string
+          key_takeaways: Json | null
           metadata: Json | null
           page_count: number | null
           source_file: string | null
+          source_url: string | null
+          summary: string | null
           tags: string[] | null
           title: string
           updated_at: string
@@ -806,10 +810,14 @@ export type Database = {
           category?: Database["public"]["Enums"]["knowledge_category"]
           content: string
           created_at?: string
+          embedding?: string | null
           id?: string
+          key_takeaways?: Json | null
           metadata?: Json | null
           page_count?: number | null
           source_file?: string | null
+          source_url?: string | null
+          summary?: string | null
           tags?: string[] | null
           title: string
           updated_at?: string
@@ -819,10 +827,14 @@ export type Database = {
           category?: Database["public"]["Enums"]["knowledge_category"]
           content?: string
           created_at?: string
+          embedding?: string | null
           id?: string
+          key_takeaways?: Json | null
           metadata?: Json | null
           page_count?: number | null
           source_file?: string | null
+          source_url?: string | null
+          summary?: string | null
           tags?: string[] | null
           title?: string
           updated_at?: string
@@ -1905,6 +1917,23 @@ export type Database = {
           p_metadata?: Json
         }
         Returns: string
+      }
+      search_knowledge_semantic: {
+        Args: {
+          match_count?: number
+          query_embedding: string
+          similarity_threshold?: number
+          workspace_id_filter: string
+        }
+        Returns: {
+          category: string
+          content: string
+          id: string
+          similarity: number
+          source_url: string
+          summary: string
+          title: string
+        }[]
       }
       workflow_workspace_accessible: {
         Args: { p_user_id: string; p_workflow_id: string }
