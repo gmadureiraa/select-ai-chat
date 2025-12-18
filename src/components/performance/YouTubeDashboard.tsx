@@ -1,17 +1,19 @@
 import { useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Eye, Clock, Users, TrendingUp, MousePointer, Upload, ThumbsUp, MessageCircle, ChevronDown } from "lucide-react";
+import { Eye, Clock, Users, TrendingUp, MousePointer, Upload, ThumbsUp, MessageCircle, ChevronDown, Calendar } from "lucide-react";
 import { StatCard } from "./StatCard";
 import { EnhancedAreaChart } from "./EnhancedAreaChart";
 import { GoalsPanel } from "./GoalsPanel";
 import { YouTubeConnectionCard } from "./YouTubeConnectionCard";
-import { YouTubeCSVUpload } from "./YouTubeCSVUpload";
+import { SmartCSVUpload } from "./SmartCSVUpload";
 import { YouTubeVideosTable } from "./YouTubeVideosTable";
 import { ImportHistoryPanel } from "./ImportHistoryPanel";
 import { DataCompletenessWarning } from "./DataCompletenessWarning";
-import { subDays, format, parseISO, isAfter } from "date-fns";
+import { MetricMiniCard } from "./MetricMiniCard";
+import { subDays, format, parseISO, isAfter, startOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 interface YouTubeVideo {
@@ -36,28 +38,45 @@ interface YouTubeDashboardProps {
   isLoading?: boolean;
 }
 
+const periodOptions = [
+  { value: "7", label: "Últimos 7 dias" },
+  { value: "14", label: "Últimos 14 dias" },
+  { value: "30", label: "Últimos 30 dias" },
+  { value: "60", label: "Últimos 60 dias" },
+  { value: "90", label: "Últimos 90 dias" },
+  { value: "all", label: "Todo período" },
+];
+
 export function YouTubeDashboard({ clientId, videos, isLoading }: YouTubeDashboardProps) {
-  const [period, setPeriod] = useState<7 | 30 | 90>(30);
+  const [period, setPeriod] = useState("30");
   const [showUpload, setShowUpload] = useState(false);
   const [selectedMetric, setSelectedMetric] = useState("views");
 
-  const cutoffDate = useMemo(() => subDays(new Date(), period), [period]);
-  const previousPeriodCutoff = useMemo(() => subDays(cutoffDate, period), [cutoffDate, period]);
+  const cutoffDate = useMemo(() => {
+    if (period === "all") return null;
+    return startOfDay(subDays(new Date(), parseInt(period)));
+  }, [period]);
 
-  const filteredVideos = useMemo(() =>
-    videos.filter(v => v.published_at && isAfter(parseISO(v.published_at), cutoffDate))
-      .sort((a, b) => (b.published_at || "").localeCompare(a.published_at || "")),
-    [videos, cutoffDate]
-  );
+  const previousPeriodCutoff = useMemo(() => {
+    if (period === "all") return null;
+    const days = parseInt(period);
+    return startOfDay(subDays(new Date(), days * 2));
+  }, [period]);
 
-  const previousPeriodVideos = useMemo(() =>
-    videos.filter(v => {
+  const filteredVideos = useMemo(() => {
+    if (!cutoffDate) return videos;
+    return videos.filter(v => v.published_at && isAfter(parseISO(v.published_at), cutoffDate))
+      .sort((a, b) => (b.published_at || "").localeCompare(a.published_at || ""));
+  }, [videos, cutoffDate]);
+
+  const previousPeriodVideos = useMemo(() => {
+    if (!previousPeriodCutoff || !cutoffDate) return [];
+    return videos.filter(v => {
       if (!v.published_at) return false;
       const date = parseISO(v.published_at);
       return isAfter(date, previousPeriodCutoff) && !isAfter(date, cutoffDate);
-    }),
-    [videos, previousPeriodCutoff, cutoffDate]
-  );
+    });
+  }, [videos, previousPeriodCutoff, cutoffDate]);
 
   const kpis = useMemo(() => {
     const currentViews = filteredVideos.reduce((sum, v) => sum + (v.total_views || 0), 0);
@@ -72,6 +91,8 @@ export function YouTubeDashboard({ clientId, videos, isLoading }: YouTubeDashboa
     const prevViews = previousPeriodVideos.reduce((sum, v) => sum + (v.total_views || 0), 0);
     const prevWatchHours = previousPeriodVideos.reduce((sum, v) => sum + (v.watch_hours || 0), 0);
     const prevSubs = previousPeriodVideos.reduce((sum, v) => sum + (v.subscribers_gained || 0), 0);
+    const prevLikes = previousPeriodVideos.reduce((sum, v) => sum + (v.likes || 0), 0);
+    const prevComments = previousPeriodVideos.reduce((sum, v) => sum + (v.comments || 0), 0);
 
     const calcTrend = (current: number, prev: number) => prev > 0 ? ((current - prev) / prev) * 100 : 0;
 
@@ -86,11 +107,25 @@ export function YouTubeDashboard({ clientId, videos, isLoading }: YouTubeDashboa
       subscribersPeriod: currentSubs,
       subscribersTrend: calcTrend(currentSubs, prevSubs),
       likes: currentLikes,
+      likesTrend: calcTrend(currentLikes, prevLikes),
       comments: currentComments,
+      commentsTrend: calcTrend(currentComments, prevComments),
       avgCTR,
       videosCount: filteredVideos.length,
     };
   }, [videos, filteredVideos, previousPeriodVideos]);
+
+  // Sparkline data
+  const sparklineData = useMemo(() => {
+    const recentVideos = filteredVideos.slice(0, 14).reverse();
+    return {
+      views: recentVideos.map(v => v.total_views || 0),
+      watchHours: recentVideos.map(v => v.watch_hours || 0),
+      subscribers: recentVideos.map(v => v.subscribers_gained || 0),
+      likes: recentVideos.map(v => v.likes || 0),
+      comments: recentVideos.map(v => v.comments || 0),
+    };
+  }, [filteredVideos]);
 
   // Group videos by date for chart
   const chartData = useMemo(() => {
@@ -121,35 +156,16 @@ export function YouTubeDashboard({ clientId, videos, isLoading }: YouTubeDashboa
   }, [filteredVideos]);
 
   const chartMetrics = [
-    { key: "views", label: "Views", dataKey: "views", color: "hsl(var(--primary))" },
-    { key: "watchHours", label: "Watch Hours", dataKey: "watchHours", color: "hsl(var(--chart-2))" },
-    { key: "subscribers", label: "Inscritos", dataKey: "subscribers", color: "hsl(var(--chart-3))" },
-    { key: "likes", label: "Likes", dataKey: "likes", color: "hsl(var(--chart-4))" },
+    { key: "views", label: "Views", dataKey: "views", color: "hsl(0, 80%, 55%)" },
+    { key: "watchHours", label: "Watch Hours", dataKey: "watchHours", color: "hsl(200, 80%, 55%)" },
+    { key: "subscribers", label: "Inscritos", dataKey: "subscribers", color: "hsl(145, 80%, 45%)" },
+    { key: "likes", label: "Likes", dataKey: "likes", color: "hsl(45, 80%, 50%)" },
   ];
 
   const currentMetrics = {
-    views: kpis.views,
-    followers: kpis.subscribers,
+    views: kpis.viewsPeriod,
+    followers: kpis.subscribersPeriod,
   };
-
-  // Transform videos to match expected type
-  const videosForTable = videos.map(v => ({
-    ...v,
-    duration_seconds: v.duration_seconds || 0,
-  }));
-
-  const hasData = videos.length > 0;
-
-  if (!hasData) {
-    return (
-      <div className="space-y-4">
-        <div className="grid gap-4 md:grid-cols-2">
-          <YouTubeConnectionCard clientId={clientId} />
-          <YouTubeCSVUpload clientId={clientId} />
-        </div>
-      </div>
-    );
-  }
 
   // Data completeness stats
   const dataCompleteness = useMemo(() => ({
@@ -159,79 +175,121 @@ export function YouTubeDashboard({ clientId, videos, isLoading }: YouTubeDashboa
     withLikes: videos.filter(v => v.likes !== null && v.likes !== undefined).length,
   }), [videos]);
 
+  const hasData = videos.length > 0;
+
+  if (!hasData) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-bold tracking-tight">YouTube Analytics</h2>
+            <p className="text-sm text-muted-foreground mt-1">
+              Importe seus dados para começar
+            </p>
+          </div>
+        </div>
+        <div className="grid gap-4 md:grid-cols-2">
+          <YouTubeConnectionCard clientId={clientId} />
+          <SmartCSVUpload clientId={clientId} platform="youtube" />
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div>
-            <h3 className="text-lg font-semibold">YouTube</h3>
-            <p className="text-xs text-muted-foreground">
+            <h2 className="text-2xl font-bold tracking-tight">YouTube Analytics</h2>
+            <p className="text-sm text-muted-foreground mt-1">
               {videos.length} vídeos • {filteredVideos.length} no período
             </p>
           </div>
           <DataCompletenessWarning platform="youtube" data={dataCompleteness} />
         </div>
-        <div className="flex items-center gap-2">
-          <div className="flex bg-muted/50 rounded-lg p-0.5">
-            {[7, 30, 90].map((p) => (
-              <Button
-                key={p}
-                variant={period === p ? "secondary" : "ghost"}
-                size="sm"
-                className="h-7 px-2.5 text-xs"
-                onClick={() => setPeriod(p as 7 | 30 | 90)}
-              >
-                {p}d
-              </Button>
-            ))}
-          </div>
+        <div className="flex items-center gap-3">
+          <Select value={period} onValueChange={setPeriod}>
+            <SelectTrigger className="w-[180px] bg-card border-border/50">
+              <Calendar className="h-4 w-4 mr-2 text-muted-foreground" />
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {periodOptions.map(opt => (
+                <SelectItem key={opt.value} value={opt.value}>
+                  {opt.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Collapsible open={showUpload} onOpenChange={setShowUpload}>
             <CollapsibleTrigger asChild>
-              <Button variant="outline" size="sm" className="h-7 gap-1.5">
-                <Upload className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">Importar</span>
-                <ChevronDown className={`h-3.5 w-3.5 transition-transform ${showUpload ? 'rotate-180' : ''}`} />
+              <Button variant="outline" className="border-border/50">
+                <Upload className="h-4 w-4 mr-2" />
+                Importar
+                <ChevronDown className={`h-4 w-4 ml-2 transition-transform ${showUpload ? 'rotate-180' : ''}`} />
               </Button>
             </CollapsibleTrigger>
           </Collapsible>
         </div>
       </div>
 
-      {/* Upload Section */}
+      {/* CSV Upload */}
       <Collapsible open={showUpload} onOpenChange={setShowUpload}>
-        <CollapsibleContent className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
-            <YouTubeConnectionCard clientId={clientId} />
-            <YouTubeCSVUpload clientId={clientId} />
-          </div>
+        <CollapsibleContent className="pt-2">
+          <SmartCSVUpload clientId={clientId} platform="youtube" />
         </CollapsibleContent>
       </Collapsible>
 
-      {/* Primary KPIs */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      {/* Primary KPIs - 6 cards */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         <StatCard
-          label="Total Views"
-          value={kpis.views}
-          change={kpis.viewsTrend}
           icon={Eye}
+          label="Visualizações"
+          value={kpis.viewsPeriod}
+          change={period !== "all" ? kpis.viewsTrend : undefined}
+          sparklineData={sparklineData.views}
+          color="rose"
+          highlight
         />
         <StatCard
-          label="Watch Hours"
-          value={kpis.watchHours.toLocaleString()}
-          change={kpis.watchHoursTrend}
           icon={Clock}
+          label="Horas Assistidas"
+          value={kpis.watchHoursPeriod.toLocaleString()}
+          change={period !== "all" ? kpis.watchHoursTrend : undefined}
+          sparklineData={sparklineData.watchHours}
+          color="blue"
         />
         <StatCard
-          label="Inscritos Ganhos"
-          value={kpis.subscribers}
-          change={kpis.subscribersTrend}
           icon={Users}
+          label="Inscritos Ganhos"
+          value={kpis.subscribersPeriod}
+          change={period !== "all" ? kpis.subscribersTrend : undefined}
+          sparklineData={sparklineData.subscribers}
+          color="emerald"
         />
         <StatCard
+          icon={ThumbsUp}
+          label="Curtidas"
+          value={kpis.likes}
+          change={period !== "all" ? kpis.likesTrend : undefined}
+          sparklineData={sparklineData.likes}
+          color="amber"
+        />
+        <StatCard
+          icon={MessageCircle}
+          label="Comentários"
+          value={kpis.comments}
+          change={period !== "all" ? kpis.commentsTrend : undefined}
+          sparklineData={sparklineData.comments}
+          color="violet"
+        />
+        <StatCard
+          icon={MousePointer}
           label="CTR Médio"
           value={`${kpis.avgCTR.toFixed(1)}%`}
-          icon={MousePointer}
+          color="blue"
         />
       </div>
 
@@ -254,41 +312,40 @@ export function YouTubeDashboard({ clientId, videos, isLoading }: YouTubeDashboa
       </div>
 
       {/* Secondary Metrics */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <Card className="p-3">
-          <div className="flex items-center gap-2 text-muted-foreground mb-1">
-            <ThumbsUp className="h-3.5 w-3.5" />
-            <span className="text-xs">Likes</span>
-          </div>
-          <p className="text-lg font-semibold">{kpis.likes.toLocaleString()}</p>
-        </Card>
-        <Card className="p-3">
-          <div className="flex items-center gap-2 text-muted-foreground mb-1">
-            <MessageCircle className="h-3.5 w-3.5" />
-            <span className="text-xs">Comentários</span>
-          </div>
-          <p className="text-lg font-semibold">{kpis.comments.toLocaleString()}</p>
-        </Card>
-        <Card className="p-3">
-          <div className="flex items-center gap-2 text-muted-foreground mb-1">
-            <Eye className="h-3.5 w-3.5" />
-            <span className="text-xs">Vídeos no Período</span>
-          </div>
-          <p className="text-lg font-semibold">{kpis.videosCount}</p>
-        </Card>
-        <Card className="p-3">
-          <div className="flex items-center gap-2 text-muted-foreground mb-1">
-            <TrendingUp className="h-3.5 w-3.5" />
-            <span className="text-xs">Views/Período</span>
-          </div>
-          <p className="text-lg font-semibold">{kpis.viewsPeriod.toLocaleString()}</p>
-        </Card>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <MetricMiniCard
+          icon={Eye}
+          label="Views Total"
+          value={kpis.views}
+          sparklineData={sparklineData.views}
+          color="rose"
+        />
+        <MetricMiniCard
+          icon={Clock}
+          label="Horas Total"
+          value={kpis.watchHours}
+          sparklineData={sparklineData.watchHours}
+          color="blue"
+        />
+        <MetricMiniCard
+          icon={Users}
+          label="Inscritos Total"
+          value={kpis.subscribers}
+          sparklineData={sparklineData.subscribers}
+          color="emerald"
+        />
+        <MetricMiniCard
+          icon={TrendingUp}
+          label="Vídeos no Período"
+          value={kpis.videosCount}
+          color="violet"
+        />
       </div>
 
       {/* Videos Table */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-sm sm:text-base">Todos os Vídeos</CardTitle>
+          <CardTitle className="text-base">Todos os Vídeos</CardTitle>
         </CardHeader>
         <CardContent>
           <YouTubeVideosTable videos={videos as any} isLoading={isLoading} />

@@ -12,7 +12,7 @@ import { motion, AnimatePresence } from "framer-motion";
 
 interface SmartCSVUploadProps {
   clientId: string;
-  platform: "instagram" | "youtube" | "twitter";
+  platform: "instagram" | "youtube" | "twitter" | "newsletter";
   onImportComplete?: () => void;
 }
 

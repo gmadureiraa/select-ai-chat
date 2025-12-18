@@ -1,8 +1,9 @@
 import { useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Mail, Eye, MousePointer, Users, TrendingUp, Upload, FileSpreadsheet, CheckCircle, AlertCircle, ChevronDown, UserPlus, UserMinus, Bookmark } from "lucide-react";
+import { Mail, Eye, MousePointer, Users, Upload, FileSpreadsheet, CheckCircle, AlertCircle, ChevronDown, UserPlus, UserMinus, Calendar } from "lucide-react";
 import { StatCard } from "./StatCard";
 import { EnhancedAreaChart } from "./EnhancedAreaChart";
 import { GoalsPanel } from "./GoalsPanel";
@@ -11,7 +12,9 @@ import { NewsletterInsightsCard } from "./NewsletterInsightsCard";
 import { BestNewsletterCard } from "./BestNewsletterCard";
 import { NewsletterMetricsTable } from "./NewsletterMetricsTable";
 import { ImportHistoryPanel } from "./ImportHistoryPanel";
-import { subDays, format, parseISO, isAfter } from "date-fns";
+import { DataCompletenessWarning } from "./DataCompletenessWarning";
+import { SmartCSVUpload } from "./SmartCSVUpload";
+import { subDays, format, parseISO, isAfter, startOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useSmartNewsletterImport } from "@/hooks/useSmartNewsletterImport";
 import { useNewsletterPosts } from "@/hooks/usePerformanceMetrics";
@@ -19,7 +22,7 @@ import { useNewsletterPosts } from "@/hooks/usePerformanceMetrics";
 interface NewsletterMetric {
   id: string;
   metric_date: string;
-  views?: number | null; // delivered/enviados
+  views?: number | null;
   subscribers?: number | null;
   open_rate?: number | null;
   click_rate?: number | null;
@@ -47,8 +50,17 @@ interface NewsletterDashboardProps {
   isLoading?: boolean;
 }
 
+const periodOptions = [
+  { value: "7", label: "Últimos 7 dias" },
+  { value: "14", label: "Últimos 14 dias" },
+  { value: "30", label: "Últimos 30 dias" },
+  { value: "60", label: "Últimos 60 dias" },
+  { value: "90", label: "Últimos 90 dias" },
+  { value: "all", label: "Todo período" },
+];
+
 export function NewsletterDashboard({ clientId, metrics, isLoading }: NewsletterDashboardProps) {
-  const [period, setPeriod] = useState<7 | 30 | 90>(30);
+  const [period, setPeriod] = useState("30");
   const [showUpload, setShowUpload] = useState(false);
   const [selectedMetric, setSelectedMetric] = useState("delivered");
   const [isDragging, setIsDragging] = useState(false);
@@ -58,22 +70,30 @@ export function NewsletterDashboard({ clientId, metrics, isLoading }: Newsletter
   // Fetch newsletter posts separately
   const { data: newsletterPosts = [], isLoading: isLoadingPosts } = useNewsletterPosts(clientId);
 
-  const cutoffDate = useMemo(() => subDays(new Date(), period), [period]);
-  const previousPeriodCutoff = useMemo(() => subDays(cutoffDate, period), [cutoffDate, period]);
+  const cutoffDate = useMemo(() => {
+    if (period === "all") return null;
+    return startOfDay(subDays(new Date(), parseInt(period)));
+  }, [period]);
 
-  const filteredMetrics = useMemo(() =>
-    metrics.filter(m => isAfter(parseISO(m.metric_date), cutoffDate))
-      .sort((a, b) => a.metric_date.localeCompare(b.metric_date)),
-    [metrics, cutoffDate]
-  );
+  const previousPeriodCutoff = useMemo(() => {
+    if (period === "all") return null;
+    const days = parseInt(period);
+    return startOfDay(subDays(new Date(), days * 2));
+  }, [period]);
 
-  const previousPeriodMetrics = useMemo(() =>
-    metrics.filter(m => {
+  const filteredMetrics = useMemo(() => {
+    if (!cutoffDate) return metrics;
+    return metrics.filter(m => isAfter(parseISO(m.metric_date), cutoffDate))
+      .sort((a, b) => a.metric_date.localeCompare(b.metric_date));
+  }, [metrics, cutoffDate]);
+
+  const previousPeriodMetrics = useMemo(() => {
+    if (!previousPeriodCutoff || !cutoffDate) return [];
+    return metrics.filter(m => {
       const date = parseISO(m.metric_date);
       return isAfter(date, previousPeriodCutoff) && !isAfter(date, cutoffDate);
-    }),
-    [metrics, previousPeriodCutoff, cutoffDate]
-  );
+    });
+  }, [metrics, previousPeriodCutoff, cutoffDate]);
 
   const kpis = useMemo(() => {
     // Get latest subscriber count (find most recent with actual subscriber data)
@@ -115,6 +135,8 @@ export function NewsletterDashboard({ clientId, metrics, isLoading }: Newsletter
       ? prevMetricsWithClickRate.reduce((sum, m) => sum + (m.click_rate || 0), 0) / prevMetricsWithClickRate.length
       : 0;
 
+    const prevTotalDelivered = previousPeriodMetrics.reduce((sum, m) => sum + (m.views || m.metadata?.delivered || 0), 0);
+
     const calcTrend = (current: number, prev: number) => prev > 0 ? ((current - prev) / prev) * 100 : 0;
 
     // Count only editions with actual send data (open_rate indicates an actual send)
@@ -128,6 +150,7 @@ export function NewsletterDashboard({ clientId, metrics, isLoading }: Newsletter
       avgClickRate,
       avgClickRateTrend: calcTrend(avgClickRate, prevAvgClickRate),
       totalDelivered,
+      totalDeliveredTrend: calcTrend(totalDelivered, prevTotalDelivered),
       totalOpens,
       totalClicks,
       totalNewSubs,
@@ -166,11 +189,11 @@ export function NewsletterDashboard({ clientId, metrics, isLoading }: Newsletter
   // Only show metrics that have data
   const availableMetrics = useMemo(() => {
     const allMetrics = [
-      { key: "delivered", label: "Enviados", dataKey: "delivered", color: "hsl(var(--primary))" },
-      { key: "openRate", label: "Taxa de Abertura (%)", dataKey: "openRate", color: "hsl(var(--chart-2))" },
-      { key: "clickRate", label: "Taxa de Clique (%)", dataKey: "clickRate", color: "hsl(var(--chart-3))" },
-      { key: "subscribers", label: "Inscritos", dataKey: "subscribers", color: "hsl(var(--chart-4))" },
-      { key: "newSubscribers", label: "Novos Inscritos", dataKey: "newSubscribers", color: "hsl(var(--chart-5))" },
+      { key: "delivered", label: "Enviados", dataKey: "delivered", color: "hsl(270, 70%, 55%)" },
+      { key: "openRate", label: "Taxa de Abertura (%)", dataKey: "openRate", color: "hsl(200, 80%, 55%)" },
+      { key: "clickRate", label: "Taxa de Clique (%)", dataKey: "clickRate", color: "hsl(145, 80%, 45%)" },
+      { key: "subscribers", label: "Inscritos", dataKey: "subscribers", color: "hsl(45, 80%, 50%)" },
+      { key: "newSubscribers", label: "Novos Inscritos", dataKey: "newSubscribers", color: "hsl(350, 80%, 55%)" },
     ];
 
     return allMetrics.filter(metric => 
@@ -191,195 +214,124 @@ export function NewsletterDashboard({ clientId, metrics, isLoading }: Newsletter
     engagement: kpis.avgOpenRate,
   };
 
-  const handleFiles = (files: FileList | null) => {
-    if (!files || files.length === 0) return;
-    reset();
-    importMultipleFiles(files);
-  };
+  // Data completeness
+  const dataCompleteness = useMemo(() => ({
+    total: metrics.length,
+    withOpenRate: metrics.filter(m => m.open_rate && m.open_rate > 0).length,
+    withClickRate: metrics.filter(m => m.click_rate && m.click_rate > 0).length,
+    withSubscribers: metrics.filter(m => m.subscribers && m.subscribers > 0).length,
+  }), [metrics]);
 
   const hasData = metrics.length > 0;
 
   if (!hasData) {
     return (
-      <div className="space-y-4">
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <FileSpreadsheet className="h-5 w-5 text-primary" />
-              Importar Métricas de Newsletter (Beehiiv)
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div
-              className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
-                isDragging ? "border-primary bg-primary/5" : "border-muted-foreground/25"
-              }`}
-              onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
-              onDragLeave={() => setIsDragging(false)}
-              onDrop={(e) => {
-                e.preventDefault();
-                setIsDragging(false);
-                handleFiles(e.dataTransfer.files);
-              }}
-            >
-              <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-              <p className="text-sm text-muted-foreground mb-2">
-                Arraste os arquivos CSV ou clique para selecionar
-              </p>
-              <p className="text-xs text-muted-foreground mb-3">
-                Suporta múltiplos arquivos: Performance, Posts e Assinantes
-              </p>
-              <input
-                type="file"
-                accept=".csv"
-                multiple
-                className="hidden"
-                id="newsletter-csv-upload"
-                onChange={(e) => handleFiles(e.target.files)}
-              />
-              <Button variant="outline" size="sm" asChild disabled={isImporting}>
-                <label htmlFor="newsletter-csv-upload" className="cursor-pointer">
-                  {isImporting ? "Importando..." : "Selecionar Arquivos"}
-                </label>
-              </Button>
-            </div>
-            {result && (
-              <div className={`mt-4 flex items-center gap-2 text-sm ${
-                result.success ? "text-green-600" : "text-destructive"
-              }`}>
-                {result.success ? (
-                  <><CheckCircle className="h-4 w-4" />{result.count} registros importados</>
-                ) : (
-                  <><AlertCircle className="h-4 w-4" />{result.error}</>
-                )}
-              </div>
-            )}
-            <div className="mt-4 text-xs text-muted-foreground">
-              <p className="font-medium mb-1">CSVs aceitos do Beehiiv:</p>
-              <ul className="list-disc list-inside space-y-0.5">
-                <li>email_performance_by_date (Date, Delivered, Open Rate, Click-Through Rate)</li>
-                <li>posts_by_date (Date, Subject, Sent, Opens, Clicks...)</li>
-                <li>subscriber_acquisitions_by_day (Created At, Acquisition Source, Count)</li>
-              </ul>
-            </div>
-          </CardContent>
-        </Card>
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-bold tracking-tight">Newsletter Analytics</h2>
+            <p className="text-sm text-muted-foreground mt-1">
+              Importe seus dados para começar
+            </p>
+          </div>
+        </div>
+        <SmartCSVUpload clientId={clientId} platform="newsletter" />
       </div>
     );
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h3 className="text-lg font-semibold">Newsletter</h3>
-          <p className="text-xs text-muted-foreground">
-            {metrics.length} dias de dados • {kpis.editionsCount} edições no período
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="flex bg-muted/50 rounded-lg p-0.5">
-            {[7, 30, 90].map((p) => (
-              <Button
-                key={p}
-                variant={period === p ? "secondary" : "ghost"}
-                size="sm"
-                className="h-7 px-2.5 text-xs"
-                onClick={() => setPeriod(p as 7 | 30 | 90)}
-              >
-                {p}d
-              </Button>
-            ))}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div>
+            <h2 className="text-2xl font-bold tracking-tight">Newsletter Analytics</h2>
+            <p className="text-sm text-muted-foreground mt-1">
+              {metrics.length} dias de dados • {kpis.editionsCount} edições no período
+            </p>
           </div>
+          <DataCompletenessWarning platform="newsletter" data={dataCompleteness} />
+        </div>
+        <div className="flex items-center gap-3">
+          <Select value={period} onValueChange={setPeriod}>
+            <SelectTrigger className="w-[180px] bg-card border-border/50">
+              <Calendar className="h-4 w-4 mr-2 text-muted-foreground" />
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {periodOptions.map(opt => (
+                <SelectItem key={opt.value} value={opt.value}>
+                  {opt.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Collapsible open={showUpload} onOpenChange={setShowUpload}>
             <CollapsibleTrigger asChild>
-              <Button variant="outline" size="sm" className="h-7 gap-1.5">
-                <Upload className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">Importar</span>
-                <ChevronDown className={`h-3.5 w-3.5 transition-transform ${showUpload ? 'rotate-180' : ''}`} />
+              <Button variant="outline" className="border-border/50">
+                <Upload className="h-4 w-4 mr-2" />
+                Importar
+                <ChevronDown className={`h-4 w-4 ml-2 transition-transform ${showUpload ? 'rotate-180' : ''}`} />
               </Button>
             </CollapsibleTrigger>
           </Collapsible>
         </div>
       </div>
 
-      {/* Upload Section */}
+      {/* CSV Upload */}
       <Collapsible open={showUpload} onOpenChange={setShowUpload}>
-        <CollapsibleContent>
-          <Card>
-            <CardContent className="pt-4">
-              <div
-                className={`border-2 border-dashed rounded-lg p-4 text-center transition-colors ${
-                  isDragging ? "border-primary bg-primary/5" : "border-muted-foreground/25"
-                }`}
-                onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
-                onDragLeave={() => setIsDragging(false)}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  setIsDragging(false);
-                  handleFiles(e.dataTransfer.files);
-                }}
-              >
-                <input
-                  type="file"
-                  accept=".csv"
-                  multiple
-                  className="hidden"
-                  id="newsletter-csv-upload-2"
-                  onChange={(e) => handleFiles(e.target.files)}
-                />
-                <Button variant="outline" size="sm" asChild disabled={isImporting}>
-                  <label htmlFor="newsletter-csv-upload-2" className="cursor-pointer">
-                    <Upload className="h-4 w-4 mr-2" />
-                    {isImporting ? "Importando..." : "Selecionar CSVs"}
-                  </label>
-                </Button>
-              </div>
-              {result && (
-                <div className={`mt-3 flex items-center gap-2 text-sm ${
-                  result.success ? "text-green-600" : "text-destructive"
-                }`}>
-                  {result.success ? (
-                    <><CheckCircle className="h-4 w-4" />{result.count} registros importados</>
-                  ) : (
-                    <><AlertCircle className="h-4 w-4" />{result.error}</>
-                  )}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+        <CollapsibleContent className="pt-2">
+          <SmartCSVUpload clientId={clientId} platform="newsletter" />
         </CollapsibleContent>
       </Collapsible>
 
-      {/* Primary KPIs */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      {/* Primary KPIs - 6 cards */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         <StatCard
+          icon={Users}
           label="Inscritos"
           value={kpis.subscribers}
-          change={kpis.subscribersTrend}
-          icon={Users}
+          change={period !== "all" ? kpis.subscribersTrend : undefined}
           sparklineData={getSparklineData("subscribers")}
+          color="violet"
+          highlight
         />
         <StatCard
+          icon={Eye}
           label="Taxa de Abertura"
           value={`${kpis.avgOpenRate.toFixed(1)}%`}
-          change={kpis.avgOpenRateTrend}
-          icon={Eye}
+          change={period !== "all" ? kpis.avgOpenRateTrend : undefined}
           sparklineData={getSparklineData("openRate")}
+          color="blue"
         />
         <StatCard
+          icon={MousePointer}
           label="Taxa de Clique"
           value={`${kpis.avgClickRate.toFixed(1)}%`}
-          change={kpis.avgClickRateTrend}
-          icon={MousePointer}
+          change={period !== "all" ? kpis.avgClickRateTrend : undefined}
           sparklineData={getSparklineData("clickRate")}
+          color="emerald"
         />
         <StatCard
+          icon={Mail}
           label="Total Enviados"
           value={kpis.totalDelivered}
-          icon={Mail}
+          change={period !== "all" ? kpis.totalDeliveredTrend : undefined}
           sparklineData={getSparklineData("delivered")}
+          color="amber"
+        />
+        <StatCard
+          icon={UserPlus}
+          label="Novos Inscritos"
+          value={kpis.totalNewSubs}
+          color="rose"
+        />
+        <StatCard
+          icon={UserMinus}
+          label="Descadastros"
+          value={kpis.totalUnsubscribes}
+          color="secondary"
         />
       </div>
 
@@ -402,7 +354,7 @@ export function NewsletterDashboard({ clientId, metrics, isLoading }: Newsletter
       </div>
 
       {/* Secondary Metrics */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <MetricMiniCard
           icon={Eye}
           label="Total Aberturas"
@@ -436,16 +388,23 @@ export function NewsletterDashboard({ clientId, metrics, isLoading }: Newsletter
       {/* Insights and Best Edition */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <NewsletterInsightsCard metrics={filteredMetrics} />
-        {bestEdition && <BestNewsletterCard edition={bestEdition} />}
+        {bestEdition && (
+          <BestNewsletterCard 
+            edition={bestEdition}
+          />
+        )}
       </div>
 
-      {/* Posts Table */}
-      <Card className="border-border/50">
+      {/* Newsletter Posts Table */}
+      <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-lg">Posts</CardTitle>
+          <CardTitle className="text-base">Edições da Newsletter</CardTitle>
         </CardHeader>
         <CardContent>
-          <NewsletterMetricsTable metrics={newsletterPosts} isLoading={isLoadingPosts} />
+          <NewsletterMetricsTable 
+            metrics={filteredMetrics as any} 
+            isLoading={isLoading}
+          />
         </CardContent>
       </Card>
 
