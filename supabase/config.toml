@@ -104,3 +104,9 @@ verify_jwt = true
 
 [functions.search-knowledge]
 verify_jwt = true
+
+[functions.orchestrator]
+verify_jwt = true
+
+[functions.execute-agent]
+verify_jwt = true
