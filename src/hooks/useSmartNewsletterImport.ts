@@ -262,13 +262,90 @@ export function useSmartNewsletterImport(clientId: string, onImportComplete?: (p
 
           count++;
         }
+      } else if (csvType === "subscribers") {
+        // Process subscriber acquisitions by date
+        const dateIdx = headers.findIndex(h => h.toLowerCase().includes("created at") || h.toLowerCase().includes("date"));
+        const countIdx = headers.findIndex(h => h.toLowerCase() === "count");
+        const sourceIdx = headers.findIndex(h => h.toLowerCase().includes("acquisition source"));
+        
+        // Group by date
+        const subscribersByDate: Record<string, { total: number; sources: Record<string, number> }> = {};
+        
+        for (let i = 1; i < lines.length; i++) {
+          const values = parseCSVLine(lines[i]);
+          const date = parseBeehiivDate(values[dateIdx]);
+          
+          if (!date) continue;
+          
+          const subCount = parseNumber(values[countIdx]);
+          const source = values[sourceIdx]?.replace(/['"]/g, "").trim() || "Unknown";
+          
+          if (!subscribersByDate[date]) {
+            subscribersByDate[date] = { total: 0, sources: {} };
+          }
+          
+          subscribersByDate[date].total += subCount;
+          subscribersByDate[date].sources[source] = (subscribersByDate[date].sources[source] || 0) + subCount;
+        }
+        
+        // Upsert subscriber data by date
+        for (const [date, data] of Object.entries(subscribersByDate)) {
+          // Get existing metrics for this date
+          const { data: existingMetric } = await supabase
+            .from("platform_metrics")
+            .select("id, metadata")
+            .eq("client_id", clientId)
+            .eq("platform", "newsletter")
+            .eq("metric_date", date)
+            .maybeSingle();
+          
+          if (existingMetric) {
+            // Update existing with subscriber data
+            await supabase.from("platform_metrics").update({
+              metadata: {
+                ...(existingMetric.metadata as Record<string, any> || {}),
+                newSubscribers: data.total,
+                acquisitionSources: data.sources,
+              }
+            }).eq("id", existingMetric.id);
+          } else {
+            // Insert new record with subscriber data
+            await supabase.from("platform_metrics").insert({
+              client_id: clientId,
+              platform: "newsletter",
+              metric_date: date,
+              metadata: {
+                newSubscribers: data.total,
+                acquisitionSources: data.sources,
+              }
+            });
+          }
+          
+          count++;
+        }
       }
-
       const importResult: ImportResult = { success: true, count, type: csvType };
       setResult(importResult);
       
+      // Log import to history
+      if (count > 0) {
+        const { data: userData } = await supabase.auth.getUser();
+        if (userData?.user) {
+          await supabase.from("import_history").insert({
+            client_id: clientId,
+            platform: "newsletter",
+            records_count: count,
+            file_name: file.name,
+            status: "completed",
+            user_id: userData.user.id,
+            metadata: { type: csvType }
+          });
+        }
+      }
+      
       // Invalidate queries to refresh data
       queryClient.invalidateQueries({ queryKey: ["performance-metrics", clientId] });
+      queryClient.invalidateQueries({ queryKey: ["newsletter-posts", clientId] });
       queryClient.invalidateQueries({ queryKey: ["import-history", clientId] });
       localStorage.removeItem(`insights-${clientId}`);
 

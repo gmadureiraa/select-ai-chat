@@ -3,34 +3,18 @@ import { Badge } from "@/components/ui/badge";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Eye, MousePointer, Mail, TrendingUp, TrendingDown, Minus } from "lucide-react";
-
-interface NewsletterMetric {
-  id: string;
-  metric_date: string;
-  views?: number | null;
-  subscribers?: number | null;
-  open_rate?: number | null;
-  click_rate?: number | null;
-  metadata?: {
-    subject?: string;
-    post_id?: string;
-    sent?: number;
-    delivered?: number;
-    totalOpens?: number;
-    uniqueOpens?: number;
-    uniqueClicks?: number;
-    unsubscribes?: number;
-    spamReports?: number;
-    newSubscribers?: number;
-  } | null;
-}
+import { useNewsletterPosts } from "@/hooks/usePerformanceMetrics";
 
 interface NewsletterMetricsTableProps {
-  metrics: NewsletterMetric[];
+  clientId: string;
   isLoading?: boolean;
 }
 
-export function NewsletterMetricsTable({ metrics, isLoading }: NewsletterMetricsTableProps) {
+export function NewsletterMetricsTable({ clientId, isLoading: externalLoading }: NewsletterMetricsTableProps) {
+  const { data: posts = [], isLoading: postsLoading } = useNewsletterPosts(clientId);
+  
+  const isLoading = externalLoading || postsLoading;
+
   const formatNumber = (num: number) => {
     if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
     if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
@@ -63,11 +47,11 @@ export function NewsletterMetricsTable({ metrics, isLoading }: NewsletterMetrics
   }
 
   // Filter only posts that have actual data
-  const validMetrics = metrics.filter(m => 
+  const validPosts = posts.filter(m => 
     (m.views && m.views > 0) || (m.open_rate && m.open_rate > 0)
   );
 
-  if (validMetrics.length === 0) {
+  if (validPosts.length === 0) {
     return (
       <div className="text-center py-8 text-muted-foreground">
         <Mail className="h-8 w-8 mx-auto mb-2 opacity-50" />
@@ -78,7 +62,7 @@ export function NewsletterMetricsTable({ metrics, isLoading }: NewsletterMetrics
   }
 
   // Sort by date descending
-  const sortedMetrics = [...validMetrics].sort((a, b) => b.metric_date.localeCompare(a.metric_date));
+  const sortedPosts = [...validPosts].sort((a, b) => b.metric_date.localeCompare(a.metric_date));
 
   return (
     <div className="overflow-x-auto">
@@ -109,20 +93,19 @@ export function NewsletterMetricsTable({ metrics, isLoading }: NewsletterMetrics
           </TableRow>
         </TableHeader>
         <TableBody>
-          {sortedMetrics.slice(0, 15).map((metric, index) => {
-            const subject = metric.metadata?.subject || "-";
-            const sent = metric.metadata?.sent || metric.views || 0;
-            const delivered = metric.metadata?.delivered || metric.views || 0;
-            const openRate = metric.open_rate || 0;
-            const clickRate = metric.click_rate || 0;
+          {sortedPosts.slice(0, 15).map((post, index) => {
+            const subject = post.metadata?.subject || "-";
+            const delivered = post.metadata?.delivered || post.views || 0;
+            const openRate = post.open_rate || 0;
+            const clickRate = post.click_rate || 0;
             
-            const previousMetric = sortedMetrics[index + 1];
-            const previousOpenRate = previousMetric?.open_rate;
+            const previousPost = sortedPosts[index + 1];
+            const previousOpenRate = previousPost?.open_rate;
 
             return (
-              <TableRow key={metric.id} className="border-border/30">
+              <TableRow key={post.id} className="border-border/30">
                 <TableCell className="text-xs font-medium whitespace-nowrap">
-                  {format(parseISO(metric.metric_date), "dd MMM", { locale: ptBR })}
+                  {format(parseISO(post.metric_date), "dd MMM", { locale: ptBR })}
                 </TableCell>
                 <TableCell className="text-xs max-w-[200px] truncate" title={subject}>
                   {subject}
