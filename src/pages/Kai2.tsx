@@ -12,6 +12,7 @@ import { ResearchLabTool } from "@/components/kai2/tools/ResearchLabTool";
 import { KnowledgeBaseTool } from "@/components/kai2/tools/KnowledgeBaseTool";
 import { ActivitiesTool } from "@/components/kai2/tools/ActivitiesTool";
 import { TeamTool } from "@/components/kai2/tools/TeamTool";
+import { ClientsManagementTool } from "@/components/kai2/tools/ClientsManagementTool";
 import { useClients } from "@/hooks/useClients";
 import { Loader2 } from "lucide-react";
 
@@ -65,7 +66,7 @@ export default function Kai2() {
     }
 
     // Tools that don't need client
-    const toolTabs = ["agent-builder", "research-lab", "knowledge-base", "activities", "team", "account"];
+    const toolTabs = ["agent-builder", "research-lab", "knowledge-base", "activities", "team", "clients", "account"];
     
     if (toolTabs.includes(tab)) {
       switch (tab) {
@@ -79,6 +80,8 @@ export default function Kai2() {
           return <ActivitiesTool />;
         case "team":
           return <TeamTool />;
+        case "clients":
+          return <ClientsManagementTool />;
         case "account":
           return (
             <div className="p-6">
