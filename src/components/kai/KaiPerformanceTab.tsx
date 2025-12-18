@@ -1,10 +1,9 @@
 import { useState } from "react";
-import { BarChart3, Eye, Instagram, Mail } from "lucide-react";
+import { Eye, Instagram, Mail } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { usePerformanceMetrics } from "@/hooks/usePerformanceMetrics";
 import { useYouTubeVideos } from "@/hooks/useYouTubeMetrics";
 import { useInstagramPosts } from "@/hooks/useInstagramPosts";
-import { PerformanceOverview } from "@/components/performance/PerformanceOverview";
 import { InstagramDashboard } from "@/components/performance/InstagramDashboard";
 import { YouTubeDashboard } from "@/components/performance/YouTubeDashboard";
 import { NewsletterDashboard } from "@/components/performance/NewsletterDashboard";
@@ -17,7 +16,6 @@ interface KaiPerformanceTabProps {
 }
 
 const allChannels = [
-  { id: "overview", label: "Geral", icon: BarChart3 },
   { id: "instagram", label: "Instagram", icon: Instagram },
   { id: "youtube", label: "YouTube", icon: Eye },
   { id: "newsletter", label: "Newsletter", icon: Mail },
@@ -27,12 +25,12 @@ export const KaiPerformanceTab = ({ clientId, client }: KaiPerformanceTabProps) 
   // Get archived channels from client social_media settings
   const archivedChannels = (client.social_media as any)?.archived_channels || [];
   
-  // Filter out archived channels (overview is always visible)
+  // Filter out archived channels
   const channels = allChannels.filter(
-    channel => channel.id === "overview" || !archivedChannels.includes(channel.id)
+    channel => !archivedChannels.includes(channel.id)
   );
   
-  const [activeChannel, setActiveChannel] = useState("overview");
+  const [activeChannel, setActiveChannel] = useState("instagram");
   
   const { data: instagramMetrics, isLoading: isLoadingInstagram } = usePerformanceMetrics(clientId, "instagram", 365);
   const { data: instagramPosts, isLoading: isLoadingInstagramPosts } = useInstagramPosts(clientId, 500);
@@ -67,12 +65,6 @@ export const KaiPerformanceTab = ({ clientId, client }: KaiPerformanceTabProps) 
           </TabsList>
         </div>
 
-        {/* Overview - Full Dashboard */}
-        <TabsContent value="overview" className="space-y-4 mt-4">
-          <PerformanceOverview clientId={clientId} clientName={client.name} />
-        </TabsContent>
-
-        {/* Instagram - Full Dashboard */}
         <TabsContent value="instagram" className="mt-4">
           <InstagramDashboard
             clientId={clientId}
