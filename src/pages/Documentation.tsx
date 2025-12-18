@@ -95,89 +95,91 @@ const sections: DocSection[] = [
         <div>
           <h1 className="text-3xl font-bold mb-4">Assistente kAI</h1>
           <p className="text-muted-foreground text-lg">
-            O Assistente kAI é um sistema multi-agente que gera conteúdo profissional 
-            mantendo a voz autêntica do seu cliente.
+            Sistema multi-agente que gera conteúdo profissional mantendo a voz autêntica do cliente.
           </p>
         </div>
 
         <div className="space-y-4">
-          <h2 className="text-xl font-semibold">Pipeline de Geração</h2>
+          <h2 className="text-xl font-semibold">11 Agentes Especializados</h2>
           <p className="text-muted-foreground">
-            Cada conteúdo passa por 4 agentes especializados:
+            Cada tipo de conteúdo tem um agente especializado com regras específicas:
           </p>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            {[
+              { name: "Newsletter", desc: "Assunto + preview + corpo estruturado" },
+              { name: "Email Marketing", desc: "Copy de vendas + CTAs + urgência" },
+              { name: "Carrossel", desc: "10 slides + gancho + legenda" },
+              { name: "Post Estático", desc: "Uma mensagem + visual impactante" },
+              { name: "Reels/Shorts", desc: "Roteiro 15-60s + gancho 2s" },
+              { name: "Vídeo Longo", desc: "Roteiro YouTube + capítulos" },
+              { name: "Tweet", desc: "280 chars + take quente" },
+              { name: "Thread", desc: "5-15 tweets + numeração" },
+              { name: "LinkedIn", desc: "Storytelling profissional" },
+              { name: "Artigo", desc: "1500-3000 palavras estruturadas" },
+              { name: "Blog Post", desc: "SEO otimizado + meta description" }
+            ].map((agent) => (
+              <div key={agent.name} className="p-3 rounded-lg bg-muted/30 border">
+                <h4 className="font-medium text-sm">{agent.name}</h4>
+                <p className="text-xs text-muted-foreground">{agent.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <h2 className="text-xl font-semibold">Pipeline de Geração</h2>
           <div className="space-y-3">
-            <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/30">
-              <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center flex-shrink-0">
+            <div className="flex items-start gap-3 p-3 rounded-lg bg-blue-500/10">
+              <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center">
                 <span className="text-sm font-bold text-blue-500">1</span>
               </div>
               <div>
                 <h4 className="font-medium">Pesquisador</h4>
                 <p className="text-sm text-muted-foreground">
-                  Analisa biblioteca de conteúdo e referências do cliente para extrair temas e padrões.
+                  Analisa biblioteca e extrai padrões do cliente.
                 </p>
               </div>
             </div>
-            <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/30">
-              <div className="w-8 h-8 rounded-full bg-violet-500/20 flex items-center justify-center flex-shrink-0">
+            <div className="flex items-start gap-3 p-3 rounded-lg bg-violet-500/10">
+              <div className="w-8 h-8 rounded-full bg-violet-500/20 flex items-center justify-center">
                 <span className="text-sm font-bold text-violet-500">2</span>
               </div>
               <div>
                 <h4 className="font-medium">Escritor</h4>
                 <p className="text-sm text-muted-foreground">
-                  Cria o primeiro rascunho aplicando as regras de formato (carrossel, newsletter, etc.).
+                  Aplica regras do formato específico (carrossel, newsletter, etc.).
                 </p>
               </div>
             </div>
-            <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/30">
-              <div className="w-8 h-8 rounded-full bg-rose-500/20 flex items-center justify-center flex-shrink-0">
+            <div className="flex items-start gap-3 p-3 rounded-lg bg-rose-500/10">
+              <div className="w-8 h-8 rounded-full bg-rose-500/20 flex items-center justify-center">
                 <span className="text-sm font-bold text-rose-500">3</span>
               </div>
               <div>
-                <h4 className="font-medium">Editor de Estilo</h4>
+                <h4 className="font-medium">Editor de Estilo (Crítico)</h4>
                 <p className="text-sm text-muted-foreground">
-                  Compara com exemplos reais do cliente e ajusta tom, vocabulário e estilo para autenticidade.
+                  Compara com exemplos reais e ajusta tom/vocabulário para autenticidade.
                 </p>
               </div>
             </div>
-            <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/30">
-              <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center flex-shrink-0">
+            <div className="flex items-start gap-3 p-3 rounded-lg bg-emerald-500/10">
+              <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center">
                 <span className="text-sm font-bold text-emerald-500">4</span>
               </div>
               <div>
                 <h4 className="font-medium">Verificador</h4>
                 <p className="text-sm text-muted-foreground">
-                  Revisão final de qualidade, checando regras de formato e consistência.
+                  Revisão final de qualidade, checando regras e consistência.
                 </p>
               </div>
             </div>
           </div>
         </div>
 
-        <div className="space-y-4">
-          <h2 className="text-xl font-semibold">Modos de Uso</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="p-4 rounded-lg border border-border/50">
-              <h4 className="font-medium mb-2">Chat Livre</h4>
-              <p className="text-sm text-muted-foreground">
-                Conversas abertas para brainstorming, perguntas sobre métricas, 
-                ou qualquer tarefa não estruturada.
-              </p>
-            </div>
-            <div className="p-4 rounded-lg border border-border/50">
-              <h4 className="font-medium mb-2">Templates</h4>
-              <p className="text-sm text-muted-foreground">
-                Formatos pré-configurados (carrossel, newsletter, thread) com 
-                regras específicas para cada tipo.
-              </p>
-            </div>
-          </div>
-        </div>
-
         <div className="p-4 rounded-lg bg-amber-500/10 border border-amber-500/20">
-          <h3 className="font-semibold mb-2 text-amber-600">💡 Dica Pro</h3>
+          <h3 className="font-semibold mb-2">💡 Dica</h3>
           <p className="text-sm text-muted-foreground">
-            Quanto mais exemplos de conteúdo real você adicionar na biblioteca do cliente, 
-            melhor o Editor de Estilo conseguirá capturar a voz autêntica.
+            Quanto mais exemplos na biblioteca, melhor a IA captura a voz autêntica do cliente.
           </p>
         </div>
       </div>
