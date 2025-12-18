@@ -1,11 +1,55 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { logAIUsage, estimateTokens } from "../_shared/ai-usage.ts";
+import { 
+  validateString, 
+  validateUUID, 
+  validateArray,
+  createValidationErrorResponse,
+  sanitizeString
+} from "../_shared/validation.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+// Validate request body
+function validateRequestBody(body: unknown): { field: string; message: string }[] {
+  const errors: { field: string; message: string }[] = [];
+  
+  if (!body || typeof body !== "object") {
+    errors.push({ field: "body", message: "Corpo da requisição deve ser um objeto" });
+    return errors;
+  }
+  
+  const data = body as Record<string, unknown>;
+  
+  // Required fields
+  const projectIdError = validateUUID(data.projectId, "projectId", { required: true });
+  if (projectIdError) errors.push(projectIdError);
+  
+  const userMessageError = validateString(data.userMessage, "userMessage", { required: true, maxLength: 50000 });
+  if (userMessageError) errors.push(userMessageError);
+  
+  // Optional fields
+  const conversationIdError = validateUUID(data.conversationId, "conversationId");
+  if (conversationIdError) errors.push(conversationIdError);
+  
+  const modelError = validateString(data.model, "model", { maxLength: 100 });
+  if (modelError) errors.push(modelError);
+  
+  const connectedItemIdsError = validateArray(data.connectedItemIds, "connectedItemIds", { maxLength: 100 });
+  if (connectedItemIdsError) errors.push(connectedItemIdsError);
+  
+  const clientIdError = validateUUID(data.clientId, "clientId");
+  if (clientIdError) errors.push(clientIdError);
+  
+  const userIdError = validateUUID(data.userId, "userId");
+  if (userIdError) errors.push(userIdError);
+  
+  return errors;
+}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -13,11 +57,43 @@ serve(async (req) => {
   }
 
   try {
-    const { projectId, conversationId, userMessage, model = "google/gemini-2.5-flash", connectedItemIds, clientId, userId } = await req.json();
-
-    if (!projectId || !userMessage) {
-      throw new Error("projectId e userMessage são obrigatórios");
+    // Parse and validate request body
+    let body: Record<string, unknown>;
+    try {
+      body = await req.json();
+    } catch {
+      return createValidationErrorResponse(
+        [{ field: "body", message: "JSON inválido no corpo da requisição" }],
+        corsHeaders
+      );
     }
+    
+    const validationErrors = validateRequestBody(body);
+    if (validationErrors.length > 0) {
+      console.error("[analyze-research] Validation errors:", validationErrors);
+      return createValidationErrorResponse(validationErrors, corsHeaders);
+    }
+    
+    const { 
+      projectId, 
+      conversationId, 
+      userMessage: rawUserMessage, 
+      model = "google/gemini-2.5-flash", 
+      connectedItemIds, 
+      clientId, 
+      userId 
+    } = body as {
+      projectId: string;
+      conversationId?: string;
+      userMessage: string;
+      model?: string;
+      connectedItemIds?: string[];
+      clientId?: string;
+      userId?: string;
+    };
+    
+    // Sanitize user message
+    const userMessage = sanitizeString(rawUserMessage);
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
