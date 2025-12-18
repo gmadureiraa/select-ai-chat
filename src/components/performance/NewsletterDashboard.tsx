@@ -402,7 +402,7 @@ export function NewsletterDashboard({ clientId, metrics, isLoading }: Newsletter
         </CardHeader>
         <CardContent>
           <NewsletterMetricsTable 
-            metrics={filteredMetrics as any} 
+            clientId={clientId}
             isLoading={isLoading}
           />
         </CardContent>
