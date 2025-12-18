@@ -71,8 +71,16 @@ export const StatCard = memo(function StatCard({
   // Render sparkline
   const sparkline = useMemo(() => {
     if (sparklineData.length < 2) return null;
+    
+    // Check if all values are zero or null - don't show flat line
+    const nonZeroValues = sparklineData.filter(v => v !== null && v !== undefined && v > 0);
+    if (nonZeroValues.length === 0) return null;
+    
+    // Check if there's any variance - don't show flat line
     const max = Math.max(...sparklineData);
     const min = Math.min(...sparklineData);
+    if (max === min) return null;
+    
     const range = max - min || 1;
     const width = 64;
     const height = 28;

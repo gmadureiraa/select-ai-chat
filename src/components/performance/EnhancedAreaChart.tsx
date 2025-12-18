@@ -128,16 +128,13 @@ export function EnhancedAreaChart({
             onValueChange={(v) => v && onMetricChange(v)}
             className="bg-muted/50 p-1 rounded-lg flex-wrap gap-0.5"
           >
-            {metrics.map((metric, index) => (
+            {metrics.map((metric) => (
               <ToggleGroupItem 
                 key={metric.key} 
                 value={metric.key} 
-                className="text-xs px-2.5 h-7 data-[state=on]:bg-background data-[state=on]:text-foreground data-[state=on]:shadow-sm text-muted-foreground hover:text-foreground transition-all flex flex-col items-center gap-0"
+                className="text-xs px-2.5 h-7 data-[state=on]:bg-background data-[state=on]:text-foreground data-[state=on]:shadow-sm text-muted-foreground hover:text-foreground transition-all"
               >
                 <span className="text-inherit font-medium">{metric.label}</span>
-                <span className="text-[10px] opacity-60 font-normal">
-                  {formatSummary(metricSummaries[metric.key] || 0, metric.key)}
-                </span>
               </ToggleGroupItem>
             ))}
           </ToggleGroup>

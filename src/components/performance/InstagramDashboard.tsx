@@ -17,7 +17,7 @@ import { GoalGauge } from "./GoalGauge";
 import { MetricMiniCard } from "./MetricMiniCard";
 import { BestPostCard } from "./BestPostCard";
 import { HorizontalBarRank } from "./HorizontalBarRank";
-import { ContentTypeDonut } from "./ContentTypeDonut";
+
 import { TopContentTable } from "./TopContentTable";
 import { PostingTimeHeatmap } from "./PostingTimeHeatmap";
 import { ImportHistoryPanel } from "./ImportHistoryPanel";
@@ -269,25 +269,6 @@ export function InstagramDashboard({
     , filteredPosts[0]);
   }, [filteredPosts]);
 
-  // Content type distribution for donut chart
-  const contentTypeData = useMemo(() => {
-    const typeMap: Record<string, { count: number; engagement: number }> = {};
-    
-    filteredPosts.forEach(post => {
-      const type = post.post_type || 'image';
-      if (!typeMap[type]) {
-        typeMap[type] = { count: 0, engagement: 0 };
-      }
-      typeMap[type].count++;
-      typeMap[type].engagement += post.engagement_rate || 0;
-    });
-
-    return Object.entries(typeMap).map(([type, data]) => ({
-      type,
-      count: data.count,
-      avgEngagement: data.count > 0 ? data.engagement / data.count : 0,
-    }));
-  }, [filteredPosts]);
 
   // Top posts for ranking
   const topPostsData = useMemo(() => {
@@ -464,9 +445,9 @@ export function InstagramDashboard({
         />
       </div>
 
-      {/* Chart + Goal + Content Type */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        {/* Main Chart */}
+      {/* Chart + Goals */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Main Chart - expanded */}
         <div className="lg:col-span-2">
           {chartData.length > 0 && availableMetrics.length > 0 && (
             <EnhancedAreaChart
@@ -479,12 +460,6 @@ export function InstagramDashboard({
             />
           )}
         </div>
-
-        {/* Content Type Donut */}
-        <ContentTypeDonut 
-          data={contentTypeData} 
-          title="Performance por Tipo"
-        />
 
         {/* Goals Panel */}
         <GoalsPanel
