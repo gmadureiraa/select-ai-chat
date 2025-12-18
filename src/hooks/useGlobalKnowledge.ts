@@ -26,6 +26,9 @@ export interface GlobalKnowledge {
   content: string;
   category: KnowledgeCategory;
   source_file: string | null;
+  source_url: string | null;
+  summary: string | null;
+  key_takeaways: string[] | null;
   page_count: number | null;
   metadata: Record<string, any>;
   tags: string[];
@@ -38,9 +41,23 @@ export interface CreateKnowledgeData {
   content: string;
   category: KnowledgeCategory;
   source_file?: string;
+  source_url?: string;
+  summary?: string;
+  key_takeaways?: string[];
   page_count?: number;
   metadata?: Record<string, any>;
   tags?: string[];
+}
+
+export interface SemanticSearchResult {
+  id: string;
+  title: string;
+  content: string;
+  summary: string | null;
+  category: string;
+  source_url: string | null;
+  similarity: number | null;
+  searchType: 'semantic' | 'text';
 }
 
 export const KNOWLEDGE_CATEGORIES: { value: KnowledgeCategory; label: string }[] = [
@@ -85,7 +102,7 @@ export function useGlobalKnowledge() {
     mutationFn: async (data: CreateKnowledgeData) => {
       if (!workspace?.id) throw new Error('No workspace');
 
-      const { error } = await supabase
+      const { data: inserted, error } = await supabase
         .from('global_knowledge')
         .insert({
           workspace_id: workspace.id,
@@ -93,12 +110,18 @@ export function useGlobalKnowledge() {
           content: data.content,
           category: data.category,
           source_file: data.source_file || null,
+          source_url: data.source_url || null,
+          summary: data.summary || null,
+          key_takeaways: data.key_takeaways || null,
           page_count: data.page_count || null,
           metadata: data.metadata || {},
           tags: data.tags || [],
-        });
+        })
+        .select()
+        .single();
 
       if (error) throw error;
+      return inserted;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['global-knowledge'] });
@@ -145,11 +168,52 @@ export function useGlobalKnowledge() {
     },
   });
 
+  // Process knowledge (URL scraping, summarization, embedding)
+  const processKnowledge = useMutation({
+    mutationFn: async (params: {
+      type: 'url' | 'summarize' | 'embed';
+      url?: string;
+      content?: string;
+      knowledgeId?: string;
+    }) => {
+      const { data, error } = await supabase.functions.invoke('process-knowledge', {
+        body: params
+      });
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['global-knowledge'] });
+    },
+    onError: (error: any) => {
+      toast.error('Erro ao processar: ' + error.message);
+    },
+  });
+
+  // Semantic search
+  const searchKnowledge = async (query: string): Promise<SemanticSearchResult[]> => {
+    if (!workspace?.id) return [];
+
+    const { data, error } = await supabase.functions.invoke('search-knowledge', {
+      body: { query, workspaceId: workspace.id, limit: 10 }
+    });
+
+    if (error) {
+      console.error('Search error:', error);
+      return [];
+    }
+
+    return data?.results || [];
+  };
+
   return {
     knowledge: knowledge || [],
     isLoading,
     createKnowledge,
     updateKnowledge,
     deleteKnowledge,
+    processKnowledge,
+    searchKnowledge,
   };
 }

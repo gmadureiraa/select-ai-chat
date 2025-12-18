@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -9,17 +9,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
-import { Plus, FileText, Trash2, Edit, Upload, Loader2, Search, BookOpen, Download, ExternalLink } from "lucide-react";
-import { useGlobalKnowledge, KNOWLEDGE_CATEGORIES, KnowledgeCategory, GlobalKnowledge } from "@/hooks/useGlobalKnowledge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Plus, FileText, Trash2, Edit, Upload, Loader2, Search, BookOpen, Download, ExternalLink, Link, Globe, Sparkles, Brain, Lightbulb } from "lucide-react";
+import { useGlobalKnowledge, KNOWLEDGE_CATEGORIES, KnowledgeCategory, GlobalKnowledge, SemanticSearchResult } from "@/hooks/useGlobalKnowledge";
 import { supabase } from "@/integrations/supabase/client";
 import { uploadAndGetSignedUrl, openFileInNewTab, downloadFile } from "@/lib/storage";
 import { toast } from "sonner";
 import { TagsInput } from "@/components/knowledge/TagsInput";
 import { TasksPanel } from "@/components/kai2/TasksPanel";
 import { useContextualTasks } from "@/hooks/useContextualTasks";
+import { useDebounce } from "@/hooks/useDebounce";
 
 export const KnowledgeBaseTool = () => {
-  const { knowledge, isLoading, createKnowledge, updateKnowledge, deleteKnowledge } = useGlobalKnowledge();
+  const { knowledge, isLoading, createKnowledge, updateKnowledge, deleteKnowledge, processKnowledge, searchKnowledge } = useGlobalKnowledge();
   const { tasks, isActive: tasksActive, startTasks, advanceToTask, completeAllTasks } = useContextualTasks();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -28,11 +30,20 @@ export const KnowledgeBaseTool = () => {
   const [isUploading, setIsUploading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterCategory, setFilterCategory] = useState<string>("all");
+  const [addMode, setAddMode] = useState<"pdf" | "url">("pdf");
+  const [urlInput, setUrlInput] = useState("");
+  const [isProcessingUrl, setIsProcessingUrl] = useState(false);
+  const [searchResults, setSearchResults] = useState<SemanticSearchResult[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [useSemanticSearch, setUseSemanticSearch] = useState(false);
 
   const [formTitle, setFormTitle] = useState("");
   const [formContent, setFormContent] = useState("");
   const [formCategory, setFormCategory] = useState<KnowledgeCategory>("other");
   const [formSourceFile, setFormSourceFile] = useState("");
+  const [formSourceUrl, setFormSourceUrl] = useState("");
+  const [formSummary, setFormSummary] = useState("");
+  const [formKeyTakeaways, setFormKeyTakeaways] = useState<string[]>([]);
   const [formPageCount, setFormPageCount] = useState<number | null>(null);
   const [formPdfPath, setFormPdfPath] = useState<string | null>(null);
   const [formTags, setFormTags] = useState<string[]>([]);
@@ -42,9 +53,13 @@ export const KnowledgeBaseTool = () => {
     setFormContent("");
     setFormCategory("other");
     setFormSourceFile("");
+    setFormSourceUrl("");
+    setFormSummary("");
+    setFormKeyTakeaways([]);
     setFormPageCount(null);
     setFormPdfPath(null);
     setFormTags([]);
+    setUrlInput("");
   };
 
   const sanitizeFileName = (name: string) => {
@@ -104,19 +119,114 @@ export const KnowledgeBaseTool = () => {
       return;
     }
 
-    await createKnowledge.mutateAsync({
+    const inserted = await createKnowledge.mutateAsync({
       title: formTitle,
       content: formContent,
       category: formCategory,
       source_file: formSourceFile || undefined,
+      source_url: formSourceUrl || undefined,
+      summary: formSummary || undefined,
+      key_takeaways: formKeyTakeaways.length > 0 ? formKeyTakeaways : undefined,
       page_count: formPageCount || undefined,
       metadata: formPdfPath ? { pdf_path: formPdfPath } : undefined,
       tags: formTags,
     });
 
+    // Generate embedding for semantic search
+    if (inserted?.id) {
+      processKnowledge.mutate({
+        type: 'embed',
+        content: formContent,
+        knowledgeId: inserted.id
+      });
+    }
+
     resetForm();
     setIsAddDialogOpen(false);
   };
+
+  const handleUrlScrape = async () => {
+    if (!urlInput.trim()) {
+      toast.error('Digite uma URL válida');
+      return;
+    }
+
+    setIsProcessingUrl(true);
+    startTasks("knowledge-base");
+    try {
+      advanceToTask("upload");
+      toast.info('Extraindo conteúdo da URL...');
+
+      const { data, error } = await processKnowledge.mutateAsync({
+        type: 'url',
+        url: urlInput
+      });
+
+      if (error) throw new Error(error);
+
+      advanceToTask("extract");
+      setFormTitle(data.title || new URL(urlInput).hostname);
+      setFormContent(data.content || '');
+      setFormSourceUrl(urlInput);
+      setFormSummary(data.summary || '');
+      setFormKeyTakeaways(data.keyTakeaways || []);
+      
+      advanceToTask("categorize");
+      completeAllTasks();
+      toast.success('Conteúdo extraído e resumido!');
+    } catch (error: any) {
+      toast.error('Erro ao processar URL: ' + error.message);
+    } finally {
+      setIsProcessingUrl(false);
+    }
+  };
+
+  const handleGenerateSummary = async () => {
+    if (!formContent.trim()) {
+      toast.error('Adicione conteúdo primeiro');
+      return;
+    }
+
+    try {
+      toast.info('Gerando resumo com IA...');
+      const { data, error } = await processKnowledge.mutateAsync({
+        type: 'summarize',
+        content: formContent
+      });
+
+      if (error) throw new Error(error);
+
+      setFormSummary(data.summary || '');
+      setFormKeyTakeaways(data.keyTakeaways || []);
+      toast.success('Resumo gerado!');
+    } catch (error: any) {
+      toast.error('Erro ao gerar resumo: ' + error.message);
+    }
+  };
+
+  const handleSemanticSearch = useCallback(async (query: string) => {
+    if (!query.trim() || query.length < 3) {
+      setSearchResults([]);
+      return;
+    }
+
+    setIsSearching(true);
+    try {
+      const results = await searchKnowledge(query);
+      setSearchResults(results);
+    } catch (error) {
+      console.error('Semantic search error:', error);
+    } finally {
+      setIsSearching(false);
+    }
+  }, [searchKnowledge]);
+
+  const debouncedSearch = useDebounce(searchTerm, 500);
+
+  // Trigger semantic search when debounced search term changes
+  if (useSemanticSearch && debouncedSearch && debouncedSearch !== searchTerm) {
+    handleSemanticSearch(debouncedSearch);
+  }
 
   const handleEdit = (item: GlobalKnowledge) => {
     setSelectedKnowledge(item);
@@ -124,6 +234,9 @@ export const KnowledgeBaseTool = () => {
     setFormContent(item.content);
     setFormCategory(item.category);
     setFormSourceFile(item.source_file || "");
+    setFormSourceUrl(item.source_url || "");
+    setFormSummary(item.summary || "");
+    setFormKeyTakeaways(item.key_takeaways || []);
     setFormPageCount(item.page_count);
     setFormTags(item.tags || []);
     setIsEditDialogOpen(true);
@@ -137,6 +250,8 @@ export const KnowledgeBaseTool = () => {
       title: formTitle,
       content: formContent,
       category: formCategory,
+      summary: formSummary,
+      key_takeaways: formKeyTakeaways,
       tags: formTags,
     });
 
@@ -207,24 +322,35 @@ export const KnowledgeBaseTool = () => {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-semibold">Base de Conhecimento</h1>
-            <p className="text-muted-foreground text-sm">Materiais de referência para IA</p>
+            <p className="text-muted-foreground text-sm">Materiais de referência para IA (PDFs e URLs)</p>
           </div>
           <Button onClick={() => { resetForm(); setIsAddDialogOpen(true); }}>
             <Plus className="h-4 w-4 mr-2" />
-            Adicionar PDF
+            Adicionar
           </Button>
         </div>
 
-        <div className="flex gap-3">
-          <div className="relative flex-1 max-w-sm">
+        <div className="flex gap-3 flex-wrap">
+          <div className="relative flex-1 min-w-[200px] max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Buscar..."
+              placeholder={useSemanticSearch ? "Busca semântica..." : "Buscar..."}
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                if (useSemanticSearch) handleSemanticSearch(e.target.value);
+              }}
               className="pl-9"
             />
           </div>
+          <Button
+            variant={useSemanticSearch ? "default" : "outline"}
+            size="icon"
+            onClick={() => setUseSemanticSearch(!useSemanticSearch)}
+            title="Busca Semântica (IA)"
+          >
+            <Brain className="h-4 w-4" />
+          </Button>
           <Select value={filterCategory} onValueChange={setFilterCategory}>
             <SelectTrigger className="w-[160px]">
               <SelectValue placeholder="Categoria" />
