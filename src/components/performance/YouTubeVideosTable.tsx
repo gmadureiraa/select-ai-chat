@@ -150,9 +150,10 @@ export function YouTubeVideosTable({ videos, isLoading }: YouTubeVideosTableProp
                     rel="noopener noreferrer"
                     className="block relative group/thumb"
                   >
-                    {video.thumbnail_url ? (
+                    {/* Auto-generate thumbnail from video_id if not available */}
+                    {(video.thumbnail_url || video.video_id) ? (
                       <img 
-                        src={video.thumbnail_url} 
+                        src={video.thumbnail_url || `https://img.youtube.com/vi/${video.video_id}/mqdefault.jpg`} 
                         alt={video.title}
                         className="w-20 h-12 rounded object-cover"
                       />

@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 
-export type WorkspaceRole = "owner" | "admin" | "member";
+export type WorkspaceRole = "owner" | "admin" | "member" | "viewer";
 
 export interface Workspace {
   id: string;
@@ -59,16 +59,23 @@ export const useWorkspace = () => {
     enabled: !!user?.id,
   });
 
-  const canDelete = workspace?.userRole === "owner" || workspace?.userRole === "admin";
-  const canManageTeam = workspace?.userRole === "owner" || workspace?.userRole === "admin";
-  const isOwner = workspace?.userRole === "owner";
+  const userRole = workspace?.userRole as WorkspaceRole | undefined;
+  const isViewer = userRole === "viewer";
+  const canDelete = userRole === "owner" || userRole === "admin";
+  const canManageTeam = userRole === "owner" || userRole === "admin";
+  const canEdit = userRole !== "viewer";
+  const canCreate = userRole !== "viewer";
+  const isOwner = userRole === "owner";
 
   return {
     workspace,
     isLoadingWorkspace,
-    userRole: workspace?.userRole as WorkspaceRole | undefined,
+    userRole,
+    isViewer,
     canDelete,
     canManageTeam,
+    canEdit,
+    canCreate,
     isOwner,
   };
 };

@@ -880,6 +880,50 @@ export type Database = {
           },
         ]
       }
+      import_history: {
+        Row: {
+          client_id: string
+          file_name: string | null
+          id: string
+          imported_at: string
+          metadata: Json | null
+          platform: string
+          records_count: number
+          status: string
+          user_id: string
+        }
+        Insert: {
+          client_id: string
+          file_name?: string | null
+          id?: string
+          imported_at?: string
+          metadata?: Json | null
+          platform: string
+          records_count?: number
+          status?: string
+          user_id?: string
+        }
+        Update: {
+          client_id?: string
+          file_name?: string | null
+          id?: string
+          imported_at?: string
+          metadata?: Json | null
+          platform?: string
+          records_count?: number
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "import_history_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       instagram_posts: {
         Row: {
           analyzed_at: string | null
@@ -1845,6 +1889,7 @@ export type Database = {
         Args: { p_project_id: string; p_user_id: string }
         Returns: boolean
       }
+      is_viewer_role: { Args: { p_user_id: string }; Returns: boolean }
       is_workspace_member: {
         Args: { p_user_id: string; p_workspace_id: string }
         Returns: boolean
@@ -1921,7 +1966,7 @@ export type Database = {
         | "analytics"
         | "audience"
       share_permission: "view" | "edit" | "admin"
-      workspace_role: "owner" | "admin" | "member"
+      workspace_role: "owner" | "admin" | "member" | "viewer"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -2107,7 +2152,7 @@ export const Constants = {
         "audience",
       ],
       share_permission: ["view", "edit", "admin"],
-      workspace_role: ["owner", "admin", "member"],
+      workspace_role: ["owner", "admin", "member", "viewer"],
     },
   },
 } as const

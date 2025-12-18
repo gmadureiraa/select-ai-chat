@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Users, UserPlus, Crown, Shield, User, X, Mail, Clock, Building2 } from "lucide-react";
+import { Users, UserPlus, Crown, Shield, User, X, Mail, Clock, Building2, Eye } from "lucide-react";
 import { useWorkspace, WorkspaceRole, WorkspaceMember } from "@/hooks/useWorkspace";
 import { useTeamMembers } from "@/hooks/useTeamMembers";
 import { useAuth } from "@/hooks/useAuth";
@@ -30,18 +30,21 @@ const roleLabels: Record<WorkspaceRole, string> = {
   owner: "Proprietário",
   admin: "Administrador",
   member: "Membro",
+  viewer: "Visualizador",
 };
 
 const roleIcons: Record<WorkspaceRole, typeof Crown> = {
   owner: Crown,
   admin: Shield,
   member: User,
+  viewer: Eye,
 };
 
 const roleColors: Record<WorkspaceRole, string> = {
   owner: "bg-amber-500/10 text-amber-500 border-amber-500/20",
   admin: "bg-blue-500/10 text-blue-500 border-blue-500/20",
   member: "bg-muted text-muted-foreground border-border",
+  viewer: "bg-purple-500/10 text-purple-500 border-purple-500/20",
 };
 
 export function TeamManagement() {
@@ -103,10 +106,11 @@ export function TeamManagement() {
                   className="flex-1"
                 />
                 <Select value={role} onValueChange={(v) => setRole(v as WorkspaceRole)}>
-                  <SelectTrigger className="w-[140px]">
+                  <SelectTrigger className="w-[160px]">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="viewer">Visualizador</SelectItem>
                     <SelectItem value="member">Membro</SelectItem>
                     <SelectItem value="admin">Admin</SelectItem>
                   </SelectContent>
@@ -175,10 +179,11 @@ export function TeamManagement() {
                 const RoleIcon = roleIcons[member.role];
                 const isCurrentUser = member.user_id === user?.id;
                 const isMemberOwner = member.role === "owner";
-                const isMemberAdmin = member.role === "admin";
+                const isMemberViewer = member.role === "viewer";
                 const canChangeRole = isOwner && !isMemberOwner && !isCurrentUser;
                 const canRemove = canManageTeam && !isMemberOwner && !isCurrentUser;
-                const canEditClientAccess = canManageTeam && member.role === "member" && !isCurrentUser;
+                // Allow client access editing for both members and viewers
+                const canEditClientAccess = canManageTeam && (member.role === "member" || member.role === "viewer") && !isCurrentUser;
                 const clientAccessCount = getMemberClientCount(member.id);
 
                 return (
@@ -241,6 +246,7 @@ export function TeamManagement() {
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
+                            <SelectItem value="viewer">Visualizador</SelectItem>
                             <SelectItem value="member">Membro</SelectItem>
                             <SelectItem value="admin">Admin</SelectItem>
                           </SelectContent>
@@ -282,6 +288,10 @@ export function TeamManagement() {
             <div className="flex items-center gap-2">
               <User className="h-3 w-3" />
               <span><strong>Membro:</strong> Pode ver, criar e editar, mas não excluir. Pode ter acesso restrito a clientes específicos.</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Eye className="h-3 w-3 text-purple-500" />
+              <span><strong>Visualizador:</strong> Apenas visualiza clientes atribuídos. Não vê ferramentas. Ideal para clientes externos.</span>
             </div>
           </div>
         </div>
