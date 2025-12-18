@@ -16,7 +16,11 @@ import { StatCard } from "./StatCard";
 import { GoalGauge } from "./GoalGauge";
 import { MetricMiniCard } from "./MetricMiniCard";
 import { BestPostCard } from "./BestPostCard";
-import { format, subDays, isAfter, parseISO, startOfDay } from "date-fns";
+import { HorizontalBarRank } from "./HorizontalBarRank";
+import { ContentTypeDonut } from "./ContentTypeDonut";
+import { TopContentTable } from "./TopContentTable";
+import { PostingTimeHeatmap } from "./PostingTimeHeatmap";
+import { format, subDays, isAfter, parseISO, startOfDay, getDay, getHours } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 interface InstagramDashboardProps {
@@ -263,6 +267,91 @@ export function InstagramDashboard({
     , filteredPosts[0]);
   }, [filteredPosts]);
 
+  // Content type distribution for donut chart
+  const contentTypeData = useMemo(() => {
+    const typeMap: Record<string, { count: number; engagement: number }> = {};
+    
+    filteredPosts.forEach(post => {
+      const type = post.post_type || 'image';
+      if (!typeMap[type]) {
+        typeMap[type] = { count: 0, engagement: 0 };
+      }
+      typeMap[type].count++;
+      typeMap[type].engagement += post.engagement_rate || 0;
+    });
+
+    return Object.entries(typeMap).map(([type, data]) => ({
+      type,
+      count: data.count,
+      avgEngagement: data.count > 0 ? data.engagement / data.count : 0,
+    }));
+  }, [filteredPosts]);
+
+  // Top posts for ranking
+  const topPostsData = useMemo(() => {
+    return [...filteredPosts]
+      .sort((a, b) => (b.reach || 0) - (a.reach || 0))
+      .slice(0, 5)
+      .map(post => ({
+        label: post.caption?.slice(0, 40) + (post.caption && post.caption.length > 40 ? '...' : '') || 'Post sem legenda',
+        value: post.reach || 0,
+      }));
+  }, [filteredPosts]);
+
+  // Top posts for table
+  const topContentItems = useMemo(() => {
+    return [...filteredPosts]
+      .sort((a, b) => (b.engagement_rate || 0) - (a.engagement_rate || 0))
+      .slice(0, 5)
+      .map(post => ({
+        id: post.id,
+        title: post.caption?.slice(0, 50) + (post.caption && post.caption.length > 50 ? '...' : '') || 'Post sem legenda',
+        thumbnail: post.thumbnail_url,
+        type: post.post_type || 'image',
+        views: post.impressions || 0,
+        likes: post.likes || 0,
+        comments: post.comments || 0,
+        engagement: post.engagement_rate || 0,
+        trend: (post.engagement_rate || 0) - kpis.avgEngagement,
+        link: post.permalink,
+      }));
+  }, [filteredPosts, kpis.avgEngagement]);
+
+  // Posting time heatmap data
+  const heatmapData = useMemo(() => {
+    const data: { day: number; hour: number; value: number; count: number }[] = [];
+    
+    // Initialize all slots
+    for (let day = 0; day < 7; day++) {
+      for (let hour = 0; hour < 24; hour++) {
+        data.push({ day, hour, value: 0, count: 0 });
+      }
+    }
+    
+    // Aggregate engagement by posting time
+    filteredPosts.forEach(post => {
+      if (!post.posted_at) return;
+      const date = parseISO(post.posted_at);
+      const day = getDay(date);
+      const hour = getHours(date);
+      
+      const slot = data.find(d => d.day === day && d.hour === hour);
+      if (slot) {
+        slot.value += post.engagement_rate || 0;
+        slot.count++;
+      }
+    });
+    
+    // Average the values
+    data.forEach(slot => {
+      if (slot.count > 0) {
+        slot.value = slot.value / slot.count;
+      }
+    });
+    
+    return data;
+  }, [filteredPosts]);
+
   const selectedPeriodLabel = periodOptions.find(p => p.value === period)?.label || "Período";
 
   return (
@@ -361,8 +450,8 @@ export function InstagramDashboard({
         />
       </div>
 
-      {/* Chart + Goal */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* Chart + Goal + Content Type */}
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Main Chart */}
         <div className="lg:col-span-2">
           {chartData.length > 0 && availableMetrics.length > 0 && (
@@ -377,19 +466,45 @@ export function InstagramDashboard({
           )}
         </div>
 
+        {/* Content Type Donut */}
+        <ContentTypeDonut 
+          data={contentTypeData} 
+          title="Performance por Tipo"
+        />
+
         {/* Goals Panel */}
-        <div>
-          <GoalsPanel
-            clientId={clientId}
-            platform="instagram"
-            currentMetrics={{
-              followers: kpis.followersGained,
-              views: kpis.totalViews,
-              engagement: kpis.avgEngagement,
-            }}
-          />
-        </div>
+        <GoalsPanel
+          clientId={clientId}
+          platform="instagram"
+          currentMetrics={{
+            followers: kpis.followersGained,
+            views: kpis.totalViews,
+            engagement: kpis.avgEngagement,
+          }}
+        />
       </div>
+
+      {/* Top Posts Rank + Heatmap */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <HorizontalBarRank 
+          title="Top Posts por Alcance"
+          items={topPostsData}
+          maxItems={5}
+          valueFormatter={(v) => v.toLocaleString('pt-BR')}
+        />
+        <PostingTimeHeatmap 
+          data={heatmapData}
+          title="Melhor Horário para Postar"
+        />
+      </div>
+
+      {/* Top Content Table */}
+      {topContentItems.length > 0 && (
+        <TopContentTable 
+          title="Top 5 Posts por Engajamento"
+          items={topContentItems}
+        />
+      )}
 
       {/* Secondary Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
