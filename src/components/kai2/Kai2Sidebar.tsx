@@ -15,7 +15,8 @@ import {
   Users,
   Search,
   LogOut,
-  HelpCircle
+  HelpCircle,
+  Building2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useClients } from "@/hooks/useClients";
@@ -248,23 +249,6 @@ export function Kai2Sidebar({ activeTab, onTabChange, selectedClientId, onClient
             <SectionLabel>Ferramentas</SectionLabel>
 
             <div className="space-y-0.5">
-              {canManageTeam && (
-                <NavItem
-                  icon={<Users className="h-4 w-4" />}
-                  label="Equipe"
-                  active={activeTab === "team"}
-                  onClick={() => onTabChange("team")}
-                  badge={pendingCount}
-                />
-              )}
-
-              <NavItem
-                icon={<Activity className="h-4 w-4" />}
-                label="Atividades"
-                active={activeTab === "activities"}
-                onClick={() => onTabChange("activities")}
-              />
-
               <NavItem
                 icon={<BookOpen className="h-4 w-4" />}
                 label="Base de Conhecimento"
@@ -299,6 +283,37 @@ export function Kai2Sidebar({ activeTab, onTabChange, selectedClientId, onClient
         <SectionLabel>Conta</SectionLabel>
 
         <div className="space-y-0.5">
+          {/* Clientes - only for non-viewers */}
+          {!isViewer && (
+            <NavItem
+              icon={<Building2 className="h-4 w-4" />}
+              label="Clientes"
+              active={activeTab === "clients"}
+              onClick={() => onTabChange("clients")}
+            />
+          )}
+
+          {/* Equipe - only for team managers */}
+          {canManageTeam && (
+            <NavItem
+              icon={<Users className="h-4 w-4" />}
+              label="Equipe"
+              active={activeTab === "team"}
+              onClick={() => onTabChange("team")}
+              badge={pendingCount}
+            />
+          )}
+
+          {/* Atividades - for non-viewers */}
+          {!isViewer && (
+            <NavItem
+              icon={<Activity className="h-4 w-4" />}
+              label="Atividades"
+              active={activeTab === "activities"}
+              onClick={() => onTabChange("activities")}
+            />
+          )}
+
           <NavItem
             icon={<Settings className="h-4 w-4" />}
             label="Configurações"
