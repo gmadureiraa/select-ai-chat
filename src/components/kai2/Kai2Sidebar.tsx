@@ -13,10 +13,13 @@ import {
   FlaskConical,
   BookOpen,
   Activity,
-  User
+  User,
+  Users
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useClients } from "@/hooks/useClients";
+import { useWorkspace } from "@/hooks/useWorkspace";
+import { usePendingUsers } from "@/hooks/usePendingUsers";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -30,9 +33,10 @@ interface NavItemProps {
   label: string;
   active?: boolean;
   onClick?: () => void;
+  badge?: number;
 }
 
-function NavItem({ icon, label, active, onClick }: NavItemProps) {
+function NavItem({ icon, label, active, onClick, badge }: NavItemProps) {
   return (
     <button
       onClick={onClick}
@@ -50,6 +54,11 @@ function NavItem({ icon, label, active, onClick }: NavItemProps) {
         {icon}
       </span>
       <span className="flex-1 text-left">{label}</span>
+      {badge !== undefined && badge > 0 && (
+        <span className="flex-shrink-0 h-5 min-w-5 px-1.5 rounded-full bg-amber-500 text-white text-xs font-medium flex items-center justify-center">
+          {badge}
+        </span>
+      )}
     </button>
   );
 }
@@ -64,6 +73,8 @@ interface Kai2SidebarProps {
 export function Kai2Sidebar({ activeTab, onTabChange, selectedClientId, onClientChange }: Kai2SidebarProps) {
   const navigate = useNavigate();
   const { clients } = useClients();
+  const { canManageTeam } = useWorkspace();
+  const { pendingCount } = usePendingUsers();
   const selectedClient = clients?.find(c => c.id === selectedClientId);
 
   return (
@@ -147,6 +158,16 @@ export function Kai2Sidebar({ activeTab, onTabChange, selectedClientId, onClient
             Ferramentas
           </span>
         </div>
+
+        {canManageTeam && (
+          <NavItem
+            icon={<Users className="h-4 w-4" />}
+            label="Equipe"
+            active={activeTab === "team"}
+            onClick={() => onTabChange("team")}
+            badge={pendingCount}
+          />
+        )}
 
         <NavItem
           icon={<Activity className="h-4 w-4" />}
