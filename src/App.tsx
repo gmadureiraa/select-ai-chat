@@ -1,6 +1,7 @@
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import Kai2 from "./pages/Kai2";
+import Documentation from "./pages/Documentation";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
@@ -27,6 +28,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <Kai2 />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/docs"
+              element={
+                <ProtectedRoute>
+                  <Documentation />
                 </ProtectedRoute>
               }
             />
