@@ -566,14 +566,58 @@ export const useClientChat = (clientId: string, templateId?: string, conversatio
         const extractKeywords = (text: string): string[] => {
           const stopWords = new Set(['o', 'a', 'os', 'as', 'um', 'uma', 'de', 'da', 'do', 'em', 'no', 'na', 'para', 'com', 'que', 'é', 'por', 'se', 'como', 'qual', 'quais', 'quanto', 'quando', 'onde', 'quem', 'e', 'ou', 'mas', 'mais', 'menos', 'sobre', 'foi', 'ser', 'ter', 'isso', 'esse', 'essa', 'este', 'esta', 'aquele', 'aquela', 'me', 'te', 'seu', 'sua', 'meu', 'minha', 'nosso', 'nossa', 'dele', 'dela', 'ao', 'aos', 'às', 'pelo', 'pela', 'pelos', 'pelas']);
           return text.toLowerCase()
-            .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // Remove acentos
+            .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
             .split(/\s+/)
             .filter(word => word.length > 2 && !stopWords.has(word))
-            .slice(0, 10); // Max 10 keywords
+            .slice(0, 10);
+        };
+
+        // Extrair datas mencionadas na mensagem
+        const extractDateRange = (text: string): { startDate?: string; endDate?: string; period?: string } => {
+          const monthNames: Record<string, number> = {
+            'janeiro': 0, 'fevereiro': 1, 'março': 2, 'marco': 2, 'abril': 3, 'maio': 4, 'junho': 5,
+            'julho': 6, 'agosto': 7, 'setembro': 8, 'outubro': 9, 'novembro': 10, 'dezembro': 11
+          };
+          
+          // Detectar "primeira semana de novembro", "última semana de março", etc
+          const weekMatch = text.toLowerCase().match(/(primeira|segunda|terceira|quarta|última|ultima)\s*semana\s*de\s*(\w+)(?:\s*de\s*(\d{4}))?/);
+          if (weekMatch) {
+            const weekNum = { 'primeira': 0, 'segunda': 1, 'terceira': 2, 'quarta': 3, 'última': 3, 'ultima': 3 }[weekMatch[1]] || 0;
+            const month = monthNames[weekMatch[2]];
+            const year = weekMatch[3] ? parseInt(weekMatch[3]) : new Date().getFullYear();
+            
+            if (month !== undefined) {
+              const startDay = 1 + (weekNum * 7);
+              const endDay = Math.min(startDay + 6, new Date(year, month + 1, 0).getDate());
+              return {
+                startDate: `${year}-${String(month + 1).padStart(2, '0')}-${String(startDay).padStart(2, '0')}`,
+                endDate: `${year}-${String(month + 1).padStart(2, '0')}-${String(endDay).padStart(2, '0')}`,
+                period: `${weekMatch[1]} semana de ${weekMatch[2]}${weekMatch[3] ? ` de ${weekMatch[3]}` : ''}`
+              };
+            }
+          }
+          
+          // Detectar "mês de novembro", "em abril", etc
+          const monthMatch = text.toLowerCase().match(/(?:mês\s*de|em)\s*(\w+)(?:\s*de\s*(\d{4}))?/);
+          if (monthMatch) {
+            const month = monthNames[monthMatch[1]];
+            const year = monthMatch[2] ? parseInt(monthMatch[2]) : new Date().getFullYear();
+            if (month !== undefined) {
+              return {
+                startDate: `${year}-${String(month + 1).padStart(2, '0')}-01`,
+                endDate: `${year}-${String(month + 1).padStart(2, '0')}-${new Date(year, month + 1, 0).getDate()}`,
+                period: `${monthMatch[1]}${monthMatch[2] ? ` de ${monthMatch[2]}` : ''}`
+              };
+            }
+          }
+          
+          return {};
         };
         
         const keywords = extractKeywords(content);
+        const dateRange = extractDateRange(content);
         console.log("[CHAT] Search keywords:", keywords);
+        console.log("[CHAT] Date range detected:", dateRange);
         
         // Função para buscar trechos relevantes em documentos
         const searchDocumentContent = (docContent: string | null, searchKeywords: string[]): { relevantSnippets: string[], hasMatch: boolean } => {
@@ -587,7 +631,6 @@ export const useClientChat = (clientId: string, templateId?: string, conversatio
             const index = normalizedContent.indexOf(keyword);
             if (index !== -1) {
               hasMatch = true;
-              // Extrair contexto de 500 chars antes e depois
               const start = Math.max(0, index - 500);
               const end = Math.min(docContent.length, index + keyword.length + 500);
               const snippet = docContent.substring(start, end).trim();
@@ -602,13 +645,45 @@ export const useClientChat = (clientId: string, templateId?: string, conversatio
         
         setCurrentStep("analyzing");
         
-        // Buscar métricas de performance para contexto
-        const { data: platformMetrics } = await supabase
+        // Rastrear quais fontes foram consultadas
+        const sourcesConsulted: { type: string; name: string; count: number; dateRange?: string }[] = [];
+        
+        // Buscar métricas de performance - com filtro de data se especificado
+        let metricsQuery = supabase
           .from("platform_metrics")
           .select("*")
           .eq("client_id", clientId)
+          .order("metric_date", { ascending: false });
+        
+        // Aplicar filtro de data se detectado
+        if (dateRange.startDate && dateRange.endDate) {
+          metricsQuery = metricsQuery
+            .gte("metric_date", dateRange.startDate)
+            .lte("metric_date", dateRange.endDate);
+        } else {
+          metricsQuery = metricsQuery.limit(90);
+        }
+        
+        const { data: platformMetrics } = await metricsQuery;
+        
+        // Verificar range de dados disponíveis
+        const { data: metricsRange } = await supabase
+          .from("platform_metrics")
+          .select("platform, metric_date")
+          .eq("client_id", clientId)
+          .order("metric_date", { ascending: true })
+          .limit(1);
+        
+        const { data: metricsRangeMax } = await supabase
+          .from("platform_metrics")
+          .select("platform, metric_date")
+          .eq("client_id", clientId)
           .order("metric_date", { ascending: false })
-          .limit(90);
+          .limit(1);
+        
+        const dataAvailability = metricsRange?.[0] && metricsRangeMax?.[0] 
+          ? `Dados disponíveis de ${metricsRange[0].metric_date} até ${metricsRangeMax[0].metric_date}`
+          : 'Sem dados de métricas disponíveis';
         
         // Buscar vídeos do YouTube
         const { data: youtubeVideos } = await supabase
@@ -618,6 +693,44 @@ export const useClientChat = (clientId: string, templateId?: string, conversatio
           .order("published_at", { ascending: false })
           .limit(20);
         
+        // Buscar posts do Instagram
+        const { data: instagramPosts } = await supabase
+          .from("instagram_posts")
+          .select("*")
+          .eq("client_id", clientId)
+          .order("posted_at", { ascending: false })
+          .limit(30);
+        
+        // Registrar fontes consultadas
+        if (platformMetrics && platformMetrics.length > 0) {
+          const platforms = [...new Set(platformMetrics.map(m => m.platform))];
+          platforms.forEach(p => {
+            sourcesConsulted.push({ 
+              type: 'metrics', 
+              name: `Métricas ${p}`, 
+              count: platformMetrics.filter(m => m.platform === p).length,
+              dateRange: dateRange.period
+            });
+          });
+        }
+        if (youtubeVideos && youtubeVideos.length > 0) {
+          sourcesConsulted.push({ type: 'youtube', name: 'Vídeos YouTube', count: youtubeVideos.length });
+        }
+        if (instagramPosts && instagramPosts.length > 0) {
+          sourcesConsulted.push({ type: 'instagram', name: 'Posts Instagram', count: instagramPosts.length });
+        }
+        if (contentLibrary.length > 0) {
+          sourcesConsulted.push({ type: 'content', name: 'Biblioteca de Conteúdo', count: contentLibrary.length });
+        }
+        if (referenceLibrary.length > 0) {
+          sourcesConsulted.push({ type: 'references', name: 'Biblioteca de Referências', count: referenceLibrary.length });
+        }
+        if (documents.length > 0) {
+          sourcesConsulted.push({ type: 'documents', name: 'Documentos', count: documents.length });
+        }
+        
+        console.log("[CHAT] Sources consulted:", sourcesConsulted);
+        
         // Formatar métricas por plataforma
         const metricsByPlatform = (platformMetrics || []).reduce((acc, m) => {
           if (!acc[m.platform]) acc[m.platform] = [];
@@ -625,53 +738,57 @@ export const useClientChat = (clientId: string, templateId?: string, conversatio
           return acc;
         }, {} as Record<string, any[]>);
         
-        const metricsContext = Object.keys(metricsByPlatform).length > 0
-          ? Object.entries(metricsByPlatform).map(([platform, metrics]) => {
-              const latest = metrics[0];
-              const weekAgo = metrics[7];
-              const monthAgo = metrics[30];
-              
-              let summary = `📈 ${platform.toUpperCase()}:\n`;
-              if (latest.subscribers) summary += `- Seguidores/Inscritos: ${latest.subscribers.toLocaleString()}\n`;
-              if (latest.views) summary += `- Visualizações: ${latest.views.toLocaleString()}\n`;
-              if (latest.engagement_rate) summary += `- Engajamento: ${(latest.engagement_rate * 100).toFixed(2)}%\n`;
-              if (latest.open_rate) summary += `- Taxa de abertura: ${(latest.open_rate * 100).toFixed(2)}%\n`;
-              if (latest.click_rate) summary += `- Taxa de cliques: ${(latest.click_rate * 100).toFixed(2)}%\n`;
-              if (latest.total_posts) summary += `- Total de posts: ${latest.total_posts}\n`;
-              
-              const totalViews = metrics.reduce((sum: number, m: any) => sum + (m.views || 0), 0);
-              const totalLikes = metrics.reduce((sum: number, m: any) => sum + (m.likes || 0), 0);
-              if (totalViews > 0) summary += `- Views acumuladas (${metrics.length} dias): ${totalViews.toLocaleString()}\n`;
-              if (totalLikes > 0) summary += `- Curtidas acumuladas (${metrics.length} dias): ${totalLikes.toLocaleString()}\n`;
-              
-              if (weekAgo && latest.subscribers && weekAgo.subscribers) {
-                const weekGrowth = latest.subscribers - weekAgo.subscribers;
-                const weekGrowthPct = ((weekGrowth / weekAgo.subscribers) * 100).toFixed(2);
-                summary += `- Crescimento semanal: ${weekGrowth > 0 ? '+' : ''}${weekGrowth} seguidores (${weekGrowthPct}%)\n`;
-              }
-              
-              if (monthAgo && latest.subscribers && monthAgo.subscribers) {
-                const monthGrowth = latest.subscribers - monthAgo.subscribers;
-                const monthGrowthPct = ((monthGrowth / monthAgo.subscribers) * 100).toFixed(2);
-                summary += `- Crescimento mensal: ${monthGrowth > 0 ? '+' : ''}${monthGrowth} seguidores (${monthGrowthPct}%)\n`;
-              }
-              
-              return summary;
-            }).join('\n')
-          : 'Sem métricas disponíveis';
+        // Construir contexto de métricas com informação sobre disponibilidade
+        let metricsContext = '';
+        
+        if (dateRange.period && (!platformMetrics || platformMetrics.length === 0)) {
+          // Usuário pediu dados de uma data específica mas não há dados
+          metricsContext = `⚠️ ATENÇÃO: Você perguntou sobre "${dateRange.period}", mas NÃO há dados de métricas para este período.\n${dataAvailability}\n\nSe precisar de dados de outro período, especifique uma data dentro do range disponível.`;
+        } else if (Object.keys(metricsByPlatform).length > 0) {
+          metricsContext = Object.entries(metricsByPlatform).map(([platform, metrics]) => {
+            const sortedMetrics = metrics.sort((a, b) => new Date(b.metric_date).getTime() - new Date(a.metric_date).getTime());
+            const latest = sortedMetrics[0];
+            const oldest = sortedMetrics[sortedMetrics.length - 1];
+            
+            let summary = `📈 ${platform.toUpperCase()} (${sortedMetrics.length} registros, de ${oldest?.metric_date} a ${latest?.metric_date}):\n`;
+            
+            if (latest.subscribers !== null && oldest?.subscribers !== null) {
+              const growth = (latest.subscribers || 0) - (oldest.subscribers || 0);
+              summary += `- Seguidores: ${latest.subscribers?.toLocaleString() || 0} (${growth >= 0 ? '+' : ''}${growth.toLocaleString()} no período)\n`;
+            }
+            if (latest.views) summary += `- Visualizações (último registro): ${latest.views.toLocaleString()}\n`;
+            if (latest.engagement_rate) summary += `- Engajamento: ${(latest.engagement_rate * 100).toFixed(2)}%\n`;
+            if (latest.open_rate) summary += `- Taxa de abertura: ${(latest.open_rate * 100).toFixed(2)}%\n`;
+            
+            // Calcular totais do período
+            const totalViews = metrics.reduce((sum: number, m: any) => sum + (m.views || 0), 0);
+            const totalLikes = metrics.reduce((sum: number, m: any) => sum + (m.likes || 0), 0);
+            if (totalViews > 0) summary += `- Views acumuladas no período: ${totalViews.toLocaleString()}\n`;
+            if (totalLikes > 0) summary += `- Curtidas acumuladas no período: ${totalLikes.toLocaleString()}\n`;
+            
+            return summary;
+          }).join('\n');
+        } else {
+          metricsContext = `Sem métricas disponíveis para análise. ${dataAvailability}`;
+        }
         
         const youtubeContext = youtubeVideos && youtubeVideos.length > 0
-          ? `📺 VÍDEOS DO YOUTUBE (Top ${youtubeVideos.length}):\n` +
+          ? `📺 VÍDEOS DO YOUTUBE (${youtubeVideos.length} vídeos):\n` +
             youtubeVideos.map((v, i) => 
-              `${i + 1}. "${v.title}" - ${v.total_views?.toLocaleString() || 0} views, ${v.watch_hours?.toFixed(1) || 0}h assistidas, +${v.subscribers_gained || 0} inscritos`
+              `${i + 1}. "${v.title}" (${v.published_at?.split('T')[0] || 'sem data'}) - ${v.total_views?.toLocaleString() || 0} views, ${v.watch_hours?.toFixed(1) || 0}h assistidas, +${v.subscribers_gained || 0} inscritos`
             ).join('\n')
           : '';
         
-        // =====================================================
-        // DOCUMENTOS COM BUSCA INTELIGENTE POR PALAVRAS-CHAVE
-        // =====================================================
+        const instagramContext = instagramPosts && instagramPosts.length > 0
+          ? `📸 POSTS DO INSTAGRAM (${instagramPosts.length} posts):\n` +
+            instagramPosts.slice(0, 10).map((p, i) => 
+              `${i + 1}. [${p.post_type || 'post'}] (${p.posted_at?.split('T')[0] || 'sem data'}) - ${p.likes || 0} likes, ${p.comments || 0} comments, ${p.saves || 0} saves`
+            ).join('\n')
+          : '';
+        
+        // Documentos com busca inteligente
         let documentsContext = '';
-        const MAX_CHARS_PER_DOC = 4000; // Aumentado de 200 para 4000
+        const MAX_CHARS_PER_DOC = 4000;
         
         if (documents.length > 0) {
           const docParts: string[] = [];
@@ -680,38 +797,39 @@ export const useClientChat = (clientId: string, templateId?: string, conversatio
             const { relevantSnippets, hasMatch } = searchDocumentContent(doc.extracted_content, keywords);
             
             if (hasMatch && relevantSnippets.length > 0) {
-              // Se encontrou match, incluir snippets relevantes com prioridade
-              docParts.push(`📄 **${doc.name}** (RELEVANTE - contém termos buscados):\n${relevantSnippets.join('\n\n')}`);
+              docParts.push(`📄 **${doc.name}** (RELEVANTE):\n${relevantSnippets.join('\n\n')}`);
             } else if (doc.extracted_content) {
-              // Se não encontrou match, incluir conteúdo mais amplo do documento
               const truncatedContent = doc.extracted_content.length > MAX_CHARS_PER_DOC 
                 ? doc.extracted_content.substring(0, MAX_CHARS_PER_DOC) + '...[documento continua]'
                 : doc.extracted_content;
               docParts.push(`📄 **${doc.name}**:\n${truncatedContent}`);
-            } else {
-              docParts.push(`📄 **${doc.name}**: [Documento sem transcrição - tipo: ${doc.file_type}]`);
             }
           }
           
           documentsContext = docParts.join('\n\n---\n\n');
         }
         
-        // Preparar contexto completo com TODOS os dados
+        // Preparar contexto completo
         const freeChatContext = `Você é o kAI, assistente de IA especializado para o cliente ${client.name}.
 
 ## ⚠️ REGRA CRÍTICA: NUNCA INVENTE DADOS
 - Se uma informação não estiver listada abaixo, diga: "Não encontrei essa informação nas fontes disponíveis"
 - NUNCA crie números, estatísticas ou dados que não estejam explicitamente fornecidos
-- Cite a fonte quando responder (ex: "Segundo o documento X...", "Nas métricas de Instagram...")
-- Se perguntado sobre algo que não está nas fontes, seja honesto e diga que não tem essa informação
+- Cite a fonte quando responder (ex: "Segundo as métricas de Instagram...", "No documento X...")
+- Se perguntado sobre algo que não está nas fontes, seja honesto
+
+## 🔍 FONTES CONSULTADAS PARA ESTA RESPOSTA:
+${sourcesConsulted.map(s => `- ${s.name}: ${s.count} registros${s.dateRange ? ` (${s.dateRange})` : ''}`).join('\n') || 'Nenhuma fonte encontrada'}
 
 ## 📋 IDENTIDADE DO CLIENTE:
 ${client.identity_guide || client.context_notes || 'Sem guia de identidade cadastrado'}
 
-## 📊 MÉTRICAS DE PERFORMANCE (últimos 90 dias):
+## 📊 MÉTRICAS DE PERFORMANCE:
 ${metricsContext}
 
 ${youtubeContext}
+
+${instagramContext}
 
 ## 📚 BIBLIOTECA DE CONTEÚDO (${contentLibrary.length} itens):
 ${contentLibrary.slice(0, 20).map((c, i) => `[${i + 1}] "${c.title}" (${c.content_type})`).join('\n') || 'Biblioteca vazia'}
@@ -719,27 +837,19 @@ ${contentLibrary.slice(0, 20).map((c, i) => `[${i + 1}] "${c.title}" (${c.conten
 ## 📖 BIBLIOTECA DE REFERÊNCIAS (${referenceLibrary.length} itens):
 ${referenceLibrary.slice(0, 15).map((r, i) => `[REF ${i + 1}] "${r.title}" (${r.reference_type})`).join('\n') || 'Sem referências'}
 
-## 📄 DOCUMENTOS DO CLIENTE (${documents.length} documentos):
+## 📄 DOCUMENTOS (${documents.length} documentos):
 ${documentsContext || 'Sem documentos'}
-
-## 🌐 WEBSITES (${websites.length}):
-${websites.map(w => `- ${w.url}`).join('\n') || 'Sem websites'}
 
 ## 📱 REDES SOCIAIS:
 ${client.social_media ? Object.entries(client.social_media).filter(([_, v]) => v).map(([k, v]) => `- ${k}: ${v}`).join('\n') : 'Não cadastradas'}
 
-## 🏷️ TAGS:
-${client.tags ? Object.entries(client.tags).filter(([_, v]) => v).map(([k, v]) => `- ${k}: ${v}`).join('\n') : 'Sem tags'}
-
 ---
 
 INSTRUÇÕES:
-- Responda perguntas usando APENAS as informações acima
-- Para perguntas sobre métricas, use os dados de MÉTRICAS DE PERFORMANCE
-- Para perguntas sobre conteúdo passado, use BIBLIOTECA DE CONTEÚDO
-- Para perguntas sobre termos específicos (como IOF, taxas, regras), BUSQUE NOS DOCUMENTOS
-- Seja direto e conciso
-- Se não souber, diga que não encontrou a informação`;
+- Sempre cite quais fontes você usou para responder
+- Se o usuário perguntar sobre um período sem dados, informe claramente que não há dados
+- Para métricas: ${dataAvailability}
+- Seja direto e preciso`;
 
         setCurrentStep("creating");
 
