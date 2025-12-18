@@ -15,8 +15,7 @@ import {
   Users,
   Search,
   LogOut,
-  HelpCircle,
-  Link2
+  HelpCircle
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useClients } from "@/hooks/useClients";
@@ -94,7 +93,7 @@ interface Kai2SidebarProps {
 export function Kai2Sidebar({ activeTab, onTabChange, selectedClientId, onClientChange }: Kai2SidebarProps) {
   const navigate = useNavigate();
   const { clients } = useClients();
-  const { canManageTeam } = useWorkspace();
+  const { canManageTeam, isViewer } = useWorkspace();
   const { pendingCount } = usePendingUsers();
   const { user, signOut } = useAuth();
   const selectedClient = clients?.find(c => c.id === selectedClientId);
@@ -243,75 +242,73 @@ export function Kai2Sidebar({ activeTab, onTabChange, selectedClientId, onClient
           />
         </div>
 
-        <SectionLabel>Ferramentas</SectionLabel>
+        {/* Ferramentas - hidden for viewers */}
+        {!isViewer && (
+          <>
+            <SectionLabel>Ferramentas</SectionLabel>
 
-        <div className="space-y-0.5">
-          {canManageTeam && (
-            <NavItem
-              icon={<Users className="h-4 w-4" />}
-              label="Equipe"
-              active={activeTab === "team"}
-              onClick={() => onTabChange("team")}
-              badge={pendingCount}
-            />
-          )}
+            <div className="space-y-0.5">
+              {canManageTeam && (
+                <NavItem
+                  icon={<Users className="h-4 w-4" />}
+                  label="Equipe"
+                  active={activeTab === "team"}
+                  onClick={() => onTabChange("team")}
+                  badge={pendingCount}
+                />
+              )}
 
-          <NavItem
-            icon={<Activity className="h-4 w-4" />}
-            label="Atividades"
-            active={activeTab === "activities"}
-            onClick={() => onTabChange("activities")}
-          />
+              <NavItem
+                icon={<Activity className="h-4 w-4" />}
+                label="Atividades"
+                active={activeTab === "activities"}
+                onClick={() => onTabChange("activities")}
+              />
 
-          <NavItem
-            icon={<BookOpen className="h-4 w-4" />}
-            label="Base de Conhecimento"
-            active={activeTab === "knowledge-base"}
-            onClick={() => onTabChange("knowledge-base")}
-          />
+              <NavItem
+                icon={<BookOpen className="h-4 w-4" />}
+                label="Base de Conhecimento"
+                active={activeTab === "knowledge-base"}
+                onClick={() => onTabChange("knowledge-base")}
+              />
 
-          <NavItem
-            icon={<Zap className="h-4 w-4" />}
-            label="Automações"
-            active={activeTab === "automations"}
-            onClick={() => onTabChange("automations")}
-          />
+              <NavItem
+                icon={<Zap className="h-4 w-4" />}
+                label="Automações"
+                active={activeTab === "automations"}
+                onClick={() => onTabChange("automations")}
+              />
 
-          <NavItem
-            icon={<Blocks className="h-4 w-4" />}
-            label="Agent Builder"
-            active={activeTab === "agent-builder"}
-            onClick={() => onTabChange("agent-builder")}
-          />
+              <NavItem
+                icon={<Blocks className="h-4 w-4" />}
+                label="Agent Builder"
+                active={activeTab === "agent-builder"}
+                onClick={() => onTabChange("agent-builder")}
+              />
 
-          <NavItem
-            icon={<FlaskConical className="h-4 w-4" />}
-            label="Lab de Pesquisa"
-            active={activeTab === "research-lab"}
-            onClick={() => onTabChange("research-lab")}
-          />
-        </div>
+              <NavItem
+                icon={<FlaskConical className="h-4 w-4" />}
+                label="Lab de Pesquisa"
+                active={activeTab === "research-lab"}
+                onClick={() => onTabChange("research-lab")}
+              />
+            </div>
+          </>
+        )}
 
         <SectionLabel>Conta</SectionLabel>
 
         <div className="space-y-0.5">
           <NavItem
             icon={<Settings className="h-4 w-4" />}
-            label="Configurações Gerais"
-            active={false}
-            onClick={() => navigate("/settings")}
-          />
-
-          <NavItem
-            icon={<Link2 className="h-4 w-4" />}
-            label="Integrações"
+            label="Configurações"
             active={false}
             onClick={() => navigate("/settings")}
           />
 
           <NavItem
             icon={<HelpCircle className="h-4 w-4" />}
-            label="Ajuda e Documentação"
+            label="Ajuda"
             active={activeTab === "docs"}
             onClick={() => navigate("/docs")}
           />
