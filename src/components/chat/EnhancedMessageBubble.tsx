@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import { User, Sparkles, ZoomIn, FileDown } from "lucide-react";
+import { User, Sparkles, ZoomIn, FileDown, Image as ImageIcon } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import kaleidosLogo from "@/assets/kaleidos-logo.svg";
 import { MessageActions } from "@/components/MessageActions";
@@ -14,7 +14,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import jsPDF from "jspdf";
 import { useToast } from "@/hooks/use-toast";
-
+import { PostPreviewCard, CarouselEditor } from "@/components/posts";
+import { parseContentForPosts, DetectedPost } from "@/lib/postDetection";
+import { CarouselSlide } from "@/components/posts/CarouselEditor";
 interface EnhancedMessageBubbleProps {
   role: "user" | "assistant";
   content: string;
@@ -51,6 +53,17 @@ export const EnhancedMessageBubble = ({
     if (isUser) return { textContent: content, artifacts: [] };
     return parseArtifacts(content);
   }, [content, isUser]);
+
+  // Parse content for social posts and carousels
+  const { posts: detectedPosts, carousel: detectedCarousel } = useMemo(() => {
+    if (isUser) return { posts: [], carousel: null };
+    return parseContentForPosts(content);
+  }, [content, isUser]);
+
+  // State for carousel editing
+  const [carouselSlides, setCarouselSlides] = useState<CarouselSlide[]>(
+    detectedCarousel?.slides || []
+  );
 
   // Check if this is a long-form content that could be a document
   const isLongFormContent = !isUser && content.length > 1500 && !artifacts.length;
@@ -156,6 +169,31 @@ export const EnhancedMessageBubble = ({
                 ))}
               </div>
             </div>
+          )}
+
+          {/* Detected social posts */}
+          {detectedPosts.length > 0 && (
+            <div className="space-y-3">
+              {detectedPosts.map((post, index) => (
+                <PostPreviewCard
+                  key={index}
+                  platform={post.platform}
+                  content={post.content}
+                  authorName={clientName}
+                  authorHandle={`@${clientName?.toLowerCase().replace(/\s+/g, "") || "handle"}`}
+                  imageUrl={hasImages ? imageUrls?.[0] : undefined}
+                />
+              ))}
+            </div>
+          )}
+
+          {/* Detected carousel */}
+          {detectedCarousel && carouselSlides.length > 0 && (
+            <CarouselEditor
+              slides={carouselSlides}
+              onSlidesChange={setCarouselSlides}
+              authorHandle={`@${clientName?.toLowerCase().replace(/\s+/g, "") || "handle"}`}
+            />
           )}
 
           {/* Artifacts (documentos, tabelas, etc) */}
