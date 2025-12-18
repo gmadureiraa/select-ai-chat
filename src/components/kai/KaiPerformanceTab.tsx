@@ -1,12 +1,11 @@
 import { useState } from "react";
-import { BarChart3, Users, Eye, Instagram, Twitter, Mail } from "lucide-react";
+import { BarChart3, Eye, Instagram, Mail } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { usePerformanceMetrics } from "@/hooks/usePerformanceMetrics";
 import { useYouTubeVideos } from "@/hooks/useYouTubeMetrics";
 import { useInstagramPosts } from "@/hooks/useInstagramPosts";
 import { PerformanceOverview } from "@/components/performance/PerformanceOverview";
 import { InstagramDashboard } from "@/components/performance/InstagramDashboard";
-import { TwitterDashboard } from "@/components/performance/TwitterDashboard";
 import { YouTubeDashboard } from "@/components/performance/YouTubeDashboard";
 import { NewsletterDashboard } from "@/components/performance/NewsletterDashboard";
 import { Client } from "@/hooks/useClients";
@@ -21,7 +20,6 @@ const allChannels = [
   { id: "overview", label: "Geral", icon: BarChart3 },
   { id: "instagram", label: "Instagram", icon: Instagram },
   { id: "youtube", label: "YouTube", icon: Eye },
-  { id: "twitter", label: "X", icon: Twitter },
   { id: "newsletter", label: "Newsletter", icon: Mail },
 ];
 
@@ -39,7 +37,6 @@ export const KaiPerformanceTab = ({ clientId, client }: KaiPerformanceTabProps) 
   const { data: instagramMetrics, isLoading: isLoadingInstagram } = usePerformanceMetrics(clientId, "instagram", 365);
   const { data: instagramPosts, isLoading: isLoadingInstagramPosts } = useInstagramPosts(clientId, 500);
   const { data: videos, isLoading: isLoadingVideos } = useYouTubeVideos(clientId, 100);
-  const { data: twitterMetrics, isLoading: isLoadingTwitter } = usePerformanceMetrics(clientId, "twitter", 365);
   const { data: newsletterMetrics, isLoading: isLoadingNewsletter } = usePerformanceMetrics(clientId, "newsletter", 365);
 
   const isLoading = isLoadingInstagram;
@@ -92,15 +89,6 @@ export const KaiPerformanceTab = ({ clientId, client }: KaiPerformanceTabProps) 
             clientId={clientId}
             videos={videos || []}
             isLoading={isLoadingVideos}
-          />
-        </TabsContent>
-
-        {/* Twitter - Full Dashboard */}
-        <TabsContent value="twitter" className="mt-4">
-          <TwitterDashboard
-            clientId={clientId}
-            metrics={twitterMetrics || []}
-            isLoading={isLoadingTwitter}
           />
         </TabsContent>
 

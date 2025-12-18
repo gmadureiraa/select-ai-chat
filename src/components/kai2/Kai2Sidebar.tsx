@@ -8,7 +8,6 @@ import {
   Settings,
   ChevronDown,
   Zap,
-  Send,
   Blocks,
   FlaskConical,
   BookOpen,
@@ -195,13 +194,6 @@ export function Kai2Sidebar({ activeTab, onTabChange, selectedClientId, onClient
           label="Agent Builder"
           active={activeTab === "agent-builder"}
           onClick={() => onTabChange("agent-builder")}
-        />
-
-        <NavItem
-          icon={<Send className="h-4 w-4" />}
-          label="Publicador Social"
-          active={activeTab === "social-publisher"}
-          onClick={() => onTabChange("social-publisher")}
         />
 
         <NavItem

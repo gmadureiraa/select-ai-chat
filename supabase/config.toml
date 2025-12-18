@@ -1,11 +1,5 @@
 project_id = "tkbsjtgrumhvwlxkmojg"
 
-[functions.twitter-oauth-start]
-verify_jwt = true
-
-[functions.twitter-oauth-callback]
-verify_jwt = false
-
 [functions.chat]
 verify_jwt = true
 
@@ -60,26 +54,11 @@ verify_jwt = true
 [functions.collect-daily-metrics]
 verify_jwt = false
 
-[functions.post-twitter]
-verify_jwt = true
-
-[functions.linkedin-oauth-callback]
-verify_jwt = false
-
-[functions.post-linkedin]
-verify_jwt = true
-
-[functions.process-scheduled-posts]
-verify_jwt = false
-
 [functions.import-beehiiv-newsletters]
 verify_jwt = true
 
 [functions.fetch-youtube-metrics]
 verify_jwt = true
-
-[functions.clickup-oauth-callback]
-verify_jwt = false
 
 [functions.execute-workflow]
 verify_jwt = true
