@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -11,18 +12,62 @@ serve(async (req) => {
   }
 
   try {
-    const { userId, clientId } = await req.json();
-
-    if (!userId || !clientId) {
+    // Verify user authentication
+    const authHeader = req.headers.get('authorization');
+    if (!authHeader) {
       return new Response(
-        JSON.stringify({ error: 'userId and clientId are required' }),
+        JSON.stringify({ error: 'Authorization header required' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
+    const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!;
+    
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      global: { headers: { Authorization: authHeader } }
+    });
+
+    // Get authenticated user from JWT
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    
+    if (authError || !user) {
+      console.error('Authentication failed:', authError);
+      return new Response(
+        JSON.stringify({ error: 'Authentication failed' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const userId = user.id;
+    
+    // Parse request body for clientId only
+    const { clientId } = await req.json();
+
+    if (!clientId) {
+      return new Response(
+        JSON.stringify({ error: 'clientId is required' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Verify user has access to this client via workspace membership
+    const { data: clientAccess, error: accessError } = await supabase
+      .rpc('client_workspace_accessible', { 
+        p_client_id: clientId, 
+        p_user_id: userId 
+      });
+
+    if (accessError || !clientAccess) {
+      console.error('Client access check failed:', accessError);
+      return new Response(
+        JSON.stringify({ error: 'Access denied to this client' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
     const GOOGLE_CLIENT_ID = Deno.env.get('GOOGLE_CLIENT_ID');
     const GOOGLE_CLIENT_SECRET = Deno.env.get('GOOGLE_CLIENT_SECRET');
-    const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
 
     if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
       return new Response(
@@ -67,7 +112,7 @@ serve(async (req) => {
     authUrl.searchParams.set('prompt', 'consent');
     authUrl.searchParams.set('state', state);
 
-    console.log(`Generated OAuth URL for user ${userId}, client ${clientId}`);
+    console.log(`Generated OAuth URL for authenticated user ${userId}, client ${clientId}`);
 
     return new Response(
       JSON.stringify({ authUrl: authUrl.toString() }),

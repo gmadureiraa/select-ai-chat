@@ -41,11 +41,9 @@ export const useStartYouTubeOAuth = () => {
 
   return useMutation({
     mutationFn: async (clientId: string) => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('User not authenticated');
-
+      // Edge function derives userId from JWT authentication
       const { data, error } = await supabase.functions.invoke('youtube-oauth-start', {
-        body: { userId: user.id, clientId },
+        body: { clientId },
       });
 
       if (error) throw error;
