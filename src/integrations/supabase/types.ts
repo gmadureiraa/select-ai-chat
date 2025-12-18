@@ -604,6 +604,53 @@ export type Database = {
           },
         ]
       }
+      client_visual_references: {
+        Row: {
+          client_id: string
+          created_at: string | null
+          description: string | null
+          id: string
+          image_url: string
+          is_primary: boolean | null
+          metadata: Json | null
+          reference_type: string
+          title: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          client_id: string
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          image_url: string
+          is_primary?: boolean | null
+          metadata?: Json | null
+          reference_type?: string
+          title?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          client_id?: string
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          image_url?: string
+          is_primary?: boolean | null
+          metadata?: Json | null
+          reference_type?: string
+          title?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_visual_references_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       client_websites: {
         Row: {
           client_id: string
@@ -645,6 +692,7 @@ export type Database = {
       clients: {
         Row: {
           avatar_url: string | null
+          brand_assets: Json | null
           context_notes: string | null
           created_at: string | null
           created_by: string | null
@@ -661,6 +709,7 @@ export type Database = {
         }
         Insert: {
           avatar_url?: string | null
+          brand_assets?: Json | null
           context_notes?: string | null
           created_at?: string | null
           created_by?: string | null
@@ -677,6 +726,7 @@ export type Database = {
         }
         Update: {
           avatar_url?: string | null
+          brand_assets?: Json | null
           context_notes?: string | null
           created_at?: string | null
           created_by?: string | null

@@ -16,10 +16,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   Plus, X, FileText, Loader2, Globe, Instagram, Twitter, 
   Linkedin, Youtube, Mail, Megaphone, Trash2, RefreshCw, Check,
-  Building, MessageSquare, Users, Target, Hash, Eye, Award, TrendingUp
+  Building, MessageSquare, Users, Target, Hash, Eye, Award, TrendingUp,
+  Palette
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { ClientDocumentsManager } from "./ClientDocumentsManager";
+import { BrandAssetsEditor } from "./BrandAssetsEditor";
+import { VisualReferencesManager } from "./VisualReferencesManager";
 import { AvatarUpload } from "@/components/ui/avatar-upload";
 import { Badge } from "@/components/ui/badge";
 import { useDebounce } from "@/hooks/useDebounce";
@@ -283,9 +286,13 @@ Estruture: Visão Geral, Posicionamento, Tom de Voz, Público-Alvo, Presença Di
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <Tabs defaultValue="basic" className="w-full">
-            <TabsList className="grid w-full grid-cols-7">
+            <TabsList className="grid w-full grid-cols-8">
               <TabsTrigger value="basic">Básico</TabsTrigger>
               <TabsTrigger value="identity">Identidade</TabsTrigger>
+              <TabsTrigger value="brand" className="flex items-center gap-1">
+                <Palette className="h-3 w-3" />
+                Visual
+              </TabsTrigger>
               <TabsTrigger value="social">Redes</TabsTrigger>
               <TabsTrigger value="tags">Tags</TabsTrigger>
               <TabsTrigger value="websites">Websites</TabsTrigger>
@@ -361,6 +368,26 @@ Estruture: Visão Geral, Posicionamento, Tom de Voz, Público-Alvo, Presença Di
                   className="font-mono text-sm"
                 />
               </div>
+            </TabsContent>
+
+            <TabsContent value="brand" className="space-y-6">
+              <div className="space-y-2">
+                <h4 className="text-sm font-medium">Identidade Visual da Marca</h4>
+                <p className="text-xs text-muted-foreground">
+                  Configure logo, cores, tipografia e estilo visual. Essas informações serão usadas para melhorar as gerações de imagem com IA.
+                </p>
+              </div>
+              
+              {client && (
+                <>
+                  <BrandAssetsEditor clientId={client.id} clientName={client.name} />
+                  
+                  <div className="border-t pt-6">
+                    <h4 className="text-sm font-medium mb-4">Referências Visuais</h4>
+                    <VisualReferencesManager clientId={client.id} />
+                  </div>
+                </>
+              )}
             </TabsContent>
 
             <TabsContent value="social" className="space-y-4">
