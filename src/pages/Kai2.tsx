@@ -7,7 +7,6 @@ import { KaiPerformanceTab } from "@/components/kai/KaiPerformanceTab";
 import { KaiLibraryTab } from "@/components/kai/KaiLibraryTab";
 import { KaiSettingsTab } from "@/components/kai/KaiSettingsTab";
 import { KaiAutomationsTab } from "@/components/kai/KaiAutomationsTab";
-import { SocialPublisherTool } from "@/components/kai2/tools/SocialPublisherTool";
 import { AgentBuilderTool } from "@/components/kai2/tools/AgentBuilderTool";
 import { ResearchLabTool } from "@/components/kai2/tools/ResearchLabTool";
 import { KnowledgeBaseTool } from "@/components/kai2/tools/KnowledgeBaseTool";
@@ -66,12 +65,10 @@ export default function Kai2() {
     }
 
     // Tools that don't need client
-    const toolTabs = ["social-publisher", "agent-builder", "research-lab", "knowledge-base", "activities", "team", "account"];
+    const toolTabs = ["agent-builder", "research-lab", "knowledge-base", "activities", "team", "account"];
     
     if (toolTabs.includes(tab)) {
       switch (tab) {
-        case "social-publisher":
-          return <SocialPublisherTool />;
         case "agent-builder":
           return <AgentBuilderTool />;
         case "research-lab":

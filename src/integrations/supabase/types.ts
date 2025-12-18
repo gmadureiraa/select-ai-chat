@@ -431,33 +431,6 @@ export type Database = {
           },
         ]
       }
-      clickup_tokens: {
-        Row: {
-          access_token: string
-          created_at: string | null
-          id: string
-          updated_at: string | null
-          user_id: string
-          workspace_id: string | null
-        }
-        Insert: {
-          access_token: string
-          created_at?: string | null
-          id?: string
-          updated_at?: string | null
-          user_id: string
-          workspace_id?: string | null
-        }
-        Update: {
-          access_token?: string
-          created_at?: string | null
-          id?: string
-          updated_at?: string | null
-          user_id?: string
-          workspace_id?: string | null
-        }
-        Relationships: []
-      }
       client_content_library: {
         Row: {
           client_id: string
@@ -978,33 +951,6 @@ export type Database = {
           },
         ]
       }
-      linkedin_tokens: {
-        Row: {
-          access_token: string
-          created_at: string | null
-          expires_at: string | null
-          id: string
-          updated_at: string | null
-          user_id: string
-        }
-        Insert: {
-          access_token: string
-          created_at?: string | null
-          expires_at?: string | null
-          id?: string
-          updated_at?: string | null
-          user_id: string
-        }
-        Update: {
-          access_token?: string
-          created_at?: string | null
-          expires_at?: string | null
-          id?: string
-          updated_at?: string | null
-          user_id?: string
-        }
-        Relationships: []
-      }
       messages: {
         Row: {
           content: string
@@ -1524,112 +1470,6 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "research_projects_client_id_fkey"
-            columns: ["client_id"]
-            isOneToOne: false
-            referencedRelation: "clients"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      scheduled_posts: {
-        Row: {
-          client_id: string | null
-          content: string
-          created_at: string
-          id: string
-          image_url: string | null
-          platforms: string[]
-          publish_results: Json | null
-          published_at: string | null
-          scheduled_at: string | null
-          status: string
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          client_id?: string | null
-          content: string
-          created_at?: string
-          id?: string
-          image_url?: string | null
-          platforms?: string[]
-          publish_results?: Json | null
-          published_at?: string | null
-          scheduled_at?: string | null
-          status?: string
-          updated_at?: string
-          user_id?: string
-        }
-        Update: {
-          client_id?: string | null
-          content?: string
-          created_at?: string
-          id?: string
-          image_url?: string | null
-          platforms?: string[]
-          publish_results?: Json | null
-          published_at?: string | null
-          scheduled_at?: string | null
-          status?: string
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "scheduled_posts_client_id_fkey"
-            columns: ["client_id"]
-            isOneToOne: false
-            referencedRelation: "clients"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      twitter_tokens: {
-        Row: {
-          access_token: string
-          client_id: string | null
-          created_at: string | null
-          expires_at: string | null
-          id: string
-          refresh_token: string | null
-          twitter_api_key: string | null
-          twitter_api_secret: string | null
-          twitter_id: string | null
-          updated_at: string | null
-          user_id: string
-          username: string | null
-        }
-        Insert: {
-          access_token: string
-          client_id?: string | null
-          created_at?: string | null
-          expires_at?: string | null
-          id?: string
-          refresh_token?: string | null
-          twitter_api_key?: string | null
-          twitter_api_secret?: string | null
-          twitter_id?: string | null
-          updated_at?: string | null
-          user_id: string
-          username?: string | null
-        }
-        Update: {
-          access_token?: string
-          client_id?: string | null
-          created_at?: string | null
-          expires_at?: string | null
-          id?: string
-          refresh_token?: string | null
-          twitter_api_key?: string | null
-          twitter_api_secret?: string | null
-          twitter_id?: string | null
-          updated_at?: string | null
-          user_id?: string
-          username?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "twitter_tokens_client_id_fkey"
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "clients"
