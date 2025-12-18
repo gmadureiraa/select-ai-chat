@@ -112,7 +112,7 @@ function parseCSVLine(line: string): string[] {
   return result;
 }
 
-export function useSmartNewsletterImport(clientId: string) {
+export function useSmartNewsletterImport(clientId: string, onImportComplete?: (platform: string, count: number, fileName?: string) => void) {
   const [isImporting, setIsImporting] = useState(false);
   const [result, setResult] = useState<ImportResult | null>(null);
   const { toast } = useToast();
@@ -269,7 +269,13 @@ export function useSmartNewsletterImport(clientId: string) {
       
       // Invalidate queries to refresh data
       queryClient.invalidateQueries({ queryKey: ["performance-metrics", clientId] });
+      queryClient.invalidateQueries({ queryKey: ["import-history", clientId] });
       localStorage.removeItem(`insights-${clientId}`);
+
+      // Call import complete callback for logging
+      if (onImportComplete && count > 0) {
+        onImportComplete("newsletter", count, file.name);
+      }
 
       const typeLabels = {
         daily_performance: "Performance Diária",

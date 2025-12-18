@@ -257,12 +257,12 @@ export function PerformanceOverview({ clientId, clientName }: PerformanceOvervie
               <CardContent className="p-4">
                 <div className="flex items-start justify-between">
                   <div>
-                    <p className="text-xs text-muted-foreground flex items-center gap-1">
+                    <span className="text-xs text-muted-foreground flex items-center gap-1">
                       {kpi.label}
                       <Badge variant="outline" className="text-[10px] px-1 py-0 ml-1">
                         {kpi.platform}
                       </Badge>
-                    </p>
+                    </span>
                     <p className="text-2xl font-bold mt-1">{formatNumber(kpi.value)}</p>
                   </div>
                   <div className={`p-2 rounded-lg bg-${kpi.color}-500/10`}>

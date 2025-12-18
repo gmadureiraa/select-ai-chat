@@ -10,6 +10,7 @@ import { YouTubeConnectionCard } from "./YouTubeConnectionCard";
 import { YouTubeCSVUpload } from "./YouTubeCSVUpload";
 import { YouTubeVideosTable } from "./YouTubeVideosTable";
 import { ImportHistoryPanel } from "./ImportHistoryPanel";
+import { DataCompletenessWarning } from "./DataCompletenessWarning";
 import { subDays, format, parseISO, isAfter } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -150,15 +151,26 @@ export function YouTubeDashboard({ clientId, videos, isLoading }: YouTubeDashboa
     );
   }
 
+  // Data completeness stats
+  const dataCompleteness = useMemo(() => ({
+    total: videos.length,
+    withThumbnails: videos.filter(v => v.thumbnail_url).length,
+    withViews: videos.filter(v => v.total_views !== null && v.total_views !== undefined).length,
+    withLikes: videos.filter(v => v.likes !== null && v.likes !== undefined).length,
+  }), [videos]);
+
   return (
     <div className="space-y-4">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h3 className="text-lg font-semibold">YouTube</h3>
-          <p className="text-xs text-muted-foreground">
-            {videos.length} vídeos • {filteredVideos.length} no período
-          </p>
+        <div className="flex items-center gap-3">
+          <div>
+            <h3 className="text-lg font-semibold">YouTube</h3>
+            <p className="text-xs text-muted-foreground">
+              {videos.length} vídeos • {filteredVideos.length} no período
+            </p>
+          </div>
+          <DataCompletenessWarning platform="youtube" data={dataCompleteness} />
         </div>
         <div className="flex items-center gap-2">
           <div className="flex bg-muted/50 rounded-lg p-0.5">

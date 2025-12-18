@@ -391,12 +391,13 @@ interface DailyMetricData {
   link_clicks?: number;
 }
 
-export const useSmartInstagramImport = (clientId: string) => {
+export const useSmartInstagramImport = (clientId: string, onImportComplete?: (platform: string, count: number, fileName?: string) => void) => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (files: File[]) => {
+      const fileNames = files.map(f => f.name).join(', ');
       const results: { type: string; count: number; invalid?: number }[] = [];
       const dailyMetrics: Map<string, DailyMetricData> = new Map();
       
@@ -490,10 +491,19 @@ export const useSmartInstagramImport = (clientId: string) => {
       
       return results;
     },
-    onSuccess: async (results) => {
+    onSuccess: async (results, files) => {
       queryClient.invalidateQueries({ queryKey: ["instagram-posts", clientId] });
       queryClient.invalidateQueries({ queryKey: ["performance-metrics", clientId] });
       queryClient.invalidateQueries({ queryKey: ["performance-context", clientId] });
+      queryClient.invalidateQueries({ queryKey: ["import-history", clientId] });
+      
+      const totalCount = results.reduce((sum, r) => sum + r.count, 0);
+      const fileNames = files.map(f => f.name).join(', ');
+      
+      // Call import complete callback for logging
+      if (onImportComplete && totalCount > 0) {
+        onImportComplete("instagram", totalCount, fileNames);
+      }
       
       const summary = results.map(r => {
         if (r.invalid && r.invalid > 0) {

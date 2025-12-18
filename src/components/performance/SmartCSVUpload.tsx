@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Upload, FileSpreadsheet, Sparkles, X, ArrowLeft, Bot, CheckCircle2, AlertTriangle, XCircle, RefreshCw } from "lucide-react";
 import { useSmartInstagramImport } from "@/hooks/useSmartInstagramImport";
 import { useCSVValidation } from "@/hooks/useCSVValidation";
+import { useImportHistory } from "@/hooks/useImportHistory";
 import { CSVValidationAgent } from "@/components/performance/CSVValidationAgent";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
@@ -42,7 +43,21 @@ export function SmartCSVUpload({ clientId, platform, onImportComplete }: SmartCS
   const [aiVerification, setAiVerification] = useState<AIVerificationResult | null>(null);
   const [isVerifying, setIsVerifying] = useState(false);
   
-  const importMutation = useSmartInstagramImport(clientId);
+  const { logImport } = useImportHistory(clientId);
+  
+  // Callback to log imports to history
+  const handleImportComplete = useCallback((importPlatform: string, count: number, fileName?: string) => {
+    logImport.mutate({
+      clientId,
+      platform: importPlatform,
+      recordsCount: count,
+      fileName,
+      status: "completed",
+      metadata: { source: "smart_csv_upload" }
+    });
+  }, [clientId, logImport]);
+  
+  const importMutation = useSmartInstagramImport(clientId, handleImportComplete);
   const { 
     validationResults, 
     isValidating, 
