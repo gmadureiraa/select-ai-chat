@@ -21,6 +21,7 @@ import { ContentTypeDonut } from "./ContentTypeDonut";
 import { TopContentTable } from "./TopContentTable";
 import { PostingTimeHeatmap } from "./PostingTimeHeatmap";
 import { ImportHistoryPanel } from "./ImportHistoryPanel";
+import { DataCompletenessWarning } from "./DataCompletenessWarning";
 import { format, subDays, isAfter, parseISO, startOfDay, getDay, getHours } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -353,17 +354,29 @@ export function InstagramDashboard({
     return data;
   }, [filteredPosts]);
 
+  // Data completeness stats
+  const dataCompleteness = useMemo(() => ({
+    total: posts.length,
+    withThumbnails: posts.filter(p => p.thumbnail_url).length,
+    withLikes: posts.filter(p => p.likes !== null && p.likes !== undefined).length,
+    withReach: posts.filter(p => p.reach !== null && p.reach !== undefined && p.reach > 0).length,
+    withEngagement: posts.filter(p => p.engagement_rate !== null && p.engagement_rate !== undefined).length,
+  }), [posts]);
+
   const selectedPeriodLabel = periodOptions.find(p => p.value === period)?.label || "Período";
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold tracking-tight">Instagram Analytics</h2>
-          <p className="text-sm text-muted-foreground mt-1">
-            {filteredPosts.length} posts • {filteredMetrics.length} dias de dados
-          </p>
+        <div className="flex items-center gap-3">
+          <div>
+            <h2 className="text-2xl font-bold tracking-tight">Instagram Analytics</h2>
+            <p className="text-sm text-muted-foreground mt-1">
+              {filteredPosts.length} posts • {filteredMetrics.length} dias de dados
+            </p>
+          </div>
+          <DataCompletenessWarning platform="instagram" data={dataCompleteness} />
         </div>
         <div className="flex items-center gap-3">
           <Select value={period} onValueChange={setPeriod}>
