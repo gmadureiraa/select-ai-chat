@@ -1,13 +1,21 @@
 import { useState, useMemo } from "react";
-import { Library, FileText, Link2, Plus, Search, Instagram, Trash2 } from "lucide-react";
+import { Library, FileText, Link2, Plus, Search, Instagram, Trash2, Image } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import { 
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from "@/components/ui/select";
 import { useContentLibrary, ContentItem, CreateContentData } from "@/hooks/useContentLibrary";
 import { useReferenceLibrary, ReferenceItem, CreateReferenceData } from "@/hooks/useReferenceLibrary";
+import { useClientVisualReferences } from "@/hooks/useClientVisualReferences";
 import { ContentCard } from "@/components/content/ContentCard";
 import { ContentDialog } from "@/components/content/ContentDialog";
 import { ContentViewDialog } from "@/components/content/ContentViewDialog";
@@ -15,6 +23,7 @@ import { ReferenceCard } from "@/components/references/ReferenceCard";
 import { ReferenceDialog } from "@/components/references/ReferenceDialog";
 import { ReferenceViewDialog } from "@/components/references/ReferenceViewDialog";
 import { InstagramCarouselImporter } from "@/components/images/InstagramCarouselImporter";
+import { VisualReferencesManager, REFERENCE_TYPES } from "@/components/clients/VisualReferencesManager";
 import { LibraryFilters, ContentTypeFilter, SortOption, ViewMode } from "@/components/kai2/LibraryFilters";
 import { Client } from "@/hooks/useClients";
 import { cn } from "@/lib/utils";
@@ -31,6 +40,7 @@ export const KaiLibraryTab = ({ clientId, client }: KaiLibraryTabProps) => {
   
   // Filters state
   const [typeFilter, setTypeFilter] = useState<ContentTypeFilter>("all");
+  const [visualRefTypeFilter, setVisualRefTypeFilter] = useState<string>("all");
   const [sortOption, setSortOption] = useState<SortOption>("newest");
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
@@ -49,6 +59,10 @@ export const KaiLibraryTab = ({ clientId, client }: KaiLibraryTabProps) => {
   // Instagram Importer
   const [instagramImporterOpen, setInstagramImporterOpen] = useState(false);
   const { references, createReference, updateReference, deleteReference } = useReferenceLibrary(clientId);
+
+  // Visual References
+  const { references: visualReferences, deleteReference: deleteVisualRef } = useClientVisualReferences(clientId);
+  const [showVisualUploadForm, setShowVisualUploadForm] = useState(false);
 
   // Filter and sort content
   const filteredContents = useMemo(() => {
@@ -162,9 +176,12 @@ export const KaiLibraryTab = ({ clientId, client }: KaiLibraryTabProps) => {
       const deletePromises = Array.from(selectedItems).map(id => {
         if (activeTab === "content") {
           return deleteContent.mutateAsync(id);
-        } else {
+        } else if (activeTab === "references") {
           return deleteReference.mutateAsync(id);
+        } else if (activeTab === "visual-refs") {
+          return deleteVisualRef.mutateAsync(id);
         }
+        return Promise.resolve();
       });
       
       await Promise.all(deletePromises);
@@ -362,9 +379,11 @@ export const KaiLibraryTab = ({ clientId, client }: KaiLibraryTabProps) => {
               if (activeTab === "content") {
                 setSelectedContent(null);
                 setContentDialogOpen(true);
-              } else {
+              } else if (activeTab === "references") {
                 setSelectedReference(null);
                 setReferenceDialogOpen(true);
+              } else if (activeTab === "visual-refs") {
+                setShowVisualUploadForm(true);
               }
             }}
             className="shrink-0"
@@ -390,9 +409,35 @@ export const KaiLibraryTab = ({ clientId, client }: KaiLibraryTabProps) => {
               <span className="hidden sm:inline">Referências</span>
               <Badge variant="secondary" className="ml-1">{references?.length || 0}</Badge>
             </TabsTrigger>
+            <TabsTrigger value="visual-refs" className="gap-2">
+              <Image className="h-4 w-4" />
+              <span className="hidden sm:inline">Refs Visuais</span>
+              <Badge variant="secondary" className="ml-1">{visualReferences?.length || 0}</Badge>
+            </TabsTrigger>
           </TabsList>
           
-          <LibraryFilters
+          <div className="flex items-center gap-2">
+            {/* Visual Refs Type Filter */}
+            {activeTab === "visual-refs" && (
+              <Select value={visualRefTypeFilter} onValueChange={setVisualRefTypeFilter}>
+                <SelectTrigger className="w-40">
+                  <SelectValue placeholder="Tipo" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os tipos</SelectItem>
+                  {REFERENCE_TYPES.map(type => (
+                    <SelectItem key={type.value} value={type.value}>
+                      <div className="flex items-center gap-2">
+                        <type.icon className="h-4 w-4" />
+                        {type.label}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+            
+            <LibraryFilters
             typeFilter={typeFilter}
             onTypeFilterChange={setTypeFilter}
             sortOption={sortOption}
@@ -403,6 +448,7 @@ export const KaiLibraryTab = ({ clientId, client }: KaiLibraryTabProps) => {
             onClearSelection={handleClearSelection}
             onDeleteSelected={handleDeleteSelected}
           />
+          </div>
         </div>
 
         {/* Content Library */}
@@ -473,6 +519,19 @@ export const KaiLibraryTab = ({ clientId, client }: KaiLibraryTabProps) => {
               {filteredReferences.map(renderReferenceItem)}
             </div>
           )}
+        </TabsContent>
+
+        {/* Visual References Library */}
+        <TabsContent value="visual-refs" className="mt-4">
+          <VisualReferencesManager
+            clientId={clientId}
+            variant="expanded"
+            searchQuery={searchQuery}
+            typeFilter={visualRefTypeFilter}
+            viewMode={viewMode}
+            selectedItems={selectedItems}
+            onToggleSelection={toggleSelection}
+          />
         </TabsContent>
 
       </Tabs>
