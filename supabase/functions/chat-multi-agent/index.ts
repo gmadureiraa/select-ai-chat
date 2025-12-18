@@ -1,6 +1,13 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { logAIUsage, estimateTokens } from "../_shared/ai-usage.ts";
+import { 
+  validateString, 
+  validateUUID, 
+  validateArray,
+  createValidationErrorResponse,
+  sanitizeString
+} from "../_shared/validation.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -215,14 +222,74 @@ Execute sua função.`;
   return await callGemini(messages, agent.model);
 }
 
+// Validate request body
+function validateRequestBody(body: unknown): { field: string; message: string }[] {
+  const errors: { field: string; message: string }[] = [];
+  
+  if (!body || typeof body !== "object") {
+    errors.push({ field: "body", message: "Corpo da requisição deve ser um objeto" });
+    return errors;
+  }
+  
+  const data = body as Record<string, unknown>;
+  
+  // Required fields
+  const userMessageError = validateString(data.userMessage, "userMessage", { required: true, maxLength: 50000 });
+  if (userMessageError) errors.push(userMessageError);
+  
+  const clientNameError = validateString(data.clientName, "clientName", { required: true, maxLength: 500 });
+  if (clientNameError) errors.push(clientNameError);
+  
+  // Optional fields
+  const identityGuideError = validateString(data.identityGuide, "identityGuide", { maxLength: 100000 });
+  if (identityGuideError) errors.push(identityGuideError);
+  
+  const copywritingGuideError = validateString(data.copywritingGuide, "copywritingGuide", { maxLength: 100000 });
+  if (copywritingGuideError) errors.push(copywritingGuideError);
+  
+  const contentTypeError = validateString(data.contentType, "contentType", { maxLength: 100 });
+  if (contentTypeError) errors.push(contentTypeError);
+  
+  const userIdError = validateUUID(data.userId, "userId");
+  if (userIdError) errors.push(userIdError);
+  
+  const clientIdError = validateUUID(data.clientId, "clientId");
+  if (clientIdError) errors.push(clientIdError);
+  
+  const contentLibraryError = validateArray(data.contentLibrary, "contentLibrary", { maxLength: 1000 });
+  if (contentLibraryError) errors.push(contentLibraryError);
+  
+  const referenceLibraryError = validateArray(data.referenceLibrary, "referenceLibrary", { maxLength: 500 });
+  if (referenceLibraryError) errors.push(referenceLibraryError);
+  
+  return errors;
+}
+
 // ============ PIPELINE PRINCIPAL ============
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
+    // Parse and validate request body
+    let body: Record<string, unknown>;
+    try {
+      body = await req.json();
+    } catch {
+      return createValidationErrorResponse(
+        [{ field: "body", message: "JSON inválido no corpo da requisição" }],
+        corsHeaders
+      );
+    }
+    
+    const validationErrors = validateRequestBody(body);
+    if (validationErrors.length > 0) {
+      console.error("[MULTI-AGENT] Validation errors:", validationErrors);
+      return createValidationErrorResponse(validationErrors, corsHeaders);
+    }
+    
     const {
-      userMessage,
+      userMessage: rawUserMessage,
       contentLibrary = [],
       referenceLibrary = [],
       identityGuide = "",
@@ -232,7 +299,21 @@ serve(async (req) => {
       userId,
       clientId,
       pipeline
-    } = await req.json();
+    } = body as {
+      userMessage: string;
+      contentLibrary?: any[];
+      referenceLibrary?: any[];
+      identityGuide?: string;
+      copywritingGuide?: string;
+      clientName: string;
+      contentType?: string;
+      userId?: string;
+      clientId?: string;
+      pipeline?: PipelineConfig;
+    };
+    
+    // Sanitize user message
+    const userMessage = sanitizeString(rawUserMessage);
 
     console.log(`[MULTI-AGENT] Starting pipeline for ${clientName}`);
     console.log(`[MULTI-AGENT] Content type: ${contentType}`);
@@ -248,24 +329,28 @@ serve(async (req) => {
       {
         id: "researcher",
         name: "Pesquisador",
+        description: "Analisa materiais disponíveis",
         model: "flash",
         systemPrompt: "Analise e selecione materiais relevantes da biblioteca."
       },
       {
         id: "writer",
         name: "Escritor",
+        description: "Cria o primeiro rascunho",
         model: "pro",
         systemPrompt: "Crie o primeiro rascunho do conteúdo."
       },
       {
         id: "editor",
         name: "Editor de Estilo",
+        description: "Refina o estilo do conteúdo",
         model: "pro",
         systemPrompt: "Refine o conteúdo para soar como o cliente."
       },
       {
         id: "reviewer",
         name: "Revisor Final",
+        description: "Revisão final e polish",
         model: "flash",
         systemPrompt: "Faça revisão final e polish."
       }

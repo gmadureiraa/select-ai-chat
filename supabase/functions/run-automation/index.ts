@@ -1,6 +1,10 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { 
+  validateUUID,
+  createValidationErrorResponse
+} from "../_shared/validation.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -93,20 +97,48 @@ function mapToGeminiModel(model: string): string {
   return modelMap[model] || "google/gemini-2.5-flash";
 }
 
+// Validate request body
+function validateRequestBody(body: unknown): { field: string; message: string }[] {
+  const errors: { field: string; message: string }[] = [];
+  
+  if (!body || typeof body !== "object") {
+    errors.push({ field: "body", message: "Corpo da requisição deve ser um objeto" });
+    return errors;
+  }
+  
+  const data = body as Record<string, unknown>;
+  
+  // Required field
+  const automationIdError = validateUUID(data.automationId, "automationId", { required: true });
+  if (automationIdError) errors.push(automationIdError);
+  
+  return errors;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   const startTime = Date.now();
 
   try {
-    const { automationId } = await req.json();
-
-    if (!automationId) {
-      return new Response(
-        JSON.stringify({ error: "automationId is required" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    // Parse and validate request body
+    let body: Record<string, unknown>;
+    try {
+      body = await req.json();
+    } catch {
+      return createValidationErrorResponse(
+        [{ field: "body", message: "JSON inválido no corpo da requisição" }],
+        corsHeaders
       );
     }
+    
+    const validationErrors = validateRequestBody(body);
+    if (validationErrors.length > 0) {
+      console.error("[run-automation] Validation errors:", validationErrors);
+      return createValidationErrorResponse(validationErrors, corsHeaders);
+    }
+    
+    const { automationId } = body as { automationId: string };
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;

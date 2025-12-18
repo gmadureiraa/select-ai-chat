@@ -1,5 +1,14 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { 
+  validateString, 
+  validateUUID, 
+  validateArray, 
+  validateBoolean,
+  validateChatMessages,
+  createValidationErrorResponse,
+  sanitizeString
+} from "../_shared/validation.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -140,11 +149,86 @@ const contentSelectionTool = {
   }
 };
 
+// Validate request body
+function validateRequestBody(body: unknown): { field: string; message: string }[] {
+  const errors: { field: string; message: string }[] = [];
+  
+  if (!body || typeof body !== "object") {
+    errors.push({ field: "body", message: "Corpo da requisição deve ser um objeto" });
+    return errors;
+  }
+  
+  const data = body as Record<string, unknown>;
+  
+  // Validate messages (required)
+  const messagesErrors = validateChatMessages(data.messages, "messages");
+  errors.push(...messagesErrors);
+  
+  // Validate model (optional)
+  const modelError = validateString(data.model, "model", { maxLength: 100 });
+  if (modelError) errors.push(modelError);
+  
+  // Validate isSelectionPhase (optional)
+  const selectionPhaseError = validateBoolean(data.isSelectionPhase, "isSelectionPhase");
+  if (selectionPhaseError) errors.push(selectionPhaseError);
+  
+  // Validate userId (optional but should be UUID if present)
+  const userIdError = validateUUID(data.userId, "userId");
+  if (userIdError) errors.push(userIdError);
+  
+  // Validate clientId (optional but should be UUID if present)
+  const clientIdError = validateUUID(data.clientId, "clientId");
+  if (clientIdError) errors.push(clientIdError);
+  
+  // Validate imageUrls (optional)
+  const imageUrlsError = validateArray(data.imageUrls, "imageUrls", { maxLength: 20 });
+  if (imageUrlsError) errors.push(imageUrlsError);
+  
+  // Validate availableMaterials (optional)
+  const materialsError = validateArray(data.availableMaterials, "availableMaterials", { maxLength: 1000 });
+  if (materialsError) errors.push(materialsError);
+  
+  return errors;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { messages, model = "gemini-2.5-flash", isSelectionPhase, userId, clientId, imageUrls, availableMaterials } = await req.json();
+    // Parse and validate request body
+    let body: Record<string, unknown>;
+    try {
+      body = await req.json();
+    } catch {
+      return createValidationErrorResponse(
+        [{ field: "body", message: "JSON inválido no corpo da requisição" }],
+        corsHeaders
+      );
+    }
+    
+    const validationErrors = validateRequestBody(body);
+    if (validationErrors.length > 0) {
+      console.error("[CHAT] Validation errors:", validationErrors);
+      return createValidationErrorResponse(validationErrors, corsHeaders);
+    }
+    
+    const { 
+      messages, 
+      model = "gemini-2.5-flash", 
+      isSelectionPhase, 
+      userId, 
+      clientId, 
+      imageUrls, 
+      availableMaterials 
+    } = body as {
+      messages: { role: string; content: string; image_urls?: string[] }[];
+      model?: string;
+      isSelectionPhase?: boolean;
+      userId?: string;
+      clientId?: string;
+      imageUrls?: string[];
+      availableMaterials?: unknown[];
+    };
 
     console.log(`[CHAT] Model: ${model}, Phase: ${isSelectionPhase ? "selection" : "response"}, Images: ${imageUrls?.length || 0}`);
     
