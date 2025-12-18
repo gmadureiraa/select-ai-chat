@@ -80,12 +80,14 @@ export function AvatarUpload({
 
       if (error) throw error;
 
-      // Get public URL
-      const { data: urlData } = supabase.storage
+      // Get signed URL for private bucket (1 year expiry)
+      const { data: signedData, error: signedError } = await supabase.storage
         .from(bucket)
-        .getPublicUrl(data.path);
+        .createSignedUrl(data.path, 60 * 60 * 24 * 365); // 1 year
 
-      onUpload(urlData.publicUrl);
+      if (signedError) throw signedError;
+
+      onUpload(signedData.signedUrl);
       
       toast({
         title: "Imagem atualizada",
