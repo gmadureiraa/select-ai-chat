@@ -14,6 +14,28 @@ interface ReferenceImage {
   styleAnalysis?: any;
 }
 
+interface BrandAssets {
+  logo_url?: string;
+  logo_variations?: string[];
+  color_palette?: {
+    primary?: string;
+    secondary?: string;
+    accent?: string;
+    background?: string;
+    text?: string;
+  };
+  typography?: {
+    primary_font?: string;
+    secondary_font?: string;
+    style?: string;
+  };
+  visual_style?: {
+    photography_style?: string;
+    mood?: string;
+    recurring_elements?: string[];
+  };
+}
+
 function arrayBufferToBase64(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer);
   let binary = '';
@@ -27,13 +49,55 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
   return btoa(binary);
 }
 
+function formatBrandAssetsForPrompt(brandAssets: BrandAssets): string {
+  const parts: string[] = [];
+  
+  if (brandAssets.color_palette) {
+    const colors = Object.entries(brandAssets.color_palette)
+      .filter(([_, value]) => value)
+      .map(([key, value]) => `${key}: ${value}`)
+      .join(", ");
+    if (colors) parts.push(`Paleta de cores: ${colors}`);
+  }
+  
+  if (brandAssets.typography) {
+    const typo = [];
+    if (brandAssets.typography.primary_font) typo.push(`Fonte: ${brandAssets.typography.primary_font}`);
+    if (brandAssets.typography.style) typo.push(`Estilo: ${brandAssets.typography.style}`);
+    if (typo.length > 0) parts.push(`Tipografia: ${typo.join(", ")}`);
+  }
+  
+  if (brandAssets.visual_style) {
+    if (brandAssets.visual_style.photography_style) {
+      parts.push(`Estilo fotográfico: ${brandAssets.visual_style.photography_style}`);
+    }
+    if (brandAssets.visual_style.mood) {
+      parts.push(`Mood: ${brandAssets.visual_style.mood}`);
+    }
+    if (brandAssets.visual_style.recurring_elements?.length) {
+      parts.push(`Elementos visuais: ${brandAssets.visual_style.recurring_elements.join(", ")}`);
+    }
+  }
+  
+  return parts.join(". ");
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { prompt, imageReferences, referenceImages, styleAnalysis, userId, clientId } = await req.json();
+    const { 
+      prompt, 
+      imageReferences, 
+      referenceImages, 
+      styleAnalysis, 
+      userId, 
+      clientId,
+      brandAssets,
+      clientVisualReferences 
+    } = await req.json();
 
     if (!prompt || typeof prompt !== 'string') {
       return new Response(
@@ -51,20 +115,83 @@ serve(async (req) => {
       );
     }
 
-    // Setup Supabase for logging
+    // Setup Supabase for logging and fetching brand assets
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const allRefs: ReferenceImage[] = [...(referenceImages || []), ...(imageReferences || [])];
+    // Fetch brand assets from database if not provided and clientId exists
+    let effectiveBrandAssets = brandAssets;
+    let clientName = "";
+    
+    if (!effectiveBrandAssets && clientId) {
+      console.log(`[generate-image] Fetching brand assets for client ${clientId}`);
+      const { data: clientData } = await supabase
+        .from("clients")
+        .select("name, brand_assets")
+        .eq("id", clientId)
+        .single();
+      
+      if (clientData) {
+        effectiveBrandAssets = clientData.brand_assets;
+        clientName = clientData.name || "";
+        console.log(`[generate-image] Found brand assets for client: ${clientName}`);
+      }
+    }
+
+    // Fetch visual references from database if not provided
+    let effectiveVisualRefs = clientVisualReferences || [];
+    
+    if (effectiveVisualRefs.length === 0 && clientId) {
+      console.log(`[generate-image] Fetching visual references for client ${clientId}`);
+      const { data: visualRefs } = await supabase
+        .from("client_visual_references")
+        .select("*")
+        .eq("client_id", clientId)
+        .eq("is_primary", true)
+        .limit(4);
+      
+      if (visualRefs && visualRefs.length > 0) {
+        effectiveVisualRefs = visualRefs.map((ref: any) => ({
+          url: ref.image_url,
+          description: ref.description || ref.title || `Referência ${ref.reference_type}`,
+        }));
+        console.log(`[generate-image] Found ${effectiveVisualRefs.length} primary visual references`);
+      }
+    }
+
+    const allRefs: ReferenceImage[] = [
+      ...effectiveVisualRefs,
+      ...(referenceImages || []), 
+      ...(imageReferences || [])
+    ];
     const parts: any[] = [];
     let processedImageCount = 0;
+    
+    // Add logo as first reference if available
+    if (effectiveBrandAssets?.logo_url) {
+      console.log('[generate-image] Adding brand logo as primary reference');
+      try {
+        const logoResponse = await fetch(effectiveBrandAssets.logo_url);
+        if (logoResponse.ok) {
+          const arrayBuffer = await logoResponse.arrayBuffer();
+          const base64 = arrayBufferToBase64(arrayBuffer);
+          const contentType = logoResponse.headers.get('content-type') || 'image/png';
+          parts.push({
+            inlineData: { mimeType: contentType, data: base64 }
+          });
+          processedImageCount++;
+        }
+      } catch (e) {
+        console.warn(`[generate-image] Failed to process logo: ${e}`);
+      }
+    }
     
     // Add reference images
     if (allRefs.length > 0) {
       console.log(`[generate-image] Processing ${allRefs.length} reference images`);
       
-      for (const ref of allRefs.slice(0, 4)) {
+      for (const ref of allRefs.slice(0, 4 - processedImageCount)) {
         const imageData = ref.base64 || ref.url;
         if (imageData) {
           try {
@@ -95,8 +222,17 @@ serve(async (req) => {
       }
     }
     
-    // Build enhanced prompt with style analysis
+    // Build enhanced prompt with brand assets and style analysis
     let enhancedPrompt = prompt;
+    let brandContext = "";
+    
+    // Add brand assets context
+    if (effectiveBrandAssets) {
+      brandContext = formatBrandAssetsForPrompt(effectiveBrandAssets);
+      if (brandContext) {
+        console.log('[generate-image] Using brand assets in prompt');
+      }
+    }
     
     if (styleAnalysis) {
       const styleSummary = styleAnalysis.style_summary || '';
@@ -126,8 +262,14 @@ serve(async (req) => {
         styleContext += ` Apresentação de produtos: ${brandElements.product_presentation}.`;
       }
       
-      enhancedPrompt = `ESTILO VISUAL A SEGUIR:\n${styleContext}\n\nPEDIDO ESPECÍFICO:\n${prompt}\n\nGere uma imagem que combine o estilo visual descrito com o pedido específico.`;
-      console.log('[generate-image] Using style analysis for generation');
+      // Combine brand context with style analysis
+      const fullContext = [brandContext, styleContext].filter(Boolean).join("\n");
+      
+      enhancedPrompt = `IDENTIDADE VISUAL E ESTILO:\n${fullContext}\n\nPEDIDO ESPECÍFICO:\n${prompt}\n\nGere uma imagem que respeite a identidade visual da marca e atenda ao pedido específico.`;
+      console.log('[generate-image] Using style analysis + brand context for generation');
+    } else if (brandContext) {
+      // Only brand assets, no style analysis
+      enhancedPrompt = `IDENTIDADE VISUAL DA MARCA:\n${brandContext}\n\nPEDIDO:\n${prompt}\n\nGere uma imagem que respeite a identidade visual descrita.`;
     } else if (processedImageCount > 0) {
       const refDescriptions = allRefs.filter(r => r.description).map(r => r.description).join(", ");
       
@@ -141,7 +283,7 @@ serve(async (req) => {
     parts.push({ text: enhancedPrompt });
 
     const GEMINI_MODEL = "gemini-2.0-flash-exp";
-    console.log(`[generate-image] Generating with ${GEMINI_MODEL}, ${processedImageCount} reference images`);
+    console.log(`[generate-image] Generating with ${GEMINI_MODEL}, ${processedImageCount} reference images, brand assets: ${!!effectiveBrandAssets}`);
 
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GOOGLE_API_KEY}`,
@@ -200,7 +342,7 @@ serve(async (req) => {
                 "generate-image",
                 inputTokens,
                 0,
-                { clientId, provider: "openai", fallback: true, referenceCount: processedImageCount }
+                { clientId, provider: "openai", fallback: true, referenceCount: processedImageCount, hasBrandAssets: !!effectiveBrandAssets }
               );
             }
             
@@ -272,7 +414,7 @@ serve(async (req) => {
                 "generate-image",
                 inputTokens,
                 0,
-                { clientId, provider: "openai", fallback: true, referenceCount: processedImageCount }
+                { clientId, provider: "openai", fallback: true, referenceCount: processedImageCount, hasBrandAssets: !!effectiveBrandAssets }
               );
             }
             
@@ -301,11 +443,11 @@ serve(async (req) => {
         "generate-image",
         inputTokens,
         outputTokens,
-        { clientId, referenceCount: processedImageCount, hasStyleAnalysis: !!styleAnalysis }
+        { clientId, referenceCount: processedImageCount, hasStyleAnalysis: !!styleAnalysis, hasBrandAssets: !!effectiveBrandAssets }
       );
     }
 
-    console.log(`[generate-image] Success - ${inputTokens + outputTokens} tokens`);
+    console.log(`[generate-image] Success - ${inputTokens + outputTokens} tokens, brand assets: ${!!effectiveBrandAssets}`);
 
     return new Response(
       JSON.stringify({ imageUrl }),
