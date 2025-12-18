@@ -234,13 +234,6 @@ export function Kai2Sidebar({ activeTab, onTabChange, selectedClientId, onClient
             active={activeTab === "library"}
             onClick={() => onTabChange("library")}
           />
-
-          <NavItem
-            icon={<Settings className="h-4 w-4" />}
-            label="Configurações"
-            active={activeTab === "settings"}
-            onClick={() => onTabChange("settings")}
-          />
         </div>
 
         {/* Ferramentas - hidden for viewers */}

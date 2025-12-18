@@ -5,7 +5,6 @@ import { GradientHero } from "@/components/kai2/GradientHero";
 import { Kai2AssistantTab } from "@/components/kai2/Kai2AssistantTab";
 import { KaiPerformanceTab } from "@/components/kai/KaiPerformanceTab";
 import { KaiLibraryTab } from "@/components/kai/KaiLibraryTab";
-import { KaiSettingsTab } from "@/components/kai/KaiSettingsTab";
 import { KaiAutomationsTab } from "@/components/kai/KaiAutomationsTab";
 import { AgentBuilderTool } from "@/components/kai2/tools/AgentBuilderTool";
 import { ResearchLabTool } from "@/components/kai2/tools/ResearchLabTool";
@@ -138,13 +137,6 @@ export default function Kai2() {
         return (
           <div className="p-6 overflow-auto h-full">
             <KaiLibraryTab clientId={selectedClient.id} client={selectedClient} />
-          </div>
-        );
-      
-      case "settings":
-        return (
-          <div className="p-6 overflow-auto h-full">
-            <KaiSettingsTab clientId={selectedClient.id} client={selectedClient} />
           </div>
         );
       
