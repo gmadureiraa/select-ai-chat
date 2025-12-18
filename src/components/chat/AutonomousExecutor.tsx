@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { 
   Play, 
   Pause, 
@@ -12,14 +12,22 @@ import {
   FileText,
   Search,
   Sparkles,
-  Clock
+  Clock,
+  PenTool,
+  Palette,
+  BarChart3,
+  Mail,
+  Lightbulb,
+  Eye
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Card } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
+import { AgentExecution, OrchestratorDecision, SpecializedAgentType } from "@/types/orchestrator";
 
 export interface ExecutionStep {
   id: string;
@@ -29,6 +37,7 @@ export interface ExecutionStep {
   result?: string;
   duration?: number;
   tool?: string;
+  agentType?: SpecializedAgentType;
 }
 
 export interface ExecutionPlan {
@@ -41,13 +50,21 @@ interface AutonomousExecutorProps {
   plan: ExecutionPlan;
   isRunning: boolean;
   isPaused: boolean;
+  executions?: AgentExecution[];
   onPause: () => void;
   onResume: () => void;
   onCancel: () => void;
   onRetry: () => void;
+  onViewOutput?: (stepId: string) => void;
 }
 
-const toolIcons: Record<string, typeof Brain> = {
+const agentIcons: Record<SpecializedAgentType | string, typeof Brain> = {
+  content_writer: PenTool,
+  design_agent: Palette,
+  metrics_analyst: BarChart3,
+  email_developer: Mail,
+  researcher: Search,
+  strategist: Lightbulb,
   analyze: Brain,
   search: Search,
   read: FileText,
@@ -55,14 +72,25 @@ const toolIcons: Record<string, typeof Brain> = {
   default: Zap
 };
 
+const agentColors: Record<SpecializedAgentType, string> = {
+  content_writer: "text-blue-500 bg-blue-500/20 border-blue-500/40",
+  design_agent: "text-purple-500 bg-purple-500/20 border-purple-500/40",
+  metrics_analyst: "text-green-500 bg-green-500/20 border-green-500/40",
+  email_developer: "text-orange-500 bg-orange-500/20 border-orange-500/40",
+  researcher: "text-cyan-500 bg-cyan-500/20 border-cyan-500/40",
+  strategist: "text-amber-500 bg-amber-500/20 border-amber-500/40"
+};
+
 export const AutonomousExecutor = ({
   plan,
   isRunning,
   isPaused,
+  executions = [],
   onPause,
   onResume,
   onCancel,
-  onRetry
+  onRetry,
+  onViewOutput
 }: AutonomousExecutorProps) => {
   const [elapsedTime, setElapsedTime] = useState(0);
   const [expandedSteps, setExpandedSteps] = useState<Set<string>>(new Set());
@@ -83,10 +111,22 @@ export const AutonomousExecutor = ({
     return mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
   };
 
-  const completedSteps = plan.steps.filter(s => s.status === "completed").length;
+  // Merge plan steps with execution data
+  const enrichedSteps = plan.steps.map(step => {
+    const execution = executions.find(e => e.stepId === step.id);
+    return {
+      ...step,
+      status: execution?.status || step.status,
+      result: execution?.output || step.result,
+      duration: execution?.durationMs || step.duration,
+      intermediateOutputs: execution?.intermediateOutputs
+    };
+  });
+
+  const completedSteps = enrichedSteps.filter(s => s.status === "completed").length;
   const progress = Math.round((completedSteps / plan.steps.length) * 100);
-  const currentStep = plan.steps.find(s => s.status === "running");
-  const hasError = plan.steps.some(s => s.status === "error");
+  const currentStep = enrichedSteps.find(s => s.status === "running");
+  const hasError = enrichedSteps.some(s => s.status === "error");
 
   const toggleStepExpand = (stepId: string) => {
     const newExpanded = new Set(expandedSteps);
@@ -99,8 +139,17 @@ export const AutonomousExecutor = ({
   };
 
   const getStepIcon = (step: ExecutionStep) => {
-    const Icon = toolIcons[step.tool || "default"] || toolIcons.default;
-    return Icon;
+    if (step.agentType) {
+      return agentIcons[step.agentType] || agentIcons.default;
+    }
+    return agentIcons[step.tool || "default"] || agentIcons.default;
+  };
+
+  const getAgentColor = (step: ExecutionStep) => {
+    if (step.agentType && agentColors[step.agentType]) {
+      return agentColors[step.agentType];
+    }
+    return "text-primary bg-primary/20 border-primary/40";
   };
 
   return (
@@ -121,13 +170,14 @@ export const AutonomousExecutor = ({
                     "text-[10px]",
                     isRunning && !isPaused && "bg-green-500/20 border-green-500/40 text-green-600",
                     isPaused && "bg-yellow-500/20 border-yellow-500/40 text-yellow-600",
-                    hasError && "bg-red-500/20 border-red-500/40 text-red-600"
+                    hasError && "bg-red-500/20 border-red-500/40 text-red-600",
+                    !isRunning && !hasError && completedSteps === plan.steps.length && "bg-primary/20 border-primary/40 text-primary"
                   )}
                 >
-                  {hasError ? "Erro" : isPaused ? "Pausado" : isRunning ? "Em execução" : "Aguardando"}
+                  {hasError ? "Erro" : isPaused ? "Pausado" : isRunning ? "Em execução" : completedSteps === plan.steps.length ? "Concluído" : "Aguardando"}
                 </Badge>
               </div>
-              <p className="text-xs text-muted-foreground mt-0.5">{plan.goal}</p>
+              <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{plan.goal}</p>
             </div>
           </div>
 
@@ -197,93 +247,138 @@ export const AutonomousExecutor = ({
       </div>
 
       {/* Steps List */}
-      <div className="p-3 space-y-1.5 max-h-64 overflow-y-auto">
-        {plan.steps.map((step, index) => {
-          const Icon = getStepIcon(step);
-          const isExpanded = expandedSteps.has(step.id);
-          
-          return (
-            <Collapsible 
-              key={step.id} 
-              open={isExpanded}
-              onOpenChange={() => step.result && toggleStepExpand(step.id)}
-            >
-              <div 
-                className={cn(
-                  "flex items-center gap-2 p-2 rounded-lg transition-all",
-                  step.status === "running" && "bg-primary/10 border border-primary/20",
-                  step.status === "completed" && "bg-muted/30",
-                  step.status === "error" && "bg-destructive/10 border border-destructive/20",
-                  step.status === "pending" && "opacity-50"
-                )}
+      <ScrollArea className="max-h-80">
+        <div className="p-3 space-y-1.5">
+          {enrichedSteps.map((step, index) => {
+            const Icon = getStepIcon(step);
+            const isExpanded = expandedSteps.has(step.id);
+            const colorClass = step.agentType ? getAgentColor(step) : "";
+            
+            return (
+              <Collapsible 
+                key={step.id} 
+                open={isExpanded}
+                onOpenChange={() => step.result && toggleStepExpand(step.id)}
               >
-                {/* Status icon */}
-                <div className="flex-shrink-0">
-                  {step.status === "completed" && <CheckCircle2 className="h-4 w-4 text-primary" />}
-                  {step.status === "running" && (
-                    <div className="relative">
-                      <div className="absolute inset-0 bg-primary/30 rounded-full blur-sm animate-pulse" />
-                      <Icon className="h-4 w-4 text-primary animate-pulse relative" />
-                    </div>
+                <div 
+                  className={cn(
+                    "flex items-center gap-2 p-2 rounded-lg transition-all",
+                    step.status === "running" && "bg-primary/10 border border-primary/20",
+                    step.status === "completed" && "bg-muted/30",
+                    step.status === "error" && "bg-destructive/10 border border-destructive/20",
+                    step.status === "pending" && "opacity-50"
                   )}
-                  {step.status === "pending" && (
-                    <div className="h-4 w-4 rounded-full border border-muted-foreground/50 flex items-center justify-center text-[10px] text-muted-foreground">
-                      {index + 1}
-                    </div>
-                  )}
-                  {step.status === "error" && <XCircle className="h-4 w-4 text-destructive" />}
-                  {step.status === "skipped" && <div className="h-4 w-4 rounded-full bg-muted" />}
-                </div>
+                >
+                  {/* Status icon */}
+                  <div className={cn("flex-shrink-0 p-1.5 rounded-full border", step.agentType && colorClass)}>
+                    {step.status === "completed" && <CheckCircle2 className="h-3.5 w-3.5 text-primary" />}
+                    {step.status === "running" && (
+                      <div className="relative">
+                        <div className="absolute inset-0 bg-primary/30 rounded-full blur-sm animate-pulse" />
+                        <Icon className="h-3.5 w-3.5 text-primary animate-pulse relative" />
+                      </div>
+                    )}
+                    {step.status === "pending" && (
+                      <div className="h-3.5 w-3.5 rounded-full border border-muted-foreground/50 flex items-center justify-center text-[9px] text-muted-foreground">
+                        {index + 1}
+                      </div>
+                    )}
+                    {step.status === "error" && <XCircle className="h-3.5 w-3.5 text-destructive" />}
+                    {step.status === "skipped" && <div className="h-3.5 w-3.5 rounded-full bg-muted" />}
+                  </div>
 
-                {/* Step info */}
-                <div className="flex-1 min-w-0">
-                  <p className={cn(
-                    "text-xs",
-                    step.status === "running" && "text-primary font-medium",
-                    step.status === "completed" && "text-foreground",
-                    step.status === "error" && "text-destructive",
-                    step.status === "pending" && "text-muted-foreground"
-                  )}>
-                    {step.name}
-                  </p>
-                </div>
-
-                {/* Duration */}
-                {step.duration && step.status === "completed" && (
-                  <span className="text-[10px] text-muted-foreground">
-                    {step.duration}ms
-                  </span>
-                )}
-
-                {/* Expand trigger */}
-                {step.result && (
-                  <CollapsibleTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-5 w-5 p-0">
-                      {isExpanded ? (
-                        <ChevronDown className="h-3 w-3" />
-                      ) : (
-                        <ChevronRight className="h-3 w-3" />
+                  {/* Step info */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <p className={cn(
+                        "text-xs",
+                        step.status === "running" && "text-primary font-medium",
+                        step.status === "completed" && "text-foreground",
+                        step.status === "error" && "text-destructive",
+                        step.status === "pending" && "text-muted-foreground"
+                      )}>
+                        {step.name}
+                      </p>
+                      {step.agentType && (
+                        <Badge variant="secondary" className="text-[9px] h-4 px-1">
+                          {step.agentType.replace("_", " ")}
+                        </Badge>
                       )}
-                    </Button>
-                  </CollapsibleTrigger>
-                )}
-              </div>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground truncate">{step.description}</p>
+                  </div>
 
-              {/* Expanded result */}
-              <CollapsibleContent>
-                <div className="mt-1 ml-6 p-2 rounded-lg bg-muted/50 text-xs text-muted-foreground">
-                  {step.result}
+                  {/* Duration */}
+                  {step.duration && step.status === "completed" && (
+                    <span className="text-[10px] text-muted-foreground">
+                      {step.duration > 1000 ? `${(step.duration / 1000).toFixed(1)}s` : `${step.duration}ms`}
+                    </span>
+                  )}
+
+                  {/* View output button */}
+                  {step.result && onViewOutput && (
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-6 w-6 p-0"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onViewOutput(step.id);
+                      }}
+                    >
+                      <Eye className="h-3 w-3" />
+                    </Button>
+                  )}
+
+                  {/* Expand trigger */}
+                  {step.result && (
+                    <CollapsibleTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-5 w-5 p-0">
+                        {isExpanded ? (
+                          <ChevronDown className="h-3 w-3" />
+                        ) : (
+                          <ChevronRight className="h-3 w-3" />
+                        )}
+                      </Button>
+                    </CollapsibleTrigger>
+                  )}
                 </div>
-              </CollapsibleContent>
-            </Collapsible>
-          );
-        })}
-      </div>
+
+                {/* Expanded result */}
+                <CollapsibleContent>
+                  <div className="mt-1 ml-8 p-2 rounded-lg bg-muted/50 text-xs text-muted-foreground max-h-32 overflow-y-auto">
+                    <pre className="whitespace-pre-wrap font-sans">{step.result?.substring(0, 500)}{step.result && step.result.length > 500 && "..."}</pre>
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
+            );
+          })}
+        </div>
+      </ScrollArea>
     </Card>
   );
 };
 
-// Helper function to create an execution plan from a complex request
+// Helper function to create an execution plan from orchestrator decision
+export const createExecutionPlanFromDecision = (
+  decision: OrchestratorDecision,
+  goal: string
+): ExecutionPlan => {
+  return {
+    goal,
+    steps: decision.executionPlan.map(step => ({
+      id: step.id,
+      name: step.name,
+      description: step.description,
+      status: "pending" as const,
+      tool: step.tools[0],
+      agentType: step.agentType
+    })),
+    estimatedDuration: decision.estimatedDuration
+  };
+};
+
+// Legacy helper function for simple requests
 export const createExecutionPlan = (goal: string, complexity: "simple" | "medium" | "complex"): ExecutionPlan => {
   const baseSteps: ExecutionStep[] = [
     { id: "1", name: "Análise de contexto", description: "Carregando informações do cliente", status: "pending", tool: "analyze" },
@@ -312,6 +407,6 @@ export const createExecutionPlan = (goal: string, complexity: "simple" | "medium
   return {
     goal,
     steps: baseSteps,
-    estimatedDuration: baseSteps.length * 3 // ~3 seconds per step
+    estimatedDuration: baseSteps.length * 3
   };
 };
