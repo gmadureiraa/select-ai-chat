@@ -14,7 +14,9 @@ import {
   Activity,
   Users,
   Search,
-  LogOut
+  LogOut,
+  HelpCircle,
+  Link2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useClients } from "@/hooks/useClients";
@@ -28,8 +30,10 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import kaleidosLogo from "@/assets/kaleidos-logo.svg";
+import { supabase } from "@/integrations/supabase/client";
+import { useQuery } from "@tanstack/react-query";
 
 interface NavItemProps {
   icon: React.ReactNode;
@@ -96,12 +100,27 @@ export function Kai2Sidebar({ activeTab, onTabChange, selectedClientId, onClient
   const selectedClient = clients?.find(c => c.id === selectedClientId);
   const [searchQuery, setSearchQuery] = useState("");
 
+  // Fetch user profile for avatar
+  const { data: userProfile } = useQuery({
+    queryKey: ["user-profile", user?.id],
+    queryFn: async () => {
+      if (!user?.id) return null;
+      const { data } = await supabase
+        .from("profiles")
+        .select("avatar_url, full_name")
+        .eq("id", user.id)
+        .single();
+      return data;
+    },
+    enabled: !!user?.id,
+  });
+
   const filteredClients = clients?.filter(c => 
     c.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const userInitials = user?.email?.slice(0, 2).toUpperCase() || "K";
-  const userName = user?.user_metadata?.full_name || user?.email?.split("@")[0] || "Usuário";
+  const userName = userProfile?.full_name || user?.user_metadata?.full_name || user?.email?.split("@")[0] || "Usuário";
 
   return (
     <aside className="w-64 h-screen bg-card border-r border-border flex flex-col">
@@ -129,9 +148,18 @@ export function Kai2Sidebar({ activeTab, onTabChange, selectedClientId, onClient
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-md bg-muted/50 hover:bg-muted transition-colors border border-transparent hover:border-border">
-              <div className="w-8 h-8 rounded-md bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-xs font-bold text-white shadow-sm">
-                {selectedClient?.name?.charAt(0) || "K"}
-              </div>
+              {selectedClient?.avatar_url ? (
+                <Avatar className="w-8 h-8 rounded-md">
+                  <AvatarImage src={selectedClient.avatar_url} alt={selectedClient.name} />
+                  <AvatarFallback className="rounded-md bg-gradient-to-br from-primary to-secondary text-xs font-bold text-white">
+                    {selectedClient.name.charAt(0)}
+                  </AvatarFallback>
+                </Avatar>
+              ) : (
+                <div className="w-8 h-8 rounded-md bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-xs font-bold text-white shadow-sm">
+                  {selectedClient?.name?.charAt(0) || "K"}
+                </div>
+              )}
               <div className="flex-1 text-left min-w-0">
                 <p className="text-sm font-medium text-foreground truncate">
                   {selectedClient?.name || "Selecionar Cliente"}
@@ -150,13 +178,23 @@ export function Kai2Sidebar({ activeTab, onTabChange, selectedClientId, onClient
                   setSearchQuery("");
                 }}
                 className={cn(
+                  "flex items-center gap-2",
                   "cursor-pointer",
                   selectedClientId === client.id && "bg-primary/10 text-primary"
                 )}
               >
-                <div className="w-6 h-6 rounded bg-gradient-to-br from-primary/80 to-secondary/80 flex items-center justify-center text-[10px] font-bold text-white mr-2">
-                  {client.name.charAt(0)}
-                </div>
+                {client.avatar_url ? (
+                  <Avatar className="w-6 h-6 rounded">
+                    <AvatarImage src={client.avatar_url} alt={client.name} />
+                    <AvatarFallback className="rounded bg-gradient-to-br from-primary/80 to-secondary/80 text-[10px] font-bold text-white">
+                      {client.name.charAt(0)}
+                    </AvatarFallback>
+                  </Avatar>
+                ) : (
+                  <div className="w-6 h-6 rounded bg-gradient-to-br from-primary/80 to-secondary/80 flex items-center justify-center text-[10px] font-bold text-white">
+                    {client.name.charAt(0)}
+                  </div>
+                )}
                 {client.name}
               </DropdownMenuItem>
             ))}
@@ -253,6 +291,31 @@ export function Kai2Sidebar({ activeTab, onTabChange, selectedClientId, onClient
             onClick={() => onTabChange("research-lab")}
           />
         </div>
+
+        <SectionLabel>Conta</SectionLabel>
+
+        <div className="space-y-0.5">
+          <NavItem
+            icon={<Settings className="h-4 w-4" />}
+            label="Configurações Gerais"
+            active={false}
+            onClick={() => navigate("/settings")}
+          />
+
+          <NavItem
+            icon={<Link2 className="h-4 w-4" />}
+            label="Integrações"
+            active={false}
+            onClick={() => navigate("/settings")}
+          />
+
+          <NavItem
+            icon={<HelpCircle className="h-4 w-4" />}
+            label="Ajuda e Documentação"
+            active={activeTab === "docs"}
+            onClick={() => navigate("/docs")}
+          />
+        </div>
       </nav>
 
       {/* User Footer */}
@@ -261,6 +324,7 @@ export function Kai2Sidebar({ activeTab, onTabChange, selectedClientId, onClient
           <DropdownMenuTrigger asChild>
             <button className="w-full flex items-center gap-3 px-2 py-2 rounded-md hover:bg-muted transition-colors">
               <Avatar className="h-8 w-8 border border-border">
+                <AvatarImage src={userProfile?.avatar_url || undefined} alt={userName} />
                 <AvatarFallback className="bg-muted text-muted-foreground text-xs font-medium">
                   {userInitials}
                 </AvatarFallback>

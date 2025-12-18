@@ -15,6 +15,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, X, FileText, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { ClientDocumentsManager } from "./ClientDocumentsManager";
+import { AvatarUpload } from "@/components/ui/avatar-upload";
 
 interface ClientEditDialogProps {
   open: boolean;
@@ -27,6 +28,7 @@ export const ClientEditDialog = ({ open, onOpenChange, client }: ClientEditDialo
   const [description, setDescription] = useState("");
   const [contextNotes, setContextNotes] = useState("");
   const [identityGuide, setIdentityGuide] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [isLoadingGuide, setIsLoadingGuide] = useState(false);
   
   // Structured fields
@@ -56,6 +58,7 @@ export const ClientEditDialog = ({ open, onOpenChange, client }: ClientEditDialo
       setDescription(client.description || "");
       setContextNotes(client.context_notes || "");
       setIdentityGuide((client as any).identity_guide || "");
+      setAvatarUrl(client.avatar_url || null);
       setSocialMedia(client.social_media as any || { instagram: "", linkedin: "", facebook: "", twitter: "" });
       setTags(client.tags as any || { segment: "", tone: "", objectives: "", audience: "" });
       setFunctionTemplates((client.function_templates as string[]) || []);
@@ -137,6 +140,7 @@ export const ClientEditDialog = ({ open, onOpenChange, client }: ClientEditDialo
       description: description || null,
       context_notes: contextNotes || null,
       identity_guide: identityGuide || null,
+      avatar_url: avatarUrl,
       social_media: socialMedia,
       tags: tags,
       function_templates: functionTemplates,
@@ -167,26 +171,38 @@ export const ClientEditDialog = ({ open, onOpenChange, client }: ClientEditDialo
             </TabsList>
 
             <TabsContent value="basic" className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="name">Nome do Cliente *</Label>
-                <Input
-                  id="name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Ex: Empresa XYZ"
-                  required
+              <div className="flex items-start gap-6">
+                <AvatarUpload
+                  currentUrl={avatarUrl}
+                  onUpload={setAvatarUrl}
+                  fallback={name.charAt(0) || "C"}
+                  size="lg"
+                  bucket="client-files"
+                  folder="client-avatars"
                 />
-              </div>
+                <div className="flex-1 space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="name">Nome do Cliente *</Label>
+                    <Input
+                      id="name"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      placeholder="Ex: Empresa XYZ"
+                      required
+                    />
+                  </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="description">Descrição</Label>
-                <Textarea
-                  id="description"
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Breve descrição do cliente..."
-                  rows={3}
-                />
+                  <div className="space-y-2">
+                    <Label htmlFor="description">Descrição</Label>
+                    <Textarea
+                      id="description"
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
+                      placeholder="Breve descrição do cliente..."
+                      rows={3}
+                    />
+                  </div>
+                </div>
               </div>
 
               <div className="space-y-2">
