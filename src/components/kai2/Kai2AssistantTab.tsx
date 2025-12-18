@@ -1,15 +1,18 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Trash2, PanelLeftClose, PanelLeft, History, MessageSquare, Sparkles, Zap, FileText } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { Trash2, PanelLeftClose, PanelLeft, History, MessageSquare, Sparkles, Zap, FileText, Workflow } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { useClientTemplates } from "@/hooks/useClientTemplates";
 import { useClientChat } from "@/hooks/useClientChat";
+import { useChatWorkflows } from "@/hooks/useChatWorkflows";
 import { FloatingInput, ChatMode } from "@/components/chat/FloatingInput";
 import { EnhancedMessageBubble } from "@/components/chat/EnhancedMessageBubble";
 import { QuickSuggestions } from "@/components/chat/QuickSuggestions";
+import { WorkflowExecutionCard } from "@/components/chat/WorkflowExecutionCard";
 import { TemplateManager } from "@/components/clients/TemplateManager";
 import { TasksPanel } from "@/components/kai2/TasksPanel";
 import { ConversationHistorySidebar } from "@/components/kai2/ConversationHistorySidebar";
@@ -18,6 +21,7 @@ import { ContextType } from "@/config/contextualTasks";
 import { Client } from "@/hooks/useClients";
 import { cn } from "@/lib/utils";
 import KaleidosLogo from "@/assets/kaleidos-logo.svg";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Kai2AssistantTabProps {
   clientId: string;
@@ -43,6 +47,7 @@ export const Kai2AssistantTab = ({
   initialContentType,
   onInitialMessageSent 
 }: Kai2AssistantTabProps) => {
+  const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(
     // If coming from hero with content type, don't use URL template
@@ -116,6 +121,17 @@ export const Kai2AssistantTab = ({
     currentStep,
     multiAgentStep,
   } = useClientChat(clientId, selectedTemplateId || undefined);
+
+  // Workflow integration
+  const {
+    workflows,
+    executionState: workflowExecutionState,
+    detectListWorkflowsRequest,
+    detectWorkflowRequest,
+    executeWorkflow,
+    formatWorkflowsList,
+    resetExecution: resetWorkflowExecution,
+  } = useChatWorkflows();
 
   // Contextual tasks
   const {
@@ -218,11 +234,68 @@ export const Kai2AssistantTab = ({
 
   const handleSend = async (content: string, images?: string[], quality?: "fast" | "high", mode?: ChatMode) => {
     if (!content.trim() && (!images || images.length === 0)) return;
+    
+    // Check for workflow commands first
+    if (detectListWorkflowsRequest(content)) {
+      // Save user message
+      await supabase.from("messages").insert({
+        conversation_id: conversationId,
+        role: "user",
+        content,
+      });
+      
+      // Generate workflow list response
+      const workflowList = formatWorkflowsList();
+      await supabase.from("messages").insert({
+        conversation_id: conversationId,
+        role: "assistant",
+        content: workflowList,
+      });
+      
+      queryClient.invalidateQueries({ queryKey: ["messages", conversationId] });
+      return;
+    }
+    
+    // Check for workflow execution request
+    const workflowMatch = detectWorkflowRequest(content);
+    if (workflowMatch) {
+      // Save user message
+      await supabase.from("messages").insert({
+        conversation_id: conversationId,
+        role: "user",
+        content,
+      });
+      
+      // Execute workflow
+      const result = await executeWorkflow(
+        workflowMatch.id, 
+        content,
+        clientId,
+        { name: client.name, description: client.description }
+      );
+      
+      // Save result as assistant message
+      const responseContent = result.success 
+        ? `## Workflow "${workflowMatch.name}" executado com sucesso!\n\n${result.result}`
+        : `## Erro ao executar workflow "${workflowMatch.name}"\n\n${result.error}`;
+      
+      await supabase.from("messages").insert({
+        conversation_id: conversationId,
+        role: "assistant",
+        content: responseContent,
+      });
+      
+      queryClient.invalidateQueries({ queryKey: ["messages", conversationId] });
+      return;
+    }
+    
+    // Regular message handling
     await sendMessage(content, images, quality, mode);
   };
 
   const handleClearConversation = async () => {
     await clearConversation();
+    resetWorkflowExecution();
   };
 
   const chatTemplates = templates?.filter(t => t.type === "chat") || [];
@@ -432,7 +505,19 @@ export const Kai2AssistantTab = ({
                   />
                 ))}
 
-                {isLoading && (
+                {/* Workflow Execution Status */}
+                {workflowExecutionState.isExecuting && workflowExecutionState.workflowName && (
+                  <div className="mx-auto max-w-md">
+                    <WorkflowExecutionCard
+                      workflowName={workflowExecutionState.workflowName}
+                      status={workflowExecutionState.status}
+                      result={workflowExecutionState.result}
+                      error={workflowExecutionState.error}
+                    />
+                  </div>
+                )}
+
+                {isLoading && !workflowExecutionState.isExecuting && (
                   <TasksPanel 
                     tasks={tasks}
                     isActive={tasksActive}
