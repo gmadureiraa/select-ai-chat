@@ -216,12 +216,11 @@ serve(async (req) => {
       userMessage,
       clientContext,
       previousOutputs,
-      additionalData,
       userId,
       clientId
     } = await req.json();
 
-    console.log(`[AGENT:${agentType}] Executing step: ${stepId}`);
+    console.log(`[AGENT:${agentType}] Executing step: ${stepId} for client: ${clientId}`);
 
     const config = AGENT_CONFIGS[agentType as SpecializedAgentType];
     if (!config) {
@@ -232,13 +231,195 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+    // ========================================
+    // BUSCAR DADOS AUTOMATICAMENTE DO BANCO
+    // O agente decide o que precisa baseado no tipo
+    // ========================================
+    
+    let contentLibrary: any[] = [];
+    let referenceLibrary: any[] = [];
+    let visualReferences: any[] = [];
+    let brandAssets: any = null;
+    let instagramPosts: any[] = [];
+    let youtubeVideos: any[] = [];
+    let platformMetrics: any[] = [];
+    let globalKnowledge: any[] = [];
+    let clientDocuments: any[] = [];
+
+    // Buscar dados baseado no tipo de agente
+    if (clientId) {
+      console.log(`[AGENT:${agentType}] Fetching data for client...`);
+      
+      // Content Writer precisa de biblioteca de conteúdo e referências
+      if (agentType === "content_writer" || agentType === "strategist" || agentType === "researcher") {
+        const { data: content } = await supabase
+          .from("client_content_library")
+          .select("id, title, content_type, content, metadata")
+          .eq("client_id", clientId)
+          .order("created_at", { ascending: false })
+          .limit(10);
+        contentLibrary = content || [];
+        
+        const { data: refs } = await supabase
+          .from("client_reference_library")
+          .select("id, title, reference_type, content, source_url")
+          .eq("client_id", clientId)
+          .order("created_at", { ascending: false })
+          .limit(10);
+        referenceLibrary = refs || [];
+      }
+
+      // Design Agent precisa de brand assets e referências visuais
+      if (agentType === "design_agent" || agentType === "email_developer") {
+        const { data: client } = await supabase
+          .from("clients")
+          .select("brand_assets")
+          .eq("id", clientId)
+          .single();
+        brandAssets = client?.brand_assets;
+        
+        const { data: visuals } = await supabase
+          .from("client_visual_references")
+          .select("id, title, image_url, reference_type, is_primary, description")
+          .eq("client_id", clientId)
+          .order("is_primary", { ascending: false })
+          .limit(10);
+        visualReferences = visuals || [];
+      }
+
+      // Metrics Analyst precisa de métricas e posts
+      if (agentType === "metrics_analyst") {
+        const { data: instagram } = await supabase
+          .from("instagram_posts")
+          .select("id, caption, posted_at, likes, comments, saves, shares, reach, impressions, engagement_rate, post_type")
+          .eq("client_id", clientId)
+          .order("posted_at", { ascending: false })
+          .limit(30);
+        instagramPosts = instagram || [];
+        
+        const { data: youtube } = await supabase
+          .from("youtube_videos")
+          .select("id, title, published_at, total_views, watch_hours, impressions, click_rate, subscribers_gained")
+          .eq("client_id", clientId)
+          .order("published_at", { ascending: false })
+          .limit(20);
+        youtubeVideos = youtube || [];
+        
+        const { data: metrics } = await supabase
+          .from("platform_metrics")
+          .select("*")
+          .eq("client_id", clientId)
+          .order("metric_date", { ascending: false })
+          .limit(30);
+        platformMetrics = metrics || [];
+      }
+
+      // Todos agentes podem usar documentos do cliente
+      const { data: docs } = await supabase
+        .from("client_documents")
+        .select("id, name, file_type, extracted_content")
+        .eq("client_id", clientId)
+        .limit(5);
+      clientDocuments = docs || [];
+    }
+
+    // Buscar knowledge base global
+    if (agentType === "researcher" || agentType === "strategist" || agentType === "content_writer") {
+      // Buscar workspace_id do cliente
+      const { data: clientData } = await supabase
+        .from("clients")
+        .select("workspace_id")
+        .eq("id", clientId)
+        .single();
+      
+      if (clientData?.workspace_id) {
+        const { data: knowledge } = await supabase
+          .from("global_knowledge")
+          .select("id, title, content, category, summary")
+          .eq("workspace_id", clientData.workspace_id)
+          .limit(5);
+        globalKnowledge = knowledge || [];
+      }
+    }
+
     // Build context-aware prompt
     let contextPrompt = `## CONTEXTO DO CLIENTE:
-${clientContext?.name || "Cliente"} - ${clientContext?.description || ""}
+**Nome:** ${clientContext?.name || "Cliente"}
+**Descrição:** ${clientContext?.description || "Não disponível"}
 
 ## GUIA DE IDENTIDADE:
 ${clientContext?.identityGuide || "Não disponível"}
 `;
+
+    // Add fetched data based on agent type
+    if (contentLibrary.length > 0) {
+      contextPrompt += `\n## BIBLIOTECA DE CONTEÚDO (${contentLibrary.length} itens):\n`;
+      contentLibrary.slice(0, 5).forEach((c, i) => {
+        contextPrompt += `\n[${i + 1}] **${c.title}** (${c.content_type}):\n${c.content?.substring(0, 400)}...\n`;
+      });
+    }
+
+    if (referenceLibrary.length > 0) {
+      contextPrompt += `\n## REFERÊNCIAS (${referenceLibrary.length} itens):\n`;
+      referenceLibrary.slice(0, 3).forEach((r, i) => {
+        contextPrompt += `\n[REF ${i + 1}] **${r.title}** (${r.reference_type}):\n${r.content?.substring(0, 300)}...\n`;
+      });
+    }
+
+    if (visualReferences.length > 0) {
+      contextPrompt += `\n## REFERÊNCIAS VISUAIS (${visualReferences.length} imagens):\n`;
+      visualReferences.slice(0, 5).forEach((v, i) => {
+        contextPrompt += `- ${v.title || "Sem título"} (${v.reference_type})${v.is_primary ? " ⭐ Principal" : ""}: ${v.description || ""}\n`;
+      });
+    }
+
+    if (brandAssets) {
+      contextPrompt += `\n## BRAND ASSETS:\n${JSON.stringify(brandAssets, null, 2)}\n`;
+    }
+
+    if (instagramPosts.length > 0) {
+      contextPrompt += `\n## POSTS DO INSTAGRAM (${instagramPosts.length} posts recentes):\n`;
+      const topPosts = instagramPosts.slice(0, 10);
+      const avgEngagement = topPosts.reduce((sum, p) => sum + (p.engagement_rate || 0), 0) / topPosts.length;
+      contextPrompt += `Taxa de engajamento média: ${(avgEngagement * 100).toFixed(2)}%\n`;
+      topPosts.forEach((p, i) => {
+        contextPrompt += `[${i + 1}] ${p.post_type} - ${p.likes || 0} likes, ${p.comments || 0} comments, ${p.saves || 0} saves\n`;
+      });
+    }
+
+    if (youtubeVideos.length > 0) {
+      contextPrompt += `\n## VÍDEOS DO YOUTUBE (${youtubeVideos.length} recentes):\n`;
+      youtubeVideos.slice(0, 5).forEach((v, i) => {
+        contextPrompt += `[${i + 1}] "${v.title}" - ${v.total_views || 0} views, ${v.watch_hours?.toFixed(1) || 0}h assistidas\n`;
+      });
+    }
+
+    if (platformMetrics.length > 0) {
+      contextPrompt += `\n## MÉTRICAS DE PLATAFORMAS:\n`;
+      const latestByPlatform: Record<string, any> = {};
+      platformMetrics.forEach(m => {
+        if (!latestByPlatform[m.platform]) latestByPlatform[m.platform] = m;
+      });
+      Object.entries(latestByPlatform).forEach(([platform, m]) => {
+        contextPrompt += `- **${platform}**: ${m.subscribers || 0} inscritos, ${m.engagement_rate ? (m.engagement_rate * 100).toFixed(2) : 0}% engajamento\n`;
+      });
+    }
+
+    if (globalKnowledge.length > 0) {
+      contextPrompt += `\n## BASE DE CONHECIMENTO GLOBAL:\n`;
+      globalKnowledge.slice(0, 3).forEach((k, i) => {
+        contextPrompt += `[${i + 1}] **${k.title}** (${k.category}): ${k.summary || k.content?.substring(0, 200)}...\n`;
+      });
+    }
+
+    if (clientDocuments.length > 0) {
+      contextPrompt += `\n## DOCUMENTOS DO CLIENTE:\n`;
+      clientDocuments.forEach((d, i) => {
+        if (d.extracted_content) {
+          contextPrompt += `[${i + 1}] **${d.name}** (${d.file_type}):\n${d.extracted_content.substring(0, 300)}...\n`;
+        }
+      });
+    }
 
     // Add previous outputs if any
     if (previousOutputs && Object.keys(previousOutputs).length > 0) {
@@ -248,32 +429,12 @@ ${clientContext?.identityGuide || "Não disponível"}
       }
     }
 
-    // Add additional data based on agent type
-    if (additionalData) {
-      if (agentType === "metrics_analyst" && additionalData.metrics) {
-        contextPrompt += `\n## DADOS DE MÉTRICAS:\n${JSON.stringify(additionalData.metrics, null, 2)}\n`;
-      }
-      if (agentType === "content_writer" && additionalData.contentLibrary) {
-        contextPrompt += `\n## EXEMPLOS DA BIBLIOTECA:\n`;
-        additionalData.contentLibrary.slice(0, 5).forEach((c: any, i: number) => {
-          contextPrompt += `\n[${i + 1}] ${c.title}:\n${c.content.substring(0, 500)}...\n`;
-        });
-      }
-      if (agentType === "design_agent" && additionalData.brandAssets) {
-        contextPrompt += `\n## BRAND ASSETS:\n${JSON.stringify(additionalData.brandAssets, null, 2)}\n`;
-      }
-      if (additionalData.referenceLibrary) {
-        contextPrompt += `\n## REFERÊNCIAS:\n`;
-        additionalData.referenceLibrary.slice(0, 3).forEach((r: any, i: number) => {
-          contextPrompt += `\n[REF ${i + 1}] ${r.title}: ${r.content.substring(0, 300)}...\n`;
-        });
-      }
-    }
-
     const fullPrompt = `${contextPrompt}
 
 ## TAREFA:
 ${userMessage}`;
+
+    console.log(`[AGENT:${agentType}] Context built with ${contentLibrary.length} content, ${referenceLibrary.length} refs, ${visualReferences.length} visuals, ${instagramPosts.length} posts`);
 
     const startTime = Date.now();
     const result = await callGemini(
@@ -308,6 +469,14 @@ ${userMessage}`;
       tokens: {
         input: result.inputTokens,
         output: result.outputTokens
+      },
+      dataSources: {
+        contentLibrary: contentLibrary.length,
+        referenceLibrary: referenceLibrary.length,
+        visualReferences: visualReferences.length,
+        instagramPosts: instagramPosts.length,
+        youtubeVideos: youtubeVideos.length,
+        globalKnowledge: globalKnowledge.length
       }
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
