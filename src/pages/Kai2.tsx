@@ -12,7 +12,6 @@ import { KnowledgeBaseTool } from "@/components/kai2/tools/KnowledgeBaseTool";
 import { ActivitiesTool } from "@/components/kai2/tools/ActivitiesTool";
 import { TeamTool } from "@/components/kai2/tools/TeamTool";
 import { ClientsManagementTool } from "@/components/kai2/tools/ClientsManagementTool";
-import { VisualCreatorTool } from "@/components/kai2/tools/VisualCreatorTool";
 import { useClients } from "@/hooks/useClients";
 import { Loader2 } from "lucide-react";
 
@@ -145,13 +144,6 @@ export default function Kai2() {
         return (
           <div className="p-6 overflow-auto h-full">
             <KaiAutomationsTab clientId={selectedClient.id} client={selectedClient} />
-          </div>
-        );
-      
-      case "visual-creator":
-        return (
-          <div className="p-6 overflow-auto h-full">
-            <VisualCreatorTool clientId={selectedClient.id} client={selectedClient} />
           </div>
         );
       
