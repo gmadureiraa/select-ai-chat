@@ -10,6 +10,7 @@ import { MetricMiniCard } from "./MetricMiniCard";
 import { NewsletterInsightsCard } from "./NewsletterInsightsCard";
 import { BestNewsletterCard } from "./BestNewsletterCard";
 import { NewsletterMetricsTable } from "./NewsletterMetricsTable";
+import { ImportHistoryPanel } from "./ImportHistoryPanel";
 import { subDays, format, parseISO, isAfter } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useSmartNewsletterImport } from "@/hooks/useSmartNewsletterImport";
@@ -447,6 +448,9 @@ export function NewsletterDashboard({ clientId, metrics, isLoading }: Newsletter
           <NewsletterMetricsTable metrics={newsletterPosts} isLoading={isLoadingPosts} />
         </CardContent>
       </Card>
+
+      {/* Import History */}
+      <ImportHistoryPanel clientId={clientId} platform="newsletter" />
     </div>
   );
 }

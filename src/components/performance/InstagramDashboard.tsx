@@ -20,6 +20,7 @@ import { HorizontalBarRank } from "./HorizontalBarRank";
 import { ContentTypeDonut } from "./ContentTypeDonut";
 import { TopContentTable } from "./TopContentTable";
 import { PostingTimeHeatmap } from "./PostingTimeHeatmap";
+import { ImportHistoryPanel } from "./ImportHistoryPanel";
 import { format, subDays, isAfter, parseISO, startOfDay, getDay, getHours } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -549,6 +550,9 @@ export function InstagramDashboard({
           />
         </CardContent>
       </Card>
+
+      {/* Import History */}
+      <ImportHistoryPanel clientId={clientId} platform="instagram" />
     </div>
   );
 }
