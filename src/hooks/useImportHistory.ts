@@ -75,18 +75,100 @@ export function useImportHistory(clientId: string | null) {
 
   const deleteImport = useMutation({
     mutationFn: async (importId: string) => {
+      // First get the import record to know what to delete
+      const { data: importRecord, error: fetchError } = await supabase
+        .from("import_history")
+        .select("*")
+        .eq("id", importId)
+        .single();
+
+      if (fetchError) throw fetchError;
+      if (!importRecord) throw new Error("Import record not found");
+
+      const { platform, client_id: recordClientId, imported_at, metadata } = importRecord;
+
+      // Delete associated data based on platform
+      // Use import timestamp to identify records from this import
+      const importTime = new Date(imported_at);
+      const windowStart = new Date(importTime.getTime() - 60000); // 1 min before
+      const windowEnd = new Date(importTime.getTime() + 300000); // 5 min after
+
+      if (platform === "instagram") {
+        // Check if metadata has specific post IDs
+        const postIds = (metadata as Record<string, unknown>)?.post_ids as string[] | undefined;
+        
+        if (postIds && postIds.length > 0) {
+          // Delete specific posts
+          await supabase.from("instagram_posts").delete().in("id", postIds);
+        } else {
+          // Delete posts created in the import time window
+          await supabase
+            .from("instagram_posts")
+            .delete()
+            .eq("client_id", recordClientId)
+            .gte("created_at", windowStart.toISOString())
+            .lte("created_at", windowEnd.toISOString());
+        }
+
+        // Delete platform metrics for that date range if any
+        const metricIds = (metadata as Record<string, unknown>)?.metric_ids as string[] | undefined;
+        if (metricIds && metricIds.length > 0) {
+          await supabase.from("platform_metrics").delete().in("id", metricIds);
+        }
+      } else if (platform === "youtube") {
+        const videoIds = (metadata as Record<string, unknown>)?.video_ids as string[] | undefined;
+        
+        if (videoIds && videoIds.length > 0) {
+          await supabase.from("youtube_videos").delete().in("id", videoIds);
+        } else {
+          await supabase
+            .from("youtube_videos")
+            .delete()
+            .eq("client_id", recordClientId)
+            .gte("created_at", windowStart.toISOString())
+            .lte("created_at", windowEnd.toISOString());
+        }
+      } else if (platform === "newsletter") {
+        const metricIds = (metadata as Record<string, unknown>)?.metric_ids as string[] | undefined;
+        if (metricIds && metricIds.length > 0) {
+          await supabase.from("platform_metrics").delete().in("id", metricIds);
+        } else {
+          await supabase
+            .from("platform_metrics")
+            .delete()
+            .eq("client_id", recordClientId)
+            .eq("platform", "newsletter")
+            .gte("created_at", windowStart.toISOString())
+            .lte("created_at", windowEnd.toISOString());
+        }
+      }
+
+      // Finally delete the import history record
       const { error } = await supabase
         .from("import_history")
         .delete()
         .eq("id", importId);
 
       if (error) throw error;
+      
+      return { platform, clientId: recordClientId };
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ["import-history", clientId] });
+      queryClient.invalidateQueries({ queryKey: ["instagram-posts"] });
+      queryClient.invalidateQueries({ queryKey: ["youtube-videos"] });
+      queryClient.invalidateQueries({ queryKey: ["platform-metrics"] });
+      queryClient.invalidateQueries({ queryKey: ["performance-metrics"] });
       toast({
-        title: "Registro removido",
-        description: "O registro de importação foi removido.",
+        title: "Importação removida",
+        description: "O registro e os dados associados foram removidos.",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Erro ao remover",
+        description: "Não foi possível remover a importação.",
+        variant: "destructive",
       });
     },
   });
