@@ -11,12 +11,59 @@ import { Label } from "@/components/ui/label";
 import { useTheme } from "next-themes";
 import { TeamManagement } from "@/components/settings/TeamManagement";
 import { SecondaryLayout } from "@/components/SecondaryLayout";
+import { AvatarUpload } from "@/components/ui/avatar-upload";
+import { supabase } from "@/integrations/supabase/client";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
 
 export default function Settings() {
   const { user } = useAuth();
   const { data: stats, isLoading } = useAIUsage(30);
   const { theme, setTheme } = useTheme();
   const { userRole } = useWorkspace();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  
+  // Fetch user profile
+  const { data: profile } = useQuery({
+    queryKey: ["user-profile", user?.id],
+    queryFn: async () => {
+      if (!user?.id) return null;
+      const { data } = await supabase
+        .from("profiles")
+        .select("avatar_url, full_name")
+        .eq("id", user.id)
+        .single();
+      return data;
+    },
+    enabled: !!user?.id,
+  });
+
+  // Update profile avatar
+  const updateAvatar = useMutation({
+    mutationFn: async (avatarUrl: string | null) => {
+      if (!user?.id) throw new Error("User not found");
+      const { error } = await supabase
+        .from("profiles")
+        .update({ avatar_url: avatarUrl })
+        .eq("id", user.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["user-profile"] });
+      toast({
+        title: "Foto atualizada",
+        description: "Sua foto de perfil foi atualizada com sucesso.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Erro",
+        description: "Não foi possível atualizar a foto.",
+        variant: "destructive",
+      });
+    },
+  });
   
   const isAdmin = userRole === "owner" || userRole === "admin";
   const hasMultipleUsers = stats && Object.keys(stats.byUser).length > 1;
@@ -83,10 +130,20 @@ export default function Settings() {
             </div>
             <CardDescription>Informações da sua conta</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid gap-2">
-              <div className="text-sm font-medium text-muted-foreground">Email</div>
-              <div className="text-base">{user?.email || "Não disponível"}</div>
+          <CardContent className="space-y-6">
+            <div className="flex items-center gap-6">
+              <AvatarUpload
+                currentUrl={profile?.avatar_url}
+                onUpload={(url) => updateAvatar.mutate(url)}
+                fallback={user?.email?.slice(0, 2) || "U"}
+                size="lg"
+                bucket="client-files"
+                folder="user-avatars"
+              />
+              <div className="flex-1 space-y-2">
+                <div className="text-sm font-medium text-muted-foreground">Email</div>
+                <div className="text-base">{user?.email || "Não disponível"}</div>
+              </div>
             </div>
             <Separator />
             <div className="grid gap-2">

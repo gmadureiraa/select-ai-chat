@@ -9,6 +9,7 @@ export interface Client {
   description: string | null;
   context_notes: string | null;
   identity_guide: string | null;
+  avatar_url: string | null;
   social_media: Record<string, string>;
   tags: Record<string, string>;
   function_templates: string[];
