@@ -10,7 +10,7 @@ import { CONTENT_TYPE_OPTIONS } from "@/types/contentTypes";
 import { supabase } from "@/integrations/supabase/client";
 import { uploadAndGetSignedUrl } from "@/lib/storage";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Upload, X } from "lucide-react";
+import { Loader2, Upload, X, Link, FileText, ExternalLink } from "lucide-react";
 
 interface ReferenceDialogProps {
   open: boolean;
@@ -33,6 +33,13 @@ export function ReferenceDialog({ open, onClose, onSave, reference }: ReferenceD
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [videoUrl, setVideoUrl] = useState("");
   const [isTranscribingVideo, setIsTranscribingVideo] = useState(false);
+  
+  // New states for URL and PDF
+  const [linkUrl, setLinkUrl] = useState("");
+  const [isScrapingLink, setIsScrapingLink] = useState(false);
+  const [pdfUrl, setPdfUrl] = useState("");
+  const [pdfFileName, setPdfFileName] = useState("");
+  const [isExtractingPdf, setIsExtractingPdf] = useState(false);
 
   useEffect(() => {
     if (reference) {
@@ -45,6 +52,9 @@ export function ReferenceDialog({ open, onClose, onSave, reference }: ReferenceD
       });
       setUploadedImages(reference.metadata?.image_urls || []);
       setVideoUrl(reference.metadata?.video_url || "");
+      setLinkUrl(reference.metadata?.scraped_url || "");
+      setPdfUrl(reference.metadata?.pdf_url || "");
+      setPdfFileName(reference.metadata?.pdf_file_name || "");
     } else {
       setFormData({
         title: "",
@@ -55,6 +65,9 @@ export function ReferenceDialog({ open, onClose, onSave, reference }: ReferenceD
       });
       setUploadedImages([]);
       setVideoUrl("");
+      setLinkUrl("");
+      setPdfUrl("");
+      setPdfFileName("");
     }
   }, [reference, open]);
 
@@ -219,17 +232,174 @@ export function ReferenceDialog({ open, onClose, onSave, reference }: ReferenceD
     }
   };
 
+  // Scrape URL content (blog posts, newsletters)
+  const handleScrapeLink = async () => {
+    if (!linkUrl) {
+      toast({
+        title: "Nenhum link",
+        description: "Cole um link para fazer a leitura do conteúdo",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate URL
+    try {
+      new URL(linkUrl);
+    } catch {
+      toast({
+        title: "Link inválido",
+        description: "Por favor, insira uma URL válida (ex: https://exemplo.com)",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsScrapingLink(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('scrape-research-link', {
+        body: { url: linkUrl }
+      });
+
+      if (error) throw error;
+
+      const existingContent = formData.content.trim();
+      const scrapedContent = data.textContent || data.content || "";
+      const title = data.title || "";
+      
+      const newContent = existingContent 
+        ? `${existingContent}\n\n--- CONTEÚDO DO LINK ---\n${scrapedContent}`
+        : scrapedContent;
+
+      setFormData({ 
+        ...formData, 
+        content: newContent,
+        title: formData.title || title,
+        source_url: linkUrl,
+        thumbnail_url: formData.thumbnail_url || data.ogImage || ""
+      });
+      
+      toast({
+        title: "Leitura concluída",
+        description: "O conteúdo do link foi extraído com sucesso",
+      });
+    } catch (error) {
+      console.error("Error scraping link:", error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível ler o conteúdo do link. Tente novamente ou cole manualmente.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsScrapingLink(false);
+    }
+  };
+
+  // Handle PDF upload
+  const handlePdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 20 * 1024 * 1024) {
+      toast({
+        title: "Arquivo muito grande",
+        description: "O PDF deve ter no máximo 20MB.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      const { signedUrl, error } = await uploadAndGetSignedUrl(file, "reference-pdfs");
+
+      if (error) throw error;
+      if (signedUrl) {
+        setPdfUrl(signedUrl);
+        setPdfFileName(file.name);
+      }
+      toast({
+        title: "PDF carregado",
+        description: "PDF enviado com sucesso. Clique em 'Extrair Texto' para ler o conteúdo.",
+      });
+    } catch (error) {
+      console.error("Error uploading PDF:", error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível fazer upload do PDF",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  // Extract text from PDF
+  const handleExtractPdf = async () => {
+    if (!pdfUrl) {
+      toast({
+        title: "Nenhum PDF",
+        description: "Faça upload de um PDF primeiro",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsExtractingPdf(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      const { data, error } = await supabase.functions.invoke('extract-pdf', {
+        body: { 
+          fileUrl: pdfUrl, 
+          fileName: pdfFileName,
+          userId: user?.id
+        }
+      });
+
+      if (error) throw error;
+
+      const existingContent = formData.content.trim();
+      const newContent = existingContent 
+        ? `${existingContent}\n\n--- CONTEÚDO DO PDF ---\n${data.content}`
+        : data.content;
+
+      setFormData({ 
+        ...formData, 
+        content: newContent,
+        title: formData.title || pdfFileName.replace(/\.pdf$/i, "")
+      });
+      
+      toast({
+        title: "Extração concluída",
+        description: `Texto extraído de ~${data.pageCount} páginas`,
+      });
+    } catch (error) {
+      console.error("Error extracting PDF:", error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível extrair o texto do PDF",
+        variant: "destructive",
+      });
+    } finally {
+      setIsExtractingPdf(false);
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const dataWithImages = {
+    const dataWithMetadata = {
       ...formData,
       metadata: {
         ...formData.metadata,
-        image_urls: uploadedImages,
+        image_urls: uploadedImages.length > 0 ? uploadedImages : undefined,
         video_url: videoUrl || undefined,
+        scraped_url: linkUrl || undefined,
+        pdf_url: pdfUrl || undefined,
+        pdf_file_name: pdfFileName || undefined,
       },
     };
-    onSave(dataWithImages);
+    onSave(dataWithMetadata);
     onClose();
   };
 
@@ -272,6 +442,97 @@ export function ReferenceDialog({ open, onClose, onSave, reference }: ReferenceD
             </Select>
           </div>
 
+          {/* Link/URL Section */}
+          <div className="space-y-2">
+            <Label className="flex items-center gap-2">
+              <Link className="h-4 w-4" />
+              Link (Blog, Newsletter, Artigo)
+            </Label>
+            <div className="space-y-2">
+              <div className="flex gap-2">
+                <Input
+                  value={linkUrl}
+                  onChange={(e) => setLinkUrl(e.target.value)}
+                  placeholder="https://exemplo.com/artigo"
+                  className="flex-1"
+                />
+                <Button
+                  type="button"
+                  onClick={handleScrapeLink}
+                  disabled={isScrapingLink || !linkUrl}
+                  variant="secondary"
+                >
+                  {isScrapingLink ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Lendo...
+                    </>
+                  ) : (
+                    <>
+                      <ExternalLink className="mr-2 h-4 w-4" />
+                      Ler Conteúdo
+                    </>
+                  )}
+                </Button>
+              </div>
+              {linkUrl && (
+                <p className="text-xs text-muted-foreground flex items-center gap-1">
+                  <Link className="h-3 w-3" />
+                  Link anexado: {linkUrl.substring(0, 50)}...
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* PDF Section */}
+          <div className="space-y-2">
+            <Label className="flex items-center gap-2">
+              <FileText className="h-4 w-4" />
+              PDF (Documento)
+            </Label>
+            <div className="space-y-2">
+              <div className="flex gap-2">
+                <Input
+                  type="file"
+                  accept=".pdf,application/pdf"
+                  onChange={handlePdfUpload}
+                  disabled={isUploading}
+                  className="flex-1"
+                />
+                {pdfUrl && (
+                  <Button
+                    type="button"
+                    onClick={handleExtractPdf}
+                    disabled={isExtractingPdf}
+                    variant="secondary"
+                  >
+                    {isExtractingPdf ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Extraindo...
+                      </>
+                    ) : (
+                      <>
+                        <FileText className="mr-2 h-4 w-4" />
+                        Extrair Texto
+                      </>
+                    )}
+                  </Button>
+                )}
+              </div>
+              {pdfFileName && (
+                <p className="text-xs text-muted-foreground flex items-center gap-1">
+                  <FileText className="h-3 w-3" />
+                  PDF anexado: {pdfFileName}
+                </p>
+              )}
+              <p className="text-xs text-muted-foreground">
+                Max 20MB • Faça upload e clique em "Extrair Texto" para ler o conteúdo
+              </p>
+            </div>
+          </div>
+
+          {/* Images Section */}
           <div className="space-y-2">
             <Label>Imagens (até 10)</Label>
             <div className="space-y-2">
@@ -333,6 +594,7 @@ export function ReferenceDialog({ open, onClose, onSave, reference }: ReferenceD
             </div>
           </div>
 
+          {/* Video Section */}
           <div className="space-y-2">
             <Label>Vídeo (opcional)</Label>
             <div className="space-y-2">
@@ -380,7 +642,7 @@ export function ReferenceDialog({ open, onClose, onSave, reference }: ReferenceD
               id="content"
               value={formData.content}
               onChange={(e) => setFormData({ ...formData, content: e.target.value })}
-              placeholder="Cole o conteúdo completo da referência aqui ou transcreva das imagens/vídeo..."
+              placeholder="Cole o conteúdo completo da referência aqui ou extraia de links/PDFs/imagens/vídeo..."
               className="min-h-[200px] font-mono text-sm"
               required
             />

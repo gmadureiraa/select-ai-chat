@@ -1,7 +1,7 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { ReferenceItem } from "@/hooks/useReferenceLibrary";
-import { ExternalLink } from "lucide-react";
+import { ExternalLink, FileText, Link } from "lucide-react";
 
 interface ReferenceViewDialogProps {
   open: boolean;
@@ -22,6 +22,8 @@ const REFERENCE_TYPE_LABELS: Record<string, string> = {
 export function ReferenceViewDialog({ open, onClose, reference }: ReferenceViewDialogProps) {
   if (!reference) return null;
 
+  const metadata = reference.metadata || {};
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
@@ -34,22 +36,48 @@ export function ReferenceViewDialog({ open, onClose, reference }: ReferenceViewD
           </div>
         </DialogHeader>
         <div className="space-y-4">
-          {reference.source_url && (
-            <div>
-              <a
-                href={reference.source_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-sm text-primary hover:underline flex items-center gap-2"
-              >
-                <ExternalLink className="h-4 w-4" />
-                Ver fonte original
-              </a>
+          {/* Attached files section */}
+          {(metadata.scraped_url || metadata.pdf_url || reference.source_url) && (
+            <div className="flex flex-wrap gap-3 p-3 bg-muted/30 rounded-lg">
+              {metadata.scraped_url && (
+                <a
+                  href={metadata.scraped_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-primary hover:underline flex items-center gap-2 bg-background px-3 py-1.5 rounded-md border"
+                >
+                  <Link className="h-4 w-4" />
+                  Link original
+                </a>
+              )}
+              {metadata.pdf_url && (
+                <a
+                  href={metadata.pdf_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-primary hover:underline flex items-center gap-2 bg-background px-3 py-1.5 rounded-md border"
+                >
+                  <FileText className="h-4 w-4" />
+                  {metadata.pdf_file_name || "Abrir PDF"}
+                </a>
+              )}
+              {reference.source_url && reference.source_url !== metadata.scraped_url && (
+                <a
+                  href={reference.source_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-primary hover:underline flex items-center gap-2 bg-background px-3 py-1.5 rounded-md border"
+                >
+                  <ExternalLink className="h-4 w-4" />
+                  Fonte original
+                </a>
+              )}
             </div>
           )}
-          {reference.metadata?.image_urls && reference.metadata.image_urls.length > 0 && (
+          
+          {metadata.image_urls && metadata.image_urls.length > 0 && (
             <div className="space-y-2">
-              {reference.metadata.image_urls.map((url: string, index: number) => (
+              {metadata.image_urls.map((url: string, index: number) => (
                 <img
                   key={index}
                   src={url}
