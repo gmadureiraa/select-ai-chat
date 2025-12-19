@@ -1,11 +1,10 @@
-import { useState, useEffect } from "react";
 import { ReferenceItem } from "@/hooks/useReferenceLibrary";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Edit, Trash2, Eye, ExternalLink, ImageIcon } from "lucide-react";
+import { Edit, Trash2, Eye, ExternalLink } from "lucide-react";
 import { getContentTypeLabel } from "@/types/contentTypes";
-import { getSignedUrl } from "@/lib/storage";
+import { getPublicUrl } from "@/lib/storage";
 
 interface ReferenceCardProps {
   reference: ReferenceItem;
@@ -18,33 +17,31 @@ interface ReferenceCardProps {
 const cleanContentForPreview = (text: string): string => {
   if (!text) return "";
   return text
-    .replace(/---\s*(PÁGINA|SLIDE|PAGE)\s*\d+\s*---/gi, "") // Remove page separators
-    .replace(/\*\*([^*]+)\*\*/g, "$1") // Remove bold markdown
-    .replace(/\*([^*]+)\*/g, "$1") // Remove italic markdown
-    .replace(/#{1,6}\s/g, "") // Remove headers
-    .replace(/`([^`]+)`/g, "$1") // Remove inline code
-    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1") // Remove links, keep text
-    .replace(/!\[([^\]]*)\]\([^)]+\)/g, "") // Remove images
-    .replace(/^\s*[-*+]\s/gm, "") // Remove list markers
-    .replace(/^\s*\d+\.\s/gm, "") // Remove numbered list markers
-    .replace(/\n{2,}/g, " ") // Replace multiple newlines with space
-    .replace(/\n/g, " ") // Replace single newlines with space
+    .replace(/---\s*(PÁGINA|SLIDE|PAGE)\s*\d+\s*---/gi, "")
+    .replace(/\*\*([^*]+)\*\*/g, "$1")
+    .replace(/\*([^*]+)\*/g, "$1")
+    .replace(/#{1,6}\s/g, "")
+    .replace(/`([^`]+)`/g, "$1")
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+    .replace(/!\[([^\]]*)\]\([^)]+\)/g, "")
+    .replace(/^\s*[-*+]\s/gm, "")
+    .replace(/^\s*\d+\.\s/gm, "")
+    .replace(/\n{2,}/g, " ")
+    .replace(/\n/g, " ")
     .trim();
 };
 
-// Get the first image path from reference metadata
-const getPreviewImagePath = (reference: ReferenceItem): string | null => {
-  // Check thumbnail_url first
-  if (reference.thumbnail_url) return reference.thumbnail_url;
+// Get the first image URL from reference metadata
+const getPreviewImageUrl = (reference: ReferenceItem): string | null => {
+  if (reference.thumbnail_url) return getPublicUrl(reference.thumbnail_url);
   
-  // Check metadata for image_urls (these are now paths)
   if (reference.metadata && typeof reference.metadata === 'object') {
     const meta = reference.metadata as any;
     if (meta.image_urls && Array.isArray(meta.image_urls) && meta.image_urls.length > 0) {
-      return meta.image_urls[0];
+      return getPublicUrl(meta.image_urls[0]);
     }
     if (meta.images && Array.isArray(meta.images) && meta.images.length > 0) {
-      return meta.images[0];
+      return getPublicUrl(meta.images[0]);
     }
   }
   
@@ -53,30 +50,7 @@ const getPreviewImagePath = (reference: ReferenceItem): string | null => {
 
 export function ReferenceCard({ reference, onEdit, onDelete, onView }: ReferenceCardProps) {
   const cleanedContent = cleanContentForPreview(reference.content);
-  const previewImagePath = getPreviewImagePath(reference);
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
-  
-  // Get signed URL for the image when component mounts or path changes
-  useEffect(() => {
-    if (!previewImagePath) {
-      setImageUrl(null);
-      return;
-    }
-    
-    // If it's already a full URL (legacy), use it directly
-    if (previewImagePath.startsWith("http")) {
-      setImageUrl(previewImagePath);
-      return;
-    }
-    
-    // Get signed URL for the path
-    let isMounted = true;
-    getSignedUrl(previewImagePath, 86400).then(url => {
-      if (isMounted) setImageUrl(url);
-    });
-    
-    return () => { isMounted = false; };
-  }, [previewImagePath]);
+  const imageUrl = getPreviewImageUrl(reference);
   
   return (
     <Card className="bg-card/50 border-border/50 hover:border-border transition-all h-[280px] flex flex-col group cursor-pointer overflow-hidden" onClick={() => onView(reference)}>

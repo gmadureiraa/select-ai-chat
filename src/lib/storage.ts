@@ -1,11 +1,29 @@
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
+const SUPABASE_URL = "https://tkbsjtgrumhvwlxkmojg.supabase.co";
+
 /**
  * Check if a string is already a full URL (not just a path)
  */
 export function isFullUrl(str: string): boolean {
   return str.startsWith("http://") || str.startsWith("https://");
+}
+
+/**
+ * Get a permanent public URL for a file in client-files bucket
+ * This URL never expires as the bucket is public
+ * @param filePath The path to the file in the bucket (or already a full URL)
+ * @returns Permanent public URL
+ */
+export function getPublicUrl(filePath: string): string {
+  if (!filePath) return "";
+  
+  // If it's already a full URL, return as-is
+  if (isFullUrl(filePath)) return filePath;
+  
+  // Generate permanent public URL
+  return `${SUPABASE_URL}/storage/v1/object/public/client-files/${filePath}`;
 }
 
 /**
