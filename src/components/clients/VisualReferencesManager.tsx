@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,8 @@ import {
 } from "@/components/ui/select";
 import { useClientVisualReferences, ClientVisualReference } from "@/hooks/useClientVisualReferences";
 import { supabase } from "@/integrations/supabase/client";
+import { uploadToClientFiles, getSignedUrl } from "@/lib/storage";
+import { ImageWithSignedUrl } from "@/components/ui/image-with-signed-url";
 import { 
   Loader2, Upload, Trash2, Star, StarOff, Image, 
   Palette, ShoppingBag, Camera, Sparkles, Plus
@@ -108,20 +110,17 @@ export const VisualReferencesManager = ({
     setIsUploading(true);
     try {
       const fileExt = file.name.split(".").pop();
-      const fileName = `${clientId}/${Date.now()}.${fileExt}`;
+      const filePath = `visual-references/${clientId}/${Date.now()}.${fileExt}`;
 
       const { error: uploadError } = await supabase.storage
         .from("client-files")
-        .upload(`visual-references/${fileName}`, file);
+        .upload(filePath, file);
 
       if (uploadError) throw uploadError;
 
-      const { data: urlData } = supabase.storage
-        .from("client-files")
-        .getPublicUrl(`visual-references/${fileName}`);
-
+      // Store the path, not a URL - the path will be used to generate signed URLs on demand
       await createReference.mutateAsync({
-        image_url: urlData.publicUrl,
+        image_url: filePath, // Store path instead of URL
         title: title || file.name,
         description: description || undefined,
         reference_type: selectedType,
@@ -263,8 +262,8 @@ export const VisualReferencesManager = ({
                         onCheckedChange={() => onToggleSelection(ref.id)}
                       />
                     )}
-                    <img 
-                      src={ref.image_url} 
+                    <ImageWithSignedUrl 
+                      path={ref.image_url} 
                       alt={ref.title || "Referência"} 
                       className="w-16 h-16 object-cover rounded"
                     />
@@ -327,8 +326,8 @@ export const VisualReferencesManager = ({
                     </div>
                   )}
                   
-                  <img 
-                    src={ref.image_url} 
+                  <ImageWithSignedUrl 
+                    path={ref.image_url} 
                     alt={ref.title || "Referência visual"}
                     className="w-full h-40 object-cover"
                   />
@@ -472,8 +471,8 @@ export const VisualReferencesManager = ({
                   ref.is_primary ? "ring-2 ring-primary" : ""
                 }`}
               >
-                <img 
-                  src={ref.image_url} 
+                <ImageWithSignedUrl 
+                  path={ref.image_url} 
                   alt={ref.title || "Referência visual"}
                   className="w-full h-32 object-cover"
                 />

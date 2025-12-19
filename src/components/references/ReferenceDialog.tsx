@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { CreateReferenceData, ReferenceItem } from "@/hooks/useReferenceLibrary";
 import { CONTENT_TYPE_OPTIONS } from "@/types/contentTypes";
 import { supabase } from "@/integrations/supabase/client";
-import { uploadAndGetSignedUrl } from "@/lib/storage";
+import { uploadToClientFiles, getSignedUrl, downloadAsBlob } from "@/lib/storage";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Upload, X, Link, FileText, ExternalLink } from "lucide-react";
 
@@ -85,21 +85,27 @@ export function ReferenceDialog({ open, onClose, onSave, reference }: ReferenceD
     }
 
     setIsUploading(true);
-    const newImageUrls: string[] = [];
+    const newImagePaths: string[] = [];
 
     try {
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
-        const { signedUrl, error } = await uploadAndGetSignedUrl(file, "reference-images");
+        const { path, error } = await uploadToClientFiles(file, "reference-images");
 
         if (error) throw error;
-        if (signedUrl) newImageUrls.push(signedUrl);
+        if (path) newImagePaths.push(path);
       }
 
-      setUploadedImages([...uploadedImages, ...newImageUrls]);
+      // Get signed URLs for immediate display
+      const signedUrls = await Promise.all(
+        newImagePaths.map(path => getSignedUrl(path, 3600))
+      );
+      
+      // Store paths internally but display signed URLs
+      setUploadedImages([...uploadedImages, ...newImagePaths]);
       toast({
         title: "Imagens carregadas",
-        description: `${newImageUrls.length} imagem(ns) adicionada(s)`,
+        description: `${newImagePaths.length} imagem(ns) adicionada(s)`,
       });
     } catch (error) {
       console.error("Error uploading images:", error);
@@ -113,10 +119,23 @@ export function ReferenceDialog({ open, onClose, onSave, reference }: ReferenceD
     }
   };
 
-  // Convert image URL to base64
-  const urlToBase64 = async (url: string): Promise<string | null> => {
+  // Convert image path/URL to base64
+  const pathToBase64 = async (pathOrUrl: string): Promise<string | null> => {
     try {
-      const response = await fetch(url);
+      // If it's a path (not a URL), use downloadAsBlob
+      if (!pathOrUrl.startsWith("http")) {
+        const blob = await downloadAsBlob(pathOrUrl);
+        if (!blob) throw new Error("Failed to download file");
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(blob);
+        });
+      }
+      
+      // For URLs, fetch directly
+      const response = await fetch(pathOrUrl);
       if (!response.ok) throw new Error("Failed to fetch image");
       const blob = await response.blob();
       return new Promise((resolve, reject) => {
@@ -150,8 +169,8 @@ export function ReferenceDialog({ open, onClose, onSave, reference }: ReferenceD
       });
 
       const base64Images: string[] = [];
-      for (const imageUrl of uploadedImages) {
-        const base64 = await urlToBase64(imageUrl);
+      for (const imagePath of uploadedImages) {
+        const base64 = await pathToBase64(imagePath);
         if (base64) {
           base64Images.push(base64);
         }
@@ -208,10 +227,14 @@ export function ReferenceDialog({ open, onClose, onSave, reference }: ReferenceD
 
     setIsUploading(true);
     try {
-      const { signedUrl, error } = await uploadAndGetSignedUrl(file, "reference-videos");
+      const { path, error } = await uploadToClientFiles(file, "reference-videos");
 
       if (error) throw error;
-      if (signedUrl) setVideoUrl(signedUrl);
+      if (path) {
+        // Get signed URL for immediate use (transcription)
+        const signedUrl = await getSignedUrl(path, 3600);
+        setVideoUrl(signedUrl || path); // Fallback to path if signedUrl fails
+      }
       toast({
         title: "Vídeo carregado",
         description: "Vídeo enviado com sucesso. Clique em 'Transcrever Vídeo' para extrair o conteúdo.",
@@ -354,11 +377,13 @@ export function ReferenceDialog({ open, onClose, onSave, reference }: ReferenceD
 
     setIsUploading(true);
     try {
-      const { signedUrl, error } = await uploadAndGetSignedUrl(file, "reference-pdfs");
+      const { path, error } = await uploadToClientFiles(file, "reference-pdfs");
 
       if (error) throw error;
-      if (signedUrl) {
-        setPdfUrl(signedUrl);
+      if (path) {
+        // Get signed URL for immediate use (extraction)
+        const signedUrl = await getSignedUrl(path, 3600);
+        setPdfUrl(signedUrl || path);
         setPdfFileName(file.name);
       }
       toast({
