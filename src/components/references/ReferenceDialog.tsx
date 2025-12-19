@@ -113,6 +113,24 @@ export function ReferenceDialog({ open, onClose, onSave, reference }: ReferenceD
     }
   };
 
+  // Convert image URL to base64
+  const urlToBase64 = async (url: string): Promise<string | null> => {
+    try {
+      const response = await fetch(url);
+      if (!response.ok) throw new Error("Failed to fetch image");
+      const blob = await response.blob();
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+    } catch (error) {
+      console.error("Error converting image to base64:", error);
+      return null;
+    }
+  };
+
   const handleTranscribe = async () => {
     if (uploadedImages.length === 0) {
       toast({
@@ -125,8 +143,26 @@ export function ReferenceDialog({ open, onClose, onSave, reference }: ReferenceD
 
     setIsTranscribing(true);
     try {
+      // Convert all images to base64 to avoid signed URL issues
+      toast({
+        title: "Preparando imagens...",
+        description: "Convertendo imagens para processamento",
+      });
+
+      const base64Images: string[] = [];
+      for (const imageUrl of uploadedImages) {
+        const base64 = await urlToBase64(imageUrl);
+        if (base64) {
+          base64Images.push(base64);
+        }
+      }
+
+      if (base64Images.length === 0) {
+        throw new Error("Não foi possível processar as imagens");
+      }
+
       const { data, error } = await supabase.functions.invoke('transcribe-images', {
-        body: { imageUrls: uploadedImages }
+        body: { imageUrls: base64Images }
       });
 
       if (error) throw error;
