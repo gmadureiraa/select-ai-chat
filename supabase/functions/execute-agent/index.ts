@@ -563,6 +563,7 @@ serve(async (req) => {
     // ========================================
     
     let contentLibrary: any[] = [];
+    let structureExamples: any[] = []; // NEW: Examples for structure matching
     let referenceLibrary: any[] = [];
     let visualReferences: any[] = [];
     let brandAssets: any = null;
@@ -572,12 +573,45 @@ serve(async (req) => {
     let globalKnowledge: any[] = [];
     let clientDocuments: any[] = [];
 
+    // Map content agent to content_type in database
+    const agentToContentType: Record<string, string[]> = {
+      newsletter_agent: ["newsletter", "email"],
+      email_marketing_agent: ["email", "email_marketing"],
+      carousel_agent: ["carousel", "carrossel"],
+      static_post_agent: ["post", "instagram_post", "image"],
+      reels_agent: ["reels", "short_video", "video"],
+      long_video_agent: ["video", "youtube", "long_video"],
+      tweet_agent: ["tweet"],
+      thread_agent: ["thread"],
+      linkedin_agent: ["linkedin"],
+      article_agent: ["article", "artigo"],
+      blog_agent: ["blog", "blog_post"]
+    };
+
     // Buscar dados baseado no tipo de agente
     if (clientId) {
       console.log(`[AGENT:${agentType}] Fetching data for client...`);
       
       // Content Writer precisa de biblioteca de conteúdo e referências
       if (agentType === "content_writer" || agentType === "strategist" || agentType === "researcher") {
+        // First: Get structure examples matching the content type
+        if (activeContentAgent && agentToContentType[activeContentAgent]) {
+          const matchingTypes = agentToContentType[activeContentAgent];
+          console.log(`[AGENT] Fetching structure examples for types: ${matchingTypes.join(", ")}`);
+          
+          // Fetch examples of the SAME content type for structure reference
+          const { data: examples } = await supabase
+            .from("client_content_library")
+            .select("id, title, content_type, content, metadata")
+            .eq("client_id", clientId)
+            .in("content_type", matchingTypes)
+            .order("created_at", { ascending: false })
+            .limit(3); // Get best 3 examples
+          structureExamples = examples || [];
+          console.log(`[AGENT] Found ${structureExamples.length} structure examples`);
+        }
+        
+        // Also get general content for context (different types)
         const { data: content } = await supabase
           .from("client_content_library")
           .select("id, title, content_type, content, metadata")
@@ -677,7 +711,22 @@ serve(async (req) => {
 ${clientContext?.identityGuide || "Não disponível"}
 `;
 
-    // Add fetched data based on agent type
+    // ADD STRUCTURE EXAMPLES FIRST (most important for format matching)
+    if (structureExamples.length > 0) {
+      contextPrompt += `\n## 📐 EXEMPLOS DE ESTRUTURA DO CLIENTE (SIGA ESTE FORMATO!):\n`;
+      contextPrompt += `**IMPORTANTE:** Use estes exemplos como referência para manter a mesma estrutura, tom e estilo que o cliente já usa.\n\n`;
+      structureExamples.forEach((c, i) => {
+        contextPrompt += `### EXEMPLO ${i + 1}: "${c.title}" (${c.content_type})\n`;
+        contextPrompt += `\`\`\`\n${c.content}\n\`\`\`\n\n`;
+      });
+      contextPrompt += `**INSTRUÇÕES DE ESTRUTURA:**
+- Mantenha a MESMA estrutura de seções/blocos dos exemplos acima
+- Copie o ESTILO de escrita e tom de voz
+- Use formatação similar (emojis, bullets, espaçamento)
+- Adapte o conteúdo novo para seguir este padrão\n\n`;
+    }
+
+    // Add general content library for context
     if (contentLibrary.length > 0) {
       contextPrompt += `\n## BIBLIOTECA DE CONTEÚDO (${contentLibrary.length} itens):\n`;
       contentLibrary.slice(0, 5).forEach((c, i) => {
@@ -807,6 +856,7 @@ ${userMessage}`;
         output: result.outputTokens
       },
       dataSources: {
+        structureExamples: structureExamples.length,
         contentLibrary: contentLibrary.length,
         referenceLibrary: referenceLibrary.length,
         visualReferences: visualReferences.length,
