@@ -533,6 +533,198 @@ const sections: DocSection[] = [
       </div>
     ),
   },
+  {
+    id: "orchestrator",
+    title: "Orquestrador",
+    icon: Workflow,
+    content: (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold mb-4">Orquestrador Inteligente</h1>
+          <p className="text-muted-foreground text-lg">
+            Sistema que analisa a complexidade do pedido e decide automaticamente 
+            qual pipeline de agentes utilizar.
+          </p>
+        </div>
+
+        <div className="space-y-4">
+          <h2 className="text-xl font-semibold">Como Funciona</h2>
+          <div className="p-4 rounded-lg bg-muted/30 border">
+            <div className="space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-violet-500/20 flex items-center justify-center text-violet-500 font-bold text-sm">1</div>
+                <div>
+                  <p className="font-medium">Análise de Intenção</p>
+                  <p className="text-sm text-muted-foreground">Detecta se é pergunta, geração, análise ou tarefa complexa</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-violet-500/20 flex items-center justify-center text-violet-500 font-bold text-sm">2</div>
+                <div>
+                  <p className="font-medium">Seleção de Pipeline</p>
+                  <p className="text-sm text-muted-foreground">Escolhe entre chat simples, single-agent, ou multi-agent</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-violet-500/20 flex items-center justify-center text-violet-500 font-bold text-sm">3</div>
+                <div>
+                  <p className="font-medium">Execução Coordenada</p>
+                  <p className="text-sm text-muted-foreground">Passa contexto entre agentes com memória compartilhada</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <h2 className="text-xl font-semibold">Tipos de Pipeline</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div className="p-4 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+              <h4 className="font-medium text-emerald-600 mb-2">Chat Simples</h4>
+              <p className="text-sm text-muted-foreground">Perguntas rápidas, conversas gerais. Usa resposta direta sem pipeline.</p>
+            </div>
+            <div className="p-4 rounded-lg bg-blue-500/10 border border-blue-500/20">
+              <h4 className="font-medium text-blue-600 mb-2">Single-Agent</h4>
+              <p className="text-sm text-muted-foreground">Tarefas específicas com um agente especializado (ex: gerar um tweet).</p>
+            </div>
+            <div className="p-4 rounded-lg bg-violet-500/10 border border-violet-500/20">
+              <h4 className="font-medium text-violet-600 mb-2">Multi-Agent</h4>
+              <p className="text-sm text-muted-foreground">Tarefas complexas com 4 agentes em sequência (pesquisador → escritor → editor → verificador).</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <h2 className="text-xl font-semibold">Agentes Especializados</h2>
+          <p className="text-muted-foreground">O sistema conta com 6 agentes core que podem ser combinados:</p>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+            {[
+              { name: "Researcher", role: "Busca dados no banco e biblioteca" },
+              { name: "Content Writer", role: "Gera conteúdo seguindo regras de formato" },
+              { name: "Style Editor", role: "Ajusta tom e voz para o cliente" },
+              { name: "Reviewer", role: "Verifica qualidade e consistência" },
+              { name: "Data Analyst", role: "Analisa métricas e gera insights" },
+              { name: "Strategist", role: "Cria planos e recomendações" },
+            ].map((agent) => (
+              <div key={agent.name} className="p-3 rounded-lg bg-muted/30 border">
+                <p className="font-medium text-sm">{agent.name}</p>
+                <p className="text-xs text-muted-foreground">{agent.role}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    ),
+  },
+  {
+    id: "technical",
+    title: "Conceitos Técnicos",
+    icon: Book,
+    content: (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold mb-4">Conceitos Técnicos</h1>
+          <p className="text-muted-foreground text-lg">
+            Documentação técnica interna sobre a arquitetura do sistema.
+          </p>
+        </div>
+
+        <div className="space-y-4">
+          <h2 className="text-xl font-semibold">RAG (Retrieval-Augmented Generation)</h2>
+          <div className="p-4 rounded-lg bg-muted/30 border">
+            <p className="text-muted-foreground mb-3">
+              Técnica que combina busca de documentos com geração de texto. O kAI usa RAG para:
+            </p>
+            <ul className="space-y-2 text-sm">
+              <li className="flex items-start gap-2">
+                <span className="text-primary">→</span>
+                <span><strong>Buscar contexto relevante</strong>: Antes de gerar, busca na biblioteca do cliente exemplos similares</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-primary">→</span>
+                <span><strong>Grounding</strong>: A resposta é "ancorada" em dados reais, evitando alucinações</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-primary">→</span>
+                <span><strong>Personalização</strong>: Usa o guia de identidade para manter o tom correto</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <h2 className="text-xl font-semibold">Context Window</h2>
+          <div className="p-4 rounded-lg bg-muted/30 border">
+            <p className="text-muted-foreground mb-3">
+              Quantidade máxima de texto que o modelo consegue processar de uma vez.
+            </p>
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div className="p-2 rounded bg-background">
+                <p className="font-medium">Gemini 2.5 Flash</p>
+                <p className="text-muted-foreground">~1M tokens (~750k palavras)</p>
+              </div>
+              <div className="p-2 rounded bg-background">
+                <p className="font-medium">GPT-5</p>
+                <p className="text-muted-foreground">~128k tokens (~100k palavras)</p>
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground mt-3">
+              O kAI otimiza o uso do context window priorizando: guia de identidade → regras do template → exemplos recentes → histórico.
+            </p>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <h2 className="text-xl font-semibold">Multi-Agent Pipeline</h2>
+          <div className="p-4 rounded-lg bg-violet-500/10 border border-violet-500/20">
+            <p className="text-muted-foreground mb-3">
+              Arquitetura onde múltiplos agentes LLM trabalham em sequência, cada um com uma especialidade:
+            </p>
+            <div className="space-y-2 text-sm font-mono">
+              <div className="p-2 rounded bg-background/50">
+                <code>input → Researcher → Writer → Editor → Reviewer → output</code>
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground mt-3">
+              Cada agente recebe o output do anterior + contexto original. O estado é mantido em memória compartilhada.
+            </p>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <h2 className="text-xl font-semibold">Streaming SSE</h2>
+          <div className="p-4 rounded-lg bg-muted/30 border">
+            <p className="text-muted-foreground mb-3">
+              Server-Sent Events para resposta em tempo real. A resposta chega token por token:
+            </p>
+            <ul className="space-y-1 text-sm">
+              <li>• <strong>Latência percebida baixa</strong>: Usuário vê texto enquanto gera</li>
+              <li>• <strong>Progresso visual</strong>: Animação de "digitando"</li>
+              <li>• <strong>Cancelamento</strong>: Pode parar geração a qualquer momento</li>
+            </ul>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <h2 className="text-xl font-semibold">Mapeamento de Arquivos</h2>
+          <div className="p-4 rounded-lg bg-amber-500/10 border border-amber-500/20">
+            <p className="text-muted-foreground mb-3 text-sm">
+              Principais arquivos do sistema de agentes:
+            </p>
+            <div className="space-y-1 text-xs font-mono">
+              <p><span className="text-amber-600">types/contentAgents.ts</span> - Definição dos 11 agentes de conteúdo</p>
+              <p><span className="text-amber-600">types/orchestrator.ts</span> - Agentes especializados do orquestrador</p>
+              <p><span className="text-amber-600">types/template.ts</span> - Regras de formato por tipo</p>
+              <p><span className="text-amber-600">hooks/useClientChat.ts</span> - Lógica principal do chat</p>
+              <p><span className="text-amber-600">functions/execute-agent</span> - Edge function que executa agentes</p>
+              <p><span className="text-amber-600">functions/orchestrator</span> - Orquestrador multi-agente</p>
+              <p><span className="text-amber-600">functions/chat</span> - Chat simples com streaming</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    ),
+  },
 ];
 
 export default function Documentation() {
