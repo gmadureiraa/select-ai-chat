@@ -16,6 +16,7 @@ import { WorkflowExecutionCard } from "@/components/chat/WorkflowExecutionCard";
 import { TemplateManager } from "@/components/clients/TemplateManager";
 import { TasksPanel } from "@/components/kai2/TasksPanel";
 import { ConversationHistorySidebar } from "@/components/kai2/ConversationHistorySidebar";
+import { ActiveAgentBadge } from "@/components/chat/ActiveAgentBadge";
 import { useContextualTasks } from "@/hooks/useContextualTasks";
 import { ContextType } from "@/config/contextualTasks";
 import { Client } from "@/hooks/useClients";
@@ -447,9 +448,13 @@ export const Kai2AssistantTab = ({
             </Button>
           )}
           <div className="flex items-center gap-2 flex-1 min-w-0">
-            <span className="text-sm font-medium text-foreground/80 truncate">
-              {selectedTemplate?.name || "Chat Livre"}
-            </span>
+            {selectedTemplate ? (
+              <ActiveAgentBadge templateName={selectedTemplate.name} showDetails />
+            ) : (
+              <span className="text-sm font-medium text-foreground/80 truncate">
+                Chat Livre
+              </span>
+            )}
             <span className="text-muted-foreground/40">•</span>
             <span className="text-xs text-muted-foreground truncate">{client.name}</span>
           </div>
