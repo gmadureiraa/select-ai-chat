@@ -88,6 +88,29 @@ serve(async (req) => {
   }
 
   try {
+    // Check authentication
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: 'Authentication required' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } }
+    });
+
+    const { data: { user }, error: authError } = await supabaseAuth.auth.getUser();
+    if (authError || !user) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid or expired token' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const { 
       prompt, 
       imageReferences, 
@@ -116,9 +139,9 @@ serve(async (req) => {
     }
 
     // Setup Supabase for logging and fetching brand assets
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseServiceUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabaseService = createClient(supabaseServiceUrl, supabaseServiceKey);
 
     // Fetch brand assets from database if not provided and clientId exists
     let effectiveBrandAssets = brandAssets;
@@ -126,7 +149,7 @@ serve(async (req) => {
     
     if (!effectiveBrandAssets && clientId) {
       console.log(`[generate-image] Fetching brand assets for client ${clientId}`);
-      const { data: clientData } = await supabase
+      const { data: clientData } = await supabaseService
         .from("clients")
         .select("name, brand_assets")
         .eq("id", clientId)
@@ -144,7 +167,7 @@ serve(async (req) => {
     
     if (effectiveVisualRefs.length === 0 && clientId) {
       console.log(`[generate-image] Fetching visual references for client ${clientId}`);
-      const { data: visualRefs } = await supabase
+      const { data: visualRefs } = await supabaseService
         .from("client_visual_references")
         .select("*")
         .eq("client_id", clientId)
@@ -336,7 +359,7 @@ serve(async (req) => {
             // Log OpenAI usage
             if (userId) {
               await logAIUsage(
-                supabase,
+                supabaseService,
                 userId,
                 "gpt-image-1",
                 "generate-image",
@@ -408,7 +431,7 @@ serve(async (req) => {
           if (imageB64) {
             if (userId) {
               await logAIUsage(
-                supabase,
+                supabaseService,
                 userId,
                 "gpt-image-1",
                 "generate-image",
@@ -437,7 +460,7 @@ serve(async (req) => {
     const outputTokens = data.usageMetadata?.candidatesTokenCount || 500; // Image generation has fixed token cost
     if (userId) {
       await logAIUsage(
-        supabase,
+        supabaseService,
         userId,
         GEMINI_MODEL,
         "generate-image",
