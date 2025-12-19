@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useEffect } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -13,10 +13,9 @@ import {
 } from "@/components/ui/select";
 import { useClientVisualReferences, ClientVisualReference } from "@/hooks/useClientVisualReferences";
 import { supabase } from "@/integrations/supabase/client";
-import { uploadToClientFiles, getSignedUrl } from "@/lib/storage";
-import { ImageWithSignedUrl } from "@/components/ui/image-with-signed-url";
+import { getPublicUrl } from "@/lib/storage";
 import { 
-  Loader2, Upload, Trash2, Star, StarOff, Image, 
+  Loader2, Trash2, Star, StarOff, Image, 
   Palette, ShoppingBag, Camera, Sparkles, Plus
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -262,8 +261,8 @@ export const VisualReferencesManager = ({
                         onCheckedChange={() => onToggleSelection(ref.id)}
                       />
                     )}
-                    <ImageWithSignedUrl 
-                      path={ref.image_url} 
+                    <img 
+                      src={getPublicUrl(ref.image_url)} 
                       alt={ref.title || "Referência"} 
                       className="w-16 h-16 object-cover rounded"
                     />
@@ -326,8 +325,8 @@ export const VisualReferencesManager = ({
                     </div>
                   )}
                   
-                  <ImageWithSignedUrl 
-                    path={ref.image_url} 
+                  <img 
+                    src={getPublicUrl(ref.image_url)} 
                     alt={ref.title || "Referência visual"}
                     className="w-full h-40 object-cover"
                   />
@@ -471,8 +470,8 @@ export const VisualReferencesManager = ({
                   ref.is_primary ? "ring-2 ring-primary" : ""
                 }`}
               >
-                <ImageWithSignedUrl 
-                  path={ref.image_url} 
+                <img 
+                  src={getPublicUrl(ref.image_url)} 
                   alt={ref.title || "Referência visual"}
                   className="w-full h-32 object-cover"
                 />
