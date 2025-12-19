@@ -12,13 +12,55 @@ serve(async (req) => {
   }
 
   try {
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+    // Authentication check
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: "Authentication required" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } }
+    });
+
+    const { data: { user }, error: authError } = await supabaseAuth.auth.getUser();
+    if (authError || !user) {
+      console.error("[search-knowledge] Auth error:", authError);
+      return new Response(
+        JSON.stringify({ error: "Invalid token" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const { query, workspaceId, limit = 5 } = await req.json();
 
     if (!query || !workspaceId) {
       throw new Error("query and workspaceId are required");
     }
 
-    console.log("[search-knowledge] Searching:", query);
+    // Verify user belongs to the workspace
+    const { data: membership, error: membershipError } = await supabaseAuth
+      .from("workspace_members")
+      .select("id")
+      .eq("workspace_id", workspaceId)
+      .eq("user_id", user.id)
+      .single();
+
+    if (membershipError || !membership) {
+      console.error("[search-knowledge] Access denied - user not in workspace:", user.id, workspaceId);
+      return new Response(
+        JSON.stringify({ error: "Access denied - not a workspace member" }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    console.log("[search-knowledge] Searching:", query, "by user:", user.id);
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
@@ -50,12 +92,11 @@ serve(async (req) => {
       throw new Error("Failed to generate query embedding");
     }
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    // Use service role for database operations after authorization is verified
+    const supabaseService = createClient(supabaseUrl, supabaseServiceKey);
 
     // Use the semantic search function
-    const { data: semanticResults, error: semanticError } = await supabase
+    const { data: semanticResults, error: semanticError } = await supabaseService
       .rpc("search_knowledge_semantic", {
         query_embedding: queryEmbedding,
         workspace_id_filter: workspaceId,
@@ -68,7 +109,7 @@ serve(async (req) => {
     }
 
     // Also do text search as fallback
-    const { data: textResults, error: textError } = await supabase
+    const { data: textResults, error: textError } = await supabaseService
       .from("global_knowledge")
       .select("id, title, content, summary, category, source_url")
       .eq("workspace_id", workspaceId)
