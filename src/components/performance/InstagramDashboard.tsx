@@ -133,7 +133,18 @@ export function InstagramDashboard({
     }
 
     const totalViews = filteredMetrics.reduce((sum, m) => sum + (m.views || 0), 0);
-    const followersGained = filteredMetrics.reduce((sum, m) => sum + (m.subscribers || 0), 0);
+    
+    // Calculate followers with outlier detection to handle inconsistent data
+    // (some entries may have total followers instead of daily delta)
+    const subscriberValues = filteredMetrics.map(m => m.subscribers || 0).filter(v => v > 0);
+    const avgSubscribers = subscriberValues.length > 0 
+      ? subscriberValues.reduce((a, b) => a + b, 0) / subscriberValues.length 
+      : 0;
+    const outlierThreshold = Math.max(avgSubscribers * 10, 100);
+    const followersGained = filteredMetrics.reduce((sum, m) => {
+      const value = m.subscribers || 0;
+      return sum + (value > outlierThreshold ? 0 : value);
+    }, 0);
     const totalReachFromMetrics = filteredMetrics.reduce((sum, m) => sum + getMetadataValue(m, 'reach'), 0);
     const totalImpressions = filteredPosts.reduce((sum, p) => sum + (p.impressions || 0), 0);
     const totalInteractions = filteredMetrics.reduce((sum, m) => sum + getMetadataValue(m, 'interactions'), 0);
@@ -141,7 +152,17 @@ export function InstagramDashboard({
     const totalProfileVisits = filteredMetrics.reduce((sum, m) => sum + getMetadataValue(m, 'profileVisits'), 0);
 
     const prevViews = previousPeriodMetrics.reduce((sum, m) => sum + (m.views || 0), 0);
-    const prevFollowers = previousPeriodMetrics.reduce((sum, m) => sum + (m.subscribers || 0), 0);
+    
+    // Apply same outlier filtering to previous period
+    const prevSubscriberValues = previousPeriodMetrics.map(m => m.subscribers || 0).filter(v => v > 0);
+    const prevAvgSubscribers = prevSubscriberValues.length > 0 
+      ? prevSubscriberValues.reduce((a, b) => a + b, 0) / prevSubscriberValues.length 
+      : 0;
+    const prevOutlierThreshold = Math.max(prevAvgSubscribers * 10, 100);
+    const prevFollowers = previousPeriodMetrics.reduce((sum, m) => {
+      const value = m.subscribers || 0;
+      return sum + (value > prevOutlierThreshold ? 0 : value);
+    }, 0);
     const prevReach = previousPeriodMetrics.reduce((sum, m) => sum + getMetadataValue(m, 'reach'), 0);
     const prevInteractions = previousPeriodMetrics.reduce((sum, m) => sum + getMetadataValue(m, 'interactions'), 0);
     const prevLinkClicks = previousPeriodMetrics.reduce((sum, m) => sum + getMetadataValue(m, 'linkClicks'), 0);
