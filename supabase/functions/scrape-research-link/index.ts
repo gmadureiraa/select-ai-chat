@@ -69,17 +69,60 @@ serve(async (req) => {
 
     console.log("[scrape-research-link] Scraping:", url);
 
-    // Fetch website content
-    const response = await fetch(url, {
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-        "Accept-Language": "pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7",
-      },
-    });
+    // User agents to try in case of blocking
+    const userAgents = [
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15",
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0",
+    ];
 
-    if (!response.ok) {
-      throw new Error(`Failed to fetch website: ${response.statusText}`);
+    let response: Response | null = null;
+    let lastError: Error | null = null;
+
+    // Try with different user agents if blocked
+    for (const userAgent of userAgents) {
+      try {
+        const urlObj = new URL(url);
+        response = await fetch(url, {
+          headers: {
+            "User-Agent": userAgent,
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+            "Accept-Language": "pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7",
+            "Accept-Encoding": "gzip, deflate, br",
+            "Cache-Control": "no-cache",
+            "Pragma": "no-cache",
+            "Referer": urlObj.origin,
+            "Sec-Ch-Ua": '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
+            "Sec-Ch-Ua-Mobile": "?0",
+            "Sec-Ch-Ua-Platform": '"Windows"',
+            "Sec-Fetch-Dest": "document",
+            "Sec-Fetch-Mode": "navigate",
+            "Sec-Fetch-Site": "none",
+            "Sec-Fetch-User": "?1",
+            "Upgrade-Insecure-Requests": "1",
+          },
+        });
+
+        if (response.ok) {
+          break;
+        }
+        
+        // If 403, try next user agent
+        if (response.status === 403) {
+          console.log(`[scrape-research-link] Got 403 with UA, trying next...`);
+          lastError = new Error(`Forbidden (403) - trying alternate user agent`);
+          continue;
+        }
+        
+        lastError = new Error(`HTTP ${response.status}: ${response.statusText}`);
+      } catch (fetchError) {
+        lastError = fetchError instanceof Error ? fetchError : new Error(String(fetchError));
+        console.log(`[scrape-research-link] Fetch error, trying next UA:`, lastError.message);
+      }
+    }
+
+    if (!response || !response.ok) {
+      throw new Error(`Failed to fetch website: ${lastError?.message || 'Unknown error'}`);
     }
 
     const html = await response.text();
