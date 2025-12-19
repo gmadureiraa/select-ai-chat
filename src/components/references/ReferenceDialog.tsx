@@ -257,16 +257,23 @@ export function ReferenceDialog({ open, onClose, onSave, reference }: ReferenceD
 
     setIsScrapingLink(true);
     try {
-      const { data, error } = await supabase.functions.invoke('scrape-research-link', {
+      const { data: response, error } = await supabase.functions.invoke('scrape-research-link', {
         body: { url: linkUrl }
       });
 
       if (error) throw error;
 
+      // The edge function returns { success, data: { content, title, thumbnail, ... } }
+      const scrapedData = response?.data || response;
+      const scrapedContent = scrapedData?.content || scrapedData?.textContent || "";
+      const title = scrapedData?.title || "";
+      const thumbnail = scrapedData?.thumbnail || scrapedData?.ogImage || "";
+
+      if (!scrapedContent) {
+        throw new Error("Não foi possível extrair conteúdo do link");
+      }
+
       const existingContent = formData.content.trim();
-      const scrapedContent = data.textContent || data.content || "";
-      const title = data.title || "";
-      
       const newContent = existingContent 
         ? `${existingContent}\n\n--- CONTEÚDO DO LINK ---\n${scrapedContent}`
         : scrapedContent;
@@ -276,7 +283,7 @@ export function ReferenceDialog({ open, onClose, onSave, reference }: ReferenceD
         content: newContent,
         title: formData.title || title,
         source_url: linkUrl,
-        thumbnail_url: formData.thumbnail_url || data.ogImage || ""
+        thumbnail_url: formData.thumbnail_url || thumbnail
       });
       
       toast({
