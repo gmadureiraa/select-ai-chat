@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
-import { Plus, FileText, Trash2, Edit, Upload, Loader2, Search, BookOpen, Download, ExternalLink, Tag } from "lucide-react";
+import { Plus, FileText, Trash2, Edit, Upload, Loader2, Search, BookOpen, Download, ExternalLink, Tag, Image } from "lucide-react";
 import { useGlobalKnowledge, KNOWLEDGE_CATEGORIES, KnowledgeCategory, GlobalKnowledge } from "@/hooks/useGlobalKnowledge";
 import { supabase } from "@/integrations/supabase/client";
 import { uploadAndGetSignedUrl, openFileInNewTab, downloadFile } from "@/lib/storage";
@@ -35,6 +35,8 @@ export default function KnowledgeBase() {
   const [formSourceFile, setFormSourceFile] = useState("");
   const [formPageCount, setFormPageCount] = useState<number | null>(null);
   const [formPdfPath, setFormPdfPath] = useState<string | null>(null);
+  const [formImagePath, setFormImagePath] = useState<string | null>(null);
+  const [isTranscribingImage, setIsTranscribingImage] = useState(false);
   const [formTags, setFormTags] = useState<string[]>([]);
 
   const resetForm = () => {
@@ -44,6 +46,7 @@ export default function KnowledgeBase() {
     setFormSourceFile("");
     setFormPageCount(null);
     setFormPdfPath(null);
+    setFormImagePath(null);
     setFormTags([]);
   };
 
@@ -100,11 +103,54 @@ export default function KnowledgeBase() {
     }
   };
 
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !file.type.startsWith('image/')) {
+      toast.error('Por favor, selecione uma imagem');
+      return;
+    }
+
+    setIsTranscribingImage(true);
+    try {
+      // Upload to storage
+      const sanitizedName = sanitizeFileName(file.name);
+      const { path, signedUrl, error: uploadError } = await uploadAndGetSignedUrl(
+        new File([file], `${Date.now()}_${sanitizedName}`, { type: file.type }),
+        "knowledge"
+      );
+
+      if (uploadError) throw uploadError;
+
+      // Transcribe image
+      const { data, error } = await supabase.functions.invoke('transcribe-images', {
+        body: { imageUrls: [signedUrl] }
+      });
+
+      if (error) throw error;
+
+      setFormTitle(file.name.replace(/\.[^/.]+$/, ''));
+      setFormContent(data.transcription || '');
+      setFormSourceFile(file.name);
+      setFormImagePath(path);
+      
+      toast.success('Imagem transcrita com sucesso!');
+    } catch (error: any) {
+      console.error('Image upload error:', error);
+      toast.error('Erro ao processar imagem: ' + error.message);
+    } finally {
+      setIsTranscribingImage(false);
+    }
+  };
+
   const handleCreate = async () => {
     if (!formTitle.trim() || !formContent.trim()) {
       toast.error('Preencha título e conteúdo');
       return;
     }
+
+    const metadata: Record<string, any> = {};
+    if (formPdfPath) metadata.pdf_path = formPdfPath;
+    if (formImagePath) metadata.image_path = formImagePath;
 
     await createKnowledge.mutateAsync({
       title: formTitle,
@@ -112,7 +158,7 @@ export default function KnowledgeBase() {
       category: formCategory,
       source_file: formSourceFile || undefined,
       page_count: formPageCount || undefined,
-      metadata: formPdfPath ? { pdf_path: formPdfPath } : undefined,
+      metadata: Object.keys(metadata).length > 0 ? metadata : undefined,
       tags: formTags,
     });
 
@@ -186,11 +232,24 @@ export default function KnowledgeBase() {
 
   const getPdfPath = (item: GlobalKnowledge) => {
     if (item.metadata && typeof item.metadata === 'object') {
-      // Support both new pdf_path and legacy pdf_url
       const meta = item.metadata as { pdf_path?: string; pdf_url?: string };
       return meta.pdf_path || meta.pdf_url || null;
     }
     return null;
+  };
+
+  const getImagePath = (item: GlobalKnowledge) => {
+    if (item.metadata && typeof item.metadata === 'object') {
+      const meta = item.metadata as { image_path?: string };
+      return meta.image_path || null;
+    }
+    return null;
+  };
+
+  const handleOpenImage = async (item: GlobalKnowledge) => {
+    const imagePath = getImagePath(item);
+    if (!imagePath) return;
+    await openFileInNewTab(imagePath);
   };
 
   const handleOpenPdf = async (item: GlobalKnowledge) => {
@@ -249,7 +308,7 @@ export default function KnowledgeBase() {
 
         <Button onClick={() => { resetForm(); setIsAddDialogOpen(true); }}>
           <Plus className="h-4 w-4 mr-2" />
-          Adicionar PDF
+          Adicionar
         </Button>
       </div>
 
@@ -272,7 +331,7 @@ export default function KnowledgeBase() {
           {filteredKnowledge.map((item) => {
             const categoryConfig = getCategoryConfig(item.category);
             const hasPdf = !!getPdfPath(item);
-            
+            const hasImage = !!getImagePath(item);
             return (
               <Card 
                 key={item.id} 
@@ -297,6 +356,17 @@ export default function KnowledgeBase() {
                           title="Abrir PDF original"
                         >
                           <ExternalLink className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
+                      {hasImage && (
+                        <Button 
+                          size="icon" 
+                          variant="ghost" 
+                          className="h-7 w-7" 
+                          onClick={() => handleOpenImage(item)}
+                          title="Abrir imagem original"
+                        >
+                          <Image className="h-3.5 w-3.5" />
                         </Button>
                       )}
                       <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handleEdit(item)}>
@@ -352,6 +422,12 @@ export default function KnowledgeBase() {
                         PDF anexado
                       </span>
                     )}
+                    {hasImage && (
+                      <span className="text-[11px] text-primary/70 flex items-center gap-1">
+                        <Image className="h-3 w-3" />
+                        Imagem anexada
+                      </span>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -368,29 +444,58 @@ export default function KnowledgeBase() {
           </DialogHeader>
 
           <div className="space-y-4">
-            <div className="border-2 border-dashed rounded-lg p-6 text-center">
-              <input
-                type="file"
-                accept=".pdf"
-                onChange={handlePDFUpload}
-                className="hidden"
-                id="pdf-upload"
-                disabled={isUploading}
-              />
-              <label htmlFor="pdf-upload" className="cursor-pointer">
-                {isUploading ? (
-                  <div className="flex flex-col items-center gap-2">
-                    <Loader2 className="h-10 w-10 animate-spin text-muted-foreground" />
-                    <p className="text-sm text-muted-foreground">Extraindo conteúdo do PDF...</p>
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center gap-2">
-                    <Upload className="h-10 w-10 text-muted-foreground" />
-                    <p className="text-sm font-medium">Clique para fazer upload de um PDF</p>
-                    <p className="text-xs text-muted-foreground">O conteúdo será extraído automaticamente</p>
-                  </div>
-                )}
-              </label>
+            <div className="grid grid-cols-2 gap-4">
+              {/* PDF Upload */}
+              <div className="border-2 border-dashed rounded-lg p-4 text-center">
+                <input
+                  type="file"
+                  accept=".pdf"
+                  onChange={handlePDFUpload}
+                  className="hidden"
+                  id="pdf-upload"
+                  disabled={isUploading || isTranscribingImage}
+                />
+                <label htmlFor="pdf-upload" className="cursor-pointer">
+                  {isUploading ? (
+                    <div className="flex flex-col items-center gap-2">
+                      <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                      <p className="text-xs text-muted-foreground">Extraindo PDF...</p>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center gap-2">
+                      <Upload className="h-8 w-8 text-muted-foreground" />
+                      <p className="text-sm font-medium">Upload PDF</p>
+                      <p className="text-xs text-muted-foreground">Extração automática</p>
+                    </div>
+                  )}
+                </label>
+              </div>
+
+              {/* Image Upload */}
+              <div className="border-2 border-dashed rounded-lg p-4 text-center">
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  className="hidden"
+                  id="image-upload"
+                  disabled={isUploading || isTranscribingImage}
+                />
+                <label htmlFor="image-upload" className="cursor-pointer">
+                  {isTranscribingImage ? (
+                    <div className="flex flex-col items-center gap-2">
+                      <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                      <p className="text-xs text-muted-foreground">Transcrevendo...</p>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center gap-2">
+                      <Image className="h-8 w-8 text-muted-foreground" />
+                      <p className="text-sm font-medium">Upload Imagem</p>
+                      <p className="text-xs text-muted-foreground">Transcrição automática</p>
+                    </div>
+                  )}
+                </label>
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -419,12 +524,12 @@ export default function KnowledgeBase() {
 
             <div className="space-y-2">
               <Label>Conteúdo extraído</Label>
-              <ScrollArea className="h-[160px] border rounded-md">
+              <ScrollArea className="h-[120px] border rounded-md">
                 <Textarea
                   value={formContent}
                   onChange={(e) => setFormContent(e.target.value)}
-                  placeholder="O conteúdo do PDF aparecerá aqui após o upload..."
-                  className="min-h-[160px] border-0 resize-none"
+                  placeholder="O conteúdo aparecerá aqui após o upload..."
+                  className="min-h-[120px] border-0 resize-none"
                 />
               </ScrollArea>
             </div>
@@ -531,6 +636,7 @@ export default function KnowledgeBase() {
           {selectedKnowledge && (() => {
             const categoryConfig = getCategoryConfig(selectedKnowledge.category);
             const hasPdf = !!getPdfPath(selectedKnowledge);
+            const hasImage = !!getImagePath(selectedKnowledge);
             
             return (
               <div className="space-y-4">
@@ -557,7 +663,7 @@ export default function KnowledgeBase() {
                         className="h-7 text-xs gap-1.5"
                       >
                         <ExternalLink className="h-3 w-3" />
-                        Abrir
+                        Abrir PDF
                       </Button>
                       <Button
                         variant="outline"
@@ -569,6 +675,17 @@ export default function KnowledgeBase() {
                         Baixar
                       </Button>
                     </div>
+                  )}
+                  {hasImage && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleOpenImage(selectedKnowledge)}
+                      className="h-7 text-xs gap-1.5"
+                    >
+                      <Image className="h-3 w-3" />
+                      Ver Imagem
+                    </Button>
                   )}
                 </div>
 
