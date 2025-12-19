@@ -14,9 +14,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import jsPDF from "jspdf";
 import { useToast } from "@/hooks/use-toast";
-import { PostPreviewCard, CarouselEditor } from "@/components/posts";
-import { parseContentForPosts, DetectedPost } from "@/lib/postDetection";
-import { CarouselSlide } from "@/components/posts/CarouselEditor";
+import { PostPreviewCard } from "@/components/posts";
+import { parseContentForPosts } from "@/lib/postDetection";
 interface EnhancedMessageBubbleProps {
   role: "user" | "assistant";
   content: string;
@@ -54,16 +53,11 @@ export const EnhancedMessageBubble = ({
     return parseArtifacts(content);
   }, [content, isUser]);
 
-  // Parse content for social posts and carousels
-  const { posts: detectedPosts, carousel: detectedCarousel } = useMemo(() => {
-    if (isUser) return { posts: [], carousel: null };
+  // Parse content for social posts
+  const { posts: detectedPosts } = useMemo(() => {
+    if (isUser) return { posts: [] };
     return parseContentForPosts(content);
   }, [content, isUser]);
-
-  // State for carousel editing
-  const [carouselSlides, setCarouselSlides] = useState<CarouselSlide[]>(
-    detectedCarousel?.slides || []
-  );
 
   // Check if this is a long-form content that could be a document
   const isLongFormContent = !isUser && content.length > 1500 && !artifacts.length;
@@ -185,15 +179,6 @@ export const EnhancedMessageBubble = ({
                 />
               ))}
             </div>
-          )}
-
-          {/* Detected carousel */}
-          {detectedCarousel && carouselSlides.length > 0 && (
-            <CarouselEditor
-              slides={carouselSlides}
-              onSlidesChange={setCarouselSlides}
-              authorHandle={`@${clientName?.toLowerCase().replace(/\s+/g, "") || "handle"}`}
-            />
           )}
 
           {/* Artifacts (documentos, tabelas, etc) */}
