@@ -1,9 +1,11 @@
+import { useState, useEffect } from "react";
 import { ReferenceItem } from "@/hooks/useReferenceLibrary";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Edit, Trash2, Eye, ExternalLink, ImageIcon } from "lucide-react";
 import { getContentTypeLabel } from "@/types/contentTypes";
+import { getSignedUrl } from "@/lib/storage";
 
 interface ReferenceCardProps {
   reference: ReferenceItem;
@@ -30,12 +32,12 @@ const cleanContentForPreview = (text: string): string => {
     .trim();
 };
 
-// Get the first image from reference metadata
-const getPreviewImage = (reference: ReferenceItem): string | null => {
+// Get the first image path from reference metadata
+const getPreviewImagePath = (reference: ReferenceItem): string | null => {
   // Check thumbnail_url first
   if (reference.thumbnail_url) return reference.thumbnail_url;
   
-  // Check metadata for image_urls
+  // Check metadata for image_urls (these are now paths)
   if (reference.metadata && typeof reference.metadata === 'object') {
     const meta = reference.metadata as any;
     if (meta.image_urls && Array.isArray(meta.image_urls) && meta.image_urls.length > 0) {
@@ -51,15 +53,38 @@ const getPreviewImage = (reference: ReferenceItem): string | null => {
 
 export function ReferenceCard({ reference, onEdit, onDelete, onView }: ReferenceCardProps) {
   const cleanedContent = cleanContentForPreview(reference.content);
-  const previewImage = getPreviewImage(reference);
+  const previewImagePath = getPreviewImagePath(reference);
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  
+  // Get signed URL for the image when component mounts or path changes
+  useEffect(() => {
+    if (!previewImagePath) {
+      setImageUrl(null);
+      return;
+    }
+    
+    // If it's already a full URL (legacy), use it directly
+    if (previewImagePath.startsWith("http")) {
+      setImageUrl(previewImagePath);
+      return;
+    }
+    
+    // Get signed URL for the path
+    let isMounted = true;
+    getSignedUrl(previewImagePath, 86400).then(url => {
+      if (isMounted) setImageUrl(url);
+    });
+    
+    return () => { isMounted = false; };
+  }, [previewImagePath]);
   
   return (
     <Card className="bg-card/50 border-border/50 hover:border-border transition-all h-[280px] flex flex-col group cursor-pointer overflow-hidden" onClick={() => onView(reference)}>
       {/* Image Preview */}
-      {previewImage ? (
+      {imageUrl ? (
         <div className="relative h-[100px] bg-muted overflow-hidden shrink-0">
           <img 
-            src={previewImage} 
+            src={imageUrl} 
             alt={reference.title}
             className="w-full h-full object-cover"
             onError={(e) => {
@@ -84,11 +109,11 @@ export function ReferenceCard({ reference, onEdit, onDelete, onView }: Reference
         </CardHeader>
       )}
       
-      <div className={`flex flex-col flex-1 ${previewImage ? 'p-3' : ''}`}>
-        {previewImage && (
+      <div className={`flex flex-col flex-1 ${imageUrl ? 'p-3' : ''}`}>
+        {imageUrl && (
           <h3 className="text-sm font-medium line-clamp-2 mb-1">{reference.title}</h3>
         )}
-        <CardContent className={`flex-1 ${previewImage ? 'p-0' : 'py-0'}`}>
+        <CardContent className={`flex-1 ${imageUrl ? 'p-0' : 'py-0'}`}>
           <p className="text-xs text-muted-foreground line-clamp-3">
             {cleanedContent}
           </p>
@@ -105,7 +130,7 @@ export function ReferenceCard({ reference, onEdit, onDelete, onView }: Reference
             </a>
           )}
         </CardContent>
-        <CardFooter className={`flex justify-end gap-1 pt-3 pb-3 border-t mt-auto ${previewImage ? 'px-0' : ''}`}>
+        <CardFooter className={`flex justify-end gap-1 pt-3 pb-3 border-t mt-auto ${imageUrl ? 'px-0' : ''}`}>
           <Button
             variant="ghost"
             size="icon"

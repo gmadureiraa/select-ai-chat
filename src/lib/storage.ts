@@ -2,6 +2,24 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 /**
+ * Check if a string is already a full URL (not just a path)
+ */
+export function isFullUrl(str: string): boolean {
+  return str.startsWith("http://") || str.startsWith("https://");
+}
+
+/**
+ * Extract file path from a Supabase storage URL
+ * Returns null if not a valid storage URL
+ */
+export function extractPathFromUrl(url: string): string | null {
+  if (!isFullUrl(url)) return url; // Already a path
+  
+  const bucketMatch = url.match(/\/client-files\/(.+?)(?:\?|$)/);
+  return bucketMatch ? bucketMatch[1] : null;
+}
+
+/**
  * Download a file as a Blob from client-files bucket
  * This bypasses domain blocking issues by fetching via authenticated API
  */
