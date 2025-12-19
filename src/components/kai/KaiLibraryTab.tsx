@@ -113,6 +113,11 @@ export const KaiLibraryTab = ({ clientId, client }: KaiLibraryTabProps) => {
       );
     }
     
+    // Type filter - reference_type uses same values as content_type
+    if (typeFilter !== "all") {
+      result = result.filter(r => r.reference_type === typeFilter);
+    }
+    
     // Sort
     result = [...result].sort((a, b) => {
       switch (sortOption) {
@@ -130,7 +135,7 @@ export const KaiLibraryTab = ({ clientId, client }: KaiLibraryTabProps) => {
     });
     
     return result;
-  }, [references, searchQuery, sortOption]);
+  }, [references, searchQuery, typeFilter, sortOption]);
 
   const handleSaveContent = (data: CreateContentData) => {
     if (selectedContent) {
