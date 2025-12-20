@@ -1,7 +1,7 @@
 import { ReactNode } from "react";
 import { useWorkspace } from "@/hooks/useWorkspace";
 import { Skeleton } from "@/components/ui/skeleton";
-import PendingAccess from "@/pages/PendingAccess";
+import { PendingAccessOverlay } from "@/components/PendingAccessOverlay";
 
 interface WorkspaceGuardProps {
   children: ReactNode;
@@ -25,9 +25,9 @@ export const WorkspaceGuard = ({ children }: WorkspaceGuardProps) => {
     );
   }
 
-  // User is not in any workspace - show pending access page
+  // User is not in any workspace - show pending access overlay with blurred background
   if (!workspace) {
-    return <PendingAccess />;
+    return <PendingAccessOverlay>{children}</PendingAccessOverlay>;
   }
 
   return <>{children}</>;
