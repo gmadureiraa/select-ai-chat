@@ -9,7 +9,10 @@ import { Badge } from "@/components/ui/badge";
 import { useClientTemplates } from "@/hooks/useClientTemplates";
 import { useClientChat } from "@/hooks/useClientChat";
 import { useChatWorkflows } from "@/hooks/useChatWorkflows";
+import { useContentLibrary } from "@/hooks/useContentLibrary";
+import { useReferenceLibrary } from "@/hooks/useReferenceLibrary";
 import { FloatingInput, ChatMode } from "@/components/chat/FloatingInput";
+import { Citation } from "@/components/chat/CitationChip";
 import { EnhancedMessageBubble } from "@/components/chat/EnhancedMessageBubble";
 import { QuickSuggestions } from "@/components/chat/QuickSuggestions";
 import { WorkflowExecutionCard } from "@/components/chat/WorkflowExecutionCard";
@@ -62,6 +65,8 @@ export const Kai2AssistantTab = ({
   const templateSelectedRef = useRef(false);
 
   const { templates, isLoading: isLoadingTemplates } = useClientTemplates(clientId);
+  const { contents: contentLibrary } = useContentLibrary(clientId);
+  const { references: referenceLibrary } = useReferenceLibrary(clientId);
   
   // Find matching template based on content type from GradientHero
   useEffect(() => {
@@ -233,7 +238,7 @@ export const Kai2AssistantTab = ({
     return () => clearTimeout(timer);
   }, [selectedTemplateId, scrollToBottom]);
 
-  const handleSend = async (content: string, images?: string[], quality?: "fast" | "high", mode?: ChatMode) => {
+  const handleSend = async (content: string, images?: string[], quality?: "fast" | "high", mode?: ChatMode, citations?: Citation[]) => {
     if (!content.trim() && (!images || images.length === 0)) return;
     
     // Check for workflow commands first
@@ -290,8 +295,8 @@ export const Kai2AssistantTab = ({
       return;
     }
     
-    // Regular message handling
-    await sendMessage(content, images, quality, mode);
+    // Regular message handling - pass citations to sendMessage
+    await sendMessage(content, images, quality, mode, citations);
   };
 
   const handleClearConversation = async () => {
@@ -545,6 +550,8 @@ export const Kai2AssistantTab = ({
               disabled={isLoading}
               templateType={templateType}
               placeholder={selectedTemplate ? `Criar ${selectedTemplate.name}...` : "Pergunte sobre o cliente..."}
+              contentLibrary={contentLibrary}
+              referenceLibrary={referenceLibrary}
             />
           </div>
         </div>
