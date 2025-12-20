@@ -24,9 +24,9 @@ export interface WorkspaceMember {
 }
 
 export const useWorkspace = () => {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
 
-  const { data: workspace, isLoading: isLoadingWorkspace } = useQuery({
+  const { data: workspace, isLoading: isLoadingWorkspace, isFetched } = useQuery({
     queryKey: ["workspace", user?.id],
     queryFn: async () => {
       if (!user?.id) return null;
@@ -44,11 +44,15 @@ export const useWorkspace = () => {
           )
         `)
         .eq("user_id", user.id)
-        .single();
+        .maybeSingle(); // Use maybeSingle to return null instead of error when no row
 
       if (error) {
         console.error("Error fetching workspace:", error);
         return null;
+      }
+
+      if (!data) {
+        return null; // User is not in any workspace
       }
 
       return {
@@ -56,8 +60,11 @@ export const useWorkspace = () => {
         userRole: data.role as WorkspaceRole,
       };
     },
-    enabled: !!user?.id,
+    enabled: !!user?.id && !authLoading,
   });
+
+  // Consider loading if auth is loading OR workspace query hasn't fetched yet
+  const isLoading = authLoading || (!!user?.id && !isFetched);
 
   const userRole = workspace?.userRole as WorkspaceRole | undefined;
   const isViewer = userRole === "viewer";
@@ -79,7 +86,7 @@ export const useWorkspace = () => {
 
   return {
     workspace,
-    isLoadingWorkspace,
+    isLoadingWorkspace: isLoading,
     userRole,
     isViewer,
     isMember,
