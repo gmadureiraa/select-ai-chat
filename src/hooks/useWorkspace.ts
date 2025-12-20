@@ -61,21 +61,35 @@ export const useWorkspace = () => {
 
   const userRole = workspace?.userRole as WorkspaceRole | undefined;
   const isViewer = userRole === "viewer";
-  const canDelete = userRole === "owner" || userRole === "admin";
-  const canManageTeam = userRole === "owner" || userRole === "admin";
+  const isMember = userRole === "member";
+  const isAdminOrOwner = userRole === "owner" || userRole === "admin";
+  const canDelete = isAdminOrOwner;
+  const canManageTeam = isAdminOrOwner;
   const canEdit = userRole !== "viewer";
   const canCreate = userRole !== "viewer";
   const isOwner = userRole === "owner";
+  
+  // Permission helpers for UI visibility
+  const canViewTools = isAdminOrOwner; // Only admin/owner see tools
+  const canViewPerformance = !isViewer; // Member and above
+  const canViewActivities = isAdminOrOwner; // Only admin/owner
+  const canViewClients = isAdminOrOwner; // Only admin/owner see clients management
 
   return {
     workspace,
     isLoadingWorkspace,
     userRole,
     isViewer,
+    isMember,
+    isAdminOrOwner,
     canDelete,
     canManageTeam,
     canEdit,
     canCreate,
     isOwner,
+    canViewTools,
+    canViewPerformance,
+    canViewActivities,
+    canViewClients,
   };
 };

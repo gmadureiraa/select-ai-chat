@@ -1,10 +1,17 @@
-import { Clock, Mail, LogOut } from "lucide-react";
+import { Clock, Mail, LogOut, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/hooks/useAuth";
+import { useQueryClient } from "@tanstack/react-query";
 
 const PendingAccess = () => {
   const { user, signOut } = useAuth();
+  const queryClient = useQueryClient();
+
+  const handleRefresh = () => {
+    queryClient.invalidateQueries({ queryKey: ["workspace"] });
+    window.location.reload();
+  };
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
@@ -35,10 +42,18 @@ const PendingAccess = () => {
             </div>
           </div>
 
-          <div className="pt-2">
+          <div className="pt-2 space-y-2">
             <Button 
               variant="outline" 
               className="w-full" 
+              onClick={handleRefresh}
+            >
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Verificar Acesso
+            </Button>
+            <Button 
+              variant="ghost" 
+              className="w-full text-muted-foreground" 
               onClick={signOut}
             >
               <LogOut className="w-4 h-4 mr-2" />

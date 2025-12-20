@@ -13,6 +13,7 @@ import { ActivitiesTool } from "@/components/kai2/tools/ActivitiesTool";
 import { TeamTool } from "@/components/kai2/tools/TeamTool";
 import { ClientsManagementTool } from "@/components/kai2/tools/ClientsManagementTool";
 import { useClients } from "@/hooks/useClients";
+import { useWorkspace } from "@/hooks/useWorkspace";
 import { Loader2 } from "lucide-react";
 
 export default function Kai2() {
@@ -21,10 +22,47 @@ export default function Kai2() {
   const tab = searchParams.get("tab") || "home";
   
   const { clients, isLoading: isLoadingClients } = useClients();
+  const { canViewTools, canViewPerformance, canViewActivities, canViewClients, canManageTeam } = useWorkspace();
   const selectedClient = clients?.find(c => c.id === clientId);
   
   const [pendingMessage, setPendingMessage] = useState<string | null>(null);
   const [pendingContentType, setPendingContentType] = useState<string | null>(null);
+
+  // Route protection: redirect to home if trying to access unauthorized tabs
+  useEffect(() => {
+    const toolTabs = ["agent-builder", "research-lab", "knowledge-base", "automations"];
+    const adminTabs = ["activities", "clients", "team"];
+    const performanceTabs = ["performance", "library"];
+    
+    let shouldRedirect = false;
+    
+    // Tools require canViewTools
+    if (toolTabs.includes(tab) && !canViewTools) {
+      shouldRedirect = true;
+    }
+    
+    // Admin tabs require specific permissions
+    if (tab === "activities" && !canViewActivities) {
+      shouldRedirect = true;
+    }
+    if (tab === "clients" && !canViewClients) {
+      shouldRedirect = true;
+    }
+    if (tab === "team" && !canManageTeam) {
+      shouldRedirect = true;
+    }
+    
+    // Performance tabs require canViewPerformance
+    if (performanceTabs.includes(tab) && !canViewPerformance) {
+      shouldRedirect = true;
+    }
+    
+    if (shouldRedirect) {
+      const params = new URLSearchParams(searchParams);
+      params.set("tab", "home");
+      setSearchParams(params);
+    }
+  }, [tab, canViewTools, canViewPerformance, canViewActivities, canViewClients, canManageTeam, searchParams, setSearchParams]);
 
   const handleTabChange = (newTab: string) => {
     const params = new URLSearchParams(searchParams);
