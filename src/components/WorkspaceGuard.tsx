@@ -10,6 +10,12 @@ interface WorkspaceGuardProps {
 export const WorkspaceGuard = ({ children }: WorkspaceGuardProps) => {
   const { workspace, isLoadingWorkspace } = useWorkspace();
 
+  // Debug log to trace the issue
+  console.log("[WorkspaceGuard] State:", { 
+    workspace: workspace?.id ?? null, 
+    isLoadingWorkspace 
+  });
+
   if (isLoadingWorkspace) {
     return (
       <div className="min-h-screen bg-background p-6">
