@@ -74,7 +74,7 @@ export const useTeamMembers = () => {
   });
 
   const inviteMember = useMutation({
-    mutationFn: async ({ email, role }: { email: string; role: WorkspaceRole }) => {
+    mutationFn: async ({ email, role, clientIds }: { email: string; role: WorkspaceRole; clientIds?: string[] }) => {
       if (!workspace?.id) throw new Error("No workspace");
 
       const { data: { user } } = await supabase.auth.getUser();
@@ -97,10 +97,28 @@ export const useTeamMembers = () => {
         }
         throw error;
       }
+
+      // If clientIds provided, create workspace_invite_clients records
+      if (clientIds && clientIds.length > 0 && data) {
+        const inviteClients = clientIds.map(clientId => ({
+          invite_id: data.id,
+          client_id: clientId,
+        }));
+
+        const { error: clientError } = await supabase
+          .from("workspace_invite_clients")
+          .insert(inviteClients);
+
+        if (clientError) {
+          console.error("Error adding invite clients:", clientError);
+        }
+      }
+
       return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["team-invites"] });
+      queryClient.invalidateQueries({ queryKey: ["invite-clients"] });
       toast({
         title: "Convite enviado",
         description: "O membro receberá acesso ao fazer login com este email.",

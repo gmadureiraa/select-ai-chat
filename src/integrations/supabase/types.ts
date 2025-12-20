@@ -1670,6 +1670,42 @@ export type Database = {
         }
         Relationships: []
       }
+      workspace_invite_clients: {
+        Row: {
+          client_id: string
+          created_at: string
+          id: string
+          invite_id: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          id?: string
+          invite_id: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          id?: string
+          invite_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workspace_invite_clients_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workspace_invite_clients_invite_id_fkey"
+            columns: ["invite_id"]
+            isOneToOne: false
+            referencedRelation: "workspace_invites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       workspace_invites: {
         Row: {
           accepted_at: string | null

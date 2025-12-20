@@ -2,19 +2,20 @@ import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Checkbox } from "@/components/ui/checkbox";
 import { 
   Users, UserPlus, Crown, Shield, User, X, Mail, Clock, 
-  Building2, UserCheck, AlertCircle, Eye 
+  Building2, UserCheck, AlertCircle, Eye, ChevronDown, ChevronUp
 } from "lucide-react";
 import { useWorkspace, WorkspaceRole, WorkspaceMember } from "@/hooks/useWorkspace";
 import { useTeamMembers } from "@/hooks/useTeamMembers";
 import { useAuth } from "@/hooks/useAuth";
 import { usePendingUsers, PendingUser } from "@/hooks/usePendingUsers";
 import { useAllMemberClientAccess } from "@/hooks/useMemberClientAccess";
+import { useClients } from "@/hooks/useClients";
 import { MemberClientAccessDialog } from "@/components/settings/MemberClientAccessDialog";
 import {
   AlertDialog,
@@ -26,6 +27,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -58,9 +64,12 @@ export function TeamTool() {
   const { members, invites, isLoadingMembers, isLoadingInvites, inviteMember, updateMemberRole, removeMember, cancelInvite } = useTeamMembers();
   const { pendingUsers, isLoading: isLoadingPending, addUserToWorkspace } = usePendingUsers();
   const { data: allMemberAccess = [] } = useAllMemberClientAccess(workspace?.id);
+  const { clients } = useClients();
   
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<WorkspaceRole>("member");
+  const [selectedClients, setSelectedClients] = useState<string[]>([]);
+  const [showClientSelection, setShowClientSelection] = useState(false);
   const [memberToRemove, setMemberToRemove] = useState<string | null>(null);
   const [memberToEditAccess, setMemberToEditAccess] = useState<WorkspaceMember | null>(null);
   const [selectedRoleForPending, setSelectedRoleForPending] = useState<Record<string, WorkspaceRole>>({});
@@ -69,14 +78,29 @@ export function TeamTool() {
     return allMemberAccess.filter(a => a.workspace_member_id === memberId).length;
   };
 
+  const toggleClientSelection = (clientId: string) => {
+    setSelectedClients(prev => 
+      prev.includes(clientId) 
+        ? prev.filter(id => id !== clientId)
+        : [...prev, clientId]
+    );
+  };
+
   const handleInvite = (e: React.FormEvent) => {
     e.preventDefault();
     if (!email.trim()) return;
     
-    inviteMember.mutate({ email: email.trim(), role }, {
+    // Only pass clientIds if role is member or viewer (those that can have restricted access)
+    const clientIds = (role === "member" || role === "viewer") && selectedClients.length > 0 
+      ? selectedClients 
+      : undefined;
+    
+    inviteMember.mutate({ email: email.trim(), role, clientIds }, {
       onSuccess: () => {
         setEmail("");
         setRole("member");
+        setSelectedClients([]);
+        setShowClientSelection(false);
       },
     });
   };
@@ -198,29 +222,95 @@ export function TeamTool() {
             Envie um convite por email para adicionar alguém à equipe
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <form onSubmit={handleInvite} className="flex gap-3">
-            <Input
-              type="email"
-              placeholder="email@exemplo.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="flex-1"
-            />
-            <Select value={role} onValueChange={(v) => setRole(v as WorkspaceRole)}>
-              <SelectTrigger className="w-[150px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="viewer">Visualizador</SelectItem>
-                <SelectItem value="member">Membro</SelectItem>
-                <SelectItem value="admin">Admin</SelectItem>
-              </SelectContent>
-            </Select>
-            <Button type="submit" disabled={inviteMember.isPending || !email.trim()}>
-              <UserPlus className="h-4 w-4 mr-2" />
-              Convidar
-            </Button>
+        <CardContent className="space-y-4">
+          <form onSubmit={handleInvite} className="space-y-4">
+            <div className="flex gap-3">
+              <Input
+                type="email"
+                placeholder="email@exemplo.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="flex-1"
+              />
+              <Select value={role} onValueChange={(v) => setRole(v as WorkspaceRole)}>
+                <SelectTrigger className="w-[150px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="viewer">Visualizador</SelectItem>
+                  <SelectItem value="member">Membro</SelectItem>
+                  <SelectItem value="admin">Admin</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button type="submit" disabled={inviteMember.isPending || !email.trim()}>
+                <UserPlus className="h-4 w-4 mr-2" />
+                Convidar
+              </Button>
+            </div>
+
+            {/* Client Selection for member/viewer */}
+            {(role === "member" || role === "viewer") && clients.length > 0 && (
+              <Collapsible open={showClientSelection} onOpenChange={setShowClientSelection}>
+                <CollapsibleTrigger asChild>
+                  <Button 
+                    variant="ghost" 
+                    type="button"
+                    className="w-full justify-between h-auto py-2 px-3 text-sm text-muted-foreground hover:text-foreground"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Building2 className="h-4 w-4" />
+                      <span>
+                        {selectedClients.length === 0 
+                          ? "Acesso a todos os clientes (padrão)" 
+                          : `Acesso restrito a ${selectedClients.length} cliente${selectedClients.length > 1 ? "s" : ""}`}
+                      </span>
+                    </div>
+                    {showClientSelection ? (
+                      <ChevronUp className="h-4 w-4" />
+                    ) : (
+                      <ChevronDown className="h-4 w-4" />
+                    )}
+                  </Button>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="pt-3">
+                  <div className="bg-muted/30 rounded-lg p-3 space-y-2">
+                    <p className="text-xs text-muted-foreground mb-3">
+                      Selecione clientes específicos para restringir acesso. Deixe vazio para acesso total.
+                    </p>
+                    <div className="grid grid-cols-2 gap-2 max-h-[200px] overflow-y-auto">
+                      {clients.map((client) => (
+                        <label
+                          key={client.id}
+                          className={cn(
+                            "flex items-center gap-2 p-2 rounded-md cursor-pointer transition-colors border",
+                            selectedClients.includes(client.id)
+                              ? "bg-primary/10 border-primary/30"
+                              : "bg-background border-border hover:bg-muted/50"
+                          )}
+                        >
+                          <Checkbox
+                            checked={selectedClients.includes(client.id)}
+                            onCheckedChange={() => toggleClientSelection(client.id)}
+                          />
+                          <span className="text-sm truncate">{client.name}</span>
+                        </label>
+                      ))}
+                    </div>
+                    {selectedClients.length > 0 && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setSelectedClients([])}
+                        className="mt-2 text-xs"
+                      >
+                        Limpar seleção
+                      </Button>
+                    )}
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
+            )}
           </form>
         </CardContent>
       </Card>

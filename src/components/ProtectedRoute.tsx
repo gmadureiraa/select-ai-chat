@@ -1,6 +1,7 @@
 import { useAuth } from "@/hooks/useAuth";
 import { Navigate } from "react-router-dom";
 import { Skeleton } from "@/components/ui/skeleton";
+import { WorkspaceGuard } from "@/components/WorkspaceGuard";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -28,5 +29,6 @@ export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
     return <Navigate to="/login" replace />;
   }
 
-  return <>{children}</>;
+  // After auth check, verify workspace membership
+  return <WorkspaceGuard>{children}</WorkspaceGuard>;
 };
