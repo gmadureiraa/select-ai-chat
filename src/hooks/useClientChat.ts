@@ -12,6 +12,8 @@ import { useTemplateReferences } from "@/hooks/useTemplateReferences";
 import { useActivities } from "@/hooks/useActivities";
 import { useAuth } from "@/hooks/useAuth";
 import { useClientKnowledge, formatKnowledgeForContext } from "@/hooks/useClientKnowledge";
+import { useCitationParser, ParsedCitation } from "@/hooks/useCitationParser";
+import { Citation } from "@/components/chat/CitationChip";
 import { useWorkspace } from "@/hooks/useWorkspace";
 import { 
   GLOBAL_CONTENT_RULES, 
@@ -56,7 +58,7 @@ export const useClientChat = (clientId: string, templateId?: string, conversatio
   const { logActivity } = useActivities();
   const { user } = useAuth();
   const { workspace } = useWorkspace();
-
+  const { fetchCitationContents, formatCitationsForContext } = useCitationParser();
   // Ativar realtime para mensagens
   useRealtimeMessages(conversationId);
 
@@ -288,7 +290,7 @@ export const useClientChat = (clientId: string, templateId?: string, conversatio
     enabled: !!workspace?.id,
   });
 
-  const sendMessage = useCallback(async (content: string, imageUrls?: string[], quality?: "fast" | "high", explicitMode?: "content" | "ideas" | "free_chat" | "image") => {
+  const sendMessage = useCallback(async (content: string, imageUrls?: string[], quality?: "fast" | "high", explicitMode?: "content" | "ideas" | "free_chat" | "image", citations?: Citation[]) => {
     // Validações
     const validationError = validateMessage(content);
     if (validationError) {
@@ -1181,53 +1183,97 @@ ${referenceLibrary.length > 0 ? `## 📖 REFERÊNCIAS DE ESTILO:\n${referenceCon
       }
 
       // =====================================================
-      // FLUXO NORMAL PARA CRIAÇÃO DE CONTEÚDO
+      // FLUXO NORMAL PARA CRIAÇÃO DE CONTEÚDO (MODO HÍBRIDO)
       // =====================================================
-      console.log("[CHAT] MODO CONTEÚDO - Fluxo completo");
+      console.log("[CHAT] MODO CONTEÚDO - Fluxo híbrido");
       
-      // FASE 1: Análise e seleção de materiais relevantes (biblioteca + documentos)
-      setCurrentStep("analyzing");
+      // Verificar se há citações manuais do usuário
+      const hasManualCitations = citations && citations.length > 0;
+      let selection: any = null;
+      let manualCitationContents: ParsedCitation[] = [];
       
-      // Preparar lista completa de materiais disponíveis
-      const availableMaterials = [
-        // Conteúdos da biblioteca (com preview do conteúdo)
-        ...contentLibrary.map(c => ({
-          id: c.id,
-          type: 'content_library',
-          category: c.content_type,
-          title: c.title,
-          preview: c.content.substring(0, 300),
-          hasFullContent: true
-        })),
-        // Documentos do storage
-        ...documents.map(d => ({
-          id: d.id,
-          type: 'document',
-          category: d.file_type,
-          title: d.name,
-          preview: d.extracted_content 
-            ? `${d.name}: ${d.extracted_content.substring(0, 250)}...` 
-            : `Documento: ${d.name} (sem transcrição)`,
-          hasFullContent: !!d.extracted_content,
-          content: d.extracted_content
-        })),
-        // Biblioteca de Referências
-        ...referenceLibrary.map(r => ({
-          id: r.id,
-          type: 'reference_library',
-          category: r.reference_type,
-          title: r.title,
-          preview: `${r.reference_type.toUpperCase()}: ${r.content.substring(0, 250)}`,
-          hasFullContent: true,
-          source_url: r.source_url
-        }))
-      ];
+      if (hasManualCitations) {
+        // =====================================================
+        // MODO CITAÇÃO MANUAL - Pular seleção automática
+        // =====================================================
+        console.log("[CHAT] Citações manuais detectadas:", citations.length, "- Pulando seleção automática");
+        setCurrentStep("selecting");
+        
+        // Buscar conteúdo completo das citações
+        manualCitationContents = await fetchCitationContents(citations);
+        console.log("[CHAT] Conteúdos das citações carregados:", manualCitationContents.length);
+        
+        // Criar "seleção" a partir das citações manuais
+        selection = {
+          detected_content_type: detectContentType(content) || 'general',
+          selected_references: citations.map(c => ({
+            id: c.id,
+            type: c.type,
+            reason: "Citado manualmente pelo usuário",
+            priority: "high"
+          })),
+          analysis_needed: true,
+          use_context_notes: !!client.context_notes,
+          use_websites: websites.length > 0,
+          strategy: "follow_structure",
+          reasoning: "Conteúdos selecionados manualmente pelo usuário como referência principal"
+        };
+        
+        // Atualizar workflow state
+        setWorkflowState({
+          selectedMaterials: selection.selected_references,
+          reasoning: selection.reasoning,
+          strategy: selection.strategy,
+          patternAnalysis: ""
+        });
+        
+      } else {
+        // =====================================================
+        // MODO SELEÇÃO AUTOMÁTICA (com modelo mais barato)
+        // =====================================================
+        console.log("[CHAT] Sem citações manuais - Usando seleção automática");
+        setCurrentStep("analyzing");
+        
+        // Preparar lista completa de materiais disponíveis
+        const availableMaterials = [
+          // Conteúdos da biblioteca (com preview do conteúdo)
+          ...contentLibrary.map(c => ({
+            id: c.id,
+            type: 'content_library',
+            category: c.content_type,
+            title: c.title,
+            preview: c.content.substring(0, 300),
+            hasFullContent: true
+          })),
+          // Documentos do storage
+          ...documents.map(d => ({
+            id: d.id,
+            type: 'document',
+            category: d.file_type,
+            title: d.name,
+            preview: d.extracted_content 
+              ? `${d.name}: ${d.extracted_content.substring(0, 250)}...` 
+              : `Documento: ${d.name} (sem transcrição)`,
+            hasFullContent: !!d.extracted_content,
+            content: d.extracted_content
+          })),
+          // Biblioteca de Referências
+          ...referenceLibrary.map(r => ({
+            id: r.id,
+            type: 'reference_library',
+            category: r.reference_type,
+            title: r.title,
+            preview: `${r.reference_type.toUpperCase()}: ${r.content.substring(0, 250)}`,
+            hasFullContent: true,
+            source_url: r.source_url
+          }))
+        ];
 
-      // Detectar tipo de conteúdo para seleção
-      const selectionDetectedType = detectContentType(content);
-      
-      // System message para seleção inteligente (APENAS PARA CONTEÚDO)
-      const selectionSystemMessage = `Você é o kAI, assistente especializado da Kaleidos para o cliente ${client.name}.
+        // Detectar tipo de conteúdo para seleção
+        const selectionDetectedType = detectContentType(content);
+        
+        // System message para seleção inteligente (APENAS PARA CONTEÚDO)
+        const selectionSystemMessage = `Você é o kAI, assistente especializado da Kaleidos para o cliente ${client.name}.
 
 ## ⚠️ INSTRUÇÃO OBRIGATÓRIA
 Você DEVE usar a função select_relevant_content para selecionar materiais da biblioteca.
@@ -1246,66 +1292,67 @@ O conteúdo gerado deve PARECER com esses exemplos.
 
 ## BIBLIOTECA DE CONTEÚDO DO CLIENTE (${contentLibrary.length} itens):
 
-${contentLibrary.length === 0 ? 'ATENÇÃO: Biblioteca vazia! Selecione analysis_needed: false' : contentLibrary.slice(0, 15).map((c, i) => `
+${contentLibrary.length === 0 ? 'ATENÇÃO: Biblioteca vazia! Selecione analysis_needed: false' : contentLibrary.slice(0, 10).map((c, i) => `
 ### [${i + 1}] ${c.title}
 - ID: ${c.id}
 - Tipo: ${c.content_type}
-- Conteúdo: "${c.content.substring(0, 400)}..."
+- Preview: "${c.content.substring(0, 200)}..."
 `).join('\n')}
 
 ## BIBLIOTECA DE REFERÊNCIAS (${referenceLibrary.length} itens):
 
-${referenceLibrary.length === 0 ? 'Sem referências cadastradas' : referenceLibrary.slice(0, 10).map((r, i) => `
+${referenceLibrary.length === 0 ? 'Sem referências cadastradas' : referenceLibrary.slice(0, 5).map((r, i) => `
 ### [REF ${i + 1}] ${r.title}
 - ID: ${r.id}
 - Tipo: ${r.reference_type}
-- Conteúdo: "${r.content.substring(0, 300)}..."
+- Preview: "${r.content.substring(0, 150)}..."
 `).join('\n')}
 
 ## DOCUMENTOS (${documents.length} itens):
-${documents.length === 0 ? 'Sem documentos' : documents.map(d => `- ${d.name} (${d.file_type})`).join('\n')}
+${documents.length === 0 ? 'Sem documentos' : documents.slice(0, 5).map(d => `- ${d.name} (${d.file_type})`).join('\n')}
 
 ---
 AGORA CHAME A FUNÇÃO select_relevant_content com:
 - detected_content_type: "${selectionDetectedType || 'general'}"
-- selected_references: array com IDs dos materiais relevantes (mínimo 3 se disponível)
+- selected_references: array com IDs dos materiais relevantes (máximo 5)
 - analysis_needed: ${contentLibrary.length > 0 || referenceLibrary.length > 0 ? 'true' : 'false'}
 - use_context_notes: ${client.context_notes ? 'true' : 'false'}
 - use_websites: ${websites.length > 0 ? 'true' : 'false'}
 - strategy: "follow_structure" ou "adapt_tone"
 - reasoning: explique brevemente porque selecionou esses materiais`;
 
-      // Histórico completo de mensagens para contexto
-      const selectionMessages = [
-        { role: "system", content: selectionSystemMessage },
-        ...messages.map(m => ({ role: m.role, content: m.content })),
-        { role: "user", content: `TAREFA: Analise a biblioteca acima e use a função select_relevant_content para selecionar materiais relevantes para: "${content}"` }
-      ];
+        // Histórico completo de mensagens para contexto
+        const selectionMessages = [
+          { role: "system", content: selectionSystemMessage },
+          ...messages.map(m => ({ role: m.role, content: m.content })),
+          { role: "user", content: `TAREFA: Analise a biblioteca acima e use a função select_relevant_content para selecionar materiais relevantes para: "${content}"` }
+        ];
 
-      // USAR MODELO BARATO para seleção
-      const { data: selectionData, error: selectionError } = await supabase.functions.invoke("chat", {
-        body: {
-          messages: selectionMessages,
-          model: "gemini-2.5-flash-lite", // Modelo mais barato e rápido
-          isSelectionPhase: true,
-          availableMaterials,
-          userId: user?.id,
-          clientId
-        },
-      });
+        // USAR MODELO MAIS BARATO para seleção automática
+        const { data: selectionData, error: selectionError } = await supabase.functions.invoke("chat", {
+          body: {
+            messages: selectionMessages,
+            model: "gemini-2.5-flash-lite", // Modelo mais barato e rápido
+            isSelectionPhase: true,
+            availableMaterials,
+            userId: user?.id,
+            clientId
+          },
+        });
 
-      if (selectionError) throw selectionError;
+        if (selectionError) throw selectionError;
 
-      const selection = selectionData.selection;
-      console.log("Materials selected:", selection);
+        selection = selectionData.selection;
+        console.log("[CHAT] Seleção automática:", selection);
 
-      // Atualizar workflow state com materiais selecionados
-      setWorkflowState({
-        selectedMaterials: selection.selected_references || [],
-        reasoning: selection.reasoning || "",
-        strategy: selection.strategy || "",
-        patternAnalysis: ""
-      });
+        // Atualizar workflow state com materiais selecionados
+        setWorkflowState({
+          selectedMaterials: selection.selected_references || [],
+          reasoning: selection.reasoning || "",
+          strategy: selection.strategy || "",
+          patternAnalysis: ""
+        });
+      }
 
       // FASE 2: Análise de padrões (se necessário)
       let patternAnalysis = null;
@@ -1417,7 +1464,10 @@ IMPORTANTE: O novo conteúdo deve parecer escrito pelo mesmo autor.`;
       // FASE 3: Carregar documentos e preparar contexto enriquecido
       setCurrentStep("reviewing");
 
-      // Build enriched context with pattern analysis
+      // Se tem citações manuais, adicionar contexto prioritário
+      const manualCitationContext = hasManualCitations && manualCitationContents.length > 0
+        ? formatCitationsForContext(manualCitationContents)
+        : "";
       // Start with identity guide as the FIRST thing (most important context)
       // Include documents with extracted content
       const docsWithContent = documents.filter(d => d.extracted_content).map(d => ({
