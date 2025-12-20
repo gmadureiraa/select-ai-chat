@@ -16,22 +16,15 @@ export const usePendingUsers = () => {
   const { workspace } = useWorkspace();
 
   // Fetch users from profiles that are NOT in the current workspace
-  // Only show users created in the last 30 days to keep the list manageable
   const { data: pendingUsers = [], isLoading } = useQuery({
     queryKey: ["pending-users", workspace?.id],
     queryFn: async () => {
       if (!workspace?.id) return [];
 
-      // Calculate date 30 days ago
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-      const thirtyDaysAgoISO = thirtyDaysAgo.toISOString();
-
-      // Get recent profiles (created in last 30 days)
-      const { data: recentProfiles, error: profilesError } = await supabase
+      // Get all profiles (admins/owners can see all via RLS)
+      const { data: allProfiles, error: profilesError } = await supabase
         .from("profiles")
         .select("id, email, full_name, created_at")
-        .gte("created_at", thirtyDaysAgoISO)
         .order("created_at", { ascending: false });
 
       if (profilesError) throw profilesError;
@@ -47,7 +40,7 @@ export const usePendingUsers = () => {
       const memberUserIds = new Set(workspaceMembers?.map(m => m.user_id) || []);
 
       // Filter out users who are already members
-      const pending = recentProfiles?.filter(p => !memberUserIds.has(p.id)) || [];
+      const pending = allProfiles?.filter(p => !memberUserIds.has(p.id)) || [];
 
       return pending as PendingUser[];
     },
