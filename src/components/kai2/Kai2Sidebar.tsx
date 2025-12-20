@@ -94,7 +94,7 @@ interface Kai2SidebarProps {
 export function Kai2Sidebar({ activeTab, onTabChange, selectedClientId, onClientChange }: Kai2SidebarProps) {
   const navigate = useNavigate();
   const { clients } = useClients();
-  const { canManageTeam, isViewer } = useWorkspace();
+  const { canManageTeam, canViewTools, canViewPerformance, canViewActivities, canViewClients } = useWorkspace();
   const { pendingCount } = usePendingUsers();
   const { user, signOut } = useAuth();
   const selectedClient = clients?.find(c => c.id === selectedClientId);
@@ -221,23 +221,27 @@ export function Kai2Sidebar({ activeTab, onTabChange, selectedClientId, onClient
             onClick={() => onTabChange("assistant")}
           />
 
-          <NavItem
-            icon={<BarChart3 className="h-4 w-4" />}
-            label="Performance"
-            active={activeTab === "performance"}
-            onClick={() => onTabChange("performance")}
-          />
+          {canViewPerformance && (
+            <NavItem
+              icon={<BarChart3 className="h-4 w-4" />}
+              label="Performance"
+              active={activeTab === "performance"}
+              onClick={() => onTabChange("performance")}
+            />
+          )}
 
-          <NavItem
-            icon={<Library className="h-4 w-4" />}
-            label="Biblioteca"
-            active={activeTab === "library"}
-            onClick={() => onTabChange("library")}
-          />
+          {canViewPerformance && (
+            <NavItem
+              icon={<Library className="h-4 w-4" />}
+              label="Biblioteca"
+              active={activeTab === "library"}
+              onClick={() => onTabChange("library")}
+            />
+          )}
         </div>
 
-        {/* Ferramentas - hidden for viewers */}
-        {!isViewer && (
+        {/* Ferramentas - only for admin/owner */}
+        {canViewTools && (
           <>
             <SectionLabel>Ferramentas</SectionLabel>
 
@@ -276,8 +280,8 @@ export function Kai2Sidebar({ activeTab, onTabChange, selectedClientId, onClient
         <SectionLabel>Conta</SectionLabel>
 
         <div className="space-y-0.5">
-          {/* Clientes - only for non-viewers */}
-          {!isViewer && (
+          {/* Clientes - only for admin/owner */}
+          {canViewClients && (
             <NavItem
               icon={<Building2 className="h-4 w-4" />}
               label="Clientes"
@@ -297,8 +301,8 @@ export function Kai2Sidebar({ activeTab, onTabChange, selectedClientId, onClient
             />
           )}
 
-          {/* Atividades - for non-viewers */}
-          {!isViewer && (
+          {/* Atividades - only for admin/owner */}
+          {canViewActivities && (
             <NavItem
               icon={<Activity className="h-4 w-4" />}
               label="Atividades"
