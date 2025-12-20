@@ -1490,7 +1490,13 @@ IMPORTANTE: O novo conteúdo deve parecer escrito pelo mesmo autor.`;
         ``
       ];
 
-      // Add identity guide and knowledge files FIRST (highest priority context)
+      // Add MANUAL CITATIONS FIRST (highest priority - user explicitly selected these)
+      if (manualCitationContext) {
+        contextParts.push(manualCitationContext);
+        contextParts.push(``);
+      }
+
+      // Add identity guide and knowledge files (high priority context)
       if (knowledgeContext) {
         contextParts.push(knowledgeContext);
         contextParts.push(``);
