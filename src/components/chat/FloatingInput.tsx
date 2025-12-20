@@ -1,19 +1,23 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Send, X, Loader2, Image as ImageIcon, FileText, Lightbulb, MessageCircle, Sparkles, Zap } from "lucide-react";
+import { Send, X, Loader2, Image as ImageIcon, FileText, Lightbulb, MessageCircle, Sparkles, AtSign } from "lucide-react";
 import { uploadAndGetSignedUrl } from "@/lib/storage";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { ActionMenuPopover } from "./ActionMenuPopover";
+import { CitationPopover, CitationItem } from "./CitationPopover";
+import { CitationChip, Citation } from "./CitationChip";
 
 export type ChatMode = "content" | "ideas" | "free_chat" | "image";
 
 interface FloatingInputProps {
-  onSend: (message: string, imageUrls?: string[], quality?: "fast" | "high", mode?: ChatMode) => void;
+  onSend: (message: string, imageUrls?: string[], quality?: "fast" | "high", mode?: ChatMode, citations?: Citation[]) => void;
   disabled?: boolean;
   templateType?: "free_chat" | "content" | "image";
   placeholder?: string;
+  contentLibrary?: Array<{ id: string; title: string; content_type: string; content: string }>;
+  referenceLibrary?: Array<{ id: string; title: string; reference_type: string; content: string }>;
 }
 
 const modeConfig = {
@@ -50,7 +54,9 @@ export const FloatingInput = ({
   onSend,
   disabled,
   templateType = "content",
-  placeholder = "Digite sua mensagem...",
+  placeholder = "Digite sua mensagem... Use @ para citar conteúdo",
+  contentLibrary = [],
+  referenceLibrary = [],
 }: FloatingInputProps) => {
   const [input, setInput] = useState("");
   const [imageFiles, setImageFiles] = useState<File[]>([]);
@@ -59,8 +65,13 @@ export const FloatingInput = ({
     templateType === "free_chat" ? "free_chat" : 
     templateType === "image" ? "image" : "content"
   );
+  const [citations, setCitations] = useState<Citation[]>([]);
+  const [showCitationPopover, setShowCitationPopover] = useState(false);
+  const [citationSearchQuery, setCitationSearchQuery] = useState("");
+  
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const citationAnchorRef = useRef<HTMLSpanElement>(null);
   const { toast } = useToast();
   const maxChars = 10000;
 
@@ -87,9 +98,68 @@ export const FloatingInput = ({
     }
   }, [disabled]);
 
+  // Detectar @ para abrir popover de citação
+  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const value = e.target.value;
+    setInput(value);
+
+    // Detectar se o usuário digitou @
+    const cursorPos = e.target.selectionStart || 0;
+    const textBeforeCursor = value.substring(0, cursorPos);
+    const lastAtIndex = textBeforeCursor.lastIndexOf("@");
+
+    if (lastAtIndex !== -1) {
+      const textAfterAt = textBeforeCursor.substring(lastAtIndex + 1);
+      // Se não tem espaço depois do @, é uma busca
+      if (!textAfterAt.includes(" ") && !textAfterAt.includes("\n")) {
+        setShowCitationPopover(true);
+        setCitationSearchQuery(textAfterAt);
+        return;
+      }
+    }
+    
+    setShowCitationPopover(false);
+    setCitationSearchQuery("");
+  }, []);
+
+  const handleCitationSelect = useCallback((item: CitationItem) => {
+    // Adicionar citação
+    const newCitation: Citation = {
+      id: item.id,
+      title: item.title,
+      type: item.type,
+      category: item.category,
+    };
+
+    // Evitar duplicatas
+    if (!citations.some((c) => c.id === item.id)) {
+      setCitations((prev) => [...prev, newCitation]);
+    }
+
+    // Remover o @ e a busca do input
+    const cursorPos = textareaRef.current?.selectionStart || 0;
+    const textBeforeCursor = input.substring(0, cursorPos);
+    const lastAtIndex = textBeforeCursor.lastIndexOf("@");
+    
+    if (lastAtIndex !== -1) {
+      const newInput = input.substring(0, lastAtIndex) + input.substring(cursorPos);
+      setInput(newInput);
+    }
+
+    setShowCitationPopover(false);
+    setCitationSearchQuery("");
+    
+    // Focar no textarea
+    setTimeout(() => textareaRef.current?.focus(), 0);
+  }, [citations, input]);
+
+  const handleRemoveCitation = useCallback((id: string) => {
+    setCitations((prev) => prev.filter((c) => c.id !== id));
+  }, []);
+
   const handleSubmit = async () => {
     const trimmed = input.trim();
-    if ((!trimmed && imageFiles.length === 0) || disabled || trimmed.length > maxChars) {
+    if ((!trimmed && imageFiles.length === 0 && citations.length === 0) || disabled || trimmed.length > maxChars) {
       return;
     }
 
@@ -121,9 +191,10 @@ export const FloatingInput = ({
                           templateType === "image" ? "image" : mode;
     const quality = templateType === "image" ? "high" : (modeConfig[effectiveMode as keyof typeof modeConfig]?.quality || "fast");
     
-    onSend(trimmed || "Analise esta imagem", imageUrls, quality, effectiveMode);
+    onSend(trimmed || "Analise esta imagem", imageUrls, quality, effectiveMode, citations.length > 0 ? citations : undefined);
     setInput("");
     setImageFiles([]);
+    setCitations([]);
     
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
@@ -151,16 +222,44 @@ export const FloatingInput = ({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    // Se o popover de citação está aberto, deixar o Command lidar com as teclas
+    if (showCitationPopover) {
+      if (e.key === "Escape") {
+        setShowCitationPopover(false);
+        e.preventDefault();
+      }
+      return;
+    }
+
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSubmit();
     }
   };
 
-  const isSubmitDisabled = (!input.trim() && imageFiles.length === 0) || disabled || uploadingImages;
+  const openCitationPopover = useCallback(() => {
+    setShowCitationPopover(true);
+    setCitationSearchQuery("");
+  }, []);
+
+  const isSubmitDisabled = (!input.trim() && imageFiles.length === 0 && citations.length === 0) || disabled || uploadingImages;
+  const hasLibraryContent = contentLibrary.length > 0 || referenceLibrary.length > 0;
 
   return (
     <div className="p-4 space-y-3">
+      {/* Citations Display */}
+      {citations.length > 0 && (
+        <div className="flex gap-2 flex-wrap px-1">
+          {citations.map((citation) => (
+            <CitationChip
+              key={citation.id}
+              citation={citation}
+              onRemove={handleRemoveCitation}
+            />
+          ))}
+        </div>
+      )}
+
       {/* Image Preview */}
       {imageFiles.length > 0 && (
         <div className="flex gap-2 flex-wrap px-1">
@@ -184,17 +283,31 @@ export const FloatingInput = ({
 
       {/* Main Input Container */}
       <div className="relative bg-muted/20 rounded-xl border border-border/30 focus-within:border-border/50 focus-within:bg-muted/30 transition-all">
+        {/* Citation Anchor (hidden) */}
+        <span ref={citationAnchorRef} className="absolute left-4 bottom-12" />
+        
+        {/* Citation Popover */}
+        <CitationPopover
+          open={showCitationPopover}
+          onOpenChange={setShowCitationPopover}
+          onSelect={handleCitationSelect}
+          contentLibrary={contentLibrary}
+          referenceLibrary={referenceLibrary}
+          anchorRef={citationAnchorRef}
+          searchQuery={citationSearchQuery}
+        />
+
         {/* Textarea */}
         <Textarea
           ref={textareaRef}
           value={input}
-          onChange={(e) => setInput(e.target.value)}
+          onChange={handleInputChange}
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
           disabled={disabled || uploadingImages}
           className={cn(
             "min-h-[48px] max-h-[120px] resize-none border-0 bg-transparent text-sm",
-            "px-4 py-3 pr-24",
+            "px-4 py-3 pr-32",
             "focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0",
             "placeholder:text-muted-foreground/40"
           )}
@@ -217,6 +330,25 @@ export const FloatingInput = ({
             onImageUpload={() => fileInputRef.current?.click()}
             disabled={disabled || uploadingImages}
           />
+
+          {/* Citation Button */}
+          {hasLibraryContent && (
+            <Button
+              onClick={openCitationPopover}
+              variant="ghost"
+              size="icon"
+              disabled={disabled || uploadingImages}
+              className={cn(
+                "h-8 w-8 rounded-lg hover:bg-muted/40",
+                citations.length > 0
+                  ? "text-primary"
+                  : "text-muted-foreground/60 hover:text-muted-foreground"
+              )}
+              title="Citar conteúdo (@)"
+            >
+              <AtSign className="h-3.5 w-3.5" />
+            </Button>
+          )}
 
           {/* Direct Image Upload */}
           <Button
