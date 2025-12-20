@@ -70,8 +70,10 @@ export const useWorkspace = () => {
   const isOwner = userRole === "owner";
   
   // Permission helpers for UI visibility
-  const canViewTools = isAdminOrOwner; // Only admin/owner see tools
-  const canViewPerformance = !isViewer; // Member and above
+  const canViewTools = isAdminOrOwner; // Only admin/owner see full tools
+  const canViewKnowledgeBase = !isViewer; // Member and above see knowledge base
+  const canViewPerformance = true; // Everyone sees performance
+  const canViewLibrary = !isViewer; // Member and above
   const canViewActivities = isAdminOrOwner; // Only admin/owner
   const canViewClients = isAdminOrOwner; // Only admin/owner see clients management
 
@@ -88,7 +90,9 @@ export const useWorkspace = () => {
     canCreate,
     isOwner,
     canViewTools,
+    canViewKnowledgeBase,
     canViewPerformance,
+    canViewLibrary,
     canViewActivities,
     canViewClients,
   };

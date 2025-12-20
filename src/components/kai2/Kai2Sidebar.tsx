@@ -94,7 +94,7 @@ interface Kai2SidebarProps {
 export function Kai2Sidebar({ activeTab, onTabChange, selectedClientId, onClientChange }: Kai2SidebarProps) {
   const navigate = useNavigate();
   const { clients } = useClients();
-  const { canManageTeam, canViewTools, canViewPerformance, canViewActivities, canViewClients } = useWorkspace();
+  const { canManageTeam, canViewTools, canViewPerformance, canViewLibrary, canViewKnowledgeBase, canViewActivities, canViewClients } = useWorkspace();
   const { pendingCount } = usePendingUsers();
   const { user, signOut } = useAuth();
   const selectedClient = clients?.find(c => c.id === selectedClientId);
@@ -230,7 +230,7 @@ export function Kai2Sidebar({ activeTab, onTabChange, selectedClientId, onClient
             />
           )}
 
-          {canViewPerformance && (
+          {canViewLibrary && (
             <NavItem
               icon={<Library className="h-4 w-4" />}
               label="Biblioteca"
@@ -240,39 +240,45 @@ export function Kai2Sidebar({ activeTab, onTabChange, selectedClientId, onClient
           )}
         </div>
 
-        {/* Ferramentas - only for admin/owner */}
-        {canViewTools && (
+        {/* Ferramentas - Knowledge Base for member+, rest for admin/owner */}
+        {(canViewKnowledgeBase || canViewTools) && (
           <>
             <SectionLabel>Ferramentas</SectionLabel>
 
             <div className="space-y-0.5">
-              <NavItem
-                icon={<BookOpen className="h-4 w-4" />}
-                label="Base de Conhecimento"
-                active={activeTab === "knowledge-base"}
-                onClick={() => onTabChange("knowledge-base")}
-              />
+              {canViewKnowledgeBase && (
+                <NavItem
+                  icon={<BookOpen className="h-4 w-4" />}
+                  label="Base de Conhecimento"
+                  active={activeTab === "knowledge-base"}
+                  onClick={() => onTabChange("knowledge-base")}
+                />
+              )}
 
-              <NavItem
-                icon={<Zap className="h-4 w-4" />}
-                label="Automações"
-                active={activeTab === "automations"}
-                onClick={() => onTabChange("automations")}
-              />
+              {canViewTools && (
+                <>
+                  <NavItem
+                    icon={<Zap className="h-4 w-4" />}
+                    label="Automações"
+                    active={activeTab === "automations"}
+                    onClick={() => onTabChange("automations")}
+                  />
 
-              <NavItem
-                icon={<Blocks className="h-4 w-4" />}
-                label="Agent Builder"
-                active={activeTab === "agent-builder"}
-                onClick={() => onTabChange("agent-builder")}
-              />
+                  <NavItem
+                    icon={<Blocks className="h-4 w-4" />}
+                    label="Agent Builder"
+                    active={activeTab === "agent-builder"}
+                    onClick={() => onTabChange("agent-builder")}
+                  />
 
-              <NavItem
-                icon={<FlaskConical className="h-4 w-4" />}
-                label="Lab de Pesquisa"
-                active={activeTab === "research-lab"}
-                onClick={() => onTabChange("research-lab")}
-              />
+                  <NavItem
+                    icon={<FlaskConical className="h-4 w-4" />}
+                    label="Lab de Pesquisa"
+                    active={activeTab === "research-lab"}
+                    onClick={() => onTabChange("research-lab")}
+                  />
+                </>
+              )}
             </div>
           </>
         )}
