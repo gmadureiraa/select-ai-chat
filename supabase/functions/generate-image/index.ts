@@ -198,8 +198,14 @@ serve(async (req) => {
       userId, 
       clientId,
       brandAssets,
-      clientVisualReferences 
+      clientVisualReferences,
+      imageFormat,
+      formatInstructions,
+      aspectRatio,
+      templateName
     } = await req.json();
+    
+    console.log(`[generate-image] Request - format: ${imageFormat}, template: ${templateName}, aspectRatio: ${aspectRatio}`);
 
     if (!prompt || typeof prompt !== 'string') {
       return new Response(
@@ -357,6 +363,13 @@ serve(async (req) => {
       }
     }
     
+    // Build format-specific instructions
+    let formatContext = "";
+    if (formatInstructions) {
+      formatContext = `=== INSTRUÇÕES DO FORMATO (${imageFormat || templateName || 'imagem'}) ===\n${formatInstructions}\n`;
+      console.log('[generate-image] Using format instructions for:', imageFormat || templateName);
+    }
+    
     if (styleAnalysis) {
       const styleSummary = styleAnalysis.style_summary || '';
       const promptTemplate = styleAnalysis.generation_prompt_template || '';
@@ -385,38 +398,42 @@ serve(async (req) => {
         styleContext += ` Apresentação de produtos: ${brandElements.product_presentation}.`;
       }
       
-      // Combine brand context with style analysis
-      const fullContext = [brandContext, styleContext].filter(Boolean).join("\n");
+      // Combine format + brand context + style analysis
+      const fullContext = [formatContext, brandContext, styleContext].filter(Boolean).join("\n\n");
       
-      enhancedPrompt = `IDENTIDADE VISUAL E ESTILO:\n${fullContext}\n\nPEDIDO ESPECÍFICO:\n${prompt}\n\nGere uma imagem que respeite a identidade visual da marca e atenda ao pedido específico.`;
-      console.log('[generate-image] Using style analysis + brand context for generation');
+      enhancedPrompt = `${fullContext}\n\n=== PEDIDO ESPECÍFICO ===\n${prompt}\n\nGere uma imagem que siga as instruções do formato, respeite a identidade visual da marca e atenda ao pedido específico.`;
+      console.log('[generate-image] Using style analysis + brand context + format instructions');
     } else if (processedImageCount > 0) {
       // CRITICAL: When we have reference images, use style transfer prompt format
       // Per Gemini docs: "Transform the provided photograph into the artistic style of [reference]"
       const refDescriptions = allRefs.filter(r => r.description).map(r => r.description).join(", ");
       
-      enhancedPrompt = `TRANSFERÊNCIA DE ESTILO - INSTRUÇÃO CRÍTICA:
+      enhancedPrompt = `${formatContext}
+=== TRANSFERÊNCIA DE ESTILO - INSTRUÇÃO CRÍTICA ===
 
 Você recebeu ${processedImageCount} imagens de referência visual. Sua tarefa é criar uma NOVA imagem sobre o tema "${prompt}" que pareça ter sido feita pelo MESMO DESIGNER/ARTISTA das referências.
 
-ANALISE AS REFERÊNCIAS E REPLIQUE:
-1. PALETA DE CORES: Use exatamente as mesmas cores dominantes (observe tons escuros/claros, cores neon, contraste)
-2. ESTILO GRÁFICO: Copie o estilo de ilustração/fotografia (halftone, flat design, realista, etc.)
-3. TEXTURAS E EFEITOS: Reproduza efeitos visuais como pontilhismo, gradientes, sombras, brilhos
+ANALISE AS REFERÊNCIAS E REPLIQUE EXATAMENTE:
+1. PALETA DE CORES: Use exatamente as mesmas cores dominantes (observe tons, saturação, contraste)
+2. ESTILO GRÁFICO: Copie o estilo de ilustração/fotografia (halftone, flat design, neon, etc.)
+3. TEXTURAS E EFEITOS: Reproduza efeitos visuais (gradientes, sombras, brilhos, ruído)
 4. TIPOGRAFIA: Se houver texto nas refs, use estilo similar (bold, serifada, etc.)
-5. COMPOSIÇÃO: Mantenha padrões de layout similares
-6. ATMOSFERA: Preserve o mood e a energia visual
+5. COMPOSIÇÃO: Mantenha padrões de layout e hierarquia visual
+6. ATMOSFERA: Preserve o mood e a energia visual das referências
 
-${brandContext ? `IDENTIDADE DA MARCA:\n${brandContext}\n` : ''}
-${refDescriptions ? `CONTEXTO DAS REFS: ${refDescriptions}\n` : ''}
-TEMA DO CONTEÚDO: ${prompt}
+${brandContext ? `=== IDENTIDADE DA MARCA ===\n${brandContext}\n` : ''}
+${refDescriptions ? `CONTEXTO DAS REFERÊNCIAS: ${refDescriptions}\n` : ''}
 
-RESULTADO ESPERADO: Uma imagem NOVA sobre "${prompt}" que seja VISUALMENTE INDISTINGUÍVEL do estilo das referências. A identidade visual deve ser 100% consistente.`;
+=== CONTEÚDO A CRIAR ===
+${prompt}
 
-      console.log('[generate-image] Using style transfer prompt with', processedImageCount, 'reference images');
-    } else if (brandContext) {
-      // Only brand assets, no images
-      enhancedPrompt = `IDENTIDADE VISUAL DA MARCA:\n${brandContext}\n\nPEDIDO:\n${prompt}\n\nGere uma imagem que respeite a identidade visual descrita.`;
+RESULTADO: Uma imagem NOVA sobre "${prompt}" que seja VISUALMENTE CONSISTENTE com o estilo das referências. Quem vir a imagem deve acreditar que foi feita pelo mesmo designer.`;
+
+      console.log('[generate-image] Using style transfer prompt with', processedImageCount, 'references + format instructions');
+    } else if (formatContext || brandContext) {
+      // Format and/or brand assets, no reference images
+      const context = [formatContext, brandContext].filter(Boolean).join("\n\n");
+      enhancedPrompt = `${context}\n\n=== CONTEÚDO A CRIAR ===\n${prompt}\n\nGere uma imagem profissional seguindo as instruções acima.`;
     }
     
     console.log('[generate-image] Final prompt (first 500 chars):', enhancedPrompt.substring(0, 500));
@@ -445,8 +462,11 @@ RESULTADO ESPERADO: Uma imagem NOVA sobre "${prompt}" que seja VISUALMENTE INDIS
           contents: [{ parts: orderedParts }],
           generationConfig: { 
             responseModalities: ["TEXT", "IMAGE"],
-            // Optional: Set aspect ratio if needed
-            // imageConfig: { aspectRatio: "1:1" }
+            ...(aspectRatio && {
+              imageConfig: { 
+                aspectRatio: aspectRatio // "1:1", "16:9", "9:16", etc.
+              }
+            })
           }
         }),
       }

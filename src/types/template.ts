@@ -21,6 +21,324 @@ export interface StyleAnalysis {
   generation_prompt_template?: string;
 }
 
+// =====================================================
+// INSTRUÇÕES TÉCNICAS POR FORMATO DE IMAGEM
+// =====================================================
+
+export interface ImageFormatSpec {
+  aspectRatio: string;
+  resolution: "1K" | "2K" | "4K";
+  width: number;
+  height: number;
+  instructions: string;
+}
+
+export const IMAGE_FORMAT_INSTRUCTIONS: Record<string, ImageFormatSpec> = {
+  "post_instagram": {
+    aspectRatio: "1:1",
+    resolution: "1K",
+    width: 1080,
+    height: 1080,
+    instructions: `POST INSTAGRAM (1080x1080 - Feed Quadrado):
+
+COMPOSIÇÃO:
+- Foco visual no CENTRO da imagem (80% dos usuários veem no mobile)
+- Hierarquia: Elemento principal → Texto de apoio → Logo discreto (canto)
+- Deixe margem segura de 5% nas bordas para não cortar em previews
+
+TEXTO NA IMAGEM:
+- Máximo 15 palavras no total (ideal: 5-10)
+- Fonte grande, bold, legível em thumbnail pequeno
+- Contraste ALTO: texto claro em fundo escuro ou vice-versa
+- Evite texto nas bordas (pode ser cortado em diferentes displays)
+
+ELEMENTOS VISUAIS:
+- Cores vibrantes e saturadas (se destacam no feed)
+- Um elemento focal forte (não disperse atenção)
+- Espaço para legenda abaixo - não coloque info crítica no rodapé
+
+QUALIDADE:
+- Resolução mínima 1080x1080px
+- Evite muitos detalhes pequenos (perdem-se no mobile)
+- Priorize clareza sobre complexidade`
+  },
+
+  "story_reels": {
+    aspectRatio: "9:16",
+    resolution: "1K",
+    width: 1080,
+    height: 1920,
+    instructions: `STORY/REELS INSTAGRAM (1080x1920 - Vertical):
+
+ZONAS SEGURAS (CRÍTICO!):
+- TOPO 15%: Evite texto/elementos (UI do Instagram cobre)
+- RODAPÉ 20%: Evite texto/elementos (área do CTA/username)
+- CENTRO 65%: Zona segura para conteúdo principal
+
+COMPOSIÇÃO VERTICAL:
+- Pense em "escaneamento vertical" (olho vai de cima pra baixo)
+- Elemento principal no centro vertical
+- Texto em blocos curtos, não parágrafos
+
+TEXTO:
+- Fonte mínima equivalente a 28pt (legível em mobile)
+- Máximo 3 linhas por bloco de texto
+- Contraste extremo (branco com sombra em qualquer fundo)
+
+ELEMENTOS:
+- Movimento visual (linhas diagonais, elementos dinâmicos)
+- Rostos/pessoas quando relevante (aumenta retenção)
+- Áreas clicáveis claras para CTAs interativos
+
+RITMO:
+- Cada story deve ter 1 mensagem clara
+- Sequência conta uma história progressiva`
+  },
+
+  "thumbnail_youtube": {
+    aspectRatio: "16:9",
+    resolution: "2K",
+    width: 1920,
+    height: 1080,
+    instructions: `THUMBNAIL YOUTUBE (1920x1080 - Máxima Qualidade):
+
+REGRA #1 - TEXTO GIGANTE:
+- Deve ser legível em tamanho de SELO (120x68px no browse)
+- Máximo 5-7 palavras, fonte ULTRA BOLD
+- Contorno/sombra obrigatório para contraste
+- Posição: 1/3 esquerdo ou direito (nunca centro exato)
+
+ROSTO HUMANO (se aplicável):
+- Expressão FORTE e exagerada: surpresa, dúvida, empolgação, choque
+- Olhos bem visíveis, olhando para câmera ou para o texto
+- Ocupa 30-50% do frame
+
+CORES E CONTRASTE:
+- Saturação ALTA (YouTube comprime cores)
+- Cores que contrastam: amarelo/azul, vermelho/branco, laranja/preto
+- Fundo simples: gradiente, blur, ou sólido
+- Evite fundos detalhados (competem com texto)
+
+ELEMENTOS DE CURIOSIDADE:
+- Setas apontando para algo
+- Círculos destacando elementos
+- "?" ou "!" grandes
+- Números impactantes
+
+O TESTE FINAL:
+- Reduza para 120x68px - ainda é legível e intrigante?
+- Conta uma HISTÓRIA em 1 segundo?
+- Gera curiosidade de clicar?`
+  },
+
+  "carousel_slide": {
+    aspectRatio: "1:1",
+    resolution: "1K",
+    width: 1080,
+    height: 1080,
+    instructions: `SLIDE DE CARROSSEL (1080x1080):
+
+CONSISTÊNCIA VISUAL:
+- TODOS os slides devem parecer parte do mesmo conjunto
+- Mesma paleta de cores, tipografia, estilo gráfico
+- Elementos de navegação consistentes (numeração, setas)
+
+POR SLIDE:
+- 1 ideia = 1 slide (nunca misture conceitos)
+- Máximo 30 palavras por slide
+- Hierarquia clara: título → corpo → detalhe
+
+SLIDE 1 (CAPA):
+- Gancho forte, curiosidade máxima
+- Texto grande e impactante
+- Indica que é carrossel (→ ou "Deslize")
+
+SLIDES INTERMEDIÁRIOS:
+- Desenvolvimento progressivo
+- Numeração visível (2/7, 3/7...)
+- Transições visuais suaves
+
+SLIDE FINAL:
+- CTA claro e específico
+- Recapitulação visual do valor entregue
+- "Salve", "Compartilhe", "Siga para mais"`
+  },
+
+  "banner_linkedin": {
+    aspectRatio: "4:1",
+    resolution: "1K",
+    width: 1584,
+    height: 396,
+    instructions: `BANNER LINKEDIN (1584x396 - Profissional):
+
+DESIGN CORPORATIVO:
+- Limpo, profissional, sofisticado
+- Cores da marca predominantes
+- Evite elementos "divertidos" demais
+
+COMPOSIÇÃO HORIZONTAL:
+- Foto de perfil sobrepõe lado ESQUERDO (deixe espaço)
+- Elementos principais no centro-direita
+- Gradientes sutis ou fundos sólidos
+
+TEXTO (se houver):
+- Nome/cargo OU tagline curta
+- Máximo 10 palavras
+- Fonte profissional (sans-serif)
+
+ELEMENTOS:
+- Padrões geométricos sutis
+- Ícones de expertise/serviços
+- Elementos que comuniquem posicionamento`
+  },
+
+  "capa_newsletter": {
+    aspectRatio: "2:1",
+    resolution: "1K",
+    width: 1200,
+    height: 600,
+    instructions: `CAPA DE NEWSLETTER (1200x600 - Email Header):
+
+CONTEXTO DE VISUALIZAÇÃO:
+- Aparece em preview pequeno no inbox
+- Deve funcionar em 300px de largura também
+- Evite detalhes que se perdem em tamanho reduzido
+
+ELEMENTOS ESSENCIAIS:
+- Título/tema da edição em destaque
+- Identidade visual consistente com edições anteriores
+- Número da edição (se aplicável)
+
+DESIGN EDITORIAL:
+- Limpo e legível
+- Paleta de cores consistente com a marca
+- Elementos gráficos que não competem com texto
+
+EVITAR:
+- Fotos com muitos detalhes
+- Texto pequeno
+- Mais de 3 elementos visuais competindo`
+  },
+
+  "twitter_post": {
+    aspectRatio: "16:9",
+    resolution: "1K",
+    width: 1200,
+    height: 675,
+    instructions: `IMAGEM PARA X/TWITTER (1200x675):
+
+FORMATO LANDSCAPE:
+- Preview corta para ~2:1 no feed - centralizar elementos
+- Texto deve ser legível mesmo cortado
+
+SIMPLICIDADE:
+- 1 mensagem visual clara
+- Fundo limpo (não compete com texto do tweet)
+- Cores que se destacam do fundo branco/preto do X
+
+TEXTO NA IMAGEM:
+- Complementa o tweet, não repete
+- Máximo 10 palavras
+- Fonte bold, contraste alto
+
+MEMES/CHARTS:
+- Dados visualizados de forma clara
+- Gráficos simples e legíveis
+- Referências visuais que agregam ao texto`
+  },
+
+  "arte_generica": {
+    aspectRatio: "1:1",
+    resolution: "1K",
+    width: 1080,
+    height: 1080,
+    instructions: `ARTE GENÉRICA (1080x1080 - Versátil):
+
+COMPOSIÇÃO FLEXÍVEL:
+- Centro forte (pode ser cortado para outros formatos)
+- Margem segura de 10% nas bordas
+- Hierarquia visual clara
+
+ADAPTABILIDADE:
+- Funciona em quadrado (1:1)
+- Pode ser cortado para 4:5 ou 16:9 se necessário
+- Elementos importantes no centro
+
+PADRÃO DE QUALIDADE:
+- Logo/marca presente de forma sutil
+- Paleta consistente com identidade visual
+- Profissional e polido`
+  }
+};
+
+// Detectar formato de imagem baseado no nome do template
+export function detectImageFormat(templateName?: string): string {
+  if (!templateName) return "arte_generica";
+  
+  const nameLower = templateName.toLowerCase();
+  
+  // Thumbnail YouTube
+  if (nameLower.includes("thumbnail") || 
+      (nameLower.includes("youtube") && !nameLower.includes("script"))) {
+    return "thumbnail_youtube";
+  }
+  
+  // Stories/Reels (vertical)
+  if (nameLower.includes("story") || 
+      nameLower.includes("stories") || 
+      nameLower.includes("reels") ||
+      nameLower.includes("tiktok")) {
+    return "story_reels";
+  }
+  
+  // Carrossel
+  if (nameLower.includes("carrossel") || 
+      nameLower.includes("carousel") ||
+      nameLower.includes("slide")) {
+    return "carousel_slide";
+  }
+  
+  // Post Instagram (feed)
+  if ((nameLower.includes("post") || nameLower.includes("feed")) && 
+      (nameLower.includes("instagram") || nameLower.includes("insta"))) {
+    return "post_instagram";
+  }
+  
+  // LinkedIn
+  if (nameLower.includes("linkedin") || 
+      nameLower.includes("banner")) {
+    return "banner_linkedin";
+  }
+  
+  // Newsletter
+  if (nameLower.includes("newsletter") || 
+      nameLower.includes("capa") ||
+      nameLower.includes("email")) {
+    return "capa_newsletter";
+  }
+  
+  // Twitter/X
+  if (nameLower.includes("twitter") || 
+      nameLower.includes("tweet") ||
+      nameLower.includes(" x ")) {
+    return "twitter_post";
+  }
+  
+  return "arte_generica";
+}
+
+// Obter especificações de formato
+export function getImageFormatSpec(formatOrTemplateName: string): ImageFormatSpec {
+  // Se já é um formato conhecido, retorna diretamente
+  if (IMAGE_FORMAT_INSTRUCTIONS[formatOrTemplateName]) {
+    return IMAGE_FORMAT_INSTRUCTIONS[formatOrTemplateName];
+  }
+  
+  // Senão, tenta detectar pelo nome do template
+  const detectedFormat = detectImageFormat(formatOrTemplateName);
+  return IMAGE_FORMAT_INSTRUCTIONS[detectedFormat] || IMAGE_FORMAT_INSTRUCTIONS["arte_generica"];
+}
+
 export interface TemplateRule {
   id: string;
   content: string;
