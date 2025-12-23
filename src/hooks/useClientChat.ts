@@ -30,7 +30,9 @@ import {
   detectContentType,
   parseIdeaRequest,
   ContentFormatType,
-  TEMPLATE_NAME_TO_CONTENT_TYPE
+  TEMPLATE_NAME_TO_CONTENT_TYPE,
+  detectImageFormat,
+  getImageFormatSpec
 } from "@/types/template";
 import { getPipelineForContentType, PipelineConfig } from "@/types/pipelines";
 
@@ -384,6 +386,11 @@ export const useClientChat = (clientId: string, templateId?: string, conversatio
           console.log("[CHAT] Total reference images:", allReferenceImages.length);
           console.log("[CHAT] Style analysis available:", !!references.styleAnalysis);
           
+          // Detectar formato baseado no template ativo
+          const imageFormat = detectImageFormat(template?.name);
+          const formatSpec = getImageFormatSpec(imageFormat);
+          console.log("[CHAT] Image format detected:", imageFormat, "aspect:", formatSpec.aspectRatio);
+          
           const { data: imageData, error: imageError } = await supabase.functions.invoke("generate-image", {
             body: {
               prompt: imagePrompt,
@@ -391,6 +398,10 @@ export const useClientChat = (clientId: string, templateId?: string, conversatio
               userId: user?.id,
               referenceImages: allReferenceImages.length > 0 ? allReferenceImages : undefined,
               styleAnalysis: references.styleAnalysis || undefined,
+              imageFormat: imageFormat,
+              formatInstructions: formatSpec.instructions,
+              aspectRatio: formatSpec.aspectRatio,
+              templateName: template?.name,
             },
           });
 
