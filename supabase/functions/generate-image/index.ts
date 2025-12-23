@@ -391,34 +391,50 @@ serve(async (req) => {
       enhancedPrompt = `IDENTIDADE VISUAL E ESTILO:\n${fullContext}\n\nPEDIDO ESPECÍFICO:\n${prompt}\n\nGere uma imagem que respeite a identidade visual da marca e atenda ao pedido específico.`;
       console.log('[generate-image] Using style analysis + brand context for generation');
     } else if (processedImageCount > 0) {
-      // CRITICAL: When we have reference images, emphasize style replication
+      // CRITICAL: When we have reference images, use style transfer prompt format
+      // Per Gemini docs: "Transform the provided photograph into the artistic style of [reference]"
       const refDescriptions = allRefs.filter(r => r.description).map(r => r.description).join(", ");
       
-      enhancedPrompt = `INSTRUÇÃO CRÍTICA - ESTILO VISUAL OBRIGATÓRIO:
-Você recebeu ${processedImageCount} imagens de referência. Você DEVE replicar EXATAMENTE o estilo visual dessas imagens:
-- Observe a paleta de cores dominante (cores escuras/claras, cores neon, tons pastéis, etc.)
-- Copie o estilo gráfico (ilustrações, fotografias, halftone, flat design, etc.)
-- Mantenha a mesma atmosfera e mood
-- Use elementos visuais semelhantes
-- Respeite o padrão de composição
+      enhancedPrompt = `TRANSFERÊNCIA DE ESTILO - INSTRUÇÃO CRÍTICA:
 
-${brandContext ? `CONTEXTO DA MARCA:\n${brandContext}\n\n` : ''}${refDescriptions ? `DESCRIÇÕES DAS REFERÊNCIAS: ${refDescriptions}\n\n` : ''}TEMA A CRIAR:
-${prompt}
+Você recebeu ${processedImageCount} imagens de referência visual. Sua tarefa é criar uma NOVA imagem sobre o tema "${prompt}" que pareça ter sido feita pelo MESMO DESIGNER/ARTISTA das referências.
 
-IMPORTANTE: A imagem gerada DEVE parecer que foi criada pelo MESMO DESIGNER das referências. O estilo visual deve ser IDÊNTICO, apenas o conteúdo temático muda para "${prompt}".`;
+ANALISE AS REFERÊNCIAS E REPLIQUE:
+1. PALETA DE CORES: Use exatamente as mesmas cores dominantes (observe tons escuros/claros, cores neon, contraste)
+2. ESTILO GRÁFICO: Copie o estilo de ilustração/fotografia (halftone, flat design, realista, etc.)
+3. TEXTURAS E EFEITOS: Reproduza efeitos visuais como pontilhismo, gradientes, sombras, brilhos
+4. TIPOGRAFIA: Se houver texto nas refs, use estilo similar (bold, serifada, etc.)
+5. COMPOSIÇÃO: Mantenha padrões de layout similares
+6. ATMOSFERA: Preserve o mood e a energia visual
 
-      console.log('[generate-image] Using reference-based style replication prompt');
+${brandContext ? `IDENTIDADE DA MARCA:\n${brandContext}\n` : ''}
+${refDescriptions ? `CONTEXTO DAS REFS: ${refDescriptions}\n` : ''}
+TEMA DO CONTEÚDO: ${prompt}
+
+RESULTADO ESPERADO: Uma imagem NOVA sobre "${prompt}" que seja VISUALMENTE INDISTINGUÍVEL do estilo das referências. A identidade visual deve ser 100% consistente.`;
+
+      console.log('[generate-image] Using style transfer prompt with', processedImageCount, 'reference images');
     } else if (brandContext) {
       // Only brand assets, no images
       enhancedPrompt = `IDENTIDADE VISUAL DA MARCA:\n${brandContext}\n\nPEDIDO:\n${prompt}\n\nGere uma imagem que respeite a identidade visual descrita.`;
     }
     
-    console.log('[generate-image] Final prompt preview:', enhancedPrompt.substring(0, 300) + '...');
+    console.log('[generate-image] Final prompt (first 500 chars):', enhancedPrompt.substring(0, 500));
     
     parts.push({ text: enhancedPrompt });
 
-    const GEMINI_MODEL = "gemini-2.0-flash-exp-image-generation";
+    // Use the correct Nano Banana model (gemini-2.5-flash is the image generation model)
+    const GEMINI_MODEL = "gemini-2.5-flash-preview-image-generation";
     console.log(`[generate-image] Generating with ${GEMINI_MODEL}, ${processedImageCount} reference images, brand assets: ${!!effectiveBrandAssets}, logo: ${!!logoUrl}`);
+
+    // Build the request with images FIRST, then text prompt (per Gemini documentation)
+    // For image editing/style transfer, images should come before the text instruction
+    const orderedParts = [
+      ...parts.filter((p: any) => p.inlineData), // Images first
+      ...parts.filter((p: any) => p.text)        // Text prompt last
+    ];
+    
+    console.log(`[generate-image] Request parts order: ${orderedParts.length} parts (${orderedParts.filter((p: any) => p.inlineData).length} images + ${orderedParts.filter((p: any) => p.text).length} text)`);
 
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GOOGLE_API_KEY}`,
@@ -426,8 +442,12 @@ IMPORTANTE: A imagem gerada DEVE parecer que foi criada pelo MESMO DESIGNER das 
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          contents: [{ parts }],
-          generationConfig: { responseModalities: ["TEXT", "IMAGE"] }
+          contents: [{ parts: orderedParts }],
+          generationConfig: { 
+            responseModalities: ["TEXT", "IMAGE"],
+            // Optional: Set aspect ratio if needed
+            // imageConfig: { aspectRatio: "1:1" }
+          }
         }),
       }
     );
