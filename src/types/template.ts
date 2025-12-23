@@ -94,11 +94,14 @@ export const TEMPLATE_NAME_TO_CONTENT_TYPE: Record<string, string> = {
 };
 
 export const DEFAULT_IMAGE_RULES: string[] = [
-  "Estilo: Moderno e minimalista",
-  "Proporção: 1024x1024 (quadrado)",
-  "Paleta de cores: Vibrante com acentos neon e magenta",
-  "Qualidade: Alta (high quality)",
-  "Contexto: Sempre incluir elementos da marca quando possível",
+  "SEMPRE use o logo do cliente de forma sutil e elegante",
+  "Mantenha consistência absoluta com a paleta de cores da marca",
+  "Qualidade: Ultra-alta resolução, digna de publicação profissional em redes sociais",
+  "Composição: Equilibrada, com espaço para texto se necessário",
+  "Estilo: Respeitar referências visuais cadastradas do cliente",
+  "Formato: Otimizado para a plataforma de destino (Instagram 1080x1080, Stories 1080x1920, etc.)",
+  "Tipografia: Usar fontes consistentes com a identidade visual da marca",
+  "Profundidade: Criar interesse visual com camadas, sombras sutis e hierarquia clara",
 ];
 
 // Regras globais de formato
