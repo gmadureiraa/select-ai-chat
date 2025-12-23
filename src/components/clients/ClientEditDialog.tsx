@@ -380,7 +380,7 @@ Estruture: Visão Geral, Posicionamento, Tom de Voz, Público-Alvo, Presença Di
               
               {client && (
                 <>
-                  <BrandAssetsEditor clientId={client.id} clientName={client.name} />
+                  <BrandAssetsEditor clientId={client.id} clientName={client.name} websiteUrl={socialMedia.website} />
                   
                   <div className="border-t pt-6">
                     <h4 className="text-sm font-medium mb-4">Referências Visuais</h4>
