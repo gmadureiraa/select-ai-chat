@@ -69,6 +69,24 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
   return btoa(binary);
 }
 
+// Convert storage paths to full public URLs
+function getPublicImageUrl(imagePath: string, supabaseUrl: string): string {
+  if (!imagePath) return "";
+  
+  // Already a full URL
+  if (imagePath.startsWith("http://") || imagePath.startsWith("https://")) {
+    return imagePath;
+  }
+  
+  // Already a data URL
+  if (imagePath.startsWith("data:")) {
+    return imagePath;
+  }
+  
+  // Storage path - convert to public URL
+  return `${supabaseUrl}/storage/v1/object/public/client-files/${imagePath}`;
+}
+
 function formatBrandAssetsForPrompt(brandAssets: BrandAssets): string {
   const parts: string[] = [];
   
@@ -228,19 +246,25 @@ serve(async (req) => {
     
     if (effectiveVisualRefs.length === 0 && clientId) {
       console.log(`[generate-image] Fetching visual references for client ${clientId}`);
-      const { data: visualRefs } = await supabaseService
+      const { data: visualRefs, error: visualRefsError } = await supabaseService
         .from("client_visual_references")
         .select("*")
         .eq("client_id", clientId)
-        .eq("is_primary", true)
-        .limit(6);
+        .order("is_primary", { ascending: false })  // Primary first, but include all
+        .limit(10);
+      
+      if (visualRefsError) {
+        console.error(`[generate-image] Error fetching visual refs:`, visualRefsError);
+      }
       
       if (visualRefs && visualRefs.length > 0) {
         effectiveVisualRefs = visualRefs.map((ref: any) => ({
-          url: ref.image_url,
+          url: getPublicImageUrl(ref.image_url, supabaseUrl),  // Convert to public URL
           description: ref.description || ref.title || `Referência ${ref.reference_type}`,
+          isPrimary: ref.is_primary,
         }));
-        console.log(`[generate-image] Found ${effectiveVisualRefs.length} primary visual references`);
+        console.log(`[generate-image] Found ${effectiveVisualRefs.length} visual references (URLs converted)`);
+        console.log(`[generate-image] Reference URLs:`, effectiveVisualRefs.map((r: any) => r.url.substring(0, 80)));
       }
     }
 
@@ -253,9 +277,11 @@ serve(async (req) => {
     let processedImageCount = 0;
     
     // Add logo as first reference if available (using intelligent selection)
-    const logoUrl = effectiveBrandAssets ? getLogoUrl(effectiveBrandAssets, prompt) : undefined;
+    let rawLogoUrl = effectiveBrandAssets ? getLogoUrl(effectiveBrandAssets, prompt) : undefined;
+    const logoUrl = rawLogoUrl ? getPublicImageUrl(rawLogoUrl, supabaseUrl) : undefined;
+    
     if (logoUrl) {
-      console.log('[generate-image] Adding brand logo as primary reference:', logoUrl.substring(0, 50) + '...');
+      console.log('[generate-image] Adding brand logo as primary reference:', logoUrl.substring(0, 100));
       try {
         const logoResponse = await fetch(logoUrl);
         if (logoResponse.ok) {
@@ -266,17 +292,20 @@ serve(async (req) => {
             inlineData: { mimeType: contentType, data: base64 }
           });
           processedImageCount++;
+          console.log('[generate-image] Logo added successfully');
+        } else {
+          console.warn(`[generate-image] Failed to fetch logo: ${logoResponse.status}`);
         }
       } catch (e) {
         console.warn(`[generate-image] Failed to process logo: ${e}`);
       }
     }
     
-    // Add reference images
+    // Add reference images (increased limit to 8 for better style matching)
     if (allRefs.length > 0) {
-      console.log(`[generate-image] Processing ${allRefs.length} reference images`);
+      console.log(`[generate-image] Processing ${allRefs.length} reference images (max 8 after logo)`);
       
-      for (const ref of allRefs.slice(0, 5 - processedImageCount)) {
+      for (const ref of allRefs.slice(0, 8 - processedImageCount)) {
         const imageData = ref.base64 || ref.url;
         if (imageData) {
           try {
@@ -287,8 +316,10 @@ serve(async (req) => {
                   inlineData: { mimeType: matches[1], data: matches[2] }
                 });
                 processedImageCount++;
+                console.log(`[generate-image] Added data URL reference`);
               }
             } else if (imageData.startsWith('http')) {
+              console.log(`[generate-image] Fetching: ${imageData.substring(0, 80)}...`);
               const imgResponse = await fetch(imageData);
               if (imgResponse.ok) {
                 const arrayBuffer = await imgResponse.arrayBuffer();
@@ -298,7 +329,12 @@ serve(async (req) => {
                   inlineData: { mimeType: contentType, data: base64 }
                 });
                 processedImageCount++;
+                console.log(`[generate-image] Added HTTP reference (${contentType})`);
+              } else {
+                console.warn(`[generate-image] Failed to fetch image: ${imgResponse.status} - ${imageData.substring(0, 80)}`);
               }
+            } else {
+              console.warn(`[generate-image] Unknown image format: ${imageData.substring(0, 50)}`);
             }
           } catch (e) {
             console.warn(`[generate-image] Failed to process reference image: ${e}`);
@@ -306,6 +342,8 @@ serve(async (req) => {
         }
       }
     }
+    
+    console.log(`[generate-image] Total images added to request: ${processedImageCount}`);
     
     // Build enhanced prompt with brand assets and style analysis
     let enhancedPrompt = prompt;
@@ -352,18 +390,30 @@ serve(async (req) => {
       
       enhancedPrompt = `IDENTIDADE VISUAL E ESTILO:\n${fullContext}\n\nPEDIDO ESPECÍFICO:\n${prompt}\n\nGere uma imagem que respeite a identidade visual da marca e atenda ao pedido específico.`;
       console.log('[generate-image] Using style analysis + brand context for generation');
-    } else if (brandContext) {
-      // Only brand assets, no style analysis
-      enhancedPrompt = `IDENTIDADE VISUAL DA MARCA:\n${brandContext}\n\nPEDIDO:\n${prompt}\n\nGere uma imagem que respeite a identidade visual descrita.`;
     } else if (processedImageCount > 0) {
+      // CRITICAL: When we have reference images, emphasize style replication
       const refDescriptions = allRefs.filter(r => r.description).map(r => r.description).join(", ");
       
-      if (refDescriptions) {
-        enhancedPrompt = `Analise as imagens de referência fornecidas e capture seu estilo visual. Use esse estilo como base para gerar: ${prompt}.`;
-      } else {
-        enhancedPrompt = `Observe as imagens de referência fornecidas. Capture o estilo visual e gere uma nova imagem nesse mesmo estilo: ${prompt}`;
-      }
+      enhancedPrompt = `INSTRUÇÃO CRÍTICA - ESTILO VISUAL OBRIGATÓRIO:
+Você recebeu ${processedImageCount} imagens de referência. Você DEVE replicar EXATAMENTE o estilo visual dessas imagens:
+- Observe a paleta de cores dominante (cores escuras/claras, cores neon, tons pastéis, etc.)
+- Copie o estilo gráfico (ilustrações, fotografias, halftone, flat design, etc.)
+- Mantenha a mesma atmosfera e mood
+- Use elementos visuais semelhantes
+- Respeite o padrão de composição
+
+${brandContext ? `CONTEXTO DA MARCA:\n${brandContext}\n\n` : ''}${refDescriptions ? `DESCRIÇÕES DAS REFERÊNCIAS: ${refDescriptions}\n\n` : ''}TEMA A CRIAR:
+${prompt}
+
+IMPORTANTE: A imagem gerada DEVE parecer que foi criada pelo MESMO DESIGNER das referências. O estilo visual deve ser IDÊNTICO, apenas o conteúdo temático muda para "${prompt}".`;
+
+      console.log('[generate-image] Using reference-based style replication prompt');
+    } else if (brandContext) {
+      // Only brand assets, no images
+      enhancedPrompt = `IDENTIDADE VISUAL DA MARCA:\n${brandContext}\n\nPEDIDO:\n${prompt}\n\nGere uma imagem que respeite a identidade visual descrita.`;
     }
+    
+    console.log('[generate-image] Final prompt preview:', enhancedPrompt.substring(0, 300) + '...');
     
     parts.push({ text: enhancedPrompt });
 
