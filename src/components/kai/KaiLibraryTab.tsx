@@ -536,6 +536,8 @@ export const KaiLibraryTab = ({ clientId, client }: KaiLibraryTabProps) => {
             viewMode={viewMode}
             selectedItems={selectedItems}
             onToggleSelection={toggleSelection}
+            showUploadForm={showVisualUploadForm}
+            onShowUploadFormChange={setShowVisualUploadForm}
           />
         </TabsContent>
 
