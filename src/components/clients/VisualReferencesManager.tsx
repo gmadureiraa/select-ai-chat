@@ -29,6 +29,8 @@ interface VisualReferencesManagerProps {
   viewMode?: "grid" | "list";
   selectedItems?: Set<string>;
   onToggleSelection?: (id: string) => void;
+  showUploadForm?: boolean;
+  onShowUploadFormChange?: (show: boolean) => void;
 }
 
 export const REFERENCE_TYPES = [
@@ -46,7 +48,9 @@ export const VisualReferencesManager = ({
   typeFilter = "all",
   viewMode = "grid",
   selectedItems = new Set(),
-  onToggleSelection
+  onToggleSelection,
+  showUploadForm: externalShowUploadForm,
+  onShowUploadFormChange
 }: VisualReferencesManagerProps) => {
   const { toast } = useToast();
   const { 
@@ -61,7 +65,11 @@ export const VisualReferencesManager = ({
   const [selectedType, setSelectedType] = useState<ClientVisualReference["reference_type"]>("style_example");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [showUploadForm, setShowUploadForm] = useState(variant === "compact");
+  const [internalShowUploadForm, setInternalShowUploadForm] = useState(variant === "compact");
+
+  // Use external state if provided, otherwise use internal state
+  const showUploadForm = externalShowUploadForm !== undefined ? externalShowUploadForm : internalShowUploadForm;
+  const setShowUploadForm = onShowUploadFormChange || setInternalShowUploadForm;
 
   // Filter and sort references
   const filteredReferences = useMemo(() => {
