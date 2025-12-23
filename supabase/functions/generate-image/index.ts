@@ -15,6 +15,31 @@ interface ReferenceImage {
 }
 
 interface BrandAssets {
+  // New expanded structure
+  logos?: {
+    primary?: string;
+    negative?: string;
+    alternative?: string;
+    favicon?: string;
+  };
+  colors?: {
+    primary?: { color?: string; textColor?: string };
+    secondary?: { color?: string; textColor?: string };
+    accent?: { color?: string; textColor?: string };
+    surfaces?: { background?: string; card?: string; border?: string };
+    text?: { primary?: string; muted?: string };
+    buttons?: { primary?: string; secondary?: string };
+  };
+  typography?: {
+    sans?: string;
+    serif?: string;
+    mono?: string;
+  };
+  photographyStyle?: {
+    description?: string;
+    referenceImages?: string[];
+  };
+  // Legacy fields for backward compatibility
   logo_url?: string;
   logo_variations?: string[];
   color_palette?: {
@@ -23,11 +48,6 @@ interface BrandAssets {
     accent?: string;
     background?: string;
     text?: string;
-  };
-  typography?: {
-    primary_font?: string;
-    secondary_font?: string;
-    style?: string;
   };
   visual_style?: {
     photography_style?: string;
@@ -52,7 +72,35 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
 function formatBrandAssetsForPrompt(brandAssets: BrandAssets): string {
   const parts: string[] = [];
   
-  if (brandAssets.color_palette) {
+  // New structure - colors
+  if (brandAssets.colors?.primary?.color) {
+    parts.push(`Cor primária: ${brandAssets.colors.primary.color}`);
+  }
+  if (brandAssets.colors?.secondary?.color) {
+    parts.push(`Cor secundária: ${brandAssets.colors.secondary.color}`);
+  }
+  if (brandAssets.colors?.accent?.color) {
+    parts.push(`Cor de destaque: ${brandAssets.colors.accent.color}`);
+  }
+  if (brandAssets.colors?.surfaces?.background) {
+    parts.push(`Fundo: ${brandAssets.colors.surfaces.background}`);
+  }
+  
+  // New structure - typography
+  if (brandAssets.typography?.sans) {
+    parts.push(`Fonte sans-serif: ${brandAssets.typography.sans}`);
+  }
+  if (brandAssets.typography?.serif) {
+    parts.push(`Fonte serifada: ${brandAssets.typography.serif}`);
+  }
+  
+  // New structure - photography style
+  if (brandAssets.photographyStyle?.description) {
+    parts.push(`Estilo fotográfico: ${brandAssets.photographyStyle.description}`);
+  }
+  
+  // Legacy fallback - color_palette
+  if (parts.length === 0 && brandAssets.color_palette) {
     const colors = Object.entries(brandAssets.color_palette)
       .filter(([_, value]) => value)
       .map(([key, value]) => `${key}: ${value}`)
@@ -60,15 +108,9 @@ function formatBrandAssetsForPrompt(brandAssets: BrandAssets): string {
     if (colors) parts.push(`Paleta de cores: ${colors}`);
   }
   
-  if (brandAssets.typography) {
-    const typo = [];
-    if (brandAssets.typography.primary_font) typo.push(`Fonte: ${brandAssets.typography.primary_font}`);
-    if (brandAssets.typography.style) typo.push(`Estilo: ${brandAssets.typography.style}`);
-    if (typo.length > 0) parts.push(`Tipografia: ${typo.join(", ")}`);
-  }
-  
+  // Legacy fallback - visual_style
   if (brandAssets.visual_style) {
-    if (brandAssets.visual_style.photography_style) {
+    if (brandAssets.visual_style.photography_style && !brandAssets.photographyStyle?.description) {
       parts.push(`Estilo fotográfico: ${brandAssets.visual_style.photography_style}`);
     }
     if (brandAssets.visual_style.mood) {
@@ -80,6 +122,25 @@ function formatBrandAssetsForPrompt(brandAssets: BrandAssets): string {
   }
   
   return parts.join(". ");
+}
+
+// Get logo URL with intelligent selection
+function getLogoUrl(brandAssets: BrandAssets, prompt: string): string | undefined {
+  // Check if prompt mentions dark background
+  const isDarkContext = /escuro|dark|noite|preto|black/i.test(prompt);
+  
+  // Prefer negative logo for dark contexts
+  if (isDarkContext && brandAssets.logos?.negative) {
+    return brandAssets.logos.negative;
+  }
+  
+  // Use new structure first
+  if (brandAssets.logos?.primary) {
+    return brandAssets.logos.primary;
+  }
+  
+  // Legacy fallback
+  return brandAssets.logo_url;
 }
 
 serve(async (req) => {
@@ -172,7 +233,7 @@ serve(async (req) => {
         .select("*")
         .eq("client_id", clientId)
         .eq("is_primary", true)
-        .limit(4);
+        .limit(6);
       
       if (visualRefs && visualRefs.length > 0) {
         effectiveVisualRefs = visualRefs.map((ref: any) => ({
@@ -191,11 +252,12 @@ serve(async (req) => {
     const parts: any[] = [];
     let processedImageCount = 0;
     
-    // Add logo as first reference if available
-    if (effectiveBrandAssets?.logo_url) {
-      console.log('[generate-image] Adding brand logo as primary reference');
+    // Add logo as first reference if available (using intelligent selection)
+    const logoUrl = effectiveBrandAssets ? getLogoUrl(effectiveBrandAssets, prompt) : undefined;
+    if (logoUrl) {
+      console.log('[generate-image] Adding brand logo as primary reference:', logoUrl.substring(0, 50) + '...');
       try {
-        const logoResponse = await fetch(effectiveBrandAssets.logo_url);
+        const logoResponse = await fetch(logoUrl);
         if (logoResponse.ok) {
           const arrayBuffer = await logoResponse.arrayBuffer();
           const base64 = arrayBufferToBase64(arrayBuffer);
@@ -214,7 +276,7 @@ serve(async (req) => {
     if (allRefs.length > 0) {
       console.log(`[generate-image] Processing ${allRefs.length} reference images`);
       
-      for (const ref of allRefs.slice(0, 4 - processedImageCount)) {
+      for (const ref of allRefs.slice(0, 5 - processedImageCount)) {
         const imageData = ref.base64 || ref.url;
         if (imageData) {
           try {
@@ -305,8 +367,8 @@ serve(async (req) => {
     
     parts.push({ text: enhancedPrompt });
 
-    const GEMINI_MODEL = "gemini-2.0-flash-exp";
-    console.log(`[generate-image] Generating with ${GEMINI_MODEL}, ${processedImageCount} reference images, brand assets: ${!!effectiveBrandAssets}`);
+    const GEMINI_MODEL = "gemini-2.0-flash-exp-image-generation";
+    console.log(`[generate-image] Generating with ${GEMINI_MODEL}, ${processedImageCount} reference images, brand assets: ${!!effectiveBrandAssets}, logo: ${!!logoUrl}`);
 
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GOOGLE_API_KEY}`,

@@ -37,6 +37,16 @@ const TEMPLATE_SUGGESTIONS = [
   { name: "Blog Post", contentType: "blog_post" },
 ];
 
+// Sugestões de templates de imagem
+const IMAGE_TEMPLATE_SUGGESTIONS = [
+  { name: "Post Feed Instagram", format: "1080x1080" },
+  { name: "Story/Reels Cover", format: "1080x1920" },
+  { name: "Thumbnail YouTube", format: "1280x720" },
+  { name: "Banner LinkedIn", format: "1584x396" },
+  { name: "Arte Genérica", format: "1024x1024" },
+  { name: "Capa Newsletter", format: "600x300" },
+];
+
 export const TemplateManager = ({ clientId }: TemplateManagerProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [newTemplateName, setNewTemplateName] = useState("");
@@ -277,20 +287,34 @@ export const TemplateManager = ({ clientId }: TemplateManagerProps) => {
             {/* Exemplos de templates */}
             <div className="space-y-2 pt-2">
               <Label className="text-xs text-muted-foreground">
-                Sugestões de Templates (com regras pré-configuradas):
+                Sugestões de Templates {newTemplateType === 'image' ? 'de Imagem' : 'de Chat'} (com regras pré-configuradas):
               </Label>
               <div className="flex flex-wrap gap-2">
-                {TEMPLATE_SUGGESTIONS.map((suggestion) => (
-                  <Button
-                    key={suggestion.name}
-                    onClick={() => setNewTemplateName(suggestion.name)}
-                    variant="outline"
-                    size="sm"
-                    className="text-xs h-7"
-                  >
-                    {suggestion.name}
-                  </Button>
-                ))}
+                {newTemplateType === 'image' ? (
+                  IMAGE_TEMPLATE_SUGGESTIONS.map((suggestion) => (
+                    <Button
+                      key={suggestion.name}
+                      onClick={() => setNewTemplateName(suggestion.name)}
+                      variant="outline"
+                      size="sm"
+                      className="text-xs h-7"
+                    >
+                      {suggestion.name} ({suggestion.format})
+                    </Button>
+                  ))
+                ) : (
+                  TEMPLATE_SUGGESTIONS.map((suggestion) => (
+                    <Button
+                      key={suggestion.name}
+                      onClick={() => setNewTemplateName(suggestion.name)}
+                      variant="outline"
+                      size="sm"
+                      className="text-xs h-7"
+                    >
+                      {suggestion.name}
+                    </Button>
+                  ))
+                )}
               </div>
             </div>
           </div>
