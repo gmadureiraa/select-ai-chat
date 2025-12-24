@@ -34,9 +34,12 @@ const App = () => (
                 <Route path="/signup" element={<Signup />} />
                 <Route path="/page" element={<LandingPage />} />
                 
-                {/* Root redirects to user's workspace */}
+                {/* Public landing page */}
+                <Route path="/" element={<LandingPage />} />
+                
+                {/* Redirect to workspace for authenticated users */}
                 <Route
-                  path="/"
+                  path="/app"
                   element={
                     <ProtectedRoute>
                       <WorkspaceRedirect />

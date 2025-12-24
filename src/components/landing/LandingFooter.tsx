@@ -2,29 +2,27 @@ import { Link } from "react-router-dom";
 import kaleidosLogo from "@/assets/kaleidos-logo.svg";
 import { Instagram, Twitter, Linkedin, Youtube } from "lucide-react";
 
+const WHATSAPP_NUMBER = "5511999999999";
+const CONTACT_EMAIL = "contato@kaleidos.ai";
+
 const footerLinks = {
   produto: [
     { label: "Features", href: "#features" },
     { label: "Integrações", href: "#integrations" },
-    { label: "Preços", href: "#" },
-    { label: "Changelog", href: "#" },
+    { label: "Preços", href: "#pricing" },
+    { label: "Workflow", href: "#workflow" },
   ],
   empresa: [
     { label: "Sobre", href: "#about" },
-    { label: "Blog", href: "#" },
-    { label: "Carreiras", href: "#" },
-    { label: "Contato", href: "#" },
+    { label: "Contato", href: `https://wa.me/${WHATSAPP_NUMBER}?text=Olá! Tenho interesse no KAI.` },
   ],
-  recursos: [
-    { label: "Documentação", href: "#" },
-    { label: "Tutoriais", href: "#" },
-    { label: "API", href: "#" },
-    { label: "Status", href: "#" },
+  suporte: [
+    { label: "Fale Conosco", href: `https://wa.me/${WHATSAPP_NUMBER}?text=Olá! Preciso de suporte.` },
+    { label: "Email", href: `mailto:${CONTACT_EMAIL}` },
   ],
   legal: [
-    { label: "Privacidade", href: "#" },
-    { label: "Termos", href: "#" },
-    { label: "Cookies", href: "#" },
+    { label: "Privacidade", href: "/privacidade" },
+    { label: "Termos", href: "/termos" },
   ],
 };
 
@@ -88,6 +86,8 @@ const LandingFooter = () => {
                 <li key={link.label}>
                   <a
                     href={link.href}
+                    target={link.href.startsWith("http") ? "_blank" : undefined}
+                    rel={link.href.startsWith("http") ? "noopener noreferrer" : undefined}
                     className="text-muted-foreground hover:text-foreground text-sm transition-colors"
                   >
                     {link.label}
@@ -98,12 +98,14 @@ const LandingFooter = () => {
           </div>
 
           <div>
-            <h4 className="text-foreground font-medium mb-4">Recursos</h4>
+            <h4 className="text-foreground font-medium mb-4">Suporte</h4>
             <ul className="space-y-3">
-              {footerLinks.recursos.map((link) => (
+              {footerLinks.suporte.map((link) => (
                 <li key={link.label}>
                   <a
                     href={link.href}
+                    target={link.href.startsWith("http") ? "_blank" : undefined}
+                    rel={link.href.startsWith("http") ? "noopener noreferrer" : undefined}
                     className="text-muted-foreground hover:text-foreground text-sm transition-colors"
                   >
                     {link.label}

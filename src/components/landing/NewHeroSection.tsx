@@ -86,7 +86,7 @@ const NewHeroSection = () => {
           transition={{ duration: 0.6, delay: 0.3 }}
           className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16"
         >
-          <Link to="/login">
+          <Link to="/signup">
             <Button
               size="lg"
               className="bg-foreground text-background hover:bg-foreground/90 px-8 py-6 text-base font-semibold rounded-full group"
@@ -95,16 +95,16 @@ const NewHeroSection = () => {
               Começar Grátis
             </Button>
           </Link>
-          <Link to="/login">
+          <a href="#features">
             <Button
               size="lg"
               variant="outline"
               className="px-8 py-6 text-base font-medium rounded-full border-border hover:bg-muted"
             >
-              Ver Demo
+              Ver Funcionalidades
               <ArrowRight className="ml-2 w-4 h-4" />
             </Button>
-          </Link>
+          </a>
         </motion.div>
 
         {/* Feature Cards */}
