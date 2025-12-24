@@ -1,3 +1,12 @@
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { 
+  checkWorkspaceTokens, 
+  debitWorkspaceTokens, 
+  getWorkspaceIdFromUser,
+  createInsufficientTokensResponse,
+  TOKEN_COSTS 
+} from "../_shared/tokens.ts";
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -9,13 +18,54 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { url } = await req.json();
+    // Check authentication
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Authentication required' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } }
+    });
+
+    const { data: { user }, error: authError } = await supabaseAuth.auth.getUser();
+    if (authError || !user) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Invalid or expired token' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const { url, workspaceId: providedWorkspaceId } = await req.json();
 
     if (!url) {
       return new Response(
         JSON.stringify({ success: false, error: 'URL is required' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
+    }
+
+    // Get workspace ID and check tokens
+    const workspaceId = providedWorkspaceId || await getWorkspaceIdFromUser(user.id);
+    if (!workspaceId) {
+      console.error("[extract-branding] Could not determine workspace");
+      return new Response(
+        JSON.stringify({ success: false, error: 'Workspace not found' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const tokenCost = TOKEN_COSTS.branding_extraction;
+    const tokenCheck = await checkWorkspaceTokens(workspaceId, tokenCost);
+    
+    if (!tokenCheck.hasTokens) {
+      console.warn(`[extract-branding] Insufficient tokens for workspace ${workspaceId}`);
+      return createInsufficientTokensResponse(corsHeaders);
     }
 
     const apiKey = Deno.env.get('FIRECRAWL_API_KEY');
@@ -33,7 +83,7 @@ Deno.serve(async (req) => {
       formattedUrl = `https://${formattedUrl}`;
     }
 
-    console.log('Extracting branding from:', formattedUrl);
+    console.log('[extract-branding] Extracting branding from:', formattedUrl);
 
     const response = await fetch('https://api.firecrawl.dev/v1/scrape', {
       method: 'POST',
@@ -60,7 +110,7 @@ Deno.serve(async (req) => {
     // Extract branding data from response
     const branding = data.data?.branding || data.branding || {};
     
-    console.log('Branding extracted:', JSON.stringify(branding, null, 2));
+    console.log('[extract-branding] Branding extracted:', JSON.stringify(branding, null, 2));
 
     // Map Firecrawl branding response to our BrandAssets structure
     const brandAssets = {
@@ -94,7 +144,21 @@ Deno.serve(async (req) => {
       importedAt: new Date().toISOString(),
     };
 
-    console.log('Mapped brand assets:', JSON.stringify(brandAssets, null, 2));
+    // Debit tokens after successful extraction
+    const debitResult = await debitWorkspaceTokens(
+      workspaceId,
+      user.id,
+      tokenCost,
+      "Extração de branding",
+      { url: formattedUrl }
+    );
+    
+    if (!debitResult.success) {
+      console.warn(`[extract-branding] Token debit failed: ${debitResult.error}`);
+    }
+
+    console.log('[extract-branding] Mapped brand assets:', JSON.stringify(brandAssets, null, 2));
+    console.log(`[extract-branding] Complete - ${tokenCost} tokens debited`);
 
     return new Response(
       JSON.stringify({ 
@@ -105,7 +169,7 @@ Deno.serve(async (req) => {
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
-    console.error('Error extracting branding:', error);
+    console.error('[extract-branding] Error:', error);
     const errorMessage = error instanceof Error ? error.message : 'Failed to extract branding';
     return new Response(
       JSON.stringify({ success: false, error: errorMessage }),

@@ -15,6 +15,7 @@ import NotFound from "./pages/NotFound";
 import { WorkspaceProvider } from "@/contexts/WorkspaceContext";
 import { WorkspaceRouter } from "@/components/WorkspaceRouter";
 import { WorkspaceRedirect } from "@/components/WorkspaceRedirect";
+import { TokenErrorProvider } from "@/hooks/useTokenError";
 
 const queryClient = new QueryClient();
 
@@ -26,33 +27,35 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <WorkspaceProvider>
-            <Routes>
-              {/* Public routes */}
-              <Route path="/login" element={<Login />} />
-              <Route path="/signup" element={<Signup />} />
-              <Route path="/page" element={<LandingPage />} />
-              
-              {/* Root redirects to user's workspace */}
-              <Route
-                path="/"
-                element={
-                  <ProtectedRoute>
-                    <WorkspaceRedirect />
-                  </ProtectedRoute>
-                }
-              />
-              
-              {/* Workspace routes with slug */}
-              <Route path="/:slug" element={<WorkspaceRouter />}>
-                <Route index element={<Kai2 />} />
-                <Route path="docs" element={<Documentation />} />
-                <Route path="settings" element={<Settings />} />
-              </Route>
-              
-              {/* 404 */}
-              <Route path="/404" element={<NotFound />} />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
+            <TokenErrorProvider>
+              <Routes>
+                {/* Public routes */}
+                <Route path="/login" element={<Login />} />
+                <Route path="/signup" element={<Signup />} />
+                <Route path="/page" element={<LandingPage />} />
+                
+                {/* Root redirects to user's workspace */}
+                <Route
+                  path="/"
+                  element={
+                    <ProtectedRoute>
+                      <WorkspaceRedirect />
+                    </ProtectedRoute>
+                  }
+                />
+                
+                {/* Workspace routes with slug */}
+                <Route path="/:slug" element={<WorkspaceRouter />}>
+                  <Route index element={<Kai2 />} />
+                  <Route path="docs" element={<Documentation />} />
+                  <Route path="settings" element={<Settings />} />
+                </Route>
+                
+                {/* 404 */}
+                <Route path="/404" element={<NotFound />} />
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </TokenErrorProvider>
           </WorkspaceProvider>
         </BrowserRouter>
       </TooltipProvider>

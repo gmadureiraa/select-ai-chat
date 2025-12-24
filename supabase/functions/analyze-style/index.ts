@@ -1,6 +1,13 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { logAIUsage, estimateImageTokens, estimateTokens } from "../_shared/ai-usage.ts";
+import { 
+  checkWorkspaceTokens, 
+  debitWorkspaceTokens, 
+  getWorkspaceIdFromUser,
+  createInsufficientTokensResponse,
+  TOKEN_COSTS 
+} from "../_shared/tokens.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -49,13 +56,31 @@ serve(async (req) => {
       );
     }
 
-    const { imageUrls, userId, clientId } = await req.json();
+    const { imageUrls, userId, clientId, workspaceId: providedWorkspaceId } = await req.json();
 
     if (!imageUrls || !Array.isArray(imageUrls) || imageUrls.length === 0) {
       return new Response(
         JSON.stringify({ error: 'imageUrls array is required' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
+    }
+
+    // Get workspace ID and check tokens
+    const workspaceId = providedWorkspaceId || await getWorkspaceIdFromUser(user.id);
+    if (!workspaceId) {
+      console.error("[analyze-style] Could not determine workspace");
+      return new Response(
+        JSON.stringify({ error: 'Workspace not found' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const tokenCost = TOKEN_COSTS.style_analysis;
+    const tokenCheck = await checkWorkspaceTokens(workspaceId, tokenCost);
+    
+    if (!tokenCheck.hasTokens) {
+      console.warn(`[analyze-style] Insufficient tokens for workspace ${workspaceId}`);
+      return createInsufficientTokensResponse(corsHeaders);
     }
 
     const GOOGLE_API_KEY = Deno.env.get('GOOGLE_AI_STUDIO_API_KEY');
@@ -202,7 +227,20 @@ RETORNE APENAS O JSON, sem markdown ou explicações:
       };
     }
 
-    console.log(`[analyze-style] Complete - ${inputTokens + outputTokens} tokens`);
+    // Debit tokens after successful analysis
+    const debitResult = await debitWorkspaceTokens(
+      workspaceId,
+      user.id,
+      tokenCost,
+      "Análise de estilo visual",
+      { clientId, imageCount: validImageCount }
+    );
+    
+    if (!debitResult.success) {
+      console.warn(`[analyze-style] Token debit failed: ${debitResult.error}`);
+    }
+
+    console.log(`[analyze-style] Complete - ${inputTokens + outputTokens} tokens, ${tokenCost} debited`);
 
     return new Response(
       JSON.stringify({ styleAnalysis }),

@@ -1,6 +1,13 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { logAIUsage, estimateTokens } from "../_shared/ai-usage.ts";
+import { 
+  checkWorkspaceTokens, 
+  debitWorkspaceTokens, 
+  getWorkspaceIdFromUser,
+  createInsufficientTokensResponse,
+  TOKEN_COSTS 
+} from "../_shared/tokens.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -13,10 +20,51 @@ serve(async (req) => {
   }
 
   try {
-    const { clientId, clientName, context, userId } = await req.json();
+    // Check authentication
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: 'Authentication required' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } }
+    });
+
+    const { data: { user }, error: authError } = await supabaseAuth.auth.getUser();
+    if (authError || !user) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid or expired token' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const { clientId, clientName, context, userId, workspaceId: providedWorkspaceId } = await req.json();
 
     if (!context) {
       throw new Error("Context is required");
+    }
+
+    // Get workspace ID and check tokens
+    const workspaceId = providedWorkspaceId || await getWorkspaceIdFromUser(user.id);
+    if (!workspaceId) {
+      console.error("[generate-performance-insights] Could not determine workspace");
+      return new Response(
+        JSON.stringify({ error: 'Workspace not found' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const tokenCost = TOKEN_COSTS.performance_insights;
+    const tokenCheck = await checkWorkspaceTokens(workspaceId, tokenCost);
+    
+    if (!tokenCheck.hasTokens) {
+      console.warn(`[generate-performance-insights] Insufficient tokens for workspace ${workspaceId}`);
+      return createInsufficientTokensResponse(corsHeaders);
     }
 
     const GOOGLE_API_KEY = Deno.env.get("GOOGLE_AI_STUDIO_API_KEY");
@@ -92,9 +140,9 @@ Seja direto, prático e específico. Evite generalidades. Use números quando re
 
     // Log AI usage
     if (userId) {
-      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+      const supabaseServiceUrl = Deno.env.get("SUPABASE_URL")!;
       const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-      const supabase = createClient(supabaseUrl, supabaseServiceKey);
+      const supabase = createClient(supabaseServiceUrl, supabaseServiceKey);
       
       await logAIUsage(
         supabase,
@@ -107,7 +155,20 @@ Seja direto, prático e específico. Evite generalidades. Use números quando re
       );
     }
 
-    console.log(`[generate-performance-insights] Complete - ${inputTokens + outputTokens} tokens`);
+    // Debit tokens after successful generation
+    const debitResult = await debitWorkspaceTokens(
+      workspaceId,
+      user.id,
+      tokenCost,
+      "Insights de performance",
+      { clientId, clientName }
+    );
+    
+    if (!debitResult.success) {
+      console.warn(`[generate-performance-insights] Token debit failed: ${debitResult.error}`);
+    }
+
+    console.log(`[generate-performance-insights] Complete - ${inputTokens + outputTokens} tokens, ${tokenCost} debited`);
 
     return new Response(
       JSON.stringify({ insights }),

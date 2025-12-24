@@ -1,5 +1,12 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { 
+  checkWorkspaceTokens, 
+  debitWorkspaceTokens, 
+  getWorkspaceIdFromUser,
+  createInsufficientTokensResponse,
+  TOKEN_COSTS 
+} from "../_shared/tokens.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -12,6 +19,7 @@ interface ProcessRequest {
   content?: string;
   knowledgeId?: string;
   userId?: string;
+  workspaceId?: string;
 }
 
 async function scrapeUrl(url: string): Promise<{ title: string; content: string; description: string }> {
@@ -172,10 +180,51 @@ serve(async (req) => {
   }
 
   try {
+    // Check authentication
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: 'Authentication required' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } }
+    });
+
+    const { data: { user }, error: authError } = await supabaseAuth.auth.getUser();
+    if (authError || !user) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid or expired token' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const body: ProcessRequest = await req.json();
-    const { type, url, content, knowledgeId } = body;
+    const { type, url, content, knowledgeId, workspaceId: providedWorkspaceId } = body;
 
     console.log(`[process-knowledge] Processing type: ${type}`);
+
+    // Get workspace ID and check tokens
+    const workspaceId = providedWorkspaceId || await getWorkspaceIdFromUser(user.id);
+    if (!workspaceId) {
+      console.error("[process-knowledge] Could not determine workspace");
+      return new Response(
+        JSON.stringify({ error: 'Workspace not found' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const tokenCost = TOKEN_COSTS.knowledge_processing;
+    const tokenCheck = await checkWorkspaceTokens(workspaceId, tokenCost);
+    
+    if (!tokenCheck.hasTokens) {
+      console.warn(`[process-knowledge] Insufficient tokens for workspace ${workspaceId}`);
+      return createInsufficientTokensResponse(corsHeaders);
+    }
 
     let result: any = {};
 
@@ -228,7 +277,20 @@ serve(async (req) => {
       }
     }
 
-    console.log("[process-knowledge] Success");
+    // Debit tokens after successful processing
+    const debitResult = await debitWorkspaceTokens(
+      workspaceId,
+      user.id,
+      tokenCost,
+      "Processamento de conhecimento",
+      { type, knowledgeId }
+    );
+    
+    if (!debitResult.success) {
+      console.warn(`[process-knowledge] Token debit failed: ${debitResult.error}`);
+    }
+
+    console.log(`[process-knowledge] Success - ${tokenCost} tokens debited`);
 
     return new Response(JSON.stringify({ success: true, data: result }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

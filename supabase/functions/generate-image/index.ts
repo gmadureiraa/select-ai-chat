@@ -1,6 +1,13 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { logAIUsage, estimateTokens } from "../_shared/ai-usage.ts";
+import { 
+  checkWorkspaceTokens, 
+  debitWorkspaceTokens, 
+  getWorkspaceIdFromUser,
+  createInsufficientTokensResponse,
+  TOKEN_COSTS 
+} from "../_shared/tokens.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -202,7 +209,8 @@ serve(async (req) => {
       imageFormat,
       formatInstructions,
       aspectRatio,
-      templateName
+      templateName,
+      workspaceId: providedWorkspaceId
     } = await req.json();
     
     console.log(`[generate-image] Request - format: ${imageFormat}, template: ${templateName}, aspectRatio: ${aspectRatio}`);
@@ -213,6 +221,26 @@ serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    // Get workspace ID and check tokens
+    const workspaceId = providedWorkspaceId || await getWorkspaceIdFromUser(user.id);
+    if (!workspaceId) {
+      console.error("[generate-image] Could not determine workspace");
+      return new Response(
+        JSON.stringify({ error: 'Workspace not found' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const tokenCost = TOKEN_COSTS.image_generation;
+    const tokenCheck = await checkWorkspaceTokens(workspaceId, tokenCost);
+    
+    if (!tokenCheck.hasTokens) {
+      console.warn(`[generate-image] Insufficient tokens for workspace ${workspaceId}`);
+      return createInsufficientTokensResponse(corsHeaders);
+    }
+    
+    console.log(`[generate-image] Token check passed: ${tokenCheck.balance} available, ${tokenCost} required`);
 
     const GOOGLE_API_KEY = Deno.env.get('GOOGLE_AI_STUDIO_API_KEY');
     if (!GOOGLE_API_KEY) {
@@ -622,7 +650,20 @@ RESULTADO: Uma imagem NOVA sobre "${prompt}" que seja VISUALMENTE CONSISTENTE co
       );
     }
 
-    console.log(`[generate-image] Success - ${inputTokens + outputTokens} tokens, brand assets: ${!!effectiveBrandAssets}`);
+    // Debit tokens after successful generation
+    const debitResult = await debitWorkspaceTokens(
+      workspaceId,
+      user.id,
+      tokenCost,
+      "Geração de imagem",
+      { clientId, prompt: prompt.substring(0, 100) }
+    );
+    
+    if (!debitResult.success) {
+      console.warn(`[generate-image] Token debit failed: ${debitResult.error}`);
+    }
+
+    console.log(`[generate-image] Success - ${inputTokens + outputTokens} tokens, ${tokenCost} debited, brand assets: ${!!effectiveBrandAssets}`);
 
     return new Response(
       JSON.stringify({ imageUrl }),
