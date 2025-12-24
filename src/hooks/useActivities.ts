@@ -34,6 +34,8 @@ export interface UserActivity {
   created_at: string;
 }
 
+// Note: Activities are user-scoped (not workspace-scoped) via RLS
+// Each user sees their own activities only
 export const useActivities = (filters?: {
   activityType?: ActivityType;
   searchQuery?: string;

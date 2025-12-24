@@ -1,7 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { useWorkspace, WorkspaceRole } from "@/hooks/useWorkspace";
+import { useWorkspaceContext } from "@/contexts/WorkspaceContext";
+import { WorkspaceRole } from "@/hooks/useWorkspace";
 
 export interface PendingUser {
   id: string;
@@ -13,7 +14,7 @@ export interface PendingUser {
 export const usePendingUsers = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { workspace } = useWorkspace();
+  const { workspace } = useWorkspaceContext();
 
   // Fetch users from profiles that are NOT in the current workspace
   const { data: pendingUsers = [], isLoading } = useQuery({
@@ -66,8 +67,8 @@ export const usePendingUsers = () => {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["pending-users"] });
-      queryClient.invalidateQueries({ queryKey: ["team-members"] });
+      queryClient.invalidateQueries({ queryKey: ["pending-users", workspace?.id] });
+      queryClient.invalidateQueries({ queryKey: ["team-members", workspace?.id] });
       toast({
         title: "Usuário adicionado",
         description: "O usuário agora faz parte do workspace.",

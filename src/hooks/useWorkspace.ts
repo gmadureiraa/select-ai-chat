@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useWorkspaceContext } from "@/contexts/WorkspaceContext";
 
 export type WorkspaceRole = "owner" | "admin" | "member" | "viewer";
 
@@ -26,65 +27,61 @@ export interface WorkspaceMember {
 
 export const useWorkspace = () => {
   const { user, loading: authLoading } = useAuth();
+  const { workspace: contextWorkspace, isLoading: isLoadingContext } = useWorkspaceContext();
 
-  const { data: workspace, isLoading: isLoadingWorkspace, isFetched } = useQuery({
-    queryKey: ["workspace", user?.id],
+  // Fetch user's role in the SPECIFIC workspace from context (URL-based)
+  const { data: memberData, isLoading: isLoadingMember, isFetched } = useQuery({
+    queryKey: ["workspace-member-role", contextWorkspace?.id, user?.id],
     queryFn: async () => {
-      if (!user?.id) return null;
+      if (!user?.id || !contextWorkspace?.id) return null;
       
       const { data, error } = await supabase
         .from("workspace_members")
-        .select(`
-          workspace_id,
-          role,
-          workspaces:workspace_id (
-            id,
-            name,
-            slug,
-            owner_id,
-            created_at
-          )
-        `)
+        .select("role")
+        .eq("workspace_id", contextWorkspace.id)
         .eq("user_id", user.id)
-        .maybeSingle(); // Use maybeSingle to return null instead of error when no row
+        .maybeSingle();
 
       if (error) {
-        console.error("Error fetching workspace:", error);
+        console.error("Error fetching workspace member role:", error);
         return null;
       }
 
-      if (!data) {
-        return null; // User is not in any workspace
-      }
-
-      return {
-        ...(data.workspaces as unknown as Workspace),
-        userRole: data.role as WorkspaceRole,
-      };
+      return data;
     },
-    enabled: !!user?.id && !authLoading,
+    enabled: !!user?.id && !!contextWorkspace?.id && !authLoading,
   });
 
-  // Consider loading if auth is loading OR workspace query hasn't fetched yet
-  const isLoading = authLoading || (!!user?.id && !isFetched);
+  // Consider loading if auth is loading OR context is loading OR member query hasn't fetched yet
+  const isLoading = authLoading || isLoadingContext || (!!user?.id && !!contextWorkspace?.id && !isFetched);
 
-  const userRole = workspace?.userRole as WorkspaceRole | undefined;
+  // Build workspace object with userRole from the specific workspace
+  const workspace = contextWorkspace ? {
+    id: contextWorkspace.id,
+    name: contextWorkspace.name,
+    slug: contextWorkspace.slug,
+    owner_id: contextWorkspace.owner_id,
+    created_at: contextWorkspace.created_at,
+    userRole: memberData?.role as WorkspaceRole | undefined,
+  } : null;
+
+  const userRole = memberData?.role as WorkspaceRole | undefined;
   const isViewer = userRole === "viewer";
   const isMember = userRole === "member";
   const isAdminOrOwner = userRole === "owner" || userRole === "admin";
   const canDelete = isAdminOrOwner;
   const canManageTeam = isAdminOrOwner;
-  const canEdit = userRole !== "viewer";
-  const canCreate = userRole !== "viewer";
+  const canEdit = userRole !== "viewer" && userRole !== undefined;
+  const canCreate = userRole !== "viewer" && userRole !== undefined;
   const isOwner = userRole === "owner";
   
   // Permission helpers for UI visibility
-  const canViewTools = isAdminOrOwner; // Only admin/owner see full tools
-  const canViewKnowledgeBase = !isViewer; // Member and above see knowledge base
-  const canViewPerformance = true; // Everyone sees performance
-  const canViewLibrary = !isViewer; // Member and above
-  const canViewActivities = isAdminOrOwner; // Only admin/owner
-  const canViewClients = isAdminOrOwner; // Only admin/owner see clients management
+  const canViewTools = isAdminOrOwner;
+  const canViewKnowledgeBase = !isViewer && userRole !== undefined;
+  const canViewPerformance = userRole !== undefined;
+  const canViewLibrary = !isViewer && userRole !== undefined;
+  const canViewActivities = isAdminOrOwner;
+  const canViewClients = isAdminOrOwner;
 
   return {
     workspace,
