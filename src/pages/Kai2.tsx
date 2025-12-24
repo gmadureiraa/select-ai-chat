@@ -14,6 +14,7 @@ import { TeamTool } from "@/components/kai2/tools/TeamTool";
 import { ClientsManagementTool } from "@/components/kai2/tools/ClientsManagementTool";
 import { useClients } from "@/hooks/useClients";
 import { useWorkspace } from "@/hooks/useWorkspace";
+import { useDevAccess } from "@/hooks/useDevAccess";
 import { Loader2 } from "lucide-react";
 
 export default function Kai2() {
@@ -23,6 +24,7 @@ export default function Kai2() {
   
   const { clients, isLoading: isLoadingClients } = useClients();
   const { canViewTools, canViewKnowledgeBase, canViewLibrary, canViewActivities, canViewClients, canManageTeam } = useWorkspace();
+  const { canAccessAutomations, canAccessAgentBuilder, canAccessResearchLab } = useDevAccess();
   const selectedClient = clients?.find(c => c.id === clientId);
   
   const [pendingMessage, setPendingMessage] = useState<string | null>(null);
@@ -30,12 +32,16 @@ export default function Kai2() {
 
   // Route protection: redirect to home if trying to access unauthorized tabs
   useEffect(() => {
-    const toolTabs = ["agent-builder", "research-lab", "automations"];
-    
     let shouldRedirect = false;
     
-    // Tools require canViewTools (admin/owner only)
-    if (toolTabs.includes(tab) && !canViewTools) {
+    // Dev-only tools require dev access
+    if (tab === "automations" && !canAccessAutomations) {
+      shouldRedirect = true;
+    }
+    if (tab === "agent-builder" && !canAccessAgentBuilder) {
+      shouldRedirect = true;
+    }
+    if (tab === "research-lab" && !canAccessResearchLab) {
       shouldRedirect = true;
     }
     
@@ -65,7 +71,8 @@ export default function Kai2() {
       params.set("tab", "home");
       setSearchParams(params);
     }
-  }, [tab, canViewTools, canViewKnowledgeBase, canViewLibrary, canViewActivities, canViewClients, canManageTeam, searchParams, setSearchParams]);
+  }, [tab, canAccessAutomations, canAccessAgentBuilder, canAccessResearchLab, canViewKnowledgeBase, canViewLibrary, canViewActivities, canViewClients, canManageTeam, searchParams, setSearchParams]);
+
 
   const handleTabChange = (newTab: string) => {
     const params = new URLSearchParams(searchParams);

@@ -33,6 +33,7 @@ import { cn } from "@/lib/utils";
 import { useClients } from "@/hooks/useClients";
 import { useAuth } from "@/hooks/useAuth";
 import { useWorkspace } from "@/hooks/useWorkspace";
+import { useDevAccess } from "@/hooks/useDevAccess";
 import { KaiAssistantTab } from "@/components/kai/KaiAssistantTab";
 import { KaiPerformanceTab } from "@/components/kai/KaiPerformanceTab";
 import { KaiLibraryTab } from "@/components/kai/KaiLibraryTab";
@@ -59,6 +60,7 @@ const KaiHub = () => {
   const { clients, isLoading } = useClients();
   const { user, signOut } = useAuth();
   const { userRole } = useWorkspace();
+  const { canAccessAutomations, canAccessAgentBuilder, canAccessResearchLab } = useDevAccess();
   
   const { scrollDirection, isAtTop } = useScrollDirection();
   
@@ -258,26 +260,32 @@ const KaiHub = () => {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56">
-                  <DropdownMenuItem 
-                    onClick={() => setActiveTab("automations")} 
-                    className="py-2.5"
-                    disabled={!selectedClient}
-                  >
-                    <Zap className="h-4 w-4 mr-3" />
-                    Automações
-                  </DropdownMenuItem>
+                  {canAccessAutomations && (
+                    <DropdownMenuItem 
+                      onClick={() => setActiveTab("automations")} 
+                      className="py-2.5"
+                      disabled={!selectedClient}
+                    >
+                      <Zap className="h-4 w-4 mr-3" />
+                      Automações
+                    </DropdownMenuItem>
+                  )}
                   <DropdownMenuItem onClick={() => navigate("/social-publisher")} className="py-2.5">
                     <Send className="h-4 w-4 mr-3" />
                     Publicador Social
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => navigate("/agent-builder")} className="py-2.5">
-                    <Hammer className="h-4 w-4 mr-3" />
-                    Agent Builder
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => navigate("/research-lab")} className="py-2.5">
-                    <FlaskConical className="h-4 w-4 mr-3" />
-                    Laboratório de Pesquisa
-                  </DropdownMenuItem>
+                  {canAccessAgentBuilder && (
+                    <DropdownMenuItem onClick={() => navigate("/agent-builder")} className="py-2.5">
+                      <Hammer className="h-4 w-4 mr-3" />
+                      Agent Builder
+                    </DropdownMenuItem>
+                  )}
+                  {canAccessResearchLab && (
+                    <DropdownMenuItem onClick={() => navigate("/research-lab")} className="py-2.5">
+                      <FlaskConical className="h-4 w-4 mr-3" />
+                      Laboratório de Pesquisa
+                    </DropdownMenuItem>
+                  )}
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={() => navigate("/knowledge-base")} className="py-2.5">
                     <BookOpen className="h-4 w-4 mr-3" />
