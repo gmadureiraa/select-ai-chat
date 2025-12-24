@@ -6,3 +6,4 @@ export { ViewToggle } from './ViewToggle';
 export { KanbanView } from './KanbanView';
 export { CalendarView } from './CalendarView';
 export { PublicationStatusBadge } from './PublicationStatusBadge';
+export { ViewSettingsPopover, useViewSettings, type ViewSettings } from './ViewSettingsPopover';

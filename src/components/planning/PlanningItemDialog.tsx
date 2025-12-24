@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -74,8 +74,9 @@ export function PlanningItemDialog({
       setColumnId(item.column_id || '');
       setPlatform(item.platform || '');
       setPriority(item.priority);
-      setDueDate(item.due_date ? new Date(item.due_date) : undefined);
-      setScheduledAt(item.scheduled_at ? new Date(item.scheduled_at) : undefined);
+      // Use parseISO to correctly parse date strings without timezone shift
+      setDueDate(item.due_date ? parseISO(item.due_date) : undefined);
+      setScheduledAt(item.scheduled_at ? parseISO(item.scheduled_at) : undefined);
     } else {
       setTitle('');
       setDescription('');
