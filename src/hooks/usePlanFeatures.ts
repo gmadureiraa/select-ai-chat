@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useWorkspace } from "@/contexts/WorkspaceContext";
+import { useWorkspaceContext } from "@/contexts/WorkspaceContext";
 
 export interface PlanFeatures {
   isEnterprise: boolean;
@@ -12,12 +12,12 @@ export interface PlanFeatures {
 }
 
 export function usePlanFeatures(): PlanFeatures {
-  const { currentWorkspace } = useWorkspace();
+  const { workspace } = useWorkspaceContext();
 
   const { data, isLoading } = useQuery({
-    queryKey: ['plan-features', currentWorkspace?.id],
+    queryKey: ['plan-features', workspace?.id],
     queryFn: async () => {
-      if (!currentWorkspace?.id) return null;
+      if (!workspace?.id) return null;
 
       const { data: subscription, error } = await supabase
         .from('workspace_subscriptions')
@@ -29,7 +29,7 @@ export function usePlanFeatures(): PlanFeatures {
             features
           )
         `)
-        .eq('workspace_id', currentWorkspace.id)
+        .eq('workspace_id', workspace.id)
         .eq('status', 'active')
         .maybeSingle();
 
@@ -40,7 +40,7 @@ export function usePlanFeatures(): PlanFeatures {
 
       return subscription;
     },
-    enabled: !!currentWorkspace?.id,
+    enabled: !!workspace?.id,
   });
 
   const planType = data?.subscription_plans?.type || null;

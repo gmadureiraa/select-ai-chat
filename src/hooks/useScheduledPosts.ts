@@ -1,7 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useWorkspace } from "@/contexts/WorkspaceContext";
+import { useWorkspaceContext } from "@/contexts/WorkspaceContext";
 import { toast } from "sonner";
+import type { Json } from "@/integrations/supabase/types";
 
 export interface ScheduledPost {
   id: string;
@@ -14,8 +15,8 @@ export interface ScheduledPost {
   scheduled_at: string;
   status: 'draft' | 'scheduled' | 'publishing' | 'published' | 'failed';
   error_message: string | null;
-  media_urls: string[];
-  metadata: Record<string, unknown>;
+  media_urls: Json;
+  metadata: Json;
   created_by: string;
   published_at: string | null;
   external_post_id: string | null;
@@ -41,13 +42,13 @@ export interface CreateScheduledPostInput {
 }
 
 export function useScheduledPosts(clientId?: string) {
-  const { currentWorkspace } = useWorkspace();
+  const { workspace } = useWorkspaceContext();
   const queryClient = useQueryClient();
 
   const { data: posts, isLoading, error } = useQuery({
-    queryKey: ['scheduled-posts', currentWorkspace?.id, clientId],
+    queryKey: ['scheduled-posts', workspace?.id, clientId],
     queryFn: async () => {
-      if (!currentWorkspace?.id) return [];
+      if (!workspace?.id) return [];
 
       let query = supabase
         .from('scheduled_posts')
@@ -58,7 +59,7 @@ export function useScheduledPosts(clientId?: string) {
             avatar_url
           )
         `)
-        .eq('workspace_id', currentWorkspace.id)
+        .eq('workspace_id', workspace.id)
         .order('scheduled_at', { ascending: true });
 
       if (clientId) {
@@ -70,23 +71,29 @@ export function useScheduledPosts(clientId?: string) {
       if (error) throw error;
       return data as ScheduledPost[];
     },
-    enabled: !!currentWorkspace?.id,
+    enabled: !!workspace?.id,
   });
 
   const createPost = useMutation({
     mutationFn: async (input: CreateScheduledPostInput) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Usuário não autenticado');
-      if (!currentWorkspace?.id) throw new Error('Workspace não encontrado');
+      if (!workspace?.id) throw new Error('Workspace não encontrado');
 
       const { data, error } = await supabase
         .from('scheduled_posts')
         .insert({
-          ...input,
-          workspace_id: currentWorkspace.id,
+          client_id: input.client_id,
+          title: input.title,
+          content: input.content,
+          content_type: input.content_type || 'social_post',
+          platform: input.platform,
+          scheduled_at: input.scheduled_at,
+          workspace_id: workspace.id,
           created_by: user.id,
           status: input.status || 'draft',
-          media_urls: input.media_urls || [],
+          media_urls: (input.media_urls || []) as Json,
+          metadata: (input.metadata || {}) as Json,
         })
         .select()
         .single();
@@ -104,7 +111,17 @@ export function useScheduledPosts(clientId?: string) {
   });
 
   const updatePost = useMutation({
-    mutationFn: async ({ id, ...updates }: Partial<ScheduledPost> & { id: string }) => {
+    mutationFn: async ({ id, ...updates }: { id: string } & Partial<{
+      title: string;
+      content: string;
+      content_type: string;
+      platform: 'twitter' | 'linkedin';
+      scheduled_at: string;
+      status: 'draft' | 'scheduled' | 'publishing' | 'published' | 'failed';
+      error_message: string | null;
+      media_urls: Json;
+      metadata: Json;
+    }>) => {
       const { data, error } = await supabase
         .from('scheduled_posts')
         .update(updates)
@@ -148,7 +165,7 @@ export function useScheduledPosts(clientId?: string) {
       const { data: post, error: updateError } = await supabase
         .from('scheduled_posts')
         .update({ 
-          status: 'scheduled',
+          status: 'scheduled' as const,
           error_message: null,
         })
         .eq('id', id)
