@@ -2,13 +2,13 @@ import { motion } from "framer-motion";
 
 const AboutSection = () => {
   return (
-    <section id="about" className="py-32 bg-black relative overflow-hidden">
+    <section id="about" className="py-32 bg-background relative overflow-hidden">
       {/* Subtle gradient background */}
       <div
         className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[1000px] h-[600px] opacity-10"
         style={{
           background:
-            "radial-gradient(ellipse, hsl(145, 80%, 42%) 0%, transparent 60%)",
+            "radial-gradient(ellipse, hsl(var(--primary)) 0%, transparent 60%)",
           filter: "blur(100px)",
         }}
       />
@@ -27,18 +27,18 @@ const AboutSection = () => {
             whileInView={{ opacity: 1 }}
             viewport={{ once: true }}
             transition={{ delay: 0.2 }}
-            className="text-white/40 text-sm uppercase tracking-widest mb-8"
+            className="text-muted-foreground text-sm uppercase tracking-widest mb-8"
           >
             Por que o KAI?
           </motion.p>
 
           {/* Main text */}
-          <h2 className="text-3xl md:text-5xl lg:text-6xl font-light text-white leading-relaxed">
-            <span className="text-white/50">Criamos o KAI para </span>
-            <span className="bg-gradient-to-r from-[hsl(330,85%,55%)] to-[hsl(25,95%,55%)] bg-clip-text text-transparent font-medium">
+          <h2 className="text-3xl md:text-5xl lg:text-6xl font-light text-foreground leading-relaxed">
+            <span className="text-muted-foreground">Criamos o KAI para </span>
+            <span className="bg-gradient-to-r from-secondary to-accent bg-clip-text text-transparent font-medium">
               agências e times
             </span>
-            <span className="text-white/50"> que precisam escalar.</span>
+            <span className="text-muted-foreground"> que precisam escalar.</span>
           </h2>
 
           <motion.p
@@ -46,14 +46,14 @@ const AboutSection = () => {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ delay: 0.3 }}
-            className="text-xl md:text-2xl text-white/60 mt-10 leading-relaxed max-w-3xl mx-auto"
+            className="text-xl md:text-2xl text-muted-foreground mt-10 leading-relaxed max-w-3xl mx-auto"
           >
             Seu{" "}
-            <span className="text-white font-medium">time acessa os clientes</span>.{" "}
+            <span className="text-foreground font-medium">time acessa os clientes</span>.{" "}
             Seus{" "}
-            <span className="text-white font-medium">clientes acompanham as entregas</span>.{" "}
+            <span className="text-foreground font-medium">clientes acompanham as entregas</span>.{" "}
             Você{" "}
-            <span className="text-[hsl(145,80%,50%)]">mantém o controle</span>.
+            <span className="text-primary">mantém o controle</span>.
           </motion.p>
 
           <motion.p
@@ -61,7 +61,7 @@ const AboutSection = () => {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ delay: 0.4 }}
-            className="text-lg text-white/40 mt-8 max-w-2xl mx-auto"
+            className="text-lg text-muted-foreground/70 mt-8 max-w-2xl mx-auto"
           >
             Chega de planilhas, pastas compartilhadas e ferramentas desconectadas.
             <br />

@@ -7,7 +7,6 @@ import {
   Code,
   Shield,
   Zap,
-  Lock,
   Clock,
   BarChart3,
   TrendingUp,
@@ -35,7 +34,7 @@ const benefits = [
 
 const IntegrationsOrbit = () => {
   return (
-    <section className="py-32 bg-black relative overflow-hidden">
+    <section id="integrations" className="py-32 bg-background relative overflow-hidden">
       <div className="max-w-7xl mx-auto px-6">
         {/* Header */}
         <motion.div
@@ -45,12 +44,12 @@ const IntegrationsOrbit = () => {
           transition={{ duration: 0.6 }}
           className="text-center mb-20"
         >
-          <h2 className="text-4xl md:text-5xl font-light text-white mb-4">
+          <h2 className="text-4xl md:text-5xl font-light text-foreground mb-4">
             Conexões{" "}
-            <span className="italic text-white/80">Fluidas</span> Entre
+            <span className="italic text-muted-foreground">Fluidas</span> Entre
             Plataformas
           </h2>
-          <p className="text-white/40 text-lg font-light max-w-xl mx-auto">
+          <p className="text-muted-foreground text-lg font-light max-w-xl mx-auto">
             Integre todas as suas ferramentas favoritas em um único ecossistema
             inteligente.
           </p>
@@ -70,10 +69,10 @@ const IntegrationsOrbit = () => {
                 repeat: Infinity,
                 ease: "easeInOut",
               }}
-              className="w-40 h-40 rounded-full bg-gradient-to-br from-[hsl(330,85%,55%)] to-[hsl(25,95%,55%)] blur-[60px]"
+              className="w-40 h-40 rounded-full bg-gradient-to-br from-secondary to-accent blur-[60px]"
             />
             <div className="absolute inset-0 flex items-center justify-center">
-              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-[hsl(330,85%,55%)] to-[hsl(25,95%,55%)] flex items-center justify-center">
+              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-secondary to-accent flex items-center justify-center">
                 <span className="text-white font-bold text-2xl">K</span>
               </div>
             </div>
@@ -87,9 +86,9 @@ const IntegrationsOrbit = () => {
           >
             <defs>
               <linearGradient id="orbitGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-                <stop offset="0%" stopColor="rgba(255,255,255,0.1)" />
-                <stop offset="50%" stopColor="rgba(255,255,255,0.05)" />
-                <stop offset="100%" stopColor="rgba(255,255,255,0.1)" />
+                <stop offset="0%" stopColor="hsl(var(--border))" />
+                <stop offset="50%" stopColor="hsl(var(--border) / 0.5)" />
+                <stop offset="100%" stopColor="hsl(var(--border))" />
               </linearGradient>
             </defs>
 
@@ -156,9 +155,9 @@ const IntegrationsOrbit = () => {
                     repeat: Infinity,
                     ease: "easeInOut",
                   }}
-                  className="w-12 h-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center backdrop-blur-sm hover:bg-white/10 transition-colors cursor-pointer"
+                  className="w-12 h-12 rounded-xl bg-card border border-border flex items-center justify-center backdrop-blur-sm hover:bg-muted transition-colors cursor-pointer"
                 >
-                  <item.icon className="w-5 h-5 text-white/70" />
+                  <item.icon className="w-5 h-5 text-muted-foreground" />
                 </motion.div>
               </motion.div>
             );
@@ -176,10 +175,10 @@ const IntegrationsOrbit = () => {
               transition={{ duration: 0.5, delay: index * 0.1 }}
               className="flex flex-col items-center text-center p-4"
             >
-              <div className="w-12 h-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center mb-3">
-                <benefit.icon className="w-5 h-5 text-white/70" />
+              <div className="w-12 h-12 rounded-xl bg-card border border-border flex items-center justify-center mb-3">
+                <benefit.icon className="w-5 h-5 text-muted-foreground" />
               </div>
-              <span className="text-white/60 text-sm font-light">
+              <span className="text-muted-foreground text-sm font-light">
                 {benefit.title}
               </span>
             </motion.div>
