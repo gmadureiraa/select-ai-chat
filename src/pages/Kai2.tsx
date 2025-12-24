@@ -9,8 +9,11 @@ import { KnowledgeBaseTool } from "@/components/kai2/tools/KnowledgeBaseTool";
 import { ActivitiesTool } from "@/components/kai2/tools/ActivitiesTool";
 import { TeamTool } from "@/components/kai2/tools/TeamTool";
 import { ClientsManagementTool } from "@/components/kai2/tools/ClientsManagementTool";
+import { ContentCalendar } from "@/components/calendar/ContentCalendar";
+import { KanbanBoard } from "@/components/kanban/KanbanBoard";
 import { useClients } from "@/hooks/useClients";
 import { useWorkspace } from "@/hooks/useWorkspace";
+import { usePlanFeatures } from "@/hooks/usePlanFeatures";
 
 import { Loader2 } from "lucide-react";
 
@@ -21,6 +24,7 @@ export default function Kai2() {
   
   const { clients, isLoading: isLoadingClients } = useClients();
   const { canViewTools, canViewKnowledgeBase, canViewLibrary, canViewActivities, canViewClients, canManageTeam } = useWorkspace();
+  const { isEnterprise } = usePlanFeatures();
   const selectedClient = clients?.find(c => c.id === clientId);
   
   const [pendingMessage, setPendingMessage] = useState<string | null>(null);
@@ -173,6 +177,12 @@ export default function Kai2() {
             <KaiLibraryTab clientId={selectedClient.id} client={selectedClient} />
           </div>
         );
+      
+      case "calendar":
+        return isEnterprise ? <ContentCalendar clientId={selectedClient.id} /> : null;
+      
+      case "kanban":
+        return isEnterprise ? <KanbanBoard clientId={selectedClient.id} /> : null;
       
       
       default:

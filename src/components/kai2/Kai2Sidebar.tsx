@@ -13,13 +13,16 @@ import {
   Search,
   LogOut,
   HelpCircle,
-  Building2
+  Building2,
+  Calendar,
+  LayoutGrid
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useClients } from "@/hooks/useClients";
 import { useWorkspace } from "@/hooks/useWorkspace";
 import { usePendingUsers } from "@/hooks/usePendingUsers";
 import { useAuth } from "@/hooks/useAuth";
+import { usePlanFeatures } from "@/hooks/usePlanFeatures";
 
 import {
   DropdownMenu,
@@ -97,6 +100,7 @@ export function Kai2Sidebar({ activeTab, onTabChange, selectedClientId, onClient
   const { canManageTeam, canViewTools, canViewPerformance, canViewLibrary, canViewKnowledgeBase, canViewActivities, canViewClients, workspace } = useWorkspace();
   const { pendingCount } = usePendingUsers();
   const { user, signOut } = useAuth();
+  const { isEnterprise } = usePlanFeatures();
   const selectedClient = clients?.find(c => c.id === selectedClientId);
   const [searchQuery, setSearchQuery] = useState("");
   
@@ -245,6 +249,28 @@ export function Kai2Sidebar({ activeTab, onTabChange, selectedClientId, onClient
             />
           )}
         </div>
+
+        {/* Planejamento - Enterprise Only */}
+        {isEnterprise && (
+          <>
+            <SectionLabel>Planejamento</SectionLabel>
+
+            <div className="space-y-0.5">
+              <NavItem
+                icon={<Calendar className="h-4 w-4" />}
+                label="Calendário"
+                active={activeTab === "calendar"}
+                onClick={() => onTabChange("calendar")}
+              />
+              <NavItem
+                icon={<LayoutGrid className="h-4 w-4" />}
+                label="Kanban"
+                active={activeTab === "kanban"}
+                onClick={() => onTabChange("kanban")}
+              />
+            </div>
+          </>
+        )}
 
         {/* Ferramentas - Knowledge Base for member+, rest for admin/owner */}
         {(canViewKnowledgeBase || canViewTools) && (
