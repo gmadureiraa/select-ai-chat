@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { 
   Home, 
   MessageSquare, 
@@ -33,6 +33,7 @@ import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import kaleidosLogo from "@/assets/kaleidos-logo.svg";
 import { supabase } from "@/integrations/supabase/client";
+import { TokensBadge } from "@/components/TokensBadge";
 import { useQuery } from "@tanstack/react-query";
 
 interface NavItemProps {
@@ -93,12 +94,16 @@ interface Kai2SidebarProps {
 
 export function Kai2Sidebar({ activeTab, onTabChange, selectedClientId, onClientChange }: Kai2SidebarProps) {
   const navigate = useNavigate();
+  const { slug } = useParams<{ slug: string }>();
   const { clients } = useClients();
-  const { canManageTeam, canViewTools, canViewPerformance, canViewLibrary, canViewKnowledgeBase, canViewActivities, canViewClients } = useWorkspace();
+  const { canManageTeam, canViewTools, canViewPerformance, canViewLibrary, canViewKnowledgeBase, canViewActivities, canViewClients, workspace } = useWorkspace();
   const { pendingCount } = usePendingUsers();
   const { user, signOut } = useAuth();
   const selectedClient = clients?.find(c => c.id === selectedClientId);
   const [searchQuery, setSearchQuery] = useState("");
+  
+  // Use slug from URL params or fallback to workspace slug
+  const currentSlug = slug || (workspace as { slug?: string })?.slug || "";
 
   // Fetch user profile for avatar
   const { data: userProfile } = useQuery({
@@ -124,10 +129,13 @@ export function Kai2Sidebar({ activeTab, onTabChange, selectedClientId, onClient
 
   return (
     <aside className="w-64 h-screen bg-card border-r border-border flex flex-col">
-      {/* Logo */}
-      <div className="h-14 px-4 flex items-center gap-2.5 border-b border-border">
-        <img src={kaleidosLogo} alt="Kaleidos" className="h-7 w-7" />
-        <span className="font-semibold text-foreground tracking-tight">Kaleidos</span>
+      {/* Logo and Tokens */}
+      <div className="h-14 px-4 flex items-center justify-between border-b border-border">
+        <div className="flex items-center gap-2.5">
+          <img src={kaleidosLogo} alt="Kaleidos" className="h-7 w-7" />
+          <span className="font-semibold text-foreground tracking-tight">kAI</span>
+        </div>
+        <TokensBadge showLabel={false} />
       </div>
 
       {/* Search */}
@@ -321,14 +329,14 @@ export function Kai2Sidebar({ activeTab, onTabChange, selectedClientId, onClient
             icon={<Settings className="h-4 w-4" />}
             label="Configurações"
             active={false}
-            onClick={() => navigate("/settings")}
+            onClick={() => navigate(`/${currentSlug}/settings`)}
           />
 
           <NavItem
             icon={<HelpCircle className="h-4 w-4" />}
             label="Ajuda"
             active={activeTab === "docs"}
-            onClick={() => navigate("/docs")}
+            onClick={() => navigate(`/${currentSlug}/docs`)}
           />
         </div>
       </nav>
@@ -352,7 +360,7 @@ export function Kai2Sidebar({ activeTab, onTabChange, selectedClientId, onClient
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-52 bg-popover border-border shadow-elevated">
-            <DropdownMenuItem onClick={() => navigate("/settings")} className="cursor-pointer">
+            <DropdownMenuItem onClick={() => navigate(`/${currentSlug}/settings`)} className="cursor-pointer">
               <Settings className="h-4 w-4 mr-2 opacity-70" />
               Configurações
             </DropdownMenuItem>
