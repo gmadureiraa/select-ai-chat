@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -7,8 +8,10 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Check, MessageCircle, Sparkles, Zap, Crown } from "lucide-react";
+import { Check, MessageCircle, Sparkles, Crown, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 interface UpgradePlanDialogProps {
   open: boolean;
@@ -16,59 +19,47 @@ interface UpgradePlanDialogProps {
   currentPlan?: string;
 }
 
+const WHATSAPP_LINK = "https://api.whatsapp.com/send/?phone=12936180547&text=Ol%C3%A1%21+Tenho+interesse+no+plano+Enterprise+do+KAI.&type=phone_number&app_absent=0";
+
 const plans = [
-  {
-    id: "free",
-    name: "Gratuito",
-    price: "R$ 0",
-    period: "/mês",
-    description: "Para experimentar a plataforma",
-    features: [
-      "1.000 créditos/mês",
-      "3 clientes",
-      "1 membro",
-      "Assistente IA básico",
-      "Análise de performance",
-    ],
-    icon: Zap,
-    highlighted: false,
-  },
   {
     id: "starter",
     name: "Starter",
     price: "R$ 97",
     period: "/mês",
-    description: "Para freelancers e pequenas agências",
+    description: "Para criadores e pequenas equipes",
     features: [
-      "10.000 créditos/mês",
-      "10 clientes",
+      "10.000 tokens/mês",
+      "5 clientes",
       "3 membros",
-      "Assistente IA avançado",
-      "Análise de performance",
+      "Todos os modelos IA",
+      "Performance analytics",
       "Base de conhecimento",
       "Suporte prioritário",
     ],
     icon: Sparkles,
     highlighted: false,
+    planType: "starter",
   },
   {
     id: "pro",
     name: "Pro",
     price: "R$ 297",
     period: "/mês",
-    description: "Para agências em crescimento",
+    description: "Para agências e empresas",
     features: [
-      "50.000 créditos/mês",
-      "Clientes ilimitados",
+      "50.000 tokens/mês",
+      "20 clientes",
       "10 membros",
-      "Todos os recursos",
-      "Geração de imagens IA",
+      "Tudo do Starter",
+      "Automações ilimitadas",
       "Integrações avançadas",
-      "Suporte dedicado",
-      "API access",
+      "API completa",
+      "Gerente dedicado",
     ],
     icon: Crown,
     highlighted: true,
+    planType: "pro",
   },
   {
     id: "enterprise",
@@ -77,31 +68,52 @@ const plans = [
     period: "",
     description: "Para grandes operações",
     features: [
-      "Créditos ilimitados",
+      "Tokens ilimitados",
       "Clientes ilimitados",
       "Membros ilimitados",
-      "White-label",
+      "Infraestrutura dedicada",
       "SLA garantido",
-      "Onboarding dedicado",
+      "White-label",
       "Suporte 24/7",
-      "Custom features",
+      "Features customizadas",
     ],
     icon: Crown,
     highlighted: false,
+    planType: "enterprise",
   },
 ];
 
 export function UpgradePlanDialog({ open, onOpenChange, currentPlan }: UpgradePlanDialogProps) {
+  const [loading, setLoading] = useState<string | null>(null);
+
   const handleContactSales = () => {
-    const message = encodeURIComponent(
-      "Olá! Tenho interesse em fazer upgrade do meu plano na plataforma Kai. Gostaria de saber mais sobre as opções disponíveis."
-    );
-    window.open(`https://wa.me/5545999999999?text=${message}`, "_blank");
+    window.open(WHATSAPP_LINK, "_blank");
   };
 
-  const handleSelectPlan = (planId: string) => {
-    if (planId === currentPlan) return;
-    handleContactSales();
+  const handleSelectPlan = async (planType: string) => {
+    if (planType === currentPlan) return;
+    
+    if (planType === "enterprise") {
+      handleContactSales();
+      return;
+    }
+
+    setLoading(planType);
+    try {
+      const { data, error } = await supabase.functions.invoke("create-checkout", {
+        body: { planType },
+      });
+
+      if (error) throw error;
+      if (data?.url) {
+        window.open(data.url, "_blank");
+      }
+    } catch (error) {
+      console.error("Error creating checkout:", error);
+      toast.error("Erro ao iniciar checkout. Tente novamente.");
+    } finally {
+      setLoading(null);
+    }
   };
 
   return (
@@ -113,14 +125,15 @@ export function UpgradePlanDialog({ open, onOpenChange, currentPlan }: UpgradePl
             Escolha seu plano
           </DialogTitle>
           <DialogDescription>
-            Selecione o plano ideal para suas necessidades. Entre em contato para fazer upgrade.
+            Todos os planos incluem 14 dias grátis. Cancele quando quiser.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mt-4">
+        <div className="grid gap-4 md:grid-cols-3 mt-4">
           {plans.map((plan) => {
             const Icon = plan.icon;
             const isCurrent = plan.id === currentPlan;
+            const isLoading = loading === plan.planType;
             
             return (
               <div
@@ -135,7 +148,7 @@ export function UpgradePlanDialog({ open, onOpenChange, currentPlan }: UpgradePl
               >
                 {plan.highlighted && (
                   <Badge className="absolute -top-2 left-1/2 -translate-x-1/2 bg-primary">
-                    Recomendado
+                    Mais Popular
                   </Badge>
                 )}
                 
@@ -181,10 +194,18 @@ export function UpgradePlanDialog({ open, onOpenChange, currentPlan }: UpgradePl
                 <Button
                   variant={plan.highlighted ? "default" : "outline"}
                   className="w-full"
-                  disabled={isCurrent}
-                  onClick={() => handleSelectPlan(plan.id)}
+                  disabled={isCurrent || isLoading}
+                  onClick={() => handleSelectPlan(plan.planType)}
                 >
-                  {isCurrent ? "Plano atual" : "Selecionar"}
+                  {isLoading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : isCurrent ? (
+                    "Plano atual"
+                  ) : plan.planType === "enterprise" ? (
+                    "Falar com vendas"
+                  ) : (
+                    "Começar 14 dias grátis"
+                  )}
                 </Button>
               </div>
             );
@@ -199,7 +220,7 @@ export function UpgradePlanDialog({ open, onOpenChange, currentPlan }: UpgradePl
             <div className="flex-1">
               <h4 className="font-medium">Precisa de ajuda para escolher?</h4>
               <p className="text-sm text-muted-foreground">
-                Nossa equipe pode ajudar você a encontrar o plano ideal para sua agência.
+                Nossa equipe pode ajudar você a encontrar o plano ideal.
               </p>
             </div>
             <Button variant="outline" onClick={handleContactSales}>

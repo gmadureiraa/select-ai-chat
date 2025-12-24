@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -5,6 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { useTokens } from "@/hooks/useTokens";
 import { useWorkspace } from "@/hooks/useWorkspace";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 import { 
   CreditCard, 
   Coins, 
@@ -13,9 +16,10 @@ import {
   Briefcase, 
   TrendingUp,
   ArrowUpRight,
-  Sparkles
+  Sparkles,
+  Settings,
+  Loader2
 } from "lucide-react";
-import { useState } from "react";
 import { UpgradePlanDialog } from "./UpgradePlanDialog";
 
 export function PlanBillingCard() {
@@ -29,6 +33,23 @@ export function PlanBillingCard() {
   } = useTokens();
   const { workspace } = useWorkspace();
   const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
+  const [loadingPortal, setLoadingPortal] = useState(false);
+
+  const handleManageSubscription = async () => {
+    setLoadingPortal(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("customer-portal");
+      if (error) throw error;
+      if (data?.url) {
+        window.open(data.url, "_blank");
+      }
+    } catch (error) {
+      console.error("Error opening customer portal:", error);
+      toast.error("Erro ao abrir portal. Tente novamente.");
+    } finally {
+      setLoadingPortal(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -171,25 +192,35 @@ export function PlanBillingCard() {
             </div>
           </div>
 
-          {/* Upgrade Button */}
-          {plan?.type !== "enterprise" && (
-            <>
-              <Separator />
-              <div className="space-y-3">
-                <Button 
-                  className="w-full gap-2" 
-                  onClick={() => setShowUpgradeDialog(true)}
-                >
-                  <Sparkles className="h-4 w-4" />
-                  Fazer Upgrade
-                  <ArrowUpRight className="h-4 w-4" />
-                </Button>
-                <p className="text-xs text-center text-muted-foreground">
-                  Desbloqueie mais recursos e créditos
-                </p>
-              </div>
-            </>
-          )}
+          {/* Subscription Actions */}
+          <Separator />
+          <div className="space-y-3">
+            {plan?.type !== "enterprise" && plan?.type !== "free" && (
+              <Button 
+                variant="outline"
+                className="w-full gap-2" 
+                onClick={handleManageSubscription}
+                disabled={loadingPortal}
+              >
+                {loadingPortal ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Settings className="h-4 w-4" />
+                )}
+                Gerenciar Assinatura
+              </Button>
+            )}
+            {plan?.type !== "enterprise" && (
+              <Button 
+                className="w-full gap-2" 
+                onClick={() => setShowUpgradeDialog(true)}
+              >
+                <Sparkles className="h-4 w-4" />
+                {plan?.type === "free" ? "Começar 14 dias grátis" : "Fazer Upgrade"}
+                <ArrowUpRight className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
 
           {plan?.type === "enterprise" && (
             <>
