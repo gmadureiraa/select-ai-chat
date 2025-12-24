@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useSuperAdmin, WorkspaceDetails, WorkspaceMember, WorkspaceClient } from "@/hooks/useSuperAdmin";
+import { useSuperAdmin, useWorkspaceDetailsAdmin } from "@/hooks/useSuperAdmin";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -17,7 +17,8 @@ import {
   ArrowLeft,
   Shield,
   Calendar,
-  CreditCard
+  CreditCard,
+  TrendingUp
 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -29,16 +30,12 @@ const AdminDashboard = () => {
     isLoading, 
     workspaces, 
     isLoadingWorkspaces,
-    getWorkspaceDetails,
-    getWorkspaceMembers,
-    getWorkspaceClients
   } = useSuperAdmin();
 
   const [selectedWorkspace, setSelectedWorkspace] = useState<string | null>(null);
-  const [workspaceDetails, setWorkspaceDetails] = useState<WorkspaceDetails | null>(null);
-  const [workspaceMembers, setWorkspaceMembers] = useState<WorkspaceMember[]>([]);
-  const [workspaceClients, setWorkspaceClients] = useState<WorkspaceClient[]>([]);
-  const [isLoadingDetails, setIsLoadingDetails] = useState(false);
+  
+  // Use React Query hook for workspace details
+  const { details, members, clients, memberTokens, isLoading: isLoadingDetails } = useWorkspaceDetailsAdmin(selectedWorkspace);
 
   // Redirect if not super-admin
   useEffect(() => {
@@ -46,36 +43,6 @@ const AdminDashboard = () => {
       navigate("/app");
     }
   }, [isLoading, isSuperAdmin, navigate]);
-
-  // Load workspace details when selected
-  useEffect(() => {
-    const loadDetails = async () => {
-      if (!selectedWorkspace) {
-        setWorkspaceDetails(null);
-        setWorkspaceMembers([]);
-        setWorkspaceClients([]);
-        return;
-      }
-
-      setIsLoadingDetails(true);
-      try {
-        const [details, members, clients] = await Promise.all([
-          getWorkspaceDetails(selectedWorkspace),
-          getWorkspaceMembers(selectedWorkspace),
-          getWorkspaceClients(selectedWorkspace),
-        ]);
-        setWorkspaceDetails(details);
-        setWorkspaceMembers(members);
-        setWorkspaceClients(clients);
-      } catch (error) {
-        console.error("Error loading workspace details:", error);
-      } finally {
-        setIsLoadingDetails(false);
-      }
-    };
-
-    loadDetails();
-  }, [selectedWorkspace, getWorkspaceDetails, getWorkspaceMembers, getWorkspaceClients]);
 
   if (isLoading) {
     return (
@@ -100,6 +67,12 @@ const AdminDashboard = () => {
     admin: "bg-purple-500/10 text-purple-500 border-purple-500/20",
     member: "bg-blue-500/10 text-blue-500 border-blue-500/20",
     viewer: "bg-muted text-muted-foreground border-border",
+  };
+
+  // Get member token usage
+  const getMemberTokenUsage = (userId: string): number => {
+    const found = memberTokens?.find(m => m.user_id === userId);
+    return found?.tokens_used || 0;
   };
 
   return (
@@ -230,17 +203,17 @@ const AdminDashboard = () => {
                   <div className="flex items-center justify-between">
                     <div>
                       <CardTitle className="text-lg">
-                        {workspaceDetails?.workspace_name || "Carregando..."}
+                        {details?.workspace_name || "Carregando..."}
                       </CardTitle>
                       <CardDescription>
-                        {workspaceDetails?.owner_email || "..."}
+                        {details?.owner_email || "..."}
                       </CardDescription>
                     </div>
-                    {workspaceDetails?.workspace_slug && (
+                    {details?.workspace_slug && (
                       <Button 
                         variant="outline" 
                         size="sm"
-                        onClick={() => navigate(`/${workspaceDetails.workspace_slug}`)}
+                        onClick={() => navigate(`/${details.workspace_slug}`)}
                       >
                         <ExternalLink className="h-4 w-4 mr-2" />
                         Acessar
@@ -257,14 +230,14 @@ const AdminDashboard = () => {
                   ) : (
                     <>
                       {/* Plan & Tokens Info */}
-                      {workspaceDetails && (
+                      {details && (
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                           <div className="p-4 rounded-lg bg-muted/50 space-y-1">
                             <div className="flex items-center gap-2 text-sm text-muted-foreground">
                               <CreditCard className="h-4 w-4" />
                               Plano
                             </div>
-                            <p className="font-medium">{workspaceDetails.plan_name || "Sem plano"}</p>
+                            <p className="font-medium">{details.plan_name || "Sem plano"}</p>
                           </div>
                           <div className="p-4 rounded-lg bg-muted/50 space-y-1">
                             <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -272,16 +245,16 @@ const AdminDashboard = () => {
                               Tokens
                             </div>
                             <p className="font-medium">
-                              {workspaceDetails.tokens_balance?.toLocaleString() || 0}
+                              {details.tokens_balance?.toLocaleString() || 0}
                             </p>
                           </div>
                           <div className="p-4 rounded-lg bg-muted/50 space-y-1">
                             <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                              <Coins className="h-4 w-4" />
+                              <TrendingUp className="h-4 w-4" />
                               Usados
                             </div>
                             <p className="font-medium">
-                              {workspaceDetails.tokens_used?.toLocaleString() || 0}
+                              {details.tokens_used?.toLocaleString() || 0}
                             </p>
                           </div>
                           <div className="p-4 rounded-lg bg-muted/50 space-y-1">
@@ -290,8 +263,8 @@ const AdminDashboard = () => {
                               Renova
                             </div>
                             <p className="font-medium text-sm">
-                              {workspaceDetails.current_period_end 
-                                ? format(new Date(workspaceDetails.current_period_end), "dd/MM/yy", { locale: ptBR })
+                              {details.current_period_end 
+                                ? format(new Date(details.current_period_end), "dd/MM/yy", { locale: ptBR })
                                 : "-"
                               }
                             </p>
@@ -301,27 +274,36 @@ const AdminDashboard = () => {
 
                       <Separator />
 
-                      {/* Team Members */}
+                      {/* Team Members with Token Usage */}
                       <div>
                         <h3 className="font-medium mb-3 flex items-center gap-2">
                           <Users className="h-4 w-4" />
-                          Equipe ({workspaceMembers.length})
+                          Equipe ({members?.length || 0})
                         </h3>
                         <div className="space-y-2">
-                          {workspaceMembers.map((member) => (
-                            <div
-                              key={member.member_id}
-                              className="flex items-center justify-between p-3 rounded-lg bg-muted/30"
-                            >
-                              <div>
-                                <p className="font-medium">{member.full_name || member.email}</p>
-                                <p className="text-sm text-muted-foreground">{member.email}</p>
+                          {members?.map((member) => {
+                            const tokenUsage = getMemberTokenUsage(member.user_id);
+                            return (
+                              <div
+                                key={member.member_id}
+                                className="flex items-center justify-between p-3 rounded-lg bg-muted/30"
+                              >
+                                <div className="flex-1">
+                                  <p className="font-medium">{member.full_name || member.email}</p>
+                                  <p className="text-sm text-muted-foreground">{member.email}</p>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                  <div className="text-right">
+                                    <p className="text-xs text-muted-foreground">Tokens</p>
+                                    <p className="text-sm font-medium">{tokenUsage.toLocaleString()}</p>
+                                  </div>
+                                  <Badge variant="outline" className={roleColors[member.role] || ""}>
+                                    {member.role}
+                                  </Badge>
+                                </div>
                               </div>
-                              <Badge variant="outline" className={roleColors[member.role] || ""}>
-                                {member.role}
-                              </Badge>
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       </div>
 
@@ -331,13 +313,13 @@ const AdminDashboard = () => {
                       <div>
                         <h3 className="font-medium mb-3 flex items-center gap-2">
                           <UserCircle className="h-4 w-4" />
-                          Clientes ({workspaceClients.length})
+                          Clientes ({clients?.length || 0})
                         </h3>
-                        {workspaceClients.length === 0 ? (
+                        {clients?.length === 0 ? (
                           <p className="text-sm text-muted-foreground">Nenhum cliente cadastrado</p>
                         ) : (
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                            {workspaceClients.map((client) => (
+                            {clients?.map((client) => (
                               <div
                                 key={client.client_id}
                                 className="p-3 rounded-lg bg-muted/30"

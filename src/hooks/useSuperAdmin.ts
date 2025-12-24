@@ -41,6 +41,13 @@ export interface WorkspaceClient {
   created_at: string;
 }
 
+export interface MemberTokenUsage {
+  user_id: string;
+  email: string | null;
+  full_name: string | null;
+  tokens_used: number;
+}
+
 export const useSuperAdmin = () => {
   const { user, loading: authLoading } = useAuth();
 
@@ -82,56 +89,107 @@ export const useSuperAdmin = () => {
     enabled: !!isSuperAdmin,
   });
 
-  // Function to get workspace details
-  const getWorkspaceDetails = async (workspaceId: string): Promise<WorkspaceDetails | null> => {
-    const { data, error } = await supabase.rpc("get_workspace_details_admin", {
-      p_workspace_id: workspaceId,
-    });
-
-    if (error) {
-      console.error("Error fetching workspace details:", error);
-      return null;
-    }
-
-    return (data?.[0] as WorkspaceDetails) || null;
-  };
-
-  // Function to get workspace members
-  const getWorkspaceMembers = async (workspaceId: string): Promise<WorkspaceMember[]> => {
-    const { data, error } = await supabase.rpc("get_workspace_members_admin", {
-      p_workspace_id: workspaceId,
-    });
-
-    if (error) {
-      console.error("Error fetching workspace members:", error);
-      return [];
-    }
-
-    return (data || []) as WorkspaceMember[];
-  };
-
-  // Function to get workspace clients
-  const getWorkspaceClients = async (workspaceId: string): Promise<WorkspaceClient[]> => {
-    const { data, error } = await supabase.rpc("get_workspace_clients_admin", {
-      p_workspace_id: workspaceId,
-    });
-
-    if (error) {
-      console.error("Error fetching workspace clients:", error);
-      return [];
-    }
-
-    return (data || []) as WorkspaceClient[];
-  };
-
   return {
     isSuperAdmin: isSuperAdmin || false,
     isLoading: authLoading || isCheckingAdmin,
     workspaces: workspaces || [],
     isLoadingWorkspaces,
     refetchWorkspaces,
-    getWorkspaceDetails,
-    getWorkspaceMembers,
-    getWorkspaceClients,
+  };
+};
+
+// Separate hook for workspace details with React Query
+export const useWorkspaceDetailsAdmin = (workspaceId: string | null) => {
+  const { data: isSuperAdmin } = useQuery({
+    queryKey: ["super-admin-check"],
+    enabled: false, // This query is already running in useSuperAdmin
+  });
+
+  const { data: details, isLoading: isLoadingDetails } = useQuery({
+    queryKey: ["admin-workspace-details", workspaceId],
+    queryFn: async () => {
+      if (!workspaceId) return null;
+      
+      const { data, error } = await supabase.rpc("get_workspace_details_admin", {
+        p_workspace_id: workspaceId,
+      });
+
+      if (error) {
+        console.error("Error fetching workspace details:", error);
+        return null;
+      }
+
+      return (data?.[0] as WorkspaceDetails) || null;
+    },
+    enabled: !!workspaceId,
+    staleTime: 30000, // Cache for 30 seconds
+  });
+
+  const { data: members, isLoading: isLoadingMembers } = useQuery({
+    queryKey: ["admin-workspace-members", workspaceId],
+    queryFn: async () => {
+      if (!workspaceId) return [];
+      
+      const { data, error } = await supabase.rpc("get_workspace_members_admin", {
+        p_workspace_id: workspaceId,
+      });
+
+      if (error) {
+        console.error("Error fetching workspace members:", error);
+        return [];
+      }
+
+      return (data || []) as WorkspaceMember[];
+    },
+    enabled: !!workspaceId,
+    staleTime: 30000,
+  });
+
+  const { data: clients, isLoading: isLoadingClients } = useQuery({
+    queryKey: ["admin-workspace-clients", workspaceId],
+    queryFn: async () => {
+      if (!workspaceId) return [];
+      
+      const { data, error } = await supabase.rpc("get_workspace_clients_admin", {
+        p_workspace_id: workspaceId,
+      });
+
+      if (error) {
+        console.error("Error fetching workspace clients:", error);
+        return [];
+      }
+
+      return (data || []) as WorkspaceClient[];
+    },
+    enabled: !!workspaceId,
+    staleTime: 30000,
+  });
+
+  const { data: memberTokens, isLoading: isLoadingTokens } = useQuery({
+    queryKey: ["admin-workspace-member-tokens", workspaceId],
+    queryFn: async () => {
+      if (!workspaceId) return [];
+      
+      const { data, error } = await supabase.rpc("get_workspace_member_tokens_admin", {
+        p_workspace_id: workspaceId,
+      });
+
+      if (error) {
+        console.error("Error fetching member tokens:", error);
+        return [];
+      }
+
+      return (data || []) as MemberTokenUsage[];
+    },
+    enabled: !!workspaceId,
+    staleTime: 30000,
+  });
+
+  return {
+    details,
+    members,
+    clients,
+    memberTokens,
+    isLoading: isLoadingDetails || isLoadingMembers || isLoadingClients || isLoadingTokens,
   };
 };
