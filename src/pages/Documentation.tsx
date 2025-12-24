@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { 
   ArrowLeft, 
@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
+import { useDevAccess } from "@/hooks/useDevAccess";
 
 interface DocSection {
   id: string;
@@ -731,12 +732,23 @@ export default function Documentation() {
   const navigate = useNavigate();
   const [activeSection, setActiveSection] = useState("intro");
   const [searchQuery, setSearchQuery] = useState("");
+  const { canAccessAutomations, canAccessAgentBuilder, canAccessResearchLab } = useDevAccess();
 
-  const filteredSections = sections.filter(s =>
+  // Filter sections based on dev access
+  const visibleSections = useMemo(() => {
+    const devOnlySections = [
+      ...(!canAccessAutomations ? ['automations'] : []),
+      ...(!canAccessAgentBuilder ? ['agent-builder'] : []),
+      ...(!canAccessResearchLab ? ['research'] : []),
+    ];
+    return sections.filter(s => !devOnlySections.includes(s.id));
+  }, [canAccessAutomations, canAccessAgentBuilder, canAccessResearchLab]);
+
+  const filteredSections = visibleSections.filter(s =>
     s.title.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const currentSection = sections.find(s => s.id === activeSection);
+  const currentSection = visibleSections.find(s => s.id === activeSection);
 
   return (
     <div className="min-h-screen bg-background flex">
