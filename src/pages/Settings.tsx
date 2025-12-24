@@ -3,7 +3,7 @@ import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/hooks/useAuth";
 import { useAIUsage } from "@/hooks/useAIUsage";
 import { useWorkspace } from "@/hooks/useWorkspace";
-import { User, Zap, CreditCard, TrendingUp, Activity, Sun, Moon, Palette, Users } from "lucide-react";
+import { User, Zap, TrendingUp, Activity, Sun, Moon, Palette, Users, CreditCard } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
@@ -68,14 +68,6 @@ export default function Settings() {
   
   const isAdmin = userRole === "owner" || userRole === "admin";
   const hasMultipleUsers = stats && Object.keys(stats.byUser).length > 1;
-
-  const formatCost = (cost: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 4,
-    }).format(cost);
-  };
 
   const formatNumber = (num: number) => {
     return new Intl.NumberFormat('pt-BR').format(num);
@@ -178,8 +170,8 @@ export default function Settings() {
               </div>
             ) : (
               <div className="space-y-6">
-                {/* Resumo Geral */}
-                <div className="grid gap-4 md:grid-cols-3">
+                {/* Resumo Geral - Only tokens, no cost */}
+                <div className="grid gap-4 md:grid-cols-2">
                   <div className="p-4 rounded-lg bg-muted/50">
                     <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
                       <Activity className="h-4 w-4" />
@@ -194,16 +186,9 @@ export default function Settings() {
                     </div>
                     <div className="text-2xl font-bold">{formatNumber(stats.totalTokens)}</div>
                   </div>
-                  <div className="p-4 rounded-lg bg-muted/50">
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
-                      <CreditCard className="h-4 w-4" />
-                      Custo Estimado
-                    </div>
-                    <div className="text-2xl font-bold">{formatCost(stats.totalCost)}</div>
-                  </div>
                 </div>
 
-                {/* Detalhes */}
+                {/* Detalhes - No cost display */}
                 <Tabs defaultValue="models" className="w-full">
                   <TabsList className={`grid w-full ${isAdmin && hasMultipleUsers ? 'grid-cols-4' : 'grid-cols-3'}`}>
                     <TabsTrigger value="models">Por Modelo</TabsTrigger>
@@ -223,7 +208,6 @@ export default function Settings() {
                             {formatNumber(data.calls)} chamadas · {formatNumber(data.tokens)} tokens
                           </div>
                         </div>
-                        <div className="text-sm font-semibold">{formatCost(data.cost)}</div>
                       </div>
                     ))}
                   </TabsContent>
@@ -237,7 +221,6 @@ export default function Settings() {
                             {formatNumber(data.calls)} chamadas · {formatNumber(data.tokens)} tokens
                           </div>
                         </div>
-                        <div className="text-sm font-semibold">{formatCost(data.cost)}</div>
                       </div>
                     ))}
                   </TabsContent>
@@ -251,7 +234,6 @@ export default function Settings() {
                             {formatNumber(data.calls)} chamadas · {formatNumber(data.tokens)} tokens
                           </div>
                         </div>
-                        <div className="text-sm font-semibold">{formatCost(data.cost)}</div>
                       </div>
                     ))}
                   </TabsContent>
@@ -259,7 +241,7 @@ export default function Settings() {
                   {isAdmin && hasMultipleUsers && (
                     <TabsContent value="users" className="space-y-3 mt-4">
                       {Object.entries(stats.byUser)
-                        .sort((a, b) => b[1].cost - a[1].cost)
+                        .sort((a, b) => b[1].tokens - a[1].tokens)
                         .map(([userId, data]) => (
                           <div key={userId} className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
                             <div className="flex items-center gap-3 flex-1">
@@ -275,7 +257,6 @@ export default function Settings() {
                                 </div>
                               </div>
                             </div>
-                            <div className="text-sm font-semibold">{formatCost(data.cost)}</div>
                           </div>
                         ))}
                     </TabsContent>
@@ -286,33 +267,33 @@ export default function Settings() {
           </CardContent>
         </Card>
 
-        {/* Gastos */}
+        {/* Resumo de Uso - No cost, only most used info */}
         <Card>
           <CardHeader>
             <div className="flex items-center gap-2">
               <CreditCard className="h-5 w-5 text-muted-foreground" />
-              <CardTitle>Resumo de Gastos</CardTitle>
+              <CardTitle>Resumo de Uso</CardTitle>
             </div>
-            <CardDescription>Análise de custos dos últimos 30 dias</CardDescription>
+            <CardDescription>Análise de uso dos últimos 30 dias</CardDescription>
           </CardHeader>
           <CardContent>
             {isLoading ? (
               <Skeleton className="h-16 w-full" />
             ) : !stats || stats.totalCalls === 0 ? (
               <div className="text-sm text-muted-foreground">
-                Nenhum gasto registrado. Os custos serão calculados automaticamente conforme você usa a plataforma.
+                Nenhum uso registrado. As estatísticas serão calculadas automaticamente conforme você usa a plataforma.
               </div>
             ) : (
               <div className="space-y-4">
                 <div className="flex items-baseline justify-between">
                   <div>
-                    <div className="text-sm text-muted-foreground mb-1">Total Gasto (30 dias)</div>
-                    <div className="text-3xl font-bold">{formatCost(stats.totalCost)}</div>
+                    <div className="text-sm text-muted-foreground mb-1">Total de Tokens (30 dias)</div>
+                    <div className="text-3xl font-bold">{formatNumber(stats.totalTokens)}</div>
                   </div>
                   <div className="text-right">
                     <div className="text-sm text-muted-foreground mb-1">Média por Chamada</div>
                     <div className="text-lg font-semibold">
-                      {formatCost(stats.totalCost / stats.totalCalls)}
+                      {formatNumber(Math.round(stats.totalTokens / stats.totalCalls))} tokens
                     </div>
                   </div>
                 </div>
