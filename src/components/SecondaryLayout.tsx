@@ -1,5 +1,5 @@
 import { ArrowLeft, Home } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import kaleidosLogo from "@/assets/kaleidos-logo.svg";
 
@@ -10,6 +10,15 @@ interface SecondaryLayoutProps {
 
 export function SecondaryLayout({ children, title }: SecondaryLayoutProps) {
   const navigate = useNavigate();
+  const { slug } = useParams();
+  
+  const handleBack = () => {
+    if (slug) {
+      navigate(`/${slug}`);
+    } else {
+      navigate(-1);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -19,7 +28,7 @@ export function SecondaryLayout({ children, title }: SecondaryLayoutProps) {
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => navigate("/kai")}
+            onClick={handleBack}
             className="gap-2"
           >
             <ArrowLeft className="h-4 w-4" />
@@ -42,7 +51,7 @@ export function SecondaryLayout({ children, title }: SecondaryLayoutProps) {
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => navigate("/kai")}
+            onClick={handleBack}
             className="h-8 w-8"
           >
             <Home className="h-4 w-4" />

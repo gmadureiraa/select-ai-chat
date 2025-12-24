@@ -7,10 +7,16 @@ const corsHeaders = {
 };
 
 interface PostRequest {
-  scheduledPostId: string;
+  scheduledPostId?: string;
+  planningItemId?: string;
 }
 
-// Generate OAuth 1.0a signature for Twitter
+interface ThreadTweet {
+  id: string;
+  text: string;
+  media_urls: string[];
+}
+
 function generateOAuthSignature(
   method: string,
   url: string,
@@ -67,12 +73,10 @@ async function uploadMedia(
   accessTokenSecret: string
 ): Promise<string | null> {
   try {
-    // Download image
     const imageResponse = await fetch(imageUrl);
     const imageBuffer = await imageResponse.arrayBuffer();
     const base64Image = btoa(String.fromCharCode(...new Uint8Array(imageBuffer)));
 
-    // Upload to Twitter
     const uploadUrl = "https://upload.twitter.com/1.1/media/upload.json";
     const oauthHeader = generateOAuthHeader("POST", uploadUrl, apiKey, apiSecret, accessToken, accessTokenSecret);
 
@@ -81,9 +85,7 @@ async function uploadMedia(
 
     const response = await fetch(uploadUrl, {
       method: "POST",
-      headers: {
-        Authorization: oauthHeader,
-      },
+      headers: { Authorization: oauthHeader },
       body: formData,
     });
 
@@ -100,6 +102,45 @@ async function uploadMedia(
   }
 }
 
+async function postTweet(
+  text: string,
+  mediaIds: string[],
+  replyToId: string | null,
+  apiKey: string,
+  apiSecret: string,
+  accessToken: string,
+  accessTokenSecret: string
+): Promise<{ id: string } | null> {
+  const tweetUrl = "https://api.x.com/2/tweets";
+  const oauthHeader = generateOAuthHeader("POST", tweetUrl, apiKey, apiSecret, accessToken, accessTokenSecret);
+
+  const tweetPayload: any = { text };
+  if (mediaIds.length > 0) {
+    tweetPayload.media = { media_ids: mediaIds };
+  }
+  if (replyToId) {
+    tweetPayload.reply = { in_reply_to_tweet_id: replyToId };
+  }
+
+  const response = await fetch(tweetUrl, {
+    method: "POST",
+    headers: {
+      Authorization: oauthHeader,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(tweetPayload),
+  });
+
+  const responseData = await response.json();
+
+  if (!response.ok) {
+    console.error("Tweet error:", responseData);
+    throw new Error(responseData.detail || responseData.errors?.[0]?.message || 'Erro ao publicar tweet');
+  }
+
+  return { id: responseData.data?.id };
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -111,28 +152,41 @@ Deno.serve(async (req) => {
   );
 
   try {
-    const { scheduledPostId } = await req.json() as PostRequest;
+    const { scheduledPostId, planningItemId } = await req.json() as PostRequest;
 
-    console.log(`Processing Twitter post for scheduled_post: ${scheduledPostId}`);
+    let post: any = null;
+    let tableName = '';
+    let postId = '';
 
-    // Get the scheduled post
-    const { data: post, error: postError } = await supabaseClient
-      .from('scheduled_posts')
-      .select('*')
-      .eq('id', scheduledPostId)
-      .single();
-
-    if (postError || !post) {
-      throw new Error(`Post não encontrado: ${postError?.message}`);
+    // Support both scheduled_posts and planning_items
+    if (planningItemId) {
+      const { data, error } = await supabaseClient
+        .from('planning_items')
+        .select('*')
+        .eq('id', planningItemId)
+        .single();
+      if (error || !data) throw new Error(`Item não encontrado: ${error?.message}`);
+      post = data;
+      tableName = 'planning_items';
+      postId = planningItemId;
+    } else if (scheduledPostId) {
+      const { data, error } = await supabaseClient
+        .from('scheduled_posts')
+        .select('*')
+        .eq('id', scheduledPostId)
+        .single();
+      if (error || !data) throw new Error(`Post não encontrado: ${error?.message}`);
+      post = data;
+      tableName = 'scheduled_posts';
+      postId = scheduledPostId;
+    } else {
+      throw new Error('scheduledPostId ou planningItemId é obrigatório');
     }
 
-    // Update status to publishing
-    await supabaseClient
-      .from('scheduled_posts')
-      .update({ status: 'publishing' })
-      .eq('id', scheduledPostId);
+    console.log(`Processing Twitter post for ${tableName}: ${postId}`);
 
-    // Get credentials for this client
+    await supabaseClient.from(tableName).update({ status: 'publishing' }).eq('id', postId);
+
     const { data: credentials, error: credError } = await supabaseClient
       .from('client_social_credentials')
       .select('*')
@@ -140,114 +194,82 @@ Deno.serve(async (req) => {
       .eq('platform', 'twitter')
       .single();
 
-    if (credError || !credentials) {
-      throw new Error('Credenciais do Twitter não configuradas para este cliente');
-    }
-
-    if (!credentials.is_valid) {
-      throw new Error(`Credenciais do Twitter inválidas: ${credentials.validation_error || 'Revalide as credenciais'}`);
-    }
+    if (credError || !credentials) throw new Error('Credenciais do Twitter não configuradas');
+    if (!credentials.is_valid) throw new Error(`Credenciais inválidas: ${credentials.validation_error}`);
 
     const { api_key, api_secret, access_token, access_token_secret } = credentials;
 
-    // Upload media if present
-    let mediaIds: string[] = [];
-    const mediaUrls = post.media_urls || [];
-    
-    for (const imageUrl of mediaUrls.slice(0, 4)) { // Twitter allows max 4 images
-      const mediaId = await uploadMedia(imageUrl, api_key, api_secret, access_token, access_token_secret);
-      if (mediaId) {
-        mediaIds.push(mediaId);
-      }
-    }
+    // Check if it's a thread
+    const metadata = post.metadata || {};
+    const threadTweets: ThreadTweet[] = metadata.thread_tweets || [];
+    const isThread = metadata.content_type === 'thread' && threadTweets.length > 0;
 
-    // Post tweet
-    const tweetUrl = "https://api.x.com/2/tweets";
-    const oauthHeader = generateOAuthHeader("POST", tweetUrl, api_key, api_secret, access_token, access_token_secret);
+    let lastTweetId: string | null = null;
+    const tweetIds: string[] = [];
 
-    const tweetPayload: any = { text: post.content };
-    if (mediaIds.length > 0) {
-      tweetPayload.media = { media_ids: mediaIds };
-    }
+    if (isThread) {
+      // Post thread - each tweet in sequence
+      for (let i = 0; i < threadTweets.length; i++) {
+        const tweet = threadTweets[i];
+        
+        // Upload media for this tweet
+        const mediaIds: string[] = [];
+        for (const imageUrl of (tweet.media_urls || []).slice(0, 4)) {
+          const mediaId = await uploadMedia(imageUrl, api_key, api_secret, access_token, access_token_secret);
+          if (mediaId) mediaIds.push(mediaId);
+        }
 
-    const response = await fetch(tweetUrl, {
-      method: "POST",
-      headers: {
-        Authorization: oauthHeader,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(tweetPayload),
-    });
+        const result = await postTweet(
+          tweet.text,
+          mediaIds,
+          lastTweetId,
+          api_key, api_secret, access_token, access_token_secret
+        );
 
-    const responseData = await response.json();
-
-    if (!response.ok) {
-      const errorMessage = responseData.detail || responseData.errors?.[0]?.message || 'Erro ao publicar tweet';
-      console.error("Twitter post error:", responseData);
-      
-      // Update post with error
-      await supabaseClient
-        .from('scheduled_posts')
-        .update({
-          status: 'failed',
-          error_message: errorMessage,
-          retry_count: (post.retry_count || 0) + 1,
-        })
-        .eq('id', scheduledPostId);
-
-      throw new Error(errorMessage);
-    }
-
-    // Success - update post
-    await supabaseClient
-      .from('scheduled_posts')
-      .update({
-        status: 'published',
-        published_at: new Date().toISOString(),
-        external_post_id: responseData.data?.id,
-        error_message: null,
-      })
-      .eq('id', scheduledPostId);
-
-    // Update kanban card if linked
-    const { data: kanbanCard } = await supabaseClient
-      .from('kanban_cards')
-      .select('id, column_id')
-      .eq('scheduled_post_id', scheduledPostId)
-      .single();
-
-    if (kanbanCard) {
-      // Find "published" column in the same workspace
-      const { data: columns } = await supabaseClient
-        .from('kanban_columns')
-        .select('id, workspace_id')
-        .eq('column_type', 'published');
-
-      if (columns && columns.length > 0) {
-        // Get the workspace from the current column
-        const { data: currentColumn } = await supabaseClient
-          .from('kanban_columns')
-          .select('workspace_id')
-          .eq('id', kanbanCard.column_id)
-          .single();
-
-        if (currentColumn) {
-          const publishedColumn = columns.find(c => c.workspace_id === currentColumn.workspace_id);
-          if (publishedColumn) {
-            await supabaseClient
-              .from('kanban_cards')
-              .update({ column_id: publishedColumn.id })
-              .eq('id', kanbanCard.id);
-          }
+        if (result) {
+          lastTweetId = result.id;
+          tweetIds.push(result.id);
+          console.log(`Tweet ${i + 1} publicado: ${result.id}`);
         }
       }
+    } else {
+      // Single tweet with optional media
+      const mediaUrls = post.media_urls || [];
+      const mediaIds: string[] = [];
+      
+      for (const imageUrl of mediaUrls.slice(0, 4)) {
+        const mediaId = await uploadMedia(imageUrl, api_key, api_secret, access_token, access_token_secret);
+        if (mediaId) mediaIds.push(mediaId);
+      }
+
+      const result = await postTweet(
+        post.content,
+        mediaIds,
+        null,
+        api_key, api_secret, access_token, access_token_secret
+      );
+
+      if (result) {
+        lastTweetId = result.id;
+        tweetIds.push(result.id);
+      }
     }
 
-    console.log(`Tweet published successfully: ${responseData.data?.id}`);
+    // Success
+    await supabaseClient.from(tableName).update({
+      status: 'published',
+      published_at: new Date().toISOString(),
+      external_post_id: tweetIds[0] || null,
+      error_message: null,
+      metadata: { ...metadata, tweet_ids: tweetIds },
+    }).eq('id', postId);
+
+    console.log(`Twitter post(s) publicado(s): ${tweetIds.join(', ')}`);
 
     return new Response(JSON.stringify({
       success: true,
-      tweetId: responseData.data?.id,
+      tweetIds,
+      isThread,
     }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -255,10 +277,7 @@ Deno.serve(async (req) => {
   } catch (error: unknown) {
     console.error("Twitter post error:", error);
     const message = error instanceof Error ? error.message : 'Erro desconhecido';
-    return new Response(JSON.stringify({ 
-      success: false, 
-      error: message 
-    }), {
+    return new Response(JSON.stringify({ success: false, error: message }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

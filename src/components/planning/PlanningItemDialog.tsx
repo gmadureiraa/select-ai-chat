@@ -3,14 +3,17 @@ import { format, parseISO } from 'date-fns';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { CalendarIcon, Loader2 } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { CalendarIcon, Loader2, FileText, MessageSquare } from 'lucide-react';
 import { useClients } from '@/hooks/useClients';
 import { cn } from '@/lib/utils';
+import { MediaUploader, MediaItem } from './MediaUploader';
+import { RichContentEditor } from './RichContentEditor';
+import { ThreadEditor, ThreadTweet } from './ThreadEditor';
 import type { PlanningItem, CreatePlanningItemInput, PlanningPlatform, PlanningPriority, KanbanColumn } from '@/hooks/usePlanningItems';
 
 interface PlanningItemDialogProps {
@@ -42,6 +45,13 @@ const priorities: { value: PlanningPriority; label: string }[] = [
   { value: 'urgent', label: 'Urgente' },
 ];
 
+const contentTypes = [
+  { value: 'post', label: 'Post Simples' },
+  { value: 'thread', label: 'Thread (Twitter)' },
+  { value: 'article', label: 'Artigo/Newsletter' },
+  { value: 'carousel', label: 'Carrossel' },
+];
+
 export function PlanningItemDialog({
   open,
   onOpenChange,
@@ -64,6 +74,9 @@ export function PlanningItemDialog({
   const [priority, setPriority] = useState<PlanningPriority>('medium');
   const [dueDate, setDueDate] = useState<Date | undefined>();
   const [scheduledAt, setScheduledAt] = useState<Date | undefined>();
+  const [contentType, setContentType] = useState<string>('post');
+  const [mediaItems, setMediaItems] = useState<MediaItem[]>([]);
+  const [threadTweets, setThreadTweets] = useState<ThreadTweet[]>([]);
 
   useEffect(() => {
     if (item) {
@@ -74,9 +87,27 @@ export function PlanningItemDialog({
       setColumnId(item.column_id || '');
       setPlatform(item.platform || '');
       setPriority(item.priority);
-      // Use parseISO to correctly parse date strings without timezone shift
       setDueDate(item.due_date ? parseISO(item.due_date) : undefined);
       setScheduledAt(item.scheduled_at ? parseISO(item.scheduled_at) : undefined);
+      
+      // Load content type and structure from metadata
+      const metadata = item.metadata as any || {};
+      setContentType(metadata.content_type || 'post');
+      
+      // Load media from metadata
+      const mediaUrls = item.media_urls as string[] || [];
+      setMediaItems(mediaUrls.map((url, i) => ({
+        id: `media-${i}`,
+        url,
+        type: url.match(/\.(mp4|webm|mov)$/i) ? 'video' : 'image'
+      })));
+      
+      // Load thread tweets if exists
+      if (metadata.thread_tweets) {
+        setThreadTweets(metadata.thread_tweets);
+      } else {
+        setThreadTweets([{ id: 'tweet-1', text: item.content || '', media_urls: [] }]);
+      }
     } else {
       setTitle('');
       setDescription('');
@@ -87,8 +118,18 @@ export function PlanningItemDialog({
       setPriority('medium');
       setDueDate(defaultDate);
       setScheduledAt(undefined);
+      setContentType('post');
+      setMediaItems([]);
+      setThreadTweets([{ id: 'tweet-1', text: '', media_urls: [] }]);
     }
   }, [item, defaultColumnId, defaultDate, columns, open]);
+
+  // Auto-switch to thread mode for Twitter
+  useEffect(() => {
+    if (platform === 'twitter' && contentType === 'article') {
+      setContentType('thread');
+    }
+  }, [platform, contentType]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -96,16 +137,28 @@ export function PlanningItemDialog({
 
     setIsSubmitting(true);
     try {
+      // Build content based on type
+      let finalContent = content;
+      if (contentType === 'thread') {
+        // For threads, join all tweets as content preview
+        finalContent = threadTweets.map(t => t.text).join('\n\n---\n\n');
+      }
+
       const data: CreatePlanningItemInput = {
         title: title.trim(),
         description: description.trim() || undefined,
-        content: content.trim() || undefined,
+        content: finalContent.trim() || undefined,
         client_id: clientId || undefined,
         column_id: columnId || undefined,
         platform: platform || undefined,
         priority,
         due_date: dueDate ? format(dueDate, 'yyyy-MM-dd') : undefined,
         scheduled_at: scheduledAt ? scheduledAt.toISOString() : undefined,
+        media_urls: mediaItems.map(m => m.url),
+        metadata: {
+          content_type: contentType,
+          ...(contentType === 'thread' && { thread_tweets: threadTweets }),
+        },
       };
 
       if (item && onUpdate) {
@@ -119,9 +172,12 @@ export function PlanningItemDialog({
     }
   };
 
+  const isTwitterThread = platform === 'twitter' && contentType === 'thread';
+  const showRichEditor = contentType === 'article' || contentType === 'post' || platform === 'newsletter' || platform === 'blog';
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{item ? 'Editar Card' : 'Novo Card'}</DialogTitle>
         </DialogHeader>
@@ -168,7 +224,7 @@ export function PlanningItemDialog({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-3">
             <div>
               <Label>Plataforma</Label>
               <Select value={platform} onValueChange={(v) => setPlatform(v as PlanningPlatform)}>
@@ -178,6 +234,20 @@ export function PlanningItemDialog({
                 <SelectContent>
                   {platforms.map(p => (
                     <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label>Tipo de Conteúdo</Label>
+              <Select value={contentType} onValueChange={setContentType}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {contentTypes.map(t => (
+                    <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -200,25 +270,60 @@ export function PlanningItemDialog({
 
           <div>
             <Label htmlFor="description">Descrição</Label>
-            <Textarea
+            <Input
               id="description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Breve descrição"
-              rows={2}
             />
           </div>
 
-          <div>
-            <Label htmlFor="content">Conteúdo</Label>
-            <Textarea
-              id="content"
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              placeholder="Texto completo do conteúdo"
-              rows={4}
-            />
-          </div>
+          {/* Content Section */}
+          <Tabs defaultValue="content" className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="content" className="gap-1">
+                {isTwitterThread ? <MessageSquare className="h-3 w-3" /> : <FileText className="h-3 w-3" />}
+                {isTwitterThread ? 'Thread' : 'Conteúdo'}
+              </TabsTrigger>
+              <TabsTrigger value="media">
+                Mídia ({mediaItems.length})
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="content" className="mt-3">
+              {isTwitterThread ? (
+                <ThreadEditor
+                  value={threadTweets}
+                  onChange={setThreadTweets}
+                  clientId={clientId}
+                />
+              ) : showRichEditor ? (
+                <RichContentEditor
+                  value={content}
+                  onChange={setContent}
+                  placeholder="Escreva seu conteúdo aqui. Use Markdown para formatação..."
+                  clientId={clientId}
+                />
+              ) : (
+                <RichContentEditor
+                  value={content}
+                  onChange={setContent}
+                  placeholder="Texto do conteúdo"
+                  minRows={4}
+                  clientId={clientId}
+                />
+              )}
+            </TabsContent>
+
+            <TabsContent value="media" className="mt-3">
+              <MediaUploader
+                value={mediaItems}
+                onChange={setMediaItems}
+                maxItems={platform === 'twitter' ? 4 : 10}
+                clientId={clientId}
+              />
+            </TabsContent>
+          </Tabs>
 
           <div className="grid grid-cols-2 gap-3">
             <div>

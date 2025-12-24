@@ -7,3 +7,6 @@ export { KanbanView } from './KanbanView';
 export { CalendarView } from './CalendarView';
 export { PublicationStatusBadge } from './PublicationStatusBadge';
 export { ViewSettingsPopover, useViewSettings, type ViewSettings } from './ViewSettingsPopover';
+export { MediaUploader, type MediaItem } from './MediaUploader';
+export { RichContentEditor } from './RichContentEditor';
+export { ThreadEditor, type ThreadTweet } from './ThreadEditor';
