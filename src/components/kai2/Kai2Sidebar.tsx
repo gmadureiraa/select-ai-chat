@@ -7,9 +7,6 @@ import {
   Library,
   Settings,
   ChevronDown,
-  Zap,
-  Blocks,
-  FlaskConical,
   BookOpen,
   Activity,
   Users,
@@ -23,7 +20,7 @@ import { useClients } from "@/hooks/useClients";
 import { useWorkspace } from "@/hooks/useWorkspace";
 import { usePendingUsers } from "@/hooks/usePendingUsers";
 import { useAuth } from "@/hooks/useAuth";
-import { useDevAccess } from "@/hooks/useDevAccess";
+
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -98,7 +95,6 @@ export function Kai2Sidebar({ activeTab, onTabChange, selectedClientId, onClient
   const { slug } = useParams<{ slug: string }>();
   const { clients } = useClients();
   const { canManageTeam, canViewTools, canViewPerformance, canViewLibrary, canViewKnowledgeBase, canViewActivities, canViewClients, workspace } = useWorkspace();
-  const { canAccessAutomations, canAccessAgentBuilder, canAccessResearchLab } = useDevAccess();
   const { pendingCount } = usePendingUsers();
   const { user, signOut } = useAuth();
   const selectedClient = clients?.find(c => c.id === selectedClientId);
@@ -265,32 +261,6 @@ export function Kai2Sidebar({ activeTab, onTabChange, selectedClientId, onClient
                 />
               )}
 
-              {canAccessAutomations && (
-                <NavItem
-                  icon={<Zap className="h-4 w-4" />}
-                  label="Automações"
-                  active={activeTab === "automations"}
-                  onClick={() => onTabChange("automations")}
-                />
-              )}
-
-              {canAccessAgentBuilder && (
-                <NavItem
-                  icon={<Blocks className="h-4 w-4" />}
-                  label="Agent Builder"
-                  active={activeTab === "agent-builder"}
-                  onClick={() => onTabChange("agent-builder")}
-                />
-              )}
-
-              {canAccessResearchLab && (
-                <NavItem
-                  icon={<FlaskConical className="h-4 w-4" />}
-                  label="Lab de Pesquisa"
-                  active={activeTab === "research-lab"}
-                  onClick={() => onTabChange("research-lab")}
-                />
-              )}
             </div>
           </>
         )}

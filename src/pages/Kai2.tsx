@@ -5,16 +5,13 @@ import { GradientHero } from "@/components/kai2/GradientHero";
 import { Kai2AssistantTab } from "@/components/kai2/Kai2AssistantTab";
 import { KaiPerformanceTab } from "@/components/kai/KaiPerformanceTab";
 import { KaiLibraryTab } from "@/components/kai/KaiLibraryTab";
-import { KaiAutomationsTab } from "@/components/kai/KaiAutomationsTab";
-import { AgentBuilderTool } from "@/components/kai2/tools/AgentBuilderTool";
-import { ResearchLabTool } from "@/components/kai2/tools/ResearchLabTool";
 import { KnowledgeBaseTool } from "@/components/kai2/tools/KnowledgeBaseTool";
 import { ActivitiesTool } from "@/components/kai2/tools/ActivitiesTool";
 import { TeamTool } from "@/components/kai2/tools/TeamTool";
 import { ClientsManagementTool } from "@/components/kai2/tools/ClientsManagementTool";
 import { useClients } from "@/hooks/useClients";
 import { useWorkspace } from "@/hooks/useWorkspace";
-import { useDevAccess } from "@/hooks/useDevAccess";
+
 import { Loader2 } from "lucide-react";
 
 export default function Kai2() {
@@ -24,7 +21,6 @@ export default function Kai2() {
   
   const { clients, isLoading: isLoadingClients } = useClients();
   const { canViewTools, canViewKnowledgeBase, canViewLibrary, canViewActivities, canViewClients, canManageTeam } = useWorkspace();
-  const { canAccessAutomations, canAccessAgentBuilder, canAccessResearchLab } = useDevAccess();
   const selectedClient = clients?.find(c => c.id === clientId);
   
   const [pendingMessage, setPendingMessage] = useState<string | null>(null);
@@ -34,14 +30,8 @@ export default function Kai2() {
   useEffect(() => {
     let shouldRedirect = false;
     
-    // Dev-only tools require dev access
-    if (tab === "automations" && !canAccessAutomations) {
-      shouldRedirect = true;
-    }
-    if (tab === "agent-builder" && !canAccessAgentBuilder) {
-      shouldRedirect = true;
-    }
-    if (tab === "research-lab" && !canAccessResearchLab) {
+    // Removed dev-only tools - redirect if accessing removed tabs
+    if (tab === "automations" || tab === "agent-builder" || tab === "research-lab") {
       shouldRedirect = true;
     }
     
@@ -71,7 +61,7 @@ export default function Kai2() {
       params.set("tab", "home");
       setSearchParams(params);
     }
-  }, [tab, canAccessAutomations, canAccessAgentBuilder, canAccessResearchLab, canViewKnowledgeBase, canViewLibrary, canViewActivities, canViewClients, canManageTeam, searchParams, setSearchParams]);
+  }, [tab, canViewKnowledgeBase, canViewLibrary, canViewActivities, canViewClients, canManageTeam, searchParams, setSearchParams]);
 
 
   const handleTabChange = (newTab: string) => {
@@ -113,14 +103,10 @@ export default function Kai2() {
     }
 
     // Tools that don't need client
-    const toolTabs = ["agent-builder", "research-lab", "knowledge-base", "activities", "team", "clients", "account"];
+    const toolTabs = ["knowledge-base", "activities", "team", "clients", "account"];
     
     if (toolTabs.includes(tab)) {
       switch (tab) {
-        case "agent-builder":
-          return <AgentBuilderTool />;
-        case "research-lab":
-          return <ResearchLabTool />;
         case "knowledge-base":
           return <KnowledgeBaseTool />;
         case "activities":
@@ -188,12 +174,6 @@ export default function Kai2() {
           </div>
         );
       
-      case "automations":
-        return (
-          <div className="p-6 overflow-auto h-full">
-            <KaiAutomationsTab clientId={selectedClient.id} client={selectedClient} />
-          </div>
-        );
       
       default:
         return (

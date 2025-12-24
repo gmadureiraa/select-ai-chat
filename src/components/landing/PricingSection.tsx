@@ -35,7 +35,6 @@ const plans = [
       "50.000 tokens/mês",
       "Tudo do Starter",
       "Integrações avançadas",
-      "Automações ilimitadas",
       "API completa",
       "Gerente de sucesso dedicado",
     ],
