@@ -1,34 +1,35 @@
 import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Kai2Sidebar } from "@/components/kai2/Kai2Sidebar";
-import { GradientHero } from "@/components/kai2/GradientHero";
-import { Kai2AssistantTab } from "@/components/kai2/Kai2AssistantTab";
+import { KaiSidebar } from "@/components/kai/KaiSidebar";
+import { GradientHero } from "@/components/kai/GradientHero";
+import { KaiAssistantTab } from "@/components/kai/KaiAssistantTab";
 import { KaiPerformanceTab } from "@/components/kai/KaiPerformanceTab";
 import { KaiLibraryTab } from "@/components/kai/KaiLibraryTab";
-import { KnowledgeBaseTool } from "@/components/kai2/tools/KnowledgeBaseTool";
-import { ActivitiesTool } from "@/components/kai2/tools/ActivitiesTool";
-import { TeamTool } from "@/components/kai2/tools/TeamTool";
-import { ClientsManagementTool } from "@/components/kai2/tools/ClientsManagementTool";
-import { ContentCalendar } from "@/components/calendar/ContentCalendar";
-import { KanbanBoard } from "@/components/kanban/KanbanBoard";
+import { KnowledgeBaseTool } from "@/components/kai/tools/KnowledgeBaseTool";
+import { ActivitiesTool } from "@/components/kai/tools/ActivitiesTool";
+import { TeamTool } from "@/components/kai/tools/TeamTool";
+import { ClientsManagementTool } from "@/components/kai/tools/ClientsManagementTool";
+import { PlanningBoard } from "@/components/planning/PlanningBoard";
 import { useClients } from "@/hooks/useClients";
 import { useWorkspace } from "@/hooks/useWorkspace";
 import { usePlanFeatures } from "@/hooks/usePlanFeatures";
+import { cn } from "@/lib/utils";
 
 import { Loader2 } from "lucide-react";
 
-export default function Kai2() {
+export default function Kai() {
   const [searchParams, setSearchParams] = useSearchParams();
   const clientId = searchParams.get("client");
   const tab = searchParams.get("tab") || "home";
   
   const { clients, isLoading: isLoadingClients } = useClients();
-  const { canViewTools, canViewKnowledgeBase, canViewLibrary, canViewActivities, canViewClients, canManageTeam } = useWorkspace();
+  const { canManageTeam, canViewTools, canViewPerformance, canViewLibrary, canViewKnowledgeBase, canViewActivities, canViewClients } = useWorkspace();
   const { isEnterprise } = usePlanFeatures();
   const selectedClient = clients?.find(c => c.id === clientId);
   
   const [pendingMessage, setPendingMessage] = useState<string | null>(null);
   const [pendingContentType, setPendingContentType] = useState<string | null>(null);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   // Route protection: redirect to home if trying to access unauthorized tabs
   useEffect(() => {
@@ -129,6 +130,15 @@ export default function Kai2() {
       }
     }
 
+    // Planning tab - uses unified PlanningBoard
+    if (tab === "planning" && isEnterprise) {
+      return (
+        <div className="p-6 h-full overflow-hidden">
+          <PlanningBoard clientId={selectedClient?.id} />
+        </div>
+      );
+    }
+
     // Client-dependent tabs
     if (!selectedClient) {
       return (
@@ -152,15 +162,9 @@ export default function Kai2() {
       
       case "assistant":
         return (
-          <Kai2AssistantTab
+          <KaiAssistantTab
             clientId={selectedClient.id}
             client={selectedClient}
-            initialMessage={pendingMessage || undefined}
-            initialContentType={pendingContentType || undefined}
-            onInitialMessageSent={() => {
-              setPendingMessage(null);
-              setPendingContentType(null);
-            }}
           />
         );
       
@@ -178,13 +182,6 @@ export default function Kai2() {
           </div>
         );
       
-      case "calendar":
-        return isEnterprise ? <ContentCalendar clientId={selectedClient.id} /> : null;
-      
-      case "kanban":
-        return isEnterprise ? <KanbanBoard clientId={selectedClient.id} /> : null;
-      
-      
       default:
         return (
           <GradientHero 
@@ -197,12 +194,14 @@ export default function Kai2() {
   };
 
   return (
-    <div className="flex h-screen bg-background">
-      <Kai2Sidebar
+    <div className="flex h-screen bg-background w-full">
+      <KaiSidebar
         activeTab={tab}
         onTabChange={handleTabChange}
         selectedClientId={clientId}
         onClientChange={handleClientChange}
+        collapsed={sidebarCollapsed}
+        onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
       />
 
       <main className="flex-1 overflow-hidden">

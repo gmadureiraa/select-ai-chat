@@ -17,7 +17,7 @@ import { Switch } from "@/components/ui/switch";
 import { useClients, Client } from "@/hooks/useClients";
 import { useClientDocuments } from "@/hooks/useClientDocuments";
 import { useClientWebsites } from "@/hooks/useClientWebsites";
-import { ClientCompletenessIndicator } from "@/components/kai2/ClientCompletenessIndicator";
+import { ClientCompletenessIndicator } from "@/components/kai/ClientCompletenessIndicator";
 import { useDebounce } from "@/hooks/useDebounce";
 
 import { ClientDocumentsManager } from "@/components/clients/ClientDocumentsManager";

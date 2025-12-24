@@ -25,7 +25,7 @@ import { ReferenceViewDialog } from "@/components/references/ReferenceViewDialog
 // Instagram Importer temporariamente desabilitado
 // import { InstagramCarouselImporter } from "@/components/images/InstagramCarouselImporter";
 import { VisualReferencesManager, REFERENCE_TYPES } from "@/components/clients/VisualReferencesManager";
-import { LibraryFilters, ContentTypeFilter, SortOption, ViewMode } from "@/components/kai2/LibraryFilters";
+import { LibraryFilters, ContentTypeFilter, SortOption, ViewMode } from "@/components/kai/LibraryFilters";
 import { Client } from "@/hooks/useClients";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
