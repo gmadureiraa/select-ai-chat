@@ -75,8 +75,8 @@ const NewHeroSection = () => {
           transition={{ duration: 0.6, delay: 0.2 }}
           className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-10 leading-relaxed"
         >
-          Não é só uma ferramenta comum. Kaleidos é seu hub híbrido para gerenciar 
-          clientes, criar conteúdo em escala e automatizar entregas.
+          Não é só uma ferramenta comum. Kaleidos é seu hub completo para gerenciar 
+          clientes, criar conteúdo em escala e acompanhar performance.
         </motion.p>
 
         {/* CTAs */}

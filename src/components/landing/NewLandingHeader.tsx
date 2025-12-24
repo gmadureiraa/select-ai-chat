@@ -11,7 +11,6 @@ const navItems = [
   { name: "Como Funciona", href: "#workflow" },
   { name: "Integrações", href: "#integrations" },
   { name: "Preços", href: "#pricing" },
-  { name: "Depoimentos", href: "#testimonials" },
 ];
 
 const NewLandingHeader = () => {
