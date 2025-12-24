@@ -7,6 +7,8 @@ import {
   Library,
   Settings,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   BookOpen,
   Activity,
   Users,
@@ -14,8 +16,7 @@ import {
   LogOut,
   HelpCircle,
   Building2,
-  Calendar,
-  LayoutGrid
+  CalendarDays
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useClients } from "@/hooks/useClients";
@@ -32,6 +33,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import kaleidosLogo from "@/assets/kaleidos-logo.svg";
 import { supabase } from "@/integrations/supabase/client";
 import { TokensBadge } from "@/components/TokensBadge";
@@ -43,17 +46,19 @@ interface NavItemProps {
   active?: boolean;
   onClick?: () => void;
   badge?: number;
+  collapsed?: boolean;
 }
 
-function NavItem({ icon, label, active, onClick, badge }: NavItemProps) {
-  return (
+function NavItem({ icon, label, active, onClick, badge, collapsed }: NavItemProps) {
+  const content = (
     <button
       onClick={onClick}
       className={cn(
         "w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-all duration-150",
         "hover:bg-muted",
         active && "bg-muted text-primary font-medium",
-        !active && "text-muted-foreground hover:text-foreground"
+        !active && "text-muted-foreground hover:text-foreground",
+        collapsed && "justify-center px-2"
       )}
     >
       <span className={cn(
@@ -62,21 +67,48 @@ function NavItem({ icon, label, active, onClick, badge }: NavItemProps) {
       )}>
         {icon}
       </span>
-      <span className="flex-1 text-left truncate">{label}</span>
-      {badge !== undefined && badge > 0 && (
-        <span className="flex-shrink-0 h-5 min-w-5 px-1.5 rounded-full bg-secondary text-secondary-foreground text-xs font-medium flex items-center justify-center">
-          {badge}
-        </span>
+      {!collapsed && (
+        <>
+          <span className="flex-1 text-left truncate">{label}</span>
+          {badge !== undefined && badge > 0 && (
+            <span className="flex-shrink-0 h-5 min-w-5 px-1.5 rounded-full bg-secondary text-secondary-foreground text-xs font-medium flex items-center justify-center">
+              {badge}
+            </span>
+          )}
+        </>
       )}
     </button>
   );
+
+  if (collapsed) {
+    return (
+      <Tooltip delayDuration={0}>
+        <TooltipTrigger asChild>
+          {content}
+        </TooltipTrigger>
+        <TooltipContent side="right" className="flex items-center gap-2">
+          {label}
+          {badge !== undefined && badge > 0 && (
+            <span className="h-5 min-w-5 px-1.5 rounded-full bg-secondary text-secondary-foreground text-xs font-medium flex items-center justify-center">
+              {badge}
+            </span>
+          )}
+        </TooltipContent>
+      </Tooltip>
+    );
+  }
+
+  return content;
 }
 
 interface SectionLabelProps {
   children: React.ReactNode;
+  collapsed?: boolean;
 }
 
-function SectionLabel({ children }: SectionLabelProps) {
+function SectionLabel({ children, collapsed }: SectionLabelProps) {
+  if (collapsed) return null;
+  
   return (
     <div className="px-3 pt-5 pb-2">
       <span className="text-[11px] font-semibold text-muted-foreground/60 uppercase tracking-wider">
@@ -86,14 +118,23 @@ function SectionLabel({ children }: SectionLabelProps) {
   );
 }
 
-interface Kai2SidebarProps {
+interface KaiSidebarProps {
   activeTab: string;
   onTabChange: (tab: string) => void;
   selectedClientId: string | null;
   onClientChange: (id: string) => void;
+  collapsed: boolean;
+  onToggleCollapse: () => void;
 }
 
-export function Kai2Sidebar({ activeTab, onTabChange, selectedClientId, onClientChange }: Kai2SidebarProps) {
+export function KaiSidebar({ 
+  activeTab, 
+  onTabChange, 
+  selectedClientId, 
+  onClientChange,
+  collapsed,
+  onToggleCollapse
+}: KaiSidebarProps) {
   const navigate = useNavigate();
   const { slug } = useParams<{ slug: string }>();
   const { clients } = useClients();
@@ -130,53 +171,71 @@ export function Kai2Sidebar({ activeTab, onTabChange, selectedClientId, onClient
   const userName = userProfile?.full_name || user?.user_metadata?.full_name || user?.email?.split("@")[0] || "Usuário";
 
   return (
-    <aside className="w-64 h-screen bg-card border-r border-border flex flex-col">
+    <aside className={cn(
+      "h-screen bg-card border-r border-border flex flex-col transition-all duration-300",
+      collapsed ? "w-16" : "w-64"
+    )}>
       {/* Logo and Tokens */}
-      <div className="h-14 px-4 flex items-center justify-between border-b border-border">
+      <div className={cn(
+        "h-14 px-4 flex items-center border-b border-border",
+        collapsed ? "justify-center px-2" : "justify-between"
+      )}>
         <div className="flex items-center gap-2.5">
           <img src={kaleidosLogo} alt="Kaleidos" className="h-7 w-7" />
-          <span className="font-semibold text-foreground tracking-tight">kAI</span>
+          {!collapsed && <span className="font-semibold text-foreground tracking-tight">kAI</span>}
         </div>
-        <TokensBadge showLabel={false} />
+        {!collapsed && <TokensBadge showLabel={false} />}
       </div>
 
-      {/* Search */}
-      <div className="px-3 pt-3">
-        <div className="relative">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50" />
-          <Input
-            placeholder="Buscar..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-8 h-9 bg-muted/50 border-transparent focus:border-border text-sm"
-          />
+      {/* Search - only when expanded */}
+      {!collapsed && (
+        <div className="px-3 pt-3">
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50" />
+            <Input
+              placeholder="Buscar..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-8 h-9 bg-muted/50 border-transparent focus:border-border text-sm"
+            />
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Client Selector */}
-      <div className="px-3 pt-3">
+      <div className={cn("pt-3", collapsed ? "px-2" : "px-3")}>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-md bg-muted/50 hover:bg-muted transition-colors border border-transparent hover:border-border">
+            <button className={cn(
+              "w-full flex items-center gap-2.5 rounded-md bg-muted/50 hover:bg-muted transition-colors border border-transparent hover:border-border",
+              collapsed ? "p-2 justify-center" : "px-3 py-2.5"
+            )}>
               {selectedClient?.avatar_url ? (
-                <Avatar className="w-8 h-8 rounded-md">
+                <Avatar className={cn("rounded-md", collapsed ? "w-7 h-7" : "w-8 h-8")}>
                   <AvatarImage src={selectedClient.avatar_url} alt={selectedClient.name} />
                   <AvatarFallback className="rounded-md bg-gradient-to-br from-primary to-secondary text-xs font-bold text-white">
                     {selectedClient.name.charAt(0)}
                   </AvatarFallback>
                 </Avatar>
               ) : (
-                <div className="w-8 h-8 rounded-md bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-xs font-bold text-white shadow-sm">
+                <div className={cn(
+                  "rounded-md bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-xs font-bold text-white shadow-sm",
+                  collapsed ? "w-7 h-7" : "w-8 h-8"
+                )}>
                   {selectedClient?.name?.charAt(0) || "K"}
                 </div>
               )}
-              <div className="flex-1 text-left min-w-0">
-                <p className="text-sm font-medium text-foreground truncate">
-                  {selectedClient?.name || "Selecionar Cliente"}
-                </p>
-                <p className="text-[11px] text-muted-foreground">Cliente ativo</p>
-              </div>
-              <ChevronDown className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+              {!collapsed && (
+                <>
+                  <div className="flex-1 text-left min-w-0">
+                    <p className="text-sm font-medium text-foreground truncate">
+                      {selectedClient?.name || "Selecionar Cliente"}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground">Cliente ativo</p>
+                  </div>
+                  <ChevronDown className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                </>
+              )}
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-56 bg-popover border-border shadow-elevated">
@@ -214,7 +273,7 @@ export function Kai2Sidebar({ activeTab, onTabChange, selectedClientId, onClient
 
       {/* Main Navigation */}
       <nav className="flex-1 px-3 overflow-y-auto">
-        <SectionLabel>Cliente</SectionLabel>
+        <SectionLabel collapsed={collapsed}>Cliente</SectionLabel>
         
         <div className="space-y-0.5">
           <NavItem
@@ -222,6 +281,7 @@ export function Kai2Sidebar({ activeTab, onTabChange, selectedClientId, onClient
             label="Início"
             active={activeTab === "home"}
             onClick={() => onTabChange("home")}
+            collapsed={collapsed}
           />
           
           <NavItem
@@ -229,6 +289,7 @@ export function Kai2Sidebar({ activeTab, onTabChange, selectedClientId, onClient
             label="Assistente"
             active={activeTab === "assistant"}
             onClick={() => onTabChange("assistant")}
+            collapsed={collapsed}
           />
 
           {canViewPerformance && (
@@ -237,6 +298,7 @@ export function Kai2Sidebar({ activeTab, onTabChange, selectedClientId, onClient
               label="Performance"
               active={activeTab === "performance"}
               onClick={() => onTabChange("performance")}
+              collapsed={collapsed}
             />
           )}
 
@@ -246,6 +308,7 @@ export function Kai2Sidebar({ activeTab, onTabChange, selectedClientId, onClient
               label="Biblioteca"
               active={activeTab === "library"}
               onClick={() => onTabChange("library")}
+              collapsed={collapsed}
             />
           )}
         </div>
@@ -253,20 +316,15 @@ export function Kai2Sidebar({ activeTab, onTabChange, selectedClientId, onClient
         {/* Planejamento - Enterprise Only */}
         {isEnterprise && (
           <>
-            <SectionLabel>Planejamento</SectionLabel>
+            <SectionLabel collapsed={collapsed}>Planejamento</SectionLabel>
 
             <div className="space-y-0.5">
               <NavItem
-                icon={<Calendar className="h-4 w-4" />}
-                label="Calendário"
-                active={activeTab === "calendar"}
-                onClick={() => onTabChange("calendar")}
-              />
-              <NavItem
-                icon={<LayoutGrid className="h-4 w-4" />}
-                label="Kanban"
-                active={activeTab === "kanban"}
-                onClick={() => onTabChange("kanban")}
+                icon={<CalendarDays className="h-4 w-4" />}
+                label="Planejamento"
+                active={activeTab === "planning"}
+                onClick={() => onTabChange("planning")}
+                collapsed={collapsed}
               />
             </div>
           </>
@@ -275,7 +333,7 @@ export function Kai2Sidebar({ activeTab, onTabChange, selectedClientId, onClient
         {/* Ferramentas - Knowledge Base for member+, rest for admin/owner */}
         {(canViewKnowledgeBase || canViewTools) && (
           <>
-            <SectionLabel>Ferramentas</SectionLabel>
+            <SectionLabel collapsed={collapsed}>Ferramentas</SectionLabel>
 
             <div className="space-y-0.5">
               {canViewKnowledgeBase && (
@@ -284,14 +342,14 @@ export function Kai2Sidebar({ activeTab, onTabChange, selectedClientId, onClient
                   label="Base de Conhecimento"
                   active={activeTab === "knowledge-base"}
                   onClick={() => onTabChange("knowledge-base")}
+                  collapsed={collapsed}
                 />
               )}
-
             </div>
           </>
         )}
 
-        <SectionLabel>Conta</SectionLabel>
+        <SectionLabel collapsed={collapsed}>Conta</SectionLabel>
 
         <div className="space-y-0.5">
           {/* Clientes - only for admin/owner */}
@@ -301,6 +359,7 @@ export function Kai2Sidebar({ activeTab, onTabChange, selectedClientId, onClient
               label="Clientes"
               active={activeTab === "clients"}
               onClick={() => onTabChange("clients")}
+              collapsed={collapsed}
             />
           )}
 
@@ -310,8 +369,8 @@ export function Kai2Sidebar({ activeTab, onTabChange, selectedClientId, onClient
               icon={<Users className="h-4 w-4" />}
               label="Equipe"
               active={activeTab === "team"}
-              onClick={() => onTabChange("team")}
               badge={pendingCount}
+              collapsed={collapsed}
             />
           )}
 
@@ -322,6 +381,7 @@ export function Kai2Sidebar({ activeTab, onTabChange, selectedClientId, onClient
               label="Atividades"
               active={activeTab === "activities"}
               onClick={() => onTabChange("activities")}
+              collapsed={collapsed}
             />
           )}
 
@@ -330,6 +390,7 @@ export function Kai2Sidebar({ activeTab, onTabChange, selectedClientId, onClient
             label="Configurações"
             active={false}
             onClick={() => navigate(`/${currentSlug}/settings`)}
+            collapsed={collapsed}
           />
 
           <NavItem
@@ -337,26 +398,56 @@ export function Kai2Sidebar({ activeTab, onTabChange, selectedClientId, onClient
             label="Ajuda"
             active={activeTab === "docs"}
             onClick={() => navigate(`/${currentSlug}/docs`)}
+            collapsed={collapsed}
           />
         </div>
       </nav>
 
+      {/* Collapse Toggle */}
+      <div className="px-3 py-2 border-t border-border">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onToggleCollapse}
+          className={cn(
+            "w-full flex items-center gap-2 justify-center",
+            !collapsed && "justify-start"
+          )}
+        >
+          {collapsed ? (
+            <ChevronRight className="h-4 w-4" />
+          ) : (
+            <>
+              <ChevronLeft className="h-4 w-4" />
+              <span className="text-xs">Recolher</span>
+            </>
+          )}
+        </Button>
+      </div>
+
       {/* User Footer */}
-      <div className="p-3 border-t border-border">
+      <div className={cn("p-3 border-t border-border", collapsed && "p-2")}>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button className="w-full flex items-center gap-3 px-2 py-2 rounded-md hover:bg-muted transition-colors">
-              <Avatar className="h-8 w-8 border border-border">
+            <button className={cn(
+              "w-full flex items-center gap-3 rounded-md hover:bg-muted transition-colors",
+              collapsed ? "p-1 justify-center" : "px-2 py-2"
+            )}>
+              <Avatar className={cn("border border-border", collapsed ? "h-7 w-7" : "h-8 w-8")}>
                 <AvatarImage src={userProfile?.avatar_url || undefined} alt={userName} />
                 <AvatarFallback className="bg-muted text-muted-foreground text-xs font-medium">
                   {userInitials}
                 </AvatarFallback>
               </Avatar>
-              <div className="flex-1 text-left min-w-0">
-                <p className="text-sm font-medium text-foreground truncate">{userName}</p>
-                <p className="text-[11px] text-muted-foreground truncate">{user?.email}</p>
-              </div>
-              <ChevronDown className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+              {!collapsed && (
+                <>
+                  <div className="flex-1 text-left min-w-0">
+                    <p className="text-sm font-medium text-foreground truncate">{userName}</p>
+                    <p className="text-[11px] text-muted-foreground truncate">{user?.email}</p>
+                  </div>
+                  <ChevronDown className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                </>
+              )}
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-52 bg-popover border-border shadow-elevated">

@@ -16,7 +16,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { uploadAndGetSignedUrl, openFileInNewTab, downloadFile } from "@/lib/storage";
 import { toast } from "sonner";
 import { TagsInput } from "@/components/knowledge/TagsInput";
-import { TasksPanel } from "@/components/kai2/TasksPanel";
+import { TasksPanel } from "@/components/kai/TasksPanel";
 import { useContextualTasks } from "@/hooks/useContextualTasks";
 import { useDebounce } from "@/hooks/useDebounce";
 

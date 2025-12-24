@@ -1,6 +1,6 @@
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
-import Kai2 from "./pages/Kai2";
+import Kai from "./pages/Kai";
 import Documentation from "./pages/Documentation";
 import LandingPage from "./pages/LandingPage";
 import AdminDashboard from "./pages/AdminDashboard";
@@ -64,7 +64,7 @@ const App = () => (
                 
                 {/* Workspace routes with slug */}
                 <Route path="/:slug" element={<WorkspaceRouter />}>
-                  <Route index element={<Kai2 />} />
+                  <Route index element={<Kai />} />
                   <Route path="docs" element={<Documentation />} />
                   <Route path="settings" element={<Settings />} />
                 </Route>
