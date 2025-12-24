@@ -4,11 +4,13 @@ import { Button } from "@/components/ui/button";
 import { Menu, X } from "lucide-react";
 import { Link } from "react-router-dom";
 import ThemeToggle from "./ThemeToggle";
+import kaleidosLogo from "@/assets/kaleidos-logo.svg";
 
 const navItems = [
   { name: "Funcionalidades", href: "#features" },
   { name: "Como Funciona", href: "#workflow" },
   { name: "Integrações", href: "#integrations" },
+  { name: "Preços", href: "#pricing" },
   { name: "Depoimentos", href: "#testimonials" },
 ];
 
@@ -38,9 +40,9 @@ const NewLandingHeader = () => {
       <div className="max-w-7xl mx-auto px-6">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-              <span className="text-primary-foreground font-bold text-lg">K</span>
+          <Link to="/" className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center p-1.5">
+              <img src={kaleidosLogo} alt="Kaleidos" className="w-full h-full" />
             </div>
             <span className="font-bold text-xl text-foreground">Kaleidos</span>
           </Link>
