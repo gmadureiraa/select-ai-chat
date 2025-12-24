@@ -1,6 +1,5 @@
 import { motion } from "framer-motion";
 import { Users, FolderOpen, Workflow, BarChart3 } from "lucide-react";
-import GradientMesh from "./GradientMesh";
 
 const features = [
   {
@@ -29,7 +28,7 @@ const features = [
 
 const FeaturesGrid = () => {
   return (
-    <section id="features" className="py-32 bg-black relative overflow-hidden">
+    <section id="features" className="py-32 bg-muted/30 dark:bg-muted/10 relative overflow-hidden">
       <div className="max-w-7xl mx-auto px-6">
         {/* Section header */}
         <motion.div
@@ -39,11 +38,11 @@ const FeaturesGrid = () => {
           transition={{ duration: 0.6 }}
           className="text-center mb-16"
         >
-          <h2 className="text-4xl md:text-5xl font-light text-white mb-4">
+          <h2 className="text-4xl md:text-5xl font-light text-foreground mb-4">
             Como seu{" "}
-            <span className="italic text-white/80">time</span> vai trabalhar
+            <span className="italic text-muted-foreground">time</span> vai trabalhar
           </h2>
-          <p className="text-white/40 text-lg font-light max-w-xl mx-auto">
+          <p className="text-muted-foreground text-lg font-light max-w-xl mx-auto">
             Uma plataforma onde cada pessoa vê o que precisa, sem confusão.
           </p>
         </motion.div>
@@ -57,8 +56,9 @@ const FeaturesGrid = () => {
             transition={{ duration: 0.7 }}
             className="relative order-2 lg:order-1"
           >
-            <div className="relative rounded-3xl overflow-hidden h-[400px] bg-gradient-to-br from-violet-900/20 to-pink-900/20 border border-white/10">
-              <GradientMesh variant="section" />
+            <div className="relative rounded-3xl overflow-hidden h-[400px] bg-gradient-to-br from-violet-500/10 to-secondary/10 border border-border">
+              {/* Gradient blob */}
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] h-[300px] rounded-full bg-primary/20 blur-[80px]" />
 
               {/* Decorative workflow illustration */}
               <div className="absolute inset-0 flex items-center justify-center p-8">
@@ -72,9 +72,9 @@ const FeaturesGrid = () => {
                       transition={{ delay: 0.3 + index * 0.15 }}
                       className="flex items-center gap-3"
                     >
-                      <div className="w-3 h-3 rounded-full bg-gradient-to-r from-[hsl(330,85%,55%)] to-[hsl(25,95%,55%)]" />
-                      <div className="flex-1 h-12 rounded-xl bg-white/5 border border-white/10 flex items-center px-4">
-                        <span className="text-white/70 text-sm">{item}</span>
+                      <div className="w-3 h-3 rounded-full bg-gradient-to-r from-secondary to-accent" />
+                      <div className="flex-1 h-12 rounded-xl bg-card border border-border flex items-center px-4">
+                        <span className="text-muted-foreground text-sm">{item}</span>
                       </div>
                     </motion.div>
                   ))}
@@ -92,15 +92,15 @@ const FeaturesGrid = () => {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ duration: 0.5, delay: index * 0.1 }}
-                className="group p-6 rounded-2xl bg-white/[0.02] border border-white/[0.06] hover:bg-white/[0.04] hover:border-white/10 transition-all"
+                className="group p-6 rounded-2xl bg-card border border-border hover:border-primary/30 hover:shadow-lg transition-all"
               >
-                <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-white/10 to-white/5 border border-white/10 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                  <feature.icon className="w-6 h-6 text-white/80" />
+                <div className="w-14 h-14 rounded-xl bg-primary/10 border border-border flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                  <feature.icon className="w-6 h-6 text-primary" />
                 </div>
-                <h4 className="text-lg font-medium text-white mb-2">
+                <h4 className="text-lg font-medium text-foreground mb-2">
                   {feature.title}
                 </h4>
-                <p className="text-white/40 text-sm leading-relaxed">
+                <p className="text-muted-foreground text-sm leading-relaxed">
                   {feature.description}
                 </p>
               </motion.div>

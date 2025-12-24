@@ -9,24 +9,21 @@ const services = [
     description:
       "Organize todos os seus clientes com briefings, brand guidelines e histórico centralizado. Cada cliente tem seu espaço dedicado.",
     icon: Users,
-    gradientStart: "#E11D9B",
-    gradientEnd: "#F97316",
+    colorClass: "from-secondary to-accent",
   },
   {
     title: "Time Colaborativo",
     description:
       "Convide seu time e clientes com permissões granulares. Cada membro vê apenas o que precisa, mantendo tudo organizado.",
     icon: Shield,
-    gradientStart: "#6366F1",
-    gradientEnd: "#8B5CF6",
+    colorClass: "from-violet-500 to-purple-500",
   },
   {
     title: "IA Integrada",
     description:
       "Gere conteúdo, analise performance e automatize tarefas repetitivas. A IA aprende o tom de voz de cada cliente.",
     icon: Zap,
-    gradientStart: "#10B981",
-    gradientEnd: "#06B6D4",
+    colorClass: "from-primary to-cyan-500",
   },
 ];
 
@@ -57,9 +54,9 @@ const ServicesCarousel = () => {
   };
 
   return (
-    <section className="py-32 bg-black relative overflow-hidden">
+    <section className="py-32 bg-muted/30 dark:bg-muted/10 relative overflow-hidden">
       {/* Background gradient */}
-      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-white/[0.02] to-transparent" />
+      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-primary/[0.02] to-transparent" />
 
       <div className="max-w-7xl mx-auto px-6">
         <div className="grid lg:grid-cols-[1fr_2fr] gap-12 items-start">
@@ -70,27 +67,27 @@ const ServicesCarousel = () => {
             viewport={{ once: true }}
             transition={{ duration: 0.6 }}
           >
-            <h2 className="text-4xl md:text-5xl font-light text-white mb-4 leading-tight">
+            <h2 className="text-4xl md:text-5xl font-light text-foreground mb-4 leading-tight">
               Tudo que sua{" "}
-              <span className="italic text-white/80">agência</span>
+              <span className="italic text-muted-foreground">agência</span>
               <br />
-              <span className="bg-gradient-to-r from-[hsl(330,85%,55%)] to-[hsl(25,95%,55%)] bg-clip-text text-transparent font-medium">
+              <span className="bg-gradient-to-r from-secondary to-accent bg-clip-text text-transparent font-medium">
                 precisa
               </span>
             </h2>
-            <p className="text-white/40 text-lg font-light mb-8 max-w-sm">
+            <p className="text-muted-foreground text-lg font-light mb-8 max-w-sm">
               Ferramentas pensadas para times que produzem conteúdo em escala.
             </p>
             <div className="flex gap-3">
               <button
                 onClick={handlePrev}
-                className="w-12 h-12 rounded-full border border-white/20 flex items-center justify-center text-white/60 hover:text-white hover:border-white/40 transition-all hover:bg-white/5"
+                className="w-12 h-12 rounded-full border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-foreground/40 transition-all hover:bg-muted"
               >
                 <ChevronLeft className="w-5 h-5" />
               </button>
               <button
                 onClick={handleNext}
-                className="w-12 h-12 rounded-full border border-white/20 flex items-center justify-center text-white/60 hover:text-white hover:border-white/40 transition-all hover:bg-white/5"
+                className="w-12 h-12 rounded-full border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-foreground/40 transition-all hover:bg-muted"
               >
                 <ChevronRight className="w-5 h-5" />
               </button>
@@ -112,67 +109,42 @@ const ServicesCarousel = () => {
                 transition={{ duration: 0.5, delay: index * 0.1 }}
                 className="flex-shrink-0 w-[340px] snap-start"
               >
-                <div className="relative rounded-3xl overflow-hidden h-[420px] group">
+                <div className="relative rounded-3xl overflow-hidden h-[420px] group bg-card border border-border">
                   {/* Fluid gradient background */}
-                  <div className="absolute inset-0">
-                    <svg
-                      viewBox="0 0 400 500"
-                      className="w-full h-full"
-                      preserveAspectRatio="xMidYMid slice"
-                    >
-                      <defs>
-                        <linearGradient
-                          id={`cardGrad${index}`}
-                          x1="0%"
-                          y1="0%"
-                          x2="100%"
-                          y2="100%"
-                        >
-                          <stop offset="0%" stopColor={service.gradientStart} />
-                          <stop offset="100%" stopColor={service.gradientEnd} />
-                        </linearGradient>
-                        <filter id={`blur${index}`}>
-                          <feGaussianBlur stdDeviation="30" />
-                        </filter>
-                      </defs>
-                      <motion.ellipse
-                        cx="200"
-                        cy="250"
-                        rx="180"
-                        ry="200"
-                        fill={`url(#cardGrad${index})`}
-                        filter={`url(#blur${index})`}
-                        animate={{
-                          rx: [180, 200, 180],
-                          ry: [200, 180, 200],
-                          cx: [200, 220, 200],
-                        }}
-                        transition={{
-                          duration: 8,
-                          repeat: Infinity,
-                          ease: "easeInOut",
-                        }}
-                      />
-                    </svg>
-                  </div>
+                  <div className={`absolute inset-0 bg-gradient-to-br ${service.colorClass} opacity-20`} />
+                  
+                  {/* Animated blob */}
+                  <motion.div
+                    className={`absolute top-1/2 left-1/2 w-[300px] h-[300px] rounded-full bg-gradient-to-r ${service.colorClass} blur-[80px] opacity-30`}
+                    animate={{
+                      scale: [1, 1.2, 1],
+                      x: ["-50%", "-40%", "-50%"],
+                      y: ["-50%", "-60%", "-50%"],
+                    }}
+                    transition={{
+                      duration: 8,
+                      repeat: Infinity,
+                      ease: "easeInOut",
+                    }}
+                  />
 
-                  {/* Dark overlay */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
+                  {/* Dark overlay for contrast */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-background/90 via-background/50 to-transparent dark:from-black/80 dark:via-black/40" />
 
                   {/* Content */}
                   <div className="relative z-10 h-full flex flex-col justify-end p-6">
-                    <div className="w-14 h-14 rounded-2xl bg-white/10 backdrop-blur-sm flex items-center justify-center mb-4 border border-white/10">
-                      <service.icon className="w-7 h-7 text-white" />
+                    <div className="w-14 h-14 rounded-2xl bg-primary/10 backdrop-blur-sm flex items-center justify-center mb-4 border border-border">
+                      <service.icon className="w-7 h-7 text-foreground" />
                     </div>
-                    <h3 className="text-2xl font-medium text-white mb-2">
+                    <h3 className="text-2xl font-medium text-foreground mb-2">
                       {service.title}
                     </h3>
-                    <p className="text-white/60 text-sm leading-relaxed mb-6">
+                    <p className="text-muted-foreground text-sm leading-relaxed mb-6">
                       {service.description}
                     </p>
                     <Button
                       variant="ghost"
-                      className="w-fit text-white/80 hover:text-white p-0 h-auto font-normal group/btn"
+                      className="w-fit text-muted-foreground hover:text-foreground p-0 h-auto font-normal group/btn"
                     >
                       Saiba mais
                       <ArrowRight className="w-4 h-4 ml-2 group-hover/btn:translate-x-1 transition-transform" />
@@ -191,7 +163,7 @@ const ServicesCarousel = () => {
               key={index}
               onClick={() => scrollToCard(index)}
               className={`w-2 h-2 rounded-full transition-all ${
-                activeIndex === index ? "bg-white w-6" : "bg-white/30"
+                activeIndex === index ? "bg-foreground w-6" : "bg-muted-foreground/30"
               }`}
             />
           ))}

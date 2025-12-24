@@ -20,7 +20,7 @@ const stats = [
 
 const StatsSection = () => {
   return (
-    <section className="py-24 bg-black relative overflow-hidden">
+    <section className="py-24 bg-muted/30 dark:bg-muted/10 relative overflow-hidden">
       <div className="max-w-7xl mx-auto px-6 relative z-10">
         {/* Header */}
         <motion.div
@@ -29,9 +29,9 @@ const StatsSection = () => {
           viewport={{ once: true }}
           className="text-center mb-16"
         >
-          <h2 className="text-3xl md:text-4xl font-light text-white/50">
+          <h2 className="text-3xl md:text-4xl font-light text-muted-foreground">
             Times que{" "}
-            <span className="text-white font-medium">escalam juntos</span>
+            <span className="text-foreground font-medium">escalam juntos</span>
           </h2>
         </motion.div>
 
@@ -46,20 +46,20 @@ const StatsSection = () => {
               transition={{ delay: index * 0.1 }}
               className="relative"
             >
-              <div className="rounded-3xl border border-white/10 p-8 text-center bg-white/[0.02] hover:bg-white/[0.04] transition-colors">
+              <div className="rounded-3xl border border-border p-8 text-center bg-card hover:border-primary/30 hover:shadow-lg transition-all">
                 <motion.div
                   initial={{ scale: 0.5 }}
                   whileInView={{ scale: 1 }}
                   viewport={{ once: true }}
                   transition={{ delay: index * 0.1 + 0.2, type: "spring" }}
-                  className="text-5xl md:text-6xl font-light bg-gradient-to-r from-[hsl(330,85%,55%)] to-[hsl(25,95%,55%)] bg-clip-text text-transparent mb-4"
+                  className="text-5xl md:text-6xl font-light bg-gradient-to-r from-secondary to-accent bg-clip-text text-transparent mb-4"
                 >
                   {stat.value}
                 </motion.div>
-                <h3 className="text-lg font-medium text-white mb-2">
+                <h3 className="text-lg font-medium text-foreground mb-2">
                   {stat.label}
                 </h3>
-                <p className="text-white/40 text-sm">{stat.description}</p>
+                <p className="text-muted-foreground text-sm">{stat.description}</p>
               </div>
             </motion.div>
           ))}
