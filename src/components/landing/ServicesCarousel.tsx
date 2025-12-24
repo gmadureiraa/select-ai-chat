@@ -1,29 +1,29 @@
 import { motion } from "framer-motion";
-import { ChevronLeft, ChevronRight, Brain, Users, Zap, ArrowRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Users, Shield, Zap, ArrowRight } from "lucide-react";
 import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 
 const services = [
   {
-    title: "Insights com IA",
-    description:
-      "Obtenha insights acionáveis dos seus dados com nossa engine de analytics inteligente que aprende com seu conteúdo.",
-    icon: Brain,
-    gradientStart: "#6366F1",
-    gradientEnd: "#8B5CF6",
-  },
-  {
     title: "Gestão de Clientes",
     description:
-      "Organize todos os seus clientes, marcas e diretrizes de conteúdo em um só lugar centralizado e inteligente.",
+      "Organize todos os seus clientes com briefings, brand guidelines e histórico centralizado. Cada cliente tem seu espaço dedicado.",
     icon: Users,
     gradientStart: "#E11D9B",
     gradientEnd: "#F97316",
   },
   {
-    title: "Automações",
+    title: "Time Colaborativo",
     description:
-      "Configure uma vez, execute para sempre. Workflows inteligentes que trabalham enquanto você dorme.",
+      "Convide seu time e clientes com permissões granulares. Cada membro vê apenas o que precisa, mantendo tudo organizado.",
+    icon: Shield,
+    gradientStart: "#6366F1",
+    gradientEnd: "#8B5CF6",
+  },
+  {
+    title: "IA Integrada",
+    description:
+      "Gere conteúdo, analise performance e automatize tarefas repetitivas. A IA aprende o tom de voz de cada cliente.",
     icon: Zap,
     gradientStart: "#10B981",
     gradientEnd: "#06B6D4",
@@ -71,15 +71,15 @@ const ServicesCarousel = () => {
             transition={{ duration: 0.6 }}
           >
             <h2 className="text-4xl md:text-5xl font-light text-white mb-4 leading-tight">
-              Serviços{" "}
-              <span className="italic text-white/80">Inteligentes</span>,
+              Tudo que sua{" "}
+              <span className="italic text-white/80">agência</span>
               <br />
               <span className="bg-gradient-to-r from-[hsl(330,85%,55%)] to-[hsl(25,95%,55%)] bg-clip-text text-transparent font-medium">
-                Construídos com IA
+                precisa
               </span>
             </h2>
             <p className="text-white/40 text-lg font-light mb-8 max-w-sm">
-              Ferramentas poderosas para transformar sua criação de conteúdo.
+              Ferramentas pensadas para times que produzem conteúdo em escala.
             </p>
             <div className="flex gap-3">
               <button
@@ -174,7 +174,7 @@ const ServicesCarousel = () => {
                       variant="ghost"
                       className="w-fit text-white/80 hover:text-white p-0 h-auto font-normal group/btn"
                     >
-                      Explorar
+                      Saiba mais
                       <ArrowRight className="w-4 h-4 ml-2 group-hover/btn:translate-x-1 transition-transform" />
                     </Button>
                   </div>

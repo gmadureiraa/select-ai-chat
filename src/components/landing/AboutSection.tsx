@@ -29,16 +29,16 @@ const AboutSection = () => {
             transition={{ delay: 0.2 }}
             className="text-white/40 text-sm uppercase tracking-widest mb-8"
           >
-            Nossa Missão
+            Por que o KAI?
           </motion.p>
 
           {/* Main text */}
           <h2 className="text-3xl md:text-5xl lg:text-6xl font-light text-white leading-relaxed">
-            <span className="text-white/50">Bem-vindo à </span>
+            <span className="text-white/50">Criamos o KAI para </span>
             <span className="bg-gradient-to-r from-[hsl(330,85%,55%)] to-[hsl(25,95%,55%)] bg-clip-text text-transparent font-medium">
-              nova era
+              agências e times
             </span>
-            <span className="text-white/50"> da criação de conteúdo!</span>
+            <span className="text-white/50"> que precisam escalar.</span>
           </h2>
 
           <motion.p
@@ -48,11 +48,12 @@ const AboutSection = () => {
             transition={{ delay: 0.3 }}
             className="text-xl md:text-2xl text-white/60 mt-10 leading-relaxed max-w-3xl mx-auto"
           >
-            Somos apaixonados por{" "}
-            <span className="text-white font-medium">transformar empresas</span>{" "}
-            com soluções inovadoras. Nosso objetivo?{" "}
-            <span className="italic">Simplificar processos</span> e liberar sua{" "}
-            <span className="text-[hsl(145,80%,50%)]">criatividade</span>.
+            Seu{" "}
+            <span className="text-white font-medium">time acessa os clientes</span>.{" "}
+            Seus{" "}
+            <span className="text-white font-medium">clientes acompanham as entregas</span>.{" "}
+            Você{" "}
+            <span className="text-[hsl(145,80%,50%)]">mantém o controle</span>.
           </motion.p>
 
           <motion.p
@@ -62,9 +63,9 @@ const AboutSection = () => {
             transition={{ delay: 0.4 }}
             className="text-lg text-white/40 mt-8 max-w-2xl mx-auto"
           >
-            Acreditamos que coisas incríveis devem ser fáceis de acessar.
+            Chega de planilhas, pastas compartilhadas e ferramentas desconectadas.
             <br />
-            Vamos explorar como podemos ajudar você!
+            Uma plataforma, todos os clientes, todo o time.
           </motion.p>
         </motion.div>
       </div>

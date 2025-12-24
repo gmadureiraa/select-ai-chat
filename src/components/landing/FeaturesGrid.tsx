@@ -1,35 +1,35 @@
 import { motion } from "framer-motion";
-import { Plug, TrendingUp, Megaphone, Brain } from "lucide-react";
-import FluidWaves from "./FluidWaves";
+import { Users, FolderOpen, Workflow, BarChart3 } from "lucide-react";
+import GradientMesh from "./GradientMesh";
 
 const features = [
   {
-    icon: Plug,
-    title: "Integrações",
+    icon: Users,
+    title: "Acesso por Time",
     description:
-      "Conecte-se com todas as plataformas que você já usa no dia a dia.",
+      "Cada membro do time acessa os clientes atribuídos com permissões personalizadas.",
   },
   {
-    icon: TrendingUp,
+    icon: FolderOpen,
+    title: "Clientes Organizados",
+    description:
+      "Briefings, brand guidelines, histórico de conversas e arquivos em um só lugar.",
+  },
+  {
+    icon: Workflow,
+    title: "Automações",
+    description: "Configure workflows que rodam automaticamente para cada cliente.",
+  },
+  {
+    icon: BarChart3,
     title: "Performance",
-    description:
-      "Métricas detalhadas e insights para maximizar seus resultados.",
-  },
-  {
-    icon: Megaphone,
-    title: "Marketing",
-    description: "Ferramentas de marketing integradas para amplificar alcance.",
-  },
-  {
-    icon: Brain,
-    title: "Soluções com IA",
-    description: "Inteligência artificial aplicada em cada etapa do processo.",
+    description: "Dashboard com métricas de todos os clientes e canais integrados.",
   },
 ];
 
 const FeaturesGrid = () => {
   return (
-    <section className="py-32 bg-black relative overflow-hidden">
+    <section id="features" className="py-32 bg-black relative overflow-hidden">
       <div className="max-w-7xl mx-auto px-6">
         {/* Section header */}
         <motion.div
@@ -40,18 +40,16 @@ const FeaturesGrid = () => {
           className="text-center mb-16"
         >
           <h2 className="text-4xl md:text-5xl font-light text-white mb-4">
-            Todas as{" "}
-            <span className="italic text-white/80">features</span> em um só
-            lugar
+            Como seu{" "}
+            <span className="italic text-white/80">time</span> vai trabalhar
           </h2>
           <p className="text-white/40 text-lg font-light max-w-xl mx-auto">
-            Uma plataforma completa para gerenciar todo o ciclo de vida do seu
-            conteúdo.
+            Uma plataforma onde cada pessoa vê o que precisa, sem confusão.
           </p>
         </motion.div>
 
         <div className="grid lg:grid-cols-2 gap-12 items-center">
-          {/* Left side - Fluid Visual */}
+          {/* Left side - Visual */}
           <motion.div
             initial={{ opacity: 0, x: -40 }}
             whileInView={{ opacity: 1, x: 0 }}
@@ -59,23 +57,28 @@ const FeaturesGrid = () => {
             transition={{ duration: 0.7 }}
             className="relative order-2 lg:order-1"
           >
-            <div className="relative rounded-3xl overflow-hidden h-[400px] bg-gradient-to-br from-amber-900/20 to-pink-900/20 border border-white/10">
-              <FluidWaves variant="gold" />
+            <div className="relative rounded-3xl overflow-hidden h-[400px] bg-gradient-to-br from-violet-900/20 to-pink-900/20 border border-white/10">
+              <GradientMesh variant="section" />
 
-              {/* Decorative elements */}
-              <div className="absolute inset-0 flex items-center justify-center">
-                <motion.div
-                  animate={{
-                    scale: [1, 1.1, 1],
-                    opacity: [0.3, 0.5, 0.3],
-                  }}
-                  transition={{
-                    duration: 4,
-                    repeat: Infinity,
-                    ease: "easeInOut",
-                  }}
-                  className="w-32 h-32 rounded-full bg-gradient-to-br from-[hsl(330,85%,55%)]/30 to-[hsl(25,95%,55%)]/30 blur-xl"
-                />
+              {/* Decorative workflow illustration */}
+              <div className="absolute inset-0 flex items-center justify-center p-8">
+                <div className="flex flex-col gap-4 w-full max-w-xs">
+                  {["Agência", "Time", "Clientes"].map((item, index) => (
+                    <motion.div
+                      key={item}
+                      initial={{ opacity: 0, x: -20 }}
+                      whileInView={{ opacity: 1, x: 0 }}
+                      viewport={{ once: true }}
+                      transition={{ delay: 0.3 + index * 0.15 }}
+                      className="flex items-center gap-3"
+                    >
+                      <div className="w-3 h-3 rounded-full bg-gradient-to-r from-[hsl(330,85%,55%)] to-[hsl(25,95%,55%)]" />
+                      <div className="flex-1 h-12 rounded-xl bg-white/5 border border-white/10 flex items-center px-4">
+                        <span className="text-white/70 text-sm">{item}</span>
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
               </div>
             </div>
           </motion.div>
