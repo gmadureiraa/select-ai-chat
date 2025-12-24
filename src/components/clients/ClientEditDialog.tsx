@@ -17,9 +17,10 @@ import {
   Plus, X, FileText, Loader2, Globe, Instagram, Twitter, 
   Linkedin, Youtube, Mail, Megaphone, Trash2, RefreshCw, Check,
   Building, MessageSquare, Users, Target, Hash, Eye, Award, TrendingUp,
-  Palette
+  Palette, Plug
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { SocialIntegrationsTab } from "./SocialIntegrationsTab";
 import { ClientDocumentsManager } from "./ClientDocumentsManager";
 import { BrandAssetsEditor } from "./BrandAssetsEditor";
 import { VisualReferencesManager } from "./VisualReferencesManager";
@@ -286,7 +287,7 @@ Estruture: Visão Geral, Posicionamento, Tom de Voz, Público-Alvo, Presença Di
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <Tabs defaultValue="basic" className="w-full">
-            <TabsList className="grid w-full grid-cols-8">
+            <TabsList className="grid w-full grid-cols-9">
               <TabsTrigger value="basic">Básico</TabsTrigger>
               <TabsTrigger value="identity">Identidade</TabsTrigger>
               <TabsTrigger value="brand" className="flex items-center gap-1">
@@ -294,9 +295,13 @@ Estruture: Visão Geral, Posicionamento, Tom de Voz, Público-Alvo, Presença Di
                 Visual
               </TabsTrigger>
               <TabsTrigger value="social">Redes</TabsTrigger>
+              <TabsTrigger value="integrations" className="flex items-center gap-1">
+                <Plug className="h-3 w-3" />
+                APIs
+              </TabsTrigger>
               <TabsTrigger value="tags">Tags</TabsTrigger>
               <TabsTrigger value="websites">Websites</TabsTrigger>
-              <TabsTrigger value="documents">Documentos</TabsTrigger>
+              <TabsTrigger value="documents">Docs</TabsTrigger>
               <TabsTrigger value="templates">Padrões</TabsTrigger>
             </TabsList>
 
@@ -404,6 +409,10 @@ Estruture: Visão Geral, Posicionamento, Tom de Voz, Público-Alvo, Presença Di
                   </div>
                 </div>
               ))}
+            </TabsContent>
+
+            <TabsContent value="integrations" className="space-y-4">
+              {client && <SocialIntegrationsTab clientId={client.id} />}
             </TabsContent>
 
             <TabsContent value="tags" className="space-y-4">

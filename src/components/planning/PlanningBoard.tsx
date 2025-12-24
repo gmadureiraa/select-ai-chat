@@ -8,6 +8,7 @@ import { PlanningItemCard } from './PlanningItemCard';
 import { PlanningItemDialog } from './PlanningItemDialog';
 import { KanbanView } from './KanbanView';
 import { CalendarView } from './CalendarView';
+import { ViewSettingsPopover, useViewSettings, type ViewSettings } from './ViewSettingsPopover';
 
 interface PlanningBoardProps {
   clientId?: string;
@@ -20,6 +21,7 @@ export function PlanningBoard({ clientId }: PlanningBoardProps) {
   const [editingItem, setEditingItem] = useState<PlanningItem | null>(null);
   const [defaultDate, setDefaultDate] = useState<Date | undefined>();
   const [defaultColumnId, setDefaultColumnId] = useState<string | undefined>();
+  const { settings, setSettings } = useViewSettings();
 
   const {
     items,
@@ -80,10 +82,13 @@ export function PlanningBoard({ clientId }: PlanningBoardProps) {
           <h2 className="text-xl font-semibold">Planejamento</h2>
           <ViewToggle view={view} onChange={setView} />
         </div>
-        <Button onClick={() => handleNewCard()} size="sm">
-          <Plus className="h-4 w-4 mr-1" />
-          Novo Card
-        </Button>
+        <div className="flex items-center gap-2">
+          <ViewSettingsPopover settings={settings} onChange={setSettings} />
+          <Button onClick={() => handleNewCard()} size="sm">
+            <Plus className="h-4 w-4 mr-1" />
+            Novo Card
+          </Button>
+        </div>
       </div>
 
       {/* Filters */}
