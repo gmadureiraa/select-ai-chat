@@ -3,11 +3,13 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import Kai2 from "./pages/Kai2";
 import Documentation from "./pages/Documentation";
 import LandingPage from "./pages/LandingPage";
+import AdminDashboard from "./pages/AdminDashboard";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { SuperAdminRoute } from "@/components/SuperAdminRoute";
 import Settings from "./pages/Settings";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
@@ -36,6 +38,18 @@ const App = () => (
                 
                 {/* Public landing page */}
                 <Route path="/" element={<LandingPage />} />
+                
+                {/* Super Admin route */}
+                <Route
+                  path="/admin"
+                  element={
+                    <ProtectedRoute>
+                      <SuperAdminRoute>
+                        <AdminDashboard />
+                      </SuperAdminRoute>
+                    </ProtectedRoute>
+                  }
+                />
                 
                 {/* Redirect to workspace for authenticated users */}
                 <Route
