@@ -1,6 +1,5 @@
 import { Link } from "react-router-dom";
 import kaleidosLogo from "@/assets/kaleidos-logo.svg";
-import { Instagram, Twitter, Linkedin, Youtube } from "lucide-react";
 
 const WHATSAPP_LINK = "https://api.whatsapp.com/send/?phone=12936180547&text=Ol%C3%A1%21+Preciso+da+ajuda+da+Kaleidos.+Podem+me+ajudar%3F&type=phone_number&app_absent=0";
 const CONTACT_EMAIL = "contato@kaleidos.ai";
@@ -22,24 +21,13 @@ const footerLinks = {
     { label: "WhatsApp", href: WHATSAPP_LINK },
     { label: "Email", href: `mailto:${CONTACT_EMAIL}` },
   ],
-  legal: [
-    { label: "Privacidade", href: "/privacidade" },
-    { label: "Termos", href: "/termos" },
-  ],
 };
-
-const socialLinks = [
-  { icon: Instagram, href: "#", label: "Instagram" },
-  { icon: Twitter, href: "#", label: "Twitter" },
-  { icon: Linkedin, href: "#", label: "LinkedIn" },
-  { icon: Youtube, href: "#", label: "YouTube" },
-];
 
 const LandingFooter = () => {
   return (
     <footer className="bg-muted/30 dark:bg-muted/10 border-t border-border">
       <div className="max-w-7xl mx-auto px-6 py-16">
-        <div className="grid grid-cols-2 md:grid-cols-6 gap-8 mb-12">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-8 mb-12">
           {/* Brand */}
           <div className="col-span-2">
             <Link to="/" className="flex items-center gap-3 mb-4">
@@ -47,21 +35,9 @@ const LandingFooter = () => {
               <span className="text-xl font-semibold text-foreground">KAI</span>
             </Link>
             <p className="text-muted-foreground text-sm leading-relaxed mb-6 max-w-xs">
-              Plataforma inteligente para criação de conteúdo. Automatize,
-              analise e acelere sua produção.
+              Plataforma inteligente para criação de conteúdo. Organize clientes,
+              crie com IA e analise performance.
             </p>
-            <div className="flex gap-3">
-              {socialLinks.map((social) => (
-                <a
-                  key={social.label}
-                  href={social.href}
-                  className="w-9 h-9 rounded-lg bg-card border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                  aria-label={social.label}
-                >
-                  <social.icon className="w-4 h-4" />
-                </a>
-              ))}
-            </div>
           </div>
 
           {/* Links */}
@@ -112,22 +88,6 @@ const LandingFooter = () => {
                   >
                     {link.label}
                   </a>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <div>
-            <h4 className="text-foreground font-medium mb-4">Legal</h4>
-            <ul className="space-y-3">
-              {footerLinks.legal.map((link) => (
-                <li key={link.label}>
-                  <Link
-                    to={link.href}
-                    className="text-muted-foreground hover:text-foreground text-sm transition-colors"
-                  >
-                    {link.label}
-                  </Link>
                 </li>
               ))}
             </ul>

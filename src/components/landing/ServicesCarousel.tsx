@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { ChevronLeft, ChevronRight, Users, Shield, Zap, ArrowRight, BarChart3, FolderOpen, Workflow, Target } from "lucide-react";
+import { ChevronLeft, ChevronRight, Users, Shield, Zap, ArrowRight, BarChart3, FolderOpen, Target } from "lucide-react";
 import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 
@@ -19,37 +19,30 @@ const services = [
     colorClass: "from-violet-500 to-purple-500",
   },
   {
-    title: "IA Integrada",
+    title: "Assistente IA",
     description:
-      "Gere conteúdo, analise performance e automatize tarefas repetitivas. A IA aprende o tom de voz de cada cliente.",
+      "Converse com a IA que aprende o tom de voz de cada cliente. Gere conteúdo, analise referências e receba sugestões personalizadas.",
     icon: Zap,
     colorClass: "from-primary to-cyan-500",
   },
   {
     title: "Performance Analytics",
     description:
-      "Métricas de Instagram, YouTube e Newsletter em um só lugar. Dashboards visuais e insights automáticos para cada cliente.",
+      "Métricas de Instagram, YouTube e Newsletter em um só lugar. Dashboards visuais e insights para cada cliente.",
     icon: BarChart3,
     colorClass: "from-emerald-500 to-teal-500",
   },
   {
-    title: "Biblioteca de Conteúdo",
+    title: "Research Lab",
     description:
-      "Armazene templates, referências visuais e conteúdos aprovados. Reutilize o que funciona e mantenha consistência.",
+      "Canvas visual para pesquisar, organizar referências e criar moodboards. Importe links, imagens e documentos em um espaço colaborativo.",
     icon: FolderOpen,
     colorClass: "from-amber-500 to-orange-500",
   },
   {
-    title: "Automações",
+    title: "Base de Conhecimento",
     description:
-      "Crie workflows que rodam automaticamente. Relatórios semanais, alertas de performance e tarefas recorrentes.",
-    icon: Workflow,
-    colorClass: "from-rose-500 to-pink-500",
-  },
-  {
-    title: "Metas & Objetivos",
-    description:
-      "Defina metas para cada cliente e acompanhe o progresso. Visualize o quanto falta para atingir cada objetivo.",
+      "Armazene PDFs, documentos e referências que a IA usa para gerar conteúdo mais preciso e alinhado com cada cliente.",
     icon: Target,
     colorClass: "from-blue-500 to-indigo-500",
   },

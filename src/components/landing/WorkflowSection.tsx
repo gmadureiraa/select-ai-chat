@@ -1,27 +1,27 @@
 import { motion } from "framer-motion";
-import { Bot, Layout, Calendar, BarChart3, ArrowRight, Sparkles } from "lucide-react";
+import { MessageSquare, Palette, FlaskConical, BarChart3, ArrowRight, Sparkles } from "lucide-react";
 import FluidWaves from "./FluidWaves";
 
 const features = [
   {
-    icon: Bot,
-    title: "Task Bots Inteligentes",
-    description: "Automatize tarefas repetitivas com bots que aprendem.",
+    icon: MessageSquare,
+    title: "Assistente IA",
+    description: "Converse e crie conteúdo em segundos com contexto do cliente.",
   },
   {
-    icon: Layout,
-    title: "+100 Templates",
-    description: "Templates prontos para qualquer tipo de conteúdo.",
+    icon: Palette,
+    title: "Contexto de Marca",
+    description: "A IA aprende o tom de voz e estilo de cada cliente.",
   },
   {
-    icon: Calendar,
-    title: "Planejamento Automático",
-    description: "Calendário inteligente que sugere horários ideais.",
+    icon: FlaskConical,
+    title: "Research Lab",
+    description: "Pesquise e organize referências em um canvas visual.",
   },
   {
     icon: BarChart3,
-    title: "Análise de Performance",
-    description: "Métricas em tempo real para otimizar resultados.",
+    title: "Métricas em Tempo Real",
+    description: "Instagram, YouTube e Newsletter em um dashboard.",
   },
 ];
 
@@ -77,17 +77,17 @@ const WorkflowSection = () => {
             {/* Badge */}
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-secondary/10 border border-secondary/20 mb-6">
               <Sparkles className="w-4 h-4 text-secondary" />
-              <span className="text-sm text-foreground/80">Automação de Fluxo</span>
+              <span className="text-sm text-foreground/80">Criação com IA</span>
             </div>
 
             <h2 className="text-4xl md:text-5xl font-light text-foreground mb-6 leading-tight">
-              Automação de Conteúdo{" "}
-              <span className="italic text-muted-foreground">Simplificada!</span>
+              Conteúdo com{" "}
+              <span className="italic text-muted-foreground">Contexto!</span>
             </h2>
 
             <p className="text-muted-foreground text-lg font-light mb-10 max-w-md">
-              Configure workflows poderosos em minutos e deixe a IA fazer o
-              trabalho pesado por você.
+              A IA entende cada cliente, seu tom de voz e histórico para criar 
+              conteúdo personalizado.
             </p>
 
             {/* Features grid */}

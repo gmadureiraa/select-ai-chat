@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Users, FolderOpen, Workflow, BarChart3 } from "lucide-react";
+import { Users, FolderOpen, FlaskConical, BarChart3 } from "lucide-react";
 
 const features = [
   {
@@ -15,9 +15,9 @@ const features = [
       "Briefings, brand guidelines, histórico de conversas e arquivos em um só lugar.",
   },
   {
-    icon: Workflow,
-    title: "Automações",
-    description: "Configure workflows que rodam automaticamente para cada cliente.",
+    icon: FlaskConical,
+    title: "Research Lab",
+    description: "Canvas visual para pesquisar e organizar referências em projetos.",
   },
   {
     icon: BarChart3,
