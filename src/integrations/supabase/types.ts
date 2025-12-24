@@ -1589,6 +1589,92 @@ export type Database = {
           },
         ]
       }
+      subscription_plans: {
+        Row: {
+          created_at: string | null
+          features: Json | null
+          id: string
+          is_active: boolean | null
+          max_clients: number
+          max_members: number
+          name: string
+          price_monthly: number
+          price_yearly: number
+          tokens_monthly: number
+          type: Database["public"]["Enums"]["plan_type"]
+        }
+        Insert: {
+          created_at?: string | null
+          features?: Json | null
+          id?: string
+          is_active?: boolean | null
+          max_clients?: number
+          max_members?: number
+          name: string
+          price_monthly?: number
+          price_yearly?: number
+          tokens_monthly?: number
+          type: Database["public"]["Enums"]["plan_type"]
+        }
+        Update: {
+          created_at?: string | null
+          features?: Json | null
+          id?: string
+          is_active?: boolean | null
+          max_clients?: number
+          max_members?: number
+          name?: string
+          price_monthly?: number
+          price_yearly?: number
+          tokens_monthly?: number
+          type?: Database["public"]["Enums"]["plan_type"]
+        }
+        Relationships: []
+      }
+      token_transactions: {
+        Row: {
+          amount: number
+          balance_after: number
+          created_at: string | null
+          description: string | null
+          id: string
+          metadata: Json | null
+          type: Database["public"]["Enums"]["token_transaction_type"]
+          user_id: string | null
+          workspace_id: string
+        }
+        Insert: {
+          amount: number
+          balance_after: number
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          metadata?: Json | null
+          type: Database["public"]["Enums"]["token_transaction_type"]
+          user_id?: string | null
+          workspace_id: string
+        }
+        Update: {
+          amount?: number
+          balance_after?: number
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          metadata?: Json | null
+          type?: Database["public"]["Enums"]["token_transaction_type"]
+          user_id?: string | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "token_transactions_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_activities: {
         Row: {
           activity_type: Database["public"]["Enums"]["activity_type"]
@@ -1815,26 +1901,133 @@ export type Database = {
           },
         ]
       }
+      workspace_subscriptions: {
+        Row: {
+          cancel_at_period_end: boolean | null
+          created_at: string | null
+          current_period_end: string
+          current_period_start: string
+          id: string
+          plan_id: string
+          status: Database["public"]["Enums"]["subscription_status"]
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
+          updated_at: string | null
+          workspace_id: string
+        }
+        Insert: {
+          cancel_at_period_end?: boolean | null
+          created_at?: string | null
+          current_period_end?: string
+          current_period_start?: string
+          id?: string
+          plan_id: string
+          status?: Database["public"]["Enums"]["subscription_status"]
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          updated_at?: string | null
+          workspace_id: string
+        }
+        Update: {
+          cancel_at_period_end?: boolean | null
+          created_at?: string | null
+          current_period_end?: string
+          current_period_start?: string
+          id?: string
+          plan_id?: string
+          status?: Database["public"]["Enums"]["subscription_status"]
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          updated_at?: string | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workspace_subscriptions_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "subscription_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workspace_subscriptions_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: true
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workspace_tokens: {
+        Row: {
+          balance: number
+          created_at: string | null
+          id: string
+          period_end: string
+          period_start: string
+          tokens_used_this_period: number
+          updated_at: string | null
+          workspace_id: string
+        }
+        Insert: {
+          balance?: number
+          created_at?: string | null
+          id?: string
+          period_end?: string
+          period_start?: string
+          tokens_used_this_period?: number
+          updated_at?: string | null
+          workspace_id: string
+        }
+        Update: {
+          balance?: number
+          created_at?: string | null
+          id?: string
+          period_end?: string
+          period_start?: string
+          tokens_used_this_period?: number
+          updated_at?: string | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workspace_tokens_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: true
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       workspaces: {
         Row: {
           created_at: string | null
           id: string
+          logo_url: string | null
           name: string
           owner_id: string
+          settings: Json | null
+          slug: string | null
           updated_at: string | null
         }
         Insert: {
           created_at?: string | null
           id?: string
+          logo_url?: string | null
           name: string
           owner_id: string
+          settings?: Json | null
+          slug?: string | null
           updated_at?: string | null
         }
         Update: {
           created_at?: string | null
           id?: string
+          logo_url?: string | null
           name?: string
           owner_id?: string
+          settings?: Json | null
+          slug?: string | null
           updated_at?: string | null
         }
         Relationships: []
@@ -1975,11 +2168,30 @@ export type Database = {
         Args: { p_conversation_id: string; p_user_id: string }
         Returns: boolean
       }
+      create_workspace_with_subscription: {
+        Args: { p_name: string; p_owner_id: string; p_slug: string }
+        Returns: string
+      }
+      debit_workspace_tokens: {
+        Args: {
+          p_amount: number
+          p_description?: string
+          p_metadata?: Json
+          p_user_id?: string
+          p_workspace_id: string
+        }
+        Returns: {
+          error: string
+          new_balance: number
+          success: boolean
+        }[]
+      }
       get_user_workspace_id: { Args: { p_user_id: string }; Returns: string }
       get_user_workspace_role: {
         Args: { p_user_id: string }
         Returns: Database["public"]["Enums"]["workspace_role"]
       }
+      get_user_workspace_slug: { Args: { p_user_id: string }; Returns: string }
       has_project_access: {
         Args: { p_project_id: string; p_user_id: string }
         Returns: boolean
@@ -1988,6 +2200,7 @@ export type Database = {
         Args: { p_project_id: string; p_user_id: string }
         Returns: boolean
       }
+      is_slug_available: { Args: { p_slug: string }; Returns: boolean }
       is_viewer_role: { Args: { p_user_id: string }; Returns: boolean }
       is_workspace_member: {
         Args: { p_user_id: string; p_workspace_id: string }
@@ -2081,7 +2294,16 @@ export type Database = {
         | "branding"
         | "analytics"
         | "audience"
+      plan_type: "free" | "starter" | "pro" | "enterprise"
       share_permission: "view" | "edit" | "admin"
+      subscription_status: "active" | "canceled" | "past_due" | "trialing"
+      token_transaction_type:
+        | "subscription_credit"
+        | "purchase"
+        | "usage"
+        | "refund"
+        | "bonus"
+        | "adjustment"
       workspace_role: "owner" | "admin" | "member" | "viewer"
     }
     CompositeTypes: {
@@ -2267,7 +2489,17 @@ export const Constants = {
         "analytics",
         "audience",
       ],
+      plan_type: ["free", "starter", "pro", "enterprise"],
       share_permission: ["view", "edit", "admin"],
+      subscription_status: ["active", "canceled", "past_due", "trialing"],
+      token_transaction_type: [
+        "subscription_credit",
+        "purchase",
+        "usage",
+        "refund",
+        "bonus",
+        "adjustment",
+      ],
       workspace_role: ["owner", "admin", "member", "viewer"],
     },
   },

@@ -1,5 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -7,24 +9,55 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import kaleidosLogo from "@/assets/kaleidos-logo.svg";
 
 const Login = () => {
-  const { signIn, signUp } = useAuth();
+  const navigate = useNavigate();
+  const { signIn, signUp, user } = useAuth();
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [loading, setLoading] = useState(false);
 
+  // Redirect to workspace if already logged in
+  useEffect(() => {
+    const redirectToWorkspace = async () => {
+      if (user) {
+        try {
+          const { data: slug } = await supabase
+            .rpc("get_user_workspace_slug", { p_user_id: user.id });
+          
+          if (slug) {
+            navigate(`/${slug}`, { replace: true });
+          } else {
+            // User has no workspace, redirect to signup
+            navigate("/signup", { replace: true });
+          }
+        } catch (err) {
+          console.error("Error fetching workspace:", err);
+        }
+      }
+    };
+
+    redirectToWorkspace();
+  }, [user, navigate]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
-    if (isSignUp) {
-      await signUp(email, password, fullName);
-    } else {
+    try {
+      if (isSignUp) {
+        // For signup, redirect to the dedicated signup page
+        navigate("/signup");
+        return;
+      }
+      
       await signIn(email, password);
+      // The useEffect will handle redirection after successful login
+    } catch (err) {
+      console.error("Login error:", err);
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   };
 
   return (
@@ -39,30 +72,15 @@ const Login = () => {
           </div>
           <div>
             <CardTitle className="text-2xl text-center">
-              {isSignUp ? "Criar Conta" : "Entrar"}
+              Entrar
             </CardTitle>
             <CardDescription className="text-center">
-              {isSignUp
-                ? "Crie sua conta para acessar o kAI"
-                : "Entre com suas credenciais"}
+              Entre com suas credenciais
             </CardDescription>
           </div>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
-            {isSignUp && (
-              <div className="space-y-2">
-                <Label htmlFor="fullName">Nome Completo</Label>
-                <Input
-                  id="fullName"
-                  type="text"
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  required
-                  disabled={loading}
-                />
-              </div>
-            )}
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
@@ -88,22 +106,20 @@ const Login = () => {
             </div>
             <Button
               type="submit"
-              className="w-full bg-secondary hover:bg-secondary/90"
+              className="w-full"
               disabled={loading}
             >
-              {loading ? "Carregando..." : isSignUp ? "Criar Conta" : "Entrar"}
+              {loading ? "Carregando..." : "Entrar"}
             </Button>
           </form>
           <div className="mt-4 text-center">
             <button
               type="button"
-              onClick={() => setIsSignUp(!isSignUp)}
+              onClick={() => navigate("/signup")}
               className="text-sm text-muted-foreground hover:text-foreground transition-colors"
               disabled={loading}
             >
-              {isSignUp
-                ? "Já tem uma conta? Entre aqui"
-                : "Não tem conta? Crie uma agora"}
+              Não tem conta? Crie uma agora
             </button>
           </div>
         </CardContent>
