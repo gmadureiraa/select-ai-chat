@@ -1,5 +1,8 @@
 import { ReactNode } from "react";
-import { useWorkspace } from "@/hooks/useWorkspace";
+import { useQuery } from "@tanstack/react-query";
+import { useWorkspaceContext } from "@/contexts/WorkspaceContext";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PendingAccessOverlay } from "@/components/PendingAccessOverlay";
 
@@ -8,15 +11,35 @@ interface WorkspaceGuardProps {
 }
 
 export const WorkspaceGuard = ({ children }: WorkspaceGuardProps) => {
-  const { workspace, isLoadingWorkspace } = useWorkspace();
+  const { workspace, isLoading: isLoadingWorkspace } = useWorkspaceContext();
+  const { user, loading: authLoading } = useAuth();
 
-  // Debug log to trace the issue
-  console.log("[WorkspaceGuard] State:", { 
-    workspace: workspace?.id ?? null, 
-    isLoadingWorkspace 
+  // Check if user is member of this specific workspace
+  const { data: isMember, isLoading: isCheckingMembership } = useQuery({
+    queryKey: ["workspace-membership", workspace?.id, user?.id],
+    queryFn: async () => {
+      if (!workspace?.id || !user?.id) return false;
+      
+      const { data, error } = await supabase
+        .from("workspace_members")
+        .select("id, role")
+        .eq("workspace_id", workspace.id)
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (error) {
+        console.error("[WorkspaceGuard] Error checking membership:", error);
+        return false;
+      }
+
+      return !!data;
+    },
+    enabled: !!workspace?.id && !!user?.id,
   });
 
-  if (isLoadingWorkspace) {
+  const isLoading = authLoading || isLoadingWorkspace || isCheckingMembership;
+
+  if (isLoading) {
     return (
       <div className="min-h-screen bg-background p-6">
         <div className="max-w-7xl mx-auto space-y-6">
@@ -31,8 +54,8 @@ export const WorkspaceGuard = ({ children }: WorkspaceGuardProps) => {
     );
   }
 
-  // User is not in any workspace - show pending access overlay with blurred background
-  if (!workspace) {
+  // User is not a member of this workspace - show pending access overlay
+  if (!isMember) {
     return <PendingAccessOverlay>{children}</PendingAccessOverlay>;
   }
 
