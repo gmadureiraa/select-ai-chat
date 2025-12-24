@@ -563,6 +563,77 @@ export type Database = {
           },
         ]
       }
+      client_social_credentials: {
+        Row: {
+          access_token: string | null
+          access_token_secret: string | null
+          account_id: string | null
+          account_name: string | null
+          api_key: string | null
+          api_secret: string | null
+          client_id: string
+          created_at: string
+          expires_at: string | null
+          id: string
+          is_valid: boolean | null
+          last_validated_at: string | null
+          metadata: Json | null
+          oauth_access_token: string | null
+          oauth_refresh_token: string | null
+          platform: string
+          updated_at: string
+          validation_error: string | null
+        }
+        Insert: {
+          access_token?: string | null
+          access_token_secret?: string | null
+          account_id?: string | null
+          account_name?: string | null
+          api_key?: string | null
+          api_secret?: string | null
+          client_id: string
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          is_valid?: boolean | null
+          last_validated_at?: string | null
+          metadata?: Json | null
+          oauth_access_token?: string | null
+          oauth_refresh_token?: string | null
+          platform: string
+          updated_at?: string
+          validation_error?: string | null
+        }
+        Update: {
+          access_token?: string | null
+          access_token_secret?: string | null
+          account_id?: string | null
+          account_name?: string | null
+          api_key?: string | null
+          api_secret?: string | null
+          client_id?: string
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          is_valid?: boolean | null
+          last_validated_at?: string | null
+          metadata?: Json | null
+          oauth_access_token?: string | null
+          oauth_refresh_token?: string | null
+          platform?: string
+          updated_at?: string
+          validation_error?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_social_credentials_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       client_templates: {
         Row: {
           clickup_list_id: string | null
@@ -1056,6 +1127,139 @@ export type Database = {
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      kanban_cards: {
+        Row: {
+          assigned_to: string | null
+          client_id: string | null
+          column_id: string
+          content_library_id: string | null
+          created_at: string
+          created_by: string
+          description: string | null
+          due_date: string | null
+          id: string
+          labels: Json | null
+          media_urls: Json | null
+          metadata: Json | null
+          platform: string | null
+          position: number
+          scheduled_post_id: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          assigned_to?: string | null
+          client_id?: string | null
+          column_id: string
+          content_library_id?: string | null
+          created_at?: string
+          created_by: string
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          labels?: Json | null
+          media_urls?: Json | null
+          metadata?: Json | null
+          platform?: string | null
+          position?: number
+          scheduled_post_id?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          assigned_to?: string | null
+          client_id?: string | null
+          column_id?: string
+          content_library_id?: string | null
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          labels?: Json | null
+          media_urls?: Json | null
+          metadata?: Json | null
+          platform?: string | null
+          position?: number
+          scheduled_post_id?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kanban_cards_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "kanban_cards_column_id_fkey"
+            columns: ["column_id"]
+            isOneToOne: false
+            referencedRelation: "kanban_columns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "kanban_cards_content_library_id_fkey"
+            columns: ["content_library_id"]
+            isOneToOne: false
+            referencedRelation: "client_content_library"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "kanban_cards_scheduled_post_id_fkey"
+            columns: ["scheduled_post_id"]
+            isOneToOne: false
+            referencedRelation: "scheduled_posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      kanban_columns: {
+        Row: {
+          color: string | null
+          column_type: string | null
+          created_at: string
+          id: string
+          is_default: boolean | null
+          name: string
+          position: number
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          color?: string | null
+          column_type?: string | null
+          created_at?: string
+          id?: string
+          is_default?: boolean | null
+          name: string
+          position?: number
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          color?: string | null
+          column_type?: string | null
+          created_at?: string
+          id?: string
+          is_default?: boolean | null
+          name?: string
+          position?: number
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kanban_columns_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
             referencedColumns: ["id"]
           },
         ]
@@ -1585,6 +1789,84 @@ export type Database = {
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      scheduled_posts: {
+        Row: {
+          client_id: string
+          content: string
+          content_type: string
+          created_at: string
+          created_by: string
+          error_message: string | null
+          external_post_id: string | null
+          id: string
+          media_urls: Json | null
+          metadata: Json | null
+          platform: string
+          published_at: string | null
+          retry_count: number | null
+          scheduled_at: string
+          status: string
+          title: string
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          client_id: string
+          content: string
+          content_type?: string
+          created_at?: string
+          created_by: string
+          error_message?: string | null
+          external_post_id?: string | null
+          id?: string
+          media_urls?: Json | null
+          metadata?: Json | null
+          platform: string
+          published_at?: string | null
+          retry_count?: number | null
+          scheduled_at: string
+          status?: string
+          title: string
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          client_id?: string
+          content?: string
+          content_type?: string
+          created_at?: string
+          created_by?: string
+          error_message?: string | null
+          external_post_id?: string | null
+          id?: string
+          media_urls?: Json | null
+          metadata?: Json | null
+          platform?: string
+          published_at?: string | null
+          retry_count?: number | null
+          scheduled_at?: string
+          status?: string
+          title?: string
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scheduled_posts_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "scheduled_posts_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
             referencedColumns: ["id"]
           },
         ]
@@ -2357,6 +2639,14 @@ export type Database = {
       }
       has_project_edit_access: {
         Args: { p_project_id: string; p_user_id: string }
+        Returns: boolean
+      }
+      initialize_kanban_columns: {
+        Args: { p_workspace_id: string }
+        Returns: undefined
+      }
+      is_enterprise_workspace: {
+        Args: { p_workspace_id: string }
         Returns: boolean
       }
       is_slug_available: { Args: { p_slug: string }; Returns: boolean }
