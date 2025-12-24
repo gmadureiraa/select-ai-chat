@@ -37,10 +37,20 @@ const AdminDashboard = () => {
   // Use React Query hook for workspace details
   const { details, members, clients, memberTokens, isLoading: isLoadingDetails } = useWorkspaceDetailsAdmin(selectedWorkspace);
 
+  // Get last used workspace slug from localStorage
+  const getLastWorkspaceSlug = (): string => {
+    try {
+      const stored = localStorage.getItem("kaleidos_last_workspace_slug");
+      return stored || "kai";
+    } catch {
+      return "kai";
+    }
+  };
+
   // Redirect if not super-admin
   useEffect(() => {
     if (!isLoading && !isSuperAdmin) {
-      navigate("/app");
+      navigate(`/${getLastWorkspaceSlug()}`);
     }
   }, [isLoading, isSuperAdmin, navigate]);
 
@@ -90,7 +100,7 @@ const AdminDashboard = () => {
                 <p className="text-sm text-muted-foreground">Gerenciamento de todos os workspaces</p>
               </div>
             </div>
-            <Button variant="outline" onClick={() => navigate("/app")}>
+            <Button variant="outline" onClick={() => navigate(`/${getLastWorkspaceSlug()}`)}>
               <ArrowLeft className="h-4 w-4 mr-2" />
               Voltar ao App
             </Button>

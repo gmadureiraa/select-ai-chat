@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { Plus, Save, MoreHorizontal, Settings, Trash2, Sparkles, LayoutTemplate, Play, ArrowLeft, Home } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,6 +31,7 @@ import { toast } from "sonner";
 
 export default function AgentBuilder() {
   const navigate = useNavigate();
+  const { slug } = useParams();
   const queryClient = useQueryClient();
   const { workflows, createWorkflow, updateWorkflow, deleteWorkflow } = useAIWorkflows();
   const { data: templates } = useWorkflowTemplates();
@@ -161,6 +162,14 @@ export default function AgentBuilder() {
     await updateWorkflow.mutateAsync({ id, is_active: !isActive });
   };
 
+  const handleBack = () => {
+    if (slug) {
+      navigate(`/${slug}`);
+    } else {
+      navigate(-1);
+    }
+  };
+
   // If no workflow selected, show list
   if (!selectedWorkflowId) {
     return (
@@ -168,14 +177,14 @@ export default function AgentBuilder() {
         {/* Header */}
         <header className="sticky top-0 z-50 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
           <div className="flex h-14 items-center gap-4 px-6">
-            <Button variant="ghost" size="sm" onClick={() => navigate("/kai")} className="gap-2">
+            <Button variant="ghost" size="sm" onClick={handleBack} className="gap-2">
               <ArrowLeft className="h-4 w-4" />
               Voltar
             </Button>
             <div className="h-6 w-px bg-border" />
             <span className="font-semibold text-lg">Agent Builder</span>
             <div className="flex-1" />
-            <Button variant="ghost" size="icon" onClick={() => navigate("/kai")} className="h-8 w-8">
+            <Button variant="ghost" size="icon" onClick={handleBack} className="h-8 w-8">
               <Home className="h-4 w-4" />
             </Button>
           </div>
