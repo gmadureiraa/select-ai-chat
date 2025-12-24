@@ -7,9 +7,23 @@ import { WorkspaceRole } from "@/hooks/useWorkspace";
 
 export interface PendingUser {
   id: string;
+  request_id: string;
   email: string | null;
   full_name: string | null;
-  created_at: string | null;
+  requested_at: string;
+  message?: string | null;
+}
+
+export interface RejectedUser {
+  id: string;
+  user_id: string;
+  rejected_at: string;
+  reason: string | null;
+  profile: {
+    id: string;
+    email: string | null;
+    full_name: string | null;
+  } | null;
 }
 
 export const usePendingUsers = () => {
@@ -18,54 +32,52 @@ export const usePendingUsers = () => {
   const { workspace } = useWorkspaceContext();
   const { user } = useAuth();
 
-  // Fetch users from profiles that are NOT in the current workspace and NOT rejected
+  // Fetch pending access requests for current workspace
   const { data: pendingUsers = [], isLoading } = useQuery({
     queryKey: ["pending-users", workspace?.id],
     queryFn: async () => {
       if (!workspace?.id) return [];
 
-      // Get all profiles (admins/owners can see all via RLS)
-      const { data: allProfiles, error: profilesError } = await supabase
+      // Get pending access requests for this workspace
+      const { data: requests, error: requestsError } = await supabase
+        .from("workspace_access_requests")
+        .select("id, user_id, requested_at, message")
+        .eq("workspace_id", workspace.id)
+        .eq("status", "pending")
+        .order("requested_at", { ascending: false });
+
+      if (requestsError) throw requestsError;
+      if (!requests || requests.length === 0) return [];
+
+      // Get profile info for requesting users
+      const userIds = requests.map(r => r.user_id);
+      const { data: profiles, error: profilesError } = await supabase
         .from("profiles")
-        .select("id, email, full_name, created_at")
-        .order("created_at", { ascending: false });
+        .select("id, email, full_name")
+        .in("id", userIds);
 
       if (profilesError) throw profilesError;
 
-      // Get all members of current workspace
-      const { data: workspaceMembers, error: membersError } = await supabase
-        .from("workspace_members")
-        .select("user_id")
-        .eq("workspace_id", workspace.id);
+      const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
 
-      if (membersError) throw membersError;
-
-      // Get all rejected users for current workspace
-      const { data: rejectedUsers, error: rejectedError } = await supabase
-        .from("workspace_rejected_users")
-        .select("user_id")
-        .eq("workspace_id", workspace.id);
-
-      if (rejectedError) throw rejectedError;
-
-      const memberUserIds = new Set(workspaceMembers?.map(m => m.user_id) || []);
-      const rejectedUserIds = new Set(rejectedUsers?.map(r => r.user_id) || []);
-
-      // Filter out users who are already members OR rejected
-      const pending = allProfiles?.filter(p => 
-        !memberUserIds.has(p.id) && !rejectedUserIds.has(p.id)
-      ) || [];
-
-      return pending as PendingUser[];
+      return requests.map(r => ({
+        id: r.user_id,
+        request_id: r.id,
+        email: profileMap.get(r.user_id)?.email || null,
+        full_name: profileMap.get(r.user_id)?.full_name || null,
+        requested_at: r.requested_at,
+        message: r.message,
+      })) as PendingUser[];
     },
     enabled: !!workspace?.id,
   });
 
-  // Add a pending user to the workspace
+  // Add a pending user to the workspace (approve request)
   const addUserToWorkspace = useMutation({
     mutationFn: async ({ userId, role }: { userId: string; role: WorkspaceRole }) => {
-      if (!workspace?.id) throw new Error("No workspace");
+      if (!workspace?.id || !user?.id) throw new Error("No workspace");
 
+      // Add to workspace members
       const { data, error } = await supabase
         .from("workspace_members")
         .insert({
@@ -77,6 +89,18 @@ export const usePendingUsers = () => {
         .single();
 
       if (error) throw error;
+
+      // Update request status to approved
+      await supabase
+        .from("workspace_access_requests")
+        .update({
+          status: "approved",
+          processed_at: new Date().toISOString(),
+          processed_by: user.id,
+        })
+        .eq("workspace_id", workspace.id)
+        .eq("user_id", userId);
+
       return data;
     },
     onSuccess: () => {
@@ -96,27 +120,42 @@ export const usePendingUsers = () => {
     },
   });
 
-  // Reject a pending user (add to rejected list)
+  // Reject a pending user
   const rejectUser = useMutation({
     mutationFn: async ({ userId, reason }: { userId: string; reason?: string }) => {
       if (!workspace?.id || !user?.id) throw new Error("No workspace or user");
 
+      // Update request status to rejected
       const { data, error } = await supabase
-        .from("workspace_rejected_users")
-        .insert({
-          workspace_id: workspace.id,
-          user_id: userId,
-          rejected_by: user.id,
-          reason,
+        .from("workspace_access_requests")
+        .update({
+          status: "rejected",
+          processed_at: new Date().toISOString(),
+          processed_by: user.id,
         })
+        .eq("workspace_id", workspace.id)
+        .eq("user_id", userId)
         .select()
         .single();
 
       if (error) throw error;
+
+      // Also add to rejected users table if it exists (backwards compat)
+      await supabase
+        .from("workspace_rejected_users")
+        .upsert({
+          workspace_id: workspace.id,
+          user_id: userId,
+          rejected_by: user.id,
+          reason,
+        }, { onConflict: "workspace_id,user_id" })
+        .select();
+
       return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["pending-users", workspace?.id] });
+      queryClient.invalidateQueries({ queryKey: ["rejected-users", workspace?.id] });
       toast({
         title: "Usuário recusado",
         description: "O usuário não aparecerá mais na lista de pendentes.",
@@ -131,13 +170,21 @@ export const usePendingUsers = () => {
     },
   });
 
-  // Unreject a user (remove from rejected list)
+  // Unreject a user (allow them to request again)
   const unrejectUser = useMutation({
     mutationFn: async (userId: string) => {
       if (!workspace?.id) throw new Error("No workspace");
 
-      const { error } = await supabase
+      // Remove from rejected users table
+      await supabase
         .from("workspace_rejected_users")
+        .delete()
+        .eq("workspace_id", workspace.id)
+        .eq("user_id", userId);
+
+      // Delete the rejected request so they can request again
+      const { error } = await supabase
+        .from("workspace_access_requests")
         .delete()
         .eq("workspace_id", workspace.id)
         .eq("user_id", userId);
@@ -149,7 +196,7 @@ export const usePendingUsers = () => {
       queryClient.invalidateQueries({ queryKey: ["rejected-users", workspace?.id] });
       toast({
         title: "Usuário restaurado",
-        description: "O usuário aparecerá novamente na lista de pendentes.",
+        description: "O usuário pode solicitar acesso novamente.",
       });
     },
     onError: (error: Error) => {
@@ -167,23 +214,19 @@ export const usePendingUsers = () => {
     queryFn: async () => {
       if (!workspace?.id) return [];
 
-      const { data, error } = await supabase
-        .from("workspace_rejected_users")
-        .select(`
-          id,
-          user_id,
-          rejected_at,
-          reason
-        `)
+      // Get rejected requests
+      const { data: requests, error: requestsError } = await supabase
+        .from("workspace_access_requests")
+        .select("id, user_id, processed_at")
         .eq("workspace_id", workspace.id)
-        .order("rejected_at", { ascending: false });
+        .eq("status", "rejected")
+        .order("processed_at", { ascending: false });
 
-      if (error) throw error;
+      if (requestsError) throw requestsError;
+      if (!requests || requests.length === 0) return [];
 
-      // Get profile info for rejected users
-      if (!data || data.length === 0) return [];
-
-      const userIds = data.map(r => r.user_id);
+      // Get profile info
+      const userIds = requests.map(r => r.user_id);
       const { data: profiles, error: profilesError } = await supabase
         .from("profiles")
         .select("id, email, full_name")
@@ -191,12 +234,23 @@ export const usePendingUsers = () => {
 
       if (profilesError) throw profilesError;
 
-      const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
+      // Get rejection reasons from workspace_rejected_users
+      const { data: rejectionReasons } = await supabase
+        .from("workspace_rejected_users")
+        .select("user_id, reason")
+        .eq("workspace_id", workspace.id)
+        .in("user_id", userIds);
 
-      return data.map(r => ({
-        ...r,
+      const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
+      const reasonMap = new Map(rejectionReasons?.map(r => [r.user_id, r.reason]) || []);
+
+      return requests.map(r => ({
+        id: r.id,
+        user_id: r.user_id,
+        rejected_at: r.processed_at || "",
+        reason: reasonMap.get(r.user_id) || null,
         profile: profileMap.get(r.user_id) || null,
-      }));
+      })) as RejectedUser[];
     },
     enabled: !!workspace?.id,
   });

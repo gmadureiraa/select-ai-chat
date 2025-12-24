@@ -1783,6 +1783,47 @@ export type Database = {
         }
         Relationships: []
       }
+      workspace_access_requests: {
+        Row: {
+          id: string
+          message: string | null
+          processed_at: string | null
+          processed_by: string | null
+          requested_at: string
+          status: string
+          user_id: string
+          workspace_id: string
+        }
+        Insert: {
+          id?: string
+          message?: string | null
+          processed_at?: string | null
+          processed_by?: string | null
+          requested_at?: string
+          status?: string
+          user_id: string
+          workspace_id: string
+        }
+        Update: {
+          id?: string
+          message?: string | null
+          processed_at?: string | null
+          processed_by?: string | null
+          requested_at?: string
+          status?: string
+          user_id?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workspace_access_requests_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       workspace_invite_clients: {
         Row: {
           client_id: string

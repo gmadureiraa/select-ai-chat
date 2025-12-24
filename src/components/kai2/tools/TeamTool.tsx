@@ -175,7 +175,7 @@ export function TeamTool() {
                         <div className="text-sm text-muted-foreground flex items-center gap-2">
                           {pendingUser.email}
                           <span className="text-xs">
-                            • Criado {formatDistanceToNow(new Date(pendingUser.created_at || new Date()), { addSuffix: true, locale: ptBR })}
+                            • Solicitou {formatDistanceToNow(new Date(pendingUser.requested_at || new Date()), { addSuffix: true, locale: ptBR })}
                           </span>
                         </div>
                       </div>
