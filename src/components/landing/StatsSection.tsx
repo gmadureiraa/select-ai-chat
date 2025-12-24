@@ -3,18 +3,18 @@ import { motion } from "framer-motion";
 const stats = [
   {
     value: "50+",
-    label: "Clientes atendidos",
-    description: "Empresas que confiam em nós",
-  },
-  {
-    value: "10.000+",
-    label: "Conteúdos criados",
-    description: "Posts, newsletters e mais",
+    label: "Agências utilizando",
+    description: "Times de conteúdo confiam no KAI",
   },
   {
     value: "500+",
-    label: "Horas economizadas/mês",
-    description: "Tempo médio economizado",
+    label: "Clientes gerenciados",
+    description: "Organizados em uma plataforma",
+  },
+  {
+    value: "10k+",
+    label: "Conteúdos criados/mês",
+    description: "Posts, newsletters, vídeos e mais",
   },
 ];
 
@@ -30,8 +30,8 @@ const StatsSection = () => {
           className="text-center mb-16"
         >
           <h2 className="text-3xl md:text-4xl font-light text-white/50">
-            Nada grandioso é feito{" "}
-            <span className="text-white font-medium">sozinho</span>
+            Times que{" "}
+            <span className="text-white font-medium">escalam juntos</span>
           </h2>
         </motion.div>
 

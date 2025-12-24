@@ -12,7 +12,10 @@ export default {
         "2xl": "1400px",
       },
     },
-    extend: {
+extend: {
+			backgroundImage: {
+				'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
+			},
       fontFamily: {
         sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
       },
