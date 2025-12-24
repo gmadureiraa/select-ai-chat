@@ -9,6 +9,13 @@ import {
   createValidationErrorResponse,
   sanitizeString
 } from "../_shared/validation.ts";
+import {
+  checkWorkspaceTokens,
+  debitWorkspaceTokens,
+  getWorkspaceIdFromUser,
+  createInsufficientTokensResponse,
+  TOKEN_COSTS,
+} from "../_shared/tokens.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -243,6 +250,21 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+    // === TOKEN VERIFICATION ===
+    let workspaceId: string | null = null;
+    if (userId) {
+      workspaceId = await getWorkspaceIdFromUser(userId);
+      if (workspaceId) {
+        const tokenCheck = await checkWorkspaceTokens(workspaceId, TOKEN_COSTS.chat_simple);
+        if (!tokenCheck.hasTokens) {
+          console.warn(`[CHAT] Insufficient tokens for workspace ${workspaceId}`);
+          return createInsufficientTokensResponse(corsHeaders);
+        }
+        console.log(`[CHAT] Token check passed for workspace ${workspaceId}`);
+      }
+    }
+    // === END TOKEN VERIFICATION ===
+
     const googleModel = getGoogleModelName(model);
     console.log(`[CHAT] Using Google model: ${googleModel}`);
     
@@ -402,6 +424,17 @@ serve(async (req) => {
 
       if (userId && (totalInputTokens > 0 || totalOutputTokens > 0)) {
         await logAIUsage(supabase, userId, googleModel, "chat-selection", totalInputTokens, totalOutputTokens, { isSelectionPhase: true, clientId });
+        
+        // Debit tokens after successful selection
+        if (workspaceId) {
+          await debitWorkspaceTokens(
+            workspaceId,
+            userId,
+            TOKEN_COSTS.chat_simple,
+            "Chat AI - Seleção de conteúdo",
+            { model: googleModel, clientId }
+          );
+        }
       }
 
       const selectionResult = toolCallData?.args || {};
@@ -469,6 +502,19 @@ serve(async (req) => {
               client_id: clientId,
               hasImages: (imageUrls?.length || 0) > 0
             });
+            
+            // Debit tokens after successful response
+            if (workspaceId) {
+              // Determine token cost based on output length
+              const tokenCost = totalOutputTokens > 1500 ? TOKEN_COSTS.chat_long : TOKEN_COSTS.chat_simple;
+              await debitWorkspaceTokens(
+                workspaceId,
+                userId,
+                tokenCost,
+                "Chat AI - Resposta",
+                { model: googleModel, clientId, outputTokens: totalOutputTokens }
+              );
+            }
           }
 
           controller.close();
