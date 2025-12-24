@@ -8,9 +8,9 @@ import {
 
 const faqs = [
   {
-    question: "Quais processos vocês podem automatizar?",
+    question: "O que o KAI pode fazer pela minha agência?",
     answer:
-      "O KAI automatiza relatórios de performance, criação de conteúdo com IA, workflows de aprovação, alertas de métricas, publicação agendada e muito mais. Tudo personalizável conforme a necessidade da sua agência.",
+      "O KAI centraliza a gestão de clientes, permite criar conteúdo com IA que entende o contexto de cada marca, analisa performance de redes sociais e oferece um espaço colaborativo para pesquisa e organização de referências.",
   },
   {
     question: "Preciso de habilidades técnicas para usar o KAI?",
@@ -18,14 +18,14 @@ const faqs = [
       "Não! O KAI foi desenhado para ser intuitivo. A interface é visual e amigável, sem necessidade de código. Nosso time também oferece onboarding completo para garantir que você aproveite ao máximo.",
   },
   {
-    question: "Vocês integram com minhas ferramentas atuais?",
+    question: "Quais plataformas vocês integram?",
     answer:
-      "Sim! O KAI integra com Instagram, YouTube, newsletters (Beehiiv, Substack), Google Analytics, e mais. Também oferecemos webhooks e API para integrações customizadas.",
+      "Atualmente integramos com Instagram, YouTube e newsletters (Beehiiv). Você pode importar dados de performance e a IA usa essas métricas para gerar insights.",
   },
   {
-    question: "Quanto tempo leva para configurar?",
+    question: "Como a IA aprende sobre meus clientes?",
     answer:
-      "A configuração básica leva menos de 15 minutos. Para aproveitar todo o potencial com automações e integrações, recomendamos uma sessão de onboarding de 1 hora com nosso time.",
+      "Você cadastra informações do cliente como descrição, tom de voz, brand guidelines e pode fazer upload de documentos. A IA usa esse contexto para gerar conteúdo personalizado.",
   },
   {
     question: "Como funciona o período de trial de 14 dias?",
