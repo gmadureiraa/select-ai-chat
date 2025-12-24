@@ -23,9 +23,9 @@ const App = () => (
         <BrowserRouter>
           <Routes>
             <Route path="/login" element={<Login />} />
-            <Route path="/" element={<LandingPage />} />
+            <Route path="/page" element={<LandingPage />} />
             <Route
-              path="/kai"
+              path="/"
               element={
                 <ProtectedRoute>
                   <Kai2 />
