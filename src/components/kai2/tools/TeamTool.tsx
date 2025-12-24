@@ -8,7 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Checkbox } from "@/components/ui/checkbox";
 import { 
   Users, UserPlus, Crown, Shield, User, X, Mail, Clock, 
-  Building2, UserCheck, AlertCircle, Eye, ChevronDown, ChevronUp
+  Building2, UserCheck, AlertCircle, Eye, ChevronDown, ChevronUp, UserX, RotateCcw
 } from "lucide-react";
 import { useWorkspace, WorkspaceRole, WorkspaceMember } from "@/hooks/useWorkspace";
 import { useTeamMembers } from "@/hooks/useTeamMembers";
@@ -62,7 +62,7 @@ export function TeamTool() {
   const { user } = useAuth();
   const { workspace, canManageTeam, isOwner } = useWorkspace();
   const { members, invites, isLoadingMembers, isLoadingInvites, inviteMember, updateMemberRole, removeMember, cancelInvite } = useTeamMembers();
-  const { pendingUsers, isLoading: isLoadingPending, addUserToWorkspace } = usePendingUsers();
+  const { pendingUsers, isLoading: isLoadingPending, addUserToWorkspace, rejectUser, rejectedUsers, unrejectUser, isLoadingRejected } = usePendingUsers();
   const { data: allMemberAccess = [] } = useAllMemberClientAccess(workspace?.id);
   const { clients } = useClients();
   
@@ -185,7 +185,7 @@ export function TeamTool() {
                         value={selectedRoleForPending[pendingUser.id] || "member"} 
                         onValueChange={(v) => setSelectedRoleForPending(prev => ({ ...prev, [pendingUser.id]: v as WorkspaceRole }))}
                       >
-                        <SelectTrigger className="w-[150px]">
+                        <SelectTrigger className="w-[130px]">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -195,11 +195,22 @@ export function TeamTool() {
                         </SelectContent>
                       </Select>
                       <Button 
+                        variant="outline"
+                        size="sm"
+                        onClick={() => rejectUser.mutate({ userId: pendingUser.id })}
+                        disabled={rejectUser.isPending}
+                        className="border-destructive/30 text-destructive hover:bg-destructive/10"
+                      >
+                        <UserX className="h-4 w-4 mr-1" />
+                        Recusar
+                      </Button>
+                      <Button 
+                        size="sm"
                         onClick={() => handleAddPendingUser(pendingUser)}
                         disabled={addUserToWorkspace.isPending}
                         className="bg-amber-500 hover:bg-amber-600 text-white"
                       >
-                        <UserPlus className="h-4 w-4 mr-2" />
+                        <UserPlus className="h-4 w-4 mr-1" />
                         Liberar
                       </Button>
                     </div>
@@ -209,6 +220,49 @@ export function TeamTool() {
             )}
           </CardContent>
         </Card>
+      )}
+
+      {/* Rejected Users - Collapsible */}
+      {rejectedUsers.length > 0 && (
+        <Collapsible>
+          <CollapsibleTrigger asChild>
+            <Button variant="ghost" className="w-full justify-between text-muted-foreground">
+              <span className="flex items-center gap-2">
+                <UserX className="h-4 w-4" />
+                Usuários Recusados ({rejectedUsers.length})
+              </span>
+              <ChevronDown className="h-4 w-4" />
+            </Button>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="space-y-2 mt-2">
+            {rejectedUsers.map((rejected) => (
+              <div
+                key={rejected.id}
+                className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-dashed"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center">
+                    <UserX className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                  <div>
+                    <div className="text-sm font-medium">
+                      {rejected.profile?.full_name || rejected.profile?.email || "Usuário"}
+                    </div>
+                    <div className="text-xs text-muted-foreground">{rejected.profile?.email}</div>
+                  </div>
+                </div>
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  onClick={() => unrejectUser.mutate(rejected.user_id)}
+                >
+                  <RotateCcw className="h-4 w-4 mr-1" />
+                  Restaurar
+                </Button>
+              </div>
+            ))}
+          </CollapsibleContent>
+        </Collapsible>
       )}
 
       {/* Invite Form */}

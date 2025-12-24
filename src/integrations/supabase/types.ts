@@ -1928,6 +1928,41 @@ export type Database = {
           },
         ]
       }
+      workspace_rejected_users: {
+        Row: {
+          id: string
+          reason: string | null
+          rejected_at: string
+          rejected_by: string
+          user_id: string
+          workspace_id: string
+        }
+        Insert: {
+          id?: string
+          reason?: string | null
+          rejected_at?: string
+          rejected_by: string
+          user_id: string
+          workspace_id: string
+        }
+        Update: {
+          id?: string
+          reason?: string | null
+          rejected_at?: string
+          rejected_by?: string
+          user_id?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workspace_rejected_users_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       workspace_subscriptions: {
         Row: {
           cancel_at_period_end: boolean | null
@@ -2253,6 +2288,15 @@ export type Database = {
           workspace_id: string
           workspace_name: string
           workspace_slug: string
+        }[]
+      }
+      get_workspace_member_tokens_admin: {
+        Args: { p_workspace_id: string }
+        Returns: {
+          email: string
+          full_name: string
+          tokens_used: number
+          user_id: string
         }[]
       }
       get_workspace_members_admin: {
