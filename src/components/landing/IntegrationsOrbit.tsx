@@ -12,6 +12,7 @@ import {
   TrendingUp,
   Headphones,
 } from "lucide-react";
+import kaleidosLogo from "@/assets/kaleidos-logo.svg";
 
 const orbitItems = [
   { icon: AtSign, label: "@", angle: 180 },
@@ -72,8 +73,8 @@ const IntegrationsOrbit = () => {
               className="w-40 h-40 rounded-full bg-gradient-to-br from-secondary to-accent blur-[60px]"
             />
             <div className="absolute inset-0 flex items-center justify-center">
-              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-secondary to-accent flex items-center justify-center">
-                <span className="text-white font-bold text-2xl">K</span>
+              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-secondary to-accent flex items-center justify-center p-4">
+                <img src={kaleidosLogo} alt="Kaleidos" className="w-full h-full" />
               </div>
             </div>
           </div>

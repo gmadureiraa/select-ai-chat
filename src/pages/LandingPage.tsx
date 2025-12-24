@@ -8,6 +8,7 @@ import FeaturesGrid from "@/components/landing/FeaturesGrid";
 import StatsSection from "@/components/landing/StatsSection";
 import IntegrationsOrbit from "@/components/landing/IntegrationsOrbit";
 import TestimonialsSection from "@/components/landing/TestimonialsSection";
+import PricingSection from "@/components/landing/PricingSection";
 import CTASection from "@/components/landing/CTASection";
 import LandingFooter from "@/components/landing/LandingFooter";
 
@@ -23,6 +24,7 @@ const LandingPage = () => {
         <FeaturesGrid />
         <StatsSection />
         <IntegrationsOrbit />
+        <PricingSection />
         <TestimonialsSection />
         <CTASection />
         <LandingFooter />
