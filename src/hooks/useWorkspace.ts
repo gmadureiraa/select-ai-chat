@@ -7,6 +7,7 @@ export type WorkspaceRole = "owner" | "admin" | "member" | "viewer";
 export interface Workspace {
   id: string;
   name: string;
+  slug: string | null;
   owner_id: string;
   created_at: string;
 }
@@ -39,6 +40,7 @@ export const useWorkspace = () => {
           workspaces:workspace_id (
             id,
             name,
+            slug,
             owner_id,
             created_at
           )

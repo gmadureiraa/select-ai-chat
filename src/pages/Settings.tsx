@@ -10,6 +10,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { useTheme } from "next-themes";
 import { TeamManagement } from "@/components/settings/TeamManagement";
+import { PlanBillingCard } from "@/components/settings/PlanBillingCard";
 import { SecondaryLayout } from "@/components/SecondaryLayout";
 import { AvatarUpload } from "@/components/ui/avatar-upload";
 import { supabase } from "@/integrations/supabase/client";
@@ -83,6 +84,9 @@ export default function Settings() {
   return (
     <SecondaryLayout title="Configurações">
       <div className="max-w-6xl mx-auto px-6 py-8 space-y-6">
+        {/* Plano e Créditos */}
+        <PlanBillingCard />
+
         {/* Aparência */}
         <Card>
           <CardHeader>
