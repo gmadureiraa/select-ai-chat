@@ -36,7 +36,7 @@ const CTASection = () => {
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Link to="/login">
+            <Link to="/signup">
               <Button
                 size="lg"
                 className="bg-foreground text-background hover:bg-foreground/90 px-10 py-7 text-lg rounded-full group"
@@ -45,13 +45,19 @@ const CTASection = () => {
                 <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
               </Button>
             </Link>
-            <Button
-              size="lg"
-              variant="outline"
-              className="px-8 py-7 text-lg rounded-full border-border hover:bg-muted"
+            <a 
+              href="https://wa.me/5511999999999?text=Olá! Gostaria de agendar uma demonstração do KAI."
+              target="_blank"
+              rel="noopener noreferrer"
             >
-              Agendar Demo
-            </Button>
+              <Button
+                size="lg"
+                variant="outline"
+                className="px-8 py-7 text-lg rounded-full border-border hover:bg-muted"
+              >
+                Agendar Demo
+              </Button>
+            </a>
           </div>
 
           {/* Trust badges */}
