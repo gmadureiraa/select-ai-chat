@@ -19,24 +19,51 @@ Deno.serve(async (req) => {
   const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
 
   try {
-    console.log("Processing scheduled posts...");
+    console.log("Processing scheduled posts from planning_items...");
 
-    // Get all posts that should be published now
     const now = new Date().toISOString();
-    const { data: posts, error: postsError } = await supabaseClient
+    
+    // First, process planning_items (new unified table)
+    const { data: planningItems, error: planningError } = await supabaseClient
+      .from('planning_items')
+      .select(`
+        *,
+        clients:client_id (
+          id,
+          name
+        )
+      `)
+      .eq('status', 'scheduled')
+      .lte('scheduled_at', now)
+      .lt('retry_count', 3)
+      .order('scheduled_at', { ascending: true })
+      .limit(10);
+
+    if (planningError) {
+      console.error("Error fetching planning items:", planningError);
+      throw new Error(`Error fetching planning items: ${planningError.message}`);
+    }
+
+    // Also process legacy scheduled_posts table
+    const { data: legacyPosts, error: legacyError } = await supabaseClient
       .from('scheduled_posts')
       .select('*')
       .eq('status', 'scheduled')
       .lte('scheduled_at', now)
-      .lt('retry_count', 3) // Don't retry more than 3 times
+      .lt('retry_count', 3)
       .order('scheduled_at', { ascending: true })
-      .limit(10); // Process max 10 at a time
+      .limit(10);
 
-    if (postsError) {
-      throw new Error(`Error fetching posts: ${postsError.message}`);
+    if (legacyError) {
+      console.error("Error fetching legacy posts:", legacyError);
     }
 
-    if (!posts || posts.length === 0) {
+    const allItems = [
+      ...(planningItems || []).map(item => ({ ...item, source: 'planning_items' })),
+      ...(legacyPosts || []).map(post => ({ ...post, source: 'scheduled_posts' })),
+    ];
+
+    if (allItems.length === 0) {
       console.log("No posts to process");
       return new Response(JSON.stringify({ 
         processed: 0, 
@@ -47,33 +74,80 @@ Deno.serve(async (req) => {
       });
     }
 
-    console.log(`Found ${posts.length} posts to process`);
+    console.log(`Found ${allItems.length} posts to process (${planningItems?.length || 0} planning, ${legacyPosts?.length || 0} legacy)`);
 
-    const results: { postId: string; platform: string; success: boolean; error?: string }[] = [];
+    const results: { 
+      postId: string; 
+      platform: string; 
+      success: boolean; 
+      error?: string;
+      source: string;
+    }[] = [];
 
-    for (const post of posts) {
+    for (const item of allItems) {
+      const tableName = item.source;
+      
       try {
-        let functionName: string;
+        // Update status to publishing
+        await supabaseClient
+          .from(tableName)
+          .update({ status: 'publishing' })
+          .eq('id', item.id);
+
+        let functionName: string | null = null;
         
-        if (post.platform === 'twitter') {
+        if (item.platform === 'twitter') {
           functionName = 'twitter-post';
-        } else if (post.platform === 'linkedin') {
+        } else if (item.platform === 'linkedin') {
           functionName = 'linkedin-post';
         } else {
-          console.log(`Unknown platform: ${post.platform}`);
+          // Mark as manual publish required for unsupported platforms
+          console.log(`Platform ${item.platform} requires manual publishing`);
+          
+          // Move back to scheduled but don't fail
           await supabaseClient
-            .from('scheduled_posts')
+            .from(tableName)
             .update({
-              status: 'failed',
-              error_message: `Plataforma não suportada: ${post.platform}`,
+              status: 'scheduled',
+              error_message: `Plataforma ${item.platform} requer publicação manual`,
             })
-            .eq('id', post.id);
+            .eq('id', item.id);
           
           results.push({
-            postId: post.id,
-            platform: post.platform,
+            postId: item.id,
+            platform: item.platform,
             success: false,
-            error: `Unknown platform: ${post.platform}`,
+            error: `Manual publish required for ${item.platform}`,
+            source: tableName,
+          });
+          continue;
+        }
+
+        // Check if client has valid credentials
+        const { data: credentials } = await supabaseClient
+          .from('client_social_credentials')
+          .select('is_valid')
+          .eq('client_id', item.client_id)
+          .eq('platform', item.platform)
+          .single();
+
+        if (!credentials?.is_valid) {
+          console.log(`No valid credentials for ${item.platform} on client ${item.client_id}`);
+          
+          await supabaseClient
+            .from(tableName)
+            .update({
+              status: 'scheduled',
+              error_message: `Credenciais inválidas ou não configuradas para ${item.platform}`,
+            })
+            .eq('id', item.id);
+          
+          results.push({
+            postId: item.id,
+            platform: item.platform,
+            success: false,
+            error: 'No valid credentials',
+            source: tableName,
           });
           continue;
         }
@@ -85,37 +159,77 @@ Deno.serve(async (req) => {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${supabaseAnonKey}`,
           },
-          body: JSON.stringify({ scheduledPostId: post.id }),
+          body: JSON.stringify({ 
+            scheduledPostId: item.id,
+            source: tableName,
+          }),
         });
 
         const result = await response.json();
 
+        if (result.success) {
+          // Get the published column for moving the card
+          const { data: publishedColumn } = await supabaseClient
+            .from('kanban_columns')
+            .select('id')
+            .eq('workspace_id', item.workspace_id)
+            .eq('column_type', 'published')
+            .single();
+
+          // Update to published status
+          await supabaseClient
+            .from(tableName)
+            .update({
+              status: 'published',
+              published_at: new Date().toISOString(),
+              external_post_id: result.externalId || null,
+              error_message: null,
+              ...(publishedColumn && tableName === 'planning_items' ? { column_id: publishedColumn.id } : {}),
+            })
+            .eq('id', item.id);
+
+          console.log(`✅ Post ${item.id} published successfully`);
+        } else {
+          // Update with error
+          await supabaseClient
+            .from(tableName)
+            .update({
+              status: 'failed',
+              error_message: result.error || 'Erro desconhecido',
+              retry_count: (item.retry_count || 0) + 1,
+            })
+            .eq('id', item.id);
+
+          console.log(`❌ Post ${item.id} failed: ${result.error}`);
+        }
+
         results.push({
-          postId: post.id,
-          platform: post.platform,
+          postId: item.id,
+          platform: item.platform,
           success: result.success,
           error: result.error,
+          source: tableName,
         });
 
-        console.log(`Post ${post.id} (${post.platform}): ${result.success ? 'success' : 'failed'}`);
       } catch (error: unknown) {
         const message = error instanceof Error ? error.message : 'Erro desconhecido';
-        console.error(`Error processing post ${post.id}:`, error);
+        console.error(`Error processing post ${item.id}:`, error);
         
         await supabaseClient
-          .from('scheduled_posts')
+          .from(tableName)
           .update({
             status: 'failed',
             error_message: message,
-            retry_count: (post.retry_count || 0) + 1,
+            retry_count: (item.retry_count || 0) + 1,
           })
-          .eq('id', post.id);
+          .eq('id', item.id);
 
         results.push({
-          postId: post.id,
-          platform: post.platform,
+          postId: item.id,
+          platform: item.platform,
           success: false,
           error: message,
+          source: tableName,
         });
       }
     }
