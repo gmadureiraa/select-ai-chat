@@ -1,7 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { useWorkspace, WorkspaceRole, WorkspaceMember } from "@/hooks/useWorkspace";
+import { useWorkspaceContext } from "@/contexts/WorkspaceContext";
+import { WorkspaceRole, WorkspaceMember } from "@/hooks/useWorkspace";
 
 export interface WorkspaceInvite {
   id: string;
@@ -17,7 +18,7 @@ export interface WorkspaceInvite {
 export const useTeamMembers = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { workspace } = useWorkspace();
+  const { workspace } = useWorkspaceContext();
 
   const { data: members = [], isLoading: isLoadingMembers } = useQuery({
     queryKey: ["team-members", workspace?.id],
@@ -117,7 +118,7 @@ export const useTeamMembers = () => {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["team-invites"] });
+      queryClient.invalidateQueries({ queryKey: ["team-invites", workspace?.id] });
       queryClient.invalidateQueries({ queryKey: ["invite-clients"] });
       toast({
         title: "Convite enviado",
@@ -146,7 +147,7 @@ export const useTeamMembers = () => {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["team-members"] });
+      queryClient.invalidateQueries({ queryKey: ["team-members", workspace?.id] });
       toast({
         title: "Permissão atualizada",
         description: "A permissão do membro foi alterada.",
@@ -171,7 +172,7 @@ export const useTeamMembers = () => {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["team-members"] });
+      queryClient.invalidateQueries({ queryKey: ["team-members", workspace?.id] });
       toast({
         title: "Membro removido",
         description: "O membro foi removido do workspace.",
@@ -196,7 +197,7 @@ export const useTeamMembers = () => {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["team-invites"] });
+      queryClient.invalidateQueries({ queryKey: ["team-invites", workspace?.id] });
       toast({
         title: "Convite cancelado",
         description: "O convite foi cancelado.",

@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useActivities } from "@/hooks/useActivities";
+import { useWorkspaceContext } from "@/contexts/WorkspaceContext";
 
 export interface Client {
   id: string;
@@ -31,33 +32,32 @@ export const useClients = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { logActivity } = useActivities();
+  const { workspace } = useWorkspaceContext();
 
   const { data: clients = [], isLoading } = useQuery({
-    queryKey: ["clients"],
+    queryKey: ["clients", workspace?.id],
     queryFn: async () => {
+      if (!workspace?.id) return [];
+
       const { data, error } = await supabase
         .from("clients")
         .select("*")
+        .eq("workspace_id", workspace.id)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
       return data as Client[];
     },
+    enabled: !!workspace?.id,
   });
 
   const createClient = useMutation({
     mutationFn: async (clientData: CreateClientData) => {
-      const { websites, ...client } = clientData;
-      
-      // Get user's workspace_id
-      const { data: memberData } = await supabase
-        .from("workspace_members")
-        .select("workspace_id")
-        .single();
-      
-      if (!memberData?.workspace_id) {
-        throw new Error("Você não pertence a nenhum workspace");
+      if (!workspace?.id) {
+        throw new Error("Você não está em nenhum workspace");
       }
+
+      const { websites, ...client } = clientData;
       
       const { data, error } = await supabase
         .from("clients")
@@ -66,7 +66,7 @@ export const useClients = () => {
           social_media: client.social_media || {},
           tags: client.tags || {},
           function_templates: client.function_templates || [],
-          workspace_id: memberData.workspace_id,
+          workspace_id: workspace.id,
         })
         .select()
         .single();
@@ -89,7 +89,7 @@ export const useClients = () => {
       return data;
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["clients"] });
+      queryClient.invalidateQueries({ queryKey: ["clients", workspace?.id] });
       
       // Log activity
       logActivity.mutate({
@@ -130,7 +130,7 @@ export const useClients = () => {
       return data;
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["clients"] });
+      queryClient.invalidateQueries({ queryKey: ["clients", workspace?.id] });
       
       // Log activity
       logActivity.mutate({
@@ -170,7 +170,7 @@ export const useClients = () => {
       return clientData?.name;
     },
     onSuccess: (clientName) => {
-      queryClient.invalidateQueries({ queryKey: ["clients"] });
+      queryClient.invalidateQueries({ queryKey: ["clients", workspace?.id] });
       
       // Log activity
       if (clientName) {

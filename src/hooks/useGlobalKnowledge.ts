@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { useWorkspace } from "./useWorkspace";
+import { useWorkspaceContext } from "@/contexts/WorkspaceContext";
 
 export type KnowledgeCategory = 
   | 'copywriting'
@@ -79,7 +79,7 @@ export const KNOWLEDGE_CATEGORIES: { value: KnowledgeCategory; label: string }[]
 
 export function useGlobalKnowledge() {
   const queryClient = useQueryClient();
-  const { workspace } = useWorkspace();
+  const { workspace } = useWorkspaceContext();
 
   const { data: knowledge, isLoading } = useQuery({
     queryKey: ['global-knowledge', workspace?.id],
@@ -124,7 +124,7 @@ export function useGlobalKnowledge() {
       return inserted;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['global-knowledge'] });
+      queryClient.invalidateQueries({ queryKey: ['global-knowledge', workspace?.id] });
       toast.success('Conhecimento adicionado com sucesso!');
     },
     onError: (error: any) => {
@@ -142,7 +142,7 @@ export function useGlobalKnowledge() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['global-knowledge'] });
+      queryClient.invalidateQueries({ queryKey: ['global-knowledge', workspace?.id] });
       toast.success('Conhecimento atualizado!');
     },
     onError: (error: any) => {
@@ -160,7 +160,7 @@ export function useGlobalKnowledge() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['global-knowledge'] });
+      queryClient.invalidateQueries({ queryKey: ['global-knowledge', workspace?.id] });
       toast.success('Conhecimento removido!');
     },
     onError: (error: any) => {
@@ -184,7 +184,7 @@ export function useGlobalKnowledge() {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['global-knowledge'] });
+      queryClient.invalidateQueries({ queryKey: ['global-knowledge', workspace?.id] });
     },
     onError: (error: any) => {
       toast.error('Erro ao processar: ' + error.message);
