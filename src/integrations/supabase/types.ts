@@ -1355,6 +1355,125 @@ export type Database = {
           },
         ]
       }
+      planning_items: {
+        Row: {
+          added_to_library: boolean | null
+          assigned_to: string | null
+          client_id: string | null
+          column_id: string | null
+          content: string | null
+          content_library_id: string | null
+          content_type: string | null
+          created_at: string
+          created_by: string
+          description: string | null
+          due_date: string | null
+          error_message: string | null
+          external_post_id: string | null
+          id: string
+          labels: Json | null
+          media_urls: Json | null
+          metadata: Json | null
+          platform: string | null
+          position: number | null
+          priority: string | null
+          published_at: string | null
+          retry_count: number | null
+          scheduled_at: string | null
+          status: string
+          title: string
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          added_to_library?: boolean | null
+          assigned_to?: string | null
+          client_id?: string | null
+          column_id?: string | null
+          content?: string | null
+          content_library_id?: string | null
+          content_type?: string | null
+          created_at?: string
+          created_by: string
+          description?: string | null
+          due_date?: string | null
+          error_message?: string | null
+          external_post_id?: string | null
+          id?: string
+          labels?: Json | null
+          media_urls?: Json | null
+          metadata?: Json | null
+          platform?: string | null
+          position?: number | null
+          priority?: string | null
+          published_at?: string | null
+          retry_count?: number | null
+          scheduled_at?: string | null
+          status?: string
+          title: string
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          added_to_library?: boolean | null
+          assigned_to?: string | null
+          client_id?: string | null
+          column_id?: string | null
+          content?: string | null
+          content_library_id?: string | null
+          content_type?: string | null
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          due_date?: string | null
+          error_message?: string | null
+          external_post_id?: string | null
+          id?: string
+          labels?: Json | null
+          media_urls?: Json | null
+          metadata?: Json | null
+          platform?: string | null
+          position?: number | null
+          priority?: string | null
+          published_at?: string | null
+          retry_count?: number | null
+          scheduled_at?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "planning_items_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "planning_items_column_id_fkey"
+            columns: ["column_id"]
+            isOneToOne: false
+            referencedRelation: "kanban_columns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "planning_items_content_library_id_fkey"
+            columns: ["content_library_id"]
+            isOneToOne: false
+            referencedRelation: "client_content_library"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "planning_items_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       platform_metrics: {
         Row: {
           click_rate: number | null
