@@ -9,6 +9,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { AuthOnlyRoute } from "@/components/AuthOnlyRoute";
 import { SuperAdminRoute } from "@/components/SuperAdminRoute";
 import Settings from "./pages/Settings";
 import Login from "./pages/Login";
@@ -39,15 +40,15 @@ const App = () => (
                 {/* Public landing page */}
                 <Route path="/" element={<LandingPage />} />
                 
-                {/* Super Admin route */}
+                {/* Super Admin route - uses AuthOnlyRoute instead of ProtectedRoute to skip workspace check */}
                 <Route
                   path="/admin"
                   element={
-                    <ProtectedRoute>
+                    <AuthOnlyRoute>
                       <SuperAdminRoute>
                         <AdminDashboard />
                       </SuperAdminRoute>
-                    </ProtectedRoute>
+                    </AuthOnlyRoute>
                   }
                 />
                 
