@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  Bot, BarChart3, Library, Settings, Zap, Send, Hammer, FlaskConical,
+  Bot, BarChart3, Library, Settings, Send,
   BookOpen, Activity, Search, User, ArrowRight
 } from "lucide-react";
 import {
@@ -14,7 +14,6 @@ import {
   CommandSeparator,
 } from "@/components/ui/command";
 import { useClients } from "@/hooks/useClients";
-import { useDevAccess } from "@/hooks/useDevAccess";
 
 interface CommandPaletteProps {
   open: boolean;
@@ -31,7 +30,6 @@ export function CommandPalette({
 }: CommandPaletteProps) {
   const navigate = useNavigate();
   const { clients } = useClients();
-  const { canAccessAutomations, canAccessAgentBuilder, canAccessResearchLab } = useDevAccess();
 
   const pages = [
     { id: "assistant", label: "Assistente", icon: Bot, action: () => onSelectTab?.("assistant") },
@@ -40,12 +38,8 @@ export function CommandPalette({
     { id: "settings-client", label: "Configurações do Cliente", icon: Settings, action: () => onSelectTab?.("settings") },
   ];
 
-  // Filter tools based on dev access
   const tools = [
-    ...(canAccessAutomations ? [{ id: "automations", label: "Automações", icon: Zap, action: () => onSelectTab?.("automations") }] : []),
     { id: "social-publisher", label: "Publicador Social", icon: Send, action: () => navigate("/social-publisher") },
-    ...(canAccessAgentBuilder ? [{ id: "agent-builder", label: "Agent Builder", icon: Hammer, action: () => navigate("/agent-builder") }] : []),
-    ...(canAccessResearchLab ? [{ id: "research-lab", label: "Laboratório de Pesquisa", icon: FlaskConical, action: () => navigate("/research-lab") }] : []),
     { id: "knowledge-base", label: "Base de Conhecimento", icon: BookOpen, action: () => navigate("/knowledge-base") },
     { id: "activities", label: "Atividades", icon: Activity, action: () => navigate("/activities") },
     { id: "settings", label: "Configurações Gerais", icon: User, action: () => navigate("/settings") },

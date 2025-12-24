@@ -7,19 +7,16 @@ import {
   BarChart3, 
   Library, 
   Settings,
-  Zap,
-  Workflow,
-  FlaskConical,
   Users,
   ChevronRight,
   Search,
-  Home
+  Home,
+  BookOpen
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
-import { useDevAccess } from "@/hooks/useDevAccess";
 
 interface DocSection {
   id: string;
@@ -40,7 +37,7 @@ const sections: DocSection[] = [
           <p className="text-muted-foreground text-lg">
             O kAI é sua plataforma completa de inteligência artificial para criação e gestão de conteúdo. 
             Desenvolvido pela Kaleidos, ele combina análise de performance, geração de conteúdo por IA 
-            e automações para maximizar sua presença digital.
+            e organização inteligente para maximizar sua presença digital.
           </p>
         </div>
 
@@ -67,10 +64,10 @@ const sections: DocSection[] = [
             </p>
           </div>
           <div className="p-4 rounded-lg border border-border/50 bg-muted/30">
-            <Zap className="h-8 w-8 text-amber-500 mb-3" />
-            <h3 className="font-semibold mb-2">Automações</h3>
+            <BookOpen className="h-8 w-8 text-amber-500 mb-3" />
+            <h3 className="font-semibold mb-2">Base de Conhecimento</h3>
             <p className="text-sm text-muted-foreground">
-              Automatize tarefas repetitivas e economize horas de trabalho.
+              Centralize documentos, guias e materiais de referência em um só lugar.
             </p>
           </div>
         </div>
@@ -311,188 +308,112 @@ const sections: DocSection[] = [
     ),
   },
   {
-    id: "automations",
-    title: "Automações",
-    icon: Zap,
+    id: "knowledge-base",
+    title: "Base de Conhecimento",
+    icon: BookOpen,
     content: (
       <div className="space-y-6">
         <div>
-          <h1 className="text-3xl font-bold mb-4">Automações</h1>
+          <h1 className="text-3xl font-bold mb-4">Base de Conhecimento</h1>
           <p className="text-muted-foreground text-lg">
-            Configure tarefas automáticas que rodam em horários específicos, 
-            economizando tempo em atividades repetitivas.
+            Centralize documentos, guias e materiais de referência para enriquecer 
+            o contexto disponível para a IA.
           </p>
         </div>
 
         <div className="space-y-4">
-          <h2 className="text-xl font-semibold">Tipos de Automação</h2>
-          <div className="space-y-3">
-            <div className="p-4 rounded-lg border border-border/50">
-              <h4 className="font-medium mb-2">Geração de Conteúdo</h4>
-              <p className="text-sm text-muted-foreground">
-                Crie rascunhos de newsletter, posts ou ideias automaticamente 
-                em horários programados.
-              </p>
-            </div>
-            <div className="p-4 rounded-lg border border-border/50">
-              <h4 className="font-medium mb-2">Relatórios de Performance</h4>
-              <p className="text-sm text-muted-foreground">
-                Gere relatórios semanais/mensais com análise de métricas e tendências.
-              </p>
-            </div>
-            <div className="p-4 rounded-lg border border-border/50">
-              <h4 className="font-medium mb-2">Monitoramento</h4>
-              <p className="text-sm text-muted-foreground">
-                Acompanhe métricas e receba alertas quando metas forem atingidas ou 
-                houver quedas significativas.
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="space-y-4">
-          <h2 className="text-xl font-semibold">Agendamento</h2>
-          <p className="text-muted-foreground">
-            Configure quando a automação deve rodar:
-          </p>
-          <ul className="list-disc list-inside text-muted-foreground space-y-1">
-            <li>Uma vez (data específica)</li>
-            <li>Diariamente</li>
-            <li>Semanalmente (dias específicos)</li>
-            <li>Mensalmente</li>
-          </ul>
-        </div>
-      </div>
-    ),
-  },
-  {
-    id: "agent-builder",
-    title: "Agent Builder",
-    icon: Workflow,
-    content: (
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold mb-4">Agent Builder</h1>
-          <p className="text-muted-foreground text-lg">
-            Crie workflows de IA personalizados com interface visual drag-and-drop.
-          </p>
-        </div>
-
-        <div className="space-y-4">
-          <h2 className="text-xl font-semibold">Tipos de Nós</h2>
+          <h2 className="text-xl font-semibold">Tipos de Conteúdo</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
-              <h4 className="font-medium text-blue-600">Trigger</h4>
-              <p className="text-sm text-muted-foreground">Inicia o workflow (manual ou agendado)</p>
+            <div className="p-4 rounded-lg border border-border/50">
+              <h4 className="font-medium mb-2">Documentos PDF</h4>
+              <p className="text-sm text-muted-foreground">
+                Faça upload de PDFs e o sistema extrai o texto automaticamente.
+              </p>
             </div>
-            <div className="p-3 rounded-lg bg-violet-500/10 border border-violet-500/20">
-              <h4 className="font-medium text-violet-600">Agent</h4>
-              <p className="text-sm text-muted-foreground">Executa uma tarefa com IA</p>
+            <div className="p-4 rounded-lg border border-border/50">
+              <h4 className="font-medium mb-2">Links Web</h4>
+              <p className="text-sm text-muted-foreground">
+                Cole URLs de artigos e referências para salvar o conteúdo.
+              </p>
             </div>
-            <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
-              <h4 className="font-medium text-amber-600">Condition</h4>
-              <p className="text-sm text-muted-foreground">Lógica condicional (if/else)</p>
+            <div className="p-4 rounded-lg border border-border/50">
+              <h4 className="font-medium mb-2">Notas</h4>
+              <p className="text-sm text-muted-foreground">
+                Crie notas e documentos diretamente na plataforma.
+              </p>
             </div>
-            <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
-              <h4 className="font-medium text-emerald-600">Tool</h4>
-              <p className="text-sm text-muted-foreground">Integração externa (n8n, webhooks)</p>
+            <div className="p-4 rounded-lg border border-border/50">
+              <h4 className="font-medium mb-2">Guias de Marca</h4>
+              <p className="text-sm text-muted-foreground">
+                Adicione brand books, manuais de identidade e tom de voz.
+              </p>
             </div>
           </div>
         </div>
 
         <div className="space-y-4">
-          <h2 className="text-xl font-semibold">Integração n8n</h2>
+          <h2 className="text-xl font-semibold">Busca Inteligente</h2>
           <p className="text-muted-foreground">
-            Conecte workflows do n8n como ferramentas dentro dos agents, 
-            permitindo automações complexas com serviços externos.
-          </p>
-        </div>
-      </div>
-    ),
-  },
-  {
-    id: "research",
-    title: "Lab de Pesquisa",
-    icon: FlaskConical,
-    content: (
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold mb-4">Lab de Pesquisa</h1>
-          <p className="text-muted-foreground text-lg">
-            Canvas infinito para pesquisa visual, coleta de referências 
-            e análise de conteúdo com IA.
+            A busca semântica encontra documentos relevantes mesmo usando termos diferentes.
+            O sistema entende o significado, não apenas palavras-chave.
           </p>
         </div>
 
-        <div className="space-y-4">
-          <h2 className="text-xl font-semibold">Recursos</h2>
-          <div className="space-y-3">
-            <div className="p-4 rounded-lg border border-border/50">
-              <h4 className="font-medium mb-2">Canvas Visual</h4>
-              <p className="text-sm text-muted-foreground">
-                Arraste e organize imagens, textos, PDFs e links em um quadro infinito.
-              </p>
-            </div>
-            <div className="p-4 rounded-lg border border-border/50">
-              <h4 className="font-medium mb-2">IA Integrada</h4>
-              <p className="text-sm text-muted-foreground">
-                Chat com IA que tem acesso a todos os itens do projeto para análise contextual.
-              </p>
-            </div>
-            <div className="p-4 rounded-lg border border-border/50">
-              <h4 className="font-medium mb-2">Conexões</h4>
-              <p className="text-sm text-muted-foreground">
-                Conecte itens relacionados para criar mapas de conhecimento visual.
-              </p>
-            </div>
-          </div>
+        <div className="p-4 rounded-lg bg-blue-500/10 border border-blue-500/20">
+          <h3 className="font-semibold mb-2">Uso pela IA</h3>
+          <p className="text-sm text-muted-foreground">
+            A base de conhecimento é automaticamente consultada pelo Assistente kAI 
+            para enriquecer o contexto das respostas e manter consistência.
+          </p>
         </div>
       </div>
     ),
   },
   {
-    id: "team",
-    title: "Equipe",
+    id: "clients",
+    title: "Gestão de Clientes",
     icon: Users,
     content: (
       <div className="space-y-6">
         <div>
-          <h1 className="text-3xl font-bold mb-4">Gestão de Equipe</h1>
+          <h1 className="text-3xl font-bold mb-4">Gestão de Clientes</h1>
           <p className="text-muted-foreground text-lg">
-            Convide membros para seu workspace e gerencie permissões de acesso.
+            Configure múltiplos clientes com identidades, templates e bibliotecas independentes.
           </p>
         </div>
 
         <div className="space-y-4">
-          <h2 className="text-xl font-semibold">Níveis de Permissão</h2>
-          <div className="space-y-3">
-            <div className="p-4 rounded-lg border border-border/50">
-              <h4 className="font-medium mb-2">Owner</h4>
-              <p className="text-sm text-muted-foreground">
-                Acesso total. Pode excluir clientes, gerenciar equipe e todas as configurações.
-              </p>
-            </div>
-            <div className="p-4 rounded-lg border border-border/50">
-              <h4 className="font-medium mb-2">Admin</h4>
-              <p className="text-sm text-muted-foreground">
-                Mesmas permissões do Owner, exceto transferir propriedade.
-              </p>
-            </div>
-            <div className="p-4 rounded-lg border border-border/50">
-              <h4 className="font-medium mb-2">Member</h4>
-              <p className="text-sm text-muted-foreground">
-                Pode ver, criar e editar. Não pode excluir clientes ou recursos importantes. 
-                Acesso restrito a ferramentas avançadas.
-              </p>
-            </div>
-          </div>
+          <h2 className="text-xl font-semibold">Cadastro de Cliente</h2>
+          <ul className="space-y-2 text-muted-foreground">
+            <li><strong>Nome e descrição</strong>: Identificação básica</li>
+            <li><strong>Avatar</strong>: Logo ou imagem representativa</li>
+            <li><strong>Guia de Identidade</strong>: Tom de voz, valores, posicionamento</li>
+            <li><strong>Redes Sociais</strong>: Links para perfis do cliente</li>
+            <li><strong>Tags</strong>: Categorização para filtragem</li>
+          </ul>
         </div>
 
         <div className="space-y-4">
-          <h2 className="text-xl font-semibold">Acesso por Cliente</h2>
+          <h2 className="text-xl font-semibold">Templates</h2>
           <p className="text-muted-foreground">
-            Owners e Admins podem restringir membros a clientes específicos. 
-            Membros sem restrição veem todos os clientes do workspace.
+            Cada cliente pode ter templates personalizados com regras de formato, 
+            exemplos de referência e instruções específicas.
+          </p>
+        </div>
+
+        <div className="space-y-4">
+          <h2 className="text-xl font-semibold">Websites</h2>
+          <p className="text-muted-foreground">
+            Adicione URLs do cliente para o sistema fazer scraping automático 
+            e manter o contexto atualizado.
+          </p>
+        </div>
+
+        <div className="space-y-4">
+          <h2 className="text-xl font-semibold">Documentos</h2>
+          <p className="text-muted-foreground">
+            Faça upload de PDFs, apresentações e outros documentos. 
+            O conteúdo é extraído e fica disponível para a IA.
           </p>
         </div>
       </div>
@@ -507,112 +428,45 @@ const sections: DocSection[] = [
         <div>
           <h1 className="text-3xl font-bold mb-4">Configurações</h1>
           <p className="text-muted-foreground text-lg">
-            Personalize seu workspace e configure integrações.
+            Gerencie sua conta, equipe e preferências do sistema.
           </p>
         </div>
 
         <div className="space-y-4">
-          <h2 className="text-xl font-semibold">Configurações do Cliente</h2>
-          <p className="text-muted-foreground">
-            Cada cliente tem suas próprias configurações:
-          </p>
-          <ul className="list-disc list-inside text-muted-foreground space-y-1">
-            <li>Logo/Avatar personalizado</li>
-            <li>Guia de identidade e posicionamento</li>
-            <li>Redes sociais vinculadas</li>
-            <li>Documentos de referência</li>
-            <li>Tags e segmentação</li>
+          <h2 className="text-xl font-semibold">Perfil</h2>
+          <ul className="space-y-2 text-muted-foreground">
+            <li><strong>Nome e avatar</strong>: Personalização da conta</li>
+            <li><strong>Email</strong>: Email de login (não editável)</li>
+            <li><strong>Tema</strong>: Claro, escuro ou automático</li>
           </ul>
         </div>
 
         <div className="space-y-4">
-          <h2 className="text-xl font-semibold">Uso de IA</h2>
+          <h2 className="text-xl font-semibold">Equipe</h2>
           <p className="text-muted-foreground">
-            Acompanhe consumo de tokens e custos estimados por modelo e função.
+            Convide membros para seu workspace e gerencie permissões:
           </p>
-        </div>
-      </div>
-    ),
-  },
-  {
-    id: "orchestrator",
-    title: "Orquestrador",
-    icon: Workflow,
-    content: (
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold mb-4">Orquestrador Inteligente</h1>
-          <p className="text-muted-foreground text-lg">
-            Sistema que analisa a complexidade do pedido e decide automaticamente 
-            qual pipeline de agentes utilizar.
-          </p>
-        </div>
-
-        <div className="space-y-4">
-          <h2 className="text-xl font-semibold">Como Funciona</h2>
-          <div className="p-4 rounded-lg bg-muted/30 border">
-            <div className="space-y-3">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-violet-500/20 flex items-center justify-center text-violet-500 font-bold text-sm">1</div>
-                <div>
-                  <p className="font-medium">Análise de Intenção</p>
-                  <p className="text-sm text-muted-foreground">Detecta se é pergunta, geração, análise ou tarefa complexa</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-violet-500/20 flex items-center justify-center text-violet-500 font-bold text-sm">2</div>
-                <div>
-                  <p className="font-medium">Seleção de Pipeline</p>
-                  <p className="text-sm text-muted-foreground">Escolhe entre chat simples, single-agent, ou multi-agent</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-violet-500/20 flex items-center justify-center text-violet-500 font-bold text-sm">3</div>
-                <div>
-                  <p className="font-medium">Execução Coordenada</p>
-                  <p className="text-sm text-muted-foreground">Passa contexto entre agentes com memória compartilhada</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="space-y-4">
-          <h2 className="text-xl font-semibold">Tipos de Pipeline</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <div className="p-4 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
-              <h4 className="font-medium text-emerald-600 mb-2">Chat Simples</h4>
-              <p className="text-sm text-muted-foreground">Perguntas rápidas, conversas gerais. Usa resposta direta sem pipeline.</p>
+            <div className="p-3 rounded-lg bg-muted/30 border">
+              <p className="font-medium text-sm">Owner</p>
+              <p className="text-xs text-muted-foreground">Acesso total + billing</p>
             </div>
-            <div className="p-4 rounded-lg bg-blue-500/10 border border-blue-500/20">
-              <h4 className="font-medium text-blue-600 mb-2">Single-Agent</h4>
-              <p className="text-sm text-muted-foreground">Tarefas específicas com um agente especializado (ex: gerar um tweet).</p>
+            <div className="p-3 rounded-lg bg-muted/30 border">
+              <p className="font-medium text-sm">Admin</p>
+              <p className="text-xs text-muted-foreground">Acesso total exceto billing</p>
             </div>
-            <div className="p-4 rounded-lg bg-violet-500/10 border border-violet-500/20">
-              <h4 className="font-medium text-violet-600 mb-2">Multi-Agent</h4>
-              <p className="text-sm text-muted-foreground">Tarefas complexas com 4 agentes em sequência (pesquisador → escritor → editor → verificador).</p>
+            <div className="p-3 rounded-lg bg-muted/30 border">
+              <p className="font-medium text-sm">Member</p>
+              <p className="text-xs text-muted-foreground">Acesso a clientes permitidos</p>
             </div>
           </div>
         </div>
 
         <div className="space-y-4">
-          <h2 className="text-xl font-semibold">Agentes Especializados</h2>
-          <p className="text-muted-foreground">O sistema conta com 6 agentes core que podem ser combinados:</p>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-            {[
-              { name: "Researcher", role: "Busca dados no banco e biblioteca" },
-              { name: "Content Writer", role: "Gera conteúdo seguindo regras de formato" },
-              { name: "Style Editor", role: "Ajusta tom e voz para o cliente" },
-              { name: "Reviewer", role: "Verifica qualidade e consistência" },
-              { name: "Data Analyst", role: "Analisa métricas e gera insights" },
-              { name: "Strategist", role: "Cria planos e recomendações" },
-            ].map((agent) => (
-              <div key={agent.name} className="p-3 rounded-lg bg-muted/30 border">
-                <p className="font-medium text-sm">{agent.name}</p>
-                <p className="text-xs text-muted-foreground">{agent.role}</p>
-              </div>
-            ))}
-          </div>
+          <h2 className="text-xl font-semibold">Plano e Tokens</h2>
+          <p className="text-muted-foreground">
+            Visualize seu plano atual, consumo de tokens e faça upgrade se necessário.
+          </p>
         </div>
       </div>
     ),
@@ -705,24 +559,6 @@ const sections: DocSection[] = [
             </ul>
           </div>
         </div>
-
-        <div className="space-y-4">
-          <h2 className="text-xl font-semibold">Mapeamento de Arquivos</h2>
-          <div className="p-4 rounded-lg bg-amber-500/10 border border-amber-500/20">
-            <p className="text-muted-foreground mb-3 text-sm">
-              Principais arquivos do sistema de agentes:
-            </p>
-            <div className="space-y-1 text-xs font-mono">
-              <p><span className="text-amber-600">types/contentAgents.ts</span> - Definição dos 11 agentes de conteúdo</p>
-              <p><span className="text-amber-600">types/orchestrator.ts</span> - Agentes especializados do orquestrador</p>
-              <p><span className="text-amber-600">types/template.ts</span> - Regras de formato por tipo</p>
-              <p><span className="text-amber-600">hooks/useClientChat.ts</span> - Lógica principal do chat</p>
-              <p><span className="text-amber-600">functions/execute-agent</span> - Edge function que executa agentes</p>
-              <p><span className="text-amber-600">functions/orchestrator</span> - Orquestrador multi-agente</p>
-              <p><span className="text-amber-600">functions/chat</span> - Chat simples com streaming</p>
-            </div>
-          </div>
-        </div>
       </div>
     ),
   },
@@ -732,96 +568,71 @@ export default function Documentation() {
   const navigate = useNavigate();
   const [activeSection, setActiveSection] = useState("intro");
   const [searchQuery, setSearchQuery] = useState("");
-  const { canAccessAutomations, canAccessAgentBuilder, canAccessResearchLab } = useDevAccess();
 
-  // Filter sections based on dev access
-  const visibleSections = useMemo(() => {
-    const devOnlySections = [
-      ...(!canAccessAutomations ? ['automations'] : []),
-      ...(!canAccessAgentBuilder ? ['agent-builder'] : []),
-      ...(!canAccessResearchLab ? ['research'] : []),
-    ];
-    return sections.filter(s => !devOnlySections.includes(s.id));
-  }, [canAccessAutomations, canAccessAgentBuilder, canAccessResearchLab]);
-
-  const filteredSections = visibleSections.filter(s =>
+  const filteredSections = sections.filter(s =>
     s.title.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const currentSection = visibleSections.find(s => s.id === activeSection);
+  const activeContent = sections.find(s => s.id === activeSection)?.content;
 
   return (
-    <div className="min-h-screen bg-background flex">
-      {/* Sidebar */}
-      <div className="w-64 border-r border-border/50 bg-card flex flex-col">
-        {/* Header */}
-        <div className="p-4 border-b border-border/30">
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            onClick={() => navigate('/kai')}
-            className="gap-2 mb-3"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Voltar ao kAI
-          </Button>
-          <div className="flex items-center gap-2">
-            <Book className="h-5 w-5 text-violet-500" />
-            <span className="font-semibold">Documentação</span>
+    <div className="min-h-screen bg-background">
+      {/* Header */}
+      <header className="h-14 border-b border-border/50 bg-card/50 backdrop-blur-md sticky top-0 z-50">
+        <div className="h-full px-6 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+            <h1 className="font-semibold">Documentação</h1>
           </div>
         </div>
+      </header>
 
-        {/* Search */}
-        <div className="p-3">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Buscar..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 h-9 bg-muted/50 border-0"
-            />
+      <div className="flex">
+        {/* Sidebar */}
+        <aside className="w-64 border-r border-border/50 h-[calc(100vh-56px)] sticky top-14">
+          <div className="p-4">
+            <div className="relative mb-4">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+            
+            <ScrollArea className="h-[calc(100vh-160px)]">
+              <nav className="space-y-1">
+                {filteredSections.map((section) => (
+                  <button
+                    key={section.id}
+                    onClick={() => setActiveSection(section.id)}
+                    className={cn(
+                      "w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
+                      activeSection === section.id
+                        ? "bg-primary/10 text-primary font-medium"
+                        : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                    )}
+                  >
+                    <section.icon className="h-4 w-4" />
+                    <span className="flex-1 text-left">{section.title}</span>
+                    <ChevronRight className={cn(
+                      "h-4 w-4 transition-transform",
+                      activeSection === section.id && "rotate-90"
+                    )} />
+                  </button>
+                ))}
+              </nav>
+            </ScrollArea>
           </div>
-        </div>
+        </aside>
 
-        {/* Navigation */}
-        <ScrollArea className="flex-1">
-          <div className="p-2 space-y-1">
-            {filteredSections.map((section) => (
-              <button
-                key={section.id}
-                onClick={() => setActiveSection(section.id)}
-                className={cn(
-                  "w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
-                  "hover:bg-muted/80",
-                  activeSection === section.id
-                    ? "bg-primary/10 text-primary"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                <section.icon className="h-4 w-4 flex-shrink-0" />
-                <span className="flex-1 text-left">{section.title}</span>
-                {activeSection === section.id && (
-                  <ChevronRight className="h-4 w-4" />
-                )}
-              </button>
-            ))}
-          </div>
-        </ScrollArea>
-
-        {/* Footer */}
-        <div className="p-4 border-t border-border/30">
-          <p className="text-xs text-muted-foreground text-center">
-            kAI by Kaleidos © 2024
-          </p>
-        </div>
-      </div>
-
-      {/* Content */}
-      <div className="flex-1 overflow-y-auto">
-        <div className="max-w-3xl mx-auto p-8">
-          {currentSection?.content}
-        </div>
+        {/* Content */}
+        <main className="flex-1 p-8 max-w-4xl">
+          {activeContent}
+        </main>
       </div>
     </div>
   );
