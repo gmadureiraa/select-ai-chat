@@ -1640,6 +1640,24 @@ export type Database = {
         }
         Relationships: []
       }
+      super_admins: {
+        Row: {
+          created_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       token_transactions: {
         Row: {
           amount: number
@@ -2195,12 +2213,59 @@ export type Database = {
           success: boolean
         }[]
       }
+      get_all_workspaces_admin: {
+        Args: never
+        Returns: {
+          clients_count: number
+          created_at: string
+          id: string
+          members_count: number
+          name: string
+          owner_email: string
+          owner_id: string
+          slug: string
+        }[]
+      }
       get_user_workspace_id: { Args: { p_user_id: string }; Returns: string }
       get_user_workspace_role: {
         Args: { p_user_id: string }
         Returns: Database["public"]["Enums"]["workspace_role"]
       }
       get_user_workspace_slug: { Args: { p_user_id: string }; Returns: string }
+      get_workspace_clients_admin: {
+        Args: { p_workspace_id: string }
+        Returns: {
+          client_id: string
+          client_name: string
+          created_at: string
+          description: string
+        }[]
+      }
+      get_workspace_details_admin: {
+        Args: { p_workspace_id: string }
+        Returns: {
+          current_period_end: string
+          owner_email: string
+          plan_name: string
+          plan_status: string
+          tokens_balance: number
+          tokens_used: number
+          workspace_id: string
+          workspace_name: string
+          workspace_slug: string
+        }[]
+      }
+      get_workspace_members_admin: {
+        Args: { p_workspace_id: string }
+        Returns: {
+          email: string
+          full_name: string
+          joined_at: string
+          member_id: string
+          role: string
+          user_id: string
+        }[]
+      }
       has_project_access: {
         Args: { p_project_id: string; p_user_id: string }
         Returns: boolean
@@ -2210,6 +2275,7 @@ export type Database = {
         Returns: boolean
       }
       is_slug_available: { Args: { p_slug: string }; Returns: boolean }
+      is_super_admin: { Args: { p_user_id: string }; Returns: boolean }
       is_viewer_role: { Args: { p_user_id: string }; Returns: boolean }
       is_workspace_member: {
         Args: { p_user_id: string; p_workspace_id: string }
