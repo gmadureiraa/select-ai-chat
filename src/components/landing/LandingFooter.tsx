@@ -2,8 +2,9 @@ import { Link } from "react-router-dom";
 import kaleidosLogo from "@/assets/kaleidos-logo.svg";
 import { Instagram, Twitter, Linkedin, Youtube } from "lucide-react";
 
-const WHATSAPP_NUMBER = "5511999999999";
+const WHATSAPP_LINK = "https://api.whatsapp.com/send/?phone=12936180547&text=Ol%C3%A1%21+Preciso+da+ajuda+da+Kaleidos.+Podem+me+ajudar%3F&type=phone_number&app_absent=0";
 const CONTACT_EMAIL = "contato@kaleidos.ai";
+const CALENDLY_LINK = "https://calendly.com/madureira-kaleidosdigital/30min";
 
 const footerLinks = {
   produto: [
@@ -14,10 +15,11 @@ const footerLinks = {
   ],
   empresa: [
     { label: "Sobre", href: "#about" },
-    { label: "Contato", href: `https://wa.me/${WHATSAPP_NUMBER}?text=Olá! Tenho interesse no KAI.` },
+    { label: "Agendar Demo", href: CALENDLY_LINK },
+    { label: "Contato", href: WHATSAPP_LINK },
   ],
   suporte: [
-    { label: "Fale Conosco", href: `https://wa.me/${WHATSAPP_NUMBER}?text=Olá! Preciso de suporte.` },
+    { label: "WhatsApp", href: WHATSAPP_LINK },
     { label: "Email", href: `mailto:${CONTACT_EMAIL}` },
   ],
   legal: [
@@ -120,12 +122,12 @@ const LandingFooter = () => {
             <ul className="space-y-3">
               {footerLinks.legal.map((link) => (
                 <li key={link.label}>
-                  <a
-                    href={link.href}
+                  <Link
+                    to={link.href}
                     className="text-muted-foreground hover:text-foreground text-sm transition-colors"
                   >
                     {link.label}
-                  </a>
+                  </Link>
                 </li>
               ))}
             </ul>

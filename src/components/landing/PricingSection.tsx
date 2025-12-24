@@ -1,24 +1,11 @@
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { Check } from "lucide-react";
+import { Check, Sparkles } from "lucide-react";
 import { Link } from "react-router-dom";
 
+const WHATSAPP_LINK = "https://api.whatsapp.com/send/?phone=12936180547&text=Ol%C3%A1%21+Gostaria+de+saber+mais+sobre+o+plano+Enterprise.&type=phone_number&app_absent=0";
+
 const plans = [
-  {
-    name: "Gratuito",
-    price: "R$ 0",
-    period: "",
-    description: "Perfeito para começar a explorar",
-    features: [
-      "2 clientes",
-      "1 membro",
-      "1.000 tokens/mês",
-      "Acesso ao assistente IA",
-      "Biblioteca de conteúdo básica",
-    ],
-    cta: "Começar Grátis",
-    popular: false,
-  },
   {
     name: "Starter",
     price: "R$ 97",
@@ -33,8 +20,9 @@ const plans = [
       "Performance analytics",
       "Suporte prioritário",
     ],
-    cta: "Começar Teste Grátis",
+    cta: "Começar 14 dias grátis",
     popular: false,
+    planType: "starter",
   },
   {
     name: "Pro",
@@ -51,8 +39,9 @@ const plans = [
       "API completa",
       "Gerente de sucesso dedicado",
     ],
-    cta: "Começar Teste Grátis",
+    cta: "Começar 14 dias grátis",
     popular: true,
+    planType: "pro",
   },
   {
     name: "Enterprise",
@@ -71,6 +60,7 @@ const plans = [
     ],
     cta: "Falar com Vendas",
     popular: false,
+    planType: "enterprise",
   },
 ];
 
@@ -83,7 +73,7 @@ const PricingSection = () => {
         <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-secondary/5 rounded-full blur-3xl" />
       </div>
 
-      <div className="max-w-7xl mx-auto px-6 relative z-10">
+      <div className="max-w-6xl mx-auto px-6 relative z-10">
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -92,17 +82,21 @@ const PricingSection = () => {
           transition={{ duration: 0.6 }}
           className="text-center mb-16"
         >
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 mb-6">
+            <Sparkles className="w-4 h-4 text-primary" />
+            <span className="text-sm text-foreground">14 dias grátis em todos os planos</span>
+          </div>
           <h2 className="text-4xl md:text-5xl font-light text-foreground mb-4">
             Planos que{" "}
             <span className="italic text-muted-foreground">escalam</span> com você
           </h2>
           <p className="text-muted-foreground text-lg font-light max-w-xl mx-auto">
-            Escolha o plano ideal para o seu momento. Upgrade ou downgrade a qualquer momento.
+            Teste grátis por 14 dias. Sem compromisso, cancele quando quiser.
           </p>
         </motion.div>
 
         {/* Pricing cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
           {plans.map((plan, index) => (
             <motion.div
               key={plan.name}
@@ -154,18 +148,29 @@ const PricingSection = () => {
                 ))}
               </ul>
 
-              <Link to="/login">
-                <Button
-                  className={`w-full ${
-                    plan.popular
-                      ? "bg-background text-foreground hover:bg-background/90"
-                      : ""
-                  }`}
-                  variant={plan.popular ? "secondary" : "default"}
-                >
-                  {plan.cta}
-                </Button>
-              </Link>
+              {plan.planType === "enterprise" ? (
+                <a href={WHATSAPP_LINK} target="_blank" rel="noopener noreferrer">
+                  <Button
+                    className="w-full"
+                    variant="outline"
+                  >
+                    {plan.cta}
+                  </Button>
+                </a>
+              ) : (
+                <Link to={`/signup?plan=${plan.planType}`}>
+                  <Button
+                    className={`w-full ${
+                      plan.popular
+                        ? "bg-background text-foreground hover:bg-background/90"
+                        : ""
+                    }`}
+                    variant={plan.popular ? "secondary" : "default"}
+                  >
+                    {plan.cta}
+                  </Button>
+                </Link>
+              )}
             </motion.div>
           ))}
         </div>
@@ -180,12 +185,13 @@ const PricingSection = () => {
         >
           <p className="text-muted-foreground">
             Tem dúvidas?{" "}
-            <a href="#" className="text-primary hover:underline">
-              Veja as perguntas frequentes
-            </a>{" "}
-            ou{" "}
-            <a href="#" className="text-primary hover:underline">
-              fale conosco
+            <a 
+              href={WHATSAPP_LINK}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary hover:underline"
+            >
+              Fale conosco
             </a>
           </p>
         </motion.div>

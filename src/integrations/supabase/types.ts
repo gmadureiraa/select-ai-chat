@@ -1600,7 +1600,10 @@ export type Database = {
           name: string
           price_monthly: number
           price_yearly: number
+          stripe_price_id: string | null
+          stripe_product_id: string | null
           tokens_monthly: number
+          trial_days: number | null
           type: Database["public"]["Enums"]["plan_type"]
         }
         Insert: {
@@ -1613,7 +1616,10 @@ export type Database = {
           name: string
           price_monthly?: number
           price_yearly?: number
+          stripe_price_id?: string | null
+          stripe_product_id?: string | null
           tokens_monthly?: number
+          trial_days?: number | null
           type: Database["public"]["Enums"]["plan_type"]
         }
         Update: {
@@ -1626,7 +1632,10 @@ export type Database = {
           name?: string
           price_monthly?: number
           price_yearly?: number
+          stripe_price_id?: string | null
+          stripe_product_id?: string | null
           tokens_monthly?: number
+          trial_days?: number | null
           type?: Database["public"]["Enums"]["plan_type"]
         }
         Relationships: []

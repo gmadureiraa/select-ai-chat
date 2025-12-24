@@ -1,7 +1,9 @@
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Building2 } from "lucide-react";
+import { ArrowRight, Calendar } from "lucide-react";
 import { Link } from "react-router-dom";
+
+const CALENDLY_LINK = "https://calendly.com/madureira-kaleidosdigital/30min";
 
 const CTASection = () => {
   return (
@@ -18,8 +20,8 @@ const CTASection = () => {
         >
           {/* Badge */}
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 mb-8">
-            <Building2 className="w-4 h-4 text-primary" />
-            <span className="text-sm text-foreground">Comece gratuitamente</span>
+            <Calendar className="w-4 h-4 text-primary" />
+            <span className="text-sm text-foreground">14 dias grátis para testar</span>
           </div>
 
           <h2 className="text-4xl md:text-6xl font-light text-foreground mb-6 leading-tight">
@@ -41,12 +43,12 @@ const CTASection = () => {
                 size="lg"
                 className="bg-foreground text-background hover:bg-foreground/90 px-10 py-7 text-lg rounded-full group"
               >
-                Criar Minha Conta
+                Começar 14 dias grátis
                 <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
               </Button>
             </Link>
             <a 
-              href="https://wa.me/5511999999999?text=Olá! Gostaria de agendar uma demonstração do KAI."
+              href={CALENDLY_LINK}
               target="_blank"
               rel="noopener noreferrer"
             >
@@ -55,6 +57,7 @@ const CTASection = () => {
                 variant="outline"
                 className="px-8 py-7 text-lg rounded-full border-border hover:bg-muted"
               >
+                <Calendar className="mr-2 w-5 h-5" />
                 Agendar Demo
               </Button>
             </a>
@@ -64,7 +67,7 @@ const CTASection = () => {
           <div className="flex items-center justify-center gap-6 mt-12 text-muted-foreground text-sm flex-wrap">
             <span>✓ Sem cartão de crédito</span>
             <span>✓ Acesso completo por 14 dias</span>
-            <span>✓ Convide seu time</span>
+            <span>✓ Cancele quando quiser</span>
           </div>
         </motion.div>
       </div>
