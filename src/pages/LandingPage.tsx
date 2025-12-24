@@ -9,6 +9,7 @@ import StatsSection from "@/components/landing/StatsSection";
 import IntegrationsOrbit from "@/components/landing/IntegrationsOrbit";
 import TestimonialsSection from "@/components/landing/TestimonialsSection";
 import PricingSection from "@/components/landing/PricingSection";
+import FAQSection from "@/components/landing/FAQSection";
 import CTASection from "@/components/landing/CTASection";
 import LandingFooter from "@/components/landing/LandingFooter";
 
@@ -26,6 +27,7 @@ const LandingPage = () => {
         <IntegrationsOrbit />
         <PricingSection />
         <TestimonialsSection />
+        <FAQSection />
         <CTASection />
         <LandingFooter />
       </div>
