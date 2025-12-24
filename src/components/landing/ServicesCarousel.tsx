@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { ChevronLeft, ChevronRight, Users, Shield, Zap, ArrowRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Users, Shield, Zap, ArrowRight, BarChart3, FolderOpen, Workflow, Target } from "lucide-react";
 import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 
@@ -25,6 +25,34 @@ const services = [
     icon: Zap,
     colorClass: "from-primary to-cyan-500",
   },
+  {
+    title: "Performance Analytics",
+    description:
+      "Métricas de Instagram, YouTube e Newsletter em um só lugar. Dashboards visuais e insights automáticos para cada cliente.",
+    icon: BarChart3,
+    colorClass: "from-emerald-500 to-teal-500",
+  },
+  {
+    title: "Biblioteca de Conteúdo",
+    description:
+      "Armazene templates, referências visuais e conteúdos aprovados. Reutilize o que funciona e mantenha consistência.",
+    icon: FolderOpen,
+    colorClass: "from-amber-500 to-orange-500",
+  },
+  {
+    title: "Automações",
+    description:
+      "Crie workflows que rodam automaticamente. Relatórios semanais, alertas de performance e tarefas recorrentes.",
+    icon: Workflow,
+    colorClass: "from-rose-500 to-pink-500",
+  },
+  {
+    title: "Metas & Objetivos",
+    description:
+      "Defina metas para cada cliente e acompanhe o progresso. Visualize o quanto falta para atingir cada objetivo.",
+    icon: Target,
+    colorClass: "from-blue-500 to-indigo-500",
+  },
 ];
 
 const ServicesCarousel = () => {
@@ -33,7 +61,7 @@ const ServicesCarousel = () => {
 
   const scrollToCard = (index: number) => {
     if (scrollRef.current) {
-      const cardWidth = 380;
+      const cardWidth = 340;
       const gap = 24;
       scrollRef.current.scrollTo({
         left: index * (cardWidth + gap),
@@ -54,7 +82,7 @@ const ServicesCarousel = () => {
   };
 
   return (
-    <section className="py-32 bg-muted/30 dark:bg-muted/10 relative overflow-hidden">
+    <section id="features" className="py-32 bg-muted/30 dark:bg-muted/10 relative overflow-hidden">
       {/* Background gradient */}
       <div className="absolute inset-0 bg-gradient-to-b from-transparent via-primary/[0.02] to-transparent" />
 
@@ -78,7 +106,7 @@ const ServicesCarousel = () => {
             <p className="text-muted-foreground text-lg font-light mb-8 max-w-sm">
               Ferramentas pensadas para times que produzem conteúdo em escala.
             </p>
-            <div className="flex gap-3">
+            <div className="flex items-center gap-3">
               <button
                 onClick={handlePrev}
                 className="w-12 h-12 rounded-full border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-foreground/40 transition-all hover:bg-muted"
@@ -91,6 +119,25 @@ const ServicesCarousel = () => {
               >
                 <ChevronRight className="w-5 h-5" />
               </button>
+              {/* Pagination indicator */}
+              <span className="text-sm text-muted-foreground ml-2">
+                {activeIndex + 1} / {services.length}
+              </span>
+            </div>
+            
+            {/* Dots indicator - Desktop */}
+            <div className="hidden lg:flex gap-2 mt-6">
+              {services.map((_, index) => (
+                <button
+                  key={index}
+                  onClick={() => scrollToCard(index)}
+                  className={`h-1.5 rounded-full transition-all duration-300 ${
+                    activeIndex === index 
+                      ? "bg-foreground w-8" 
+                      : "bg-muted-foreground/30 w-1.5 hover:bg-muted-foreground/50"
+                  }`}
+                />
+              ))}
             </div>
           </motion.div>
 
@@ -99,6 +146,14 @@ const ServicesCarousel = () => {
             ref={scrollRef}
             className="flex gap-6 overflow-x-auto pb-4 scrollbar-hide snap-x snap-mandatory"
             style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+            onScroll={(e) => {
+              const scrollLeft = e.currentTarget.scrollLeft;
+              const cardWidth = 340 + 24;
+              const newIndex = Math.round(scrollLeft / cardWidth);
+              if (newIndex !== activeIndex && newIndex >= 0 && newIndex < services.length) {
+                setActiveIndex(newIndex);
+              }
+            }}
           >
             {services.map((service, index) => (
               <motion.div
@@ -162,8 +217,8 @@ const ServicesCarousel = () => {
             <button
               key={index}
               onClick={() => scrollToCard(index)}
-              className={`w-2 h-2 rounded-full transition-all ${
-                activeIndex === index ? "bg-foreground w-6" : "bg-muted-foreground/30"
+              className={`h-2 rounded-full transition-all ${
+                activeIndex === index ? "bg-foreground w-6" : "bg-muted-foreground/30 w-2"
               }`}
             />
           ))}

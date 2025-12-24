@@ -30,12 +30,12 @@ const testimonials = [
 ];
 
 const clientLogos = [
-  "TechCorp",
-  "InnovateBR",
-  "Digital First",
-  "CreativeHub",
-  "NextLevel",
-  "FutureMedia",
+  { name: "TechCorp", initial: "T" },
+  { name: "InnovateBR", initial: "I" },
+  { name: "Digital First", initial: "D" },
+  { name: "CreativeHub", initial: "C" },
+  { name: "NextLevel", initial: "N" },
+  { name: "FutureMedia", initial: "F" },
 ];
 
 const TestimonialsSection = () => {
@@ -89,7 +89,7 @@ const TestimonialsSection = () => {
         </motion.div>
 
         {/* Testimonials */}
-        <div className="grid md:grid-cols-3 gap-6 mb-20">
+        <div className="grid md:grid-cols-3 gap-6 mb-16">
           {testimonials.map((testimonial, index) => (
             <motion.div
               key={testimonial.author}
@@ -97,33 +97,42 @@ const TestimonialsSection = () => {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.5, delay: index * 0.1 }}
-              className={`relative p-8 rounded-3xl transition-all duration-300 ${
+              onClick={() => setActiveIndex(index)}
+              className={`relative p-8 rounded-3xl transition-all duration-300 cursor-pointer ${
                 index === activeIndex
-                  ? "bg-gradient-to-br from-secondary/20 to-accent/10 border-2 border-accent/50"
+                  ? "bg-foreground dark:bg-card scale-[1.02] shadow-2xl"
                   : "bg-card border border-border hover:border-primary/30"
               }`}
             >
               {/* Quote icon */}
-              <Quote className="w-8 h-8 text-muted-foreground/20 mb-4" />
+              <Quote className={`w-10 h-10 mb-6 ${
+                index === activeIndex 
+                  ? "text-background/20 dark:text-muted-foreground/20" 
+                  : "text-muted-foreground/20"
+              }`} />
+
+              {/* Content */}
+              <p className={`text-base leading-relaxed mb-8 ${
+                index === activeIndex 
+                  ? "text-background dark:text-foreground" 
+                  : "text-muted-foreground"
+              }`}>
+                "{testimonial.content}"
+              </p>
 
               {/* Stars */}
-              <div className="flex gap-1 mb-4">
+              <div className="flex gap-1 mb-6">
                 {[...Array(testimonial.rating)].map((_, i) => (
                   <Star
                     key={i}
                     className={`w-4 h-4 ${
                       index === activeIndex
                         ? "text-accent fill-accent"
-                        : "text-muted-foreground/30 fill-muted-foreground/30"
+                        : "text-muted-foreground/40 fill-muted-foreground/40"
                     }`}
                   />
                 ))}
               </div>
-
-              {/* Content */}
-              <p className="text-muted-foreground text-base leading-relaxed mb-6">
-                "{testimonial.content}"
-              </p>
 
               {/* Author */}
               <div className="flex items-center gap-4">
@@ -133,10 +142,20 @@ const TestimonialsSection = () => {
                   className="w-12 h-12 rounded-full object-cover border-2 border-border"
                 />
                 <div>
-                  <h4 className="text-foreground font-medium">
+                  <h4 className={`font-medium ${
+                    index === activeIndex 
+                      ? "text-background dark:text-foreground" 
+                      : "text-foreground"
+                  }`}>
                     {testimonial.author}
                   </h4>
-                  <p className="text-muted-foreground text-sm">{testimonial.role}</p>
+                  <p className={`text-sm ${
+                    index === activeIndex 
+                      ? "text-background/70 dark:text-muted-foreground" 
+                      : "text-muted-foreground"
+                  }`}>
+                    {testimonial.role}
+                  </p>
                 </div>
               </div>
             </motion.div>
@@ -149,22 +168,30 @@ const TestimonialsSection = () => {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.6 }}
-          className="flex flex-wrap justify-center gap-4"
+          className="border-t border-border pt-12"
         >
-          {clientLogos.map((logo, index) => (
-            <motion.div
-              key={logo}
-              initial={{ opacity: 0 }}
-              whileInView={{ opacity: 1 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5, delay: index * 0.05 }}
-              className="px-8 py-4 rounded-xl bg-card border border-border hover:border-primary/30 transition-colors"
-            >
-              <span className="text-muted-foreground font-medium text-sm tracking-wide">
-                {logo}
-              </span>
-            </motion.div>
-          ))}
+          <p className="text-center text-muted-foreground text-sm mb-8">
+            Empresas que confiam no KAI
+          </p>
+          <div className="flex flex-wrap justify-center gap-8 md:gap-12">
+            {clientLogos.map((logo, index) => (
+              <motion.div
+                key={logo.name}
+                initial={{ opacity: 0 }}
+                whileInView={{ opacity: 1 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.5, delay: index * 0.05 }}
+                className="flex items-center gap-2 text-muted-foreground/50 hover:text-muted-foreground transition-colors"
+              >
+                <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center text-sm font-bold">
+                  {logo.initial}
+                </div>
+                <span className="font-medium text-sm tracking-wide">
+                  {logo.name}
+                </span>
+              </motion.div>
+            ))}
+          </div>
         </motion.div>
       </div>
     </section>
