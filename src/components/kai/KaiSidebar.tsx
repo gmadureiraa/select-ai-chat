@@ -369,6 +369,7 @@ export function KaiSidebar({
               icon={<Users className="h-4 w-4" />}
               label="Equipe"
               active={activeTab === "team"}
+              onClick={() => onTabChange("team")}
               badge={pendingCount}
               collapsed={collapsed}
             />
