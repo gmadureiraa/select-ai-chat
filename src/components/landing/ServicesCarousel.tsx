@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
-import { ChevronLeft, ChevronRight, Users, Shield, Zap, ArrowRight, BarChart3, FolderOpen, Target } from "lucide-react";
-import { useState, useRef } from "react";
+import { ChevronLeft, ChevronRight, Users, Shield, Zap, ArrowRight, BarChart3, FolderOpen, Target, MoveHorizontal } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 
 const services = [
@@ -50,7 +50,16 @@ const services = [
 
 const ServicesCarousel = () => {
   const [activeIndex, setActiveIndex] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const [startX, setStartX] = useState(0);
+  const [scrollLeft, setScrollLeft] = useState(0);
+  const [showDragHint, setShowDragHint] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setShowDragHint(false), 5000);
+    return () => clearTimeout(timer);
+  }, []);
 
   const scrollToCard = (index: number) => {
     if (scrollRef.current) {
@@ -72,6 +81,47 @@ const ServicesCarousel = () => {
   const handleNext = () => {
     const newIndex = activeIndex < services.length - 1 ? activeIndex + 1 : 0;
     scrollToCard(newIndex);
+  };
+
+  // Mouse drag handlers
+  const handleMouseDown = (e: React.MouseEvent) => {
+    setIsDragging(true);
+    setStartX(e.pageX - (scrollRef.current?.offsetLeft || 0));
+    setScrollLeft(scrollRef.current?.scrollLeft || 0);
+    setShowDragHint(false);
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging) return;
+    e.preventDefault();
+    const x = e.pageX - (scrollRef.current?.offsetLeft || 0);
+    const walk = (x - startX) * 1.5;
+    if (scrollRef.current) {
+      scrollRef.current.scrollLeft = scrollLeft - walk;
+    }
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+  };
+
+  const handleMouseLeave = () => {
+    setIsDragging(false);
+  };
+
+  // Touch handlers for mobile
+  const handleTouchStart = (e: React.TouchEvent) => {
+    setStartX(e.touches[0].pageX - (scrollRef.current?.offsetLeft || 0));
+    setScrollLeft(scrollRef.current?.scrollLeft || 0);
+    setShowDragHint(false);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    const x = e.touches[0].pageX - (scrollRef.current?.offsetLeft || 0);
+    const walk = (x - startX) * 1.5;
+    if (scrollRef.current) {
+      scrollRef.current.scrollLeft = scrollLeft - walk;
+    }
   };
 
   return (
@@ -102,13 +152,13 @@ const ServicesCarousel = () => {
             <div className="flex items-center gap-3">
               <button
                 onClick={handlePrev}
-                className="w-12 h-12 rounded-full border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-foreground/40 transition-all hover:bg-muted"
+                className="w-12 h-12 rounded-full border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-foreground/40 transition-all hover:bg-muted active:scale-95"
               >
                 <ChevronLeft className="w-5 h-5" />
               </button>
               <button
                 onClick={handleNext}
-                className="w-12 h-12 rounded-full border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-foreground/40 transition-all hover:bg-muted"
+                className="w-12 h-12 rounded-full border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-foreground/40 transition-all hover:bg-muted active:scale-95"
               >
                 <ChevronRight className="w-5 h-5" />
               </button>
@@ -134,73 +184,97 @@ const ServicesCarousel = () => {
             </div>
           </motion.div>
 
-          {/* Right side - Cards */}
-          <div
-            ref={scrollRef}
-            className="flex gap-6 overflow-x-auto pb-4 scrollbar-hide snap-x snap-mandatory"
-            style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
-            onScroll={(e) => {
-              const scrollLeft = e.currentTarget.scrollLeft;
-              const cardWidth = 340 + 24;
-              const newIndex = Math.round(scrollLeft / cardWidth);
-              if (newIndex !== activeIndex && newIndex >= 0 && newIndex < services.length) {
-                setActiveIndex(newIndex);
-              }
-            }}
-          >
-            {services.map((service, index) => (
+          {/* Right side - Cards with drag functionality */}
+          <div className="relative">
+            {/* Drag hint indicator */}
+            {showDragHint && (
               <motion.div
-                key={service.title}
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.5, delay: index * 0.1 }}
-                className="flex-shrink-0 w-[340px] snap-start"
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0 }}
+                className="absolute top-1/2 right-4 -translate-y-1/2 z-20 flex items-center gap-2 bg-background/90 backdrop-blur-sm border border-border rounded-full px-4 py-2 pointer-events-none"
               >
-                <div className="relative rounded-3xl overflow-hidden h-[420px] group bg-card border border-border">
-                  {/* Fluid gradient background */}
-                  <div className={`absolute inset-0 bg-gradient-to-br ${service.colorClass} opacity-20`} />
-                  
-                  {/* Animated blob */}
-                  <motion.div
-                    className={`absolute top-1/2 left-1/2 w-[300px] h-[300px] rounded-full bg-gradient-to-r ${service.colorClass} blur-[80px] opacity-30`}
-                    animate={{
-                      scale: [1, 1.2, 1],
-                      x: ["-50%", "-40%", "-50%"],
-                      y: ["-50%", "-60%", "-50%"],
-                    }}
-                    transition={{
-                      duration: 8,
-                      repeat: Infinity,
-                      ease: "easeInOut",
-                    }}
-                  />
-
-                  {/* Dark overlay for contrast */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-background/90 via-background/50 to-transparent dark:from-black/80 dark:via-black/40" />
-
-                  {/* Content */}
-                  <div className="relative z-10 h-full flex flex-col justify-end p-6">
-                    <div className="w-14 h-14 rounded-2xl bg-primary/10 backdrop-blur-sm flex items-center justify-center mb-4 border border-border">
-                      <service.icon className="w-7 h-7 text-foreground" />
-                    </div>
-                    <h3 className="text-2xl font-medium text-foreground mb-2">
-                      {service.title}
-                    </h3>
-                    <p className="text-muted-foreground text-sm leading-relaxed mb-6">
-                      {service.description}
-                    </p>
-                    <Button
-                      variant="ghost"
-                      className="w-fit text-muted-foreground hover:text-foreground p-0 h-auto font-normal group/btn"
-                    >
-                      Saiba mais
-                      <ArrowRight className="w-4 h-4 ml-2 group-hover/btn:translate-x-1 transition-transform" />
-                    </Button>
-                  </div>
-                </div>
+                <MoveHorizontal className="w-4 h-4 text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">Arraste para ver mais</span>
               </motion.div>
-            ))}
+            )}
+            
+            <div
+              ref={scrollRef}
+              className={`flex gap-6 overflow-x-auto pb-4 scrollbar-hide snap-x snap-mandatory ${
+                isDragging ? "cursor-grabbing" : "cursor-grab"
+              }`}
+              style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+              onMouseDown={handleMouseDown}
+              onMouseMove={handleMouseMove}
+              onMouseUp={handleMouseUp}
+              onMouseLeave={handleMouseLeave}
+              onTouchStart={handleTouchStart}
+              onTouchMove={handleTouchMove}
+              onScroll={(e) => {
+                const scrollLeftPos = e.currentTarget.scrollLeft;
+                const cardWidth = 340 + 24;
+                const newIndex = Math.round(scrollLeftPos / cardWidth);
+                if (newIndex !== activeIndex && newIndex >= 0 && newIndex < services.length) {
+                  setActiveIndex(newIndex);
+                }
+              }}
+            >
+              {services.map((service, index) => (
+                <motion.div
+                  key={service.title}
+                  initial={{ opacity: 0, y: 30 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.5, delay: index * 0.1 }}
+                  className="flex-shrink-0 w-[340px] snap-start select-none"
+                >
+                  <div className="relative rounded-3xl overflow-hidden h-[420px] group bg-card border border-border hover:border-primary/30 transition-colors">
+                    {/* Fluid gradient background */}
+                    <div className={`absolute inset-0 bg-gradient-to-br ${service.colorClass} opacity-20`} />
+                    
+                    {/* Animated blob */}
+                    <motion.div
+                      className={`absolute top-1/2 left-1/2 w-[300px] h-[300px] rounded-full bg-gradient-to-r ${service.colorClass} blur-[80px] opacity-30`}
+                      animate={{
+                        scale: [1, 1.2, 1],
+                        x: ["-50%", "-40%", "-50%"],
+                        y: ["-50%", "-60%", "-50%"],
+                      }}
+                      transition={{
+                        duration: 8,
+                        repeat: Infinity,
+                        ease: "easeInOut",
+                      }}
+                    />
+
+                    {/* Dark overlay for contrast */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-background/90 via-background/50 to-transparent dark:from-black/80 dark:via-black/40" />
+
+                    {/* Content */}
+                    <div className="relative z-10 h-full flex flex-col justify-end p-6">
+                      <div className="w-14 h-14 rounded-2xl bg-primary/10 backdrop-blur-sm flex items-center justify-center mb-4 border border-border">
+                        <service.icon className="w-7 h-7 text-foreground" />
+                      </div>
+                      <h3 className="text-2xl font-medium text-foreground mb-2">
+                        {service.title}
+                      </h3>
+                      <p className="text-muted-foreground text-sm leading-relaxed mb-6">
+                        {service.description}
+                      </p>
+                      <Button
+                        variant="ghost"
+                        className="w-fit text-muted-foreground hover:text-foreground p-0 h-auto font-normal group/btn pointer-events-auto"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        Saiba mais
+                        <ArrowRight className="w-4 h-4 ml-2 group-hover/btn:translate-x-1 transition-transform" />
+                      </Button>
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
           </div>
         </div>
 

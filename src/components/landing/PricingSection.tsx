@@ -8,7 +8,7 @@ const WHATSAPP_LINK = "https://api.whatsapp.com/send/?phone=12936180547&text=Ol%
 const plans = [
   {
     name: "Starter",
-    price: "R$ 97",
+    price: "$49",
     period: "/mês",
     description: "Para criadores e pequenas equipes",
     features: [
@@ -26,7 +26,7 @@ const plans = [
   },
   {
     name: "Pro",
-    price: "R$ 297",
+    price: "$249",
     period: "/mês",
     description: "Para agências e empresas",
     features: [

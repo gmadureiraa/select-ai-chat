@@ -1,6 +1,14 @@
 import { motion } from "framer-motion";
+import { ChevronDown } from "lucide-react";
 
 const AboutSection = () => {
+  const scrollToNext = () => {
+    const section = document.getElementById("agent-flow");
+    if (section) {
+      section.scrollIntoView({ behavior: "smooth" });
+    }
+  };
+
   return (
     <section id="about" className="py-32 bg-background relative overflow-hidden">
       {/* Subtle gradient background */}
@@ -67,6 +75,29 @@ const AboutSection = () => {
             <br />
             Uma plataforma, todos os clientes, todo o time.
           </motion.p>
+
+          {/* Animated scroll arrow */}
+          <motion.button
+            onClick={scrollToNext}
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ delay: 0.6 }}
+            className="mt-16 inline-flex flex-col items-center gap-2 text-muted-foreground hover:text-foreground transition-colors group cursor-pointer"
+          >
+            <span className="text-sm">Veja como funciona</span>
+            <motion.div
+              animate={{ y: [0, 8, 0] }}
+              transition={{
+                duration: 2,
+                repeat: Infinity,
+                ease: "easeInOut",
+              }}
+              className="w-10 h-10 rounded-full border border-border flex items-center justify-center group-hover:border-primary/50 group-hover:bg-primary/5 transition-all"
+            >
+              <ChevronDown className="w-5 h-5" />
+            </motion.div>
+          </motion.button>
         </motion.div>
       </div>
     </section>
