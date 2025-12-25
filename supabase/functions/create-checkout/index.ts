@@ -7,16 +7,16 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Plan configuration with Stripe price IDs
+// Plan configuration with Stripe price IDs (USD)
 const PLANS = {
   starter: {
-    priceId: "price_1ShjAAPIJtcImSMvRqRHP8eJ",
-    productId: "prod_Tf3GbZjJw3c29F",
+    priceId: "price_1Si2iLPIJtcImSMvHG6aWpCm", // $49/month USD
+    productId: "prod_TfNT7f3WMVagaz",
     trialDays: 14,
   },
   pro: {
-    priceId: "price_1ShjAIPIJtcImSMvuFrHLB7P",
-    productId: "prod_Tf3GyfJj9Kfi61",
+    priceId: "price_1Si2iNPIJtcImSMvot2pJbyr", // $249/month USD
+    productId: "prod_TfNTm4r0XyYOPB",
     trialDays: 14,
   },
 };
