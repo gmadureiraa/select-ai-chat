@@ -2654,6 +2654,10 @@ export type Database = {
         Args: { p_client_id: string; p_user_id: string }
         Returns: boolean
       }
+      can_delete_in_specific_workspace: {
+        Args: { _user_id: string; _workspace_id: string }
+        Returns: boolean
+      }
       can_delete_in_workspace: { Args: { p_user_id: string }; Returns: boolean }
       can_modify_data: { Args: { p_user_id: string }; Returns: boolean }
       can_view_workspace_ai_usage: {
@@ -2702,6 +2706,10 @@ export type Database = {
           owner_id: string
           slug: string
         }[]
+      }
+      get_user_role_in_workspace: {
+        Args: { _user_id: string; _workspace_id: string }
+        Returns: Database["public"]["Enums"]["workspace_role"]
       }
       get_user_workspace_id: { Args: { p_user_id: string }; Returns: string }
       get_user_workspace_role: {
@@ -2766,6 +2774,10 @@ export type Database = {
       }
       is_enterprise_workspace: {
         Args: { p_workspace_id: string }
+        Returns: boolean
+      }
+      is_member_of_workspace: {
+        Args: { _user_id: string; _workspace_id: string }
         Returns: boolean
       }
       is_slug_available: { Args: { p_slug: string }; Returns: boolean }
