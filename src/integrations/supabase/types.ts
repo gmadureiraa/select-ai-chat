@@ -762,6 +762,7 @@ export type Database = {
       }
       clients: {
         Row: {
+          ai_analysis: Json | null
           avatar_url: string | null
           brand_assets: Json | null
           context_notes: string | null
@@ -779,6 +780,7 @@ export type Database = {
           workspace_id: string
         }
         Insert: {
+          ai_analysis?: Json | null
           avatar_url?: string | null
           brand_assets?: Json | null
           context_notes?: string | null
@@ -796,6 +798,7 @@ export type Database = {
           workspace_id: string
         }
         Update: {
+          ai_analysis?: Json | null
           avatar_url?: string | null
           brand_assets?: Json | null
           context_notes?: string | null

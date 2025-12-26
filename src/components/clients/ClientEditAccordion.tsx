@@ -14,15 +14,17 @@ import {
   User, FileText, Loader2, Globe, Instagram, Twitter, 
   Linkedin, Youtube, Mail, Megaphone, Trash2, RefreshCw, Check, X,
   Building, MessageSquare, Users, Target, Hash, Eye, Award, TrendingUp,
-  Palette, Plug, Plus, ChevronRight, Image, BookOpen
+  Palette, Plug, Plus, ChevronRight, Image, BookOpen, Brain
 } from "lucide-react";
 import { AvatarUpload } from "@/components/ui/avatar-upload";
 import { SocialIntegrationsTab } from "./SocialIntegrationsTab";
 import { ClientDocumentsManager } from "./ClientDocumentsManager";
 import { BrandAssetsEditor } from "./BrandAssetsEditor";
 import { VisualReferencesManager } from "./VisualReferencesManager";
+import { AIClientAnalysis } from "./AIClientAnalysis";
 import { Client, useClients } from "@/hooks/useClients";
 import { useClientWebsites } from "@/hooks/useClientWebsites";
+import { useClientAnalysis, ClientAnalysis } from "@/hooks/useClientAnalysis";
 import { useToast } from "@/hooks/use-toast";
 import { useDebounce } from "@/hooks/useDebounce";
 import { supabase } from "@/integrations/supabase/client";

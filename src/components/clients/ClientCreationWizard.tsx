@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,8 +11,10 @@ import {
 import { WizardProgress } from "./WizardProgress";
 import { WizardStep, StepSection } from "./WizardStep";
 import { AvatarUpload } from "@/components/ui/avatar-upload";
+import { AIClientAnalysis } from "./AIClientAnalysis";
 import { useClients } from "@/hooks/useClients";
 import { useGenerateClientContext } from "@/hooks/useGenerateClientContext";
+import { useClientAnalysis, ClientAnalysis } from "@/hooks/useClientAnalysis";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -26,7 +28,7 @@ const STEPS = [
   { title: "Básico", description: "Nome e perfil" },
   { title: "Digital", description: "Redes sociais" },
   { title: "Recursos", description: "Docs e sites" },
-  { title: "Revisar", description: "Confirmar" },
+  { title: "Revisar", description: "Análise IA" },
 ];
 
 const socialFields = [
@@ -43,6 +45,7 @@ export function ClientCreationWizard({ onComplete, onCancel }: ClientCreationWiz
   const [direction, setDirection] = useState<"forward" | "backward">("forward");
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingMessage, setProcessingMessage] = useState("");
+  const [hasRunAnalysis, setHasRunAnalysis] = useState(false);
 
   // Step 1: Basic Info
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
@@ -64,6 +67,39 @@ export function ClientCreationWizard({ onComplete, onCancel }: ClientCreationWiz
 
   const { createClient } = useClients();
   const { generateContext, isGenerating } = useGenerateClientContext();
+  const { 
+    isAnalyzing, 
+    analysis, 
+    progress, 
+    error: analysisError, 
+    runAnalysis, 
+    updateAnalysis,
+    setAnalysis,
+    resetAnalysis 
+  } = useClientAnalysis();
+
+  // Run analysis when entering step 4
+  useEffect(() => {
+    if (currentStep === 4 && !hasRunAnalysis && !analysis && !isAnalyzing) {
+      triggerAnalysis();
+    }
+  }, [currentStep]);
+
+  const triggerAnalysis = async () => {
+    setHasRunAnalysis(true);
+    const clientData = {
+      name,
+      description,
+      segment,
+      tone,
+      audience,
+      socialMedia: { ...socialMedia, website },
+      websites: website ? [website, ...websites] : websites,
+      // Note: document contents would need to be extracted - for now we pass empty
+      documentContents: [],
+    };
+    await runAnalysis(clientData);
+  };
 
   const goNext = () => {
     if (currentStep < STEPS.length) {
@@ -197,13 +233,14 @@ export function ClientCreationWizard({ onComplete, onCancel }: ClientCreationWiz
         documents: uploadedDocs,
       });
 
-      // 6. Update client with final context and identity guide
-      if (finalContext || identityGuide) {
+      // 6. Update client with final context, identity guide, and AI analysis
+      if (finalContext || identityGuide || analysis) {
         await supabase
           .from("clients")
           .update({ 
             context_notes: finalContext,
             identity_guide: identityGuide || null,
+            ai_analysis: analysis ? JSON.parse(JSON.stringify(analysis)) : null,
           })
           .eq("id", clientId);
       }
@@ -452,92 +489,39 @@ export function ClientCreationWizard({ onComplete, onCancel }: ClientCreationWiz
           </StepSection>
         </WizardStep>
 
-        {/* Step 4: Review */}
+        {/* Step 4: Review with AI Analysis */}
         <WizardStep isActive={currentStep === 4} direction={direction}>
           <StepSection 
-            title="Revisar e Criar" 
-            description="Confira as informações antes de criar o cliente"
+            title="Análise Inteligente" 
+            description="IA analisando o cliente e gerando insights"
           >
             <div className="space-y-4">
-              {/* Completeness */}
-              <div className="bg-muted/50 rounded-lg p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium">Perfil Completo</span>
-                  <span className="text-sm text-muted-foreground">{calculateCompleteness()}%</span>
-                </div>
-                <div className="h-2 bg-muted rounded-full overflow-hidden">
-                  <div 
-                    className="h-full bg-primary transition-all duration-500"
-                    style={{ width: `${calculateCompleteness()}%` }}
-                  />
-                </div>
-              </div>
+              {/* AI Analysis Component */}
+              <AIClientAnalysis
+                analysis={analysis}
+                isAnalyzing={isAnalyzing}
+                progress={progress}
+                error={analysisError}
+                onReanalyze={triggerAnalysis}
+                onUpdate={updateAnalysis}
+                className="max-h-[400px]"
+              />
 
-              {/* Summary */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-3">
-                  <h4 className="text-sm font-medium">Informações Básicas</h4>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex items-center gap-2">
-                      {name ? <Check className="h-4 w-4 text-green-500" /> : <X className="h-4 w-4 text-muted-foreground" />}
-                      <span className={name ? "" : "text-muted-foreground"}>Nome: {name || "Não definido"}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {description ? <Check className="h-4 w-4 text-green-500" /> : <X className="h-4 w-4 text-muted-foreground" />}
-                      <span className={description ? "" : "text-muted-foreground"}>Descrição: {description ? "✓" : "Não definida"}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {segment ? <Check className="h-4 w-4 text-green-500" /> : <X className="h-4 w-4 text-muted-foreground" />}
-                      <span className={segment ? "" : "text-muted-foreground"}>Segmento: {segment || "Não definido"}</span>
-                    </div>
+              {/* Summary when analysis is done */}
+              {analysis && !isAnalyzing && (
+                <div className="bg-muted/50 rounded-lg p-4 mt-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium">Perfil Completo</span>
+                    <span className="text-sm text-muted-foreground">{calculateCompleteness()}%</span>
+                  </div>
+                  <div className="h-2 bg-muted rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-primary transition-all duration-500"
+                      style={{ width: `${calculateCompleteness()}%` }}
+                    />
                   </div>
                 </div>
-
-                <div className="space-y-3">
-                  <h4 className="text-sm font-medium">Presença Digital</h4>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex items-center gap-2">
-                      {website ? <Check className="h-4 w-4 text-green-500" /> : <X className="h-4 w-4 text-muted-foreground" />}
-                      <span className={website ? "" : "text-muted-foreground"}>Website: {website ? "✓" : "Não definido"}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {Object.values(socialMedia).some(v => v) ? <Check className="h-4 w-4 text-green-500" /> : <X className="h-4 w-4 text-muted-foreground" />}
-                      <span>Redes Sociais: {Object.values(socialMedia).filter(v => v).length} configuradas</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  <h4 className="text-sm font-medium">Recursos</h4>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex items-center gap-2">
-                      {websites.length > 0 ? <Check className="h-4 w-4 text-green-500" /> : <X className="h-4 w-4 text-muted-foreground" />}
-                      <span>Websites extras: {websites.length}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {files.length > 0 ? <Check className="h-4 w-4 text-green-500" /> : <X className="h-4 w-4 text-muted-foreground" />}
-                      <span>Documentos: {files.length}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {identityGuide ? <Check className="h-4 w-4 text-green-500" /> : <X className="h-4 w-4 text-muted-foreground" />}
-                      <span>Guia de Identidade: {identityGuide ? "✓" : "Não definido"}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  <h4 className="text-sm font-medium">Processamento</h4>
-                  <div className="bg-primary/5 rounded-lg p-3 space-y-1">
-                    <div className="flex items-center gap-2 text-sm">
-                      <Sparkles className="h-4 w-4 text-primary" />
-                      <span>Documento Final com IA</span>
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      Um documento completo será gerado automaticamente combinando todas as informações fornecidas.
-                    </p>
-                  </div>
-                </div>
-              </div>
+              )}
             </div>
           </StepSection>
         </WizardStep>
