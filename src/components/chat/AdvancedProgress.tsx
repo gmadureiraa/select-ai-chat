@@ -116,41 +116,57 @@ export const AdvancedProgress = ({
   const Icon = stepIcons[multiAgentStep || currentStep || "analyzing"] || Brain;
 
   return (
-    <div className="space-y-3 p-4 rounded-2xl border border-border/60 bg-card/50 backdrop-blur-sm">
+    <div className="space-y-3 p-4 rounded-2xl border border-border/60 bg-gradient-to-br from-card/80 to-card/50 backdrop-blur-sm shadow-lg">
       {/* Header com status principal */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="relative">
-            <div className="absolute inset-0 bg-primary/20 rounded-xl blur-lg animate-pulse" />
-            <div className="relative p-2 rounded-xl bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20">
-              <Icon className="h-4 w-4 text-primary" />
+            <div className="absolute inset-0 bg-primary/30 rounded-xl blur-lg animate-pulse" />
+            <div className="relative p-2.5 rounded-xl bg-gradient-to-br from-primary/20 to-secondary/10 border border-primary/30 shadow-inner">
+              <Icon className="h-5 w-5 text-primary" />
             </div>
           </div>
           <div className="space-y-0.5">
-            <p className="text-sm font-medium text-foreground">{getCurrentStepLabel()}</p>
-            {isAutonomous && (
-              <Badge variant="outline" className="text-[9px] h-4 px-1.5 bg-amber-500/10 border-amber-500/30 text-amber-600">
-                <Zap className="h-2 w-2 mr-0.5" />
-                Multi-Agente
-              </Badge>
-            )}
+            <p className="text-sm font-semibold text-foreground">{getCurrentStepLabel()}</p>
+            <div className="flex items-center gap-2">
+              {isAutonomous && (
+                <Badge variant="outline" className="text-[9px] h-4 px-1.5 bg-gradient-to-r from-amber-500/10 to-orange-500/10 border-amber-500/30 text-amber-600">
+                  <Zap className="h-2.5 w-2.5 mr-0.5" />
+                  Pipeline Multi-Agente
+                </Badge>
+              )}
+              {estimatedTimeRemaining && (
+                <span className="text-[9px] text-muted-foreground">
+                  ~{Math.ceil(estimatedTimeRemaining / 60)}min restante
+                </span>
+              )}
+            </div>
           </div>
         </div>
         
-        <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-          <Clock className="h-3 w-3" />
-          <span className="tabular-nums">{formatTime(elapsedTime)}</span>
+        <div className="flex flex-col items-end gap-0.5">
+          <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground bg-muted/50 px-2 py-1 rounded-lg">
+            <Clock className="h-3 w-3" />
+            <span className="tabular-nums font-medium">{formatTime(elapsedTime)}</span>
+          </div>
+          <span className="text-[9px] text-muted-foreground/70">tempo decorrido</span>
         </div>
       </div>
 
-      {/* Barra de progresso */}
-      <div className="space-y-1">
-        <Progress value={getProgressPercentage()} className="h-1" />
+      {/* Barra de progresso melhorada */}
+      <div className="space-y-1.5">
+        <div className="relative">
+          <Progress value={getProgressPercentage()} className="h-2" />
+          <div 
+            className="absolute top-0 left-0 h-2 rounded-full bg-gradient-to-r from-primary/50 to-secondary/50 blur-sm transition-all"
+            style={{ width: `${getProgressPercentage()}%` }}
+          />
+        </div>
         <div className="flex justify-between text-[10px] text-muted-foreground">
-          <span>{getProgressPercentage()}%</span>
+          <span className="font-medium">{getProgressPercentage()}% completo</span>
           {multiAgentStep && (
-            <span className="text-primary/80">
-              {["researcher", "writer", "editor", "reviewer", "complete"].indexOf(multiAgentStep) + 1}/5
+            <span className="text-primary font-medium">
+              Etapa {["researcher", "writer", "editor", "reviewer", "complete"].indexOf(multiAgentStep) + 1} de 5
             </span>
           )}
         </div>
@@ -183,50 +199,62 @@ export const AdvancedProgress = ({
         </div>
       )}
 
-      {/* Multi-agent pipeline visualization */}
-      {multiAgentStep && Object.keys(multiAgentDetails).length > 0 && (
-        <div className="pt-2 border-t border-border/40">
-          <div className="flex items-center gap-1">
+      {/* Multi-agent pipeline visualization - Enhanced */}
+      {multiAgentStep && (
+        <div className="pt-3 border-t border-border/40">
+          <p className="text-[9px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">Pipeline de Geração</p>
+          <div className="flex items-center gap-1 bg-muted/30 rounded-xl p-2">
             {["researcher", "writer", "editor", "reviewer"].map((agent, i) => {
               const isActive = agent === multiAgentStep;
               const isCompleted = ["researcher", "writer", "editor", "reviewer"].indexOf(agent) < 
                                  ["researcher", "writer", "editor", "reviewer"].indexOf(multiAgentStep);
               
-              const icons = {
-                researcher: "🔍",
-                writer: "✍️",
-                editor: "📝",
-                reviewer: "✅"
+              const agentConfig = {
+                researcher: { icon: "🔍", label: "Pesquisador", color: "blue" },
+                writer: { icon: "✍️", label: "Escritor", color: "violet" },
+                editor: { icon: "📝", label: "Editor", color: "rose" },
+                reviewer: { icon: "✅", label: "Revisor", color: "emerald" }
               };
+              
+              const config = agentConfig[agent as keyof typeof agentConfig];
               
               return (
                 <div key={agent} className="flex items-center flex-1">
                   <div 
                     className={cn(
-                      "flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg text-[10px] transition-all",
-                      isActive && "bg-primary/10 text-primary font-medium",
-                      isCompleted && "bg-muted/50 text-muted-foreground",
-                      !isActive && !isCompleted && "text-muted-foreground/50"
+                      "flex-1 flex flex-col items-center justify-center gap-1 py-2 px-1 rounded-lg transition-all",
+                      isActive && `bg-${config.color}-500/20 ring-1 ring-${config.color}-500/40`,
+                      isActive && "bg-primary/15 ring-1 ring-primary/40 shadow-sm",
+                      isCompleted && "bg-muted/50",
+                      !isActive && !isCompleted && "opacity-40"
                     )}
                   >
-                    {isCompleted ? (
-                      <CheckCircle2 className="h-3 w-3" />
-                    ) : isActive ? (
-                      <Loader2 className="h-3 w-3 animate-spin" />
-                    ) : (
-                      <span>{icons[agent as keyof typeof icons]}</span>
-                    )}
-                    <span className="hidden sm:inline capitalize">
-                      {agent === "researcher" && "Pesq."}
-                      {agent === "writer" && "Escr."}
-                      {agent === "editor" && "Edit."}
-                      {agent === "reviewer" && "Rev."}
+                    <div className={cn(
+                      "w-7 h-7 rounded-full flex items-center justify-center text-sm transition-all",
+                      isActive && "bg-primary/20 animate-pulse",
+                      isCompleted && "bg-primary/10"
+                    )}>
+                      {isCompleted ? (
+                        <CheckCircle2 className="h-4 w-4 text-primary" />
+                      ) : isActive ? (
+                        <Loader2 className="h-4 w-4 text-primary animate-spin" />
+                      ) : (
+                        <span>{config.icon}</span>
+                      )}
+                    </div>
+                    <span className={cn(
+                      "text-[9px] font-medium",
+                      isActive && "text-primary",
+                      isCompleted && "text-muted-foreground",
+                      !isActive && !isCompleted && "text-muted-foreground/50"
+                    )}>
+                      {config.label}
                     </span>
                   </div>
                   {i < 3 && (
                     <div className={cn(
-                      "w-3 h-px mx-0.5",
-                      isCompleted ? "bg-primary/50" : "bg-border"
+                      "w-4 h-0.5 mx-0.5 rounded-full transition-all",
+                      isCompleted ? "bg-primary/60" : "bg-border/60"
                     )} />
                   )}
                 </div>
@@ -234,9 +262,11 @@ export const AdvancedProgress = ({
             })}
           </div>
           {multiAgentDetails[multiAgentStep] && (
-            <p className="text-[10px] text-muted-foreground text-center mt-2 animate-fade-in">
-              {multiAgentDetails[multiAgentStep]}
-            </p>
+            <div className="mt-2 px-3 py-2 bg-muted/40 rounded-lg">
+              <p className="text-[10px] text-muted-foreground text-center animate-fade-in">
+                {multiAgentDetails[multiAgentStep]}
+              </p>
+            </div>
           )}
         </div>
       )}
