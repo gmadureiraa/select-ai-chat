@@ -11,12 +11,14 @@ import {
   ChevronRight,
   Search,
   Home,
-  BookOpen
+  BookOpen,
+  Download
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
+import { ExportableDocumentation } from "@/components/docs/ExportableDocumentation";
 
 interface DocSection {
   id: string;
@@ -26,6 +28,22 @@ interface DocSection {
 }
 
 const sections: DocSection[] = [
+  {
+    id: "export",
+    title: "Exportar Documentação",
+    icon: Download,
+    content: (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold mb-4">Exportar Documentação</h1>
+          <p className="text-muted-foreground text-lg">
+            Baixe a documentação técnica completa do sistema para análise offline ou uso com outras IAs.
+          </p>
+        </div>
+        <ExportableDocumentation />
+      </div>
+    ),
+  },
   {
     id: "intro",
     title: "Introdução",
@@ -583,7 +601,7 @@ const sections: DocSection[] = [
 
 export default function Documentation() {
   const navigate = useNavigate();
-  const [activeSection, setActiveSection] = useState("intro");
+  const [activeSection, setActiveSection] = useState("export");
   const [searchQuery, setSearchQuery] = useState("");
 
   const filteredSections = sections.filter(s =>
