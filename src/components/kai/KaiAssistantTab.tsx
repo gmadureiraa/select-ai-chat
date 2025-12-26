@@ -239,6 +239,7 @@ export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
                 {/* Quick Suggestions */}
                 <QuickSuggestions 
                   onSelect={(suggestion) => handleSend(suggestion)}
+                  clientId={clientId}
                   clientName={client.name}
                   isContentTemplate={!!selectedTemplate}
                 />

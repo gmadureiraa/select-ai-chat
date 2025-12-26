@@ -11,7 +11,8 @@ import {
   Sparkles,
   Clock,
   Zap,
-  MessageSquare
+  MessageSquare,
+  Coins
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -27,6 +28,14 @@ interface SubTask {
   duration?: number; // in ms
 }
 
+interface TokenUsage {
+  agentId: string;
+  agentName: string;
+  inputTokens: number;
+  outputTokens: number;
+  estimatedCost: number;
+}
+
 interface AdvancedProgressProps {
   currentStep: ProcessStep;
   multiAgentStep?: MultiAgentStep;
@@ -35,6 +44,9 @@ interface AdvancedProgressProps {
   thoughtProcess?: string[];
   subTasks?: SubTask[];
   estimatedTimeRemaining?: number;
+  tokenUsage?: TokenUsage[];
+  totalTokens?: number;
+  totalCost?: number;
 }
 
 const stepIcons: Record<string, typeof Brain> = {
@@ -51,6 +63,16 @@ const stepIcons: Record<string, typeof Brain> = {
   reviewer: CheckCircle2,
 };
 
+// Model pricing per 1M tokens (input/output) in USD
+const MODEL_PRICING: Record<string, { input: number; output: number }> = {
+  "gemini-2.5-flash": { input: 0.075, output: 0.30 },
+  "gemini-2.5-pro": { input: 1.25, output: 5.00 },
+  "gemini-2.0-flash-lite": { input: 0.02, output: 0.08 },
+  "flash": { input: 0.075, output: 0.30 },
+  "pro": { input: 1.25, output: 5.00 },
+  "flash-lite": { input: 0.02, output: 0.08 },
+};
+
 export const AdvancedProgress = ({
   currentStep,
   multiAgentStep,
@@ -59,9 +81,13 @@ export const AdvancedProgress = ({
   thoughtProcess = [],
   subTasks = [],
   estimatedTimeRemaining,
+  tokenUsage = [],
+  totalTokens = 0,
+  totalCost = 0,
 }: AdvancedProgressProps) => {
   const [elapsedTime, setElapsedTime] = useState(0);
   const [isThoughtOpen, setIsThoughtOpen] = useState(false);
+  const [isTokensOpen, setIsTokensOpen] = useState(false);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -74,6 +100,20 @@ export const AdvancedProgress = ({
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
+  };
+
+  const formatTokens = (tokens: number) => {
+    if (tokens >= 1000) {
+      return `${(tokens / 1000).toFixed(1)}k`;
+    }
+    return tokens.toString();
+  };
+
+  const formatCost = (cost: number) => {
+    if (cost < 0.01) {
+      return `$${cost.toFixed(4)}`;
+    }
+    return `$${cost.toFixed(3)}`;
   };
 
   const getProgressPercentage = () => {
@@ -153,6 +193,54 @@ export const AdvancedProgress = ({
         </div>
       </div>
 
+      {/* Token usage display - real-time */}
+      {(totalTokens > 0 || tokenUsage.length > 0) && (
+        <div className="flex items-center justify-between px-3 py-2 bg-gradient-to-r from-emerald-500/10 to-teal-500/10 rounded-xl border border-emerald-500/20">
+          <div className="flex items-center gap-2">
+            <Coins className="h-4 w-4 text-emerald-500" />
+            <div className="flex items-center gap-3">
+              <span className="text-xs font-medium text-foreground">
+                {formatTokens(totalTokens)} tokens
+              </span>
+              <span className="text-xs text-muted-foreground">•</span>
+              <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400">
+                {formatCost(totalCost)}
+              </span>
+            </div>
+          </div>
+          {tokenUsage.length > 0 && (
+            <button 
+              onClick={() => setIsTokensOpen(!isTokensOpen)}
+              className="text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+            >
+              {isTokensOpen ? "Ocultar" : "Detalhes"}
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Token usage breakdown (collapsible) */}
+      {isTokensOpen && tokenUsage.length > 0 && (
+        <div className="space-y-1 px-2">
+          {tokenUsage.map((usage) => (
+            <div 
+              key={usage.agentId} 
+              className="flex items-center justify-between text-[10px] py-1 px-2 bg-muted/30 rounded-lg"
+            >
+              <span className="text-muted-foreground">{usage.agentName}</span>
+              <div className="flex items-center gap-2">
+                <span className="tabular-nums">
+                  {formatTokens(usage.inputTokens + usage.outputTokens)}
+                </span>
+                <span className="text-emerald-600 dark:text-emerald-400 tabular-nums">
+                  {formatCost(usage.estimatedCost)}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Barra de progresso melhorada */}
       <div className="space-y-1.5">
         <div className="relative">
@@ -217,6 +305,9 @@ export const AdvancedProgress = ({
               };
               
               const config = agentConfig[agent as keyof typeof agentConfig];
+
+              // Find token usage for this agent
+              const agentUsage = tokenUsage.find(u => u.agentId === agent);
               
               return (
                 <div key={agent} className="flex items-center flex-1">
@@ -250,6 +341,12 @@ export const AdvancedProgress = ({
                     )}>
                       {config.label}
                     </span>
+                    {/* Token count per agent */}
+                    {agentUsage && (
+                      <span className="text-[8px] text-emerald-600 dark:text-emerald-400 tabular-nums">
+                        {formatTokens(agentUsage.inputTokens + agentUsage.outputTokens)}
+                      </span>
+                    )}
                   </div>
                   {i < 3 && (
                     <div className={cn(
