@@ -242,23 +242,25 @@ Estruture: Visão Geral, Posicionamento, Tom de Voz, Público-Alvo, Presença Di
     let filled = 0;
     let total = 15;
     
+    const isFilledString = (v: unknown): boolean => typeof v === 'string' && v.trim().length > 0;
+    
     if (name.trim()) filled++;
     if (description.trim()) filled++;
     if (avatarUrl) filled++;
     if (identityGuide.trim()) filled++;
     if (contextNotes.trim()) filled++;
-    if (Object.values(socialMedia).filter(v => v?.trim()).length >= 2) filled++;
-    if (Object.values(tags).filter(v => v?.trim()).length >= 3) filled++;
+    if (Object.values(socialMedia).filter(isFilledString).length >= 2) filled++;
+    if (Object.values(tags).filter(isFilledString).length >= 3) filled++;
     if (websites && websites.length > 0) filled++;
     if (functionTemplates.length > 0) filled++;
     
     // Count individual important fields
-    if (socialMedia.website?.trim()) filled++;
-    if (socialMedia.instagram?.trim()) filled++;
-    if (tags.segment?.trim()) filled++;
-    if (tags.tone?.trim()) filled++;
-    if (tags.audience?.trim()) filled++;
-    if (tags.objectives?.trim()) filled++;
+    if (isFilledString(socialMedia.website)) filled++;
+    if (isFilledString(socialMedia.instagram)) filled++;
+    if (isFilledString(tags.segment)) filled++;
+    if (isFilledString(tags.tone)) filled++;
+    if (isFilledString(tags.audience)) filled++;
+    if (isFilledString(tags.objectives)) filled++;
     
     return Math.round((filled / total) * 100);
   };
