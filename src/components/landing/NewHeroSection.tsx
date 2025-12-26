@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowRight, Sparkles, Zap, Users, Layers } from "lucide-react";
 import { Link } from "react-router-dom";
 import RollingText from "./RollingText";
+import { useEffect, useRef } from "react";
 
 const featureCards = [
   {
@@ -24,9 +25,97 @@ const featureCards = [
 
 const rollingWords = ["Agências", "Creators", "Equipes", "Startups", "Marcas"];
 
+// Floating particles component
+const FloatingParticles = () => {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    let animationId: number;
+    let particles: Array<{
+      x: number;
+      y: number;
+      size: number;
+      speedX: number;
+      speedY: number;
+      opacity: number;
+    }> = [];
+
+    const resize = () => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    };
+
+    const createParticles = () => {
+      particles = [];
+      const count = Math.floor((canvas.width * canvas.height) / 15000);
+      for (let i = 0; i < count; i++) {
+        particles.push({
+          x: Math.random() * canvas.width,
+          y: Math.random() * canvas.height,
+          size: Math.random() * 2 + 0.5,
+          speedX: (Math.random() - 0.5) * 0.3,
+          speedY: (Math.random() - 0.5) * 0.3,
+          opacity: Math.random() * 0.5 + 0.2,
+        });
+      }
+    };
+
+    const animate = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      
+      particles.forEach((particle) => {
+        particle.x += particle.speedX;
+        particle.y += particle.speedY;
+
+        if (particle.x < 0) particle.x = canvas.width;
+        if (particle.x > canvas.width) particle.x = 0;
+        if (particle.y < 0) particle.y = canvas.height;
+        if (particle.y > canvas.height) particle.y = 0;
+
+        ctx.beginPath();
+        ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
+        ctx.fillStyle = `hsla(280, 70%, 60%, ${particle.opacity})`;
+        ctx.fill();
+      });
+
+      animationId = requestAnimationFrame(animate);
+    };
+
+    resize();
+    createParticles();
+    animate();
+
+    window.addEventListener("resize", () => {
+      resize();
+      createParticles();
+    });
+
+    return () => {
+      cancelAnimationFrame(animationId);
+      window.removeEventListener("resize", resize);
+    };
+  }, []);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      className="absolute inset-0 pointer-events-none opacity-60"
+    />
+  );
+};
+
 const NewHeroSection = () => {
   return (
     <section className="relative min-h-screen flex flex-col items-center justify-center overflow-hidden bg-background pt-20 pb-12">
+      {/* Floating Particles */}
+      <FloatingParticles />
+      
       {/* Subtle background pattern */}
       <div 
         className="absolute inset-0 opacity-[0.03] dark:opacity-[0.02]"
@@ -37,8 +126,8 @@ const NewHeroSection = () => {
       />
 
       {/* Gradient blur effects */}
-      <div className="absolute top-20 right-1/4 w-[500px] h-[500px] rounded-full bg-primary/10 blur-[120px] pointer-events-none" />
-      <div className="absolute bottom-20 left-1/4 w-[400px] h-[400px] rounded-full bg-secondary/10 blur-[100px] pointer-events-none" />
+      <div className="absolute top-20 right-1/4 w-[500px] h-[500px] rounded-full bg-primary/10 blur-[120px] pointer-events-none animate-pulse" />
+      <div className="absolute bottom-20 left-1/4 w-[400px] h-[400px] rounded-full bg-secondary/10 blur-[100px] pointer-events-none animate-pulse" style={{ animationDelay: "1s" }} />
 
       <div className="relative z-10 max-w-5xl mx-auto px-6 text-center">
         {/* Badge */}

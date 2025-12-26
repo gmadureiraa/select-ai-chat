@@ -81,6 +81,31 @@ const sections: DocSection[] = [
             <li>Importe dados de performance via CSV</li>
           </ol>
         </div>
+
+        {/* Screenshot placeholder */}
+        <div className="p-8 rounded-xl bg-muted/30 border border-dashed border-border flex flex-col items-center justify-center gap-3">
+          <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center">
+            <Library className="h-8 w-8 text-muted-foreground/50" />
+          </div>
+          <p className="text-sm text-muted-foreground">Screenshot: Interface principal do kAI</p>
+          <p className="text-xs text-muted-foreground/60">Imagem ilustrativa será adicionada aqui</p>
+        </div>
+
+        {/* Pricing info */}
+        <div className="p-4 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+          <h3 className="font-semibold mb-2">Planos Disponíveis</h3>
+          <div className="grid grid-cols-2 gap-3 text-sm">
+            <div className="p-2 rounded bg-background">
+              <p className="font-medium">Starter</p>
+              <p className="text-muted-foreground">$49/mês • 10k tokens</p>
+            </div>
+            <div className="p-2 rounded bg-background">
+              <p className="font-medium">Pro</p>
+              <p className="text-muted-foreground">$249/mês • 50k tokens</p>
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground mt-2">14 dias de trial gratuito em todos os planos</p>
+        </div>
       </div>
     ),
   },
@@ -95,6 +120,48 @@ const sections: DocSection[] = [
           <p className="text-muted-foreground text-lg">
             Sistema multi-agente que gera conteúdo profissional mantendo a voz autêntica do cliente.
           </p>
+        </div>
+
+        <div className="space-y-4">
+          <h2 className="text-xl font-semibold">Pipeline Multi-Agente</h2>
+          <p className="text-muted-foreground">
+            Cada conteúdo passa por um pipeline de 4 agentes especializados que trabalham em sequência:
+          </p>
+          
+          {/* Visual pipeline diagram */}
+          <div className="p-6 rounded-xl bg-gradient-to-r from-blue-500/5 via-violet-500/5 to-emerald-500/5 border border-border/50">
+            <div className="flex items-center justify-between gap-2 mb-4">
+              {[
+                { step: 1, icon: "🔍", name: "Pesquisador", desc: "Analisa contexto e referências", color: "blue" },
+                { step: 2, icon: "✍️", name: "Escritor", desc: "Aplica regras do formato", color: "violet" },
+                { step: 3, icon: "📝", name: "Editor", desc: "Refina tom e estilo", color: "rose" },
+                { step: 4, icon: "✅", name: "Revisor", desc: "Verificação final", color: "emerald" },
+              ].map((agent, i) => (
+                <div key={agent.step} className="flex items-center flex-1">
+                  <div className="flex-1 text-center">
+                    <div className="w-12 h-12 mx-auto rounded-full bg-muted flex items-center justify-center text-xl mb-2">
+                      {agent.icon}
+                    </div>
+                    <p className="text-xs font-medium">{agent.name}</p>
+                    <p className="text-[10px] text-muted-foreground">{agent.desc}</p>
+                  </div>
+                  {i < 3 && <div className="w-8 h-0.5 bg-border mx-1" />}
+                </div>
+              ))}
+            </div>
+            <p className="text-xs text-center text-muted-foreground mt-4">
+              O progresso do pipeline é exibido em tempo real durante a geração
+            </p>
+          </div>
+
+          {/* Screenshot placeholder for pipeline */}
+          <div className="p-6 rounded-xl bg-muted/30 border border-dashed border-border flex flex-col items-center justify-center gap-3">
+            <div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center">
+              <Sparkles className="h-6 w-6 text-muted-foreground/50" />
+            </div>
+            <p className="text-sm text-muted-foreground">Screenshot: Visualização do Pipeline em Ação</p>
+            <p className="text-xs text-muted-foreground/60">GIF ou imagem do progresso será adicionado aqui</p>
+          </div>
         </div>
 
         <div className="space-y-4">
@@ -121,56 +188,6 @@ const sections: DocSection[] = [
                 <p className="text-xs text-muted-foreground">{agent.desc}</p>
               </div>
             ))}
-          </div>
-        </div>
-
-        <div className="space-y-4">
-          <h2 className="text-xl font-semibold">Pipeline de Geração</h2>
-          <div className="space-y-3">
-            <div className="flex items-start gap-3 p-3 rounded-lg bg-blue-500/10">
-              <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center">
-                <span className="text-sm font-bold text-blue-500">1</span>
-              </div>
-              <div>
-                <h4 className="font-medium">Pesquisador</h4>
-                <p className="text-sm text-muted-foreground">
-                  Analisa biblioteca e extrai padrões do cliente.
-                </p>
-              </div>
-            </div>
-            <div className="flex items-start gap-3 p-3 rounded-lg bg-violet-500/10">
-              <div className="w-8 h-8 rounded-full bg-violet-500/20 flex items-center justify-center">
-                <span className="text-sm font-bold text-violet-500">2</span>
-              </div>
-              <div>
-                <h4 className="font-medium">Escritor</h4>
-                <p className="text-sm text-muted-foreground">
-                  Aplica regras do formato específico (carrossel, newsletter, etc.).
-                </p>
-              </div>
-            </div>
-            <div className="flex items-start gap-3 p-3 rounded-lg bg-rose-500/10">
-              <div className="w-8 h-8 rounded-full bg-rose-500/20 flex items-center justify-center">
-                <span className="text-sm font-bold text-rose-500">3</span>
-              </div>
-              <div>
-                <h4 className="font-medium">Editor de Estilo (Crítico)</h4>
-                <p className="text-sm text-muted-foreground">
-                  Compara com exemplos reais e ajusta tom/vocabulário para autenticidade.
-                </p>
-              </div>
-            </div>
-            <div className="flex items-start gap-3 p-3 rounded-lg bg-emerald-500/10">
-              <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center">
-                <span className="text-sm font-bold text-emerald-500">4</span>
-              </div>
-              <div>
-                <h4 className="font-medium">Verificador</h4>
-                <p className="text-sm text-muted-foreground">
-                  Revisão final de qualidade, checando regras e consistência.
-                </p>
-              </div>
-            </div>
           </div>
         </div>
 

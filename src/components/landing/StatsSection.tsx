@@ -1,18 +1,68 @@
-import { motion } from "framer-motion";
+import { motion, useMotionValue, useTransform, animate } from "framer-motion";
+import { useEffect, useRef, useState } from "react";
+
+interface AnimatedNumberProps {
+  value: number;
+  suffix?: string;
+  prefix?: string;
+}
+
+const AnimatedNumber = ({ value, suffix = "", prefix = "" }: AnimatedNumberProps) => {
+  const [displayValue, setDisplayValue] = useState(0);
+  const ref = useRef<HTMLSpanElement>(null);
+  const [isInView, setIsInView] = useState(false);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && !isInView) {
+          setIsInView(true);
+        }
+      },
+      { threshold: 0.3 }
+    );
+
+    if (ref.current) {
+      observer.observe(ref.current);
+    }
+
+    return () => observer.disconnect();
+  }, [isInView]);
+
+  useEffect(() => {
+    if (isInView) {
+      const controls = animate(0, value, {
+        duration: 2,
+        ease: "easeOut",
+        onUpdate: (v) => setDisplayValue(Math.round(v)),
+      });
+      return () => controls.stop();
+    }
+  }, [isInView, value]);
+
+  return (
+    <span ref={ref} className="tabular-nums">
+      {prefix}{displayValue.toLocaleString()}{suffix}
+    </span>
+  );
+};
 
 const stats = [
   {
-    value: "50+",
+    value: 50,
+    suffix: "+",
     label: "Agências utilizando",
     description: "Times de conteúdo confiam no KAI",
   },
   {
-    value: "500+",
+    value: 500,
+    suffix: "+",
     label: "Clientes gerenciados",
     description: "Organizados em uma plataforma",
   },
   {
-    value: "10k+",
+    value: 10000,
+    suffix: "+",
     label: "Conteúdos criados/mês",
     description: "Posts, newsletters, vídeos e mais",
   },
@@ -47,15 +97,9 @@ const StatsSection = () => {
               className="relative"
             >
               <div className="rounded-3xl border border-border p-8 text-center bg-card hover:border-primary/30 hover:shadow-lg transition-all">
-                <motion.div
-                  initial={{ scale: 0.5 }}
-                  whileInView={{ scale: 1 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: index * 0.1 + 0.2, type: "spring" }}
-                  className="text-5xl md:text-6xl font-light bg-gradient-to-r from-secondary to-accent bg-clip-text text-transparent mb-4"
-                >
-                  {stat.value}
-                </motion.div>
+                <div className="text-5xl md:text-6xl font-light bg-gradient-to-r from-secondary to-accent bg-clip-text text-transparent mb-4">
+                  <AnimatedNumber value={stat.value} suffix={stat.suffix} />
+                </div>
                 <h3 className="text-lg font-medium text-foreground mb-2">
                   {stat.label}
                 </h3>

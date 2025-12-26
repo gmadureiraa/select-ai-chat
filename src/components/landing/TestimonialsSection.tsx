@@ -27,6 +27,14 @@ const testimonials = [
     rating: 5,
     image: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&h=150&fit=crop&crop=face",
   },
+  {
+    author: "Rafael Oliveira",
+    role: "Fundador, Nexus Agency",
+    content:
+      "O pipeline multi-agente é revolucionário. Cada conteúdo passa por pesquisa, escrita, edição e revisão automaticamente. Resultado sempre profissional.",
+    rating: 5,
+    image: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face",
+  },
 ];
 
 const clientLogos = [
@@ -36,6 +44,8 @@ const clientLogos = [
   { name: "CreativeHub", initial: "C" },
   { name: "NextLevel", initial: "N" },
   { name: "FutureMedia", initial: "F" },
+  { name: "Pulso Digital", initial: "P" },
+  { name: "Alpha Content", initial: "A" },
 ];
 
 const TestimonialsSection = () => {
