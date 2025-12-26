@@ -360,9 +360,36 @@ serve(async (req) => {
     const encoder = new TextEncoder();
     const stream = new ReadableStream({
       async start(controller) {
-        const sendProgress = (step: string, status: string, content?: string, agentName?: string) => {
-          const data = JSON.stringify({ step, status, content, agentName });
+        // Enhanced sendProgress with token tracking
+        const sendProgress = (
+          step: string, 
+          status: string, 
+          content?: string, 
+          agentName?: string,
+          tokens?: { input: number; output: number; cost: number }
+        ) => {
+          const data = JSON.stringify({ step, status, content, agentName, tokens });
           controller.enqueue(encoder.encode(`data: ${data}\n\n`));
+        };
+
+        // Track cumulative tokens
+        let totalInputTokens = 0;
+        let totalOutputTokens = 0;
+        let totalCost = 0;
+
+        // Model pricing per 1M tokens
+        const MODEL_COSTS: Record<string, { input: number; output: number }> = {
+          "gemini-2.5-flash": { input: 0.075, output: 0.30 },
+          "gemini-2.5-pro": { input: 1.25, output: 5.00 },
+          "gemini-2.0-flash-lite": { input: 0.02, output: 0.08 },
+          "flash": { input: 0.075, output: 0.30 },
+          "pro": { input: 1.25, output: 5.00 },
+          "flash-lite": { input: 0.02, output: 0.08 },
+        };
+
+        const calculateCost = (model: string, inputTokens: number, outputTokens: number): number => {
+          const pricing = MODEL_COSTS[model] || MODEL_COSTS["flash"];
+          return (inputTokens * pricing.input + outputTokens * pricing.output) / 1_000_000;
         };
 
         try {
@@ -389,6 +416,14 @@ serve(async (req) => {
               
               context.previousOutputs[agent.id] = result.content;
 
+              // Calculate cost for this agent
+              const agentCost = calculateCost(agent.model, result.inputTokens, result.outputTokens);
+              
+              // Update cumulative totals
+              totalInputTokens += result.inputTokens;
+              totalOutputTokens += result.outputTokens;
+              totalCost += agentCost;
+
               // LOG EACH AGENT INDIVIDUALLY with correct model
               const geminiModel = mapToGeminiModel(agent.model);
               if (userId) {
@@ -409,11 +444,25 @@ serve(async (req) => {
                 );
               }
 
+              // Send progress with token info
               if (isLast) {
-                sendProgress(agent.id, "completed", `Finalizado`, agent.name);
-                sendProgress("complete", "done", result.content);
+                sendProgress(agent.id, "completed", `Finalizado`, agent.name, {
+                  input: result.inputTokens,
+                  output: result.outputTokens,
+                  cost: agentCost
+                });
+                // Send final result with cumulative tokens
+                sendProgress("complete", "done", result.content, undefined, {
+                  input: totalInputTokens,
+                  output: totalOutputTokens,
+                  cost: totalCost
+                });
               } else {
-                sendProgress(agent.id, "completed", `${result.content.length} caracteres`, agent.name);
+                sendProgress(agent.id, "completed", `${result.content.length} caracteres`, agent.name, {
+                  input: result.inputTokens,
+                  output: result.outputTokens,
+                  cost: agentCost
+                });
               }
             } catch (agentError: any) {
               console.error(`[AGENT-${agent.id}] Error:`, agentError);
