@@ -314,24 +314,7 @@ export function KaiSidebar({
           )}
         </div>
 
-        {/* Planejamento - Enterprise Only */}
-        {isEnterprise && (
-          <>
-            <SectionLabel collapsed={collapsed}>Planejamento</SectionLabel>
-
-            <div className="space-y-0.5">
-              <NavItem
-                icon={<CalendarDays className="h-4 w-4" />}
-                label="Planejamento"
-                active={activeTab === "planning"}
-                onClick={() => onTabChange("planning")}
-                collapsed={collapsed}
-              />
-            </div>
-          </>
-        )}
-
-        {/* Ferramentas - Knowledge Base for member+, rest for admin/owner */}
+        {/* Ferramentas - Knowledge Base for member+, Planning and Automations for all (shows lock screen) */}
         {(canViewKnowledgeBase || canViewTools) && (
           <>
             <SectionLabel collapsed={collapsed}>Ferramentas</SectionLabel>
@@ -346,7 +329,17 @@ export function KaiSidebar({
                   collapsed={collapsed}
                 />
               )}
+
+              {/* Planejamento - visível para todos, mostra tela de bloqueio se não for Enterprise */}
+              <NavItem
+                icon={<CalendarDays className="h-4 w-4" />}
+                label="Planejamento"
+                active={activeTab === "planning"}
+                onClick={() => onTabChange("planning")}
+                collapsed={collapsed}
+              />
               
+              {/* Automações - visível para todos, mostra tela de bloqueio se não for Enterprise */}
               <NavItem
                 icon={<Zap className="h-4 w-4" />}
                 label="Automações"

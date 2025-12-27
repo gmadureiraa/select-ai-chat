@@ -33,6 +33,11 @@ const faqs = [
       "Você tem acesso completo a todas as funcionalidades por 14 dias, sem precisar cadastrar cartão de crédito. Ao final, escolha o plano que melhor se adapta à sua agência.",
   },
   {
+    question: "Como funcionam as automações de publicação?",
+    answer:
+      "No plano Enterprise, você pode conectar seu n8n para criar workflows de publicação automática. Configure gatilhos como RSS feeds ou agendamentos, e a IA gera e publica conteúdo automaticamente nas redes sociais.",
+  },
+  {
     question: "Quantos clientes e membros posso ter?",
     answer:
       "Depende do plano escolhido. O plano Starter permite até 5 clientes e 3 membros. O Pro permite 20 clientes e 10 membros. Para agências maiores, temos planos Enterprise personalizados.",

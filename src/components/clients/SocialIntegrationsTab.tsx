@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Twitter, Linkedin, Loader2, Check, AlertCircle, RefreshCw, Eye, EyeOff, Trash2 } from "lucide-react";
+import { Twitter, Linkedin, Loader2, Check, RefreshCw, Eye, EyeOff, Trash2, HelpCircle, ExternalLink, Share2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -7,7 +7,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { useSocialCredentials, SocialCredential } from "@/hooks/useSocialCredentials";
 import { usePlanFeatures } from "@/hooks/usePlanFeatures";
-
+import { EnterpriseLockScreen } from "@/components/shared/EnterpriseLockScreen";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 interface SocialIntegrationsTabProps {
   clientId: string;
 }
@@ -78,7 +79,7 @@ export function SocialIntegrationsTab({ clientId }: SocialIntegrationsTabProps) 
         )}
         {credential.is_valid === false && (
           <Badge variant="outline" className="text-destructive border-destructive">
-            <AlertCircle className="h-3 w-3 mr-1" />
+            <X className="h-3 w-3 mr-1" />
             Inválido
           </Badge>
         )}
@@ -93,13 +94,11 @@ export function SocialIntegrationsTab({ clientId }: SocialIntegrationsTabProps) 
 
   if (!isEnterprise) {
     return (
-      <div className="text-center py-8">
-        <AlertCircle className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-        <h3 className="text-lg font-medium mb-2">Recurso Enterprise</h3>
-        <p className="text-muted-foreground">
-          Integrações de publicação automática estão disponíveis apenas no plano Enterprise.
-        </p>
-      </div>
+      <EnterpriseLockScreen
+        title="Integrações de Publicação"
+        description="Configure APIs para publicação automática nas redes sociais. Disponível exclusivamente no plano Enterprise."
+        icon={<Share2 className="h-10 w-10 text-muted-foreground" />}
+      />
     );
   }
 
