@@ -40,16 +40,20 @@ interface StepSectionProps {
   description?: string;
   children: ReactNode;
   className?: string;
+  actions?: ReactNode;
 }
 
-export function StepSection({ title, description, children, className }: StepSectionProps) {
+export function StepSection({ title, description, children, className, actions }: StepSectionProps) {
   return (
     <div className={cn("space-y-4", className)}>
-      <div>
-        <h3 className="text-lg font-medium">{title}</h3>
-        {description && (
-          <p className="text-sm text-muted-foreground">{description}</p>
-        )}
+      <div className="flex items-start justify-between">
+        <div>
+          <h3 className="text-lg font-medium">{title}</h3>
+          {description && (
+            <p className="text-sm text-muted-foreground">{description}</p>
+          )}
+        </div>
+        {actions && <div>{actions}</div>}
       </div>
       {children}
     </div>
