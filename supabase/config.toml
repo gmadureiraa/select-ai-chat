@@ -1,5 +1,8 @@
 project_id = "tkbsjtgrumhvwlxkmojg"
 
+[functions.n8n-api]
+verify_jwt = true
+
 [functions.chat]
 verify_jwt = true
 

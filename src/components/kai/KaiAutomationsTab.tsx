@@ -13,6 +13,7 @@ import { useAutomations } from "@/hooks/useAutomations";
 import { useN8nMCP, N8nWorkflow } from "@/hooks/useN8nMCP";
 import { AutomationDialog } from "@/components/automations/AutomationDialog";
 import { AutomationStatsOverview } from "@/components/automations/AutomationStatsOverview";
+import { N8nWorkflowsManager } from "@/components/n8n/N8nWorkflowsManager";
 import { Client } from "@/hooks/useClients";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -392,142 +393,9 @@ export const KaiAutomationsTab = ({ clientId, client }: KaiAutomationsTabProps) 
           )}
         </TabsContent>
 
-        {/* n8n Workflows Tab */}
-        <TabsContent value="n8n" className="mt-4 space-y-4">
-          <div className="flex items-center justify-between">
-            <p className="text-sm text-muted-foreground">
-              Workflows do n8n conectados via MCP
-            </p>
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={fetchWorkflows} disabled={isLoadingWorkflows}>
-                <RefreshCw className={cn("h-4 w-4 mr-1", isLoadingWorkflows && "animate-spin")} />
-                Atualizar
-              </Button>
-              <Dialog open={addWorkflowOpen} onOpenChange={setAddWorkflowOpen}>
-                <DialogTrigger asChild>
-                  <Button size="sm">
-                    <Plus className="h-4 w-4 mr-1" />
-                    Adicionar Workflow
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Adicionar Workflow n8n</DialogTitle>
-                  </DialogHeader>
-                  <div className="space-y-4 pt-4">
-                    <div>
-                      <Label>ID do Workflow</Label>
-                      <Input
-                        placeholder="Ex: c7szXhtpjXUqaRKK"
-                        value={newWorkflow.id}
-                        onChange={(e) => setNewWorkflow({ ...newWorkflow, id: e.target.value })}
-                      />
-                    </div>
-                    <div>
-                      <Label>Nome</Label>
-                      <Input
-                        placeholder="Nome do workflow"
-                        value={newWorkflow.name}
-                        onChange={(e) => setNewWorkflow({ ...newWorkflow, name: e.target.value })}
-                      />
-                    </div>
-                    <div>
-                      <Label>Webhook URL</Label>
-                      <Input
-                        placeholder="https://n8n.example.com/webhook/..."
-                        value={newWorkflow.webhookUrl}
-                        onChange={(e) => setNewWorkflow({ ...newWorkflow, webhookUrl: e.target.value })}
-                      />
-                      <p className="text-xs text-muted-foreground mt-1">
-                        URL do webhook de produção do workflow
-                      </p>
-                    </div>
-                    <Button onClick={handleAddWorkflow} className="w-full">
-                      Adicionar Workflow
-                    </Button>
-                  </div>
-                </DialogContent>
-              </Dialog>
-            </div>
-          </div>
-
-          {workflows.length === 0 ? (
-            <Card className="p-6">
-              <div className="text-center py-8 text-muted-foreground">
-                <Workflow className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p className="mb-2">Nenhum workflow configurado</p>
-                <p className="text-sm mb-4">
-                  Adicione workflows do n8n para executar automaticamente
-                </p>
-              </div>
-            </Card>
-          ) : (
-            <div className="grid gap-4">
-              {workflows.map((workflow) => {
-                const webhookUrl = getWorkflowWebhook(workflow.id);
-                return (
-                  <Card key={workflow.id}>
-                    <CardHeader className="pb-2">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <Workflow className="h-5 w-5 text-orange-500" />
-                          <CardTitle className="text-base">{workflow.name}</CardTitle>
-                          <Badge variant={workflow.active ? "default" : "secondary"}>
-                            {workflow.active ? "Ativo" : "Inativo"}
-                          </Badge>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleExecuteWorkflow(workflow)}
-                            disabled={isExecuting || !webhookUrl}
-                          >
-                            <Play className="h-4 w-4 mr-1" />
-                            Executar
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => removeWorkflow(workflow.id)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      {workflow.description && (
-                        <p className="text-sm text-muted-foreground mb-3">
-                          {workflow.description}
-                        </p>
-                      )}
-                      <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                        <span className="flex items-center gap-1">
-                          ID: {workflow.id}
-                        </span>
-                        {workflow.triggerType && (
-                          <Badge variant="outline" className="text-xs">
-                            {workflow.triggerType}
-                          </Badge>
-                        )}
-                        {webhookUrl ? (
-                          <span className="flex items-center gap-1 text-green-600">
-                            <CheckCircle2 className="h-3 w-3" />
-                            Webhook configurado
-                          </span>
-                        ) : (
-                          <span className="text-yellow-600">
-                            Webhook não configurado
-                          </span>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
-          )}
+        {/* n8n Workflows Tab - New Real Integration */}
+        <TabsContent value="n8n" className="mt-4">
+          <N8nWorkflowsManager />
         </TabsContent>
       </Tabs>
 
