@@ -68,7 +68,7 @@ export function useClientAnalysis() {
     setProgress({ step: 'Iniciando análise...', progress: 10 });
 
     try {
-      // Simulate progress updates
+      // Simulate progress updates with detailed steps
       const progressInterval = setInterval(() => {
         setProgress(prev => {
           if (prev.progress >= 90) {
@@ -76,18 +76,20 @@ export function useClientAnalysis() {
             return prev;
           }
           
-          const newProgress = prev.progress + 10;
+          const newProgress = prev.progress + 5;
           let step = prev.step;
           
-          if (newProgress <= 20) step = 'Extraindo branding do website...';
-          else if (newProgress <= 40) step = 'Analisando conteúdo das páginas...';
-          else if (newProgress <= 60) step = 'Processando documentos...';
-          else if (newProgress <= 80) step = 'Gerando análise com IA...';
+          if (newProgress <= 15) step = 'Conectando ao website...';
+          else if (newProgress <= 30) step = 'Extraindo identidade visual (logo, cores)...';
+          else if (newProgress <= 45) step = 'Analisando conteúdo das páginas...';
+          else if (newProgress <= 60) step = 'Processando redes sociais...';
+          else if (newProgress <= 75) step = 'Processando documentos...';
+          else if (newProgress <= 90) step = 'Gerando perfil completo com IA...';
           else step = 'Finalizando...';
           
           return { step, progress: newProgress };
         });
-      }, 800);
+      }, 600);
 
       const { data, error: fnError } = await supabase.functions.invoke('analyze-client-onboarding', {
         body: { clientData }
