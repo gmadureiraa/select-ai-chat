@@ -242,7 +242,7 @@ export function validateChatMessage(
   const roleError = validateEnum(msg.role, `messages[${index}].role`, ["user", "assistant", "system"] as const, { required: true });
   if (roleError) errors.push(roleError);
   
-  const contentError = validateString(msg.content, `messages[${index}].content`, { required: true, maxLength: 100000 });
+  const contentError = validateString(msg.content, `messages[${index}].content`, { required: true, maxLength: 200000 });
   if (contentError) errors.push(contentError);
   
   return errors;
