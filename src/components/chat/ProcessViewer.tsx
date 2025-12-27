@@ -6,7 +6,9 @@ import {
   Coins, 
   ChevronDown,
   ExternalLink,
-  CheckCircle2 
+  CheckCircle2,
+  Palette,
+  Lightbulb
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -15,6 +17,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { Badge } from "@/components/ui/badge";
+import { LayoutGuideViewer, LayoutGuide } from "./LayoutGuideViewer";
 
 export interface ProcessMetadata {
   knowledgeUsed: { id: string; title: string; category: string }[];
@@ -22,13 +25,17 @@ export interface ProcessMetadata {
   agentSteps: { agentId: string; agentName: string; inputTokens: number; outputTokens: number; durationMs: number }[];
   totalTokens: { input: number; output: number };
   totalCost: number;
+  layoutGuide?: LayoutGuide;
+  strategicInsights?: string[];
 }
 
 interface ProcessViewerProps {
   data: ProcessMetadata;
+  onGenerateImage?: (prompt: string, slideNumber: number) => void;
+  isGeneratingImage?: boolean;
 }
 
-export const ProcessViewer = ({ data }: ProcessViewerProps) => {
+export const ProcessViewer = ({ data, onGenerateImage, isGeneratingImage }: ProcessViewerProps) => {
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
 
   const toggleSection = (section: string) => {
@@ -147,6 +154,64 @@ export const ProcessViewer = ({ data }: ProcessViewerProps) => {
                 <span className="text-[10px] text-muted-foreground/70 ml-auto">
                   {step.durationMs ? `${(step.durationMs / 1000).toFixed(1)}s` : ""}
                 </span>
+              </div>
+            ))}
+          </CollapsibleContent>
+        </Collapsible>
+      )}
+
+      {/* Layout Guide */}
+      {data.layoutGuide && data.layoutGuide.slides && data.layoutGuide.slides.length > 0 && (
+        <Collapsible 
+          open={openSections["layout"]} 
+          onOpenChange={() => toggleSection("layout")}
+        >
+          <CollapsibleTrigger className="flex items-center gap-2 w-full text-left hover:bg-muted/50 rounded-md px-2 py-1.5 transition-colors">
+            <Palette className="h-3.5 w-3.5 text-purple-500" />
+            <span className="font-medium">Guia de Layout</span>
+            <Badge variant="secondary" className="ml-auto mr-2 h-5 text-[10px]">
+              {data.layoutGuide.slides.length} slides
+            </Badge>
+            <ChevronDown className={cn(
+              "h-3.5 w-3.5 text-muted-foreground transition-transform",
+              openSections["layout"] && "rotate-180"
+            )} />
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <LayoutGuideViewer 
+              layoutGuide={data.layoutGuide} 
+              onGenerateImage={onGenerateImage}
+              isGeneratingImage={isGeneratingImage}
+            />
+          </CollapsibleContent>
+        </Collapsible>
+      )}
+
+      {/* Strategic Insights */}
+      {data.strategicInsights && data.strategicInsights.length > 0 && (
+        <Collapsible 
+          open={openSections["insights"]} 
+          onOpenChange={() => toggleSection("insights")}
+        >
+          <CollapsibleTrigger className="flex items-center gap-2 w-full text-left hover:bg-muted/50 rounded-md px-2 py-1.5 transition-colors">
+            <Lightbulb className="h-3.5 w-3.5 text-yellow-500" />
+            <span className="font-medium">Insights Estratégicos</span>
+            <Badge variant="secondary" className="ml-auto mr-2 h-5 text-[10px]">
+              {data.strategicInsights.length}
+            </Badge>
+            <ChevronDown className={cn(
+              "h-3.5 w-3.5 text-muted-foreground transition-transform",
+              openSections["insights"] && "rotate-180"
+            )} />
+          </CollapsibleTrigger>
+          <CollapsibleContent className="pl-6 pt-1.5 space-y-1">
+            {data.strategicInsights.map((insight, i) => (
+              <div 
+                key={i}
+                className="flex items-start gap-2 text-muted-foreground text-[11px]"
+              >
+                <span className="text-yellow-500">•</span>
+                <span>{insight}</span>
               </div>
             ))}
           </CollapsibleContent>
