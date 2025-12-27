@@ -16,7 +16,8 @@ import {
   LogOut,
   HelpCircle,
   Building2,
-  CalendarDays
+  CalendarDays,
+  Zap
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useClients } from "@/hooks/useClients";
@@ -345,6 +346,14 @@ export function KaiSidebar({
                   collapsed={collapsed}
                 />
               )}
+              
+              <NavItem
+                icon={<Zap className="h-4 w-4" />}
+                label="Automações"
+                active={activeTab === "automations"}
+                onClick={() => onTabChange("automations")}
+                collapsed={collapsed}
+              />
             </div>
           </>
         )}

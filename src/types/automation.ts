@@ -2,7 +2,7 @@ export type ScheduleType = "daily" | "weekly" | "monthly" | "custom";
 
 export type DayOfWeek = "monday" | "tuesday" | "wednesday" | "thursday" | "friday" | "saturday" | "sunday";
 
-export type ActionType = "save_to_db" | "send_email" | "webhook" | "save_to_file";
+export type ActionType = "save_to_db" | "send_email" | "webhook" | "save_to_file" | "publish";
 
 export interface DataSource {
   id: string;
@@ -14,10 +14,18 @@ export interface DataSource {
   body?: string;
 }
 
+export interface PublishConfig {
+  platform: "twitter" | "linkedin" | "instagram";
+  mode: "direct" | "draft";
+  n8nWorkflowId?: string;
+  n8nWebhookUrl?: string;
+}
+
 export interface AutomationAction {
   id: string;
   type: ActionType;
   config: Record<string, any>;
+  publishConfig?: PublishConfig;
 }
 
 export interface Automation {
