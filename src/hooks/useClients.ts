@@ -167,6 +167,17 @@ export const useClients = () => {
       const { error } = await supabase.from("clients").delete().eq("id", id);
       if (error) throw error;
       
+      // Verify deletion actually happened (RLS may silently block)
+      const { data: stillExists } = await supabase
+        .from("clients")
+        .select("id")
+        .eq("id", id)
+        .maybeSingle();
+      
+      if (stillExists) {
+        throw new Error("Não foi possível excluir o cliente. Verifique suas permissões.");
+      }
+      
       return clientData?.name;
     },
     onSuccess: (clientName) => {
