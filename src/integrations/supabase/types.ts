@@ -1134,6 +1134,59 @@ export type Database = {
           },
         ]
       }
+      instagram_tokens: {
+        Row: {
+          access_token: string
+          client_id: string
+          created_at: string | null
+          expires_at: string | null
+          id: string
+          instagram_business_id: string | null
+          instagram_username: string | null
+          page_access_token: string | null
+          page_id: string | null
+          updated_at: string | null
+          user_access_token: string | null
+          user_id: string
+        }
+        Insert: {
+          access_token: string
+          client_id: string
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string
+          instagram_business_id?: string | null
+          instagram_username?: string | null
+          page_access_token?: string | null
+          page_id?: string | null
+          updated_at?: string | null
+          user_access_token?: string | null
+          user_id: string
+        }
+        Update: {
+          access_token?: string
+          client_id?: string
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string
+          instagram_business_id?: string | null
+          instagram_username?: string | null
+          page_access_token?: string | null
+          page_id?: string | null
+          updated_at?: string | null
+          user_access_token?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "instagram_tokens_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       kanban_cards: {
         Row: {
           assigned_to: string | null
