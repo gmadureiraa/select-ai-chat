@@ -13,6 +13,16 @@ interface N8nSetupDialogProps {
   existingUrl?: string;
 }
 
+// Helper to extract base URL (removes paths like /home/workflows)
+function getBaseUrl(url: string): string {
+  try {
+    const urlObj = new URL(url);
+    return `${urlObj.protocol}//${urlObj.host}`;
+  } catch {
+    return url;
+  }
+}
+
 export function N8nSetupDialog({ 
   open, 
   onOpenChange, 
@@ -20,12 +30,17 @@ export function N8nSetupDialog({
   isLoading,
   existingUrl 
 }: N8nSetupDialogProps) {
-  const [apiUrl, setApiUrl] = useState(existingUrl || "");
+  // Clean the existing URL to show only base URL
+  const cleanExistingUrl = existingUrl ? getBaseUrl(existingUrl) : "";
+  const [apiUrl, setApiUrl] = useState(cleanExistingUrl);
   const [apiKey, setApiKey] = useState("");
 
+  // Update apiUrl when existingUrl changes
   const handleSave = async () => {
     if (!apiUrl || !apiKey) return;
-    await onSave(apiUrl, apiKey);
+    // Clean URL before saving
+    const cleanUrl = getBaseUrl(apiUrl);
+    await onSave(cleanUrl, apiKey);
     onOpenChange(false);
     setApiKey("");
   };
