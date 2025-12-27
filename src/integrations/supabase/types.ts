@@ -2373,6 +2373,44 @@ export type Database = {
           },
         ]
       }
+      workspace_n8n_credentials: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          n8n_api_key: string
+          n8n_api_url: string
+          updated_at: string | null
+          workspace_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          n8n_api_key: string
+          n8n_api_url: string
+          updated_at?: string | null
+          workspace_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          n8n_api_key?: string
+          n8n_api_url?: string
+          updated_at?: string | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workspace_n8n_credentials_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: true
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       workspace_rejected_users: {
         Row: {
           id: string
