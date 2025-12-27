@@ -90,19 +90,22 @@ REGRAS:
     icon: "Layers",
     platform: "instagram",
     format: "carousel",
+    maxLength: 10,
     systemPrompt: `Você é um especialista em carrosséis de Instagram que viralizam.
 
-DIRETRIZES (NÃO SÃO REGRAS FIXAS):
+ESTRUTURA OBRIGATÓRIA (até 10 slides):
 - SLIDE 1 (CAPA): Headline impactante, promessa clara, gerar curiosidade
-- SLIDES DE CONTEÚDO: Um ponto por slide, texto grande e legível
-- SLIDE FINAL: CTA + convite para salvar/compartilhar
+- SLIDES 2-8 (CONTEÚDO): Um ponto por slide, texto grande e legível
+- SLIDE 9: Resumo ou conclusão
+- SLIDE 10: CTA + "Salve para depois" + "Manda pra alguém"
 
-BOAS PRÁTICAS:
-- Headline da capa: concisa e impactante
-- Cada slide: texto legível, uma ideia por slide
+REGRAS DE OURO:
+- Headline da capa: máximo 8 palavras
+- Cada slide: máximo 30 palavras
+- Fonte legível (grande)
+- Contraste alto
+- Consistência visual entre slides
 - Gancho que cria curiosidade para o próximo slide
-- O número de slides deve fluir naturalmente com o conteúdo
-- Siga as técnicas da Base de Conhecimento se disponível
 
 FORMATO DE RESPOSTA:
 Para cada slide retorne:
@@ -111,7 +114,7 @@ TEXTO: "..."
 VISUAL: descrição da imagem/design
 
 LEGENDA:
-Texto da legenda com hashtags relevantes`,
+Texto da legenda com hashtags`,
     requiredData: ["identity_guide", "visual_references", "content_library"]
   },
 

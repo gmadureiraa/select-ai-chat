@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import { User, Sparkles, ZoomIn, FileDown, Image as ImageIcon, ChevronRight, Eye } from "lucide-react";
+import { User, Sparkles, ZoomIn, FileDown, Image as ImageIcon } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import kaleidosLogo from "@/assets/kaleidos-logo.svg";
 import { MessageActions } from "@/components/MessageActions";
@@ -10,20 +10,12 @@ import {
   DialogContent,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import jsPDF from "jspdf";
 import { useToast } from "@/hooks/use-toast";
 import { PostPreviewCard } from "@/components/posts";
 import { parseContentForPosts } from "@/lib/postDetection";
-import { ProcessViewer, ProcessMetadata } from "./ProcessViewer";
-import { RefinementActions } from "./RefinementActions";
-
 interface EnhancedMessageBubbleProps {
   role: "user" | "assistant";
   content: string;
@@ -34,9 +26,6 @@ interface EnhancedMessageBubbleProps {
   clientId?: string;
   clientName?: string;
   templateName?: string;
-  processMetadata?: ProcessMetadata;
-  onRefine?: (instruction: string) => void;
-  isRefining?: boolean;
 }
 
 export const EnhancedMessageBubble = ({ 
@@ -49,13 +38,9 @@ export const EnhancedMessageBubble = ({
   clientId,
   clientName,
   templateName,
-  processMetadata,
-  onRefine,
-  isRefining,
 }: EnhancedMessageBubbleProps) => {
   const isUser = role === "user";
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
-  const [showProcess, setShowProcess] = useState(false);
   const { toast } = useToast();
 
   const hasImages = imageUrls && imageUrls.length > 0;
@@ -268,55 +253,16 @@ export const EnhancedMessageBubble = ({
             </div>
           )}
           
-          {/* Refinement Actions - for assistant messages with content */}
-          {!isUser && isLastMessage && textContent && textContent.length > 100 && onRefine && (
-            <RefinementActions 
-              onRefine={onRefine} 
-              isRefining={isRefining}
-              className="mt-2"
-            />
-          )}
-          
           {/* Ações */}
-          <div className="flex items-center gap-2 mt-1">
-            <MessageActions 
-              content={content}
-              role={role}
-              onRegenerate={onRegenerate}
-              isLastMessage={isLastMessage}
-              clientId={clientId}
-              clientName={clientName}
-              templateName={templateName}
-            />
-            
-            {/* Ver processo da IA */}
-            {!isUser && processMetadata && (
-              processMetadata.knowledgeUsed.length > 0 || 
-              processMetadata.structureExamples.length > 0 ||
-              processMetadata.agentSteps.length > 0 ||
-              processMetadata.layoutGuide
-            ) && (
-              <Collapsible open={showProcess} onOpenChange={setShowProcess}>
-                <CollapsibleTrigger asChild>
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity"
-                  >
-                    <Eye className="h-3 w-3 mr-1" />
-                    Ver processo
-                    <ChevronRight className={cn(
-                      "h-3 w-3 ml-1 transition-transform",
-                      showProcess && "rotate-90"
-                    )} />
-                  </Button>
-                </CollapsibleTrigger>
-                <CollapsibleContent className="w-full">
-                  <ProcessViewer data={processMetadata} />
-                </CollapsibleContent>
-              </Collapsible>
-            )}
-          </div>
+          <MessageActions 
+            content={content}
+            role={role}
+            onRegenerate={onRegenerate}
+            isLastMessage={isLastMessage}
+            clientId={clientId}
+            clientName={clientName}
+            templateName={templateName}
+          />
         </div>
 
         {/* Avatar do usuário - maior e mais visível */}

@@ -1557,11 +1557,7 @@ IMPORTANTE: O novo conteúdo deve parecer escrito pelo mesmo autor.`;
           contextParts.push(``);
           contextParts.push(`**IMPORTANTE:** Use esta análise para criar ideias sobre os MESMOS TEMAS:`);
           contextParts.push(``);
-          // Truncar análise se muito longa
-          const truncatedAnalysis = patternAnalysis.length > 10000
-            ? patternAnalysis.substring(0, 10000) + "\n[... análise truncada ...]"
-            : patternAnalysis;
-          contextParts.push(truncatedAnalysis);
+          contextParts.push(patternAnalysis);
           contextParts.push(``);
           contextParts.push(`**INSTRUÇÕES CRÍTICAS PARA IDEIAS:**`);
           contextParts.push(`1. CRIE ideias sobre os TEMAS identificados acima`);
@@ -1631,11 +1627,7 @@ IMPORTANTE: O novo conteúdo deve parecer escrito pelo mesmo autor.`;
           contextParts.push(``);
           contextParts.push(`**IMPORTANTE:** ESCREVA seguindo o estilo identificado abaixo:`);
           contextParts.push(``);
-          // Truncar análise se muito longa
-          const truncatedAnalysis = patternAnalysis.length > 10000
-            ? patternAnalysis.substring(0, 10000) + "\n[... análise truncada ...]"
-            : patternAnalysis;
-          contextParts.push(truncatedAnalysis);
+          contextParts.push(patternAnalysis);
           contextParts.push(``);
           contextParts.push(`**INSTRUÇÕES CRÍTICAS PARA ESCRITA:**`);
           contextParts.push(`1. SIGA a estrutura e organização identificada`);
@@ -1716,11 +1708,7 @@ IMPORTANTE: O novo conteúdo deve parecer escrito pelo mesmo autor.`;
           references.contentReferences.forEach((ref, idx) => {
             contextParts.push(`#### Referência ${idx + 1}: ${ref.description}`);
             contextParts.push('```');
-            // Truncar referências para evitar estouro de limite
-            const truncatedRefContent = ref.content.length > 6000
-              ? ref.content.substring(0, 6000) + "\n[... conteúdo truncado ...]"
-              : ref.content;
-            contextParts.push(truncatedRefContent);
+            contextParts.push(ref.content);
             contextParts.push('```');
             contextParts.push('');
           });
@@ -1765,11 +1753,7 @@ IMPORTANTE: O novo conteúdo deve parecer escrito pelo mesmo autor.`;
               contextParts.push(`**Por que foi selecionado:** ${ref.reason}`);
               contextParts.push(``);
               contextParts.push('```');
-              // Truncar conteúdo individual para evitar estouro de limite
-              const truncatedContent = content.content.length > 8000 
-                ? content.content.substring(0, 8000) + "\n[... conteúdo truncado ...]"
-                : content.content;
-              contextParts.push(truncatedContent);
+              contextParts.push(content.content);
               contextParts.push('```');
               contextParts.push(``);
             }
@@ -1805,13 +1789,7 @@ IMPORTANTE: O novo conteúdo deve parecer escrito pelo mesmo autor.`;
       // FASE 4: Criar resposta contextualizada
       setCurrentStep("creating");
 
-      // Truncar contexto se muito longo (limite de 150k para deixar espaço para mensagens)
-      const MAX_SYSTEM_MESSAGE_LENGTH = 150000;
-      let systemMessage = contextParts.join("\n");
-      if (systemMessage.length > MAX_SYSTEM_MESSAGE_LENGTH) {
-        console.warn(`[CHAT] System message truncated from ${systemMessage.length} to ${MAX_SYSTEM_MESSAGE_LENGTH} chars`);
-        systemMessage = systemMessage.substring(0, MAX_SYSTEM_MESSAGE_LENGTH) + "\n\n[... contexto truncado por limite de tamanho ...]";
-      }
+      const systemMessage = contextParts.join("\n");
 
       // IMPORTANTE: Sempre enviar histórico COMPLETO da conversa
       const messagesWithContext = [
