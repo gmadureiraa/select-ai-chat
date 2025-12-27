@@ -100,6 +100,53 @@ interface PipelineConfig {
   agents: PipelineAgent[];
 }
 
+interface ProcessMetadata {
+  knowledgeUsed: { id: string; title: string; category: string }[];
+  structureExamples: { id: string; title: string; contentType: string }[];
+  agentSteps: { agentId: string; agentName: string; inputTokens: number; outputTokens: number; durationMs: number }[];
+  totalTokens: { input: number; output: number };
+  totalCost: number;
+}
+
+// Search knowledge base for relevant techniques
+async function searchKnowledgeBase(
+  supabaseUrl: string,
+  authHeader: string,
+  workspaceId: string,
+  query: string,
+  contentType: string
+): Promise<{ id: string; title: string; content: string; category: string }[]> {
+  try {
+    const searchQuery = `${contentType} ${query}`.trim();
+    console.log(`[KNOWLEDGE] Searching for: ${searchQuery}`);
+    
+    const response = await fetch(`${supabaseUrl}/functions/v1/search-knowledge`, {
+      method: "POST",
+      headers: {
+        "Authorization": authHeader,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        query: searchQuery,
+        workspaceId: workspaceId,
+        limit: 5
+      })
+    });
+
+    if (!response.ok) {
+      console.error("[KNOWLEDGE] Search failed:", response.status);
+      return [];
+    }
+
+    const data = await response.json();
+    console.log(`[KNOWLEDGE] Found ${data.results?.length || 0} relevant documents`);
+    return data.results || [];
+  } catch (error) {
+    console.error("[KNOWLEDGE] Search error:", error);
+    return [];
+  }
+}
+
 // ============ EXECUÇÃO GENÉRICA DE AGENTE ============
 async function executeAgent(
   agent: PipelineAgent,
@@ -112,6 +159,8 @@ async function executeAgent(
     referenceLibrary: any[];
     previousOutputs: Record<string, string>;
     contentType: string;
+    knowledgeBase: { id: string; title: string; content: string; category: string }[];
+    structureExamples: any[];
   }
 ): Promise<{ content: string; inputTokens: number; outputTokens: number }> {
   console.log(`[AGENT-${agent.id}] Executing: ${agent.name} with model: ${agent.model}`);
@@ -119,15 +168,25 @@ async function executeAgent(
   let userPrompt = "";
 
   if (agent.id === "researcher") {
-    const libraryContext = context.contentLibrary.slice(0, 20).map(c => 
-      `ID: ${c.id}\nTítulo: ${c.title}\nTipo: ${c.content_type}\nPreview: ${c.content.substring(0, 500)}...`
+    // Build knowledge base context
+    const knowledgeContext = context.knowledgeBase.length > 0
+      ? context.knowledgeBase.map(k => 
+          `### ${k.title} (${k.category}):\n${k.content.substring(0, 2000)}...`
+        ).join("\n\n---\n\n")
+      : "Nenhum conhecimento específico encontrado na base.";
+
+    const libraryContext = context.contentLibrary.slice(0, 15).map(c => 
+      `ID: ${c.id}\nTítulo: ${c.title}\nTipo: ${c.content_type}\nPreview: ${c.content.substring(0, 400)}...`
     ).join("\n\n---\n\n");
 
-    const refContext = context.referenceLibrary.slice(0, 10).map(r =>
-      `ID: ${r.id}\nTítulo: ${r.title}\nTipo: ${r.reference_type}\nPreview: ${r.content.substring(0, 300)}...`
+    const refContext = context.referenceLibrary.slice(0, 8).map(r =>
+      `ID: ${r.id}\nTítulo: ${r.title}\nTipo: ${r.reference_type}\nPreview: ${r.content.substring(0, 250)}...`
     ).join("\n\n---\n\n");
 
     userPrompt = `Cliente: ${context.clientName}
+
+## 📚 BASE DE CONHECIMENTO (TÉCNICAS E METODOLOGIAS):
+${knowledgeContext}
 
 ## BIBLIOTECA DE CONTEÚDO (${context.contentLibrary.length} itens):
 ${libraryContext}
@@ -138,7 +197,8 @@ ${refContext}
 ## SOLICITAÇÃO DO USUÁRIO:
 ${context.userMessage}
 
-Analise e selecione os materiais mais relevantes para criar este conteúdo.`;
+TAREFA: Analise a Base de Conhecimento para identificar as melhores técnicas e práticas para criar este tipo de conteúdo.
+Selecione os materiais mais relevantes da biblioteca e sintetize as técnicas que devem ser aplicadas.`;
   } else if (agent.id === "writer") {
     const researchOutput = context.previousOutputs["researcher"] || "";
     const selectedMaterials = context.contentLibrary.filter(c => 
@@ -149,10 +209,17 @@ Analise e selecione os materiais mais relevantes para criar este conteúdo.`;
       `### ${m.title} (${m.content_type})\n${m.content}`
     ).join("\n\n---\n\n");
 
+    // Add knowledge techniques summary
+    const knowledgeTechniques = context.knowledgeBase.length > 0
+      ? `## 📚 TÉCNICAS DA BASE DE CONHECIMENTO:\n${context.knowledgeBase.map(k => `- **${k.title}**: Aplicar técnicas descritas neste guia`).join("\n")}`
+      : "";
+
     userPrompt = `## CLIENTE: ${context.clientName}
 
 ## GUIA DE IDENTIDADE:
 ${context.identityGuide || "Não disponível - use tom profissional e acessível"}
+
+${knowledgeTechniques}
 
 ## MATERIAIS DE REFERÊNCIA:
 ${materialsContext || "Nenhum material selecionado"}
@@ -165,43 +232,63 @@ ${researchOutput}
 ## SOLICITAÇÃO:
 ${context.userMessage}
 
+IMPORTANTE: Siga as técnicas e melhores práticas identificadas pelo Pesquisador.
+NÃO use números fixos (como "10 slides") - deixe o conteúdo fluir naturalmente baseado nas técnicas.
 Crie agora o primeiro rascunho do conteúdo solicitado.`;
   } else if (agent.id === "editor") {
     const draft = context.previousOutputs["writer"] || "";
-    const researchOutput = context.previousOutputs["researcher"] || "";
     
-    const selectedMaterials = context.contentLibrary.filter(c => 
-      researchOutput.includes(c.id) || researchOutput.includes(c.title)
-    ).slice(0, 3);
-
-    const examples = selectedMaterials.map(m => 
-      `### EXEMPLO: ${m.title}\n${m.content}`
-    ).join("\n\n---\n\n");
+    // Use structure examples for consistency
+    const structureExamplesContext = context.structureExamples.length > 0
+      ? context.structureExamples.map((m, i) => 
+          `### EXEMPLO ${i + 1}: "${m.title}" (${m.content_type})\n\`\`\`\n${m.content}\n\`\`\``
+        ).join("\n\n---\n\n")
+      : "";
 
     userPrompt = `## CLIENTE: ${context.clientName}
 
 ## GUIA DE COPYWRITING:
 ${context.copywritingGuide || "Use tom conversacional, direto e envolvente. Evite jargões desnecessários."}
 
-## EXEMPLOS REAIS DO CLIENTE (USE COMO REFERÊNCIA DE ESTILO):
-${examples || "Sem exemplos disponíveis"}
+${structureExamplesContext ? `## 📐 EXEMPLOS REAIS DO CLIENTE (SIGA ESTE ESTILO!):
+**CRÍTICO:** O leitor NÃO PODE perceber que foi escrito por IA.
+Reescreva para soar EXATAMENTE como estes exemplos:
+
+${structureExamplesContext}
+
+**INSTRUÇÕES:**
+- Copie o ESTILO de escrita e tom de voz dos exemplos
+- Mantenha a estrutura de formatação similar
+- Use as mesmas expressões e maneirismos
+- Adapte o conteúdo para seguir estes padrões` : ""}
 
 ## RASCUNHO A REFINAR:
 ${draft}
 
 TAREFA: Reescreva o rascunho para que soe EXATAMENTE como os exemplos do cliente.
-O leitor não deve perceber que foi escrito por IA.
-Mantenha todo o conteúdo, mas refine completamente o estilo.`;
+Mantenha todo o conteúdo, mas refine completamente o estilo e tom.`;
   } else if (agent.id === "reviewer") {
     const contentToReview = context.previousOutputs["editor"] || context.previousOutputs["writer"] || "";
 
+    // Dynamic validation based on content type (no hardcoded numbers)
+    const validationGuidelines = context.knowledgeBase.length > 0
+      ? `\n## VALIDAÇÕES BASEADAS NA BASE DE CONHECIMENTO:
+Use as técnicas dos guias abaixo para validar o conteúdo:
+${context.knowledgeBase.map(k => `- ${k.title}`).join("\n")}`
+      : "";
+
     userPrompt = `## CLIENTE: ${context.clientName}
 ## TIPO DE CONTEÚDO: ${context.contentType || "geral"}
+${validationGuidelines}
 
 ## CONTEÚDO PARA REVISÃO:
 ${contentToReview}
 
-Faça a revisão final e retorne a versão PRONTA PARA PUBLICAÇÃO.`;
+TAREFA: 
+1. Verifique se o conteúdo segue as melhores práticas da Base de Conhecimento
+2. Confirme que o tom está alinhado com o guia de identidade do cliente
+3. Faça ajustes finais de clareza e fluidez
+4. Retorne a versão PRONTA PARA PUBLICAÇÃO (apenas o conteúdo final, sem comentários)`;
   } else {
     const lastOutput = Object.values(context.previousOutputs).pop() || "";
     userPrompt = `## CLIENTE: ${context.clientName}
@@ -324,37 +411,104 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+    // Get workspace_id and search knowledge base
+    let knowledgeBase: { id: string; title: string; content: string; category: string }[] = [];
+    let structureExamples: any[] = [];
+    
+    if (clientId) {
+      const { data: clientData } = await supabase
+        .from("clients")
+        .select("workspace_id")
+        .eq("id", clientId)
+        .single();
+      
+      if (clientData?.workspace_id) {
+        // Get auth header for knowledge search
+        const authHeader = req.headers.get("Authorization") || "";
+        
+        // Search knowledge base for relevant techniques
+        knowledgeBase = await searchKnowledgeBase(
+          supabaseUrl,
+          authHeader,
+          clientData.workspace_id,
+          userMessage,
+          contentType || ""
+        );
+        
+        console.log(`[MULTI-AGENT] Found ${knowledgeBase.length} knowledge documents`);
+      }
+      
+      // Get structure examples from content library (same content type)
+      if (contentType) {
+        const contentTypeMap: Record<string, string[]> = {
+          "carousel": ["carousel", "carrossel"],
+          "carrossel": ["carousel", "carrossel"],
+          "newsletter": ["newsletter", "email"],
+          "email": ["newsletter", "email"],
+          "reels": ["reels", "short_video"],
+          "thread": ["thread"],
+          "linkedin": ["linkedin"],
+          "tweet": ["tweet"],
+          "blog": ["blog", "blog_post"],
+          "article": ["article", "artigo"],
+          "video": ["video", "long_video", "youtube"]
+        };
+        
+        const matchingTypes = contentTypeMap[contentType.toLowerCase()] || [contentType];
+        
+        const { data: examples } = await supabase
+          .from("client_content_library")
+          .select("id, title, content_type, content")
+          .eq("client_id", clientId)
+          .in("content_type", matchingTypes)
+          .order("created_at", { ascending: false })
+          .limit(3);
+        
+        structureExamples = examples || [];
+        console.log(`[MULTI-AGENT] Found ${structureExamples.length} structure examples`);
+      }
+    }
+
     // Use pipeline received or fallback to default
     const agents: PipelineAgent[] = pipeline?.agents || [
       {
         id: "researcher",
         name: "Pesquisador",
-        description: "Analisa materiais disponíveis",
+        description: "Analisa materiais e busca técnicas na Base de Conhecimento",
         model: "flash",
-        systemPrompt: "Analise e selecione materiais relevantes da biblioteca."
+        systemPrompt: "Você é um pesquisador especializado. Analise a Base de Conhecimento para identificar técnicas e melhores práticas. Sintetize as informações mais relevantes para criar o conteúdo solicitado."
       },
       {
         id: "writer",
         name: "Escritor",
-        description: "Cria o primeiro rascunho",
+        description: "Cria o primeiro rascunho aplicando as técnicas",
         model: "pro",
-        systemPrompt: "Crie o primeiro rascunho do conteúdo."
+        systemPrompt: "Você é um escritor especializado. Aplique as técnicas identificadas pelo Pesquisador para criar conteúdo de alta qualidade. Siga as melhores práticas da Base de Conhecimento, sem usar números fixos ou estruturas rígidas."
       },
       {
         id: "editor",
         name: "Editor de Estilo",
-        description: "Refina o estilo do conteúdo",
+        description: "Ajusta o estilo para soar como o cliente",
         model: "pro",
-        systemPrompt: "Refine o conteúdo para soar como o cliente."
+        systemPrompt: "Você é um editor de estilo. Seu trabalho é fazer o conteúdo soar EXATAMENTE como o cliente escreve. Use os exemplos da Biblioteca de Conteúdo como referência absoluta de tom e estilo."
       },
       {
         id: "reviewer",
         name: "Revisor Final",
-        description: "Revisão final e polish",
+        description: "Validação e polish final",
         model: "flash",
-        systemPrompt: "Faça revisão final e polish."
+        systemPrompt: "Você é um revisor final. Verifique se o conteúdo segue as melhores práticas da Base de Conhecimento e está alinhado com o guia de identidade do cliente. Retorne apenas o conteúdo final pronto para publicação."
       }
     ];
+
+    // Process metadata for transparency
+    const processMetadata: ProcessMetadata = {
+      knowledgeUsed: knowledgeBase.map(k => ({ id: k.id, title: k.title, category: k.category })),
+      structureExamples: structureExamples.map(e => ({ id: e.id, title: e.title, contentType: e.content_type })),
+      agentSteps: [],
+      totalTokens: { input: 0, output: 0 },
+      totalCost: 0
+    };
 
     // Stream de progresso
     const encoder = new TextEncoder();
@@ -366,9 +520,10 @@ serve(async (req) => {
           status: string, 
           content?: string, 
           agentName?: string,
-          tokens?: { input: number; output: number; cost: number }
+          tokens?: { input: number; output: number; cost: number },
+          metadata?: ProcessMetadata
         ) => {
-          const data = JSON.stringify({ step, status, content, agentName, tokens });
+          const data = JSON.stringify({ step, status, content, agentName, tokens, metadata });
           controller.enqueue(encoder.encode(`data: ${data}\n\n`));
         };
 
@@ -401,8 +556,15 @@ serve(async (req) => {
             contentLibrary,
             referenceLibrary,
             previousOutputs: {} as Record<string, string>,
-            contentType: contentType || "geral"
+            contentType: contentType || "geral",
+            knowledgeBase,
+            structureExamples
           };
+
+          // Send initial metadata about knowledge and examples
+          sendProgress("init", "starting", 
+            `Usando ${knowledgeBase.length} docs da Base de Conhecimento e ${structureExamples.length} exemplos de referência`,
+            undefined, undefined, processMetadata);
 
           // Execute each agent and LOG INDIVIDUALLY
           for (let i = 0; i < agents.length; i++) {
