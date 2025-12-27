@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { Zap, Plus, Play, Clock, CheckCircle2, Workflow, RefreshCw, Trash2, Edit, Filter, AlertCircle, Lock, Settings, MessageCircle } from "lucide-react";
+import { Zap, Plus, Play, Clock, CheckCircle2, Workflow, RefreshCw, Trash2, Edit, Filter, AlertCircle, Settings, HelpCircle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -18,6 +18,8 @@ import { AutomationDialog } from "@/components/automations/AutomationDialog";
 import { AutomationStatsOverview } from "@/components/automations/AutomationStatsOverview";
 import { N8nWorkflowsManager } from "@/components/n8n/N8nWorkflowsManager";
 import { N8nSetupDialog } from "@/components/n8n/N8nSetupDialog";
+import { AutomationHelpDialog } from "@/components/automations/AutomationHelpDialog";
+import { EnterpriseLockScreen } from "@/components/shared/EnterpriseLockScreen";
 import { Client } from "@/hooks/useClients";
 import { usePlanFeatures } from "@/hooks/usePlanFeatures";
 import { format } from "date-fns";
@@ -26,7 +28,6 @@ import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
-const WHATSAPP_LINK = "https://api.whatsapp.com/send/?phone=12936180547&text=Ol%C3%A1%21+Tenho+interesse+no+plano+Enterprise+do+KAI.&type=phone_number&app_absent=0";
 
 interface KaiAutomationsTabProps {
   clientId: string;
@@ -38,6 +39,7 @@ export const KaiAutomationsTab = ({ clientId, client }: KaiAutomationsTabProps) 
   const [selectedAutomation, setSelectedAutomation] = useState<any>(null);
   const [addWorkflowOpen, setAddWorkflowOpen] = useState(false);
   const [setupDialogOpen, setSetupDialogOpen] = useState(false);
+  const [helpDialogOpen, setHelpDialogOpen] = useState(false);
   const [newWorkflow, setNewWorkflow] = useState({ id: "", name: "", webhookUrl: "" });
   const [filterClientId, setFilterClientId] = useState<string>("all");
 
@@ -218,27 +220,11 @@ export const KaiAutomationsTab = ({ clientId, client }: KaiAutomationsTabProps) 
   // Enterprise restriction check - show lock screen with contact option
   if (!planLoading && !isEnterprise) {
     return (
-      <div className="flex flex-col items-center justify-center py-16 px-4">
-        <div className="p-4 rounded-full bg-muted mb-4">
-          <Lock className="h-8 w-8 text-muted-foreground" />
-        </div>
-        <h3 className="text-lg font-semibold mb-2">Recurso Enterprise</h3>
-        <p className="text-muted-foreground text-center max-w-md mb-6">
-          Automações e workflows n8n estão disponíveis apenas no plano Enterprise. 
-          Entre em contato para fazer upgrade e desbloquear esta funcionalidade.
-        </p>
-        <div className="flex flex-col sm:flex-row gap-3">
-          <Button asChild>
-            <a href={WHATSAPP_LINK} target="_blank" rel="noopener noreferrer">
-              <MessageCircle className="h-4 w-4 mr-2" />
-              Falar com Vendas
-            </a>
-          </Button>
-        </div>
-        <Badge variant="outline" className="text-xs mt-4">
-          Plano Enterprise necessário
-        </Badge>
-      </div>
+      <EnterpriseLockScreen
+        title="Automações de Publicação"
+        description="Automações e workflows n8n estão disponíveis apenas no plano Enterprise. Conecte seu n8n para publicar automaticamente nas redes sociais."
+        icon={<Zap className="h-10 w-10 text-muted-foreground" />}
+      />
     );
   }
 
@@ -297,6 +283,14 @@ export const KaiAutomationsTab = ({ clientId, client }: KaiAutomationsTabProps) 
               <Settings className="h-4 w-4" />
             </Button>
           )}
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={() => setHelpDialogOpen(true)}
+            className="text-muted-foreground"
+          >
+            <HelpCircle className="h-4 w-4" />
+          </Button>
         </div>
         
         <div className="flex items-center gap-3">
@@ -496,6 +490,12 @@ export const KaiAutomationsTab = ({ clientId, client }: KaiAutomationsTabProps) 
         onSave={handleSaveCredentials}
         isLoading={saveCredentials.isPending}
         existingUrl={credentials?.n8n_api_url}
+      />
+
+      {/* Help Dialog */}
+      <AutomationHelpDialog
+        open={helpDialogOpen}
+        onOpenChange={setHelpDialogOpen}
       />
     </div>
   );

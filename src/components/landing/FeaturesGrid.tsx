@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
-import { Users, FolderOpen, FlaskConical, BarChart3 } from "lucide-react";
+import { Users, FolderOpen, Zap, BarChart3 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 
 const features = [
   {
@@ -15,9 +16,10 @@ const features = [
       "Briefings, brand guidelines, histórico de conversas e arquivos em um só lugar.",
   },
   {
-    icon: FlaskConical,
-    title: "Research Lab",
-    description: "Canvas visual para pesquisar e organizar referências em projetos.",
+    icon: Zap,
+    title: "Automações Avançadas",
+    description: "Conecte n8n para publicação automática nas redes sociais.",
+    badge: "Enterprise",
   },
   {
     icon: BarChart3,

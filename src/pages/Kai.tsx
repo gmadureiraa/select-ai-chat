@@ -11,10 +11,12 @@ import { ActivitiesTool } from "@/components/kai/tools/ActivitiesTool";
 import { TeamTool } from "@/components/kai/tools/TeamTool";
 import { ClientsManagementTool } from "@/components/kai/tools/ClientsManagementTool";
 import { PlanningBoard } from "@/components/planning/PlanningBoard";
+import { EnterpriseLockScreen } from "@/components/shared/EnterpriseLockScreen";
 import { useClients } from "@/hooks/useClients";
 import { useWorkspace } from "@/hooks/useWorkspace";
 import { usePlanFeatures } from "@/hooks/usePlanFeatures";
 import { cn } from "@/lib/utils";
+import { CalendarDays } from "lucide-react";
 
 import { Loader2 } from "lucide-react";
 
@@ -137,8 +139,17 @@ export default function Kai() {
       }
     }
 
-    // Planning tab - uses unified PlanningBoard
-    if (tab === "planning" && isEnterprise) {
+    // Planning tab - shows lock screen if not Enterprise
+    if (tab === "planning") {
+      if (!isEnterprise) {
+        return (
+          <EnterpriseLockScreen
+            title="Planejamento de Conteúdo"
+            description="Organize seu conteúdo com calendário editorial, kanban e agendamento de publicações. Disponível exclusivamente no plano Enterprise."
+            icon={<CalendarDays className="h-10 w-10 text-muted-foreground" />}
+          />
+        );
+      }
       return (
         <div className="p-6 h-full overflow-hidden">
           <PlanningBoard clientId={selectedClient?.id} />
