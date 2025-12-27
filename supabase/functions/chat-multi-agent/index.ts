@@ -100,12 +100,29 @@ interface PipelineConfig {
   agents: PipelineAgent[];
 }
 
+interface LayoutSlide {
+  slideNumber: number;
+  mainText: string;
+  mainTextStyle?: { font?: string; size?: string; color?: string };
+  secondaryText?: string;
+  secondaryTextStyle?: { font?: string; size?: string; color?: string };
+  background?: string;
+  imagePrompt?: string;
+}
+
+interface LayoutGuide {
+  slides: LayoutSlide[];
+  generalNotes?: string;
+}
+
 interface ProcessMetadata {
   knowledgeUsed: { id: string; title: string; category: string }[];
   structureExamples: { id: string; title: string; contentType: string }[];
   agentSteps: { agentId: string; agentName: string; inputTokens: number; outputTokens: number; durationMs: number }[];
   totalTokens: { input: number; output: number };
   totalCost: number;
+  layoutGuide?: LayoutGuide;
+  strategicInsights?: string[];
 }
 
 // Search knowledge base for relevant techniques
@@ -289,6 +306,52 @@ TAREFA:
 2. Confirme que o tom está alinhado com o guia de identidade do cliente
 3. Faça ajustes finais de clareza e fluidez
 4. Retorne a versão PRONTA PARA PUBLICAÇÃO (apenas o conteúdo final, sem comentários)`;
+  } else if (agent.id === "layout") {
+    // Layout Agent - Art Director
+    const finalContent = context.previousOutputs["reviewer"] || context.previousOutputs["editor"] || context.previousOutputs["writer"] || "";
+    
+    userPrompt = `## CLIENTE: ${context.clientName}
+## TIPO DE CONTEÚDO: ${context.contentType || "geral"}
+
+## CONTEÚDO FINAL:
+${finalContent}
+
+## BRAND ASSETS (se disponível):
+${context.identityGuide ? `Guia de identidade: ${context.identityGuide}` : "Não disponível - use paleta moderna e profissional"}
+
+TAREFA: Você é um Diretor de Arte. Analise o conteúdo e crie um GUIA DE LAYOUT completo.
+
+Para CADA slide/seção, forneça:
+
+1. **HIERARQUIA VISUAL**:
+   - Qual texto é título principal (fonte sugerida, tamanho, cor hex)
+   - Qual é texto secundário (fonte, tamanho, cor)
+   - Sugestão de fundo (cor sólida, degradê, ou imagem)
+
+2. **PROMPT DE IMAGEM** para IA:
+   - Prompt detalhado e específico para gerar imagem perfeita
+   - Incluir estilo artístico, composição, cores, mood
+   - Formato: "A detailed image of [descrição], [estilo], [cores], [mood], high quality, 4K"
+
+FORMATO DE RESPOSTA (JSON):
+\`\`\`json
+{
+  "slides": [
+    {
+      "slideNumber": 1,
+      "mainText": "Texto principal do slide",
+      "mainTextStyle": { "font": "Inter Bold", "size": "36px", "color": "#FFFFFF" },
+      "secondaryText": "Texto secundário se houver",
+      "secondaryTextStyle": { "font": "Inter", "size": "18px", "color": "#CCCCCC" },
+      "background": "Gradiente de #1a1a2e para #16213e",
+      "imagePrompt": "A minimalist illustration of coins falling in slow motion, dark gradient background with red accents, financial theme, high quality, 4K"
+    }
+  ],
+  "generalNotes": "Manter consistência visual entre todos os slides, usar a paleta primária do cliente"
+}
+\`\`\`
+
+Responda APENAS com o JSON, sem texto adicional.`;
   } else {
     const lastOutput = Object.values(context.previousOutputs).pop() || "";
     userPrompt = `## CLIENTE: ${context.clientName}
@@ -469,7 +532,7 @@ serve(async (req) => {
       }
     }
 
-    // Use pipeline received or fallback to default
+    // Use pipeline received or fallback to default (now includes Layout Agent)
     const agents: PipelineAgent[] = pipeline?.agents || [
       {
         id: "researcher",
@@ -498,6 +561,13 @@ serve(async (req) => {
         description: "Validação e polish final",
         model: "flash",
         systemPrompt: "Você é um revisor final. Verifique se o conteúdo segue as melhores práticas da Base de Conhecimento e está alinhado com o guia de identidade do cliente. Retorne apenas o conteúdo final pronto para publicação."
+      },
+      {
+        id: "layout",
+        name: "Diretor de Arte",
+        description: "Cria guia visual e prompts de imagem",
+        model: "flash",
+        systemPrompt: "Você é um Diretor de Arte especializado em conteúdo digital. Analise o conteúdo finalizado e crie um guia de layout completo com hierarquia visual, tipografia, cores e prompts detalhados para geração de imagens por IA. Responda em formato JSON estruturado."
       }
     ];
 
@@ -507,7 +577,9 @@ serve(async (req) => {
       structureExamples: structureExamples.map(e => ({ id: e.id, title: e.title, contentType: e.content_type })),
       agentSteps: [],
       totalTokens: { input: 0, output: 0 },
-      totalCost: 0
+      totalCost: 0,
+      layoutGuide: undefined,
+      strategicInsights: []
     };
 
     // Stream de progresso
@@ -578,6 +650,20 @@ serve(async (req) => {
               
               context.previousOutputs[agent.id] = result.content;
 
+              // Parse layout guide from layout agent
+              if (agent.id === "layout") {
+                try {
+                  // Try to extract JSON from the response
+                  const jsonMatch = result.content.match(/```json\s*([\s\S]*?)```/);
+                  const jsonStr = jsonMatch ? jsonMatch[1] : result.content;
+                  const layoutData = JSON.parse(jsonStr.trim());
+                  processMetadata.layoutGuide = layoutData;
+                  console.log(`[LAYOUT-AGENT] Parsed layout guide with ${layoutData.slides?.length || 0} slides`);
+                } catch (parseError) {
+                  console.error("[LAYOUT-AGENT] Failed to parse layout JSON:", parseError);
+                }
+              }
+
               // Calculate cost for this agent
               const agentCost = calculateCost(agent.model, result.inputTokens, result.outputTokens);
               
@@ -585,6 +671,15 @@ serve(async (req) => {
               totalInputTokens += result.inputTokens;
               totalOutputTokens += result.outputTokens;
               totalCost += agentCost;
+
+              // Add to agent steps
+              processMetadata.agentSteps.push({
+                agentId: agent.id,
+                agentName: agent.name,
+                inputTokens: result.inputTokens,
+                outputTokens: result.outputTokens,
+                durationMs: 0 // Could add timing if needed
+              });
 
               // LOG EACH AGENT INDIVIDUALLY with correct model
               const geminiModel = mapToGeminiModel(agent.model);
@@ -613,12 +708,20 @@ serve(async (req) => {
                   output: result.outputTokens,
                   cost: agentCost
                 });
-                // Send final result with cumulative tokens
-                sendProgress("complete", "done", result.content, undefined, {
+                
+                // Update final metadata
+                processMetadata.totalTokens = { input: totalInputTokens, output: totalOutputTokens };
+                processMetadata.totalCost = totalCost;
+                
+                // Get the reviewer's content as final (not layout's JSON)
+                const finalContent = context.previousOutputs["reviewer"] || result.content;
+                
+                // Send final result with cumulative tokens AND metadata
+                sendProgress("complete", "done", finalContent, undefined, {
                   input: totalInputTokens,
                   output: totalOutputTokens,
                   cost: totalCost
-                });
+                }, processMetadata);
               } else {
                 sendProgress(agent.id, "completed", `${result.content.length} caracteres`, agent.name, {
                   input: result.inputTokens,

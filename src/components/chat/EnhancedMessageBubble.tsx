@@ -22,6 +22,7 @@ import { useToast } from "@/hooks/use-toast";
 import { PostPreviewCard } from "@/components/posts";
 import { parseContentForPosts } from "@/lib/postDetection";
 import { ProcessViewer, ProcessMetadata } from "./ProcessViewer";
+import { RefinementActions } from "./RefinementActions";
 
 interface EnhancedMessageBubbleProps {
   role: "user" | "assistant";
@@ -34,6 +35,8 @@ interface EnhancedMessageBubbleProps {
   clientName?: string;
   templateName?: string;
   processMetadata?: ProcessMetadata;
+  onRefine?: (instruction: string) => void;
+  isRefining?: boolean;
 }
 
 export const EnhancedMessageBubble = ({ 
@@ -47,6 +50,8 @@ export const EnhancedMessageBubble = ({
   clientName,
   templateName,
   processMetadata,
+  onRefine,
+  isRefining,
 }: EnhancedMessageBubbleProps) => {
   const isUser = role === "user";
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
@@ -263,8 +268,17 @@ export const EnhancedMessageBubble = ({
             </div>
           )}
           
+          {/* Refinement Actions - for assistant messages with content */}
+          {!isUser && isLastMessage && textContent && textContent.length > 100 && onRefine && (
+            <RefinementActions 
+              onRefine={onRefine} 
+              isRefining={isRefining}
+              className="mt-2"
+            />
+          )}
+          
           {/* Ações */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 mt-1">
             <MessageActions 
               content={content}
               role={role}
@@ -279,7 +293,8 @@ export const EnhancedMessageBubble = ({
             {!isUser && processMetadata && (
               processMetadata.knowledgeUsed.length > 0 || 
               processMetadata.structureExamples.length > 0 ||
-              processMetadata.agentSteps.length > 0
+              processMetadata.agentSteps.length > 0 ||
+              processMetadata.layoutGuide
             ) && (
               <Collapsible open={showProcess} onOpenChange={setShowProcess}>
                 <CollapsibleTrigger asChild>
