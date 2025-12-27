@@ -9,8 +9,19 @@ const corsHeaders = {
 const N8N_API_URL = Deno.env.get('N8N_API_URL');
 const N8N_API_KEY = Deno.env.get('N8N_API_KEY');
 
+function getBaseUrl(url: string): string {
+  // Remove trailing slashes and any path segments like /home/workflows
+  try {
+    const parsed = new URL(url);
+    return `${parsed.protocol}//${parsed.host}`;
+  } catch {
+    return url.replace(/\/+$/, '');
+  }
+}
+
 async function makeN8nRequest(endpoint: string, method: string = 'GET', body?: unknown) {
-  const url = `${N8N_API_URL}/api/v1${endpoint}`;
+  const baseUrl = getBaseUrl(N8N_API_URL!);
+  const url = `${baseUrl}/api/v1${endpoint}`;
   console.log(`Making n8n request: ${method} ${url}`);
   
   const headers: Record<string, string> = {
