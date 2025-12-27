@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { Zap, Plus, Play, Clock, CheckCircle2, Workflow, RefreshCw, Trash2, Edit, Filter, AlertCircle } from "lucide-react";
+import { Zap, Plus, Play, Clock, CheckCircle2, Workflow, RefreshCw, Trash2, Edit, Filter, AlertCircle, Lock } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -11,10 +11,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAutomations } from "@/hooks/useAutomations";
 import { useN8nMCP, N8nWorkflow } from "@/hooks/useN8nMCP";
+import { useN8nWorkflows, useN8nExecutions } from "@/hooks/useN8nAPI";
 import { AutomationDialog } from "@/components/automations/AutomationDialog";
 import { AutomationStatsOverview } from "@/components/automations/AutomationStatsOverview";
 import { N8nWorkflowsManager } from "@/components/n8n/N8nWorkflowsManager";
 import { Client } from "@/hooks/useClients";
+import { usePlanFeatures } from "@/hooks/usePlanFeatures";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -32,6 +34,8 @@ export const KaiAutomationsTab = ({ clientId, client }: KaiAutomationsTabProps) 
   const [addWorkflowOpen, setAddWorkflowOpen] = useState(false);
   const [newWorkflow, setNewWorkflow] = useState({ id: "", name: "", webhookUrl: "" });
   const [filterClientId, setFilterClientId] = useState<string>("all");
+
+  const { isEnterprise, isLoading: planLoading } = usePlanFeatures();
 
   const { 
     automations, 
@@ -51,6 +55,10 @@ export const KaiAutomationsTab = ({ clientId, client }: KaiAutomationsTabProps) 
     getWorkflowWebhook,
   } = useN8nMCP();
 
+  // Fetch real n8n workflows and executions
+  const { data: n8nWorkflows, isLoading: n8nWorkflowsLoading } = useN8nWorkflows();
+  const { data: n8nExecutions, isLoading: n8nExecutionsLoading } = useN8nExecutions();
+
   // Fetch all clients for filter
   const { data: allClients } = useQuery({
     queryKey: ["clients-filter"],
@@ -64,45 +72,56 @@ export const KaiAutomationsTab = ({ clientId, client }: KaiAutomationsTabProps) 
     },
   });
 
-  // Fetch automation runs for stats
-  const { data: automationRuns } = useQuery({
-    queryKey: ["automation-runs-stats"],
-    queryFn: async () => {
-      const sevenDaysAgo = new Date();
-      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-      
-      const { data, error } = await supabase
-        .from("automation_runs")
-        .select("*")
-        .gte("started_at", sevenDaysAgo.toISOString());
-      
-      if (error) throw error;
-      return data;
-    },
-  });
-
-  // Calculate stats
+  // Calculate stats from real n8n executions
   const stats = useMemo(() => {
-    if (!automationRuns) {
+    if (!n8nExecutions || n8nExecutions.length === 0) {
       return {
         totalExecutions: 0,
         failedExecutions: 0,
         failureRate: 0,
         avgRunTime: 0,
+        successExecutions: 0,
       };
     }
 
-    const total = automationRuns.length;
-    const failed = automationRuns.filter((r) => r.status === "failed").length;
-    const avgTime = automationRuns.reduce((acc, r) => acc + (r.duration_ms || 0), 0) / (total || 1) / 1000;
+    // Filter last 7 days
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    
+    const recentExecutions = n8nExecutions.filter((e) => {
+      const startDate = e.startedAt ? new Date(e.startedAt) : null;
+      const stopDate = e.stoppedAt ? new Date(e.stoppedAt) : null;
+      const execDate = startDate || stopDate;
+      return execDate && execDate >= sevenDaysAgo;
+    });
+
+    const total = recentExecutions.length;
+    const failed = recentExecutions.filter((e) => e.status === "error").length;
+    const success = recentExecutions.filter((e) => e.status === "success").length;
+    
+    // Calculate average run time from executions that have both start and stop times
+    const executionsWithTime = recentExecutions.filter((e) => e.startedAt && e.stoppedAt);
+    const avgTime = executionsWithTime.length > 0 
+      ? executionsWithTime.reduce((acc, e) => {
+          const start = new Date(e.startedAt).getTime();
+          const stop = new Date(e.stoppedAt!).getTime();
+          return acc + (stop - start);
+        }, 0) / executionsWithTime.length / 1000
+      : 0;
 
     return {
       totalExecutions: total,
       failedExecutions: failed,
+      successExecutions: success,
       failureRate: total > 0 ? (failed / total) * 100 : 0,
       avgRunTime: avgTime,
     };
-  }, [automationRuns]);
+  }, [n8nExecutions]);
+
+  // Calculate active n8n workflows count
+  const activeN8nCount = useMemo(() => {
+    return n8nWorkflows?.filter((w) => w.active).length || 0;
+  }, [n8nWorkflows]);
 
   // Fetch workflows on mount
   useEffect(() => {
@@ -123,24 +142,18 @@ export const KaiAutomationsTab = ({ clientId, client }: KaiAutomationsTabProps) 
     return result;
   }, [automations, filterClientId, clientId]);
 
-  // Sort: errors first
+  // Sort automations by most recent activity
   const sortedAutomations = useMemo(() => {
     return [...filteredAutomations].sort((a, b) => {
-      // Check if automation has recent error
-      const aHasError = automationRuns?.some(
-        (r) => r.automation_id === a.id && r.status === "failed"
-      );
-      const bHasError = automationRuns?.some(
-        (r) => r.automation_id === b.id && r.status === "failed"
-      );
-      
-      if (aHasError && !bHasError) return -1;
-      if (!aHasError && bHasError) return 1;
-      return 0;
+      // Sort by last run or updated date
+      const aDate = a.last_run_at ? new Date(a.last_run_at) : new Date(a.updated_at);
+      const bDate = b.last_run_at ? new Date(b.last_run_at) : new Date(b.updated_at);
+      return bDate.getTime() - aDate.getTime();
     });
-  }, [filteredAutomations, automationRuns]);
+  }, [filteredAutomations]);
 
-  const activeCount = filteredAutomations.filter((a) => a.is_active).length;
+  // Use n8n active count as the real count
+  const activeCount = activeN8nCount;
 
   const handleToggleActive = (automation: any) => {
     updateAutomation.mutate({
@@ -185,30 +198,34 @@ export const KaiAutomationsTab = ({ clientId, client }: KaiAutomationsTabProps) 
     }
   };
 
-  const getLastRunError = (automationId: string) => {
-    const runs = automationRuns?.filter((r) => r.automation_id === automationId) || [];
-    const lastRun = runs.sort((a, b) => 
-      new Date(b.started_at).getTime() - new Date(a.started_at).getTime()
-    )[0];
-    
-    if (lastRun?.status === "failed") {
-      return lastRun.error;
-    }
-    return null;
-  };
+  // Enterprise restriction check
+  if (!planLoading && !isEnterprise) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 px-4">
+        <div className="p-4 rounded-full bg-muted mb-4">
+          <Lock className="h-8 w-8 text-muted-foreground" />
+        </div>
+        <h3 className="text-lg font-semibold mb-2">Recurso Enterprise</h3>
+        <p className="text-muted-foreground text-center max-w-md mb-4">
+          Automações e workflows n8n estão disponíveis apenas no plano Enterprise. 
+          Entre em contato para fazer upgrade.
+        </p>
+        <Badge variant="outline" className="text-xs">
+          Plano Enterprise necessário
+        </Badge>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
-      {/* Stats Overview */}
+      {/* Stats Overview - Real n8n data */}
       <AutomationStatsOverview
         totalExecutions={stats.totalExecutions}
         failedExecutions={stats.failedExecutions}
         failureRate={stats.failureRate}
         avgRunTime={stats.avgRunTime}
-        executionsChange={-1.43}
-        failedChange={4.76}
-        failureRateChange={1.9}
-        runTimeChange={-5.25}
+        successExecutions={stats.successExecutions}
       />
 
       {/* Header with Filter */}
@@ -216,11 +233,16 @@ export const KaiAutomationsTab = ({ clientId, client }: KaiAutomationsTabProps) 
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
             <Zap className="h-5 w-5 text-primary" />
-            <h2 className="text-xl font-semibold">Overview</h2>
+            <h2 className="text-xl font-semibold">Workflows n8n</h2>
           </div>
           <Badge variant="secondary">
             {activeCount} ativas
           </Badge>
+          {n8nWorkflowsLoading && (
+            <Badge variant="outline" className="text-xs">
+              Carregando...
+            </Badge>
+          )}
         </div>
         
         <div className="flex items-center gap-3">
@@ -293,25 +315,13 @@ export const KaiAutomationsTab = ({ clientId, client }: KaiAutomationsTabProps) 
           ) : (
             <div className="grid gap-4">
               {sortedAutomations.map((automation) => {
-                const lastError = getLastRunError(automation.id);
                 const clientName = allClients?.find((c) => c.id === automation.client_id)?.name;
                 
                 return (
                   <Card 
                     key={automation.id} 
-                    className={cn(
-                      "overflow-hidden",
-                      lastError && "border-destructive/50"
-                    )}
+                    className="overflow-hidden"
                   >
-                    {/* Error Banner */}
-                    {lastError && (
-                      <div className="px-4 py-2 bg-destructive/10 border-b border-destructive/20 flex items-center gap-2">
-                        <AlertCircle className="h-4 w-4 text-destructive" />
-                        <span className="text-sm text-destructive font-medium">Último erro:</span>
-                        <span className="text-sm text-destructive/80 truncate">{lastError}</span>
-                      </div>
-                    )}
                     
                     <div className="flex items-center justify-between p-4">
                       <div className="flex items-center gap-4">

@@ -8,7 +8,7 @@ interface StatCardProps {
   value: string | number;
   change?: number;
   changeLabel?: string;
-  variant?: "default" | "error";
+  variant?: "default" | "error" | "success";
 }
 
 const StatCard = ({ label, sublabel, value, change, changeLabel, variant = "default" }: StatCardProps) => {
@@ -22,7 +22,8 @@ const StatCard = ({ label, sublabel, value, change, changeLabel, variant = "defa
       <div className="flex items-baseline gap-2 mt-1">
         <span className={cn(
           "text-2xl font-bold",
-          variant === "error" && "text-destructive"
+          variant === "error" && "text-destructive",
+          variant === "success" && "text-green-500"
         )}>
           {value}
         </span>
@@ -47,60 +48,50 @@ const StatCard = ({ label, sublabel, value, change, changeLabel, variant = "defa
 interface AutomationStatsOverviewProps {
   totalExecutions?: number;
   failedExecutions?: number;
+  successExecutions?: number;
   failureRate?: number;
-  timeSaved?: string;
   avgRunTime?: number;
-  executionsChange?: number;
-  failedChange?: number;
-  failureRateChange?: number;
-  runTimeChange?: number;
 }
 
 export const AutomationStatsOverview = ({
   totalExecutions = 0,
   failedExecutions = 0,
+  successExecutions = 0,
   failureRate = 0,
-  timeSaved = "--",
   avgRunTime = 0,
-  executionsChange,
-  failedChange,
-  failureRateChange,
-  runTimeChange,
 }: AutomationStatsOverviewProps) => {
+  const successRate = totalExecutions > 0 ? ((successExecutions / totalExecutions) * 100) : 0;
+  
   return (
     <Card className="mb-6 overflow-hidden">
       <div className="grid grid-cols-5 divide-x divide-border">
         <StatCard
-          label="Prod. executions"
-          sublabel="Last 7 days"
+          label="Total de Execuções"
+          sublabel="Últimos 7 dias"
           value={totalExecutions}
-          change={executionsChange}
         />
         <StatCard
-          label="Failed prod. executions"
-          sublabel="Last 7 days"
+          label="Execuções com Sucesso"
+          sublabel="Últimos 7 dias"
+          value={successExecutions}
+          variant="success"
+        />
+        <StatCard
+          label="Execuções com Erro"
+          sublabel="Últimos 7 dias"
           value={failedExecutions}
-          change={failedChange}
           variant="error"
         />
         <StatCard
-          label="Failure rate"
-          sublabel="Last 7 days"
-          value={`${failureRate.toFixed(1)}%`}
-          change={failureRateChange}
-          changeLabel="pp"
-          variant={failureRate > 20 ? "error" : "default"}
+          label="Taxa de Sucesso"
+          sublabel="Últimos 7 dias"
+          value={`${successRate.toFixed(1)}%`}
+          variant={successRate >= 80 ? "success" : successRate < 50 ? "error" : "default"}
         />
         <StatCard
-          label="Time saved"
-          sublabel="Last 7 days"
-          value={timeSaved}
-        />
-        <StatCard
-          label="Run time (avg.)"
-          sublabel="Last 7 days"
+          label="Tempo Médio"
+          sublabel="Últimos 7 dias"
           value={`${avgRunTime.toFixed(2)}s`}
-          change={runTimeChange}
         />
       </div>
     </Card>
