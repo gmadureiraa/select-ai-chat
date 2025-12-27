@@ -3,14 +3,15 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ContentItem, ContentType, CreateContentData } from "@/hooks/useContentLibrary";
 import { CONTENT_TYPE_OPTIONS } from "@/types/contentTypes";
 import { supabase } from "@/integrations/supabase/client";
 import { uploadAndGetSignedUrl } from "@/lib/storage";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Upload, X } from "lucide-react";
+import { Loader2, ChevronDown, Video } from "lucide-react";
+import { ContentEditor } from "./ContentEditor";
 
 interface ContentDialogProps {
   open: boolean;
@@ -28,11 +29,11 @@ export const ContentDialog = ({ open, onClose, onSave, content }: ContentDialogP
     content_url: "",
     thumbnail_url: "",
   });
-  const [uploadedImages, setUploadedImages] = useState<string[]>([]);
-  const [isUploading, setIsUploading] = useState(false);
-  const [isTranscribing, setIsTranscribing] = useState(false);
   const [videoUrl, setVideoUrl] = useState("");
+  const [isUploadingVideo, setIsUploadingVideo] = useState(false);
   const [isTranscribingVideo, setIsTranscribingVideo] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [showVideo, setShowVideo] = useState(false);
 
   useEffect(() => {
     if (content) {
@@ -43,8 +44,9 @@ export const ContentDialog = ({ open, onClose, onSave, content }: ContentDialogP
         content_url: content.content_url || "",
         thumbnail_url: content.thumbnail_url || "",
       });
-      setUploadedImages(content.metadata?.image_urls || []);
       setVideoUrl(content.metadata?.video_url || "");
+      setShowVideo(!!content.metadata?.video_url);
+      setShowAdvanced(!!(content.content_url || content.thumbnail_url));
     } else {
       setFormData({
         title: "",
@@ -53,102 +55,16 @@ export const ContentDialog = ({ open, onClose, onSave, content }: ContentDialogP
         content_url: "",
         thumbnail_url: "",
       });
-      setUploadedImages([]);
       setVideoUrl("");
+      setShowVideo(false);
+      setShowAdvanced(false);
     }
   }, [content, open]);
-
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
-
-    if (uploadedImages.length + files.length > 10) {
-      toast({
-        title: "Limite excedido",
-        description: "Você pode adicionar no máximo 10 imagens.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setIsUploading(true);
-    const newImageUrls: string[] = [];
-
-    try {
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        const { signedUrl, error } = await uploadAndGetSignedUrl(file, "content-images");
-
-        if (error) throw error;
-        if (signedUrl) newImageUrls.push(signedUrl);
-      }
-
-      setUploadedImages([...uploadedImages, ...newImageUrls]);
-      toast({
-        title: "Imagens carregadas",
-        description: `${newImageUrls.length} imagem(ns) adicionada(s)`,
-      });
-    } catch (error) {
-      console.error("Error uploading images:", error);
-      toast({
-        title: "Erro",
-        description: "Não foi possível fazer upload das imagens",
-        variant: "destructive",
-      });
-    } finally {
-      setIsUploading(false);
-    }
-  };
-
-  const handleTranscribe = async () => {
-    if (uploadedImages.length === 0) {
-      toast({
-        title: "Nenhuma imagem",
-        description: "Adicione pelo menos uma imagem para transcrever",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setIsTranscribing(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('transcribe-images', {
-        body: { imageUrls: uploadedImages }
-      });
-
-      if (error) throw error;
-
-      const existingContent = formData.content.trim();
-      const newContent = existingContent 
-        ? `${existingContent}\n\n--- CONTEÚDO DAS IMAGENS ---\n${data.transcription}`
-        : data.transcription;
-
-      setFormData({ ...formData, content: newContent });
-      toast({
-        title: "Transcrição concluída",
-        description: "O conteúdo das imagens foi adicionado",
-      });
-    } catch (error) {
-      console.error("Error transcribing images:", error);
-      toast({
-        title: "Erro",
-        description: "Não foi possível transcrever as imagens",
-        variant: "destructive",
-      });
-    } finally {
-      setIsTranscribing(false);
-    }
-  };
-
-  const removeImage = (index: number) => {
-    setUploadedImages(uploadedImages.filter((_, i) => i !== index));
-  };
 
   const handleVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Check file size (max 20MB)
     if (file.size > 20 * 1024 * 1024) {
       toast({
         title: "Arquivo muito grande",
@@ -158,7 +74,7 @@ export const ContentDialog = ({ open, onClose, onSave, content }: ContentDialogP
       return;
     }
 
-    setIsUploading(true);
+    setIsUploadingVideo(true);
     try {
       const { signedUrl, error } = await uploadAndGetSignedUrl(file, "content-videos");
 
@@ -166,7 +82,7 @@ export const ContentDialog = ({ open, onClose, onSave, content }: ContentDialogP
       if (signedUrl) setVideoUrl(signedUrl);
       toast({
         title: "Vídeo carregado",
-        description: "Vídeo enviado com sucesso. Clique em 'Transcrever Vídeo' para extrair o conteúdo.",
+        description: "Clique em 'Transcrever' para extrair o conteúdo.",
       });
     } catch (error) {
       console.error("Error uploading video:", error);
@@ -176,7 +92,7 @@ export const ContentDialog = ({ open, onClose, onSave, content }: ContentDialogP
         variant: "destructive",
       });
     } finally {
-      setIsUploading(false);
+      setIsUploadingVideo(false);
     }
   };
 
@@ -222,15 +138,14 @@ export const ContentDialog = ({ open, onClose, onSave, content }: ContentDialogP
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const dataWithImages = {
+    const dataWithMetadata = {
       ...formData,
       metadata: {
         ...formData.metadata,
-        image_urls: uploadedImages,
         video_url: videoUrl || undefined,
       },
     };
-    onSave(dataWithImages);
+    onSave(dataWithMetadata);
     onClose();
   };
 
@@ -240,177 +155,147 @@ export const ContentDialog = ({ open, onClose, onSave, content }: ContentDialogP
         <DialogHeader>
           <DialogTitle>{content ? "Editar Conteúdo" : "Adicionar Conteúdo"}</DialogTitle>
         </DialogHeader>
+        
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Title and Type Row */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="sm:col-span-2 space-y-2">
+              <Label htmlFor="title">Título</Label>
+              <Input
+                id="title"
+                value={formData.title}
+                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                placeholder="Ex: Newsletter Semanal #15"
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="content_type">Tipo</Label>
+              <Select
+                value={formData.content_type}
+                onValueChange={(value) => setFormData({ ...formData, content_type: value as ContentType })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {CONTENT_TYPE_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {/* Main Content Editor */}
           <div className="space-y-2">
-            <Label htmlFor="title">Título</Label>
-            <Input
-              id="title"
-              value={formData.title}
-              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-              placeholder="Ex: Newsletter Semanal #15"
-              required
+            <Label>Conteúdo</Label>
+            <ContentEditor
+              value={formData.content}
+              onChange={(value) => setFormData({ ...formData, content: value })}
+              placeholder="Digite o conteúdo aqui... Use a toolbar para formatar e inserir imagens."
+              minRows={10}
             />
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="content_type">Tipo de Conteúdo</Label>
-            <Select
-              value={formData.content_type}
-              onValueChange={(value) => setFormData({ ...formData, content_type: value as ContentType })}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {CONTENT_TYPE_OPTIONS.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label>Imagens (até 10)</Label>
-            <div className="space-y-2">
-              <div className="flex gap-2">
-                <Input
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  onChange={handleImageUpload}
-                  disabled={isUploading || uploadedImages.length >= 10}
-                  className="flex-1"
-                />
-                {uploadedImages.length > 0 && (
+          {/* Video Section (Collapsible) */}
+          <Collapsible open={showVideo} onOpenChange={setShowVideo}>
+            <CollapsibleTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="gap-2 text-muted-foreground hover:text-foreground w-full justify-start"
+              >
+                <Video className="h-4 w-4" />
+                Adicionar vídeo
+                <ChevronDown className={`h-4 w-4 ml-auto transition-transform ${showVideo ? 'rotate-180' : ''}`} />
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="space-y-3 pt-2">
+              <div className="p-3 rounded-md border border-border bg-muted/30 space-y-3">
+                <div className="flex gap-2">
+                  <Input
+                    value={videoUrl}
+                    onChange={(e) => setVideoUrl(e.target.value)}
+                    placeholder="Cole o link do vídeo ou faça upload"
+                    className="flex-1"
+                  />
                   <Button
                     type="button"
-                    onClick={handleTranscribe}
-                    disabled={isTranscribing}
+                    onClick={handleTranscribeVideo}
+                    disabled={isTranscribingVideo || !videoUrl}
                     variant="secondary"
+                    size="sm"
                   >
-                    {isTranscribing ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Transcrevendo...
-                      </>
+                    {isTranscribingVideo ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
                     ) : (
-                      <>
-                        <Upload className="mr-2 h-4 w-4" />
-                        Transcrever
-                      </>
+                      "Transcrever"
                     )}
                   </Button>
-                )}
-              </div>
-              
-              {uploadedImages.length > 0 && (
-                <div className="grid grid-cols-5 gap-2">
-                  {uploadedImages.map((url, index) => (
-                    <div key={index} className="relative group">
-                      <img
-                        src={url}
-                        alt={`Upload ${index + 1}`}
-                        className="w-full h-20 object-cover rounded border"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => removeImage(index)}
-                        className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </div>
-                  ))}
                 </div>
-              )}
-              
-              <p className="text-xs text-muted-foreground">
-                {uploadedImages.length}/10 imagens • Faça upload e clique em "Transcrever" para extrair o conteúdo
-              </p>
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label>Vídeo (opcional)</Label>
-            <div className="space-y-2">
-              <div className="flex gap-2">
-                <Input
-                  value={videoUrl}
-                  onChange={(e) => setVideoUrl(e.target.value)}
-                  placeholder="Cole o link do vídeo ou faça upload"
-                  className="flex-1"
-                />
-                <Button
-                  type="button"
-                  onClick={handleTranscribeVideo}
-                  disabled={isTranscribingVideo || !videoUrl}
-                  variant="secondary"
-                >
-                  {isTranscribingVideo ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Transcrevendo...
-                    </>
-                  ) : (
-                    <>
-                      <Upload className="mr-2 h-4 w-4" />
-                      Transcrever
-                    </>
-                  )}
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="file"
+                    accept="video/*"
+                    onChange={handleVideoUpload}
+                    disabled={isUploadingVideo}
+                    className="text-xs"
+                  />
+                  {isUploadingVideo && <Loader2 className="h-4 w-4 animate-spin" />}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Upload de vídeo (max 20MB) ou cole o link para transcrever
+                </p>
               </div>
-              <Input
-                type="file"
-                accept="video/*"
-                onChange={handleVideoUpload}
-                disabled={isUploading}
-              />
-              <p className="text-xs text-muted-foreground">
-                Faça upload de um vídeo (max 20MB) ou cole o link e clique em "Transcrever"
-              </p>
-            </div>
-          </div>
+            </CollapsibleContent>
+          </Collapsible>
 
-          <div className="space-y-2">
-            <Label htmlFor="content">Conteúdo</Label>
-            <Textarea
-              id="content"
-              value={formData.content}
-              onChange={(e) => setFormData({ ...formData, content: e.target.value })}
-              placeholder="Cole o conteúdo completo aqui ou transcreva das imagens/vídeo..."
-              className="min-h-[300px] font-mono text-sm"
-              required
-            />
-          </div>
+          {/* Advanced Options (Collapsible) */}
+          <Collapsible open={showAdvanced} onOpenChange={setShowAdvanced}>
+            <CollapsibleTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="gap-2 text-muted-foreground hover:text-foreground w-full justify-start"
+              >
+                Opções avançadas
+                <ChevronDown className={`h-4 w-4 ml-auto transition-transform ${showAdvanced ? 'rotate-180' : ''}`} />
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="space-y-3 pt-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-3 rounded-md border border-border bg-muted/30">
+                <div className="space-y-2">
+                  <Label htmlFor="content_url" className="text-sm">URL do Conteúdo</Label>
+                  <Input
+                    id="content_url"
+                    value={formData.content_url}
+                    onChange={(e) => setFormData({ ...formData, content_url: e.target.value })}
+                    placeholder="https://..."
+                    type="url"
+                    className="text-sm"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="thumbnail_url" className="text-sm">URL da Thumbnail</Label>
+                  <Input
+                    id="thumbnail_url"
+                    value={formData.thumbnail_url}
+                    onChange={(e) => setFormData({ ...formData, thumbnail_url: e.target.value })}
+                    placeholder="https://..."
+                    type="url"
+                    className="text-sm"
+                  />
+                </div>
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
 
-          <div className="space-y-2">
-            <Label htmlFor="content_url">URL do Conteúdo (opcional)</Label>
-            <Input
-              id="content_url"
-              value={formData.content_url}
-              onChange={(e) => setFormData({ ...formData, content_url: e.target.value })}
-              placeholder="https://..."
-              type="url"
-            />
-            <p className="text-xs text-muted-foreground">
-              Link do conteúdo publicado (facilita leitura pela IA)
-            </p>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="thumbnail_url">URL da Thumbnail (opcional)</Label>
-            <Input
-              id="thumbnail_url"
-              value={formData.thumbnail_url}
-              onChange={(e) => setFormData({ ...formData, thumbnail_url: e.target.value })}
-              placeholder="https://..."
-              type="url"
-            />
-          </div>
-
-          <DialogFooter>
+          <DialogFooter className="pt-4">
             <Button type="button" variant="outline" onClick={onClose}>
               Cancelar
             </Button>
