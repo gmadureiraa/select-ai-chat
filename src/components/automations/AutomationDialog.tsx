@@ -1,12 +1,15 @@
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useQuery } from "@tanstack/react-query";
+import { Settings2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAutomations } from "@/hooks/useAutomations";
 import { Automation, ScheduleType, DayOfWeek, DataSource, AutomationAction } from "@/types/automation";
 import { ScheduleConfig } from "./ScheduleConfig";
 import { DataSourcesConfig } from "./DataSourcesConfig";
 import { ActionsConfig } from "./ActionsConfig";
+import { AdvancedAutomationEditor } from "./visual-builder/AdvancedAutomationEditor";
+import type { AutomationFlow } from "@/types/automationBuilder";
 import {
   Dialog,
   DialogContent,
@@ -72,6 +75,8 @@ export const AutomationDialog = ({
   const [actions, setActions] = useState<AutomationAction[]>([]);
   const [webhookUrl, setWebhookUrl] = useState("");
   const [emailRecipients, setEmailRecipients] = useState<string[]>([]);
+  const [isAdvancedEditorOpen, setIsAdvancedEditorOpen] = useState(false);
+  const [advancedFlow, setAdvancedFlow] = useState<AutomationFlow | undefined>(undefined);
 
   const form = useForm<FormData>({
     defaultValues: {
@@ -171,17 +176,34 @@ export const AutomationDialog = ({
     onOpenChange(false);
   };
 
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>
-            {automation ? "Editar Automação" : "Nova Automação"}
-          </DialogTitle>
-        </DialogHeader>
+  const handleAdvancedSave = (flow: AutomationFlow, name: string) => {
+    setAdvancedFlow(flow);
+    form.setValue("name", name);
+    // TODO: Convert flow to automation format and save
+  };
 
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+  return (
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader className="flex flex-row items-center justify-between">
+            <DialogTitle>
+              {automation ? "Editar Automação" : "Nova Automação"}
+            </DialogTitle>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setIsAdvancedEditorOpen(true)}
+              className="gap-2"
+            >
+              <Settings2 className="h-4 w-4" />
+              Edição Avançada
+            </Button>
+          </DialogHeader>
+
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <FormField
               control={form.control}
               name="client_id"
@@ -352,9 +374,18 @@ export const AutomationDialog = ({
                 {automation ? "Salvar Alterações" : "Criar Automação"}
               </Button>
             </div>
-          </form>
-        </Form>
-      </DialogContent>
-    </Dialog>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
+      <AdvancedAutomationEditor
+        open={isAdvancedEditorOpen}
+        onOpenChange={setIsAdvancedEditorOpen}
+        automationName={form.getValues("name") || "Nova Automação"}
+        initialFlow={advancedFlow}
+        onSave={handleAdvancedSave}
+      />
+    </>
   );
 };
