@@ -3,6 +3,16 @@ import { supabase } from "@/integrations/supabase/client";
 import { useWorkspaceContext } from "@/contexts/WorkspaceContext";
 import { toast } from "sonner";
 
+// Helper to extract base URL (removes paths like /home/workflows)
+function getBaseUrl(url: string): string {
+  try {
+    const urlObj = new URL(url);
+    return `${urlObj.protocol}//${urlObj.host}`;
+  } catch {
+    return url;
+  }
+}
+
 interface N8nCredentials {
   id: string;
   workspace_id: string;
@@ -42,6 +52,9 @@ export function useWorkspaceN8nCredentials() {
     mutationFn: async ({ apiUrl, apiKey }: { apiUrl: string; apiKey: string }) => {
       if (!workspace?.id) throw new Error('No workspace selected');
 
+      // Clean URL to base URL only (remove paths like /home/workflows)
+      const cleanUrl = getBaseUrl(apiUrl);
+
       const { data: existing } = await supabase
         .from('workspace_n8n_credentials')
         .select('id')
@@ -52,7 +65,7 @@ export function useWorkspaceN8nCredentials() {
         const { error } = await supabase
           .from('workspace_n8n_credentials')
           .update({
-            n8n_api_url: apiUrl,
+            n8n_api_url: cleanUrl,
             n8n_api_key: apiKey,
             is_active: true,
           })
@@ -64,7 +77,7 @@ export function useWorkspaceN8nCredentials() {
           .from('workspace_n8n_credentials')
           .insert({
             workspace_id: workspace.id,
-            n8n_api_url: apiUrl,
+            n8n_api_url: cleanUrl,
             n8n_api_key: apiKey,
             is_active: true,
           });

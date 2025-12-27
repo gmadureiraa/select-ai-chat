@@ -13,6 +13,7 @@ import { useAutomations } from "@/hooks/useAutomations";
 import { useN8nMCP, N8nWorkflow } from "@/hooks/useN8nMCP";
 import { useN8nWorkflows, useN8nExecutions } from "@/hooks/useN8nAPI";
 import { useWorkspaceN8nCredentials } from "@/hooks/useWorkspaceN8nCredentials";
+import { useWorkspace } from "@/hooks/useWorkspace";
 import { AutomationDialog } from "@/components/automations/AutomationDialog";
 import { AutomationStatsOverview } from "@/components/automations/AutomationStatsOverview";
 import { N8nWorkflowsManager } from "@/components/n8n/N8nWorkflowsManager";
@@ -41,6 +42,7 @@ export const KaiAutomationsTab = ({ clientId, client }: KaiAutomationsTabProps) 
   const [filterClientId, setFilterClientId] = useState<string>("all");
 
   const { isEnterprise, isLoading: planLoading } = usePlanFeatures();
+  const { isAdminOrOwner } = useWorkspace();
   const { 
     credentials, 
     isLoading: credentialsLoading, 
@@ -285,7 +287,7 @@ export const KaiAutomationsTab = ({ clientId, client }: KaiAutomationsTabProps) 
               Carregando...
             </Badge>
           )}
-          {isConfigured && (
+          {isConfigured && isAdminOrOwner && (
             <Button 
               variant="ghost" 
               size="sm" 
@@ -321,13 +323,13 @@ export const KaiAutomationsTab = ({ clientId, client }: KaiAutomationsTabProps) 
             setDialogOpen(true);
           }}>
             <Plus className="h-4 w-4 mr-2" />
-            Create workflow
+            Criar workflow
           </Button>
         </div>
       </div>
 
       <p className="text-sm text-muted-foreground">
-        All the workflows, credentials and data tables you have access to
+        Todos os workflows, credenciais e tabelas de dados que você tem acesso
       </p>
 
       <Tabs defaultValue="n8n" className="w-full">
