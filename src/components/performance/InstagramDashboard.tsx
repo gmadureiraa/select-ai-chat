@@ -11,18 +11,17 @@ import { usePerformanceGoals } from "@/hooks/usePerformanceGoals";
 import { InstagramPostsTable } from "./InstagramPostsTable";
 import { SmartCSVUpload } from "./SmartCSVUpload";
 import { EnhancedAreaChart } from "./EnhancedAreaChart";
-import { AutoInsightsCard } from "./AutoInsightsCard";
+import { AIInsightsCard } from "./AIInsightsCard";
 import { StatCard } from "./StatCard";
 import { GoalGauge } from "./GoalGauge";
 import { MetricMiniCard } from "./MetricMiniCard";
 import { BestPostCard } from "./BestPostCard";
-import { HorizontalBarRank } from "./HorizontalBarRank";
-
 import { TopContentTable } from "./TopContentTable";
-import { PostingTimeHeatmap } from "./PostingTimeHeatmap";
 import { ImportHistoryPanel } from "./ImportHistoryPanel";
 import { DataCompletenessWarning } from "./DataCompletenessWarning";
 import { BestPostsByMetric } from "./BestPostsByMetric";
+import { InstagramStoriesSection } from "./InstagramStoriesSection";
+import { useInstagramStories } from "@/hooks/useInstagramStories";
 import { format, subDays, isAfter, parseISO, startOfDay, getDay, getHours } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -62,8 +61,10 @@ export function InstagramDashboard({
   const [period, setPeriod] = useState("30");
   const [selectedMetric, setSelectedMetric] = useState("views");
   const [showUpload, setShowUpload] = useState(false);
+  const [topPostsMetric, setTopPostsMetric] = useState("engagement");
   
   const { goals } = usePerformanceGoals(clientId);
+  const { data: stories = [], isLoading: isLoadingStories } = useInstagramStories(clientId);
   const instagramGoal = goals.find(g => g.platform === 'instagram' && g.metric_name === 'followers');
 
   // Filter data by period
@@ -318,23 +319,23 @@ export function InstagramDashboard({
       }));
   }, [filteredPosts]);
 
-  // Top posts for table
+  // Top posts for table - now includes all metrics for sorting
   const topContentItems = useMemo(() => {
-    return [...filteredPosts]
-      .sort((a, b) => (b.engagement_rate || 0) - (a.engagement_rate || 0))
-      .slice(0, 5)
-      .map(post => ({
-        id: post.id,
-        title: post.caption?.slice(0, 50) + (post.caption && post.caption.length > 50 ? '...' : '') || 'Post sem legenda',
-        thumbnail: post.thumbnail_url,
-        type: post.post_type || 'image',
-        views: post.impressions || 0,
-        likes: post.likes || 0,
-        comments: post.comments || 0,
-        engagement: post.engagement_rate || 0,
-        trend: (post.engagement_rate || 0) - kpis.avgEngagement,
-        link: post.permalink,
-      }));
+    return filteredPosts.map(post => ({
+      id: post.id,
+      title: post.caption?.slice(0, 50) + (post.caption && post.caption.length > 50 ? '...' : '') || 'Post sem legenda',
+      thumbnail: post.thumbnail_url,
+      type: post.post_type || 'image',
+      views: post.impressions || 0,
+      likes: post.likes || 0,
+      comments: post.comments || 0,
+      saves: post.saves || 0,
+      shares: post.shares || 0,
+      reach: post.reach || 0,
+      engagement: post.engagement_rate || 0,
+      trend: (post.engagement_rate || 0) - kpis.avgEngagement,
+      link: post.permalink,
+    }));
   }, [filteredPosts, kpis.avgEngagement]);
 
   // Posting time heatmap data
@@ -510,20 +511,6 @@ export function InstagramDashboard({
         />
       </div>
 
-      {/* Top Posts Rank + Heatmap */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <HorizontalBarRank 
-          title="Top Posts por Alcance"
-          items={topPostsData}
-          maxItems={5}
-          valueFormatter={(v) => v.toLocaleString('pt-BR')}
-        />
-        <PostingTimeHeatmap 
-          data={heatmapData}
-          title="Melhor Horário para Postar"
-        />
-      </div>
-
       {/* Best Posts by Metric - New Section like Instagram Native */}
       <BestPostsByMetric 
         posts={filteredPosts}
@@ -531,11 +518,13 @@ export function InstagramDashboard({
         periodLabel={selectedPeriodLabel}
       />
 
-      {/* Top Content Table */}
+      {/* Top Content Table with metric selector */}
       {topContentItems.length > 0 && (
         <TopContentTable 
-          title="Top 5 Posts por Engajamento"
+          title="Top 5 Posts"
           items={topContentItems}
+          selectedMetric={topPostsMetric as any}
+          onMetricChange={(m) => setTopPostsMetric(m)}
         />
       )}
 
@@ -564,11 +553,24 @@ export function InstagramDashboard({
         />
       </div>
 
-      {/* Insights and Best Post */}
+      {/* AI Insights and Best Post */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <AutoInsightsCard posts={filteredPosts} metrics={filteredMetrics} />
+        <AIInsightsCard 
+          clientId={clientId}
+          clientName={undefined}
+          posts={filteredPosts} 
+          metrics={filteredMetrics}
+          periodLabel={selectedPeriodLabel}
+        />
         {bestPost && <BestPostCard post={bestPost} />}
       </div>
+
+      {/* Stories Section */}
+      <InstagramStoriesSection 
+        stories={stories}
+        isLoading={isLoadingStories}
+        period={period}
+      />
 
       {/* Posts Table */}
       <Card className="border-border/50">

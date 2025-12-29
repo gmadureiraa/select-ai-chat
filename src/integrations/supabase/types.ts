@@ -1181,6 +1181,83 @@ export type Database = {
           },
         ]
       }
+      instagram_stories: {
+        Row: {
+          back_taps: number | null
+          client_id: string
+          created_at: string | null
+          exit_taps: number | null
+          forward_taps: number | null
+          id: string
+          interactions: number | null
+          likes: number | null
+          media_type: string | null
+          metadata: Json | null
+          next_story_taps: number | null
+          posted_at: string | null
+          reach: number | null
+          replies: number | null
+          retention_rate: number | null
+          shares: number | null
+          story_id: string | null
+          thumbnail_url: string | null
+          updated_at: string | null
+          views: number | null
+        }
+        Insert: {
+          back_taps?: number | null
+          client_id: string
+          created_at?: string | null
+          exit_taps?: number | null
+          forward_taps?: number | null
+          id?: string
+          interactions?: number | null
+          likes?: number | null
+          media_type?: string | null
+          metadata?: Json | null
+          next_story_taps?: number | null
+          posted_at?: string | null
+          reach?: number | null
+          replies?: number | null
+          retention_rate?: number | null
+          shares?: number | null
+          story_id?: string | null
+          thumbnail_url?: string | null
+          updated_at?: string | null
+          views?: number | null
+        }
+        Update: {
+          back_taps?: number | null
+          client_id?: string
+          created_at?: string | null
+          exit_taps?: number | null
+          forward_taps?: number | null
+          id?: string
+          interactions?: number | null
+          likes?: number | null
+          media_type?: string | null
+          metadata?: Json | null
+          next_story_taps?: number | null
+          posted_at?: string | null
+          reach?: number | null
+          replies?: number | null
+          retention_rate?: number | null
+          shares?: number | null
+          story_id?: string | null
+          thumbnail_url?: string | null
+          updated_at?: string | null
+          views?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "instagram_stories_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       instagram_tokens: {
         Row: {
           access_token: string

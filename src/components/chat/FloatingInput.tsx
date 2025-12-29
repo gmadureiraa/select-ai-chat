@@ -136,14 +136,23 @@ export const FloatingInput = ({
       setCitations((prev) => [...prev, newCitation]);
     }
 
-    // Remover o @ e a busca do input
+    // MANTER o @ no texto - apenas substituir a busca pelo título completo
     const cursorPos = textareaRef.current?.selectionStart || 0;
     const textBeforeCursor = input.substring(0, cursorPos);
     const lastAtIndex = textBeforeCursor.lastIndexOf("@");
     
     if (lastAtIndex !== -1) {
-      const newInput = input.substring(0, lastAtIndex) + input.substring(cursorPos);
+      // Manter o @titulo no input visível
+      const newInput = input.substring(0, lastAtIndex) + "@" + item.title + " " + input.substring(cursorPos);
       setInput(newInput);
+      
+      // Posicionar cursor após o título inserido
+      setTimeout(() => {
+        if (textareaRef.current) {
+          const newPos = lastAtIndex + item.title.length + 2; // +2 for @ and space
+          textareaRef.current.setSelectionRange(newPos, newPos);
+        }
+      }, 0);
     }
 
     setShowCitationPopover(false);
