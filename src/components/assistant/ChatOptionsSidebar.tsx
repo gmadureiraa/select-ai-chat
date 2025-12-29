@@ -3,15 +3,32 @@ import {
   Search,
   Clock,
   MessageSquare,
-  Plus
+  Plus,
+  Pencil,
+  Trash2,
+  Check,
+  X
 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { useConversationHistory } from "@/hooks/useConversationHistory";
+import { useConversationHistory, updateConversationTitle, deleteConversation } from "@/hooks/useConversationHistory";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { useQueryClient } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 interface ChatOptionsSidebarProps {
   clientId: string;
@@ -26,8 +43,12 @@ export const ChatOptionsSidebar = ({
   onSelectTemplate,
   onSelectConversation
 }: ChatOptionsSidebarProps) => {
-  const { data: conversations } = useConversationHistory(clientId);
+  const { data: conversations, refetch } = useConversationHistory(clientId);
   const [searchQuery, setSearchQuery] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingTitle, setEditingTitle] = useState("");
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   // All conversations (no template filter needed anymore)
   const allConversations = useMemo(() => {
@@ -47,34 +68,173 @@ export const ChatOptionsSidebar = ({
     onSelectTemplate(null, undefined);
   };
 
+  const handleStartEdit = (conv: { id: string; title: string }) => {
+    setEditingId(conv.id);
+    setEditingTitle(conv.title);
+  };
+
+  const handleSaveTitle = async () => {
+    if (!editingId || !editingTitle.trim()) return;
+    
+    try {
+      await updateConversationTitle(editingId, editingTitle.trim());
+      queryClient.invalidateQueries({ queryKey: ["conversation-history", clientId] });
+      setEditingId(null);
+      setEditingTitle("");
+    } catch (error) {
+      console.error("Error updating title:", error);
+      toast({
+        title: "Erro ao renomear",
+        description: "Não foi possível renomear a conversa.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingId(null);
+    setEditingTitle("");
+  };
+
+  const handleDeleteConversation = async (convId: string) => {
+    try {
+      await deleteConversation(convId);
+      queryClient.invalidateQueries({ queryKey: ["conversation-history", clientId] });
+      
+      // Se deletou a conversa atual, criar nova
+      if (currentConversationId === convId) {
+        onSelectTemplate(null, undefined);
+      }
+      
+      toast({
+        title: "Conversa apagada",
+        description: "A conversa foi removida permanentemente.",
+      });
+    } catch (error) {
+      console.error("Error deleting conversation:", error);
+      toast({
+        title: "Erro ao apagar",
+        description: "Não foi possível apagar a conversa.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const renderConversationItem = (conv: { id: string; title: string; updated_at?: string | null; created_at: string | null }) => {
     const isActive = currentConversationId === conv.id;
+    const isEditing = editingId === conv.id;
+    
+    if (isEditing) {
+      return (
+        <div
+          key={conv.id}
+          className={cn(
+            "w-full flex items-center gap-2 p-2.5 rounded-lg",
+            "bg-accent border border-border"
+          )}
+        >
+          <Input
+            value={editingTitle}
+            onChange={(e) => setEditingTitle(e.target.value)}
+            className="h-7 text-sm flex-1"
+            autoFocus
+            onKeyDown={(e) => {
+              if (e.key === "Enter") handleSaveTitle();
+              if (e.key === "Escape") handleCancelEdit();
+            }}
+          />
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6 text-primary"
+            onClick={handleSaveTitle}
+          >
+            <Check className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6 text-muted-foreground"
+            onClick={handleCancelEdit}
+          >
+            <X className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      );
+    }
     
     return (
-      <button
+      <div
         key={conv.id}
-        onClick={() => onSelectConversation(conv.id)}
         className={cn(
-          "w-full flex items-start gap-2.5 p-2.5 rounded-lg transition-all",
+          "w-full flex items-start gap-2.5 p-2.5 rounded-lg transition-all group",
           "hover:bg-accent/50 border border-transparent hover:border-border/50",
-          "text-left group",
           isActive && "bg-accent border-border"
         )}
       >
-        <div className="p-1.5 rounded-md shrink-0 bg-muted">
-          <MessageSquare className="h-4 w-4 text-muted-foreground" />
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-medium truncate">{conv.title}</p>
-          <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
-            <Clock className="h-2.5 w-2.5" />
-            {formatDistanceToNow(new Date(conv.updated_at || conv.created_at), { 
-              addSuffix: true, 
-              locale: ptBR 
-            })}
+        <button
+          onClick={() => onSelectConversation(conv.id)}
+          className="flex items-start gap-2.5 flex-1 min-w-0 text-left"
+        >
+          <div className="p-1.5 rounded-md shrink-0 bg-muted">
+            <MessageSquare className="h-4 w-4 text-muted-foreground" />
           </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-medium truncate">{conv.title}</p>
+            <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+              <Clock className="h-2.5 w-2.5" />
+              {formatDistanceToNow(new Date(conv.updated_at || conv.created_at), { 
+                addSuffix: true, 
+                locale: ptBR 
+              })}
+            </div>
+          </div>
+        </button>
+        
+        {/* Action buttons - show on hover */}
+        <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6 text-muted-foreground hover:text-foreground"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleStartEdit(conv);
+            }}
+          >
+            <Pencil className="h-3 w-3" />
+          </Button>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <Trash2 className="h-3 w-3" />
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Apagar conversa?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Esta ação não pode ser desfeita. A conversa "{conv.title}" será removida permanentemente.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                <AlertDialogAction 
+                  onClick={() => handleDeleteConversation(conv.id)}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                >
+                  Apagar
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
-      </button>
+      </div>
     );
   };
 

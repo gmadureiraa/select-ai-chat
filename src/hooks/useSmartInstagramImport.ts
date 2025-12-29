@@ -4,6 +4,7 @@ import { useToast } from "@/hooks/use-toast";
 
 type CSVType = 
   | "posts" 
+  | "stories"
   | "reach" 
   | "followers" 
   | "views" 
@@ -153,12 +154,28 @@ const detectCSVType = (text: string, data: Record<string, string>[]): DetectedCS
   const headers = Object.keys(firstRow).map((h) => h.toLowerCase());
   const headerIncludes = (needle: string) => headers.some((h) => h.includes(needle));
 
+  // Stories CSV - detect BEFORE posts (stories have similar headers but specific columns)
+  if (
+    headerIncludes('navegação') ||
+    headerIncludes('toques em figurinhas') ||
+    headerIncludes('toques para avançar') ||
+    headerIncludes('toques para voltar') ||
+    headerIncludes('saídas') ||
+    normalizedSample.includes('toques em figurinhas') ||
+    normalizedSample.includes('navegação') ||
+    // If has "duração" AND "visualizações" but NOT "tipo de post", likely stories
+    (headerIncludes('duração') && headerIncludes('visualizações') && !headerIncludes('tipo de post'))
+  ) {
+    return { type: 'stories', label: 'Stories do Instagram', data };
+  }
+
   // Posts CSV - has post identification columns
   if (
     headerIncludes('identificação do post') ||
     headerIncludes('identificacao do post') ||
     headerIncludes('post_id') ||
     headerIncludes('link permanente') ||
+    headerIncludes('tipo de post') ||
     normalizedSample.includes('identificação do post') ||
     normalizedSample.includes('link permanente')
   ) {
@@ -329,6 +346,78 @@ const processPostsCSV = (data: Record<string, string>[], clientId: string): Inst
   return validPosts;
 };
 
+// Process Stories CSV
+const processStoriesCSV = (data: Record<string, string>[], clientId: string) => {
+  const validStories: any[] = [];
+  let invalidCount = 0;
+  
+  for (const row of data) {
+    // Only process "Total" rows from Instagram exports, or rows without this field
+    const commentData = row['comentário de dados']?.toLowerCase();
+    if (commentData && commentData !== 'total') continue;
+    
+    // Parse date
+    let postedAt: string | null = null;
+    const dateStr = row['horário de publicação'] || row['data'] || row['posted_at'];
+    if (dateStr) {
+      const parts = dateStr.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2})/);
+      if (parts) {
+        const month = parts[1].padStart(2, '0');
+        const day = parts[2].padStart(2, '0');
+        const hour = parts[4].padStart(2, '0');
+        postedAt = `${parts[3]}-${month}-${day}T${hour}:${parts[5]}:00`;
+      } else if (dateStr.includes('T') || dateStr.includes('-')) {
+        postedAt = dateStr;
+      }
+    }
+    
+    // Get story_id
+    const storyId = row['identificação do post'] || row['story_id'] || row['post_id'] || `story_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+    
+    // Skip if no date
+    if (!postedAt) {
+      invalidCount++;
+      continue;
+    }
+    
+    const parseNum = (val: string | undefined): number => {
+      if (!val) return 0;
+      const num = parseInt(val.replace(/[^\d-]/g, ''), 10);
+      return isNaN(num) ? 0 : num;
+    };
+    
+    const duration = parseNum(row['duração (s)'] || row['duration']);
+    
+    validStories.push({
+      client_id: clientId,
+      story_id: storyId,
+      media_type: duration > 0 ? 'video' : 'image',
+      views: parseNum(row['visualizações'] || row['views']),
+      reach: parseNum(row['alcance'] || row['reach']),
+      likes: parseNum(row['curtidas'] || row['likes']),
+      shares: parseNum(row['compartilhamentos'] || row['shares']),
+      replies: parseNum(row['respostas'] || row['replies']),
+      forward_taps: parseNum(row['toques para avançar'] || row['forward_taps']),
+      back_taps: parseNum(row['toques para voltar'] || row['back_taps']),
+      exit_taps: parseNum(row['saídas'] || row['exit_taps']),
+      interactions: parseNum(row['interações'] || row['interactions']),
+      posted_at: postedAt,
+      metadata: {
+        caption: row['descrição'] || row['caption'] || null,
+        permalink: row['link permanente'] || row['permalink'] || null,
+        duration: duration,
+        profile_visits: parseNum(row['visitas ao perfil']),
+        sticker_taps: parseNum(row['toques em figurinhas']),
+        link_clicks: parseNum(row['cliques no link']),
+        navigation: parseNum(row['navegação']),
+      },
+    });
+  }
+  
+  console.log(`Stories CSV: ${validStories.length} valid, ${invalidCount} invalid`);
+  return validStories;
+};
+
 // Check if a row is a total/summary row (last row with aggregated metrics)
 const isTotalRow = (row: Record<string, string>, allRows: Record<string, string>[]): boolean => {
   // Check if date is missing or invalid
@@ -431,6 +520,30 @@ export const useSmartInstagramImport = (clientId: string, onImportComplete?: (pl
             type: "Posts", 
             count: successCount,
             invalid: parsedData.length - posts.length
+          });
+        } else if (detected.type === "stories" && parsedData.length > 0) {
+          // Process Stories CSV
+          const stories = processStoriesCSV(parsedData, clientId);
+          
+          let successCount = 0;
+          for (const story of stories) {
+            const { error } = await supabase
+              .from("instagram_stories")
+              .upsert(story, {
+                onConflict: "story_id,client_id",
+              });
+            
+            if (error) {
+              console.error("Error upserting story:", error, story);
+            } else {
+              successCount++;
+            }
+          }
+          
+          results.push({ 
+            type: "Stories", 
+            count: successCount,
+            invalid: parsedData.length - stories.length
           });
         } else if (detected.type !== "unknown") {
           const metricMap: Record<string, string> = {
