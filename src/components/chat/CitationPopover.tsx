@@ -2,13 +2,13 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverAnchor } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
-import { FileText, BookOpen, ScrollText, Video, Image, Mic, Mail, Sparkles } from "lucide-react";
+import { FileText, BookOpen, ScrollText, Video, Image, Mic, Mail, Sparkles, PenTool, MessageSquare, Send, Wand2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export interface CitationItem {
   id: string;
   title: string;
-  type: "content_library" | "reference_library";
+  type: "content_library" | "reference_library" | "format";
   category: string;
   preview: string;
 }
@@ -31,6 +31,7 @@ interface CitationPopoverProps {
   }>;
   anchorRef: React.RefObject<HTMLElement>;
   searchQuery?: string;
+  showFormats?: boolean;
 }
 
 const categoryIcons: Record<string, React.ElementType> = {
@@ -43,10 +44,12 @@ const categoryIcons: Record<string, React.ElementType> = {
   short_video: Video,
   reel_script: Video,
   video_script: Video,
-  tweet: FileText,
+  tweet: MessageSquare,
   article: BookOpen,
   podcast: Mic,
   reference: BookOpen,
+  instagram_post: Send,
+  format: Wand2,
 };
 
 const categoryColors: Record<string, string> = {
@@ -63,7 +66,21 @@ const categoryColors: Record<string, string> = {
   article: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20",
   podcast: "bg-violet-500/10 text-violet-600 border-violet-500/20",
   reference: "bg-slate-500/10 text-slate-600 border-slate-500/20",
+  instagram_post: "bg-gradient-to-r from-purple-500/10 to-pink-500/10 text-pink-600 border-pink-500/20",
+  format: "bg-primary/10 text-primary border-primary/20",
 };
+
+// Pre-defined content formats
+const contentFormats: CitationItem[] = [
+  { id: "format_newsletter", title: "Newsletter", type: "format", category: "format", preview: "E-mail editorial com seções e CTAs" },
+  { id: "format_carrossel", title: "Carrossel", type: "format", category: "format", preview: "Slides visuais para Instagram/LinkedIn" },
+  { id: "format_thread", title: "Thread", type: "format", category: "format", preview: "Série de tweets conectados" },
+  { id: "format_reels", title: "Reels/Shorts", type: "format", category: "format", preview: "Roteiro para vídeo vertical curto" },
+  { id: "format_linkedin", title: "Post LinkedIn", type: "format", category: "format", preview: "Post profissional otimizado" },
+  { id: "format_instagram", title: "Post Instagram", type: "format", category: "format", preview: "Legenda com hashtags otimizadas" },
+  { id: "format_blog", title: "Blog Post", type: "format", category: "format", preview: "Artigo longo com SEO" },
+  { id: "format_tweet", title: "Tweet", type: "format", category: "format", preview: "Post curto para Twitter/X" },
+];
 
 export const CitationPopover = ({
   open,
@@ -73,6 +90,7 @@ export const CitationPopover = ({
   referenceLibrary,
   anchorRef,
   searchQuery = "",
+  showFormats = true,
 }: CitationPopoverProps) => {
   const [internalSearch, setInternalSearch] = useState(searchQuery);
 
@@ -82,6 +100,8 @@ export const CitationPopover = ({
 
   // Combinar e formatar itens
   const allItems = useMemo((): CitationItem[] => {
+    const formatItems: CitationItem[] = showFormats ? contentFormats : [];
+
     const contentItems: CitationItem[] = contentLibrary.map((c) => ({
       id: c.id,
       title: c.title,
@@ -98,22 +118,33 @@ export const CitationPopover = ({
       preview: r.content.substring(0, 100) + (r.content.length > 100 ? "..." : ""),
     }));
 
-    return [...contentItems, ...referenceItems];
-  }, [contentLibrary, referenceLibrary]);
+    return [...formatItems, ...contentItems, ...referenceItems];
+  }, [contentLibrary, referenceLibrary, showFormats]);
 
   // Filtrar por busca
-  const filteredItems = useMemo(() => {
-    if (!internalSearch.trim()) return allItems.slice(0, 20);
+  const filteredFormats = useMemo(() => {
+    if (!internalSearch.trim()) return showFormats ? contentFormats : [];
+    const query = internalSearch.toLowerCase();
+    return contentFormats.filter(
+      (item) =>
+        item.title.toLowerCase().includes(query) ||
+        item.preview.toLowerCase().includes(query)
+    );
+  }, [internalSearch, showFormats]);
+
+  const filteredLibrary = useMemo(() => {
+    const libraryItems = allItems.filter((item) => item.type !== "format");
+    if (!internalSearch.trim()) return libraryItems.slice(0, 15);
 
     const query = internalSearch.toLowerCase();
-    return allItems
+    return libraryItems
       .filter(
         (item) =>
           item.title.toLowerCase().includes(query) ||
           item.category.toLowerCase().includes(query) ||
           item.preview.toLowerCase().includes(query)
       )
-      .slice(0, 20);
+      .slice(0, 15);
   }, [allItems, internalSearch]);
 
   const handleSelect = useCallback(
@@ -148,19 +179,46 @@ export const CitationPopover = ({
       >
         <Command className="rounded-lg border-0">
           <CommandInput
-            placeholder="Buscar na biblioteca..."
+            placeholder="Buscar formatos ou biblioteca..."
             value={internalSearch}
             onValueChange={setInternalSearch}
             className="border-0"
           />
-          <CommandList className="max-h-[300px]">
+          <CommandList className="max-h-[350px]">
             <CommandEmpty className="py-6 text-center text-sm text-muted-foreground">
-              Nenhum conteúdo encontrado.
+              Nenhum item encontrado.
             </CommandEmpty>
             
-            {filteredItems.length > 0 && (
-              <CommandGroup heading="Biblioteca">
-                {filteredItems.map((item) => {
+            {/* Formats Group */}
+            {filteredFormats.length > 0 && (
+              <CommandGroup heading="📝 Formatos de Conteúdo">
+                {filteredFormats.map((item) => {
+                  const Icon = getIcon(item.category);
+                  
+                  return (
+                    <CommandItem
+                      key={item.id}
+                      value={`${item.title}-${item.id}`}
+                      onSelect={() => handleSelect(item)}
+                      className="flex items-center gap-3 py-2.5 cursor-pointer"
+                    >
+                      <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                        <Wand2 className="h-4 w-4 text-primary" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <span className="font-medium">{item.title}</span>
+                        <p className="text-xs text-muted-foreground truncate">{item.preview}</p>
+                      </div>
+                    </CommandItem>
+                  );
+                })}
+              </CommandGroup>
+            )}
+            
+            {/* Library Group */}
+            {filteredLibrary.length > 0 && (
+              <CommandGroup heading="📚 Biblioteca">
+                {filteredLibrary.map((item) => {
                   const Icon = getIcon(item.category);
                   const colorClass = getColorClass(item.category);
                   

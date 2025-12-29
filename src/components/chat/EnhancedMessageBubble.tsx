@@ -4,6 +4,7 @@ import ReactMarkdown from "react-markdown";
 import kaleidosLogo from "@/assets/kaleidos-logo.svg";
 import { MessageActions } from "@/components/MessageActions";
 import { ArtifactCard, parseArtifacts, ArtifactType } from "./ArtifactCard";
+import { ImageActionButtons } from "./ImageActionButtons";
 import { useState, useMemo } from "react";
 import {
   Dialog,
@@ -16,6 +17,7 @@ import jsPDF from "jspdf";
 import { useToast } from "@/hooks/use-toast";
 import { PostPreviewCard } from "@/components/posts";
 import { parseContentForPosts } from "@/lib/postDetection";
+
 interface EnhancedMessageBubbleProps {
   role: "user" | "assistant";
   content: string;
@@ -26,6 +28,7 @@ interface EnhancedMessageBubbleProps {
   clientId?: string;
   clientName?: string;
   templateName?: string;
+  onSendMessage?: (content: string, images?: string[], quality?: "fast" | "high") => void;
 }
 
 export const EnhancedMessageBubble = ({ 
@@ -38,6 +41,7 @@ export const EnhancedMessageBubble = ({
   clientId,
   clientName,
   templateName,
+  onSendMessage,
 }: EnhancedMessageBubbleProps) => {
   const isUser = role === "user";
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
@@ -58,6 +62,9 @@ export const EnhancedMessageBubble = ({
     if (isUser) return { posts: [] };
     return parseContentForPosts(content);
   }, [content, isUser]);
+
+  // Check if this is a social media post that could use image generation
+  const showImageActions = !isUser && detectedPosts.length > 0 && onSendMessage;
 
   // Check if this is a long-form content that could be a document
   const isLongFormContent = !isUser && content.length > 1500 && !artifacts.length;
@@ -103,15 +110,27 @@ export const EnhancedMessageBubble = ({
     }
   };
 
+  const handleGenerateImage = (prompt: string) => {
+    if (onSendMessage) {
+      onSendMessage(prompt, undefined, "high");
+    }
+  };
+
+  const handleRequestIdeas = (prompt: string) => {
+    if (onSendMessage) {
+      onSendMessage(prompt, undefined, "fast");
+    }
+  };
+
   return (
     <>
       <div className={cn(
-        "flex gap-4 py-4 group transition-colors",
+        "flex gap-4 py-5 group transition-all duration-200 animate-in fade-in slide-in-from-bottom-2",
         isUser ? "justify-end" : "justify-start"
       )}>
-        {/* Avatar do assistente - maior e mais visível */}
+        {/* Avatar do assistente */}
         {!isUser && (
-          <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center mt-0.5">
+          <div className="flex-shrink-0 w-9 h-9 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/20 flex items-center justify-center mt-0.5 shadow-sm">
             <img src={kaleidosLogo} alt="kAI" className="h-5 w-5 object-contain" />
           </div>
         )}
@@ -169,14 +188,23 @@ export const EnhancedMessageBubble = ({
           {detectedPosts.length > 0 && (
             <div className="space-y-3">
               {detectedPosts.map((post, index) => (
-                <PostPreviewCard
-                  key={index}
-                  platform={post.platform}
-                  content={post.content}
-                  authorName={clientName}
-                  authorHandle={`@${clientName?.toLowerCase().replace(/\s+/g, "") || "handle"}`}
-                  imageUrl={hasImages ? imageUrls?.[0] : undefined}
-                />
+                <div key={index}>
+                  <PostPreviewCard
+                    platform={post.platform}
+                    content={post.content}
+                    authorName={clientName}
+                    authorHandle={`@${clientName?.toLowerCase().replace(/\s+/g, "") || "handle"}`}
+                    imageUrl={hasImages ? imageUrls?.[0] : undefined}
+                  />
+                  {/* Image action buttons after each post */}
+                  {showImageActions && index === 0 && (
+                    <ImageActionButtons
+                      postContent={post.content}
+                      onGenerateImage={handleGenerateImage}
+                      onRequestIdeas={handleRequestIdeas}
+                    />
+                  )}
+                </div>
               ))}
             </div>
           )}
@@ -197,14 +225,14 @@ export const EnhancedMessageBubble = ({
             </div>
           )}
 
-          {/* Conteúdo de texto - com bordas visíveis */}
+          {/* Conteúdo de texto */}
           {textContent && (
             <div
               className={cn(
-                "break-words relative rounded-2xl px-4 py-3",
+                "break-words relative rounded-2xl px-4 py-3.5 transition-all duration-200",
                 isUser
-                  ? "bg-primary/10 border border-primary/20"
-                  : "bg-muted/40 border border-border/60"
+                  ? "bg-primary/8 border border-primary/15"
+                  : "bg-muted/30 border border-border/40"
               )}
             >
               {/* Quick download button for long content */}
@@ -222,7 +250,7 @@ export const EnhancedMessageBubble = ({
               
               <div className="prose prose-sm dark:prose-invert max-w-none text-sm leading-relaxed 
                 [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 
-                [&_p]:my-2 [&_ul]:my-2 [&_ol]:my-2 [&_li]:my-0.5
+                [&_p]:my-2.5 [&_ul]:my-2 [&_ol]:my-2 [&_li]:my-0.5
                 [&_h1]:text-lg [&_h1]:font-bold [&_h1]:mt-4 [&_h1]:mb-2
                 [&_h2]:text-base [&_h2]:font-semibold [&_h2]:mt-3 [&_h2]:mb-2
                 [&_h3]:text-sm [&_h3]:font-semibold [&_h3]:mt-2 [&_h3]:mb-1
@@ -265,9 +293,9 @@ export const EnhancedMessageBubble = ({
           />
         </div>
 
-        {/* Avatar do usuário - maior e mais visível */}
+        {/* Avatar do usuário */}
         {isUser && (
-          <div className="flex-shrink-0 w-8 h-8 rounded-full bg-muted border border-border flex items-center justify-center mt-0.5">
+          <div className="flex-shrink-0 w-9 h-9 rounded-xl bg-muted/80 border border-border/50 flex items-center justify-center mt-0.5 shadow-sm">
             <User className="h-4 w-4 text-muted-foreground" />
           </div>
         )}
