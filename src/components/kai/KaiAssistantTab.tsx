@@ -67,7 +67,7 @@ export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
 
   const handleClearConversation = async () => {
     await clearConversation();
-    setActiveConversationId(undefined);
+    // Mantém na mesma conversa, apenas limpa as mensagens
   };
 
   const handleNewChat = () => {
