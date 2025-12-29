@@ -10,6 +10,7 @@ interface AddToPlanningButtonProps {
   platform?: string;
   clientId?: string;
   clientName?: string;
+  mediaUrls?: string[];
 }
 
 // Helper to detect platform from content
@@ -42,6 +43,7 @@ export const AddToPlanningButton = ({
   platform,
   clientId,
   clientName,
+  mediaUrls = [],
 }: AddToPlanningButtonProps) => {
   const [showDialog, setShowDialog] = useState(false);
   const { columns, createItem, isLoading: isLoadingItems } = usePlanningItems();
@@ -99,7 +101,7 @@ export const AddToPlanningButton = ({
           due_date: null,
           scheduled_at: null,
           labels: [],
-          media_urls: [],
+          media_urls: mediaUrls,
           metadata: {},
           assigned_to: null,
           content_type: null,

@@ -408,11 +408,11 @@ export const useClientChat = (clientId: string, templateId?: string, conversatio
           if (imageError) throw imageError;
           
           if (imageData?.imageUrl) {
-            // Salvar resposta com imagem gerada
+            // Salvar resposta com imagem gerada (sem mostrar o prompt)
             await supabase.from("messages").insert({
               conversation_id: conversationId,
               role: "assistant",
-              content: `Imagem gerada com sucesso! 🎨\n\n**Prompt utilizado:** ${imagePrompt}`,
+              content: `Imagem gerada com sucesso! 🎨`,
               image_urls: [imageData.imageUrl],
             });
 
@@ -1973,5 +1973,7 @@ IMPORTANTE: O novo conteúdo deve parecer escrito pelo mesmo autor.`;
     regenerateLastMessage,
     clearConversation,
     startNewConversation,
+    contentLibrary,
+    referenceLibrary,
   };
 };

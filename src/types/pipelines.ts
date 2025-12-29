@@ -344,13 +344,17 @@ Crie o tweet já polido e pronto para publicação.`
     {
       ...REVIEWER_AGENT,
       model: "flash-lite",
-      systemPrompt: `Revisor de tweet. Verifique:
-1. Limite de 280 caracteres
-2. Sem erros ortográficos
-3. Engajamento potencial
-4. Clareza da mensagem
+      systemPrompt: `Você é o revisor final de tweets.
 
-Corrija se necessário e retorne versão final.`
+REGRAS ABSOLUTAS:
+- Limite de 280 caracteres
+- Corrija erros ortográficos se houver
+- Melhore o engajamento se possível
+
+FORMATO DE SAÍDA:
+Retorne APENAS o tweet final, pronto para publicação.
+NÃO inclua explicações, checklists, regras ou comentários.
+Apenas o texto do tweet.`
     }
   ]
 };

@@ -7,6 +7,7 @@ import { Switch } from "@/components/ui/switch";
 import { useClientTemplates } from "@/hooks/useClientTemplates";
 import { useClientChat } from "@/hooks/useClientChat";
 import { FloatingInput, ChatMode } from "@/components/chat/FloatingInput";
+import { Citation } from "@/components/chat/CitationChip";
 import { EnhancedMessageBubble } from "@/components/chat/EnhancedMessageBubble";
 import { MinimalProgress } from "@/components/chat/MinimalProgress";
 import { QuickSuggestions } from "@/components/chat/QuickSuggestions";
@@ -44,6 +45,8 @@ export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
     currentStep,
     multiAgentStep,
     multiAgentDetails,
+    contentLibrary,
+    referenceLibrary,
   } = useClientChat(clientId, selectedTemplateId || undefined);
 
   // Persist simple mode preference
@@ -92,9 +95,9 @@ export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
     return () => clearTimeout(timer);
   }, [selectedTemplateId, scrollToBottom]);
 
-  const handleSend = async (content: string, images?: string[], quality?: "fast" | "high", mode?: ChatMode) => {
+  const handleSend = async (content: string, images?: string[], quality?: "fast" | "high", mode?: ChatMode, citations?: Citation[]) => {
     if (!content.trim() && (!images || images.length === 0)) return;
-    await sendMessage(content, images, quality, mode);
+    await sendMessage(content, images, quality, mode, citations);
   };
 
   const handleClearConversation = async () => {
@@ -306,6 +309,8 @@ export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
               disabled={isLoading}
               templateType={templateType}
               placeholder={selectedTemplate ? `Criar ${selectedTemplate.name}...` : "Pergunte sobre o cliente... Use @ para formatos"}
+              contentLibrary={contentLibrary || []}
+              referenceLibrary={referenceLibrary || []}
             />
           </div>
         </div>

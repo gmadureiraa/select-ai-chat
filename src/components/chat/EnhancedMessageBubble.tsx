@@ -6,6 +6,7 @@ import { MessageActions } from "@/components/MessageActions";
 import { ArtifactCard, parseArtifacts, ArtifactType } from "./ArtifactCard";
 import { ImageActionButtons } from "./ImageActionButtons";
 import { AddToPlanningButton } from "./AddToPlanningButton";
+import { AdjustImageButton } from "./AdjustImageButton";
 import { useState, useMemo } from "react";
 import {
   Dialog,
@@ -67,6 +68,9 @@ export const EnhancedMessageBubble = ({
   // Check if this is a social media post that could use image generation
   const showImageActions = !isUser && detectedPosts.length > 0 && onSendMessage;
 
+  // Check if this is a generated image message
+  const isGeneratedImageMessage = !isUser && hasImages && (content.includes("Imagem gerada") || isGeneratedImage);
+
   // Check if this is a long-form content that could be a document
   const isLongFormContent = !isUser && content.length > 1500 && !artifacts.length;
   const hasStructuredContent = !isUser && (
@@ -75,6 +79,13 @@ export const EnhancedMessageBubble = ({
     content.includes("---PÁGINA") ||
     content.includes("---SLIDE")
   );
+
+  const handleAdjustImage = (prompt: string) => {
+    if (onSendMessage && hasImages) {
+      // Send the adjustment request with the current image as reference
+      onSendMessage(prompt, imageUrls || undefined, "high");
+    }
+  };
 
   const handleDownloadAsPDF = async () => {
     try {
@@ -145,7 +156,7 @@ export const EnhancedMessageBubble = ({
               isSingleImage ? "max-w-sm" : "max-w-md"
             )}>
               {/* Badge de imagem gerada */}
-              {isGeneratedImage && !isUser && (
+              {isGeneratedImageMessage && (
                 <Badge 
                   variant="secondary" 
                   className="absolute -top-1.5 -left-1.5 z-10 text-[9px] h-5 bg-muted text-muted-foreground border border-border/50"
@@ -169,7 +180,7 @@ export const EnhancedMessageBubble = ({
                   >
                     <img
                       src={url}
-                      alt={isGeneratedImage ? "Imagem gerada por IA" : `Anexo ${index + 1}`}
+                      alt={isGeneratedImageMessage ? "Imagem gerada por IA" : `Anexo ${index + 1}`}
                       className={cn(
                         "w-full h-auto object-cover transition-transform duration-300 group-hover/img:scale-105",
                         isSingleImage && "max-h-72",
@@ -182,6 +193,16 @@ export const EnhancedMessageBubble = ({
                   </div>
                 ))}
               </div>
+
+              {/* Adjust image button for generated images */}
+              {isGeneratedImageMessage && onSendMessage && (
+                <div className="mt-2">
+                  <AdjustImageButton 
+                    imageUrl={imageUrls[0]} 
+                    onAdjust={handleAdjustImage}
+                  />
+                </div>
+              )}
             </div>
           )}
 
@@ -214,6 +235,7 @@ export const EnhancedMessageBubble = ({
                         platform={post.platform}
                         clientId={clientId}
                         clientName={clientName}
+                        mediaUrls={hasImages ? imageUrls : undefined}
                       />
                     </div>
                   )}
