@@ -22,7 +22,6 @@ export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [showSidebar, setShowSidebar] = useState(true);
-  const [activeTemplateId, setActiveTemplateId] = useState<string | null>(null);
   const [activeConversationId, setActiveConversationId] = useState<string | undefined>(undefined);
 
   const {
@@ -36,8 +35,7 @@ export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
     contentLibrary,
     referenceLibrary,
     setConversationId,
-    templateName,
-  } = useClientChat(clientId, activeTemplateId || undefined, activeConversationId);
+  } = useClientChat(clientId, undefined, activeConversationId);
 
   // Scroll to bottom function
   const scrollToBottom = useCallback((smooth = true) => {
@@ -69,26 +67,15 @@ export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
 
   const handleClearConversation = async () => {
     await clearConversation();
+    setActiveConversationId(undefined);
   };
 
-  const handleSelectTemplate = (templateId: string | null, name?: string) => {
-    setActiveTemplateId(templateId);
-    setActiveConversationId(undefined); // Reset conversation when switching templates
+  const handleNewChat = () => {
+    setActiveConversationId(undefined);
   };
 
   const handleSelectConversation = (convId: string) => {
     setActiveConversationId(convId);
-    setActiveTemplateId(null); // Clear template when selecting specific conversation
-  };
-
-  // Determine template type for input placeholder
-  const getTemplateType = (): "content" | "image" | "free_chat" => {
-    if (!templateName) return "free_chat";
-    const lower = templateName.toLowerCase();
-    if (lower.includes("imagem") || lower.includes("image") || lower.includes("visual")) {
-      return "image";
-    }
-    return "content";
   };
 
   return (
@@ -98,7 +85,7 @@ export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
         <ChatOptionsSidebar
           clientId={clientId}
           currentConversationId={conversationId}
-          onSelectTemplate={handleSelectTemplate}
+          onSelectTemplate={handleNewChat}
           onSelectConversation={handleSelectConversation}
         />
       )}
@@ -122,7 +109,7 @@ export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
 
           <div className="flex items-center gap-2 flex-1 min-w-0">
             <span className="text-sm font-medium text-foreground/80 truncate">
-              {templateName || "Chat Livre"}
+              Chat Livre
             </span>
             <span className="text-muted-foreground/40">•</span>
             <span className="text-xs text-muted-foreground truncate">{client.name}</span>
@@ -151,13 +138,10 @@ export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
                   <img src={KaleidosLogo} alt="kAI" className="h-8 w-8" />
                 </div>
                 <h2 className="text-xl font-semibold mb-1.5 text-center text-foreground/90">
-                  {templateName ? `Template: ${templateName}` : "Como posso ajudar?"}
+                  Como posso ajudar?
                 </h2>
                 <p className="text-sm text-muted-foreground text-center max-w-sm mb-6">
-                  {templateName 
-                    ? `Gere conteúdo usando o template "${templateName}" para ${client.name}.`
-                    : `Converse sobre ${client.name}, analise dados ou explore ideias. Use @ para selecionar formatos.`
-                  }
+                  Converse sobre {client.name}, analise dados ou explore ideias. Use @ para selecionar formatos.
                 </p>
                 
                 {/* Quick Suggestions */}
@@ -165,7 +149,7 @@ export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
                   onSelect={(suggestion) => handleSend(suggestion)}
                   clientId={clientId}
                   clientName={client.name}
-                  isContentTemplate={getTemplateType() === "content"}
+                  isContentTemplate={false}
                 />
               </div>
             ) : (
@@ -205,12 +189,8 @@ export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
             <FloatingInput
               onSend={handleSend}
               disabled={isLoading}
-              templateType={getTemplateType()}
-              placeholder={
-                templateName 
-                  ? `Descreva o que deseja criar com "${templateName}"...`
-                  : "Pergunte sobre o cliente... Use @ para formatos"
-              }
+              templateType="free_chat"
+              placeholder="Pergunte sobre o cliente... Use @ para formatos"
               contentLibrary={contentLibrary || []}
               referenceLibrary={referenceLibrary || []}
             />

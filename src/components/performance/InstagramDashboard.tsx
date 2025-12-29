@@ -15,13 +15,15 @@ import { AIInsightsCard } from "./AIInsightsCard";
 import { StatCard } from "./StatCard";
 import { GoalGauge } from "./GoalGauge";
 import { MetricMiniCard } from "./MetricMiniCard";
-import { BestPostCard } from "./BestPostCard";
+
 import { TopContentTable } from "./TopContentTable";
 import { ImportHistoryPanel } from "./ImportHistoryPanel";
 import { DataCompletenessWarning } from "./DataCompletenessWarning";
 import { BestPostsByMetric } from "./BestPostsByMetric";
 import { InstagramStoriesSection } from "./InstagramStoriesSection";
+import { InstagramStoriesCSVUpload } from "./InstagramStoriesCSVUpload";
 import { useInstagramStories } from "@/hooks/useInstagramStories";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { format, subDays, isAfter, parseISO, startOfDay, getDay, getHours } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -60,7 +62,8 @@ export function InstagramDashboard({
 }: InstagramDashboardProps) {
   const [period, setPeriod] = useState("30");
   const [selectedMetric, setSelectedMetric] = useState("views");
-  const [showUpload, setShowUpload] = useState(false);
+  const [showUploadPosts, setShowUploadPosts] = useState(false);
+  const [showUploadStories, setShowUploadStories] = useState(false);
   const [topPostsMetric, setTopPostsMetric] = useState("engagement");
   
   const { goals } = usePerformanceGoals(clientId);
@@ -411,22 +414,40 @@ export function InstagramDashboard({
               ))}
             </SelectContent>
           </Select>
-          <Collapsible open={showUpload} onOpenChange={setShowUpload}>
-            <CollapsibleTrigger asChild>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
               <Button variant="outline" className="border-border/50">
                 <Upload className="h-4 w-4 mr-2" />
                 Importar
-                <ChevronDown className={`h-4 w-4 ml-2 transition-transform ${showUpload ? 'rotate-180' : ''}`} />
+                <ChevronDown className="h-4 w-4 ml-2" />
               </Button>
-            </CollapsibleTrigger>
-          </Collapsible>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => setShowUploadPosts(!showUploadPosts)}>
+                Importar Posts
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setShowUploadStories(!showUploadStories)}>
+                Importar Stories
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
-      {/* CSV Upload */}
-      <Collapsible open={showUpload} onOpenChange={setShowUpload}>
+      {/* CSV Upload - Posts */}
+      <Collapsible open={showUploadPosts} onOpenChange={setShowUploadPosts}>
         <CollapsibleContent className="pt-2">
           <SmartCSVUpload clientId={clientId} platform="instagram" />
+        </CollapsibleContent>
+      </Collapsible>
+
+      {/* CSV Upload - Stories */}
+      <Collapsible open={showUploadStories} onOpenChange={setShowUploadStories}>
+        <CollapsibleContent className="pt-2">
+          <InstagramStoriesCSVUpload clientId={clientId} onSuccess={() => {
+            refetchStories?.();
+            setShowUploadStories(false);
+          }} />
         </CollapsibleContent>
       </Collapsible>
 
@@ -553,20 +574,17 @@ export function InstagramDashboard({
         />
       </div>
 
-      {/* AI Insights and Best Post */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <AIInsightsCard 
-          clientId={clientId}
-          clientName={undefined}
-          posts={filteredPosts} 
-          metrics={filteredMetrics}
-          periodLabel={selectedPeriodLabel}
-          platform="instagram"
-          startDate={cutoffDate || undefined}
-          endDate={new Date()}
-        />
-        {bestPost && <BestPostCard post={bestPost} />}
-      </div>
+      {/* AI Insights - Full Width */}
+      <AIInsightsCard 
+        clientId={clientId}
+        clientName={undefined}
+        posts={filteredPosts} 
+        metrics={filteredMetrics}
+        periodLabel={selectedPeriodLabel}
+        platform="instagram"
+        startDate={cutoffDate || undefined}
+        endDate={new Date()}
+      />
 
       {/* Stories Section */}
       <InstagramStoriesSection 

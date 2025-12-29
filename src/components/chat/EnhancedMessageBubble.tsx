@@ -255,6 +255,8 @@ export const EnhancedMessageBubble = ({
                           postContent={post.content}
                           onGenerateImage={handleGenerateImage}
                           onRequestIdeas={handleRequestIdeas}
+                          platform={post.platform}
+                          clientName={clientName}
                         />
                       )}
                       {/* Add to planning button */}
@@ -279,6 +281,7 @@ export const EnhancedMessageBubble = ({
                 postContent={content.substring(0, 500)}
                 onGenerateImage={handleGenerateImage}
                 onRequestIdeas={handleRequestIdeas}
+                clientName={clientName}
               />
               <AddToPlanningButton
                 content={content}
