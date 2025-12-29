@@ -1,5 +1,5 @@
-import { useRef, useEffect, useCallback } from "react";
-import { Trash2 } from "lucide-react";
+import { useRef, useEffect, useCallback, useState } from "react";
+import { Trash2, PanelLeft, PanelLeftClose } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useClientChat } from "@/hooks/useClientChat";
@@ -8,8 +8,10 @@ import { Citation } from "@/components/chat/CitationChip";
 import { EnhancedMessageBubble } from "@/components/chat/EnhancedMessageBubble";
 import { MinimalProgress } from "@/components/chat/MinimalProgress";
 import { QuickSuggestions } from "@/components/chat/QuickSuggestions";
+import { ChatOptionsSidebar } from "@/components/assistant/ChatOptionsSidebar";
 import { Client } from "@/hooks/useClients";
 import KaleidosLogo from "@/assets/kaleidos-logo.svg";
+import { cn } from "@/lib/utils";
 
 interface KaiAssistantTabProps {
   clientId: string;
@@ -19,6 +21,9 @@ interface KaiAssistantTabProps {
 export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [showSidebar, setShowSidebar] = useState(true);
+  const [activeTemplateId, setActiveTemplateId] = useState<string | null>(null);
+  const [activeConversationId, setActiveConversationId] = useState<string | undefined>(undefined);
 
   const {
     messages,
@@ -30,7 +35,9 @@ export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
     multiAgentStep,
     contentLibrary,
     referenceLibrary,
-  } = useClientChat(clientId);
+    setConversationId,
+    templateName,
+  } = useClientChat(clientId, activeTemplateId || undefined, activeConversationId);
 
   // Scroll to bottom function
   const scrollToBottom = useCallback((smooth = true) => {
@@ -64,15 +71,58 @@ export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
     await clearConversation();
   };
 
+  const handleSelectTemplate = (templateId: string | null, name?: string) => {
+    setActiveTemplateId(templateId);
+    setActiveConversationId(undefined); // Reset conversation when switching templates
+  };
+
+  const handleSelectConversation = (convId: string) => {
+    setActiveConversationId(convId);
+    setActiveTemplateId(null); // Clear template when selecting specific conversation
+  };
+
+  // Determine template type for input placeholder
+  const getTemplateType = (): "content" | "image" | "free_chat" => {
+    if (!templateName) return "free_chat";
+    const lower = templateName.toLowerCase();
+    if (lower.includes("imagem") || lower.includes("image") || lower.includes("visual")) {
+      return "image";
+    }
+    return "content";
+  };
+
   return (
     <div className="flex h-[calc(100vh-140px)] relative">
+      {/* Sidebar */}
+      {showSidebar && (
+        <ChatOptionsSidebar
+          clientId={clientId}
+          currentConversationId={conversationId}
+          onSelectTemplate={handleSelectTemplate}
+          onSelectConversation={handleSelectConversation}
+        />
+      )}
+
       {/* Main Chat Area */}
       <div className="flex-1 flex flex-col min-w-0 bg-background/50">
         {/* Header */}
         <div className="flex items-center gap-2 px-4 py-2 border-b border-border/20">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setShowSidebar(!showSidebar)}
+            className="text-muted-foreground h-7 px-2"
+          >
+            {showSidebar ? (
+              <PanelLeftClose className="h-4 w-4" />
+            ) : (
+              <PanelLeft className="h-4 w-4" />
+            )}
+          </Button>
+
           <div className="flex items-center gap-2 flex-1 min-w-0">
             <span className="text-sm font-medium text-foreground/80 truncate">
-              Chat
+              {templateName || "Chat Livre"}
             </span>
             <span className="text-muted-foreground/40">•</span>
             <span className="text-xs text-muted-foreground truncate">{client.name}</span>
@@ -101,10 +151,13 @@ export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
                   <img src={KaleidosLogo} alt="kAI" className="h-8 w-8" />
                 </div>
                 <h2 className="text-xl font-semibold mb-1.5 text-center text-foreground/90">
-                  Como posso ajudar?
+                  {templateName ? `Template: ${templateName}` : "Como posso ajudar?"}
                 </h2>
                 <p className="text-sm text-muted-foreground text-center max-w-sm mb-6">
-                  Converse sobre {client.name}, analise dados ou explore ideias. Use @ para selecionar formatos.
+                  {templateName 
+                    ? `Gere conteúdo usando o template "${templateName}" para ${client.name}.`
+                    : `Converse sobre ${client.name}, analise dados ou explore ideias. Use @ para selecionar formatos.`
+                  }
                 </p>
                 
                 {/* Quick Suggestions */}
@@ -112,7 +165,7 @@ export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
                   onSelect={(suggestion) => handleSend(suggestion)}
                   clientId={clientId}
                   clientName={client.name}
-                  isContentTemplate={false}
+                  isContentTemplate={getTemplateType() === "content"}
                 />
               </div>
             ) : (
@@ -152,8 +205,12 @@ export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
             <FloatingInput
               onSend={handleSend}
               disabled={isLoading}
-              templateType="free_chat"
-              placeholder="Pergunte sobre o cliente... Use @ para formatos"
+              templateType={getTemplateType()}
+              placeholder={
+                templateName 
+                  ? `Descreva o que deseja criar com "${templateName}"...`
+                  : "Pergunte sobre o cliente... Use @ para formatos"
+              }
               contentLibrary={contentLibrary || []}
               referenceLibrary={referenceLibrary || []}
             />

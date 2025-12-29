@@ -334,20 +334,13 @@ export const useClientChat = (clientId: string, templateId?: string, conversatio
     console.log("[CHAT] Explicit mode:", explicitMode, "| isExplicitIdeaMode:", isExplicitIdeaMode, "| isFreeChatMode:", isFreeChatModeExplicit);
 
     try {
-      // Build payload with citations if they exist
-      const messagePayload = citations && citations.length > 0 
-        ? { citations } 
-        : null;
-
-      // Save user message with citations in payload
-      // Note: Using type assertion because payload column exists in DB but not in auto-generated types
+      // Save user message
       const { error: insertError } = await supabase.from("messages").insert({
         conversation_id: conversationId,
         role: "user",
         content,
         image_urls: imageUrls || null,
-        payload: messagePayload,
-      } as any);
+      });
 
       if (insertError) throw insertError;
 
@@ -2002,6 +1995,8 @@ IMPORTANTE: O novo conteúdo deve parecer escrito pelo mesmo autor.`;
     isIdeaMode,
     isFreeChatMode,
     conversationId,
+    setConversationId,
+    templateName: template?.name || null,
     setSelectedModel,
     sendMessage,
     regenerateLastMessage,
