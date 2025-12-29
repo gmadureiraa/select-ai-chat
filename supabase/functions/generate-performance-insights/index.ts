@@ -43,7 +43,7 @@ serve(async (req) => {
       );
     }
 
-    const { clientId, clientName, context, userId, workspaceId: providedWorkspaceId } = await req.json();
+    const { clientId, clientName, context, userId, workspaceId: providedWorkspaceId, periodLabel, platform, startDate, endDate } = await req.json();
 
     if (!context) {
       throw new Error("Context is required");
@@ -72,19 +72,14 @@ serve(async (req) => {
       throw new Error("GOOGLE_AI_STUDIO_API_KEY not configured");
     }
 
-    // Build context summary for AI
-    const contextSummary = `
-Cliente: ${clientName}
+    // Determine platform name
+    const platformName = platform === "youtube" ? "YouTube" : "Instagram";
+    const periodInfo = periodLabel || (startDate && endDate ? `${startDate} a ${endDate}` : "período selecionado");
 
-## Instagram
-- Seguidores: ${context.instagram?.followers?.toLocaleString() || 0}
-- Engajamento médio: ${context.instagram?.avgEngagement?.toFixed(2) || 0}%
-- Total de posts: ${context.instagram?.totalPosts || 0}
-${context.instagram?.topPosts?.length ? `
-Top Posts:
-${context.instagram.topPosts.slice(0, 3).map((p: any, i: number) => 
-  `${i + 1}. "${p.caption?.slice(0, 50) || 'Sem legenda'}..." - ${p.likes} likes, ${p.engagement?.toFixed(1) || 0}% eng.`
-).join('\n')}` : ''}
+    // Build context summary for AI
+    const contextSummary = platform === "youtube" ? `
+Cliente: ${clientName}
+Período: ${periodInfo}
 
 ## YouTube
 - Views totais: ${context.youtube?.totalViews?.toLocaleString() || 0}
@@ -92,22 +87,46 @@ ${context.instagram.topPosts.slice(0, 3).map((p: any, i: number) =>
 - Subscribers ganhos: ${context.youtube?.subscribers?.toLocaleString() || 0}
 ${context.youtube?.topVideos?.length ? `
 Top Vídeos:
-${context.youtube.topVideos.slice(0, 3).map((v: any, i: number) => 
+${context.youtube.topVideos.slice(0, 5).map((v: any, i: number) => 
   `${i + 1}. "${v.title?.slice(0, 50) || 'Sem título'}..." - ${v.views?.toLocaleString() || 0} views, CTR ${v.ctr?.toFixed(1) || 0}%`
+).join('\n')}` : ''}
+` : `
+Cliente: ${clientName}
+Período: ${periodInfo}
+
+## Instagram
+- Total de posts: ${context.instagram?.totalPosts || 0}
+- Total de curtidas: ${context.instagram?.totalLikes?.toLocaleString() || 0}
+- Total de comentários: ${context.instagram?.totalComments?.toLocaleString() || 0}
+- Total de salvamentos: ${context.instagram?.totalSaves?.toLocaleString() || 0}
+- Total de compartilhamentos: ${context.instagram?.totalShares?.toLocaleString() || 0}
+- Alcance total: ${context.instagram?.totalReach?.toLocaleString() || 0}
+- Engajamento médio: ${context.instagram?.avgEngagement?.toFixed(2) || 0}%
+${context.instagram?.topPosts?.length ? `
+Top Posts por Engajamento:
+${context.instagram.topPosts.slice(0, 5).map((p: any, i: number) => 
+  `${i + 1}. "${p.caption?.slice(0, 60) || 'Sem legenda'}..." - ${p.likes} curtidas, ${p.saves || 0} salvamentos, ${p.shares || 0} compartilhamentos, ${p.engagement?.toFixed(1) || 0}% engajamento, tipo: ${p.type || 'post'}`
 ).join('\n')}` : ''}
 `;
 
-    const prompt = `Você é um especialista em análise de redes sociais e marketing digital. Analise as métricas de performance abaixo e gere insights práticos e acionáveis.
+    const prompt = `Você é um especialista em análise de redes sociais e marketing digital. Analise as métricas de performance de ${platformName} abaixo e gere insights práticos e acionáveis.
 
 ${contextSummary}
 
-Gere um resumo executivo breve (máximo 4-5 frases) com:
-1. Visão geral do desempenho atual
-2. Destaque do melhor conteúdo e por que funcionou
-3. Oportunidade de melhoria identificada
-4. Recomendação concreta para próximos passos
+Gere um resumo executivo estruturado (máximo 6-7 frases) com:
 
-Seja direto, prático e específico. Evite generalidades. Use números quando relevante.`;
+**📊 Visão Geral do Período**
+Uma frase sobre o desempenho geral.
+
+**⭐ Destaques**
+- O melhor conteúdo e por que performou bem
+- Métricas que se destacaram
+
+**📈 Oportunidades**
+- Uma oportunidade de melhoria identificada
+- Uma recomendação concreta para próximos passos
+
+Seja direto, prático e específico ao ${platformName}. Use números e porcentagens quando relevante. Formate em markdown.`;
 
     const MODEL = "gemini-2.0-flash";
     const response = await fetch(

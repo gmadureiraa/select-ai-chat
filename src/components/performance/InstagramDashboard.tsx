@@ -64,7 +64,7 @@ export function InstagramDashboard({
   const [topPostsMetric, setTopPostsMetric] = useState("engagement");
   
   const { goals } = usePerformanceGoals(clientId);
-  const { data: stories = [], isLoading: isLoadingStories } = useInstagramStories(clientId);
+  const { data: stories = [], isLoading: isLoadingStories, refetch: refetchStories } = useInstagramStories(clientId);
   const instagramGoal = goals.find(g => g.platform === 'instagram' && g.metric_name === 'followers');
 
   // Filter data by period
@@ -561,6 +561,9 @@ export function InstagramDashboard({
           posts={filteredPosts} 
           metrics={filteredMetrics}
           periodLabel={selectedPeriodLabel}
+          platform="instagram"
+          startDate={cutoffDate || undefined}
+          endDate={new Date()}
         />
         {bestPost && <BestPostCard post={bestPost} />}
       </div>
@@ -570,6 +573,8 @@ export function InstagramDashboard({
         stories={stories}
         isLoading={isLoadingStories}
         period={period}
+        clientId={clientId}
+        onRefresh={() => refetchStories?.()}
       />
 
       {/* Posts Table */}
