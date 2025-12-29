@@ -20,46 +20,53 @@ interface KanbanViewProps {
 }
 
 const columnConfig: Record<string, { 
-  gradient: string; 
+  color: string; 
   icon: React.ElementType; 
   bgHover: string;
   dotColor: string;
+  headerBg: string;
 }> = {
   idea: { 
-    gradient: 'from-purple-500 to-purple-600', 
+    color: 'text-purple-600 dark:text-purple-400', 
     icon: Lightbulb, 
-    bgHover: 'hover:bg-purple-50 dark:hover:bg-purple-950/30',
+    bgHover: 'hover:bg-purple-50/50 dark:hover:bg-purple-950/20',
     dotColor: 'bg-purple-500',
+    headerBg: 'bg-purple-50 dark:bg-purple-950/30 border-purple-200 dark:border-purple-800',
   },
   draft: { 
-    gradient: 'from-blue-500 to-blue-600', 
+    color: 'text-blue-600 dark:text-blue-400', 
     icon: FileEdit, 
-    bgHover: 'hover:bg-blue-50 dark:hover:bg-blue-950/30',
+    bgHover: 'hover:bg-blue-50/50 dark:hover:bg-blue-950/20',
     dotColor: 'bg-blue-500',
+    headerBg: 'bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800',
   },
   review: { 
-    gradient: 'from-yellow-500 to-yellow-600', 
+    color: 'text-amber-600 dark:text-amber-400', 
     icon: Eye, 
-    bgHover: 'hover:bg-yellow-50 dark:hover:bg-yellow-950/30',
-    dotColor: 'bg-yellow-500',
+    bgHover: 'hover:bg-amber-50/50 dark:hover:bg-amber-950/20',
+    dotColor: 'bg-amber-500',
+    headerBg: 'bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800',
   },
   approved: { 
-    gradient: 'from-green-500 to-green-600', 
+    color: 'text-emerald-600 dark:text-emerald-400', 
     icon: ThumbsUp, 
-    bgHover: 'hover:bg-green-50 dark:hover:bg-green-950/30',
-    dotColor: 'bg-green-500',
+    bgHover: 'hover:bg-emerald-50/50 dark:hover:bg-emerald-950/20',
+    dotColor: 'bg-emerald-500',
+    headerBg: 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800',
   },
   scheduled: { 
-    gradient: 'from-orange-500 to-orange-600', 
+    color: 'text-orange-600 dark:text-orange-400', 
     icon: CalendarClock, 
-    bgHover: 'hover:bg-orange-50 dark:hover:bg-orange-950/30',
+    bgHover: 'hover:bg-orange-50/50 dark:hover:bg-orange-950/20',
     dotColor: 'bg-orange-500',
+    headerBg: 'bg-orange-50 dark:bg-orange-950/30 border-orange-200 dark:border-orange-800',
   },
   published: { 
-    gradient: 'from-slate-500 to-slate-600', 
+    color: 'text-slate-600 dark:text-slate-400', 
     icon: CheckCircle2, 
-    bgHover: 'hover:bg-slate-50 dark:hover:bg-slate-950/30',
+    bgHover: 'hover:bg-slate-50/50 dark:hover:bg-slate-950/20',
     dotColor: 'bg-slate-500',
+    headerBg: 'bg-slate-50 dark:bg-slate-950/30 border-slate-200 dark:border-slate-800',
   },
 };
 
@@ -139,53 +146,48 @@ export function KanbanView({
               key={column.id}
               data-column-id={column.id}
               className={cn(
-                "flex-shrink-0 w-80 bg-muted/30 rounded-xl border flex flex-col max-h-[calc(100vh-280px)]",
-                "transition-all duration-200",
-                isDropTarget && "ring-2 ring-primary ring-offset-2 bg-primary/5 scale-[1.02]"
+                "flex-shrink-0 w-72 bg-card/50 rounded-xl border border-border/50 flex flex-col max-h-[calc(100vh-280px)]",
+                "transition-all duration-200 backdrop-blur-sm",
+                isDropTarget && "ring-2 ring-primary/50 ring-offset-2 ring-offset-background bg-primary/5 scale-[1.01]"
               )}
               onDragOver={(e) => handleDragOver(e, column.id)}
               onDragLeave={handleDragLeave}
               onDrop={(e) => handleDrop(e, column.id)}
             >
-              {/* Column Header */}
+              {/* Column Header - Clean & Minimal */}
               <div className={cn(
-                "p-4 rounded-t-xl bg-gradient-to-r",
-                config.gradient
+                "px-3 py-2.5 rounded-t-xl border-b",
+                config.headerBg
               )}>
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2.5">
-                    <div className="p-1.5 bg-white/20 rounded-lg">
-                      <ColumnIcon className="h-4 w-4 text-white" />
-                    </div>
-                    <span className="font-semibold text-white">{column.name}</span>
-                    <Badge 
-                      variant="secondary" 
-                      className="bg-white/20 text-white border-0 text-xs font-medium px-2"
-                    >
+                  <div className="flex items-center gap-2">
+                    <div className={cn("w-2 h-2 rounded-full", config.dotColor)} />
+                    <span className={cn("font-medium text-sm", config.color)}>{column.name}</span>
+                    <span className="text-xs text-muted-foreground bg-muted/50 px-1.5 py-0.5 rounded">
                       {items.length}
-                    </Badge>
+                    </span>
                     {failedCount > 0 && (
                       <Badge 
                         variant="destructive" 
-                        className="text-xs font-medium px-2 animate-pulse"
+                        className="text-[10px] font-medium px-1.5 py-0 h-4"
                       >
-                        {failedCount} falha{failedCount > 1 ? 's' : ''}
+                        {failedCount}
                       </Badge>
                     )}
                   </div>
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-7 w-7 text-white/80 hover:text-white hover:bg-white/20"
+                    className="h-6 w-6 text-muted-foreground hover:text-foreground"
                     onClick={() => onAddCard(column.id)}
                   >
-                    <Plus className="h-4 w-4" />
+                    <Plus className="h-3.5 w-3.5" />
                   </Button>
                 </div>
               </div>
 
               {/* Cards */}
-              <div className="flex-1 overflow-y-auto p-3 space-y-3">
+              <div className="flex-1 overflow-y-auto p-2 space-y-2">
                 {items.map(item => (
                   <div
                     key={item.id}
@@ -194,7 +196,7 @@ export function KanbanView({
                     onDragEnd={handleDragEnd}
                     className={cn(
                       "cursor-grab active:cursor-grabbing",
-                      "transition-transform duration-150",
+                      "transition-all duration-150 hover:scale-[1.01]",
                       draggedItem?.id === item.id && "scale-95 opacity-50"
                     )}
                   >
@@ -206,45 +208,38 @@ export function KanbanView({
                       onRetry={onRetry}
                       onDuplicate={onDuplicate}
                       isDragging={draggedItem?.id === item.id}
+                      compact
                     />
                   </div>
                 ))}
 
                 {items.length === 0 && (
                   <div className={cn(
-                    "text-center py-12 text-muted-foreground",
-                    "border-2 border-dashed rounded-xl",
+                    "text-center py-8 text-muted-foreground",
+                    "border border-dashed rounded-lg",
                     isDropTarget && "border-primary bg-primary/5"
                   )}>
-                    <div className={cn(
-                      "w-10 h-10 rounded-full mx-auto mb-3 flex items-center justify-center",
-                      config.dotColor + '/20'
-                    )}>
-                      <ColumnIcon className={cn("h-5 w-5", config.dotColor.replace('bg-', 'text-'))} />
-                    </div>
-                    <p className="text-sm font-medium">
-                      {isDropTarget ? 'Solte aqui' : 'Nenhum card'}
-                    </p>
-                    <p className="text-xs mt-1">
-                      Arraste cards ou clique em +
+                    <ColumnIcon className={cn("h-5 w-5 mx-auto mb-2 opacity-40", config.color)} />
+                    <p className="text-xs font-medium">
+                      {isDropTarget ? 'Solte aqui' : 'Vazio'}
                     </p>
                   </div>
                 )}
               </div>
 
-              {/* Quick Add Footer */}
-              <div className="p-2 border-t bg-muted/30">
+              {/* Quick Add Footer - Subtle */}
+              <div className="p-1.5 border-t border-border/50">
                 <Button
                   variant="ghost"
                   size="sm"
                   className={cn(
-                    "w-full justify-start text-muted-foreground",
+                    "w-full justify-center text-xs text-muted-foreground h-7",
                     config.bgHover
                   )}
                   onClick={() => onAddCard(column.id)}
                 >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Adicionar card
+                  <Plus className="h-3 w-3 mr-1" />
+                  Adicionar
                 </Button>
               </div>
             </div>

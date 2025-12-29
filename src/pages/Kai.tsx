@@ -139,20 +139,11 @@ export default function Kai() {
       }
     }
 
-    // Planning tab - shows lock screen if not Enterprise
+    // Planning tab - available for all users, publishing is Enterprise only
     if (tab === "planning") {
-      if (!isEnterprise) {
-        return (
-          <EnterpriseLockScreen
-            title="Planejamento de Conteúdo"
-            description="Organize seu conteúdo com calendário editorial, kanban e agendamento de publicações. Disponível exclusivamente no plano Enterprise."
-            icon={<CalendarDays className="h-10 w-10 text-muted-foreground" />}
-          />
-        );
-      }
       return (
         <div className="p-6 h-full overflow-hidden">
-          <PlanningBoard clientId={selectedClient?.id} />
+          <PlanningBoard clientId={selectedClient?.id} isEnterprise={isEnterprise} />
         </div>
       );
     }

@@ -122,61 +122,55 @@ export function PlanningItemCard({
   return (
     <div
       className={cn(
-        "group bg-card border rounded-xl overflow-hidden cursor-pointer transition-all duration-200",
-        "hover:shadow-lg hover:border-primary/40 hover:-translate-y-0.5",
-        isDragging && "opacity-60 rotate-1 shadow-xl scale-105",
-        isFailed && "border-destructive/50 bg-destructive/5",
-        isPublished && "border-green-500/30 bg-green-500/5"
+        "group bg-card border border-border/50 rounded-lg overflow-hidden cursor-pointer transition-all duration-150",
+        "hover:shadow-md hover:border-border",
+        isDragging && "opacity-60 rotate-1 shadow-lg scale-105",
+        isFailed && "border-destructive/30 bg-destructive/5",
+        isPublished && "border-emerald-500/20 bg-emerald-500/5",
+        compact && "p-2"
       )}
       onClick={() => onEdit(item)}
     >
-      {/* Media Preview */}
+      {/* Media Preview - Only if not compact */}
       {hasMedia && firstMedia && !compact && (
-        <div className="relative h-24 bg-muted overflow-hidden">
+        <div className="relative h-20 bg-muted overflow-hidden">
           <img 
             src={firstMedia} 
             alt="" 
             className="w-full h-full object-cover"
           />
           {item.media_urls.length > 1 && (
-            <div className="absolute bottom-1 right-1 bg-black/60 text-white text-xs px-1.5 py-0.5 rounded flex items-center gap-1">
-              <ImageIcon className="h-3 w-3" />
+            <div className="absolute bottom-0.5 right-0.5 bg-black/60 text-white text-[9px] px-1 py-0.5 rounded flex items-center gap-0.5">
+              <ImageIcon className="h-2.5 w-2.5" />
               {item.media_urls.length}
             </div>
           )}
         </div>
       )}
 
-      <div className="p-3">
-        {/* Top Row: Platform + Client + Publication Mode */}
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-2">
-            {/* Platform Badge */}
-            <div className={cn(
-              "flex items-center gap-1.5 px-2 py-1 rounded-full border",
-              colors.bg, colors.text, colors.border
-            )}>
-              <PlatformIcon className="h-3.5 w-3.5" />
-              <span className="text-xs font-medium capitalize">{platform}</span>
-            </div>
-
-            {/* Client */}
+      <div className={cn(compact ? "" : "p-2.5")}>
+        {/* Top Row: Platform dot + Title */}
+        <div className="flex items-start gap-2 mb-1.5">
+          {/* Platform Dot */}
+          <div className={cn(
+            "w-2 h-2 rounded-full mt-1.5 shrink-0",
+            platformColors[platform]?.text?.replace('text-', 'bg-') || 'bg-muted-foreground'
+          )} />
+          
+          {/* Title */}
+          <div className="flex-1 min-w-0">
+            <h4 className="font-medium text-sm line-clamp-2 group-hover:text-primary transition-colors">
+              {item.title}
+            </h4>
+            {/* Client name - subtle */}
             {item.clients && (
-              <div className="flex items-center gap-1.5">
-                <Avatar className="h-5 w-5">
-                  <AvatarImage src={item.clients.avatar_url || undefined} />
-                  <AvatarFallback className="text-[8px] bg-primary/10">
-                    {item.clients.name.substring(0, 2).toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
-                <span className="text-xs text-muted-foreground truncate max-w-[80px]">
-                  {item.clients.name}
-                </span>
-              </div>
+              <span className="text-[10px] text-muted-foreground">
+                {item.clients.name}
+              </span>
             )}
           </div>
 
-          {/* Publication Mode Badge */}
+          {/* Publication Mode Badge - Compact */}
           <PublicationStatusBadge
             mode={publicationMode}
             status={item.status}
@@ -188,170 +182,55 @@ export function PlanningItemCard({
           />
         </div>
 
-        {/* Title */}
-        <h4 className="font-semibold text-sm mb-1.5 line-clamp-2 group-hover:text-primary transition-colors">
-          {item.title}
-        </h4>
-
-        {/* Description/Content Preview */}
+        {/* Description - Only if not compact */}
         {!compact && (item.description || item.content) && (
-          <p className="text-xs text-muted-foreground line-clamp-2 mb-2">
+          <p className="text-[11px] text-muted-foreground line-clamp-1 mb-1.5 ml-4">
             {item.description || item.content}
           </p>
         )}
 
-        {/* Character Count for Twitter */}
-        {!compact && platform === 'twitter' && characterCount > 0 && (
-          <div className="flex items-center gap-2 mb-2">
-            <MessageSquare className="h-3 w-3 text-muted-foreground" />
-            <span className={cn(
-              "text-xs",
-              isOverLimit ? "text-destructive font-medium" : "text-muted-foreground"
-            )}>
-              {characterCount}/{twitterLimit}
-            </span>
-            {isOverLimit && (
-              <span className="text-[10px] text-destructive">
-                -{characterCount - twitterLimit}
+        {/* Labels as dots */}
+        {item.labels && item.labels.length > 0 && !compact && (
+          <div className="flex items-center gap-1 mb-1.5 ml-4">
+            {item.labels.slice(0, 4).map((label, i) => (
+              <TooltipProvider key={i}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="w-1.5 h-1.5 rounded-full bg-primary/60" />
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="text-xs">{label}</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            ))}
+            {item.labels.length > 4 && (
+              <span className="text-[9px] text-muted-foreground">+{item.labels.length - 4}</span>
+            )}
+          </div>
+        )}
+
+        {/* Footer - Compact */}
+        <div className="flex items-center justify-between mt-1.5 pt-1.5 border-t border-dashed border-border/50 ml-4">
+          <div className="flex items-center gap-1.5">
+            <PlatformIcon className={cn("h-3 w-3", colors.text)} />
+            {displayDate && (
+              <span className="text-[9px] text-muted-foreground">
+                {format(new Date(displayDate), 'dd/MM', { locale: ptBR })}
               </span>
             )}
           </div>
-        )}
-
-        {/* Labels */}
-        {item.labels && item.labels.length > 0 && (
-          <div className="flex flex-wrap gap-1 mb-2">
-            {item.labels.slice(0, 3).map((label, i) => (
-              <Badge key={i} variant="secondary" className="text-[10px] px-1.5 py-0 font-normal">
-                {label}
-              </Badge>
-            ))}
-            {item.labels.length > 3 && (
-              <Badge variant="outline" className="text-[10px] px-1.5 py-0">
-                +{item.labels.length - 3}
-              </Badge>
-            )}
-          </div>
-        )}
-
-        {/* Progress Bar */}
-        {!compact && (
-          <div className="mb-2">
-            <Progress 
-              value={progress} 
-              className={cn(
-                "h-1",
-                isFailed && "[&>div]:bg-destructive",
-                isPublished && "[&>div]:bg-green-500"
-              )}
-            />
-          </div>
-        )}
-
-        {/* Footer */}
-        <div className="flex items-center justify-between pt-2 border-t border-dashed">
-          <div className="flex items-center gap-2">
-            {/* Priority Badge */}
-            {item.priority && item.priority !== 'medium' && (
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Badge className={cn("text-[10px] px-1.5 py-0", priorityConfig[item.priority]?.color)}>
-                      {priorityConfig[item.priority]?.icon}
-                    </Badge>
-                  </TooltipTrigger>
-                  <TooltipContent>Prioridade: {item.priority}</TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            )}
-
-            {/* Library Badge */}
-            {item.added_to_library && (
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Library className="h-3.5 w-3.5 text-primary" />
-                  </TooltipTrigger>
-                  <TooltipContent>Na biblioteca</TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            )}
-          </div>
-
-          <div className="flex items-center gap-2">
-            {/* Date */}
-            {displayDate && (
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div className={cn(
-                      "flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full",
-                      isScheduled 
-                        ? "text-primary bg-primary/10" 
-                        : "text-muted-foreground bg-muted"
-                    )}>
-                      {isScheduled ? <Clock className="h-3 w-3" /> : <Calendar className="h-3 w-3" />}
-                      {format(new Date(displayDate), 'dd/MM HH:mm', { locale: ptBR })}
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    {isScheduled ? 'Agendado para ' : 'Prazo: '}
-                    {format(new Date(displayDate), "dd 'de' MMMM 'às' HH:mm", { locale: ptBR })}
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            )}
-
-            {/* Actions Menu */}
-            <DropdownMenu open={isMenuOpen} onOpenChange={setIsMenuOpen}>
-              <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
-                >
-                  <MoreHorizontal className="h-3.5 w-3.5" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-                <DropdownMenuItem onClick={() => { onEdit(item); setIsMenuOpen(false); }}>
-                  <FileText className="h-4 w-4 mr-2" />
-                  Editar
-                </DropdownMenuItem>
-                
-                {!item.added_to_library && item.client_id && (
-                  <DropdownMenuItem onClick={() => { onMoveToLibrary(item.id); setIsMenuOpen(false); }}>
-                    <BookOpen className="h-4 w-4 mr-2" />
-                    Adicionar à Biblioteca
-                  </DropdownMenuItem>
-                )}
-
-                {isFailed && onRetry && (
-                  <DropdownMenuItem onClick={() => { onRetry(item.id); setIsMenuOpen(false); }}>
-                    <RefreshCw className="h-4 w-4 mr-2" />
-                    Tentar Novamente
-                  </DropdownMenuItem>
-                )}
-
-                {onDuplicate && (
-                  <DropdownMenuItem onClick={() => { onDuplicate(item); setIsMenuOpen(false); }}>
-                    <Copy className="h-4 w-4 mr-2" />
-                    Duplicar
-                  </DropdownMenuItem>
-                )}
-
-                <DropdownMenuSeparator />
-                
-                <DropdownMenuItem 
-                  className="text-destructive focus:text-destructive"
-                  onClick={() => { onDelete(item.id); setIsMenuOpen(false); }}
-                >
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Excluir
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
+          <DropdownMenu open={isMenuOpen} onOpenChange={setIsMenuOpen}>
+            <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+              <Button variant="ghost" size="icon" className="h-5 w-5 opacity-0 group-hover:opacity-100">
+                <MoreHorizontal className="h-3 w-3" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+              <DropdownMenuItem onClick={() => { onEdit(item); setIsMenuOpen(false); }}>Editar</DropdownMenuItem>
+              {onDuplicate && <DropdownMenuItem onClick={() => { onDuplicate(item); setIsMenuOpen(false); }}>Duplicar</DropdownMenuItem>}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem className="text-destructive" onClick={() => { onDelete(item.id); setIsMenuOpen(false); }}>Excluir</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
     </div>

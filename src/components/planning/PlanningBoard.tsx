@@ -12,9 +12,10 @@ import { ViewSettingsPopover, useViewSettings, type ViewSettings } from './ViewS
 
 interface PlanningBoardProps {
   clientId?: string;
+  isEnterprise?: boolean;
 }
 
-export function PlanningBoard({ clientId }: PlanningBoardProps) {
+export function PlanningBoard({ clientId, isEnterprise = false }: PlanningBoardProps) {
   const [view, setView] = useState<PlanningView>('board');
   const [filters, setFilters] = useState<PlanningFilters>(clientId ? { clientId } : {});
   const [dialogOpen, setDialogOpen] = useState(false);
