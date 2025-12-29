@@ -169,21 +169,24 @@ export function InstagramPostsTable({ posts, isLoading }: InstagramPostsTablePro
             {paginatedPosts.map((post) => (
               <TableRow key={post.id} className="group">
                 <TableCell className="py-2">
-                  {post.thumbnail_url ? (
-                    <img 
-                      src={post.thumbnail_url} 
-                      alt={post.caption?.slice(0, 20) || "Post"} 
-                      className="w-9 h-9 rounded object-cover"
-                      onError={(e) => {
-                        e.currentTarget.style.display = 'none';
-                        e.currentTarget.nextElementSibling?.classList.remove('hidden');
-                      }}
-                    />
-                  ) : null}
-                  <div className={`w-9 h-9 rounded bg-gradient-to-br from-pink-500 via-purple-500 to-orange-500 flex items-center justify-center text-white text-[10px] font-medium ${post.thumbnail_url ? 'hidden' : ''}`}>
-                    {post.post_type === 'carousel' ? 'CAR' : 
-                     post.post_type === 'reel' ? 'REEL' : 
-                     post.post_type === 'story' ? 'ST' : 'IMG'}
+                  <div className="w-9 h-9 rounded overflow-hidden flex-shrink-0 bg-gradient-to-br from-pink-500 via-purple-500 to-orange-500">
+                    {post.thumbnail_url ? (
+                      <img 
+                        src={post.thumbnail_url} 
+                        alt={post.caption?.slice(0, 20) || "Post"} 
+                        className="w-full h-full object-cover"
+                        loading="lazy"
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none';
+                        }}
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-white text-[10px] font-medium">
+                        {post.post_type === 'carousel' ? 'CAR' : 
+                         post.post_type === 'reel' ? 'REEL' : 
+                         post.post_type === 'story' ? 'ST' : 'IMG'}
+                      </div>
+                    )}
                   </div>
                 </TableCell>
                 <TableCell className="py-2">

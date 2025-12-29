@@ -334,13 +334,17 @@ export const useClientChat = (clientId: string, templateId?: string, conversatio
     console.log("[CHAT] Explicit mode:", explicitMode, "| isExplicitIdeaMode:", isExplicitIdeaMode, "| isFreeChatMode:", isFreeChatModeExplicit);
 
     try {
-      // Save user message
+      // Save user message with citations in payload
+      const messagePayload = citations && citations.length > 0 
+        ? { citations: citations.map(c => ({ id: c.id, title: c.title, type: c.type, category: c.category })) } 
+        : null;
+
       const { error: insertError } = await supabase.from("messages").insert({
         conversation_id: conversationId,
         role: "user",
         content,
         image_urls: imageUrls || null,
-      });
+      } as any);
 
       if (insertError) throw insertError;
 
@@ -1548,10 +1552,13 @@ IMPORTANTE: O novo conteúdo deve parecer escrito pelo mesmo autor.`;
           'format_carrossel': 'carousel',
           'format_newsletter': 'newsletter',
           'format_linkedin': 'linkedin_post',
+          'format_post_linkedin': 'linkedin_post',
           'format_instagram': 'static_image',
+          'format_post_instagram': 'static_image',
           'format_reels': 'short_video',
           'format_blog': 'blog_post',
           'format_stories': 'stories',
+          'format_script': 'long_video',
         };
         detectedTypeFromCitation = formatMap[formatCitation.id] || null;
         console.log("[CHAT] Format detected from citation:", formatCitation.id, "->", detectedTypeFromCitation);
@@ -1870,11 +1877,39 @@ IMPORTANTE: O novo conteúdo deve parecer escrito pelo mesmo autor.`;
         aiResponse = await parseSSEStream(reader);
       }
 
+      // Clean AI response - remove internal agent steps and process markers
+      const cleanAIResponse = (response: string): string => {
+        // Remove multi-agent step markers
+        let cleaned = response
+          // Remove agent headers like "**Agente Escritor:**", "**Agente Revisor:**", etc.
+          .replace(/\*\*Agente [^*]+:\*\*/gi, '')
+          // Remove thinking/process markers
+          .replace(/\*\*Analisando[^*]*\*\*/gi, '')
+          .replace(/\*\*Processando[^*]*\*\*/gi, '')
+          .replace(/\*\*Revisando[^*]*\*\*/gi, '')
+          .replace(/\*\*Gerando[^*]*\*\*/gi, '')
+          .replace(/\*\*Selecionando[^*]*\*\*/gi, '')
+          // Remove step indicators
+          .replace(/Passo \d+:/gi, '')
+          .replace(/Etapa \d+:/gi, '')
+          // Remove internal reasoning markers
+          .replace(/\[Raciocínio:[^\]]*\]/gi, '')
+          .replace(/\[Análise:[^\]]*\]/gi, '')
+          .replace(/\[Estratégia:[^\]]*\]/gi, '')
+          // Clean up excessive newlines
+          .replace(/\n{4,}/g, '\n\n\n')
+          .trim();
+        
+        return cleaned;
+      };
+
+      const cleanedResponse = cleanAIResponse(aiResponse);
+
       // Save AI response
       await supabase.from("messages").insert({
         conversation_id: conversationId,
         role: "assistant",
-        content: aiResponse,
+        content: cleanedResponse,
       });
 
       // Log activity
