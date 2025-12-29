@@ -1,19 +1,14 @@
-import { useState, useRef, useEffect, useCallback } from "react";
-import { useSearchParams } from "react-router-dom";
-import { Trash2, PanelLeftClose, PanelLeft, Eye, EyeOff } from "lucide-react";
+import { useRef, useEffect, useCallback } from "react";
+import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Switch } from "@/components/ui/switch";
-import { useClientTemplates } from "@/hooks/useClientTemplates";
 import { useClientChat } from "@/hooks/useClientChat";
 import { FloatingInput, ChatMode } from "@/components/chat/FloatingInput";
 import { Citation } from "@/components/chat/CitationChip";
 import { EnhancedMessageBubble } from "@/components/chat/EnhancedMessageBubble";
 import { MinimalProgress } from "@/components/chat/MinimalProgress";
 import { QuickSuggestions } from "@/components/chat/QuickSuggestions";
-import { TemplateManager } from "@/components/clients/TemplateManager";
 import { Client } from "@/hooks/useClients";
-import { cn } from "@/lib/utils";
 import KaleidosLogo from "@/assets/kaleidos-logo.svg";
 
 interface KaiAssistantTabProps {
@@ -22,19 +17,8 @@ interface KaiAssistantTabProps {
 }
 
 export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
-  const [searchParams, setSearchParams] = useSearchParams();
-  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(
-    searchParams.get("template")
-  );
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [simpleMode, setSimpleMode] = useState(() => {
-    return localStorage.getItem("kai-simple-mode") === "true";
-  });
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-
-  const { templates } = useClientTemplates(clientId);
-  const selectedTemplate = templates?.find(t => t.id === selectedTemplateId);
 
   const {
     messages,
@@ -44,33 +28,9 @@ export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
     conversationId,
     currentStep,
     multiAgentStep,
-    multiAgentDetails,
     contentLibrary,
     referenceLibrary,
-  } = useClientChat(clientId, selectedTemplateId || undefined);
-
-  // Persist simple mode preference
-  useEffect(() => {
-    localStorage.setItem("kai-simple-mode", String(simpleMode));
-    if (simpleMode) {
-      setSidebarCollapsed(true);
-    }
-  }, [simpleMode]);
-
-  // Update URL when template changes
-  useEffect(() => {
-    if (selectedTemplateId) {
-      setSearchParams(prev => {
-        prev.set("template", selectedTemplateId);
-        return prev;
-      });
-    } else {
-      setSearchParams(prev => {
-        prev.delete("template");
-        return prev;
-      });
-    }
-  }, [selectedTemplateId, setSearchParams]);
+  } = useClientChat(clientId);
 
   // Scroll to bottom function
   const scrollToBottom = useCallback((smooth = true) => {
@@ -87,13 +47,13 @@ export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
     scrollToBottom(true);
   }, [messages, scrollToBottom]);
 
-  // Initial scroll on mount/template change
+  // Initial scroll on mount
   useEffect(() => {
     const timer = setTimeout(() => {
       scrollToBottom(false);
     }, 100);
     return () => clearTimeout(timer);
-  }, [selectedTemplateId, scrollToBottom]);
+  }, [scrollToBottom]);
 
   const handleSend = async (content: string, images?: string[], quality?: "fast" | "high", mode?: ChatMode, citations?: Citation[]) => {
     if (!content.trim() && (!images || images.length === 0)) return;
@@ -104,131 +64,18 @@ export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
     await clearConversation();
   };
 
-  const chatTemplates = templates?.filter(t => t.type === "chat") || [];
-  const imageTemplates = templates?.filter(t => t.type === "image") || [];
-
-  const templateType = !selectedTemplate ? "free_chat" : 
-                       selectedTemplate.type === "image" ? "image" : "content";
-
   return (
     <div className="flex h-[calc(100vh-140px)] relative">
-      {/* Collapsible Sidebar - Templates (hidden in simple mode) */}
-      {!simpleMode && (
-        <div
-          className={cn(
-            "shrink-0 flex flex-col border-r border-border/30 bg-card/30 transition-all duration-300 ease-in-out",
-            sidebarCollapsed ? "w-0 opacity-0 overflow-hidden" : "w-56"
-          )}
-        >
-          <div className="p-3 border-b border-border/30 flex items-center justify-between gap-2">
-            <h3 className="font-medium text-xs uppercase tracking-wider text-muted-foreground">Templates</h3>
-            <div className="flex items-center gap-1">
-              <TemplateManager clientId={clientId} />
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setSidebarCollapsed(true)}
-                className="h-7 w-7 hover:bg-muted/50"
-              >
-                <PanelLeftClose className="h-3.5 w-3.5" />
-              </Button>
-            </div>
-          </div>
-          <ScrollArea className="flex-1">
-            <div className="p-2 space-y-0.5">
-              {/* Free Chat Option */}
-              <button
-                className={cn(
-                  "w-full text-left text-sm py-2 px-3 rounded-md transition-colors",
-                  !selectedTemplateId 
-                    ? "bg-muted/60 text-foreground font-medium" 
-                    : "text-muted-foreground hover:bg-muted/30 hover:text-foreground"
-                )}
-                onClick={() => setSelectedTemplateId(null)}
-              >
-                Chat Livre
-              </button>
-
-              {/* Content Templates */}
-              {chatTemplates.length > 0 && (
-                <div className="pt-3">
-                  <p className="text-[10px] text-muted-foreground/40 px-3 py-1 font-medium uppercase tracking-wider">
-                    Conteúdo
-                  </p>
-                  {chatTemplates.map((template) => (
-                    <button
-                      key={template.id}
-                      className={cn(
-                        "w-full text-left text-sm py-2 px-3 rounded-md transition-colors",
-                        selectedTemplateId === template.id
-                          ? "bg-muted/60 text-foreground font-medium"
-                          : "text-muted-foreground hover:bg-muted/30 hover:text-foreground"
-                      )}
-                      onClick={() => setSelectedTemplateId(template.id)}
-                    >
-                      {template.name}
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {/* Image Templates */}
-              {imageTemplates.length > 0 && (
-                <div className="pt-3">
-                  <p className="text-[10px] text-muted-foreground/40 px-3 py-1 font-medium uppercase tracking-wider">
-                    Imagens
-                  </p>
-                  {imageTemplates.map((template) => (
-                    <button
-                      key={template.id}
-                      className={cn(
-                        "w-full text-left text-sm py-2 px-3 rounded-md transition-colors",
-                        selectedTemplateId === template.id
-                          ? "bg-muted/60 text-foreground font-medium"
-                          : "text-muted-foreground hover:bg-muted/30 hover:text-foreground"
-                      )}
-                      onClick={() => setSelectedTemplateId(template.id)}
-                    >
-                      {template.name}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          </ScrollArea>
-        </div>
-      )}
-
       {/* Main Chat Area */}
       <div className="flex-1 flex flex-col min-w-0 bg-background/50">
-        {/* Collapsed Sidebar Toggle + Context Header */}
+        {/* Header */}
         <div className="flex items-center gap-2 px-4 py-2 border-b border-border/20">
-          {(sidebarCollapsed && !simpleMode) && (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setSidebarCollapsed(false)}
-              className="h-8 w-8 hover:bg-muted/50"
-            >
-              <PanelLeft className="h-4 w-4" />
-            </Button>
-          )}
           <div className="flex items-center gap-2 flex-1 min-w-0">
             <span className="text-sm font-medium text-foreground/80 truncate">
-              {selectedTemplate?.name || "Chat Livre"}
+              Chat
             </span>
             <span className="text-muted-foreground/40">•</span>
             <span className="text-xs text-muted-foreground truncate">{client.name}</span>
-          </div>
-          
-          {/* Simple Mode Toggle */}
-          <div className="flex items-center gap-2 mr-2">
-            <span className="text-xs text-muted-foreground">Modo simples</span>
-            <Switch
-              checked={simpleMode}
-              onCheckedChange={setSimpleMode}
-              className="scale-75"
-            />
           </div>
 
           {conversationId && messages.length > 0 && (
@@ -254,13 +101,10 @@ export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
                   <img src={KaleidosLogo} alt="kAI" className="h-8 w-8" />
                 </div>
                 <h2 className="text-xl font-semibold mb-1.5 text-center text-foreground/90">
-                  {selectedTemplate ? `${selectedTemplate.name}` : "Como posso ajudar?"}
+                  Como posso ajudar?
                 </h2>
                 <p className="text-sm text-muted-foreground text-center max-w-sm mb-6">
-                  {selectedTemplate
-                    ? `Gere conteúdo otimizado para ${client.name}`
-                    : `Converse sobre ${client.name}, analise dados ou explore ideias. Use @ para selecionar formatos.`
-                  }
+                  Converse sobre {client.name}, analise dados ou explore ideias. Use @ para selecionar formatos.
                 </p>
                 
                 {/* Quick Suggestions */}
@@ -268,7 +112,7 @@ export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
                   onSelect={(suggestion) => handleSend(suggestion)}
                   clientId={clientId}
                   clientName={client.name}
-                  isContentTemplate={!!selectedTemplate}
+                  isContentTemplate={false}
                 />
               </div>
             ) : (
@@ -279,6 +123,7 @@ export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
                     role={message.role as "user" | "assistant"}
                     content={message.content}
                     imageUrls={message.image_urls}
+                    payload={(message as any).payload}
                     clientId={clientId}
                     clientName={client.name}
                     onRegenerate={index === messages.length - 1 && message.role === "assistant" ? () => {} : undefined}
@@ -307,8 +152,8 @@ export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
             <FloatingInput
               onSend={handleSend}
               disabled={isLoading}
-              templateType={templateType}
-              placeholder={selectedTemplate ? `Criar ${selectedTemplate.name}...` : "Pergunte sobre o cliente... Use @ para formatos"}
+              templateType="free_chat"
+              placeholder="Pergunte sobre o cliente... Use @ para formatos"
               contentLibrary={contentLibrary || []}
               referenceLibrary={referenceLibrary || []}
             />
