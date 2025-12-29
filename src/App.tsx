@@ -4,6 +4,7 @@ import Kai from "./pages/Kai";
 import Documentation from "./pages/Documentation";
 import LandingPage from "./pages/LandingPage";
 import AdminDashboard from "./pages/AdminDashboard";
+import AgentsExplorer from "./pages/AgentsExplorer";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
@@ -67,6 +68,7 @@ const App = () => (
                   <Route index element={<Kai />} />
                   <Route path="docs" element={<Documentation />} />
                   <Route path="settings" element={<Settings />} />
+                  <Route path="agents" element={<AgentsExplorer />} />
                 </Route>
                 
                 {/* 404 */}

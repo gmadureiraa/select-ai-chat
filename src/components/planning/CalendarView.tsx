@@ -20,14 +20,14 @@ interface CalendarViewProps {
 }
 
 const statusColors: Record<string, string> = {
-  idea: 'bg-purple-500/90 text-white border-purple-600',
-  draft: 'bg-blue-500/90 text-white border-blue-600',
-  review: 'bg-amber-500/90 text-white border-amber-600',
-  approved: 'bg-emerald-500/90 text-white border-emerald-600',
-  scheduled: 'bg-orange-500/90 text-white border-orange-600',
-  publishing: 'bg-orange-400/90 text-white border-orange-500',
-  published: 'bg-slate-500/90 text-white border-slate-600',
-  failed: 'bg-red-500/90 text-white border-red-600',
+  idea: 'bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300 border-purple-200 dark:border-purple-800',
+  draft: 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300 border-blue-200 dark:border-blue-800',
+  review: 'bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300 border-amber-200 dark:border-amber-800',
+  approved: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800',
+  scheduled: 'bg-orange-100 text-orange-700 dark:bg-orange-900/50 dark:text-orange-300 border-orange-200 dark:border-orange-800',
+  publishing: 'bg-orange-50 text-orange-600 dark:bg-orange-900/30 dark:text-orange-300 border-orange-200 dark:border-orange-800',
+  published: 'bg-slate-100 text-slate-600 dark:bg-slate-800/50 dark:text-slate-300 border-slate-200 dark:border-slate-700',
+  failed: 'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300 border-red-200 dark:border-red-800',
 };
 
 const platformIcons: Record<string, string> = {
@@ -170,30 +170,30 @@ export function CalendarView({
 
   return (
     <div className="h-full flex flex-col">
-      {/* Header */}
+      {/* Header - Cleaner */}
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-semibold capitalize">
           {format(currentDate, 'MMMM yyyy', { locale: ptBR })}
         </h3>
         <div className="flex items-center gap-1">
-          <Button variant="outline" size="icon" onClick={() => setCurrentDate(subMonths(currentDate, 1))}>
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setCurrentDate(subMonths(currentDate, 1))}>
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <Button variant="outline" size="sm" onClick={() => setCurrentDate(new Date())}>
+          <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={() => setCurrentDate(new Date())}>
             Hoje
           </Button>
-          <Button variant="outline" size="icon" onClick={() => setCurrentDate(addMonths(currentDate, 1))}>
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setCurrentDate(addMonths(currentDate, 1))}>
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
       </div>
 
-      {/* Calendar Grid */}
-      <div className="flex-1 border rounded-lg overflow-hidden">
+      {/* Calendar Grid - Cleaner borders */}
+      <div className="flex-1 border border-border/50 rounded-lg overflow-hidden bg-card/30">
         {/* Week Header */}
-        <div className="grid grid-cols-7 bg-muted border-b">
+        <div className="grid grid-cols-7 border-b border-border/50 bg-muted/30">
           {weekDays.map(day => (
-            <div key={day} className="p-2 text-center text-sm font-medium text-muted-foreground">
+            <div key={day} className="p-2 text-center text-xs font-medium text-muted-foreground">
               {day}
             </div>
           ))}
@@ -210,31 +210,32 @@ export function CalendarView({
               <div
                 key={i}
                 className={cn(
-                  "min-h-24 border-b border-r p-1 cursor-pointer hover:bg-muted/50 transition-colors group",
-                  !isCurrentMonth && "bg-muted/30 text-muted-foreground"
+                  "min-h-20 border-b border-r border-border/30 p-1 cursor-pointer transition-colors group",
+                  !isCurrentMonth && "bg-muted/20 text-muted-foreground",
+                  "hover:bg-muted/30"
                 )}
                 onClick={() => onAddItem(day)}
               >
                 {/* Day Header */}
-                <div className="flex items-center justify-between mb-1">
+                <div className="flex items-center justify-between mb-0.5">
                   <span className={cn(
-                    "text-sm font-medium w-6 h-6 flex items-center justify-center rounded-full",
-                    isToday && "bg-primary text-primary-foreground"
+                    "text-xs font-medium w-5 h-5 flex items-center justify-center rounded-full",
+                    isToday && "ring-2 ring-primary ring-offset-1 ring-offset-background"
                   )}>
                     {format(day, 'd')}
                   </span>
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity"
+                    className="h-4 w-4 opacity-0 group-hover:opacity-100 transition-opacity"
                     onClick={(e) => { e.stopPropagation(); onAddItem(day); }}
                   >
-                    <Plus className="h-3 w-3" />
+                    <Plus className="h-2.5 w-2.5" />
                   </Button>
                 </div>
 
-                {/* Items */}
-                <div className="space-y-1 overflow-hidden max-h-20">
+                {/* Items - More compact */}
+                <div className="space-y-0.5 overflow-hidden max-h-16">
                   {dayItems.slice(0, 3).map(item => (
                     <CalendarCard
                       key={item.id}
@@ -243,9 +244,9 @@ export function CalendarView({
                     />
                   ))}
                   {dayItems.length > 3 && (
-                    <Badge variant="outline" className="text-[9px] px-1 bg-background">
+                    <span className="text-[9px] text-muted-foreground px-1">
                       +{dayItems.length - 3} mais
-                    </Badge>
+                    </span>
                   )}
                 </div>
               </div>
