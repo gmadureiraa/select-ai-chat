@@ -171,26 +171,7 @@ export const EnhancedMessageBubble = ({
         )}
         
         <div className="flex flex-col gap-3 max-w-[85%] min-w-0">
-          {/* Citations - mostrar chips das citações em mensagens do usuário */}
-          {isUser && citations.length > 0 && (
-            <div className="flex flex-wrap gap-1.5">
-              {citations.map((citation) => {
-                const Icon = getCitationIcon(citation);
-                return (
-                  <span
-                    key={citation.id}
-                    className={cn(
-                      "inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium border",
-                      getCitationColorClass(citation)
-                    )}
-                  >
-                    <Icon className="h-3 w-3 shrink-0" />
-                    <span className="truncate max-w-[150px]">{citation.title}</span>
-                  </span>
-                );
-              })}
-            </div>
-          )}
+          {/* As citações agora ficam visíveis no próprio texto da mensagem como @título */}
 
           {/* Imagens */}
           {hasImages && (
