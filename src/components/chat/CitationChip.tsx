@@ -1,10 +1,10 @@
-import { X, FileText, BookOpen } from "lucide-react";
+import { X, FileText, BookOpen, Wand2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export interface Citation {
   id: string;
   title: string;
-  type: "content_library" | "reference_library";
+  type: "content_library" | "reference_library" | "format";
   category: string;
 }
 
@@ -15,7 +15,11 @@ interface CitationChipProps {
 }
 
 export const CitationChip = ({ citation, onRemove, className }: CitationChipProps) => {
-  const Icon = citation.type === "reference_library" ? BookOpen : FileText;
+  const Icon = citation.type === "format" 
+    ? Wand2 
+    : citation.type === "reference_library" 
+      ? BookOpen 
+      : FileText;
   
   return (
     <span
