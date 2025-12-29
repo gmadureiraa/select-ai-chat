@@ -4,6 +4,8 @@ import { Calendar, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PlanningItemDialog } from "@/components/planning/PlanningItemDialog";
 import { usePlanningItems, CreatePlanningItemInput } from "@/hooks/usePlanningItems";
+import { useWorkspaceContext } from "@/contexts/WorkspaceContext";
+import { toast } from "sonner";
 
 interface AddToPlanningButtonProps {
   content: string;
@@ -46,9 +48,22 @@ export const AddToPlanningButton = ({
   mediaUrls = [],
 }: AddToPlanningButtonProps) => {
   const [showDialog, setShowDialog] = useState(false);
+  const { workspace } = useWorkspaceContext();
   const { columns, createItem, isLoading: isLoadingItems } = usePlanningItems();
 
+  const handleOpenDialog = () => {
+    if (!workspace?.id) {
+      toast.error("Workspace não encontrado. Por favor, recarregue a página.");
+      return;
+    }
+    setShowDialog(true);
+  };
+
   const handleSave = async (data: CreatePlanningItemInput) => {
+    if (!workspace?.id) {
+      toast.error("Workspace não encontrado");
+      return;
+    }
     await createItem.mutateAsync(data);
     setShowDialog(false);
   };
@@ -57,13 +72,15 @@ export const AddToPlanningButton = ({
   const ideaColumn = columns.find(c => c.column_type === 'idea');
   const detectedPlatform = platform || detectPlatformFromContent(content);
 
+  const isDisabled = isLoadingItems || !workspace?.id;
+
   return (
     <>
       <Button
         variant="outline"
         size="sm"
-        onClick={() => setShowDialog(true)}
-        disabled={isLoadingItems}
+        onClick={handleOpenDialog}
+        disabled={isDisabled}
         className={cn(
           "h-7 text-xs gap-1.5 bg-gradient-to-r from-emerald-500/5 to-emerald-500/10 border-emerald-500/20",
           "hover:from-emerald-500/10 hover:to-emerald-500/20 hover:border-emerald-500/40"

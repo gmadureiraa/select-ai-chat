@@ -8,34 +8,81 @@ interface ImageActionButtonsProps {
   onGenerateImage: (prompt: string) => void;
   onRequestIdeas: (prompt: string) => void;
   isLoading?: boolean;
+  platform?: string;
+  clientName?: string;
 }
+
+// Helper to get format dimensions based on platform
+const getFormatForPlatform = (platform?: string): string => {
+  switch (platform?.toLowerCase()) {
+    case "instagram":
+      return "formato quadrado 1:1 (1080x1080px) para feed do Instagram";
+    case "linkedin":
+      return "formato horizontal 1.91:1 (1200x628px) para LinkedIn";
+    case "twitter":
+      return "formato horizontal 16:9 (1200x675px) para Twitter/X";
+    case "youtube":
+      return "formato horizontal 16:9 (1280x720px) para thumbnail do YouTube";
+    case "tiktok":
+      return "formato vertical 9:16 (1080x1920px) para TikTok/Reels";
+    case "newsletter":
+    case "blog":
+      return "formato horizontal 16:9 (1200x675px) para blog/newsletter";
+    default:
+      return "formato quadrado 1:1 otimizado para redes sociais";
+  }
+};
 
 export const ImageActionButtons = ({
   postContent,
   onGenerateImage,
   onRequestIdeas,
   isLoading = false,
+  platform,
+  clientName,
 }: ImageActionButtonsProps) => {
   const [mode, setMode] = useState<"idle" | "generating" | "ideas">("idle");
 
+  const formatSpec = getFormatForPlatform(platform);
+  const platformName = platform ? platform.charAt(0).toUpperCase() + platform.slice(1) : "rede social";
+
   const handleGenerateImage = () => {
     setMode("generating");
-    const prompt = `Gere uma imagem complementar para este post de rede social. A imagem deve ser visual e criativa, SEM texto ou título na imagem, apenas elementos visuais que representem o conteúdo. Estilo moderno e profissional.
+    const prompt = `Gere uma imagem complementar para este post de ${platformName}.
 
-Conteúdo do post:
-${postContent.substring(0, 500)}`;
+FORMATO OBRIGATÓRIO:
+- ${formatSpec}
+
+ESTILO E IDENTIDADE:
+${clientName ? `- Siga a identidade visual da marca "${clientName}"` : "- Estilo moderno e profissional"}
+- Cores e elementos visuais que combinem com a marca
+- Visual clean, impactante e atual
+
+IMPORTANTE:
+- NÃO incluir texto, títulos ou palavras na imagem
+- A imagem deve ser 100% visual, complementando o texto abaixo
+- Represente o tema e a mensagem de forma criativa e visual
+
+CONTEÚDO A SER COMPLEMENTADO:
+${postContent.substring(0, 600)}`;
     
     onGenerateImage(prompt);
   };
 
   const handleRequestIdeas = () => {
     setMode("ideas");
-    const prompt = `Me dê 4 ideias de imagens criativas para acompanhar este post de rede social. Cada ideia deve:
-- Ser visual e complementar ao texto (sem texto na imagem)
-- Representar o conteúdo de forma criativa
-- Seguir tendências visuais modernas
+    const prompt = `Me dê 4 ideias de imagens criativas para acompanhar este post de ${platformName}. 
 
-Conteúdo do post:
+FORMATO: ${formatSpec}
+${clientName ? `MARCA: ${clientName}` : ""}
+
+Cada ideia deve:
+- Ser 100% visual (sem texto na imagem)
+- Complementar o conteúdo abaixo
+- Seguir tendências visuais modernas
+- Ser adaptada para o formato especificado
+
+CONTEÚDO DO POST:
 ${postContent.substring(0, 500)}
 
 Liste as 4 ideias de forma breve e objetiva, numeradas.`;
