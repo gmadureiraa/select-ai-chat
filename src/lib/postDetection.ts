@@ -13,7 +13,7 @@ export interface DetectedCarousel {
 // Patterns to detect social media posts
 const platformPatterns: Record<PostPlatform, RegExp[]> = {
   twitter: [
-    /tweet\s*:/i,
+    /^tweet\s*:/im,
     /twitter\s*:/i,
     /para\s+o?\s*(twitter|x)\s*:/i,
     /post\s+no\s+(twitter|x)/i,
@@ -33,6 +33,19 @@ const platformPatterns: Record<PostPlatform, RegExp[]> = {
     /---\s*LINKEDIN\s*---/i,
   ],
 };
+
+// Check if content looks like a short tweet (<=280 chars, single block)
+function isLikelyTweet(content: string): boolean {
+  const cleanContent = content.trim();
+  // If it's short, doesn't have multiple paragraphs, and doesn't look like other formats
+  if (cleanContent.length <= 280 && !cleanContent.includes('\n\n') && !cleanContent.includes('##')) {
+    // Make sure it's not a question or instruction
+    if (!cleanContent.endsWith('?') && !cleanContent.includes('você') && !cleanContent.includes('precisa')) {
+      return true;
+    }
+  }
+  return false;
+}
 
 // Detect if content contains a social media post
 export function detectSocialPost(content: string): DetectedPost | null {
@@ -67,6 +80,15 @@ export function detectSocialPost(content: string): DetectedPost | null {
       }
     }
   }
+  
+  // Fallback: check if the entire content looks like a short tweet
+  if (isLikelyTweet(content)) {
+    return {
+      platform: "twitter",
+      content: content.trim(),
+    };
+  }
+  
   return null;
 }
 

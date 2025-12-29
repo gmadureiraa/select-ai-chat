@@ -411,6 +411,17 @@ export function SocialIntegrationsTab({ clientId }: SocialIntegrationsTabProps) 
               </div>
             ) : (
               <div className="space-y-4">
+                <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-sm space-y-2">
+                  <p className="font-medium text-amber-600 dark:text-amber-400">⚠️ Configuração obrigatória no Twitter Developer Portal:</p>
+                  <ol className="list-decimal list-inside text-muted-foreground space-y-1 text-xs">
+                    <li>Acesse <a href="https://developer.twitter.com/en/portal/projects-and-apps" target="_blank" rel="noopener noreferrer" className="text-primary underline">Projects & Apps</a> e selecione seu app</li>
+                    <li>Vá em <strong>"User authentication settings"</strong> e clique em <strong>"Set up"</strong></li>
+                    <li>Selecione <strong>"Read and write"</strong> em App Permissions</li>
+                    <li>Após salvar, vá em <strong>"Keys and tokens"</strong></li>
+                    <li><strong>Regenere</strong> o Access Token e Access Token Secret</li>
+                    <li>Use os tokens regenerados abaixo</li>
+                  </ol>
+                </div>
                 <p className="text-sm text-muted-foreground">
                   Configure as credenciais da Twitter API v2. Você pode obter essas chaves no{" "}
                   <a 

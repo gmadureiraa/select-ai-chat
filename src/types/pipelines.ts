@@ -351,10 +351,13 @@ REGRAS ABSOLUTAS:
 - Corrija erros ortográficos se houver
 - Melhore o engajamento se possível
 
-FORMATO DE SAÍDA:
-Retorne APENAS o tweet final, pronto para publicação.
-NÃO inclua explicações, checklists, regras ou comentários.
-Apenas o texto do tweet.`
+FORMATO DE SAÍDA OBRIGATÓRIO:
+Tweet: [conteúdo do tweet aqui]
+
+EXEMPLO:
+Tweet: A maior mentira que te contaram foi que você precisa escolher entre fazer o que ama e ganhar dinheiro.
+
+IMPORTANTE: Retorne APENAS no formato acima. Nada mais.`
     }
   ]
 };
