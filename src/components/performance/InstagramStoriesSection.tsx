@@ -1,15 +1,18 @@
 import { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Eye, Target, Heart, MessageCircle, Share2, ArrowRight, ArrowLeft, LogOut, Play, Image as ImageIcon } from "lucide-react";
+import { Eye, Target, Heart, MessageCircle, Share2, ArrowRight, ArrowLeft, LogOut, Play, Image as ImageIcon, Upload } from "lucide-react";
 import { InstagramStory } from "@/hooks/useInstagramStories";
 import { format, parseISO, isAfter, startOfDay, subDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import { InstagramStoriesCSVUpload } from "./InstagramStoriesCSVUpload";
 
 interface InstagramStoriesSectionProps {
   stories: InstagramStory[];
   isLoading?: boolean;
   period?: string;
+  clientId: string;
+  onRefresh?: () => void;
 }
 
 const formatNumber = (num?: number | null) => {
@@ -32,7 +35,9 @@ const MetricRow = ({ icon: Icon, label, value }: { icon: any; label: string; val
 export function InstagramStoriesSection({ 
   stories, 
   isLoading,
-  period = "30"
+  period = "30",
+  clientId,
+  onRefresh,
 }: InstagramStoriesSectionProps) {
   // Filter stories by period
   const filteredStories = useMemo(() => {
@@ -76,7 +81,10 @@ export function InstagramStoriesSection({
     return (
       <Card className="border-border/50">
         <CardHeader>
-          <CardTitle className="text-lg">Stories</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-lg">Stories</CardTitle>
+            <InstagramStoriesCSVUpload clientId={clientId} onSuccess={onRefresh} />
+          </div>
         </CardHeader>
         <CardContent>
           <div className="text-center py-12 text-muted-foreground">
@@ -94,17 +102,20 @@ export function InstagramStoriesSection({
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <CardTitle className="text-lg">Stories</CardTitle>
-          <div className="flex items-center gap-4 text-sm">
-            <div className="flex items-center gap-2">
-              <Eye className="h-4 w-4 text-muted-foreground" />
-              <span className="font-medium">{formatNumber(stats.totalViews)}</span>
-              <span className="text-muted-foreground text-xs">views</span>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-4 text-sm">
+              <div className="flex items-center gap-2">
+                <Eye className="h-4 w-4 text-muted-foreground" />
+                <span className="font-medium">{formatNumber(stats.totalViews)}</span>
+                <span className="text-muted-foreground text-xs">views</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Target className="h-4 w-4 text-muted-foreground" />
+                <span className="font-medium">{formatNumber(stats.totalReach)}</span>
+                <span className="text-muted-foreground text-xs">alcance</span>
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <Target className="h-4 w-4 text-muted-foreground" />
-              <span className="font-medium">{formatNumber(stats.totalReach)}</span>
-              <span className="text-muted-foreground text-xs">alcance</span>
-            </div>
+            <InstagramStoriesCSVUpload clientId={clientId} onSuccess={onRefresh} />
           </div>
         </div>
       </CardHeader>

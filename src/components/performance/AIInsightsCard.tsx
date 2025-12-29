@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Lightbulb, Sparkles, Loader2, RefreshCw } from "lucide-react";
+import { Lightbulb, Sparkles, Loader2, RefreshCw, MessageSquare, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { InstagramPost } from "@/hooks/useInstagramPosts";
 import { PerformanceMetrics } from "@/hooks/usePerformanceMetrics";
@@ -7,6 +7,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 interface AIInsightsCardProps {
   clientId: string;
@@ -14,6 +17,9 @@ interface AIInsightsCardProps {
   posts: InstagramPost[];
   metrics: PerformanceMetrics[];
   periodLabel?: string;
+  platform?: string;
+  startDate?: Date;
+  endDate?: Date;
 }
 
 export function AIInsightsCard({ 
@@ -21,11 +27,20 @@ export function AIInsightsCard({
   clientName,
   posts, 
   metrics,
-  periodLabel = "Período selecionado"
+  periodLabel,
+  platform = "instagram",
+  startDate,
+  endDate,
 }: AIInsightsCardProps) {
   const [insights, setInsights] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
+  const formattedPeriod = startDate && endDate
+    ? `${format(startDate, "dd MMM", { locale: ptBR })} - ${format(endDate, "dd MMM yyyy", { locale: ptBR })}`
+    : periodLabel || "Período selecionado";
 
   const generateInsights = async () => {
     if (posts.length === 0 && metrics.length === 0) {
@@ -82,7 +97,10 @@ export function AIInsightsCard({
           clientId, 
           clientName: clientName || "Cliente",
           context,
-          periodLabel,
+          periodLabel: formattedPeriod,
+          platform,
+          startDate: startDate?.toISOString(),
+          endDate: endDate?.toISOString(),
         }
       });
 
@@ -113,6 +131,14 @@ export function AIInsightsCard({
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleOpenInAssistant = () => {
+    const message = `Baseado nesses insights de performance do ${platform === "instagram" ? "Instagram" : "YouTube"} (${formattedPeriod}):\n\n${insights}\n\nGere 5 ideias de conteúdo criativas para melhorar nosso engajamento.`;
+    
+    navigate(`/kaleidos?client=${clientId}&tab=assistant`, {
+      state: { pendingMessage: message }
+    });
   };
 
   return (
@@ -170,18 +196,43 @@ export function AIInsightsCard({
         )}
 
         {insights && !isLoading && (
-          <div className="prose prose-sm dark:prose-invert max-w-none">
-            <ReactMarkdown
-              components={{
-                p: ({ children }) => <p className="text-sm text-foreground/90 mb-3">{children}</p>,
-                strong: ({ children }) => <strong className="text-foreground font-semibold">{children}</strong>,
-                ul: ({ children }) => <ul className="list-disc pl-4 space-y-1 text-sm">{children}</ul>,
-                ol: ({ children }) => <ol className="list-decimal pl-4 space-y-1 text-sm">{children}</ol>,
-                li: ({ children }) => <li className="text-foreground/90">{children}</li>,
-              }}
+          <div className="space-y-4">
+            <div className="text-xs text-muted-foreground font-medium uppercase tracking-wide">
+              {platform === "instagram" ? "Instagram" : "YouTube"} • {formattedPeriod}
+            </div>
+            <div className="prose prose-sm dark:prose-invert max-w-none">
+              <ReactMarkdown
+                components={{
+                  p: ({ children }) => <p className="text-sm text-foreground/90 mb-3">{children}</p>,
+                  strong: ({ children }) => <strong className="text-foreground font-semibold">{children}</strong>,
+                  ul: ({ children }) => <ul className="list-disc pl-4 space-y-1 text-sm">{children}</ul>,
+                  ol: ({ children }) => <ol className="list-decimal pl-4 space-y-1 text-sm">{children}</ol>,
+                  li: ({ children }) => <li className="text-foreground/90">{children}</li>,
+                  a: ({ href, children }) => (
+                    <a 
+                      href={href} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-primary hover:underline inline-flex items-center gap-1"
+                    >
+                      {children}
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
+                  ),
+                }}
+              >
+                {insights}
+              </ReactMarkdown>
+            </div>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={handleOpenInAssistant}
+              className="w-full gap-2"
             >
-              {insights}
-            </ReactMarkdown>
+              <MessageSquare className="h-4 w-4" />
+              Gerar ideias com IA
+            </Button>
           </div>
         )}
       </div>

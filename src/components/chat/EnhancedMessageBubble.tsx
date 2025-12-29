@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import { User, Sparkles, ZoomIn, FileDown, FileText, BookOpen, Wand2, Lightbulb } from "lucide-react";
+import { User, Sparkles, ZoomIn, FileDown, FileText, BookOpen, Wand2, Lightbulb, RefreshCw, CalendarPlus } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import kaleidosLogo from "@/assets/kaleidos-logo.svg";
 import { MessageActions } from "@/components/MessageActions";
@@ -88,8 +88,11 @@ export const EnhancedMessageBubble = ({
     return parseContentForPosts(content);
   }, [content, isUser]);
 
+  // Check if content is substantial (could be a post or content worth action)
+  const isSubstantialContent = !isUser && content.length > 100;
+
   // Check if this is a social media post that could use image generation
-  const showImageActions = !isUser && detectedPosts.length > 0 && onSendMessage;
+  const showImageActions = isSubstantialContent && onSendMessage;
 
   // Check if this is a generated image message
   const isGeneratedImageMessage = !isUser && hasImages && (content.includes("Imagem gerada") || isGeneratedImage);
@@ -266,6 +269,32 @@ export const EnhancedMessageBubble = ({
                   )}
                 </div>
               ))}
+            </div>
+          )}
+
+          {/* Action buttons for substantial content without detected posts */}
+          {isSubstantialContent && detectedPosts.length === 0 && onSendMessage && (
+            <div className="flex items-center gap-2 flex-wrap animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <ImageActionButtons
+                postContent={content.substring(0, 500)}
+                onGenerateImage={handleGenerateImage}
+                onRequestIdeas={handleRequestIdeas}
+              />
+              <AddToPlanningButton
+                content={content}
+                clientId={clientId}
+                clientName={clientName}
+                mediaUrls={hasImages ? imageUrls : undefined}
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onSendMessage(`Revise e melhore este conteúdo, mantendo a essência mas tornando-o mais engajante:\n\n${content.substring(0, 1000)}`)}
+                className="h-7 text-xs gap-1.5"
+              >
+                <RefreshCw className="h-3 w-3" />
+                Revisar
+              </Button>
             </div>
           )}
 
