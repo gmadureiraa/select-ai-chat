@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Users, Heart, MessageCircle, Eye, Bookmark, Upload, Calendar, Share2, Target, ChevronDown, TrendingUp, Settings } from "lucide-react";
+import { Users, Heart, MessageCircle, Eye, Bookmark, Upload, Calendar, Share2, Target, TrendingUp, Settings } from "lucide-react";
 import { GoalsPanel } from "./GoalsPanel";
 import { InstagramPost } from "@/hooks/useInstagramPosts";
 import { PerformanceMetrics } from "@/hooks/usePerformanceMetrics";
@@ -23,7 +23,6 @@ import { BestPostsByMetric } from "./BestPostsByMetric";
 import { InstagramStoriesSection } from "./InstagramStoriesSection";
 import { InstagramStoriesCSVUpload } from "./InstagramStoriesCSVUpload";
 import { useInstagramStories } from "@/hooks/useInstagramStories";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { format, subDays, isAfter, parseISO, startOfDay, getDay, getHours } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -63,7 +62,6 @@ export function InstagramDashboard({
   const [period, setPeriod] = useState("30");
   const [selectedMetric, setSelectedMetric] = useState("views");
   const [showUploadPosts, setShowUploadPosts] = useState(false);
-  const [showUploadStories, setShowUploadStories] = useState(false);
   const [topPostsMetric, setTopPostsMetric] = useState("engagement");
   
   const { goals } = usePerformanceGoals(clientId);
@@ -414,40 +412,21 @@ export function InstagramDashboard({
               ))}
             </SelectContent>
           </Select>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="border-border/50">
-                <Upload className="h-4 w-4 mr-2" />
-                Importar
-                <ChevronDown className="h-4 w-4 ml-2" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => setShowUploadPosts(!showUploadPosts)}>
-                Importar Posts
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setShowUploadStories(!showUploadStories)}>
-                Importar Stories
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <Button 
+            variant="outline" 
+            className="border-border/50"
+            onClick={() => setShowUploadPosts(!showUploadPosts)}
+          >
+            <Upload className="h-4 w-4 mr-2" />
+            Importar CSV
+          </Button>
         </div>
       </div>
 
-      {/* CSV Upload - Posts */}
+      {/* CSV Upload - Smart (detecta automaticamente Posts ou Stories) */}
       <Collapsible open={showUploadPosts} onOpenChange={setShowUploadPosts}>
         <CollapsibleContent className="pt-2">
           <SmartCSVUpload clientId={clientId} platform="instagram" />
-        </CollapsibleContent>
-      </Collapsible>
-
-      {/* CSV Upload - Stories */}
-      <Collapsible open={showUploadStories} onOpenChange={setShowUploadStories}>
-        <CollapsibleContent className="pt-2">
-          <InstagramStoriesCSVUpload clientId={clientId} onSuccess={() => {
-            refetchStories?.();
-            setShowUploadStories(false);
-          }} />
         </CollapsibleContent>
       </Collapsible>
 

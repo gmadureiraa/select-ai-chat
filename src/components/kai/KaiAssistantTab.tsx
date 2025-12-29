@@ -12,6 +12,20 @@ import { ChatOptionsSidebar } from "@/components/assistant/ChatOptionsSidebar";
 import { Client } from "@/hooks/useClients";
 import KaleidosLogo from "@/assets/kaleidos-logo.svg";
 import { cn } from "@/lib/utils";
+import { deleteConversation } from "@/hooks/useConversationHistory";
+import { useQueryClient } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 interface KaiAssistantTabProps {
   clientId: string;
@@ -23,6 +37,8 @@ export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [showSidebar, setShowSidebar] = useState(true);
   const [activeConversationId, setActiveConversationId] = useState<string | undefined>(undefined);
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   const {
     messages,
@@ -65,9 +81,25 @@ export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
     await sendMessage(content, images, quality, mode, citations);
   };
 
-  const handleClearConversation = async () => {
-    await clearConversation();
-    // Mantém na mesma conversa, apenas limpa as mensagens
+  const handleDeleteConversation = async () => {
+    if (!conversationId) return;
+    
+    try {
+      await deleteConversation(conversationId);
+      setActiveConversationId(undefined);
+      queryClient.invalidateQueries({ queryKey: ["conversation-history", clientId] });
+      toast({
+        title: "Conversa apagada",
+        description: "A conversa foi removida permanentemente.",
+      });
+    } catch (error) {
+      console.error("Error deleting conversation:", error);
+      toast({
+        title: "Erro ao apagar",
+        description: "Não foi possível apagar a conversa.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleNewChat = () => {
@@ -116,15 +148,32 @@ export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
           </div>
 
           {conversationId && messages.length > 0 && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleClearConversation}
-              className="text-muted-foreground hover:text-destructive h-7 px-2 shrink-0"
-            >
-              <Trash2 className="h-3.5 w-3.5 mr-1" />
-              <span className="text-xs">Limpar</span>
-            </Button>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-muted-foreground hover:text-destructive h-7 px-2 shrink-0"
+                >
+                  <Trash2 className="h-3.5 w-3.5 mr-1" />
+                  <span className="text-xs">Apagar</span>
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Apagar conversa?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Esta ação não pode ser desfeita. A conversa e todas as mensagens serão removidas permanentemente.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleDeleteConversation} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                    Apagar
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           )}
         </div>
 

@@ -56,3 +56,21 @@ export const updateConversationTitle = async (
 
   if (error) throw error;
 };
+
+export const deleteConversation = async (conversationId: string) => {
+  // Primeiro deleta as mensagens (FK constraint)
+  const { error: messagesError } = await supabase
+    .from("messages")
+    .delete()
+    .eq("conversation_id", conversationId);
+
+  if (messagesError) throw messagesError;
+
+  // Depois deleta a conversa
+  const { error: conversationError } = await supabase
+    .from("conversations")
+    .delete()
+    .eq("id", conversationId);
+
+  if (conversationError) throw conversationError;
+};
