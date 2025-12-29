@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverAnchor } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
-import { FileText, BookOpen, ScrollText, Video, Image, Mic, Mail, Sparkles, PenTool, MessageSquare, Send, Wand2 } from "lucide-react";
+import { FileText, BookOpen, ScrollText, Video, Image, Mic, Mail, Sparkles, PenTool, MessageSquare, Send, Wand2, Lightbulb } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export interface CitationItem {
@@ -50,6 +50,7 @@ const categoryIcons: Record<string, React.ElementType> = {
   reference: BookOpen,
   instagram_post: Send,
   format: Wand2,
+  ideias: Lightbulb,
 };
 
 const categoryColors: Record<string, string> = {
@@ -68,10 +69,12 @@ const categoryColors: Record<string, string> = {
   reference: "bg-slate-500/10 text-slate-600 border-slate-500/20",
   instagram_post: "bg-gradient-to-r from-purple-500/10 to-pink-500/10 text-pink-600 border-pink-500/20",
   format: "bg-primary/10 text-primary border-primary/20",
+  ideias: "bg-amber-500/10 text-amber-600 border-amber-500/20",
 };
 
 // Pre-defined content formats
 const contentFormats: CitationItem[] = [
+  { id: "format_ideias", title: "Ideias", type: "format", category: "ideias", preview: "Gerar ideias criativas baseadas na biblioteca" },
   { id: "format_newsletter", title: "Newsletter", type: "format", category: "format", preview: "E-mail editorial com seções e CTAs" },
   { id: "format_carrossel", title: "Carrossel", type: "format", category: "format", preview: "Slides visuais para Instagram/LinkedIn" },
   { id: "format_thread", title: "Thread", type: "format", category: "format", preview: "Série de tweets conectados" },

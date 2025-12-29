@@ -157,6 +157,20 @@ export const FloatingInput = ({
     setCitations((prev) => prev.filter((c) => c.id !== id));
   }, []);
 
+  // Determinar modo baseado nas citações
+  const getEffectiveModeFromCitations = useCallback((citationList: Citation[]): ChatMode => {
+    // Se tem @ideias, modo ideias
+    const hasIdeasCitation = citationList.some(c => c.id === "format_ideias" || c.category === "ideias");
+    if (hasIdeasCitation) return "ideas";
+    
+    // Se tem algum formato (exceto ideias), modo conteúdo
+    const hasFormatCitation = citationList.some(c => c.type === "format" && c.category !== "ideias");
+    if (hasFormatCitation) return "content";
+    
+    // Se não tem formato, mas pode ter itens de biblioteca, chat livre
+    return "free_chat";
+  }, []);
+
   const handleSubmit = async () => {
     const trimmed = input.trim();
     if ((!trimmed && imageFiles.length === 0 && citations.length === 0) || disabled || trimmed.length > maxChars) {
@@ -187,9 +201,20 @@ export const FloatingInput = ({
       setUploadingImages(false);
     }
 
-    const effectiveMode = templateType === "free_chat" ? "free_chat" : 
-                          templateType === "image" ? "image" : mode;
-    const quality = templateType === "image" ? "high" : (modeConfig[effectiveMode as keyof typeof modeConfig]?.quality || "fast");
+    // Determinar modo baseado nas citações se não for template de imagem
+    let effectiveMode: ChatMode;
+    if (templateType === "image") {
+      effectiveMode = "image";
+    } else if (citations.length > 0) {
+      // Se tem citações, o modo é determinado por elas
+      effectiveMode = getEffectiveModeFromCitations(citations);
+    } else {
+      // Sem citações = chat livre
+      effectiveMode = "free_chat";
+    }
+    
+    const quality = templateType === "image" ? "high" : 
+                    effectiveMode === "content" ? "high" : "fast";
     
     onSend(trimmed || "Analise esta imagem", imageUrls, quality, effectiveMode, citations.length > 0 ? citations : undefined);
     setInput("");
@@ -383,29 +408,14 @@ export const FloatingInput = ({
         </div>
       </div>
 
-      {/* Mode Selector Pills - Only for content templates (NOT for image templates) */}
+      {/* Mode indicator based on citations */}
       {templateType === "content" && (
-        <div className="flex items-center justify-center gap-1.5">
-          {(["content", "ideas", "free_chat"] as ChatMode[]).map((m) => {
-            const config = modeConfig[m];
-            const Icon = config.icon;
-            return (
-              <button
-                key={m}
-                onClick={() => setMode(m)}
-                disabled={disabled}
-                className={cn(
-                  "flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all",
-                  mode === m
-                    ? "bg-muted text-foreground"
-                    : "text-muted-foreground/60 hover:text-muted-foreground hover:bg-muted/30"
-                )}
-              >
-                <Icon className="h-3 w-3" />
-                {config.label}
-              </button>
-            );
-          })}
+        <div className="flex items-center justify-center">
+          <div className="text-[10px] text-muted-foreground/60 flex items-center gap-1">
+            <span>Use</span>
+            <span className="font-medium text-foreground/80">@</span>
+            <span>para marcar formatos ou biblioteca</span>
+          </div>
         </div>
       )}
 
