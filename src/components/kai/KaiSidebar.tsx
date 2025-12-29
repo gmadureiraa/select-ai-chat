@@ -17,7 +17,8 @@ import {
   HelpCircle,
   Building2,
   CalendarDays,
-  Zap
+  Zap,
+  FileText
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useClients } from "@/hooks/useClients";
@@ -345,6 +346,15 @@ export function KaiSidebar({
                 label="Automações"
                 active={activeTab === "automations"}
                 onClick={() => onTabChange("automations")}
+                collapsed={collapsed}
+              />
+              
+              {/* Regras de Formato - visível para todos */}
+              <NavItem
+                icon={<FileText className="h-4 w-4" />}
+                label="Regras de Formato"
+                active={activeTab === "format-rules"}
+                onClick={() => onTabChange("format-rules")}
                 collapsed={collapsed}
               />
             </div>

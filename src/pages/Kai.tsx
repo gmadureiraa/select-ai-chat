@@ -11,6 +11,7 @@ import { ActivitiesTool } from "@/components/kai/tools/ActivitiesTool";
 import { TeamTool } from "@/components/kai/tools/TeamTool";
 import { ClientsManagementTool } from "@/components/kai/tools/ClientsManagementTool";
 import { PlanningBoard } from "@/components/planning/PlanningBoard";
+import { FormatRulesTool } from "@/components/tools/FormatRulesTool";
 import { EnterpriseLockScreen } from "@/components/shared/EnterpriseLockScreen";
 import { useClients } from "@/hooks/useClients";
 import { useWorkspace } from "@/hooks/useWorkspace";
@@ -111,7 +112,7 @@ export default function Kai() {
     }
 
     // Tools that don't need client
-    const toolTabs = ["knowledge-base", "activities", "team", "clients", "account", "automations"];
+    const toolTabs = ["knowledge-base", "activities", "team", "clients", "account", "automations", "format-rules"];
     
     if (toolTabs.includes(tab)) {
       switch (tab) {
@@ -123,6 +124,8 @@ export default function Kai() {
           return <TeamTool />;
         case "clients":
           return <ClientsManagementTool />;
+        case "format-rules":
+          return <FormatRulesTool />;
         case "automations":
           return (
             <div className="p-6 overflow-auto h-full">

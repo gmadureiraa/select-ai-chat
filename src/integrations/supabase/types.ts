@@ -912,6 +912,53 @@ export type Database = {
           },
         ]
       }
+      format_rules: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          format_id: string
+          id: string
+          is_system: boolean | null
+          name: string
+          prompt_template: string | null
+          rules: Json
+          updated_at: string | null
+          workspace_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          format_id: string
+          id?: string
+          is_system?: boolean | null
+          name: string
+          prompt_template?: string | null
+          rules?: Json
+          updated_at?: string | null
+          workspace_id: string
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          format_id?: string
+          id?: string
+          is_system?: boolean | null
+          name?: string
+          prompt_template?: string | null
+          rules?: Json
+          updated_at?: string | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "format_rules_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       global_knowledge: {
         Row: {
           category: Database["public"]["Enums"]["knowledge_category"]

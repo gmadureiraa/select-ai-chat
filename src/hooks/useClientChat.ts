@@ -340,13 +340,14 @@ export const useClientChat = (clientId: string, templateId?: string, conversatio
         : null;
 
       // Save user message with citations in payload
+      // Note: Using type assertion because payload column exists in DB but not in auto-generated types
       const { error: insertError } = await supabase.from("messages").insert({
         conversation_id: conversationId,
         role: "user",
         content,
         image_urls: imageUrls || null,
         payload: messagePayload,
-      });
+      } as any);
 
       if (insertError) throw insertError;
 
