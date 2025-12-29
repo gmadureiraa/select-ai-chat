@@ -1,8 +1,16 @@
+import { Citation } from "@/components/chat/CitationChip";
+
+export interface MessagePayload {
+  citations?: Citation[];
+  [key: string]: unknown;
+}
+
 export interface Message {
   id?: string;
   role: "user" | "assistant";
   content: string;
   image_urls?: string[] | null;
+  payload?: MessagePayload | null;
   created_at?: string;
   conversation_id?: string;
   isGeneratedImage?: boolean; // Flag para identificar imagens geradas por IA

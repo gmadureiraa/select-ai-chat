@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import { User, Sparkles, ZoomIn, FileDown, Image as ImageIcon } from "lucide-react";
+import { User, Sparkles, ZoomIn, FileDown, FileText, BookOpen, Wand2, Lightbulb } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import kaleidosLogo from "@/assets/kaleidos-logo.svg";
 import { MessageActions } from "@/components/MessageActions";
@@ -19,11 +19,14 @@ import jsPDF from "jspdf";
 import { useToast } from "@/hooks/use-toast";
 import { PostPreviewCard } from "@/components/posts";
 import { parseContentForPosts } from "@/lib/postDetection";
+import { Citation } from "@/components/chat/CitationChip";
+import { MessagePayload } from "@/types/chat";
 
 interface EnhancedMessageBubbleProps {
   role: "user" | "assistant";
   content: string;
   imageUrls?: string[] | null;
+  payload?: MessagePayload | null;
   isGeneratedImage?: boolean;
   onRegenerate?: () => void;
   isLastMessage?: boolean;
@@ -33,10 +36,27 @@ interface EnhancedMessageBubbleProps {
   onSendMessage?: (content: string, images?: string[], quality?: "fast" | "high") => void;
 }
 
+// Helper to get citation icon
+const getCitationIcon = (citation: Citation) => {
+  if (citation.category === "ideias") return Lightbulb;
+  if (citation.type === "format") return Wand2;
+  if (citation.type === "reference_library") return BookOpen;
+  return FileText;
+};
+
+// Helper to get citation color class
+const getCitationColorClass = (citation: Citation) => {
+  if (citation.category === "ideias") return "bg-amber-500/10 text-amber-600 border-amber-500/20";
+  if (citation.type === "format") return "bg-primary/10 text-primary border-primary/20";
+  if (citation.type === "reference_library") return "bg-slate-500/10 text-slate-600 border-slate-500/20";
+  return "bg-blue-500/10 text-blue-600 border-blue-500/20";
+};
+
 export const EnhancedMessageBubble = ({ 
   role, 
   content,
   imageUrls,
+  payload,
   isGeneratedImage,
   onRegenerate,
   isLastMessage,
@@ -52,6 +72,9 @@ export const EnhancedMessageBubble = ({
   const hasImages = imageUrls && imageUrls.length > 0;
   const isSingleImage = hasImages && imageUrls.length === 1;
   const isMultipleImages = hasImages && imageUrls.length > 1;
+
+  // Extract citations from payload
+  const citations = payload?.citations || [];
 
   // Parse content for artifacts
   const { textContent, artifacts } = useMemo(() => {
@@ -148,6 +171,27 @@ export const EnhancedMessageBubble = ({
         )}
         
         <div className="flex flex-col gap-3 max-w-[85%] min-w-0">
+          {/* Citations - mostrar chips das citações em mensagens do usuário */}
+          {isUser && citations.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {citations.map((citation) => {
+                const Icon = getCitationIcon(citation);
+                return (
+                  <span
+                    key={citation.id}
+                    className={cn(
+                      "inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium border",
+                      getCitationColorClass(citation)
+                    )}
+                  >
+                    <Icon className="h-3 w-3 shrink-0" />
+                    <span className="truncate max-w-[150px]">{citation.title}</span>
+                  </span>
+                );
+              })}
+            </div>
+          )}
+
           {/* Imagens */}
           {hasImages && (
             <div className={cn(

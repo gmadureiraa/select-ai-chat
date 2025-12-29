@@ -334,12 +334,18 @@ export const useClientChat = (clientId: string, templateId?: string, conversatio
     console.log("[CHAT] Explicit mode:", explicitMode, "| isExplicitIdeaMode:", isExplicitIdeaMode, "| isFreeChatMode:", isFreeChatModeExplicit);
 
     try {
-      // Save user message
+      // Build payload with citations if they exist
+      const messagePayload = citations && citations.length > 0 
+        ? { citations } 
+        : null;
+
+      // Save user message with citations in payload
       const { error: insertError } = await supabase.from("messages").insert({
         conversation_id: conversationId,
         role: "user",
         content,
         image_urls: imageUrls || null,
+        payload: messagePayload,
       });
 
       if (insertError) throw insertError;
@@ -1534,11 +1540,38 @@ IMPORTANTE: O novo conteúdo deve parecer escrito pelo mesmo autor.`;
 
       // Detectar se usuário está pedindo ideias de forma inteligente
       const ideaRequest = parseIdeaRequest(content);
-      const isAskingForIdeas = ideaRequest.isIdea;
+      let isAskingForIdeas = ideaRequest.isIdea;
       const requestedQuantity = ideaRequest.quantity || 5;
 
-      // Detectar tipo de conteúdo automaticamente
-      const detectedType = ideaRequest.contentType || detectContentType(content) || selection.detected_content_type;
+      // NOVO: Detectar tipo de conteúdo a partir de citações de formato PRIMEIRO
+      const formatCitation = citations?.find(c => c.type === 'format' && c.id.startsWith('format_'));
+      let detectedTypeFromCitation: ContentFormatType | null = null;
+      
+      if (formatCitation) {
+        const formatMap: Record<string, ContentFormatType> = {
+          'format_tweet': 'tweet',
+          'format_thread': 'thread',
+          'format_carrossel': 'carousel',
+          'format_newsletter': 'newsletter',
+          'format_linkedin': 'linkedin_post',
+          'format_instagram': 'static_image',
+          'format_reels': 'short_video',
+          'format_blog': 'blog_post',
+          'format_stories': 'stories',
+        };
+        detectedTypeFromCitation = formatMap[formatCitation.id] || null;
+        console.log("[CHAT] Format detected from citation:", formatCitation.id, "->", detectedTypeFromCitation);
+      }
+      
+      // Detectar @ideias explicitamente
+      const ideaCitation = citations?.find(c => c.id === 'format_ideias' || c.category === 'ideias');
+      if (ideaCitation) {
+        isAskingForIdeas = true;
+        console.log("[CHAT] Ideas mode activated from citation");
+      }
+
+      // Priorizar: citação manual > detecção no texto > seleção automática
+      const detectedType = detectedTypeFromCitation || ideaRequest.contentType || detectContentType(content) || selection.detected_content_type;
 
       // Se é pedido de IDEIAS, aplicar regras específicas de ideias
       if (isAskingForIdeas) {
