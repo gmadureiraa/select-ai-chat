@@ -413,13 +413,20 @@ export function SocialIntegrationsTab({ clientId }: SocialIntegrationsTabProps) 
               <div className="space-y-4">
                 <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-sm space-y-2">
                   <p className="font-medium text-amber-600 dark:text-amber-400">⚠️ Configuração obrigatória no Twitter Developer Portal:</p>
-                  <ol className="list-decimal list-inside text-muted-foreground space-y-1 text-xs">
+                  <ol className="list-decimal list-inside text-muted-foreground space-y-1.5 text-xs">
                     <li>Acesse <a href="https://developer.twitter.com/en/portal/projects-and-apps" target="_blank" rel="noopener noreferrer" className="text-primary underline">Projects & Apps</a> e selecione seu app</li>
-                    <li>Vá em <strong>"User authentication settings"</strong> e clique em <strong>"Set up"</strong></li>
-                    <li>Selecione <strong>"Read and write"</strong> em App Permissions</li>
-                    <li>Após salvar, vá em <strong>"Keys and tokens"</strong></li>
-                    <li><strong>Regenere</strong> o Access Token e Access Token Secret</li>
-                    <li>Use os tokens regenerados abaixo</li>
+                    <li>Vá em <strong>"User authentication settings"</strong> e clique em <strong>"Set up"</strong> ou <strong>"Edit"</strong></li>
+                    <li>Configure assim:
+                      <ul className="list-disc list-inside ml-4 mt-1 space-y-0.5">
+                        <li><strong>App permissions:</strong> Read and write</li>
+                        <li><strong>Type of App:</strong> Web App, Automated App or Bot</li>
+                        <li><strong>Callback URI:</strong> <code className="bg-muted px-1 rounded">https://example.com/callback</code></li>
+                        <li><strong>Website URL:</strong> <code className="bg-muted px-1 rounded">https://example.com</code></li>
+                      </ul>
+                    </li>
+                    <li>Clique em <strong>"Save"</strong></li>
+                    <li>Vá em <strong>"Keys and tokens"</strong> e <strong>REGENERE</strong> o Access Token e Access Token Secret</li>
+                    <li>Use os <strong>tokens recém-regenerados</strong> abaixo (tokens antigos não funcionarão!)</li>
                   </ol>
                 </div>
                 <p className="text-sm text-muted-foreground">
