@@ -134,7 +134,12 @@ export function AIInsightsCard({
   };
 
   const handleOpenInAssistant = () => {
-    const message = `Baseado nesses insights de performance do ${platform === "instagram" ? "Instagram" : "YouTube"} (${formattedPeriod}):\n\n${insights}\n\nGere 5 ideias de conteúdo criativas para melhorar nosso engajamento.`;
+    // Truncate insights to prevent exceeding message limits
+    const truncatedInsights = insights && insights.length > 3000 
+      ? insights.slice(0, 3000) + "..."
+      : insights;
+    
+    const message = `Baseado nesses insights de performance do ${platform === "instagram" ? "Instagram" : "YouTube"} (${formattedPeriod}):\n\n${truncatedInsights}\n\nGere 5 ideias de conteúdo criativas para melhorar nosso engajamento.`;
     
     navigate(`/kaleidos?client=${clientId}&tab=assistant`, {
       state: { pendingMessage: message }
