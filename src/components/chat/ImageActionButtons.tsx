@@ -44,7 +44,7 @@ Liste as 4 ideias de forma breve e objetiva, numeradas.`;
   };
 
   return (
-    <div className="flex items-center gap-2 mt-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
+    <>
       <Button
         variant="outline"
         size="sm"
@@ -80,6 +80,6 @@ Liste as 4 ideias de forma breve e objetiva, numeradas.`;
         )}
         Ideias de imagem
       </Button>
-    </div>
+    </>
   );
 };

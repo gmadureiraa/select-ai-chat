@@ -5,6 +5,7 @@ import kaleidosLogo from "@/assets/kaleidos-logo.svg";
 import { MessageActions } from "@/components/MessageActions";
 import { ArtifactCard, parseArtifacts, ArtifactType } from "./ArtifactCard";
 import { ImageActionButtons } from "./ImageActionButtons";
+import { AddToPlanningButton } from "./AddToPlanningButton";
 import { useState, useMemo } from "react";
 import {
   Dialog,
@@ -196,13 +197,25 @@ export const EnhancedMessageBubble = ({
                     authorHandle={`@${clientName?.toLowerCase().replace(/\s+/g, "") || "handle"}`}
                     imageUrl={hasImages ? imageUrls?.[0] : undefined}
                   />
-                  {/* Image action buttons after each post */}
-                  {showImageActions && index === 0 && (
-                    <ImageActionButtons
-                      postContent={post.content}
-                      onGenerateImage={handleGenerateImage}
-                      onRequestIdeas={handleRequestIdeas}
-                    />
+                  {/* Action buttons after each post */}
+                  {index === 0 && (
+                    <div className="flex items-center gap-2 mt-2 flex-wrap animate-in fade-in slide-in-from-bottom-2 duration-300">
+                      {/* Image action buttons */}
+                      {showImageActions && (
+                        <ImageActionButtons
+                          postContent={post.content}
+                          onGenerateImage={handleGenerateImage}
+                          onRequestIdeas={handleRequestIdeas}
+                        />
+                      )}
+                      {/* Add to planning button */}
+                      <AddToPlanningButton
+                        content={post.content}
+                        platform={post.platform}
+                        clientId={clientId}
+                        clientName={clientName}
+                      />
+                    </div>
                   )}
                 </div>
               ))}
