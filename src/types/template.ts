@@ -409,6 +409,9 @@ export const TEMPLATE_NAME_TO_CONTENT_TYPE: Record<string, string> = {
   "Artigo Blog": "blog_post",
   "Estático": "static_image",
   "Post Estático": "static_image",
+  "Post Instagram": "instagram_post",
+  "Instagram Post": "instagram_post",
+  "Legenda Instagram": "instagram_post",
 };
 
 export const DEFAULT_IMAGE_RULES: string[] = [
@@ -1319,6 +1322,7 @@ export type ContentFormatType =
   | 'linkedin_post' 
   | 'newsletter'
   | 'blog_post'
+  | 'instagram_post'
   | 'other';
 
 export const getContentFormatRules = (contentType: ContentFormatType): string => {
@@ -1336,6 +1340,7 @@ export const getContentFormatRules = (contentType: ContentFormatType): string =>
     linkedin_post: LINKEDIN_FORMAT_RULES,
     newsletter: NEWSLETTER_FORMAT_RULES,
     blog_post: BLOG_POST_FORMAT_RULES,
+    instagram_post: CAPTION_FORMAT_RULES,
     other: '',
   };
 

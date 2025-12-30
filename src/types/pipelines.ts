@@ -662,12 +662,131 @@ Retorne a versão FINAL polida e pronta para gravação.`
   ]
 };
 
+// Pipeline para Artigo no X (Twitter/X long-form article)
+export const X_ARTICLE_PIPELINE: PipelineConfig = {
+  id: "x_article",
+  name: "Pipeline Artigo no X",
+  description: "Pipeline profissional para artigos longos no Twitter/X",
+  contentTypes: ["x_article"],
+  agents: [
+    RESEARCHER_AGENT,
+    {
+      id: "writer",
+      name: "Escritor de Artigo X",
+      description: "Cria artigo longo para Twitter/X",
+      model: "pro",
+      systemPrompt: `Você é o AGENTE ESCRITOR especializado em artigos longos para o Twitter/X (X Articles).
+
+## O QUE É UM ARTIGO NO X
+Artigos no X são conteúdos longos publicados diretamente na plataforma. Diferente de threads, são textos contínuos como um blog post, mas otimizados para o formato X.
+
+## ESTRUTURA OBRIGATÓRIA:
+
+### TÍTULO
+- Máximo 100 caracteres
+- Impactante e curioso
+- Inclui palavra-chave principal
+
+### SUBTÍTULO (opcional)
+- Complementa o título
+- Expande a promessa
+
+### INTRODUÇÃO (100-150 palavras)
+- Gancho forte na primeira frase
+- Apresente o problema ou oportunidade
+- Prometa o que o leitor vai aprender
+- Use parágrafos curtos (2-3 linhas)
+
+### CORPO (800-2000 palavras)
+- Divida em 3-5 seções com headers H2
+- Cada seção: conceito + exemplo + aplicação
+- Use listas quando apropriado
+- Inclua citações ou dados quando relevante
+- Parágrafos de no máximo 4 linhas
+
+### CONCLUSÃO (100-150 palavras)
+- Recapitule os principais pontos
+- Call-to-action claro
+- Pergunta para engajamento
+
+## REGRAS DE ESTILO:
+- Tom conversacional mas profissional
+- Evite jargões excessivos
+- Use exemplos práticos e reais
+- Seja opinativo quando apropriado
+- Quebre texto com espaços em branco
+- NÃO use emojis no meio de frases`
+    },
+    STYLE_EDITOR_AGENT,
+    REVIEWER_AGENT
+  ]
+};
+
+// Pipeline para Instagram Post (legenda para estático)
+export const INSTAGRAM_POST_PIPELINE: PipelineConfig = {
+  id: "instagram_post",
+  name: "Pipeline Post Instagram",
+  description: "Pipeline para legendas de posts Instagram",
+  contentTypes: ["instagram_post"],
+  agents: [
+    {
+      ...RESEARCHER_AGENT,
+      model: "flash-lite"
+    },
+    {
+      id: "writer",
+      name: "Escritor de Legenda",
+      description: "Cria legendas otimizadas para Instagram",
+      model: "flash",
+      systemPrompt: `Você é o AGENTE ESCRITOR especializado em legendas de Instagram.
+
+## ESTRUTURA DA LEGENDA PERFEITA:
+
+### PRIMEIRA LINHA (CRÍTICA!)
+- Gancho que aparece antes do "mais..."
+- Máximo 125 caracteres (corte do Instagram)
+- Pergunta, afirmação forte ou promessa
+
+### CORPO (150-300 palavras)
+- Desenvolva a ideia principal
+- Use quebras de linha generosamente
+- Parágrafos curtos (1-2 linhas)
+- Emojis apenas no início de linhas ou final
+- Conte uma micro-história quando possível
+
+### CTA + HASHTAGS
+- Call-to-action claro e específico
+- "Salve esse post", "Comente X", "Marque alguém"
+- 5-10 hashtags relevantes
+- Mix de hashtags populares e nichadas
+
+## REGRAS:
+- Use espaços em branco (boa leitura no mobile)
+- Tom pessoal e autêntico
+- Sem hashtags no meio do texto
+- Hashtags sempre no final, após quebra de linha`
+    },
+    {
+      ...REVIEWER_AGENT,
+      model: "flash-lite",
+      systemPrompt: REVIEWER_AGENT.systemPrompt + `
+
+REGRAS ESPECÍFICAS DE LEGENDA INSTAGRAM:
+- Primeira linha tem menos de 125 caracteres?
+- Quebras de linha adequadas?
+- Emojis apenas no início/fim de linhas?
+- CTA claro no final?
+- Hashtags ao final (5-10)?`
+    }
+  ]
+};
+
 // Pipeline Genérico (3 agentes - fallback)
 export const GENERIC_PIPELINE: PipelineConfig = {
   id: "generic",
   name: "Pipeline Genérico",
   description: "Pipeline padrão para conteúdo geral",
-  contentTypes: ["static_image", "x_article", "other"],
+  contentTypes: ["static_image", "other"],
   agents: [
     RESEARCHER_AGENT,
     {
@@ -707,6 +826,8 @@ export const ALL_PIPELINES: PipelineConfig[] = [
   LINKEDIN_PIPELINE,
   SHORT_VIDEO_PIPELINE,
   LONG_VIDEO_PIPELINE,
+  X_ARTICLE_PIPELINE,
+  INSTAGRAM_POST_PIPELINE,
   GENERIC_PIPELINE
 ];
 
