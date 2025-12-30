@@ -3078,6 +3078,7 @@ export type Database = {
         | "thread"
         | "x_article"
         | "linkedin_post"
+        | "instagram_post"
       knowledge_category:
         | "copywriting"
         | "storytelling"
@@ -3271,6 +3272,7 @@ export const Constants = {
         "thread",
         "x_article",
         "linkedin_post",
+        "instagram_post",
       ],
       knowledge_category: [
         "copywriting",

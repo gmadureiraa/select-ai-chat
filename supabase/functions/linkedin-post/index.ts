@@ -201,20 +201,20 @@ Deno.serve(async (req) => {
       const errorMessage = responseData.message || responseData.raw || 'Erro ao publicar no LinkedIn';
       console.error("LinkedIn post error:", responseData);
       
-      // Update post with error
+      // Update post with error - use correct table
       await supabaseClient
-        .from('scheduled_posts')
+        .from(tableName)
         .update({
           status: 'failed',
           error_message: errorMessage,
           retry_count: (post.retry_count || 0) + 1,
         })
-        .eq('id', scheduledPostId);
+        .eq('id', postId);
 
       throw new Error(errorMessage);
     }
 
-    const externalPostId = response.headers.get('x-restli-id') || responseData.id;
+    const linkedInPostId = response.headers.get('x-restli-id') || responseData.id;
 
     // Success - update post
     await supabaseClient
@@ -222,17 +222,21 @@ Deno.serve(async (req) => {
       .update({
         status: 'published',
         published_at: new Date().toISOString(),
-        external_post_id: externalPostId,
+        external_post_id: linkedInPostId,
         error_message: null,
       })
       .eq('id', postId);
 
-    // Update kanban card if linked
-    const { data: kanbanCard } = await supabaseClient
-      .from('kanban_cards')
-      .select('id, column_id')
-      .eq('scheduled_post_id', scheduledPostId)
-      .single();
+    // Update kanban card if linked (check both scheduled_post_id for legacy and by ID)
+    let kanbanCard = null;
+    if (tableName === 'scheduled_posts') {
+      const { data } = await supabaseClient
+        .from('kanban_cards')
+        .select('id, column_id')
+        .eq('scheduled_post_id', postId)
+        .single();
+      kanbanCard = data;
+    }
 
     if (kanbanCard) {
       const { data: columns } = await supabaseClient
