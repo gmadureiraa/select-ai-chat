@@ -32,9 +32,9 @@ export const WorkspaceRouter = () => {
     );
   }
 
-  // Not authenticated - redirect to login
+  // Not authenticated - redirect to workspace login
   if (!user) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to={`/${slug}/login`} replace />;
   }
 
   // Workspace not found

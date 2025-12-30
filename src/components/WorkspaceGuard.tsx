@@ -1,5 +1,5 @@
-import { ReactNode } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { ReactNode, useEffect } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useWorkspaceContext } from "@/contexts/WorkspaceContext";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -13,12 +13,13 @@ interface WorkspaceGuardProps {
 export const WorkspaceGuard = ({ children }: WorkspaceGuardProps) => {
   const { workspace, isLoading: isLoadingWorkspace } = useWorkspaceContext();
   const { user, loading: authLoading } = useAuth();
+  const queryClient = useQueryClient();
 
   // Check if user is member of this specific workspace
-  const { data: isMember, isLoading: isCheckingMembership } = useQuery({
+  const { data: membership, isLoading: isCheckingMembership } = useQuery({
     queryKey: ["workspace-membership", workspace?.id, user?.id],
     queryFn: async () => {
-      if (!workspace?.id || !user?.id) return false;
+      if (!workspace?.id || !user?.id) return null;
       
       const { data, error } = await supabase
         .from("workspace_members")
@@ -29,15 +30,78 @@ export const WorkspaceGuard = ({ children }: WorkspaceGuardProps) => {
 
       if (error) {
         console.error("[WorkspaceGuard] Error checking membership:", error);
-        return false;
+        return null;
       }
 
-      return !!data;
+      return data;
     },
     enabled: !!workspace?.id && !!user?.id,
   });
 
-  const isLoading = authLoading || isLoadingWorkspace || isCheckingMembership;
+  // Check if user already has an access request
+  const { data: accessRequest, isLoading: isCheckingRequest } = useQuery({
+    queryKey: ["workspace-access-request", workspace?.id, user?.id],
+    queryFn: async () => {
+      if (!workspace?.id || !user?.id) return null;
+      
+      const { data, error } = await supabase
+        .from("workspace_access_requests")
+        .select("id, status")
+        .eq("workspace_id", workspace.id)
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (error) {
+        console.error("[WorkspaceGuard] Error checking access request:", error);
+        return null;
+      }
+
+      return data;
+    },
+    enabled: !!workspace?.id && !!user?.id && !membership,
+  });
+
+  // Mutation to create access request if needed
+  const createAccessRequest = useMutation({
+    mutationFn: async () => {
+      if (!workspace?.id || !user?.id) return;
+      
+      const { error } = await supabase
+        .from("workspace_access_requests")
+        .insert({
+          workspace_id: workspace.id,
+          user_id: user.id,
+          status: "pending",
+          message: "Solicitação automática de acesso",
+        });
+
+      if (error && error.code !== "23505") { // Ignore duplicate key error
+        throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ 
+        queryKey: ["workspace-access-request", workspace?.id, user?.id] 
+      });
+    },
+  });
+
+  // Auto-create access request if user is not a member and doesn't have a request
+  useEffect(() => {
+    if (
+      workspace?.id && 
+      user?.id && 
+      !membership && 
+      !accessRequest && 
+      !isCheckingMembership && 
+      !isCheckingRequest
+    ) {
+      createAccessRequest.mutate();
+    }
+  }, [workspace?.id, user?.id, membership, accessRequest, isCheckingMembership, isCheckingRequest]);
+
+  const isMember = !!membership;
+  const isLoading = authLoading || isLoadingWorkspace || isCheckingMembership || isCheckingRequest;
 
   if (isLoading) {
     return (
@@ -56,7 +120,14 @@ export const WorkspaceGuard = ({ children }: WorkspaceGuardProps) => {
 
   // User is not a member of this workspace - show pending access overlay
   if (!isMember) {
-    return <PendingAccessOverlay>{children}</PendingAccessOverlay>;
+    return (
+      <PendingAccessOverlay 
+        workspaceName={workspace?.name || ""} 
+        requestStatus={accessRequest?.status || "pending"}
+      >
+        {children}
+      </PendingAccessOverlay>
+    );
   }
 
   return <>{children}</>;
