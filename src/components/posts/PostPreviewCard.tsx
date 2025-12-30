@@ -11,14 +11,7 @@ import {
   Twitter, 
   Instagram, 
   Linkedin,
-  Heart,
-  MessageCircle,
-  Repeat2,
-  Share,
-  MoreHorizontal,
-  ThumbsUp,
-  Send,
-  Bookmark
+  MoreHorizontal
 } from "lucide-react";
 import { toPng } from "html-to-image";
 import { useToast } from "@/hooks/use-toast";
@@ -119,10 +112,15 @@ export const PostPreviewCard = ({
     }
   };
 
-  const renderTwitterPost = () => (
+  // Simple content preview without social metrics
+  const renderContent = () => (
     <div className="p-4">
       <div className="flex gap-3">
-        <Avatar className="h-10 w-10">
+        <Avatar className={cn(
+          "flex-shrink-0",
+          platform === "linkedin" ? "h-12 w-12" : "h-10 w-10",
+          platform === "instagram" && "ring-2 ring-primary/20"
+        )}>
           <AvatarImage src={authorAvatar} />
           <AvatarFallback className="bg-primary/10 text-primary text-sm">
             {authorName.charAt(0).toUpperCase()}
@@ -131,9 +129,16 @@ export const PostPreviewCard = ({
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1 flex-wrap">
             <span className="font-bold text-sm text-foreground">{authorName}</span>
-            <span className="text-muted-foreground text-sm">{authorHandle}</span>
-            <span className="text-muted-foreground text-sm">· agora</span>
+            {platform !== "linkedin" && (
+              <span className="text-muted-foreground text-sm">{authorHandle}</span>
+            )}
+            {platform === "linkedin" && (
+              <span className="text-xs text-muted-foreground">• Cargo</span>
+            )}
           </div>
+          {platform === "linkedin" && (
+            <p className="text-xs text-muted-foreground">agora • 🌐</p>
+          )}
           {isEditing ? (
             <Textarea
               value={editedContent}
@@ -145,137 +150,12 @@ export const PostPreviewCard = ({
             <p className="text-sm text-foreground mt-1 whitespace-pre-wrap">{content}</p>
           )}
           {imageUrl && !isEditing && (
-            <div className="mt-3 rounded-2xl overflow-hidden border border-border">
+            <div className="mt-3 rounded-xl overflow-hidden border border-border">
               <img src={imageUrl} alt="Post" className="w-full h-auto" />
             </div>
           )}
-          <div className="flex items-center justify-between mt-3 text-muted-foreground">
-            <button className="flex items-center gap-1 hover:text-primary transition-colors">
-              <MessageCircle className="h-4 w-4" />
-              <span className="text-xs">12</span>
-            </button>
-            <button className="flex items-center gap-1 hover:text-green-500 transition-colors">
-              <Repeat2 className="h-4 w-4" />
-              <span className="text-xs">45</span>
-            </button>
-            <button className="flex items-center gap-1 hover:text-red-500 transition-colors">
-              <Heart className="h-4 w-4" />
-              <span className="text-xs">128</span>
-            </button>
-            <button className="flex items-center gap-1 hover:text-primary transition-colors">
-              <Share className="h-4 w-4" />
-            </button>
-          </div>
         </div>
-      </div>
-    </div>
-  );
-
-  const renderInstagramPost = () => (
-    <div>
-      <div className="flex items-center justify-between p-3 border-b border-border">
-        <div className="flex items-center gap-2">
-          <Avatar className="h-8 w-8 ring-2 ring-primary/20">
-            <AvatarImage src={authorAvatar} />
-            <AvatarFallback className="bg-primary/10 text-primary text-xs">
-              {authorName.charAt(0).toUpperCase()}
-            </AvatarFallback>
-          </Avatar>
-          <span className="font-semibold text-sm text-foreground">{authorHandle.replace("@", "")}</span>
-        </div>
-        <MoreHorizontal className="h-5 w-5 text-muted-foreground" />
-      </div>
-      {imageUrl && !isEditing && (
-        <div className="aspect-square bg-muted">
-          <img src={imageUrl} alt="Post" className="w-full h-full object-cover" />
-        </div>
-      )}
-      <div className="p-3">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-4">
-            <Heart className="h-6 w-6 text-foreground hover:text-red-500 cursor-pointer transition-colors" />
-            <MessageCircle className="h-6 w-6 text-foreground cursor-pointer" />
-            <Send className="h-6 w-6 text-foreground cursor-pointer" />
-          </div>
-          <Bookmark className="h-6 w-6 text-foreground cursor-pointer" />
-        </div>
-        <p className="text-sm font-semibold text-foreground mb-1">1.234 curtidas</p>
-        {isEditing ? (
-          <Textarea
-            value={editedContent}
-            onChange={(e) => setEditedContent(e.target.value)}
-            className="min-h-[80px] text-sm resize-none"
-            maxLength={config.maxChars}
-          />
-        ) : (
-          <p className="text-sm text-foreground">
-            <span className="font-semibold">{authorHandle.replace("@", "")} </span>
-            {content}
-          </p>
-        )}
-      </div>
-    </div>
-  );
-
-  const renderLinkedInPost = () => (
-    <div className="p-4">
-      <div className="flex gap-3">
-        <Avatar className="h-12 w-12">
-          <AvatarImage src={authorAvatar} />
-          <AvatarFallback className="bg-primary/10 text-primary">
-            {authorName.charAt(0).toUpperCase()}
-          </AvatarFallback>
-        </Avatar>
-        <div className="flex-1">
-          <p className="font-semibold text-sm text-foreground">{authorName}</p>
-          <p className="text-xs text-muted-foreground">Cargo • Empresa</p>
-          <p className="text-xs text-muted-foreground">agora • 🌐</p>
-        </div>
-        <MoreHorizontal className="h-5 w-5 text-muted-foreground" />
-      </div>
-      {isEditing ? (
-        <Textarea
-          value={editedContent}
-          onChange={(e) => setEditedContent(e.target.value)}
-          className="mt-3 min-h-[100px] text-sm resize-none"
-          maxLength={config.maxChars}
-        />
-      ) : (
-        <p className="text-sm text-foreground mt-3 whitespace-pre-wrap">{content}</p>
-      )}
-      {imageUrl && !isEditing && (
-        <div className="mt-3 rounded-lg overflow-hidden border border-border">
-          <img src={imageUrl} alt="Post" className="w-full h-auto" />
-        </div>
-      )}
-      <div className="flex items-center gap-2 mt-3 pt-2 border-t border-border">
-        <div className="flex -space-x-1">
-          <div className="w-4 h-4 rounded-full bg-blue-500 flex items-center justify-center">
-            <ThumbsUp className="h-2.5 w-2.5 text-white" />
-          </div>
-          <div className="w-4 h-4 rounded-full bg-red-500 flex items-center justify-center">
-            <Heart className="h-2.5 w-2.5 text-white" />
-          </div>
-        </div>
-        <span className="text-xs text-muted-foreground">234 • 18 comentários</span>
-      </div>
-      <div className="flex items-center justify-around mt-3 pt-2 border-t border-border text-muted-foreground">
-        <button className="flex items-center gap-1 hover:text-foreground transition-colors">
-          <ThumbsUp className="h-4 w-4" />
-          <span className="text-xs font-medium">Gostei</span>
-        </button>
-        <button className="flex items-center gap-1 hover:text-foreground transition-colors">
-          <MessageCircle className="h-4 w-4" />
-          <span className="text-xs font-medium">Comentar</span>
-        </button>
-        <button className="flex items-center gap-1 hover:text-foreground transition-colors">
-          <Repeat2 className="h-4 w-4" />
-          <span className="text-xs font-medium">Repostar</span>
-        </button>
-        <button className="flex items-center gap-1 hover:text-foreground transition-colors">
-          <Send className="h-4 w-4" />
-          <span className="text-xs font-medium">Enviar</span>
-        </button>
+        <MoreHorizontal className="h-5 w-5 text-muted-foreground flex-shrink-0" />
       </div>
     </div>
   );
@@ -339,9 +219,7 @@ export const PostPreviewCard = ({
           config.borderClass
         )}
       >
-        {platform === "twitter" && renderTwitterPost()}
-        {platform === "instagram" && renderInstagramPost()}
-        {platform === "linkedin" && renderLinkedInPost()}
+        {renderContent()}
       </div>
 
       {/* Character count */}

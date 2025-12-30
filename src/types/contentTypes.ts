@@ -2,49 +2,54 @@
 // Isso garante consistência e permite que a IA use a biblioteca do cliente como base
 
 export const CONTENT_TYPES = {
-  // Texto e Social
+  // Social - Twitter/X
   tweet: { label: "Tweet", category: "social" },
   thread: { label: "Thread", category: "social" },
   x_article: { label: "Artigo no X", category: "social" },
+  
+  // Social - LinkedIn
   linkedin_post: { label: "Post LinkedIn", category: "social" },
   
-  // Instagram
-  carousel: { label: "Carrossel Instagram", category: "instagram" },
+  // Social - Instagram
+  carousel: { label: "Carrossel", category: "instagram" },
   stories: { label: "Stories", category: "instagram" },
   static_image: { label: "Estático Único", category: "instagram" },
+  instagram_post: { label: "Post Instagram", category: "instagram" },
   
-  // Vídeo
+  // Video
   short_video: { label: "Vídeo Curto (Reels/TikTok)", category: "video" },
   long_video: { label: "Vídeo Longo", category: "video" },
   
-  // Escrita Longa
+  // Long-form
   newsletter: { label: "Newsletter", category: "long_form" },
   blog_post: { label: "Blog Post", category: "long_form" },
   
-  // Outros
+  // Other
   other: { label: "Outro", category: "other" },
 } as const;
 
 export type ContentTypeKey = keyof typeof CONTENT_TYPES;
 
-// Array ordenado para uso nos selects
+// Array ordenado para uso nos selects - organized by category
 export const CONTENT_TYPE_OPTIONS: { value: ContentTypeKey; label: string; category: string }[] = [
-  // Social
-  { value: "tweet", label: "Tweet", category: "Social" },
-  { value: "thread", label: "Thread", category: "Social" },
-  { value: "x_article", label: "Artigo no X", category: "Social" },
-  { value: "linkedin_post", label: "Post LinkedIn", category: "Social" },
+  // Social - Twitter/X
+  { value: "tweet", label: "Tweet", category: "Twitter/X" },
+  { value: "thread", label: "Thread", category: "Twitter/X" },
+  { value: "x_article", label: "Artigo no X", category: "Twitter/X" },
+  // Social - LinkedIn
+  { value: "linkedin_post", label: "Post LinkedIn", category: "LinkedIn" },
   // Instagram
-  { value: "carousel", label: "Carrossel Instagram", category: "Instagram" },
+  { value: "carousel", label: "Carrossel", category: "Instagram" },
   { value: "stories", label: "Stories", category: "Instagram" },
   { value: "static_image", label: "Estático Único", category: "Instagram" },
-  // Vídeo
+  { value: "instagram_post", label: "Post Instagram", category: "Instagram" },
+  // Video
   { value: "short_video", label: "Vídeo Curto (Reels/TikTok)", category: "Vídeo" },
   { value: "long_video", label: "Vídeo Longo", category: "Vídeo" },
-  // Escrita Longa
+  // Long-form
   { value: "newsletter", label: "Newsletter", category: "Escrita" },
   { value: "blog_post", label: "Blog Post", category: "Escrita" },
-  // Outros
+  // Other
   { value: "other", label: "Outro", category: "Outros" },
 ];
 
@@ -73,14 +78,15 @@ export function normalizeContentType(type: string): ContentTypeKey {
 
 // Sugestões de templates por categoria (para TemplateManager)
 export const TEMPLATE_SUGGESTIONS = [
-  "Newsletter",
-  "Carrossel Instagram",
-  "Stories",
   "Tweet",
   "Thread",
   "Artigo no X",
   "Post LinkedIn",
-  "Vídeo Curto",
+  "Carrossel",
+  "Stories",
+  "Post Instagram",
+  "Reels/Shorts",
   "Vídeo Longo",
+  "Newsletter",
   "Blog Post",
 ];

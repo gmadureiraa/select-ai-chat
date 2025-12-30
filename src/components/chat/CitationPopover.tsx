@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverAnchor } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
-import { FileText, BookOpen, ScrollText, Video, Image, Mic, Mail, Sparkles, PenTool, MessageSquare, Send, Wand2, Lightbulb } from "lucide-react";
+import { FileText, BookOpen, ScrollText, Video, Image, Mic, Mail, Sparkles, PenTool, MessageSquare, Send, Wand2, Lightbulb, Newspaper } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export interface CitationItem {
@@ -35,54 +35,86 @@ interface CitationPopoverProps {
 }
 
 const categoryIcons: Record<string, React.ElementType> = {
-  newsletter: Mail,
-  blog_post: FileText,
-  linkedin_post: FileText,
+  // Special actions
+  ideias: Lightbulb,
+  imagem: Sparkles,
+  // Social - Twitter/X
+  tweet: MessageSquare,
   thread: ScrollText,
+  x_article: Newspaper,
+  // Social - LinkedIn
+  linkedin_post: FileText,
+  // Social - Instagram
   carousel: Image,
   stories: Sparkles,
+  instagram_post: Send,
+  static_image: Image,
+  // Video
   short_video: Video,
+  long_video: PenTool,
   reel_script: Video,
   video_script: Video,
-  tweet: MessageSquare,
+  // Long-form
+  newsletter: Mail,
+  blog_post: BookOpen,
   article: BookOpen,
+  // References
   podcast: Mic,
   reference: BookOpen,
-  instagram_post: Send,
   format: Wand2,
-  ideias: Lightbulb,
 };
 
 const categoryColors: Record<string, string> = {
-  newsletter: "bg-blue-500/10 text-blue-600 border-blue-500/20",
-  blog_post: "bg-purple-500/10 text-purple-600 border-purple-500/20",
-  linkedin_post: "bg-sky-500/10 text-sky-600 border-sky-500/20",
+  // Special actions
+  ideias: "bg-amber-500/10 text-amber-600 border-amber-500/20",
+  imagem: "bg-violet-500/10 text-violet-600 border-violet-500/20",
+  // Social - Twitter/X
+  tweet: "bg-cyan-500/10 text-cyan-600 border-cyan-500/20",
   thread: "bg-amber-500/10 text-amber-600 border-amber-500/20",
+  x_article: "bg-slate-500/10 text-slate-600 border-slate-500/20",
+  // Social - LinkedIn
+  linkedin_post: "bg-sky-500/10 text-sky-600 border-sky-500/20",
+  // Social - Instagram
   carousel: "bg-pink-500/10 text-pink-600 border-pink-500/20",
   stories: "bg-fuchsia-500/10 text-fuchsia-600 border-fuchsia-500/20",
+  instagram_post: "bg-gradient-to-r from-purple-500/10 to-pink-500/10 text-pink-600 border-pink-500/20",
+  static_image: "bg-pink-500/10 text-pink-600 border-pink-500/20",
+  // Video
   short_video: "bg-red-500/10 text-red-600 border-red-500/20",
+  long_video: "bg-orange-500/10 text-orange-600 border-orange-500/20",
   reel_script: "bg-rose-500/10 text-rose-600 border-rose-500/20",
   video_script: "bg-orange-500/10 text-orange-600 border-orange-500/20",
-  tweet: "bg-cyan-500/10 text-cyan-600 border-cyan-500/20",
+  // Long-form
+  newsletter: "bg-blue-500/10 text-blue-600 border-blue-500/20",
+  blog_post: "bg-purple-500/10 text-purple-600 border-purple-500/20",
   article: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20",
+  // References
   podcast: "bg-violet-500/10 text-violet-600 border-violet-500/20",
   reference: "bg-slate-500/10 text-slate-600 border-slate-500/20",
-  instagram_post: "bg-gradient-to-r from-purple-500/10 to-pink-500/10 text-pink-600 border-pink-500/20",
   format: "bg-primary/10 text-primary border-primary/20",
-  ideias: "bg-amber-500/10 text-amber-600 border-amber-500/20",
 };
 
-// Pre-defined content formats
+// Pre-defined content formats - synchronized with FormatItem.tsx
 const contentFormats: CitationItem[] = [
+  // Special actions
   { id: "format_ideias", title: "Ideias", type: "format", category: "ideias", preview: "Gerar ideias criativas baseadas na biblioteca" },
-  { id: "format_newsletter", title: "Newsletter", type: "format", category: "format", preview: "E-mail editorial com seções e CTAs" },
-  { id: "format_carrossel", title: "Carrossel", type: "format", category: "format", preview: "Slides visuais para Instagram/LinkedIn" },
-  { id: "format_thread", title: "Thread", type: "format", category: "format", preview: "Série de tweets conectados" },
-  { id: "format_reels", title: "Reels/Shorts", type: "format", category: "format", preview: "Roteiro para vídeo vertical curto" },
-  { id: "format_linkedin", title: "Post LinkedIn", type: "format", category: "format", preview: "Post profissional otimizado" },
-  { id: "format_instagram", title: "Post Instagram", type: "format", category: "format", preview: "Legenda com hashtags otimizadas" },
-  { id: "format_blog", title: "Blog Post", type: "format", category: "format", preview: "Artigo longo com SEO" },
-  { id: "format_tweet", title: "Tweet", type: "format", category: "format", preview: "Post curto para Twitter/X" },
+  { id: "format_gerar_imagem", title: "Gerar Imagem", type: "format", category: "imagem", preview: "Criar imagem com IA baseada no estilo do cliente" },
+  // Social - Twitter/X
+  { id: "format_tweet", title: "Tweet", type: "format", category: "tweet", preview: "Post curto para Twitter/X (280 caracteres)" },
+  { id: "format_thread", title: "Thread", type: "format", category: "thread", preview: "Série de tweets conectados" },
+  { id: "format_artigo_x", title: "Artigo no X", type: "format", category: "x_article", preview: "Artigo longo publicado no Twitter/X" },
+  // Social - LinkedIn
+  { id: "format_post_linkedin", title: "Post LinkedIn", type: "format", category: "linkedin_post", preview: "Post profissional otimizado para LinkedIn" },
+  // Social - Instagram
+  { id: "format_carrossel", title: "Carrossel", type: "format", category: "carousel", preview: "Slides visuais para Instagram/LinkedIn" },
+  { id: "format_stories", title: "Stories", type: "format", category: "stories", preview: "Sequência de stories para Instagram" },
+  { id: "format_post_instagram", title: "Post Instagram", type: "format", category: "instagram_post", preview: "Legenda para estático único com hashtags" },
+  // Video
+  { id: "format_reels", title: "Reels/Shorts", type: "format", category: "short_video", preview: "Roteiro para vídeo vertical curto" },
+  { id: "format_video_longo", title: "Vídeo Longo", type: "format", category: "long_video", preview: "Roteiro para vídeo longo (YouTube, etc)" },
+  // Long-form
+  { id: "format_newsletter", title: "Newsletter", type: "format", category: "newsletter", preview: "E-mail editorial com seções e CTAs" },
+  { id: "format_blog", title: "Blog Post", type: "format", category: "blog_post", preview: "Artigo longo otimizado para SEO" },
 ];
 
 export const CitationPopover = ({
@@ -131,7 +163,8 @@ export const CitationPopover = ({
     return contentFormats.filter(
       (item) =>
         item.title.toLowerCase().includes(query) ||
-        item.preview.toLowerCase().includes(query)
+        item.preview.toLowerCase().includes(query) ||
+        item.category.toLowerCase().includes(query)
     );
   }, [internalSearch, showFormats]);
 
@@ -197,6 +230,7 @@ export const CitationPopover = ({
               <CommandGroup heading="📝 Formatos de Conteúdo">
                 {filteredFormats.map((item) => {
                   const Icon = getIcon(item.category);
+                  const colorClass = getColorClass(item.category);
                   
                   return (
                     <CommandItem
@@ -205,8 +239,8 @@ export const CitationPopover = ({
                       onSelect={() => handleSelect(item)}
                       className="flex items-center gap-3 py-2.5 cursor-pointer"
                     >
-                      <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
-                        <Wand2 className="h-4 w-4 text-primary" />
+                      <div className={cn("h-8 w-8 rounded-lg flex items-center justify-center", colorClass)}>
+                        <Icon className="h-4 w-4" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <span className="font-medium">{item.title}</span>

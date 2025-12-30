@@ -168,12 +168,16 @@ export const FloatingInput = ({
 
   // Determinar modo baseado nas citações
   const getEffectiveModeFromCitations = useCallback((citationList: Citation[]): ChatMode => {
+    // Se tem @gerar_imagem, modo imagem
+    const hasImageCitation = citationList.some(c => c.id === "format_gerar_imagem" || c.category === "imagem");
+    if (hasImageCitation) return "image";
+    
     // Se tem @ideias, modo ideias
     const hasIdeasCitation = citationList.some(c => c.id === "format_ideias" || c.category === "ideias");
     if (hasIdeasCitation) return "ideas";
     
-    // Se tem algum formato (exceto ideias), modo conteúdo
-    const hasFormatCitation = citationList.some(c => c.type === "format" && c.category !== "ideias");
+    // Se tem algum formato (exceto ideias e imagem), modo conteúdo
+    const hasFormatCitation = citationList.some(c => c.type === "format" && c.category !== "ideias" && c.category !== "imagem");
     if (hasFormatCitation) return "content";
     
     // Se não tem formato, mas pode ter itens de biblioteca, chat livre
