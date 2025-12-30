@@ -1554,11 +1554,13 @@ IMPORTANTE: O novo conteúdo deve parecer escrito pelo mesmo autor.`;
           'format_linkedin': 'linkedin_post',
           'format_post_linkedin': 'linkedin_post',
           'format_instagram': 'static_image',
-          'format_post_instagram': 'static_image',
+          'format_post_instagram': 'instagram_post',
           'format_reels': 'short_video',
           'format_blog': 'blog_post',
           'format_stories': 'stories',
+          'format_video_longo': 'long_video',
           'format_script': 'long_video',
+          'format_artigo_x': 'x_article',
         };
         detectedTypeFromCitation = formatMap[formatCitation.id] || null;
         console.log("[CHAT] Format detected from citation:", formatCitation.id, "->", detectedTypeFromCitation);

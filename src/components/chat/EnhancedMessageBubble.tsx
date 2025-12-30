@@ -246,58 +246,8 @@ export const EnhancedMessageBubble = ({
                     authorHandle={`@${clientName?.toLowerCase().replace(/\s+/g, "") || "handle"}`}
                     imageUrl={hasImages ? imageUrls?.[0] : undefined}
                   />
-                  {/* Action buttons after each post */}
-                  {index === 0 && (
-                    <div className="flex items-center gap-2 mt-2 flex-wrap animate-in fade-in slide-in-from-bottom-2 duration-300">
-                      {/* Image action buttons */}
-                      {showImageActions && (
-                        <ImageActionButtons
-                          postContent={post.content}
-                          onGenerateImage={handleGenerateImage}
-                          onRequestIdeas={handleRequestIdeas}
-                          platform={post.platform}
-                          clientName={clientName}
-                        />
-                      )}
-                      {/* Add to planning button */}
-                      <AddToPlanningButton
-                        content={post.content}
-                        platform={post.platform}
-                        clientId={clientId}
-                        clientName={clientName}
-                        mediaUrls={hasImages ? imageUrls : undefined}
-                      />
-                    </div>
-                  )}
                 </div>
               ))}
-            </div>
-          )}
-
-          {/* Action buttons for substantial content without detected posts */}
-          {isSubstantialContent && detectedPosts.length === 0 && onSendMessage && (
-            <div className="flex items-center gap-2 flex-wrap animate-in fade-in slide-in-from-bottom-2 duration-300">
-              <ImageActionButtons
-                postContent={content.substring(0, 500)}
-                onGenerateImage={handleGenerateImage}
-                onRequestIdeas={handleRequestIdeas}
-                clientName={clientName}
-              />
-              <AddToPlanningButton
-                content={content}
-                clientId={clientId}
-                clientName={clientName}
-                mediaUrls={hasImages ? imageUrls : undefined}
-              />
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => onSendMessage(`Revise e melhore este conteúdo, mantendo a essência mas tornando-o mais engajante:\n\n${content.substring(0, 1000)}`)}
-                className="h-7 text-xs gap-1.5"
-              >
-                <RefreshCw className="h-3 w-3" />
-                Revisar
-              </Button>
             </div>
           )}
 
@@ -370,6 +320,35 @@ export const EnhancedMessageBubble = ({
                   {textContent}
                 </ReactMarkdown>
               </div>
+            </div>
+          )}
+
+          {/* Action buttons for content - AFTER text content */}
+          {!isUser && isSubstantialContent && onSendMessage && (
+            <div className="flex items-center gap-2 flex-wrap animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <ImageActionButtons
+                postContent={detectedPosts.length > 0 ? detectedPosts[0].content : content.substring(0, 500)}
+                onGenerateImage={handleGenerateImage}
+                onRequestIdeas={handleRequestIdeas}
+                platform={detectedPosts.length > 0 ? detectedPosts[0].platform : undefined}
+                clientName={clientName}
+              />
+              <AddToPlanningButton
+                content={detectedPosts.length > 0 ? detectedPosts[0].content : content}
+                platform={detectedPosts.length > 0 ? detectedPosts[0].platform : undefined}
+                clientId={clientId}
+                clientName={clientName}
+                mediaUrls={hasImages ? imageUrls : undefined}
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onSendMessage(`Revise e melhore este conteúdo, mantendo a essência mas tornando-o mais engajante:\n\n${content.substring(0, 1000)}`)}
+                className="h-7 text-xs gap-1.5"
+              >
+                <RefreshCw className="h-3 w-3" />
+                Revisar
+              </Button>
             </div>
           )}
           
