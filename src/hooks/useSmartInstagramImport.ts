@@ -154,7 +154,18 @@ const detectCSVType = (text: string, data: Record<string, string>[]): DetectedCS
   const headers = Object.keys(firstRow).map((h) => h.toLowerCase());
   const headerIncludes = (needle: string) => headers.some((h) => h.includes(needle));
 
-  // Stories CSV - detect BEFORE posts (stories have similar headers but specific columns)
+  // PRIORITY: Check VALUES in first data row to detect Stories
+  // This catches cases where "tipo de post" = "Story do Instagram"
+  const postTypeValue = (firstRow['tipo de post'] || firstRow['Tipo de post'] || '').toLowerCase();
+  console.log('[CSV Detection] Headers:', headers);
+  console.log('[CSV Detection] Post type value:', postTypeValue);
+
+  if (postTypeValue.includes('story') || postTypeValue.includes('stories')) {
+    console.log('[CSV Detection] Detected Stories by VALUE');
+    return { type: 'stories', label: 'Stories do Instagram', data };
+  }
+
+  // Stories CSV - detect by headers (no tipo de post column)
   if (
     headerIncludes('navegação') ||
     headerIncludes('toques em figurinhas') ||

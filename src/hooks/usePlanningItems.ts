@@ -169,7 +169,11 @@ export function usePlanningItems(filters: PlanningFilters = {}) {
   // Create item
   const createItem = useMutation({
     mutationFn: async (input: CreatePlanningItemInput) => {
-      if (!workspaceId || !user?.id) throw new Error('Missing workspace or user');
+      // Verify authentication directly from Supabase
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (!authUser) throw new Error('Usuário não autenticado');
+      
+      if (!workspaceId) throw new Error('Workspace não encontrado');
 
       // Get max position for the column
       const targetColumnId = input.column_id || columns.find(c => c.column_type === 'idea')?.id || columns[0]?.id;
@@ -196,7 +200,7 @@ export function usePlanningItems(filters: PlanningFilters = {}) {
           assigned_to: input.assigned_to || null,
           media_urls: (input.media_urls || []) as unknown as Json,
           metadata: (input.metadata || {}) as unknown as Json,
-          created_by: user.id
+          created_by: authUser.id
         })
         .select()
         .single();
