@@ -84,26 +84,45 @@ Deno.serve(async (req) => {
   );
 
   try {
-    const { scheduledPostId } = await req.json() as PostRequest;
+    const { scheduledPostId, planningItemId, source } = await req.json();
+    
+    let post: any;
+    let tableName: string;
+    let postId: string;
 
-    console.log(`Processing LinkedIn post for scheduled_post: ${scheduledPostId}`);
-
-    // Get the scheduled post
-    const { data: post, error: postError } = await supabaseClient
-      .from('scheduled_posts')
-      .select('*')
-      .eq('id', scheduledPostId)
-      .single();
-
-    if (postError || !post) {
-      throw new Error(`Post não encontrado: ${postError?.message}`);
+    // Support both planning_items and scheduled_posts
+    if (planningItemId || source === 'planning_items') {
+      const itemId = planningItemId || scheduledPostId;
+      const { data, error } = await supabaseClient
+        .from('planning_items')
+        .select('*')
+        .eq('id', itemId)
+        .single();
+      if (error || !data) throw new Error(`Item não encontrado: ${error?.message}`);
+      post = data;
+      tableName = 'planning_items';
+      postId = itemId;
+    } else if (scheduledPostId) {
+      const { data, error } = await supabaseClient
+        .from('scheduled_posts')
+        .select('*')
+        .eq('id', scheduledPostId)
+        .single();
+      if (error || !data) throw new Error(`Post não encontrado: ${error?.message}`);
+      post = data;
+      tableName = 'scheduled_posts';
+      postId = scheduledPostId;
+    } else {
+      throw new Error('scheduledPostId ou planningItemId é obrigatório');
     }
+
+    console.log(`Processing LinkedIn post for ${tableName}: ${postId}`);
 
     // Update status to publishing
     await supabaseClient
-      .from('scheduled_posts')
+      .from(tableName)
       .update({ status: 'publishing' })
-      .eq('id', scheduledPostId);
+      .eq('id', postId);
 
     // Get credentials for this client
     const { data: credentials, error: credError } = await supabaseClient
@@ -195,18 +214,18 @@ Deno.serve(async (req) => {
       throw new Error(errorMessage);
     }
 
-    const postId = response.headers.get('x-restli-id') || responseData.id;
+    const externalPostId = response.headers.get('x-restli-id') || responseData.id;
 
     // Success - update post
     await supabaseClient
-      .from('scheduled_posts')
+      .from(tableName)
       .update({
         status: 'published',
         published_at: new Date().toISOString(),
-        external_post_id: postId,
+        external_post_id: externalPostId,
         error_message: null,
       })
-      .eq('id', scheduledPostId);
+      .eq('id', postId);
 
     // Update kanban card if linked
     const { data: kanbanCard } = await supabaseClient
