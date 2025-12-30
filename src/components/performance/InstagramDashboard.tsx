@@ -565,15 +565,6 @@ export function InstagramDashboard({
         endDate={new Date()}
       />
 
-      {/* Stories Section */}
-      <InstagramStoriesSection 
-        stories={stories}
-        isLoading={isLoadingStories}
-        period={period}
-        clientId={clientId}
-        onRefresh={() => refetchStories?.()}
-      />
-
       {/* Posts Table */}
       <Card className="border-border/50">
         <CardHeader className="pb-3">
@@ -586,6 +577,15 @@ export function InstagramDashboard({
           />
         </CardContent>
       </Card>
+
+      {/* Stories Section */}
+      <InstagramStoriesSection 
+        stories={stories}
+        isLoading={isLoadingStories}
+        period={period}
+        clientId={clientId}
+        onRefresh={() => refetchStories?.()}
+      />
 
       {/* Import History */}
       <ImportHistoryPanel clientId={clientId} platform="instagram" />
