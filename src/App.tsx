@@ -15,6 +15,8 @@ import { SuperAdminRoute } from "@/components/SuperAdminRoute";
 import Settings from "./pages/Settings";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
+import JoinWorkspace from "./pages/JoinWorkspace";
+import WorkspaceLogin from "./pages/WorkspaceLogin";
 import NotFound from "./pages/NotFound";
 import { WorkspaceProvider } from "@/contexts/WorkspaceContext";
 import { WorkspaceRouter } from "@/components/WorkspaceRouter";
@@ -62,6 +64,10 @@ const App = () => (
                     </ProtectedRoute>
                   }
                 />
+                
+                {/* Workspace auth routes */}
+                <Route path="/:slug/join" element={<JoinWorkspace />} />
+                <Route path="/:slug/login" element={<WorkspaceLogin />} />
                 
                 {/* Workspace routes with slug */}
                 <Route path="/:slug" element={<WorkspaceRouter />}>

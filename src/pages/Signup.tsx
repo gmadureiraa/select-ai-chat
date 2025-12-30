@@ -138,11 +138,18 @@ const Signup = () => {
           </div>
           <div>
             <CardTitle className="text-2xl text-center">
-              Criar Workspace
+              Criar Seu Workspace
             </CardTitle>
             <CardDescription className="text-center">
               Configure sua empresa e comece a usar o kAI
             </CardDescription>
+          </div>
+          
+          {/* Plan requirement notice */}
+          <div className="p-3 bg-primary/10 border border-primary/20 rounded-lg">
+            <p className="text-sm text-center">
+              <strong>Plano Básico</strong> - Crie seu próprio workspace e gerencie sua equipe
+            </p>
           </div>
         </CardHeader>
         <CardContent>
@@ -269,7 +276,7 @@ const Signup = () => {
             </Button>
           </form>
 
-          <div className="mt-4 text-center">
+          <div className="mt-4 text-center space-y-2">
             <button
               type="button"
               onClick={() => navigate("/login")}
@@ -278,6 +285,9 @@ const Signup = () => {
             >
               Já tem uma conta? Entre aqui
             </button>
+            <p className="text-xs text-muted-foreground">
+              Quer entrar em um workspace existente? Peça o link de convite ao administrador.
+            </p>
           </div>
 
           {/* Plan info */}

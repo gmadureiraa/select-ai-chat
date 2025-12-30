@@ -1,11 +1,13 @@
 import { ReactNode } from "react";
-import { Clock, LogOut, TrendingUp, Users, Eye, Heart } from "lucide-react";
+import { Clock, LogOut, TrendingUp, Users, Eye, Heart, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useAuth } from "@/hooks/useAuth";
 
 interface PendingAccessOverlayProps {
   children: ReactNode;
+  workspaceName?: string;
+  requestStatus?: string;
 }
 
 // Mock performance preview component
@@ -115,8 +117,14 @@ const MockPerformancePreview = () => {
   );
 };
 
-export const PendingAccessOverlay = ({ children }: PendingAccessOverlayProps) => {
+export const PendingAccessOverlay = ({ 
+  children, 
+  workspaceName, 
+  requestStatus = "pending" 
+}: PendingAccessOverlayProps) => {
   const { signOut } = useAuth();
+
+  const isRejected = requestStatus === "rejected";
 
   return (
     <div className="relative min-h-screen overflow-hidden">
@@ -144,16 +152,30 @@ export const PendingAccessOverlay = ({ children }: PendingAccessOverlayProps) =>
       {/* Overlay centralizado */}
       <div className="absolute inset-0 flex items-center justify-center z-50 bg-background/30">
         <div className="text-center space-y-6 p-10 rounded-2xl bg-card/95 border border-border/50 shadow-2xl backdrop-blur-sm max-w-md mx-4">
-          <div className="mx-auto w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center">
-            <Clock className="w-8 h-8 text-primary" />
+          <div className={`mx-auto w-16 h-16 rounded-full flex items-center justify-center ${
+            isRejected ? "bg-destructive/10" : "bg-primary/10"
+          }`}>
+            {isRejected ? (
+              <XCircle className="w-8 h-8 text-destructive" />
+            ) : (
+              <Clock className="w-8 h-8 text-primary" />
+            )}
           </div>
           
           <div className="space-y-2">
             <h2 className="text-2xl font-semibold text-foreground">
-              Aguardando aprovação
+              {isRejected ? "Acesso Negado" : "Aguardando aprovação"}
             </h2>
+            {workspaceName && (
+              <p className="text-lg font-medium text-primary">
+                {workspaceName}
+              </p>
+            )}
             <p className="text-muted-foreground">
-              Entre em contato com o time Kaleidos
+              {isRejected 
+                ? "Seu pedido de acesso foi recusado pelo administrador."
+                : "Seu pedido de acesso está sendo analisado pelo administrador do workspace."
+              }
             </p>
           </div>
           
