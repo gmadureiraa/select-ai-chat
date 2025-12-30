@@ -22,7 +22,11 @@ Deno.serve(async (req) => {
     const facebookAppSecret = Deno.env.get('FACEBOOK_APP_SECRET');
 
     if (!facebookAppId || !facebookAppSecret) {
-      throw new Error('Facebook credentials not configured');
+      console.error('Missing Facebook credentials:', { 
+        hasAppId: !!facebookAppId, 
+        hasAppSecret: !!facebookAppSecret 
+      });
+      throw new Error('Credenciais do Facebook/Meta não configuradas. Configure FACEBOOK_APP_ID e FACEBOOK_APP_SECRET nos secrets.');
     }
 
     const supabase = createClient(supabaseUrl, supabaseAnonKey, {
