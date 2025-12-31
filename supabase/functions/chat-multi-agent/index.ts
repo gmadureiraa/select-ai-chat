@@ -201,7 +201,7 @@ Mantenha todo o conteúdo, mas refine completamente o estilo.`;
 ## CONTEÚDO PARA REVISÃO:
 ${contentToReview}
 
-Faça a revisão final e retorne a versão PRONTA PARA PUBLICAÇÃO.`;
+IMPORTANTE: Retorne APENAS o conteúdo final. Sem comentários, sem explicações, sem "Aqui está", sem prefixos ou sufixos. Somente o conteúdo pronto para publicação.`;
   } else {
     const lastOutput = Object.values(context.previousOutputs).pop() || "";
     userPrompt = `## CLIENTE: ${context.clientName}
@@ -352,7 +352,7 @@ serve(async (req) => {
         name: "Revisor Final",
         description: "Revisão final e polish",
         model: "flash",
-        systemPrompt: "Faça revisão final e polish."
+        systemPrompt: "Você é um revisor final. Sua ÚNICA tarefa é retornar o conteúdo polido e corrigido. NÃO inclua comentários, explicações, prefixos como 'Aqui está' ou 'Versão final'. Retorne APENAS o conteúdo pronto para publicação, nada mais."
       }
     ];
 
