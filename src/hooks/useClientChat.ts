@@ -363,6 +363,65 @@ export const useClientChat = (clientId: string, templateId?: string, conversatio
           const imagePrompt = isImageTemplateMode ? content : (imageGenRequest.prompt || content);
           console.log("[CHAT] Image generation - mode:", isImageTemplateMode ? "template" : "auto-detect", "prompt:", imagePrompt);
           
+          // Detectar formato baseado no template ativo
+          const imageFormat = detectImageFormat(template?.name);
+          const formatSpec = getImageFormatSpec(imageFormat);
+          console.log("[CHAT] Image format detected:", imageFormat, "aspect:", formatSpec.aspectRatio);
+          
+          // Buscar análises de estilo das referências visuais
+          const { data: visualRefs } = await supabase
+            .from("client_visual_references")
+            .select("*")
+            .eq("client_id", clientId)
+            .not("metadata", "is", null);
+          
+          // Filtrar referências que têm análise de estilo
+          const styleAnalyses = (visualRefs || [])
+            .filter((r: any) => r.metadata?.styleAnalysis)
+            .slice(0, 4)
+            .map((r: any) => ({
+              type: r.reference_type,
+              analysis: r.metadata.styleAnalysis,
+            }));
+          
+          console.log("[CHAT] Found", styleAnalyses.length, "analyzed style references");
+          
+          // Buscar brand_assets do cliente
+          const { data: clientData } = await supabase
+            .from("clients")
+            .select("brand_assets")
+            .eq("id", clientId)
+            .single();
+          
+          const brandAssets = clientData?.brand_assets;
+          
+          // Preparar o prompt otimizado usando o pipeline
+          let enhancedPrompt = imagePrompt;
+          let imageSpec = null;
+          
+          if (styleAnalyses.length > 0 || brandAssets) {
+            try {
+              const { data: prepData, error: prepError } = await supabase.functions.invoke("prepare-image-generation", {
+                body: {
+                  userPrompt: imagePrompt,
+                  clientId: clientId,
+                  styleAnalyses: styleAnalyses,
+                  brandAssets: brandAssets,
+                  imageFormat: imageFormat,
+                  aspectRatio: formatSpec.aspectRatio,
+                },
+              });
+              
+              if (!prepError && prepData?.enhancedPrompt) {
+                enhancedPrompt = prepData.enhancedPrompt;
+                imageSpec = prepData.imageSpec;
+                console.log("[CHAT] Enhanced prompt generated:", enhancedPrompt.substring(0, 100) + "...");
+              }
+            } catch (prepErr) {
+              console.warn("[CHAT] Prepare image failed, using original prompt:", prepErr);
+            }
+          }
+          
           // Combine template image references with user-attached images
           let allReferenceImages: Array<{ url?: string; base64?: string; description?: string }> = [];
           
@@ -388,16 +447,10 @@ export const useClientChat = (clientId: string, templateId?: string, conversatio
           }
           
           console.log("[CHAT] Total reference images:", allReferenceImages.length);
-          console.log("[CHAT] Style analysis available:", !!references.styleAnalysis);
-          
-          // Detectar formato baseado no template ativo
-          const imageFormat = detectImageFormat(template?.name);
-          const formatSpec = getImageFormatSpec(imageFormat);
-          console.log("[CHAT] Image format detected:", imageFormat, "aspect:", formatSpec.aspectRatio);
           
           const { data: imageData, error: imageError } = await supabase.functions.invoke("generate-image", {
             body: {
-              prompt: imagePrompt,
+              prompt: enhancedPrompt,
               clientId: clientId,
               userId: user?.id,
               referenceImages: allReferenceImages.length > 0 ? allReferenceImages : undefined,
@@ -406,17 +459,18 @@ export const useClientChat = (clientId: string, templateId?: string, conversatio
               formatInstructions: formatSpec.instructions,
               aspectRatio: formatSpec.aspectRatio,
               templateName: template?.name,
+              imageSpec: imageSpec,
             },
           });
 
           if (imageError) throw imageError;
           
           if (imageData?.imageUrl) {
-            // Salvar resposta com imagem gerada (sem mostrar o prompt)
+            // Salvar resposta com imagem gerada (SEM texto explicativo)
             await supabase.from("messages").insert({
               conversation_id: conversationId,
               role: "assistant",
-              content: `Imagem gerada com sucesso! 🎨`,
+              content: "", // Sem texto, apenas a imagem
               image_urls: [imageData.imageUrl],
             });
 

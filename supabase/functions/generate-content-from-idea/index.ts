@@ -243,25 +243,25 @@ Retorne o conteúdo ajustado:`;
           // ===========================================
           sendProgress("final_reviewer", CONTENT_AGENTS.final_reviewer.name);
 
-          const reviewPrompt = `Faça a revisão final deste ${contentFormat}:
+          const reviewPrompt = `Revise e retorne APENAS o conteúdo final deste ${contentFormat}:
 
 ## CONTEÚDO:
 ${currentDraft}
 
-## CHECKLIST DE REVISÃO:
-1. ✓ Erros de gramática e ortografia
-2. ✓ Fluidez e legibilidade
-3. ✓ Impacto do gancho inicial
-4. ✓ Clareza da mensagem principal
-5. ✓ Força do CTA (se houver)
-6. ✓ Adequação ao formato ${contentFormat}
+## CHECKLIST (aplique silenciosamente):
+1. Erros de gramática e ortografia
+2. Fluidez e legibilidade
+3. Impacto do gancho inicial
+4. Clareza da mensagem principal
+5. Força do CTA (se houver)
+6. Adequação ao formato ${contentFormat}
 
-## TAREFA:
-- Faça ajustes finais necessários
-- Polish o texto para publicação
-- Retorne APENAS o conteúdo final pronto
-
-Conteúdo final:`;
+REGRA CRÍTICA DE OUTPUT:
+- Retorne EXCLUSIVAMENTE o conteúdo final
+- NÃO inclua comentários como "Perfeito!", "Versão final:", "Aqui está", etc.
+- NÃO faça observações sobre o que você fez
+- NÃO adicione prefixos ou sufixos
+- APENAS o conteúdo pronto para publicação`;
 
           const reviewResult = await callGemini(
             "Você é um revisor meticuloso que garante que cada conteúdo esteja impecável para publicação.",
