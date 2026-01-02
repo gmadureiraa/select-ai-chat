@@ -1,25 +1,25 @@
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Sparkles, Zap, Users, Layers } from "lucide-react";
+import { ArrowRight, Sparkles, Users, Brain, LayoutDashboard } from "lucide-react";
 import { Link } from "react-router-dom";
 import RollingText from "./RollingText";
 import { useEffect, useRef } from "react";
 
 const featureCards = [
   {
-    icon: Zap,
-    title: "Velocidade total",
-    description: "Crie conteúdo em segundos",
-  },
-  {
     icon: Users,
     title: "Multi-clientes",
-    description: "Gerencie todos em um só lugar",
+    description: "Gerenciar vários clientes mantendo identidade única",
   },
   {
-    icon: Layers,
-    title: "Templates ilimitados",
-    description: "Personalize para cada cliente",
+    icon: Brain,
+    title: "IA que aprende",
+    description: "Cada cliente tem sua identidade preservada",
+  },
+  {
+    icon: LayoutDashboard,
+    title: "Tudo em um só lugar",
+    description: "Criação + Planejamento + Analytics em um lugar",
   },
 ];
 
@@ -164,8 +164,7 @@ const NewHeroSection = () => {
           transition={{ duration: 0.6, delay: 0.2 }}
           className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-10 leading-relaxed"
         >
-          Não é só uma ferramenta comum. Kaleidos é seu hub completo para gerenciar 
-          clientes, criar conteúdo em escala e acompanhar performance.
+          Produza, automatize, programe, organize e veja os resultados de tudo criado.
         </motion.p>
 
         {/* CTAs */}
@@ -181,7 +180,7 @@ const NewHeroSection = () => {
               className="bg-foreground text-background hover:bg-foreground/90 px-8 py-6 text-base font-semibold rounded-full group"
             >
               <Sparkles className="mr-2 w-4 h-4" />
-              Começar Grátis
+              Começar agora
             </Button>
           </Link>
           <a href="#features">
@@ -190,7 +189,7 @@ const NewHeroSection = () => {
               variant="outline"
               className="px-8 py-6 text-base font-medium rounded-full border-border hover:bg-muted"
             >
-              Ver Funcionalidades
+              Ver funcionalidades
               <ArrowRight className="ml-2 w-4 h-4" />
             </Button>
           </a>
