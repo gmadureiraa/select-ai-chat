@@ -8,6 +8,7 @@ import {
   createValidationErrorResponse,
   sanitizeString
 } from "../_shared/validation.ts";
+import { buildAgentContext } from "../_shared/knowledge-loader.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -116,6 +117,10 @@ async function executeAgent(
 ): Promise<{ content: string; inputTokens: number; outputTokens: number }> {
   console.log(`[AGENT-${agent.id}] Executing: ${agent.name} with model: ${agent.model}`);
 
+  // Carregar documentação específica do agente e formato
+  const knowledgeContext = buildAgentContext(agent.id, context.contentType);
+  console.log(`[AGENT-${agent.id}] Loaded knowledge context: ${knowledgeContext.length} chars`);
+
   let userPrompt = "";
 
   if (agent.id === "researcher") {
@@ -214,8 +219,13 @@ ${context.userMessage}
 Execute sua função.`;
   }
 
+  // Construir system prompt enriquecido com documentação
+  const enrichedSystemPrompt = knowledgeContext 
+    ? `${knowledgeContext}\n---\n\n${agent.systemPrompt}`
+    : agent.systemPrompt;
+
   const messages = [
-    { role: "system", content: agent.systemPrompt },
+    { role: "system", content: enrichedSystemPrompt },
     { role: "user", content: userPrompt }
   ];
 
