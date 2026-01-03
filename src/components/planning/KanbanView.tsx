@@ -133,7 +133,7 @@ export function KanbanView({
 
   return (
     <ScrollArea className="h-full w-full">
-      <div className="flex gap-4 pb-4 min-h-full px-1">
+      <div className="flex gap-6 pb-4 min-h-full px-1">
         {columns.map(column => {
           const items = getItemsByColumn(column.id);
           const config = columnConfig[column.column_type || ''] || columnConfig.idea;
@@ -146,8 +146,8 @@ export function KanbanView({
               key={column.id}
               data-column-id={column.id}
               className={cn(
-                "flex-shrink-0 w-72 bg-card/50 rounded-xl border border-border/50 flex flex-col max-h-[calc(100vh-280px)]",
-                "transition-all duration-200 backdrop-blur-sm",
+                "flex-shrink-0 w-80 bg-card/50 rounded-xl border border-border/50 flex flex-col max-h-[calc(100vh-280px)] shadow-sm",
+                "transition-all duration-200 backdrop-blur-sm hover:shadow-md",
                 isDropTarget && "ring-2 ring-primary/50 ring-offset-2 ring-offset-background bg-primary/5 scale-[1.01]"
               )}
               onDragOver={(e) => handleDragOver(e, column.id)}
@@ -156,7 +156,7 @@ export function KanbanView({
             >
               {/* Column Header - Clean & Minimal */}
               <div className={cn(
-                "px-3 py-2.5 rounded-t-xl border-b",
+                "px-4 py-3 rounded-t-xl border-b",
                 config.headerBg
               )}>
                 <div className="flex items-center justify-between">
@@ -187,7 +187,7 @@ export function KanbanView({
               </div>
 
               {/* Cards */}
-              <div className="flex-1 overflow-y-auto p-2 space-y-2">
+              <div className="flex-1 overflow-y-auto p-4 space-y-3">
                 {items.map(item => (
                   <div
                     key={item.id}

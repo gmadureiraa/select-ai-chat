@@ -40,6 +40,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import kaleidosLogo from "@/assets/kaleidos-logo.svg";
 import { supabase } from "@/integrations/supabase/client";
 import { TokensBadge } from "@/components/TokensBadge";
+import { ProgressChecklist } from "@/components/onboarding/ProgressChecklist";
 import { useQuery } from "@tanstack/react-query";
 
 interface NavItemProps {
@@ -273,11 +274,18 @@ export function KaiSidebar({
         </DropdownMenu>
       </div>
 
+      {/* Progress Checklist */}
+      <ProgressChecklist 
+        collapsed={collapsed}
+        onNavigate={onTabChange}
+        selectedClientId={selectedClientId}
+      />
+
       {/* Main Navigation */}
       <nav className="flex-1 px-3 overflow-y-auto">
         <SectionLabel collapsed={collapsed}>Cliente</SectionLabel>
         
-        <div className="space-y-0.5">
+        <div className="space-y-1">
           <NavItem
             icon={<Home className="h-4 w-4" />}
             label="Início"
@@ -318,7 +326,7 @@ export function KaiSidebar({
         {/* PLANEJAMENTO Section */}
         <SectionLabel collapsed={collapsed}>Planejamento</SectionLabel>
 
-        <div className="space-y-0.5">
+        <div className="space-y-1">
           <NavItem
             icon={<CalendarDays className="h-4 w-4" />}
             label="Planejamento"
@@ -341,7 +349,7 @@ export function KaiSidebar({
           <>
             <SectionLabel collapsed={collapsed}>Ferramentas</SectionLabel>
 
-            <div className="space-y-0.5">
+            <div className="space-y-1">
               <NavItem
                 icon={<FileText className="h-4 w-4" />}
                 label="Regras de Formato"
@@ -349,24 +357,13 @@ export function KaiSidebar({
                 onClick={() => onTabChange("format-rules")}
                 collapsed={collapsed}
               />
-
-              {/* Knowledge Base - visible only for member+ with canViewKnowledgeBase */}
-              {canViewKnowledgeBase && (
-                <NavItem
-                  icon={<BookOpen className="h-4 w-4" />}
-                  label="Base de Conhecimento"
-                  active={activeTab === "knowledge-base"}
-                  onClick={() => onTabChange("knowledge-base")}
-                  collapsed={collapsed}
-                />
-              )}
             </div>
           </>
         )}
 
         <SectionLabel collapsed={collapsed}>Conta</SectionLabel>
 
-        <div className="space-y-0.5">
+        <div className="space-y-1">
           {/* Clientes - only for admin/owner */}
           {canViewClients && (
             <NavItem

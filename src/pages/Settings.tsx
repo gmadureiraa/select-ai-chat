@@ -3,11 +3,12 @@ import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/hooks/useAuth";
 import { useAIUsage } from "@/hooks/useAIUsage";
 import { useWorkspace } from "@/hooks/useWorkspace";
-import { User, Zap, TrendingUp, Activity, Sun, Moon, Palette, Users, CreditCard } from "lucide-react";
+import { User, Zap, TrendingUp, Activity, Sun, Moon, Palette, Users, CreditCard, BookOpen, ChevronRight } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
 import { useTheme } from "next-themes";
 import { TeamManagement } from "@/components/settings/TeamManagement";
 import { PlanBillingCard } from "@/components/settings/PlanBillingCard";
@@ -16,14 +17,22 @@ import { AvatarUpload } from "@/components/ui/avatar-upload";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
+import { useNavigate, useParams } from "react-router-dom";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { useState } from "react";
 
 export default function Settings() {
   const { user } = useAuth();
   const { data: stats, isLoading } = useAIUsage(30);
   const { theme, setTheme } = useTheme();
-  const { userRole } = useWorkspace();
+  const { userRole, canViewKnowledgeBase, workspace } = useWorkspace();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const { slug } = useParams<{ slug: string }>();
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  
+  const currentSlug = slug || (workspace as { slug?: string })?.slug || "";
   
   // Fetch user profile
   const { data: profile } = useQuery({
@@ -113,6 +122,52 @@ export default function Settings() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Avançado - Base de Conhecimento */}
+        {canViewKnowledgeBase && (
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <BookOpen className="h-5 w-5 text-muted-foreground" />
+                <CardTitle>Avançado</CardTitle>
+              </div>
+              <CardDescription>Configurações avançadas e ferramentas de administração</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Collapsible open={showAdvanced} onOpenChange={setShowAdvanced}>
+                <CollapsibleTrigger asChild>
+                  <Button 
+                    variant="ghost" 
+                    className="w-full justify-between hover:bg-muted/50"
+                  >
+                    <div className="flex items-center gap-3">
+                      <BookOpen className="h-4 w-4 text-muted-foreground" />
+                      <div className="text-left">
+                        <p className="text-sm font-medium">Base de Conhecimento</p>
+                        <p className="text-xs text-muted-foreground">Documentos e referências compartilhadas</p>
+                      </div>
+                    </div>
+                    <ChevronRight className={`h-4 w-4 text-muted-foreground transition-transform ${showAdvanced ? 'rotate-90' : ''}`} />
+                  </Button>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="pt-3">
+                  <div className="p-4 rounded-lg bg-muted/30 border border-border/50">
+                    <p className="text-sm text-muted-foreground mb-3">
+                      A Base de Conhecimento permite que você armazene documentos, guias e referências que serão usados pela IA para gerar conteúdo mais preciso.
+                    </p>
+                    <Button 
+                      onClick={() => navigate(`/${currentSlug}/kaleidos?tab=knowledge-base`)}
+                      className="w-full"
+                    >
+                      <BookOpen className="h-4 w-4 mr-2" />
+                      Acessar Base de Conhecimento
+                    </Button>
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Time */}
         <TeamManagement />
