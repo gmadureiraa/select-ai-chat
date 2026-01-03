@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { Plus, Search, Pencil, Trash2 } from "lucide-react";
 import { useClients, Client } from "@/hooks/useClients";
+import { usePlanLimits } from "@/hooks/usePlanLimits";
+import { useUpgradePrompt } from "@/hooks/useUpgradePrompt";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -12,10 +14,20 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 export function ClientsManagementTool() {
   const { clients, isLoading } = useClients();
+  const { canAddClient, clientsRemaining, maxClients } = usePlanLimits();
+  const { showUpgradePrompt } = useUpgradePrompt();
   const [searchQuery, setSearchQuery] = useState("");
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [deletingClient, setDeletingClient] = useState<Client | null>(null);
+
+  const handleAddClient = () => {
+    if (!canAddClient) {
+      showUpgradePrompt("max_clients", `Você atingiu o limite de ${maxClients} cliente(s) do seu plano atual.`);
+      return;
+    }
+    setIsCreateDialogOpen(true);
+  };
 
   const filteredClients = clients?.filter(c =>
     c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -49,9 +61,12 @@ export function ClientsManagementTool() {
             Gerencie seus clientes, adicione novos ou edite informações existentes.
           </p>
         </div>
-        <Button onClick={() => setIsCreateDialogOpen(true)} className="gap-2">
+        <Button onClick={handleAddClient} className="gap-2">
           <Plus className="h-4 w-4" />
           Novo Cliente
+          {clientsRemaining > 0 && (
+            <span className="text-xs opacity-70">({clientsRemaining})</span>
+          )}
         </Button>
       </div>
 

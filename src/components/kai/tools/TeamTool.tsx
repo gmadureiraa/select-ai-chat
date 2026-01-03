@@ -16,6 +16,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { usePendingUsers, PendingUser } from "@/hooks/usePendingUsers";
 import { useAllMemberClientAccess } from "@/hooks/useMemberClientAccess";
 import { useClients } from "@/hooks/useClients";
+import { usePlanLimits } from "@/hooks/usePlanLimits";
+import { useUpgradePrompt } from "@/hooks/useUpgradePrompt";
 import { MemberClientAccessDialog } from "@/components/settings/MemberClientAccessDialog";
 import {
   AlertDialog,
@@ -65,6 +67,8 @@ export function TeamTool() {
   const { pendingUsers, isLoading: isLoadingPending, addUserToWorkspace, rejectUser, rejectedUsers, unrejectUser, isLoadingRejected } = usePendingUsers();
   const { data: allMemberAccess = [] } = useAllMemberClientAccess(workspace?.id);
   const { clients } = useClients();
+  const { canAddMember, membersRemaining, maxMembers } = usePlanLimits();
+  const { showUpgradePrompt } = useUpgradePrompt();
   
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<WorkspaceRole>("member");
@@ -90,6 +94,12 @@ export function TeamTool() {
     e.preventDefault();
     if (!email.trim()) return;
     
+    // Check plan limits before inviting
+    if (!canAddMember) {
+      showUpgradePrompt("max_members", `Você atingiu o limite de ${maxMembers} membro(s) do seu plano atual.`);
+      return;
+    }
+    
     // Only pass clientIds if role is member or viewer (those that can have restricted access)
     const clientIds = (role === "member" || role === "viewer") && selectedClients.length > 0 
       ? selectedClients 
@@ -106,6 +116,11 @@ export function TeamTool() {
   };
 
   const handleAddPendingUser = (pendingUser: PendingUser) => {
+    // Check plan limits before adding
+    if (!canAddMember) {
+      showUpgradePrompt("max_members", `Você atingiu o limite de ${maxMembers} membro(s) do seu plano atual.`);
+      return;
+    }
     const roleToAssign = selectedRoleForPending[pendingUser.id] || "member";
     addUserToWorkspace.mutate({ userId: pendingUser.id, role: roleToAssign });
   };
