@@ -1,7 +1,10 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Send, Sparkles, Image, FileText, Video, Mail, BarChart3, Library } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
+import { useAuth } from "@/hooks/useAuth";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
 interface ContentTypeChip {
   id: string;
@@ -23,9 +26,42 @@ interface GradientHeroProps {
   clientName?: string;
 }
 
+function getTimeGreeting(): { greeting: string; emoji: string } {
+  const hour = new Date().getHours();
+  if (hour >= 5 && hour < 12) {
+    return { greeting: "Bom dia", emoji: "☀️" };
+  } else if (hour >= 12 && hour < 18) {
+    return { greeting: "Boa tarde", emoji: "🌤️" };
+  } else {
+    return { greeting: "Boa noite", emoji: "🌙" };
+  }
+}
+
 export function GradientHero({ onSubmit, onQuickAction, clientName }: GradientHeroProps) {
   const [input, setInput] = useState("");
   const [selectedType, setSelectedType] = useState<string | null>(null);
+  const { user } = useAuth();
+
+  // Fetch user profile for name
+  const { data: userProfile } = useQuery({
+    queryKey: ["user-profile-hero", user?.id],
+    queryFn: async () => {
+      if (!user?.id) return null;
+      const { data } = await supabase
+        .from("profiles")
+        .select("full_name")
+        .eq("id", user.id)
+        .single();
+      return data;
+    },
+    enabled: !!user?.id,
+  });
+
+  const userName = useMemo(() => {
+    return userProfile?.full_name || user?.user_metadata?.full_name || user?.email?.split("@")[0] || "";
+  }, [userProfile, user]);
+
+  const { greeting, emoji } = useMemo(() => getTimeGreeting(), []);
 
   const handleSubmit = () => {
     if (!input.trim()) return;
@@ -64,6 +100,16 @@ export function GradientHero({ onSubmit, onQuickAction, clientName }: GradientHe
         transition={{ duration: 0.6 }}
         className="relative z-10 w-full max-w-2xl"
       >
+        {/* Personalized Greeting */}
+        <motion.p
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.2, duration: 0.5 }}
+          className="text-center text-muted-foreground mb-2 text-sm"
+        >
+          {greeting}{userName ? `, ${userName}` : ""} {emoji}
+        </motion.p>
+
         {/* Tagline */}
         <h1 className="text-4xl md:text-5xl font-light text-center text-foreground mb-3 tracking-tight">
           O que vamos <span className="font-semibold text-primary">criar</span> hoje?
@@ -77,27 +123,29 @@ export function GradientHero({ onSubmit, onQuickAction, clientName }: GradientHe
 
         {!clientName && (
           <p className="text-center text-muted-foreground/60 mb-8">
-            Seu assistente de conteúdo inteligente
+            Vamos criar algo incrível juntos
           </p>
         )}
 
         {/* Content Type Pills */}
         <div className="flex items-center justify-center gap-2 mb-6 flex-wrap">
           {contentTypes.map((type) => (
-            <button
+            <motion.button
               key={type.id}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
               onClick={() => setSelectedType(selectedType === type.id ? null : type.id)}
               className={cn(
-                "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm transition-all",
+                "flex items-center gap-1.5 px-4 py-2 rounded-full text-sm transition-all",
                 "border backdrop-blur-sm",
                 selectedType === type.id
-                  ? "bg-primary/20 border-primary/50 text-primary"
-                  : "bg-muted/30 border-border/50 text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                  ? "bg-primary/20 border-primary/50 text-primary shadow-sm"
+                  : "bg-muted/30 border-border/50 text-muted-foreground hover:bg-muted/50 hover:text-foreground hover:border-border"
               )}
             >
               {type.icon}
               <span>{type.label}</span>
-            </button>
+            </motion.button>
           ))}
         </div>
 
@@ -159,31 +207,35 @@ export function GradientHero({ onSubmit, onQuickAction, clientName }: GradientHe
           />
         </div>
 
-        {/* Quick Actions */}
-        <div className="flex items-center justify-center gap-4 mt-8">
-          <button 
+        {/* Quick Actions - Redesigned as pills */}
+        <div className="flex items-center justify-center gap-3 mt-8">
+          <motion.button 
+            whileHover={{ scale: 1.02, y: -1 }}
+            whileTap={{ scale: 0.98 }}
             onClick={() => onQuickAction?.("assistant")}
-            className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors px-3 py-2 rounded-lg hover:bg-muted/30"
+            className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-all px-4 py-2.5 rounded-xl bg-muted/30 hover:bg-muted/60 border border-transparent hover:border-border/50 backdrop-blur-sm"
           >
-            <Sparkles className="h-4 w-4" />
+            <Sparkles className="h-4 w-4 text-primary" />
             <span>Chat livre</span>
-          </button>
-          <span className="text-muted-foreground/30">•</span>
-          <button 
+          </motion.button>
+          <motion.button 
+            whileHover={{ scale: 1.02, y: -1 }}
+            whileTap={{ scale: 0.98 }}
             onClick={() => onQuickAction?.("performance")}
-            className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors px-3 py-2 rounded-lg hover:bg-muted/30"
+            className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-all px-4 py-2.5 rounded-xl bg-muted/30 hover:bg-muted/60 border border-transparent hover:border-border/50 backdrop-blur-sm"
           >
-            <BarChart3 className="h-4 w-4" />
+            <BarChart3 className="h-4 w-4 text-secondary" />
             <span>Ver métricas</span>
-          </button>
-          <span className="text-muted-foreground/30">•</span>
-          <button 
+          </motion.button>
+          <motion.button 
+            whileHover={{ scale: 1.02, y: -1 }}
+            whileTap={{ scale: 0.98 }}
             onClick={() => onQuickAction?.("library")}
-            className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors px-3 py-2 rounded-lg hover:bg-muted/30"
+            className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-all px-4 py-2.5 rounded-xl bg-muted/30 hover:bg-muted/60 border border-transparent hover:border-border/50 backdrop-blur-sm"
           >
-            <Library className="h-4 w-4" />
+            <Library className="h-4 w-4 text-accent" />
             <span>Biblioteca</span>
-          </button>
+          </motion.button>
         </div>
       </motion.div>
     </div>
