@@ -2,14 +2,14 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Design System - Orbit/Acme Style
-   Light mode priority with clean, minimal aesthetic
+/* Design System - Modern App Style
+   Inspired by Linear, Notion, and premium SaaS apps
    All colors MUST be HSL.
 */
 
 @layer base {
   :root {
-    /* Light mode - Clean white background like Orbit */
+    /* Light mode - Clean white background */
     --background: 0 0% 100%;
     --foreground: 220 15% 15%;
 
@@ -44,7 +44,15 @@
     --input: 220 13% 91%;
     --ring: 145 80% 42%;
 
-    --radius: 0.5rem;
+    --radius: 0.625rem;
+
+    /* Sidebar - Dark theme like reference */
+    --sidebar: 220 20% 14%;
+    --sidebar-foreground: 220 10% 85%;
+    --sidebar-accent: 220 20% 20%;
+    --sidebar-accent-foreground: 220 10% 95%;
+    --sidebar-border: 220 15% 22%;
+    --sidebar-muted: 220 15% 25%;
 
     /* Chat bubbles */
     --chat-user-bg: 220 14% 96%;
@@ -57,7 +65,7 @@
     /* Transitions */
     --transition-smooth: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 
-    /* Vibrant chart colors - Orbit/Acme style */
+    /* Vibrant chart colors */
     --chart-1: 145 75% 45%;
     --chart-2: 330 85% 55%;
     --chart-3: 220 90% 55%;
@@ -95,6 +103,14 @@
     --border: 220 15% 18%;
     --input: 220 15% 15%;
     --ring: 145 75% 50%;
+
+    /* Sidebar in dark mode stays same tone */
+    --sidebar: 220 20% 10%;
+    --sidebar-foreground: 220 10% 85%;
+    --sidebar-accent: 220 20% 15%;
+    --sidebar-accent-foreground: 220 10% 95%;
+    --sidebar-border: 220 15% 18%;
+    --sidebar-muted: 220 15% 20%;
 
     --chat-user-bg: 220 15% 12%;
     --chat-user-fg: 0 0% 95%;
