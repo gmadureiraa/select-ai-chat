@@ -6,6 +6,7 @@ import { MessageActions } from "@/components/MessageActions";
 import { ArtifactCard, parseArtifacts, ArtifactType } from "./ArtifactCard";
 import { ImageActionButtons } from "./ImageActionButtons";
 import { AddToPlanningButton } from "./AddToPlanningButton";
+import { EditAndPlanButton } from "./EditAndPlanButton";
 import { AdjustImageButton } from "./AdjustImageButton";
 import { useState, useMemo } from "react";
 import {
@@ -339,6 +340,12 @@ export const EnhancedMessageBubble = ({
                 clientId={clientId}
                 clientName={clientName}
                 mediaUrls={hasImages ? imageUrls : undefined}
+              />
+              <EditAndPlanButton
+                content={detectedPosts.length > 0 ? detectedPosts[0].content : content}
+                platform={detectedPosts.length > 0 ? detectedPosts[0].platform : undefined}
+                clientId={clientId}
+                clientName={clientName}
               />
               <Button
                 variant="outline"

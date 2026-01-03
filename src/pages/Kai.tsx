@@ -13,6 +13,7 @@ import { ClientsManagementTool } from "@/components/kai/tools/ClientsManagementT
 import { PlanningBoard } from "@/components/planning/PlanningBoard";
 import { FormatRulesTool } from "@/components/tools/FormatRulesTool";
 import { EnterpriseLockScreen } from "@/components/shared/EnterpriseLockScreen";
+import { OnboardingFlow } from "@/components/onboarding";
 import { useClients } from "@/hooks/useClients";
 import { useWorkspace } from "@/hooks/useWorkspace";
 import { usePlanFeatures } from "@/hooks/usePlanFeatures";
@@ -207,6 +208,9 @@ export default function Kai() {
 
   return (
     <div className="flex h-screen bg-background w-full">
+      {/* Onboarding Flow */}
+      <OnboardingFlow />
+      
       <KaiSidebar
         activeTab={tab}
         onTabChange={handleTabChange}

@@ -315,12 +315,42 @@ export function KaiSidebar({
           )}
         </div>
 
-        {/* Ferramentas - Knowledge Base for member+, Planning and Automations for all (shows lock screen) */}
-        {(canViewKnowledgeBase || canViewTools) && (
+        {/* PLANEJAMENTO Section */}
+        <SectionLabel collapsed={collapsed}>Planejamento</SectionLabel>
+
+        <div className="space-y-0.5">
+          <NavItem
+            icon={<CalendarDays className="h-4 w-4" />}
+            label="Planejamento"
+            active={activeTab === "planning"}
+            onClick={() => onTabChange("planning")}
+            collapsed={collapsed}
+          />
+          
+          <NavItem
+            icon={<Zap className="h-4 w-4" />}
+            label="Automações"
+            active={activeTab === "automations"}
+            onClick={() => onTabChange("automations")}
+            collapsed={collapsed}
+          />
+        </div>
+
+        {/* FERRAMENTAS Section */}
+        {canViewTools && (
           <>
             <SectionLabel collapsed={collapsed}>Ferramentas</SectionLabel>
 
             <div className="space-y-0.5">
+              <NavItem
+                icon={<FileText className="h-4 w-4" />}
+                label="Regras de Formato"
+                active={activeTab === "format-rules"}
+                onClick={() => onTabChange("format-rules")}
+                collapsed={collapsed}
+              />
+
+              {/* Knowledge Base - visible only for member+ with canViewKnowledgeBase */}
               {canViewKnowledgeBase && (
                 <NavItem
                   icon={<BookOpen className="h-4 w-4" />}
@@ -330,33 +360,6 @@ export function KaiSidebar({
                   collapsed={collapsed}
                 />
               )}
-
-              {/* Planejamento - visível para todos, mostra tela de bloqueio se não for Enterprise */}
-              <NavItem
-                icon={<CalendarDays className="h-4 w-4" />}
-                label="Planejamento"
-                active={activeTab === "planning"}
-                onClick={() => onTabChange("planning")}
-                collapsed={collapsed}
-              />
-              
-              {/* Automações - visível para todos, mostra tela de bloqueio se não for Enterprise */}
-              <NavItem
-                icon={<Zap className="h-4 w-4" />}
-                label="Automações"
-                active={activeTab === "automations"}
-                onClick={() => onTabChange("automations")}
-                collapsed={collapsed}
-              />
-              
-              {/* Regras de Formato - visível para todos */}
-              <NavItem
-                icon={<FileText className="h-4 w-4" />}
-                label="Regras de Formato"
-                active={activeTab === "format-rules"}
-                onClick={() => onTabChange("format-rules")}
-                collapsed={collapsed}
-              />
             </div>
           </>
         )}
