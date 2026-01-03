@@ -115,11 +115,11 @@ const sections: DocSection[] = [
           <div className="grid grid-cols-2 gap-3 text-sm">
             <div className="p-2 rounded bg-background">
               <p className="font-medium">Starter</p>
-              <p className="text-muted-foreground">$49/mês • 10k tokens</p>
+              <p className="text-muted-foreground">R$ 97/mês • 10k tokens</p>
             </div>
             <div className="p-2 rounded bg-background">
               <p className="font-medium">Pro</p>
-              <p className="text-muted-foreground">$249/mês • 50k tokens</p>
+              <p className="text-muted-foreground">R$ 297/mês • 50k tokens</p>
             </div>
           </div>
           <p className="text-xs text-muted-foreground mt-2">14 dias de trial gratuito em todos os planos</p>
