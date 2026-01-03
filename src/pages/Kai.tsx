@@ -14,12 +14,11 @@ import { PlanningBoard } from "@/components/planning/PlanningBoard";
 import { FormatRulesTool } from "@/components/tools/FormatRulesTool";
 import { EnterpriseLockScreen } from "@/components/shared/EnterpriseLockScreen";
 import { OnboardingFlow } from "@/components/onboarding";
+import { UpgradePromptProvider } from "@/hooks/useUpgradePrompt";
 import { useClients } from "@/hooks/useClients";
 import { useWorkspace } from "@/hooks/useWorkspace";
 import { usePlanFeatures } from "@/hooks/usePlanFeatures";
 import { cn } from "@/lib/utils";
-import { CalendarDays } from "lucide-react";
-
 import { Loader2 } from "lucide-react";
 
 export default function Kai() {
@@ -207,22 +206,24 @@ export default function Kai() {
   };
 
   return (
-    <div className="flex h-screen bg-background w-full">
-      {/* Onboarding Flow */}
-      <OnboardingFlow />
-      
-      <KaiSidebar
-        activeTab={tab}
-        onTabChange={handleTabChange}
-        selectedClientId={clientId}
-        onClientChange={handleClientChange}
-        collapsed={sidebarCollapsed}
-        onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
-      />
+    <UpgradePromptProvider>
+      <div className="flex h-screen bg-background w-full">
+        {/* Onboarding Flow */}
+        <OnboardingFlow />
+        
+        <KaiSidebar
+          activeTab={tab}
+          onTabChange={handleTabChange}
+          selectedClientId={clientId}
+          onClientChange={handleClientChange}
+          collapsed={sidebarCollapsed}
+          onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
+        />
 
-      <main className="flex-1 overflow-hidden">
-        {renderContent()}
-      </main>
-    </div>
+        <main className="flex-1 overflow-hidden">
+          {renderContent()}
+        </main>
+      </div>
+    </UpgradePromptProvider>
   );
 }

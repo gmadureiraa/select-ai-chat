@@ -40,8 +40,6 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import kaleidosLogo from "@/assets/kaleidos-logo.svg";
 import { supabase } from "@/integrations/supabase/client";
 import { TokensBadge } from "@/components/TokensBadge";
-import { ProgressChecklist } from "@/components/onboarding/ProgressChecklist";
-import { SidebarUpgradeCTA } from "@/components/kai/SidebarUpgradeCTA";
 import { useQuery } from "@tanstack/react-query";
 
 interface NavItemProps {
@@ -280,15 +278,8 @@ export function KaiSidebar({
         </DropdownMenu>
       </div>
 
-      {/* Progress Checklist */}
-      <ProgressChecklist 
-        collapsed={collapsed}
-        onNavigate={onTabChange}
-        selectedClientId={selectedClientId}
-      />
-
       {/* Main Navigation */}
-      <nav className="flex-1 px-3 overflow-y-auto">
+      <nav className="flex-1 px-3 overflow-y-auto pt-2">
         <SectionLabel collapsed={collapsed}>Cliente</SectionLabel>
         
         <div className="space-y-1">
@@ -350,12 +341,19 @@ export function KaiSidebar({
           />
         </div>
 
-        {/* FERRAMENTAS Section */}
+        {/* CONHECIMENTO Section - includes knowledge base and format rules */}
         {canViewTools && (
           <>
-            <SectionLabel collapsed={collapsed}>Ferramentas</SectionLabel>
+            <SectionLabel collapsed={collapsed}>Conhecimento</SectionLabel>
 
             <div className="space-y-1">
+              <NavItem
+                icon={<BookOpen className="h-4 w-4" />}
+                label="Base de Conhecimento"
+                active={activeTab === "knowledge-base"}
+                onClick={() => onTabChange("knowledge-base")}
+                collapsed={collapsed}
+              />
               <NavItem
                 icon={<FileText className="h-4 w-4" />}
                 label="Regras de Formato"
@@ -421,12 +419,6 @@ export function KaiSidebar({
           />
         </div>
       </nav>
-
-      {/* Upgrade CTA */}
-      <SidebarUpgradeCTA 
-        collapsed={collapsed} 
-        planName="Starter" 
-      />
 
       {/* Collapse Toggle */}
       <div className="px-3 py-2 border-t border-border">
