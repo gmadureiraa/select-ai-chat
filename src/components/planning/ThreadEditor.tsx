@@ -127,12 +127,12 @@ export function ThreadEditor({
   }
 
   return (
-    <div className={cn("space-y-3", className)}>
+    <div className={cn("space-y-4 rounded-xl border border-border/50 p-6 shadow-sm", className)}>
       <div className="flex items-center justify-between">
         <span className="text-sm font-medium">Thread ({value.length} tweets)</span>
       </div>
 
-      <div className="space-y-2">
+      <div className="space-y-3">
         {value.map((tweet, index) => (
           <div
             key={tweet.id}
@@ -141,11 +141,12 @@ export function ThreadEditor({
             onDragOver={(e) => handleDragOver(e, index)}
             onDragEnd={handleDragEnd}
             className={cn(
-              "rounded-lg border border-border bg-card p-3 space-y-2",
+              "rounded-xl border border-border/50 bg-card p-4 space-y-3",
+              "shadow-sm hover:shadow-md transition-all duration-200",
               draggedIndex === index && "opacity-50"
             )}
           >
-            <div className="flex items-start gap-2">
+            <div className="flex items-start gap-3">
               <div className="flex items-center gap-1 pt-2">
                 <GripVertical className="h-4 w-4 text-muted-foreground cursor-move" />
                 <span className="text-xs font-medium text-muted-foreground w-4">
@@ -153,13 +154,13 @@ export function ThreadEditor({
                 </span>
               </div>
 
-              <div className="flex-1 space-y-2">
+              <div className="flex-1 space-y-3">
                 <div className="relative">
                   <Textarea
                     value={tweet.text}
                     onChange={(e) => updateTweet(tweet.id, e.target.value)}
                     placeholder={index === 0 ? "Primeiro tweet da thread..." : "Continuar thread..."}
-                    className="resize-none min-h-[80px] pr-16"
+                    className="resize-none min-h-[80px] pr-16 rounded-lg border-border/50"
                     maxLength={MAX_TWEET_LENGTH}
                   />
                   <span className={cn(
@@ -180,7 +181,7 @@ export function ThreadEditor({
                         <img
                           src={url}
                           alt=""
-                          className="w-full h-full object-cover rounded-md"
+                          className="w-full h-full object-cover rounded-lg"
                         />
                         <Button
                           variant="destructive"
@@ -211,7 +212,7 @@ export function ThreadEditor({
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="h-7 text-xs gap-1"
+                        className="h-7 text-xs gap-1 hover:bg-muted/50"
                         type="button"
                         disabled={uploadingFor === tweet.id}
                         asChild
@@ -248,7 +249,7 @@ export function ThreadEditor({
         type="button"
         variant="outline"
         size="sm"
-        className="w-full gap-2"
+        className="w-full gap-2 rounded-lg"
         onClick={addTweet}
       >
         <Plus className="h-4 w-4" />

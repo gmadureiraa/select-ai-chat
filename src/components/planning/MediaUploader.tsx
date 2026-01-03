@@ -124,7 +124,7 @@ export function MediaUploader({
   };
 
   return (
-    <div className={cn("space-y-2", className)}>
+    <div className={cn("space-y-3", className)}>
       <div className="flex items-center gap-2">
         <span className="text-sm font-medium">Mídia</span>
         <span className="text-xs text-muted-foreground">
@@ -132,7 +132,7 @@ export function MediaUploader({
         </span>
       </div>
 
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-3">
         {value.map((item, index) => (
           <div
             key={item.id}
@@ -141,7 +141,8 @@ export function MediaUploader({
             onDragOver={(e) => handleDragOver(e, index)}
             onDragEnd={handleDragEnd}
             className={cn(
-              "relative group w-20 h-20 rounded-lg border border-border overflow-hidden cursor-move",
+              "relative group w-20 h-20 rounded-xl border border-border/50 overflow-hidden cursor-move",
+              "shadow-sm hover:shadow-md transition-all duration-200",
               draggedIndex === index && "opacity-50"
             )}
           >
@@ -177,9 +178,9 @@ export function MediaUploader({
             onClick={() => fileInputRef.current?.click()}
             disabled={isUploading}
             className={cn(
-              "w-20 h-20 rounded-lg border-2 border-dashed border-border",
+              "w-20 h-20 rounded-xl border-2 border-dashed border-border/50",
               "flex flex-col items-center justify-center gap-1",
-              "hover:border-primary hover:bg-primary/5 transition-colors",
+              "hover:border-primary hover:bg-primary/5 transition-all duration-200",
               "text-muted-foreground hover:text-primary",
               isUploading && "opacity-50 cursor-wait"
             )}

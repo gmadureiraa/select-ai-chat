@@ -136,16 +136,16 @@ export function RichContentEditor({
   };
 
   return (
-    <div className={cn("space-y-1", className)}>
+    <div className={cn("space-y-2 rounded-xl border border-border/50 p-4 shadow-sm", className)}>
       {/* Toolbar */}
-      <div className="flex items-center justify-between p-1 bg-muted/50 rounded-md border border-border">
+      <div className="flex items-center justify-between p-2 bg-muted/50 rounded-lg border border-border/30">
         <div className="flex items-center gap-0.5">
           {toolbarButtons.map((btn, idx) => (
             <Button
               key={idx}
               variant="ghost"
               size="icon"
-              className="h-7 w-7"
+              className="h-7 w-7 hover:bg-muted/50"
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -163,7 +163,7 @@ export function RichContentEditor({
           <Button
             variant="ghost"
             size="icon"
-            className="h-7 w-7"
+            className="h-7 w-7 hover:bg-muted/50"
             onClick={(e) => {
               e.preventDefault();
               fileInputRef.current?.click();
@@ -183,7 +183,7 @@ export function RichContentEditor({
         <Button
           variant="ghost"
           size="sm"
-          className="h-7 text-xs gap-1"
+          className="h-7 text-xs gap-1 hover:bg-muted/50"
           onClick={(e) => {
             e.preventDefault();
             setShowPreview(!showPreview);
@@ -206,7 +206,7 @@ export function RichContentEditor({
       
       {/* Editor / Preview */}
       {showPreview ? (
-        <div className="min-h-[150px] p-3 rounded-md border border-border bg-background prose prose-sm dark:prose-invert max-w-none">
+        <div className="min-h-[150px] p-4 rounded-lg border border-border/50 bg-background prose prose-sm dark:prose-invert max-w-none">
           <ReactMarkdown
             components={{
               img: ({ node, ...props }) => (
@@ -223,7 +223,7 @@ export function RichContentEditor({
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
-          className="resize-none font-mono text-sm min-h-[150px]"
+          className="resize-none font-mono text-sm min-h-[150px] rounded-lg border-border/50"
           rows={minRows}
           onKeyDown={handleKeyDown}
         />
