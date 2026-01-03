@@ -6,33 +6,54 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Loader2 } from "lucide-react";
+import { toast } from "sonner";
 import kaleidosLogo from "@/assets/kaleidos-logo.svg";
 
 const Login = () => {
   const navigate = useNavigate();
-  const { signIn, signUp, user } = useAuth();
-  const [isSignUp, setIsSignUp] = useState(false);
+  const { signIn, user } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [fullName, setFullName] = useState("");
   const [loading, setLoading] = useState(false);
+  const [checkingRedirect, setCheckingRedirect] = useState(false);
 
   // Redirect to workspace if already logged in
   useEffect(() => {
     const redirectToWorkspace = async () => {
       if (user) {
+        setCheckingRedirect(true);
         try {
+          // First, check if user has pending invites that were just accepted
+          const { data: memberships } = await supabase
+            .from("workspace_members")
+            .select("workspace_id, workspaces(slug)")
+            .eq("user_id", user.id)
+            .limit(1);
+
+          if (memberships && memberships.length > 0) {
+            const workspace = memberships[0].workspaces as { slug: string } | null;
+            if (workspace?.slug) {
+              navigate(`/${workspace.slug}`, { replace: true });
+              return;
+            }
+          }
+
+          // Fallback to RPC
           const { data: slug } = await supabase
             .rpc("get_user_workspace_slug", { p_user_id: user.id });
           
           if (slug) {
             navigate(`/${slug}`, { replace: true });
           } else {
-            // User has no workspace, redirect to signup
+            // User has no workspace, redirect to signup to create one
             navigate("/signup", { replace: true });
           }
         } catch (err) {
           console.error("Error fetching workspace:", err);
+          navigate("/signup", { replace: true });
+        } finally {
+          setCheckingRedirect(false);
         }
       }
     };
@@ -45,20 +66,27 @@ const Login = () => {
     setLoading(true);
 
     try {
-      if (isSignUp) {
-        // For signup, redirect to the dedicated signup page
-        navigate("/signup");
-        return;
-      }
-      
       await signIn(email, password);
       // The useEffect will handle redirection after successful login
-    } catch (err) {
+    } catch (err: unknown) {
       console.error("Login error:", err);
+      const errorMessage = err instanceof Error ? err.message : "Erro ao entrar";
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
   };
+
+  if (checkingRedirect) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-muted-foreground">Carregando seu workspace...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
@@ -109,18 +137,28 @@ const Login = () => {
               className="w-full"
               disabled={loading}
             >
-              {loading ? "Carregando..." : "Entrar"}
+              {loading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Entrando...
+                </>
+              ) : (
+                "Entrar"
+              )}
             </Button>
           </form>
-          <div className="mt-4 text-center">
+          <div className="mt-4 text-center space-y-2">
             <button
               type="button"
               onClick={() => navigate("/signup")}
               className="text-sm text-muted-foreground hover:text-foreground transition-colors"
               disabled={loading}
             >
-              Não tem conta? Crie uma agora
+              Não tem conta? Crie seu workspace
             </button>
+            <p className="text-xs text-muted-foreground">
+              Recebeu um convite? Clique no link do convite para acessar.
+            </p>
           </div>
         </CardContent>
       </Card>
