@@ -9,22 +9,17 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
-  BookOpen,
-  Activity,
-  Users,
   Search,
   LogOut,
   HelpCircle,
   Building2,
   CalendarDays,
   Zap,
-  FileText,
   Command
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useClients } from "@/hooks/useClients";
 import { useWorkspace } from "@/hooks/useWorkspace";
-import { usePendingUsers } from "@/hooks/usePendingUsers";
 import { useAuth } from "@/hooks/useAuth";
 import { WorkspaceSwitcher } from "./WorkspaceSwitcher";
 
@@ -57,16 +52,16 @@ function NavItem({ icon, label, active, onClick, badge, collapsed }: NavItemProp
     <button
       onClick={onClick}
       className={cn(
-        "w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all duration-150 group relative",
+        "w-full flex items-center gap-3 px-3 py-2 rounded-md text-[13px] font-medium transition-all duration-150 group relative",
         active 
-          ? "bg-sidebar-accent text-sidebar-accent-foreground" 
-          : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
+          ? "bg-primary/10 text-primary" 
+          : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground",
         collapsed && "justify-center px-2"
       )}
     >
       <span className={cn(
         "flex-shrink-0 transition-colors",
-        active ? "text-primary" : "text-sidebar-foreground/60 group-hover:text-sidebar-foreground"
+        active ? "text-primary" : "text-sidebar-foreground/50 group-hover:text-sidebar-foreground/80"
       )}>
         {icon}
       </span>
@@ -113,8 +108,8 @@ function SectionLabel({ children, collapsed }: SectionLabelProps) {
   if (collapsed) return null;
   
   return (
-    <div className="px-3 pt-5 pb-1.5">
-      <span className="text-[10px] font-semibold text-sidebar-foreground/40 uppercase tracking-widest">
+    <div className="px-3 pt-6 pb-2">
+      <span className="text-[11px] font-medium text-sidebar-foreground/40 uppercase tracking-wider">
         {children}
       </span>
     </div>
@@ -142,8 +137,7 @@ export function KaiSidebar({
   const navigate = useNavigate();
   const { slug } = useParams<{ slug: string }>();
   const { clients } = useClients();
-  const { canManageTeam, canViewTools, canViewPerformance, canViewLibrary, canViewActivities, canViewClients, workspace } = useWorkspace();
-  const { pendingCount } = usePendingUsers();
+  const { canViewPerformance, canViewLibrary, canViewClients, workspace } = useWorkspace();
   const { user, signOut } = useAuth();
   const selectedClient = clients?.find(c => c.id === selectedClientId);
   const [searchQuery, setSearchQuery] = useState("");
@@ -175,30 +169,30 @@ export function KaiSidebar({
 
   return (
     <aside className={cn(
-      "h-screen bg-sidebar flex flex-col transition-all duration-300",
-      collapsed ? "w-16" : "w-64"
+      "h-screen bg-sidebar border-r border-sidebar-border flex flex-col transition-all duration-300",
+      collapsed ? "w-16" : "w-60"
     )}>
       {/* Workspace Switcher */}
-      <div className="pt-3 pb-2 border-b border-sidebar-border">
+      <div className="px-3 pt-4 pb-3">
         <WorkspaceSwitcher collapsed={collapsed} />
       </div>
 
       {/* Search - only when expanded */}
       {!collapsed && (
-        <div className="px-3 pt-3">
+        <div className="px-3 pb-3">
           <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-sidebar-foreground/40" />
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-sidebar-foreground/40" />
             <Input
               placeholder="Buscar..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-8 pr-10 h-9 bg-sidebar-accent/50 border-sidebar-border text-sidebar-foreground placeholder:text-sidebar-foreground/40 text-sm focus:bg-sidebar-accent focus:border-sidebar-border"
+              className="pl-8 pr-12 h-8 bg-transparent border-sidebar-border/50 text-sidebar-foreground placeholder:text-sidebar-foreground/40 text-sm rounded-md focus:bg-sidebar-accent/30 focus:border-sidebar-border"
             />
-            <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
-              <kbd className="h-5 px-1.5 rounded bg-sidebar-muted text-[10px] font-medium text-sidebar-foreground/50 flex items-center">
-                <Command className="h-3 w-3" />
+            <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
+              <kbd className="h-4 px-1 rounded bg-sidebar-accent text-[9px] font-medium text-sidebar-foreground/50 flex items-center border border-sidebar-border/50">
+                <Command className="h-2.5 w-2.5" />
               </kbd>
-              <kbd className="h-5 px-1.5 rounded bg-sidebar-muted text-[10px] font-medium text-sidebar-foreground/50">
+              <kbd className="h-4 px-1 rounded bg-sidebar-accent text-[9px] font-medium text-sidebar-foreground/50 border border-sidebar-border/50">
                 K
               </kbd>
             </div>
@@ -207,41 +201,40 @@ export function KaiSidebar({
       )}
 
       {/* Client Selector */}
-      <div className={cn("pt-3", collapsed ? "px-2" : "px-3")}>
+      <div className={cn("px-3 pb-2", collapsed && "px-2")}>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button className={cn(
-              "w-full flex items-center gap-2.5 rounded-lg bg-primary/90 hover:bg-primary transition-colors text-primary-foreground",
-              collapsed ? "p-2 justify-center" : "px-3 py-2.5"
+              "w-full flex items-center gap-2.5 rounded-md transition-colors",
+              "bg-primary text-primary-foreground hover:bg-primary/90",
+              collapsed ? "p-2 justify-center" : "px-3 py-2"
             )}>
               {selectedClient?.avatar_url ? (
-                <Avatar className={cn("rounded-md border-2 border-primary-foreground/20", collapsed ? "w-6 h-6" : "w-7 h-7")}>
+                <Avatar className={cn("rounded", collapsed ? "w-5 h-5" : "w-6 h-6")}>
                   <AvatarImage src={selectedClient.avatar_url} alt={selectedClient.name} />
-                  <AvatarFallback className="rounded-md bg-primary-foreground/20 text-xs font-bold text-primary-foreground">
+                  <AvatarFallback className="rounded bg-primary-foreground/20 text-[10px] font-bold">
                     {selectedClient.name.charAt(0)}
                   </AvatarFallback>
                 </Avatar>
               ) : (
                 <div className={cn(
-                  "rounded-md bg-primary-foreground/20 flex items-center justify-center text-xs font-bold text-primary-foreground",
-                  collapsed ? "w-6 h-6" : "w-7 h-7"
+                  "rounded bg-primary-foreground/20 flex items-center justify-center text-[10px] font-bold",
+                  collapsed ? "w-5 h-5" : "w-6 h-6"
                 )}>
                   {selectedClient?.name?.charAt(0) || "K"}
                 </div>
               )}
               {!collapsed && (
                 <>
-                  <div className="flex-1 text-left min-w-0">
-                    <p className="text-sm font-medium truncate">
-                      {selectedClient?.name || "Selecionar Cliente"}
-                    </p>
-                  </div>
-                  <ChevronDown className="h-4 w-4 opacity-70 flex-shrink-0" />
+                  <span className="flex-1 text-left text-sm font-medium truncate">
+                    {selectedClient?.name || "Selecionar Cliente"}
+                  </span>
+                  <ChevronDown className="h-4 w-4 opacity-60 flex-shrink-0" />
                 </>
               )}
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-56 bg-popover border-border shadow-lg">
+          <DropdownMenuContent align="start" className="w-56">
             {filteredClients?.map((client) => (
               <DropdownMenuItem
                 key={client.id}
@@ -255,18 +248,18 @@ export function KaiSidebar({
                 )}
               >
                 {client.avatar_url ? (
-                  <Avatar className="w-6 h-6 rounded">
+                  <Avatar className="w-5 h-5 rounded">
                     <AvatarImage src={client.avatar_url} alt={client.name} />
-                    <AvatarFallback className="rounded bg-gradient-to-br from-primary/80 to-secondary/80 text-[10px] font-bold text-white">
+                    <AvatarFallback className="rounded bg-primary/20 text-[9px] font-bold">
                       {client.name.charAt(0)}
                     </AvatarFallback>
                   </Avatar>
                 ) : (
-                  <div className="w-6 h-6 rounded bg-gradient-to-br from-primary/80 to-secondary/80 flex items-center justify-center text-[10px] font-bold text-white">
+                  <div className="w-5 h-5 rounded bg-primary/20 flex items-center justify-center text-[9px] font-bold text-primary">
                     {client.name.charAt(0)}
                   </div>
                 )}
-                {client.name}
+                <span className="text-sm">{client.name}</span>
               </DropdownMenuItem>
             ))}
           </DropdownMenuContent>
@@ -274,7 +267,7 @@ export function KaiSidebar({
       </div>
 
       {/* Main Navigation */}
-      <nav className="flex-1 px-3 overflow-y-auto pt-1 scrollbar-thin scrollbar-thumb-sidebar-muted scrollbar-track-transparent">
+      <nav className="flex-1 px-2 overflow-y-auto scrollbar-thin scrollbar-thumb-sidebar-muted scrollbar-track-transparent">
         <SectionLabel collapsed={collapsed}>Cliente</SectionLabel>
         
         <div className="space-y-0.5">
@@ -315,7 +308,6 @@ export function KaiSidebar({
           )}
         </div>
 
-        {/* PLANEJAMENTO Section */}
         <SectionLabel collapsed={collapsed}>Planejamento</SectionLabel>
 
         <div className="space-y-0.5">
@@ -336,63 +328,15 @@ export function KaiSidebar({
           />
         </div>
 
-        {/* CONHECIMENTO Section - includes knowledge base and format rules */}
-        {canViewTools && (
-          <>
-            <SectionLabel collapsed={collapsed}>Conhecimento</SectionLabel>
-
-            <div className="space-y-0.5">
-              <NavItem
-                icon={<BookOpen className="h-4 w-4" />}
-                label="Base de Conhecimento"
-                active={activeTab === "knowledge-base"}
-                onClick={() => onTabChange("knowledge-base")}
-                collapsed={collapsed}
-              />
-              <NavItem
-                icon={<FileText className="h-4 w-4" />}
-                label="Regras de Formato"
-                active={activeTab === "format-rules"}
-                onClick={() => onTabChange("format-rules")}
-                collapsed={collapsed}
-              />
-            </div>
-          </>
-        )}
-
         <SectionLabel collapsed={collapsed}>Conta</SectionLabel>
 
         <div className="space-y-0.5">
-          {/* Clientes - only for admin/owner */}
           {canViewClients && (
             <NavItem
               icon={<Building2 className="h-4 w-4" />}
               label="Clientes"
               active={activeTab === "clients"}
               onClick={() => onTabChange("clients")}
-              collapsed={collapsed}
-            />
-          )}
-
-          {/* Equipe - only for team managers */}
-          {canManageTeam && (
-            <NavItem
-              icon={<Users className="h-4 w-4" />}
-              label="Equipe"
-              active={activeTab === "team"}
-              onClick={() => onTabChange("team")}
-              badge={pendingCount}
-              collapsed={collapsed}
-            />
-          )}
-
-          {/* Atividades - only for admin/owner */}
-          {canViewActivities && (
-            <NavItem
-              icon={<Activity className="h-4 w-4" />}
-              label="Atividades"
-              active={activeTab === "activities"}
-              onClick={() => onTabChange("activities")}
               collapsed={collapsed}
             />
           )}
@@ -417,20 +361,20 @@ export function KaiSidebar({
 
       {/* Tokens Badge */}
       {!collapsed && (
-        <div className="px-3 py-2 border-t border-sidebar-border">
+        <div className="px-3 py-3 border-t border-sidebar-border">
           <TokensBadge showLabel={true} variant="sidebar" />
         </div>
       )}
 
       {/* Collapse Toggle */}
-      <div className="px-3 py-2 border-t border-sidebar-border">
+      <div className={cn("px-2 py-2", !collapsed && "border-t border-sidebar-border")}>
         <Button
           variant="ghost"
           size="sm"
           onClick={onToggleCollapse}
           className={cn(
-            "w-full flex items-center gap-2 justify-center text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/50",
-            !collapsed && "justify-start"
+            "w-full flex items-center gap-2 justify-center h-8 text-sidebar-foreground/50 hover:text-sidebar-foreground hover:bg-sidebar-accent",
+            !collapsed && "justify-start px-3"
           )}
         >
           {collapsed ? (
@@ -438,45 +382,45 @@ export function KaiSidebar({
           ) : (
             <>
               <ChevronLeft className="h-4 w-4" />
-              <span className="text-xs">Recolher</span>
+              <span className="text-xs font-medium">Recolher menu</span>
             </>
           )}
         </Button>
       </div>
 
       {/* User Footer */}
-      <div className={cn("p-3 border-t border-sidebar-border", collapsed && "p-2")}>
+      <div className={cn("p-2 border-t border-sidebar-border", collapsed && "p-1.5")}>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button className={cn(
-              "w-full flex items-center gap-3 rounded-lg hover:bg-sidebar-accent/50 transition-colors",
-              collapsed ? "p-1 justify-center" : "px-2 py-2"
+              "w-full flex items-center gap-2.5 rounded-md hover:bg-sidebar-accent transition-colors",
+              collapsed ? "p-1.5 justify-center" : "px-2 py-2"
             )}>
-              <Avatar className={cn("border border-sidebar-border", collapsed ? "h-8 w-8" : "h-9 w-9")}>
+              <Avatar className={cn("border border-sidebar-border/50", collapsed ? "h-7 w-7" : "h-8 w-8")}>
                 <AvatarImage src={userProfile?.avatar_url || undefined} alt={userName} />
-                <AvatarFallback className="bg-sidebar-accent text-sidebar-foreground text-xs font-medium">
+                <AvatarFallback className="bg-sidebar-accent text-sidebar-foreground text-[10px] font-medium">
                   {userInitials}
                 </AvatarFallback>
               </Avatar>
               {!collapsed && (
                 <>
                   <div className="flex-1 text-left min-w-0">
-                    <p className="text-sm font-medium text-sidebar-foreground truncate">{userName}</p>
+                    <p className="text-[13px] font-medium text-sidebar-foreground truncate">{userName}</p>
                     <p className="text-[11px] text-sidebar-foreground/50 truncate">{user?.email}</p>
                   </div>
-                  <ChevronDown className="h-4 w-4 text-sidebar-foreground/40 flex-shrink-0" />
+                  <ChevronDown className="h-3.5 w-3.5 text-sidebar-foreground/40 flex-shrink-0" />
                 </>
               )}
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-52 bg-popover border-border shadow-lg">
+          <DropdownMenuContent align="end" className="w-52">
             <DropdownMenuItem onClick={() => navigate(`/${currentSlug}/settings`)} className="cursor-pointer">
-              <Settings className="h-4 w-4 mr-2 opacity-70" />
+              <Settings className="h-4 w-4 mr-2 opacity-60" />
               Configurações
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={signOut} className="cursor-pointer text-destructive focus:text-destructive">
-              <LogOut className="h-4 w-4 mr-2 opacity-70" />
+              <LogOut className="h-4 w-4 mr-2 opacity-60" />
               Sair
             </DropdownMenuItem>
           </DropdownMenuContent>

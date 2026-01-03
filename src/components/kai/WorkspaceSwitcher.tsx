@@ -1,5 +1,5 @@
 import { useNavigate, useParams } from "react-router-dom";
-import { Check, ChevronDown, Building2, Plus } from "lucide-react";
+import { Check, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUserWorkspaces, UserWorkspace } from "@/hooks/useUserWorkspaces";
 import {
@@ -10,6 +10,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface WorkspaceSwitcherProps {
   collapsed?: boolean;
@@ -41,14 +42,14 @@ export function WorkspaceSwitcher({ collapsed }: WorkspaceSwitcherProps) {
   if (isLoading) {
     return (
       <div className={cn(
-        "flex items-center gap-3 px-3 py-2 rounded-lg bg-sidebar-accent/50",
-        collapsed && "justify-center px-2"
+        "flex items-center gap-2.5",
+        collapsed ? "justify-center" : "px-0"
       )}>
-        <div className="w-8 h-8 rounded-lg bg-sidebar-accent animate-pulse" />
+        <div className="w-7 h-7 rounded bg-sidebar-accent animate-pulse" />
         {!collapsed && (
           <div className="flex-1 space-y-1">
-            <div className="h-4 w-24 bg-sidebar-accent rounded animate-pulse" />
-            <div className="h-3 w-16 bg-sidebar-accent rounded animate-pulse" />
+            <div className="h-3.5 w-20 bg-sidebar-accent rounded animate-pulse" />
+            <div className="h-2.5 w-12 bg-sidebar-accent rounded animate-pulse" />
           </div>
         )}
       </div>
@@ -59,71 +60,101 @@ export function WorkspaceSwitcher({ collapsed }: WorkspaceSwitcherProps) {
 
   // If only one workspace, show without dropdown
   if (!hasMultipleWorkspaces) {
-    return (
+    const content = (
       <div className={cn(
-        "flex items-center gap-3 px-3 py-2",
-        collapsed && "justify-center px-2"
+        "flex items-center gap-2.5",
+        collapsed && "justify-center"
       )}>
-        <Avatar className={cn("rounded-lg", collapsed ? "w-8 h-8" : "w-9 h-9")}>
+        <Avatar className={cn("rounded", collapsed ? "w-7 h-7" : "w-7 h-7")}>
           {currentWorkspace.logo_url ? (
             <AvatarImage src={currentWorkspace.logo_url} alt={currentWorkspace.name} />
           ) : null}
-          <AvatarFallback className="rounded-lg bg-gradient-to-br from-primary to-secondary text-white font-semibold text-sm">
+          <AvatarFallback className="rounded bg-gradient-to-br from-primary to-secondary text-white font-semibold text-xs">
             {currentWorkspace.name.charAt(0).toUpperCase()}
           </AvatarFallback>
         </Avatar>
         {!collapsed && (
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-sidebar-foreground truncate">
+            <p className="text-[13px] font-semibold text-sidebar-foreground truncate leading-tight">
               {currentWorkspace.name}
             </p>
-            <p className="text-[11px] text-sidebar-foreground/50">
+            <p className="text-[10px] text-sidebar-foreground/50 leading-tight">
               {getRoleBadge(currentWorkspace.role)}
             </p>
           </div>
         )}
       </div>
     );
+
+    if (collapsed) {
+      return (
+        <Tooltip delayDuration={0}>
+          <TooltipTrigger asChild>
+            <div className="flex justify-center">{content}</div>
+          </TooltipTrigger>
+          <TooltipContent side="right">
+            {currentWorkspace.name}
+          </TooltipContent>
+        </Tooltip>
+      );
+    }
+
+    return content;
   }
+
+  const triggerContent = (
+    <button className={cn(
+      "w-full flex items-center gap-2.5 rounded-md transition-colors py-1",
+      "hover:bg-sidebar-accent",
+      collapsed && "justify-center px-0"
+    )}>
+      <Avatar className={cn("rounded", collapsed ? "w-7 h-7" : "w-7 h-7")}>
+        {currentWorkspace.logo_url ? (
+          <AvatarImage src={currentWorkspace.logo_url} alt={currentWorkspace.name} />
+        ) : null}
+        <AvatarFallback className="rounded bg-gradient-to-br from-primary to-secondary text-white font-semibold text-xs">
+          {currentWorkspace.name.charAt(0).toUpperCase()}
+        </AvatarFallback>
+      </Avatar>
+      {!collapsed && (
+        <>
+          <div className="flex-1 min-w-0 text-left">
+            <p className="text-[13px] font-semibold text-sidebar-foreground truncate leading-tight">
+              {currentWorkspace.name}
+            </p>
+            <p className="text-[10px] text-sidebar-foreground/50 leading-tight">
+              {getRoleBadge(currentWorkspace.role)}
+            </p>
+          </div>
+          <ChevronDown className="h-3.5 w-3.5 text-sidebar-foreground/40 flex-shrink-0" />
+        </>
+      )}
+    </button>
+  );
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button className={cn(
-          "w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors",
-          "hover:bg-sidebar-accent/50",
-          collapsed && "justify-center px-2"
-        )}>
-          <Avatar className={cn("rounded-lg", collapsed ? "w-8 h-8" : "w-9 h-9")}>
-            {currentWorkspace.logo_url ? (
-              <AvatarImage src={currentWorkspace.logo_url} alt={currentWorkspace.name} />
-            ) : null}
-            <AvatarFallback className="rounded-lg bg-gradient-to-br from-primary to-secondary text-white font-semibold text-sm">
-              {currentWorkspace.name.charAt(0).toUpperCase()}
-            </AvatarFallback>
-          </Avatar>
-          {!collapsed && (
-            <>
-              <div className="flex-1 min-w-0 text-left">
-                <p className="text-sm font-semibold text-sidebar-foreground truncate">
-                  {currentWorkspace.name}
-                </p>
-                <p className="text-[11px] text-sidebar-foreground/50">
-                  {getRoleBadge(currentWorkspace.role)}
-                </p>
-              </div>
-              <ChevronDown className="h-4 w-4 text-sidebar-foreground/50 flex-shrink-0" />
-            </>
-          )}
-        </button>
+        {collapsed ? (
+          <Tooltip delayDuration={0}>
+            <TooltipTrigger asChild>
+              {triggerContent}
+            </TooltipTrigger>
+            <TooltipContent side="right">
+              Trocar Workspace
+            </TooltipContent>
+          </Tooltip>
+        ) : (
+          triggerContent
+        )}
       </DropdownMenuTrigger>
       <DropdownMenuContent 
         align="start" 
-        className="w-64 bg-popover border-border shadow-lg"
+        className="w-60"
         sideOffset={8}
       >
         <div className="px-3 py-2">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+          <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
             Trocar Workspace
           </p>
         </div>
@@ -133,15 +164,15 @@ export function WorkspaceSwitcher({ collapsed }: WorkspaceSwitcherProps) {
             key={workspace.id}
             onClick={() => handleSwitch(workspace)}
             className={cn(
-              "flex items-center gap-3 px-3 py-2.5 cursor-pointer",
+              "flex items-center gap-2.5 px-3 py-2 cursor-pointer",
               workspace.slug === slug && "bg-primary/10"
             )}
           >
-            <Avatar className="w-8 h-8 rounded-lg">
+            <Avatar className="w-6 h-6 rounded">
               {workspace.logo_url ? (
                 <AvatarImage src={workspace.logo_url} alt={workspace.name} />
               ) : null}
-              <AvatarFallback className="rounded-lg bg-gradient-to-br from-primary/80 to-secondary/80 text-white text-xs font-semibold">
+              <AvatarFallback className="rounded bg-gradient-to-br from-primary/80 to-secondary/80 text-white text-[9px] font-semibold">
                 {workspace.name.charAt(0).toUpperCase()}
               </AvatarFallback>
             </Avatar>
