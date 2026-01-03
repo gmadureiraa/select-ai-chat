@@ -46,13 +46,13 @@
 
     --radius: 0.625rem;
 
-    /* Sidebar - Dark theme like reference */
-    --sidebar: 220 20% 14%;
-    --sidebar-foreground: 220 10% 85%;
-    --sidebar-accent: 220 20% 20%;
-    --sidebar-accent-foreground: 220 10% 95%;
-    --sidebar-border: 220 15% 22%;
-    --sidebar-muted: 220 15% 25%;
+    /* Sidebar - Adapts to theme */
+    --sidebar: 220 14% 97%;
+    --sidebar-foreground: 220 15% 25%;
+    --sidebar-accent: 220 14% 92%;
+    --sidebar-accent-foreground: 220 15% 15%;
+    --sidebar-border: 220 13% 90%;
+    --sidebar-muted: 220 14% 85%;
 
     /* Chat bubbles */
     --chat-user-bg: 220 14% 96%;
@@ -104,13 +104,13 @@
     --input: 220 15% 15%;
     --ring: 145 75% 50%;
 
-    /* Sidebar in dark mode stays same tone */
-    --sidebar: 220 20% 10%;
-    --sidebar-foreground: 220 10% 85%;
-    --sidebar-accent: 220 20% 15%;
+    /* Sidebar in dark mode */
+    --sidebar: 220 15% 10%;
+    --sidebar-foreground: 220 10% 80%;
+    --sidebar-accent: 220 15% 15%;
     --sidebar-accent-foreground: 220 10% 95%;
-    --sidebar-border: 220 15% 18%;
-    --sidebar-muted: 220 15% 20%;
+    --sidebar-border: 220 15% 16%;
+    --sidebar-muted: 220 15% 18%;
 
     --chat-user-bg: 220 15% 12%;
     --chat-user-fg: 0 0% 95%;
