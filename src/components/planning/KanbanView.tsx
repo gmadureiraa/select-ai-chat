@@ -146,9 +146,9 @@ export function KanbanView({
               key={column.id}
               data-column-id={column.id}
               className={cn(
-                "flex-shrink-0 w-80 bg-card/50 rounded-xl border border-border/50 flex flex-col max-h-[calc(100vh-280px)] shadow-sm",
-                "transition-all duration-200 backdrop-blur-sm hover:shadow-md",
-                isDropTarget && "ring-2 ring-primary/50 ring-offset-2 ring-offset-background bg-primary/5 scale-[1.01]"
+                "flex-shrink-0 w-80 bg-card/50 rounded-xl border border-border/50 flex flex-col max-h-[calc(100vh-280px)]",
+                "transition-all duration-300 backdrop-blur-sm hover:shadow-lg",
+                isDropTarget && "ring-2 ring-primary/50 ring-offset-2 ring-offset-background bg-primary/5 scale-[1.02] shadow-xl"
               )}
               onDragOver={(e) => handleDragOver(e, column.id)}
               onDragLeave={handleDragLeave}
@@ -161,9 +161,9 @@ export function KanbanView({
               )}>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <div className={cn("w-2 h-2 rounded-full", config.dotColor)} />
-                    <span className={cn("font-medium text-sm", config.color)}>{column.name}</span>
-                    <span className="text-xs text-muted-foreground bg-muted/50 px-1.5 py-0.5 rounded">
+                    <div className={cn("w-2.5 h-2.5 rounded-full shadow-sm", config.dotColor)} />
+                    <span className={cn("font-semibold text-sm", config.color)}>{column.name}</span>
+                    <span className="text-xs text-muted-foreground bg-muted/80 px-2 py-0.5 rounded-full font-medium">
                       {items.length}
                     </span>
                     {failedCount > 0 && (
@@ -196,8 +196,8 @@ export function KanbanView({
                     onDragEnd={handleDragEnd}
                     className={cn(
                       "cursor-grab active:cursor-grabbing",
-                      "transition-all duration-150 hover:scale-[1.01]",
-                      draggedItem?.id === item.id && "scale-95 opacity-50"
+                      "transition-all duration-200 hover:scale-[1.02] hover:-translate-y-0.5",
+                      draggedItem?.id === item.id && "scale-95 opacity-50 rotate-1"
                     )}
                   >
                     <PlanningItemCard

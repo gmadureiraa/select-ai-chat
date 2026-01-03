@@ -250,27 +250,29 @@ export const KaiLibraryTab = ({ clientId, client }: KaiLibraryTabProps) => {
     return (
       <div key={content.id} className="relative group">
         <div className={cn(
-          "absolute top-2 left-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity",
+          "absolute top-2 left-2 z-10 opacity-0 group-hover:opacity-100 transition-all duration-200",
           isSelected && "opacity-100"
         )}>
           <Checkbox
             checked={isSelected}
             onCheckedChange={() => toggleSelection(content.id)}
-            className="bg-background"
+            className="bg-background shadow-sm"
           />
         </div>
-        <ContentCard
-          content={content}
-          onView={() => {
-            setSelectedContent(content);
-            setContentViewOpen(true);
-          }}
-          onEdit={() => {
-            setSelectedContent(content);
-            setContentDialogOpen(true);
-          }}
-          onDelete={() => deleteContent.mutate(content.id)}
-        />
+        <div className="transition-all duration-200 hover:scale-[1.02] hover:-translate-y-1 hover:shadow-lg rounded-xl">
+          <ContentCard
+            content={content}
+            onView={() => {
+              setSelectedContent(content);
+              setContentViewOpen(true);
+            }}
+            onEdit={() => {
+              setSelectedContent(content);
+              setContentDialogOpen(true);
+            }}
+            onDelete={() => deleteContent.mutate(content.id)}
+          />
+        </div>
       </div>
     );
   };
@@ -396,20 +398,20 @@ export const KaiLibraryTab = ({ clientId, client }: KaiLibraryTabProps) => {
       <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v); setSelectedItems(new Set()); }}>
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <TabsList>
-            <TabsTrigger value="content" className="gap-2">
+            <TabsTrigger value="content" className="gap-2 data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
               <FileText className="h-4 w-4" />
               <span className="hidden sm:inline">Conteúdo</span>
-              <Badge variant="secondary" className="ml-1">{contents?.length || 0}</Badge>
+              <Badge variant="secondary" className="ml-1 bg-primary/20 text-primary font-bold">{contents?.length || 0}</Badge>
             </TabsTrigger>
-            <TabsTrigger value="references" className="gap-2">
+            <TabsTrigger value="references" className="gap-2 data-[state=active]:bg-secondary/10 data-[state=active]:text-secondary">
               <Link2 className="h-4 w-4" />
               <span className="hidden sm:inline">Referências</span>
-              <Badge variant="secondary" className="ml-1">{references?.length || 0}</Badge>
+              <Badge variant="secondary" className="ml-1 bg-secondary/20 text-secondary font-bold">{references?.length || 0}</Badge>
             </TabsTrigger>
-            <TabsTrigger value="visual-refs" className="gap-2">
+            <TabsTrigger value="visual-refs" className="gap-2 data-[state=active]:bg-accent/10 data-[state=active]:text-accent">
               <Image className="h-4 w-4" />
               <span className="hidden sm:inline">Refs Visuais</span>
-              <Badge variant="secondary" className="ml-1">{visualReferences?.length || 0}</Badge>
+              <Badge variant="secondary" className="ml-1 bg-accent/20 text-accent font-bold">{visualReferences?.length || 0}</Badge>
             </TabsTrigger>
           </TabsList>
           

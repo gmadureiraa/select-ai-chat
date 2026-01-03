@@ -41,6 +41,7 @@ import kaleidosLogo from "@/assets/kaleidos-logo.svg";
 import { supabase } from "@/integrations/supabase/client";
 import { TokensBadge } from "@/components/TokensBadge";
 import { ProgressChecklist } from "@/components/onboarding/ProgressChecklist";
+import { SidebarUpgradeCTA } from "@/components/kai/SidebarUpgradeCTA";
 import { useQuery } from "@tanstack/react-query";
 
 interface NavItemProps {
@@ -57,16 +58,20 @@ function NavItem({ icon, label, active, onClick, badge, collapsed }: NavItemProp
     <button
       onClick={onClick}
       className={cn(
-        "w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-all duration-150",
-        "hover:bg-muted",
-        active && "bg-muted text-primary font-medium",
+        "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all duration-150 relative",
+        "hover:bg-muted/80",
+        active && "bg-primary/10 text-primary font-medium",
         !active && "text-muted-foreground hover:text-foreground",
         collapsed && "justify-center px-2"
       )}
     >
+      {/* Active indicator bar */}
+      {active && !collapsed && (
+        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 bg-primary rounded-r-full" />
+      )}
       <span className={cn(
-        "flex-shrink-0 opacity-70",
-        active && "opacity-100 text-primary"
+        "flex-shrink-0 transition-opacity",
+        active ? "opacity-100 text-primary" : "opacity-60 group-hover:opacity-100"
       )}>
         {icon}
       </span>
@@ -113,13 +118,14 @@ function SectionLabel({ children, collapsed }: SectionLabelProps) {
   if (collapsed) return null;
   
   return (
-    <div className="px-3 pt-5 pb-2">
-      <span className="text-[11px] font-semibold text-muted-foreground/60 uppercase tracking-wider">
+    <div className="px-3 pt-6 pb-2">
+      <span className="text-[10px] font-semibold text-muted-foreground/50 uppercase tracking-widest">
         {children}
       </span>
     </div>
   );
 }
+
 
 interface KaiSidebarProps {
   activeTab: string;
@@ -415,6 +421,12 @@ export function KaiSidebar({
           />
         </div>
       </nav>
+
+      {/* Upgrade CTA */}
+      <SidebarUpgradeCTA 
+        collapsed={collapsed} 
+        planName="Starter" 
+      />
 
       {/* Collapse Toggle */}
       <div className="px-3 py-2 border-t border-border">
