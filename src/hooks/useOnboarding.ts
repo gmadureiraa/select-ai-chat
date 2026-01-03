@@ -1,9 +1,14 @@
 import { useState, useEffect, useCallback } from "react";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
+
+export type OnboardingType = "new_workspace" | "joining_workspace" | null;
 
 interface OnboardingState {
   hasCompletedOnboarding: boolean;
   currentStep: number;
   dismissedTooltips: string[];
+  onboardingType: OnboardingType;
 }
 
 const STORAGE_KEY = "kai-onboarding-state";
@@ -12,7 +17,13 @@ const getStoredState = (): OnboardingState => {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
-      return JSON.parse(stored);
+      const parsed = JSON.parse(stored);
+      return {
+        hasCompletedOnboarding: parsed.hasCompletedOnboarding ?? false,
+        currentStep: parsed.currentStep ?? 0,
+        dismissedTooltips: parsed.dismissedTooltips ?? [],
+        onboardingType: parsed.onboardingType ?? null,
+      };
     }
   } catch (e) {
     console.error("Failed to parse onboarding state", e);
@@ -21,6 +32,7 @@ const getStoredState = (): OnboardingState => {
     hasCompletedOnboarding: false,
     currentStep: 0,
     dismissedTooltips: [],
+    onboardingType: null,
   };
 };
 
@@ -34,13 +46,60 @@ const saveState = (state: OnboardingState) => {
 
 export function useOnboarding() {
   const [state, setState] = useState<OnboardingState>(getStoredState);
+  const { user } = useAuth();
+  const [isWorkspaceOwner, setIsWorkspaceOwner] = useState<boolean | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Check if user is workspace owner on mount
+  useEffect(() => {
+    const checkOwnership = async () => {
+      if (!user) {
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        // Check if user owns any workspace
+        const { data: workspaces } = await supabase
+          .from("workspaces")
+          .select("id")
+          .eq("owner_id", user.id)
+          .limit(1);
+
+        const isOwner = workspaces && workspaces.length > 0;
+        setIsWorkspaceOwner(isOwner);
+
+        // If onboarding not completed and we don't know the type yet, determine it
+        if (!state.hasCompletedOnboarding && !state.onboardingType) {
+          setState((prev) => ({
+            ...prev,
+            onboardingType: isOwner ? "new_workspace" : "joining_workspace",
+          }));
+        }
+      } catch (err) {
+        console.error("Error checking workspace ownership:", err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    checkOwnership();
+  }, [user, state.hasCompletedOnboarding, state.onboardingType]);
 
   // Sync to localStorage whenever state changes
   useEffect(() => {
     saveState(state);
   }, [state]);
 
-  const shouldShowOnboarding = !state.hasCompletedOnboarding;
+  const shouldShowOnboarding = !state.hasCompletedOnboarding && !isLoading;
+  const onboardingType = state.onboardingType;
+
+  const setOnboardingType = useCallback((type: OnboardingType) => {
+    setState((prev) => ({
+      ...prev,
+      onboardingType: type,
+    }));
+  }, []);
 
   const completeOnboarding = useCallback(() => {
     setState((prev) => ({
@@ -84,6 +143,7 @@ export function useOnboarding() {
       hasCompletedOnboarding: false,
       currentStep: 0,
       dismissedTooltips: [],
+      onboardingType: null,
     });
   }, []);
 
@@ -114,8 +174,12 @@ export function useOnboarding() {
     shouldShowOnboarding,
     currentStep: state.currentStep,
     hasCompletedOnboarding: state.hasCompletedOnboarding,
+    onboardingType,
+    isWorkspaceOwner,
+    isLoading,
     
     // Onboarding actions
+    setOnboardingType,
     completeOnboarding,
     skipOnboarding,
     nextStep,

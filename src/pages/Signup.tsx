@@ -145,11 +145,15 @@ const Signup = () => {
             </CardDescription>
           </div>
           
-          {/* Plan requirement notice */}
-          <div className="p-3 bg-primary/10 border border-primary/20 rounded-lg">
-            <p className="text-sm text-center">
-              <strong>Plano Básico</strong> - Crie seu próprio workspace e gerencie sua equipe
+          {/* Plan info - Updated with correct limits */}
+          <div className="p-3 bg-primary/10 border border-primary/20 rounded-lg space-y-2">
+            <p className="text-sm text-center font-medium">
+              Plano Starter - R$ 497,90/mês
             </p>
+            <div className="text-xs text-muted-foreground text-center space-y-0.5">
+              <p>• 1 cliente • 1 usuário • Visualizadores ilimitados</p>
+              <p>• 10.000 tokens/mês • 14 dias grátis</p>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
