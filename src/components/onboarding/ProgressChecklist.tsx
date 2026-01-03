@@ -104,7 +104,10 @@ export function ProgressChecklist({
       description: "Integre suas redes",
       icon: <Instagram className="h-3.5 w-3.5" />,
       completed: hasSocial || false,
-      action: () => onNavigate?.("performance"),
+      action: () => {
+        // Navigate to clients to edit client and access integrations
+        onNavigate?.("clients");
+      },
     },
     {
       id: "planning",

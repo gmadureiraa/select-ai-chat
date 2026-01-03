@@ -5,6 +5,7 @@
 
 ## 🧩 Componentes
 - [Componentes Completo](./COMPONENTES-COMPLETO.md) ⭐
+- [Páginas e Componentes Completo](./PAGINAS-COMPONENTES-COMPLETO.md) ⭐⭐
 
 ## 📄 Páginas
 - [Páginas Completo](./PAGINAS-COMPLETO.md) ⭐
@@ -21,6 +22,9 @@
 
 ## 📋 Planos
 - [Plano e Estrutura Completo](./PLANO-ESTRUTURA-COMPLETO.md) ⭐
+- [Plano Completo](./PLANO-COMPLETO.md)
+- [Plano de Implementação de Melhorias](./PLANO-IMPLEMENTACAO-MELHORIAS.md)
+- [Plano de Onboarding](./PLANO-ONBOARDING.md)
 
 ## 🤖 Para Lovable
 - [Guia Completo](./lovable/GUIA-COMPLETO-LOVABLE.md) ⭐
