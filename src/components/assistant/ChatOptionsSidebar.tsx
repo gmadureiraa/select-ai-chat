@@ -241,14 +241,14 @@ export const ChatOptionsSidebar = ({
   return (
     <div className="w-72 border-r bg-card/30 flex flex-col h-full">
       {/* Header */}
-      <div className="p-3 border-b space-y-2">
+      <div className="p-4 border-b space-y-3">
         <div className="flex items-center justify-between">
-          <p className="text-xs font-medium">Conversas</p>
+          <p className="text-sm font-medium">Conversas</p>
           <Button
             variant="ghost"
             size="sm"
             onClick={handleNewChat}
-            className="h-7 px-2 text-xs gap-1"
+            className="h-7 px-2 text-xs gap-1 hover:bg-muted/50"
           >
             <Plus className="h-3 w-3" />
             Nova
@@ -260,14 +260,14 @@ export const ChatOptionsSidebar = ({
             placeholder="Buscar conversas..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="h-8 pl-8 text-xs"
+            className="h-8 pl-8 text-xs rounded-lg"
           />
         </div>
       </div>
       
       {/* Conversations List */}
       <ScrollArea className="flex-1">
-        <div className="p-3 space-y-1">
+        <div className="p-4 space-y-2">
           {filteredConversations.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground text-xs px-4">
               <MessageSquare className="h-8 w-8 mx-auto mb-2 opacity-50" />
