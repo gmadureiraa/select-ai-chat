@@ -112,7 +112,7 @@ export function GradientHero({ onSubmit, onQuickAction, clientName }: GradientHe
             )}
           >
             {/* Input Area */}
-            <div className="p-4">
+            <div className="p-6">
               <textarea
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
@@ -133,7 +133,7 @@ export function GradientHero({ onSubmit, onQuickAction, clientName }: GradientHe
             </div>
 
             {/* Bottom Bar */}
-            <div className="flex items-center justify-end px-4 py-3 border-t border-border/30">
+            <div className="flex items-center justify-end px-6 py-4 border-t border-border/30">
               <button
                 onClick={handleSubmit}
                 disabled={!input.trim()}

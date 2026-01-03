@@ -412,74 +412,126 @@ export function PerformanceOverview({ clientId, clientName }: PerformanceOvervie
               </p>
             </div>
           ) : stats.hasData ? (
-            <div className="grid md:grid-cols-2 gap-4">
-              {/* Quick auto-generated insights */}
-              {stats.instagram.bestPost && (
-                <div className="p-4 rounded-lg bg-muted/50 border border-border/50">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Award className="h-4 w-4 text-amber-500" />
-                    <span className="text-sm font-medium">Melhor Post Instagram</span>
+            <div className="space-y-4">
+              {/* Recommendations Section */}
+              <div className="grid md:grid-cols-3 gap-4">
+                {/* Best Performing Content */}
+                <div className="p-4 rounded-xl bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 border border-emerald-500/20 hover:shadow-md transition-all">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="p-1.5 rounded-lg bg-emerald-500/20">
+                      <TrendingUp className="h-4 w-4 text-emerald-600" />
+                    </div>
+                    <span className="text-sm font-semibold text-emerald-700 dark:text-emerald-400">Continue Fazendo</span>
                   </div>
-                  <p className="text-sm text-muted-foreground line-clamp-2 mb-2">
-                    {stats.instagram.bestPost.caption || "Sem legenda"}
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    {stats.instagram.bestPost 
+                      ? `Seu melhor conteúdo teve ${formatNumber(stats.instagram.bestPost.likes || 0)} curtidas. Mantenha esse formato!`
+                      : "Crie mais conteúdo para descobrir o que funciona melhor."
+                    }
                   </p>
-                  <div className="flex items-center gap-3 text-xs">
-                    <span className="flex items-center gap-1">
-                      <Heart className="h-3 w-3 text-rose-500" />
-                      {formatNumber(stats.instagram.bestPost.likes || 0)}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Eye className="h-3 w-3 text-violet-500" />
-                      {formatNumber(stats.instagram.bestPost.impressions || 0)}
-                    </span>
-                  </div>
                 </div>
-              )}
-              
-              {stats.youtube.bestVideo && (
-                <div className="p-4 rounded-lg bg-muted/50 border border-border/50">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Award className="h-4 w-4 text-amber-500" />
-                    <span className="text-sm font-medium">Melhor Vídeo YouTube</span>
-                  </div>
-                  <p className="text-sm text-muted-foreground line-clamp-2 mb-2">
-                    {stats.youtube.bestVideo.title}
-                  </p>
-                  <div className="flex items-center gap-3 text-xs">
-                    <span className="flex items-center gap-1">
-                      <Eye className="h-3 w-3 text-rose-500" />
-                      {formatNumber(stats.youtube.bestVideo.total_views || 0)} views
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Clock className="h-3 w-3 text-violet-500" />
-                      {formatNumber(stats.youtube.bestVideo.watch_hours || 0)}h
-                    </span>
-                  </div>
-                </div>
-              )}
 
-              {/* Stats summary */}
-              <div className="md:col-span-2 p-4 rounded-lg bg-gradient-to-r from-primary/5 to-primary/10 border border-primary/20">
-                <div className="flex items-center gap-2 mb-2">
-                  <Zap className="h-4 w-4 text-primary" />
+                {/* Improvement Opportunity */}
+                <div className="p-4 rounded-xl bg-gradient-to-br from-amber-500/10 to-amber-500/5 border border-amber-500/20 hover:shadow-md transition-all">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="p-1.5 rounded-lg bg-amber-500/20">
+                      <Target className="h-4 w-4 text-amber-600" />
+                    </div>
+                    <span className="text-sm font-semibold text-amber-700 dark:text-amber-400">Oportunidade</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    {stats.instagram.avgEngagement < 3 
+                      ? "Taxa de engajamento abaixo de 3%. Tente usar mais CTAs e perguntas."
+                      : stats.instagram.postCount < 10 
+                        ? "Aumente a frequência de posts para mais visibilidade."
+                        : "Explore novos formatos como Reels e Carrosséis."
+                    }
+                  </p>
+                </div>
+
+                {/* Next Step */}
+                <div className="p-4 rounded-xl bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20 hover:shadow-md transition-all">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="p-1.5 rounded-lg bg-primary/20">
+                      <Zap className="h-4 w-4 text-primary" />
+                    </div>
+                    <span className="text-sm font-semibold text-primary">Próximo Passo</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    Clique em "Gerar Análise AI" para receber recomendações personalizadas detalhadas.
+                  </p>
+                </div>
+              </div>
+
+              {/* Top Performers */}
+              <div className="grid md:grid-cols-2 gap-4">
+                {stats.instagram.bestPost && (
+                  <div className="p-4 rounded-xl bg-card border border-border/50 hover:shadow-md transition-all">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Award className="h-4 w-4 text-amber-500" />
+                      <span className="text-sm font-medium">Top Post Instagram</span>
+                    </div>
+                    <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
+                      {stats.instagram.bestPost.caption || "Sem legenda"}
+                    </p>
+                    <div className="flex items-center gap-4 text-xs">
+                      <span className="flex items-center gap-1.5 text-rose-500">
+                        <Heart className="h-3.5 w-3.5" />
+                        <span className="font-medium">{formatNumber(stats.instagram.bestPost.likes || 0)}</span>
+                      </span>
+                      <span className="flex items-center gap-1.5 text-violet-500">
+                        <Eye className="h-3.5 w-3.5" />
+                        <span className="font-medium">{formatNumber(stats.instagram.bestPost.impressions || 0)}</span>
+                      </span>
+                    </div>
+                  </div>
+                )}
+                
+                {stats.youtube.bestVideo && (
+                  <div className="p-4 rounded-xl bg-card border border-border/50 hover:shadow-md transition-all">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Award className="h-4 w-4 text-amber-500" />
+                      <span className="text-sm font-medium">Top Vídeo YouTube</span>
+                    </div>
+                    <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
+                      {stats.youtube.bestVideo.title}
+                    </p>
+                    <div className="flex items-center gap-4 text-xs">
+                      <span className="flex items-center gap-1.5 text-rose-500">
+                        <Eye className="h-3.5 w-3.5" />
+                        <span className="font-medium">{formatNumber(stats.youtube.bestVideo.total_views || 0)} views</span>
+                      </span>
+                      <span className="flex items-center gap-1.5 text-violet-500">
+                        <Clock className="h-3.5 w-3.5" />
+                        <span className="font-medium">{formatNumber(stats.youtube.bestVideo.watch_hours || 0)}h</span>
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Period Summary */}
+              <div className="p-4 rounded-xl bg-gradient-to-r from-muted/50 to-muted/30 border border-border/50">
+                <div className="flex items-center gap-2 mb-3">
+                  <BarChart3 className="h-4 w-4 text-muted-foreground" />
                   <span className="text-sm font-medium">Resumo do Período</span>
                 </div>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
                   <div>
-                    <p className="text-muted-foreground">Posts</p>
-                    <p className="font-bold">{stats.instagram.postCount}</p>
+                    <p className="text-xs text-muted-foreground mb-1">Posts</p>
+                    <p className="text-xl font-bold">{stats.instagram.postCount}</p>
                   </div>
                   <div>
-                    <p className="text-muted-foreground">Engajamento</p>
-                    <p className="font-bold">{stats.instagram.avgEngagement.toFixed(2)}%</p>
+                    <p className="text-xs text-muted-foreground mb-1">Engajamento</p>
+                    <p className="text-xl font-bold">{stats.instagram.avgEngagement.toFixed(2)}%</p>
                   </div>
                   <div>
-                    <p className="text-muted-foreground">Vídeos</p>
-                    <p className="font-bold">{stats.youtube.videoCount}</p>
+                    <p className="text-xs text-muted-foreground mb-1">Vídeos</p>
+                    <p className="text-xl font-bold">{stats.youtube.videoCount}</p>
                   </div>
                   <div>
-                    <p className="text-muted-foreground">Watch Hours</p>
-                    <p className="font-bold">{formatNumber(stats.youtube.watchHours)}</p>
+                    <p className="text-xs text-muted-foreground mb-1">Watch Hours</p>
+                    <p className="text-xl font-bold">{formatNumber(stats.youtube.watchHours)}</p>
                   </div>
                 </div>
               </div>
