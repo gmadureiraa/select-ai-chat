@@ -10,7 +10,8 @@ export type ContentFormat =
   | "instagram_post" 
   | "reels_script" 
   | "blog_post" 
-  | "email_marketing";
+  | "email_marketing"
+  | "cut_moments";
 
 export type ContentObjective = 
   | "sales" 
@@ -29,11 +30,20 @@ export interface TranscriptData {
   };
 }
 
+export interface CutMoment {
+  timestamp: string;
+  title: string;
+  description: string;
+  score: number;
+  hook: string;
+}
+
 export interface GeneratedContent {
   format: ContentFormat;
   content: string;
   objective: ContentObjective;
   generatedAt: Date;
+  cutMoments?: CutMoment[];
 }
 
 const FORMAT_PROMPTS: Record<ContentFormat, string> = {
@@ -108,6 +118,37 @@ const FORMAT_PROMPTS: Record<ContentFormat, string> = {
 - Prova social se aplicável
 - CTA principal destacado
 - PS opcional`,
+
+  cut_moments: `Analise a transcrição e identifique os 5 MELHORES momentos para criar cortes/clips virais.
+
+Para cada momento, forneça:
+1. TIMESTAMP aproximado (baseado na posição no texto, ex: "2:30 - 3:45")
+2. TÍTULO: Nome curto e chamativo para o corte
+3. DESCRIÇÃO: O que acontece neste momento (1-2 frases)
+4. SCORE: Pontuação de 1-100 baseada no potencial viral
+5. HOOK: Sugestão de gancho/legenda para o corte
+
+Critérios para pontuação:
+- Impacto emocional
+- Valor informativo
+- Potencial de compartilhamento
+- Clareza da mensagem
+- Elemento surpresa ou curiosidade
+
+Retorne no formato JSON:
+{
+  "moments": [
+    {
+      "timestamp": "2:30 - 3:45",
+      "title": "Título do momento",
+      "description": "Descrição breve",
+      "score": 95,
+      "hook": "Gancho sugerido"
+    }
+  ]
+}
+
+Ordene do maior score para o menor.`,
 };
 
 const OBJECTIVE_CONTEXT: Record<ContentObjective, string> = {
@@ -126,6 +167,7 @@ export function useContentRepurpose(clientId: string) {
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatingFormat, setGeneratingFormat] = useState<string | null>(null);
+  const [showResults, setShowResults] = useState(false);
 
   const transcribe = async () => {
     if (!youtubeUrl.trim()) {
@@ -165,7 +207,65 @@ export function useContentRepurpose(clientId: string) {
     );
   };
 
-  const generateForFormat = async (format: ContentFormat): Promise<string> => {
+  const parseStreamResponse = async (response: any): Promise<string> => {
+    // Check if response.data is a ReadableStream
+    if (response.data && typeof response.data.getReader === 'function') {
+      const reader = response.data.getReader();
+      const decoder = new TextDecoder();
+      let result = "";
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        
+        // Process line by line
+        let newlineIndex: number;
+        while ((newlineIndex = buffer.indexOf("\n")) !== -1) {
+          let line = buffer.slice(0, newlineIndex);
+          buffer = buffer.slice(newlineIndex + 1);
+
+          if (line.endsWith("\r")) line = line.slice(0, -1);
+          if (line.startsWith(":") || line.trim() === "") continue;
+          if (!line.startsWith("data: ")) continue;
+
+          const jsonStr = line.slice(6).trim();
+          if (jsonStr === "[DONE]") continue;
+
+          try {
+            const parsed = JSON.parse(jsonStr);
+            const content = parsed.choices?.[0]?.delta?.content;
+            if (content) {
+              result += content;
+            }
+          } catch {
+            // Incomplete JSON, will handle in next chunk
+          }
+        }
+      }
+
+      return result;
+    }
+    
+    // If it's not a stream, try to get content directly
+    if (typeof response.data === 'string') {
+      return response.data;
+    }
+    
+    if (response.data?.content) {
+      return response.data.content;
+    }
+
+    if (response.data?.choices?.[0]?.message?.content) {
+      return response.data.choices[0].message.content;
+    }
+
+    throw new Error("Formato de resposta não reconhecido");
+  };
+
+  const generateForFormat = async (format: ContentFormat): Promise<GeneratedContent> => {
     if (!transcript || !contentObjective) {
       throw new Error("Transcrição e objetivo são obrigatórios");
     }
@@ -194,48 +294,55 @@ ${transcript.content.substring(0, 15000)}
 
 Gere o conteúdo no formato solicitado.`;
 
-    const response = await supabase.functions.invoke("chat", {
-      body: {
-        messages: [{ role: "user", content: userPrompt }],
-        systemPrompt,
-        clientId,
-        options: {
-          includeFormats: true,
-          contextLevel: "full",
+    try {
+      const response = await supabase.functions.invoke("chat", {
+        body: {
+          messages: [{ role: "user", content: userPrompt }],
+          systemPrompt,
+          clientId,
+          options: {
+            includeFormats: true,
+            contextLevel: "full",
+          },
         },
-      },
-    });
+      });
 
-    if (response.error) throw response.error;
+      if (response.error) throw response.error;
 
-    // Parse streaming response
-    const reader = response.data.getReader();
-    const decoder = new TextDecoder();
-    let result = "";
+      const content = await parseStreamResponse(response);
 
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-
-      const chunk = decoder.decode(value);
-      const lines = chunk.split("\n");
-
-      for (const line of lines) {
-        if (line.startsWith("data: ") && !line.includes("[DONE]")) {
-          try {
-            const json = JSON.parse(line.slice(6));
-            const content = json.choices?.[0]?.delta?.content;
-            if (content) {
-              result += content;
-            }
-          } catch {
-            // Ignore parse errors
+      // Parse cut moments if this is the cut_moments format
+      let cutMoments: CutMoment[] | undefined;
+      if (format === "cut_moments") {
+        try {
+          // Try to extract JSON from the response
+          const jsonMatch = content.match(/\{[\s\S]*"moments"[\s\S]*\}/);
+          if (jsonMatch) {
+            const parsed = JSON.parse(jsonMatch[0]);
+            cutMoments = parsed.moments.map((m: any) => ({
+              timestamp: m.timestamp || "0:00",
+              title: m.title || "Momento",
+              description: m.description || "",
+              score: m.score || 50,
+              hook: m.hook || "",
+            }));
           }
+        } catch {
+          console.log("Could not parse cut moments JSON");
         }
       }
-    }
 
-    return result;
+      return {
+        format,
+        content,
+        objective: contentObjective,
+        generatedAt: new Date(),
+        cutMoments,
+      };
+    } catch (error) {
+      console.error(`Error generating ${format}:`, error);
+      throw error;
+    }
   };
 
   const generateAll = async () => {
@@ -247,21 +354,19 @@ Gere o conteúdo no formato solicitado.`;
     setGeneratedContents([]);
 
     try {
+      const results: GeneratedContent[] = [];
+      
       for (const format of selectedFormats) {
         setGeneratingFormat(format);
         
-        const content = await generateForFormat(format);
+        const generatedContent = await generateForFormat(format);
+        results.push(generatedContent);
         
-        setGeneratedContents((prev) => [
-          ...prev,
-          {
-            format,
-            content,
-            objective: contentObjective,
-            generatedAt: new Date(),
-          },
-        ]);
+        setGeneratedContents([...results]);
       }
+
+      setShowResults(true);
+      return results;
     } finally {
       setIsGenerating(false);
       setGeneratingFormat(null);
@@ -278,6 +383,11 @@ Gere o conteúdo no formato solicitado.`;
     setSelectedFormats([]);
     setContentObjective(null);
     setGeneratedContents([]);
+    setShowResults(false);
+  };
+
+  const goBackToForm = () => {
+    setShowResults(false);
   };
 
   return {
@@ -292,10 +402,12 @@ Gere o conteúdo no formato solicitado.`;
     isTranscribing,
     isGenerating,
     generatingFormat,
+    showResults,
     transcribe,
     generateForFormat,
     generateAll,
     copyToClipboard,
     reset,
+    goBackToForm,
   };
 }

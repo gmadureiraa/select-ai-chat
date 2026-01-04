@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Youtube, Loader2, Sparkles, Copy, Calendar, Check, AlertCircle, ChevronDown, ChevronUp } from "lucide-react";
+import { Youtube, Loader2, Sparkles, Copy, Calendar, Check, AlertCircle, ChevronDown, ChevronUp, Scissors } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -7,15 +7,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useToast } from "@/hooks/use-toast";
 import { useClients } from "@/hooks/useClients";
-import { useContentRepurpose, ContentFormat, ContentObjective, GeneratedContent } from "@/hooks/useContentRepurpose";
+import { useContentRepurpose, ContentFormat, ContentObjective } from "@/hooks/useContentRepurpose";
+import { GeneratedContentResults } from "./GeneratedContentResults";
 import { cn } from "@/lib/utils";
 
-const CONTENT_FORMATS: { id: ContentFormat; label: string; description: string }[] = [
+const CONTENT_FORMATS: { id: ContentFormat; label: string; description: string; icon?: string }[] = [
   { id: "newsletter", label: "Newsletter", description: "Texto longo para email" },
   { id: "thread", label: "Thread", description: "Série de tweets conectados" },
   { id: "tweet", label: "Tweet", description: "Post curto para X/Twitter" },
@@ -25,6 +25,7 @@ const CONTENT_FORMATS: { id: ContentFormat; label: string; description: string }
   { id: "reels_script", label: "Roteiro Reels", description: "Script para vídeo curto" },
   { id: "blog_post", label: "Blog Post", description: "Artigo completo" },
   { id: "email_marketing", label: "Email Marketing", description: "Email de conversão" },
+  { id: "cut_moments", label: "Momentos de Corte", description: "5 melhores clips para cortar", icon: "scissors" },
 ];
 
 const CONTENT_OBJECTIVES: { id: ContentObjective; label: string; color: string }[] = [
@@ -53,13 +54,15 @@ export function ContentRepurposeTool() {
     isTranscribing,
     isGenerating,
     generatingFormat,
+    showResults,
     transcribe,
     generateAll,
     copyToClipboard,
+    reset,
+    goBackToForm,
   } = useContentRepurpose(selectedClientId);
 
   const [showTranscript, setShowTranscript] = useState(false);
-  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const handleTranscribe = async () => {
     if (!youtubeUrl.trim()) {
@@ -129,14 +132,26 @@ export function ContentRepurposeTool() {
     }
   };
 
-  const handleCopy = async (content: GeneratedContent) => {
-    await copyToClipboard(content.content);
-    setCopiedId(content.format);
-    setTimeout(() => setCopiedId(null), 2000);
-    toast({
-      title: "Copiado!",
-      description: "Conteúdo copiado para a área de transferência",
-    });
+  // Show results page when generation is complete
+  if (showResults && generatedContents.length > 0) {
+    return (
+      <GeneratedContentResults
+        contents={generatedContents}
+        videoTitle={transcript?.title || "Vídeo"}
+        videoThumbnail={transcript?.thumbnail}
+        onBack={goBackToForm}
+        onCopy={async (text) => {
+          await copyToClipboard(text);
+        }}
+        onReset={reset}
+        clientName={selectedClient?.name}
+      />
+    );
+  }
+
+  const getFormatLabel = (formatId: string) => {
+    const format = CONTENT_FORMATS.find(f => f.id === formatId);
+    return format?.label || formatId;
   };
 
   return (
@@ -320,7 +335,7 @@ export function ContentRepurposeTool() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
               {CONTENT_FORMATS.map((format) => (
                 <div
                   key={format.id}
@@ -330,15 +345,21 @@ export function ContentRepurposeTool() {
                     "hover:bg-muted/50",
                     selectedFormats.includes(format.id)
                       ? "border-primary bg-primary/5"
-                      : "border-muted"
+                      : "border-muted",
+                    format.id === "cut_moments" && "col-span-2 md:col-span-1 bg-gradient-to-r from-red-500/5 to-orange-500/5"
                   )}
                 >
                   <Checkbox
                     checked={selectedFormats.includes(format.id)}
                     className="mt-0.5"
                   />
-                  <div>
-                    <p className="font-medium text-sm">{format.label}</p>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      {format.id === "cut_moments" && (
+                        <Scissors className="h-4 w-4 text-red-500" />
+                      )}
+                      <p className="font-medium text-sm">{format.label}</p>
+                    </div>
                     <p className="text-xs text-muted-foreground">{format.description}</p>
                   </div>
                 </div>
@@ -354,7 +375,7 @@ export function ContentRepurposeTool() {
               {isGenerating ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Gerando {generatingFormat}...
+                  Gerando {getFormatLabel(generatingFormat || '')}...
                 </>
               ) : (
                 <>
@@ -365,61 +386,6 @@ export function ContentRepurposeTool() {
             </Button>
           </CardContent>
         </Card>
-      )}
-
-      {/* Generated Contents */}
-      {generatedContents.length > 0 && (
-        <div className="space-y-4">
-          <h2 className="text-lg font-semibold">Conteúdos Gerados</h2>
-          
-          {generatedContents.map((content) => {
-            const formatInfo = CONTENT_FORMATS.find(f => f.id === content.format);
-            const objectiveInfo = CONTENT_OBJECTIVES.find(o => o.id === content.objective);
-            
-            return (
-              <Card key={content.format}>
-                <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <CardTitle className="text-base">{formatInfo?.label}</CardTitle>
-                      {objectiveInfo && (
-                        <Badge variant="outline" className={objectiveInfo.color}>
-                          {objectiveInfo.label}
-                        </Badge>
-                      )}
-                    </div>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleCopy(content)}
-                      >
-                        {copiedId === content.format ? (
-                          <>
-                            <Check className="h-4 w-4 mr-1" />
-                            Copiado
-                          </>
-                        ) : (
-                          <>
-                            <Copy className="h-4 w-4 mr-1" />
-                            Copiar
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <ScrollArea className="max-h-64">
-                    <div className="whitespace-pre-wrap text-sm">
-                      {content.content}
-                    </div>
-                  </ScrollArea>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
       )}
     </div>
   );
