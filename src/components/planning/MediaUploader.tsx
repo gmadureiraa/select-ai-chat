@@ -1,9 +1,10 @@
 import { useState, useRef } from 'react';
-import { Plus, X, GripVertical, Image, Video, Loader2 } from 'lucide-react';
+import { Plus, X, GripVertical, Video, Loader2, Maximize2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { ImageLightbox } from './ImageLightbox';
 
 export interface MediaItem {
   id: string;
@@ -29,7 +30,14 @@ export function MediaUploader({
 }: MediaUploaderProps) {
   const [isUploading, setIsUploading] = useState(false);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleOpenLightbox = (index: number) => {
+    setLightboxIndex(index);
+    setLightboxOpen(true);
+  };
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -56,7 +64,6 @@ export function MediaUploader({
       }
 
       try {
-        // Upload to Supabase storage
         const fileExt = file.name.split('.').pop();
         const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
         const filePath = clientId 
@@ -141,7 +148,7 @@ export function MediaUploader({
             onDragOver={(e) => handleDragOver(e, index)}
             onDragEnd={handleDragEnd}
             className={cn(
-              "relative group w-20 h-20 rounded-xl border border-border/50 overflow-hidden cursor-move",
+              "relative group w-20 h-20 rounded-xl border border-border/50 overflow-hidden",
               "shadow-sm hover:shadow-md transition-all duration-200",
               draggedIndex === index && "opacity-50"
             )}
@@ -154,17 +161,33 @@ export function MediaUploader({
               <img
                 src={item.url}
                 alt=""
-                className="w-full h-full object-cover"
+                className="w-full h-full object-cover cursor-pointer"
+                onClick={() => handleOpenLightbox(index)}
               />
             )}
 
             <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1">
-              <GripVertical className="h-4 w-4 text-white" />
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 text-white hover:bg-white/20 cursor-move"
+                onMouseDown={(e) => e.stopPropagation()}
+              >
+                <GripVertical className="h-4 w-4" />
+              </Button>
               <Button
                 variant="ghost"
                 size="icon"
                 className="h-6 w-6 text-white hover:bg-white/20"
-                onClick={() => handleRemove(item.id)}
+                onClick={(e) => { e.stopPropagation(); handleOpenLightbox(index); }}
+              >
+                <Maximize2 className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 text-white hover:bg-white/20"
+                onClick={(e) => { e.stopPropagation(); handleRemove(item.id); }}
               >
                 <X className="h-4 w-4" />
               </Button>
@@ -204,6 +227,14 @@ export function MediaUploader({
         multiple
         onChange={handleFileSelect}
         className="hidden"
+      />
+
+      {/* Lightbox for viewing images larger */}
+      <ImageLightbox
+        images={value.map(v => ({ url: v.url, type: v.type }))}
+        initialIndex={lightboxIndex}
+        open={lightboxOpen}
+        onOpenChange={setLightboxOpen}
       />
     </div>
   );
