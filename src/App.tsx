@@ -22,6 +22,8 @@ import { WorkspaceProvider } from "@/contexts/WorkspaceContext";
 import { WorkspaceRouter } from "@/components/WorkspaceRouter";
 import { WorkspaceRedirect } from "@/components/WorkspaceRedirect";
 import { TokenErrorProvider } from "@/hooks/useTokenError";
+import { GlobalKAIProvider } from "@/contexts/GlobalKAIContext";
+import { GlobalKAIAssistant } from "@/components/kai-global";
 
 const queryClient = new QueryClient();
 
@@ -34,53 +36,58 @@ const App = () => (
         <BrowserRouter>
           <WorkspaceProvider>
             <TokenErrorProvider>
-              <Routes>
-                {/* Public routes */}
-                <Route path="/login" element={<Login />} />
-                <Route path="/signup" element={<Signup />} />
-                <Route path="/page" element={<LandingPage />} />
+              <GlobalKAIProvider>
+                <Routes>
+                  {/* Public routes */}
+                  <Route path="/login" element={<Login />} />
+                  <Route path="/signup" element={<Signup />} />
+                  <Route path="/page" element={<LandingPage />} />
+                  
+                  {/* Public landing page */}
+                  <Route path="/" element={<LandingPage />} />
+                  
+                  {/* Super Admin route - uses AuthOnlyRoute instead of ProtectedRoute to skip workspace check */}
+                  <Route
+                    path="/admin"
+                    element={
+                      <AuthOnlyRoute>
+                        <SuperAdminRoute>
+                          <AdminDashboard />
+                        </SuperAdminRoute>
+                      </AuthOnlyRoute>
+                    }
+                  />
+                  
+                  {/* Redirect to workspace for authenticated users */}
+                  <Route
+                    path="/app"
+                    element={
+                      <ProtectedRoute>
+                        <WorkspaceRedirect />
+                      </ProtectedRoute>
+                    }
+                  />
+                  
+                  {/* Workspace auth routes */}
+                  <Route path="/:slug/join" element={<JoinWorkspace />} />
+                  <Route path="/:slug/login" element={<WorkspaceLogin />} />
+                  
+                  {/* Workspace routes with slug */}
+                  <Route path="/:slug" element={<WorkspaceRouter />}>
+                    <Route index element={<Kai />} />
+                    <Route path="docs" element={<Documentation />} />
+                    <Route path="settings" element={<Settings />} />
+                    <Route path="agents" element={<AgentsExplorer />} />
+                  </Route>
+                  
+                  {/* 404 */}
+                  <Route path="/404" element={<NotFound />} />
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
                 
-                {/* Public landing page */}
-                <Route path="/" element={<LandingPage />} />
-                
-                {/* Super Admin route - uses AuthOnlyRoute instead of ProtectedRoute to skip workspace check */}
-                <Route
-                  path="/admin"
-                  element={
-                    <AuthOnlyRoute>
-                      <SuperAdminRoute>
-                        <AdminDashboard />
-                      </SuperAdminRoute>
-                    </AuthOnlyRoute>
-                  }
-                />
-                
-                {/* Redirect to workspace for authenticated users */}
-                <Route
-                  path="/app"
-                  element={
-                    <ProtectedRoute>
-                      <WorkspaceRedirect />
-                    </ProtectedRoute>
-                  }
-                />
-                
-                {/* Workspace auth routes */}
-                <Route path="/:slug/join" element={<JoinWorkspace />} />
-                <Route path="/:slug/login" element={<WorkspaceLogin />} />
-                
-                {/* Workspace routes with slug */}
-                <Route path="/:slug" element={<WorkspaceRouter />}>
-                  <Route index element={<Kai />} />
-                  <Route path="docs" element={<Documentation />} />
-                  <Route path="settings" element={<Settings />} />
-                  <Route path="agents" element={<AgentsExplorer />} />
-                </Route>
-                
-                {/* 404 */}
-                <Route path="/404" element={<NotFound />} />
-                <Route path="*" element={<NotFound />} />
-              </Routes>
+                {/* Global kAI Assistant - available on all authenticated pages */}
+                <GlobalKAIAssistant />
+              </GlobalKAIProvider>
             </TokenErrorProvider>
           </WorkspaceProvider>
         </BrowserRouter>
