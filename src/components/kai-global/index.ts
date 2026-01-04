@@ -3,3 +3,5 @@ export { GlobalKAIPanel } from "./GlobalKAIPanel";
 export { GlobalKAIChat } from "./GlobalKAIChat";
 export { GlobalKAIInput } from "./GlobalKAIInput";
 export { GlobalKAIAssistant } from "./GlobalKAIAssistant";
+export { ActionConfirmationDialog } from "./ActionConfirmationDialog";
+export { ActionProgressIndicator, InlineProgressIndicator } from "./ActionProgressIndicator";
