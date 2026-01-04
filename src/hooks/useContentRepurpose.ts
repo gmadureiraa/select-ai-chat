@@ -68,11 +68,10 @@ const OBJECTIVE_CONTEXT: Record<ContentObjective, string> = {
   brand_awareness: "Foco em construir reconhecimento e autoridade. Conte histórias. Mostre valores e propósito. Crie conexão emocional.",
 };
 
-export function useContentRepurpose(clientId: string) {
+export function useContentRepurpose() {
   const [youtubeUrl, setYoutubeUrl] = useState("");
   const [transcript, setTranscript] = useState<TranscriptData | null>(null);
   const [selectedFormats, setSelectedFormats] = useState<ContentFormat[]>([]);
-  const [contentObjective, setContentObjective] = useState<ContentObjective | null>(null);
   const [generatedContents, setGeneratedContents] = useState<GeneratedContent[]>([]);
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -117,20 +116,17 @@ export function useContentRepurpose(clientId: string) {
     );
   };
 
-  const generateForFormat = async (format: ContentFormat): Promise<GeneratedContent> => {
-    if (!transcript || !contentObjective) {
-      throw new Error("Transcrição e objetivo são obrigatórios");
+  const generateForFormat = async (format: ContentFormat, clientId: string): Promise<GeneratedContent> => {
+    if (!transcript) {
+      throw new Error("Transcrição é obrigatória");
     }
 
     const agentType = "content_writer";
     const contentType = FORMAT_TO_AGENT[format];
-    const objectiveContext = OBJECTIVE_CONTEXT[contentObjective];
 
     // Build user message with transcript and context
     const userMessage = format === "cut_moments" 
       ? `Analise a transcrição abaixo e identifique os 5 MELHORES momentos para criar cortes/clips virais.
-
-OBJETIVO DO CONTEÚDO: ${objectiveContext}
 
 TÍTULO DO VÍDEO: ${transcript.title}
 
@@ -139,8 +135,6 @@ ${transcript.content.substring(0, 20000)}
 
 Retorne APENAS o JSON com os 5 momentos, ordenados do maior score para o menor.`
       : `Crie um conteúdo de ${format.replace("_", " ")} baseado na transcrição do vídeo abaixo.
-
-OBJETIVO DO CONTEÚDO: ${objectiveContext}
 
 TÍTULO DO VÍDEO: ${transcript.title}
 
@@ -196,7 +190,7 @@ Siga as regras do formato e gere o conteúdo pronto para publicar.`;
       return {
         format,
         content,
-        objective: contentObjective,
+        objective: "educational" as ContentObjective,
         generatedAt: new Date(),
         cutMoments,
       };
@@ -206,16 +200,16 @@ Siga as regras do formato e gere o conteúdo pronto para publicar.`;
       return {
         format,
         content: "",
-        objective: contentObjective,
+        objective: "educational" as ContentObjective,
         generatedAt: new Date(),
         error: error instanceof Error ? error.message : "Erro desconhecido",
       };
     }
   };
 
-  const generateAll = async () => {
-    if (!contentObjective || selectedFormats.length === 0) {
-      throw new Error("Selecione objetivo e formatos");
+  const generateAll = async (clientId: string) => {
+    if (selectedFormats.length === 0) {
+      throw new Error("Selecione formatos");
     }
 
     setIsGenerating(true);
@@ -229,7 +223,7 @@ Siga as regras do formato e gere o conteúdo pronto para publicar.`;
       for (const format of selectedFormats) {
         setGeneratingFormat(format);
         
-        const generatedContent = await generateForFormat(format);
+        const generatedContent = await generateForFormat(format, clientId);
         results.push(generatedContent);
         
         // Update state progressively
@@ -251,7 +245,6 @@ Siga as regras do formato e gere o conteúdo pronto para publicar.`;
     setYoutubeUrl("");
     setTranscript(null);
     setSelectedFormats([]);
-    setContentObjective(null);
     setGeneratedContents([]);
     setShowResults(false);
   };
@@ -266,8 +259,6 @@ Siga as regras do formato e gere o conteúdo pronto para publicar.`;
     transcript,
     selectedFormats,
     toggleFormat,
-    contentObjective,
-    setContentObjective,
     generatedContents,
     isTranscribing,
     isGenerating,

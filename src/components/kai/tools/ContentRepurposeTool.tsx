@@ -2,17 +2,14 @@ import { useState } from "react";
 import { Youtube, Loader2, Sparkles, Check, ChevronDown, ChevronUp, Scissors } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { useClients } from "@/hooks/useClients";
-import { useContentRepurpose, ContentFormat, ContentObjective } from "@/hooks/useContentRepurpose";
+import { useContentRepurpose, ContentFormat } from "@/hooks/useContentRepurpose";
 import { useRepurposeHistory, RepurposeHistoryItem } from "@/hooks/useRepurposeHistory";
 import { GeneratedContentResults } from "./GeneratedContentResults";
 import { RepurposeHistoryCards } from "./RepurposeHistoryCards";
@@ -31,21 +28,18 @@ const CONTENT_FORMATS: { id: ContentFormat; label: string; description: string; 
   { id: "cut_moments", label: "Momentos de Corte", description: "5 melhores clips para cortar", icon: "scissors" },
 ];
 
-const CONTENT_OBJECTIVES: { id: ContentObjective; label: string; color: string }[] = [
-  { id: "sales", label: "Vendas", color: "bg-green-500/10 text-green-600 border-green-500/20" },
-  { id: "lead_generation", label: "Geração de Leads", color: "bg-blue-500/10 text-blue-600 border-blue-500/20" },
-  { id: "educational", label: "Educacional", color: "bg-purple-500/10 text-purple-600 border-purple-500/20" },
-  { id: "brand_awareness", label: "Fortalecimento de Marca", color: "bg-orange-500/10 text-orange-600 border-orange-500/20" },
-];
+interface ContentRepurposeToolProps {
+  clientId: string;
+}
 
-export function ContentRepurposeTool() {
+export function ContentRepurposeTool({ clientId }: ContentRepurposeToolProps) {
   const { toast } = useToast();
   const { clients } = useClients();
-  const [selectedClientId, setSelectedClientId] = useState<string>("");
   const [viewingHistoryItem, setViewingHistoryItem] = useState<RepurposeHistoryItem | null>(null);
+  const [showTranscript, setShowTranscript] = useState(false);
   
-  const selectedClient = clients?.find(c => c.id === selectedClientId);
-  const { saveHistory } = useRepurposeHistory(selectedClientId);
+  const selectedClient = clients?.find(c => c.id === clientId);
+  const { saveHistory } = useRepurposeHistory(clientId);
   
   const {
     youtubeUrl,
@@ -53,8 +47,6 @@ export function ContentRepurposeTool() {
     transcript,
     selectedFormats,
     toggleFormat,
-    contentObjective,
-    setContentObjective,
     generatedContents,
     isTranscribing,
     isGenerating,
@@ -65,9 +57,7 @@ export function ContentRepurposeTool() {
     copyToClipboard,
     reset,
     goBackToForm,
-  } = useContentRepurpose(selectedClientId);
-
-  const [showTranscript, setShowTranscript] = useState(false);
+  } = useContentRepurpose();
 
   const handleTranscribe = async () => {
     if (!youtubeUrl.trim()) {
@@ -95,7 +85,7 @@ export function ContentRepurposeTool() {
   };
 
   const handleGenerate = async () => {
-    if (!selectedClientId) {
+    if (!clientId) {
       toast({
         title: "Cliente necessário",
         description: "Selecione um cliente para gerar conteúdos",
@@ -113,28 +103,19 @@ export function ContentRepurposeTool() {
       return;
     }
 
-    if (!contentObjective) {
-      toast({
-        title: "Objetivo necessário",
-        description: "Selecione o objetivo do conteúdo",
-        variant: "destructive",
-      });
-      return;
-    }
-
     try {
-      const results = await generateAll();
+      const results = await generateAll(clientId);
       
       // Save to history (don't block results if this fails)
       if (results && results.length > 0 && transcript) {
         try {
           await saveHistory.mutateAsync({
-            clientId: selectedClientId,
+            clientId: clientId,
             youtubeUrl,
             videoTitle: transcript.title,
             videoThumbnail: transcript.thumbnail,
             transcript: transcript.content,
-            objective: contentObjective!,
+            objective: "educational",
             generatedContents: results,
           });
         } catch (historyError) {
@@ -175,7 +156,7 @@ export function ContentRepurposeTool() {
           reset();
         }}
         clientName={selectedClient?.name}
-        clientId={selectedClientId}
+        clientId={clientId}
       />
     );
   }
@@ -193,7 +174,7 @@ export function ContentRepurposeTool() {
         }}
         onReset={reset}
         clientName={selectedClient?.name}
-        clientId={selectedClientId}
+        clientId={clientId}
         isGenerating={isGenerating}
         generatingFormat={generatingFormat}
         expectedCount={selectedFormats.length}
@@ -306,86 +287,16 @@ export function ContentRepurposeTool() {
 
       {/* History Section - Below URL input */}
       <RepurposeHistoryCards 
-        clientId={selectedClientId || undefined}
+        clientId={clientId || undefined}
         onViewResults={(item) => setViewingHistoryItem(item)}
       />
 
-      {/* Step 2: Select Client */}
+      {/* Step 2: Formats */}
       {transcript && (
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
               <Badge variant="outline" className="h-6 w-6 rounded-full p-0 flex items-center justify-center">2</Badge>
-              Selecione o cliente
-            </CardTitle>
-            <CardDescription>
-              O conteúdo será gerado seguindo a identidade e padrões do cliente
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <select
-              value={selectedClientId}
-              onChange={(e) => setSelectedClientId(e.target.value)}
-              className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
-            >
-              <option value="">Selecione um cliente...</option>
-              {clients?.map((client) => (
-                <option key={client.id} value={client.id}>
-                  {client.name}
-                </option>
-              ))}
-            </select>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Step 3: Objective */}
-      {transcript && selectedClientId && (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Badge variant="outline" className="h-6 w-6 rounded-full p-0 flex items-center justify-center">3</Badge>
-              Objetivo do conteúdo
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <RadioGroup
-              value={contentObjective || ""}
-              onValueChange={(value) => setContentObjective(value as ContentObjective)}
-              className="grid grid-cols-2 gap-3"
-            >
-              {CONTENT_OBJECTIVES.map((obj) => (
-                <div key={obj.id}>
-                  <RadioGroupItem
-                    value={obj.id}
-                    id={obj.id}
-                    className="peer sr-only"
-                  />
-                  <Label
-                    htmlFor={obj.id}
-                    className={cn(
-                      "flex items-center justify-center rounded-lg border-2 p-3 cursor-pointer transition-all",
-                      "hover:bg-muted/50",
-                      contentObjective === obj.id 
-                        ? obj.color + " border-current" 
-                        : "border-muted"
-                    )}
-                  >
-                    {obj.label}
-                  </Label>
-                </div>
-              ))}
-            </RadioGroup>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Step 4: Formats */}
-      {transcript && selectedClientId && contentObjective && (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Badge variant="outline" className="h-6 w-6 rounded-full p-0 flex items-center justify-center">4</Badge>
               Formatos para gerar
             </CardTitle>
             <CardDescription>

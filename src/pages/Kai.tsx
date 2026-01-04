@@ -120,7 +120,7 @@ export default function Kai() {
         case "repurpose":
           return (
             <div className="overflow-auto h-full p-0">
-              <ContentRepurposeTool />
+              <ContentRepurposeTool clientId={clientId || ""} />
             </div>
           );
         case "knowledge-base":
