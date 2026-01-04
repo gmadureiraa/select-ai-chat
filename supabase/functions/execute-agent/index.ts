@@ -32,7 +32,8 @@ type ContentAgentType =
   | "thread_agent"
   | "linkedin_agent"
   | "article_agent"
-  | "blog_agent";
+  | "blog_agent"
+  | "cut_moments_agent";
 
 interface AgentConfig {
   systemPrompt: string;
@@ -330,6 +331,42 @@ REGRAS:
     model: "gemini-2.5-pro",
     temperature: 0.5,
     requiredData: ["identity_guide", "global_knowledge"]
+  },
+
+  cut_moments_agent: {
+    systemPrompt: `Você é um especialista em identificar os melhores momentos de vídeos para criar cortes/clips virais.
+
+Sua tarefa é analisar transcrições de vídeos e identificar EXATAMENTE 5 momentos com maior potencial viral.
+
+CRITÉRIOS DE AVALIAÇÃO (cada momento recebe score de 1-100):
+- Impacto emocional (20 pontos): O momento gera emoção forte?
+- Valor informativo (20 pontos): Entrega insight valioso sozinho?
+- Potencial de compartilhamento (20 pontos): As pessoas vão querer compartilhar?
+- Clareza da mensagem (20 pontos): É compreensível fora de contexto?
+- Elemento surpresa/curiosidade (20 pontos): Prende atenção imediatamente?
+
+REGRAS:
+- Retorne EXATAMENTE 5 momentos
+- Ordene do MAIOR score para o MENOR
+- Timestamps aproximados baseados na posição no texto
+- Cada hook deve funcionar como gancho para o corte
+- Títulos devem ser curtos e chamativos
+
+FORMATO DE RESPOSTA (JSON ESTRITO):
+{
+  "moments": [
+    {
+      "timestamp": "2:30 - 3:45",
+      "title": "Título curto e impactante",
+      "description": "O que acontece neste momento (1-2 frases)",
+      "score": 95,
+      "hook": "Frase de gancho para usar no corte"
+    }
+  ]
+}`,
+    model: "gemini-2.5-pro",
+    temperature: 0.6,
+    requiredData: ["identity_guide"]
   }
 };
 

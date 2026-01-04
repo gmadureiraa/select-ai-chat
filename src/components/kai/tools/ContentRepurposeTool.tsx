@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Youtube, Loader2, Sparkles, Copy, Calendar, Check, AlertCircle, ChevronDown, ChevronUp, Scissors } from "lucide-react";
+import { Youtube, Loader2, Sparkles, Check, ChevronDown, ChevronUp, Scissors } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,7 +12,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { useClients } from "@/hooks/useClients";
-import { useContentRepurpose, ContentFormat, ContentObjective, GeneratedContent } from "@/hooks/useContentRepurpose";
+import { useContentRepurpose, ContentFormat, ContentObjective } from "@/hooks/useContentRepurpose";
 import { useRepurposeHistory, RepurposeHistoryItem } from "@/hooks/useRepurposeHistory";
 import { GeneratedContentResults } from "./GeneratedContentResults";
 import { RepurposeHistoryCards } from "./RepurposeHistoryCards";
@@ -125,22 +125,30 @@ export function ContentRepurposeTool() {
     try {
       const results = await generateAll();
       
-      // Save to history
+      // Save to history (don't block results if this fails)
       if (results && results.length > 0 && transcript) {
-        await saveHistory.mutateAsync({
-          clientId: selectedClientId,
-          youtubeUrl,
-          videoTitle: transcript.title,
-          videoThumbnail: transcript.thumbnail,
-          transcript: transcript.content,
-          objective: contentObjective!,
-          generatedContents: results,
-        });
+        try {
+          await saveHistory.mutateAsync({
+            clientId: selectedClientId,
+            youtubeUrl,
+            videoTitle: transcript.title,
+            videoThumbnail: transcript.thumbnail,
+            transcript: transcript.content,
+            objective: contentObjective!,
+            generatedContents: results,
+          });
+        } catch (historyError) {
+          console.error("Failed to save history:", historyError);
+          toast({
+            title: "Aviso",
+            description: "Conteúdos gerados, mas não foi possível salvar no histórico",
+          });
+        }
       }
       
       toast({
         title: "Conteúdos gerados!",
-        description: `${selectedFormats.length} conteúdos criados com sucesso`,
+        description: `${results?.length || 0} conteúdos criados`,
       });
     } catch (error) {
       toast({
@@ -172,8 +180,8 @@ export function ContentRepurposeTool() {
     );
   }
 
-  // Show results page when generation is complete
-  if (showResults && generatedContents.length > 0) {
+  // Show results page when generation starts (or is complete)
+  if (showResults) {
     return (
       <GeneratedContentResults
         contents={generatedContents}
@@ -186,6 +194,9 @@ export function ContentRepurposeTool() {
         onReset={reset}
         clientName={selectedClient?.name}
         clientId={selectedClientId}
+        isGenerating={isGenerating}
+        generatingFormat={generatingFormat}
+        expectedCount={selectedFormats.length}
       />
     );
   }
@@ -292,6 +303,12 @@ export function ContentRepurposeTool() {
           )}
         </CardContent>
       </Card>
+
+      {/* History Section - Below URL input */}
+      <RepurposeHistoryCards 
+        clientId={selectedClientId || undefined}
+        onViewResults={(item) => setViewingHistoryItem(item)}
+      />
 
       {/* Step 2: Select Client */}
       {transcript && (
@@ -428,14 +445,6 @@ export function ContentRepurposeTool() {
           </CardContent>
         </Card>
       )}
-
-      {/* History Section */}
-      <Separator className="my-6" />
-      
-      <RepurposeHistoryCards 
-        clientId={selectedClientId || undefined}
-        onViewResults={(item) => setViewingHistoryItem(item)}
-      />
     </div>
   );
 }

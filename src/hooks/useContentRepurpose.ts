@@ -44,111 +44,21 @@ export interface GeneratedContent {
   objective: ContentObjective;
   generatedAt: Date;
   cutMoments?: CutMoment[];
+  error?: string;
 }
 
-const FORMAT_PROMPTS: Record<ContentFormat, string> = {
-  newsletter: `Crie uma newsletter completa e envolvente com:
-- Título chamativo
-- Introdução que conecta com o leitor
-- Corpo do texto com os principais insights
-- Conclusão com call-to-action
-- Tom pessoal e profissional`,
-  
-  thread: `Crie uma thread para Twitter/X com:
-- 5-10 tweets conectados
-- Primeiro tweet como gancho forte
-- Cada tweet deve ter valor isolado
-- Use emojis estratégicos
-- Último tweet com CTA
-- Numere cada tweet (1/, 2/, etc)`,
-  
-  tweet: `Crie um tweet único e impactante:
-- Máximo 280 caracteres
-- Gancho forte no início
-- Inclua insight valioso
-- Use emojis se apropriado
-- Opcional: hashtags relevantes`,
-  
-  carousel: `Crie o conteúdo para um carrossel de Instagram/LinkedIn:
-- Slide 1: Título/Gancho chamativo
-- Slides 2-8: Um insight por slide
-- Último slide: CTA
-- Texto curto e direto por slide
-- Separe claramente cada slide com "---"`,
-  
-  linkedin_post: `Crie um post para LinkedIn:
-- Primeira linha como gancho
-- Parágrafos curtos (1-3 linhas)
-- Use espaçamentos estratégicos
-- Tom profissional mas pessoal
-- Inclua insights acionáveis
-- CTA no final
-- 3-5 hashtags relevantes`,
-  
-  instagram_post: `Crie uma legenda para Instagram:
-- Primeira linha chamativa
-- Conteúdo valor
-- Emojis estratégicos
-- Quebras de linha
-- CTA
-- 20-30 hashtags relevantes no final`,
-  
-  reels_script: `Crie um roteiro para Reels/TikTok:
-- Duração: 30-60 segundos
-- GANCHO (0-3s): Frase que para o scroll
-- DESENVOLVIMENTO (3-20s): Conteúdo principal
-- CLÍMAX (20-25s): Insight principal
-- CTA (25-30s): Ação desejada
-- Use linguagem oral e dinâmica`,
-  
-  blog_post: `Crie um artigo de blog completo:
-- Título SEO-friendly
-- Introdução envolvente
-- Subtítulos (H2, H3)
-- Parágrafos bem estruturados
-- Exemplos práticos
-- Conclusão com takeaways
-- Meta descrição`,
-  
-  email_marketing: `Crie um email de marketing:
-- Assunto irresistível (+ 2 variações)
-- Preview text
-- Saudação pessoal
-- Corpo com benefícios claros
-- Prova social se aplicável
-- CTA principal destacado
-- PS opcional`,
-
-  cut_moments: `Analise a transcrição e identifique os 5 MELHORES momentos para criar cortes/clips virais.
-
-Para cada momento, forneça:
-1. TIMESTAMP aproximado (baseado na posição no texto, ex: "2:30 - 3:45")
-2. TÍTULO: Nome curto e chamativo para o corte
-3. DESCRIÇÃO: O que acontece neste momento (1-2 frases)
-4. SCORE: Pontuação de 1-100 baseada no potencial viral
-5. HOOK: Sugestão de gancho/legenda para o corte
-
-Critérios para pontuação:
-- Impacto emocional
-- Valor informativo
-- Potencial de compartilhamento
-- Clareza da mensagem
-- Elemento surpresa ou curiosidade
-
-Retorne no formato JSON:
-{
-  "moments": [
-    {
-      "timestamp": "2:30 - 3:45",
-      "title": "Título do momento",
-      "description": "Descrição breve",
-      "score": 95,
-      "hook": "Gancho sugerido"
-    }
-  ]
-}
-
-Ordene do maior score para o menor.`,
+// Map ContentFormat to execute-agent contentType
+const FORMAT_TO_AGENT: Record<ContentFormat, string> = {
+  newsletter: "newsletter_agent",
+  thread: "thread_agent",
+  tweet: "tweet_agent",
+  carousel: "carousel_agent",
+  linkedin_post: "linkedin_agent",
+  instagram_post: "static_post_agent",
+  reels_script: "reels_agent",
+  blog_post: "blog_agent",
+  email_marketing: "email_marketing_agent",
+  cut_moments: "cut_moments_agent",
 };
 
 const OBJECTIVE_CONTEXT: Record<ContentObjective, string> = {
@@ -207,133 +117,58 @@ export function useContentRepurpose(clientId: string) {
     );
   };
 
-  const parseStreamResponse = async (response: any): Promise<string> => {
-    // Check if response.data is a ReadableStream
-    if (response.data && typeof response.data.getReader === 'function') {
-      const reader = response.data.getReader();
-      const decoder = new TextDecoder();
-      let result = "";
-      let buffer = "";
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        
-        // Process line by line
-        let newlineIndex: number;
-        while ((newlineIndex = buffer.indexOf("\n")) !== -1) {
-          let line = buffer.slice(0, newlineIndex);
-          buffer = buffer.slice(newlineIndex + 1);
-
-          if (line.endsWith("\r")) line = line.slice(0, -1);
-          if (line.startsWith(":") || line.trim() === "") continue;
-          if (!line.startsWith("data: ")) continue;
-
-          const jsonStr = line.slice(6).trim();
-          if (jsonStr === "[DONE]") continue;
-
-          try {
-            const parsed = JSON.parse(jsonStr);
-            
-            // Support OpenAI format
-            const openaiContent = parsed.choices?.[0]?.delta?.content;
-            if (openaiContent) {
-              result += openaiContent;
-              continue;
-            }
-            
-            // Support Gemini format (used by chat edge function)
-            const geminiContent = parsed.candidates?.[0]?.content?.parts?.[0]?.text;
-            if (geminiContent) {
-              result += geminiContent;
-              continue;
-            }
-
-            // Support direct content format
-            if (parsed.content && typeof parsed.content === 'string') {
-              result += parsed.content;
-            }
-          } catch {
-            // Incomplete JSON, will handle in next chunk
-          }
-        }
-      }
-
-      return result;
-    }
-    
-    // If it's not a stream, try to get content directly
-    if (typeof response.data === 'string') {
-      return response.data;
-    }
-    
-    if (response.data?.content) {
-      return response.data.content;
-    }
-
-    if (response.data?.choices?.[0]?.message?.content) {
-      return response.data.choices[0].message.content;
-    }
-
-    // Try Gemini format for non-stream
-    if (response.data?.candidates?.[0]?.content?.parts?.[0]?.text) {
-      return response.data.candidates[0].content.parts[0].text;
-    }
-
-    // Log for debugging
-    console.log("Response data type:", typeof response.data);
-    console.log("Response data:", response.data);
-
-    throw new Error("Formato de resposta não reconhecido");
-  };
-
   const generateForFormat = async (format: ContentFormat): Promise<GeneratedContent> => {
     if (!transcript || !contentObjective) {
       throw new Error("Transcrição e objetivo são obrigatórios");
     }
 
-    const formatPrompt = FORMAT_PROMPTS[format];
+    const agentType = "content_writer";
+    const contentType = FORMAT_TO_AGENT[format];
     const objectiveContext = OBJECTIVE_CONTEXT[contentObjective];
 
-    const systemPrompt = `Você é um especialista em criação de conteúdo para redes sociais e marketing digital.
-    
-Objetivo do conteúdo: ${objectiveContext}
+    // Build user message with transcript and context
+    const userMessage = format === "cut_moments" 
+      ? `Analise a transcrição abaixo e identifique os 5 MELHORES momentos para criar cortes/clips virais.
 
-REGRAS:
-- Siga EXATAMENTE as instruções do formato solicitado
-- Use a transcrição como base, mas adapte a linguagem
-- Mantenha a essência do conteúdo original
-- Não invente informações que não estão na transcrição
-- Seja criativo mas fiel ao conteúdo`;
+OBJETIVO DO CONTEÚDO: ${objectiveContext}
 
-    const userPrompt = `${formatPrompt}
+TÍTULO DO VÍDEO: ${transcript.title}
 
-TRANSCRIÇÃO DO VÍDEO:
-Título: ${transcript.title}
+TRANSCRIÇÃO COMPLETA:
+${transcript.content.substring(0, 20000)}
 
-Conteúdo:
+Retorne APENAS o JSON com os 5 momentos, ordenados do maior score para o menor.`
+      : `Crie um conteúdo de ${format.replace("_", " ")} baseado na transcrição do vídeo abaixo.
+
+OBJETIVO DO CONTEÚDO: ${objectiveContext}
+
+TÍTULO DO VÍDEO: ${transcript.title}
+
+TRANSCRIÇÃO:
 ${transcript.content.substring(0, 15000)}
 
-Gere o conteúdo no formato solicitado.`;
+Siga as regras do formato e gere o conteúdo pronto para publicar.`;
 
     try {
-      const response = await supabase.functions.invoke("chat", {
+      const { data, error } = await supabase.functions.invoke("execute-agent", {
         body: {
-          messages: [{ role: "user", content: userPrompt }],
-          systemPrompt,
+          agentType,
+          contentType,
+          userMessage,
           clientId,
-          options: {
-            includeFormats: true,
-            contextLevel: "full",
+          clientContext: {
+            name: "Cliente",
+            description: "",
           },
         },
       });
 
-      if (response.error) throw response.error;
+      if (error) throw error;
+      if (!data?.success) {
+        throw new Error(data?.error || "Erro ao gerar conteúdo");
+      }
 
-      const content = await parseStreamResponse(response);
+      const content = data.output || "";
 
       // Parse cut moments if this is the cut_moments format
       let cutMoments: CutMoment[] | undefined;
@@ -343,16 +178,18 @@ Gere o conteúdo no formato solicitado.`;
           const jsonMatch = content.match(/\{[\s\S]*"moments"[\s\S]*\}/);
           if (jsonMatch) {
             const parsed = JSON.parse(jsonMatch[0]);
-            cutMoments = parsed.moments.map((m: any) => ({
-              timestamp: m.timestamp || "0:00",
-              title: m.title || "Momento",
-              description: m.description || "",
-              score: m.score || 50,
-              hook: m.hook || "",
-            }));
+            cutMoments = parsed.moments
+              .map((m: any) => ({
+                timestamp: m.timestamp || "0:00",
+                title: m.title || "Momento",
+                description: m.description || "",
+                score: typeof m.score === 'number' ? m.score : 50,
+                hook: m.hook || "",
+              }))
+              .sort((a: CutMoment, b: CutMoment) => b.score - a.score);
           }
-        } catch {
-          console.log("Could not parse cut moments JSON");
+        } catch (e) {
+          console.log("Could not parse cut moments JSON:", e);
         }
       }
 
@@ -365,7 +202,14 @@ Gere o conteúdo no formato solicitado.`;
       };
     } catch (error) {
       console.error(`Error generating ${format}:`, error);
-      throw error;
+      // Return error content instead of throwing
+      return {
+        format,
+        content: "",
+        objective: contentObjective,
+        generatedAt: new Date(),
+        error: error instanceof Error ? error.message : "Erro desconhecido",
+      };
     }
   };
 
@@ -376,6 +220,8 @@ Gere o conteúdo no formato solicitado.`;
 
     setIsGenerating(true);
     setGeneratedContents([]);
+    // Show results page immediately
+    setShowResults(true);
 
     try {
       const results: GeneratedContent[] = [];
@@ -386,10 +232,10 @@ Gere o conteúdo no formato solicitado.`;
         const generatedContent = await generateForFormat(format);
         results.push(generatedContent);
         
+        // Update state progressively
         setGeneratedContents([...results]);
       }
 
-      setShowResults(true);
       return results;
     } finally {
       setIsGenerating(false);
