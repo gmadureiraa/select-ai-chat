@@ -441,24 +441,40 @@ REGRAS:
 };
 
 // Detect content type from template name
+// IMPORTANTE: Suporta @FORMATO conforme docs/assistente-kai/FLUXO-FORMATOS.md
 function detectContentTypeFromName(name: string): ContentAgentType | null {
-  const patterns: Record<ContentAgentType, RegExp[]> = {
-    newsletter_agent: [/newsletter/i, /news\s*letter/i],
-    email_marketing_agent: [/email\s*marketing/i, /email\s*promocional/i],
-    carousel_agent: [/carrossel/i, /carousel/i, /carrosel/i],
-    static_post_agent: [/post\s*(estático|único|simples)/i, /imagem\s*instagram/i],
-    reels_agent: [/reels?/i, /shorts?/i, /vídeo\s*curto/i],
-    long_video_agent: [/vídeo\s*longo/i, /youtube/i, /roteiro\s*vídeo/i],
-    tweet_agent: [/tweet\s*(único|simples)?$/i, /^tweet$/i],
-    thread_agent: [/thread/i, /fio/i],
-    linkedin_agent: [/linkedin/i],
-    article_agent: [/artigo/i, /article/i],
-    blog_agent: [/blog/i]
-  };
+  const lowerName = name.toLowerCase();
+  
+  // PRIORIDADE 1: Detecção por @FORMATO
+  if (lowerName.includes('@thread')) return 'thread_agent';
+  if (lowerName.includes('@newsletter')) return 'newsletter_agent';
+  if (lowerName.includes('@tweet')) return 'tweet_agent';
+  if (lowerName.includes('@carrossel') || lowerName.includes('@carousel')) return 'carousel_agent';
+  if (lowerName.includes('@linkedin')) return 'linkedin_agent';
+  if (lowerName.includes('@blog')) return 'blog_agent';
+  if (lowerName.includes('@artigo')) return 'article_agent';
+  if (lowerName.includes('@reels') || lowerName.includes('@reel')) return 'reels_agent';
+  if (lowerName.includes('@email')) return 'email_marketing_agent';
+  if (lowerName.includes('@post')) return 'static_post_agent';
+  
+  // PRIORIDADE 2: Detecção por padrões (ordem importa!)
+  const orderedPatterns: [ContentAgentType, RegExp[]][] = [
+    ['thread_agent', [/thread/i, /fio/i]],
+    ['newsletter_agent', [/newsletter/i, /news\s*letter/i]],
+    ['email_marketing_agent', [/email\s*marketing/i, /email\s*promocional/i]],
+    ['carousel_agent', [/carrossel/i, /carousel/i, /carrosel/i]],
+    ['static_post_agent', [/post\s*(estático|único|simples)/i, /imagem\s*instagram/i]],
+    ['reels_agent', [/reels?/i, /shorts?/i, /vídeo\s*curto/i]],
+    ['long_video_agent', [/vídeo\s*longo/i, /youtube/i, /roteiro\s*vídeo/i]],
+    ['tweet_agent', [/\btweet\b/i]],
+    ['linkedin_agent', [/linkedin/i]],
+    ['article_agent', [/artigo\s*no\s*x/i, /artigo\s*x/i, /article/i]],
+    ['blog_agent', [/blog/i, /\bartigo\b/i]]
+  ];
 
-  for (const [agentType, regexes] of Object.entries(patterns)) {
+  for (const [agentType, regexes] of orderedPatterns) {
     if (regexes.some(r => r.test(name))) {
-      return agentType as ContentAgentType;
+      return agentType;
     }
   }
   return null;
