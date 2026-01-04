@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { Zap, Plus, Play, Clock, CheckCircle2, Workflow, RefreshCw, Trash2, Edit, Filter, AlertCircle, Settings, HelpCircle } from "lucide-react";
+import { Zap, Plus, Play, Clock, CheckCircle2, Workflow, RefreshCw, Trash2, Edit, Filter, AlertCircle, Settings, HelpCircle, Rss } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -19,6 +19,7 @@ import { AutomationStatsOverview } from "@/components/automations/AutomationStat
 import { N8nWorkflowsManager } from "@/components/n8n/N8nWorkflowsManager";
 import { N8nSetupDialog } from "@/components/n8n/N8nSetupDialog";
 import { AutomationHelpDialog } from "@/components/automations/AutomationHelpDialog";
+import { RssTriggersList } from "@/components/automations/RssTriggersList";
 import { EnterpriseLockScreen } from "@/components/shared/EnterpriseLockScreen";
 import { Client } from "@/hooks/useClients";
 import { usePlanFeatures } from "@/hooks/usePlanFeatures";
@@ -332,6 +333,10 @@ export const KaiAutomationsTab = ({ clientId, client }: KaiAutomationsTabProps) 
             <Workflow className="h-4 w-4" />
             Workflows n8n
           </TabsTrigger>
+          <TabsTrigger value="rss" className="flex items-center gap-2">
+            <Rss className="h-4 w-4" />
+            RSS Triggers
+          </TabsTrigger>
           <TabsTrigger value="automations" className="flex items-center gap-2">
             <Zap className="h-4 w-4" />
             Automações Locais
@@ -360,6 +365,11 @@ export const KaiAutomationsTab = ({ clientId, client }: KaiAutomationsTabProps) 
           ) : (
             <N8nWorkflowsManager />
           )}
+        </TabsContent>
+
+        {/* RSS Triggers Tab */}
+        <TabsContent value="rss" className="mt-4">
+          <RssTriggersList />
         </TabsContent>
 
         {/* Automations Tab */}
