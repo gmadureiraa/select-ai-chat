@@ -13,8 +13,6 @@ export type ContextType =
   | "assistant-library"
   | "assistant-multi-agent"
   | "social-publisher"
-  | "agent-builder"
-  | "research-lab"
   | "knowledge-base"
   | "performance"
   | "automations";
@@ -51,19 +49,6 @@ export const CONTEXTUAL_TASKS: Record<ContextType, Omit<Task, "status">[]> = {
     { id: "publish-twitter", label: "Publicando no Twitter/X" },
     { id: "publish-linkedin", label: "Publicando no LinkedIn" },
     { id: "save", label: "Salvando na biblioteca" },
-  ],
-  "agent-builder": [
-    { id: "load", label: "Carregando workflow" },
-    { id: "validate", label: "Validando conexões" },
-    { id: "execute", label: "Executando workflow" },
-    { id: "process", label: "Processando agentes" },
-    { id: "complete", label: "Finalizando execução" },
-  ],
-  "research-lab": [
-    { id: "load", label: "Carregando projeto" },
-    { id: "analyze", label: "Analisando conteúdo" },
-    { id: "extract", label: "Extraindo informações" },
-    { id: "summarize", label: "Gerando sumário" },
   ],
   "knowledge-base": [
     { id: "upload", label: "Recebendo arquivo" },

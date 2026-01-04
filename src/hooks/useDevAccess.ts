@@ -12,9 +12,5 @@ export function useDevAccess() {
   
   return {
     hasDevAccess,
-    // Specific feature access
-    canAccessAutomations: hasDevAccess,
-    canAccessAgentBuilder: hasDevAccess,
-    canAccessResearchLab: hasDevAccess,
   };
 }
