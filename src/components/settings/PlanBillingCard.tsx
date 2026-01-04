@@ -8,7 +8,8 @@ import { useTokens } from "@/hooks/useTokens";
 import { useWorkspace } from "@/hooks/useWorkspace";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { 
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
   CreditCard, 
   Coins, 
   Infinity, 
@@ -31,7 +32,7 @@ export function PlanBillingCard() {
     formattedBalance, 
     isUnlimited 
   } = useTokens();
-  const { workspace } = useWorkspace();
+  const { workspace, isAdminOrOwner } = useWorkspace();
   const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
   const [loadingPortal, setLoadingPortal] = useState(false);
 
@@ -50,6 +51,28 @@ export function PlanBillingCard() {
       setLoadingPortal(false);
     }
   };
+
+  // Show message for non-admin/owner users
+  if (!isAdminOrOwner && !isLoading) {
+    return (
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <CreditCard className="h-5 w-5 text-muted-foreground" />
+            <CardTitle>Plano & Créditos</CardTitle>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <Alert>
+            <CreditCard className="h-4 w-4" />
+            <AlertDescription>
+              Apenas administradores e proprietários podem visualizar informações de faturamento.
+            </AlertDescription>
+          </Alert>
+        </CardContent>
+      </Card>
+    );
+  }
 
   if (isLoading) {
     return (
