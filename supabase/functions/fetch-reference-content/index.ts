@@ -12,6 +12,7 @@ interface ReferenceResult {
   content?: string;
   type?: 'youtube' | 'article' | 'html' | 'newsletter';
   thumbnail?: string;
+  images?: string[];
   error?: string;
 }
 
@@ -91,7 +92,27 @@ serve(async (req) => {
 });
 
 function isYoutubeUrl(url: string): boolean {
-  return url.includes('youtube.com') || url.includes('youtu.be');
+  return url.includes('youtube.com') || url.includes('youtu.be') || url.includes('ytimg.com');
+}
+
+function extractYoutubeVideoId(url: string): string | null {
+  // Thumbnail URL: https://i.ytimg.com/an_webp/VIDEO_ID/... or https://i.ytimg.com/vi/VIDEO_ID/...
+  const thumbnailMatch = url.match(/ytimg\.com\/(?:an_webp|vi|vi_webp)\/([^\/]+)/);
+  if (thumbnailMatch) return thumbnailMatch[1];
+  
+  // Standard URL: https://www.youtube.com/watch?v=VIDEO_ID
+  const watchMatch = url.match(/youtube\.com\/watch\?v=([^&]+)/);
+  if (watchMatch) return watchMatch[1];
+  
+  // Short URL: https://youtu.be/VIDEO_ID
+  const shortMatch = url.match(/youtu\.be\/([^?]+)/);
+  if (shortMatch) return shortMatch[1];
+  
+  // Embed URL: https://www.youtube.com/embed/VIDEO_ID
+  const embedMatch = url.match(/youtube\.com\/embed\/([^?]+)/);
+  if (embedMatch) return embedMatch[1];
+  
+  return null;
 }
 
 function processHtml(html: string): ReferenceResult {
@@ -144,9 +165,23 @@ async function fetchYoutubeContent(
   authHeader: string
 ): Promise<ReferenceResult> {
   try {
+    // Extract video ID from various URL formats (including thumbnails)
+    const videoId = extractYoutubeVideoId(url);
+    if (!videoId) {
+      console.error('[fetch-reference-content] Could not extract video ID from:', url);
+      return {
+        success: false,
+        error: 'Could not extract YouTube video ID from URL',
+      };
+    }
+
+    // Use standard YouTube URL for extraction
+    const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
+    console.log('[fetch-reference-content] Extracted video ID:', videoId, 'Using URL:', videoUrl);
+
     // Call the existing extract-youtube function
     const { data, error } = await supabase.functions.invoke('extract-youtube', {
-      body: { url },
+      body: { url: videoUrl },
     });
 
     if (error) {
@@ -157,12 +192,16 @@ async function fetchYoutubeContent(
       };
     }
 
+    // Build thumbnail URL if not provided
+    const thumbnail = data.thumbnailUrl || `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`;
+
     return {
       success: true,
       title: data.title || 'YouTube Video',
       content: data.content || data.transcript || '',
       type: 'youtube',
-      thumbnail: data.thumbnailUrl,
+      thumbnail,
+      images: thumbnail ? [thumbnail] : [],
     };
   } catch (error) {
     console.error('[fetch-reference-content] YouTube fetch error:', error);
@@ -194,6 +233,47 @@ async function fetchArticleContent(url: string): Promise<ReferenceResult> {
     const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
     const ogTitleMatch = html.match(/<meta[^>]*property=["']og:title["'][^>]*content=["']([^"']+)["']/i);
     const title = ogTitleMatch?.[1] || titleMatch?.[1] || 'Article';
+
+    // Extract og:image as main thumbnail
+    const ogImageMatch = html.match(/<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["']/i) ||
+                         html.match(/<meta[^>]*content=["']([^"']+)["'][^>]*property=["']og:image["']/i);
+    const thumbnail = ogImageMatch?.[1] || null;
+
+    // Extract other images from the article
+    const images: string[] = [];
+    if (thumbnail) {
+      images.push(thumbnail);
+    }
+
+    const imgRegex = /<img[^>]+src=["']([^"']+)["'][^>]*>/gi;
+    let imgMatch;
+    while ((imgMatch = imgRegex.exec(html)) !== null && images.length < 5) {
+      let imgUrl = imgMatch[1];
+      
+      // Normalize relative URLs
+      if (imgUrl.startsWith('//')) {
+        imgUrl = 'https:' + imgUrl;
+      } else if (imgUrl.startsWith('/')) {
+        try {
+          const baseUrl = new URL(url);
+          imgUrl = baseUrl.origin + imgUrl;
+        } catch { continue; }
+      }
+      
+      // Filter out tracking pixels, icons, and data URIs
+      if (
+        !imgUrl.includes('1x1') &&
+        !imgUrl.includes('pixel') &&
+        !imgUrl.includes('.svg') &&
+        !imgUrl.includes('data:image') &&
+        !imgUrl.includes('icon') &&
+        !imgUrl.includes('logo') &&
+        imgUrl.startsWith('http') &&
+        !images.includes(imgUrl)
+      ) {
+        images.push(imgUrl);
+      }
+    }
 
     // Try to extract main article content using common patterns
     let content = '';
@@ -229,11 +309,19 @@ async function fetchArticleContent(url: string): Promise<ReferenceResult> {
       content = content.substring(0, 15000) + '...';
     }
 
+    console.log('[fetch-reference-content] Article extracted:', { 
+      title: title.trim(), 
+      thumbnail,
+      imagesCount: images.length 
+    });
+
     return {
       success: true,
       title: title.trim(),
       content,
       type: 'article',
+      thumbnail: thumbnail || undefined,
+      images,
     };
   } catch (error) {
     console.error('[fetch-reference-content] Article fetch error:', error);

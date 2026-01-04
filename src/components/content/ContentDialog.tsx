@@ -159,14 +159,14 @@ export const ContentDialog = ({ open, onClose, onSave, content, clientId }: Cont
     
     const platform = platformMap[formData.content_type] || 'blog';
     
-    const generatedContent = await generateContent({
+    const result = await generateContent({
       title: formData.title,
       contentType: formData.content_type,
       clientId
     });
 
-    if (generatedContent) {
-      setFormData({ ...formData, content: generatedContent });
+    if (result) {
+      setFormData({ ...formData, content: result.content });
     }
   };
 

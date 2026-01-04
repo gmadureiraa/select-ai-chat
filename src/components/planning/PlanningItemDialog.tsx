@@ -102,19 +102,30 @@ export function PlanningItemDialog({
   const handleGenerateContent = async () => {
     if (!canGenerateContent) return;
     
-    const generatedContent = await generateContent({
+    const result = await generateContent({
       title,
       contentType,
       clientId: selectedClientId,
       referenceInput: referenceInput.trim() || undefined,
     });
 
-    if (generatedContent) {
+    if (result) {
       if (isTwitterThread) {
-        setThreadTweets([{ id: 'tweet-1', text: generatedContent, media_urls: [] }]);
+        setThreadTweets([{ id: 'tweet-1', text: result.content, media_urls: [] }]);
       } else {
-        setContent(generatedContent);
+        setContent(result.content);
       }
+
+      // Add extracted images to media
+      if (result.images && result.images.length > 0) {
+        const newMediaItems: MediaItem[] = result.images.map((url, i) => ({
+          id: `ref-img-${Date.now()}-${i}`,
+          url,
+          type: 'image' as const
+        }));
+        setMediaItems(prev => [...newMediaItems, ...prev]);
+      }
+
       setReferenceInput('');
     }
   };

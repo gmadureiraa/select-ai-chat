@@ -14,6 +14,13 @@ interface ReferenceContent {
   title?: string;
   content: string;
   type: 'youtube' | 'article' | 'html' | 'newsletter';
+  thumbnail?: string;
+  images?: string[];
+}
+
+interface GenerateContentResult {
+  content: string;
+  images: string[];
 }
 
 export function usePlanningContentGeneration() {
@@ -36,7 +43,9 @@ export function usePlanningContentGeneration() {
       return {
         title: data.title,
         content: data.content || "",
-        type: data.type || "article"
+        type: data.type || "article",
+        thumbnail: data.thumbnail,
+        images: data.images || []
       };
     } catch (error) {
       console.error("[PlanningContent] Reference fetch failed:", error);
@@ -75,7 +84,7 @@ export function usePlanningContentGeneration() {
     contentType,
     clientId,
     referenceInput
-  }: GenerateContentParams): Promise<string | null> => {
+  }: GenerateContentParams): Promise<GenerateContentResult | null> => {
     if (!title || !contentType || !clientId) {
       toast({
         title: "Dados incompletos",
@@ -90,6 +99,7 @@ export function usePlanningContentGeneration() {
 
     try {
       let allReferenceContent: string[] = [];
+      let extractedImages: string[] = [];
 
       // 1. Detect and fetch URL content
       const urlMatch = referenceInput?.match(/https?:\/\/[^\s]+/);
@@ -103,6 +113,21 @@ export function usePlanningContentGeneration() {
           if (fetched.title) refText += `\nTítulo: ${fetched.title}`;
           refText += `\n\n${fetched.content.substring(0, 10000)}`;
           allReferenceContent.push(refText);
+
+          // Capture images from reference
+          if (fetched.thumbnail) {
+            extractedImages.push(fetched.thumbnail);
+          }
+          if (fetched.images && fetched.images.length > 0) {
+            extractedImages.push(...fetched.images.filter(img => !extractedImages.includes(img)));
+          }
+        } else {
+          // Warn user that reference couldn't be loaded
+          toast({
+            title: "Aviso: Referência não carregada",
+            description: "Não foi possível extrair o conteúdo da URL. Gerando apenas com o título.",
+            variant: "default"
+          });
         }
       }
 
@@ -155,13 +180,19 @@ export function usePlanningContentGeneration() {
       const generatedContent = data.output || data.content || "";
 
       if (generatedContent) {
+        const imageCount = extractedImages.length;
         toast({
           title: "Conteúdo gerado!",
-          description: allReferenceContent.length > 0 
-            ? "O conteúdo foi criado com base nas referências e contexto do cliente."
-            : "O conteúdo foi criado com base no título e contexto do cliente."
+          description: imageCount > 0 
+            ? `Conteúdo criado com ${imageCount} imagem(s) da referência.`
+            : allReferenceContent.length > 0 
+              ? "O conteúdo foi criado com base nas referências e contexto do cliente."
+              : "O conteúdo foi criado com base no título e contexto do cliente."
         });
-        return generatedContent;
+        return {
+          content: generatedContent,
+          images: extractedImages.slice(0, 3) // Limit to 3 images
+        };
       }
 
       toast({

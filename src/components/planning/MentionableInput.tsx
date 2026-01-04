@@ -153,7 +153,7 @@ export function MentionableInput({
               <div
                 className={cn(
                   "cursor-text border rounded-md px-3 py-2 text-sm bg-background hover:border-primary/50 transition-colors",
-                  "min-h-[38px] flex items-center flex-wrap gap-1",
+                  "min-h-[38px] flex items-center flex-wrap gap-1 break-all",
                   multiline && "min-h-[80px] items-start",
                   !value && "text-muted-foreground",
                   className
