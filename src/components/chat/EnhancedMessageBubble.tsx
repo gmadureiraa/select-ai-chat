@@ -35,6 +35,10 @@ interface EnhancedMessageBubbleProps {
   clientName?: string;
   templateName?: string;
   onSendMessage?: (content: string, images?: string[], quality?: "fast" | "high") => void;
+  /** Disable auto-detection of social posts - useful for global chat context */
+  disableAutoPostDetection?: boolean;
+  /** Hide content action buttons - useful for non-content contexts */
+  hideContentActions?: boolean;
 }
 
 // Helper to get citation icon
@@ -65,6 +69,8 @@ export const EnhancedMessageBubble = ({
   clientName,
   templateName,
   onSendMessage,
+  disableAutoPostDetection = false,
+  hideContentActions = false,
 }: EnhancedMessageBubbleProps) => {
   const isUser = role === "user";
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
@@ -83,17 +89,17 @@ export const EnhancedMessageBubble = ({
     return parseArtifacts(content);
   }, [content, isUser]);
 
-  // Parse content for social posts
+  // Parse content for social posts (can be disabled via prop)
   const { posts: detectedPosts } = useMemo(() => {
-    if (isUser) return { posts: [] };
+    if (isUser || disableAutoPostDetection) return { posts: [] };
     return parseContentForPosts(content);
-  }, [content, isUser]);
+  }, [content, isUser, disableAutoPostDetection]);
 
   // Check if content is substantial (could be a post or content worth action)
-  const isSubstantialContent = !isUser && content.length > 100;
+  const isSubstantialContent = !isUser && content.length > 100 && !hideContentActions;
 
   // Check if this is a social media post that could use image generation
-  const showImageActions = isSubstantialContent && onSendMessage;
+  const showImageActions = isSubstantialContent && onSendMessage && !hideContentActions;
 
   // Check if this is a generated image message
   const isGeneratedImageMessage = !isUser && hasImages && (content.includes("Imagem gerada") || isGeneratedImage);

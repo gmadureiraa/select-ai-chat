@@ -175,29 +175,35 @@ Notas de Contexto: ${client.context_notes || "Nenhuma"}
         for (const [platform, data] of Object.entries(platformData)) {
           metricsReport += `### ${platform.charAt(0).toUpperCase() + platform.slice(1)}\n`;
           
-          // Get most recent and oldest for comparisons
-          const mostRecent = data[0];
-          const oldest = data[data.length - 1];
+          // CORREÇÃO: O campo subscribers contém CRESCIMENTO DIÁRIO, não total
+          // Para calcular crescimento total, devemos SOMAR todos os valores
+          const totalFollowerGrowth = data.reduce((sum: number, m: any) => sum + (m.subscribers || 0), 0);
           
-          // Subscribers/Followers
-          if (mostRecent.subscribers !== null) {
-            const growth = mostRecent.subscribers - (oldest.subscribers || mostRecent.subscribers);
-            const growthPercent = oldest.subscribers ? ((growth / oldest.subscribers) * 100).toFixed(2) : 0;
-            metricsReport += `- Seguidores atuais: ${mostRecent.subscribers?.toLocaleString("pt-BR") || "N/A"}\n`;
-            metricsReport += `- Crescimento no período: ${growth > 0 ? "+" : ""}${growth.toLocaleString("pt-BR")} (${growthPercent}%)\n`;
+          if (totalFollowerGrowth !== 0 || data.some((m: any) => m.subscribers !== null)) {
+            metricsReport += `- Crescimento de seguidores no período (SOMA dos registros diários): ${totalFollowerGrowth >= 0 ? "+" : ""}${totalFollowerGrowth.toLocaleString("pt-BR")}\n`;
+            
+            // Incluir dados brutos para transparência e precisão
+            metricsReport += `- Registros diários de crescimento:\n`;
+            data.slice(0, 15).forEach((m: any) => {
+              metricsReport += `  • ${m.metric_date}: ${m.subscribers >= 0 ? "+" : ""}${m.subscribers || 0}\n`;
+            });
+            if (data.length > 15) {
+              metricsReport += `  • ... e mais ${data.length - 15} registros\n`;
+            }
+            metricsReport += `- **TOTAL CALCULADO (soma): ${totalFollowerGrowth >= 0 ? "+" : ""}${totalFollowerGrowth.toLocaleString("pt-BR")} seguidores**\n`;
           }
           
           // Engagement
-          const avgEngagement = data.reduce((sum, m) => sum + (m.engagement_rate || 0), 0) / data.length;
+          const avgEngagement = data.reduce((sum: number, m: any) => sum + (m.engagement_rate || 0), 0) / data.length;
           if (avgEngagement > 0) {
             metricsReport += `- Taxa de engajamento média: ${avgEngagement.toFixed(2)}%\n`;
           }
           
           // Interactions
-          const totalLikes = data.reduce((sum, m) => sum + (m.likes || 0), 0);
-          const totalComments = data.reduce((sum, m) => sum + (m.comments || 0), 0);
-          const totalViews = data.reduce((sum, m) => sum + (m.views || 0), 0);
-          const totalShares = data.reduce((sum, m) => sum + (m.shares || 0), 0);
+          const totalLikes = data.reduce((sum: number, m: any) => sum + (m.likes || 0), 0);
+          const totalComments = data.reduce((sum: number, m: any) => sum + (m.comments || 0), 0);
+          const totalViews = data.reduce((sum: number, m: any) => sum + (m.views || 0), 0);
+          const totalShares = data.reduce((sum: number, m: any) => sum + (m.shares || 0), 0);
           
           if (totalLikes > 0) metricsReport += `- Total de curtidas: ${totalLikes.toLocaleString("pt-BR")}\n`;
           if (totalComments > 0) metricsReport += `- Total de comentários: ${totalComments.toLocaleString("pt-BR")}\n`;
@@ -277,7 +283,15 @@ ${clientContext}
 ${metricsContext}
 ${formatContext}
 
-## Diretrizes:
+## REGRAS CRÍTICAS PARA MÉTRICAS:
+1. NUNCA invente números. Se não houver dados suficientes, diga claramente "Não tenho dados para esse período".
+2. O campo 'subscribers' representa o CRESCIMENTO DIÁRIO de seguidores, NÃO o total de seguidores.
+3. Para calcular crescimento total em um período, você deve SOMAR todos os valores diários do período.
+4. Sempre cite a fonte: "De acordo com os dados registrados..."
+5. Mostre o cálculo quando relevante para transparência.
+6. Se os dados parecerem inconsistentes ou incompletos, avise o usuário.
+
+## Diretrizes Gerais:
 - Seja conciso e direto nas respostas
 - Use emojis com moderação para tornar a conversa mais amigável
 - Quando o usuário pedir para criar conteúdo, pergunte detalhes se necessário (plataforma, tom, objetivo)

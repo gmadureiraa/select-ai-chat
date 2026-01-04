@@ -77,10 +77,18 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY não configurada");
     }
 
-    const systemPrompt = `Você é um especialista em análise de métricas de redes sociais. 
+const systemPrompt = `Você é um especialista em análise de métricas de redes sociais. 
 Responda de forma clara e acionável, com insights específicos baseados nos dados fornecidos.
 Use números formatados e porcentagens quando relevante.
 Seja conciso mas completo.
+
+REGRAS CRÍTICAS PARA MÉTRICAS:
+1. NUNCA invente números. Se não houver dados suficientes, diga claramente "Não tenho dados para esse período".
+2. O campo 'subscribers' representa o CRESCIMENTO DIÁRIO de seguidores, NÃO o total de seguidores.
+3. Para calcular crescimento total em um período, você deve SOMAR todos os valores diários do período.
+4. Se os dados parecerem inconsistentes ou incompletos, avise o usuário.
+5. Sempre cite a fonte: "De acordo com os dados registrados..."
+6. Mostre o cálculo quando relevante.
 
 ${metricsContext}`;
 
@@ -139,13 +147,21 @@ function buildMetricsContext(
   for (const [platform, data] of Object.entries(byPlatform)) {
     context += `### ${platform.charAt(0).toUpperCase() + platform.slice(1)}\n`;
     
-    const latest = data[0];
-    const oldest = data[data.length - 1];
-
-    if (latest.subscribers !== null) {
-      const growth = latest.subscribers - (oldest.subscribers || latest.subscribers);
-      const pct = oldest.subscribers ? ((growth / oldest.subscribers) * 100).toFixed(2) : 0;
-      context += `- Seguidores: ${latest.subscribers?.toLocaleString("pt-BR")} (${growth >= 0 ? "+" : ""}${growth.toLocaleString("pt-BR")} | ${pct}%)\n`;
+    // CORREÇÃO: O campo subscribers contém CRESCIMENTO DIÁRIO, não total
+    // Para calcular crescimento total, devemos SOMAR todos os valores
+    const totalFollowerGrowth = data.reduce((sum, m) => sum + (m.subscribers || 0), 0);
+    
+    if (totalFollowerGrowth !== 0) {
+      context += `- Crescimento de seguidores no período (soma dos registros diários): ${totalFollowerGrowth >= 0 ? "+" : ""}${totalFollowerGrowth.toLocaleString("pt-BR")}\n`;
+      
+      // Incluir dados brutos para transparência
+      context += `- Registros diários de crescimento:\n`;
+      data.slice(0, 10).forEach(m => {
+        context += `  • ${m.metric_date}: ${m.subscribers >= 0 ? "+" : ""}${m.subscribers || 0}\n`;
+      });
+      if (data.length > 10) {
+        context += `  • ... e mais ${data.length - 10} registros\n`;
+      }
     }
 
     const avgEngagement = data.reduce((s, m) => s + (m.engagement_rate || 0), 0) / data.length;

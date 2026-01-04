@@ -35,15 +35,40 @@ const platformPatterns: Record<PostPlatform, RegExp[]> = {
 };
 
 // Check if content looks like a short tweet (<=280 chars, single block)
+// IMPORTANT: This function is now MORE RESTRICTIVE to avoid false positives
 function isLikelyTweet(content: string): boolean {
   const cleanContent = content.trim();
-  // If it's short, doesn't have multiple paragraphs, and doesn't look like other formats
-  if (cleanContent.length <= 280 && !cleanContent.includes('\n\n') && !cleanContent.includes('##')) {
-    // Make sure it's not a question or instruction
-    if (!cleanContent.endsWith('?') && !cleanContent.includes('você') && !cleanContent.includes('precisa')) {
-      return true;
-    }
+  
+  // Must have explicit tweet markers or hashtags to be considered a tweet
+  const hasTweetMarkers = 
+    cleanContent.includes('#') || // Has hashtags
+    cleanContent.includes('@') ||  // Has mentions
+    /^(tweet|post para (twitter|x))/i.test(cleanContent); // Explicit tweet prefix
+  
+  // Skip if it looks like a conversational AI response
+  const isConversationalResponse = 
+    cleanContent.endsWith('?') ||
+    cleanContent.includes('você') ||
+    cleanContent.includes('precisa') ||
+    cleanContent.includes('posso') ||
+    cleanContent.includes('vou') ||
+    cleanContent.includes('não tenho') ||
+    cleanContent.includes('infelizmente') ||
+    cleanContent.includes('de acordo com') ||
+    cleanContent.startsWith('Olá') ||
+    cleanContent.startsWith('Oi') ||
+    /^\d+\./.test(cleanContent) || // Starts with numbered list
+    cleanContent.includes('**'); // Has markdown bold (usually explanatory text)
+  
+  if (isConversationalResponse) {
+    return false;
   }
+  
+  // Only consider as tweet if it has markers AND is short
+  if (cleanContent.length <= 280 && hasTweetMarkers && !cleanContent.includes('\n\n') && !cleanContent.includes('##')) {
+    return true;
+  }
+  
   return false;
 }
 
