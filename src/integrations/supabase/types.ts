@@ -1690,6 +1690,76 @@ export type Database = {
           },
         ]
       }
+      planning_item_comments: {
+        Row: {
+          content: string
+          created_at: string | null
+          id: string
+          planning_item_id: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string | null
+          id?: string
+          planning_item_id: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Update: {
+          content?: string
+          created_at?: string | null
+          id?: string
+          planning_item_id?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "planning_item_comments_planning_item_id_fkey"
+            columns: ["planning_item_id"]
+            isOneToOne: false
+            referencedRelation: "planning_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      planning_item_versions: {
+        Row: {
+          change_type: string | null
+          changed_by: string | null
+          created_at: string | null
+          id: string
+          planning_item_id: string
+          version_data: Json
+        }
+        Insert: {
+          change_type?: string | null
+          changed_by?: string | null
+          created_at?: string | null
+          id?: string
+          planning_item_id: string
+          version_data: Json
+        }
+        Update: {
+          change_type?: string | null
+          changed_by?: string | null
+          created_at?: string | null
+          id?: string
+          planning_item_id?: string
+          version_data?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "planning_item_versions_planning_item_id_fkey"
+            columns: ["planning_item_id"]
+            isOneToOne: false
+            referencedRelation: "planning_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       planning_items: {
         Row: {
           added_to_library: boolean | null
@@ -1900,6 +1970,50 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: []
+      }
+      prompt_templates: {
+        Row: {
+          category: string | null
+          created_at: string | null
+          id: string
+          is_shared: boolean | null
+          name: string
+          prompt: string
+          updated_at: string | null
+          user_id: string
+          workspace_id: string
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string | null
+          id?: string
+          is_shared?: boolean | null
+          name: string
+          prompt: string
+          updated_at?: string | null
+          user_id?: string
+          workspace_id: string
+        }
+        Update: {
+          category?: string | null
+          created_at?: string | null
+          id?: string
+          is_shared?: boolean | null
+          name?: string
+          prompt?: string
+          updated_at?: string | null
+          user_id?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prompt_templates_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       research_comments: {
         Row: {

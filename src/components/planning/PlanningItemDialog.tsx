@@ -9,15 +9,17 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { CalendarIcon, Loader2, FileText, MessageSquare, User, Sparkles } from 'lucide-react';
+import { CalendarIcon, Loader2, FileText, MessageSquare, User, Sparkles, Wand2 } from 'lucide-react';
 import { useClients } from '@/hooks/useClients';
 import { useTeamMembers } from '@/hooks/useTeamMembers';
 import { usePlanningImageGeneration } from '@/hooks/usePlanningImageGeneration';
+import { usePlanningContentGeneration } from '@/hooks/usePlanningContentGeneration';
 import { cn } from '@/lib/utils';
 import { MediaUploader, MediaItem } from './MediaUploader';
 import { RichContentEditor } from './RichContentEditor';
 import { ThreadEditor, ThreadTweet } from './ThreadEditor';
 import { ImageGenerationModal, ImageGenerationOptions } from './ImageGenerationModal';
+import { PlanningItemComments } from './PlanningItemComments';
 import type { PlanningItem, CreatePlanningItemInput, PlanningPlatform, PlanningPriority, KanbanColumn } from '@/hooks/usePlanningItems';
 
 interface PlanningItemDialogProps {
@@ -86,6 +88,30 @@ export function PlanningItemDialog({
   const [assignedTo, setAssignedTo] = useState<string>('');
 
   const { generateImage, isGenerating: isGeneratingImage } = usePlanningImageGeneration(selectedClientId);
+  const { generateContent, isGenerating: isGeneratingContent } = usePlanningContentGeneration();
+
+  const canGenerateContent = title.trim() && platform && selectedClientId;
+  const canGenerateImage = (content.trim() || threadTweets.some(t => t.text.trim())) && selectedClientId;
+
+  const handleGenerateContent = async () => {
+    if (!canGenerateContent) return;
+    
+    const generatedContent = await generateContent({
+      title,
+      description,
+      platform: platform as string,
+      contentType,
+      clientId: selectedClientId
+    });
+
+    if (generatedContent) {
+      if (isTwitterThread) {
+        setThreadTweets([{ id: 'tweet-1', text: generatedContent, media_urls: [] }]);
+      } else {
+        setContent(generatedContent);
+      }
+    }
+  };
 
   useEffect(() => {
     if (item) {
@@ -349,7 +375,7 @@ export function PlanningItemDialog({
 
           {/* Content Section */}
           <Tabs defaultValue="content" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
+            <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="content" className="gap-1">
                 {isTwitterThread ? <MessageSquare className="h-3 w-3" /> : <FileText className="h-3 w-3" />}
                 {isTwitterThread ? 'Thread' : 'Conteúdo'}
@@ -357,9 +383,32 @@ export function PlanningItemDialog({
               <TabsTrigger value="media">
                 Mídia ({mediaItems.length})
               </TabsTrigger>
+              <TabsTrigger value="comments" className="gap-1">
+                <MessageSquare className="h-3 w-3" />
+                Comentários
+              </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="content" className="mt-3">
+            <TabsContent value="content" className="mt-3 space-y-3">
+              {/* AI Content Generation Button */}
+              <div className="flex justify-end">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleGenerateContent}
+                  disabled={!canGenerateContent || isGeneratingContent}
+                  className="gap-2"
+                >
+                  {isGeneratingContent ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Wand2 className="h-4 w-4" />
+                  )}
+                  Escrever com IA
+                </Button>
+              </div>
+
               {isTwitterThread ? (
                 <ThreadEditor
                   value={threadTweets}
@@ -392,7 +441,7 @@ export function PlanningItemDialog({
                   variant="outline"
                   size="sm"
                   onClick={() => setShowImageModal(true)}
-                  disabled={!content.trim() && !threadTweets.some(t => t.text.trim())}
+                  disabled={!canGenerateImage}
                   className="gap-2"
                 >
                   <Sparkles className="h-4 w-4" />
@@ -405,6 +454,10 @@ export function PlanningItemDialog({
                 maxItems={platform === 'twitter' ? 4 : 10}
                 clientId={selectedClientId}
               />
+            </TabsContent>
+
+            <TabsContent value="comments" className="mt-3">
+              <PlanningItemComments planningItemId={item?.id} />
             </TabsContent>
           </Tabs>
 

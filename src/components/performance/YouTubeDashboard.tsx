@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Eye, Clock, Users, TrendingUp, MousePointer, Upload, ThumbsUp, MessageCircle, ChevronDown, Calendar } from "lucide-react";
+import { Eye, Clock, Users, TrendingUp, MousePointer, Upload, ThumbsUp, MessageCircle, ChevronDown, Calendar, FileText } from "lucide-react";
 import { StatCard } from "./StatCard";
 import { EnhancedAreaChart } from "./EnhancedAreaChart";
 import { GoalsPanel } from "./GoalsPanel";
@@ -13,6 +13,7 @@ import { YouTubeVideosTable } from "./YouTubeVideosTable";
 import { ImportHistoryPanel } from "./ImportHistoryPanel";
 import { DataCompletenessWarning } from "./DataCompletenessWarning";
 import { MetricMiniCard } from "./MetricMiniCard";
+import { PerformanceReportGenerator } from "./PerformanceReportGenerator";
 import { subDays, format, parseISO, isAfter, startOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -51,6 +52,7 @@ export function YouTubeDashboard({ clientId, videos, isLoading }: YouTubeDashboa
   const [period, setPeriod] = useState("30");
   const [showUpload, setShowUpload] = useState(false);
   const [selectedMetric, setSelectedMetric] = useState("views");
+  const [showReportGenerator, setShowReportGenerator] = useState(false);
 
   const cutoffDate = useMemo(() => {
     if (period === "all") return null;
@@ -223,6 +225,14 @@ export function YouTubeDashboard({ clientId, videos, isLoading }: YouTubeDashboa
               ))}
             </SelectContent>
           </Select>
+          <Button 
+            variant="outline" 
+            className="border-border/50"
+            onClick={() => setShowReportGenerator(true)}
+          >
+            <FileText className="h-4 w-4 mr-2" />
+            Relatório IA
+          </Button>
           <Collapsible open={showUpload} onOpenChange={setShowUpload}>
             <CollapsibleTrigger asChild>
               <Button variant="outline" className="border-border/50">
@@ -234,6 +244,17 @@ export function YouTubeDashboard({ clientId, videos, isLoading }: YouTubeDashboa
           </Collapsible>
         </div>
       </div>
+
+      {/* Report Generator Modal */}
+      <PerformanceReportGenerator
+        clientId={clientId}
+        platform="YouTube"
+        period={periodOptions.find(p => p.value === period)?.label || period}
+        kpis={kpis}
+        videos={filteredVideos}
+        open={showReportGenerator}
+        onOpenChange={setShowReportGenerator}
+      />
 
       {/* CSV Upload */}
       <Collapsible open={showUpload} onOpenChange={setShowUpload}>

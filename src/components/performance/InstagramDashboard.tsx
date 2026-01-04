@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Users, Heart, MessageCircle, Eye, Bookmark, Upload, Calendar, Share2, Target, TrendingUp, Settings } from "lucide-react";
+import { Users, Heart, MessageCircle, Eye, Bookmark, Upload, Calendar, Share2, Target, TrendingUp, Settings, FileText } from "lucide-react";
 import { GoalsPanel } from "./GoalsPanel";
 import { InstagramPost } from "@/hooks/useInstagramPosts";
 import { PerformanceMetrics } from "@/hooks/usePerformanceMetrics";
@@ -15,6 +15,7 @@ import { AIInsightsCard } from "./AIInsightsCard";
 import { StatCard } from "./StatCard";
 import { GoalGauge } from "./GoalGauge";
 import { MetricMiniCard } from "./MetricMiniCard";
+import { PerformanceReportGenerator } from "./PerformanceReportGenerator";
 
 import { TopContentTable } from "./TopContentTable";
 import { ImportHistoryPanel } from "./ImportHistoryPanel";
@@ -63,6 +64,7 @@ export function InstagramDashboard({
   const [selectedMetric, setSelectedMetric] = useState("views");
   const [showUploadPosts, setShowUploadPosts] = useState(false);
   const [topPostsMetric, setTopPostsMetric] = useState("engagement");
+  const [showReportGenerator, setShowReportGenerator] = useState(false);
   
   const { goals } = usePerformanceGoals(clientId);
   const { data: stories = [], isLoading: isLoadingStories, refetch: refetchStories } = useInstagramStories(clientId);
@@ -415,6 +417,14 @@ export function InstagramDashboard({
           <Button 
             variant="outline" 
             className="border-border/50"
+            onClick={() => setShowReportGenerator(true)}
+          >
+            <FileText className="h-4 w-4 mr-2" />
+            Relatório IA
+          </Button>
+          <Button 
+            variant="outline" 
+            className="border-border/50"
             onClick={() => setShowUploadPosts(!showUploadPosts)}
           >
             <Upload className="h-4 w-4 mr-2" />
@@ -422,6 +432,18 @@ export function InstagramDashboard({
           </Button>
         </div>
       </div>
+
+      {/* Report Generator Modal */}
+      <PerformanceReportGenerator
+        clientId={clientId}
+        platform="Instagram"
+        period={selectedPeriodLabel}
+        kpis={kpis}
+        posts={filteredPosts}
+        metrics={filteredMetrics}
+        open={showReportGenerator}
+        onOpenChange={setShowReportGenerator}
+      />
 
       {/* CSV Upload - Smart (detecta automaticamente Posts ou Stories) */}
       <Collapsible open={showUploadPosts} onOpenChange={setShowUploadPosts}>

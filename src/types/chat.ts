@@ -2,6 +2,7 @@ import { Citation } from "@/components/chat/CitationChip";
 
 export interface MessagePayload {
   citations?: Citation[];
+  messageId?: string;
   [key: string]: unknown;
 }
 
