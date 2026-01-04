@@ -8,8 +8,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { CalendarIcon, Loader2, FileText, MessageSquare } from 'lucide-react';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { CalendarIcon, Loader2, FileText, MessageSquare, User } from 'lucide-react';
 import { useClients } from '@/hooks/useClients';
+import { useTeamMembers } from '@/hooks/useTeamMembers';
 import { cn } from '@/lib/utils';
 import { MediaUploader, MediaItem } from './MediaUploader';
 import { RichContentEditor } from './RichContentEditor';
@@ -63,6 +65,7 @@ export function PlanningItemDialog({
   onUpdate
 }: PlanningItemDialogProps) {
   const { clients } = useClients();
+  const { members } = useTeamMembers();
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   const [title, setTitle] = useState('');
@@ -77,6 +80,7 @@ export function PlanningItemDialog({
   const [contentType, setContentType] = useState<string>('post');
   const [mediaItems, setMediaItems] = useState<MediaItem[]>([]);
   const [threadTweets, setThreadTweets] = useState<ThreadTweet[]>([]);
+  const [assignedTo, setAssignedTo] = useState<string>('');
 
   useEffect(() => {
     if (item) {
@@ -89,6 +93,7 @@ export function PlanningItemDialog({
       setPriority(item.priority);
       setDueDate(item.due_date ? parseISO(item.due_date) : undefined);
       setScheduledAt(item.scheduled_at ? parseISO(item.scheduled_at) : undefined);
+      setAssignedTo(item.assigned_to || '');
       
       // Load content type and structure from metadata
       const metadata = item.metadata as any || {};
@@ -121,6 +126,7 @@ export function PlanningItemDialog({
       setContentType('post');
       setMediaItems([]);
       setThreadTweets([{ id: 'tweet-1', text: '', media_urls: [] }]);
+      setAssignedTo('');
     }
   }, [item, defaultColumnId, defaultDate, columns, open]);
 
@@ -155,6 +161,7 @@ export function PlanningItemDialog({
         due_date: dueDate ? format(dueDate, 'yyyy-MM-dd') : undefined,
         scheduled_at: scheduledAt ? scheduledAt.toISOString() : undefined,
         media_urls: mediaItems.map(m => m.url),
+        assigned_to: assignedTo || undefined,
         metadata: {
           content_type: contentType,
           ...(contentType === 'thread' && { thread_tweets: threadTweets }),
@@ -268,14 +275,47 @@ export function PlanningItemDialog({
             </div>
           </div>
 
-          <div>
-            <Label htmlFor="description">Descrição</Label>
-            <Input
-              id="description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Breve descrição"
-            />
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label htmlFor="description">Descrição</Label>
+              <Input
+                id="description"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Breve descrição"
+              />
+            </div>
+
+            <div>
+              <Label>Responsável</Label>
+              <Select value={assignedTo} onValueChange={setAssignedTo}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecionar">
+                    {assignedTo && members.find(m => m.user_id === assignedTo) && (
+                      <div className="flex items-center gap-2">
+                        <User className="h-3 w-3" />
+                        {members.find(m => m.user_id === assignedTo)?.profile?.full_name || 'Membro'}
+                      </div>
+                    )}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Nenhum</SelectItem>
+                  {members.map(member => (
+                    <SelectItem key={member.user_id} value={member.user_id}>
+                      <div className="flex items-center gap-2">
+                        <Avatar className="h-5 w-5">
+                          <AvatarFallback className="text-[10px]">
+                            {(member.profile?.full_name?.[0] || member.profile?.email?.[0] || '?').toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        {member.profile?.full_name || member.profile?.email || 'Membro'}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           {/* Content Section */}

@@ -217,6 +217,21 @@ export function PlanningItemCard({
                 {format(new Date(displayDate), 'dd/MM', { locale: ptBR })}
               </span>
             )}
+            {/* Assignee Avatar */}
+            {item.assigned_to && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Avatar className="h-4 w-4 border border-border/50">
+                      <AvatarFallback className="text-[8px] bg-primary/10">
+                        👤
+                      </AvatarFallback>
+                    </Avatar>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="text-xs">Responsável atribuído</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
           </div>
           <DropdownMenu open={isMenuOpen} onOpenChange={setIsMenuOpen}>
             <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
