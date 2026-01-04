@@ -1,13 +1,10 @@
 import { useState } from "react";
-import { Bot, Sparkles, Plus, Settings, ChevronRight, Mail, FileText, ScrollText, Image, Video, PenTool, BookOpen, MessageSquare, Send } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Bot, Sparkles, ChevronRight, Mail, FileText, ScrollText, Image, Video, PenTool, BookOpen, MessageSquare } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
-import { useAIAgents } from "@/hooks/useAIAgents";
 
 // Pre-defined content agents
 const contentAgents = [
@@ -136,10 +133,9 @@ const contentAgents = [
 interface AgentCardProps {
   agent: typeof contentAgents[0];
   onClick: () => void;
-  isCustom?: boolean;
 }
 
-function AgentCard({ agent, onClick, isCustom }: AgentCardProps) {
+function AgentCard({ agent, onClick }: AgentCardProps) {
   const Icon = agent.icon;
   
   return (
@@ -158,12 +154,6 @@ function AgentCard({ agent, onClick, isCustom }: AgentCardProps) {
           )}>
             <Icon className="h-5 w-5 text-white" />
           </div>
-          {isCustom && (
-            <Badge variant="outline" className="text-[10px]">
-              <Settings className="h-2.5 w-2.5 mr-1" />
-              Customizado
-            </Badge>
-          )}
         </div>
         <CardTitle className="text-base mt-3 group-hover:text-primary transition-colors">
           {agent.name}
@@ -258,18 +248,6 @@ function AgentRulesModal({ agent, isOpen, onClose }: AgentRulesModalProps) {
 
 export default function AgentsExplorer() {
   const [selectedAgent, setSelectedAgent] = useState<typeof contentAgents[0] | null>(null);
-  const { agents: customAgents, isLoading } = useAIAgents();
-
-  // Convert custom agents to display format
-  const formattedCustomAgents = customAgents?.map((agent) => ({
-    id: agent.id,
-    name: agent.name,
-    description: agent.description || "Agente customizado",
-    icon: Bot,
-    color: "from-violet-500 to-purple-600",
-    platforms: ["custom"],
-    rules: agent.system_prompt?.split("\n").filter(Boolean).slice(0, 5) || ["Sem regras definidas"],
-  })) || [];
 
   return (
     <div className="p-6 max-w-6xl mx-auto">
@@ -284,67 +262,18 @@ export default function AgentsExplorer() {
             Explore os agentes especializados para cada formato de conteúdo
           </p>
         </div>
-        <Button className="gap-2" disabled>
-          <Plus className="h-4 w-4" />
-          Criar Agente
-          <Badge variant="secondary" className="ml-1 text-[10px]">Em breve</Badge>
-        </Button>
       </div>
 
-      {/* Tabs */}
-      <Tabs defaultValue="content" className="space-y-6">
-        <TabsList>
-          <TabsTrigger value="content" className="gap-2">
-            <Sparkles className="h-4 w-4" />
-            Formatos de Conteúdo
-            <Badge variant="secondary" className="ml-1">{contentAgents.length}</Badge>
-          </TabsTrigger>
-          <TabsTrigger value="custom" className="gap-2">
-            <Settings className="h-4 w-4" />
-            Meus Agentes
-            <Badge variant="secondary" className="ml-1">{formattedCustomAgents.length}</Badge>
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="content">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {contentAgents.map((agent) => (
-              <AgentCard
-                key={agent.id}
-                agent={agent}
-                onClick={() => setSelectedAgent(agent)}
-              />
-            ))}
-          </div>
-        </TabsContent>
-
-        <TabsContent value="custom">
-          {isLoading ? (
-            <div className="text-center py-12 text-muted-foreground">
-              Carregando agentes...
-            </div>
-          ) : formattedCustomAgents.length === 0 ? (
-            <div className="text-center py-12">
-              <Bot className="h-12 w-12 text-muted-foreground/30 mx-auto mb-4" />
-              <h3 className="font-medium text-muted-foreground">Nenhum agente customizado</h3>
-              <p className="text-sm text-muted-foreground/60 mt-1">
-                Crie agentes personalizados no Agent Builder
-              </p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {formattedCustomAgents.map((agent) => (
-                <AgentCard
-                  key={agent.id}
-                  agent={agent}
-                  onClick={() => setSelectedAgent(agent)}
-                  isCustom
-                />
-              ))}
-            </div>
-          )}
-        </TabsContent>
-      </Tabs>
+      {/* Content Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        {contentAgents.map((agent) => (
+          <AgentCard
+            key={agent.id}
+            agent={agent}
+            onClick={() => setSelectedAgent(agent)}
+          />
+        ))}
+      </div>
 
       {/* Rules Modal */}
       <AgentRulesModal

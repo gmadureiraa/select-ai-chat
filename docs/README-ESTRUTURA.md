@@ -1,5 +1,8 @@
 # 📐 Estrutura do App - Documentação
 
+## 🔍 Revisão e Status
+- [Revisão Completa do App](./REVISAO-COMPLETA-APP.md) ⭐⭐ (mais recente)
+
 ## 🎨 Design System
 - [Design System Completo](./DESIGN-SYSTEM-COMPLETO.md) ⭐
 
