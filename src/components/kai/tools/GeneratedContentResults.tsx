@@ -3,8 +3,6 @@ import {
   ArrowLeft, 
   Copy, 
   Check, 
-  Calendar, 
-  BookmarkPlus,
   Scissors,
   Star,
   FileText,
@@ -13,7 +11,6 @@ import {
   Linkedin,
   Instagram,
   Film,
-  PenTool,
   Send,
   Loader2
 } from "lucide-react";
@@ -21,11 +18,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { ContentFormat, ContentObjective, GeneratedContent, CutMoment } from "@/hooks/useContentRepurpose";
-import { PlanningItemDialog } from "@/components/planning/PlanningItemDialog";
-import { usePlanningItems, CreatePlanningItemInput } from "@/hooks/usePlanningItems";
-import { useWorkspaceContext } from "@/contexts/WorkspaceContext";
+import { AddToPlanningButton } from "@/components/chat/AddToPlanningButton";
 import { cn } from "@/lib/utils";
 
 interface GeneratedContentResultsProps {
@@ -37,6 +33,9 @@ interface GeneratedContentResultsProps {
   onReset: () => void;
   clientName?: string;
   clientId?: string;
+  isGenerating?: boolean;
+  generatingFormat?: string | null;
+  expectedCount?: number;
 }
 
 const FORMAT_CONFIG: Record<ContentFormat, { 
@@ -206,17 +205,6 @@ const detectPlatformFromFormat = (format: ContentFormat): string | undefined => 
   return platformMap[format];
 };
 
-// Helper to extract title from content
-const extractTitleFromContent = (content: string, format: string): string => {
-  const lines = content.split('\n').filter(l => l.trim());
-  if (lines.length > 0) {
-    const firstLine = lines[0].replace(/^#+\s*/, '').replace(/^\*\*/, '').replace(/\*\*$/, '').trim();
-    if (firstLine.length <= 80) return firstLine;
-    return firstLine.substring(0, 77) + "...";
-  }
-  return `Conteúdo ${format}`;
-};
-
 const ContentResultCard = ({ 
   content, 
   onCopy,
@@ -228,10 +216,7 @@ const ContentResultCard = ({
 }) => {
   const [copied, setCopied] = useState(false);
   const [expanded, setExpanded] = useState(false);
-  const [showPlanningDialog, setShowPlanningDialog] = useState(false);
   const { toast } = useToast();
-  const { workspace } = useWorkspaceContext();
-  const { columns, createItem } = usePlanningItems();
   
   const config = FORMAT_CONFIG[content.format];
   const objectiveConfig = OBJECTIVE_CONFIG[content.objective];
@@ -244,18 +229,28 @@ const ContentResultCard = ({
     toast({ title: "Conteúdo copiado!" });
   };
 
-  const handleSendToPlanning = async (data: CreatePlanningItemInput) => {
-    if (!workspace?.id) {
-      toast({ title: "Workspace não encontrado", variant: "destructive" });
-      return;
-    }
-    await createItem.mutateAsync(data);
-    setShowPlanningDialog(false);
-    toast({ title: "Enviado para planejamento!" });
-  };
-
-  const ideaColumn = columns.find(c => c.column_type === 'idea');
   const detectedPlatform = detectPlatformFromFormat(content.format);
+
+  // Show error state
+  if (content.error) {
+    return (
+      <Card className={cn("overflow-hidden border-destructive/50", `bg-gradient-to-br ${config.gradient}`)}>
+        <CardHeader className="pb-3">
+          <div className="flex items-center gap-3">
+            <div className={cn("p-2 rounded-lg bg-background/80", config.color)}>
+              <Icon className="h-5 w-5" />
+            </div>
+            <CardTitle className="text-lg">{config.label}</CardTitle>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="bg-destructive/10 text-destructive rounded-lg p-4 text-sm">
+            Erro ao gerar: {content.error}
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   // For cut moments, render special view
   if (content.format === "cut_moments" && content.cutMoments) {
@@ -293,117 +288,104 @@ const ContentResultCard = ({
   const displayContent = expanded ? content.content : content.content.substring(0, previewLength);
 
   return (
-    <>
-      <Card className={cn("overflow-hidden transition-all hover:shadow-md", `bg-gradient-to-br ${config.gradient}`)}>
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className={cn("p-2 rounded-lg bg-background/80", config.color)}>
-                <Icon className="h-5 w-5" />
-              </div>
-              <CardTitle className="text-lg">{config.label}</CardTitle>
+    <Card className={cn("overflow-hidden transition-all hover:shadow-md", `bg-gradient-to-br ${config.gradient}`)}>
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className={cn("p-2 rounded-lg bg-background/80", config.color)}>
+              <Icon className="h-5 w-5" />
             </div>
-            <div className="flex items-center gap-2">
-              <Badge variant="outline" className={objectiveConfig.color}>
-                {objectiveConfig.label}
-              </Badge>
+            <CardTitle className="text-lg">{config.label}</CardTitle>
+          </div>
+          <div className="flex items-center gap-2">
+            <Badge variant="outline" className={objectiveConfig.color}>
+              {objectiveConfig.label}
+            </Badge>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="bg-background/60 rounded-lg p-4 backdrop-blur-sm">
+          <ScrollArea className={cn(expanded ? "max-h-96" : "max-h-48")}>
+            <div className="whitespace-pre-wrap text-sm">
+              {displayContent}
+              {!expanded && showExpandButton && "..."}
             </div>
+          </ScrollArea>
+          {showExpandButton && (
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="w-full mt-2"
+              onClick={() => setExpanded(!expanded)}
+            >
+              {expanded ? "Ver menos" : "Ver mais"}
+            </Button>
+          )}
+        </div>
+        
+        <div className="flex items-center justify-between pt-2 border-t">
+          <span className="text-xs text-muted-foreground">
+            {new Date(content.generatedAt).toLocaleTimeString("pt-BR")}
+          </span>
+          <div className="flex gap-2">
+            {/* Use AddToPlanningButton - same as chat */}
+            <AddToPlanningButton
+              content={content.content}
+              platform={detectedPlatform}
+              clientId={clientId}
+            />
+            <Button 
+              variant="default" 
+              size="sm" 
+              className="gap-1.5"
+              onClick={handleCopy}
+            >
+              {copied ? (
+                <>
+                  <Check className="h-3.5 w-3.5" />
+                  Copiado
+                </>
+              ) : (
+                <>
+                  <Copy className="h-3.5 w-3.5" />
+                  Copiar
+                </>
+              )}
+            </Button>
           </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="bg-background/60 rounded-lg p-4 backdrop-blur-sm">
-            <ScrollArea className={cn(expanded ? "max-h-96" : "max-h-48")}>
-              <div className="whitespace-pre-wrap text-sm">
-                {displayContent}
-                {!expanded && showExpandButton && "..."}
-              </div>
-            </ScrollArea>
-            {showExpandButton && (
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                className="w-full mt-2"
-                onClick={() => setExpanded(!expanded)}
-              >
-                {expanded ? "Ver menos" : "Ver mais"}
-              </Button>
-            )}
-          </div>
-          
-          <div className="flex items-center justify-between pt-2 border-t">
-            <span className="text-xs text-muted-foreground">
-              {new Date(content.generatedAt).toLocaleTimeString("pt-BR")}
-            </span>
-            <div className="flex gap-2">
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className="gap-1.5"
-                onClick={() => setShowPlanningDialog(true)}
-              >
-                <Calendar className="h-3.5 w-3.5" />
-                Planejar
-              </Button>
-              <Button 
-                variant="default" 
-                size="sm" 
-                className="gap-1.5"
-                onClick={handleCopy}
-              >
-                {copied ? (
-                  <>
-                    <Check className="h-3.5 w-3.5" />
-                    Copiado
-                  </>
-                ) : (
-                  <>
-                    <Copy className="h-3.5 w-3.5" />
-                    Copiar
-                  </>
-                )}
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
 
-      <PlanningItemDialog
-        open={showPlanningDialog}
-        onOpenChange={setShowPlanningDialog}
-        columns={columns}
-        defaultColumnId={ideaColumn?.id}
-        onSave={handleSendToPlanning}
-        item={{
-          id: "",
-          workspace_id: workspace?.id || "",
-          title: extractTitleFromContent(content.content, config.label),
-          description: "",
-          content: content.content,
-          client_id: clientId || null,
-          column_id: ideaColumn?.id || null,
-          platform: detectedPlatform as any || null,
-          status: "idea",
-          priority: "medium",
-          position: 0,
-          created_by: "",
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          due_date: null,
-          scheduled_at: null,
-          labels: [],
-          media_urls: [],
-          metadata: { source: "content_repurpose", format: content.format },
-          assigned_to: null,
-          content_type: null,
-          content_library_id: null,
-          added_to_library: false,
-          external_post_id: null,
-          published_at: null,
-          error_message: null,
-          retry_count: 0,
-        } as any}
-      />
-    </>
+// Loading skeleton card
+const LoadingCard = ({ format }: { format?: string }) => {
+  const config = format ? FORMAT_CONFIG[format as ContentFormat] : null;
+  const Icon = config?.icon || FileText;
+  
+  return (
+    <Card className={cn("overflow-hidden", config ? `bg-gradient-to-br ${config.gradient}` : "")}>
+      <CardHeader className="pb-3">
+        <div className="flex items-center gap-3">
+          <div className={cn("p-2 rounded-lg bg-background/80 animate-pulse", config?.color || "text-muted-foreground")}>
+            <Icon className="h-5 w-5" />
+          </div>
+          <div className="flex items-center gap-2">
+            <Skeleton className="h-5 w-24" />
+            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-2">
+          <Skeleton className="h-4 w-full" />
+          <Skeleton className="h-4 w-3/4" />
+          <Skeleton className="h-4 w-5/6" />
+        </div>
+      </CardContent>
+    </Card>
   );
 };
 
@@ -416,7 +398,12 @@ export function GeneratedContentResults({
   onReset,
   clientName,
   clientId,
+  isGenerating,
+  generatingFormat,
+  expectedCount = 0,
 }: GeneratedContentResultsProps) {
+  const remainingCount = Math.max(0, expectedCount - contents.length);
+  
   return (
     <div className="p-6 space-y-6 max-w-5xl mx-auto">
       {/* Header */}
@@ -428,8 +415,17 @@ export function GeneratedContentResults({
           <div>
             <h1 className="text-2xl font-semibold">Conteúdos Gerados</h1>
             <p className="text-muted-foreground">
-              {contents.length} conteúdo{contents.length !== 1 ? 's' : ''} criado{contents.length !== 1 ? 's' : ''}
-              {clientName && ` para ${clientName}`}
+              {isGenerating ? (
+                <>
+                  Gerando {contents.length + 1}/{expectedCount}
+                  {generatingFormat && ` — ${FORMAT_CONFIG[generatingFormat as ContentFormat]?.label || generatingFormat}`}
+                </>
+              ) : (
+                <>
+                  {contents.length} conteúdo{contents.length !== 1 ? 's' : ''} criado{contents.length !== 1 ? 's' : ''}
+                  {clientName && ` para ${clientName}`}
+                </>
+              )}
             </p>
           </div>
         </div>
@@ -467,6 +463,25 @@ export function GeneratedContentResults({
             clientId={clientId}
           />
         ))}
+        
+        {/* Show loading cards for remaining items */}
+        {isGenerating && remainingCount > 0 && (
+          <>
+            {/* Current generating */}
+            <LoadingCard format={generatingFormat || undefined} />
+            {/* Remaining placeholders */}
+            {Array.from({ length: remainingCount - 1 }).map((_, i) => (
+              <Card key={`skeleton-${i}`} className="overflow-hidden">
+                <CardContent className="p-6">
+                  <div className="flex items-center gap-3 text-muted-foreground">
+                    <div className="h-8 w-8 rounded bg-muted animate-pulse" />
+                    <Skeleton className="h-4 w-32" />
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </>
+        )}
       </div>
     </div>
   );
