@@ -12,6 +12,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { useNavigate } from 'react-router-dom';
+import { useWorkspace } from '@/hooks/useWorkspace';
 
 const typeIcons: Record<Notification['type'], React.ElementType> = {
   assignment: UserPlus,
@@ -30,6 +31,7 @@ const typeColors: Record<Notification['type'], string> = {
 export function NotificationBell() {
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
+  const { workspace } = useWorkspace();
   const { notifications, unreadCount, isLoading, markAsRead, markAllAsRead } = useNotifications();
 
   const handleNotificationClick = (notification: Notification) => {
@@ -39,7 +41,9 @@ export function NotificationBell() {
 
     // Navigate based on entity type
     if (notification.entity_type === 'planning_item' && notification.entity_id) {
-      navigate('/planejador');
+      const slug = workspace?.slug || '';
+      // Navigate to planning tab with the item ID to open
+      navigate(`/${slug}?tab=planning&openItem=${notification.entity_id}`);
       setOpen(false);
     }
   };
