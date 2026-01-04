@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Twitter, Linkedin, Loader2, Check, Eye, EyeOff, Trash2, Share2, X, Instagram, Youtube, RefreshCw } from "lucide-react";
+import { Twitter, Linkedin, Loader2, Check, Eye, EyeOff, Trash2, Share2, X, Instagram, Youtube, RefreshCw, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,9 +10,12 @@ import { usePlanFeatures } from "@/hooks/usePlanFeatures";
 import { EnterpriseLockScreen } from "@/components/shared/EnterpriseLockScreen";
 import { useInstagramConnection, useStartInstagramOAuth, useFetchInstagramOAuthMetrics, useDisconnectInstagram } from "@/hooks/useInstagramOAuth";
 import { useYouTubeConnection, useStartYouTubeOAuth, useFetchYouTubeAnalytics, useDisconnectYouTube } from "@/hooks/useYouTubeOAuth";
+import { useTwitterOAuthPopup } from "@/hooks/useTwitterOAuth";
 import { useSearchParams } from "react-router-dom";
 import { useToast } from "@/components/ui/use-toast";
 import { Separator } from "@/components/ui/separator";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { ChevronDown } from "lucide-react";
 
 interface SocialIntegrationsTabProps {
   clientId: string;
@@ -43,6 +46,10 @@ export function SocialIntegrationsTab({ clientId }: SocialIntegrationsTabProps) 
   const startYouTubeOAuth = useStartYouTubeOAuth();
   const fetchYouTubeAnalytics = useFetchYouTubeAnalytics();
   const disconnectYouTube = useDisconnectYouTube();
+
+  // Twitter OAuth 2.0
+  const twitterOAuth = useTwitterOAuthPopup(clientId);
+  const [showAdvancedTwitter, setShowAdvancedTwitter] = useState(false);
 
   const [twitterForm, setTwitterForm] = useState({
     apiKey: "",
@@ -352,50 +359,58 @@ export function SocialIntegrationsTab({ clientId }: SocialIntegrationsTabProps) 
             )}
           </CardContent>
         </Card>
-      </div>
 
-      <Separator />
-
-      {/* Section: API Key Connections (Advanced) */}
-      <div className="space-y-4">
-        <h4 className="text-sm font-medium text-muted-foreground">Conexão Avançada (API Keys)</h4>
-
-        {/* Twitter/X Integration */}
-        <Card>
-          <CardHeader>
+        {/* Twitter/X OAuth 2.0 */}
+        <Card className="border-2 border-dashed border-primary/20 hover:border-primary/40 transition-colors">
+          <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="h-10 w-10 rounded-lg bg-black flex items-center justify-center">
                   <Twitter className="h-5 w-5 text-white" />
                 </div>
                 <div>
-                  <CardTitle className="text-base">Twitter / X</CardTitle>
-                  <CardDescription>OAuth 1.0a para publicação de tweets</CardDescription>
+                  <CardTitle className="text-base">X / Twitter</CardTitle>
+                  <CardDescription>Publicação de tweets via OAuth 2.0</CardDescription>
                 </div>
               </div>
-              {renderCredentialStatus(twitterCredential)}
+              {twitterCredential?.is_valid && (
+                <Badge variant="outline" className="text-green-600 border-green-600">
+                  <Check className="h-3 w-3 mr-1" />
+                  Conectado
+                </Badge>
+              )}
             </div>
           </CardHeader>
-          <CardContent className="space-y-4">
-            {twitterCredential ? (
-              <div className="space-y-4">
+          <CardContent className="pt-0">
+            {twitterCredential?.is_valid ? (
+              <div className="space-y-3">
                 <div className="p-3 rounded-lg bg-muted/50">
                   <p className="text-sm">
                     <span className="text-muted-foreground">Conta conectada:</span>{" "}
-                    <span className="font-medium">{twitterCredential.account_name || 'Conta Twitter'}</span>
+                    <span className="font-medium">@{twitterCredential.account_name || 'Twitter'}</span>
                   </p>
-                  {twitterCredential.validation_error && (
-                    <p className="text-xs text-destructive mt-1">{twitterCredential.validation_error}</p>
-                  )}
                   <p className="text-xs text-muted-foreground mt-1">
-                    Última validação: {twitterCredential.last_validated_at 
-                      ? new Date(twitterCredential.last_validated_at).toLocaleString('pt-BR')
-                      : 'Nunca'}
+                    Conectado em: {twitterCredential.last_validated_at 
+                      ? new Date(twitterCredential.last_validated_at).toLocaleDateString('pt-BR')
+                      : 'N/A'}
                   </p>
                 </div>
                 <div className="flex gap-2">
                   <Button
                     variant="outline"
+                    size="sm"
+                    onClick={() => twitterOAuth.openPopup()}
+                    disabled={twitterOAuth.isLoading}
+                  >
+                    {twitterOAuth.isLoading ? (
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    ) : (
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                    )}
+                    Reconectar
+                  </Button>
+                  <Button
+                    variant="ghost"
                     size="sm"
                     onClick={() => deleteCredential.mutate('twitter')}
                     disabled={deleteCredential.isPending}
@@ -410,129 +425,172 @@ export function SocialIntegrationsTab({ clientId }: SocialIntegrationsTabProps) 
                 </div>
               </div>
             ) : (
-              <div className="space-y-4">
-                <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-sm space-y-2">
-                  <p className="font-medium text-amber-600 dark:text-amber-400">⚠️ IMPORTANTE: Siga TODOS os passos para funcionar</p>
-                  <ol className="list-decimal list-inside text-muted-foreground space-y-1.5 text-xs">
-                    <li>Acesse <a href="https://developer.twitter.com/en/portal/projects-and-apps" target="_blank" rel="noopener noreferrer" className="text-primary underline">Projects & Apps</a> e selecione seu app</li>
-                    <li>Vá em <strong>"User authentication settings"</strong> → <strong>"Set up"</strong> ou <strong>"Edit"</strong></li>
-                    <li><strong>App permissions:</strong> Selecione <strong>"Read and write"</strong> (NÃO apenas Read!)</li>
-                    <li><strong>Type of App:</strong> Selecione <strong>"Web App, Automated App or Bot"</strong></li>
-                    <li><strong>Callback URI (OBRIGATÓRIO):</strong> Cole: <code className="bg-muted px-1 rounded select-all">https://example.com/callback</code></li>
-                    <li><strong>Website URL (OBRIGATÓRIO):</strong> Cole: <code className="bg-muted px-1 rounded select-all">https://example.com</code></li>
-                    <li>Clique em <strong>"Save"</strong></li>
-                    <li className="text-amber-600 dark:text-amber-400 font-medium">CRÍTICO: Vá em "Keys and tokens" → Clique em "Regenerate" no Access Token e Secret</li>
-                    <li>Use os <strong>tokens NOVOS</strong> abaixo (tokens antigos não funcionam após mudar permissões!)</li>
-                  </ol>
-                </div>
+              <div className="space-y-3">
                 <p className="text-sm text-muted-foreground">
-                  Configure as credenciais da Twitter API v2. Você pode obter essas chaves no{" "}
-                  <a 
-                    href="https://developer.twitter.com/en/portal/dashboard" 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="text-primary underline"
-                  >
-                    Twitter Developer Portal
-                  </a>.
+                  Conecte sua conta X/Twitter para publicação automática de tweets. 
+                  Você será redirecionado para autorizar o acesso.
                 </p>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="tw-api-key">API Key</Label>
-                    <div className="relative">
-                      <Input
-                        id="tw-api-key"
-                        type={showSecrets['tw-api-key'] ? 'text' : 'password'}
-                        value={twitterForm.apiKey}
-                        onChange={(e) => setTwitterForm({ ...twitterForm, apiKey: e.target.value })}
-                        placeholder="Sua API Key"
-                      />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="absolute right-0 top-0 h-full px-3"
-                        onClick={() => toggleSecret('tw-api-key')}
-                      >
-                        {showSecrets['tw-api-key'] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      </Button>
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="tw-api-secret">API Secret</Label>
-                    <div className="relative">
-                      <Input
-                        id="tw-api-secret"
-                        type={showSecrets['tw-api-secret'] ? 'text' : 'password'}
-                        value={twitterForm.apiSecret}
-                        onChange={(e) => setTwitterForm({ ...twitterForm, apiSecret: e.target.value })}
-                        placeholder="Sua API Secret"
-                      />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="absolute right-0 top-0 h-full px-3"
-                        onClick={() => toggleSecret('tw-api-secret')}
-                      >
-                        {showSecrets['tw-api-secret'] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      </Button>
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="tw-access-token">Access Token</Label>
-                    <div className="relative">
-                      <Input
-                        id="tw-access-token"
-                        type={showSecrets['tw-access-token'] ? 'text' : 'password'}
-                        value={twitterForm.accessToken}
-                        onChange={(e) => setTwitterForm({ ...twitterForm, accessToken: e.target.value })}
-                        placeholder="Seu Access Token"
-                      />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="absolute right-0 top-0 h-full px-3"
-                        onClick={() => toggleSecret('tw-access-token')}
-                      >
-                        {showSecrets['tw-access-token'] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      </Button>
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="tw-access-secret">Access Token Secret</Label>
-                    <div className="relative">
-                      <Input
-                        id="tw-access-secret"
-                        type={showSecrets['tw-access-secret'] ? 'text' : 'password'}
-                        value={twitterForm.accessTokenSecret}
-                        onChange={(e) => setTwitterForm({ ...twitterForm, accessTokenSecret: e.target.value })}
-                        placeholder="Seu Access Token Secret"
-                      />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="absolute right-0 top-0 h-full px-3"
-                        onClick={() => toggleSecret('tw-access-secret')}
-                      >
-                        {showSecrets['tw-access-secret'] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      </Button>
-                    </div>
-                  </div>
-                </div>
                 <Button
-                  onClick={handleSaveTwitter}
-                  disabled={validateTwitter.isPending || !twitterForm.apiKey || !twitterForm.accessToken}
+                  onClick={() => twitterOAuth.openPopup()}
+                  disabled={twitterOAuth.isLoading}
+                  className="bg-black hover:bg-black/80"
                 >
-                  {validateTwitter.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                  Salvar e Validar
+                  {twitterOAuth.isLoading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                  <Twitter className="h-4 w-4 mr-2" />
+                  Conectar com X
                 </Button>
+                
+                {/* Show error if previous attempt failed */}
+                {twitterCredential?.validation_error && (
+                  <div className="p-2 rounded bg-destructive/10 text-destructive text-xs">
+                    {twitterCredential.validation_error}
+                  </div>
+                )}
               </div>
             )}
           </CardContent>
         </Card>
+      </div>
+
+      <Separator />
+
+      {/* Section: API Key Connections (Advanced) - Collapsible */}
+      <Collapsible open={showAdvancedTwitter} onOpenChange={setShowAdvancedTwitter}>
+        <CollapsibleTrigger asChild>
+          <Button variant="ghost" className="w-full justify-between text-muted-foreground hover:text-foreground">
+            <span className="text-sm font-medium">Conexão Avançada (API Keys manuais)</span>
+            <ChevronDown className={`h-4 w-4 transition-transform ${showAdvancedTwitter ? 'rotate-180' : ''}`} />
+          </Button>
+        </CollapsibleTrigger>
+        <CollapsibleContent className="space-y-4 pt-4">
+          <p className="text-xs text-muted-foreground">
+            Use esta opção apenas se a conexão OAuth não funcionar ou se você precisa de tokens específicos.
+          </p>
+          
+          {/* Twitter API Keys Card */}
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex items-center gap-3">
+                <div className="h-8 w-8 rounded-lg bg-black flex items-center justify-center">
+                  <Twitter className="h-4 w-4 text-white" />
+                </div>
+                <div>
+                  <CardTitle className="text-sm">Twitter API Keys</CardTitle>
+                  <CardDescription className="text-xs">OAuth 1.0a (manual)</CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-sm space-y-2">
+                <p className="font-medium text-amber-600 dark:text-amber-400 text-xs">⚠️ IMPORTANTE: Siga TODOS os passos</p>
+                <ol className="list-decimal list-inside text-muted-foreground space-y-1 text-xs">
+                  <li>Acesse <a href="https://developer.twitter.com/en/portal/projects-and-apps" target="_blank" rel="noopener noreferrer" className="text-primary underline">Projects & Apps</a> e selecione seu app</li>
+                  <li><strong>"User authentication settings"</strong> → <strong>"Read and write"</strong></li>
+                  <li><strong>Type:</strong> "Web App, Automated App or Bot"</li>
+                  <li><strong>Callback URI:</strong> <code className="bg-muted px-1 rounded text-[10px]">https://example.com/callback</code></li>
+                  <li className="text-amber-600 dark:text-amber-400 font-medium">CRÍTICO: Regenere Access Token após mudar permissões!</li>
+                </ol>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="tw-api-key" className="text-xs">API Key</Label>
+                  <div className="relative">
+                    <Input
+                      id="tw-api-key"
+                      type={showSecrets['tw-api-key'] ? 'text' : 'password'}
+                      value={twitterForm.apiKey}
+                      onChange={(e) => setTwitterForm({ ...twitterForm, apiKey: e.target.value })}
+                      placeholder="API Key"
+                      className="text-xs h-8"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="absolute right-0 top-0 h-full px-2"
+                      onClick={() => toggleSecret('tw-api-key')}
+                    >
+                      {showSecrets['tw-api-key'] ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                    </Button>
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="tw-api-secret" className="text-xs">API Secret</Label>
+                  <div className="relative">
+                    <Input
+                      id="tw-api-secret"
+                      type={showSecrets['tw-api-secret'] ? 'text' : 'password'}
+                      value={twitterForm.apiSecret}
+                      onChange={(e) => setTwitterForm({ ...twitterForm, apiSecret: e.target.value })}
+                      placeholder="API Secret"
+                      className="text-xs h-8"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="absolute right-0 top-0 h-full px-2"
+                      onClick={() => toggleSecret('tw-api-secret')}
+                    >
+                      {showSecrets['tw-api-secret'] ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                    </Button>
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="tw-access-token" className="text-xs">Access Token</Label>
+                  <div className="relative">
+                    <Input
+                      id="tw-access-token"
+                      type={showSecrets['tw-access-token'] ? 'text' : 'password'}
+                      value={twitterForm.accessToken}
+                      onChange={(e) => setTwitterForm({ ...twitterForm, accessToken: e.target.value })}
+                      placeholder="Access Token"
+                      className="text-xs h-8"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="absolute right-0 top-0 h-full px-2"
+                      onClick={() => toggleSecret('tw-access-token')}
+                    >
+                      {showSecrets['tw-access-token'] ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                    </Button>
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="tw-access-secret" className="text-xs">Access Token Secret</Label>
+                  <div className="relative">
+                    <Input
+                      id="tw-access-secret"
+                      type={showSecrets['tw-access-secret'] ? 'text' : 'password'}
+                      value={twitterForm.accessTokenSecret}
+                      onChange={(e) => setTwitterForm({ ...twitterForm, accessTokenSecret: e.target.value })}
+                      placeholder="Access Token Secret"
+                      className="text-xs h-8"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="absolute right-0 top-0 h-full px-2"
+                      onClick={() => toggleSecret('tw-access-secret')}
+                    >
+                      {showSecrets['tw-access-secret'] ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+              <Button
+                onClick={handleSaveTwitter}
+                disabled={validateTwitter.isPending || !twitterForm.apiKey || !twitterForm.accessToken}
+                size="sm"
+              >
+                {validateTwitter.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                Salvar e Validar
+              </Button>
+            </CardContent>
+          </Card>
 
         {/* LinkedIn Integration */}
         <Card>
@@ -628,7 +686,8 @@ export function SocialIntegrationsTab({ clientId }: SocialIntegrationsTabProps) 
             )}
           </CardContent>
         </Card>
-      </div>
+        </CollapsibleContent>
+      </Collapsible>
     </div>
   );
 }

@@ -137,3 +137,10 @@ verify_jwt = true
 
 [functions.prepare-image-generation]
 verify_jwt = true
+
+[functions.twitter-oauth-start]
+verify_jwt = true
+
+[functions.twitter-oauth-callback]
+verify_jwt = false
+verify_jwt = true
