@@ -11,6 +11,7 @@ import { EnterpriseLockScreen } from "@/components/shared/EnterpriseLockScreen";
 import { useInstagramConnection, useStartInstagramOAuth, useFetchInstagramOAuthMetrics, useDisconnectInstagram } from "@/hooks/useInstagramOAuth";
 import { useYouTubeConnection, useStartYouTubeOAuth, useFetchYouTubeAnalytics, useDisconnectYouTube } from "@/hooks/useYouTubeOAuth";
 import { useTwitterOAuthPopup } from "@/hooks/useTwitterOAuth";
+import { useLinkedInOAuthPopup } from "@/hooks/useLinkedInOAuth";
 import { useSearchParams } from "react-router-dom";
 import { useToast } from "@/components/ui/use-toast";
 import { Separator } from "@/components/ui/separator";
@@ -49,6 +50,10 @@ export function SocialIntegrationsTab({ clientId }: SocialIntegrationsTabProps) 
 
   // Twitter OAuth 2.0
   const twitterOAuth = useTwitterOAuthPopup(clientId);
+  
+  // LinkedIn OAuth 2.0
+  const linkedInOAuth = useLinkedInOAuthPopup(clientId);
+  
   const [showAdvancedTwitter, setShowAdvancedTwitter] = useState(false);
 
   const [twitterForm, setTwitterForm] = useState({
@@ -68,6 +73,7 @@ export function SocialIntegrationsTab({ clientId }: SocialIntegrationsTabProps) 
   useEffect(() => {
     const instagramOAuth = searchParams.get('instagram_oauth');
     const youtubeOAuth = searchParams.get('youtube_oauth');
+    const linkedInOAuthStatus = searchParams.get('linkedin_oauth');
     const message = searchParams.get('message');
 
     if (instagramOAuth === 'success') {
@@ -104,6 +110,25 @@ export function SocialIntegrationsTab({ clientId }: SocialIntegrationsTabProps) 
         variant: "destructive",
       });
       searchParams.delete('youtube_oauth');
+      searchParams.delete('message');
+      setSearchParams(searchParams);
+    }
+
+    if (linkedInOAuthStatus === 'success') {
+      toast({
+        title: "LinkedIn conectado!",
+        description: "Sua conta LinkedIn foi conectada com sucesso.",
+      });
+      searchParams.delete('linkedin_oauth');
+      searchParams.delete('message');
+      setSearchParams(searchParams);
+    } else if (linkedInOAuthStatus === 'error') {
+      toast({
+        title: "Erro ao conectar LinkedIn",
+        description: message || "Ocorreu um erro ao conectar sua conta.",
+        variant: "destructive",
+      });
+      searchParams.delete('linkedin_oauth');
       searchParams.delete('message');
       setSearchParams(searchParams);
     }
@@ -446,6 +471,85 @@ export function SocialIntegrationsTab({ clientId }: SocialIntegrationsTabProps) 
                     {twitterCredential.validation_error}
                   </div>
                 )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+        {/* LinkedIn OAuth */}
+        <Card className="border-2 border-dashed border-primary/20 hover:border-primary/40 transition-colors">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-lg bg-[#0A66C2] flex items-center justify-center">
+                  <Linkedin className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                  <CardTitle className="text-base">LinkedIn</CardTitle>
+                  <CardDescription>Publicação via OAuth 2.0</CardDescription>
+                </div>
+              </div>
+              {linkedInCredential?.is_valid && (
+                <Badge variant="outline" className="text-green-600 border-green-600">
+                  <Check className="h-3 w-3 mr-1" />
+                  Conectado
+                </Badge>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent className="pt-0">
+            {linkedInCredential?.is_valid ? (
+              <div className="space-y-3">
+                <div className="p-3 rounded-lg bg-muted/50">
+                  <p className="text-sm">
+                    <span className="text-muted-foreground">Conta conectada:</span>{" "}
+                    <span className="font-medium">{linkedInCredential.account_name || 'LinkedIn User'}</span>
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => linkedInOAuth.openPopup()}
+                    disabled={linkedInOAuth.isLoading}
+                  >
+                    {linkedInOAuth.isLoading ? (
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    ) : (
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                    )}
+                    Reconectar
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => deleteCredential.mutate('linkedin')}
+                    disabled={deleteCredential.isPending}
+                  >
+                    {deleteCredential.isPending ? (
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    ) : (
+                      <Trash2 className="h-4 w-4 mr-2" />
+                    )}
+                    Desconectar
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <p className="text-sm text-muted-foreground">
+                  Conecte sua conta LinkedIn para publicação automática de posts.
+                </p>
+                <Button
+                  onClick={() => linkedInOAuth.openPopup()}
+                  disabled={linkedInOAuth.isLoading}
+                  className="bg-[#0A66C2] hover:bg-[#0A66C2]/80"
+                >
+                  {linkedInOAuth.isLoading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                  <Linkedin className="h-4 w-4 mr-2" />
+                  Conectar LinkedIn
+                </Button>
               </div>
             )}
           </CardContent>

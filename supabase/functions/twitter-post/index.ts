@@ -102,6 +102,31 @@ async function uploadMedia(
   }
 }
 
+async function postTweetOAuth2(
+  text: string,
+  accessToken: string
+): Promise<{ id: string } | null> {
+  const tweetUrl = "https://api.x.com/2/tweets";
+  
+  const response = await fetch(tweetUrl, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ text }),
+  });
+
+  const responseData = await response.json();
+
+  if (!response.ok) {
+    console.error("Tweet OAuth2 error:", responseData);
+    throw new Error(responseData.detail || responseData.errors?.[0]?.message || 'Erro ao publicar tweet');
+  }
+
+  return { id: responseData.data?.id };
+}
+
 async function postTweet(
   text: string,
   mediaIds: string[],
@@ -197,7 +222,11 @@ Deno.serve(async (req) => {
     if (credError || !credentials) throw new Error('Credenciais do Twitter não configuradas');
     if (!credentials.is_valid) throw new Error(`Credenciais inválidas: ${credentials.validation_error}`);
 
-    const { api_key, api_secret, access_token, access_token_secret } = credentials;
+    const { api_key, api_secret, access_token, access_token_secret, oauth_access_token } = credentials;
+    
+    // Determine auth method: OAuth 2.0 (bearer) or OAuth 1.0a
+    const useOAuth2 = !!oauth_access_token && !api_key;
+    console.log(`Using ${useOAuth2 ? 'OAuth 2.0' : 'OAuth 1.0a'} authentication`);
 
     // Check if it's a thread
     const metadata = post.metadata || {};
@@ -207,51 +236,73 @@ Deno.serve(async (req) => {
     let lastTweetId: string | null = null;
     const tweetIds: string[] = [];
 
-    if (isThread) {
-      // Post thread - each tweet in sequence
-      for (let i = 0; i < threadTweets.length; i++) {
-        const tweet = threadTweets[i];
-        
-        // Upload media for this tweet
+    if (useOAuth2) {
+      // OAuth 2.0 - simpler, no media upload support
+      if (isThread) {
+        for (let i = 0; i < threadTweets.length; i++) {
+          const tweet = threadTweets[i];
+          // Note: OAuth 2.0 doesn't support media upload directly
+          const result = await postTweetOAuth2(tweet.text, oauth_access_token);
+          if (result) {
+            lastTweetId = result.id;
+            tweetIds.push(result.id);
+            console.log(`Tweet ${i + 1} publicado (OAuth2): ${result.id}`);
+          }
+        }
+      } else {
+        const result = await postTweetOAuth2(post.content, oauth_access_token);
+        if (result) {
+          tweetIds.push(result.id);
+        }
+      }
+    } else {
+      // OAuth 1.0a - full support with media
+      if (isThread) {
+        // Post thread - each tweet in sequence
+        for (let i = 0; i < threadTweets.length; i++) {
+          const tweet = threadTweets[i];
+          
+          // Upload media for this tweet
+          const mediaIds: string[] = [];
+          for (const imageUrl of (tweet.media_urls || []).slice(0, 4)) {
+            const mediaId = await uploadMedia(imageUrl, api_key, api_secret, access_token, access_token_secret);
+            if (mediaId) mediaIds.push(mediaId);
+          }
+
+          const result = await postTweet(
+            tweet.text,
+            mediaIds,
+            lastTweetId,
+            api_key, api_secret, access_token, access_token_secret
+          );
+
+          if (result) {
+            lastTweetId = result.id;
+            tweetIds.push(result.id);
+            console.log(`Tweet ${i + 1} publicado: ${result.id}`);
+          }
+        }
+      } else {
+        // Single tweet with optional media
+        const mediaUrls = post.media_urls || [];
         const mediaIds: string[] = [];
-        for (const imageUrl of (tweet.media_urls || []).slice(0, 4)) {
+        
+        for (const imageUrl of mediaUrls.slice(0, 4)) {
           const mediaId = await uploadMedia(imageUrl, api_key, api_secret, access_token, access_token_secret);
           if (mediaId) mediaIds.push(mediaId);
         }
 
         const result = await postTweet(
-          tweet.text,
+          post.content,
           mediaIds,
-          lastTweetId,
+          null,
           api_key, api_secret, access_token, access_token_secret
         );
 
         if (result) {
           lastTweetId = result.id;
           tweetIds.push(result.id);
-          console.log(`Tweet ${i + 1} publicado: ${result.id}`);
         }
-      }
-    } else {
-      // Single tweet with optional media
-      const mediaUrls = post.media_urls || [];
-      const mediaIds: string[] = [];
-      
-      for (const imageUrl of mediaUrls.slice(0, 4)) {
-        const mediaId = await uploadMedia(imageUrl, api_key, api_secret, access_token, access_token_secret);
-        if (mediaId) mediaIds.push(mediaId);
-      }
-
-      const result = await postTweet(
-        post.content,
-        mediaIds,
-        null,
-        api_key, api_secret, access_token, access_token_secret
-      );
-
-      if (result) {
-        lastTweetId = result.id;
-        tweetIds.push(result.id);
       }
     }
 
