@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Plus, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { usePlanningItems, type PlanningFilters, type PlanningItem } from '@/hooks/usePlanningItems';
@@ -20,6 +21,7 @@ interface PlanningBoardProps {
 }
 
 export function PlanningBoard({ clientId, isEnterprise = false, onClientChange }: PlanningBoardProps) {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [view, setView] = useState<PlanningView>('board');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<PlanningItem | null>(null);
@@ -84,6 +86,22 @@ export function PlanningBoard({ clientId, isEnterprise = false, onClientChange }
     retryPublication,
     getItemsByColumn,
   } = usePlanningItems(effectiveFilters);
+
+  // Handle opening item from URL (e.g., from notification click)
+  useEffect(() => {
+    const openItemId = searchParams.get('openItem');
+    if (openItemId && items.length > 0) {
+      const itemToOpen = items.find(item => item.id === openItemId);
+      if (itemToOpen) {
+        setEditingItem(itemToOpen);
+        setDialogOpen(true);
+        // Remove the openItem param from URL after opening
+        const newParams = new URLSearchParams(searchParams);
+        newParams.delete('openItem');
+        setSearchParams(newParams, { replace: true });
+      }
+    }
+  }, [searchParams, items, setSearchParams]);
 
   const handleFiltersChange = (newFilters: PlanningFilters) => {
     // For viewers, don't allow changing to clients outside their access
