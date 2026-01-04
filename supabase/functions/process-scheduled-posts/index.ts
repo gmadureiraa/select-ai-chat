@@ -200,6 +200,61 @@ Deno.serve(async (req) => {
             })
             .eq('id', item.id);
 
+          // ===== AUTO-SAVE TO CONTENT LIBRARY ON PUBLISH =====
+          // Only save to content library when item is published successfully
+          if (tableName === 'planning_items' && item.client_id && !item.added_to_library) {
+            try {
+              // Map platform to content type
+              const contentTypeMap: Record<string, string> = {
+                'twitter': 'tweet',
+                'instagram': 'post',
+                'linkedin': 'linkedin_post',
+                'facebook': 'social_post',
+                'tiktok': 'script',
+                'youtube': 'script',
+                'newsletter': 'newsletter',
+                'blog': 'article',
+              };
+              const mappedType = contentTypeMap[item.platform?.toLowerCase() || ''] || 'post';
+              
+              const { data: savedContent, error: saveError } = await supabaseClient
+                .from('client_content_library')
+                .insert({
+                  client_id: item.client_id,
+                  title: item.title,
+                  content: item.content || item.description || '',
+                  content_type: mappedType,
+                  metadata: {
+                    auto_saved_on_publish: true,
+                    from_planning: true,
+                    original_item_id: item.id,
+                    platform: item.platform,
+                    published_at: new Date().toISOString(),
+                    external_post_id: result.externalId || null,
+                  }
+                })
+                .select('id')
+                .single();
+              
+              if (saveError) {
+                console.error(`[process-scheduled-posts] Error saving to content library:`, saveError);
+              } else {
+                // Update planning item with content library reference
+                await supabaseClient
+                  .from('planning_items')
+                  .update({ 
+                    added_to_library: true,
+                    content_library_id: savedContent.id 
+                  })
+                  .eq('id', item.id);
+                
+                console.log(`📚 Content auto-saved to library: ${savedContent.id}`);
+              }
+            } catch (saveErr) {
+              console.error(`[process-scheduled-posts] Exception saving content:`, saveErr);
+            }
+          }
+
           console.log(`✅ Post ${item.id} published successfully`);
         } else {
           // Update with error

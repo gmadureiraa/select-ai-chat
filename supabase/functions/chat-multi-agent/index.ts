@@ -524,71 +524,15 @@ OUTPUT: Apenas o conteúdo final, nada mais.`
                   cost: agentCost
                 });
                 
-                // AUTO-SAVE: Salvar conteúdo na content library automaticamente
-                let savedContentId: string | null = null;
-                if (clientId && result.content && result.content.length > 50) {
-                  try {
-                    // Extrair título do conteúdo (primeira linha significativa)
-                    const lines = result.content.split('\n').filter(l => l.trim());
-                    let title = lines[0]?.slice(0, 100) || userMessage.slice(0, 100);
-                    title = title.replace(/^[#\-\*\d\/]+\s*/, '').trim();
-                    if (title.length > 80) title = title.slice(0, 77) + '...';
-                    
-                    // Mapear contentType para enum válido
-                    const contentTypeMap: Record<string, string> = {
-                      'thread': 'post',
-                      'tweet': 'post',
-                      'stories': 'post',
-                      'carousel': 'post',
-                      'carrossel': 'post',
-                      'newsletter': 'newsletter',
-                      'linkedin_post': 'post',
-                      'instagram_post': 'post',
-                      'email_marketing': 'email',
-                      'blog_post': 'article',
-                      'x_article': 'article',
-                      'short_video': 'script',
-                      'long_video': 'script',
-                      'reels': 'script',
-                    };
-                    const mappedType = contentTypeMap[contentType?.toLowerCase() || ''] || 'post';
-                    
-                    const { data: savedContent, error: saveError } = await supabase
-                      .from('client_content_library')
-                      .insert({
-                        client_id: clientId,
-                        title: title,
-                        content: result.content,
-                        content_type: mappedType,
-                        metadata: {
-                          auto_generated: true,
-                          from_chat: true,
-                          original_type: contentType || 'geral',
-                          agents_used: agents.map(a => a.id),
-                          pipeline_id: pipeline?.id || 'default',
-                          created_by: userId || null,
-                        }
-                      })
-                      .select('id')
-                      .single();
-                    
-                    if (saveError) {
-                      console.error('[MULTI-AGENT] Error saving to content library:', saveError);
-                    } else {
-                      savedContentId = savedContent?.id || null;
-                      console.log(`[MULTI-AGENT] Content auto-saved to library: ${savedContentId}`);
-                    }
-                  } catch (saveErr) {
-                    console.error('[MULTI-AGENT] Exception saving content:', saveErr);
-                  }
-                }
+                // NOTE: Content is NOT auto-saved here anymore.
+                // Content will be saved to content library when the user sends it 
+                // to planning and it gets published successfully.
                 
-                // Send final result with cumulative tokens and saved content info
+                // Send final result with cumulative tokens
                 sendProgress("complete", "done", result.content, undefined, {
                   input: totalInputTokens,
                   output: totalOutputTokens,
-                  cost: totalCost,
-                  savedContentId: savedContentId
+                  cost: totalCost
                 });
               } else {
                 sendProgress(agent.id, "completed", `${result.content.length} caracteres`, agent.name, {
