@@ -15,10 +15,8 @@ import { useKAIURLAnalysis } from "@/hooks/useKAIURLAnalysis";
 import { useKAIExecuteAction } from "@/hooks/useKAIExecuteAction";
 import { supabase } from "@/integrations/supabase/client";
 
-// Extended state with processing steps
+// Extended state with streaming response
 interface ExtendedKAIState extends KAIGlobalState {
-  currentStep: ProcessStep;
-  multiAgentStep: MultiAgentStep;
   streamingResponse: string;
   workspaceId: string | null;
 }

@@ -1,10 +1,10 @@
 import { useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Sparkles, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Message, ProcessStep, MultiAgentStep } from "@/types/chat";
-import { DEFAULT_KAI_SUGGESTIONS, KAIQuickSuggestion, KAIActionStatus } from "@/types/kaiActions";
+import { KAIActionStatus } from "@/types/kaiActions";
 import { EnhancedMessageBubble } from "@/components/chat/EnhancedMessageBubble";
 import { MinimalProgress } from "@/components/chat/MinimalProgress";
 import kaleidosLogo from "@/assets/kaleidos-logo.svg";
@@ -17,7 +17,6 @@ interface GlobalKAIChatProps {
   actionStatus?: KAIActionStatus;
   currentStep?: ProcessStep;
   multiAgentStep?: MultiAgentStep;
-  onSuggestionClick?: (suggestion: KAIQuickSuggestion) => void;
   onSendMessage?: (content: string, images?: string[], quality?: "fast" | "high") => void;
 }
 
@@ -29,7 +28,6 @@ export function GlobalKAIChat({
   actionStatus = "idle",
   currentStep,
   multiAgentStep,
-  onSuggestionClick,
   onSendMessage,
 }: GlobalKAIChatProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -42,11 +40,7 @@ export function GlobalKAIChat({
     }
   }, [messages, isProcessing]);
 
-  const filteredSuggestions = DEFAULT_KAI_SUGGESTIONS.filter(
-    (s) => !s.requiresClient || selectedClientId
-  );
-
-  // Empty state
+  // Empty state - simplified without quick actions that don't apply
   if (messages.length === 0 && !isProcessing) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center px-4 py-8">
@@ -62,42 +56,45 @@ export function GlobalKAIChat({
           <h3 className="text-lg font-semibold text-foreground mb-1">
             Olá! Sou o kAI
           </h3>
-          <p className="text-sm text-muted-foreground mb-6 max-w-[280px]">
-            Seu assistente de conteúdo. Posso criar posts, analisar métricas, 
-            organizar seu planejamento e muito mais.
+          <p className="text-sm text-muted-foreground mb-4 max-w-[280px]">
+            Seu assistente inteligente. Posso analisar métricas, responder dúvidas, 
+            e ajudar com qualquer coisa relacionada ao seu trabalho.
           </p>
 
-          {/* Quick suggestions */}
-          <div className="w-full space-y-2">
-            <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">
-              Sugestões rápidas
+          {/* Contextual hints based on client selection */}
+          <div className="w-full space-y-2 text-left">
+            <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide text-center">
+              Experimente perguntar
             </p>
-            <div className="grid grid-cols-2 gap-2">
-              {filteredSuggestions.map((suggestion, index) => (
-                <motion.button
-                  key={suggestion.label}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.2 + index * 0.05 }}
-                  onClick={() => onSuggestionClick?.(suggestion)}
-                  className={cn(
-                    "flex items-center gap-2 p-3 rounded-lg",
-                    "bg-muted/50 hover:bg-muted transition-colors",
-                    "text-left text-sm"
-                  )}
-                >
-                  <span className="text-lg">{suggestion.icon}</span>
-                  <span className="text-foreground font-medium">
-                    {suggestion.label}
-                  </span>
-                </motion.button>
-              ))}
+            <div className="space-y-1.5">
+              {selectedClientId ? (
+                <>
+                  <div className="px-3 py-2 rounded-lg bg-muted/30 text-xs text-muted-foreground">
+                    💬 "Como está o desempenho do Instagram?"
+                  </div>
+                  <div className="px-3 py-2 rounded-lg bg-muted/30 text-xs text-muted-foreground">
+                    💬 "Quais foram os melhores posts do mês?"
+                  </div>
+                  <div className="px-3 py-2 rounded-lg bg-muted/30 text-xs text-muted-foreground">
+                    💬 "Me dê ideias de conteúdo para essa semana"
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="px-3 py-2 rounded-lg bg-muted/30 text-xs text-muted-foreground">
+                    💬 "Como funciona o planejamento de conteúdo?"
+                  </div>
+                  <div className="px-3 py-2 rounded-lg bg-muted/30 text-xs text-muted-foreground">
+                    💬 "Quais são as melhores práticas para Instagram?"
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
           {!selectedClientId && (
             <p className="text-xs text-muted-foreground mt-4 px-4 py-2 rounded-lg bg-muted/30">
-              💡 Selecione um cliente para desbloquear todas as funcionalidades
+              💡 Selecione um cliente para acessar métricas e criar conteúdo
             </p>
           )}
         </motion.div>
@@ -152,7 +149,8 @@ export function GlobalKAIChat({
                 <div className="flex items-center gap-2 text-muted-foreground py-4">
                   <Loader2 className="h-4 w-4 animate-spin text-primary" />
                   <span className="text-sm">
-                    {actionStatus === "analyzing" && "Analisando sua solicitação..."}
+                    {actionStatus === "detecting" && "Analisando sua solicitação..."}
+                    {actionStatus === "analyzing" && "Processando informações..."}
                     {actionStatus === "confirming" && "Aguardando confirmação..."}
                     {actionStatus === "executing" && "Executando ação..."}
                     {actionStatus === "idle" && "kAI está pensando..."}

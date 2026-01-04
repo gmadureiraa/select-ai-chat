@@ -1,11 +1,12 @@
 import { useState, useRef, KeyboardEvent, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Send, Paperclip, X, FileText, Image, Loader2, Link as LinkIcon } from "lucide-react";
+import { Send, Paperclip, X, FileText, Image, Loader2, Link as LinkIcon, File, Music, Video, FileSpreadsheet, FileCode } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { KAIFileAttachment } from "@/types/kaiActions";
+import { toast } from "sonner";
 
 interface GlobalKAIInputProps {
   onSend: (message: string, files?: File[]) => Promise<void>;
@@ -19,6 +20,8 @@ interface GlobalKAIInputProps {
 
 // URL detection regex
 const URL_REGEX = /(https?:\/\/[^\s]+)/gi;
+const MAX_FILES = 10;
+const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
 
 export function GlobalKAIInput({
   onSend,
@@ -72,9 +75,38 @@ export function GlobalKAIInput({
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
-    if (files.length > 0) {
-      onAttachFiles(files);
+    
+    if (files.length === 0) return;
+    
+    // Check total file limit
+    const remainingSlots = MAX_FILES - attachedFiles.length;
+    if (remainingSlots <= 0) {
+      toast.error(`Limite de ${MAX_FILES} arquivos atingido`);
+      return;
     }
+    
+    // Filter valid files
+    const validFiles: File[] = [];
+    const errors: string[] = [];
+    
+    files.slice(0, remainingSlots).forEach(file => {
+      if (file.size > MAX_FILE_SIZE) {
+        errors.push(`${file.name}: arquivo muito grande (máx 20MB)`);
+      } else {
+        validFiles.push(file);
+      }
+    });
+    
+    if (files.length > remainingSlots) {
+      toast.warning(`Apenas ${remainingSlots} arquivo(s) adicionado(s). Limite: ${MAX_FILES}`);
+    }
+    
+    errors.forEach(error => toast.error(error));
+    
+    if (validFiles.length > 0) {
+      onAttachFiles(validFiles);
+    }
+    
     // Reset input
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
@@ -85,25 +117,41 @@ export function GlobalKAIInput({
     const items = e.clipboardData?.items;
     if (!items) return;
 
-    const imageFiles: File[] = [];
+    const pastedFiles: File[] = [];
     for (const item of items) {
-      if (item.type.startsWith("image/")) {
+      if (item.kind === "file") {
         const file = item.getAsFile();
         if (file) {
-          imageFiles.push(file);
+          pastedFiles.push(file);
         }
       }
     }
 
-    if (imageFiles.length > 0) {
+    if (pastedFiles.length > 0) {
+      const remainingSlots = MAX_FILES - attachedFiles.length;
+      if (remainingSlots <= 0) {
+        toast.error(`Limite de ${MAX_FILES} arquivos atingido`);
+        return;
+      }
+      
       e.preventDefault();
-      onAttachFiles(imageFiles);
+      const filesToAdd = pastedFiles.slice(0, remainingSlots);
+      onAttachFiles(filesToAdd);
+      
+      if (pastedFiles.length > remainingSlots) {
+        toast.warning(`Apenas ${remainingSlots} arquivo(s) colado(s). Limite: ${MAX_FILES}`);
+      }
     }
-  }, [onAttachFiles]);
+  }, [onAttachFiles, attachedFiles.length]);
 
-  const getFileIcon = (type: string) => {
+  const getFileIcon = (type: string, name: string) => {
     if (type.startsWith("image/")) return Image;
-    return FileText;
+    if (type.startsWith("video/")) return Video;
+    if (type.startsWith("audio/")) return Music;
+    if (type.includes("spreadsheet") || name.endsWith(".csv") || name.endsWith(".xlsx") || name.endsWith(".xls")) return FileSpreadsheet;
+    if (type.includes("javascript") || type.includes("typescript") || name.endsWith(".json") || name.endsWith(".html") || name.endsWith(".css")) return FileCode;
+    if (type.includes("pdf") || type.includes("document") || type.includes("text")) return FileText;
+    return File;
   };
 
   const formatFileSize = (bytes: number) => {
@@ -118,6 +166,15 @@ export function GlobalKAIInput({
     } catch {
       return url;
     }
+  };
+
+  const getFileColor = (type: string, name: string) => {
+    if (type.startsWith("image/")) return "text-blue-500";
+    if (type.startsWith("video/")) return "text-purple-500";
+    if (type.startsWith("audio/")) return "text-pink-500";
+    if (type.includes("spreadsheet") || name.endsWith(".csv") || name.endsWith(".xlsx")) return "text-green-600";
+    if (type.includes("pdf")) return "text-red-500";
+    return "text-muted-foreground";
   };
 
   return (
@@ -163,7 +220,8 @@ export function GlobalKAIInput({
           >
             <div className="flex flex-wrap gap-2">
               {attachedFiles.map((file) => {
-                const Icon = getFileIcon(file.type);
+                const Icon = getFileIcon(file.type, file.name);
+                const colorClass = getFileColor(file.type, file.name);
                 const isCSV = file.name.endsWith(".csv");
                 return (
                   <motion.div
@@ -185,10 +243,7 @@ export function GlobalKAIInput({
                         className="h-6 w-6 rounded object-cover"
                       />
                     ) : (
-                      <Icon className={cn(
-                        "h-4 w-4",
-                        isCSV ? "text-green-600" : "text-muted-foreground"
-                      )} />
+                      <Icon className={cn("h-4 w-4", colorClass)} />
                     )}
                     <span className="max-w-[100px] truncate text-foreground">
                       {file.name}
@@ -211,6 +266,10 @@ export function GlobalKAIInput({
                 );
               })}
             </div>
+            {/* File count indicator */}
+            <div className="mt-1 text-[10px] text-muted-foreground">
+              {attachedFiles.length}/{MAX_FILES} arquivos
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -222,7 +281,7 @@ export function GlobalKAIInput({
           ref={fileInputRef}
           type="file"
           multiple
-          accept=".csv,.pdf,.doc,.docx,.txt,.png,.jpg,.jpeg,.gif,.webp,.xls,.xlsx"
+          accept="*/*"
           onChange={handleFileSelect}
           className="hidden"
         />
@@ -231,7 +290,7 @@ export function GlobalKAIInput({
           size="icon"
           className="h-9 w-9 shrink-0 text-muted-foreground hover:text-foreground"
           onClick={() => fileInputRef.current?.click()}
-          disabled={isProcessing || disabled}
+          disabled={isProcessing || disabled || attachedFiles.length >= MAX_FILES}
         >
           <Paperclip className="h-4 w-4" />
         </Button>
@@ -275,7 +334,7 @@ export function GlobalKAIInput({
           Enter para enviar • Shift+Enter para nova linha
         </p>
         <p className="text-[10px] text-muted-foreground">
-          📎 CSVs • 🔗 URLs • 📷 Imagens
+          Até {MAX_FILES} arquivos • Qualquer tipo
         </p>
       </div>
     </div>
