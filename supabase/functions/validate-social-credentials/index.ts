@@ -27,7 +27,18 @@ interface ValidationResult {
   error?: string;
 }
 
+// RFC 3986 percent encoding for OAuth
+function percentEncode(str: string): string {
+  return encodeURIComponent(str)
+    .replace(/!/g, '%21')
+    .replace(/\*/g, '%2A')
+    .replace(/'/g, '%27')
+    .replace(/\(/g, '%28')
+    .replace(/\)/g, '%29');
+}
+
 // Generate OAuth 1.0a signature for Twitter
+// IMPORTANT: Do NOT include POST body parameters in the signature for Twitter API v2
 function generateOAuthSignature(
   method: string,
   url: string,
@@ -35,15 +46,26 @@ function generateOAuthSignature(
   consumerSecret: string,
   tokenSecret: string
 ): string {
-  const signatureBaseString = `${method}&${encodeURIComponent(url)}&${encodeURIComponent(
-    Object.entries(params)
-      .sort()
-      .map(([k, v]) => `${k}=${v}`)
-      .join("&")
-  )}`;
-  const signingKey = `${encodeURIComponent(consumerSecret)}&${encodeURIComponent(tokenSecret)}`;
+  // Sort parameters and create parameter string
+  const sortedParams = Object.keys(params).sort();
+  const paramString = sortedParams
+    .map(key => `${percentEncode(key)}=${percentEncode(params[key])}`)
+    .join("&");
+  
+  // Create signature base string
+  const signatureBaseString = `${method}&${percentEncode(url)}&${percentEncode(paramString)}`;
+  
+  // Create signing key
+  const signingKey = `${percentEncode(consumerSecret)}&${percentEncode(tokenSecret)}`;
+  
+  // Generate HMAC-SHA1 signature
   const hmacSha1 = createHmac("sha1", signingKey);
-  return hmacSha1.update(signatureBaseString).digest("base64");
+  const signature = hmacSha1.update(signatureBaseString).digest("base64");
+  
+  console.log("OAuth Debug - Parameter String:", paramString);
+  console.log("OAuth Debug - Signature Base String:", signatureBaseString);
+  
+  return signature;
 }
 
 function generateOAuthHeader(
@@ -54,39 +76,61 @@ function generateOAuthHeader(
   accessToken: string,
   accessTokenSecret: string
 ): string {
-  const oauthParams = {
-    oauth_consumer_key: apiKey,
-    oauth_nonce: Math.random().toString(36).substring(2),
+  // Trim all credentials to remove any accidental whitespace
+  const cleanApiKey = apiKey.trim();
+  const cleanApiSecret = apiSecret.trim();
+  const cleanAccessToken = accessToken.trim();
+  const cleanAccessTokenSecret = accessTokenSecret.trim();
+  
+  const timestamp = Math.floor(Date.now() / 1000).toString();
+  const nonce = Math.random().toString(36).substring(2) + Math.random().toString(36).substring(2);
+  
+  const oauthParams: Record<string, string> = {
+    oauth_consumer_key: cleanApiKey,
+    oauth_nonce: nonce,
     oauth_signature_method: "HMAC-SHA1",
-    oauth_timestamp: Math.floor(Date.now() / 1000).toString(),
-    oauth_token: accessToken,
+    oauth_timestamp: timestamp,
+    oauth_token: cleanAccessToken,
     oauth_version: "1.0",
   };
 
-  const signature = generateOAuthSignature(method, url, oauthParams, apiSecret, accessTokenSecret);
+  const signature = generateOAuthSignature(
+    method, 
+    url, 
+    oauthParams, 
+    cleanApiSecret, 
+    cleanAccessTokenSecret
+  );
 
-  const signedOAuthParams = {
+  // Build OAuth header string
+  const headerParams: Record<string, string> = {
     ...oauthParams,
     oauth_signature: signature,
   };
 
-  return "OAuth " + Object.entries(signedOAuthParams)
-    .sort((a, b) => a[0].localeCompare(b[0]))
-    .map(([k, v]) => `${encodeURIComponent(k)}="${encodeURIComponent(v)}"`)
+  const oauthHeader = "OAuth " + Object.keys(headerParams)
+    .sort()
+    .map(key => `${percentEncode(key)}="${percentEncode(headerParams[key])}"`)
     .join(", ");
+  
+  console.log("OAuth Debug - Generated Header:", oauthHeader);
+  
+  return oauthHeader;
 }
 
 async function validateTwitterCredentials(credentials: ValidationRequest['credentials']): Promise<ValidationResult> {
   const { apiKey, apiSecret, accessToken, accessTokenSecret } = credentials;
   
   if (!apiKey || !apiSecret || !accessToken || !accessTokenSecret) {
-    return { isValid: false, error: 'Todas as credenciais do Twitter são obrigatórias' };
+    return { isValid: false, error: 'Todas as credenciais do Twitter são obrigatórias (API Key, API Secret, Access Token, Access Token Secret)' };
   }
 
   try {
     const url = "https://api.x.com/2/users/me";
     const oauthHeader = generateOAuthHeader("GET", url, apiKey, apiSecret, accessToken, accessTokenSecret);
 
+    console.log("Twitter API Request - URL:", url);
+    
     const response = await fetch(url, {
       method: "GET",
       headers: {
@@ -95,13 +139,37 @@ async function validateTwitterCredentials(credentials: ValidationRequest['creden
       },
     });
 
-    const data = await response.json();
+    const responseText = await response.text();
+    console.log("Twitter API Response Status:", response.status);
+    console.log("Twitter API Response Body:", responseText);
+
+    let data;
+    try {
+      data = JSON.parse(responseText);
+    } catch {
+      return { isValid: false, error: `Resposta inválida da API: ${responseText}` };
+    }
 
     if (!response.ok) {
       console.error("Twitter validation error:", data);
+      
+      // Provide more helpful error messages
+      if (response.status === 401) {
+        return { 
+          isValid: false, 
+          error: 'Credenciais inválidas. Verifique se: 1) As chaves estão corretas, 2) O app tem permissão de "Read and Write", 3) OAuth 1.0a está habilitado no Twitter Developer Portal.' 
+        };
+      }
+      if (response.status === 403) {
+        return { 
+          isValid: false, 
+          error: 'Acesso negado. Verifique se o app tem as permissões necessárias no Twitter Developer Portal.' 
+        };
+      }
+      
       return { 
         isValid: false, 
-        error: data.detail || data.errors?.[0]?.message || 'Credenciais inválidas' 
+        error: data.detail || data.errors?.[0]?.message || `Erro ${response.status}: Credenciais inválidas` 
       };
     }
 
@@ -128,7 +196,7 @@ async function validateLinkedInCredentials(credentials: ValidationRequest['crede
     const response = await fetch("https://api.linkedin.com/v2/userinfo", {
       method: "GET",
       headers: {
-        Authorization: `Bearer ${oauthAccessToken}`,
+        Authorization: `Bearer ${oauthAccessToken.trim()}`,
       },
     });
 
@@ -198,12 +266,12 @@ Deno.serve(async (req) => {
       account_name: result.accountName || null,
       account_id: result.accountId || null,
       ...(platform === 'twitter' ? {
-        api_key: credentials.apiKey,
-        api_secret: credentials.apiSecret,
-        access_token: credentials.accessToken,
-        access_token_secret: credentials.accessTokenSecret,
+        api_key: credentials.apiKey?.trim(),
+        api_secret: credentials.apiSecret?.trim(),
+        access_token: credentials.accessToken?.trim(),
+        access_token_secret: credentials.accessTokenSecret?.trim(),
       } : {
-        oauth_access_token: credentials.oauthAccessToken,
+        oauth_access_token: credentials.oauthAccessToken?.trim(),
       }),
     };
 
