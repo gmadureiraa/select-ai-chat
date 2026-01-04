@@ -125,8 +125,15 @@ async function validateTwitterCredentials(credentials: ValidationRequest['creden
     return { isValid: false, error: 'Todas as credenciais do Twitter são obrigatórias (API Key, API Secret, Access Token, Access Token Secret)' };
   }
 
+  // Log credential lengths for debugging (not actual values for security)
+  console.log("Twitter credentials check - API Key length:", apiKey.trim().length);
+  console.log("Twitter credentials check - API Secret length:", apiSecret.trim().length);
+  console.log("Twitter credentials check - Access Token length:", accessToken.trim().length);
+  console.log("Twitter credentials check - Access Token Secret length:", accessTokenSecret.trim().length);
+
   try {
-    const url = "https://api.x.com/2/users/me";
+    // Use api.twitter.com (the official endpoint that works with OAuth 1.0a)
+    const url = "https://api.twitter.com/2/users/me";
     const oauthHeader = generateOAuthHeader("GET", url, apiKey, apiSecret, accessToken, accessTokenSecret);
 
     console.log("Twitter API Request - URL:", url);
@@ -135,7 +142,6 @@ async function validateTwitterCredentials(credentials: ValidationRequest['creden
       method: "GET",
       headers: {
         Authorization: oauthHeader,
-        "Content-Type": "application/json",
       },
     });
 
@@ -157,7 +163,7 @@ async function validateTwitterCredentials(credentials: ValidationRequest['creden
       if (response.status === 401) {
         return { 
           isValid: false, 
-          error: 'Credenciais inválidas. Verifique se: 1) As chaves estão corretas, 2) O app tem permissão de "Read and Write", 3) OAuth 1.0a está habilitado no Twitter Developer Portal.' 
+          error: 'Credenciais inválidas. Verifique se: 1) As chaves estão corretas e foram regeneradas APÓS mudar permissões, 2) O app tem permissão de "Read and Write", 3) OAuth 1.0a está habilitado.' 
         };
       }
       if (response.status === 403) {
