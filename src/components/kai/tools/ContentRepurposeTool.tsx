@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Youtube, Loader2, Sparkles, Check, ChevronDown, ChevronUp, Scissors } from "lucide-react";
+import { Link2, Loader2, Sparkles, Check, ChevronDown, ChevronUp, Scissors, Youtube, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -36,48 +36,49 @@ export function ContentRepurposeTool({ clientId }: ContentRepurposeToolProps) {
   const { toast } = useToast();
   const { clients } = useClients();
   const [viewingHistoryItem, setViewingHistoryItem] = useState<RepurposeHistoryItem | null>(null);
-  const [showTranscript, setShowTranscript] = useState(false);
+  const [showContent, setShowContent] = useState(false);
   
   const selectedClient = clients?.find(c => c.id === clientId);
   const { saveHistory } = useRepurposeHistory(clientId);
   
   const {
-    youtubeUrl,
-    setYoutubeUrl,
-    transcript,
+    sourceUrl,
+    setSourceUrl,
+    sourceData,
     selectedFormats,
     toggleFormat,
     generatedContents,
-    isTranscribing,
+    isExtracting,
     isGenerating,
     generatingFormat,
     showResults,
-    transcribe,
+    extractContent,
     generateAll,
     copyToClipboard,
     reset,
     goBackToForm,
   } = useContentRepurpose();
 
-  const handleTranscribe = async () => {
-    if (!youtubeUrl.trim()) {
+  const handleExtract = async () => {
+    if (!sourceUrl.trim()) {
       toast({
         title: "URL necessária",
-        description: "Cole o link do vídeo do YouTube",
+        description: "Cole o link do vídeo ou artigo",
         variant: "destructive",
       });
       return;
     }
 
     try {
-      await transcribe();
+      const data = await extractContent();
+      const isVideo = data.type === 'youtube';
       toast({
-        title: "Vídeo transcrito!",
+        title: isVideo ? "Vídeo transcrito!" : "Conteúdo extraído!",
         description: "Agora selecione os formatos para gerar",
       });
     } catch (error) {
       toast({
-        title: "Erro ao transcrever",
+        title: "Erro ao extrair",
         description: error instanceof Error ? error.message : "Erro desconhecido",
         variant: "destructive",
       });
@@ -107,14 +108,14 @@ export function ContentRepurposeTool({ clientId }: ContentRepurposeToolProps) {
       const results = await generateAll(clientId);
       
       // Save to history (don't block results if this fails)
-      if (results && results.length > 0 && transcript) {
+      if (results && results.length > 0 && sourceData) {
         try {
           await saveHistory.mutateAsync({
             clientId: clientId,
-            youtubeUrl,
-            videoTitle: transcript.title,
-            videoThumbnail: transcript.thumbnail,
-            transcript: transcript.content,
+            youtubeUrl: sourceUrl,
+            videoTitle: sourceData.title,
+            videoThumbnail: sourceData.thumbnail,
+            transcript: sourceData.content,
             objective: "educational",
             generatedContents: results,
           });
@@ -166,8 +167,8 @@ export function ContentRepurposeTool({ clientId }: ContentRepurposeToolProps) {
     return (
       <GeneratedContentResults
         contents={generatedContents}
-        videoTitle={transcript?.title || "Vídeo"}
-        videoThumbnail={transcript?.thumbnail}
+        videoTitle={sourceData?.title || "Conteúdo"}
+        videoThumbnail={sourceData?.thumbnail}
         onBack={goBackToForm}
         onCopy={async (text) => {
           await copyToClipboard(text);
@@ -182,6 +183,9 @@ export function ContentRepurposeTool({ clientId }: ContentRepurposeToolProps) {
     );
   }
 
+  const isVideo = sourceData?.type === 'youtube';
+  const SourceIcon = isVideo ? Youtube : FileText;
+
   const getFormatLabel = (formatId: string) => {
     const format = CONTENT_FORMATS.find(f => f.id === formatId);
     return format?.label || formatId;
@@ -191,13 +195,13 @@ export function ContentRepurposeTool({ clientId }: ContentRepurposeToolProps) {
     <div className="p-6 space-y-6 max-w-4xl mx-auto">
       {/* Header */}
       <div className="flex items-center gap-3">
-        <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-red-500 to-pink-600 flex items-center justify-center">
-          <Youtube className="h-6 w-6 text-white" />
+        <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center">
+          <Link2 className="h-6 w-6 text-primary-foreground" />
         </div>
         <div>
           <h1 className="text-2xl font-semibold">Reaproveitamento de Conteúdo</h1>
           <p className="text-muted-foreground">
-            Transforme vídeos do YouTube em múltiplos formatos de conteúdo
+            Transforme vídeos ou artigos em múltiplos formatos de conteúdo
           </p>
         </div>
       </div>
@@ -207,67 +211,77 @@ export function ContentRepurposeTool({ clientId }: ContentRepurposeToolProps) {
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
             <Badge variant="outline" className="h-6 w-6 rounded-full p-0 flex items-center justify-center">1</Badge>
-            Cole o link do YouTube
+            Cole o link do conteúdo
           </CardTitle>
+          <CardDescription>
+            YouTube, artigos, newsletters ou qualquer página com texto
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex gap-2">
             <Input
-              placeholder="https://youtube.com/watch?v=..."
-              value={youtubeUrl}
-              onChange={(e) => setYoutubeUrl(e.target.value)}
+              placeholder="https://youtube.com/watch?v=... ou https://site.com/artigo"
+              value={sourceUrl}
+              onChange={(e) => setSourceUrl(e.target.value)}
               className="flex-1"
             />
             <Button 
-              onClick={handleTranscribe} 
-              disabled={isTranscribing || !youtubeUrl.trim()}
+              onClick={handleExtract} 
+              disabled={isExtracting || !sourceUrl.trim()}
             >
-              {isTranscribing ? (
+              {isExtracting ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Transcrevendo...
+                  Extraindo...
                 </>
               ) : (
-                "Transcrever"
+                "Extrair"
               )}
             </Button>
           </div>
 
-          {/* Transcript Preview */}
-          {transcript && (
+          {/* Extracted Content Preview */}
+          {sourceData && (
             <div className="space-y-3">
               <div className="flex items-center gap-4 p-3 rounded-lg bg-muted/50">
-                {transcript.thumbnail && (
+                {sourceData.thumbnail ? (
                   <img 
-                    src={transcript.thumbnail} 
-                    alt={transcript.title}
+                    src={sourceData.thumbnail} 
+                    alt={sourceData.title}
                     className="w-24 h-14 object-cover rounded"
                   />
+                ) : (
+                  <div className="w-24 h-14 rounded bg-muted flex items-center justify-center">
+                    <SourceIcon className="h-6 w-6 text-muted-foreground" />
+                  </div>
                 )}
                 <div className="flex-1 min-w-0">
-                  <p className="font-medium truncate">{transcript.title}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {transcript.content.length.toLocaleString()} caracteres transcritos
+                  <p className="font-medium truncate">{sourceData.title}</p>
+                  <p className="text-xs text-muted-foreground flex items-center gap-2">
+                    <Badge variant="secondary" className="text-xs">
+                      {isVideo ? 'YouTube' : 'Artigo'}
+                    </Badge>
+                    {sourceData.content.length.toLocaleString()} caracteres extraídos
                   </p>
                 </div>
                 <Badge variant="outline" className="text-green-600 border-green-600">
                   <Check className="h-3 w-3 mr-1" />
-                  Transcrito
+                  Extraído
                 </Badge>
               </div>
 
-              <Collapsible open={showTranscript} onOpenChange={setShowTranscript}>
+              <Collapsible open={showContent} onOpenChange={setShowContent}>
                 <CollapsibleTrigger asChild>
                   <Button variant="ghost" size="sm" className="w-full">
-                    {showTranscript ? (
+                    {showContent ? (
                       <>
                         <ChevronUp className="h-4 w-4 mr-2" />
-                        Ocultar transcrição
+                        Ocultar conteúdo
                       </>
                     ) : (
                       <>
                         <ChevronDown className="h-4 w-4 mr-2" />
-                        Ver transcrição
+                        Ver conteúdo
                       </>
                     )}
                   </Button>
@@ -275,11 +289,31 @@ export function ContentRepurposeTool({ clientId }: ContentRepurposeToolProps) {
                 <CollapsibleContent>
                   <ScrollArea className="h-48 rounded border p-3 mt-2">
                     <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-                      {transcript.content}
+                      {sourceData.content}
                     </p>
                   </ScrollArea>
                 </CollapsibleContent>
               </Collapsible>
+
+              {/* Images extracted */}
+              {sourceData.images && sourceData.images.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-sm font-medium">Imagens extraídas ({sourceData.images.length})</p>
+                  <div className="flex gap-2 overflow-x-auto pb-2">
+                    {sourceData.images.slice(0, 5).map((img, i) => (
+                      <img 
+                        key={i}
+                        src={img} 
+                        alt={`Imagem ${i + 1}`}
+                        className="w-20 h-20 object-cover rounded border shrink-0"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).style.display = 'none';
+                        }}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </CardContent>
@@ -292,7 +326,7 @@ export function ContentRepurposeTool({ clientId }: ContentRepurposeToolProps) {
       />
 
       {/* Step 2: Formats */}
-      {transcript && (
+      {sourceData && (
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
