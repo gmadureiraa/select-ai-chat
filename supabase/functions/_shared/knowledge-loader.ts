@@ -161,19 +161,62 @@ Use "---PÁGINA N---" entre cada slide
 - CTA genérico ("siga para mais")
 - Muitas ideias por slide`,
 
-  "thread": `## FORMATO: THREAD
+  "thread": `## FORMATO: THREAD (TWITTER/X)
+
+### PLATAFORMA: TWITTER/X (NÃO Instagram!)
+Thread é uma série de TWEETS conectados no TWITTER/X.
+NUNCA confunda com Stories (que é Instagram).
 
 ### ESTRUTURA OBRIGATÓRIA
-**TWEET 1 (GANCHO)**: 100-150 chars, promessa/pergunta/dado impactante, termine com 🧵
-**TWEETS 2-9**: 1 ideia por tweet, numere (1/, 2/), cada tweet funciona sozinho
-**ÚLTIMO TWEET**: Peça RT do primeiro, resumo + CTA
 
-### REGRAS
-- Limite 280 caracteres por tweet
-- Separador "---TWEET N---" entre tweets
-- Tweet 1 deve viralizar sozinho`,
+**TWEET 1 (GANCHO)**: 100-150 caracteres
+- Promessa, pergunta ou dado impactante
+- OBRIGATÓRIO: Termine com "🧵" ou "Thread:"
+- Este tweet precisa viralizar SOZINHO
 
-  "tweet": `## FORMATO: TWEET
+**TWEETS 2-9 (DESENVOLVIMENTO)**
+- 1 ideia por tweet
+- OBRIGATÓRIO: Numere cada tweet (1/, 2/, 3/...)
+- Cada tweet deve fazer sentido sozinho
+- Use quebras de linha para legibilidade
+
+**ÚLTIMO TWEET (CTA)**
+- Peça RT do primeiro tweet
+- Resumo do valor entregue + call to action
+- Convide para seguir
+
+### SEPARADORES (OBRIGATÓRIO)
+Use "---TWEET N---" entre CADA tweet
+
+### REGRAS DE OURO
+- Limite de 280 caracteres por tweet (OBRIGATÓRIO)
+- Tweet 1 deve viralizar sozinho
+- Progressão lógica de valor
+- Dados específicos, não genéricos
+
+### FORMATO DE ENTREGA
+\`\`\`
+---TWEET 1---
+[Texto do gancho com 🧵]
+
+---TWEET 2---
+1/
+[Conteúdo do tweet 2]
+
+---TWEET 3---
+2/
+[Conteúdo do tweet 3]
+
+(continue...)
+
+---TWEET FINAL---
+[Resumo + CTA + Peça RT do primeiro]
+\`\`\``,
+
+  "tweet": `## FORMATO: TWEET (TWITTER/X)
+
+### PLATAFORMA: TWITTER/X
+Tweet único, diferente de Thread.
 
 ### REGRAS
 - Limite OBRIGATÓRIO: 280 caracteres
@@ -201,17 +244,58 @@ Use "---PÁGINA N---" entre cada slide
 - Eduque, não venda
 - Parágrafos curtos são essenciais`,
 
-  "stories": `## FORMATO: STORIES
+  "stories": `## FORMATO: STORIES (INSTAGRAM)
 
-### ESTRUTURA
-**STORY 1 (GANCHO)**: Máx 10 palavras, captura atenção
-**STORIES 2-6**: 10-20 palavras, texto legível
-**ÚLTIMO STORY**: CTA claro
+### PLATAFORMA: INSTAGRAM (NÃO Twitter!)
+Stories são sequências VERTICAIS de imagens/vídeos no INSTAGRAM.
+NUNCA confunda com Thread (que é Twitter/X).
 
-### REGRAS
-- Máx 3 linhas por story
-- Texto grande e legível
-- Separador "---STORIE N---"`,
+### ESTRUTURA OBRIGATÓRIA
+
+**STORY 1 (GANCHO/CAPA)**
+- Visual impactante
+- Texto CURTO (máx 10 palavras)
+- Indicação: "1/5" ou "1 de 5"
+- Cria curiosidade para continuar
+
+**STORIES 2-6 (DESENVOLVIMENTO)**
+- 10-20 palavras por story
+- Texto GRANDE e LEGÍVEL (fonte grande!)
+- UMA ideia por story
+- Cada story tem valor próprio
+
+**ÚLTIMO STORY (CTA)**
+- "Deslize para cima", "Link na bio", etc.
+- Destaque visual para o CTA
+- Indicação de sequência final
+
+### SEPARADORES (OBRIGATÓRIO)
+Use "---STORY N---" ou "---STORIE N---" entre CADA story
+
+### REGRAS DE OURO
+- Sequência de 3-7 stories (ideal: 5)
+- Máx 50 palavras por story
+- Texto GRANDE e legível
+- Alto contraste para leitura
+- Formato VERTICAL (9:16)
+
+### FORMATO DE ENTREGA
+\`\`\`
+---STORY 1/5---
+VISUAL: [Descrição do visual]
+TEXTO: [Texto do story - máx 50 palavras]
+
+---STORY 2/5---
+VISUAL: [Descrição]
+TEXTO: [Texto]
+
+(continue...)
+
+---STORY 5/5 (CTA)---
+VISUAL: [Descrição com CTA destacado]
+TEXTO: [CTA + encerramento]
+LINK: [Se aplicável]
+\`\`\``,
 
   "short_video": `## FORMATO: VÍDEO CURTO (Reels/TikTok/Shorts)
 

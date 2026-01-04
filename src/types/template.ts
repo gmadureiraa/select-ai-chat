@@ -1388,20 +1388,69 @@ export const detectContentTypeFromTemplateName = (name: string): ContentFormatTy
 };
 
 // Detecção de tipo de conteúdo a partir do texto
+// IMPORTANTE: A ordem é crítica! Formatos mais específicos devem vir primeiro
+// Referência: docs/assistente-kai/FLUXO-FORMATOS.md
 export const detectContentType = (text: string): ContentFormatType | null => {
   const lowerText = text.toLowerCase();
   
-  if (lowerText.includes('carrossel') || lowerText.includes('carousel')) return 'carousel';
-  if (lowerText.includes('storie') || lowerText.includes('story')) return 'stories';
-  if (lowerText.includes('thread')) return 'thread';
+  // MÉTODO 1: Detecção por @FORMATO (prioridade máxima conforme docs)
+  // Ex: "@THREAD sobre produtividade" → thread
+  if (lowerText.includes('@thread')) return 'thread';
+  if (lowerText.includes('@newsletter')) return 'newsletter';
+  if (lowerText.includes('@tweet')) return 'tweet';
+  if (lowerText.includes('@carrossel') || lowerText.includes('@carousel')) return 'carousel';
+  if (lowerText.includes('@stories') || lowerText.includes('@story')) return 'stories';
+  if (lowerText.includes('@linkedin')) return 'linkedin_post';
+  if (lowerText.includes('@blog')) return 'blog_post';
+  if (lowerText.includes('@artigo')) return 'x_article';
+  if (lowerText.includes('@reels') || lowerText.includes('@reel')) return 'short_video';
+  
+  // MÉTODO 2: Detecção por nome explícito
+  // ORDEM CRÍTICA: Thread ANTES de stories para evitar false positives
+  // ("thread" é mais específico que "story/storie")
+  
+  // Artigo no X (mais específico, antes de artigo genérico)
   if (lowerText.includes('artigo no x') || lowerText.includes('artigo x') || lowerText.includes('artigo twitter')) return 'x_article';
-  if (lowerText.includes('tweet') || lowerText.includes('twitter') || lowerText.includes(' x ')) return 'tweet';
-  if (lowerText.includes('reel') || lowerText.includes('tiktok') || lowerText.includes('vídeo curto') || lowerText.includes('video curto') || lowerText.includes('short')) return 'short_video';
-  if (lowerText.includes('vídeo longo') || lowerText.includes('video longo') || lowerText.includes('youtube') || lowerText.includes('roteiro')) return 'long_video';
-  if (lowerText.includes('linkedin')) return 'linkedin_post';
-  if (lowerText.includes('newsletter')) return 'newsletter';
-  if (lowerText.includes('post estático') || lowerText.includes('imagem estática') || lowerText.includes('post único') || lowerText.includes('estático')) return 'static_image';
-  if (lowerText.includes('blog') || lowerText.includes('artigo')) return 'blog_post';
+  
+  // Thread (Twitter/X) - ANTES de stories
+  if (/thread/i.test(lowerText)) return 'thread';
+  
+  // Newsletter
+  if (/newsletter/i.test(lowerText)) return 'newsletter';
+  
+  // Carrossel
+  if (/carrossel|carousel|carrosel/i.test(lowerText)) return 'carousel';
+  
+  // Stories (Instagram) - DEPOIS de thread para evitar confusão
+  // Usar word boundary para evitar match em "história" 
+  if (/\bstories?\b/i.test(lowerText) || /\bstorie\b/i.test(lowerText)) return 'stories';
+  
+  // Tweet (diferente de thread)
+  if (/\btweet\b/i.test(lowerText)) return 'tweet';
+  
+  // Plataformas Twitter/X (quando não é thread nem artigo)
+  if (/\btwitter\b/i.test(lowerText) || /\bpara o x\b/i.test(lowerText) || /\bno x\b/i.test(lowerText)) return 'tweet';
+  
+  // Reels/Shorts/Vídeo curto
+  if (/reels?|tiktok|vídeo curto|video curto|shorts?/i.test(lowerText)) return 'short_video';
+  
+  // Vídeo longo
+  if (/vídeo longo|video longo|youtube|roteiro de vídeo|roteiro de video/i.test(lowerText)) return 'long_video';
+  
+  // LinkedIn
+  if (/linkedin/i.test(lowerText)) return 'linkedin_post';
+  
+  // Post estático
+  if (/post estático|imagem estática|post único|estático/i.test(lowerText)) return 'static_image';
+  
+  // Post Instagram (genérico)
+  if (/post instagram|legenda instagram|instagram post/i.test(lowerText)) return 'instagram_post';
+  
+  // Blog (menos específico, por último)
+  if (/blog\s*post|post\s*(do|para)\s*blog/i.test(lowerText)) return 'blog_post';
+  
+  // Artigo genérico (pode ser blog ou x_article, default para blog)
+  if (/\bartigo\b/i.test(lowerText)) return 'blog_post';
   
   return null;
 };

@@ -396,24 +396,41 @@ export const TEMPLATE_TO_AGENT: Record<string, ContentAgentType> = {
 };
 
 // Detect content agent from message
+// IMPORTANTE: Suporta @FORMATO conforme docs/assistente-kai/FLUXO-FORMATOS.md
 export function detectContentAgent(message: string): ContentAgentType | null {
-  const patterns: Record<ContentAgentType, RegExp[]> = {
-    newsletter_agent: [/newsletter/i, /news\s*letter/i],
-    email_marketing_agent: [/email\s*marketing/i, /email\s*promocional/i, /sequência\s*de\s*email/i],
-    carousel_agent: [/carrossel/i, /carousel/i, /carrosel/i],
-    static_post_agent: [/post\s*(estático|único|simples)/i, /imagem\s*instagram/i],
-    reels_agent: [/reels?/i, /shorts?/i, /vídeo\s*curto/i, /roteiro\s*(de\s*)?(reel|short)/i],
-    long_video_agent: [/vídeo\s*longo/i, /youtube/i, /roteiro\s*(de\s*)?vídeo/i],
-    tweet_agent: [/tweet\s*(único|simples)?$/i, /^tweet$/i],
-    thread_agent: [/thread/i, /fio\s*de\s*tweets/i],
-    linkedin_agent: [/linkedin/i, /post\s*linkedin/i],
-    article_agent: [/artigo/i, /article/i, /medium/i],
-    blog_agent: [/blog\s*post/i, /post\s*do\s*blog/i, /post\s*para\s*blog/i]
-  };
+  const lowerMessage = message.toLowerCase();
+  
+  // PRIORIDADE 1: Detecção por @FORMATO
+  if (lowerMessage.includes('@thread')) return 'thread_agent';
+  if (lowerMessage.includes('@newsletter')) return 'newsletter_agent';
+  if (lowerMessage.includes('@tweet')) return 'tweet_agent';
+  if (lowerMessage.includes('@carrossel') || lowerMessage.includes('@carousel')) return 'carousel_agent';
+  if (lowerMessage.includes('@linkedin')) return 'linkedin_agent';
+  if (lowerMessage.includes('@blog')) return 'blog_agent';
+  if (lowerMessage.includes('@artigo')) return 'article_agent';
+  if (lowerMessage.includes('@reels') || lowerMessage.includes('@reel')) return 'reels_agent';
+  if (lowerMessage.includes('@email')) return 'email_marketing_agent';
+  if (lowerMessage.includes('@post')) return 'static_post_agent';
+  
+  // PRIORIDADE 2: Detecção por padrões (ordem importa!)
+  // Thread ANTES de outros padrões do Twitter
+  const orderedPatterns: [ContentAgentType, RegExp[]][] = [
+    ['thread_agent', [/thread/i, /fio\s*de\s*tweets/i]],
+    ['newsletter_agent', [/newsletter/i, /news\s*letter/i]],
+    ['email_marketing_agent', [/email\s*marketing/i, /email\s*promocional/i, /sequência\s*de\s*email/i]],
+    ['carousel_agent', [/carrossel/i, /carousel/i, /carrosel/i]],
+    ['static_post_agent', [/post\s*(estático|único|simples)/i, /imagem\s*instagram/i]],
+    ['reels_agent', [/reels?/i, /shorts?/i, /vídeo\s*curto/i, /roteiro\s*(de\s*)?(reel|short)/i]],
+    ['long_video_agent', [/vídeo\s*longo/i, /youtube/i, /roteiro\s*(de\s*)?vídeo/i]],
+    ['tweet_agent', [/\btweet\b/i]], // word boundary para evitar match em thread
+    ['linkedin_agent', [/linkedin/i, /post\s*linkedin/i]],
+    ['article_agent', [/artigo\s*no\s*x/i, /artigo\s*x/i, /artigo\s*twitter/i, /article/i, /medium/i]],
+    ['blog_agent', [/blog\s*post/i, /post\s*do\s*blog/i, /post\s*para\s*blog/i, /\bartigo\b/i]]
+  ];
 
-  for (const [agentType, regexes] of Object.entries(patterns)) {
+  for (const [agentType, regexes] of orderedPatterns) {
     if (regexes.some(r => r.test(message))) {
-      return agentType as ContentAgentType;
+      return agentType;
     }
   }
   return null;
