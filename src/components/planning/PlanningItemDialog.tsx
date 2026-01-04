@@ -2,27 +2,26 @@ import { useState, useEffect } from 'react';
 import { format, parseISO } from 'date-fns';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { CalendarIcon, Loader2, Wand2, ChevronDown, Link, Image, User, MessageSquare, Settings2 } from 'lucide-react';
+import { CalendarIcon, Loader2, Wand2, ChevronDown, Image, User, Settings2 } from 'lucide-react';
 import { useClients } from '@/hooks/useClients';
 import { useTeamMembers } from '@/hooks/useTeamMembers';
 import { usePlanningImageGeneration } from '@/hooks/usePlanningImageGeneration';
 import { usePlanningContentGeneration } from '@/hooks/usePlanningContentGeneration';
 import { cn } from '@/lib/utils';
 import { MediaUploader, MediaItem } from './MediaUploader';
-import { Textarea } from '@/components/ui/textarea';
 import { RichContentEditor } from './RichContentEditor';
 import { ThreadEditor, ThreadTweet } from './ThreadEditor';
 import { ImageGenerationModal, ImageGenerationOptions } from './ImageGenerationModal';
 import { PlanningItemComments } from './PlanningItemComments';
 import { MentionableInput } from './MentionableInput';
 import { RecurrenceConfig } from './RecurrenceConfig';
+import { CONTENT_TYPE_OPTIONS, CONTENT_TO_PLATFORM, ContentTypeKey } from '@/types/contentTypes';
 import type { PlanningItem, CreatePlanningItemInput, PlanningPlatform, PlanningPriority, KanbanColumn } from '@/hooks/usePlanningItems';
 import type { RecurrenceConfig as RecurrenceConfigType } from '@/types/rssTrigger';
 
@@ -37,17 +36,6 @@ interface PlanningItemDialogProps {
   onUpdate?: (id: string, data: Partial<PlanningItem>) => Promise<void>;
 }
 
-const platforms: { value: PlanningPlatform; label: string }[] = [
-  { value: 'instagram', label: 'Instagram' },
-  { value: 'twitter', label: 'Twitter/X' },
-  { value: 'linkedin', label: 'LinkedIn' },
-  { value: 'youtube', label: 'YouTube' },
-  { value: 'newsletter', label: 'Newsletter' },
-  { value: 'blog', label: 'Blog' },
-  { value: 'tiktok', label: 'TikTok' },
-  { value: 'other', label: 'Outro' },
-];
-
 const priorities: { value: PlanningPriority; label: string }[] = [
   { value: 'low', label: 'Baixa' },
   { value: 'medium', label: 'Média' },
@@ -55,12 +43,14 @@ const priorities: { value: PlanningPriority; label: string }[] = [
   { value: 'urgent', label: 'Urgente' },
 ];
 
-const contentTypes = [
-  { value: 'post', label: 'Post' },
-  { value: 'thread', label: 'Thread' },
-  { value: 'article', label: 'Artigo' },
-  { value: 'carousel', label: 'Carrossel' },
-];
+// Group content types by category for the select
+const groupedContentTypes = CONTENT_TYPE_OPTIONS.reduce((acc, item) => {
+  if (!acc[item.category]) {
+    acc[item.category] = [];
+  }
+  acc[item.category].push(item);
+  return acc;
+}, {} as Record<string, typeof CONTENT_TYPE_OPTIONS>);
 
 export function PlanningItemDialog({
   open,
@@ -83,15 +73,14 @@ export function PlanningItemDialog({
   const [content, setContent] = useState('');
   const [selectedClientId, setSelectedClientId] = useState<string>('');
   const [columnId, setColumnId] = useState<string>('');
-  const [platform, setPlatform] = useState<PlanningPlatform | ''>('');
+  const [contentType, setContentType] = useState<ContentTypeKey>('tweet');
   const [priority, setPriority] = useState<PlanningPriority>('medium');
   const [dueDate, setDueDate] = useState<Date | undefined>();
   const [scheduledAt, setScheduledAt] = useState<Date | undefined>();
-  const [contentType, setContentType] = useState<string>('post');
   const [mediaItems, setMediaItems] = useState<MediaItem[]>([]);
   const [threadTweets, setThreadTweets] = useState<ThreadTweet[]>([]);
   const [assignedTo, setAssignedTo] = useState<string>('');
-  const [referenceUrl, setReferenceUrl] = useState('');
+  const [referenceInput, setReferenceInput] = useState('');
   const [recurrenceConfig, setRecurrenceConfig] = useState<RecurrenceConfigType>({
     type: 'none',
     days: [],
@@ -102,20 +91,22 @@ export function PlanningItemDialog({
   const { generateImage, isGenerating: isGeneratingImage } = usePlanningImageGeneration(selectedClientId);
   const { generateContent, isGenerating: isGeneratingContent, isFetchingReference } = usePlanningContentGeneration();
 
-  const canGenerateContent = title.trim() && platform && selectedClientId;
+  // Derive platform from content type
+  const platform = CONTENT_TO_PLATFORM[contentType] as PlanningPlatform;
+
+  const canGenerateContent = title.trim() && contentType && selectedClientId;
   const canGenerateImage = (content.trim() || threadTweets.some(t => t.text.trim())) && selectedClientId;
-  const hasReference = referenceUrl.trim();
+  const hasReference = referenceInput.trim();
+  const isTwitterThread = contentType === 'thread';
 
   const handleGenerateContent = async () => {
     if (!canGenerateContent) return;
     
     const generatedContent = await generateContent({
       title,
-      description: '',
-      platform: platform as string,
       contentType,
       clientId: selectedClientId,
-      referenceUrl: referenceUrl.trim() || undefined,
+      referenceInput: referenceInput.trim() || undefined,
     });
 
     if (generatedContent) {
@@ -124,7 +115,7 @@ export function PlanningItemDialog({
       } else {
         setContent(generatedContent);
       }
-      setReferenceUrl('');
+      setReferenceInput('');
     }
   };
 
@@ -134,14 +125,19 @@ export function PlanningItemDialog({
       setContent(item.content || '');
       setSelectedClientId(item.client_id || '');
       setColumnId(item.column_id || '');
-      setPlatform(item.platform || '');
       setPriority(item.priority);
       setDueDate(item.due_date ? parseISO(item.due_date) : undefined);
       setScheduledAt(item.scheduled_at ? parseISO(item.scheduled_at) : undefined);
       setAssignedTo(item.assigned_to || '');
       
       const metadata = item.metadata as any || {};
-      setContentType(metadata.content_type || 'post');
+      // Try to get content_type, fallback to mapping from platform
+      const savedContentType = metadata.content_type || item.content_type;
+      if (savedContentType && CONTENT_TO_PLATFORM[savedContentType as ContentTypeKey]) {
+        setContentType(savedContentType as ContentTypeKey);
+      } else {
+        setContentType('tweet');
+      }
       
       setRecurrenceConfig({
         type: (item as any).recurrence_type || 'none',
@@ -167,25 +163,18 @@ export function PlanningItemDialog({
       setContent('');
       setSelectedClientId('');
       setColumnId(defaultColumnId || columns[0]?.id || '');
-      setPlatform('');
+      setContentType('tweet');
       setPriority('medium');
       setDueDate(defaultDate);
       setScheduledAt(undefined);
-      setContentType('post');
       setMediaItems([]);
       setThreadTweets([{ id: 'tweet-1', text: '', media_urls: [] }]);
       setAssignedTo('');
-      setReferenceUrl('');
+      setReferenceInput('');
       setRecurrenceConfig({ type: 'none', days: [], time: null, endDate: null });
       setShowMoreOptions(false);
     }
   }, [item, defaultColumnId, defaultDate, columns, open]);
-
-  useEffect(() => {
-    if (platform === 'twitter' && contentType === 'article') {
-      setContentType('thread');
-    }
-  }, [platform, contentType]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -194,7 +183,7 @@ export function PlanningItemDialog({
     setIsSubmitting(true);
     try {
       let finalContent = content;
-      if (contentType === 'thread') {
+      if (isTwitterThread) {
         finalContent = threadTweets.map(t => t.text).join('\n\n---\n\n');
       }
 
@@ -209,9 +198,10 @@ export function PlanningItemDialog({
         scheduled_at: scheduledAt ? scheduledAt.toISOString() : undefined,
         media_urls: mediaItems.map(m => m.url),
         assigned_to: assignedTo || undefined,
+        content_type: contentType,
         metadata: {
           content_type: contentType,
-          ...(contentType === 'thread' && { thread_tweets: threadTweets }),
+          ...(isTwitterThread && { thread_tweets: threadTweets }),
         },
         recurrence_type: recurrenceConfig.type !== 'none' ? recurrenceConfig.type : null,
         recurrence_days: recurrenceConfig.days.length > 0 ? recurrenceConfig.days : null,
@@ -230,8 +220,6 @@ export function PlanningItemDialog({
       setIsSubmitting(false);
     }
   };
-
-  const isTwitterThread = platform === 'twitter' && contentType === 'thread';
 
   const handleGenerateImage = async (options: ImageGenerationOptions): Promise<string | null> => {
     const contentForImage = isTwitterThread 
@@ -276,8 +264,8 @@ export function PlanningItemDialog({
             />
           </div>
 
-          {/* Main selects row */}
-          <div className="grid grid-cols-3 gap-2">
+          {/* Client + Format row */}
+          <div className="grid grid-cols-2 gap-2">
             <Select value={selectedClientId} onValueChange={setSelectedClientId}>
               <SelectTrigger className="h-9">
                 <SelectValue placeholder="Cliente" />
@@ -289,52 +277,54 @@ export function PlanningItemDialog({
               </SelectContent>
             </Select>
 
-            <Select value={platform} onValueChange={(v) => setPlatform(v as PlanningPlatform)}>
-              <SelectTrigger className="h-9">
-                <SelectValue placeholder="Plataforma" />
-              </SelectTrigger>
-              <SelectContent>
-                {platforms.map(p => (
-                  <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <Select value={contentType} onValueChange={setContentType}>
+            <Select value={contentType} onValueChange={(v) => setContentType(v as ContentTypeKey)}>
               <SelectTrigger className="h-9">
                 <SelectValue placeholder="Formato" />
               </SelectTrigger>
               <SelectContent>
-                {contentTypes.map(t => (
-                  <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                {Object.entries(groupedContentTypes).map(([category, items]) => (
+                  <SelectGroup key={category}>
+                    <SelectLabel className="text-xs text-muted-foreground">{category}</SelectLabel>
+                    {items.map(item => (
+                      <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+                    ))}
+                  </SelectGroup>
                 ))}
               </SelectContent>
             </Select>
           </div>
 
-          {/* Reference URL + Generate */}
-          <div className="flex gap-2 items-center p-3 bg-muted/30 rounded-lg border border-dashed">
-            <Link className="h-4 w-4 text-muted-foreground shrink-0" />
-            <Input
-              value={referenceUrl}
-              onChange={(e) => setReferenceUrl(e.target.value)}
-              placeholder="Cole link do YouTube ou artigo para gerar conteúdo..."
-              className="flex-1 h-8 text-sm border-0 bg-transparent p-0 focus-visible:ring-0"
-            />
-            <Button
-              type="button"
-              size="sm"
-              onClick={handleGenerateContent}
-              disabled={!canGenerateContent || isGeneratingContent || isFetchingReference}
-              className="shrink-0 gap-1.5"
-            >
-              {isGeneratingContent || isFetchingReference ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Wand2 className="h-3.5 w-3.5" />
-              )}
-              {hasReference ? 'Gerar' : 'Escrever com IA'}
-            </Button>
+          {/* Reference Input with @mentions + Generate */}
+          <div className="space-y-2 p-3 bg-muted/30 rounded-lg border border-dashed">
+            <Label className="text-xs text-muted-foreground">
+              Gerar a partir de... (link, @referência ou descrição)
+            </Label>
+            <div className="flex gap-2 items-end">
+              <div className="flex-1">
+                <MentionableInput
+                  value={referenceInput}
+                  onChange={setReferenceInput}
+                  clientId={selectedClientId}
+                  placeholder="Cole link, use @referência, ou descreva..."
+                  multiline
+                  rows={2}
+                />
+              </div>
+              <Button
+                type="button"
+                size="sm"
+                onClick={handleGenerateContent}
+                disabled={!canGenerateContent || isGeneratingContent || isFetchingReference}
+                className="shrink-0 gap-1.5 h-9"
+              >
+                {isGeneratingContent || isFetchingReference ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Wand2 className="h-3.5 w-3.5" />
+                )}
+                {hasReference ? 'Gerar' : 'Escrever'}
+              </Button>
+            </div>
           </div>
 
           {/* Content Editor */}
@@ -457,7 +447,6 @@ export function PlanningItemDialog({
                     </SelectContent>
                   </Select>
                 </div>
-
                 <div>
                   <Label className="text-xs">Prioridade</Label>
                   <Select value={priority} onValueChange={(v) => setPriority(v as PlanningPriority)}>
@@ -473,13 +462,14 @@ export function PlanningItemDialog({
                 </div>
               </div>
 
+              {/* Scheduling */}
               <div>
-                <Label className="text-xs">Agendar Publicação</Label>
+                <Label className="text-xs">Agendamento</Label>
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button variant="outline" size="sm" className={cn("w-full justify-start h-8 text-sm", !scheduledAt && "text-muted-foreground")}>
                       <CalendarIcon className="mr-2 h-3 w-3" />
-                      {scheduledAt ? format(scheduledAt, 'dd/MM/yyyy HH:mm') : 'Selecionar data e hora'}
+                      {scheduledAt ? format(scheduledAt, 'dd/MM/yyyy HH:mm') : 'Agendar publicação'}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0">
@@ -488,35 +478,28 @@ export function PlanningItemDialog({
                 </Popover>
               </div>
 
-              <div>
-                <Label className="text-xs">Recorrência</Label>
-                <RecurrenceConfig 
-                  value={recurrenceConfig} 
-                  onChange={setRecurrenceConfig} 
-                />
-              </div>
+              {/* Recurrence */}
+              <RecurrenceConfig
+                value={recurrenceConfig}
+                onChange={setRecurrenceConfig}
+              />
 
+              {/* Comments (only in edit mode) */}
               {item && (
-                <div>
-                  <Label className="text-xs flex items-center gap-1">
-                    <MessageSquare className="h-3 w-3" />
-                    Comentários
-                  </Label>
-                  <div className="mt-1">
-                    <PlanningItemComments planningItemId={item.id} />
-                  </div>
+                <div className="pt-2 border-t">
+                  <PlanningItemComments planningItemId={item.id} />
                 </div>
               )}
             </CollapsibleContent>
           </Collapsible>
 
-          {/* Actions */}
-          <div className="flex justify-end gap-2 pt-2 border-t">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+          {/* Submit */}
+          <div className="flex justify-end gap-2 pt-2">
+            <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
               Cancelar
             </Button>
             <Button type="submit" disabled={isSubmitting || !title.trim()}>
-              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
               {item ? 'Salvar' : 'Criar'}
             </Button>
           </div>
