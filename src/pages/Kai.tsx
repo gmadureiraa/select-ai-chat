@@ -113,13 +113,13 @@ export default function Kai() {
     }
 
     // Tools that don't need client
-    const toolTabs = ["knowledge-base", "activities", "team", "clients", "account", "automations", "format-rules", "repurpose"];
+    const toolTabs = ["repurpose", "knowledge-base", "activities", "team", "clients", "account", "automations", "format-rules"];
     
     if (toolTabs.includes(tab)) {
       switch (tab) {
         case "repurpose":
           return (
-            <div className="overflow-auto h-full">
+            <div className="overflow-auto h-full p-0">
               <ContentRepurposeTool />
             </div>
           );
