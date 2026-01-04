@@ -10,6 +10,7 @@ import { KnowledgeBaseTool } from "@/components/kai/tools/KnowledgeBaseTool";
 import { ActivitiesTool } from "@/components/kai/tools/ActivitiesTool";
 import { TeamTool } from "@/components/kai/tools/TeamTool";
 import { ClientsManagementTool } from "@/components/kai/tools/ClientsManagementTool";
+import { ContentRepurposeTool } from "@/components/kai/tools/ContentRepurposeTool";
 import { PlanningBoard } from "@/components/planning/PlanningBoard";
 import { FormatRulesTool } from "@/components/tools/FormatRulesTool";
 import { EnterpriseLockScreen } from "@/components/shared/EnterpriseLockScreen";
@@ -112,10 +113,16 @@ export default function Kai() {
     }
 
     // Tools that don't need client
-    const toolTabs = ["knowledge-base", "activities", "team", "clients", "account", "automations", "format-rules"];
+    const toolTabs = ["knowledge-base", "activities", "team", "clients", "account", "automations", "format-rules", "repurpose"];
     
     if (toolTabs.includes(tab)) {
       switch (tab) {
+        case "repurpose":
+          return (
+            <div className="overflow-auto h-full">
+              <ContentRepurposeTool />
+            </div>
+          );
         case "knowledge-base":
           return <KnowledgeBaseTool />;
         case "activities":
