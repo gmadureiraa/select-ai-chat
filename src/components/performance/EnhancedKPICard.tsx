@@ -54,7 +54,7 @@ export function EnhancedKPICard({
   sparklineData = [],
   color = "green",
 }: EnhancedKPICardProps) {
-  const colors = colorMap[color];
+  const colors = colorMap[color] || colorMap.green;
 
   const chartData = useMemo(() => {
     return sparklineData.map((value, index) => ({ value, index }));
