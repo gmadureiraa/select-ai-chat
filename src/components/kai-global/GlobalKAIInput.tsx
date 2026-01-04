@@ -1,21 +1,39 @@
 import { useState, useRef, KeyboardEvent, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Send, Paperclip, X, FileText, Image, Loader2, Link as LinkIcon, File, Music, Video, FileSpreadsheet, FileCode } from "lucide-react";
+import { Send, Paperclip, X, FileText, Image, Loader2, Link as LinkIcon, File, Music, Video, FileSpreadsheet, FileCode, AtSign } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { KAIFileAttachment } from "@/types/kaiActions";
 import { toast } from "sonner";
+import { CitationPopover } from "@/components/chat/CitationPopover";
+import { CitationChip, Citation } from "@/components/chat/CitationChip";
+
+interface ContentLibraryItem {
+  id: string;
+  title: string;
+  content_type: string;
+  content: string;
+}
+
+interface ReferenceLibraryItem {
+  id: string;
+  title: string;
+  reference_type: string;
+  content: string;
+}
 
 interface GlobalKAIInputProps {
-  onSend: (message: string, files?: File[]) => Promise<void>;
+  onSend: (message: string, files?: File[], citations?: Citation[]) => Promise<void>;
   isProcessing: boolean;
   attachedFiles: KAIFileAttachment[];
   onAttachFiles: (files: File[]) => void;
   onRemoveFile: (fileId: string) => void;
   placeholder?: string;
   disabled?: boolean;
+  contentLibrary?: ContentLibraryItem[];
+  referenceLibrary?: ReferenceLibraryItem[];
 }
 
 // URL detection regex
@@ -31,11 +49,17 @@ export function GlobalKAIInput({
   onRemoveFile,
   placeholder = "Digite sua mensagem...",
   disabled = false,
+  contentLibrary = [],
+  referenceLibrary = [],
 }: GlobalKAIInputProps) {
   const [message, setMessage] = useState("");
   const [detectedUrls, setDetectedUrls] = useState<string[]>([]);
+  const [showMentionPopover, setShowMentionPopover] = useState(false);
+  const [mentionSearchQuery, setMentionSearchQuery] = useState("");
+  const [citations, setCitations] = useState<Citation[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const mentionAnchorRef = useRef<HTMLSpanElement>(null);
 
   // Auto-resize textarea
   useEffect(() => {
@@ -51,14 +75,90 @@ export function GlobalKAIInput({
     setDetectedUrls([...new Set(urls)]);
   }, [message]);
 
+  // Transform libraries to CitationPopover format
+  const formattedContentLibrary = contentLibrary.map(item => ({
+    id: item.id,
+    title: item.title,
+    content_type: item.content_type,
+    content: item.content,
+  }));
+
+  const formattedReferenceLibrary = referenceLibrary.map(item => ({
+    id: item.id,
+    title: item.title,
+    reference_type: item.reference_type,
+    content: item.content,
+  }));
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const value = e.target.value;
+    setMessage(value);
+
+    // Detect @ for mention popover
+    const cursorPos = e.target.selectionStart || 0;
+    const textBeforeCursor = value.substring(0, cursorPos);
+    const lastAtIndex = textBeforeCursor.lastIndexOf("@");
+
+    if (lastAtIndex !== -1) {
+      const textAfterAt = textBeforeCursor.substring(lastAtIndex + 1);
+      // Check if there's no space or newline after @ (user is still typing the mention)
+      if (!textAfterAt.includes(" ") && !textAfterAt.includes("\n")) {
+        setShowMentionPopover(true);
+        setMentionSearchQuery(textAfterAt);
+        return;
+      }
+    }
+
+    setShowMentionPopover(false);
+    setMentionSearchQuery("");
+  };
+
+  const handleCitationSelect = (item: { id: string; title: string; type: "content_library" | "reference_library" | "format"; category: string }) => {
+    // Add citation
+    const newCitation: Citation = {
+      id: item.id,
+      title: item.title,
+      type: item.type,
+      category: item.category,
+    };
+
+    // Avoid duplicates
+    if (!citations.find(c => c.id === item.id)) {
+      setCitations(prev => [...prev, newCitation]);
+    }
+
+    // Replace @query with @[title]
+    if (textareaRef.current) {
+      const cursorPos = textareaRef.current.selectionStart || 0;
+      const textBeforeCursor = message.substring(0, cursorPos);
+      const lastAtIndex = textBeforeCursor.lastIndexOf("@");
+
+      if (lastAtIndex !== -1) {
+        const beforeAt = message.substring(0, lastAtIndex);
+        const afterCursor = message.substring(cursorPos);
+        const newMessage = `${beforeAt}@[${item.title}] ${afterCursor}`;
+        setMessage(newMessage);
+      }
+    }
+
+    setShowMentionPopover(false);
+    setMentionSearchQuery("");
+    textareaRef.current?.focus();
+  };
+
+  const handleRemoveCitation = (citationId: string) => {
+    setCitations(prev => prev.filter(c => c.id !== citationId));
+  };
+
   const handleSend = async () => {
     if (!message.trim() && attachedFiles.length === 0) return;
     if (isProcessing || disabled) return;
 
     const files = attachedFiles.map((f) => f.file);
-    await onSend(message.trim(), files.length > 0 ? files : undefined);
+    await onSend(message.trim(), files.length > 0 ? files : undefined, citations.length > 0 ? citations : undefined);
     setMessage("");
     setDetectedUrls([]);
+    setCitations([]);
     
     // Reset textarea height
     if (textareaRef.current) {
@@ -67,7 +167,13 @@ export function GlobalKAIInput({
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && !e.shiftKey) {
+    if (e.key === "Escape" && showMentionPopover) {
+      e.preventDefault();
+      setShowMentionPopover(false);
+      return;
+    }
+    
+    if (e.key === "Enter" && !e.shiftKey && !showMentionPopover) {
       e.preventDefault();
       handleSend();
     }
@@ -179,6 +285,28 @@ export function GlobalKAIInput({
 
   return (
     <div className="border-t border-border bg-card/50 p-3">
+      {/* Citations display */}
+      <AnimatePresence>
+        {citations.length > 0 && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="mb-2 overflow-hidden"
+          >
+            <div className="flex flex-wrap gap-1.5">
+              {citations.map((citation) => (
+                <CitationChip
+                  key={citation.id}
+                  citation={citation}
+                  onRemove={handleRemoveCitation}
+                />
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Detected URLs preview */}
       <AnimatePresence>
         {detectedUrls.length > 0 && (
@@ -295,12 +423,29 @@ export function GlobalKAIInput({
           <Paperclip className="h-4 w-4" />
         </Button>
 
+        {/* Mention button */}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-9 w-9 shrink-0 text-muted-foreground hover:text-foreground"
+          onClick={() => {
+            setMessage(prev => prev + "@");
+            setShowMentionPopover(true);
+            setMentionSearchQuery("");
+            textareaRef.current?.focus();
+          }}
+          disabled={isProcessing || disabled}
+        >
+          <AtSign className="h-4 w-4" />
+        </Button>
+
         {/* Text input */}
         <div className="flex-1 relative">
+          <span ref={mentionAnchorRef} className="absolute top-0 left-0 pointer-events-none" />
           <Textarea
             ref={textareaRef}
             value={message}
-            onChange={(e) => setMessage(e.target.value)}
+            onChange={handleInputChange}
             onKeyDown={handleKeyDown}
             onPaste={handlePaste}
             placeholder={placeholder}
@@ -310,6 +455,18 @@ export function GlobalKAIInput({
               "min-h-[40px] max-h-[120px] resize-none py-2.5 pr-10",
               "bg-muted/50 border-0 focus-visible:ring-1 focus-visible:ring-primary/50"
             )}
+          />
+
+          {/* Citation Popover */}
+          <CitationPopover
+            open={showMentionPopover}
+            onOpenChange={setShowMentionPopover}
+            onSelect={handleCitationSelect}
+            contentLibrary={formattedContentLibrary}
+            referenceLibrary={formattedReferenceLibrary}
+            anchorRef={mentionAnchorRef}
+            searchQuery={mentionSearchQuery}
+            showFormats={true}
           />
         </div>
 
@@ -331,10 +488,10 @@ export function GlobalKAIInput({
       {/* Hints */}
       <div className="flex items-center justify-between mt-2">
         <p className="text-[10px] text-muted-foreground">
-          Enter para enviar • Shift+Enter para nova linha
+          Enter para enviar • @ para mencionar • Shift+Enter para nova linha
         </p>
         <p className="text-[10px] text-muted-foreground">
-          Até {MAX_FILES} arquivos • Qualquer tipo
+          Até {MAX_FILES} arquivos
         </p>
       </div>
     </div>

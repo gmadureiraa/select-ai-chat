@@ -14,11 +14,36 @@ import { useKAICSVAnalysis } from "@/hooks/useKAICSVAnalysis";
 import { useKAIURLAnalysis } from "@/hooks/useKAIURLAnalysis";
 import { useKAIExecuteAction } from "@/hooks/useKAIExecuteAction";
 import { supabase } from "@/integrations/supabase/client";
+import { Citation } from "@/components/chat/CitationChip";
 
-// Extended state with streaming response
+// Library item types
+interface ContentLibraryItem {
+  id: string;
+  title: string;
+  content_type: string;
+  content: string;
+}
+
+interface ReferenceLibraryItem {
+  id: string;
+  title: string;
+  reference_type: string;
+  content: string;
+}
+
+// Extended state with streaming response and libraries
 interface ExtendedKAIState extends KAIGlobalState {
   streamingResponse: string;
   workspaceId: string | null;
+  contentLibrary: ContentLibraryItem[];
+  referenceLibrary: ReferenceLibraryItem[];
+}
+
+// Extended context value with libraries
+interface ExtendedKAIContextValue extends KAIContextValue {
+  contentLibrary: ContentLibraryItem[];
+  referenceLibrary: ReferenceLibraryItem[];
+  sendMessage: (text: string, files?: File[], citations?: Citation[]) => Promise<void>;
 }
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/kai-chat`;
@@ -36,10 +61,12 @@ const initialState: ExtendedKAIState = {
   multiAgentStep: null,
   streamingResponse: "",
   workspaceId: null,
+  contentLibrary: [],
+  referenceLibrary: [],
 };
 
 // Export context for external use
-export const GlobalKAIContext = createContext<KAIContextValue | null>(null);
+export const GlobalKAIContext = createContext<ExtendedKAIContextValue | null>(null);
 
 interface GlobalKAIProviderProps {
   children: ReactNode;
@@ -74,6 +101,48 @@ export function GlobalKAIProvider({ children }: GlobalKAIProviderProps) {
     };
     fetchWorkspace();
   }, []);
+
+  // Fetch libraries when client is selected
+  useEffect(() => {
+    if (!state.selectedClientId) {
+      setState(prev => ({
+        ...prev,
+        contentLibrary: [],
+        referenceLibrary: [],
+      }));
+      return;
+    }
+
+    const fetchLibraries = async () => {
+      try {
+        // Fetch content library
+        const { data: contentData } = await supabase
+          .from("client_content_library")
+          .select("id, title, content_type, content")
+          .eq("client_id", state.selectedClientId)
+          .order("created_at", { ascending: false })
+          .limit(50);
+
+        // Fetch reference library
+        const { data: referenceData } = await supabase
+          .from("client_reference_library")
+          .select("id, title, reference_type, content")
+          .eq("client_id", state.selectedClientId)
+          .order("created_at", { ascending: false })
+          .limit(50);
+
+        setState(prev => ({
+          ...prev,
+          contentLibrary: contentData || [],
+          referenceLibrary: referenceData || [],
+        }));
+      } catch (error) {
+        console.error("Error fetching libraries:", error);
+      }
+    };
+
+    fetchLibraries();
+  }, [state.selectedClientId]);
 
   // Keyboard shortcut: Cmd/Ctrl + K
   useEffect(() => {
@@ -159,7 +228,7 @@ export function GlobalKAIProvider({ children }: GlobalKAIProviderProps) {
   }, [analyzeCSV, analyzeURL]);
 
   // Message handling with real streaming
-  const sendMessage = useCallback(async (text: string, files?: File[]) => {
+  const sendMessage = useCallback(async (text: string, files?: File[], citations?: Citation[]) => {
     if (!text.trim() && (!files || files.length === 0)) return;
 
     // Convert files to attachments
@@ -217,7 +286,7 @@ export function GlobalKAIProvider({ children }: GlobalKAIProviderProps) {
       }
 
       // Step 3: For general chat or non-confirmation actions, proceed with streaming
-      await streamChatResponse(allMessages);
+      await streamChatResponse(allMessages, citations);
 
     } catch (error) {
       if ((error as Error).name === "AbortError") {
@@ -243,7 +312,7 @@ export function GlobalKAIProvider({ children }: GlobalKAIProviderProps) {
   }, [state.messages, state.selectedClientId, state.attachedFiles, detectAction, prepareAction]);
 
   // Stream chat response
-  const streamChatResponse = useCallback(async (allMessages: Message[]) => {
+  const streamChatResponse = useCallback(async (allMessages: Message[], citations?: Citation[]) => {
     abortControllerRef.current = new AbortController();
     let fullResponse = "";
 
@@ -251,6 +320,14 @@ export function GlobalKAIProvider({ children }: GlobalKAIProviderProps) {
       const chatMessages = allMessages.map((m) => ({
         role: m.role,
         content: m.content,
+      }));
+
+      // Prepare citations data for the edge function
+      const citationsData = citations?.map(c => ({
+        id: c.id,
+        type: c.type,
+        title: c.title,
+        category: c.category,
       }));
 
       const resp = await fetch(CHAT_URL, {
@@ -262,6 +339,8 @@ export function GlobalKAIProvider({ children }: GlobalKAIProviderProps) {
         body: JSON.stringify({
           messages: chatMessages,
           clientId: state.selectedClientId,
+          workspaceId: state.workspaceId,
+          citations: citationsData,
         }),
         signal: abortControllerRef.current.signal,
       });
@@ -369,7 +448,7 @@ export function GlobalKAIProvider({ children }: GlobalKAIProviderProps) {
     } finally {
       abortControllerRef.current = null;
     }
-  }, [state.selectedClientId]);
+  }, [state.selectedClientId, state.workspaceId]);
 
   const clearConversation = useCallback(() => {
     if (abortControllerRef.current) {
@@ -494,7 +573,7 @@ export function GlobalKAIProvider({ children }: GlobalKAIProviderProps) {
     }));
   }, []);
 
-  const value: KAIContextValue = {
+  const value: ExtendedKAIContextValue = {
     ...state,
     openPanel,
     closePanel,
