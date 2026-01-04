@@ -5,14 +5,22 @@ import {
   KAIGlobalState, 
   KAIFileAttachment,
   KAIActionStatus,
+  PendingAction,
+  DetectedAction,
 } from "@/types/kaiActions";
 import { toast } from "sonner";
+import { useKAIActions } from "@/hooks/useKAIActions";
+import { useKAICSVAnalysis } from "@/hooks/useKAICSVAnalysis";
+import { useKAIURLAnalysis } from "@/hooks/useKAIURLAnalysis";
+import { useKAIExecuteAction } from "@/hooks/useKAIExecuteAction";
+import { supabase } from "@/integrations/supabase/client";
 
 // Extended state with processing steps
 interface ExtendedKAIState extends KAIGlobalState {
   currentStep: ProcessStep;
   multiAgentStep: MultiAgentStep;
   streamingResponse: string;
+  workspaceId: string | null;
 }
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/kai-chat`;
@@ -29,6 +37,7 @@ const initialState: ExtendedKAIState = {
   currentStep: null,
   multiAgentStep: null,
   streamingResponse: "",
+  workspaceId: null,
 };
 
 // Export context for external use
@@ -41,6 +50,32 @@ interface GlobalKAIProviderProps {
 export function GlobalKAIProvider({ children }: GlobalKAIProviderProps) {
   const [state, setState] = useState<ExtendedKAIState>(initialState);
   const abortControllerRef = useRef<AbortController | null>(null);
+
+  // Hooks for action handling
+  const { detectAction, isDetecting } = useKAIActions();
+  const { analyzeCSV, isAnalyzing: isAnalyzingCSV } = useKAICSVAnalysis();
+  const { analyzeURL, isAnalyzing: isAnalyzingURL } = useKAIURLAnalysis();
+  const { executeAction: executeActionHook, isExecuting } = useKAIExecuteAction();
+
+  // Fetch user's workspace on mount
+  useEffect(() => {
+    const fetchWorkspace = async () => {
+      const { data: userData } = await supabase.auth.getUser();
+      if (userData.user) {
+        const { data: membership } = await supabase
+          .from("workspace_members")
+          .select("workspace_id")
+          .eq("user_id", userData.user.id)
+          .limit(1)
+          .single();
+        
+        if (membership) {
+          setState(prev => ({ ...prev, workspaceId: membership.workspace_id }));
+        }
+      }
+    };
+    fetchWorkspace();
+  }, []);
 
   // Keyboard shortcut: Cmd/Ctrl + K
   useEffect(() => {
@@ -68,9 +103,78 @@ export function GlobalKAIProvider({ children }: GlobalKAIProviderProps) {
     setState((prev) => ({ ...prev, isOpen: !prev.isOpen }));
   }, []);
 
+  // Process detected action to prepare pending action
+  const prepareAction = useCallback(async (
+    detected: DetectedAction,
+    files?: KAIFileAttachment[]
+  ): Promise<PendingAction | null> => {
+    const pendingAction: PendingAction = {
+      id: crypto.randomUUID(),
+      type: detected.type,
+      status: "previewing",
+      params: detected.params,
+      files,
+      createdAt: new Date(),
+    };
+
+    try {
+      // Analyze files or URLs to build preview
+      if (detected.type === "upload_metrics" && files && files.length > 0) {
+        const csvFile = files.find(f => f.type === "text/csv" || f.name.endsWith(".csv"));
+        if (csvFile) {
+          const analysis = await analyzeCSV(csvFile.file);
+          pendingAction.preview = {
+            title: `Importar métricas de ${analysis.platform || "plataforma desconhecida"}`,
+            description: `${analysis.preview?.totalRows || 0} registros encontrados`,
+            data: analysis as unknown as Record<string, unknown>,
+          };
+        }
+      } else if ((detected.type === "upload_to_library" || detected.type === "upload_to_references" || detected.type === "analyze_url") && detected.params.url) {
+        const analysis = await analyzeURL(detected.params.url);
+        pendingAction.preview = {
+          title: analysis.title || "Conteúdo extraído",
+          description: analysis.description || "Conteúdo da URL foi analisado",
+          data: {
+            content: analysis.content,
+            thumbnailUrl: analysis.thumbnailUrl,
+            type: analysis.type,
+          },
+        };
+        pendingAction.params = { ...pendingAction.params, title: analysis.title };
+      } else if (detected.type === "create_planning_card") {
+        pendingAction.preview = {
+          title: detected.params.title || "Novo card",
+          description: detected.params.description || "Card será criado no planejamento",
+        };
+      } else if (detected.type === "create_content") {
+        pendingAction.preview = {
+          title: `Criar ${detected.params.format || "post"}`,
+          description: detected.params.description || "Conteúdo será gerado com IA",
+        };
+      }
+
+      return pendingAction;
+    } catch (error) {
+      console.error("Error preparing action:", error);
+      return pendingAction;
+    }
+  }, [analyzeCSV, analyzeURL]);
+
   // Message handling with real streaming
   const sendMessage = useCallback(async (text: string, files?: File[]) => {
     if (!text.trim() && (!files || files.length === 0)) return;
+
+    // Convert files to attachments
+    const fileAttachments: KAIFileAttachment[] = files?.map(file => ({
+      id: crypto.randomUUID(),
+      file,
+      name: file.name,
+      type: file.type,
+      size: file.size,
+      previewUrl: file.type.startsWith("image/") ? URL.createObjectURL(file) : undefined,
+    })) || [];
+
+    const allAttachments = [...state.attachedFiles, ...fileAttachments];
 
     const userMessage: Message = {
       id: crypto.randomUUID(),
@@ -90,6 +194,58 @@ export function GlobalKAIProvider({ children }: GlobalKAIProviderProps) {
       streamingResponse: "",
     }));
 
+    try {
+      // Step 1: Detect action intent
+      const detected = await detectAction(text, allAttachments, {
+        clientId: state.selectedClientId || undefined,
+        currentPage: window.location.pathname,
+      });
+
+      // Step 2: If action requires confirmation, prepare and show dialog
+      if (detected.requiresConfirmation && detected.type !== "general_chat") {
+        setState(prev => ({ ...prev, actionStatus: "analyzing" }));
+        
+        const preparedAction = await prepareAction(detected, allAttachments);
+        
+        if (preparedAction) {
+          setState(prev => ({
+            ...prev,
+            pendingAction: preparedAction,
+            actionStatus: "confirming",
+            isProcessing: false,
+          }));
+          return; // Wait for user confirmation
+        }
+      }
+
+      // Step 3: For general chat or non-confirmation actions, proceed with streaming
+      await streamChatResponse(allMessages);
+
+    } catch (error) {
+      if ((error as Error).name === "AbortError") {
+        setState((prev) => ({ ...prev, isProcessing: false, actionStatus: "idle" }));
+        return;
+      }
+      
+      console.error("kAI chat error:", error);
+      toast.error(error instanceof Error ? error.message : "Erro ao processar mensagem");
+      
+      setState((prev) => ({
+        ...prev,
+        messages: [...prev.messages, {
+          id: crypto.randomUUID(),
+          role: "assistant",
+          content: "Desculpe, ocorreu um erro ao processar sua mensagem. Tente novamente.",
+          created_at: new Date().toISOString(),
+        }],
+        isProcessing: false,
+        actionStatus: "idle",
+      }));
+    }
+  }, [state.messages, state.selectedClientId, state.attachedFiles, detectAction, prepareAction]);
+
+  // Stream chat response
+  const streamChatResponse = useCallback(async (allMessages: Message[]) => {
     abortControllerRef.current = new AbortController();
     let fullResponse = "";
 
@@ -135,6 +291,7 @@ export function GlobalKAIProvider({ children }: GlobalKAIProviderProps) {
           content: "",
           created_at: new Date().toISOString(),
         }],
+        actionStatus: "idle",
       }));
 
       while (true) {
@@ -160,7 +317,6 @@ export function GlobalKAIProvider({ children }: GlobalKAIProviderProps) {
             const content = parsed.choices?.[0]?.delta?.content as string | undefined;
             if (content) {
               fullResponse += content;
-              // Update the last message with streaming content
               setState((prev) => {
                 const msgs = [...prev.messages];
                 const lastIdx = msgs.length - 1;
@@ -209,29 +365,13 @@ export function GlobalKAIProvider({ children }: GlobalKAIProviderProps) {
       });
     } catch (error) {
       if ((error as Error).name === "AbortError") {
-        setState((prev) => ({ ...prev, isProcessing: false, actionStatus: "idle" }));
         return;
       }
-      
-      console.error("kAI chat error:", error);
-      toast.error(error instanceof Error ? error.message : "Erro ao processar mensagem");
-      
-      // Add error message
-      setState((prev) => ({
-        ...prev,
-        messages: [...prev.messages, {
-          id: crypto.randomUUID(),
-          role: "assistant",
-          content: "Desculpe, ocorreu um erro ao processar sua mensagem. Tente novamente.",
-          created_at: new Date().toISOString(),
-        }],
-        isProcessing: false,
-        actionStatus: "idle",
-      }));
+      throw error;
     } finally {
       abortControllerRef.current = null;
     }
-  }, [state.messages, state.selectedClientId]);
+  }, [state.selectedClientId]);
 
   const clearConversation = useCallback(() => {
     if (abortControllerRef.current) {
@@ -247,23 +387,52 @@ export function GlobalKAIProvider({ children }: GlobalKAIProviderProps) {
     }));
   }, []);
 
-  // Action handling
+  // Action confirmation handler
   const confirmAction = useCallback(async () => {
-    if (!state.pendingAction) return;
+    if (!state.pendingAction || !state.selectedClientId || !state.workspaceId) {
+      toast.error("Selecione um cliente antes de executar a ação");
+      return;
+    }
 
     setState((prev) => ({
       ...prev,
       actionStatus: "executing",
+      isProcessing: true,
     }));
 
-    // TODO: Execute the pending action with useKAIExecuteAction
+    try {
+      const result = await executeActionHook({
+        action: state.pendingAction,
+        clientId: state.selectedClientId,
+        workspaceId: state.workspaceId,
+      });
 
-    setState((prev) => ({
-      ...prev,
-      actionStatus: "completed",
-      pendingAction: null,
-    }));
-  }, [state.pendingAction]);
+      // Add success message
+      setState((prev) => ({
+        ...prev,
+        messages: [...prev.messages, {
+          id: crypto.randomUUID(),
+          role: "assistant",
+          content: result.success 
+            ? `✅ ${result.message}` 
+            : `❌ ${result.message}`,
+          created_at: new Date().toISOString(),
+        }],
+        actionStatus: "completed",
+        pendingAction: null,
+        isProcessing: false,
+      }));
+    } catch (error) {
+      console.error("Error executing action:", error);
+      toast.error("Erro ao executar ação");
+      setState((prev) => ({
+        ...prev,
+        actionStatus: "idle",
+        pendingAction: null,
+        isProcessing: false,
+      }));
+    }
+  }, [state.pendingAction, state.selectedClientId, state.workspaceId, executeActionHook]);
 
   const cancelAction = useCallback(() => {
     setState((prev) => ({
@@ -271,6 +440,7 @@ export function GlobalKAIProvider({ children }: GlobalKAIProviderProps) {
       currentAction: null,
       actionStatus: "idle",
       pendingAction: null,
+      isProcessing: false,
     }));
   }, []);
 

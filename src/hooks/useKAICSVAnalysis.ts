@@ -1,8 +1,8 @@
 import { useState, useCallback } from "react";
-import { CSVAnalysisResult, MetricsPlatform, KAIFileAttachment } from "@/types/kaiActions";
+import { CSVAnalysisResult, MetricsPlatform } from "@/types/kaiActions";
 
 interface UseKAICSVAnalysisReturn {
-  analyzeCSV: (file: KAIFileAttachment) => Promise<CSVAnalysisResult>;
+  analyzeCSV: (file: File) => Promise<CSVAnalysisResult>;
   isAnalyzing: boolean;
   result: CSVAnalysisResult | null;
   error: string | null;
@@ -16,12 +16,12 @@ export function useKAICSVAnalysis(): UseKAICSVAnalysisReturn {
   const [result, setResult] = useState<CSVAnalysisResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const analyzeCSV = useCallback(async (file: KAIFileAttachment): Promise<CSVAnalysisResult> => {
+  const analyzeCSV = useCallback(async (file: File): Promise<CSVAnalysisResult> => {
     setIsAnalyzing(true);
     setError(null);
 
     try {
-      const content = await readFileAsText(file.file);
+      const content = await readFileAsText(file);
       const lines = content.split("\n").filter((line) => line.trim());
       
       if (lines.length < 2) {
