@@ -118,7 +118,7 @@ async function executeAgent(
   console.log(`[AGENT-${agent.id}] Executing: ${agent.name} with model: ${agent.model}`);
 
   // Carregar documentação específica do agente e formato
-  const knowledgeContext = buildAgentContext(agent.id, context.contentType);
+  const knowledgeContext = await buildAgentContext(agent.id, context.contentType);
   console.log(`[AGENT-${agent.id}] Loaded knowledge context: ${knowledgeContext.length} chars`);
 
   let userPrompt = "";
@@ -341,28 +341,90 @@ serve(async (req) => {
         name: "Pesquisador",
         description: "Analisa materiais disponíveis",
         model: "flash",
-        systemPrompt: "Analise e selecione materiais relevantes da biblioteca."
+        systemPrompt: `Você é um Pesquisador especializado.
+
+MISSÃO: Analisar materiais disponíveis e selecionar os mais relevantes para a tarefa.
+
+REGRAS:
+- Use APENAS dados fornecidos (content_library, reference_library, global_knowledge)
+- NUNCA invente dados ou estatísticas
+- Organize informações de forma clara: Fatos principais → Detalhes → Aplicação
+- Identifique padrões de estilo nos exemplos do cliente
+
+ENTREGUE:
+- IDs e títulos dos materiais mais relevantes
+- Insights aplicáveis ao conteúdo solicitado
+- Padrões de tom/estilo identificados nos exemplos`
       },
       {
         id: "writer",
         name: "Escritor",
         description: "Cria o primeiro rascunho",
         model: "pro",
-        systemPrompt: "Crie o primeiro rascunho do conteúdo."
+        systemPrompt: `Você é um Escritor de Conteúdo especializado.
+
+HIERARQUIA DE PRIORIDADE (SIGA RIGOROSAMENTE):
+1. IDENTIDADE DO CLIENTE (identity_guide) - tom, voz, estilo são SAGRADOS
+2. DOCUMENTAÇÃO DO FORMATO - estrutura e regras obrigatórias
+3. BIBLIOTECA DE CONTEÚDO - use como REFERÊNCIA de estilo, nunca copie
+4. KNOWLEDGE BASE - use insights mas ADAPTE ao tom do cliente
+
+REGRAS ABSOLUTAS:
+- NUNCA use linguagem genérica de IA ("Aqui está", "Espero que ajude", etc.)
+- SEMPRE siga a estrutura exata do formato solicitado
+- SEMPRE adapte insights da knowledge base ao tom do cliente
+- O conteúdo deve parecer escrito PELO cliente, não POR IA
+
+ENTREGUE:
+- Rascunho completo seguindo a estrutura do formato
+- Tom de voz alinhado aos exemplos do cliente`
       },
       {
         id: "editor",
         name: "Editor de Estilo",
         description: "Refina o estilo do conteúdo",
         model: "pro",
-        systemPrompt: "Refine o conteúdo para soar como o cliente."
+        systemPrompt: `Você é um Editor de Estilo especializado.
+
+MISSÃO: Fazer o conteúdo soar EXATAMENTE como o cliente escreve.
+
+PROCESSO OBRIGATÓRIO:
+1. Compare o rascunho com os exemplos reais do cliente
+2. Identifique diferenças de tom, vocabulário, expressões
+3. Reescreva para eliminar qualquer "cara de IA"
+4. Aplique regras do copywriting_guide (se disponível)
+
+CHECKLIST DE EDIÇÃO:
+✓ Vocabulário específico do cliente usado?
+✓ Estrutura do formato respeitada?
+✓ Ganchos e CTAs no estilo do cliente?
+✓ Zero linguagem genérica de IA?
+
+ENTREGUE:
+- Conteúdo refinado que pareça escrito PELO cliente`
       },
       {
         id: "reviewer",
         name: "Revisor Final",
         description: "Revisão final e polish",
         model: "flash",
-        systemPrompt: "Você é um revisor final. Sua ÚNICA tarefa é retornar o conteúdo polido e corrigido. NÃO inclua comentários, explicações, prefixos como 'Aqui está' ou 'Versão final'. Retorne APENAS o conteúdo pronto para publicação, nada mais."
+        systemPrompt: `Você é o Revisor Final.
+
+REGRA ABSOLUTA DE OUTPUT:
+- Retorne EXCLUSIVAMENTE o conteúdo final
+- NÃO inclua comentários, explicações ou introduções
+- NÃO diga "Aqui está", "Versão final", "Pronto", etc.
+- APENAS o conteúdo pronto para publicação
+
+CHECKLIST SILENCIOSO (verifique mas não comente):
+✓ Gramática e ortografia corretas
+✓ Estrutura do formato seguida
+✓ Emojis apenas onde apropriado
+✓ CTAs claros e persuasivos
+✓ Hook forte e envolvente
+✓ Zero linguagem genérica de IA
+
+OUTPUT: Apenas o conteúdo final, nada mais.`
       }
     ];
 
@@ -376,7 +438,7 @@ serve(async (req) => {
           status: string, 
           content?: string, 
           agentName?: string,
-          tokens?: { input: number; output: number; cost: number }
+          tokens?: { input: number; output: number; cost: number; savedContentId?: string | null }
         ) => {
           const data = JSON.stringify({ step, status, content, agentName, tokens });
           controller.enqueue(encoder.encode(`data: ${data}\n\n`));
@@ -461,11 +523,72 @@ serve(async (req) => {
                   output: result.outputTokens,
                   cost: agentCost
                 });
-                // Send final result with cumulative tokens
+                
+                // AUTO-SAVE: Salvar conteúdo na content library automaticamente
+                let savedContentId: string | null = null;
+                if (clientId && result.content && result.content.length > 50) {
+                  try {
+                    // Extrair título do conteúdo (primeira linha significativa)
+                    const lines = result.content.split('\n').filter(l => l.trim());
+                    let title = lines[0]?.slice(0, 100) || userMessage.slice(0, 100);
+                    title = title.replace(/^[#\-\*\d\/]+\s*/, '').trim();
+                    if (title.length > 80) title = title.slice(0, 77) + '...';
+                    
+                    // Mapear contentType para enum válido
+                    const contentTypeMap: Record<string, string> = {
+                      'thread': 'post',
+                      'tweet': 'post',
+                      'stories': 'post',
+                      'carousel': 'post',
+                      'carrossel': 'post',
+                      'newsletter': 'newsletter',
+                      'linkedin_post': 'post',
+                      'instagram_post': 'post',
+                      'email_marketing': 'email',
+                      'blog_post': 'article',
+                      'x_article': 'article',
+                      'short_video': 'script',
+                      'long_video': 'script',
+                      'reels': 'script',
+                    };
+                    const mappedType = contentTypeMap[contentType?.toLowerCase() || ''] || 'post';
+                    
+                    const { data: savedContent, error: saveError } = await supabase
+                      .from('client_content_library')
+                      .insert({
+                        client_id: clientId,
+                        title: title,
+                        content: result.content,
+                        content_type: mappedType,
+                        metadata: {
+                          auto_generated: true,
+                          from_chat: true,
+                          original_type: contentType || 'geral',
+                          agents_used: agents.map(a => a.id),
+                          pipeline_id: pipeline?.id || 'default',
+                          created_by: userId || null,
+                        }
+                      })
+                      .select('id')
+                      .single();
+                    
+                    if (saveError) {
+                      console.error('[MULTI-AGENT] Error saving to content library:', saveError);
+                    } else {
+                      savedContentId = savedContent?.id || null;
+                      console.log(`[MULTI-AGENT] Content auto-saved to library: ${savedContentId}`);
+                    }
+                  } catch (saveErr) {
+                    console.error('[MULTI-AGENT] Exception saving content:', saveErr);
+                  }
+                }
+                
+                // Send final result with cumulative tokens and saved content info
                 sendProgress("complete", "done", result.content, undefined, {
                   input: totalInputTokens,
                   output: totalOutputTokens,
-                  cost: totalCost
+                  cost: totalCost,
+                  savedContentId: savedContentId
                 });
               } else {
                 sendProgress(agent.id, "completed", `${result.content.length} caracteres`, agent.name, {

@@ -1311,6 +1311,48 @@ export type Database = {
           },
         ]
       }
+      kai_documentation: {
+        Row: {
+          checklist: Json | null
+          content: string
+          created_at: string | null
+          doc_key: string
+          doc_type: string
+          id: string
+          metadata: Json | null
+          summary: string | null
+          title: string
+          updated_at: string | null
+          version: number | null
+        }
+        Insert: {
+          checklist?: Json | null
+          content: string
+          created_at?: string | null
+          doc_key: string
+          doc_type: string
+          id?: string
+          metadata?: Json | null
+          summary?: string | null
+          title: string
+          updated_at?: string | null
+          version?: number | null
+        }
+        Update: {
+          checklist?: Json | null
+          content?: string
+          created_at?: string | null
+          doc_key?: string
+          doc_type?: string
+          id?: string
+          metadata?: Json | null
+          summary?: string | null
+          title?: string
+          updated_at?: string | null
+          version?: number | null
+        }
+        Relationships: []
+      }
       kanban_cards: {
         Row: {
           assigned_to: string | null
