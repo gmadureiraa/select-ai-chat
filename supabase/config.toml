@@ -176,3 +176,15 @@ verify_jwt = true
 
 [functions.kai-chat]
 verify_jwt = true
+
+[functions.kai-router]
+verify_jwt = true
+
+[functions.kai-metrics-agent]
+verify_jwt = true
+
+[functions.kai-content-agent]
+verify_jwt = true
+
+[functions.kai-planning-agent]
+verify_jwt = true

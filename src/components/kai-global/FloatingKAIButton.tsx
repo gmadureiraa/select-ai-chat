@@ -1,7 +1,8 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { Sparkles, X } from "lucide-react";
+import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import kaleidosKLogo from "@/assets/kaleidos-k-logo.svg";
 
 interface FloatingKAIButtonProps {
   isOpen: boolean;
@@ -63,7 +64,11 @@ export function FloatingKAIButton({
               exit={{ rotate: -180, opacity: 0 }}
               transition={{ duration: 0.2 }}
             >
-              <Sparkles className="h-6 w-6 text-primary-foreground" />
+              <img 
+                src={kaleidosKLogo} 
+                alt="kAI" 
+                className="h-7 w-7 object-contain"
+              />
             </motion.div>
           )}
         </AnimatePresence>
@@ -90,26 +95,6 @@ export function FloatingKAIButton({
           <span className="absolute inset-0 rounded-full animate-ping bg-primary/30" />
         )}
       </Button>
-
-      {/* Tooltip on hover */}
-      <AnimatePresence>
-        {!isOpen && (
-          <motion.div
-            initial={{ opacity: 0, x: 10 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 10 }}
-            className={cn(
-              "absolute right-full mr-3 top-1/2 -translate-y-1/2",
-              "hidden md:block pointer-events-none"
-            )}
-          >
-            <div className="whitespace-nowrap rounded-lg bg-popover px-3 py-1.5 text-sm font-medium text-popover-foreground shadow-md border border-border">
-              kAI Assistente
-              <span className="ml-2 text-xs text-muted-foreground">⌘K</span>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </motion.div>
   );
 }

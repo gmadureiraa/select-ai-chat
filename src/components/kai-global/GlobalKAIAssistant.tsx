@@ -5,7 +5,6 @@ import { GlobalKAIPanel } from "./GlobalKAIPanel";
 import { GlobalKAIChat } from "./GlobalKAIChat";
 import { GlobalKAIInput } from "./GlobalKAIInput";
 import { ActionConfirmationDialog } from "./ActionConfirmationDialog";
-import { KAIQuickSuggestion } from "@/types/kaiActions";
 import { useMemo, useCallback } from "react";
 
 export function GlobalKAIAssistant() {
@@ -19,6 +18,8 @@ export function GlobalKAIAssistant() {
     actionStatus,
     attachedFiles,
     pendingAction,
+    currentStep,
+    multiAgentStep,
     sendMessage,
     attachFiles,
     removeFile,
@@ -34,11 +35,6 @@ export function GlobalKAIAssistant() {
     const client = clients.find(c => c.id === selectedClientId);
     return client?.name;
   }, [selectedClientId, clients]);
-
-  const handleSuggestionClick = useCallback((suggestion: KAIQuickSuggestion) => {
-    // Pre-fill the suggestion prompt - user can modify before sending
-    sendMessage(suggestion.prompt);
-  }, [sendMessage]);
 
   // Handler for sending messages from within chat (for regenerate, etc.)
   const handleSendFromChat = useCallback((content: string, images?: string[], quality?: "fast" | "high") => {
@@ -65,7 +61,8 @@ export function GlobalKAIAssistant() {
           selectedClientId={selectedClientId}
           selectedClientName={selectedClientName}
           actionStatus={actionStatus}
-          onSuggestionClick={handleSuggestionClick}
+          currentStep={currentStep}
+          multiAgentStep={multiAgentStep}
           onSendMessage={handleSendFromChat}
         />
 

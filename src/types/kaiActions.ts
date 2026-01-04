@@ -2,7 +2,7 @@
 // kAI Global Assistant - Action Types
 // ============================================
 
-import { Message } from "@/types/chat";
+import { Message, ProcessStep, MultiAgentStep } from "@/types/chat";
 
 /**
  * Types of actions that kAI can perform
@@ -136,6 +136,8 @@ export interface KAIGlobalState {
   pendingAction: PendingAction | null;
   attachedFiles: KAIFileAttachment[];
   selectedClientId: string | null;
+  currentStep: ProcessStep;
+  multiAgentStep: MultiAgentStep;
 }
 
 /**
