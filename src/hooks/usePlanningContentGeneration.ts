@@ -101,31 +101,50 @@ export function usePlanningContentGeneration() {
       let allReferenceContent: string[] = [];
       let extractedImages: string[] = [];
 
-      // 1. Detect and fetch URL content
-      const urlMatch = referenceInput?.match(/https?:\/\/[^\s]+/);
-      if (urlMatch) {
-        const fetched = await fetchReferenceContent(urlMatch[0]);
-        if (fetched) {
-          const sourceType = fetched.type === 'youtube' ? 'TRANSCRIÇÃO DO VÍDEO' :
-                            fetched.type === 'newsletter' ? 'NEWSLETTER' :
-                            'ARTIGO DE REFERÊNCIA';
-          let refText = `**${sourceType}:**`;
-          if (fetched.title) refText += `\nTítulo: ${fetched.title}`;
-          refText += `\n\n${fetched.content.substring(0, 10000)}`;
-          allReferenceContent.push(refText);
+      // 1. Detect and fetch ALL URL content (supports multiple URLs)
+      const urlMatches = referenceInput?.match(/https?:\/\/[^\s]+/g) || [];
+      if (urlMatches.length > 0) {
+        console.log(`[PlanningContent] Found ${urlMatches.length} URLs to fetch`);
+        
+        // Fetch all URLs in parallel
+        const fetchPromises = urlMatches.map(url => fetchReferenceContent(url));
+        const fetchedResults = await Promise.all(fetchPromises);
+        
+        let successCount = 0;
+        fetchedResults.forEach((fetched, index) => {
+          if (fetched) {
+            successCount++;
+            const sourceType = fetched.type === 'youtube' ? 'TRANSCRIÇÃO DO VÍDEO' :
+                              fetched.type === 'newsletter' ? 'NEWSLETTER' :
+                              'ARTIGO DE REFERÊNCIA';
+            let refText = `**${sourceType} ${urlMatches.length > 1 ? `#${index + 1}` : ''}:**`;
+            if (fetched.title) refText += `\nTítulo: ${fetched.title}`;
+            // Limit each source content to allow more sources
+            const charLimit = Math.floor(12000 / urlMatches.length);
+            refText += `\n\n${fetched.content.substring(0, charLimit)}`;
+            allReferenceContent.push(refText);
 
-          // Capture images from reference
-          if (fetched.thumbnail) {
-            extractedImages.push(fetched.thumbnail);
+            // Capture images from reference
+            if (fetched.thumbnail && !extractedImages.includes(fetched.thumbnail)) {
+              extractedImages.push(fetched.thumbnail);
+            }
+            if (fetched.images && fetched.images.length > 0) {
+              fetched.images.forEach(img => {
+                if (!extractedImages.includes(img)) {
+                  extractedImages.push(img);
+                }
+              });
+            }
           }
-          if (fetched.images && fetched.images.length > 0) {
-            extractedImages.push(...fetched.images.filter(img => !extractedImages.includes(img)));
-          }
-        } else {
-          // Warn user that reference couldn't be loaded
+        });
+
+        // Warn user about partial failures
+        if (successCount < urlMatches.length) {
           toast({
-            title: "Aviso: Referência não carregada",
-            description: "Não foi possível extrair o conteúdo da URL. Gerando apenas com o título.",
+            title: `Aviso: ${urlMatches.length - successCount} URL(s) não carregada(s)`,
+            description: successCount > 0 
+              ? `Gerando com ${successCount} fonte(s) disponível(is).`
+              : "Não foi possível extrair conteúdo das URLs. Gerando apenas com o título.",
             variant: "default"
           });
         }
