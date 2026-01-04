@@ -6,9 +6,10 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Rss, CheckCircle2, XCircle, ExternalLink } from 'lucide-react';
+import { Loader2, Rss, CheckCircle2, XCircle } from 'lucide-react';
 import { useRssTriggers } from '@/hooks/useRssTriggers';
 import { useClients } from '@/hooks/useClients';
+import { useTeamMembers } from '@/hooks/useTeamMembers';
 import { useWorkspaceContext } from '@/contexts/WorkspaceContext';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -37,6 +38,7 @@ const contentTypes = [
 export function RssTriggerDialog({ open, onOpenChange, trigger }: RssTriggerDialogProps) {
   const { workspace } = useWorkspaceContext();
   const { clients } = useClients();
+  const { members } = useTeamMembers();
   const { createTrigger, updateTrigger, testFeed } = useRssTriggers();
   
   const [name, setName] = useState('');
@@ -45,6 +47,7 @@ export function RssTriggerDialog({ open, onOpenChange, trigger }: RssTriggerDial
   const [columnId, setColumnId] = useState<string>('');
   const [platform, setPlatform] = useState<string>('');
   const [contentType, setContentType] = useState<string>('post');
+  const [assignedTo, setAssignedTo] = useState<string>('');
   const [promptTemplate, setPromptTemplate] = useState('Crie um {contentType} sobre: {title}\n\nDescrição original: {description}');
   const [autoGenerate, setAutoGenerate] = useState(false);
   const [isActive, setIsActive] = useState(true);
@@ -77,6 +80,7 @@ export function RssTriggerDialog({ open, onOpenChange, trigger }: RssTriggerDial
       setColumnId(trigger.target_column_id || '');
       setPlatform(trigger.platform || '');
       setContentType(trigger.content_type || 'post');
+      setAssignedTo(trigger.assigned_to || '');
       setPromptTemplate(trigger.prompt_template || '');
       setAutoGenerate(trigger.auto_generate_content);
       setIsActive(trigger.is_active);
@@ -87,6 +91,7 @@ export function RssTriggerDialog({ open, onOpenChange, trigger }: RssTriggerDial
       setColumnId(columns?.[0]?.id || '');
       setPlatform('');
       setContentType('post');
+      setAssignedTo('');
       setPromptTemplate('Crie um {contentType} sobre: {title}\n\nDescrição original: {description}');
       setAutoGenerate(false);
       setIsActive(true);
@@ -119,6 +124,7 @@ export function RssTriggerDialog({ open, onOpenChange, trigger }: RssTriggerDial
         content_type: contentType,
         prompt_template: promptTemplate.trim() || null,
         auto_generate_content: autoGenerate,
+        assigned_to: assignedTo || null,
         is_active: isActive,
       };
 
@@ -253,6 +259,26 @@ export function RssTriggerDialog({ open, onOpenChange, trigger }: RssTriggerDial
                 </SelectContent>
               </Select>
             </div>
+          </div>
+
+          <div>
+            <Label>Responsável</Label>
+            <Select value={assignedTo} onValueChange={setAssignedTo}>
+              <SelectTrigger>
+                <SelectValue placeholder="Quem será notificado" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Nenhum</SelectItem>
+                {members?.map(member => (
+                  <SelectItem key={member.user_id} value={member.user_id}>
+                    {member.profile?.full_name || member.profile?.email || 'Usuário'}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground mt-1">
+              Será notificado quando novos itens forem detectados
+            </p>
           </div>
 
           <div className="space-y-3 p-3 border rounded-lg bg-muted/30">

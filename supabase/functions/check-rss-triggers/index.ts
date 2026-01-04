@@ -18,6 +18,7 @@ interface RssTrigger {
   content_type: string | null;
   prompt_template: string | null;
   auto_generate_content: boolean;
+  assigned_to: string | null;
   last_checked_at: string | null;
   last_item_guid: string | null;
   items_seen: string[];
@@ -148,6 +149,7 @@ serve(async (req) => {
             content_type: trigger.content_type,
             status: 'idea',
             created_by: trigger.workspace_id, // Using workspace_id as fallback
+            assigned_to: trigger.assigned_to,
             metadata: {
               rss_source: trigger.rss_url,
               rss_link: item.link,

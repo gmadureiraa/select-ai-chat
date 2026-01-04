@@ -2388,6 +2388,7 @@ export type Database = {
       }
       rss_triggers: {
         Row: {
+          assigned_to: string | null
           auto_generate_content: boolean | null
           client_id: string | null
           content_type: string | null
@@ -2406,6 +2407,7 @@ export type Database = {
           workspace_id: string
         }
         Insert: {
+          assigned_to?: string | null
           auto_generate_content?: boolean | null
           client_id?: string | null
           content_type?: string | null
@@ -2424,6 +2426,7 @@ export type Database = {
           workspace_id: string
         }
         Update: {
+          assigned_to?: string | null
           auto_generate_content?: boolean | null
           client_id?: string | null
           content_type?: string | null

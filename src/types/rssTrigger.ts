@@ -10,6 +10,7 @@ export interface RssTrigger {
   content_type: string | null;
   prompt_template: string | null;
   auto_generate_content: boolean;
+  assigned_to: string | null;
   last_checked_at: string | null;
   last_item_guid: string | null;
   items_seen: string[];
@@ -28,6 +29,7 @@ export interface CreateRssTriggerInput {
   content_type?: string | null;
   prompt_template?: string | null;
   auto_generate_content?: boolean;
+  assigned_to?: string | null;
 }
 
 export interface UpdateRssTriggerInput {
@@ -40,6 +42,7 @@ export interface UpdateRssTriggerInput {
   content_type?: string | null;
   prompt_template?: string | null;
   auto_generate_content?: boolean;
+  assigned_to?: string | null;
 }
 
 export type RecurrenceType = 'none' | 'daily' | 'weekly' | 'biweekly' | 'monthly';

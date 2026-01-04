@@ -10,18 +10,22 @@ import { CONTENT_TYPE_OPTIONS } from "@/types/contentTypes";
 import { supabase } from "@/integrations/supabase/client";
 import { uploadAndGetSignedUrl } from "@/lib/storage";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, ChevronDown, Video } from "lucide-react";
-import { ContentEditor } from "./ContentEditor";
+import { Loader2, ChevronDown, Video, Wand2 } from "lucide-react";
+import { RichContentEditor } from "@/components/planning/RichContentEditor";
+import { usePlanningContentGeneration } from "@/hooks/usePlanningContentGeneration";
 
 interface ContentDialogProps {
   open: boolean;
   onClose: () => void;
   onSave: (data: CreateContentData) => void;
   content?: ContentItem;
+  clientId?: string;
 }
 
-export const ContentDialog = ({ open, onClose, onSave, content }: ContentDialogProps) => {
+export const ContentDialog = ({ open, onClose, onSave, content, clientId }: ContentDialogProps) => {
   const { toast } = useToast();
+  const { generateContent, isGenerating: isGeneratingContent } = usePlanningContentGeneration();
+  
   const [formData, setFormData] = useState<CreateContentData>({
     title: "",
     content_type: "newsletter",
@@ -136,6 +140,37 @@ export const ContentDialog = ({ open, onClose, onSave, content }: ContentDialogP
     }
   };
 
+  // AI content generation - similar to PlanningItemDialog
+  const canGenerateContent = formData.title.trim() && clientId;
+  
+  const handleGenerateContent = async () => {
+    if (!canGenerateContent || !clientId) return;
+    
+    // Map content_type to platform for the agent
+    const platformMap: Record<string, string> = {
+      newsletter: 'newsletter',
+      tweet: 'twitter',
+      thread: 'twitter',
+      article: 'blog',
+      instagram_post: 'instagram',
+      linkedin_post: 'linkedin',
+    };
+    
+    const platform = platformMap[formData.content_type] || 'blog';
+    
+    const generatedContent = await generateContent({
+      title: formData.title,
+      description: '',
+      platform,
+      contentType: formData.content_type,
+      clientId
+    });
+
+    if (generatedContent) {
+      setFormData({ ...formData, content: generatedContent });
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const dataWithMetadata = {
@@ -189,14 +224,36 @@ export const ContentDialog = ({ open, onClose, onSave, content }: ContentDialogP
             </div>
           </div>
 
-          {/* Main Content Editor */}
+          {/* AI Generation Button */}
+          {clientId && (
+            <div className="flex justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleGenerateContent}
+                disabled={!canGenerateContent || isGeneratingContent}
+                className="gap-2"
+              >
+                {isGeneratingContent ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Wand2 className="h-4 w-4" />
+                )}
+                Escrever com IA
+              </Button>
+            </div>
+          )}
+
+          {/* Main Content Editor - Using RichContentEditor like PlanningItemDialog */}
           <div className="space-y-2">
             <Label>Conteúdo</Label>
-            <ContentEditor
+            <RichContentEditor
               value={formData.content}
               onChange={(value) => setFormData({ ...formData, content: value })}
-              placeholder="Digite o conteúdo aqui... Use a toolbar para formatar e inserir imagens."
+              placeholder="Digite o conteúdo aqui... Use @ para mencionar conteúdos e referências."
               minRows={10}
+              clientId={clientId}
             />
           </div>
 
