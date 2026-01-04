@@ -272,36 +272,79 @@ Notas de Contexto: ${client.context_notes || "Nenhuma"}
           const totalViews = data.reduce((sum: number, m: any) => sum + (m.views || 0), 0);
           const totalShares = data.reduce((sum: number, m: any) => sum + (m.shares || 0), 0);
           
+          // Extract link_clicks and profile_visits from metadata JSONB
+          const totalLinkClicks = data.reduce((sum: number, m: any) => {
+            const metadata = m.metadata || {};
+            const linkClicks = parseInt(metadata.linkClicks || metadata.link_clicks || 0);
+            return sum + (isNaN(linkClicks) ? 0 : linkClicks);
+          }, 0);
+          
+          const totalProfileVisits = data.reduce((sum: number, m: any) => {
+            const metadata = m.metadata || {};
+            const profileVisits = parseInt(metadata.profileVisits || metadata.profile_visits || 0);
+            return sum + (isNaN(profileVisits) ? 0 : profileVisits);
+          }, 0);
+          
+          const totalReach = data.reduce((sum: number, m: any) => {
+            const metadata = m.metadata || {};
+            const reach = parseInt(metadata.reach || 0);
+            return sum + (isNaN(reach) ? 0 : reach);
+          }, 0);
+          
+          const totalImpressions = data.reduce((sum: number, m: any) => {
+            const metadata = m.metadata || {};
+            const impressions = parseInt(metadata.impressions || 0);
+            return sum + (isNaN(impressions) ? 0 : impressions);
+          }, 0);
+          
           if (totalLikes > 0) metricsReport += `- Total de curtidas: ${totalLikes.toLocaleString("pt-BR")}\n`;
           if (totalComments > 0) metricsReport += `- Total de comentários: ${totalComments.toLocaleString("pt-BR")}\n`;
           if (totalViews > 0) metricsReport += `- Total de views: ${totalViews.toLocaleString("pt-BR")}\n`;
           if (totalShares > 0) metricsReport += `- Total de compartilhamentos: ${totalShares.toLocaleString("pt-BR")}\n`;
+          if (totalLinkClicks > 0) metricsReport += `- Cliques no link da bio: ${totalLinkClicks.toLocaleString("pt-BR")}\n`;
+          if (totalProfileVisits > 0) metricsReport += `- Visitas ao perfil: ${totalProfileVisits.toLocaleString("pt-BR")}\n`;
+          if (totalReach > 0) metricsReport += `- Alcance total: ${totalReach.toLocaleString("pt-BR")}\n`;
+          if (totalImpressions > 0) metricsReport += `- Impressões totais: ${totalImpressions.toLocaleString("pt-BR")}\n`;
           
           metricsReport += `\n`;
         }
         
         metricsContext = metricsReport;
       } else {
-        // No data found for the requested period
-        metricsContext = `\n## Dados de Métricas\n`;
+        // No data found for the requested period - provide better feedback
+        metricsContext = `\n## ⚠️ Dados de Métricas Não Encontrados\n\n`;
         if (dateFilter.monthName) {
-          metricsContext += `**ATENÇÃO:** Não foram encontrados dados de métricas para ${dateFilter.monthName}${dateFilter.year ? ` de ${dateFilter.year}` : ""}.\n`;
+          metricsContext += `Não foram encontrados dados de métricas para **${dateFilter.monthName}${dateFilter.year ? ` de ${dateFilter.year}` : ""}**.\n\n`;
         } else {
-          metricsContext += `**ATENÇÃO:** Não foram encontrados dados de métricas para o período solicitado.\n`;
+          metricsContext += `Não foram encontrados dados de métricas para o período solicitado.\n\n`;
         }
-        metricsContext += `Verifique se as métricas foram importadas para esse período.\n`;
         
-        // Check what periods ARE available
-        const { data: availableMetrics } = await supabase
+        // Check what periods ARE available - get full range
+        const { data: oldestMetric } = await supabase
+          .from("platform_metrics")
+          .select("metric_date")
+          .eq("client_id", clientId)
+          .order("metric_date", { ascending: true })
+          .limit(1)
+          .single();
+        
+        const { data: newestMetric } = await supabase
           .from("platform_metrics")
           .select("metric_date")
           .eq("client_id", clientId)
           .order("metric_date", { ascending: false })
-          .limit(5);
+          .limit(1)
+          .single();
         
-        if (availableMetrics && availableMetrics.length > 0) {
-          const dates = availableMetrics.map(m => m.metric_date);
-          metricsContext += `\nPeríodos com dados disponíveis: ${dates.join(", ")}\n`;
+        if (oldestMetric && newestMetric) {
+          const formatDate = (dateStr: string) => {
+            const date = new Date(dateStr + "T00:00:00");
+            return date.toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" });
+          };
+          metricsContext += `📅 **Período disponível:** ${formatDate(oldestMetric.metric_date)} a ${formatDate(newestMetric.metric_date)}\n\n`;
+          metricsContext += `Por favor, pergunte sobre uma data dentro deste intervalo ou importe os dados que estão faltando.\n`;
+        } else {
+          metricsContext += `Não há métricas registradas para este cliente. Por favor, importe os dados primeiro.\n`;
         }
       }
       

@@ -13,6 +13,7 @@ import { useKAIActions } from "@/hooks/useKAIActions";
 import { useKAICSVAnalysis } from "@/hooks/useKAICSVAnalysis";
 import { useKAIURLAnalysis } from "@/hooks/useKAIURLAnalysis";
 import { useKAIExecuteAction } from "@/hooks/useKAIExecuteAction";
+import { useCSVValidation, ValidationResult } from "@/hooks/useCSVValidation";
 import { supabase } from "@/integrations/supabase/client";
 import { Citation } from "@/components/chat/CitationChip";
 
@@ -31,19 +32,42 @@ interface ReferenceLibraryItem {
   content: string;
 }
 
+interface AssigneeItem {
+  id: string;
+  name: string;
+  email?: string;
+  avatar_url?: string;
+}
+
+interface ClientItem {
+  id: string;
+  name: string;
+  avatar_url?: string;
+}
+
 // Extended state with streaming response and libraries
 interface ExtendedKAIState extends KAIGlobalState {
   streamingResponse: string;
   workspaceId: string | null;
   contentLibrary: ContentLibraryItem[];
   referenceLibrary: ReferenceLibraryItem[];
+  assignees: AssigneeItem[];
+  clients: ClientItem[];
+  csvValidationResults: ValidationResult[];
+  pendingCSVFiles: File[];
 }
 
 // Extended context value with libraries
 interface ExtendedKAIContextValue extends KAIContextValue {
   contentLibrary: ContentLibraryItem[];
   referenceLibrary: ReferenceLibraryItem[];
+  assignees: AssigneeItem[];
+  clients: ClientItem[];
+  csvValidationResults: ValidationResult[];
   sendMessage: (text: string, files?: File[], citations?: Citation[]) => Promise<void>;
+  proceedCSVImport: () => void;
+  cancelCSVValidation: () => void;
+  applyCSVFix: (fileIndex: number, warningIndex: number) => void;
 }
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/kai-chat`;
@@ -63,6 +87,10 @@ const initialState: ExtendedKAIState = {
   workspaceId: null,
   contentLibrary: [],
   referenceLibrary: [],
+  assignees: [],
+  clients: [],
+  csvValidationResults: [],
+  pendingCSVFiles: [],
 };
 
 // Export context for external use
@@ -81,6 +109,7 @@ export function GlobalKAIProvider({ children }: GlobalKAIProviderProps) {
   const { analyzeCSV, isAnalyzing: isAnalyzingCSV } = useKAICSVAnalysis();
   const { analyzeURL, isAnalyzing: isAnalyzingURL } = useKAIURLAnalysis();
   const { executeAction: executeActionHook, isExecuting } = useKAIExecuteAction();
+  const { validateFiles, applyFix } = useCSVValidation();
 
   // Fetch user's workspace on mount
   useEffect(() => {
@@ -101,6 +130,66 @@ export function GlobalKAIProvider({ children }: GlobalKAIProviderProps) {
     };
     fetchWorkspace();
   }, []);
+
+  // Fetch assignees (workspace members) and clients when workspace is set
+  useEffect(() => {
+    if (!state.workspaceId) {
+      setState(prev => ({
+        ...prev,
+        assignees: [],
+        clients: [],
+      }));
+      return;
+    }
+
+    const fetchWorkspaceData = async () => {
+      try {
+        // Fetch workspace members
+        const { data: members } = await supabase
+          .from("workspace_members")
+          .select("user_id, role")
+          .eq("workspace_id", state.workspaceId);
+
+        if (members && members.length > 0) {
+          const userIds = members.map(m => m.user_id);
+          const { data: profiles } = await supabase
+            .from("profiles")
+            .select("id, full_name, avatar_url, email")
+            .in("id", userIds);
+
+          if (profiles) {
+            const assignees = profiles.map(profile => ({
+              id: profile.id,
+              name: profile.full_name || profile.email || "Usuário",
+              email: profile.email || undefined,
+              avatar_url: profile.avatar_url || undefined,
+            }));
+            setState(prev => ({ ...prev, assignees }));
+          }
+        }
+
+        // Fetch clients
+        const { data: clientsData } = await supabase
+          .from("clients")
+          .select("id, name, avatar_url")
+          .eq("workspace_id", state.workspaceId)
+          .order("name", { ascending: true });
+
+        if (clientsData) {
+          const clients = clientsData.map(c => ({
+            id: c.id,
+            name: c.name,
+            avatar_url: c.avatar_url || undefined,
+          }));
+          setState(prev => ({ ...prev, clients }));
+        }
+      } catch (error) {
+        console.error("Error fetching workspace data:", error);
+      }
+    };
+
+    fetchWorkspaceData();
+  }, [state.workspaceId]);
 
   // Fetch libraries when client is selected
   useEffect(() => {
@@ -573,6 +662,29 @@ export function GlobalKAIProvider({ children }: GlobalKAIProviderProps) {
     }));
   }, []);
 
+  // CSV Validation handlers
+  const proceedCSVImport = useCallback(() => {
+    // TODO: Implement actual import using useSmartInstagramImport
+    toast.success("Importação de CSV iniciada");
+    setState((prev) => ({
+      ...prev,
+      csvValidationResults: [],
+      pendingCSVFiles: [],
+    }));
+  }, []);
+
+  const cancelCSVValidation = useCallback(() => {
+    setState((prev) => ({
+      ...prev,
+      csvValidationResults: [],
+      pendingCSVFiles: [],
+    }));
+  }, []);
+
+  const applyCSVFix = useCallback((fileIndex: number, warningIndex: number) => {
+    applyFix(fileIndex, warningIndex);
+  }, [applyFix]);
+
   const value: ExtendedKAIContextValue = {
     ...state,
     openPanel,
@@ -586,6 +698,9 @@ export function GlobalKAIProvider({ children }: GlobalKAIProviderProps) {
     removeFile,
     clearFiles,
     setSelectedClientId,
+    proceedCSVImport,
+    cancelCSVValidation,
+    applyCSVFix,
   };
 
   return (

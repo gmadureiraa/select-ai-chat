@@ -24,6 +24,19 @@ interface ReferenceLibraryItem {
   content: string;
 }
 
+interface AssigneeItem {
+  id: string;
+  name: string;
+  email?: string;
+  avatar_url?: string;
+}
+
+interface ClientItem {
+  id: string;
+  name: string;
+  avatar_url?: string;
+}
+
 interface GlobalKAIInputProps {
   onSend: (message: string, files?: File[], citations?: Citation[]) => Promise<void>;
   isProcessing: boolean;
@@ -34,6 +47,8 @@ interface GlobalKAIInputProps {
   disabled?: boolean;
   contentLibrary?: ContentLibraryItem[];
   referenceLibrary?: ReferenceLibraryItem[];
+  assignees?: AssigneeItem[];
+  clients?: ClientItem[];
 }
 
 // URL detection regex
@@ -51,6 +66,8 @@ export function GlobalKAIInput({
   disabled = false,
   contentLibrary = [],
   referenceLibrary = [],
+  assignees = [],
+  clients = [],
 }: GlobalKAIInputProps) {
   const [message, setMessage] = useState("");
   const [detectedUrls, setDetectedUrls] = useState<string[]>([]);
@@ -113,7 +130,7 @@ export function GlobalKAIInput({
     setMentionSearchQuery("");
   };
 
-  const handleCitationSelect = (item: { id: string; title: string; type: "content_library" | "reference_library" | "format"; category: string }) => {
+  const handleCitationSelect = (item: { id: string; title: string; type: "content_library" | "reference_library" | "format" | "assignee" | "client"; category: string }) => {
     // Add citation
     const newCitation: Citation = {
       id: item.id,
@@ -464,6 +481,8 @@ export function GlobalKAIInput({
             onSelect={handleCitationSelect}
             contentLibrary={formattedContentLibrary}
             referenceLibrary={formattedReferenceLibrary}
+            assignees={assignees}
+            clients={clients}
             anchorRef={mentionAnchorRef}
             searchQuery={mentionSearchQuery}
             showFormats={true}
