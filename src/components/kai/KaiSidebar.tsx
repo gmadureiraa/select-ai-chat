@@ -311,6 +311,14 @@ export function KaiSidebar({
               collapsed={collapsed}
             />
           )}
+
+          <NavItem
+            icon={<Youtube className="h-4 w-4" />}
+            label="Reaproveitar"
+            active={activeTab === "repurpose"}
+            onClick={() => onTabChange("repurpose")}
+            collapsed={collapsed}
+          />
         </div>
 
         <SectionLabel collapsed={collapsed}>Planejamento</SectionLabel>
@@ -329,14 +337,6 @@ export function KaiSidebar({
             label="Automações"
             active={activeTab === "automations"}
             onClick={() => onTabChange("automations")}
-            collapsed={collapsed}
-          />
-
-          <NavItem
-            icon={<Youtube className="h-4 w-4" />}
-            label="Reaproveitar"
-            active={activeTab === "repurpose"}
-            onClick={() => onTabChange("repurpose")}
             collapsed={collapsed}
           />
         </div>
