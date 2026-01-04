@@ -14,15 +14,18 @@ import {
   Instagram,
   Film,
   PenTool,
-  Send
+  Send,
+  Loader2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { ContentFormat, ContentObjective, GeneratedContent, CutMoment } from "@/hooks/useContentRepurpose";
+import { PlanningItemDialog } from "@/components/planning/PlanningItemDialog";
+import { usePlanningItems, CreatePlanningItemInput } from "@/hooks/usePlanningItems";
+import { useWorkspaceContext } from "@/contexts/WorkspaceContext";
 import { cn } from "@/lib/utils";
 
 interface GeneratedContentResultsProps {
@@ -33,6 +36,7 @@ interface GeneratedContentResultsProps {
   onCopy: (text: string) => Promise<void>;
   onReset: () => void;
   clientName?: string;
+  clientId?: string;
 }
 
 const FORMAT_CONFIG: Record<ContentFormat, { 
@@ -186,16 +190,48 @@ const CutMomentCard = ({ moment, index }: { moment: CutMoment; index: number }) 
   );
 };
 
+// Helper to detect platform from format
+const detectPlatformFromFormat = (format: ContentFormat): string | undefined => {
+  const platformMap: Record<string, string> = {
+    thread: "twitter",
+    tweet: "twitter",
+    linkedin_post: "linkedin",
+    instagram_post: "instagram",
+    carousel: "instagram",
+    reels_script: "tiktok",
+    newsletter: "newsletter",
+    blog_post: "blog",
+    email_marketing: "newsletter",
+  };
+  return platformMap[format];
+};
+
+// Helper to extract title from content
+const extractTitleFromContent = (content: string, format: string): string => {
+  const lines = content.split('\n').filter(l => l.trim());
+  if (lines.length > 0) {
+    const firstLine = lines[0].replace(/^#+\s*/, '').replace(/^\*\*/, '').replace(/\*\*$/, '').trim();
+    if (firstLine.length <= 80) return firstLine;
+    return firstLine.substring(0, 77) + "...";
+  }
+  return `Conteúdo ${format}`;
+};
+
 const ContentResultCard = ({ 
   content, 
-  onCopy 
+  onCopy,
+  clientId,
 }: { 
   content: GeneratedContent; 
   onCopy: (text: string) => Promise<void>;
+  clientId?: string;
 }) => {
   const [copied, setCopied] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  const [showPlanningDialog, setShowPlanningDialog] = useState(false);
   const { toast } = useToast();
+  const { workspace } = useWorkspaceContext();
+  const { columns, createItem } = usePlanningItems();
   
   const config = FORMAT_CONFIG[content.format];
   const objectiveConfig = OBJECTIVE_CONFIG[content.objective];
@@ -207,6 +243,19 @@ const ContentResultCard = ({
     setTimeout(() => setCopied(false), 2000);
     toast({ title: "Conteúdo copiado!" });
   };
+
+  const handleSendToPlanning = async (data: CreatePlanningItemInput) => {
+    if (!workspace?.id) {
+      toast({ title: "Workspace não encontrado", variant: "destructive" });
+      return;
+    }
+    await createItem.mutateAsync(data);
+    setShowPlanningDialog(false);
+    toast({ title: "Enviado para planejamento!" });
+  };
+
+  const ideaColumn = columns.find(c => c.column_type === 'idea');
+  const detectedPlatform = detectPlatformFromFormat(content.format);
 
   // For cut moments, render special view
   if (content.format === "cut_moments" && content.cutMoments) {
@@ -244,77 +293,117 @@ const ContentResultCard = ({
   const displayContent = expanded ? content.content : content.content.substring(0, previewLength);
 
   return (
-    <Card className={cn("overflow-hidden transition-all hover:shadow-md", `bg-gradient-to-br ${config.gradient}`)}>
-      <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className={cn("p-2 rounded-lg bg-background/80", config.color)}>
-              <Icon className="h-5 w-5" />
+    <>
+      <Card className={cn("overflow-hidden transition-all hover:shadow-md", `bg-gradient-to-br ${config.gradient}`)}>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className={cn("p-2 rounded-lg bg-background/80", config.color)}>
+                <Icon className="h-5 w-5" />
+              </div>
+              <CardTitle className="text-lg">{config.label}</CardTitle>
             </div>
-            <CardTitle className="text-lg">{config.label}</CardTitle>
-          </div>
-          <div className="flex items-center gap-2">
-            <Badge variant="outline" className={objectiveConfig.color}>
-              {objectiveConfig.label}
-            </Badge>
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="bg-background/60 rounded-lg p-4 backdrop-blur-sm">
-          <ScrollArea className={cn(expanded ? "max-h-96" : "max-h-48")}>
-            <div className="whitespace-pre-wrap text-sm">
-              {displayContent}
-              {!expanded && showExpandButton && "..."}
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className={objectiveConfig.color}>
+                {objectiveConfig.label}
+              </Badge>
             </div>
-          </ScrollArea>
-          {showExpandButton && (
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              className="w-full mt-2"
-              onClick={() => setExpanded(!expanded)}
-            >
-              {expanded ? "Ver menos" : "Ver mais"}
-            </Button>
-          )}
-        </div>
-        
-        <div className="flex items-center justify-between pt-2 border-t">
-          <span className="text-xs text-muted-foreground">
-            {new Date(content.generatedAt).toLocaleTimeString("pt-BR")}
-          </span>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" className="gap-1.5">
-              <Calendar className="h-3.5 w-3.5" />
-              Planejar
-            </Button>
-            <Button variant="outline" size="sm" className="gap-1.5">
-              <BookmarkPlus className="h-3.5 w-3.5" />
-              Salvar
-            </Button>
-            <Button 
-              variant="default" 
-              size="sm" 
-              className="gap-1.5"
-              onClick={handleCopy}
-            >
-              {copied ? (
-                <>
-                  <Check className="h-3.5 w-3.5" />
-                  Copiado
-                </>
-              ) : (
-                <>
-                  <Copy className="h-3.5 w-3.5" />
-                  Copiar
-                </>
-              )}
-            </Button>
           </div>
-        </div>
-      </CardContent>
-    </Card>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="bg-background/60 rounded-lg p-4 backdrop-blur-sm">
+            <ScrollArea className={cn(expanded ? "max-h-96" : "max-h-48")}>
+              <div className="whitespace-pre-wrap text-sm">
+                {displayContent}
+                {!expanded && showExpandButton && "..."}
+              </div>
+            </ScrollArea>
+            {showExpandButton && (
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="w-full mt-2"
+                onClick={() => setExpanded(!expanded)}
+              >
+                {expanded ? "Ver menos" : "Ver mais"}
+              </Button>
+            )}
+          </div>
+          
+          <div className="flex items-center justify-between pt-2 border-t">
+            <span className="text-xs text-muted-foreground">
+              {new Date(content.generatedAt).toLocaleTimeString("pt-BR")}
+            </span>
+            <div className="flex gap-2">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="gap-1.5"
+                onClick={() => setShowPlanningDialog(true)}
+              >
+                <Calendar className="h-3.5 w-3.5" />
+                Planejar
+              </Button>
+              <Button 
+                variant="default" 
+                size="sm" 
+                className="gap-1.5"
+                onClick={handleCopy}
+              >
+                {copied ? (
+                  <>
+                    <Check className="h-3.5 w-3.5" />
+                    Copiado
+                  </>
+                ) : (
+                  <>
+                    <Copy className="h-3.5 w-3.5" />
+                    Copiar
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <PlanningItemDialog
+        open={showPlanningDialog}
+        onOpenChange={setShowPlanningDialog}
+        columns={columns}
+        defaultColumnId={ideaColumn?.id}
+        onSave={handleSendToPlanning}
+        item={{
+          id: "",
+          workspace_id: workspace?.id || "",
+          title: extractTitleFromContent(content.content, config.label),
+          description: "",
+          content: content.content,
+          client_id: clientId || null,
+          column_id: ideaColumn?.id || null,
+          platform: detectedPlatform as any || null,
+          status: "idea",
+          priority: "medium",
+          position: 0,
+          created_by: "",
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          due_date: null,
+          scheduled_at: null,
+          labels: [],
+          media_urls: [],
+          metadata: { source: "content_repurpose", format: content.format },
+          assigned_to: null,
+          content_type: null,
+          content_library_id: null,
+          added_to_library: false,
+          external_post_id: null,
+          published_at: null,
+          error_message: null,
+          retry_count: 0,
+        } as any}
+      />
+    </>
   );
 };
 
@@ -326,6 +415,7 @@ export function GeneratedContentResults({
   onCopy,
   onReset,
   clientName,
+  clientId,
 }: GeneratedContentResultsProps) {
   return (
     <div className="p-6 space-y-6 max-w-5xl mx-auto">
@@ -374,6 +464,7 @@ export function GeneratedContentResults({
             key={`${content.format}-${index}`}
             content={content}
             onCopy={onCopy}
+            clientId={clientId}
           />
         ))}
       </div>

@@ -236,9 +236,24 @@ export function useContentRepurpose(clientId: string) {
 
           try {
             const parsed = JSON.parse(jsonStr);
-            const content = parsed.choices?.[0]?.delta?.content;
-            if (content) {
-              result += content;
+            
+            // Support OpenAI format
+            const openaiContent = parsed.choices?.[0]?.delta?.content;
+            if (openaiContent) {
+              result += openaiContent;
+              continue;
+            }
+            
+            // Support Gemini format (used by chat edge function)
+            const geminiContent = parsed.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (geminiContent) {
+              result += geminiContent;
+              continue;
+            }
+
+            // Support direct content format
+            if (parsed.content && typeof parsed.content === 'string') {
+              result += parsed.content;
             }
           } catch {
             // Incomplete JSON, will handle in next chunk
@@ -261,6 +276,15 @@ export function useContentRepurpose(clientId: string) {
     if (response.data?.choices?.[0]?.message?.content) {
       return response.data.choices[0].message.content;
     }
+
+    // Try Gemini format for non-stream
+    if (response.data?.candidates?.[0]?.content?.parts?.[0]?.text) {
+      return response.data.candidates[0].content.parts[0].text;
+    }
+
+    // Log for debugging
+    console.log("Response data type:", typeof response.data);
+    console.log("Response data:", response.data);
 
     throw new Error("Formato de resposta não reconhecido");
   };

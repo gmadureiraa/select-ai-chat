@@ -825,6 +825,66 @@ export type Database = {
           },
         ]
       }
+      content_repurpose_history: {
+        Row: {
+          client_id: string | null
+          created_at: string
+          created_by: string
+          generated_contents: Json
+          id: string
+          objective: string | null
+          transcript: string | null
+          updated_at: string
+          video_thumbnail: string | null
+          video_title: string | null
+          workspace_id: string
+          youtube_url: string
+        }
+        Insert: {
+          client_id?: string | null
+          created_at?: string
+          created_by: string
+          generated_contents?: Json
+          id?: string
+          objective?: string | null
+          transcript?: string | null
+          updated_at?: string
+          video_thumbnail?: string | null
+          video_title?: string | null
+          workspace_id: string
+          youtube_url: string
+        }
+        Update: {
+          client_id?: string | null
+          created_at?: string
+          created_by?: string
+          generated_contents?: Json
+          id?: string
+          objective?: string | null
+          transcript?: string | null
+          updated_at?: string
+          video_thumbnail?: string | null
+          video_title?: string | null
+          workspace_id?: string
+          youtube_url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_repurpose_history_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_repurpose_history_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       conversations: {
         Row: {
           client_id: string

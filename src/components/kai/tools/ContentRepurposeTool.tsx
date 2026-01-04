@@ -9,10 +9,13 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { useClients } from "@/hooks/useClients";
-import { useContentRepurpose, ContentFormat, ContentObjective } from "@/hooks/useContentRepurpose";
+import { useContentRepurpose, ContentFormat, ContentObjective, GeneratedContent } from "@/hooks/useContentRepurpose";
+import { useRepurposeHistory, RepurposeHistoryItem } from "@/hooks/useRepurposeHistory";
 import { GeneratedContentResults } from "./GeneratedContentResults";
+import { RepurposeHistoryCards } from "./RepurposeHistoryCards";
 import { cn } from "@/lib/utils";
 
 const CONTENT_FORMATS: { id: ContentFormat; label: string; description: string; icon?: string }[] = [
@@ -39,8 +42,10 @@ export function ContentRepurposeTool() {
   const { toast } = useToast();
   const { clients } = useClients();
   const [selectedClientId, setSelectedClientId] = useState<string>("");
+  const [viewingHistoryItem, setViewingHistoryItem] = useState<RepurposeHistoryItem | null>(null);
   
   const selectedClient = clients?.find(c => c.id === selectedClientId);
+  const { saveHistory } = useRepurposeHistory(selectedClientId);
   
   const {
     youtubeUrl,
@@ -118,7 +123,21 @@ export function ContentRepurposeTool() {
     }
 
     try {
-      await generateAll();
+      const results = await generateAll();
+      
+      // Save to history
+      if (results && results.length > 0 && transcript) {
+        await saveHistory.mutateAsync({
+          clientId: selectedClientId,
+          youtubeUrl,
+          videoTitle: transcript.title,
+          videoThumbnail: transcript.thumbnail,
+          transcript: transcript.content,
+          objective: contentObjective!,
+          generatedContents: results,
+        });
+      }
+      
       toast({
         title: "Conteúdos gerados!",
         description: `${selectedFormats.length} conteúdos criados com sucesso`,
@@ -131,6 +150,27 @@ export function ContentRepurposeTool() {
       });
     }
   };
+
+  // View history item results
+  if (viewingHistoryItem) {
+    return (
+      <GeneratedContentResults
+        contents={viewingHistoryItem.generated_contents}
+        videoTitle={viewingHistoryItem.video_title || "Vídeo"}
+        videoThumbnail={viewingHistoryItem.video_thumbnail || undefined}
+        onBack={() => setViewingHistoryItem(null)}
+        onCopy={async (text) => {
+          await copyToClipboard(text);
+        }}
+        onReset={() => {
+          setViewingHistoryItem(null);
+          reset();
+        }}
+        clientName={selectedClient?.name}
+        clientId={selectedClientId}
+      />
+    );
+  }
 
   // Show results page when generation is complete
   if (showResults && generatedContents.length > 0) {
@@ -145,6 +185,7 @@ export function ContentRepurposeTool() {
         }}
         onReset={reset}
         clientName={selectedClient?.name}
+        clientId={selectedClientId}
       />
     );
   }
@@ -387,6 +428,14 @@ export function ContentRepurposeTool() {
           </CardContent>
         </Card>
       )}
+
+      {/* History Section */}
+      <Separator className="my-6" />
+      
+      <RepurposeHistoryCards 
+        clientId={selectedClientId || undefined}
+        onViewResults={(item) => setViewingHistoryItem(item)}
+      />
     </div>
   );
 }
