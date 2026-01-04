@@ -18,7 +18,6 @@
 - [API Edge Functions](./API-EDGE-FUNCTIONS.md) ⭐⭐ (novo)
 
 ## 📊 Performance
-- [Sistema de Métricas Completo](./METRICAS-COMPLETO.md) ⭐⭐ (novo)
 - [Performance Dashboards Completo](./PERFORMANCE-DASHBOARDS-COMPLETO.md) ⭐
 - [Performance Completo](./PERFORMANCE-COMPLETO.md)
 
