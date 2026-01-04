@@ -13,8 +13,9 @@
 ## 📄 Páginas
 - [Páginas Completo](./PAGINAS-COMPLETO.md) ⭐
 
-## 🔌 Integrações
+## 🔌 Integrações & APIs
 - [Integrações Completo Detalhado](./INTEGRACOES-COMPLETO-DETALHADO.md) ⭐
+- [API Edge Functions](./API-EDGE-FUNCTIONS.md) ⭐⭐ (novo)
 
 ## 📊 Performance
 - [Performance Dashboards Completo](./PERFORMANCE-DASHBOARDS-COMPLETO.md) ⭐
