@@ -20,6 +20,7 @@ import { RichContentEditor } from './RichContentEditor';
 import { ThreadEditor, ThreadTweet } from './ThreadEditor';
 import { ImageGenerationModal, ImageGenerationOptions } from './ImageGenerationModal';
 import { PlanningItemComments } from './PlanningItemComments';
+import { MentionableInput } from './MentionableInput';
 import type { PlanningItem, CreatePlanningItemInput, PlanningPlatform, PlanningPriority, KanbanColumn } from '@/hooks/usePlanningItems';
 
 interface PlanningItemDialogProps {
@@ -246,13 +247,12 @@ export function PlanningItemDialog({
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <Label htmlFor="title">Título *</Label>
-            <Input
-              id="title"
+            <Label htmlFor="title">Título * <span className="text-xs text-muted-foreground font-normal">(use @ para mencionar referências)</span></Label>
+            <MentionableInput
               value={title}
-              onChange={(e) => setTitle(e.target.value)}
+              onChange={setTitle}
+              clientId={selectedClientId}
               placeholder="Título do conteúdo"
-              required
             />
           </div>
 
@@ -332,11 +332,11 @@ export function PlanningItemDialog({
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <Label htmlFor="description">Descrição</Label>
-              <Input
-                id="description"
+              <Label htmlFor="description">Descrição <span className="text-xs text-muted-foreground font-normal">(@ para refs)</span></Label>
+              <MentionableInput
                 value={description}
-                onChange={(e) => setDescription(e.target.value)}
+                onChange={setDescription}
+                clientId={selectedClientId}
                 placeholder="Breve descrição"
               />
             </div>

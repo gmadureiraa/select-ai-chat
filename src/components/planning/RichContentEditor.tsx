@@ -1,11 +1,18 @@
 import { useState, useRef, useCallback } from "react";
-import { Bold, Italic, List, ListOrdered, Heading2, Link, Image, Upload, Eye, EyeOff, Loader2 } from "lucide-react";
+import { Bold, Italic, List, ListOrdered, Heading2, Link, Image, Eye, EyeOff, Loader2, AtSign } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Popover, PopoverContent, PopoverAnchor } from "@/components/ui/popover";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
+import { MentionRenderer } from "./MentionRenderer";
+import { ReferencePopup } from "./ReferencePopup";
+import { useMentionSearch, MentionItem } from "@/hooks/useMentionSearch";
+import { createMentionString } from "@/lib/mentionParser";
+import { FileText, BookOpen } from "lucide-react";
 
 interface RichContentEditorProps {
   value: string;
@@ -26,8 +33,24 @@ export function RichContentEditor({
 }: RichContentEditorProps) {
   const [showPreview, setShowPreview] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [showMentionPopover, setShowMentionPopover] = useState(false);
+  const [mentionQuery, setMentionQuery] = useState("");
+  const [mentionStartPosition, setMentionStartPosition] = useState<number | null>(null);
+  const [selectedMentionIndex, setSelectedMentionIndex] = useState(0);
+  const [popupOpen, setPopupOpen] = useState(false);
+  const [popupType, setPopupType] = useState<'content' | 'reference'>('content');
+  const [popupId, setPopupId] = useState("");
+  
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const { items: mentionItems, isLoading: isLoadingMentions } = useMentionSearch(clientId, mentionQuery);
+
+  const handleMentionDoubleClick = useCallback((type: 'content' | 'reference', id: string) => {
+    setPopupType(type);
+    setPopupId(id);
+    setPopupOpen(true);
+  }, []);
 
   const insertMarkdown = useCallback((prefix: string, suffix: string = "") => {
     const textarea = textareaRef.current;
@@ -116,7 +139,82 @@ export function RichContentEditor({
     { icon: Link, action: () => insertMarkdown("[", "](url)"), title: "Link" },
   ];
 
+  const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const newValue = e.target.value;
+    const cursor = e.target.selectionStart || 0;
+    
+    onChange(newValue);
+
+    // Detecta se está digitando uma menção
+    const textBeforeCursor = newValue.substring(0, cursor);
+    const lastAtIndex = textBeforeCursor.lastIndexOf('@');
+    
+    if (lastAtIndex !== -1) {
+      const textAfterAt = textBeforeCursor.substring(lastAtIndex + 1);
+      // Verifica se não há espaço ou quebra de linha após o @
+      if (!textAfterAt.includes(' ') && !textAfterAt.includes('\n') && textAfterAt.length <= 30) {
+        setMentionStartPosition(lastAtIndex);
+        setMentionQuery(textAfterAt);
+        setShowMentionPopover(true);
+        setSelectedMentionIndex(0);
+        return;
+      }
+    }
+    
+    setShowMentionPopover(false);
+    setMentionStartPosition(null);
+    setMentionQuery("");
+  };
+
+  const insertMention = useCallback((item: MentionItem) => {
+    if (mentionStartPosition === null) return;
+
+    const cursor = textareaRef.current?.selectionStart || value.length;
+    const beforeMention = value.substring(0, mentionStartPosition);
+    const afterMention = value.substring(cursor);
+    const mentionStr = createMentionString(item.title, item.type, item.id);
+    
+    const newValue = beforeMention + mentionStr + ' ' + afterMention;
+    onChange(newValue);
+    
+    setShowMentionPopover(false);
+    setMentionStartPosition(null);
+    setMentionQuery("");
+
+    setTimeout(() => {
+      if (textareaRef.current) {
+        const newPosition = beforeMention.length + mentionStr.length + 1;
+        textareaRef.current.focus();
+        textareaRef.current.setSelectionRange(newPosition, newPosition);
+      }
+    }, 0);
+  }, [value, onChange, mentionStartPosition]);
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    // Handle mention navigation
+    if (showMentionPopover && mentionItems.length > 0) {
+      switch (e.key) {
+        case 'ArrowDown':
+          e.preventDefault();
+          setSelectedMentionIndex(prev => (prev + 1) % mentionItems.length);
+          return;
+        case 'ArrowUp':
+          e.preventDefault();
+          setSelectedMentionIndex(prev => (prev - 1 + mentionItems.length) % mentionItems.length);
+          return;
+        case 'Enter':
+          e.preventDefault();
+          if (mentionItems[selectedMentionIndex]) {
+            insertMention(mentionItems[selectedMentionIndex]);
+          }
+          return;
+        case 'Escape':
+          e.preventDefault();
+          setShowMentionPopover(false);
+          return;
+      }
+    }
+
     if (e.key === "Delete" || e.key === "Backspace") {
       e.stopPropagation();
     }
@@ -207,31 +305,90 @@ export function RichContentEditor({
       {/* Editor / Preview */}
       {showPreview ? (
         <div className="min-h-[150px] p-4 rounded-lg border border-border/50 bg-background prose prose-sm dark:prose-invert max-w-none">
-          <ReactMarkdown
-            components={{
-              img: ({ node, ...props }) => (
-                <img {...props} className="max-w-full h-auto rounded-md my-2" />
-              ),
-            }}
-          >
-            {value || "*Nenhum conteúdo*"}
-          </ReactMarkdown>
+          <MentionRenderer 
+            text={value || "*Nenhum conteúdo*"} 
+            onMentionDoubleClick={handleMentionDoubleClick}
+          />
         </div>
       ) : (
-        <Textarea
-          ref={textareaRef}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder={placeholder}
-          className="resize-none font-mono text-sm min-h-[150px] rounded-lg border-border/50"
-          rows={minRows}
-          onKeyDown={handleKeyDown}
-        />
+        <Popover open={showMentionPopover} onOpenChange={setShowMentionPopover}>
+          <PopoverAnchor asChild>
+            <Textarea
+              ref={textareaRef}
+              value={value}
+              onChange={handleTextareaChange}
+              placeholder={placeholder}
+              className="resize-none font-mono text-sm min-h-[150px] rounded-lg border-border/50"
+              rows={minRows}
+              onKeyDown={handleKeyDown}
+            />
+          </PopoverAnchor>
+          <PopoverContent 
+            className="w-72 p-0" 
+            align="start" 
+            side="bottom"
+            onOpenAutoFocus={(e) => e.preventDefault()}
+          >
+            <div className="p-2 border-b">
+              <p className="text-xs text-muted-foreground flex items-center gap-1">
+                <AtSign className="h-3 w-3" />
+                {mentionQuery ? `Buscando "${mentionQuery}"...` : 'Digite para buscar referências'}
+              </p>
+            </div>
+            <ScrollArea className="max-h-60">
+              {isLoadingMentions ? (
+                <div className="flex items-center justify-center py-4">
+                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                </div>
+              ) : mentionItems.length === 0 ? (
+                <div className="py-4 text-center text-sm text-muted-foreground">
+                  {mentionQuery ? 'Nenhuma referência encontrada' : 'Digite para buscar'}
+                </div>
+              ) : (
+                <div className="p-1">
+                  {mentionItems.map((item, index) => {
+                    const Icon = item.type === 'content' ? FileText : BookOpen;
+                    return (
+                      <button
+                        key={item.id}
+                        className={cn(
+                          "w-full flex items-start gap-2 p-2 rounded-md text-left text-sm transition-colors",
+                          index === selectedMentionIndex
+                            ? "bg-accent text-accent-foreground"
+                            : "hover:bg-muted"
+                        )}
+                        onClick={() => insertMention(item)}
+                        onMouseEnter={() => setSelectedMentionIndex(index)}
+                        type="button"
+                      >
+                        <div className={cn(
+                          "p-1 rounded",
+                          item.type === 'content' ? "bg-primary/10" : "bg-amber-500/10"
+                        )}>
+                          <Icon className={cn(
+                            "h-3.5 w-3.5",
+                            item.type === 'content' ? "text-primary" : "text-amber-600 dark:text-amber-400"
+                          )} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium truncate">{item.title}</p>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {item.category}
+                          </p>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </ScrollArea>
+          </PopoverContent>
+        </Popover>
       )}
       
       {/* Help text */}
       <p className="text-[10px] text-muted-foreground">
-        Suporta Markdown. Use ![alt](url) para imagens inline. Ctrl+B negrito, Ctrl+I itálico
+        Suporta Markdown e @menções. Use @ para citar referências. Ctrl+B negrito, Ctrl+I itálico
       </p>
       
       <input
@@ -240,6 +397,13 @@ export function RichContentEditor({
         accept="image/*"
         onChange={handleImageUpload}
         className="hidden"
+      />
+
+      <ReferencePopup
+        open={popupOpen}
+        onClose={() => setPopupOpen(false)}
+        type={popupType}
+        id={popupId}
       />
     </div>
   );
