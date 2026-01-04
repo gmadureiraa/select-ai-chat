@@ -161,8 +161,6 @@ export const ContentDialog = ({ open, onClose, onSave, content, clientId }: Cont
     
     const generatedContent = await generateContent({
       title: formData.title,
-      description: '',
-      platform,
       contentType: formData.content_type,
       clientId
     });

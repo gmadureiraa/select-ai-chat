@@ -58,6 +58,23 @@ export function getContentTypeLabel(type: string): string {
   return CONTENT_TYPES[type as ContentTypeKey]?.label || type;
 }
 
+// Mapeamento de content type para plataforma (para derivar automaticamente)
+export const CONTENT_TO_PLATFORM: Record<ContentTypeKey, string> = {
+  tweet: 'twitter',
+  thread: 'twitter',
+  x_article: 'twitter',
+  linkedin_post: 'linkedin',
+  carousel: 'instagram',
+  stories: 'instagram',
+  static_image: 'instagram',
+  instagram_post: 'instagram',
+  short_video: 'tiktok',
+  long_video: 'youtube',
+  newsletter: 'newsletter',
+  blog_post: 'blog',
+  other: 'other',
+};
+
 // Mapeamento de tipos antigos para novos (para migração de dados existentes)
 export const LEGACY_TYPE_MAPPING: Record<string, ContentTypeKey> = {
   reel_script: "short_video",
