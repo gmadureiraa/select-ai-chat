@@ -288,7 +288,7 @@ export function PlanningItemDialog({
 
             <div>
               <Label>Responsável</Label>
-              <Select value={assignedTo} onValueChange={setAssignedTo}>
+              <Select value={assignedTo || 'none'} onValueChange={(val) => setAssignedTo(val === 'none' ? '' : val)}>
                 <SelectTrigger>
                   <SelectValue placeholder="Selecionar">
                     {assignedTo && members.find(m => m.user_id === assignedTo) && (
@@ -300,8 +300,8 @@ export function PlanningItemDialog({
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Nenhum</SelectItem>
-                  {members.map(member => (
+                  <SelectItem value="none">Nenhum</SelectItem>
+                  {members.filter(m => m.user_id).map(member => (
                     <SelectItem key={member.user_id} value={member.user_id}>
                       <div className="flex items-center gap-2">
                         <Avatar className="h-5 w-5">
