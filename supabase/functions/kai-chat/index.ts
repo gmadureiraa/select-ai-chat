@@ -11,6 +11,13 @@ interface ChatMessage {
   content: string;
 }
 
+interface Citation {
+  id: string;
+  type: "content_library" | "reference_library" | "format";
+  title: string;
+  category: string;
+}
+
 interface RequestBody {
   messages: ChatMessage[];
   clientId?: string;
@@ -20,6 +27,7 @@ interface RequestBody {
     params: Record<string, unknown>;
   };
   format?: string;
+  citations?: Citation[];
 }
 
 // Month name to number mapping (Portuguese)
@@ -28,17 +36,25 @@ const monthMap: Record<string, number> = {
   julho: 6, agosto: 7, setembro: 8, outubro: 9, novembro: 10, dezembro: 11,
 };
 
-function extractDateFilter(message: string): { startDate?: Date; endDate?: Date; monthName?: string } {
+function extractDateFilter(message: string): { startDate?: Date; endDate?: Date; monthName?: string; year?: number } {
   const lowerMessage = message.toLowerCase();
+  
+  // Detect explicit year in message (e.g., "2024", "2025")
+  const yearMatch = message.match(/20\d{2}/);
+  const explicitYear = yearMatch ? parseInt(yearMatch[0]) : null;
+  
+  console.log("[kai-chat] Date extraction - explicitYear:", explicitYear);
   
   // Check for specific month mentions
   for (const [monthName, monthNum] of Object.entries(monthMap)) {
     if (lowerMessage.includes(monthName)) {
+      // Use explicit year if provided, otherwise use current logic
       const now = new Date();
-      const year = monthNum > now.getMonth() ? now.getFullYear() - 1 : now.getFullYear();
+      const year = explicitYear || (monthNum > now.getMonth() ? now.getFullYear() - 1 : now.getFullYear());
       const startDate = new Date(year, monthNum, 1);
       const endDate = new Date(year, monthNum + 1, 0);
-      return { startDate, endDate, monthName };
+      console.log(`[kai-chat] Found month: ${monthName}, year: ${year}, range: ${startDate.toISOString()} to ${endDate.toISOString()}`);
+      return { startDate, endDate, monthName, year };
     }
   }
   
@@ -100,8 +116,15 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { messages, clientId, workspaceId, action, format } = await req.json() as RequestBody;
+    const { messages, clientId, workspaceId, action, format, citations } = await req.json() as RequestBody;
     const lastMessage = messages[messages.length - 1]?.content || "";
+
+    console.log("=== KAI-CHAT DEBUG ===");
+    console.log("ClientId:", clientId);
+    console.log("WorkspaceId:", workspaceId);
+    console.log("Last message:", lastMessage);
+    console.log("Is metrics query:", isMetricsQuery(lastMessage));
+    console.log("Citations:", citations?.length || 0);
 
     // Get client context if provided
     let clientContext = "";
@@ -123,10 +146,45 @@ Notas de Contexto: ${client.context_notes || "Nenhuma"}
       }
     }
 
+    // Fetch citation content if provided
+    let citationContext = "";
+    if (citations && citations.length > 0 && clientId) {
+      console.log("[kai-chat] Processing citations...");
+      
+      for (const citation of citations) {
+        if (citation.type === "content_library") {
+          const { data } = await supabase
+            .from("client_content_library")
+            .select("title, content, content_type")
+            .eq("id", citation.id)
+            .single();
+          
+          if (data) {
+            citationContext += `\n## Referência da Biblioteca: ${data.title}\nTipo: ${data.content_type}\nConteúdo:\n${data.content}\n`;
+          }
+        } else if (citation.type === "reference_library") {
+          const { data } = await supabase
+            .from("client_reference_library")
+            .select("title, content, reference_type")
+            .eq("id", citation.id)
+            .single();
+          
+          if (data) {
+            citationContext += `\n## Referência Externa: ${data.title}\nTipo: ${data.reference_type}\nConteúdo:\n${data.content}\n`;
+          }
+        } else if (citation.type === "format") {
+          citationContext += `\n## Formato Solicitado: ${citation.title}\nCategoria: ${citation.category}\nO usuário quer criar conteúdo neste formato específico.\n`;
+        }
+      }
+      
+      console.log("[kai-chat] Citation context built:", citationContext.length, "chars");
+    }
+
     // Fetch metrics if this is a metrics-related query
     let metricsContext = "";
     if (clientId && isMetricsQuery(lastMessage)) {
       const dateFilter = extractDateFilter(lastMessage);
+      console.log("[kai-chat] Date filter extracted:", JSON.stringify(dateFilter));
       
       // Build query for platform_metrics
       let metricsQuery = supabase
@@ -137,14 +195,23 @@ Notas de Contexto: ${client.context_notes || "Nenhuma"}
       
       // Apply date filter if found
       if (dateFilter.startDate && dateFilter.endDate) {
+        const startStr = dateFilter.startDate.toISOString().split("T")[0];
+        const endStr = dateFilter.endDate.toISOString().split("T")[0];
+        console.log(`[kai-chat] Applying date filter: ${startStr} to ${endStr}`);
         metricsQuery = metricsQuery
-          .gte("metric_date", dateFilter.startDate.toISOString().split("T")[0])
-          .lte("metric_date", dateFilter.endDate.toISOString().split("T")[0]);
+          .gte("metric_date", startStr)
+          .lte("metric_date", endStr);
       } else {
         metricsQuery = metricsQuery.limit(30);
       }
       
-      const { data: metrics } = await metricsQuery;
+      const { data: metrics, error: metricsError } = await metricsQuery;
+      
+      if (metricsError) {
+        console.error("[kai-chat] Metrics query error:", metricsError);
+      }
+      
+      console.log("[kai-chat] Metrics found:", metrics?.length || 0);
       
       // Also fetch recent Instagram posts for more detailed analysis
       const { data: instagramPosts } = await supabase
@@ -165,7 +232,7 @@ Notas de Contexto: ${client.context_notes || "Nenhuma"}
         let metricsReport = `\n## Dados de Métricas Disponíveis\n`;
         
         if (dateFilter.monthName) {
-          metricsReport += `Período: ${dateFilter.monthName}\n\n`;
+          metricsReport += `Período: ${dateFilter.monthName}${dateFilter.year ? ` de ${dateFilter.year}` : ""}\n\n`;
         } else if (dateFilter.startDate && dateFilter.endDate) {
           metricsReport += `Período: ${dateFilter.startDate.toLocaleDateString("pt-BR")} a ${dateFilter.endDate.toLocaleDateString("pt-BR")}\n\n`;
         } else {
@@ -214,6 +281,28 @@ Notas de Contexto: ${client.context_notes || "Nenhuma"}
         }
         
         metricsContext = metricsReport;
+      } else {
+        // No data found for the requested period
+        metricsContext = `\n## Dados de Métricas\n`;
+        if (dateFilter.monthName) {
+          metricsContext += `**ATENÇÃO:** Não foram encontrados dados de métricas para ${dateFilter.monthName}${dateFilter.year ? ` de ${dateFilter.year}` : ""}.\n`;
+        } else {
+          metricsContext += `**ATENÇÃO:** Não foram encontrados dados de métricas para o período solicitado.\n`;
+        }
+        metricsContext += `Verifique se as métricas foram importadas para esse período.\n`;
+        
+        // Check what periods ARE available
+        const { data: availableMetrics } = await supabase
+          .from("platform_metrics")
+          .select("metric_date")
+          .eq("client_id", clientId)
+          .order("metric_date", { ascending: false })
+          .limit(5);
+        
+        if (availableMetrics && availableMetrics.length > 0) {
+          const dates = availableMetrics.map(m => m.metric_date);
+          metricsContext += `\nPeríodos com dados disponíveis: ${dates.join(", ")}\n`;
+        }
       }
       
       // Add Instagram posts context if available
@@ -280,6 +369,7 @@ Você ajuda os usuários a:
 5. Responder dúvidas sobre marketing digital
 
 ${clientContext}
+${citationContext}
 ${metricsContext}
 ${formatContext}
 
@@ -290,6 +380,7 @@ ${formatContext}
 4. Sempre cite a fonte: "De acordo com os dados registrados..."
 5. Mostre o cálculo quando relevante para transparência.
 6. Se os dados parecerem inconsistentes ou incompletos, avise o usuário.
+7. Se o usuário perguntar sobre um ano que não tem dados (ex: 2024), informe que não há dados disponíveis.
 
 ## Diretrizes Gerais:
 - Seja conciso e direto nas respostas
@@ -300,6 +391,7 @@ ${formatContext}
 - Sempre considere o contexto do cliente selecionado
 - Responda em português do Brasil
 - Se tiver um formato especificado, siga rigorosamente as regras do formato
+- Se o usuário citou referências da biblioteca (@), use esse conteúdo para enriquecer sua resposta
 
 ${action ? `\n## Ação em Execução\nO usuário solicitou: ${action.type}\nParâmetros: ${JSON.stringify(action.params)}` : ""}`;
 

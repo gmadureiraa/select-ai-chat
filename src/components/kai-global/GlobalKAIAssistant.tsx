@@ -6,6 +6,7 @@ import { GlobalKAIChat } from "./GlobalKAIChat";
 import { GlobalKAIInput } from "./GlobalKAIInput";
 import { ActionConfirmationDialog } from "./ActionConfirmationDialog";
 import { useMemo, useCallback } from "react";
+import { Citation } from "@/components/chat/CitationChip";
 
 export function GlobalKAIAssistant() {
   const {
@@ -25,6 +26,8 @@ export function GlobalKAIAssistant() {
     removeFile,
     confirmAction,
     cancelAction,
+    contentLibrary,
+    referenceLibrary,
   } = useGlobalKAI();
 
   const { clients } = useClients();
@@ -40,6 +43,11 @@ export function GlobalKAIAssistant() {
   const handleSendFromChat = useCallback((content: string, images?: string[], quality?: "fast" | "high") => {
     // For now, just send the text message
     sendMessage(content);
+  }, [sendMessage]);
+
+  // Handler for sending messages with citations
+  const handleSendWithCitations = useCallback(async (message: string, files?: File[], citations?: Citation[]) => {
+    await sendMessage(message, files, citations);
   }, [sendMessage]);
 
   return (
@@ -66,14 +74,16 @@ export function GlobalKAIAssistant() {
           onSendMessage={handleSendFromChat}
         />
 
-        {/* Input area */}
+        {/* Input area with @ mentions support */}
         <GlobalKAIInput
-          onSend={sendMessage}
+          onSend={handleSendWithCitations}
           isProcessing={isProcessing}
           attachedFiles={attachedFiles}
           onAttachFiles={attachFiles}
           onRemoveFile={removeFile}
-          placeholder="Pergunte ao kAI..."
+          placeholder="Pergunte ao kAI... (@ para mencionar)"
+          contentLibrary={contentLibrary}
+          referenceLibrary={referenceLibrary}
         />
       </GlobalKAIPanel>
 
