@@ -1,7 +1,8 @@
 import { useRef, useEffect, useCallback, useState } from "react";
-import { Trash2, PanelLeft, PanelLeftClose } from "lucide-react";
+import { Trash2, PanelLeft, PanelLeftClose, Download, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useClientChat } from "@/hooks/useClientChat";
 import { FloatingInput, ChatMode } from "@/components/chat/FloatingInput";
 import { Citation } from "@/components/chat/CitationChip";
@@ -15,6 +16,7 @@ import { cn } from "@/lib/utils";
 import { deleteConversation } from "@/hooks/useConversationHistory";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
+import { exportToMarkdown, exportToPDF, downloadFile } from "@/lib/exportConversation";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -51,7 +53,21 @@ export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
     contentLibrary,
     referenceLibrary,
     setConversationId,
+    regenerateLastMessage,
   } = useClientChat(clientId, undefined, activeConversationId);
+
+  // Export handlers
+  const handleExportMarkdown = async () => {
+    const md = await exportToMarkdown(messages, client.name);
+    downloadFile(md, `conversa-${client.name}.md`, "text/markdown");
+    toast({ title: "Conversa exportada como Markdown" });
+  };
+
+  const handleExportPDF = async () => {
+    const blob = await exportToPDF(messages, client.name);
+    downloadFile(blob, `conversa-${client.name}.pdf`, "application/pdf");
+    toast({ title: "Conversa exportada como PDF" });
+  };
 
   // Scroll to bottom function
   const scrollToBottom = useCallback((smooth = true) => {
@@ -148,32 +164,53 @@ export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
           </div>
 
           {conversationId && messages.length > 0 && (
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-muted-foreground hover:text-destructive h-7 px-2 shrink-0"
-                >
-                  <Trash2 className="h-3.5 w-3.5 mr-1" />
-                  <span className="text-xs">Apagar</span>
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Apagar conversa?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    Esta ação não pode ser desfeita. A conversa e todas as mensagens serão removidas permanentemente.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleDeleteConversation} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                    Apagar
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+            <div className="flex items-center gap-1 shrink-0">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="sm" className="text-muted-foreground h-7 px-2">
+                    <Download className="h-3.5 w-3.5 mr-1" />
+                    <span className="text-xs">Exportar</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={handleExportMarkdown}>
+                    <FileText className="h-4 w-4 mr-2" />
+                    Markdown
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleExportPDF}>
+                    <FileText className="h-4 w-4 mr-2" />
+                    PDF
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-muted-foreground hover:text-destructive h-7 px-2"
+                  >
+                    <Trash2 className="h-3.5 w-3.5 mr-1" />
+                    <span className="text-xs">Apagar</span>
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Apagar conversa?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Esta ação não pode ser desfeita. A conversa e todas as mensagens serão removidas permanentemente.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleDeleteConversation} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                      Apagar
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
           )}
         </div>
 
@@ -212,7 +249,7 @@ export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
                     payload={(message as any).payload}
                     clientId={clientId}
                     clientName={client.name}
-                    onRegenerate={index === messages.length - 1 && message.role === "assistant" ? () => {} : undefined}
+                    onRegenerate={index === messages.length - 1 && message.role === "assistant" ? regenerateLastMessage : undefined}
                     isLastMessage={index === messages.length - 1}
                     onSendMessage={handleSend}
                   />

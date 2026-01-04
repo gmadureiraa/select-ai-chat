@@ -368,6 +368,7 @@ export const EnhancedMessageBubble = ({
             clientId={clientId}
             clientName={clientName}
             templateName={templateName}
+            messageId={payload?.messageId}
           />
         </div>
 
