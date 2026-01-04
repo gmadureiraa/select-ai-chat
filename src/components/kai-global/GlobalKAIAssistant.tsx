@@ -1,9 +1,11 @@
 import { useGlobalKAI } from "@/contexts/GlobalKAIContext";
+import { useClients } from "@/hooks/useClients";
 import { FloatingKAIButton } from "./FloatingKAIButton";
 import { GlobalKAIPanel } from "./GlobalKAIPanel";
 import { GlobalKAIChat } from "./GlobalKAIChat";
 import { GlobalKAIInput } from "./GlobalKAIInput";
 import { KAIQuickSuggestion } from "@/types/kaiActions";
+import { useMemo, useCallback } from "react";
 
 export function GlobalKAIAssistant() {
   const {
@@ -13,16 +15,32 @@ export function GlobalKAIAssistant() {
     messages,
     isProcessing,
     selectedClientId,
+    actionStatus,
     attachedFiles,
     sendMessage,
     attachFiles,
     removeFile,
   } = useGlobalKAI();
 
-  const handleSuggestionClick = (suggestion: KAIQuickSuggestion) => {
+  const { clients } = useClients();
+
+  // Get selected client name
+  const selectedClientName = useMemo(() => {
+    if (!selectedClientId || !clients) return undefined;
+    const client = clients.find(c => c.id === selectedClientId);
+    return client?.name;
+  }, [selectedClientId, clients]);
+
+  const handleSuggestionClick = useCallback((suggestion: KAIQuickSuggestion) => {
     // Pre-fill the suggestion prompt - user can modify before sending
     sendMessage(suggestion.prompt);
-  };
+  }, [sendMessage]);
+
+  // Handler for sending messages from within chat (for regenerate, etc.)
+  const handleSendFromChat = useCallback((content: string, images?: string[], quality?: "fast" | "high") => {
+    // For now, just send the text message
+    sendMessage(content);
+  }, [sendMessage]);
 
   return (
     <>
@@ -41,7 +59,10 @@ export function GlobalKAIAssistant() {
           messages={messages}
           isProcessing={isProcessing}
           selectedClientId={selectedClientId}
+          selectedClientName={selectedClientName}
+          actionStatus={actionStatus}
           onSuggestionClick={handleSuggestionClick}
+          onSendMessage={handleSendFromChat}
         />
 
         {/* Input area */}

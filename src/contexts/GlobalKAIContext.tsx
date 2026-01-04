@@ -1,16 +1,19 @@
 import { createContext, useContext, useState, useCallback, useEffect, ReactNode } from "react";
-import { Message } from "@/types/chat";
+import { Message, ProcessStep, MultiAgentStep } from "@/types/chat";
 import { 
   KAIContextValue, 
   KAIGlobalState, 
   KAIFileAttachment,
-  KAIActionType,
   KAIActionStatus,
-  PendingAction 
 } from "@/types/kaiActions";
-import { useClients } from "@/hooks/useClients";
 
-const initialState: KAIGlobalState = {
+// Extended state with processing steps
+interface ExtendedKAIState extends KAIGlobalState {
+  currentStep: ProcessStep;
+  multiAgentStep: MultiAgentStep;
+}
+
+const initialState: ExtendedKAIState = {
   isOpen: false,
   messages: [],
   isProcessing: false,
@@ -19,17 +22,19 @@ const initialState: KAIGlobalState = {
   pendingAction: null,
   attachedFiles: [],
   selectedClientId: null,
+  currentStep: null,
+  multiAgentStep: null,
 };
 
-const GlobalKAIContext = createContext<KAIContextValue | null>(null);
+// Export context for external use
+export const GlobalKAIContext = createContext<KAIContextValue | null>(null);
 
 interface GlobalKAIProviderProps {
   children: ReactNode;
 }
 
 export function GlobalKAIProvider({ children }: GlobalKAIProviderProps) {
-  const [state, setState] = useState<KAIGlobalState>(initialState);
-  const { clients } = useClients();
+  const [state, setState] = useState<ExtendedKAIState>(initialState);
 
   // Keyboard shortcut: Cmd/Ctrl + K
   useEffect(() => {
