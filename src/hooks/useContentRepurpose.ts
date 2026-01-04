@@ -19,11 +19,13 @@ export type ContentObjective =
   | "educational" 
   | "brand_awareness";
 
-export interface TranscriptData {
+export interface SourceData {
   title: string;
   content: string;
-  thumbnail: string;
-  videoId: string;
+  thumbnail?: string;
+  images?: string[];
+  type: 'youtube' | 'article' | 'html' | 'newsletter';
+  videoId?: string;
   metadata?: {
     duration?: number;
     language?: string;
@@ -69,42 +71,50 @@ const OBJECTIVE_CONTEXT: Record<ContentObjective, string> = {
 };
 
 export function useContentRepurpose() {
-  const [youtubeUrl, setYoutubeUrl] = useState("");
-  const [transcript, setTranscript] = useState<TranscriptData | null>(null);
+  const [sourceUrl, setSourceUrl] = useState("");
+  const [sourceData, setSourceData] = useState<SourceData | null>(null);
   const [selectedFormats, setSelectedFormats] = useState<ContentFormat[]>([]);
   const [generatedContents, setGeneratedContents] = useState<GeneratedContent[]>([]);
-  const [isTranscribing, setIsTranscribing] = useState(false);
+  const [isExtracting, setIsExtracting] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatingFormat, setGeneratingFormat] = useState<string | null>(null);
   const [showResults, setShowResults] = useState(false);
 
-  const transcribe = async () => {
-    if (!youtubeUrl.trim()) {
-      throw new Error("URL do YouTube é obrigatória");
+  const isYoutubeUrl = (url: string): boolean => {
+    return url.includes('youtube.com') || url.includes('youtu.be') || url.includes('ytimg.com');
+  };
+
+  const extractContent = async () => {
+    if (!sourceUrl.trim()) {
+      throw new Error("URL é obrigatória");
     }
 
-    setIsTranscribing(true);
+    setIsExtracting(true);
     try {
-      const { data, error } = await supabase.functions.invoke("extract-youtube", {
-        body: { url: youtubeUrl },
+      // Use fetch-reference-content for all URLs (YouTube and articles)
+      const { data, error } = await supabase.functions.invoke("fetch-reference-content", {
+        body: { url: sourceUrl },
       });
 
       if (error) throw error;
-      if (!data || !data.content) {
-        throw new Error("Não foi possível extrair a transcrição do vídeo");
+      if (!data || !data.success) {
+        throw new Error(data?.error || "Não foi possível extrair o conteúdo");
       }
 
-      setTranscript({
-        title: data.title,
-        content: data.content,
+      const extractedData: SourceData = {
+        title: data.title || 'Conteúdo',
+        content: data.content || '',
         thumbnail: data.thumbnail,
+        images: data.images || [],
+        type: data.type || (isYoutubeUrl(sourceUrl) ? 'youtube' : 'article'),
         videoId: data.videoId,
         metadata: data.metadata,
-      });
+      };
 
-      return data;
+      setSourceData(extractedData);
+      return extractedData;
     } finally {
-      setIsTranscribing(false);
+      setIsExtracting(false);
     }
   };
 
@@ -117,29 +127,33 @@ export function useContentRepurpose() {
   };
 
   const generateForFormat = async (format: ContentFormat, clientId: string): Promise<GeneratedContent> => {
-    if (!transcript) {
-      throw new Error("Transcrição é obrigatória");
+    if (!sourceData) {
+      throw new Error("Conteúdo de origem é obrigatório");
     }
 
     const agentType = "content_writer";
     const contentType = FORMAT_TO_AGENT[format];
 
-    // Build user message with transcript and context
+    const isVideo = sourceData.type === 'youtube';
+    const sourceLabel = isVideo ? 'VÍDEO' : 'ARTIGO/TEXTO';
+    const contentLabel = isVideo ? 'TRANSCRIÇÃO' : 'CONTEÚDO';
+
+    // Build user message with content and context
     const userMessage = format === "cut_moments" 
       ? `Analise a transcrição abaixo e identifique os 5 MELHORES momentos para criar cortes/clips virais.
 
-TÍTULO DO VÍDEO: ${transcript.title}
+TÍTULO DO ${sourceLabel}: ${sourceData.title}
 
-TRANSCRIÇÃO COMPLETA:
-${transcript.content.substring(0, 20000)}
+${contentLabel} COMPLETO:
+${sourceData.content.substring(0, 20000)}
 
 Retorne APENAS o JSON com os 5 momentos, ordenados do maior score para o menor.`
-      : `Crie um conteúdo de ${format.replace("_", " ")} baseado na transcrição do vídeo abaixo.
+      : `Crie um conteúdo de ${format.replace("_", " ")} baseado no conteúdo abaixo.
 
-TÍTULO DO VÍDEO: ${transcript.title}
+TÍTULO DO ${sourceLabel}: ${sourceData.title}
 
-TRANSCRIÇÃO:
-${transcript.content.substring(0, 15000)}
+${contentLabel}:
+${sourceData.content.substring(0, 15000)}
 
 Siga as regras do formato e gere o conteúdo pronto para publicar.`;
 
@@ -242,8 +256,8 @@ Siga as regras do formato e gere o conteúdo pronto para publicar.`;
   };
 
   const reset = () => {
-    setYoutubeUrl("");
-    setTranscript(null);
+    setSourceUrl("");
+    setSourceData(null);
     setSelectedFormats([]);
     setGeneratedContents([]);
     setShowResults(false);
@@ -254,17 +268,17 @@ Siga as regras do formato e gere o conteúdo pronto para publicar.`;
   };
 
   return {
-    youtubeUrl,
-    setYoutubeUrl,
-    transcript,
+    sourceUrl,
+    setSourceUrl,
+    sourceData,
     selectedFormats,
     toggleFormat,
     generatedContents,
-    isTranscribing,
+    isExtracting,
     isGenerating,
     generatingFormat,
     showResults,
-    transcribe,
+    extractContent,
     generateForFormat,
     generateAll,
     copyToClipboard,
