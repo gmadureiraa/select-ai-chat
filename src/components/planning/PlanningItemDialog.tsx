@@ -9,7 +9,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { CalendarIcon, Loader2, FileText, MessageSquare, User, Sparkles, Wand2 } from 'lucide-react';
+import { CalendarIcon, Loader2, FileText, MessageSquare, User, Sparkles, Wand2, Settings } from 'lucide-react';
 import { useClients } from '@/hooks/useClients';
 import { useTeamMembers } from '@/hooks/useTeamMembers';
 import { usePlanningImageGeneration } from '@/hooks/usePlanningImageGeneration';
@@ -21,7 +21,9 @@ import { ThreadEditor, ThreadTweet } from './ThreadEditor';
 import { ImageGenerationModal, ImageGenerationOptions } from './ImageGenerationModal';
 import { PlanningItemComments } from './PlanningItemComments';
 import { MentionableInput } from './MentionableInput';
+import { RecurrenceConfig } from './RecurrenceConfig';
 import type { PlanningItem, CreatePlanningItemInput, PlanningPlatform, PlanningPriority, KanbanColumn } from '@/hooks/usePlanningItems';
+import type { RecurrenceConfig as RecurrenceConfigType } from '@/types/rssTrigger';
 
 interface PlanningItemDialogProps {
   open: boolean;
@@ -87,6 +89,12 @@ export function PlanningItemDialog({
   const [mediaItems, setMediaItems] = useState<MediaItem[]>([]);
   const [threadTweets, setThreadTweets] = useState<ThreadTweet[]>([]);
   const [assignedTo, setAssignedTo] = useState<string>('');
+  const [recurrenceConfig, setRecurrenceConfig] = useState<RecurrenceConfigType>({
+    type: 'none',
+    days: [],
+    time: null,
+    endDate: null,
+  });
 
   const { generateImage, isGenerating: isGeneratingImage } = usePlanningImageGeneration(selectedClientId);
   const { generateContent, isGenerating: isGeneratingContent } = usePlanningContentGeneration();
@@ -131,6 +139,14 @@ export function PlanningItemDialog({
       const metadata = item.metadata as any || {};
       setContentType(metadata.content_type || 'post');
       
+      // Load recurrence config
+      setRecurrenceConfig({
+        type: (item as any).recurrence_type || 'none',
+        days: (item as any).recurrence_days || [],
+        time: (item as any).recurrence_time || null,
+        endDate: (item as any).recurrence_end_date || null,
+      });
+      
       // Load media from metadata
       const mediaUrls = item.media_urls as string[] || [];
       setMediaItems(mediaUrls.map((url, i) => ({
@@ -159,6 +175,7 @@ export function PlanningItemDialog({
       setMediaItems([]);
       setThreadTweets([{ id: 'tweet-1', text: '', media_urls: [] }]);
       setAssignedTo('');
+      setRecurrenceConfig({ type: 'none', days: [], time: null, endDate: null });
     }
   }, [item, defaultColumnId, defaultDate, columns, open]);
 
@@ -182,7 +199,7 @@ export function PlanningItemDialog({
         finalContent = threadTweets.map(t => t.text).join('\n\n---\n\n');
       }
 
-      const data: CreatePlanningItemInput = {
+      const data: CreatePlanningItemInput & Record<string, any> = {
         title: title.trim(),
         description: description.trim() || undefined,
         content: finalContent.trim() || undefined,
@@ -198,6 +215,12 @@ export function PlanningItemDialog({
           content_type: contentType,
           ...(contentType === 'thread' && { thread_tweets: threadTweets }),
         },
+        // Recurrence fields
+        recurrence_type: recurrenceConfig.type !== 'none' ? recurrenceConfig.type : null,
+        recurrence_days: recurrenceConfig.days.length > 0 ? recurrenceConfig.days : null,
+        recurrence_time: recurrenceConfig.time || null,
+        recurrence_end_date: recurrenceConfig.endDate || null,
+        is_recurrence_template: recurrenceConfig.type !== 'none',
       };
 
       if (item && onUpdate) {
@@ -375,13 +398,17 @@ export function PlanningItemDialog({
 
           {/* Content Section */}
           <Tabs defaultValue="content" className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="content" className="gap-1">
                 {isTwitterThread ? <MessageSquare className="h-3 w-3" /> : <FileText className="h-3 w-3" />}
                 {isTwitterThread ? 'Thread' : 'Conteúdo'}
               </TabsTrigger>
               <TabsTrigger value="media">
                 Mídia ({mediaItems.length})
+              </TabsTrigger>
+              <TabsTrigger value="recurrence" className="gap-1">
+                <Settings className="h-3 w-3" />
+                Recorrência
               </TabsTrigger>
               <TabsTrigger value="comments" className="gap-1">
                 <MessageSquare className="h-3 w-3" />
@@ -453,6 +480,13 @@ export function PlanningItemDialog({
                 onChange={setMediaItems}
                 maxItems={platform === 'twitter' ? 4 : 10}
                 clientId={selectedClientId}
+              />
+            </TabsContent>
+
+            <TabsContent value="recurrence" className="mt-3">
+              <RecurrenceConfig 
+                value={recurrenceConfig} 
+                onChange={setRecurrenceConfig} 
               />
             </TabsContent>
 

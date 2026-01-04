@@ -1776,6 +1776,7 @@ export type Database = {
           error_message: string | null
           external_post_id: string | null
           id: string
+          is_recurrence_template: boolean | null
           labels: Json | null
           media_urls: Json | null
           metadata: Json | null
@@ -1783,6 +1784,11 @@ export type Database = {
           position: number | null
           priority: string | null
           published_at: string | null
+          recurrence_days: string[] | null
+          recurrence_end_date: string | null
+          recurrence_parent_id: string | null
+          recurrence_time: string | null
+          recurrence_type: string | null
           retry_count: number | null
           scheduled_at: string | null
           status: string
@@ -1805,6 +1811,7 @@ export type Database = {
           error_message?: string | null
           external_post_id?: string | null
           id?: string
+          is_recurrence_template?: boolean | null
           labels?: Json | null
           media_urls?: Json | null
           metadata?: Json | null
@@ -1812,6 +1819,11 @@ export type Database = {
           position?: number | null
           priority?: string | null
           published_at?: string | null
+          recurrence_days?: string[] | null
+          recurrence_end_date?: string | null
+          recurrence_parent_id?: string | null
+          recurrence_time?: string | null
+          recurrence_type?: string | null
           retry_count?: number | null
           scheduled_at?: string | null
           status?: string
@@ -1834,6 +1846,7 @@ export type Database = {
           error_message?: string | null
           external_post_id?: string | null
           id?: string
+          is_recurrence_template?: boolean | null
           labels?: Json | null
           media_urls?: Json | null
           metadata?: Json | null
@@ -1841,6 +1854,11 @@ export type Database = {
           position?: number | null
           priority?: string | null
           published_at?: string | null
+          recurrence_days?: string[] | null
+          recurrence_end_date?: string | null
+          recurrence_parent_id?: string | null
+          recurrence_time?: string | null
+          recurrence_type?: string | null
           retry_count?: number | null
           scheduled_at?: string | null
           status?: string
@@ -1868,6 +1886,13 @@ export type Database = {
             columns: ["content_library_id"]
             isOneToOne: false
             referencedRelation: "client_content_library"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "planning_items_recurrence_parent_id_fkey"
+            columns: ["recurrence_parent_id"]
+            isOneToOne: false
+            referencedRelation: "planning_items"
             referencedColumns: ["id"]
           },
           {
@@ -2357,6 +2382,85 @@ export type Database = {
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rss_triggers: {
+        Row: {
+          auto_generate_content: boolean | null
+          client_id: string | null
+          content_type: string | null
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          items_seen: Json | null
+          last_checked_at: string | null
+          last_item_guid: string | null
+          name: string
+          platform: string | null
+          prompt_template: string | null
+          rss_url: string
+          target_column_id: string | null
+          updated_at: string | null
+          workspace_id: string
+        }
+        Insert: {
+          auto_generate_content?: boolean | null
+          client_id?: string | null
+          content_type?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          items_seen?: Json | null
+          last_checked_at?: string | null
+          last_item_guid?: string | null
+          name: string
+          platform?: string | null
+          prompt_template?: string | null
+          rss_url: string
+          target_column_id?: string | null
+          updated_at?: string | null
+          workspace_id: string
+        }
+        Update: {
+          auto_generate_content?: boolean | null
+          client_id?: string | null
+          content_type?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          items_seen?: Json | null
+          last_checked_at?: string | null
+          last_item_guid?: string | null
+          name?: string
+          platform?: string | null
+          prompt_template?: string | null
+          rss_url?: string
+          target_column_id?: string | null
+          updated_at?: string | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rss_triggers_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rss_triggers_target_column_id_fkey"
+            columns: ["target_column_id"]
+            isOneToOne: false
+            referencedRelation: "kanban_columns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rss_triggers_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
             referencedColumns: ["id"]
           },
         ]
