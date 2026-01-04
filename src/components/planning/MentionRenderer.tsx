@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import ReactMarkdown from "react-markdown";
 import { parseMentions, Mention } from "@/lib/mentionParser";
 import { cn } from "@/lib/utils";
 import { FileText, BookOpen } from "lucide-react";
@@ -51,9 +52,22 @@ export function MentionRenderer({ text, onMentionDoubleClick, className }: Menti
 
   return (
     <span className={className}>
-      {parts.map((part, index) => {
+    {parts.map((part, index) => {
         if (part.type === 'text') {
-          return <span key={index}>{part.content}</span>;
+          return (
+            <span key={index} className="inline prose prose-sm dark:prose-invert max-w-none">
+              <ReactMarkdown 
+                components={{
+                  p: ({ children }) => <span>{children}</span>,
+                  strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+                  em: ({ children }) => <em>{children}</em>,
+                  code: ({ children }) => <code className="bg-muted px-1 py-0.5 rounded text-xs">{children}</code>,
+                }}
+              >
+                {part.content || ''}
+              </ReactMarkdown>
+            </span>
+          );
         }
 
         const mention = part.mention!;
