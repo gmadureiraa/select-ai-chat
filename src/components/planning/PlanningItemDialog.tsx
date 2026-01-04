@@ -9,13 +9,15 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { CalendarIcon, Loader2, FileText, MessageSquare, User } from 'lucide-react';
+import { CalendarIcon, Loader2, FileText, MessageSquare, User, Info } from 'lucide-react';
 import { useClients } from '@/hooks/useClients';
 import { useTeamMembers } from '@/hooks/useTeamMembers';
 import { cn } from '@/lib/utils';
 import { MediaUploader, MediaItem } from './MediaUploader';
 import { RichContentEditor } from './RichContentEditor';
 import { ThreadEditor, ThreadTweet } from './ThreadEditor';
+import { GenerateImageButton } from './GenerateImageButton';
+import { parseThreadContent, isLikelyThread } from '@/lib/postDetection';
 import type { PlanningItem, CreatePlanningItemInput, PlanningPlatform, PlanningPriority, KanbanColumn } from '@/hooks/usePlanningItems';
 
 interface PlanningItemDialogProps {
@@ -97,7 +99,8 @@ export function PlanningItemDialog({
       
       // Load content type and structure from metadata
       const metadata = item.metadata as any || {};
-      setContentType(metadata.content_type || 'post');
+      const detectedContentType = metadata.content_type || 'post';
+      setContentType(detectedContentType);
       
       // Load media from metadata
       const mediaUrls = item.media_urls as string[] || [];
@@ -107,9 +110,18 @@ export function PlanningItemDialog({
         type: url.match(/\.(mp4|webm|mov)$/i) ? 'video' : 'image'
       })));
       
-      // Load thread tweets if exists
-      if (metadata.thread_tweets) {
+      // Load thread tweets - try metadata first, then parse content
+      if (metadata.thread_tweets && metadata.thread_tweets.length > 0) {
         setThreadTweets(metadata.thread_tweets);
+      } else if (detectedContentType === 'thread' || (item.platform === 'twitter' && isLikelyThread(item.content || ''))) {
+        // Try to parse thread from content
+        const parsed = parseThreadContent(item.content || '');
+        if (parsed && parsed.tweets.length > 0) {
+          setThreadTweets(parsed.tweets);
+          setContentType('thread');
+        } else {
+          setThreadTweets([{ id: 'tweet-1', text: item.content || '', media_urls: [] }]);
+        }
       } else {
         setThreadTweets([{ id: 'tweet-1', text: item.content || '', media_urls: [] }]);
       }
@@ -318,6 +330,16 @@ export function PlanningItemDialog({
             </div>
           </div>
 
+          {/* Thread detection info */}
+          {isTwitterThread && threadTweets.length > 1 && (
+            <div className="flex items-center gap-2 p-2 bg-blue-500/10 rounded-md border border-blue-500/20 text-sm">
+              <Info className="h-4 w-4 text-blue-500 shrink-0" />
+              <span className="text-blue-600 dark:text-blue-400">
+                Thread detectada com {threadTweets.length} tweets
+              </span>
+            </div>
+          )}
+
           {/* Content Section */}
           <Tabs defaultValue="content" className="w-full">
             <TabsList className="grid w-full grid-cols-2">
@@ -356,12 +378,30 @@ export function PlanningItemDialog({
             </TabsContent>
 
             <TabsContent value="media" className="mt-3">
-              <MediaUploader
-                value={mediaItems}
-                onChange={setMediaItems}
-                maxItems={platform === 'twitter' ? 4 : 10}
-                clientId={clientId}
-              />
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm">Mídia</Label>
+                  <GenerateImageButton
+                    content={isTwitterThread ? threadTweets.map(t => t.text).join('\n\n') : content}
+                    contentType={contentType}
+                    platform={platform}
+                    clientId={clientId}
+                    onImageGenerated={(imageUrl) => {
+                      setMediaItems(prev => [...prev, {
+                        id: `media-${Date.now()}`,
+                        url: imageUrl,
+                        type: 'image'
+                      }]);
+                    }}
+                  />
+                </div>
+                <MediaUploader
+                  value={mediaItems}
+                  onChange={setMediaItems}
+                  maxItems={platform === 'twitter' ? 4 : 10}
+                  clientId={clientId}
+                />
+              </div>
             </TabsContent>
           </Tabs>
 
