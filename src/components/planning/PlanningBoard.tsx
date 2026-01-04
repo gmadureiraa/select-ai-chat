@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Plus, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { usePlanningItems, type PlanningFilters, type PlanningItem } from '@/hooks/usePlanningItems';
@@ -9,6 +9,9 @@ import { PlanningItemDialog } from './PlanningItemDialog';
 import { KanbanView } from './KanbanView';
 import { CalendarView } from './CalendarView';
 import { ViewSettingsPopover, useViewSettings, type ViewSettings } from './ViewSettingsPopover';
+import { useWorkspace } from '@/hooks/useWorkspace';
+import { useMemberClientAccess } from '@/hooks/useMemberClientAccess';
+import { useTeamMembers } from '@/hooks/useTeamMembers';
 
 interface PlanningBoardProps {
   clientId?: string;
@@ -17,12 +20,43 @@ interface PlanningBoardProps {
 
 export function PlanningBoard({ clientId, isEnterprise = false }: PlanningBoardProps) {
   const [view, setView] = useState<PlanningView>('board');
-  const [filters, setFilters] = useState<PlanningFilters>(clientId ? { clientId } : {});
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<PlanningItem | null>(null);
   const [defaultDate, setDefaultDate] = useState<Date | undefined>();
   const [defaultColumnId, setDefaultColumnId] = useState<string | undefined>();
   const { settings, setSettings } = useViewSettings();
+  
+  const { isViewer, workspace } = useWorkspace();
+  const { members } = useTeamMembers();
+  
+  // Find current user's member record to get their client access
+  const currentMember = useMemo(() => {
+    return members.find(m => m.workspace_id === workspace?.id);
+  }, [members, workspace?.id]);
+  
+  const { clientIds: viewerClientIds } = useMemberClientAccess(currentMember?.id);
+  
+  // For viewers, force the clientId filter to only show allowed clients
+  const [localFilters, setLocalFilters] = useState<PlanningFilters>({});
+  
+  // Effective filters considering viewer restrictions
+  const effectiveFilters = useMemo(() => {
+    // If prop clientId is provided, use it
+    if (clientId) {
+      return { ...localFilters, clientId };
+    }
+    
+    // For viewers with restricted client access, force filter
+    if (isViewer && viewerClientIds.length > 0) {
+      // If viewer has no filter set or filter is outside allowed clients, use first allowed
+      const allowedClientId = localFilters.clientId && viewerClientIds.includes(localFilters.clientId)
+        ? localFilters.clientId
+        : viewerClientIds[0];
+      return { ...localFilters, clientId: allowedClientId };
+    }
+    
+    return localFilters;
+  }, [clientId, localFilters, isViewer, viewerClientIds]);
 
   const {
     items,
@@ -35,7 +69,17 @@ export function PlanningBoard({ clientId, isEnterprise = false }: PlanningBoardP
     moveToLibrary,
     retryPublication,
     getItemsByColumn,
-  } = usePlanningItems(filters);
+  } = usePlanningItems(effectiveFilters);
+
+  const handleFiltersChange = (newFilters: PlanningFilters) => {
+    // For viewers, don't allow changing to clients outside their access
+    if (isViewer && viewerClientIds.length > 0 && newFilters.clientId) {
+      if (!viewerClientIds.includes(newFilters.clientId)) {
+        return; // Ignore invalid client selection
+      }
+    }
+    setLocalFilters(newFilters);
+  };
 
   const handleCreateItem = async (data: Parameters<typeof createItem.mutateAsync>[0]) => {
     await createItem.mutateAsync(data);
@@ -66,6 +110,9 @@ export function PlanningBoard({ clientId, isEnterprise = false }: PlanningBoardP
       platform: item.platform || undefined,
     });
   };
+  
+  // Determine if we should show the filters (hide for viewers with single client access)
+  const showFilters = !(isViewer && viewerClientIds.length === 1);
 
   if (isLoading) {
     return (
@@ -92,8 +139,13 @@ export function PlanningBoard({ clientId, isEnterprise = false }: PlanningBoardP
         </div>
       </div>
 
-      {/* Filters */}
-      <FiltersComponent filters={filters} onChange={setFilters} />
+      {/* Filters - Hidden for viewers with single client */}
+      {showFilters && (
+        <FiltersComponent 
+          filters={effectiveFilters} 
+          onChange={handleFiltersChange} 
+        />
+      )}
 
       {/* Content */}
       <div className="flex-1 overflow-hidden">

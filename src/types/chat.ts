@@ -100,22 +100,26 @@ export interface ChatError {
 }
 
 // Função para detectar pedidos de geração de imagem
+// IMPORTANTE: Apenas comandos explícitos @gerar imagem ou @imagem ativam a geração
 export function detectImageGenerationRequest(message: string): { isImageRequest: boolean; prompt: string } {
-  const imagePatterns = [
-    /(?:gere|crie|faça|desenhe|produza|elabore|monte)\s+(?:uma?\s+)?(?:imagem|ilustração|arte|visual|design|banner|thumbnail|capa|foto|picture)/i,
-    /(?:quero|preciso|me\s+(?:faz|faça))\s+(?:uma?\s+)?(?:imagem|ilustração|arte|visual|design|banner)/i,
-    /(?:criar|gerar)\s+(?:uma?\s+)?(?:imagem|ilustração|arte|visual)/i,
-    /visualize|ilustre|represente\s+visualmente/i,
-    /(?:make|create|generate|draw)\s+(?:an?\s+)?(?:image|illustration|picture|art|visual)/i,
+  // APENAS comandos explícitos @ ativam a geração de imagem
+  const explicitImageCommands = [
+    /@gerar[\s_-]?imagem/i,           // @gerar imagem, @gerar_imagem, @gerar-imagem
+    /@imagem/i,                        // @imagem
+    /@generate[\s_-]?image/i,          // @generate image (inglês)
+    /@image/i,                         // @image (inglês)
   ];
 
-  const isImageRequest = imagePatterns.some(pattern => pattern.test(message));
+  const isImageRequest = explicitImageCommands.some(pattern => pattern.test(message));
   
-  // Extrair o prompt removendo os termos de comando
+  // Extrair o prompt removendo os comandos @
   let prompt = message;
   if (isImageRequest) {
     prompt = message
-      .replace(/(?:gere|crie|faça|desenhe|produza|elabore|monte|quero|preciso|me\s+(?:faz|faça)|criar|gerar|visualize|ilustre|represente\s+visualmente|make|create|generate|draw)\s+(?:uma?\s+)?(?:imagem|ilustração|arte|visual|design|banner|thumbnail|capa|foto|picture|an?\s+image|illustration|picture|art|visual)?\s*/gi, '')
+      .replace(/@gerar[\s_-]?imagem\s*/gi, '')
+      .replace(/@imagem\s*/gi, '')
+      .replace(/@generate[\s_-]?image\s*/gi, '')
+      .replace(/@image\s*/gi, '')
       .trim();
   }
 

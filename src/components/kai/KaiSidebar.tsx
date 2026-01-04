@@ -22,6 +22,7 @@ import { useClients } from "@/hooks/useClients";
 import { useWorkspace } from "@/hooks/useWorkspace";
 import { useAuth } from "@/hooks/useAuth";
 import { WorkspaceSwitcher } from "./WorkspaceSwitcher";
+import { NotificationBell } from "@/components/notifications/NotificationBell";
 
 import {
   DropdownMenu,
@@ -172,9 +173,12 @@ export function KaiSidebar({
       "h-screen bg-sidebar border-r border-sidebar-border flex flex-col transition-all duration-300",
       collapsed ? "w-16" : "w-60"
     )}>
-      {/* Workspace Switcher */}
-      <div className="px-3 pt-4 pb-3">
-        <WorkspaceSwitcher collapsed={collapsed} />
+      {/* Workspace Switcher + Notifications */}
+      <div className="px-3 pt-4 pb-3 flex items-center gap-2">
+        <div className="flex-1">
+          <WorkspaceSwitcher collapsed={collapsed} />
+        </div>
+        {!collapsed && <NotificationBell />}
       </div>
 
       {/* Search - only when expanded */}
