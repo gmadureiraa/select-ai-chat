@@ -8,18 +8,60 @@ interface GenerateContentParams {
   platform: string;
   contentType: string;
   clientId: string;
+  referenceUrl?: string;
+  referenceHtml?: string;
+}
+
+interface ReferenceContent {
+  title?: string;
+  content: string;
+  type: 'youtube' | 'article' | 'html' | 'newsletter';
 }
 
 export function usePlanningContentGeneration() {
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isFetchingReference, setIsFetchingReference] = useState(false);
   const { toast } = useToast();
+
+  // Fetch content from a reference URL or HTML
+  const fetchReferenceContent = async (url?: string, html?: string): Promise<ReferenceContent | null> => {
+    if (!url && !html) return null;
+
+    setIsFetchingReference(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("fetch-reference-content", {
+        body: { url, html }
+      });
+
+      if (error) throw error;
+      if (!data?.success) throw new Error(data?.error || "Failed to fetch reference");
+
+      return {
+        title: data.title,
+        content: data.content || "",
+        type: data.type || "article"
+      };
+    } catch (error) {
+      console.error("[PlanningContent] Reference fetch failed:", error);
+      toast({
+        title: "Erro ao buscar referência",
+        description: error instanceof Error ? error.message : "Não foi possível extrair o conteúdo.",
+        variant: "destructive"
+      });
+      return null;
+    } finally {
+      setIsFetchingReference(false);
+    }
+  };
 
   const generateContent = async ({
     title,
     description,
     platform,
     contentType,
-    clientId
+    clientId,
+    referenceUrl,
+    referenceHtml
   }: GenerateContentParams): Promise<string | null> => {
     if (!title || !platform || !clientId) {
       toast({
@@ -33,13 +75,19 @@ export function usePlanningContentGeneration() {
     setIsGenerating(true);
 
     try {
+      // If reference URL or HTML provided, fetch the content first
+      let referenceContent: ReferenceContent | null = null;
+      if (referenceUrl || referenceHtml) {
+        referenceContent = await fetchReferenceContent(referenceUrl, referenceHtml);
+      }
+
       // Map platform + contentType to content agent type
       const contentAgentType = mapToAgentType(platform, contentType);
       
-      // Build prompt
-      const prompt = buildPrompt(title, description, platform, contentType);
+      // Build prompt with reference content if available
+      const prompt = buildPrompt(title, description, platform, contentType, referenceContent);
 
-      console.log("[PlanningContent] Generating with content type:", contentAgentType, "prompt:", prompt.substring(0, 100));
+      console.log("[PlanningContent] Generating with content type:", contentAgentType, "hasReference:", !!referenceContent);
 
       // Use content_writer as the main agent, with contentType for specialization
       const { data, error } = await supabase.functions.invoke("execute-agent", {
@@ -69,7 +117,9 @@ export function usePlanningContentGeneration() {
       if (generatedContent) {
         toast({
           title: "Conteúdo gerado!",
-          description: "O conteúdo foi criado com base no título e contexto do cliente."
+          description: referenceContent 
+            ? "O conteúdo foi criado com base na referência e contexto do cliente."
+            : "O conteúdo foi criado com base no título e contexto do cliente."
         });
         return generatedContent;
       }
@@ -95,7 +145,9 @@ export function usePlanningContentGeneration() {
 
   return {
     generateContent,
-    isGenerating
+    fetchReferenceContent,
+    isGenerating,
+    isFetchingReference
   };
 }
 
@@ -176,7 +228,13 @@ function mapToAgentType(platform: string, contentType: string): string {
   return platformDefaults[platform] || "static_post_agent";
 }
 
-function buildPrompt(title: string, description: string | undefined, platform: string, contentType: string): string {
+function buildPrompt(
+  title: string, 
+  description: string | undefined, 
+  platform: string, 
+  contentType: string,
+  referenceContent?: { title?: string; content: string; type: string } | null
+): string {
   const platformNames: Record<string, string> = {
     instagram: "Instagram",
     twitter: "Twitter/X",
@@ -211,6 +269,21 @@ function buildPrompt(title: string, description: string | undefined, platform: s
 
   if (description) {
     prompt += `\n\nContexto adicional: ${description}`;
+  }
+
+  // Add reference content if available
+  if (referenceContent?.content) {
+    const sourceType = referenceContent.type === 'youtube' ? 'transcrição do vídeo' :
+                       referenceContent.type === 'newsletter' ? 'newsletter' :
+                       'artigo de referência';
+    
+    prompt += `\n\n---\n\n**${sourceType.toUpperCase()} PARA BASEAR O CONTEÚDO:**`;
+    if (referenceContent.title) {
+      prompt += `\n\nTítulo: ${referenceContent.title}`;
+    }
+    prompt += `\n\n${referenceContent.content.substring(0, 10000)}`;
+    
+    prompt += `\n\n---\n\nUSE a referência acima como base principal para criar o conteúdo, extraindo os melhores insights e adaptando para o formato ${formatName}.`;
   }
 
   prompt += `\n\nIMPORTANTE:

@@ -9,13 +9,15 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { CalendarIcon, Loader2, FileText, MessageSquare, User, Sparkles, Wand2, Settings } from 'lucide-react';
+import { CalendarIcon, Loader2, FileText, MessageSquare, User, Sparkles, Wand2, Settings, Link, Code, Search } from 'lucide-react';
 import { useClients } from '@/hooks/useClients';
 import { useTeamMembers } from '@/hooks/useTeamMembers';
 import { usePlanningImageGeneration } from '@/hooks/usePlanningImageGeneration';
 import { usePlanningContentGeneration } from '@/hooks/usePlanningContentGeneration';
 import { cn } from '@/lib/utils';
 import { MediaUploader, MediaItem } from './MediaUploader';
+import { Textarea } from '@/components/ui/textarea';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { RichContentEditor } from './RichContentEditor';
 import { ThreadEditor, ThreadTweet } from './ThreadEditor';
 import { ImageGenerationModal, ImageGenerationOptions } from './ImageGenerationModal';
@@ -89,6 +91,9 @@ export function PlanningItemDialog({
   const [mediaItems, setMediaItems] = useState<MediaItem[]>([]);
   const [threadTweets, setThreadTweets] = useState<ThreadTweet[]>([]);
   const [assignedTo, setAssignedTo] = useState<string>('');
+  const [referenceUrl, setReferenceUrl] = useState('');
+  const [referenceHtml, setReferenceHtml] = useState('');
+  const [showHtmlInput, setShowHtmlInput] = useState(false);
   const [recurrenceConfig, setRecurrenceConfig] = useState<RecurrenceConfigType>({
     type: 'none',
     days: [],
@@ -97,10 +102,11 @@ export function PlanningItemDialog({
   });
 
   const { generateImage, isGenerating: isGeneratingImage } = usePlanningImageGeneration(selectedClientId);
-  const { generateContent, isGenerating: isGeneratingContent } = usePlanningContentGeneration();
+  const { generateContent, fetchReferenceContent, isGenerating: isGeneratingContent, isFetchingReference } = usePlanningContentGeneration();
 
   const canGenerateContent = title.trim() && platform && selectedClientId;
   const canGenerateImage = (content.trim() || threadTweets.some(t => t.text.trim())) && selectedClientId;
+  const hasReference = referenceUrl.trim() || referenceHtml.trim();
 
   const handleGenerateContent = async () => {
     if (!canGenerateContent) return;
@@ -110,7 +116,9 @@ export function PlanningItemDialog({
       description,
       platform: platform as string,
       contentType,
-      clientId: selectedClientId
+      clientId: selectedClientId,
+      referenceUrl: referenceUrl.trim() || undefined,
+      referenceHtml: referenceHtml.trim() || undefined
     });
 
     if (generatedContent) {
@@ -119,6 +127,10 @@ export function PlanningItemDialog({
       } else {
         setContent(generatedContent);
       }
+      // Clear reference after successful generation
+      setReferenceUrl('');
+      setReferenceHtml('');
+      setShowHtmlInput(false);
     }
   };
 
@@ -175,6 +187,9 @@ export function PlanningItemDialog({
       setMediaItems([]);
       setThreadTweets([{ id: 'tweet-1', text: '', media_urls: [] }]);
       setAssignedTo('');
+      setReferenceUrl('');
+      setReferenceHtml('');
+      setShowHtmlInput(false);
       setRecurrenceConfig({ type: 'none', days: [], time: null, endDate: null });
     }
   }, [item, defaultColumnId, defaultDate, columns, open]);
@@ -417,22 +432,62 @@ export function PlanningItemDialog({
             </TabsList>
 
             <TabsContent value="content" className="mt-3 space-y-3">
+              {/* Reference Section - Collapsible */}
+              <Collapsible open={showHtmlInput || !!referenceUrl} onOpenChange={(open) => !open && setShowHtmlInput(false)}>
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 relative">
+                    <Input
+                      value={referenceUrl}
+                      onChange={(e) => setReferenceUrl(e.target.value)}
+                      placeholder="Cole link do YouTube, artigo ou newsletter..."
+                      className="pr-10"
+                    />
+                    {referenceUrl && (
+                      <Link className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    )}
+                  </div>
+                  <CollapsibleTrigger asChild>
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      size="icon"
+                      className={cn(showHtmlInput && "bg-muted")}
+                      title="Colar HTML de newsletter"
+                    >
+                      <Code className="h-4 w-4" />
+                    </Button>
+                  </CollapsibleTrigger>
+                </div>
+                
+                <CollapsibleContent className="mt-2">
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">HTML da Newsletter</Label>
+                    <Textarea
+                      value={referenceHtml}
+                      onChange={(e) => setReferenceHtml(e.target.value)}
+                      placeholder="Cole aqui o HTML da newsletter..."
+                      className="min-h-[100px] font-mono text-xs"
+                    />
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
+
               {/* AI Content Generation Button */}
               <div className="flex justify-end">
                 <Button
                   type="button"
-                  variant="outline"
+                  variant={hasReference ? "default" : "outline"}
                   size="sm"
                   onClick={handleGenerateContent}
-                  disabled={!canGenerateContent || isGeneratingContent}
+                  disabled={!canGenerateContent || isGeneratingContent || isFetchingReference}
                   className="gap-2"
                 >
-                  {isGeneratingContent ? (
+                  {isGeneratingContent || isFetchingReference ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
                     <Wand2 className="h-4 w-4" />
                   )}
-                  Escrever com IA
+                  {hasReference ? 'Gerar a partir da Referência' : 'Escrever com IA'}
                 </Button>
               </div>
 

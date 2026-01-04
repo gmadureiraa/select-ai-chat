@@ -167,3 +167,6 @@ verify_jwt = false
 
 [functions.test-rss-trigger]
 verify_jwt = true
+
+[functions.fetch-reference-content]
+verify_jwt = true

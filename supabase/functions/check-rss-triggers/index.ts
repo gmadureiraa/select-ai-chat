@@ -68,6 +68,38 @@ function parseRss(xmlText: string): RssItem[] {
   return items;
 }
 
+// Map platform + content_type to agent type for format rules
+function mapPlatformToContentType(platform: string | null, contentType: string | null): string {
+  // Direct content type mappings
+  const contentTypeMappings: Record<string, string> = {
+    thread: 'thread_agent',
+    tweet: 'tweet_agent',
+    carousel: 'carousel_agent',
+    static_image: 'static_post_agent',
+    stories: 'static_post_agent',
+    newsletter: 'newsletter_agent',
+    blog: 'blog_agent',
+    article: 'article_agent',
+  };
+  
+  if (contentType && contentTypeMappings[contentType]) {
+    return contentTypeMappings[contentType];
+  }
+  
+  // Platform defaults
+  const platformDefaults: Record<string, string> = {
+    twitter: 'thread_agent',
+    instagram: 'static_post_agent',
+    linkedin: 'linkedin_agent',
+    newsletter: 'newsletter_agent',
+    blog: 'blog_agent',
+    youtube: 'long_video_agent',
+    tiktok: 'reels_agent',
+  };
+  
+  return platformDefaults[platform || ''] || 'static_post_agent';
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -118,9 +150,23 @@ serve(async (req) => {
         
         // Find new items (not in items_seen)
         const seenGuids = new Set(trigger.items_seen || []);
-        const newItems = items.filter(item => !seenGuids.has(item.guid));
         
-        console.log(`[check-rss-triggers] Found ${newItems.length} new items`);
+        // CRITICAL FIX: On first run (no items seen), only process the LATEST item
+        // Otherwise we'd create 20+ cards at once
+        let newItems: RssItem[];
+        const isFirstRun = !trigger.items_seen || trigger.items_seen.length === 0;
+        
+        if (isFirstRun && items.length > 0) {
+          // First run: only take the most recent item
+          newItems = [items[0]];
+          // Mark all OTHER items as seen so they won't be processed later
+          items.forEach(item => seenGuids.add(item.guid));
+          console.log(`[check-rss-triggers] First run - only processing latest item, marking ${items.length} as seen`);
+        } else {
+          newItems = items.filter(item => !seenGuids.has(item.guid));
+        }
+        
+        console.log(`[check-rss-triggers] Found ${newItems.length} new items to process`);
         
         // Create planning items for new RSS items
         for (const item of newItems) {
@@ -170,24 +216,43 @@ serve(async (req) => {
             console.log(`[check-rss-triggers] Created planning item: ${createdItem.id}`);
             
             // If auto_generate_content is enabled, trigger content generation
-            if (trigger.auto_generate_content && trigger.prompt_template) {
-              const prompt = trigger.prompt_template
-                .replace('{title}', item.title)
-                .replace('{description}', item.description)
-                .replace('{link}', item.link);
+            if (trigger.auto_generate_content) {
+              // Map platform + content_type to correct agent type
+              const contentAgentType = mapPlatformToContentType(trigger.platform, trigger.content_type);
               
-              // Call execute-agent to generate content
+              // Build prompt with template or default
+              let prompt = `Crie um conteúdo baseado neste artigo:\n\nTítulo: ${item.title}\n\nDescrição: ${item.description}\n\nLink: ${item.link}`;
+              
+              if (trigger.prompt_template) {
+                prompt = trigger.prompt_template
+                  .replace('{title}', item.title)
+                  .replace('{description}', item.description)
+                  .replace('{link}', item.link);
+              }
+              
+              // Call execute-agent with correct parameters for format rules
               try {
-                const { error: agentError } = await supabase.functions.invoke('execute-agent', {
+                console.log(`[check-rss-triggers] Generating content with agent type: ${contentAgentType}`);
+                
+                const { data: agentData, error: agentError } = await supabase.functions.invoke('execute-agent', {
                   body: {
-                    planningItemId: createdItem.id,
-                    prompt,
-                    workspaceId: trigger.workspace_id,
+                    agentType: 'content_writer',
+                    contentType: contentAgentType,
+                    userMessage: prompt,
+                    clientId: trigger.client_id,
+                    includeContext: true,
                   },
                 });
                 
                 if (agentError) {
                   console.error(`[check-rss-triggers] Error calling execute-agent:`, agentError);
+                } else if (agentData?.success && agentData?.output) {
+                  // Update the planning item with generated content
+                  await supabase
+                    .from('planning_items')
+                    .update({ content: agentData.output })
+                    .eq('id', createdItem.id);
+                  console.log(`[check-rss-triggers] Updated planning item with generated content`);
                 }
               } catch (agentErr) {
                 console.error(`[check-rss-triggers] Exception calling execute-agent:`, agentErr);
