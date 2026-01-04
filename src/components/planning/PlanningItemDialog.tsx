@@ -9,13 +9,15 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { CalendarIcon, Loader2, FileText, MessageSquare, User } from 'lucide-react';
+import { CalendarIcon, Loader2, FileText, MessageSquare, User, Sparkles } from 'lucide-react';
 import { useClients } from '@/hooks/useClients';
 import { useTeamMembers } from '@/hooks/useTeamMembers';
+import { usePlanningImageGeneration } from '@/hooks/usePlanningImageGeneration';
 import { cn } from '@/lib/utils';
 import { MediaUploader, MediaItem } from './MediaUploader';
 import { RichContentEditor } from './RichContentEditor';
 import { ThreadEditor, ThreadTweet } from './ThreadEditor';
+import { ImageGenerationModal, ImageGenerationOptions } from './ImageGenerationModal';
 import type { PlanningItem, CreatePlanningItemInput, PlanningPlatform, PlanningPriority, KanbanColumn } from '@/hooks/usePlanningItems';
 
 interface PlanningItemDialogProps {
@@ -67,11 +69,12 @@ export function PlanningItemDialog({
   const { clients } = useClients();
   const { members } = useTeamMembers();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showImageModal, setShowImageModal] = useState(false);
   
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [content, setContent] = useState('');
-  const [clientId, setClientId] = useState<string>('');
+  const [selectedClientId, setSelectedClientId] = useState<string>('');
   const [columnId, setColumnId] = useState<string>('');
   const [platform, setPlatform] = useState<PlanningPlatform | ''>('');
   const [priority, setPriority] = useState<PlanningPriority>('medium');
@@ -82,12 +85,14 @@ export function PlanningItemDialog({
   const [threadTweets, setThreadTweets] = useState<ThreadTweet[]>([]);
   const [assignedTo, setAssignedTo] = useState<string>('');
 
+  const { generateImage, isGenerating: isGeneratingImage } = usePlanningImageGeneration(selectedClientId);
+
   useEffect(() => {
     if (item) {
       setTitle(item.title);
       setDescription(item.description || '');
       setContent(item.content || '');
-      setClientId(item.client_id || '');
+      setSelectedClientId(item.client_id || '');
       setColumnId(item.column_id || '');
       setPlatform(item.platform || '');
       setPriority(item.priority);
@@ -117,7 +122,7 @@ export function PlanningItemDialog({
       setTitle('');
       setDescription('');
       setContent('');
-      setClientId('');
+      setSelectedClientId('');
       setColumnId(defaultColumnId || columns[0]?.id || '');
       setPlatform('');
       setPriority('medium');
@@ -154,7 +159,7 @@ export function PlanningItemDialog({
         title: title.trim(),
         description: description.trim() || undefined,
         content: finalContent.trim() || undefined,
-        client_id: clientId || undefined,
+        client_id: selectedClientId || undefined,
         column_id: columnId || undefined,
         platform: platform || undefined,
         priority,
@@ -182,7 +187,31 @@ export function PlanningItemDialog({
   const isTwitterThread = platform === 'twitter' && contentType === 'thread';
   const showRichEditor = contentType === 'article' || contentType === 'post' || platform === 'newsletter' || platform === 'blog';
 
+  const handleGenerateImage = async (options: ImageGenerationOptions): Promise<string | null> => {
+    const contentForImage = isTwitterThread 
+      ? threadTweets.map(t => t.text).join('\n\n')
+      : content;
+    
+    const imageUrl = await generateImage({
+      content: contentForImage,
+      platform: platform || 'instagram',
+      contentType,
+      options
+    });
+
+    if (imageUrl) {
+      setMediaItems(prev => [...prev, {
+        id: `generated-${Date.now()}`,
+        url: imageUrl,
+        type: 'image'
+      }]);
+    }
+
+    return imageUrl;
+  };
+
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
@@ -204,7 +233,7 @@ export function PlanningItemDialog({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label>Cliente</Label>
-              <Select value={clientId} onValueChange={setClientId}>
+              <Select value={selectedClientId} onValueChange={setSelectedClientId}>
                 <SelectTrigger>
                   <SelectValue placeholder="Selecionar" />
                 </SelectTrigger>
@@ -335,14 +364,14 @@ export function PlanningItemDialog({
                 <ThreadEditor
                   value={threadTweets}
                   onChange={setThreadTweets}
-                  clientId={clientId}
+                  clientId={selectedClientId}
                 />
               ) : showRichEditor ? (
                 <RichContentEditor
                   value={content}
                   onChange={setContent}
                   placeholder="Escreva seu conteúdo aqui. Use Markdown para formatação..."
-                  clientId={clientId}
+                  clientId={selectedClientId}
                 />
               ) : (
                 <RichContentEditor
@@ -350,17 +379,31 @@ export function PlanningItemDialog({
                   onChange={setContent}
                   placeholder="Texto do conteúdo"
                   minRows={4}
-                  clientId={clientId}
+                  clientId={selectedClientId}
                 />
               )}
             </TabsContent>
 
-            <TabsContent value="media" className="mt-3">
+            <TabsContent value="media" className="mt-3 space-y-4">
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-muted-foreground">Adicione imagens ou vídeos ao seu conteúdo</p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowImageModal(true)}
+                  disabled={!content.trim() && !threadTweets.some(t => t.text.trim())}
+                  className="gap-2"
+                >
+                  <Sparkles className="h-4 w-4" />
+                  Gerar com IA
+                </Button>
+              </div>
               <MediaUploader
                 value={mediaItems}
                 onChange={setMediaItems}
                 maxItems={platform === 'twitter' ? 4 : 10}
-                clientId={clientId}
+                clientId={selectedClientId}
               />
             </TabsContent>
           </Tabs>
@@ -409,5 +452,16 @@ export function PlanningItemDialog({
         </form>
       </DialogContent>
     </Dialog>
+
+    <ImageGenerationModal
+      open={showImageModal}
+      onOpenChange={setShowImageModal}
+      content={isTwitterThread ? threadTweets.map(t => t.text).join('\n\n') : content}
+      platform={platform || 'instagram'}
+      contentType={contentType}
+      onGenerate={handleGenerateImage}
+      isGenerating={isGeneratingImage}
+    />
+    </>
   );
 }

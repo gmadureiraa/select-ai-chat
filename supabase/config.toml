@@ -149,3 +149,12 @@ verify_jwt = true
 
 [functions.send-publish-reminders]
 verify_jwt = false
+
+[functions.twitter-post]
+verify_jwt = true
+
+[functions.linkedin-oauth-start]
+verify_jwt = true
+
+[functions.linkedin-oauth-callback]
+verify_jwt = false

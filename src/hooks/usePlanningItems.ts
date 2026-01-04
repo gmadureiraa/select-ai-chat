@@ -40,6 +40,7 @@ export interface PlanningItem {
   // Joined data
   clients?: { id: string; name: string; avatar_url: string | null } | null;
   kanban_columns?: { id: string; name: string; color: string | null; column_type: string | null } | null;
+  assignee_profile?: { id: string; full_name: string | null; avatar_url: string | null; email: string | null } | null;
 }
 
 export interface KanbanColumn {
