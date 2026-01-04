@@ -2,15 +2,17 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverAnchor } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
-import { FileText, BookOpen, ScrollText, Video, Image, Mic, Mail, Sparkles, PenTool, MessageSquare, Send, Wand2, Lightbulb, Newspaper } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { FileText, BookOpen, ScrollText, Video, Image, Mic, Mail, Sparkles, PenTool, MessageSquare, Send, Wand2, Lightbulb, Newspaper, User, Building2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export interface CitationItem {
   id: string;
   title: string;
-  type: "content_library" | "reference_library" | "format";
+  type: "content_library" | "reference_library" | "format" | "assignee" | "client";
   category: string;
   preview: string;
+  avatar_url?: string;
 }
 
 interface CitationPopoverProps {
@@ -28,6 +30,17 @@ interface CitationPopoverProps {
     title: string;
     reference_type: string;
     content: string;
+  }>;
+  assignees?: Array<{
+    id: string;
+    name: string;
+    email?: string;
+    avatar_url?: string;
+  }>;
+  clients?: Array<{
+    id: string;
+    name: string;
+    avatar_url?: string;
   }>;
   anchorRef: React.RefObject<HTMLElement>;
   searchQuery?: string;
@@ -92,6 +105,9 @@ const categoryColors: Record<string, string> = {
   podcast: "bg-violet-500/10 text-violet-600 border-violet-500/20",
   reference: "bg-slate-500/10 text-slate-600 border-slate-500/20",
   format: "bg-primary/10 text-primary border-primary/20",
+  // People and Clients
+  assignee: "bg-indigo-500/10 text-indigo-600 border-indigo-500/20",
+  client: "bg-teal-500/10 text-teal-600 border-teal-500/20",
 };
 
 // Pre-defined content formats - synchronized with FormatItem.tsx
@@ -123,6 +139,8 @@ export const CitationPopover = ({
   onSelect,
   contentLibrary,
   referenceLibrary,
+  assignees = [],
+  clients = [],
   anchorRef,
   searchQuery = "",
   showFormats = true,
@@ -132,6 +150,30 @@ export const CitationPopover = ({
   useEffect(() => {
     setInternalSearch(searchQuery);
   }, [searchQuery]);
+
+  // Convert assignees to CitationItems
+  const assigneeItems = useMemo((): CitationItem[] => {
+    return assignees.map((a) => ({
+      id: a.id,
+      title: a.name,
+      type: "assignee" as const,
+      category: "assignee",
+      preview: a.email || "Membro da equipe",
+      avatar_url: a.avatar_url,
+    }));
+  }, [assignees]);
+
+  // Convert clients to CitationItems
+  const clientItems = useMemo((): CitationItem[] => {
+    return clients.map((c) => ({
+      id: c.id,
+      title: c.name,
+      type: "client" as const,
+      category: "client",
+      preview: "Cliente",
+      avatar_url: c.avatar_url,
+    }));
+  }, [clients]);
 
   // Combinar e formatar itens
   const allItems = useMemo((): CitationItem[] => {
@@ -153,8 +195,8 @@ export const CitationPopover = ({
       preview: r.content.substring(0, 100) + (r.content.length > 100 ? "..." : ""),
     }));
 
-    return [...formatItems, ...contentItems, ...referenceItems];
-  }, [contentLibrary, referenceLibrary, showFormats]);
+    return [...formatItems, ...contentItems, ...referenceItems, ...assigneeItems, ...clientItems];
+  }, [contentLibrary, referenceLibrary, showFormats, assigneeItems, clientItems]);
 
   // Filtrar por busca
   const filteredFormats = useMemo(() => {
@@ -168,8 +210,30 @@ export const CitationPopover = ({
     );
   }, [internalSearch, showFormats]);
 
+  const filteredAssignees = useMemo(() => {
+    if (!internalSearch.trim()) return assigneeItems.slice(0, 10);
+    const query = internalSearch.toLowerCase();
+    return assigneeItems
+      .filter(
+        (item) =>
+          item.title.toLowerCase().includes(query) ||
+          item.preview.toLowerCase().includes(query)
+      )
+      .slice(0, 10);
+  }, [assigneeItems, internalSearch]);
+
+  const filteredClients = useMemo(() => {
+    if (!internalSearch.trim()) return clientItems.slice(0, 10);
+    const query = internalSearch.toLowerCase();
+    return clientItems
+      .filter((item) => item.title.toLowerCase().includes(query))
+      .slice(0, 10);
+  }, [clientItems, internalSearch]);
+
   const filteredLibrary = useMemo(() => {
-    const libraryItems = allItems.filter((item) => item.type !== "format");
+    const libraryItems = allItems.filter((item) => 
+      item.type !== "format" && item.type !== "assignee" && item.type !== "client"
+    );
     if (!internalSearch.trim()) return libraryItems.slice(0, 15);
 
     const query = internalSearch.toLowerCase();
@@ -252,6 +316,61 @@ export const CitationPopover = ({
               </CommandGroup>
             )}
             
+            {/* People Group */}
+            {filteredAssignees.length > 0 && (
+              <CommandGroup heading="👤 Pessoas">
+                {filteredAssignees.map((item) => (
+                  <CommandItem
+                    key={`assignee-${item.id}`}
+                    value={`${item.title}-${item.id}`}
+                    onSelect={() => handleSelect(item)}
+                    className="flex items-center gap-3 py-2.5 cursor-pointer"
+                  >
+                    <Avatar className="h-8 w-8">
+                      <AvatarImage src={item.avatar_url} />
+                      <AvatarFallback className="bg-indigo-500/10 text-indigo-600 text-xs">
+                        {item.title.charAt(0).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <span className="font-medium">{item.title}</span>
+                      <p className="text-xs text-muted-foreground truncate">{item.preview}</p>
+                    </div>
+                    <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 bg-indigo-500/10 text-indigo-600 border-indigo-500/20">
+                      Pessoa
+                    </Badge>
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            )}
+
+            {/* Clients Group */}
+            {filteredClients.length > 0 && (
+              <CommandGroup heading="🏢 Clientes">
+                {filteredClients.map((item) => (
+                  <CommandItem
+                    key={`client-${item.id}`}
+                    value={`${item.title}-${item.id}`}
+                    onSelect={() => handleSelect(item)}
+                    className="flex items-center gap-3 py-2.5 cursor-pointer"
+                  >
+                    <Avatar className="h-8 w-8">
+                      <AvatarImage src={item.avatar_url} />
+                      <AvatarFallback className="bg-teal-500/10 text-teal-600 text-xs">
+                        <Building2 className="h-4 w-4" />
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <span className="font-medium">{item.title}</span>
+                    </div>
+                    <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 bg-teal-500/10 text-teal-600 border-teal-500/20">
+                      Cliente
+                    </Badge>
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            )}
+
             {/* Library Group */}
             {filteredLibrary.length > 0 && (
               <CommandGroup heading="📚 Biblioteca">

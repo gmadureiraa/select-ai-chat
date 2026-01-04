@@ -7,6 +7,8 @@ import { Message, ProcessStep, MultiAgentStep } from "@/types/chat";
 import { KAIActionStatus } from "@/types/kaiActions";
 import { EnhancedMessageBubble } from "@/components/chat/EnhancedMessageBubble";
 import { MinimalProgress } from "@/components/chat/MinimalProgress";
+import { KAICSVValidationCard } from "./KAICSVValidationCard";
+import { ValidationResult } from "@/hooks/useCSVValidation";
 import kaleidosLogo from "@/assets/kaleidos-logo.svg";
 
 interface GlobalKAIChatProps {
@@ -18,6 +20,10 @@ interface GlobalKAIChatProps {
   currentStep?: ProcessStep;
   multiAgentStep?: MultiAgentStep;
   onSendMessage?: (content: string, images?: string[], quality?: "fast" | "high") => void;
+  csvValidationResults?: ValidationResult[];
+  onProceedCSVImport?: () => void;
+  onCancelCSVValidation?: () => void;
+  onApplyCSVFix?: (fileIndex: number, warningIndex: number) => void;
 }
 
 export function GlobalKAIChat({
@@ -29,6 +35,10 @@ export function GlobalKAIChat({
   currentStep,
   multiAgentStep,
   onSendMessage,
+  csvValidationResults = [],
+  onProceedCSVImport,
+  onCancelCSVValidation,
+  onApplyCSVFix,
 }: GlobalKAIChatProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -130,6 +140,25 @@ export function GlobalKAIChat({
             </motion.div>
           ))}
         </AnimatePresence>
+
+        {/* CSV Validation Card */}
+        {csvValidationResults.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex items-start gap-3"
+          >
+            <div className="flex-shrink-0 w-9 h-9 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/20 flex items-center justify-center shadow-sm">
+              <img src={kaleidosLogo} alt="kAI" className="h-5 w-5 object-contain" />
+            </div>
+            <KAICSVValidationCard
+              validationResults={csvValidationResults}
+              onProceed={onProceedCSVImport || (() => {})}
+              onCancel={onCancelCSVValidation || (() => {})}
+              onApplyFix={onApplyCSVFix}
+            />
+          </motion.div>
+        )}
 
         {/* Processing indicator with step tracking */}
         {isProcessing && (

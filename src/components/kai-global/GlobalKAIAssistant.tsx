@@ -28,16 +28,22 @@ export function GlobalKAIAssistant() {
     cancelAction,
     contentLibrary,
     referenceLibrary,
+    assignees,
+    clients: workspaceClients,
+    csvValidationResults,
+    proceedCSVImport,
+    cancelCSVValidation,
+    applyCSVFix,
   } = useGlobalKAI();
 
-  const { clients } = useClients();
+  const { clients: clientsData } = useClients();
 
   // Get selected client name
   const selectedClientName = useMemo(() => {
-    if (!selectedClientId || !clients) return undefined;
-    const client = clients.find(c => c.id === selectedClientId);
+    if (!selectedClientId || !clientsData) return undefined;
+    const client = clientsData.find(c => c.id === selectedClientId);
     return client?.name;
-  }, [selectedClientId, clients]);
+  }, [selectedClientId, clientsData]);
 
   // Handler for sending messages from within chat (for regenerate, etc.)
   const handleSendFromChat = useCallback((content: string, images?: string[], quality?: "fast" | "high") => {
@@ -72,6 +78,10 @@ export function GlobalKAIAssistant() {
           currentStep={currentStep}
           multiAgentStep={multiAgentStep}
           onSendMessage={handleSendFromChat}
+          csvValidationResults={csvValidationResults}
+          onProceedCSVImport={proceedCSVImport}
+          onCancelCSVValidation={cancelCSVValidation}
+          onApplyCSVFix={applyCSVFix}
         />
 
         {/* Input area with @ mentions support */}
@@ -84,6 +94,8 @@ export function GlobalKAIAssistant() {
           placeholder="Pergunte ao kAI... (@ para mencionar)"
           contentLibrary={contentLibrary}
           referenceLibrary={referenceLibrary}
+          assignees={assignees}
+          clients={workspaceClients}
         />
       </GlobalKAIPanel>
 
