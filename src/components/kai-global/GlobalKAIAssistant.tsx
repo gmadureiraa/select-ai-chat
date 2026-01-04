@@ -4,6 +4,7 @@ import { FloatingKAIButton } from "./FloatingKAIButton";
 import { GlobalKAIPanel } from "./GlobalKAIPanel";
 import { GlobalKAIChat } from "./GlobalKAIChat";
 import { GlobalKAIInput } from "./GlobalKAIInput";
+import { ActionConfirmationDialog } from "./ActionConfirmationDialog";
 import { KAIQuickSuggestion } from "@/types/kaiActions";
 import { useMemo, useCallback } from "react";
 
@@ -17,9 +18,12 @@ export function GlobalKAIAssistant() {
     selectedClientId,
     actionStatus,
     attachedFiles,
+    pendingAction,
     sendMessage,
     attachFiles,
     removeFile,
+    confirmAction,
+    cancelAction,
   } = useGlobalKAI();
 
   const { clients } = useClients();
@@ -75,6 +79,13 @@ export function GlobalKAIAssistant() {
           placeholder="Pergunte ao kAI..."
         />
       </GlobalKAIPanel>
+
+      {/* Action Confirmation Dialog */}
+      <ActionConfirmationDialog
+        pendingAction={pendingAction}
+        onConfirm={confirmAction}
+        onCancel={cancelAction}
+      />
     </>
   );
 }
