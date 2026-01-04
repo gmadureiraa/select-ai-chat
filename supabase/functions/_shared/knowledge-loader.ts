@@ -1,432 +1,196 @@
 // =====================================================
 // CARREGADOR DE DOCUMENTAÇÃO DE AGENTES E FORMATOS
+// Versão 2.0 - Carrega do banco de dados kai_documentation
 // =====================================================
 
-// Mapeamento de tipo de conteúdo para arquivo de formato
-const FORMAT_DOCS_MAP: Record<string, string> = {
-  "newsletter": "NEWSLETTER.md",
-  "blog_post": "BLOG_POST.md",
-  "carousel": "CARROSSEL.md",
-  "carrossel": "CARROSSEL.md",
-  "thread": "THREAD.md",
-  "tweet": "TWEET.md",
-  "linkedin_post": "LINKEDIN_POST.md",
-  "linkedin": "LINKEDIN_POST.md",
-  "stories": "STORIES.md",
-  "short_video": "REELS_SHORT_VIDEO.md",
-  "reels": "REELS_SHORT_VIDEO.md",
-  "tiktok": "REELS_SHORT_VIDEO.md",
-  "shorts": "REELS_SHORT_VIDEO.md",
-  "long_video": "LONG_VIDEO_YOUTUBE.md",
-  "youtube": "LONG_VIDEO_YOUTUBE.md",
-  "x_article": "ARTIGO_X.md",
-  "artigo_x": "ARTIGO_X.md",
-  "instagram_post": "POST_INSTAGRAM.md",
-  "post_instagram": "POST_INSTAGRAM.md",
-  "email": "EMAIL_MARKETING.md",
-  "email_marketing": "EMAIL_MARKETING.md",
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+// Interface para documentação
+interface KaiDocumentation {
+  id: string;
+  doc_type: 'format' | 'agent' | 'flow';
+  doc_key: string;
+  title: string;
+  content: string;
+  summary: string | null;
+  checklist: string[];
+  metadata: Record<string, unknown>;
+}
+
+// Cache em memória para documentos já carregados (por sessão da edge function)
+const docsCache: Map<string, KaiDocumentation> = new Map();
+
+// Mapeamento de aliases para chaves canônicas
+const FORMAT_KEY_ALIASES: Record<string, string> = {
+  "newsletter": "newsletter",
+  "blog_post": "blog_post",
+  "blogpost": "blog_post",
+  "carousel": "carousel",
+  "carrossel": "carousel",
+  "thread": "thread",
+  "tweet": "tweet",
+  "linkedin_post": "linkedin_post",
+  "linkedin": "linkedin_post",
+  "stories": "stories",
+  "story": "stories",
+  "storie": "stories",
+  "short_video": "short_video",
+  "reels": "short_video",
+  "tiktok": "short_video",
+  "shorts": "short_video",
+  "long_video": "long_video",
+  "youtube": "long_video",
+  "x_article": "x_article",
+  "artigo_x": "x_article",
+  "artigo": "x_article",
+  "instagram_post": "instagram_post",
+  "post_instagram": "instagram_post",
+  "post": "instagram_post",
+  "email": "email_marketing",
+  "email_marketing": "email_marketing",
 };
 
-// Mapeamento de ID de agente para arquivo de documentação
-const AGENT_DOCS_MAP: Record<string, string> = {
-  "researcher": "RESEARCHER.md",
-  "pesquisador": "RESEARCHER.md",
-  "writer": "CONTENT_WRITER.md",
-  "escritor": "CONTENT_WRITER.md",
-  "content_writer": "CONTENT_WRITER.md",
-  "editor": "CONTENT_WRITER.md", // Editor usa o mesmo guia de escrita
-  "reviewer": "CONTENT_WRITER.md", // Revisor usa o mesmo guia
-  "strategist": "STRATEGIST.md",
-  "estrategista": "STRATEGIST.md",
-  "metrics_analyst": "METRICS_ANALYST.md",
-  "analista": "METRICS_ANALYST.md",
-  "design_agent": "DESIGN_AGENT.md",
-  "designer": "DESIGN_AGENT.md",
-  "email_developer": "EMAIL_DEVELOPER.md",
+const AGENT_KEY_ALIASES: Record<string, string> = {
+  "researcher": "researcher",
+  "pesquisador": "researcher",
+  "writer": "content_writer",
+  "escritor": "content_writer",
+  "content_writer": "content_writer",
+  "editor": "editor",
+  "reviewer": "reviewer",
+  "revisor": "reviewer",
+  "strategist": "strategist",
+  "estrategista": "strategist",
+  "metrics_analyst": "metrics_analyst",
+  "analista": "metrics_analyst",
+  "design_agent": "design_agent",
+  "designer": "design_agent",
+  "email_developer": "email_developer",
 };
 
-// Cache em memória para documentos já carregados
-const docsCache: Map<string, string> = new Map();
-
-// Documentação embeddada diretamente (seções mais importantes de cada doc)
-// Isso evita leitura de arquivo e mantém tokens controlados
-const EMBEDDED_AGENT_DOCS: Record<string, string> = {
-  "researcher": `## AGENTE PESQUISADOR
-
-### MISSÃO
-Realizar pesquisas profundas, analisar informações complexas e fornecer dados contextuais relevantes.
-
-### COMO AGIR
-1. **Usar Dados Fornecidos** - Use APENAS dados e referências do contexto
-2. **Ser Objetivo** - Apresente informações de forma neutra e factual
-3. **Organizar Claramente** - Estruture em: Fatos principais → Detalhes → Fontes → Aplicação
-
-### REGRAS ABSOLUTAS
-- NUNCA invente dados
-- SEMPRE use apenas informações fornecidas
-- SEMPRE seja objetivo e factual
-- NUNCA apresente opiniões como fatos`,
-
-  "writer": `## AGENTE ESCRITOR DE CONTEÚDO
-
-### MISSÃO
-Criar conteúdo textual de alta qualidade seguindo estritamente as diretrizes do cliente.
-
-### HIERARQUIA DE INFORMAÇÃO (ordem de prioridade)
-1. Documentação do formato específico (estrutura, regras)
-2. Guia de identidade do cliente (tom, voz, estilo)
-3. Biblioteca de conteúdo do cliente (exemplos reais)
-
-### COMO AGIR
-1. **Consultar identity_guide** - Tom de voz, personalidade, valores
-2. **Usar content_library** - Exemplos reais como referência de estilo
-3. **Seguir documentação do formato** - Estrutura obrigatória
-
-### REGRAS ABSOLUTAS
-- SEMPRE consulte o guia de identidade do cliente
-- SEMPRE use exemplos reais como referência de estilo
-- NUNCA use linguagem genérica de IA
-- NUNCA ignore a documentação do formato`,
-
-  "editor": `## AGENTE EDITOR DE ESTILO
-
-### MISSÃO
-Refinar conteúdo para soar EXATAMENTE como o cliente escreve.
-
-### PROCESSO
-1. Compare rascunho com exemplos reais do cliente
-2. Ajuste tom de voz, vocabulário, expressões
-3. Aplique regras do guia de copywriting
-4. Garanta que pareça escrito pelo cliente, não por IA
-
-### REGRAS
-- NUNCA use linguagem genérica de IA
-- SEMPRE use o vocabulário específico do cliente
-- MANTENHA a estrutura dos exemplos de referência`,
-
-  "reviewer": `## AGENTE REVISOR FINAL
-
-### MISSÃO
-Fazer polish final e verificação de qualidade.
-
-### REGRA ABSOLUTA DE OUTPUT
-- Retorne EXCLUSIVAMENTE o conteúdo final
-- NÃO inclua comentários, explicações ou introduções
-- NÃO diga "Aqui está", "Versão final", etc.
-- APENAS o conteúdo pronto para publicação
-
-### CHECKLIST SILENCIOSO
-- Gramática e ortografia corretas
-- Emojis apenas início/fim de seções
-- CTAs claros e persuasivos
-- Hook forte e envolvente
-- Sem linguagem genérica de IA`
-};
-
-// Documentação de formatos embeddada (seções essenciais)
-const EMBEDDED_FORMAT_DOCS: Record<string, string> = {
-  "newsletter": `## FORMATO: NEWSLETTER
-
-### ESTRUTURA OBRIGATÓRIA
-1. **Assunto** (45-60 chars) - Curto, intrigante, cria urgência
-2. **Preview Text** (85-100 chars) - Complementa o assunto
-3. **Abertura** - Gancho forte, conecta com leitor
-4. **Corpo** - 2-4 seções com valor real
-5. **CTA Principal** - Claro e específico
-6. **Assinatura** - Pessoal e memorável
-
-### REGRAS DE OURO
-- Taxa de abertura meta: >25%
-- Taxa de clique meta: >3%
-- Máximo 500-800 palavras
-- Parágrafos curtos (máx 3 linhas)
-- 1 CTA principal por newsletter`,
-
-  "carousel": `## FORMATO: CARROSSEL
-
-### REGRA DE OURO
-O Slide 1 é 80% do sucesso. Se não parar o scroll, o resto não importa.
-
-### ESTRUTURA OBRIGATÓRIA
-**SLIDE 1 (GANCHO)**: Máx 20 palavras - dor/urgência/curiosidade
-**SLIDE 2 (PONTE)**: Aprofunde a dor, NÃO entregue solução
-**SLIDES 3-6**: 1 ideia por slide, máx 30 palavras
-**SLIDE FINAL (CTA)**: Recapitule benefício + CTA específico
-
-### SEPARADORES
-Use "---PÁGINA N---" entre cada slide
-
-### O QUE EVITAR
-- Slide 1 com mais de 20 palavras
-- CTA genérico ("siga para mais")
-- Muitas ideias por slide`,
-
-  "thread": `## FORMATO: THREAD (TWITTER/X)
-
-### PLATAFORMA: TWITTER/X (NÃO Instagram!)
-Thread é uma série de TWEETS conectados no TWITTER/X.
-NUNCA confunda com Stories (que é Instagram).
-
-### ESTRUTURA OBRIGATÓRIA
-
-**TWEET 1 (GANCHO)**: 100-150 caracteres
-- Promessa, pergunta ou dado impactante
-- OBRIGATÓRIO: Termine com "🧵" ou "Thread:"
-- Este tweet precisa viralizar SOZINHO
-
-**TWEETS 2-9 (DESENVOLVIMENTO)**
-- 1 ideia por tweet
-- OBRIGATÓRIO: Numere cada tweet (1/, 2/, 3/...)
-- Cada tweet deve fazer sentido sozinho
-- Use quebras de linha para legibilidade
-
-**ÚLTIMO TWEET (CTA)**
-- Peça RT do primeiro tweet
-- Resumo do valor entregue + call to action
-- Convide para seguir
-
-### SEPARADORES (OBRIGATÓRIO)
-Use "---TWEET N---" entre CADA tweet
-
-### REGRAS DE OURO
-- Limite de 280 caracteres por tweet (OBRIGATÓRIO)
-- Tweet 1 deve viralizar sozinho
-- Progressão lógica de valor
-- Dados específicos, não genéricos
-
-### FORMATO DE ENTREGA
-\`\`\`
----TWEET 1---
-[Texto do gancho com 🧵]
-
----TWEET 2---
-1/
-[Conteúdo do tweet 2]
-
----TWEET 3---
-2/
-[Conteúdo do tweet 3]
-
-(continue...)
-
----TWEET FINAL---
-[Resumo + CTA + Peça RT do primeiro]
-\`\`\``,
-
-  "tweet": `## FORMATO: TWEET (TWITTER/X)
-
-### PLATAFORMA: TWITTER/X
-Tweet único, diferente de Thread.
-
-### REGRAS
-- Limite OBRIGATÓRIO: 280 caracteres
-- Primeira linha é crítica
-- Menos é mais
-- Máx 2-3 hashtags
-- 1-2 emojis máximo
-
-### ESTRUTURAS EFICAZES
-- Afirmação + Contexto
-- Pergunta + Resposta
-- Dado + Insight
-- Lista rápida (3-5 itens)`,
-
-  "linkedin_post": `## FORMATO: LINKEDIN POST
-
-### ESTRUTURA
-**LINHA 1 (GANCHO)**: 10-15 palavras máx - aparece ANTES do "ver mais"!
-**DESENVOLVIMENTO**: 100-250 palavras, parágrafos curtos
-**CTA**: Pergunta para comentários ou link
-
-### REGRAS
-- LinkedIn valoriza autenticidade
-- Storytelling > Teoria
-- Eduque, não venda
-- Parágrafos curtos são essenciais`,
-
-  "stories": `## FORMATO: STORIES (INSTAGRAM)
-
-### PLATAFORMA: INSTAGRAM (NÃO Twitter!)
-Stories são sequências VERTICAIS de imagens/vídeos no INSTAGRAM.
-NUNCA confunda com Thread (que é Twitter/X).
-
-### ESTRUTURA OBRIGATÓRIA
-
-**STORY 1 (GANCHO/CAPA)**
-- Visual impactante
-- Texto CURTO (máx 10 palavras)
-- Indicação: "1/5" ou "1 de 5"
-- Cria curiosidade para continuar
-
-**STORIES 2-6 (DESENVOLVIMENTO)**
-- 10-20 palavras por story
-- Texto GRANDE e LEGÍVEL (fonte grande!)
-- UMA ideia por story
-- Cada story tem valor próprio
-
-**ÚLTIMO STORY (CTA)**
-- "Deslize para cima", "Link na bio", etc.
-- Destaque visual para o CTA
-- Indicação de sequência final
-
-### SEPARADORES (OBRIGATÓRIO)
-Use "---STORY N---" ou "---STORIE N---" entre CADA story
-
-### REGRAS DE OURO
-- Sequência de 3-7 stories (ideal: 5)
-- Máx 50 palavras por story
-- Texto GRANDE e legível
-- Alto contraste para leitura
-- Formato VERTICAL (9:16)
-
-### FORMATO DE ENTREGA
-\`\`\`
----STORY 1/5---
-VISUAL: [Descrição do visual]
-TEXTO: [Texto do story - máx 50 palavras]
-
----STORY 2/5---
-VISUAL: [Descrição]
-TEXTO: [Texto]
-
-(continue...)
-
----STORY 5/5 (CTA)---
-VISUAL: [Descrição com CTA destacado]
-TEXTO: [CTA + encerramento]
-LINK: [Se aplicável]
-\`\`\``,
-
-  "short_video": `## FORMATO: VÍDEO CURTO (Reels/TikTok/Shorts)
-
-### REGRA DE OURO
-Os primeiros 3 segundos são 80% do sucesso.
-
-### ESTRUTURA OBRIGATÓRIA
-**GANCHO [0:00-0:03]**: Pattern interrupt ou curiosity gap
-**PONTO 1-3 [0:03-0:28]**: 1 ideia por ponto, escada de valor
-**CTA [0:28-0:30]**: Específico, não genérico
-
-### CADA SEÇÃO TEM
-[Texto na tela]: Palavras-chave legíveis (60% assistem no mudo!)
-[Ação]: Descrição visual
-[Narração]: O que é falado
-
-### SEPARADORES
----GANCHO---, ---PONTO N---, ---CTA---`,
-
-  "long_video": `## FORMATO: VÍDEO LONGO (YouTube)
-
-### FILOSOFIA
-YouTube é jogo de RETENÇÃO. Cada segundo deve justificar sua existência.
-
-### ESTRUTURA OBRIGATÓRIA
-1. **METADADOS**: Duração, público, objetivo, keywords
-2. **TÍTULO + THUMBNAIL**: 3 opções cada
-3. **GANCHO [0:00-0:30]**: Hook + Context + Promise
-4. **INTRODUÇÃO [0:30-2:00]**: Contexto + Credibilidade + Roadmap
-5. **CAPÍTULOS**: Conceito + Importância + Aplicação + Exemplo
-6. **CONCLUSÃO**: Recap + Takeaway + CTA + Teaser
-7. **DESCRIÇÃO**: Resumo + Timestamps + Links`,
-
-  "instagram_post": `## FORMATO: POST INSTAGRAM
-
-### ESTRUTURA
-**PRIMEIRA LINHA**: Máx 125 chars (aparece antes do "mais...")
-**CORPO**: 150-300 palavras, quebras de linha
-**CTA + HASHTAGS**: 5-10 hashtags no final
-
-### REGRAS
-- Emojis apenas início/fim de linhas
-- Parágrafos curtos (1-2 linhas)
-- Hashtags NUNCA no meio do texto`,
-
-  "x_article": `## FORMATO: ARTIGO NO X
-
-### ESTRUTURA
-**TÍTULO**: Máx 100 chars, impactante
-**SUBTÍTULO**: Complementa o título
-**INTRODUÇÃO**: 100-150 palavras, gancho forte
-**CORPO**: 800-2000 palavras, 3-5 seções com H2
-**CONCLUSÃO**: 100-150 palavras, recap + CTA
-
-### REGRAS
-- Tom conversacional mas profissional
-- Parágrafos máx 4 linhas
-- NÃO use emojis no meio de frases`,
-
-  "email_marketing": `## FORMATO: EMAIL MARKETING
-
-### ESTRUTURA
-1. **Assunto**: Curto, urgência ou curiosidade
-2. **Preview**: Complementa assunto
-3. **Saudação**: Pessoal quando possível
-4. **Corpo**: Benefício claro, escaneável
-5. **CTA**: Único, destacado
-6. **Assinatura**: Profissional
-
-### REGRAS
-- Foco em 1 objetivo por email
-- CTAs visuais e claros
-- Mobile-first design`
-};
+// Criar cliente Supabase para edge functions
+function getSupabaseClient() {
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  return createClient(supabaseUrl, supabaseServiceKey);
+}
+
+/**
+ * Busca documentação do banco de dados
+ */
+async function fetchDocumentation(
+  docType: 'format' | 'agent',
+  docKey: string
+): Promise<KaiDocumentation | null> {
+  const cacheKey = `${docType}_${docKey}`;
+  
+  // Verificar cache primeiro
+  if (docsCache.has(cacheKey)) {
+    return docsCache.get(cacheKey)!;
+  }
+  
+  try {
+    const supabase = getSupabaseClient();
+    
+    const { data, error } = await supabase
+      .from('kai_documentation')
+      .select('*')
+      .eq('doc_type', docType)
+      .eq('doc_key', docKey)
+      .single();
+    
+    if (error || !data) {
+      console.log(`[KNOWLEDGE-LOADER] Doc not found: ${docType}/${docKey}`);
+      return null;
+    }
+    
+    const doc: KaiDocumentation = {
+      id: data.id,
+      doc_type: data.doc_type,
+      doc_key: data.doc_key,
+      title: data.title,
+      content: data.content,
+      summary: data.summary,
+      checklist: data.checklist || [],
+      metadata: data.metadata || {},
+    };
+    
+    // Cachear
+    docsCache.set(cacheKey, doc);
+    
+    return doc;
+  } catch (err) {
+    console.error(`[KNOWLEDGE-LOADER] Error fetching ${docType}/${docKey}:`, err);
+    return null;
+  }
+}
+
+/**
+ * Normaliza a chave do formato
+ */
+function normalizeFormatKey(contentType: string): string {
+  const normalized = contentType.toLowerCase().replace(/-/g, "_").trim();
+  return FORMAT_KEY_ALIASES[normalized] || normalized;
+}
+
+/**
+ * Normaliza a chave do agente
+ */
+function normalizeAgentKey(agentId: string): string {
+  const normalized = agentId.toLowerCase().replace(/-/g, "_").trim();
+  return AGENT_KEY_ALIASES[normalized] || normalized;
+}
 
 /**
  * Carrega documentação de um agente específico
  */
-export function getAgentDocs(agentId: string): string {
-  const normalizedId = agentId.toLowerCase();
+export async function getAgentDocs(agentId: string): Promise<string> {
+  const normalizedKey = normalizeAgentKey(agentId);
   
-  // Primeiro tenta o cache
-  if (docsCache.has(`agent_${normalizedId}`)) {
-    return docsCache.get(`agent_${normalizedId}`)!;
+  const doc = await fetchDocumentation('agent', normalizedKey);
+  
+  if (doc) {
+    return doc.content;
   }
   
-  // Retorna documentação embeddada
-  const docs = EMBEDDED_AGENT_DOCS[normalizedId] || EMBEDDED_AGENT_DOCS["writer"] || "";
-  
-  // Cacheia para próximas chamadas
-  if (docs) {
-    docsCache.set(`agent_${normalizedId}`, docs);
-  }
-  
-  return docs;
+  // Fallback para documentação embeddada básica
+  return getFallbackAgentDocs(normalizedKey);
 }
 
 /**
  * Carrega documentação de um formato específico
  */
-export function getFormatDocs(contentType: string): string {
-  const normalizedType = contentType.toLowerCase().replace(/-/g, "_");
+export async function getFormatDocs(contentType: string): Promise<string> {
+  const normalizedKey = normalizeFormatKey(contentType);
   
-  // Primeiro tenta o cache
-  if (docsCache.has(`format_${normalizedType}`)) {
-    return docsCache.get(`format_${normalizedType}`)!;
+  const doc = await fetchDocumentation('format', normalizedKey);
+  
+  if (doc) {
+    return doc.content;
   }
   
-  // Mapeia para o nome do formato
-  const formatKey = FORMAT_DOCS_MAP[normalizedType] 
-    ? normalizedType 
-    : Object.keys(FORMAT_DOCS_MAP).find(k => normalizedType.includes(k)) || normalizedType;
+  // Fallback para documentação embeddada básica
+  return getFallbackFormatDocs(normalizedKey);
+}
+
+/**
+ * Carrega checklist de validação de um formato
+ */
+export async function getFormatChecklist(contentType: string): Promise<string[]> {
+  const normalizedKey = normalizeFormatKey(contentType);
   
-  // Retorna documentação embeddada
-  const docs = EMBEDDED_FORMAT_DOCS[formatKey] || "";
+  const doc = await fetchDocumentation('format', normalizedKey);
   
-  // Cacheia para próximas chamadas
-  if (docs) {
-    docsCache.set(`format_${normalizedType}`, docs);
-  }
-  
-  return docs;
+  return doc?.checklist || [];
 }
 
 /**
  * Monta o contexto completo de documentação para um agente
  * baseado no tipo de conteúdo sendo criado
  */
-export function buildAgentContext(agentId: string, contentType: string): string {
-  const agentDocs = getAgentDocs(agentId);
-  const formatDocs = getFormatDocs(contentType);
+export async function buildAgentContext(agentId: string, contentType: string): Promise<string> {
+  const agentDocs = await getAgentDocs(agentId);
+  const formatDocs = await getFormatDocs(contentType);
   
   let context = "";
   
@@ -435,7 +199,8 @@ export function buildAgentContext(agentId: string, contentType: string): string 
   }
   
   // Só adiciona docs de formato para agentes que criam conteúdo
-  if (formatDocs && ["writer", "escritor", "content_writer", "editor", "reviewer"].includes(agentId.toLowerCase())) {
+  const contentAgents = ["writer", "escritor", "content_writer", "editor", "reviewer", "revisor"];
+  if (formatDocs && contentAgents.includes(agentId.toLowerCase())) {
     context += `# REGRAS DO FORMATO\n\n${formatDocs}\n\n`;
   }
   
@@ -452,13 +217,129 @@ export function clearDocsCache(): void {
 /**
  * Retorna lista de formatos disponíveis
  */
-export function getAvailableFormats(): string[] {
-  return Object.keys(EMBEDDED_FORMAT_DOCS);
+export async function getAvailableFormats(): Promise<string[]> {
+  try {
+    const supabase = getSupabaseClient();
+    
+    const { data, error } = await supabase
+      .from('kai_documentation')
+      .select('doc_key')
+      .eq('doc_type', 'format');
+    
+    if (error || !data) return Object.values(FORMAT_KEY_ALIASES);
+    
+    return data.map(d => d.doc_key);
+  } catch {
+    return Object.values(FORMAT_KEY_ALIASES);
+  }
 }
 
 /**
  * Retorna lista de agentes disponíveis
  */
-export function getAvailableAgents(): string[] {
-  return Object.keys(EMBEDDED_AGENT_DOCS);
+export async function getAvailableAgents(): Promise<string[]> {
+  try {
+    const supabase = getSupabaseClient();
+    
+    const { data, error } = await supabase
+      .from('kai_documentation')
+      .select('doc_key')
+      .eq('doc_type', 'agent');
+    
+    if (error || !data) return Object.values(AGENT_KEY_ALIASES);
+    
+    return data.map(d => d.doc_key);
+  } catch {
+    return Object.values(AGENT_KEY_ALIASES);
+  }
+}
+
+// =====================================================
+// FALLBACKS - Documentação básica caso banco falhe
+// =====================================================
+
+function getFallbackAgentDocs(agentKey: string): string {
+  const fallbacks: Record<string, string> = {
+    "researcher": `## AGENTE PESQUISADOR
+Analise materiais disponíveis. Use APENAS dados fornecidos. Seja objetivo e factual.`,
+    
+    "content_writer": `## AGENTE ESCRITOR
+Crie conteúdo seguindo: 1) Identidade do cliente 2) Formato solicitado 3) Biblioteca como referência.
+NUNCA use linguagem genérica de IA. SEMPRE adapte ao tom do cliente.`,
+    
+    "editor": `## AGENTE EDITOR
+Refine o conteúdo para soar EXATAMENTE como o cliente. Compare com exemplos reais.
+O leitor não deve perceber que foi escrito por IA.`,
+    
+    "reviewer": `## AGENTE REVISOR
+Retorne APENAS o conteúdo final. NÃO inclua comentários ou explicações.
+Apenas o conteúdo pronto para publicação.`,
+    
+    "strategist": `## AGENTE ESTRATEGISTA
+Baseie estratégias em dados. Seja específico e acionável. KPIs mensuráveis.`,
+    
+    "design_agent": `## AGENTE DE DESIGN
+Crie prompts que replicam EXATAMENTE o estilo visual do cliente.
+Use cores e referências da marca.`,
+    
+    "metrics_analyst": `## AGENTE ANALISTA
+Analise dados objetivamente. Forneça insights acionáveis.`,
+  };
+  
+  return fallbacks[agentKey] || fallbacks["content_writer"];
+}
+
+function getFallbackFormatDocs(formatKey: string): string {
+  const fallbacks: Record<string, string> = {
+    "thread": `## FORMATO: THREAD (TWITTER/X)
+- 5-15 tweets, max 280 chars cada
+- Tweet 1 com 🧵 no final
+- Numerar: 1/X, 2/X
+- Último tweet pede RT do primeiro`,
+    
+    "stories": `## FORMATO: STORIES (INSTAGRAM)
+- 3-7 stories, max 50 palavras cada
+- Indicar sequência (1/5, 2/5...)
+- Formato vertical 9:16
+- Último story com CTA`,
+    
+    "carousel": `## FORMATO: CARROSSEL
+- 7-10 slides, max 30 palavras cada
+- Slide 1 = gancho impactante
+- Último slide com CTA`,
+    
+    "newsletter": `## FORMATO: NEWSLETTER
+- Assunto max 50 chars
+- Parágrafos curtos
+- 1 CTA principal`,
+    
+    "tweet": `## FORMATO: TWEET
+- Max 280 caracteres
+- Uma ideia por tweet`,
+    
+    "linkedin_post": `## FORMATO: LINKEDIN
+- Gancho nas 2 primeiras linhas
+- Tom profissional mas humano
+- Terminar com pergunta`,
+    
+    "instagram_post": `## FORMATO: POST INSTAGRAM
+- Primeira linha = gancho
+- 5-10 hashtags no final`,
+    
+    "email_marketing": `## FORMATO: EMAIL MARKETING
+- Assunto max 50 chars
+- 1 CTA repetido 2-3x`,
+    
+    "blog_post": `## FORMATO: BLOG POST
+- Título max 60 chars
+- Hierarquia H2/H3
+- 1.500-2.000 palavras`,
+    
+    "x_article": `## FORMATO: ARTIGO X
+- Título max 100 chars
+- Tom opinativo
+- 1.500-4.000 palavras`,
+  };
+  
+  return fallbacks[formatKey] || "";
 }
