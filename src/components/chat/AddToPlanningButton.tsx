@@ -6,7 +6,6 @@ import { PlanningItemDialog } from "@/components/planning/PlanningItemDialog";
 import { usePlanningItems, CreatePlanningItemInput } from "@/hooks/usePlanningItems";
 import { useWorkspaceContext } from "@/contexts/WorkspaceContext";
 import { toast } from "sonner";
-import { parseThreadContent, detectCarousel, isLikelyThread, isLikelyCarousel } from "@/lib/postDetection";
 
 interface AddToPlanningButtonProps {
   content: string;
@@ -19,9 +18,9 @@ interface AddToPlanningButtonProps {
 // Helper to detect platform from content
 const detectPlatformFromContent = (content: string): string | undefined => {
   const lowerContent = content.toLowerCase();
-  if (lowerContent.includes("thread") || lowerContent.includes("tweet")) return "twitter";
-  if (lowerContent.includes("instagram") || lowerContent.includes("#") || lowerContent.includes("carrossel")) return "instagram";
+  if (lowerContent.includes("instagram") || lowerContent.includes("#")) return "instagram";
   if (lowerContent.includes("linkedin")) return "linkedin";
+  if (lowerContent.includes("twitter") || lowerContent.includes("tweet") || lowerContent.includes("thread")) return "twitter";
   if (lowerContent.includes("newsletter") || lowerContent.includes("email")) return "newsletter";
   if (lowerContent.includes("blog") || lowerContent.includes("artigo")) return "blog";
   if (lowerContent.includes("youtube") || lowerContent.includes("vídeo")) return "youtube";
@@ -34,21 +33,11 @@ const extractTitleFromContent = (content: string): string => {
   // Try to get first line or first sentence
   const lines = content.split('\n').filter(l => l.trim());
   if (lines.length > 0) {
-    const firstLine = lines[0].replace(/^#+\s*/, '').replace(/^\d+[\/\.]\s*/, '').replace(/^\*\*/, '').replace(/\*\*$/, '').trim();
+    const firstLine = lines[0].replace(/^#+\s*/, '').trim();
     if (firstLine.length <= 100) return firstLine;
     return firstLine.substring(0, 97) + "...";
   }
   return "Novo conteúdo";
-};
-
-// Helper to detect content type
-const detectContentType = (content: string, platform?: string): string => {
-  if (platform === 'twitter' && isLikelyThread(content)) return 'thread';
-  if (platform === 'instagram' && isLikelyCarousel(content)) return 'carousel';
-  if (isLikelyThread(content)) return 'thread';
-  if (isLikelyCarousel(content)) return 'carousel';
-  if (platform === 'newsletter' || platform === 'blog') return 'article';
-  return 'post';
 };
 
 export const AddToPlanningButton = ({
@@ -82,43 +71,8 @@ export const AddToPlanningButton = ({
   // Get the "idea" column as default
   const ideaColumn = columns.find(c => c.column_type === 'idea');
   const detectedPlatform = platform || detectPlatformFromContent(content);
-  const detectedContentType = detectContentType(content, detectedPlatform);
-  
-  // Parse structured content
-  let parsedThreadTweets: Array<{ id: string; text: string; media_urls: string[] }> | undefined;
-  let parsedCarouselSlides: Array<{ id: string; title: string; content: string; type: string }> | undefined;
-  
-  if (detectedContentType === 'thread') {
-    const parsed = parseThreadContent(content);
-    if (parsed) {
-      parsedThreadTweets = parsed.tweets;
-    }
-  } else if (detectedContentType === 'carousel') {
-    const parsed = detectCarousel(content);
-    if (parsed) {
-      parsedCarouselSlides = parsed.slides.map(s => ({
-        id: s.id,
-        title: s.title,
-        content: s.content,
-        type: s.type || 'content'
-      }));
-    }
-  }
 
   const isDisabled = isLoadingItems || !workspace?.id;
-
-  // Build metadata with parsed content
-  const metadata: Record<string, any> = {
-    content_type: detectedContentType,
-  };
-  
-  if (parsedThreadTweets && parsedThreadTweets.length > 0) {
-    metadata.thread_tweets = parsedThreadTweets;
-  }
-  
-  if (parsedCarouselSlides && parsedCarouselSlides.length > 0) {
-    metadata.carousel_slides = parsedCarouselSlides;
-  }
 
   return (
     <>
@@ -165,9 +119,9 @@ export const AddToPlanningButton = ({
           scheduled_at: null,
           labels: [],
           media_urls: mediaUrls,
-          metadata,
+          metadata: {},
           assigned_to: null,
-          content_type: detectedContentType,
+          content_type: null,
           content_library_id: null,
           added_to_library: false,
           external_post_id: null,
