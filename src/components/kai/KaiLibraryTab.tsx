@@ -546,6 +546,7 @@ export const KaiLibraryTab = ({ clientId, client }: KaiLibraryTabProps) => {
         }}
         onSave={handleSaveContent}
         content={selectedContent || undefined}
+        clientId={clientId}
       />
 
       <ContentViewDialog

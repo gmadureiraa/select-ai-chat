@@ -22,6 +22,7 @@ interface RecurringTemplate {
   recurrence_time: string | null;
   recurrence_end_date: string | null;
   created_by: string;
+  assigned_to: string | null;
 }
 
 function shouldCreateToday(template: RecurringTemplate): boolean {
@@ -137,6 +138,7 @@ serve(async (req) => {
           priority: template.priority,
           status: 'idea',
           created_by: template.created_by,
+          assigned_to: template.assigned_to,
           recurrence_parent_id: template.id,
           scheduled_at: scheduledTime,
           due_date: today,
