@@ -124,6 +124,8 @@ export function GlobalKAIChat({
                 clientName={selectedClientName}
                 isLastMessage={index === messages.length - 1}
                 onSendMessage={onSendMessage}
+                disableAutoPostDetection={true}
+                hideContentActions={true}
               />
             </motion.div>
           ))}
