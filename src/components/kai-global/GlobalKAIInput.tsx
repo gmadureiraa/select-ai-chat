@@ -1,9 +1,10 @@
-import { useState, useRef, KeyboardEvent } from "react";
+import { useState, useRef, KeyboardEvent, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Send, Paperclip, X, FileText, Image, Loader2 } from "lucide-react";
+import { Send, Paperclip, X, FileText, Image, Loader2, Link as LinkIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
 import { KAIFileAttachment } from "@/types/kaiActions";
 
 interface GlobalKAIInputProps {
@@ -16,6 +17,9 @@ interface GlobalKAIInputProps {
   disabled?: boolean;
 }
 
+// URL detection regex
+const URL_REGEX = /(https?:\/\/[^\s]+)/gi;
+
 export function GlobalKAIInput({
   onSend,
   isProcessing,
@@ -26,8 +30,23 @@ export function GlobalKAIInput({
   disabled = false,
 }: GlobalKAIInputProps) {
   const [message, setMessage] = useState("");
+  const [detectedUrls, setDetectedUrls] = useState<string[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Auto-resize textarea
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "auto";
+      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 120)}px`;
+    }
+  }, [message]);
+
+  // Detect URLs in message
+  useEffect(() => {
+    const urls = message.match(URL_REGEX) || [];
+    setDetectedUrls([...new Set(urls)]);
+  }, [message]);
 
   const handleSend = async () => {
     if (!message.trim() && attachedFiles.length === 0) return;
@@ -36,6 +55,12 @@ export function GlobalKAIInput({
     const files = attachedFiles.map((f) => f.file);
     await onSend(message.trim(), files.length > 0 ? files : undefined);
     setMessage("");
+    setDetectedUrls([]);
+    
+    // Reset textarea height
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "auto";
+    }
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -56,6 +81,26 @@ export function GlobalKAIInput({
     }
   };
 
+  const handlePaste = useCallback((e: React.ClipboardEvent) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+
+    const imageFiles: File[] = [];
+    for (const item of items) {
+      if (item.type.startsWith("image/")) {
+        const file = item.getAsFile();
+        if (file) {
+          imageFiles.push(file);
+        }
+      }
+    }
+
+    if (imageFiles.length > 0) {
+      e.preventDefault();
+      onAttachFiles(imageFiles);
+    }
+  }, [onAttachFiles]);
+
   const getFileIcon = (type: string) => {
     if (type.startsWith("image/")) return Image;
     return FileText;
@@ -67,8 +112,46 @@ export function GlobalKAIInput({
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
+  const getUrlDomain = (url: string) => {
+    try {
+      return new URL(url).hostname.replace("www.", "");
+    } catch {
+      return url;
+    }
+  };
+
   return (
     <div className="border-t border-border bg-card/50 p-3">
+      {/* Detected URLs preview */}
+      <AnimatePresence>
+        {detectedUrls.length > 0 && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="mb-2 overflow-hidden"
+          >
+            <div className="flex flex-wrap gap-1.5">
+              {detectedUrls.slice(0, 3).map((url, index) => (
+                <Badge
+                  key={index}
+                  variant="secondary"
+                  className="text-[10px] gap-1 bg-primary/10 text-primary border-primary/20"
+                >
+                  <LinkIcon className="h-2.5 w-2.5" />
+                  {getUrlDomain(url)}
+                </Badge>
+              ))}
+              {detectedUrls.length > 3 && (
+                <Badge variant="secondary" className="text-[10px]">
+                  +{detectedUrls.length - 3} URLs
+                </Badge>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Attached files preview */}
       <AnimatePresence>
         {attachedFiles.length > 0 && (
@@ -81,6 +164,7 @@ export function GlobalKAIInput({
             <div className="flex flex-wrap gap-2">
               {attachedFiles.map((file) => {
                 const Icon = getFileIcon(file.type);
+                const isCSV = file.name.endsWith(".csv");
                 return (
                   <motion.div
                     key={file.id}
@@ -90,7 +174,8 @@ export function GlobalKAIInput({
                     className={cn(
                       "flex items-center gap-2 px-2 py-1.5 rounded-lg",
                       "bg-muted/50 border border-border",
-                      "text-xs"
+                      "text-xs",
+                      isCSV && "border-green-500/30 bg-green-500/10"
                     )}
                   >
                     {file.previewUrl ? (
@@ -100,7 +185,10 @@ export function GlobalKAIInput({
                         className="h-6 w-6 rounded object-cover"
                       />
                     ) : (
-                      <Icon className="h-4 w-4 text-muted-foreground" />
+                      <Icon className={cn(
+                        "h-4 w-4",
+                        isCSV ? "text-green-600" : "text-muted-foreground"
+                      )} />
                     )}
                     <span className="max-w-[100px] truncate text-foreground">
                       {file.name}
@@ -108,6 +196,11 @@ export function GlobalKAIInput({
                     <span className="text-muted-foreground">
                       {formatFileSize(file.size)}
                     </span>
+                    {isCSV && (
+                      <Badge variant="secondary" className="text-[9px] h-4 px-1 bg-green-500/20 text-green-700">
+                        CSV
+                      </Badge>
+                    )}
                     <button
                       onClick={() => onRemoveFile(file.id)}
                       className="ml-1 p-0.5 rounded-full hover:bg-muted-foreground/20 transition-colors"
@@ -129,7 +222,7 @@ export function GlobalKAIInput({
           ref={fileInputRef}
           type="file"
           multiple
-          accept=".csv,.pdf,.doc,.docx,.txt,.png,.jpg,.jpeg,.gif,.webp"
+          accept=".csv,.pdf,.doc,.docx,.txt,.png,.jpg,.jpeg,.gif,.webp,.xls,.xlsx"
           onChange={handleFileSelect}
           className="hidden"
         />
@@ -150,6 +243,7 @@ export function GlobalKAIInput({
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             onKeyDown={handleKeyDown}
+            onPaste={handlePaste}
             placeholder={placeholder}
             disabled={isProcessing || disabled}
             rows={1}
@@ -175,10 +269,15 @@ export function GlobalKAIInput({
         </Button>
       </div>
 
-      {/* Hint */}
-      <p className="text-[10px] text-muted-foreground mt-2 text-center">
-        Enter para enviar • Shift+Enter para nova linha • Anexe CSVs para importar métricas
-      </p>
+      {/* Hints */}
+      <div className="flex items-center justify-between mt-2">
+        <p className="text-[10px] text-muted-foreground">
+          Enter para enviar • Shift+Enter para nova linha
+        </p>
+        <p className="text-[10px] text-muted-foreground">
+          📎 CSVs • 🔗 URLs • 📷 Imagens
+        </p>
+      </div>
     </div>
   );
 }
