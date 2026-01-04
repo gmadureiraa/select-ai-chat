@@ -111,7 +111,6 @@ export function useRssTriggers() {
 
   const testFeed = async (rssUrl: string): Promise<{ success: boolean; items?: number; error?: string }> => {
     try {
-      // Use a CORS proxy or edge function to test the feed
       const response = await fetch(rssUrl);
       if (!response.ok) {
         return { success: false, error: `HTTP ${response.status}` };
@@ -129,6 +128,42 @@ export function useRssTriggers() {
     }
   };
 
+  const previewTrigger = useMutation({
+    mutationFn: async (triggerId: string) => {
+      const { data, error } = await supabase.functions.invoke('test-rss-trigger', {
+        body: { triggerId, createCard: false }
+      });
+      if (error) throw error;
+      return data;
+    },
+    onError: (error) => {
+      console.error("Error previewing RSS trigger:", error);
+      toast.error("Erro ao visualizar feed RSS");
+    },
+  });
+
+  const executeTrigger = useMutation({
+    mutationFn: async (triggerId: string) => {
+      const { data, error } = await supabase.functions.invoke('test-rss-trigger', {
+        body: { triggerId, createCard: true }
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (data) => {
+      if (data.created) {
+        queryClient.invalidateQueries({ queryKey: ["planning-items"] });
+        toast.success(`Card criado: ${data.preview?.title?.substring(0, 50)}...`);
+      } else {
+        toast.info("Nenhum card novo para criar");
+      }
+    },
+    onError: (error) => {
+      console.error("Error executing RSS trigger:", error);
+      toast.error("Erro ao executar RSS Trigger");
+    },
+  });
+
   return {
     triggers,
     isLoading,
@@ -137,5 +172,7 @@ export function useRssTriggers() {
     deleteTrigger,
     toggleTrigger,
     testFeed,
+    previewTrigger,
+    executeTrigger,
   };
 }

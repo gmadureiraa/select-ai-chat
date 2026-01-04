@@ -164,3 +164,6 @@ verify_jwt = false
 
 [functions.process-recurring-content]
 verify_jwt = false
+
+[functions.test-rss-trigger]
+verify_jwt = true

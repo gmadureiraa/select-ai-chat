@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Input } from "@/components/ui/input";
 import { ContentItem, ContentType, CreateContentData } from "@/hooks/useContentLibrary";
 import { CONTENT_TYPE_OPTIONS } from "@/types/contentTypes";
 import { supabase } from "@/integrations/supabase/client";
@@ -13,6 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader2, ChevronDown, Video, Wand2 } from "lucide-react";
 import { RichContentEditor } from "@/components/planning/RichContentEditor";
 import { usePlanningContentGeneration } from "@/hooks/usePlanningContentGeneration";
+import { MentionableInput } from "@/components/planning/MentionableInput";
 
 interface ContentDialogProps {
   open: boolean;
@@ -196,13 +197,23 @@ export const ContentDialog = ({ open, onClose, onSave, content, clientId }: Cont
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="sm:col-span-2 space-y-2">
               <Label htmlFor="title">Título</Label>
-              <Input
-                id="title"
-                value={formData.title}
-                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                placeholder="Ex: Newsletter Semanal #15"
-                required
-              />
+              {clientId ? (
+                <MentionableInput
+                  value={formData.title}
+                  onChange={(value) => setFormData({ ...formData, title: value })}
+                  clientId={clientId}
+                  placeholder="Ex: Newsletter Semanal #15 (use @ para mencionar)"
+                  className="w-full"
+                />
+              ) : (
+                <Input
+                  id="title"
+                  value={formData.title}
+                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                  placeholder="Ex: Newsletter Semanal #15"
+                  required
+                />
+              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="content_type">Tipo</Label>
