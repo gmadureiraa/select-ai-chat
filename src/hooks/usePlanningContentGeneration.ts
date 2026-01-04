@@ -33,18 +33,20 @@ export function usePlanningContentGeneration() {
     setIsGenerating(true);
 
     try {
-      // Map platform + contentType to agent
-      const agentType = mapToAgentType(platform, contentType);
+      // Map platform + contentType to content agent type
+      const contentAgentType = mapToAgentType(platform, contentType);
       
       // Build prompt
       const prompt = buildPrompt(title, description, platform, contentType);
 
-      console.log("[PlanningContent] Generating with agent:", agentType, "prompt:", prompt.substring(0, 100));
+      console.log("[PlanningContent] Generating with content type:", contentAgentType, "prompt:", prompt.substring(0, 100));
 
+      // Use content_writer as the main agent, with contentType for specialization
       const { data, error } = await supabase.functions.invoke("execute-agent", {
         body: {
-          agentType,
-          prompt,
+          agentType: "content_writer",
+          contentType: contentAgentType,
+          userMessage: prompt,
           clientId,
           includeContext: true
         }
