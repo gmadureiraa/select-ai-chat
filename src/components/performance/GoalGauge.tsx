@@ -31,6 +31,18 @@ const colorMap = {
     bg: "hsl(40, 95%, 50%, 0.1)",
     text: "text-amber-500",
   },
+  red: {
+    stroke: "hsl(0, 80%, 50%)",
+    bg: "hsl(0, 80%, 50%, 0.1)",
+    text: "text-red-500",
+  },
+};
+
+// Dynamic color based on progress
+const getProgressColor = (progress: number): keyof typeof colorMap => {
+  if (progress >= 80) return "emerald";
+  if (progress >= 50) return "amber";
+  return "red";
 };
 
 export const GoalGauge = memo(function GoalGauge({
@@ -38,12 +50,15 @@ export const GoalGauge = memo(function GoalGauge({
   currentValue,
   targetValue,
   onAddGoal,
-  color = "primary",
+  color,
 }: GoalGaugeProps) {
-  const colors = colorMap[color];
   const progress = Math.min((currentValue / targetValue) * 100, 100);
   const remaining = Math.max(targetValue - currentValue, 0);
   const exceeded = currentValue > targetValue;
+  
+  // Use provided color or calculate based on progress
+  const effectiveColor = color || getProgressColor(progress);
+  const colors = colorMap[effectiveColor];
 
   // SVG Arc calculation
   const size = 140;
