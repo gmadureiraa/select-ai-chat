@@ -62,8 +62,8 @@ export function PlanningFilters({ filters, onChange }: PlanningFiltersProps) {
       </div>
 
       <Select
-        value={filters.clientId || 'all'}
-        onValueChange={(v) => onChange({ ...filters, clientId: v === 'all' ? undefined : v })}
+        value={filters.clientId === '' ? 'all' : (filters.clientId || 'all')}
+        onValueChange={(v) => onChange({ ...filters, clientId: v === 'all' ? '' : v })}
       >
         <SelectTrigger className="w-[140px] h-8 text-sm">
           <SelectValue placeholder="Cliente" />

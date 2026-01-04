@@ -7,9 +7,9 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { CalendarIcon, Loader2, FileText, MessageSquare, User, Sparkles, Wand2, Settings, Link, Code, Search } from 'lucide-react';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { CalendarIcon, Loader2, Wand2, ChevronDown, Link, Image, User, MessageSquare, Settings2 } from 'lucide-react';
 import { useClients } from '@/hooks/useClients';
 import { useTeamMembers } from '@/hooks/useTeamMembers';
 import { usePlanningImageGeneration } from '@/hooks/usePlanningImageGeneration';
@@ -17,7 +17,6 @@ import { usePlanningContentGeneration } from '@/hooks/usePlanningContentGenerati
 import { cn } from '@/lib/utils';
 import { MediaUploader, MediaItem } from './MediaUploader';
 import { Textarea } from '@/components/ui/textarea';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { RichContentEditor } from './RichContentEditor';
 import { ThreadEditor, ThreadTweet } from './ThreadEditor';
 import { ImageGenerationModal, ImageGenerationOptions } from './ImageGenerationModal';
@@ -57,9 +56,9 @@ const priorities: { value: PlanningPriority; label: string }[] = [
 ];
 
 const contentTypes = [
-  { value: 'post', label: 'Post Simples' },
-  { value: 'thread', label: 'Thread (Twitter)' },
-  { value: 'article', label: 'Artigo/Newsletter' },
+  { value: 'post', label: 'Post' },
+  { value: 'thread', label: 'Thread' },
+  { value: 'article', label: 'Artigo' },
   { value: 'carousel', label: 'Carrossel' },
 ];
 
@@ -77,9 +76,10 @@ export function PlanningItemDialog({
   const { members } = useTeamMembers();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showImageModal, setShowImageModal] = useState(false);
+  const [showMoreOptions, setShowMoreOptions] = useState(false);
   
+  // Form state
   const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
   const [content, setContent] = useState('');
   const [selectedClientId, setSelectedClientId] = useState<string>('');
   const [columnId, setColumnId] = useState<string>('');
@@ -92,8 +92,6 @@ export function PlanningItemDialog({
   const [threadTweets, setThreadTweets] = useState<ThreadTweet[]>([]);
   const [assignedTo, setAssignedTo] = useState<string>('');
   const [referenceUrl, setReferenceUrl] = useState('');
-  const [referenceHtml, setReferenceHtml] = useState('');
-  const [showHtmlInput, setShowHtmlInput] = useState(false);
   const [recurrenceConfig, setRecurrenceConfig] = useState<RecurrenceConfigType>({
     type: 'none',
     days: [],
@@ -102,23 +100,22 @@ export function PlanningItemDialog({
   });
 
   const { generateImage, isGenerating: isGeneratingImage } = usePlanningImageGeneration(selectedClientId);
-  const { generateContent, fetchReferenceContent, isGenerating: isGeneratingContent, isFetchingReference } = usePlanningContentGeneration();
+  const { generateContent, isGenerating: isGeneratingContent, isFetchingReference } = usePlanningContentGeneration();
 
   const canGenerateContent = title.trim() && platform && selectedClientId;
   const canGenerateImage = (content.trim() || threadTweets.some(t => t.text.trim())) && selectedClientId;
-  const hasReference = referenceUrl.trim() || referenceHtml.trim();
+  const hasReference = referenceUrl.trim();
 
   const handleGenerateContent = async () => {
     if (!canGenerateContent) return;
     
     const generatedContent = await generateContent({
       title,
-      description,
+      description: '',
       platform: platform as string,
       contentType,
       clientId: selectedClientId,
       referenceUrl: referenceUrl.trim() || undefined,
-      referenceHtml: referenceHtml.trim() || undefined
     });
 
     if (generatedContent) {
@@ -127,17 +124,13 @@ export function PlanningItemDialog({
       } else {
         setContent(generatedContent);
       }
-      // Clear reference after successful generation
       setReferenceUrl('');
-      setReferenceHtml('');
-      setShowHtmlInput(false);
     }
   };
 
   useEffect(() => {
     if (item) {
       setTitle(item.title);
-      setDescription(item.description || '');
       setContent(item.content || '');
       setSelectedClientId(item.client_id || '');
       setColumnId(item.column_id || '');
@@ -147,11 +140,9 @@ export function PlanningItemDialog({
       setScheduledAt(item.scheduled_at ? parseISO(item.scheduled_at) : undefined);
       setAssignedTo(item.assigned_to || '');
       
-      // Load content type and structure from metadata
       const metadata = item.metadata as any || {};
       setContentType(metadata.content_type || 'post');
       
-      // Load recurrence config
       setRecurrenceConfig({
         type: (item as any).recurrence_type || 'none',
         days: (item as any).recurrence_days || [],
@@ -159,7 +150,6 @@ export function PlanningItemDialog({
         endDate: (item as any).recurrence_end_date || null,
       });
       
-      // Load media from metadata
       const mediaUrls = item.media_urls as string[] || [];
       setMediaItems(mediaUrls.map((url, i) => ({
         id: `media-${i}`,
@@ -167,7 +157,6 @@ export function PlanningItemDialog({
         type: url.match(/\.(mp4|webm|mov)$/i) ? 'video' : 'image'
       })));
       
-      // Load thread tweets if exists
       if (metadata.thread_tweets) {
         setThreadTweets(metadata.thread_tweets);
       } else {
@@ -175,7 +164,6 @@ export function PlanningItemDialog({
       }
     } else {
       setTitle('');
-      setDescription('');
       setContent('');
       setSelectedClientId('');
       setColumnId(defaultColumnId || columns[0]?.id || '');
@@ -188,13 +176,11 @@ export function PlanningItemDialog({
       setThreadTweets([{ id: 'tweet-1', text: '', media_urls: [] }]);
       setAssignedTo('');
       setReferenceUrl('');
-      setReferenceHtml('');
-      setShowHtmlInput(false);
       setRecurrenceConfig({ type: 'none', days: [], time: null, endDate: null });
+      setShowMoreOptions(false);
     }
   }, [item, defaultColumnId, defaultDate, columns, open]);
 
-  // Auto-switch to thread mode for Twitter
   useEffect(() => {
     if (platform === 'twitter' && contentType === 'article') {
       setContentType('thread');
@@ -207,16 +193,13 @@ export function PlanningItemDialog({
 
     setIsSubmitting(true);
     try {
-      // Build content based on type
       let finalContent = content;
       if (contentType === 'thread') {
-        // For threads, join all tweets as content preview
         finalContent = threadTweets.map(t => t.text).join('\n\n---\n\n');
       }
 
       const data: CreatePlanningItemInput & Record<string, any> = {
         title: title.trim(),
-        description: description.trim() || undefined,
         content: finalContent.trim() || undefined,
         client_id: selectedClientId || undefined,
         column_id: columnId || undefined,
@@ -230,7 +213,6 @@ export function PlanningItemDialog({
           content_type: contentType,
           ...(contentType === 'thread' && { thread_tweets: threadTweets }),
         },
-        // Recurrence fields
         recurrence_type: recurrenceConfig.type !== 'none' ? recurrenceConfig.type : null,
         recurrence_days: recurrenceConfig.days.length > 0 ? recurrenceConfig.days : null,
         recurrence_time: recurrenceConfig.time || null,
@@ -250,7 +232,6 @@ export function PlanningItemDialog({
   };
 
   const isTwitterThread = platform === 'twitter' && contentType === 'thread';
-  const showRichEditor = contentType === 'article' || contentType === 'post' || platform === 'newsletter' || platform === 'blog';
 
   const handleGenerateImage = async (options: ImageGenerationOptions): Promise<string | null> => {
     const contentForImage = isTwitterThread 
@@ -278,311 +259,259 @@ export function PlanningItemDialog({
   return (
     <>
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{item ? 'Editar Card' : 'Novo Card'}</DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Title */}
           <div>
-            <Label htmlFor="title">Título * <span className="text-xs text-muted-foreground font-normal">(use @ para mencionar referências)</span></Label>
+            <Label htmlFor="title">Título *</Label>
             <MentionableInput
               value={title}
               onChange={setTitle}
               clientId={selectedClientId}
-              placeholder="Título do conteúdo"
+              placeholder="Título do conteúdo (use @ para refs)"
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label>Cliente</Label>
-              <Select value={selectedClientId} onValueChange={setSelectedClientId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecionar" />
-                </SelectTrigger>
-                <SelectContent>
-                  {clients?.map(c => (
-                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+          {/* Main selects row */}
+          <div className="grid grid-cols-3 gap-2">
+            <Select value={selectedClientId} onValueChange={setSelectedClientId}>
+              <SelectTrigger className="h-9">
+                <SelectValue placeholder="Cliente" />
+              </SelectTrigger>
+              <SelectContent>
+                {clients?.map(c => (
+                  <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
-            <div>
-              <Label>Coluna</Label>
-              <Select value={columnId} onValueChange={setColumnId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecionar" />
-                </SelectTrigger>
-                <SelectContent>
-                  {columns.map(col => (
-                    <SelectItem key={col.id} value={col.id}>{col.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            <Select value={platform} onValueChange={(v) => setPlatform(v as PlanningPlatform)}>
+              <SelectTrigger className="h-9">
+                <SelectValue placeholder="Plataforma" />
+              </SelectTrigger>
+              <SelectContent>
+                {platforms.map(p => (
+                  <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={contentType} onValueChange={setContentType}>
+              <SelectTrigger className="h-9">
+                <SelectValue placeholder="Formato" />
+              </SelectTrigger>
+              <SelectContent>
+                {contentTypes.map(t => (
+                  <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
-          <div className="grid grid-cols-3 gap-3">
-            <div>
-              <Label>Plataforma</Label>
-              <Select value={platform} onValueChange={(v) => setPlatform(v as PlanningPlatform)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecionar" />
-                </SelectTrigger>
-                <SelectContent>
-                  {platforms.map(p => (
-                    <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <Label>Tipo de Conteúdo</Label>
-              <Select value={contentType} onValueChange={setContentType}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {contentTypes.map(t => (
-                    <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <Label>Prioridade</Label>
-              <Select value={priority} onValueChange={(v) => setPriority(v as PlanningPriority)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {priorities.map(p => (
-                    <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label htmlFor="description">Descrição <span className="text-xs text-muted-foreground font-normal">(@ para refs)</span></Label>
-              <MentionableInput
-                value={description}
-                onChange={setDescription}
-                clientId={selectedClientId}
-                placeholder="Breve descrição"
-              />
-            </div>
-
-            <div>
-              <Label>Responsável</Label>
-              <Select value={assignedTo || 'none'} onValueChange={(val) => setAssignedTo(val === 'none' ? '' : val)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecionar">
-                    {assignedTo && members.find(m => m.user_id === assignedTo) && (
-                      <div className="flex items-center gap-2">
-                        <User className="h-3 w-3" />
-                        {members.find(m => m.user_id === assignedTo)?.profile?.full_name || 'Membro'}
-                      </div>
-                    )}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Nenhum</SelectItem>
-                  {members.filter(m => m.user_id).map(member => (
-                    <SelectItem key={member.user_id} value={member.user_id}>
-                      <div className="flex items-center gap-2">
-                        <Avatar className="h-5 w-5">
-                          <AvatarFallback className="text-[10px]">
-                            {(member.profile?.full_name?.[0] || member.profile?.email?.[0] || '?').toUpperCase()}
-                          </AvatarFallback>
-                        </Avatar>
-                        {member.profile?.full_name || member.profile?.email || 'Membro'}
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          {/* Content Section */}
-          <Tabs defaultValue="content" className="w-full">
-            <TabsList className="grid w-full grid-cols-4">
-              <TabsTrigger value="content" className="gap-1">
-                {isTwitterThread ? <MessageSquare className="h-3 w-3" /> : <FileText className="h-3 w-3" />}
-                {isTwitterThread ? 'Thread' : 'Conteúdo'}
-              </TabsTrigger>
-              <TabsTrigger value="media">
-                Mídia ({mediaItems.length})
-              </TabsTrigger>
-              <TabsTrigger value="recurrence" className="gap-1">
-                <Settings className="h-3 w-3" />
-                Recorrência
-              </TabsTrigger>
-              <TabsTrigger value="comments" className="gap-1">
-                <MessageSquare className="h-3 w-3" />
-                Comentários
-              </TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="content" className="mt-3 space-y-3">
-              {/* Reference Section - Collapsible */}
-              <Collapsible open={showHtmlInput || !!referenceUrl} onOpenChange={(open) => !open && setShowHtmlInput(false)}>
-                <div className="flex items-center gap-2">
-                  <div className="flex-1 relative">
-                    <Input
-                      value={referenceUrl}
-                      onChange={(e) => setReferenceUrl(e.target.value)}
-                      placeholder="Cole link do YouTube, artigo ou newsletter..."
-                      className="pr-10"
-                    />
-                    {referenceUrl && (
-                      <Link className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    )}
-                  </div>
-                  <CollapsibleTrigger asChild>
-                    <Button 
-                      type="button" 
-                      variant="outline" 
-                      size="icon"
-                      className={cn(showHtmlInput && "bg-muted")}
-                      title="Colar HTML de newsletter"
-                    >
-                      <Code className="h-4 w-4" />
-                    </Button>
-                  </CollapsibleTrigger>
-                </div>
-                
-                <CollapsibleContent className="mt-2">
-                  <div className="space-y-1">
-                    <Label className="text-xs text-muted-foreground">HTML da Newsletter</Label>
-                    <Textarea
-                      value={referenceHtml}
-                      onChange={(e) => setReferenceHtml(e.target.value)}
-                      placeholder="Cole aqui o HTML da newsletter..."
-                      className="min-h-[100px] font-mono text-xs"
-                    />
-                  </div>
-                </CollapsibleContent>
-              </Collapsible>
-
-              {/* AI Content Generation Button */}
-              <div className="flex justify-end">
-                <Button
-                  type="button"
-                  variant={hasReference ? "default" : "outline"}
-                  size="sm"
-                  onClick={handleGenerateContent}
-                  disabled={!canGenerateContent || isGeneratingContent || isFetchingReference}
-                  className="gap-2"
-                >
-                  {isGeneratingContent || isFetchingReference ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Wand2 className="h-4 w-4" />
-                  )}
-                  {hasReference ? 'Gerar a partir da Referência' : 'Escrever com IA'}
-                </Button>
-              </div>
-
-              {isTwitterThread ? (
-                <ThreadEditor
-                  value={threadTweets}
-                  onChange={setThreadTweets}
-                  clientId={selectedClientId}
-                />
-              ) : showRichEditor ? (
-                <RichContentEditor
-                  value={content}
-                  onChange={setContent}
-                  placeholder="Escreva seu conteúdo aqui. Use Markdown para formatação..."
-                  clientId={selectedClientId}
-                />
+          {/* Reference URL + Generate */}
+          <div className="flex gap-2 items-center p-3 bg-muted/30 rounded-lg border border-dashed">
+            <Link className="h-4 w-4 text-muted-foreground shrink-0" />
+            <Input
+              value={referenceUrl}
+              onChange={(e) => setReferenceUrl(e.target.value)}
+              placeholder="Cole link do YouTube ou artigo para gerar conteúdo..."
+              className="flex-1 h-8 text-sm border-0 bg-transparent p-0 focus-visible:ring-0"
+            />
+            <Button
+              type="button"
+              size="sm"
+              onClick={handleGenerateContent}
+              disabled={!canGenerateContent || isGeneratingContent || isFetchingReference}
+              className="shrink-0 gap-1.5"
+            >
+              {isGeneratingContent || isFetchingReference ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
               ) : (
-                <RichContentEditor
-                  value={content}
-                  onChange={setContent}
-                  placeholder="Texto do conteúdo"
-                  minRows={4}
-                  clientId={selectedClientId}
-                />
+                <Wand2 className="h-3.5 w-3.5" />
               )}
-            </TabsContent>
-
-            <TabsContent value="media" className="mt-3 space-y-4">
-              <div className="flex items-center justify-between">
-                <p className="text-sm text-muted-foreground">Adicione imagens ou vídeos ao seu conteúdo</p>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowImageModal(true)}
-                  disabled={!canGenerateImage}
-                  className="gap-2"
-                >
-                  <Sparkles className="h-4 w-4" />
-                  Gerar com IA
-                </Button>
-              </div>
-              <MediaUploader
-                value={mediaItems}
-                onChange={setMediaItems}
-                maxItems={platform === 'twitter' ? 4 : 10}
-                clientId={selectedClientId}
-              />
-            </TabsContent>
-
-            <TabsContent value="recurrence" className="mt-3">
-              <RecurrenceConfig 
-                value={recurrenceConfig} 
-                onChange={setRecurrenceConfig} 
-              />
-            </TabsContent>
-
-            <TabsContent value="comments" className="mt-3">
-              <PlanningItemComments planningItemId={item?.id} />
-            </TabsContent>
-          </Tabs>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label>Data Prevista</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !dueDate && "text-muted-foreground")}>
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {dueDate ? format(dueDate, 'dd/MM/yyyy') : 'Selecionar'}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0">
-                  <Calendar mode="single" selected={dueDate} onSelect={setDueDate} initialFocus />
-                </PopoverContent>
-              </Popover>
-            </div>
-
-            <div>
-              <Label>Agendar Para</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !scheduledAt && "text-muted-foreground")}>
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {scheduledAt ? format(scheduledAt, 'dd/MM HH:mm') : 'Agendar'}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0">
-                  <Calendar mode="single" selected={scheduledAt} onSelect={setScheduledAt} initialFocus />
-                </PopoverContent>
-              </Popover>
-            </div>
+              {hasReference ? 'Gerar' : 'Escrever com IA'}
+            </Button>
           </div>
 
-          <div className="flex justify-end gap-2 pt-4">
+          {/* Content Editor */}
+          <div className="space-y-2">
+            {isTwitterThread ? (
+              <ThreadEditor
+                value={threadTweets}
+                onChange={setThreadTweets}
+                clientId={selectedClientId}
+              />
+            ) : (
+              <RichContentEditor
+                value={content}
+                onChange={setContent}
+                placeholder="Escreva seu conteúdo aqui..."
+                minRows={4}
+                clientId={selectedClientId}
+              />
+            )}
+          </div>
+
+          {/* Media Section */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label className="flex items-center gap-2 text-sm">
+                <Image className="h-4 w-4" />
+                Mídia ({mediaItems.length})
+              </Label>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowImageModal(true)}
+                disabled={!canGenerateImage}
+                className="h-7 text-xs gap-1"
+              >
+                <Wand2 className="h-3 w-3" />
+                Gerar imagem
+              </Button>
+            </div>
+            <MediaUploader
+              value={mediaItems}
+              onChange={setMediaItems}
+              maxItems={platform === 'twitter' ? 4 : 10}
+              clientId={selectedClientId}
+            />
+          </div>
+
+          {/* Date + Assigned Row */}
+          <div className="grid grid-cols-2 gap-2">
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className={cn("justify-start h-9", !dueDate && "text-muted-foreground")}>
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {dueDate ? format(dueDate, 'dd/MM/yyyy') : 'Data'}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0">
+                <Calendar mode="single" selected={dueDate} onSelect={setDueDate} initialFocus />
+              </PopoverContent>
+            </Popover>
+
+            <Select value={assignedTo || 'none'} onValueChange={(val) => setAssignedTo(val === 'none' ? '' : val)}>
+              <SelectTrigger className="h-9">
+                <SelectValue placeholder="Responsável">
+                  {assignedTo ? (
+                    <span className="flex items-center gap-2">
+                      <User className="h-3 w-3" />
+                      {members.find(m => m.user_id === assignedTo)?.profile?.full_name || 'Membro'}
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-2 text-muted-foreground">
+                      <User className="h-3 w-3" />
+                      Responsável
+                    </span>
+                  )}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Nenhum</SelectItem>
+                {members.filter(m => m.user_id).map(member => (
+                  <SelectItem key={member.user_id} value={member.user_id}>
+                    <div className="flex items-center gap-2">
+                      <Avatar className="h-5 w-5">
+                        <AvatarFallback className="text-[10px]">
+                          {(member.profile?.full_name?.[0] || '?').toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      {member.profile?.full_name || member.profile?.email || 'Membro'}
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* More Options - Collapsible */}
+          <Collapsible open={showMoreOptions} onOpenChange={setShowMoreOptions}>
+            <CollapsibleTrigger asChild>
+              <Button type="button" variant="ghost" size="sm" className="w-full justify-between h-8 text-muted-foreground">
+                <span className="flex items-center gap-2">
+                  <Settings2 className="h-4 w-4" />
+                  Mais opções
+                </span>
+                <ChevronDown className={cn("h-4 w-4 transition-transform", showMoreOptions && "rotate-180")} />
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="space-y-3 pt-3">
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <Label className="text-xs">Coluna</Label>
+                  <Select value={columnId} onValueChange={setColumnId}>
+                    <SelectTrigger className="h-8 text-sm">
+                      <SelectValue placeholder="Selecionar" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {columns.map(col => (
+                        <SelectItem key={col.id} value={col.id}>{col.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label className="text-xs">Prioridade</Label>
+                  <Select value={priority} onValueChange={(v) => setPriority(v as PlanningPriority)}>
+                    <SelectTrigger className="h-8 text-sm">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {priorities.map(p => (
+                        <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div>
+                <Label className="text-xs">Agendar Publicação</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" size="sm" className={cn("w-full justify-start h-8 text-sm", !scheduledAt && "text-muted-foreground")}>
+                      <CalendarIcon className="mr-2 h-3 w-3" />
+                      {scheduledAt ? format(scheduledAt, 'dd/MM/yyyy HH:mm') : 'Selecionar data e hora'}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0">
+                    <Calendar mode="single" selected={scheduledAt} onSelect={setScheduledAt} initialFocus />
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              <div>
+                <Label className="text-xs">Recorrência</Label>
+                <RecurrenceConfig 
+                  value={recurrenceConfig} 
+                  onChange={setRecurrenceConfig} 
+                />
+              </div>
+
+              {item && (
+                <div>
+                  <Label className="text-xs flex items-center gap-1">
+                    <MessageSquare className="h-3 w-3" />
+                    Comentários
+                  </Label>
+                  <div className="mt-1">
+                    <PlanningItemComments planningItemId={item.id} />
+                  </div>
+                </div>
+              )}
+            </CollapsibleContent>
+          </Collapsible>
+
+          {/* Actions */}
+          <div className="flex justify-end gap-2 pt-2 border-t">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancelar
             </Button>
