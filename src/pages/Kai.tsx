@@ -80,9 +80,13 @@ export default function Kai() {
     setSearchParams(params);
   };
 
-  const handleClientChange = (newClientId: string) => {
+  const handleClientChange = (newClientId: string | null) => {
     const params = new URLSearchParams(searchParams);
-    params.set("client", newClientId);
+    if (newClientId) {
+      params.set("client", newClientId);
+    } else {
+      params.delete("client");
+    }
     setSearchParams(params);
   };
 
@@ -153,7 +157,11 @@ export default function Kai() {
     if (tab === "planning") {
       return (
         <div className="p-6 h-full overflow-hidden">
-          <PlanningBoard clientId={selectedClient?.id} isEnterprise={isEnterprise} />
+          <PlanningBoard 
+            clientId={selectedClient?.id} 
+            isEnterprise={isEnterprise}
+            onClientChange={handleClientChange}
+          />
         </div>
       );
     }

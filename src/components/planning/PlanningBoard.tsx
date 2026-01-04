@@ -16,9 +16,10 @@ import { useTeamMembers } from '@/hooks/useTeamMembers';
 interface PlanningBoardProps {
   clientId?: string;
   isEnterprise?: boolean;
+  onClientChange?: (clientId: string | null) => void;
 }
 
-export function PlanningBoard({ clientId, isEnterprise = false }: PlanningBoardProps) {
+export function PlanningBoard({ clientId, isEnterprise = false, onClientChange }: PlanningBoardProps) {
   const [view, setView] = useState<PlanningView>('board');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<PlanningItem | null>(null);
@@ -39,20 +40,33 @@ export function PlanningBoard({ clientId, isEnterprise = false }: PlanningBoardP
   // For viewers, force the clientId filter to only show allowed clients
   const [localFilters, setLocalFilters] = useState<PlanningFilters>({});
   
-  // Effective filters considering viewer restrictions
+  // Effective filters - use localFilters.clientId if set, otherwise use prop clientId
   const effectiveFilters = useMemo(() => {
-    // If prop clientId is provided, use it
+    // If localFilters has a clientId set (including empty string for "all"), use that
+    if (localFilters.clientId !== undefined) {
+      // For viewers with restricted client access, force filter
+      if (isViewer && viewerClientIds.length > 0) {
+        const allowedClientId = localFilters.clientId && viewerClientIds.includes(localFilters.clientId)
+          ? localFilters.clientId
+          : viewerClientIds[0];
+        return { ...localFilters, clientId: allowedClientId };
+      }
+      // Empty string means "all clients" - don't include clientId filter
+      if (localFilters.clientId === '') {
+        const { clientId: _, ...rest } = localFilters;
+        return rest;
+      }
+      return localFilters;
+    }
+    
+    // Initial load: if prop clientId is provided, use it
     if (clientId) {
       return { ...localFilters, clientId };
     }
     
     // For viewers with restricted client access, force filter
     if (isViewer && viewerClientIds.length > 0) {
-      // If viewer has no filter set or filter is outside allowed clients, use first allowed
-      const allowedClientId = localFilters.clientId && viewerClientIds.includes(localFilters.clientId)
-        ? localFilters.clientId
-        : viewerClientIds[0];
-      return { ...localFilters, clientId: allowedClientId };
+      return { ...localFilters, clientId: viewerClientIds[0] };
     }
     
     return localFilters;
@@ -79,6 +93,11 @@ export function PlanningBoard({ clientId, isEnterprise = false }: PlanningBoardP
       }
     }
     setLocalFilters(newFilters);
+    
+    // Sync client selection with URL if callback provided
+    if (onClientChange && newFilters.clientId !== undefined) {
+      onClientChange(newFilters.clientId || null);
+    }
   };
 
   const handleCreateItem = async (data: Parameters<typeof createItem.mutateAsync>[0]) => {
