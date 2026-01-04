@@ -6,7 +6,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Client } from "@/hooks/useClients";
-import { ClientEditAccordion } from "./ClientEditAccordion";
+import { ClientEditTabs } from "./ClientEditTabs";
 
 interface ClientEditDialogProps {
   open: boolean;
@@ -27,7 +27,7 @@ export const ClientEditDialog = ({ open, onOpenChange, client }: ClientEditDialo
           </DialogDescription>
         </DialogHeader>
 
-        <ClientEditAccordion 
+        <ClientEditTabs 
           client={client} 
           onClose={() => onOpenChange(false)} 
         />

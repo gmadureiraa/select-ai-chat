@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Twitter, Linkedin, Loader2, Check, Eye, EyeOff, Trash2, Share2, X, Instagram, Youtube, RefreshCw, ExternalLink } from "lucide-react";
+import { Twitter, Linkedin, Loader2, Check, Eye, EyeOff, Trash2, Share2, X, Instagram, Youtube, RefreshCw, ExternalLink, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,7 +16,6 @@ import { useSearchParams } from "react-router-dom";
 import { useToast } from "@/components/ui/use-toast";
 import { Separator } from "@/components/ui/separator";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ChevronDown } from "lucide-react";
 
 interface SocialIntegrationsTabProps {
   clientId: string;
@@ -475,7 +474,6 @@ export function SocialIntegrationsTab({ clientId }: SocialIntegrationsTabProps) 
             )}
           </CardContent>
         </Card>
-      </div>
 
         {/* LinkedIn OAuth */}
         <Card className="border-2 border-dashed border-primary/20 hover:border-primary/40 transition-colors">
@@ -688,6 +686,7 @@ export function SocialIntegrationsTab({ clientId }: SocialIntegrationsTabProps) 
               <Button
                 onClick={handleSaveTwitter}
                 disabled={validateTwitter.isPending || !twitterForm.apiKey || !twitterForm.accessToken}
+                className="w-full"
                 size="sm"
               >
                 {validateTwitter.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
@@ -696,40 +695,31 @@ export function SocialIntegrationsTab({ clientId }: SocialIntegrationsTabProps) 
             </CardContent>
           </Card>
 
-        {/* LinkedIn Integration */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
+          {/* LinkedIn Manual Token Card */}
+          <Card>
+            <CardHeader className="pb-3">
               <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-lg bg-[#0A66C2] flex items-center justify-center">
-                  <Linkedin className="h-5 w-5 text-white" />
+                <div className="h-8 w-8 rounded-lg bg-[#0A66C2] flex items-center justify-center">
+                  <Linkedin className="h-4 w-4 text-white" />
                 </div>
                 <div>
-                  <CardTitle className="text-base">LinkedIn</CardTitle>
-                  <CardDescription>OAuth 2.0 para publicação de posts</CardDescription>
+                  <CardTitle className="text-sm">LinkedIn Access Token</CardTitle>
+                  <CardDescription className="text-xs">Token manual (avançado)</CardDescription>
                 </div>
               </div>
-              {renderCredentialStatus(linkedInCredential)}
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {linkedInCredential ? (
-              <div className="space-y-4">
-                <div className="p-3 rounded-lg bg-muted/50">
-                  <p className="text-sm">
-                    <span className="text-muted-foreground">Conta conectada:</span>{" "}
-                    <span className="font-medium">{linkedInCredential.account_name || 'Conta LinkedIn'}</span>
-                  </p>
-                  {linkedInCredential.validation_error && (
-                    <p className="text-xs text-destructive mt-1">{linkedInCredential.validation_error}</p>
-                  )}
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Última validação: {linkedInCredential.last_validated_at 
-                      ? new Date(linkedInCredential.last_validated_at).toLocaleString('pt-BR')
-                      : 'Nunca'}
-                  </p>
-                </div>
-                <div className="flex gap-2">
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {linkedInCredential?.is_valid ? (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                    <div>
+                      <p className="text-sm font-medium">Token configurado</p>
+                      <p className="text-xs text-muted-foreground">
+                        {linkedInCredential.account_name || 'LinkedIn User'}
+                      </p>
+                    </div>
+                    {renderCredentialStatus(linkedInCredential)}
+                  </div>
                   <Button
                     variant="outline"
                     size="sm"
@@ -741,55 +731,44 @@ export function SocialIntegrationsTab({ clientId }: SocialIntegrationsTabProps) 
                     ) : (
                       <Trash2 className="h-4 w-4 mr-2" />
                     )}
-                    Desconectar
+                    Remover Token
                   </Button>
                 </div>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                <p className="text-sm text-muted-foreground">
-                  Configure o Access Token do LinkedIn. Você pode obter através da{" "}
-                  <a 
-                    href="https://www.linkedin.com/developers/apps" 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="text-primary underline"
-                  >
-                    LinkedIn Developer Platform
-                  </a>.
-                </p>
-                <div className="space-y-2">
-                  <Label htmlFor="li-access-token">Access Token</Label>
-                  <div className="relative">
-                    <Input
-                      id="li-access-token"
-                      type={showSecrets['li-access-token'] ? 'text' : 'password'}
-                      value={linkedinForm.oauthAccessToken}
-                      onChange={(e) => setLinkedinForm({ oauthAccessToken: e.target.value })}
-                      placeholder="Seu LinkedIn Access Token"
-                    />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="absolute right-0 top-0 h-full px-3"
-                      onClick={() => toggleSecret('li-access-token')}
-                    >
-                      {showSecrets['li-access-token'] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </Button>
+              ) : (
+                <div className="space-y-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="li-token" className="text-xs">Access Token</Label>
+                    <div className="relative">
+                      <Input
+                        id="li-token"
+                        type={showSecrets['li-token'] ? 'text' : 'password'}
+                        value={linkedinForm.oauthAccessToken}
+                        onChange={(e) => setLinkedinForm({ ...linkedinForm, oauthAccessToken: e.target.value })}
+                        placeholder="Access Token do LinkedIn"
+                        className="text-xs h-8"
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="absolute right-0 top-0 h-full px-2"
+                        onClick={() => toggleSecret('li-token')}
+                      >
+                        {showSecrets['li-token'] ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                      </Button>
+                    </div>
                   </div>
+                  <Button
+                    onClick={handleSaveLinkedin}
+                    disabled={validateLinkedIn.isPending || !linkedinForm.oauthAccessToken}
+                  >
+                    {validateLinkedIn.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                    Salvar e Validar
+                  </Button>
                 </div>
-                <Button
-                  onClick={handleSaveLinkedin}
-                  disabled={validateLinkedIn.isPending || !linkedinForm.oauthAccessToken}
-                >
-                  {validateLinkedIn.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                  Salvar e Validar
-                </Button>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+              )}
+            </CardContent>
+          </Card>
         </CollapsibleContent>
       </Collapsible>
     </div>

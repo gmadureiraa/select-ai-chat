@@ -15,7 +15,8 @@ import {
   Building2,
   CalendarDays,
   Zap,
-  Command
+  Command,
+  Youtube
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useClients } from "@/hooks/useClients";
@@ -328,6 +329,14 @@ export function KaiSidebar({
             label="Automações"
             active={activeTab === "automations"}
             onClick={() => onTabChange("automations")}
+            collapsed={collapsed}
+          />
+
+          <NavItem
+            icon={<Youtube className="h-4 w-4" />}
+            label="Reaproveitar"
+            active={activeTab === "repurpose"}
+            onClick={() => onTabChange("repurpose")}
             collapsed={collapsed}
           />
         </div>
