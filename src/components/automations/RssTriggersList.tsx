@@ -1,11 +1,11 @@
 import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { 
   Rss, Plus, Pencil, Trash2, ExternalLink, Clock, 
-  CheckCircle2, AlertCircle, Loader2 
+  CheckCircle2, AlertCircle, Loader2, Play, Eye
 } from 'lucide-react';
 import { useRssTriggers } from '@/hooks/useRssTriggers';
 import { RssTriggerDialog } from './RssTriggerDialog';
@@ -22,12 +22,34 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+
+interface PreviewData {
+  title: string;
+  description: string;
+  link: string;
+  pubDate: string;
+  isNew: boolean;
+}
 
 export function RssTriggersList() {
-  const { triggers, isLoading, toggleTrigger, deleteTrigger } = useRssTriggers();
+  const { triggers, isLoading, toggleTrigger, deleteTrigger, previewTrigger, executeTrigger } = useRssTriggers();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedTrigger, setSelectedTrigger] = useState<RssTrigger | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<RssTrigger | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewData, setPreviewData] = useState<PreviewData | null>(null);
+  const [previewTriggerName, setPreviewTriggerName] = useState('');
 
   const handleEdit = (trigger: RssTrigger) => {
     setSelectedTrigger(trigger);
@@ -48,6 +70,19 @@ export function RssTriggersList() {
       deleteTrigger.mutate(deleteTarget.id);
       setDeleteTarget(null);
     }
+  };
+
+  const handlePreview = async (trigger: RssTrigger) => {
+    setPreviewTriggerName(trigger.name);
+    const result = await previewTrigger.mutateAsync(trigger.id);
+    if (result?.preview) {
+      setPreviewData(result.preview);
+      setPreviewOpen(true);
+    }
+  };
+
+  const handleExecute = (trigger: RssTrigger) => {
+    executeTrigger.mutate(trigger.id);
   };
 
   if (isLoading) {
@@ -135,7 +170,43 @@ export function RssTriggersList() {
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1">
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button 
+                            variant="ghost" 
+                            size="icon"
+                            onClick={() => handlePreview(trigger)}
+                            disabled={previewTrigger.isPending}
+                          >
+                            {previewTrigger.isPending ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Eye className="h-4 w-4" />
+                            )}
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Visualizar último item</TooltipContent>
+                      </Tooltip>
+
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button 
+                            variant="ghost" 
+                            size="icon"
+                            onClick={() => handleExecute(trigger)}
+                            disabled={executeTrigger.isPending}
+                          >
+                            {executeTrigger.isPending ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Play className="h-4 w-4 text-green-600" />
+                            )}
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Executar agora</TooltipContent>
+                      </Tooltip>
+
                       <Switch
                         checked={trigger.is_active}
                         onCheckedChange={() => handleToggle(trigger)}
@@ -168,6 +239,53 @@ export function RssTriggersList() {
         onOpenChange={setDialogOpen}
         trigger={selectedTrigger}
       />
+
+      {/* Preview Dialog */}
+      <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Eye className="h-5 w-5" />
+              Preview: {previewTriggerName}
+            </DialogTitle>
+          </DialogHeader>
+          
+          {previewData && (
+            <div className="space-y-4">
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <Badge variant={previewData.isNew ? "default" : "secondary"}>
+                    {previewData.isNew ? "Novo" : "Já processado"}
+                  </Badge>
+                  {previewData.pubDate && (
+                    <span className="text-xs text-muted-foreground">
+                      {new Date(previewData.pubDate).toLocaleDateString('pt-BR')}
+                    </span>
+                  )}
+                </div>
+                
+                <h4 className="font-semibold text-lg mb-2">{previewData.title}</h4>
+                
+                <p className="text-sm text-muted-foreground mb-3">
+                  {previewData.description}
+                </p>
+                
+                {previewData.link && (
+                  <a 
+                    href={previewData.link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm text-primary hover:underline flex items-center gap-1"
+                  >
+                    Ver original
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
+                )}
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog open={!!deleteTarget} onOpenChange={() => setDeleteTarget(null)}>
         <AlertDialogContent>
