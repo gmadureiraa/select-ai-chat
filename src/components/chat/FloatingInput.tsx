@@ -68,12 +68,14 @@ export const FloatingInput = ({
   const [citations, setCitations] = useState<Citation[]>([]);
   const [showCitationPopover, setShowCitationPopover] = useState(false);
   const [citationSearchQuery, setCitationSearchQuery] = useState("");
+  const [isDragOver, setIsDragOver] = useState(false);
   
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const citationAnchorRef = useRef<HTMLSpanElement>(null);
   const { toast } = useToast();
   const maxChars = 10000;
+  const maxImages = 5;
 
   useEffect(() => {
     if (templateType === "free_chat") {
@@ -280,6 +282,59 @@ export const FloatingInput = ({
     setCitationSearchQuery("");
   }, []);
 
+  // Drag & drop handlers
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+    
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length === 0) return;
+    
+    // Filter for images only
+    const imageFilesFromDrop = files.filter(f => f.type.startsWith("image/"));
+    if (imageFilesFromDrop.length === 0) {
+      toast({
+        title: "Arquivo não suportado",
+        description: "Apenas imagens são aceitas neste chat.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    const remainingSlots = maxImages - imageFiles.length;
+    if (remainingSlots <= 0) {
+      toast({
+        title: "Limite de imagens",
+        description: `Máximo de ${maxImages} imagens por mensagem.`,
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    const filesToAdd = imageFilesFromDrop.slice(0, remainingSlots);
+    setImageFiles(prev => [...prev, ...filesToAdd]);
+    
+    if (imageFilesFromDrop.length > remainingSlots) {
+      toast({
+        title: "Limite de imagens",
+        description: `Apenas ${remainingSlots} imagem(ns) adicionada(s).`,
+      });
+    }
+  }, [imageFiles.length, toast]);
+
   const isSubmitDisabled = (!input.trim() && imageFiles.length === 0 && citations.length === 0) || disabled || uploadingImages;
   const hasLibraryContent = contentLibrary.length > 0 || referenceLibrary.length > 0;
 
@@ -320,7 +375,15 @@ export const FloatingInput = ({
       )}
 
       {/* Main Input Container */}
-      <div className="relative bg-muted/20 rounded-xl border border-border/30 focus-within:border-border/50 focus-within:bg-muted/30 transition-all">
+      <div 
+        className={cn(
+          "relative bg-muted/20 rounded-xl border border-border/30 focus-within:border-border/50 focus-within:bg-muted/30 transition-all",
+          isDragOver && "bg-primary/5 border-primary/30"
+        )}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+      >
         {/* Citation Anchor (hidden) */}
         <span ref={citationAnchorRef} className="absolute left-4 bottom-12" />
         

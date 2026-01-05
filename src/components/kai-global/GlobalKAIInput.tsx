@@ -300,8 +300,50 @@ export function GlobalKAIInput({
     return "text-muted-foreground";
   };
 
+  const [isDragOver, setIsDragOver] = useState(false);
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+    
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length === 0) return;
+    
+    const remainingSlots = MAX_FILES - attachedFiles.length;
+    if (remainingSlots <= 0) {
+      toast.error(`Limite de ${MAX_FILES} arquivos atingido`);
+      return;
+    }
+    
+    const validFiles = files.slice(0, remainingSlots).filter(f => f.size <= MAX_FILE_SIZE);
+    if (validFiles.length > 0) {
+      onAttachFiles(validFiles);
+    }
+  };
+
   return (
-    <div className="border-t border-border bg-card/50 p-3">
+    <div 
+      className={cn(
+        "border-t border-border bg-card/50 p-3 transition-colors",
+        isDragOver && "bg-primary/5 border-primary/30"
+      )}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
       {/* Citations display */}
       <AnimatePresence>
         {citations.length > 0 && (
