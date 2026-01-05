@@ -3,7 +3,6 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { 
   Twitter, 
   Instagram, 
@@ -21,8 +20,8 @@ import {
   ThumbsUp
 } from "lucide-react";
 import { ContentTypeKey, CONTENT_TO_PLATFORM } from "@/types/contentTypes";
-import { detectCarousel, DetectedCarousel } from "@/lib/postDetection";
-import { CarouselSlide } from "@/components/posts/CarouselEditor";
+import { detectCarousel } from "@/lib/postDetection";
+import type { CarouselSlide } from "@/components/posts/CarouselEditor";
 
 interface ContentPreviewProps {
   content: string;
