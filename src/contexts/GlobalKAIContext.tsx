@@ -1,7 +1,6 @@
-import { createContext, useContext, useState, useCallback, useEffect, ReactNode } from "react";
+import { useState, useCallback, useEffect, ReactNode } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
-import { Message, ProcessStep, MultiAgentStep } from "@/types/chat";
 import { 
   KAIActionType,
   KAIActionStatus,
@@ -16,10 +15,19 @@ import { useKAIURLAnalysis } from "@/hooks/useKAIURLAnalysis";
 import { useKAIExecuteAction } from "@/hooks/useKAIExecuteAction";
 import { useClientChat } from "@/hooks/useClientChat";
 import { supabase } from "@/integrations/supabase/client";
-import { Citation } from "@/components/chat/CitationChip";
+import type { Citation } from "@/components/chat/CitationChip";
 import { uploadAndGetSignedUrl } from "@/lib/storage";
 import { useKAIMentionParser, ParsedCommand } from "@/hooks/useKAIMentionParser";
 import { SuccessCardPayload } from "@/components/chat/ResponseCard";
+import {
+  GlobalKAIContext,
+  type GlobalKAIChatMode,
+  type GlobalKAIContextValue,
+  type ContentLibraryItem,
+  type ReferenceLibraryItem,
+  type AssigneeItem,
+  type ClientItem,
+} from "@/contexts/GlobalKAIContextBase";
 
 const LOCAL_STORAGE_KEY = "kai-selected-client";
 
@@ -28,91 +36,6 @@ const SAFE_AUTO_EXECUTE_ACTIONS = [
   "create_batch_cards",
   "create_single_card",
 ];
-
-// Library item types (matching useClientChat return types)
-interface ContentLibraryItem {
-  id: string;
-  title: string;
-  content_type: string;
-  content: string;
-}
-
-interface ReferenceLibraryItem {
-  id: string;
-  title: string;
-  reference_type: string;
-  content: string;
-}
-
-interface AssigneeItem {
-  id: string;
-  name: string;
-  email?: string;
-  avatar_url?: string;
-}
-
-interface ClientItem {
-  id: string;
-  name: string;
-  avatar_url?: string;
-}
-
-// Extended context value with all features
-interface GlobalKAIContextValue {
-  // Panel state
-  isOpen: boolean;
-  openPanel: () => void;
-  closePanel: () => void;
-  togglePanel: () => void;
-  
-  // Chat state (from useClientChat)
-  messages: Message[];
-  isProcessing: boolean;
-  currentStep: ProcessStep;
-  multiAgentStep: MultiAgentStep;
-  multiAgentDetails: Record<string, string>;
-  conversationId: string | null;
-  
-  // Libraries (from useClientChat)
-  contentLibrary: ContentLibraryItem[];
-  referenceLibrary: ReferenceLibraryItem[];
-  
-  // Workspace data
-  assignees: AssigneeItem[];
-  clients: ClientItem[];
-  
-  // Client selection
-  selectedClientId: string | null;
-  setSelectedClientId: (clientId: string | null) => void;
-  
-  // Message handling (delegates to useClientChat)
-  sendMessage: (text: string, files?: File[], citations?: Citation[]) => Promise<void>;
-  clearConversation: () => void;
-  regenerateLastMessage: () => Promise<void>;
-  
-  // Action handling
-  actionStatus: KAIActionStatus;
-  pendingAction: PendingAction | null;
-  confirmAction: () => Promise<void>;
-  cancelAction: () => void;
-  
-  // File handling
-  attachedFiles: KAIFileAttachment[];
-  attachFiles: (files: File[]) => void;
-  removeFile: (fileId: string) => void;
-  clearFiles: () => void;
-  
-  // Mode selection
-  chatMode: "ideas" | "content" | "performance" | "free_chat";
-  setChatMode: (mode: "ideas" | "content" | "performance" | "free_chat") => void;
-  
-  // Workflow state
-  isIdeaMode: boolean;
-  isFreeChatMode: boolean;
-}
-
-// Export context for external use
-export const GlobalKAIContext = createContext<GlobalKAIContextValue | null>(null);
 
 interface GlobalKAIProviderProps {
   children: ReactNode;
@@ -141,8 +64,8 @@ export function GlobalKAIProvider({ children }: GlobalKAIProviderProps) {
   const [attachedFiles, setAttachedFiles] = useState<KAIFileAttachment[]>([]);
   
   // Chat mode - default to "ideas" (mais comum)
-  const [chatMode, setChatMode] = useState<"ideas" | "content" | "performance" | "free_chat">("ideas");
-  
+  const [chatMode, setChatMode] = useState<GlobalKAIChatMode>("ideas");
+
   // Workspace data
   const [assignees, setAssignees] = useState<AssigneeItem[]>([]);
   const [clients, setClients] = useState<ClientItem[]>([]);
