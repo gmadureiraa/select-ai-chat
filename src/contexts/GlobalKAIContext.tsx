@@ -675,35 +675,38 @@ export function GlobalKAIProvider({ children }: GlobalKAIProviderProps) {
         }
       }
       
-      // Call intelligent router to determine the pipeline
+      // Determine explicitMode - chatMode takes precedence over router
+      // If user explicitly selected "content" mode, always use content pipeline
       let explicitMode: "content" | "ideas" | "free_chat" | "image" = 
         chatMode === "content" ? "content" : 
         chatMode === "ideas" ? "ideas" : "free_chat";
       
-      try {
-        const { data: routerDecision, error: routerError } = await supabase.functions.invoke("kai-router", {
-          body: {
-            message: text,
-            clientId: selectedClientId,
-            hasFiles: allAttachments.length > 0,
-            fileTypes: allAttachments.map(f => f.type),
-          },
-        });
-        
-        if (!routerError && routerDecision) {
-          console.log("[GlobalKAI] Router decision:", routerDecision);
+      // Only use router when in free_chat mode to potentially upgrade to content
+      if (chatMode === "free_chat") {
+        try {
+          const { data: routerDecision, error: routerError } = await supabase.functions.invoke("kai-router", {
+            body: {
+              message: text,
+              clientId: selectedClientId,
+              hasFiles: allAttachments.length > 0,
+              fileTypes: allAttachments.map(f => f.type),
+            },
+          });
           
-          // Map pipeline to explicitMode
-          if (routerDecision.pipeline === "multi_agent_content") {
-            explicitMode = "content";
-          } else {
-            explicitMode = "free_chat";
+          if (!routerError && routerDecision) {
+            console.log("[GlobalKAI] Router decision:", routerDecision);
+            
+            // Map pipeline to explicitMode
+            if (routerDecision.pipeline === "multi_agent_content") {
+              explicitMode = "content";
+            }
           }
+        } catch (routerErr) {
+          console.warn("[GlobalKAI] Router error, using default chatMode:", routerErr);
         }
-      } catch (routerErr) {
-        console.warn("[GlobalKAI] Router error, using default chatMode:", routerErr);
-        // Fallback to current chatMode mapping
       }
+      
+      console.log("[GlobalKAI] Final explicitMode:", explicitMode, "chatMode:", chatMode);
       
       // Pass image URLs to chat - this enables multimodal AI analysis
       await clientChatSendMessage(text, imageUrls.length > 0 ? imageUrls : undefined, "fast", explicitMode, citations);
