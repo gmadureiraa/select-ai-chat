@@ -32,6 +32,98 @@ interface CreatedCard {
   title: string;
   format: string;
   column: string;
+  dueDate?: string;
+}
+
+// Parse date hint to ISO date string
+function parseDateHint(dateHint: string | null): string | null {
+  if (!dateHint) return null;
+  
+  try {
+    // Try to extract date from common patterns
+    // Pattern: "dia 12/01/2026" or "12/01/2026" or "dia 12-01-2026"
+    const fullDateMatch = dateHint.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/);
+    if (fullDateMatch) {
+      const day = parseInt(fullDateMatch[1], 10);
+      const month = parseInt(fullDateMatch[2], 10);
+      let year = parseInt(fullDateMatch[3], 10);
+      
+      // Handle 2-digit year
+      if (year < 100) {
+        year += 2000;
+      }
+      
+      // Create ISO date
+      const date = new Date(year, month - 1, day);
+      return date.toISOString().split('T')[0];
+    }
+    
+    // Pattern: "dia 12 de janeiro"
+    const monthNameMatch = dateHint.match(/dia\s+(\d{1,2})\s+de\s+(\w+)/i);
+    if (monthNameMatch) {
+      const day = parseInt(monthNameMatch[1], 10);
+      const monthName = monthNameMatch[2].toLowerCase();
+      
+      const months: Record<string, number> = {
+        'janeiro': 0, 'fevereiro': 1, 'março': 2, 'marco': 2, 'abril': 3,
+        'maio': 4, 'junho': 5, 'julho': 6, 'agosto': 7,
+        'setembro': 8, 'outubro': 9, 'novembro': 10, 'dezembro': 11
+      };
+      
+      if (months[monthName] !== undefined) {
+        const year = new Date().getFullYear();
+        const date = new Date(year, months[monthName], day);
+        // If date is in the past, use next year
+        if (date < new Date()) {
+          date.setFullYear(year + 1);
+        }
+        return date.toISOString().split('T')[0];
+      }
+    }
+    
+    return null;
+  } catch (e) {
+    console.error("[SmartPlanner] Error parsing date hint:", e);
+    return null;
+  }
+}
+
+// Generate distributed dates based on scheduling hint
+function generateDistributedDates(quantity: number, schedulingHint: string | null): (string | null)[] {
+  if (!schedulingHint) {
+    return Array(quantity).fill(null);
+  }
+  
+  const dates: (string | null)[] = [];
+  const today = new Date();
+  
+  // Parse scheduling hint for period
+  const weeksMatch = schedulingHint.match(/(\d+)?\s*semanas?/i);
+  const daysMatch = schedulingHint.match(/(\d+)?\s*dias?/i);
+  const monthMatch = schedulingHint.match(/(\d+)?\s*m[eê]s/i);
+  
+  let totalDays = 7; // Default: 1 week
+  
+  if (weeksMatch) {
+    const weeks = parseInt(weeksMatch[1], 10) || 1;
+    totalDays = weeks * 7;
+  } else if (daysMatch) {
+    totalDays = parseInt(daysMatch[1], 10) || 7;
+  } else if (monthMatch) {
+    const months = parseInt(monthMatch[1], 10) || 1;
+    totalDays = months * 30;
+  }
+  
+  // Distribute cards evenly across the period
+  const intervalDays = Math.max(1, Math.floor(totalDays / quantity));
+  
+  for (let i = 0; i < quantity; i++) {
+    const date = new Date(today);
+    date.setDate(date.getDate() + (i * intervalDays) + 1); // Start from tomorrow
+    dates.push(date.toISOString().split('T')[0]);
+  }
+  
+  return dates;
 }
 
 serve(async (req) => {
@@ -58,7 +150,7 @@ serve(async (req) => {
       rawMessage 
     } = requestData;
 
-    console.log("[SmartPlanner] Request:", { clientId, workspaceId, quantity, format, column, themeHint });
+    console.log("[SmartPlanner] Request:", { clientId, workspaceId, quantity, format, column, themeHint, dateHint, schedulingHint });
 
     if (!clientId || !workspaceId || !userId) {
       return new Response(
@@ -278,7 +370,15 @@ Responda APENAS com um JSON válido no formato:
 
     let currentPosition = existingItems?.[0]?.position ?? -1;
 
-    // 11. Create planning items in batch
+    // 11. Parse dates for cards
+    const singleDate = parseDateHint(dateHint);
+    const distributedDates = schedulingHint && !singleDate 
+      ? generateDistributedDates(ideas.length, schedulingHint)
+      : Array(ideas.length).fill(singleDate);
+
+    console.log("[SmartPlanner] Date distribution:", { singleDate, distributedDates });
+
+    // 12. Create planning items in batch
     const createdCards: CreatedCard[] = [];
     const platformMap: Record<string, string> = {
       "carrossel": "instagram",
@@ -291,34 +391,43 @@ Responda APENAS com um JSON válido no formato:
       "blog": "blog",
     };
 
-    for (const idea of ideas) {
+    for (let i = 0; i < ideas.length; i++) {
+      const idea = ideas[i];
+      const dueDate = distributedDates[i];
       currentPosition++;
       
       const platform = platformMap[idea.format] || "instagram";
       
+      const insertData: Record<string, unknown> = {
+        workspace_id: workspaceId,
+        client_id: clientId,
+        column_id: columnId,
+        title: idea.title,
+        description: `${idea.description}\n\n**Objetivo:** ${idea.objective}\n**Gancho:** ${idea.hook}`,
+        platform: platform,
+        content_type: idea.format,
+        status: targetColumnType,
+        priority: "medium",
+        position: currentPosition,
+        labels: themeHint ? [themeHint] : [],
+        metadata: {
+          generated_by: "kai-smart-planner",
+          original_request: rawMessage,
+          objective: idea.objective,
+          hook: idea.hook,
+        },
+        created_by: userId,
+      };
+
+      // Add due_date if available
+      if (dueDate) {
+        insertData.due_date = dueDate;
+      }
+
       const { data: newCard, error: insertError } = await supabase
         .from("planning_items")
-        .insert({
-          workspace_id: workspaceId,
-          client_id: clientId,
-          column_id: columnId,
-          title: idea.title,
-          description: `${idea.description}\n\n**Objetivo:** ${idea.objective}\n**Gancho:** ${idea.hook}`,
-          platform: platform,
-          content_type: idea.format,
-          status: targetColumnType,
-          priority: "medium",
-          position: currentPosition,
-          labels: themeHint ? [themeHint] : [],
-          metadata: {
-            generated_by: "kai-smart-planner",
-            original_request: rawMessage,
-            objective: idea.objective,
-            hook: idea.hook,
-          },
-          created_by: userId,
-        })
-        .select("id, title")
+        .insert(insertData)
+        .select("id, title, due_date")
         .single();
 
       if (insertError) {
@@ -331,12 +440,13 @@ Responda APENAS com um JSON válido no formato:
         title: newCard.title,
         format: idea.format,
         column: columnName,
+        dueDate: newCard.due_date || undefined,
       });
     }
 
     console.log("[SmartPlanner] Created", createdCards.length, "cards");
 
-    // 12. Return success response
+    // 13. Return success response
     return new Response(
       JSON.stringify({
         success: true,
