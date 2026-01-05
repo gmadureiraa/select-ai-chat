@@ -50,7 +50,7 @@ const metricOptions = [
   { key: "reach", label: "Alcance", dataKey: "reach", color: "hsl(290, 70%, 55%)" },
   { key: "interactions", label: "Interações", dataKey: "interactions", color: "hsl(45, 80%, 50%)" },
   { key: "linkClicks", label: "Clique no Link", dataKey: "linkClicks", color: "hsl(200, 80%, 55%)" },
-  { key: "subscribers", label: "Seguidores", dataKey: "subscribers", color: "hsl(145, 80%, 45%)" },
+  { key: "subscribers", label: "Novos Seguidores", dataKey: "subscribers", color: "hsl(145, 80%, 45%)" },
   { key: "profileVisits", label: "Visitas", dataKey: "profileVisits", color: "hsl(350, 80%, 55%)" },
 ];
 
@@ -150,21 +150,9 @@ export function InstagramDashboard({
 
     const totalViews = filteredMetrics.reduce((sum, m) => sum + (m.views || 0), 0);
     
-    // Calculate followers GAINED (difference between first and last day of period)
-    // The subscribers field contains TOTAL followers, not daily delta
-    const sortedByDate = [...filteredMetrics]
-      .filter(m => m.subscribers && m.subscribers > 0)
-      .sort((a, b) => new Date(a.metric_date).getTime() - new Date(b.metric_date).getTime());
-
-    let followersGained = 0;
-    if (sortedByDate.length >= 2) {
-      const firstDay = sortedByDate[0].subscribers || 0;
-      const lastDay = sortedByDate[sortedByDate.length - 1].subscribers || 0;
-      followersGained = lastDay - firstDay;
-    } else if (sortedByDate.length === 1) {
-      // Only one data point, can't calculate difference
-      followersGained = 0;
-    }
+    // Calculate followers GAINED - subscribers field contains DAILY new followers (not total)
+    // So we SUM all daily values to get the total gained in the period
+    const followersGained = filteredMetrics.reduce((sum, m) => sum + (m.subscribers || 0), 0);
     const totalReachFromMetrics = filteredMetrics.reduce((sum, m) => sum + getMetadataValue(m, 'reach'), 0);
     const totalImpressions = filteredPosts.reduce((sum, p) => sum + (p.impressions || 0), 0);
     const totalInteractions = filteredMetrics.reduce((sum, m) => sum + getMetadataValue(m, 'interactions'), 0);
@@ -173,17 +161,8 @@ export function InstagramDashboard({
 
     const prevViews = previousPeriodMetrics.reduce((sum, m) => sum + (m.views || 0), 0);
     
-    // Calculate previous period followers gained the same way
-    const sortedPrevious = [...previousPeriodMetrics]
-      .filter(m => m.subscribers && m.subscribers > 0)
-      .sort((a, b) => new Date(a.metric_date).getTime() - new Date(b.metric_date).getTime());
-
-    let prevFollowers = 0;
-    if (sortedPrevious.length >= 2) {
-      const firstDay = sortedPrevious[0].subscribers || 0;
-      const lastDay = sortedPrevious[sortedPrevious.length - 1].subscribers || 0;
-      prevFollowers = lastDay - firstDay;
-    }
+    // Calculate previous period followers gained - SUM daily values
+    const prevFollowers = previousPeriodMetrics.reduce((sum, m) => sum + (m.subscribers || 0), 0);
     const prevReach = previousPeriodMetrics.reduce((sum, m) => sum + getMetadataValue(m, 'reach'), 0);
     const prevInteractions = previousPeriodMetrics.reduce((sum, m) => sum + getMetadataValue(m, 'interactions'), 0);
     const prevLinkClicks = previousPeriodMetrics.reduce((sum, m) => sum + getMetadataValue(m, 'linkClicks'), 0);
