@@ -37,7 +37,7 @@ import { useWorkspace } from "@/hooks/useWorkspace";
 import { KaiAssistantTab } from "@/components/kai/KaiAssistantTab";
 import { KaiPerformanceTab } from "@/components/kai/KaiPerformanceTab";
 import { KaiLibraryTab } from "@/components/kai/KaiLibraryTab";
-import { KaiAutomationsTab } from "@/components/kai/KaiAutomationsTab";
+
 import { KaiSettingsTab } from "@/components/kai/KaiSettingsTab";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -407,9 +407,6 @@ const KaiHub = () => {
                   <KaiLibraryTab clientId={selectedClientId} client={selectedClient} />
                 </TabsContent>
                 
-                <TabsContent value="automations" className="mt-0 focus-visible:outline-none">
-                  <KaiAutomationsTab clientId={selectedClientId} client={selectedClient} />
-                </TabsContent>
                 
                 <TabsContent value="settings" className="mt-0 focus-visible:outline-none">
                   <KaiSettingsTab clientId={selectedClientId} client={selectedClient} />

@@ -331,14 +331,6 @@ export function KaiSidebar({
             onClick={() => onTabChange("planning")}
             collapsed={collapsed}
           />
-          
-          <NavItem
-            icon={<Zap className="h-4 w-4" />}
-            label="Automações"
-            active={activeTab === "automations"}
-            onClick={() => onTabChange("automations")}
-            collapsed={collapsed}
-          />
         </div>
 
         <SectionLabel collapsed={collapsed}>Conta</SectionLabel>

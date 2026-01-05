@@ -7,7 +7,7 @@ import { Eye, Clock, Users, TrendingUp, MousePointer, Upload, ThumbsUp, MessageC
 import { StatCard } from "./StatCard";
 import { EnhancedAreaChart } from "./EnhancedAreaChart";
 import { GoalsPanel } from "./GoalsPanel";
-import { YouTubeConnectionCard } from "./YouTubeConnectionCard";
+
 import { SmartCSVUpload } from "./SmartCSVUpload";
 import { YouTubeVideosTable } from "./YouTubeVideosTable";
 import { ImportHistoryPanel } from "./ImportHistoryPanel";
@@ -190,10 +190,7 @@ export function YouTubeDashboard({ clientId, videos, isLoading }: YouTubeDashboa
             </p>
           </div>
         </div>
-        <div className="grid gap-4 md:grid-cols-2">
-          <YouTubeConnectionCard clientId={clientId} />
-          <SmartCSVUpload clientId={clientId} platform="youtube" />
-        </div>
+        <SmartCSVUpload clientId={clientId} platform="youtube" />
       </div>
     );
   }

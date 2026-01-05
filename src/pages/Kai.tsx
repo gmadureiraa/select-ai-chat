@@ -5,7 +5,7 @@ import { GradientHero } from "@/components/kai/GradientHero";
 import { KaiAssistantTab } from "@/components/kai/KaiAssistantTab";
 import { KaiPerformanceTab } from "@/components/kai/KaiPerformanceTab";
 import { KaiLibraryTab } from "@/components/kai/KaiLibraryTab";
-import { KaiAutomationsTab } from "@/components/kai/KaiAutomationsTab";
+
 import { KnowledgeBaseTool } from "@/components/kai/tools/KnowledgeBaseTool";
 import { ActivitiesTool } from "@/components/kai/tools/ActivitiesTool";
 import { TeamTool } from "@/components/kai/tools/TeamTool";
@@ -117,7 +117,7 @@ export default function Kai() {
     }
 
     // Tools that don't need client
-    const toolTabs = ["repurpose", "knowledge-base", "activities", "team", "clients", "account", "automations", "format-rules"];
+    const toolTabs = ["repurpose", "knowledge-base", "activities", "team", "clients", "account", "format-rules"];
     
     if (toolTabs.includes(tab)) {
       switch (tab) {
@@ -137,12 +137,6 @@ export default function Kai() {
           return <ClientsManagementTool />;
         case "format-rules":
           return <FormatRulesTool />;
-        case "automations":
-          return (
-            <div className="p-6 overflow-auto h-full">
-              <KaiAutomationsTab clientId={selectedClient?.id || ""} client={selectedClient!} />
-            </div>
-          );
         case "account":
           return (
             <div className="p-6">

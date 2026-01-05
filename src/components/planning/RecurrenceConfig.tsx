@@ -9,7 +9,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { CalendarIcon, RepeatIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
-import type { RecurrenceType, RecurrenceConfig as RecurrenceConfigType } from '@/types/rssTrigger';
+import type { RecurrenceType, RecurrenceConfig as RecurrenceConfigType } from '@/types/recurrence';
 
 interface RecurrenceConfigProps {
   value: RecurrenceConfigType;
