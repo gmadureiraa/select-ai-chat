@@ -2,7 +2,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import kaleidosKLogo from "@/assets/kaleidos-k-logo.svg";
+import kaleidosKaiLogo from "@/assets/kaleidos-kai-logo.png";
 
 interface FloatingKAIButtonProps {
   isOpen: boolean;
@@ -39,9 +39,9 @@ export function FloatingKAIButton({
         size="icon"
         className={cn(
           "relative h-14 w-14 min-h-14 min-w-14 p-0 rounded-full shadow-lg transition-all duration-300",
-          "bg-gradient-to-br from-primary to-primary/80",
+          "bg-[#d262b2] hover:bg-[#c050a0]",
           "hover:shadow-xl hover:scale-105",
-          "focus:ring-2 focus:ring-primary/50 focus:ring-offset-2",
+          "focus:ring-2 focus:ring-[#d262b2]/50 focus:ring-offset-2",
           isOpen && "rotate-180"
         )}
       >
@@ -65,9 +65,9 @@ export function FloatingKAIButton({
               transition={{ duration: 0.2 }}
             >
               <img 
-                src={kaleidosKLogo} 
+                src={kaleidosKaiLogo} 
                 alt="kAI" 
-                className="h-7 w-7 object-contain"
+                className="h-8 w-8 object-contain"
               />
             </motion.div>
           )}
