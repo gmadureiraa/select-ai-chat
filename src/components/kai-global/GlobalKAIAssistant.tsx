@@ -30,10 +30,9 @@ export function GlobalKAIAssistant() {
     referenceLibrary,
     assignees,
     clients: workspaceClients,
-    csvValidationResults,
-    proceedCSVImport,
-    cancelCSVValidation,
-    applyCSVFix,
+    chatMode,
+    startNewConversation,
+    conversationId,
   } = useGlobalKAI();
 
   const { clients: clientsData } = useClients();
@@ -45,9 +44,8 @@ export function GlobalKAIAssistant() {
     return client?.name;
   }, [selectedClientId, clientsData]);
 
-  // Handler for sending messages from within chat (for regenerate, etc.)
+  // Handler for sending messages from within chat (for regenerate, quick suggestions)
   const handleSendFromChat = useCallback((content: string, images?: string[], quality?: "fast" | "high") => {
-    // For now, just send the text message
     sendMessage(content);
   }, [sendMessage]);
 
@@ -67,8 +65,13 @@ export function GlobalKAIAssistant() {
       />
 
       {/* Slide-in panel */}
-      <GlobalKAIPanel isOpen={isOpen} onClose={closePanel}>
-        {/* Chat messages */}
+      <GlobalKAIPanel 
+        isOpen={isOpen} 
+        onClose={closePanel}
+        onNewConversation={startNewConversation}
+        conversationId={conversationId}
+      >
+        {/* Chat messages with multi-agent progress */}
         <GlobalKAIChat
           messages={messages}
           isProcessing={isProcessing}
@@ -78,10 +81,7 @@ export function GlobalKAIAssistant() {
           currentStep={currentStep}
           multiAgentStep={multiAgentStep}
           onSendMessage={handleSendFromChat}
-          csvValidationResults={csvValidationResults}
-          onProceedCSVImport={proceedCSVImport}
-          onCancelCSVValidation={cancelCSVValidation}
-          onApplyCSVFix={applyCSVFix}
+          chatMode={chatMode}
         />
 
         {/* Input area with @ mentions support */}

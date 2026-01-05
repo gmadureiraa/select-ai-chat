@@ -1,17 +1,23 @@
 import { useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Sparkles, Maximize2, Minimize2 } from "lucide-react";
+import { X, Sparkles, Maximize2, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { useNavigate } from "react-router-dom";
 import { useWorkspace } from "@/hooks/useWorkspace";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface GlobalKAIPanelProps {
   isOpen: boolean;
   onClose: () => void;
   children: React.ReactNode;
   className?: string;
+  onNewConversation?: () => void;
+  conversationId?: string | null;
 }
 
 export function GlobalKAIPanel({
@@ -19,6 +25,8 @@ export function GlobalKAIPanel({
   onClose,
   children,
   className,
+  onNewConversation,
+  conversationId,
 }: GlobalKAIPanelProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
@@ -99,21 +107,40 @@ export function GlobalKAIPanel({
                     kAI Assistente
                   </h2>
                   <p className="text-[10px] text-muted-foreground">
-                    Como posso ajudar?
+                    Pipeline multi-agente ativo
                   </p>
                 </div>
               </div>
               
               <div className="flex items-center gap-1">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                  onClick={handleExpandToFullPage}
-                  title="Expandir para página completa"
-                >
-                  <Maximize2 className="h-4 w-4" />
-                </Button>
+                {onNewConversation && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                        onClick={onNewConversation}
+                      >
+                        <Plus className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">Nova conversa</TooltipContent>
+                  </Tooltip>
+                )}
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                      onClick={handleExpandToFullPage}
+                    >
+                      <Maximize2 className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">Expandir</TooltipContent>
+                </Tooltip>
                 <Button
                   variant="ghost"
                   size="icon"
