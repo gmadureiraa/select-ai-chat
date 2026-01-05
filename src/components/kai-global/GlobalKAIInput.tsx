@@ -177,6 +177,13 @@ export function GlobalKAIInput({
     if (!message.trim() && attachedFiles.length === 0) return;
     if (isProcessing || disabled) return;
 
+    // Validate message length
+    const MAX_MESSAGE_LENGTH = 10000;
+    if (message.trim().length > MAX_MESSAGE_LENGTH) {
+      toast.error(`Mensagem muito longa. Máximo: ${MAX_MESSAGE_LENGTH.toLocaleString()} caracteres. Atual: ${message.trim().length.toLocaleString()}`);
+      return;
+    }
+
     const files = attachedFiles.map((f) => f.file);
     await onSend(message.trim(), files.length > 0 ? files : undefined, citations.length > 0 ? citations : undefined);
     setMessage("");
