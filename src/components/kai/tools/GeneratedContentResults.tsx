@@ -12,7 +12,9 @@ import {
   Instagram,
   Film,
   Send,
-  Loader2
+  Loader2,
+  CheckCircle2,
+  Calendar
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -20,9 +22,10 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { ContentFormat, ContentObjective, GeneratedContent, CutMoment } from "@/hooks/useContentRepurpose";
+import { ContentFormat, ContentObjective, GeneratedContent, CutMoment } from "@/hooks/useContentCreator";
 import { AddToPlanningButton } from "@/components/chat/AddToPlanningButton";
 import { cn } from "@/lib/utils";
+import { useNavigate } from "react-router-dom";
 
 interface GeneratedContentResultsProps {
   contents: GeneratedContent[];
@@ -325,16 +328,26 @@ const ContentResultCard = ({
         </div>
         
         <div className="flex items-center justify-between pt-2 border-t">
-          <span className="text-xs text-muted-foreground">
-            {new Date(content.generatedAt).toLocaleTimeString("pt-BR")}
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">
+              {new Date(content.generatedAt).toLocaleTimeString("pt-BR")}
+            </span>
+            {content.addedToPlanning && (
+              <Badge variant="outline" className="text-xs bg-emerald-500/10 text-emerald-600 border-emerald-500/30 gap-1">
+                <CheckCircle2 className="h-3 w-3" />
+                No planejamento
+              </Badge>
+            )}
+          </div>
           <div className="flex gap-2">
-            {/* Use AddToPlanningButton - same as chat */}
-            <AddToPlanningButton
-              content={content.content}
-              platform={detectedPlatform}
-              clientId={clientId}
-            />
+            {/* Show AddToPlanningButton only if not already added */}
+            {!content.addedToPlanning && (
+              <AddToPlanningButton
+                content={content.content}
+                platform={detectedPlatform}
+                clientId={clientId}
+              />
+            )}
             <Button 
               variant="default" 
               size="sm" 
@@ -402,6 +415,8 @@ export function GeneratedContentResults({
   generatingFormat,
   expectedCount = 0,
 }: GeneratedContentResultsProps) {
+  const navigate = useNavigate();
+  const addedToPlanningCount = contents.filter(c => c.addedToPlanning).length;
   const remainingCount = Math.max(0, expectedCount - contents.length);
   
   return (
@@ -429,9 +444,21 @@ export function GeneratedContentResults({
             </p>
           </div>
         </div>
-        <Button variant="outline" onClick={onReset}>
-          Novo Vídeo
-        </Button>
+        <div className="flex gap-2">
+          {addedToPlanningCount > 0 && (
+            <Button 
+              variant="default" 
+              onClick={() => navigate('/kaleidos?tab=planning')}
+              className="gap-2"
+            >
+              <Calendar className="h-4 w-4" />
+              Ver no Planejamento
+            </Button>
+          )}
+          <Button variant="outline" onClick={onReset}>
+            Novo Conteúdo
+          </Button>
+        </div>
       </div>
 
       {/* Video Info */}
