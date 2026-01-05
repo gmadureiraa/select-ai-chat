@@ -864,11 +864,3 @@ export function GlobalKAIProvider({ children }: GlobalKAIProviderProps) {
     </GlobalKAIContext.Provider>
   );
 }
-
-export function useGlobalKAI() {
-  const context = useContext(GlobalKAIContext);
-  if (!context) {
-    throw new Error("useGlobalKAI must be used within a GlobalKAIProvider");
-  }
-  return context;
-}
