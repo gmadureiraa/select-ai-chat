@@ -107,42 +107,111 @@ export function SmartCSVUpload({ clientId, platform, onImportComplete }: SmartCS
     setCurrentStep("validation");
   };
 
+  type ImportDateRange = { start: string; end: string };
+
+  const normalizeDateString = (raw: string): string | null => {
+    const s = (raw || "").replace(/\0/g, "").trim();
+    if (!s) return null;
+
+    const isoWithTime = s.includes("T") ? s.split("T")[0] : s;
+
+    // DD/MM/YYYY
+    const br = isoWithTime.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+    if (br) {
+      return `${br[3]}-${br[2].padStart(2, "0")}-${br[1].padStart(2, "0")}`;
+    }
+
+    // YYYY-MM-DD
+    if (/^\d{4}-\d{2}-\d{2}$/.test(isoWithTime)) return isoWithTime;
+
+    return null;
+  };
+
+  const computeDateRangeFromValidation = (): ImportDateRange | undefined => {
+    // Only daily metrics affect platform_metrics; posts/stories live in other tables
+    const dailyTypes = new Set([
+      "reach",
+      "followers",
+      "followers_absolute",
+      "views",
+      "interactions",
+      "profile_visits",
+      "link_clicks",
+    ]);
+
+    const dates: string[] = [];
+    for (const vr of validationResults) {
+      if (!dailyTypes.has(vr.detectedType)) continue;
+
+      for (const row of vr.rawData) {
+        const raw = (row["data"] || row["date"] || Object.values(row)[0] || "") as string;
+        const normalized = normalizeDateString(raw);
+        if (normalized) dates.push(normalized);
+      }
+    }
+
+    if (dates.length === 0) return undefined;
+    dates.sort();
+    return { start: dates[0], end: dates[dates.length - 1] };
+  };
+
+  const computeImportTypesFromValidation = (): string[] => {
+    const types = validationResults
+      .map((r) => r.detectedType)
+      .filter((t) => t && t !== "unknown");
+    return Array.from(new Set(types));
+  };
+
   // Run AI verification after import
-  const runAIVerification = async (importedCount: number) => {
+  const runAIVerification = async (context: {
+    importedCount: number;
+    dateRange?: ImportDateRange;
+    importTypes?: string[];
+    fileName?: string;
+  }) => {
+    const { importedCount, dateRange, importTypes, fileName } = context;
+
     setIsVerifying(true);
     setCurrentStep("verifying");
-    
+
     try {
-      const { data, error } = await supabase.functions.invoke('validate-csv-import', {
+      const { data: userData } = await supabase.auth.getUser();
+      const userId = userData.user?.id;
+
+      const { data, error } = await supabase.functions.invoke("validate-csv-import", {
         body: {
           clientId,
           platform,
-          importedCount
-        }
+          importedCount,
+          dateRange,
+          importTypes,
+          fileName,
+          userId,
+        },
       });
 
       if (error) {
-        console.error('AI verification error:', error);
+        console.error("AI verification error:", error);
         setAiVerification({
           status: "warning",
           summary: "Não foi possível verificar automaticamente, mas os dados foram importados.",
           details: [`${importedCount} registros importados`],
           issues: [],
           recommendations: ["Verifique os dados manualmente nos gráficos"],
-          aiAnalyzed: false
+          aiAnalyzed: false,
         });
       } else {
         setAiVerification(data);
       }
     } catch (err) {
-      console.error('AI verification failed:', err);
+      console.error("AI verification failed:", err);
       setAiVerification({
         status: "success",
         summary: `${importedCount} registros importados com sucesso`,
         details: [],
         issues: [],
         recommendations: [],
-        aiAnalyzed: false
+        aiAnalyzed: false,
       });
     } finally {
       setIsVerifying(false);
@@ -198,12 +267,15 @@ export function SmartCSVUpload({ clientId, platform, onImportComplete }: SmartCS
       setImportResult({
         success: true,
         message: `${totalCount} registros importados!`,
-        count: totalCount
+        count: totalCount,
       });
-      
-      // Run AI verification
-      await runAIVerification(totalCount);
-      
+
+      // Run AI verification (with context to avoid false negatives)
+      const fileName = selectedFiles.map((f) => f.name).join(", ");
+      const dateRange = computeDateRangeFromValidation();
+      const importTypes = computeImportTypesFromValidation();
+      await runAIVerification({ importedCount: totalCount, dateRange, importTypes, fileName });
+
       setSelectedFiles([]);
       clearValidation();
       onImportComplete?.();
