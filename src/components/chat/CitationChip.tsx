@@ -1,10 +1,10 @@
-import { X, FileText, BookOpen, Wand2, Lightbulb, User, Building2 } from "lucide-react";
+import { X, FileText, BookOpen, Wand2, Lightbulb, User, Building2, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export interface Citation {
   id: string;
   title: string;
-  type: "content_library" | "reference_library" | "format" | "assignee" | "client";
+  type: "content_library" | "reference_library" | "format" | "assignee" | "client" | "action";
   category: string;
 }
 
@@ -17,6 +17,7 @@ interface CitationChipProps {
 export const CitationChip = ({ citation, onRemove, className }: CitationChipProps) => {
   // Ícone baseado no tipo e categoria
   const getIcon = () => {
+    if (citation.type === "action") return Zap;
     if (citation.type === "assignee") return User;
     if (citation.type === "client") return Building2;
     if (citation.category === "ideias") return Lightbulb;
@@ -27,6 +28,7 @@ export const CitationChip = ({ citation, onRemove, className }: CitationChipProp
   
   // Cor baseada no tipo e categoria
   const getColorClass = () => {
+    if (citation.type === "action") return "bg-violet-500/10 text-violet-600 border-violet-500/20";
     if (citation.type === "assignee") return "bg-indigo-500/10 text-indigo-600 border-indigo-500/20";
     if (citation.type === "client") return "bg-teal-500/10 text-teal-600 border-teal-500/20";
     if (citation.category === "ideias") return "bg-amber-500/10 text-amber-600 border-amber-500/20";

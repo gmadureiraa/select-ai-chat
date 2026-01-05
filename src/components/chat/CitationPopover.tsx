@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 export interface CitationItem {
   id: string;
   title: string;
-  type: "content_library" | "reference_library" | "format" | "assignee" | "client";
+  type: "content_library" | "reference_library" | "format" | "assignee" | "client" | "action";
   category: string;
   preview: string;
   avatar_url?: string;
@@ -48,7 +48,8 @@ interface CitationPopoverProps {
 }
 
 const categoryIcons: Record<string, React.ElementType> = {
-  // Special actions
+  // Actions
+  card: Send,
   ideias: Lightbulb,
   imagem: Sparkles,
   // Social - Twitter/X
@@ -78,7 +79,8 @@ const categoryIcons: Record<string, React.ElementType> = {
 };
 
 const categoryColors: Record<string, string> = {
-  // Special actions
+  // Actions
+  card: "bg-violet-500/10 text-violet-600 border-violet-500/20",
   ideias: "bg-amber-500/10 text-amber-600 border-amber-500/20",
   imagem: "bg-violet-500/10 text-violet-600 border-violet-500/20",
   // Social - Twitter/X
@@ -109,6 +111,13 @@ const categoryColors: Record<string, string> = {
   assignee: "bg-indigo-500/10 text-indigo-600 border-indigo-500/20",
   client: "bg-teal-500/10 text-teal-600 border-teal-500/20",
 };
+
+// Pre-defined actions for kAI
+const kaiActions: CitationItem[] = [
+  { id: "action_card", title: "card", type: "action", category: "card", preview: "Criar um card no planejamento" },
+  { id: "action_cards", title: "cards", type: "action", category: "card", preview: "Criar múltiplos cards no planejamento" },
+  { id: "action_ideias", title: "ideias", type: "action", category: "ideias", preview: "Gerar ideias de conteúdo" },
+];
 
 // Pre-defined content formats - synchronized with FormatItem.tsx
 const contentFormats: CitationItem[] = [
@@ -197,6 +206,17 @@ export const CitationPopover = ({
 
     return [...formatItems, ...contentItems, ...referenceItems, ...assigneeItems, ...clientItems];
   }, [contentLibrary, referenceLibrary, showFormats, assigneeItems, clientItems]);
+
+  // Filtrar ações
+  const filteredActions = useMemo(() => {
+    if (!internalSearch.trim()) return kaiActions;
+    const query = internalSearch.toLowerCase();
+    return kaiActions.filter(
+      (item) =>
+        item.title.toLowerCase().includes(query) ||
+        item.preview.toLowerCase().includes(query)
+    );
+  }, [internalSearch]);
 
   // Filtrar por busca
   const filteredFormats = useMemo(() => {
@@ -288,6 +308,33 @@ export const CitationPopover = ({
             <CommandEmpty className="py-6 text-center text-sm text-muted-foreground">
               Nenhum item encontrado.
             </CommandEmpty>
+            
+            {/* Actions Group - kAI commands */}
+            {filteredActions.length > 0 && (
+              <CommandGroup heading="⚡ Ações do kAI">
+                {filteredActions.map((item) => {
+                  const Icon = getIcon(item.category);
+                  const colorClass = getColorClass(item.category);
+                  
+                  return (
+                    <CommandItem
+                      key={item.id}
+                      value={`${item.title}-${item.id}`}
+                      onSelect={() => handleSelect(item)}
+                      className="flex items-center gap-3 py-2.5 cursor-pointer"
+                    >
+                      <div className={cn("h-8 w-8 rounded-lg flex items-center justify-center", colorClass)}>
+                        <Icon className="h-4 w-4" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <span className="font-medium">@{item.title}</span>
+                        <p className="text-xs text-muted-foreground truncate">{item.preview}</p>
+                      </div>
+                    </CommandItem>
+                  );
+                })}
+              </CommandGroup>
+            )}
             
             {/* Formats Group */}
             {filteredFormats.length > 0 && (
