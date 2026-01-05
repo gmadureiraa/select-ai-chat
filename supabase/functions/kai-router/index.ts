@@ -13,6 +13,7 @@ interface RouterRequest {
 }
 
 interface RoutingDecision {
+  pipeline: "multi_agent_content" | "metrics_analysis" | "free_chat";
   agent: "metrics" | "content" | "planning" | "general";
   confidence: number;
   reason: string;
@@ -22,6 +23,7 @@ interface RoutingDecision {
     quantity?: number;
     platform?: string;
     action?: string;
+    contentType?: string;
   };
 }
 
@@ -90,6 +92,7 @@ serve(async (req) => {
       else if (lowerMessage.includes("últimos 7 dias") || lowerMessage.includes("última semana")) period = "última semana";
 
       decision = {
+        pipeline: "metrics_analysis",
         agent: "metrics",
         confidence: 0.9,
         reason: "Pergunta sobre métricas ou performance detectada",
@@ -105,19 +108,22 @@ serve(async (req) => {
     else if (contentPatterns.some(p => p.test(lowerMessage))) {
       // Extract format
       let format: string | undefined;
-      if (/newsletter/i.test(lowerMessage)) format = "newsletter";
-      else if (/carrossel|carousel/i.test(lowerMessage)) format = "carousel";
-      else if (/reels?/i.test(lowerMessage)) format = "reels";
-      else if (/stories?|story/i.test(lowerMessage)) format = "stories";
-      else if (/thread/i.test(lowerMessage)) format = "thread";
-      else if (/post|publicação/i.test(lowerMessage)) format = "post";
+      let contentType: string | undefined;
+      if (/newsletter/i.test(lowerMessage)) { format = "newsletter"; contentType = "newsletter"; }
+      else if (/carrossel|carousel/i.test(lowerMessage)) { format = "carousel"; contentType = "carousel"; }
+      else if (/reels?/i.test(lowerMessage)) { format = "reels"; contentType = "short_video"; }
+      else if (/stories?|story/i.test(lowerMessage)) { format = "stories"; contentType = "stories"; }
+      else if (/thread/i.test(lowerMessage)) { format = "thread"; contentType = "thread"; }
+      else if (/post|publicação/i.test(lowerMessage)) { format = "post"; contentType = "static_post"; }
 
       decision = {
+        pipeline: "multi_agent_content",
         agent: "content",
         confidence: 0.85,
         reason: "Solicitação de criação de conteúdo detectada",
         extractedParams: {
           format,
+          contentType,
           platform: lowerMessage.includes("instagram") ? "instagram" :
                     lowerMessage.includes("twitter") || lowerMessage.includes("x") ? "twitter" :
                     lowerMessage.includes("linkedin") ? "linkedin" : undefined,
@@ -131,6 +137,7 @@ serve(async (req) => {
       const quantity = quantityMatch ? parseInt(quantityMatch[1]) : undefined;
 
       decision = {
+        pipeline: "free_chat",
         agent: "planning",
         confidence: 0.85,
         reason: "Solicitação de planejamento ou agendamento detectada",
@@ -145,6 +152,7 @@ serve(async (req) => {
     // Default to general chat
     else {
       decision = {
+        pipeline: "free_chat",
         agent: "general",
         confidence: 0.7,
         reason: "Conversa geral ou pergunta não específica",
@@ -156,6 +164,7 @@ serve(async (req) => {
     if (hasFiles && fileTypes) {
       if (fileTypes.includes("text/csv") || fileTypes.some(t => t.endsWith(".csv"))) {
         decision = {
+          pipeline: "metrics_analysis",
           agent: "metrics",
           confidence: 0.95,
           reason: "Upload de CSV detectado - importação de métricas",
@@ -173,6 +182,7 @@ serve(async (req) => {
     console.error("Router error:", error);
     return new Response(
       JSON.stringify({ 
+        pipeline: "free_chat",
         agent: "general", 
         confidence: 0.5, 
         reason: "Erro no roteamento",

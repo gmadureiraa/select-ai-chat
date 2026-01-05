@@ -108,9 +108,10 @@ export const useClientChat = (clientId: string, templateId?: string, conversatio
     return feedbackPatterns.some(p => p.test(message));
   };
 
-  // Get specific conversation by ID or get/create default conversation
+  // Get or create THE SINGLE default conversation for this client
+  // Each client has ONLY ONE main conversation (template_id = null)
   const { data: conversation, refetch: refetchConversation } = useQuery({
-    queryKey: ["conversation", clientId, templateId, conversationIdParam],
+    queryKey: ["conversation", clientId, "default"],
     queryFn: async () => {
       // If specific conversationId provided, load that conversation
       if (conversationIdParam) {
@@ -124,38 +125,64 @@ export const useClientChat = (clientId: string, templateId?: string, conversatio
         return specific;
       }
 
-      // Try to get existing conversation for this client + template combination
-      let query = supabase
+      // Template-specific conversation (for template flows)
+      if (templateId) {
+        const { data: templateConv, error: templateError } = await supabase
+          .from("conversations")
+          .select("*")
+          .eq("client_id", clientId)
+          .eq("template_id", templateId)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (templateError) throw templateError;
+
+        if (templateConv) return templateConv;
+
+        // Create template-specific conversation if not exists
+        const { data: newTemplateConv, error: createError } = await supabase
+          .from("conversations")
+          .insert({
+            client_id: clientId,
+            title: "Template Chat",
+            model: selectedModel,
+            template_id: templateId,
+          })
+          .select()
+          .single();
+
+        if (createError) throw createError;
+        return newTemplateConv;
+      }
+
+      // Get THE SINGLE main conversation (template_id IS NULL)
+      // IMPORTANT: Order by created_at ASC to always get the FIRST one created
+      const { data: existing, error: fetchError } = await supabase
         .from("conversations")
         .select("*")
-        .eq("client_id", clientId);
-      
-      // Filter by template_id if provided, or get the general chat (no template)
-      if (templateId) {
-        query = query.eq("template_id", templateId);
-      } else {
-        query = query.is("template_id", null);
-      }
-      
-      const { data: existing, error: fetchError } = await query
-        .order("created_at", { ascending: false })
+        .eq("client_id", clientId)
+        .is("template_id", null)
+        .order("created_at", { ascending: true })
         .limit(1)
         .maybeSingle();
 
       if (fetchError) throw fetchError;
 
       if (existing) {
+        console.log("[useClientChat] Found existing conversation:", existing.id);
         return existing;
       }
 
-      // Create new conversation if none exists
+      // Create the single main conversation if none exists
+      console.log("[useClientChat] Creating new default conversation for client:", clientId);
       const { data: newConv, error: createError } = await supabase
         .from("conversations")
         .insert({
           client_id: clientId,
-          title: "Nova Conversa",
+          title: "Chat Principal",
           model: selectedModel,
-          template_id: templateId || null,
+          template_id: null,
         })
         .select()
         .single();
@@ -164,6 +191,7 @@ export const useClientChat = (clientId: string, templateId?: string, conversatio
       return newConv;
     },
     enabled: !!clientId,
+    staleTime: 1000 * 60 * 5, // Cache for 5 minutes
   });
 
   useEffect(() => {
@@ -172,31 +200,13 @@ export const useClientChat = (clientId: string, templateId?: string, conversatio
     }
   }, [conversation]);
 
-  // Start a new conversation
+  // DEPRECATED: We no longer create new conversations
+  // Each client has ONE conversation. Use clearConversation to reset.
   const startNewConversation = useCallback(async () => {
-    const { data: newConv, error } = await supabase
-      .from("conversations")
-      .insert({
-        client_id: clientId,
-        title: "Nova Conversa",
-        model: selectedModel,
-        template_id: templateId || null,
-      })
-      .select()
-      .single();
-
-    if (error) {
-      toast({
-        title: "Erro",
-        description: "Não foi possível criar nova conversa.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setConversationId(newConv.id);
-    queryClient.invalidateQueries({ queryKey: ["conversation-history", clientId] });
-  }, [clientId, templateId, selectedModel, toast, queryClient]);
+    console.warn("[useClientChat] startNewConversation is deprecated. Use clearConversation instead.");
+    // Just refetch the existing conversation
+    await refetchConversation();
+  }, [refetchConversation]);
 
   // Get messages
   const { data: messages = [] } = useQuery({

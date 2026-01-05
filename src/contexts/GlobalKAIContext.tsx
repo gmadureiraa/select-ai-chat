@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useCallback, useEffect, ReactNode } from "react";
 import { useSearchParams } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { Message, ProcessStep, MultiAgentStep } from "@/types/chat";
 import { 
   KAIActionType,
@@ -78,7 +79,6 @@ interface GlobalKAIContextValue {
   // Message handling (delegates to useClientChat)
   sendMessage: (text: string, files?: File[], citations?: Citation[]) => Promise<void>;
   clearConversation: () => void;
-  startNewConversation: () => Promise<void>;
   regenerateLastMessage: () => Promise<void>;
   
   // Action handling
@@ -111,6 +111,7 @@ interface GlobalKAIProviderProps {
 
 export function GlobalKAIProvider({ children }: GlobalKAIProviderProps) {
   const [searchParams] = useSearchParams();
+  const queryClient = useQueryClient();
   
   // Panel state
   const [isOpen, setIsOpen] = useState(false);
@@ -164,7 +165,6 @@ export function GlobalKAIProvider({ children }: GlobalKAIProviderProps) {
     referenceLibrary,
     sendMessage: clientChatSendMessage,
     clearConversation: clientChatClearConversation,
-    startNewConversation: clientChatStartNewConversation,
     regenerateLastMessage: clientChatRegenerateLastMessage,
     isIdeaMode,
     isFreeChatMode,
@@ -260,10 +260,26 @@ export function GlobalKAIProvider({ children }: GlobalKAIProviderProps) {
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  // Panel controls
-  const openPanel = useCallback(() => setIsOpen(true), []);
+  // Panel controls - with message invalidation on open
+  const openPanel = useCallback(() => {
+    setIsOpen(true);
+    // Invalidate messages to ensure we see latest data
+    if (conversationId) {
+      queryClient.invalidateQueries({ queryKey: ["messages", conversationId] });
+    }
+  }, [conversationId, queryClient]);
+  
   const closePanel = useCallback(() => setIsOpen(false), []);
-  const togglePanel = useCallback(() => setIsOpen(prev => !prev), []);
+  const togglePanel = useCallback(() => {
+    setIsOpen(prev => {
+      const newValue = !prev;
+      // Invalidate messages when opening
+      if (newValue && conversationId) {
+        queryClient.invalidateQueries({ queryKey: ["messages", conversationId] });
+      }
+      return newValue;
+    });
+  }, [conversationId, queryClient]);
 
   // Sync selectedClientId from URL when it changes
   useEffect(() => {
@@ -403,12 +419,40 @@ export function GlobalKAIProvider({ children }: GlobalKAIProviderProps) {
         }
       }
 
-      // Step 3: For general chat or non-confirmation actions, use clientChat
+      // Step 3: For general chat or non-confirmation actions, route intelligently
       setActionStatus("idle");
       setAttachedFiles([]);
       
-      // Map chatMode to explicitMode for useClientChat
-      const explicitMode = chatMode === "content" ? "content" : chatMode === "ideas" ? "ideas" : "free_chat";
+      // Call intelligent router to determine the pipeline
+      let explicitMode: "content" | "ideas" | "free_chat" = chatMode;
+      
+      try {
+        const { data: routerDecision, error: routerError } = await supabase.functions.invoke("kai-router", {
+          body: {
+            message: text,
+            clientId: selectedClientId,
+            hasFiles: allAttachments.length > 0,
+            fileTypes: allAttachments.map(f => f.type),
+          },
+        });
+        
+        if (!routerError && routerDecision) {
+          console.log("[GlobalKAI] Router decision:", routerDecision);
+          
+          // Map pipeline to explicitMode
+          if (routerDecision.pipeline === "multi_agent_content") {
+            explicitMode = "content";
+          } else if (routerDecision.pipeline === "metrics_analysis") {
+            explicitMode = "free_chat"; // Metrics go through free_chat with data analysis
+          } else {
+            explicitMode = "free_chat";
+          }
+        }
+      } catch (routerErr) {
+        console.warn("[GlobalKAI] Router error, using default chatMode:", routerErr);
+        // Fallback to current chatMode
+        explicitMode = chatMode === "content" ? "content" : chatMode === "ideas" ? "ideas" : "free_chat";
+      }
       
       await clientChatSendMessage(text, undefined, "fast", explicitMode, citations);
 
@@ -425,13 +469,6 @@ export function GlobalKAIProvider({ children }: GlobalKAIProviderProps) {
     setPendingAction(null);
     setActionStatus("idle");
   }, [clientChatClearConversation]);
-
-  // Start new conversation
-  const startNewConversation = useCallback(async () => {
-    await clientChatStartNewConversation();
-    setPendingAction(null);
-    setActionStatus("idle");
-  }, [clientChatStartNewConversation]);
 
   // Regenerate last message
   const regenerateLastMessage = useCallback(async () => {
@@ -541,7 +578,6 @@ export function GlobalKAIProvider({ children }: GlobalKAIProviderProps) {
     // Message handling
     sendMessage,
     clearConversation,
-    startNewConversation,
     regenerateLastMessage,
     
     // Action handling
