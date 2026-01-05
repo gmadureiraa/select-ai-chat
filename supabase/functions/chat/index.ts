@@ -237,7 +237,12 @@ serve(async (req) => {
       availableMaterials?: unknown[];
     };
 
-    console.log(`[CHAT] Model: ${model}, Phase: ${isSelectionPhase ? "selection" : "response"}, Images: ${imageUrls?.length || 0}`);
+    // Count images from messages
+    const totalImagesInMessages = messages.reduce((count, m) => 
+      count + (m.image_urls?.length || 0), 0
+    );
+    
+    console.log(`[CHAT] Model: ${model}, Phase: ${isSelectionPhase ? "selection" : "response"}, Images in messages: ${totalImagesInMessages}, Top-level images: ${imageUrls?.length || 0}`);
     
     if (isSelectionPhase && availableMaterials) {
       console.log(`[CHAT] Available materials: ${availableMaterials.length} items`);
