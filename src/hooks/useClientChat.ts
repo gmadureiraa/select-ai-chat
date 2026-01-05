@@ -1634,12 +1634,6 @@ IMPORTANTE: O novo conteúdo deve parecer escrito pelo mesmo autor.`;
         console.log("[CHAT] Format detected from citation:", formatCitation.id, "->", detectedTypeFromCitation);
       }
       
-      // Detectar @ideias explicitamente
-      const ideaCitation = citations?.find(c => c.id === 'format_ideias' || c.category === 'ideias');
-      if (ideaCitation) {
-        isAskingForIdeas = true;
-        console.log("[CHAT] Ideas mode activated from citation");
-      }
 
       // Priorizar: citação manual > detecção no texto > seleção automática
       const detectedType = detectedTypeFromCitation || ideaRequest.contentType || detectContentType(content) || selection.detected_content_type;
