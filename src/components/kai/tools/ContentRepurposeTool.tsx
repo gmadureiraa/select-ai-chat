@@ -1,18 +1,17 @@
 import { useState } from "react";
-import { Link2, Loader2, Sparkles, Check, ChevronDown, ChevronUp, Scissors, Youtube, FileText } from "lucide-react";
+import { Loader2, Sparkles, Check, Scissors, Youtube, FileText, Lightbulb, Link2, BookOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useToast } from "@/hooks/use-toast";
 import { useClients } from "@/hooks/useClients";
-import { useContentRepurpose, ContentFormat } from "@/hooks/useContentRepurpose";
+import { useContentCreator, ContentFormat } from "@/hooks/useContentCreator";
 import { useRepurposeHistory, RepurposeHistoryItem } from "@/hooks/useRepurposeHistory";
 import { GeneratedContentResults } from "./GeneratedContentResults";
 import { RepurposeHistoryCards } from "./RepurposeHistoryCards";
+import { ContentSourceSelector } from "./ContentSourceSelector";
+import { PlanningDestinationSelector } from "./PlanningDestinationSelector";
 import { cn } from "@/lib/utils";
 
 const CONTENT_FORMATS: { id: ContentFormat; label: string; description: string; icon?: string }[] = [
@@ -36,17 +35,27 @@ export function ContentRepurposeTool({ clientId }: ContentRepurposeToolProps) {
   const { toast } = useToast();
   const { clients } = useClients();
   const [viewingHistoryItem, setViewingHistoryItem] = useState<RepurposeHistoryItem | null>(null);
-  const [showContent, setShowContent] = useState(false);
   
   const selectedClient = clients?.find(c => c.id === clientId);
   const { saveHistory } = useRepurposeHistory(clientId);
   
   const {
-    sourceUrl,
-    setSourceUrl,
-    sourceData,
+    sourceType,
+    setSourceType,
+    themeInput,
+    setThemeInput,
+    urlInput,
+    setUrlInput,
+    referenceInput,
+    setReferenceInput,
+    additionalContext,
+    setAdditionalContext,
+    extractedData,
     selectedFormats,
     toggleFormat,
+    planningDestination,
+    setPlanningDestination,
+    columns,
     generatedContents,
     isExtracting,
     isGenerating,
@@ -57,32 +66,31 @@ export function ContentRepurposeTool({ clientId }: ContentRepurposeToolProps) {
     copyToClipboard,
     reset,
     goBackToForm,
-  } = useContentRepurpose();
+  } = useContentCreator();
 
-  const handleExtract = async () => {
-    if (!sourceUrl.trim()) {
-      toast({
-        title: "URL necessária",
-        description: "Cole o link do vídeo ou artigo",
-        variant: "destructive",
-      });
-      return;
-    }
+  // Check if source is ready (has input based on type)
+  const hasSourceInput = 
+    (sourceType === 'theme' && themeInput.trim()) ||
+    (sourceType === 'url' && urlInput.trim()) ||
+    (sourceType === 'reference' && referenceInput.trim());
 
-    try {
-      const data = await extractContent();
-      const isVideo = data.type === 'youtube';
-      toast({
-        title: isVideo ? "Vídeo transcrito!" : "Conteúdo extraído!",
-        description: "Agora selecione os formatos para gerar",
-      });
-    } catch (error) {
-      toast({
-        title: "Erro ao extrair",
-        description: error instanceof Error ? error.message : "Erro desconhecido",
-        variant: "destructive",
-      });
+  const handleExtractOrContinue = async () => {
+    if (sourceType === 'url' && !extractedData) {
+      try {
+        await extractContent();
+        toast({
+          title: "Conteúdo extraído!",
+          description: "Agora selecione os formatos para gerar",
+        });
+      } catch (error) {
+        toast({
+          title: "Erro ao extrair",
+          description: error instanceof Error ? error.message : "Erro desconhecido",
+          variant: "destructive",
+        });
+      }
     }
+    // For theme/reference, no extraction needed - just proceed to step 2
   };
 
   const handleGenerate = async () => {
@@ -107,30 +115,34 @@ export function ContentRepurposeTool({ clientId }: ContentRepurposeToolProps) {
     try {
       const results = await generateAll(clientId);
       
-      // Save to history (don't block results if this fails)
-      if (results && results.length > 0 && sourceData) {
+      // Save to history
+      if (results && results.length > 0) {
+        const sourceUrl = sourceType === 'url' ? urlInput : 
+                          sourceType === 'theme' ? `tema:${themeInput.substring(0, 50)}` : 
+                          'referência';
+        const title = extractedData?.title || themeInput || "Conteúdo";
+
         try {
           await saveHistory.mutateAsync({
             clientId: clientId,
             youtubeUrl: sourceUrl,
-            videoTitle: sourceData.title,
-            videoThumbnail: sourceData.thumbnail,
-            transcript: sourceData.content,
+            videoTitle: title,
+            videoThumbnail: extractedData?.thumbnail,
+            transcript: extractedData?.content || themeInput,
             objective: "educational",
             generatedContents: results,
           });
         } catch (historyError) {
           console.error("Failed to save history:", historyError);
-          toast({
-            title: "Aviso",
-            description: "Conteúdos gerados, mas não foi possível salvar no histórico",
-          });
         }
       }
       
+      const addedCount = results?.filter(r => r.addedToPlanning).length || 0;
       toast({
         title: "Conteúdos gerados!",
-        description: `${results?.length || 0} conteúdos criados`,
+        description: addedCount > 0 
+          ? `${results?.length || 0} conteúdos criados, ${addedCount} adicionados ao planejamento`
+          : `${results?.length || 0} conteúdos criados`,
       });
     } catch (error) {
       toast({
@@ -146,7 +158,7 @@ export function ContentRepurposeTool({ clientId }: ContentRepurposeToolProps) {
     return (
       <GeneratedContentResults
         contents={viewingHistoryItem.generated_contents}
-        videoTitle={viewingHistoryItem.video_title || "Vídeo"}
+        videoTitle={viewingHistoryItem.video_title || "Conteúdo"}
         videoThumbnail={viewingHistoryItem.video_thumbnail || undefined}
         onBack={() => setViewingHistoryItem(null)}
         onCopy={async (text) => {
@@ -162,13 +174,13 @@ export function ContentRepurposeTool({ clientId }: ContentRepurposeToolProps) {
     );
   }
 
-  // Show results page when generation starts (or is complete)
+  // Show results page when generation starts
   if (showResults) {
     return (
       <GeneratedContentResults
         contents={generatedContents}
-        videoTitle={sourceData?.title || "Conteúdo"}
-        videoThumbnail={sourceData?.thumbnail}
+        videoTitle={extractedData?.title || themeInput || "Conteúdo"}
+        videoThumbnail={extractedData?.thumbnail}
         onBack={goBackToForm}
         onCopy={async (text) => {
           await copyToClipboard(text);
@@ -183,192 +195,182 @@ export function ContentRepurposeTool({ clientId }: ContentRepurposeToolProps) {
     );
   }
 
-  const isVideo = sourceData?.type === 'youtube';
-  const SourceIcon = isVideo ? Youtube : FileText;
-
   const getFormatLabel = (formatId: string) => {
     const format = CONTENT_FORMATS.find(f => f.id === formatId);
     return format?.label || formatId;
   };
+
+  const getSourceIcon = () => {
+    if (extractedData?.sourceType === 'youtube') return Youtube;
+    if (sourceType === 'theme') return Lightbulb;
+    if (sourceType === 'url') return Link2;
+    return BookOpen;
+  };
+
+  const SourceIcon = getSourceIcon();
+
+  // Determine if we should show step 2
+  const showStep2 = sourceType === 'theme' || sourceType === 'reference' || extractedData;
 
   return (
     <div className="p-6 space-y-6 max-w-4xl mx-auto">
       {/* Header */}
       <div className="flex items-center gap-3">
         <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center">
-          <Link2 className="h-6 w-6 text-primary-foreground" />
+          <Sparkles className="h-6 w-6 text-primary-foreground" />
         </div>
         <div>
-          <h1 className="text-2xl font-semibold">Reaproveitamento de Conteúdo</h1>
+          <h1 className="text-2xl font-semibold">Criador de Conteúdo</h1>
           <p className="text-muted-foreground">
-            Transforme vídeos ou artigos em múltiplos formatos de conteúdo
+            Transforme temas, links ou referências em múltiplos formatos
           </p>
         </div>
       </div>
 
-      {/* Step 1: URL Input */}
+      {/* Step 1: Source Selection */}
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
             <Badge variant="outline" className="h-6 w-6 rounded-full p-0 flex items-center justify-center">1</Badge>
-            Cole o link do conteúdo
+            De onde vem a inspiração?
           </CardTitle>
           <CardDescription>
-            YouTube, artigos, newsletters ou qualquer página com texto
+            Escolha um tema, cole um link, ou use referências da biblioteca
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex gap-2">
-            <Input
-              placeholder="https://youtube.com/watch?v=... ou https://site.com/artigo"
-              value={sourceUrl}
-              onChange={(e) => setSourceUrl(e.target.value)}
-              className="flex-1"
-            />
+          <ContentSourceSelector
+            sourceType={sourceType}
+            onSourceTypeChange={setSourceType}
+            themeInput={themeInput}
+            onThemeInputChange={setThemeInput}
+            urlInput={urlInput}
+            onUrlInputChange={setUrlInput}
+            referenceInput={referenceInput}
+            onReferenceInputChange={setReferenceInput}
+            additionalContext={additionalContext}
+            onAdditionalContextChange={setAdditionalContext}
+            clientId={clientId}
+            disabled={isExtracting || isGenerating}
+          />
+
+          {/* Extract button for URL type */}
+          {sourceType === 'url' && !extractedData && (
             <Button 
-              onClick={handleExtract} 
-              disabled={isExtracting || !sourceUrl.trim()}
+              onClick={handleExtractOrContinue} 
+              disabled={isExtracting || !urlInput.trim()}
+              className="w-full"
             >
               {isExtracting ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Extraindo...
+                  Extraindo conteúdo...
                 </>
               ) : (
-                "Extrair"
+                <>
+                  <Link2 className="h-4 w-4 mr-2" />
+                  Extrair Conteúdo
+                </>
               )}
             </Button>
-          </div>
+          )}
 
-          {/* Extracted Content Preview */}
-          {sourceData && (
-            <div className="space-y-3">
-              <div className="flex items-center gap-4 p-3 rounded-lg bg-muted/50">
-                {sourceData.thumbnail ? (
-                  <img 
-                    src={sourceData.thumbnail} 
-                    alt={sourceData.title}
-                    className="w-24 h-14 object-cover rounded"
-                  />
-                ) : (
-                  <div className="w-24 h-14 rounded bg-muted flex items-center justify-center">
-                    <SourceIcon className="h-6 w-6 text-muted-foreground" />
-                  </div>
-                )}
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium truncate">{sourceData.title}</p>
-                  <p className="text-xs text-muted-foreground flex items-center gap-2">
-                    <Badge variant="secondary" className="text-xs">
-                      {isVideo ? 'YouTube' : 'Artigo'}
-                    </Badge>
-                    {sourceData.content.length.toLocaleString()} caracteres extraídos
-                  </p>
-                </div>
-                <Badge variant="outline" className="text-green-600 border-green-600">
-                  <Check className="h-3 w-3 mr-1" />
-                  Extraído
-                </Badge>
-              </div>
-
-              <Collapsible open={showContent} onOpenChange={setShowContent}>
-                <CollapsibleTrigger asChild>
-                  <Button variant="ghost" size="sm" className="w-full">
-                    {showContent ? (
-                      <>
-                        <ChevronUp className="h-4 w-4 mr-2" />
-                        Ocultar conteúdo
-                      </>
-                    ) : (
-                      <>
-                        <ChevronDown className="h-4 w-4 mr-2" />
-                        Ver conteúdo
-                      </>
-                    )}
-                  </Button>
-                </CollapsibleTrigger>
-                <CollapsibleContent>
-                  <ScrollArea className="h-48 rounded border p-3 mt-2">
-                    <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-                      {sourceData.content}
-                    </p>
-                  </ScrollArea>
-                </CollapsibleContent>
-              </Collapsible>
-
-              {/* Images extracted */}
-              {sourceData.images && sourceData.images.length > 0 && (
-                <div className="space-y-2">
-                  <p className="text-sm font-medium">Imagens extraídas ({sourceData.images.length})</p>
-                  <div className="flex gap-2 overflow-x-auto pb-2">
-                    {sourceData.images.slice(0, 5).map((img, i) => (
-                      <img 
-                        key={i}
-                        src={img} 
-                        alt={`Imagem ${i + 1}`}
-                        className="w-20 h-20 object-cover rounded border shrink-0"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).style.display = 'none';
-                        }}
-                      />
-                    ))}
-                  </div>
+          {/* Extracted content preview */}
+          {extractedData && (
+            <div className="flex items-center gap-4 p-3 rounded-lg bg-muted/50">
+              {extractedData.thumbnail ? (
+                <img 
+                  src={extractedData.thumbnail} 
+                  alt={extractedData.title}
+                  className="w-24 h-14 object-cover rounded"
+                />
+              ) : (
+                <div className="w-24 h-14 rounded bg-muted flex items-center justify-center">
+                  <SourceIcon className="h-6 w-6 text-muted-foreground" />
                 </div>
               )}
+              <div className="flex-1 min-w-0">
+                <p className="font-medium truncate">{extractedData.title}</p>
+                <p className="text-xs text-muted-foreground flex items-center gap-2">
+                  <Badge variant="secondary" className="text-xs">
+                    {extractedData.sourceType === 'youtube' ? 'YouTube' : 
+                     extractedData.sourceType === 'theme' ? 'Tema' : 'Artigo'}
+                  </Badge>
+                  {extractedData.content.length.toLocaleString()} caracteres
+                </p>
+              </div>
+              <Badge variant="outline" className="text-green-600 border-green-600">
+                <Check className="h-3 w-3 mr-1" />
+                Pronto
+              </Badge>
             </div>
           )}
         </CardContent>
       </Card>
 
-      {/* History Section - Below URL input */}
+      {/* History Section */}
       <RepurposeHistoryCards 
         clientId={clientId || undefined}
         onViewResults={(item) => setViewingHistoryItem(item)}
       />
 
-      {/* Step 2: Formats */}
-      {sourceData && (
+      {/* Step 2: Formats & Destination */}
+      {showStep2 && hasSourceInput && (
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
               <Badge variant="outline" className="h-6 w-6 rounded-full p-0 flex items-center justify-center">2</Badge>
-              Formatos para gerar
+              Formatos e destino
             </CardTitle>
             <CardDescription>
-              Selecione os formatos de conteúdo que deseja criar
+              Selecione os formatos de conteúdo e onde criar
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-              {CONTENT_FORMATS.map((format) => (
-                <div
-                  key={format.id}
-                  onClick={() => toggleFormat(format.id)}
-                  className={cn(
-                    "flex items-start gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all",
-                    "hover:bg-muted/50",
-                    selectedFormats.includes(format.id)
-                      ? "border-primary bg-primary/5"
-                      : "border-muted",
-                    format.id === "cut_moments" && "col-span-2 md:col-span-1 bg-gradient-to-r from-red-500/5 to-orange-500/5"
-                  )}
-                >
-                  <Checkbox
-                    checked={selectedFormats.includes(format.id)}
-                    className="mt-0.5"
-                  />
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      {format.id === "cut_moments" && (
-                        <Scissors className="h-4 w-4 text-red-500" />
-                      )}
-                      <p className="font-medium text-sm">{format.label}</p>
+          <CardContent className="space-y-6">
+            {/* Format selection */}
+            <div className="space-y-3">
+              <p className="text-sm font-medium">Formatos para gerar</p>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                {CONTENT_FORMATS.map((format) => (
+                  <div
+                    key={format.id}
+                    onClick={() => toggleFormat(format.id)}
+                    className={cn(
+                      "flex items-start gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all",
+                      "hover:bg-muted/50",
+                      selectedFormats.includes(format.id)
+                        ? "border-primary bg-primary/5"
+                        : "border-muted",
+                      format.id === "cut_moments" && "col-span-2 md:col-span-1 bg-gradient-to-r from-red-500/5 to-orange-500/5"
+                    )}
+                  >
+                    <Checkbox
+                      checked={selectedFormats.includes(format.id)}
+                      className="mt-0.5"
+                    />
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        {format.id === "cut_moments" && (
+                          <Scissors className="h-4 w-4 text-red-500" />
+                        )}
+                        <p className="font-medium text-sm">{format.label}</p>
+                      </div>
+                      <p className="text-xs text-muted-foreground">{format.description}</p>
                     </div>
-                    <p className="text-xs text-muted-foreground">{format.description}</p>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
 
+            {/* Planning destination */}
+            <PlanningDestinationSelector
+              destination={planningDestination}
+              onChange={setPlanningDestination}
+              columns={columns}
+              disabled={isGenerating}
+            />
+
+            {/* Generate button */}
             <Button
               onClick={handleGenerate}
               disabled={isGenerating || selectedFormats.length === 0}
@@ -384,6 +386,7 @@ export function ContentRepurposeTool({ clientId }: ContentRepurposeToolProps) {
                 <>
                   <Sparkles className="h-4 w-4 mr-2" />
                   Gerar {selectedFormats.length} conteúdo{selectedFormats.length !== 1 ? 's' : ''}
+                  {planningDestination.enabled && " e adicionar ao planejamento"}
                 </>
               )}
             </Button>
