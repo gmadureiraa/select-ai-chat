@@ -28,6 +28,7 @@ export interface ParsedCommand {
   action: "create_batch_cards" | "create_single_card" | "unknown";
   quantity: number;
   format: MentionFormat | null;
+  clientId: string | null;
   clientName: string | null;
   column: MentionColumn | null;
   assigneeName: string | null;
@@ -82,6 +83,7 @@ export function useKAIMentionParser() {
     const mentions: ParsedMention[] = [];
     let format: MentionFormat | null = null;
     let clientName: string | null = null;
+    let clientId: string | null = null;
     let column: MentionColumn | null = null;
     let assigneeName: string | null = null;
     let quantity = 1;
@@ -90,13 +92,14 @@ export function useKAIMentionParser() {
     // Normalize message for easier parsing
     const normalizedMessage = message.toLowerCase();
     
-    // 1. Detect quantity pattern: "criar 5 @cards", "5 cards", "criar 10 ideias"
+    // 1. Detect quantity pattern: "criar 5 @cards", "5 cards", "criar 10 ideias", "2 @[cards]"
     const quantityPatterns = [
-      /criar\s+(\d+)\s*@?cards?/i,
-      /(\d+)\s*@?cards?/i,
+      /criar\s+(\d+)\s*@?\[?cards?\]?/i,
+      /(\d+)\s*@?\[?cards?\]?/i,
       /criar\s+(\d+)\s*ideias?/i,
       /gerar\s+(\d+)\s*ideias?/i,
       /(\d+)\s*ideias?\s+de/i,
+      /(\d+)\s*conteúdos?/i,
     ];
     
     for (const pattern of quantityPatterns) {
@@ -109,24 +112,46 @@ export function useKAIMentionParser() {
       }
     }
     
-    // 2. Detect @card or @cards mentions
-    const cardMention = message.match(/@cards?/i);
-    if (cardMention) {
-      if (action === "unknown") {
-        action = "create_single_card";
+    // 2. Detect @card, @cards, @[card], @[cards] mentions
+    const cardMentionPatterns = [
+      /@\[cards?\]/i,
+      /@cards?/i,
+    ];
+    
+    for (const pattern of cardMentionPatterns) {
+      const cardMatch = message.match(pattern);
+      if (cardMatch) {
+        if (action === "unknown") {
+          action = "create_single_card";
+        }
+        mentions.push({ type: "card", value: "card", original: cardMatch[0] });
+        break;
       }
-      mentions.push({ type: "card", value: "card", original: cardMention[0] });
     }
     
-    // 3. Detect format @mentions: @carrossel, @post, @reels, etc.
-    const formatPattern = /@(carrossel|carousel|post|posts|reels?|stories|story|newsletter|newsletters?|threads?|tweets?|blog)/gi;
+    // 3. Detect format @mentions: @carrossel, @[carrossel], @post, @[post], etc.
+    // First try bracketed format
+    const bracketFormatPattern = /@\[(carrossel|carousel|post|posts|reels?|stories|story|newsletter|newsletters?|threads?|tweets?|blog)\]/gi;
     let formatMatch;
-    while ((formatMatch = formatPattern.exec(message)) !== null) {
+    while ((formatMatch = bracketFormatPattern.exec(message)) !== null) {
       const formatKey = formatMatch[1].toLowerCase();
       const detectedFormat = FORMAT_KEYWORDS[formatKey];
       if (detectedFormat) {
         format = detectedFormat;
         mentions.push({ type: "format", value: detectedFormat, original: formatMatch[0] });
+      }
+    }
+    
+    // Then try non-bracketed format if not found
+    if (!format) {
+      const formatPattern = /@(carrossel|carousel|post|posts|reels?|stories|story|newsletter|newsletters?|threads?|tweets?|blog)/gi;
+      while ((formatMatch = formatPattern.exec(message)) !== null) {
+        const formatKey = formatMatch[1].toLowerCase();
+        const detectedFormat = FORMAT_KEYWORDS[formatKey];
+        if (detectedFormat) {
+          format = detectedFormat;
+          mentions.push({ type: "format", value: detectedFormat, original: formatMatch[0] });
+        }
       }
     }
     
@@ -142,27 +167,59 @@ export function useKAIMentionParser() {
       }
     }
     
-    // 5. Detect client @mentions: @layla, @hugo, etc.
-    const clientPattern = /@(\w+)/gi;
-    let clientMatch;
-    while ((clientMatch = clientPattern.exec(message)) !== null) {
-      const mentionValue = clientMatch[1].toLowerCase();
+    // 5. Detect client @mentions: @[Layla], @[Hugo Silva], @layla, etc.
+    // First, try bracketed mentions for client names (can include spaces)
+    const bracketClientPattern = /@\[([^\]]+)\]/gi;
+    let bracketMatch;
+    while ((bracketMatch = bracketClientPattern.exec(message)) !== null) {
+      const mentionValue = bracketMatch[1];
+      const mentionValueLower = mentionValue.toLowerCase();
       
       // Skip if it's a known keyword (format, card, column)
-      if (FORMAT_KEYWORDS[mentionValue] || mentionValue === "cards" || mentionValue === "card" || COLUMN_KEYWORDS[mentionValue]) {
+      if (FORMAT_KEYWORDS[mentionValueLower] || 
+          mentionValueLower === "cards" || mentionValueLower === "card" || 
+          COLUMN_KEYWORDS[mentionValueLower]) {
         continue;
       }
       
       // Check if it matches a client name
       const matchedClient = clients.find(c => 
-        c.name.toLowerCase() === mentionValue || 
-        c.name.toLowerCase().includes(mentionValue) ||
-        mentionValue.includes(c.name.toLowerCase().split(" ")[0])
+        c.name.toLowerCase() === mentionValueLower || 
+        c.name.toLowerCase().includes(mentionValueLower) ||
+        mentionValueLower.includes(c.name.toLowerCase().split(" ")[0])
       );
       
       if (matchedClient) {
         clientName = matchedClient.name;
-        mentions.push({ type: "client", value: matchedClient.id, original: clientMatch[0] });
+        clientId = matchedClient.id;
+        mentions.push({ type: "client", value: matchedClient.id, original: bracketMatch[0] });
+      }
+    }
+    
+    // Then try non-bracketed @mentions
+    if (!clientName) {
+      const clientPattern = /@(\w+)/gi;
+      let clientMatch;
+      while ((clientMatch = clientPattern.exec(message)) !== null) {
+        const mentionValue = clientMatch[1].toLowerCase();
+        
+        // Skip if it's a known keyword (format, card, column)
+        if (FORMAT_KEYWORDS[mentionValue] || mentionValue === "cards" || mentionValue === "card" || COLUMN_KEYWORDS[mentionValue]) {
+          continue;
+        }
+        
+        // Check if it matches a client name
+        const matchedClient = clients.find(c => 
+          c.name.toLowerCase() === mentionValue || 
+          c.name.toLowerCase().includes(mentionValue) ||
+          mentionValue.includes(c.name.toLowerCase().split(" ")[0])
+        );
+        
+        if (matchedClient) {
+          clientName = matchedClient.name;
+          clientId = matchedClient.id;
+          mentions.push({ type: "client", value: matchedClient.id, original: clientMatch[0] });
+        }
       }
     }
     
@@ -184,6 +241,7 @@ export function useKAIMentionParser() {
           );
           if (matchedClient) {
             clientName = matchedClient.name;
+            clientId = matchedClient.id;
             mentions.push({ type: "client", value: matchedClient.id, original: match[0] });
             break;
           }
@@ -191,22 +249,35 @@ export function useKAIMentionParser() {
       }
     }
     
-    // 7. Detect column mentions: "em ideias", "em rascunho", "na coluna ideias"
+    // 7. Detect column mentions: "@[ideias]", "em ideias", "em rascunho", "na coluna ideias"
+    // First try bracketed format
     for (const [keyword, columnType] of Object.entries(COLUMN_KEYWORDS)) {
-      const columnPatterns = [
-        new RegExp(`@${keyword}`, "i"),
-        new RegExp(`(?:em|na|para)\\s+(?:coluna\\s+)?${keyword}`, "i"),
-        new RegExp(`coluna\\s+${keyword}`, "i"),
-      ];
-      
-      for (const pattern of columnPatterns) {
-        if (pattern.test(message)) {
-          column = columnType;
-          mentions.push({ type: "column", value: columnType, original: keyword });
-          break;
-        }
+      const bracketPattern = new RegExp(`@\\[${keyword}\\]`, "i");
+      if (bracketPattern.test(message)) {
+        column = columnType;
+        mentions.push({ type: "column", value: columnType, original: `@[${keyword}]` });
+        break;
       }
-      if (column) break;
+    }
+    
+    // Then try other patterns
+    if (!column) {
+      for (const [keyword, columnType] of Object.entries(COLUMN_KEYWORDS)) {
+        const columnPatterns = [
+          new RegExp(`@${keyword}`, "i"),
+          new RegExp(`(?:em|na|para)\\s+(?:coluna\\s+)?${keyword}`, "i"),
+          new RegExp(`coluna\\s+${keyword}`, "i"),
+        ];
+        
+        for (const pattern of columnPatterns) {
+          if (pattern.test(message)) {
+            column = columnType;
+            mentions.push({ type: "column", value: columnType, original: keyword });
+            break;
+          }
+        }
+        if (column) break;
+      }
     }
     
     // 8. Detect scheduling hints
@@ -273,6 +344,7 @@ export function useKAIMentionParser() {
       action,
       quantity,
       format,
+      clientId,
       clientName,
       column,
       assigneeName,
@@ -288,13 +360,14 @@ export function useKAIMentionParser() {
   // Check if a message is a planning command
   const isPlanningCommand = useCallback((message: string): boolean => {
     const planningIndicators = [
-      /criar\s+\d*\s*@?cards?/i,
-      /@cards?/i,
+      /criar\s+\d*\s*@?\[?cards?\]?/i,
+      /@\[?cards?\]?/i,
       /criar\s+\d+\s*ideias?/i,
       /gerar\s+\d+\s*ideias?/i,
       /planejamento/i,
       /no\s+planejamento/i,
       /para\s+(?:o\s+)?planejamento/i,
+      /criar\s+\d+\s*conteúdos?/i,
     ];
     
     return planningIndicators.some(pattern => pattern.test(message));
