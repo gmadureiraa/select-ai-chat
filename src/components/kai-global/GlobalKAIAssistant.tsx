@@ -34,8 +34,6 @@ export function GlobalKAIAssistant() {
     clients: workspaceClients,
     chatMode,
     setChatMode,
-    deliveryMode,
-    setDeliveryMode,
   } = useGlobalKAI();
 
   const { clients: clientsData } = useClients();
@@ -75,8 +73,6 @@ export function GlobalKAIAssistant() {
         selectedClientName={selectedClientName}
         clients={workspaceClients}
         onClientChange={setSelectedClientId}
-        deliveryMode={deliveryMode}
-        onDeliveryModeChange={setDeliveryMode}
         chatMode={chatMode}
       >
         {/* Chat messages with multi-agent progress */}

@@ -9,7 +9,7 @@ import { ActionMenuPopover } from "./ActionMenuPopover";
 import { CitationPopover, CitationItem } from "./CitationPopover";
 import { CitationChip, Citation } from "./CitationChip";
 
-export type ChatMode = "content" | "ideas" | "free_chat" | "image";
+import { ChatMode } from "./ModeSelector";
 
 interface FloatingInputProps {
   onSend: (message: string, imageUrls?: string[], quality?: "fast" | "high", mode?: ChatMode, citations?: Citation[]) => void;
@@ -62,8 +62,7 @@ export const FloatingInput = ({
   const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [uploadingImages, setUploadingImages] = useState(false);
   const [mode, setMode] = useState<ChatMode>(
-    templateType === "free_chat" ? "free_chat" : 
-    templateType === "image" ? "image" : "content"
+    templateType === "free_chat" ? "free_chat" : "ideas"
   );
   const [citations, setCitations] = useState<Citation[]>([]);
   const [showCitationPopover, setShowCitationPopover] = useState(false);
@@ -80,10 +79,8 @@ export const FloatingInput = ({
   useEffect(() => {
     if (templateType === "free_chat") {
       setMode("free_chat");
-    } else if (templateType === "image") {
-      setMode("image");
-    } else if (mode === "free_chat" || mode === "image") {
-      setMode("content");
+    } else if (mode === "free_chat") {
+      setMode("ideas");
     }
   }, [templateType, mode]);
 
@@ -170,16 +167,12 @@ export const FloatingInput = ({
 
   // Determinar modo baseado nas citações
   const getEffectiveModeFromCitations = useCallback((citationList: Citation[]): ChatMode => {
-    // Se tem @gerar_imagem, modo imagem
-    const hasImageCitation = citationList.some(c => c.id === "format_gerar_imagem" || c.category === "imagem");
-    if (hasImageCitation) return "image";
-    
     // Se tem @ideias, modo ideias
     const hasIdeasCitation = citationList.some(c => c.id === "format_ideias" || c.category === "ideias");
     if (hasIdeasCitation) return "ideas";
     
-    // Se tem algum formato (exceto ideias e imagem), modo conteúdo
-    const hasFormatCitation = citationList.some(c => c.type === "format" && c.category !== "ideias" && c.category !== "imagem");
+    // Se tem algum formato de conteúdo, modo conteúdo
+    const hasFormatCitation = citationList.some(c => c.type === "format" && c.category !== "ideias");
     if (hasFormatCitation) return "content";
     
     // Se não tem formato, mas pode ter itens de biblioteca, chat livre
@@ -216,11 +209,9 @@ export const FloatingInput = ({
       setUploadingImages(false);
     }
 
-    // Determinar modo baseado nas citações se não for template de imagem
+    // Determinar modo baseado nas citações
     let effectiveMode: ChatMode;
-    if (templateType === "image") {
-      effectiveMode = "image";
-    } else if (citations.length > 0) {
+    if (citations.length > 0) {
       // Se tem citações, o modo é determinado por elas
       effectiveMode = getEffectiveModeFromCitations(citations);
     } else {
@@ -228,8 +219,7 @@ export const FloatingInput = ({
       effectiveMode = "free_chat";
     }
     
-    const quality = templateType === "image" ? "high" : 
-                    effectiveMode === "content" ? "high" : "fast";
+    const quality = effectiveMode === "content" ? "high" : "fast";
     
     onSend(trimmed || "Analise esta imagem", imageUrls, quality, effectiveMode, citations.length > 0 ? citations : undefined);
     setInput("");

@@ -1,19 +1,21 @@
-import { useRef, useEffect, useCallback } from "react";
+import { useRef, useEffect, useCallback, useState } from "react";
 import { Trash2, Download, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useClientChat } from "@/hooks/useClientChat";
-import { FloatingInput, ChatMode } from "@/components/chat/FloatingInput";
+import { FloatingInput } from "@/components/chat/FloatingInput";
 import { Citation } from "@/components/chat/CitationChip";
 import { EnhancedMessageBubble } from "@/components/chat/EnhancedMessageBubble";
 import { MinimalProgress } from "@/components/chat/MinimalProgress";
 import { QuickSuggestions } from "@/components/chat/QuickSuggestions";
+import { ModeSelector, ChatMode } from "@/components/chat/ModeSelector";
 import { Client } from "@/hooks/useClients";
 import KaleidosLogo from "@/assets/kaleidos-logo.svg";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { exportToMarkdown, exportToPDF, downloadFile } from "@/lib/exportConversation";
+import { supabase } from "@/integrations/supabase/client";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -36,12 +38,15 @@ export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  
+  // Chat mode state - synchronized with the 4-mode system
+  const [chatMode, setChatMode] = useState<ChatMode>("ideas");
 
   // Always use the single default conversation per client (no sidebar, no multiple conversations)
   const {
     messages,
     isLoading,
-    sendMessage,
+    sendMessage: baseSendMessage,
     clearConversation,
     conversationId,
     currentStep,
@@ -87,9 +92,71 @@ export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
     return () => clearTimeout(timer);
   }, [scrollToBottom]);
 
+  // Enhanced send that handles performance mode specially
   const handleSend = async (content: string, images?: string[], quality?: "fast" | "high", mode?: ChatMode, citations?: Citation[]) => {
     if (!content.trim() && (!images || images.length === 0)) return;
-    await sendMessage(content, images, quality, mode, citations);
+    
+    const effectiveMode = mode || chatMode;
+    
+    // Performance mode - call kai-metrics-agent
+    if (effectiveMode === "performance") {
+      try {
+        // Add user message first
+        await baseSendMessage(content, images, "fast", "free_chat", citations);
+        
+        const response = await supabase.functions.invoke("kai-metrics-agent", {
+          body: {
+            clientId,
+            question: content,
+          },
+        });
+        
+        if (response.error) {
+          throw new Error(response.error.message);
+        }
+        
+        // Handle response
+        let responseContent = "";
+        const reader = response.data?.body?.getReader();
+        if (reader) {
+          const decoder = new TextDecoder();
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            responseContent += decoder.decode(value, { stream: true });
+          }
+        } else if (typeof response.data === "string") {
+          responseContent = response.data;
+        } else {
+          responseContent = response.data?.content || "Não foi possível analisar as métricas.";
+        }
+        
+        // Insert assistant response
+        if (conversationId) {
+          await supabase.from("messages").insert({
+            conversation_id: conversationId,
+            role: "assistant",
+            content: responseContent,
+          });
+          queryClient.invalidateQueries({ queryKey: ["messages", conversationId] });
+        }
+      } catch (error) {
+        console.error("Performance analysis error:", error);
+        toast({
+          title: "Erro na análise",
+          description: error instanceof Error ? error.message : "Erro desconhecido",
+          variant: "destructive",
+        });
+      }
+      return;
+    }
+    
+    // Map mode to the expected pipeline
+    const pipelineMode = effectiveMode === "content" ? "content" 
+                       : effectiveMode === "ideas" ? "ideas" 
+                       : "free_chat";
+    
+    await baseSendMessage(content, images, quality, pipelineMode, citations);
   };
 
   // Clear all messages from the conversation (but keep the conversation itself)
@@ -239,7 +306,7 @@ export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
 
         {/* Floating Input - Bottom */}
         <div className="border-t border-border/10 bg-background/60 backdrop-blur-sm">
-          <div className="max-w-3xl mx-auto">
+          <div className="max-w-3xl mx-auto space-y-2 py-3">
             <FloatingInput
               onSend={handleSend}
               disabled={isLoading}
@@ -248,6 +315,14 @@ export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
               contentLibrary={contentLibrary || []}
               referenceLibrary={referenceLibrary || []}
             />
+            {/* Mode Selector - 4 modes */}
+            <div className="flex justify-center px-4">
+              <ModeSelector
+                mode={chatMode}
+                onChange={setChatMode}
+                disabled={isLoading}
+              />
+            </div>
           </div>
         </div>
       </div>

@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Sparkles, Maximize2, LayoutGrid, MessageSquare } from "lucide-react";
+import { X, Sparkles, Maximize2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
@@ -10,9 +10,6 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
-import { DeliveryMode } from "@/contexts/GlobalKAIContext";
 
 interface GlobalKAIPanelProps {
   isOpen: boolean;
@@ -23,8 +20,6 @@ interface GlobalKAIPanelProps {
   selectedClientName?: string;
   clients?: { id: string; name: string; avatar_url?: string }[];
   onClientChange?: (clientId: string) => void;
-  deliveryMode?: DeliveryMode;
-  onDeliveryModeChange?: (mode: DeliveryMode) => void;
   chatMode?: "ideas" | "content" | "performance" | "free_chat";
 }
 
@@ -37,8 +32,6 @@ export function GlobalKAIPanel({
   selectedClientName,
   clients = [],
   onClientChange,
-  deliveryMode = "chat",
-  onDeliveryModeChange,
   chatMode,
 }: GlobalKAIPanelProps) {
   const panelRef = useRef<HTMLDivElement>(null);
@@ -80,12 +73,6 @@ export function GlobalKAIPanel({
       navigate(`/${workspace.slug}?${params.toString()}`);
     }
   };
-
-  const handleDeliveryModeToggle = (checked: boolean) => {
-    onDeliveryModeChange?.(checked ? "planning" : "chat");
-  };
-
-  const isExecutorMode = deliveryMode === "planning";
 
   return (
     <AnimatePresence>
@@ -165,46 +152,6 @@ export function GlobalKAIPanel({
                   <X className="h-4 w-4" />
                 </Button>
               </div>
-            </div>
-
-            {/* Delivery Mode Toggle */}
-            <div className="px-4 py-2 border-b border-border bg-muted/30">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  {isExecutorMode ? (
-                    <LayoutGrid className="h-4 w-4 text-primary" />
-                  ) : (
-                    <MessageSquare className="h-4 w-4 text-muted-foreground" />
-                  )}
-                  <Label 
-                    htmlFor="delivery-mode" 
-                    className={cn(
-                      "text-xs font-medium cursor-pointer",
-                      isExecutorMode ? "text-primary" : "text-muted-foreground"
-                    )}
-                  >
-                    {isExecutorMode ? "Criar no Planejamento" : "Responder no Chat"}
-                  </Label>
-                </div>
-                <Switch
-                  id="delivery-mode"
-                  checked={isExecutorMode}
-                  onCheckedChange={handleDeliveryModeToggle}
-                  className="data-[state=checked]:bg-primary"
-                />
-              </div>
-              {isExecutorMode && (
-                <p className="text-[10px] text-muted-foreground mt-1">
-                  {chatMode === "ideas" 
-                    ? "Ideias serão criadas como cards automaticamente"
-                    : chatMode === "content"
-                    ? "Conteúdo será gerado e salvo no planejamento"
-                    : chatMode === "performance"
-                    ? "Modo de análise - dados não são salvos automaticamente"
-                    : "Respostas serão exibidas no chat"
-                  }
-                </p>
-              )}
             </div>
 
             {/* Content */}

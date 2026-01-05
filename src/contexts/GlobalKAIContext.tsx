@@ -22,10 +22,6 @@ import { useKAIMentionParser, ParsedCommand } from "@/hooks/useKAIMentionParser"
 import { SuccessCardPayload } from "@/components/chat/ResponseCard";
 
 const LOCAL_STORAGE_KEY = "kai-selected-client";
-const DELIVERY_MODE_KEY = "kai-delivery-mode";
-
-// Delivery modes
-export type DeliveryMode = "chat" | "planning";
 
 // Safe actions that don't require confirmation (can be undone)
 const SAFE_AUTO_EXECUTE_ACTIONS = [
@@ -110,10 +106,6 @@ interface GlobalKAIContextValue {
   chatMode: "ideas" | "content" | "performance" | "free_chat";
   setChatMode: (mode: "ideas" | "content" | "performance" | "free_chat") => void;
   
-  // Delivery mode (NEW)
-  deliveryMode: DeliveryMode;
-  setDeliveryMode: (mode: DeliveryMode) => void;
-  
   // Workflow state
   isIdeaMode: boolean;
   isFreeChatMode: boolean;
@@ -150,12 +142,6 @@ export function GlobalKAIProvider({ children }: GlobalKAIProviderProps) {
   
   // Chat mode - default to "ideas" (mais comum)
   const [chatMode, setChatMode] = useState<"ideas" | "content" | "performance" | "free_chat">("ideas");
-  
-  // Delivery mode - NEW: persisted in localStorage
-  const [deliveryMode, setDeliveryModeState] = useState<DeliveryMode>(() => {
-    const saved = localStorage.getItem(DELIVERY_MODE_KEY);
-    return (saved === "planning" ? "planning" : "chat") as DeliveryMode;
-  });
   
   // Workspace data
   const [assignees, setAssignees] = useState<AssigneeItem[]>([]);
@@ -197,11 +183,6 @@ export function GlobalKAIProvider({ children }: GlobalKAIProviderProps) {
     isFreeChatMode,
   } = clientChat;
 
-  // Delivery mode setter with persistence
-  const setDeliveryMode = useCallback((mode: DeliveryMode) => {
-    setDeliveryModeState(mode);
-    localStorage.setItem(DELIVERY_MODE_KEY, mode);
-  }, []);
 
   // Fetch user's workspace on mount
   useEffect(() => {
@@ -536,100 +517,6 @@ export function GlobalKAIProvider({ children }: GlobalKAIProviderProps) {
     const allAttachments = [...attachedFiles, ...fileAttachments];
 
     // ============================================
-    // EXECUTOR MODE: Create cards directly without chat responses
-    // ============================================
-    if (deliveryMode === "planning") {
-      console.log("[GlobalKAI] Executor mode active, chatMode:", chatMode);
-      
-      // Parse the message for command details
-      const parsedCommand = parseMessage(text, clients);
-      
-      // If Ideas mode OR detected planning command, create cards directly
-      if (chatMode === "ideas" || isPlanningCommand(text)) {
-        setActionStatus("executing");
-        
-        // Insert user message first
-        await insertMessage("user", text);
-        
-        // Ensure we have a quantity (default to 3 for ideas mode)
-        if (parsedCommand.quantity <= 1 && chatMode === "ideas") {
-          parsedCommand.quantity = 3;
-          parsedCommand.action = "create_batch_cards";
-        }
-        
-        // Default column to "ideias" if not specified
-        if (!parsedCommand.column) {
-          parsedCommand.column = "ideias";
-        }
-        
-        // Execute smart planner
-        const result = await executeSmartPlanner(parsedCommand, selectedClientId);
-        
-        if (result.success && result.payload) {
-          // Invalidate planning items to refresh the board
-          queryClient.invalidateQueries({ queryKey: ["planning-items"] });
-          
-          // Build summary message
-          const summaryContent = `✅ **${result.payload.totalCount} cards criados** para ${result.payload.clientName} na coluna "${result.payload.column}"!\n\n` +
-            result.payload.cards.slice(0, 5).map((c, i) => `${i + 1}. **${c.title}** (${c.format})`).join("\n") +
-            (result.payload.cards.length > 5 ? `\n\n... e mais ${result.payload.cards.length - 5}` : "");
-          
-          // Insert assistant message with summary
-          await insertMessage("assistant", summaryContent);
-          
-          toast.success(`${result.payload.totalCount} cards criados!`, {
-            action: {
-              label: "Ver Planejamento",
-              onClick: () => navigate(`?client=${selectedClientId}&tab=planning`),
-            },
-          });
-          
-          setActionStatus("completed");
-          setTimeout(() => setActionStatus("idle"), 1500);
-        } else {
-          // Insert error message
-          await insertMessage("assistant", `❌ Erro ao criar cards: ${result.error}`);
-          toast.error(result.error || "Erro ao criar cards");
-          setActionStatus("idle");
-        }
-        
-        setAttachedFiles([]);
-        return;
-      }
-      
-      // If Content mode in executor, use multi-agent pipeline and create card after
-      if (chatMode === "content") {
-        setActionStatus("executing");
-        
-        // Upload images if any
-        let imageUrls: string[] = [];
-        const imageAttachments = allAttachments.filter(f => f.type.startsWith("image/"));
-        if (imageAttachments.length > 0) {
-          try {
-            const uploadPromises = imageAttachments.map(async (attachment) => {
-              const { signedUrl, error } = await uploadAndGetSignedUrl(attachment.file, "chat-images");
-              if (error) return null;
-              return signedUrl;
-            });
-            const results = await Promise.all(uploadPromises);
-            imageUrls = results.filter((url): url is string => url !== null);
-          } catch (uploadError) {
-            console.error("[GlobalKAI] Error uploading images:", uploadError);
-          }
-        }
-        
-        // Use the chat pipeline to generate content
-        await clientChatSendMessage(text, imageUrls.length > 0 ? imageUrls : undefined, "fast", "content", citations);
-        
-        // After content is generated, we'll let the user manually add to planning for now
-        // (Full auto-create-card-after-content requires more complex state tracking)
-        setActionStatus("idle");
-        setAttachedFiles([]);
-        return;
-      }
-    }
-
-    // ============================================
     // Check for planning commands with @mentions (legacy/fallback)
     // These are auto-executed without confirmation
     // ============================================
@@ -828,7 +715,7 @@ export function GlobalKAIProvider({ children }: GlobalKAIProviderProps) {
       toast.error(error instanceof Error ? error.message : "Erro ao processar mensagem");
       setActionStatus("idle");
     }
-  }, [selectedClientId, attachedFiles, detectAction, prepareAction, clientChatSendMessage, chatMode, conversationId, isPlanningCommand, parseMessage, clients, executeSmartPlanner, queryClient, navigate, deliveryMode, insertMessage]);
+  }, [selectedClientId, attachedFiles, detectAction, prepareAction, clientChatSendMessage, chatMode, conversationId, isPlanningCommand, parseMessage, clients, executeSmartPlanner, queryClient, navigate, insertMessage]);
 
   // Clear conversation
   const clearConversation = useCallback(() => {
@@ -962,10 +849,6 @@ export function GlobalKAIProvider({ children }: GlobalKAIProviderProps) {
     // Mode selection
     chatMode,
     setChatMode,
-    
-    // Delivery mode (NEW)
-    deliveryMode,
-    setDeliveryMode,
     
     // Workflow state
     isIdeaMode,
