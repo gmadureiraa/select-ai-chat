@@ -130,7 +130,7 @@ export function GlobalKAIInput({
     setMentionSearchQuery("");
   };
 
-  const handleCitationSelect = (item: { id: string; title: string; type: "content_library" | "reference_library" | "format" | "assignee" | "client"; category: string }) => {
+  const handleCitationSelect = (item: { id: string; title: string; type: "content_library" | "reference_library" | "format" | "assignee" | "client" | "action"; category: string }) => {
     // Add citation
     const newCitation: Citation = {
       id: item.id,
