@@ -164,8 +164,6 @@ export function usePlanningContentGeneration() {
 
       setIsFetchingReference(false);
 
-      // Map to agent type
-      const contentAgentType = mapToAgentType(contentType);
       
       // Build prompt
       const prompt = buildPrompt(
@@ -175,15 +173,15 @@ export function usePlanningContentGeneration() {
         allReferenceContent.length > 0 ? allReferenceContent.join('\n\n---\n\n') : undefined
       );
 
-      console.log("[PlanningContent] Generating with content type:", contentAgentType, "hasReference:", allReferenceContent.length > 0);
+      console.log("[PlanningContent] Generating with content type:", contentType, "hasReference:", allReferenceContent.length > 0);
 
-      const { data, error } = await supabase.functions.invoke("execute-agent", {
+      // Call kai-content-agent which handles streaming and context
+      const { data, error } = await supabase.functions.invoke("kai-content-agent", {
         body: {
-          agentType: "content_writer",
-          contentType: contentAgentType,
-          userMessage: prompt,
           clientId,
-          includeContext: true
+          request: prompt,
+          format: contentType,
+          platform: getPlatformFromContentType(contentType)
         }
       });
 
@@ -192,11 +190,31 @@ export function usePlanningContentGeneration() {
         throw error;
       }
 
-      if (!data?.success) {
-        throw new Error(data?.error || "Erro ao gerar conteúdo");
+      // Handle streaming response
+      let generatedContent = "";
+      
+      if (typeof data === "string") {
+        // Parse SSE response
+        const lines = data.split("\n");
+        for (const line of lines) {
+          if (line.startsWith("data: ") && !line.includes("[DONE]")) {
+            try {
+              const jsonStr = line.slice(6);
+              const parsed = JSON.parse(jsonStr);
+              const content = parsed.choices?.[0]?.delta?.content;
+              if (content) {
+                generatedContent += content;
+              }
+            } catch {
+              // Skip unparseable lines
+            }
+          }
+        }
+      } else if (data?.error) {
+        throw new Error(data.error);
+      } else {
+        generatedContent = data?.content || data?.output || "";
       }
-
-      const generatedContent = data.output || data.content || "";
 
       if (generatedContent) {
         const imageCount = extractedImages.length;
@@ -241,24 +259,24 @@ export function usePlanningContentGeneration() {
   };
 }
 
-function mapToAgentType(contentType: string): string {
-  const contentTypeMapping: Record<string, string> = {
-    tweet: "tweet_agent",
-    thread: "thread_agent",
-    x_article: "article_agent",
-    linkedin_post: "linkedin_agent",
-    carousel: "carousel_agent",
-    stories: "static_post_agent",
-    static_image: "static_post_agent",
-    instagram_post: "static_post_agent",
-    newsletter: "newsletter_agent",
-    blog_post: "blog_agent",
-    short_video: "reels_agent",
-    long_video: "long_video_agent",
-    other: "static_post_agent"
+function getPlatformFromContentType(contentType: string): string {
+  const platformMapping: Record<string, string> = {
+    tweet: "Twitter/X",
+    thread: "Twitter/X",
+    x_article: "Twitter/X",
+    linkedin_post: "LinkedIn",
+    carousel: "Instagram",
+    stories: "Instagram",
+    static_image: "Instagram",
+    instagram_post: "Instagram",
+    newsletter: "Email",
+    blog_post: "Blog",
+    short_video: "Instagram/TikTok",
+    long_video: "YouTube",
+    other: "Geral"
   };
 
-  return contentTypeMapping[contentType] || "static_post_agent";
+  return platformMapping[contentType] || "Instagram";
 }
 
 function buildPrompt(
