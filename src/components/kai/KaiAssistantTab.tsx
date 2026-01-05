@@ -219,6 +219,7 @@ export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
                     onRegenerate={index === messages.length - 1 && message.role === "assistant" ? regenerateLastMessage : undefined}
                     isLastMessage={index === messages.length - 1}
                     onSendMessage={handleSend}
+                    disableAutoPostDetection={true}
                   />
                 ))}
 

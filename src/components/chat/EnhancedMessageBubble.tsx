@@ -89,11 +89,8 @@ export const EnhancedMessageBubble = ({
     return parseArtifacts(content);
   }, [content, isUser]);
 
-  // Parse content for social posts (can be disabled via prop)
-  const { posts: detectedPosts } = useMemo(() => {
-    if (isUser || disableAutoPostDetection) return { posts: [] };
-    return parseContentForPosts(content);
-  }, [content, isUser, disableAutoPostDetection]);
+  // Social post detection completely disabled - always return empty
+  const detectedPosts: any[] = [];
 
   // Check if content is substantial (could be a post or content worth action)
   const isSubstantialContent = !isUser && content.length > 100 && !hideContentActions;
@@ -241,22 +238,7 @@ export const EnhancedMessageBubble = ({
             </div>
           )}
 
-          {/* Detected social posts */}
-          {detectedPosts.length > 0 && (
-            <div className="space-y-3">
-              {detectedPosts.map((post, index) => (
-                <div key={index}>
-                  <PostPreviewCard
-                    platform={post.platform}
-                    content={post.content}
-                    authorName={clientName}
-                    authorHandle={`@${clientName?.toLowerCase().replace(/\s+/g, "") || "handle"}`}
-                    imageUrl={hasImages ? imageUrls?.[0] : undefined}
-                  />
-                </div>
-              ))}
-            </div>
-          )}
+          {/* Social post preview removed - just show formatted text */}
 
           {/* Artifacts (documentos, tabelas, etc) */}
           {artifacts.length > 0 && (
