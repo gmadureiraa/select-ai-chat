@@ -110,22 +110,22 @@ Ao entregar uma sequência de stories, use este formato:
 **SEQUÊNCIA:** [X stories]
 
 [STORY 1/5 - CAPA]
-VISUAL: [Descrição do visual]
 TEXTO: [Texto da capa - máx 50 palavras]
 INDICAÇÃO: "1/5" ou "1 de 5"
+VISUAL RECOMENDADO: [Descrição do visual - SEMPRE no final do story]
 
 [STORY 2/5]
-VISUAL: [Descrição]
 TEXTO: [Texto - máx 50 palavras]
 INDICAÇÃO: "2/5"
+VISUAL RECOMENDADO: [Descrição - SEMPRE no final do story]
 
 [...continue para todos os stories...]
 
 [STORY 5/5 - CTA]
-VISUAL: [Descrição]
 TEXTO: [CTA e encerramento]
 INDICAÇÃO: "5/5"
 LINK: [Se aplicável]
+VISUAL RECOMENDADO: [Descrição - SEMPRE no final do story]
 ```
 
 **Exemplo Completo:**
@@ -133,15 +133,15 @@ LINK: [Se aplicável]
 **SEQUÊNCIA:** 5 stories
 
 [STORY 1/5 - CAPA]
-VISUAL: Fundo com cores da marca, texto centralizado grande
 TEXTO: "3 erros que destroem produtividade ⚡"
 INDICAÇÃO: "1/5"
+VISUAL RECOMENDADO: Fundo com cores da marca, texto centralizado grande
 
 [STORY 2/5]
-VISUAL: Texto grande com ícone
 TEXTO: "Erro #1: Multitarefa
 Estudos mostram que reduz produtividade em 40%"
 INDICAÇÃO: "2/5"
+VISUAL RECOMENDADO: Texto grande com ícone de multitarefa
 
 [STORY 3/5]
 VISUAL: Texto grande com ícone

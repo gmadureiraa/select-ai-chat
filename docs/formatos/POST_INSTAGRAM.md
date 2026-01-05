@@ -144,9 +144,6 @@ Ao entregar um post do Instagram, use este formato:
 TEXTO DO POST (Imagem):
 [Texto principal - máx 20 palavras, fonte grande]
 
-DESCRIÇÃO VISUAL:
-[Descrição de como deve ser o design, cores, layout, elementos visuais]
-
 LEGENDA:
 [Primeira linha - gancho irresistível]
 
@@ -155,6 +152,9 @@ LEGENDA:
 [CTA - call-to-action]
 
 #hashtag1 #hashtag2 #hashtag3 #hashtag4 #hashtag5
+
+VISUAL RECOMENDADO:
+[Descrição de como deve ser o design, cores, layout, elementos visuais - SEMPRE no final, após todo o texto]
 ```
 
 **Exemplo Completo:**
@@ -163,15 +163,17 @@ TEXTO DO POST (Imagem):
 "Produtividade não é sobre trabalhar mais.
 É sobre trabalhar melhor."
 
-DESCRIÇÃO VISUAL:
-Fundo com cores da marca (azul suave), texto centralizado em fonte sans-serif grande (36px), tipografia em branco, contraste alto, design minimalista e limpo.
-
 LEGENDA:
 Você já percebeu que trabalhar 12h por dia não te deixa mais produtivo? 🤔
 
 A verdade é que produtividade real vem de foco, não de horas trabalhadas.
 
 Eu aprendi isso da pior forma possível: trabalhando 14h/dia e vendo minha qualidade de trabalho piorar.
+
+[... resto da legenda ...]
+
+VISUAL RECOMENDADO:
+Fundo com cores da marca (azul suave), texto centralizado em fonte sans-serif grande (36px), tipografia em branco, contraste alto, design minimalista e limpo.
 
 Aqui estão as 3 coisas que mudaram tudo:
 

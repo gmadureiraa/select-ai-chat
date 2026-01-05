@@ -190,7 +190,6 @@ Ao entregar um artigo no X, use este formato:
 
 ```
 **TÍTULO:** [Título do artigo - máx 100 caracteres]
-**CAPA:** [Descrição detalhada da imagem de capa]
 
 ---
 
@@ -200,16 +199,11 @@ Ao entregar um artigo no X, use este formato:
 
 [Conteúdo da seção com parágrafos curtos]
 
-[IMAGEM: Descrição detalhada da imagem a inserir aqui]
-[Contexto: Por que esta imagem é relevante neste ponto]
-
 [Continuação do texto...]
 
 ## [Heading 2: Segunda Seção Principal]
 
 [Conteúdo da seção]
-
-[IMAGEM: Descrição da segunda imagem]
 
 [...continue para todas as seções...]
 
@@ -218,6 +212,23 @@ Ao entregar um artigo no X, use este formato:
 [Recapitulação breve]
 [Opinião/posicionamento final]
 [CTA para engajamento - perguntar opinião]
+
+---
+
+## VISUAIS RECOMENDADOS (SEMPRE no final do artigo)
+
+**CAPA:**
+[Descrição detalhada da imagem de capa]
+
+**IMAGEM 1 - Seção [Nome]:**
+[Descrição detalhada da imagem a inserir]
+[Contexto: Por que esta imagem é relevante]
+
+**IMAGEM 2 - Seção [Nome]:**
+[Descrição da segunda imagem]
+[Contexto: Por que esta imagem é relevante]
+
+[Continue para todas as imagens necessárias...]
 ```
 
 **Exemplo Completo:**
