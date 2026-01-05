@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Users, Heart, MessageCircle, Eye, Bookmark, Upload, Calendar, Share2, Target, TrendingUp, Settings, FileText } from "lucide-react";
+import { Users, Heart, MessageCircle, Eye, Bookmark, Upload, Calendar, Share2, Target, TrendingUp, Settings, FileText, MousePointer } from "lucide-react";
 import { GoalsPanel } from "./GoalsPanel";
 import { InstagramPost } from "@/hooks/useInstagramPosts";
 import { PerformanceMetrics } from "@/hooks/usePerformanceMetrics";
@@ -20,6 +20,7 @@ import { PerformanceReportGenerator } from "./PerformanceReportGenerator";
 import { TopContentTable } from "./TopContentTable";
 import { ImportHistoryPanel } from "./ImportHistoryPanel";
 import { DataCompletenessWarning } from "./DataCompletenessWarning";
+import { MetricsDataAlert } from "./MetricsDataAlert";
 import { BestPostsByMetric } from "./BestPostsByMetric";
 import { InstagramStoriesSection } from "./InstagramStoriesSection";
 import { InstagramStoriesCSVUpload } from "./InstagramStoriesCSVUpload";
@@ -385,6 +386,25 @@ export function InstagramDashboard({
     withEngagement: posts.filter(p => p.engagement_rate !== null && p.engagement_rate !== undefined).length,
   }), [posts]);
 
+  // Check which metrics have data for alerts
+  const metricsStatus = useMemo(() => {
+    const hasViews = filteredMetrics.some(m => m.views && m.views > 0);
+    const hasReach = filteredMetrics.some(m => getMetadataValue(m, 'reach') > 0);
+    const hasInteractions = filteredMetrics.some(m => getMetadataValue(m, 'interactions') > 0);
+    const hasLinkClicks = filteredMetrics.some(m => getMetadataValue(m, 'linkClicks') > 0);
+    const hasFollowers = filteredMetrics.some(m => m.subscribers && m.subscribers > 0);
+    const hasProfileVisits = filteredMetrics.some(m => getMetadataValue(m, 'profileVisits') > 0);
+
+    return [
+      { name: 'Visualizações', key: 'views', hasData: hasViews, count: filteredMetrics.filter(m => m.views && m.views > 0).length },
+      { name: 'Alcance', key: 'reach', hasData: hasReach, count: filteredMetrics.filter(m => getMetadataValue(m, 'reach') > 0).length },
+      { name: 'Interações', key: 'interactions', hasData: hasInteractions, count: filteredMetrics.filter(m => getMetadataValue(m, 'interactions') > 0).length },
+      { name: 'Cliques no Link', key: 'linkClicks', hasData: hasLinkClicks, count: filteredMetrics.filter(m => getMetadataValue(m, 'linkClicks') > 0).length },
+      { name: 'Seguidores', key: 'followers', hasData: hasFollowers, count: filteredMetrics.filter(m => m.subscribers && m.subscribers > 0).length },
+      { name: 'Visitas ao Perfil', key: 'profileVisits', hasData: hasProfileVisits, count: filteredMetrics.filter(m => getMetadataValue(m, 'profileVisits') > 0).length },
+    ];
+  }, [filteredMetrics]);
+
   const selectedPeriodLabel = periodOptions.find(p => p.value === period)?.label || "Período";
 
   return (
@@ -451,6 +471,13 @@ export function InstagramDashboard({
           <SmartCSVUpload clientId={clientId} platform="instagram" />
         </CollapsibleContent>
       </Collapsible>
+
+      {/* Data Alert for missing metrics */}
+      <MetricsDataAlert 
+        metrics={metricsStatus} 
+        platform="instagram" 
+        onShowUpload={() => setShowUploadPosts(true)}
+      />
 
       {/* Primary KPIs - 6 cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">

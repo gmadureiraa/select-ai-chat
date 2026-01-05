@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Upload, FileSpreadsheet, Sparkles, X, ArrowLeft, Bot, CheckCircle2, AlertTriangle, XCircle, RefreshCw } from "lucide-react";
 import { useSmartInstagramImport } from "@/hooks/useSmartInstagramImport";
+import { useImportYouTubeCSV } from "@/hooks/useYouTubeMetrics";
 import { useCSVValidation } from "@/hooks/useCSVValidation";
 import { useImportHistory } from "@/hooks/useImportHistory";
 import { CSVValidationAgent } from "@/components/performance/CSVValidationAgent";
@@ -57,7 +58,13 @@ export function SmartCSVUpload({ clientId, platform, onImportComplete }: SmartCS
     });
   }, [clientId, logImport]);
   
-  const importMutation = useSmartInstagramImport(clientId, handleImportComplete);
+  // Use appropriate import hook based on platform
+  const instagramImport = useSmartInstagramImport(clientId, handleImportComplete);
+  const youtubeImport = useImportYouTubeCSV();
+  
+  // Unified import pending state
+  const isImporting = platform === 'youtube' ? youtubeImport.isPending : instagramImport.isPending;
+  
   const { 
     validationResults, 
     isValidating, 
@@ -148,8 +155,45 @@ export function SmartCSVUpload({ clientId, platform, onImportComplete }: SmartCS
     if (hasErrors) return;
     
     try {
-      const results = await importMutation.mutateAsync(selectedFiles);
-      const totalCount = results.reduce((sum, r) => sum + r.count, 0);
+      let totalCount = 0;
+      
+      if (platform === 'youtube') {
+        // YouTube-specific import logic
+        const videos: Array<{
+          video_id: string;
+          title: string;
+          published_at: string | null;
+          duration_seconds: number;
+          total_views: number;
+          watch_hours: number;
+          subscribers_gained: number;
+          impressions: number;
+          click_rate: number;
+        }> = [];
+        const dailyViews: Array<{ date: string; views: number }> = [];
+        
+        // Parse each file
+        for (const file of selectedFiles) {
+          const text = await file.text();
+          const parsed = parseYouTubeCSV(text);
+          videos.push(...parsed.videos);
+          dailyViews.push(...parsed.dailyViews);
+        }
+        
+        if (videos.length > 0 || dailyViews.length > 0) {
+          const result = await youtubeImport.mutateAsync({
+            clientId,
+            videos,
+            dailyViews
+          });
+          totalCount = result.videosImported + result.daysImported;
+          handleImportComplete('youtube', totalCount, selectedFiles.map(f => f.name).join(', '));
+        }
+      } else {
+        // Instagram import (default)
+        const results = await instagramImport.mutateAsync(selectedFiles);
+        totalCount = results.reduce((sum, r) => sum + r.count, 0);
+      }
 
       setImportResult({
         success: true,
@@ -164,11 +208,99 @@ export function SmartCSVUpload({ clientId, platform, onImportComplete }: SmartCS
       clearValidation();
       onImportComplete?.();
     } catch (error) {
+      console.error('Import error:', error);
       setImportResult({
         success: false,
         message: "Erro ao processar arquivos"
       });
       setCurrentStep("validation");
+    }
+  };
+  
+  // Parse YouTube CSV files (both videos and daily views)
+  const parseYouTubeCSV = (text: string): {
+    videos: Array<{
+      video_id: string;
+      title: string;
+      published_at: string | null;
+      duration_seconds: number;
+      total_views: number;
+      watch_hours: number;
+      subscribers_gained: number;
+      impressions: number;
+      click_rate: number;
+    }>;
+    dailyViews: Array<{ date: string; views: number }>;
+  } => {
+    const lines = text.trim().split('\n');
+    if (lines.length < 2) return { videos: [], dailyViews: [] };
+    
+    const firstLine = lines[0].toLowerCase();
+    const isTabSeparated = lines[0].includes('\t');
+    const delimiter = isTabSeparated ? '\t' : ',';
+    
+    const headers = lines[0].split(delimiter).map(h => h.trim().toLowerCase().replace(/^"|"$/g, ''));
+    
+    // Detect if this is a videos file or daily views file
+    const isVideosFile = headers.some(h => 
+      h.includes('video') || h.includes('título') || h.includes('title') || h.includes('watch time')
+    );
+    
+    if (isVideosFile) {
+      const videos = lines.slice(1).map(line => {
+        const values = line.split(delimiter).map(v => v.trim().replace(/^"|"$/g, ''));
+        const row: Record<string, string> = {};
+        headers.forEach((h, i) => { row[h] = values[i] || ''; });
+        
+        let videoId = row['video id'] || row['id do vídeo'] || row['video'] || '';
+        if (videoId.includes('watch?v=')) {
+          videoId = videoId.split('watch?v=')[1]?.split('&')[0] || videoId;
+        }
+        
+        const parseNum = (v: string) => parseInt(v.replace(/[^0-9.-]/g, '')) || 0;
+        const parseDuration = (v: string) => {
+          if (!v) return 0;
+          const parts = v.split(':').map(Number);
+          if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+          if (parts.length === 2) return parts[0] * 60 + parts[1];
+          return parseNum(v);
+        };
+        
+        return {
+          video_id: videoId,
+          title: row['video title'] || row['título do vídeo'] || row['title'] || row['título'] || '',
+          published_at: row['video publish time'] || row['data de publicação'] || row['published'] || null,
+          duration_seconds: parseDuration(row['duration'] || row['duração'] || '0'),
+          total_views: parseNum(row['views'] || row['visualizações'] || '0'),
+          watch_hours: parseNum(row['watch time (hours)'] || row['tempo de exibição (horas)'] || '0'),
+          subscribers_gained: parseNum(row['subscribers'] || row['inscritos'] || row['subscribers gained'] || '0'),
+          impressions: parseNum(row['impressions'] || row['impressões'] || '0'),
+          click_rate: parseFloat(row['click rate'] || row['ctr'] || row['taxa de cliques'] || '0') || 0,
+        };
+      }).filter(v => v.video_id && v.title);
+      
+      return { videos, dailyViews: [] };
+    } else {
+      // Daily views file
+      const dailyViews = lines.slice(1).map(line => {
+        const values = line.split(delimiter).map(v => v.trim().replace(/^"|"$/g, ''));
+        const row: Record<string, string> = {};
+        headers.forEach((h, i) => { row[h] = values[i] || ''; });
+        
+        let dateStr = row['date'] || row['data'] || '';
+        // Try to parse date
+        const match = dateStr.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+        if (match) {
+          dateStr = `${match[3]}-${match[2].padStart(2, '0')}-${match[1].padStart(2, '0')}`;
+        }
+        
+        return {
+          date: dateStr,
+          views: parseInt((row['views'] || row['visualizações'] || '0').replace(/[^0-9]/g, '')) || 0,
+        };
+      }).filter(v => v.date);
+      
+      return { videos: [], dailyViews };
     }
   };
 
@@ -373,7 +505,7 @@ export function SmartCSVUpload({ clientId, platform, onImportComplete }: SmartCS
             onProceed={handleProceedImport}
             onCancel={handleCancelValidation}
             onApplyFix={applyFix}
-            isImporting={importMutation.isPending}
+            isImporting={isImporting}
           />
         </CardContent>
       </Card>
