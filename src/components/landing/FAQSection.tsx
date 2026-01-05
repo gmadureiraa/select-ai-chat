@@ -33,9 +33,9 @@ const faqs = [
       "Você tem acesso completo a todas as funcionalidades por 14 dias, sem precisar cadastrar cartão de crédito. Ao final, escolha o plano que melhor se adapta à sua agência.",
   },
   {
-    question: "Como funcionam as automações de publicação?",
+    question: "Como funciona a publicação de conteúdo?",
     answer:
-      "No plano Enterprise, você pode conectar seu n8n para criar workflows de publicação automática. Configure gatilhos como RSS feeds ou agendamentos, e a IA gera e publica conteúdo automaticamente nas redes sociais.",
+      "No plano Enterprise, você pode conectar suas contas do Twitter/X e LinkedIn para publicar conteúdo diretamente do KAI. Basta gerar o conteúdo com a IA e agendar ou publicar com um clique.",
   },
   {
     question: "Quantos clientes e membros posso ter?",

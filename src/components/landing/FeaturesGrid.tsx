@@ -17,9 +17,8 @@ const features = [
   },
   {
     icon: Zap,
-    title: "Automações Avançadas",
-    description: "Conecte n8n para publicação automática nas redes sociais.",
-    badge: "Enterprise",
+    title: "Geração Inteligente",
+    description: "IA especializada para criar conteúdo no tom de voz do cliente.",
   },
   {
     icon: BarChart3,

@@ -57,16 +57,18 @@ export function EnhancedAreaChart({
                            m.label.toLowerCase().includes('%') ||
                            m.label.toLowerCase().includes('taxa');
       
-      const isCumulativeMetric = m.key === 'subscribers' || 
-                                 m.key === 'followers' ||
-                                 m.key.toLowerCase().includes('inscritos');
+      // Subscribers/followers são crescimento diário, então somamos (não pegar último valor)
+      const isGrowthMetric = m.key === 'subscribers' || 
+                             m.key === 'followers' ||
+                             m.key.toLowerCase().includes('inscritos');
       
       if (values.length === 0) {
         summaries[m.key] = 0;
       } else if (isRateMetric) {
         summaries[m.key] = values.reduce((a, b) => a + b, 0) / values.length;
-      } else if (isCumulativeMetric) {
-        summaries[m.key] = values[values.length - 1] || 0;
+      } else if (isGrowthMetric) {
+        // Somar todos os valores de crescimento diário
+        summaries[m.key] = values.reduce((a, b) => a + b, 0);
       } else {
         summaries[m.key] = values.reduce((a, b) => a + b, 0);
       }

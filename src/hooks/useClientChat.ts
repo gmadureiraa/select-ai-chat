@@ -838,9 +838,10 @@ export const useClientChat = (clientId: string, templateId?: string, conversatio
             
             let summary = `📈 ${platform.toUpperCase()} (${sortedMetrics.length} registros, de ${oldest?.metric_date} a ${latest?.metric_date}):\n`;
             
-            if (latest.subscribers !== null && oldest?.subscribers !== null) {
-              const growth = (latest.subscribers || 0) - (oldest.subscribers || 0);
-              summary += `- Seguidores: ${latest.subscribers?.toLocaleString() || 0} (${growth >= 0 ? '+' : ''}${growth.toLocaleString()} no período)\n`;
+            // Subscribers já é o crescimento diário, então somamos todos
+            const totalSubscribersGrowth = metrics.reduce((sum: number, m: any) => sum + (m.subscribers || 0), 0);
+            if (totalSubscribersGrowth !== 0) {
+              summary += `- Crescimento de seguidores no período: ${totalSubscribersGrowth >= 0 ? '+' : ''}${totalSubscribersGrowth.toLocaleString()}\n`;
             }
             if (latest.views) summary += `- Visualizações (último registro): ${latest.views.toLocaleString()}\n`;
             if (latest.engagement_rate) summary += `- Engajamento: ${(latest.engagement_rate * 100).toFixed(2)}%\n`;

@@ -24,7 +24,7 @@ import { RecurrenceConfig } from './RecurrenceConfig';
 import { ContentPreview } from './ContentPreview';
 import { CONTENT_TYPE_OPTIONS, CONTENT_TO_PLATFORM, ContentTypeKey } from '@/types/contentTypes';
 import type { PlanningItem, CreatePlanningItemInput, PlanningPlatform, PlanningPriority, KanbanColumn } from '@/hooks/usePlanningItems';
-import type { RecurrenceConfig as RecurrenceConfigType } from '@/types/rssTrigger';
+import type { RecurrenceConfig as RecurrenceConfigType } from '@/types/recurrence';
 
 interface PlanningItemDialogProps {
   open: boolean;

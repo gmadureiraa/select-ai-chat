@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Twitter, Linkedin, Loader2, Check, Eye, EyeOff, Trash2, Share2, X, Instagram, Youtube, RefreshCw, ExternalLink, ChevronDown } from "lucide-react";
+import { Twitter, Linkedin, Loader2, Check, Eye, EyeOff, Trash2, Share2, X, RefreshCw, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,8 +8,6 @@ import { Badge } from "@/components/ui/badge";
 import { useSocialCredentials, SocialCredential } from "@/hooks/useSocialCredentials";
 import { usePlanFeatures } from "@/hooks/usePlanFeatures";
 import { EnterpriseLockScreen } from "@/components/shared/EnterpriseLockScreen";
-import { useInstagramConnection, useStartInstagramOAuth, useFetchInstagramOAuthMetrics, useDisconnectInstagram } from "@/hooks/useInstagramOAuth";
-import { useYouTubeConnection, useStartYouTubeOAuth, useFetchYouTubeAnalytics, useDisconnectYouTube } from "@/hooks/useYouTubeOAuth";
 import { useTwitterOAuthPopup } from "@/hooks/useTwitterOAuth";
 import { useLinkedInOAuthPopup } from "@/hooks/useLinkedInOAuth";
 import { useSearchParams } from "react-router-dom";
@@ -35,18 +33,6 @@ export function SocialIntegrationsTab({ clientId }: SocialIntegrationsTabProps) 
   const { toast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  // Instagram OAuth
-  const { data: instagramConnection, isLoading: instagramLoading } = useInstagramConnection(clientId);
-  const startInstagramOAuth = useStartInstagramOAuth();
-  const fetchInstagramMetrics = useFetchInstagramOAuthMetrics();
-  const disconnectInstagram = useDisconnectInstagram();
-
-  // YouTube OAuth
-  const { data: youtubeConnection, isLoading: youtubeLoading } = useYouTubeConnection(clientId);
-  const startYouTubeOAuth = useStartYouTubeOAuth();
-  const fetchYouTubeAnalytics = useFetchYouTubeAnalytics();
-  const disconnectYouTube = useDisconnectYouTube();
-
   // Twitter OAuth 2.0
   const twitterOAuth = useTwitterOAuthPopup(clientId);
   
@@ -70,48 +56,8 @@ export function SocialIntegrationsTab({ clientId }: SocialIntegrationsTabProps) 
 
   // Handle OAuth callback messages
   useEffect(() => {
-    const instagramOAuth = searchParams.get('instagram_oauth');
-    const youtubeOAuth = searchParams.get('youtube_oauth');
     const linkedInOAuthStatus = searchParams.get('linkedin_oauth');
     const message = searchParams.get('message');
-
-    if (instagramOAuth === 'success') {
-      toast({
-        title: "Instagram conectado!",
-        description: "Sua conta Instagram foi conectada com sucesso.",
-      });
-      searchParams.delete('instagram_oauth');
-      searchParams.delete('message');
-      setSearchParams(searchParams);
-    } else if (instagramOAuth === 'error') {
-      toast({
-        title: "Erro ao conectar Instagram",
-        description: message || "Ocorreu um erro ao conectar sua conta.",
-        variant: "destructive",
-      });
-      searchParams.delete('instagram_oauth');
-      searchParams.delete('message');
-      setSearchParams(searchParams);
-    }
-
-    if (youtubeOAuth === 'success') {
-      toast({
-        title: "YouTube conectado!",
-        description: "Sua conta YouTube foi conectada com sucesso.",
-      });
-      searchParams.delete('youtube_oauth');
-      searchParams.delete('message');
-      setSearchParams(searchParams);
-    } else if (youtubeOAuth === 'error') {
-      toast({
-        title: "Erro ao conectar YouTube",
-        description: message || "Ocorreu um erro ao conectar sua conta.",
-        variant: "destructive",
-      });
-      searchParams.delete('youtube_oauth');
-      searchParams.delete('message');
-      setSearchParams(searchParams);
-    }
 
     if (linkedInOAuthStatus === 'success') {
       toast({
@@ -196,7 +142,7 @@ export function SocialIntegrationsTab({ clientId }: SocialIntegrationsTabProps) 
       <div>
         <h3 className="text-lg font-medium">Integrações Sociais</h3>
         <p className="text-sm text-muted-foreground">
-          Conecte suas redes sociais para métricas automáticas e publicação
+          Conecte suas redes sociais para publicação automática
         </p>
       </div>
 
@@ -206,183 +152,6 @@ export function SocialIntegrationsTab({ clientId }: SocialIntegrationsTabProps) 
           <h4 className="text-sm font-medium text-muted-foreground">Conexão Simples (OAuth)</h4>
           <Badge variant="secondary" className="text-xs">Recomendado</Badge>
         </div>
-
-        {/* Instagram OAuth */}
-        <Card className="border-2 border-dashed border-primary/20 hover:border-primary/40 transition-colors">
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-purple-500 via-pink-500 to-orange-400 flex items-center justify-center">
-                  <Instagram className="h-5 w-5 text-white" />
-                </div>
-                <div>
-                  <CardTitle className="text-base">Instagram</CardTitle>
-                  <CardDescription>Métricas automáticas via login</CardDescription>
-                </div>
-              </div>
-              {instagramConnection && (
-                <Badge variant="outline" className="text-green-600 border-green-600">
-                  <Check className="h-3 w-3 mr-1" />
-                  Conectado
-                </Badge>
-              )}
-            </div>
-          </CardHeader>
-          <CardContent className="pt-0">
-            {instagramLoading ? (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Verificando conexão...
-              </div>
-            ) : instagramConnection ? (
-              <div className="space-y-3">
-                <div className="p-3 rounded-lg bg-muted/50">
-                  <p className="text-sm">
-                    <span className="text-muted-foreground">Conta conectada:</span>{" "}
-                    <span className="font-medium">@{instagramConnection.instagram_username}</span>
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Expira em: {instagramConnection.expires_at 
-                      ? new Date(instagramConnection.expires_at).toLocaleDateString('pt-BR')
-                      : 'N/A'}
-                  </p>
-                </div>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => fetchInstagramMetrics.mutate(clientId)}
-                    disabled={fetchInstagramMetrics.isPending}
-                  >
-                    {fetchInstagramMetrics.isPending ? (
-                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                    ) : (
-                      <RefreshCw className="h-4 w-4 mr-2" />
-                    )}
-                    Sincronizar
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => disconnectInstagram.mutate(clientId)}
-                    disabled={disconnectInstagram.isPending}
-                  >
-                    {disconnectInstagram.isPending ? (
-                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                    ) : (
-                      <Trash2 className="h-4 w-4 mr-2" />
-                    )}
-                    Desconectar
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                <p className="text-sm text-muted-foreground">
-                  Conecte sua conta Instagram Business para obter métricas automaticamente.
-                  Requer uma conta Business conectada a uma Página do Facebook.
-                </p>
-                <Button
-                  onClick={() => startInstagramOAuth.mutate(clientId)}
-                  disabled={startInstagramOAuth.isPending}
-                  className="bg-gradient-to-r from-purple-500 via-pink-500 to-orange-400 hover:opacity-90"
-                >
-                  {startInstagramOAuth.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                  <Instagram className="h-4 w-4 mr-2" />
-                  Conectar Instagram
-                </Button>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* YouTube OAuth */}
-        <Card className="border-2 border-dashed border-primary/20 hover:border-primary/40 transition-colors">
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-lg bg-red-600 flex items-center justify-center">
-                  <Youtube className="h-5 w-5 text-white" />
-                </div>
-                <div>
-                  <CardTitle className="text-base">YouTube</CardTitle>
-                  <CardDescription>Analytics e métricas via login</CardDescription>
-                </div>
-              </div>
-              {youtubeConnection && (
-                <Badge variant="outline" className="text-green-600 border-green-600">
-                  <Check className="h-3 w-3 mr-1" />
-                  Conectado
-                </Badge>
-              )}
-            </div>
-          </CardHeader>
-          <CardContent className="pt-0">
-            {youtubeLoading ? (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Verificando conexão...
-              </div>
-            ) : youtubeConnection ? (
-              <div className="space-y-3">
-                <div className="p-3 rounded-lg bg-muted/50">
-                  <p className="text-sm">
-                    <span className="text-muted-foreground">Canal conectado:</span>{" "}
-                    <span className="font-medium">{youtubeConnection.channel_title}</span>
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Expira em: {youtubeConnection.expires_at 
-                      ? new Date(youtubeConnection.expires_at).toLocaleDateString('pt-BR')
-                      : 'N/A'}
-                  </p>
-                </div>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => fetchYouTubeAnalytics.mutate(clientId)}
-                    disabled={fetchYouTubeAnalytics.isPending}
-                  >
-                    {fetchYouTubeAnalytics.isPending ? (
-                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                    ) : (
-                      <RefreshCw className="h-4 w-4 mr-2" />
-                    )}
-                    Sincronizar
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => disconnectYouTube.mutate(clientId)}
-                    disabled={disconnectYouTube.isPending}
-                  >
-                    {disconnectYouTube.isPending ? (
-                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                    ) : (
-                      <Trash2 className="h-4 w-4 mr-2" />
-                    )}
-                    Desconectar
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                <p className="text-sm text-muted-foreground">
-                  Conecte seu canal do YouTube para obter analytics e métricas de vídeos automaticamente.
-                </p>
-                <Button
-                  onClick={() => startYouTubeOAuth.mutate(clientId)}
-                  disabled={startYouTubeOAuth.isPending}
-                  className="bg-red-600 hover:bg-red-700"
-                >
-                  {startYouTubeOAuth.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                  <Youtube className="h-4 w-4 mr-2" />
-                  Conectar YouTube
-                </Button>
-              </div>
-            )}
-          </CardContent>
-        </Card>
 
         {/* Twitter/X OAuth 2.0 */}
         <Card className="border-2 border-dashed border-primary/20 hover:border-primary/40 transition-colors">
@@ -464,7 +233,6 @@ export function SocialIntegrationsTab({ clientId }: SocialIntegrationsTabProps) 
                   Conectar com X
                 </Button>
                 
-                {/* Show error if previous attempt failed */}
                 {twitterCredential?.validation_error && (
                   <div className="p-2 rounded bg-destructive/10 text-destructive text-xs">
                     {twitterCredential.validation_error}
@@ -504,6 +272,11 @@ export function SocialIntegrationsTab({ clientId }: SocialIntegrationsTabProps) 
                     <span className="text-muted-foreground">Conta conectada:</span>{" "}
                     <span className="font-medium">{linkedInCredential.account_name || 'LinkedIn User'}</span>
                   </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Conectado em: {linkedInCredential.last_validated_at 
+                      ? new Date(linkedInCredential.last_validated_at).toLocaleDateString('pt-BR')
+                      : 'N/A'}
+                  </p>
                 </div>
                 <div className="flex gap-2">
                   <Button
@@ -537,17 +310,23 @@ export function SocialIntegrationsTab({ clientId }: SocialIntegrationsTabProps) 
             ) : (
               <div className="space-y-3">
                 <p className="text-sm text-muted-foreground">
-                  Conecte sua conta LinkedIn para publicação automática de posts.
+                  Conecte sua conta LinkedIn para publicar posts automaticamente.
                 </p>
                 <Button
                   onClick={() => linkedInOAuth.openPopup()}
                   disabled={linkedInOAuth.isLoading}
-                  className="bg-[#0A66C2] hover:bg-[#0A66C2]/80"
+                  className="bg-[#0A66C2] hover:bg-[#0A66C2]/90"
                 >
                   {linkedInOAuth.isLoading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                   <Linkedin className="h-4 w-4 mr-2" />
                   Conectar LinkedIn
                 </Button>
+                
+                {linkedInCredential?.validation_error && (
+                  <div className="p-2 rounded bg-destructive/10 text-destructive text-xs">
+                    {linkedInCredential.validation_error}
+                  </div>
+                )}
               </div>
             )}
           </CardContent>
@@ -583,16 +362,6 @@ export function SocialIntegrationsTab({ clientId }: SocialIntegrationsTabProps) 
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-sm space-y-2">
-                <p className="font-medium text-amber-600 dark:text-amber-400 text-xs">⚠️ IMPORTANTE: Siga TODOS os passos</p>
-                <ol className="list-decimal list-inside text-muted-foreground space-y-1 text-xs">
-                  <li>Acesse <a href="https://developer.twitter.com/en/portal/projects-and-apps" target="_blank" rel="noopener noreferrer" className="text-primary underline">Projects & Apps</a> e selecione seu app</li>
-                  <li><strong>"User authentication settings"</strong> → <strong>"Read and write"</strong></li>
-                  <li><strong>Type:</strong> "Web App, Automated App or Bot"</li>
-                  <li><strong>Callback URI:</strong> <code className="bg-muted px-1 rounded text-[10px]">https://example.com/callback</code></li>
-                  <li className="text-amber-600 dark:text-amber-400 font-medium">CRÍTICO: Regenere Access Token após mudar permissões!</li>
-                </ol>
-              </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <Label htmlFor="tw-api-key" className="text-xs">API Key</Label>
@@ -686,8 +455,6 @@ export function SocialIntegrationsTab({ clientId }: SocialIntegrationsTabProps) 
               <Button
                 onClick={handleSaveTwitter}
                 disabled={validateTwitter.isPending || !twitterForm.apiKey || !twitterForm.accessToken}
-                className="w-full"
-                size="sm"
               >
                 {validateTwitter.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                 Salvar e Validar
@@ -695,7 +462,7 @@ export function SocialIntegrationsTab({ clientId }: SocialIntegrationsTabProps) 
             </CardContent>
           </Card>
 
-          {/* LinkedIn Manual Token Card */}
+          {/* LinkedIn Access Token Card */}
           <Card>
             <CardHeader className="pb-3">
               <div className="flex items-center gap-3">
