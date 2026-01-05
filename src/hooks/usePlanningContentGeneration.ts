@@ -175,46 +175,86 @@ export function usePlanningContentGeneration() {
 
       console.log("[PlanningContent] Generating with content type:", contentType, "hasReference:", allReferenceContent.length > 0);
 
-      // Call kai-content-agent which handles streaming and context
-      const { data, error } = await supabase.functions.invoke("kai-content-agent", {
-        body: {
+      // Use fetch directly to handle streaming response properly
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      
+      const response = await fetch(`${supabaseUrl}/functions/v1/kai-content-agent`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${supabaseKey}`,
+        },
+        body: JSON.stringify({
           clientId,
           request: prompt,
           format: contentType,
           platform: getPlatformFromContentType(contentType)
-        }
+        })
       });
 
-      if (error) {
-        console.error("[PlanningContent] Invoke error:", error);
-        throw error;
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("[PlanningContent] Response error:", response.status, errorText);
+        throw new Error(`Erro ao gerar conteúdo: ${response.status}`);
       }
 
       // Handle streaming response
       let generatedContent = "";
+      const reader = response.body?.getReader();
       
-      if (typeof data === "string") {
-        // Parse SSE response
-        const lines = data.split("\n");
+      if (!reader) {
+        throw new Error("Não foi possível ler a resposta");
+      }
+
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        
+        // Process complete lines
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || ""; // Keep incomplete line in buffer
+
         for (const line of lines) {
           if (line.startsWith("data: ") && !line.includes("[DONE]")) {
             try {
-              const jsonStr = line.slice(6);
-              const parsed = JSON.parse(jsonStr);
-              const content = parsed.choices?.[0]?.delta?.content;
-              if (content) {
-                generatedContent += content;
+              const jsonStr = line.slice(6).trim();
+              if (jsonStr) {
+                const parsed = JSON.parse(jsonStr);
+                const content = parsed.choices?.[0]?.delta?.content;
+                if (content) {
+                  generatedContent += content;
+                }
               }
             } catch {
               // Skip unparseable lines
             }
           }
         }
-      } else if (data?.error) {
-        throw new Error(data.error);
-      } else {
-        generatedContent = data?.content || data?.output || "";
       }
+
+      // Process any remaining buffer
+      if (buffer.startsWith("data: ") && !buffer.includes("[DONE]")) {
+        try {
+          const jsonStr = buffer.slice(6).trim();
+          if (jsonStr) {
+            const parsed = JSON.parse(jsonStr);
+            const content = parsed.choices?.[0]?.delta?.content;
+            if (content) {
+              generatedContent += content;
+            }
+          }
+        } catch {
+          // Ignore
+        }
+      }
+
+      console.log("[PlanningContent] Generated content length:", generatedContent.length);
 
       if (generatedContent) {
         const imageCount = extractedImages.length;
