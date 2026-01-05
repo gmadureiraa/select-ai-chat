@@ -16,11 +16,13 @@ export function GlobalKAIAssistant() {
     messages,
     isProcessing,
     selectedClientId,
+    setSelectedClientId,
     actionStatus,
     attachedFiles,
     pendingAction,
     currentStep,
     multiAgentStep,
+    multiAgentDetails,
     sendMessage,
     attachFiles,
     removeFile,
@@ -31,8 +33,6 @@ export function GlobalKAIAssistant() {
     assignees,
     clients: workspaceClients,
     chatMode,
-    startNewConversation,
-    conversationId,
   } = useGlobalKAI();
 
   const { clients: clientsData } = useClients();
@@ -68,8 +68,10 @@ export function GlobalKAIAssistant() {
       <GlobalKAIPanel 
         isOpen={isOpen} 
         onClose={closePanel}
-        onNewConversation={startNewConversation}
-        conversationId={conversationId}
+        selectedClientId={selectedClientId}
+        selectedClientName={selectedClientName}
+        clients={workspaceClients}
+        onClientChange={setSelectedClientId}
       >
         {/* Chat messages with multi-agent progress */}
         <GlobalKAIChat
@@ -80,6 +82,7 @@ export function GlobalKAIAssistant() {
           actionStatus={actionStatus}
           currentStep={currentStep}
           multiAgentStep={multiAgentStep}
+          multiAgentDetails={multiAgentDetails}
           onSendMessage={handleSendFromChat}
           chatMode={chatMode}
         />

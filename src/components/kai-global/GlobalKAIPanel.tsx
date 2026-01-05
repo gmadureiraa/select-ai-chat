@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Sparkles, Maximize2, Plus } from "lucide-react";
+import { X, Sparkles, Maximize2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
@@ -16,8 +16,10 @@ interface GlobalKAIPanelProps {
   onClose: () => void;
   children: React.ReactNode;
   className?: string;
-  onNewConversation?: () => void;
-  conversationId?: string | null;
+  selectedClientId?: string | null;
+  selectedClientName?: string;
+  clients?: { id: string; name: string; avatar_url?: string }[];
+  onClientChange?: (clientId: string) => void;
 }
 
 export function GlobalKAIPanel({
@@ -25,8 +27,10 @@ export function GlobalKAIPanel({
   onClose,
   children,
   className,
-  onNewConversation,
-  conversationId,
+  selectedClientId,
+  selectedClientName,
+  clients = [],
+  onClientChange,
 }: GlobalKAIPanelProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
@@ -59,7 +63,12 @@ export function GlobalKAIPanel({
   const handleExpandToFullPage = () => {
     onClose();
     if (workspace?.slug) {
-      navigate(`/${workspace.slug}?tab=assistant`);
+      const params = new URLSearchParams();
+      params.set("tab", "assistant");
+      if (selectedClientId) {
+        params.set("client", selectedClientId);
+      }
+      navigate(`/${workspace.slug}?${params.toString()}`);
     }
   };
 
@@ -106,28 +115,19 @@ export function GlobalKAIPanel({
                   <h2 className="text-sm font-semibold text-foreground">
                     kAI Assistente
                   </h2>
-                  <p className="text-[10px] text-muted-foreground">
-                    Pipeline multi-agente ativo
-                  </p>
+                  {selectedClientName ? (
+                    <p className="text-[10px] text-muted-foreground truncate max-w-[120px]">
+                      {selectedClientName}
+                    </p>
+                  ) : (
+                    <p className="text-[10px] text-muted-foreground">
+                      Pipeline multi-agente ativo
+                    </p>
+                  )}
                 </div>
               </div>
               
               <div className="flex items-center gap-1">
-                {onNewConversation && (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                        onClick={onNewConversation}
-                      >
-                        <Plus className="h-4 w-4" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom">Nova conversa</TooltipContent>
-                  </Tooltip>
-                )}
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button
