@@ -7,8 +7,8 @@ export const validateMessage = (content: string): string | null => {
     return "A mensagem não pode estar vazia.";
   }
 
-  if (trimmed.length > 10000) {
-    return "A mensagem é muito longa (máximo 10.000 caracteres).";
+  if (trimmed.length > 25000) {
+    return "A mensagem é muito longa (máximo 25.000 caracteres).";
   }
 
   return null;
