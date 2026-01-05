@@ -616,21 +616,21 @@ export const useSmartInstagramImport = (clientId: string, onImportComplete?: (pl
           const existingMeta = existing?.metadata ? 
             (typeof existing.metadata === 'string' ? JSON.parse(existing.metadata) : existing.metadata) : {};
 
-          // Merge metadata - only overwrite fields that have new data
+          // Merge metadata - overwrite fields that EXIST in CSV (even if 0)
           const mergedMetadata = {
             ...existingMeta,
-            ...(metrics.reach ? { reach: metrics.reach } : {}),
-            ...(metrics.interactions ? { interactions: metrics.interactions } : {}),
-            ...(metrics.profile_visits ? { profileVisits: metrics.profile_visits } : {}),
-            ...(metrics.link_clicks ? { linkClicks: metrics.link_clicks } : {}),
+            ...(metrics.reach !== undefined ? { reach: metrics.reach } : {}),
+            ...(metrics.interactions !== undefined ? { interactions: metrics.interactions } : {}),
+            ...(metrics.profile_visits !== undefined ? { profileVisits: metrics.profile_visits } : {}),
+            ...(metrics.link_clicks !== undefined ? { linkClicks: metrics.link_clicks } : {}),
           };
 
           const metricRecord = {
             client_id: clientId,
             platform: "instagram",
             metric_date: date,
-            views: metrics.views || existing?.views || null,
-            subscribers: metrics.followers || existing?.subscribers || null,
+            views: metrics.views !== undefined ? metrics.views : (existing?.views ?? null),
+            subscribers: metrics.followers !== undefined ? metrics.followers : (existing?.subscribers ?? null),
             metadata: mergedMetadata
           };
           
