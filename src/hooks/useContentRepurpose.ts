@@ -49,25 +49,18 @@ export interface GeneratedContent {
   error?: string;
 }
 
-// Map ContentFormat to execute-agent contentType
-const FORMAT_TO_AGENT: Record<ContentFormat, string> = {
-  newsletter: "newsletter_agent",
-  thread: "thread_agent",
-  tweet: "tweet_agent",
-  carousel: "carousel_agent",
-  linkedin_post: "linkedin_agent",
-  instagram_post: "static_post_agent",
-  reels_script: "reels_agent",
-  blog_post: "blog_agent",
-  email_marketing: "email_marketing_agent",
-  cut_moments: "cut_moments_agent",
-};
-
-const OBJECTIVE_CONTEXT: Record<ContentObjective, string> = {
-  sales: "Foco em conversão e vendas. Destaque benefícios, resolução de problemas e urgência. Use CTAs de compra/contratação.",
-  lead_generation: "Foco em captura de leads. Ofereça valor em troca de contato. Use CTAs para baixar materiais, inscrever-se, agendar reunião.",
-  educational: "Foco em ensinar e informar. Estruture de forma didática. Use exemplos e analogias. Posicione como autoridade no assunto.",
-  brand_awareness: "Foco em construir reconhecimento e autoridade. Conte histórias. Mostre valores e propósito. Crie conexão emocional.",
+// Map ContentFormat to contentType for multi-agent
+const FORMAT_TO_CONTENT_TYPE: Record<ContentFormat, string> = {
+  newsletter: "newsletter",
+  thread: "thread",
+  tweet: "tweet",
+  carousel: "carousel",
+  linkedin_post: "linkedin_post",
+  instagram_post: "instagram_post",
+  reels_script: "short_video",
+  blog_post: "blog_post",
+  email_marketing: "email_marketing",
+  cut_moments: "cut_moments",
 };
 
 export function useContentRepurpose() {
@@ -91,7 +84,6 @@ export function useContentRepurpose() {
 
     setIsExtracting(true);
     try {
-      // Use fetch-reference-content for all URLs (YouTube and articles)
       const { data, error } = await supabase.functions.invoke("fetch-reference-content", {
         body: { url: sourceUrl },
       });
@@ -131,24 +123,49 @@ export function useContentRepurpose() {
       throw new Error("Conteúdo de origem é obrigatório");
     }
 
-    const agentType = "content_writer";
-    const contentType = FORMAT_TO_AGENT[format];
+    try {
+      // Fetch client context
+      const { data: client } = await supabase
+        .from("clients")
+        .select("name, identity_guide, description")
+        .eq("id", clientId)
+        .single();
 
-    const isVideo = sourceData.type === 'youtube';
-    const sourceLabel = isVideo ? 'VÍDEO' : 'ARTIGO/TEXTO';
-    const contentLabel = isVideo ? 'TRANSCRIÇÃO' : 'CONTEÚDO';
+      // Fetch content library
+      const { data: contentLibrary } = await supabase
+        .from("client_content_library")
+        .select("id, title, content, content_type")
+        .eq("client_id", clientId)
+        .limit(20);
 
-    // Build user message with content and context
-    const userMessage = format === "cut_moments" 
-      ? `Analise a transcrição abaixo e identifique os 5 MELHORES momentos para criar cortes/clips virais.
+      // Fetch reference library
+      const { data: referenceLibrary } = await supabase
+        .from("client_reference_library")
+        .select("id, title, content, reference_type")
+        .eq("client_id", clientId)
+        .limit(10);
+
+      const isVideo = sourceData.type === 'youtube';
+      const sourceLabel = isVideo ? 'VÍDEO' : 'ARTIGO/TEXTO';
+      const contentLabel = isVideo ? 'TRANSCRIÇÃO' : 'CONTEÚDO';
+      const contentType = FORMAT_TO_CONTENT_TYPE[format];
+
+      // Build user message with content and context
+      const userMessage = format === "cut_moments" 
+        ? `Analise a transcrição abaixo e identifique os 5 MELHORES momentos para criar cortes/clips virais.
 
 TÍTULO DO ${sourceLabel}: ${sourceData.title}
 
 ${contentLabel} COMPLETO:
 ${sourceData.content.substring(0, 20000)}
 
-Retorne APENAS o JSON com os 5 momentos, ordenados do maior score para o menor.`
-      : `Crie um conteúdo de ${format.replace("_", " ")} baseado no conteúdo abaixo.
+Retorne APENAS o JSON com os 5 momentos, ordenados do maior score para o menor. Use o formato:
+{
+  "moments": [
+    { "timestamp": "0:00", "title": "Título do momento", "description": "Descrição", "score": 95, "hook": "Gancho inicial" }
+  ]
+}`
+        : `Crie um conteúdo de ${format.replace(/_/g, " ")} baseado no conteúdo abaixo.
 
 TÍTULO DO ${sourceLabel}: ${sourceData.title}
 
@@ -157,33 +174,76 @@ ${sourceData.content.substring(0, 15000)}
 
 Siga as regras do formato e gere o conteúdo pronto para publicar.`;
 
-    try {
-      const { data, error } = await supabase.functions.invoke("execute-agent", {
-        body: {
-          agentType,
-          contentType,
-          userMessage,
-          clientId,
-          clientContext: {
-            name: "Cliente",
-            description: "",
-          },
-        },
-      });
+      // Call multi-agent pipeline via fetch for streaming
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
 
-      if (error) throw error;
-      if (!data?.success) {
-        throw new Error(data?.error || "Erro ao gerar conteúdo");
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat-multi-agent`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${accessToken}`,
+            "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          },
+          body: JSON.stringify({
+            userMessage,
+            contentLibrary: contentLibrary || [],
+            referenceLibrary: referenceLibrary || [],
+            identityGuide: client?.identity_guide || "",
+            clientName: client?.name || "Cliente",
+            contentType,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Erro na API: ${response.status} - ${errorText}`);
       }
 
-      const content = data.output || "";
+      // Process SSE stream
+      const reader = response.body?.getReader();
+      if (!reader) {
+        throw new Error("Não foi possível ler a resposta");
+      }
+
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let finalContent = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+          if (line.startsWith("data: ")) {
+            const jsonStr = line.slice(6).trim();
+            if (jsonStr === "[DONE]") continue;
+
+            try {
+              const parsed = JSON.parse(jsonStr);
+              // Capture final content when pipeline completes
+              if (parsed.step === "complete" && parsed.status === "done" && parsed.content) {
+                finalContent = parsed.content;
+              }
+            } catch {
+              // Ignore parse errors for partial chunks
+            }
+          }
+        }
+      }
 
       // Parse cut moments if this is the cut_moments format
       let cutMoments: CutMoment[] | undefined;
-      if (format === "cut_moments") {
+      if (format === "cut_moments" && finalContent) {
         try {
-          // Try to extract JSON from the response
-          const jsonMatch = content.match(/\{[\s\S]*"moments"[\s\S]*\}/);
+          const jsonMatch = finalContent.match(/\{[\s\S]*"moments"[\s\S]*\}/);
           if (jsonMatch) {
             const parsed = JSON.parse(jsonMatch[0]);
             cutMoments = parsed.moments
@@ -203,14 +263,13 @@ Siga as regras do formato e gere o conteúdo pronto para publicar.`;
 
       return {
         format,
-        content,
+        content: finalContent,
         objective: "educational" as ContentObjective,
         generatedAt: new Date(),
         cutMoments,
       };
     } catch (error) {
       console.error(`Error generating ${format}:`, error);
-      // Return error content instead of throwing
       return {
         format,
         content: "",
@@ -228,7 +287,6 @@ Siga as regras do formato e gere o conteúdo pronto para publicar.`;
 
     setIsGenerating(true);
     setGeneratedContents([]);
-    // Show results page immediately
     setShowResults(true);
 
     try {
