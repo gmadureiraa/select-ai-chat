@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useCallback, useEffect, ReactNode } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { Message, ProcessStep, MultiAgentStep } from "@/types/chat";
 import { 
@@ -18,8 +18,16 @@ import { useClientChat } from "@/hooks/useClientChat";
 import { supabase } from "@/integrations/supabase/client";
 import { Citation } from "@/components/chat/CitationChip";
 import { uploadAndGetSignedUrl } from "@/lib/storage";
+import { useKAIMentionParser, ParsedCommand } from "@/hooks/useKAIMentionParser";
+import { SuccessCardPayload } from "@/components/chat/ResponseCard";
 
 const LOCAL_STORAGE_KEY = "kai-selected-client";
+
+// Safe actions that don't require confirmation (can be undone)
+const SAFE_AUTO_EXECUTE_ACTIONS = [
+  "create_batch_cards",
+  "create_single_card",
+];
 
 // Library item types (matching useClientChat return types)
 interface ContentLibraryItem {
@@ -112,6 +120,7 @@ interface GlobalKAIProviderProps {
 
 export function GlobalKAIProvider({ children }: GlobalKAIProviderProps) {
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   
   // Panel state
@@ -143,6 +152,9 @@ export function GlobalKAIProvider({ children }: GlobalKAIProviderProps) {
   const { analyzeCSV, isAnalyzing: isAnalyzingCSV } = useKAICSVAnalysis();
   const { analyzeURL, isAnalyzing: isAnalyzingURL } = useKAIURLAnalysis();
   const { executeAction: executeActionHook, isExecuting } = useKAIExecuteAction();
+  
+  // Mention parser for @mentions commands
+  const { parseMessage, isPlanningCommand } = useKAIMentionParser();
 
   // ============================================
   // USE THE MAIN useClientChat HOOK
@@ -370,6 +382,81 @@ export function GlobalKAIProvider({ children }: GlobalKAIProviderProps) {
     }
   }, [analyzeCSV, analyzeURL]);
 
+  // Execute smart planner for batch card creation
+  const executeSmartPlanner = useCallback(async (
+    parsedCommand: ParsedCommand,
+    clientId: string
+  ): Promise<{ success: boolean; payload?: SuccessCardPayload; error?: string }> => {
+    if (!workspaceId) {
+      return { success: false, error: "Workspace não encontrado" };
+    }
+
+    const { data: userData } = await supabase.auth.getUser();
+    if (!userData.user) {
+      return { success: false, error: "Usuário não autenticado" };
+    }
+
+    // Find client by name if needed
+    let targetClientId = clientId;
+    if (parsedCommand.clientName) {
+      const matchedClient = clients.find(c => 
+        c.name.toLowerCase().includes(parsedCommand.clientName!.toLowerCase())
+      );
+      if (matchedClient) {
+        targetClientId = matchedClient.id;
+      }
+    }
+
+    console.log("[GlobalKAI] Executing smart planner:", {
+      clientId: targetClientId,
+      quantity: parsedCommand.quantity,
+      format: parsedCommand.format,
+      column: parsedCommand.column,
+    });
+
+    try {
+      const { data, error } = await supabase.functions.invoke("kai-smart-planner", {
+        body: {
+          clientId: targetClientId,
+          workspaceId,
+          userId: userData.user.id,
+          quantity: parsedCommand.quantity,
+          format: parsedCommand.format,
+          column: parsedCommand.column,
+          themeHint: parsedCommand.themeHint,
+          schedulingHint: parsedCommand.schedulingHint,
+          dateHint: parsedCommand.dateHint,
+          rawMessage: parsedCommand.rawMessage,
+        },
+      });
+
+      if (error) {
+        console.error("[GlobalKAI] Smart planner error:", error);
+        return { success: false, error: error.message };
+      }
+
+      if (!data.success) {
+        return { success: false, error: data.error || "Erro desconhecido" };
+      }
+
+      // Build success payload for ResponseCard
+      const payload: SuccessCardPayload = {
+        type: "cards_created",
+        message: data.message,
+        clientName: data.clientName,
+        column: data.column,
+        format: data.format,
+        cards: data.cards || [],
+        totalCount: data.cards?.length || 0,
+      };
+
+      return { success: true, payload };
+    } catch (err) {
+      console.error("[GlobalKAI] Smart planner exception:", err);
+      return { success: false, error: err instanceof Error ? err.message : "Erro desconhecido" };
+    }
+  }, [workspaceId, clients]);
+
   // Wrapped send message that handles action detection + delegates to useClientChat
   const sendMessage = useCallback(async (text: string, files?: File[], citations?: Citation[]) => {
     if (!text.trim() && (!files || files.length === 0)) return;
@@ -405,6 +492,58 @@ export function GlobalKAIProvider({ children }: GlobalKAIProviderProps) {
 
     const allAttachments = [...attachedFiles, ...fileAttachments];
 
+    // ============================================
+    // NEW: Check for planning commands with @mentions
+    // These are auto-executed without confirmation
+    // ============================================
+    if (isPlanningCommand(text)) {
+      console.log("[GlobalKAI] Detected planning command, parsing @mentions...");
+      const parsedCommand = parseMessage(text, clients);
+      console.log("[GlobalKAI] Parsed command:", parsedCommand);
+
+      // If it's a valid card creation command, auto-execute
+      if (parsedCommand.autoExecute && SAFE_AUTO_EXECUTE_ACTIONS.includes(parsedCommand.action)) {
+        setActionStatus("executing");
+
+        // Add user message to chat first
+        await clientChatSendMessage(text, undefined, "fast", "free_chat", citations);
+
+        // Execute smart planner
+        const result = await executeSmartPlanner(parsedCommand, selectedClientId);
+
+        if (result.success && result.payload) {
+          // Invalidate planning items to refresh the board
+          queryClient.invalidateQueries({ queryKey: ["planning-items"] });
+
+          // Add assistant message with card payload
+          const assistantMessage = `✅ **${result.payload.totalCount} cards criados** para ${result.payload.clientName} na coluna "${result.payload.column}"!\n\n` +
+            result.payload.cards.slice(0, 3).map((c, i) => `${i + 1}. **${c.title}** (${c.format})`).join("\n") +
+            (result.payload.cards.length > 3 ? `\n\n... e mais ${result.payload.cards.length - 3}` : "");
+
+          // Send a follow-up message via the chat with the payload
+          // For now, we'll just show a toast and the user can see the cards
+          toast.success(`${result.payload.totalCount} cards criados com sucesso!`, {
+            action: {
+              label: "Ver Planejamento",
+              onClick: () => navigate(`?client=${selectedClientId}&tab=planning`),
+            },
+          });
+
+          setActionStatus("completed");
+          setTimeout(() => setActionStatus("idle"), 1500);
+        } else {
+          toast.error(result.error || "Erro ao criar cards");
+          setActionStatus("idle");
+        }
+
+        setAttachedFiles([]);
+        return;
+      }
+    }
+
+    // ============================================
+    // Standard flow for other messages
+    // ============================================
     setActionStatus("detecting");
 
     // Set a timeout to reset loading state if things take too long (90 seconds)
@@ -505,7 +644,7 @@ export function GlobalKAIProvider({ children }: GlobalKAIProviderProps) {
       toast.error(error instanceof Error ? error.message : "Erro ao processar mensagem");
       setActionStatus("idle");
     }
-  }, [selectedClientId, attachedFiles, detectAction, prepareAction, clientChatSendMessage, chatMode, conversationId]);
+  }, [selectedClientId, attachedFiles, detectAction, prepareAction, clientChatSendMessage, chatMode, conversationId, isPlanningCommand, parseMessage, clients, executeSmartPlanner, queryClient, navigate]);
 
   // Clear conversation
   const clearConversation = useCallback(() => {
