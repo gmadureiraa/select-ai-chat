@@ -330,19 +330,36 @@ const processPostsCSV = (data: Record<string, string>[], clientId: string): Inst
       return isNaN(num) ? 0 : num;
     };
 
+    const likes = parseNum(row['curtidas'] || row['likes']);
+    const comments = parseNum(row['comentários'] || row['comments']);
+    const shares = parseNum(row['compartilhamentos'] || row['shares']);
+    const saves = parseNum(row['salvamentos'] || row['saves']);
+    const reach = parseNum(row['alcance'] || row['reach']);
+    const impressions = parseNum(row['visualizações'] || row['impressions'] || row['views']);
+    
+    // Parse engagement rate from CSV or calculate if missing
+    let engagementRate = parseFloat(row['taxa de engajamento'] || row['engagement_rate'] || '0') || 0;
+    
+    // If engagement_rate is 0 but we have reach/impressions, calculate it
+    if (engagementRate === 0 && (reach > 0 || impressions > 0)) {
+      const totalInteractions = likes + comments + saves + shares;
+      const reachOrImpressions = reach > 0 ? reach : impressions;
+      engagementRate = (totalInteractions / reachOrImpressions) * 100;
+    }
+
     validPosts.push({
       client_id: clientId,
       post_id: row['identificação do post'] || row['post_id'] || `post_${Date.now()}_${Math.random().toString(36).slice(2)}`,
       post_type: postType,
       caption: row['descrição'] || row['caption'] || row['legenda'] || null,
       posted_at: postedAt,
-      likes: parseNum(row['curtidas'] || row['likes']),
-      comments: parseNum(row['comentários'] || row['comments']),
-      shares: parseNum(row['compartilhamentos'] || row['shares']),
-      saves: parseNum(row['salvamentos'] || row['saves']),
-      reach: parseNum(row['alcance'] || row['reach']),
-      impressions: parseNum(row['visualizações'] || row['impressions'] || row['views']),
-      engagement_rate: parseFloat(row['taxa de engajamento'] || row['engagement_rate'] || '0') || 0,
+      likes,
+      comments,
+      shares,
+      saves,
+      reach,
+      impressions,
+      engagement_rate: Math.round(engagementRate * 100) / 100,
       permalink: permalink,
       metadata: {
         account_name: row['nome da conta'] || null,
@@ -584,21 +601,37 @@ export const useSmartInstagramImport = (clientId: string, onImportComplete?: (pl
         }
       }
       
-      // Save aggregated daily metrics to platform_metrics
+      // Save aggregated daily metrics to platform_metrics with MERGE logic
       if (dailyMetrics.size > 0) {
         for (const [date, metrics] of dailyMetrics) {
+          // First, fetch existing record to preserve data that's not being updated
+          const { data: existing } = await supabase
+            .from("platform_metrics")
+            .select("views, subscribers, metadata")
+            .eq("client_id", clientId)
+            .eq("platform", "instagram")
+            .eq("metric_date", date)
+            .single();
+
+          const existingMeta = existing?.metadata ? 
+            (typeof existing.metadata === 'string' ? JSON.parse(existing.metadata) : existing.metadata) : {};
+
+          // Merge metadata - only overwrite fields that have new data
+          const mergedMetadata = {
+            ...existingMeta,
+            ...(metrics.reach ? { reach: metrics.reach } : {}),
+            ...(metrics.interactions ? { interactions: metrics.interactions } : {}),
+            ...(metrics.profile_visits ? { profileVisits: metrics.profile_visits } : {}),
+            ...(metrics.link_clicks ? { linkClicks: metrics.link_clicks } : {}),
+          };
+
           const metricRecord = {
             client_id: clientId,
             platform: "instagram",
             metric_date: date,
-            views: metrics.views || null,
-            subscribers: metrics.followers || null,
-            metadata: {
-              reach: metrics.reach || null,
-              interactions: metrics.interactions || null,
-              profileVisits: metrics.profile_visits || null,
-              linkClicks: metrics.link_clicks || null,
-            }
+            views: metrics.views || existing?.views || null,
+            subscribers: metrics.followers || existing?.subscribers || null,
+            metadata: mergedMetadata
           };
           
           const { error } = await supabase
