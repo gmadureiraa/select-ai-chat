@@ -178,7 +178,7 @@ export function GlobalKAIInput({
     if (isProcessing || disabled) return;
 
     // Validate message length
-    const MAX_MESSAGE_LENGTH = 10000;
+    const MAX_MESSAGE_LENGTH = 25000;
     if (message.trim().length > MAX_MESSAGE_LENGTH) {
       toast.error(`Mensagem muito longa. Máximo: ${MAX_MESSAGE_LENGTH.toLocaleString()} caracteres. Atual: ${message.trim().length.toLocaleString()}`);
       return;
