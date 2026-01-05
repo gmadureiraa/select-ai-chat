@@ -33,6 +33,7 @@ export function GlobalKAIAssistant() {
     assignees,
     clients: workspaceClients,
     chatMode,
+    setChatMode,
     deliveryMode,
     setDeliveryMode,
   } = useGlobalKAI();
@@ -92,7 +93,7 @@ export function GlobalKAIAssistant() {
           chatMode={chatMode}
         />
 
-        {/* Input area with @ mentions support */}
+        {/* Input area with @ mentions support and mode selector */}
         <GlobalKAIInput
           onSend={handleSendWithCitations}
           isProcessing={isProcessing}
@@ -104,6 +105,8 @@ export function GlobalKAIAssistant() {
           referenceLibrary={referenceLibrary}
           assignees={assignees}
           clients={workspaceClients}
+          chatMode={chatMode}
+          onChatModeChange={setChatMode}
         />
       </GlobalKAIPanel>
 

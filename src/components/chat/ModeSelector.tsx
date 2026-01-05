@@ -1,4 +1,4 @@
-import { Lightbulb, FileText, MessageCircle } from "lucide-react";
+import { Lightbulb, FileText, MessageCircle, BarChart3 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   Tooltip,
@@ -7,7 +7,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
-export type ChatMode = "content" | "ideas" | "free_chat";
+export type ChatMode = "ideas" | "content" | "performance" | "free_chat";
 
 interface ModeSelectorProps {
   mode: ChatMode;
@@ -15,8 +15,15 @@ interface ModeSelectorProps {
   disabled?: boolean;
 }
 
-// Modos disponíveis para templates de conteúdo (sem free_chat)
+// 4 modos do assistente
 const contentModes = [
+  {
+    id: "ideas" as const,
+    icon: Lightbulb,
+    label: "Ideias",
+    description: "Gera ideias criativas. Se mencionar formato, traz ideias específicas.",
+    activeClass: "bg-amber-500/10 text-amber-600 border border-amber-500/20",
+  },
   {
     id: "content" as const,
     icon: FileText,
@@ -25,17 +32,17 @@ const contentModes = [
     activeClass: "bg-primary/10 text-primary border border-primary/20",
   },
   {
-    id: "ideas" as const,
-    icon: Lightbulb,
-    label: "Ideias",
-    description: "Gera ideias criativas baseadas na biblioteca do cliente (rápido).",
-    activeClass: "bg-amber-500/10 text-amber-600 border border-amber-500/20",
+    id: "performance" as const,
+    icon: BarChart3,
+    label: "Performance",
+    description: "Analisa dados e métricas de performance do cliente (CSV importados).",
+    activeClass: "bg-blue-500/10 text-blue-600 border border-blue-500/20",
   },
   {
     id: "free_chat" as const,
     icon: MessageCircle,
-    label: "Chat",
-    description: "Conversa livre com dados reais do cliente (rápido).",
+    label: "Livre",
+    description: "Conversa livre sem restrições.",
     activeClass: "bg-emerald-500/10 text-emerald-600 border border-emerald-500/20",
   },
 ];
