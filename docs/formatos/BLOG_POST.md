@@ -231,9 +231,6 @@ Ao entregar um blog post, use este formato:
 
 [Conteúdo da subseção]
 
-[IMAGEM: Descrição da imagem a inserir aqui]
-[ALT TEXT: Texto alternativo para SEO]
-
 [Continue para todas as seções...]
 
 ## Conclusão
@@ -244,6 +241,20 @@ Ao entregar um blog post, use este formato:
 - Ponto 3
 
 [Reforce benefício + CTA + Pergunta opcional]
+
+---
+
+## VISUAIS RECOMENDADOS (SEMPRE no final do artigo)
+
+**IMAGEM 1 - Seção [Nome]:**
+[Descrição detalhada da imagem a inserir]
+[ALT TEXT: Texto alternativo para SEO]
+
+**IMAGEM 2 - Seção [Nome]:**
+[Descrição detalhada da imagem a inserir]
+[ALT TEXT: Texto alternativo para SEO]
+
+[Continue para todas as imagens necessárias...]
 ```
 
 ---

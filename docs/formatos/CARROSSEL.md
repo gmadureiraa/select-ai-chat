@@ -171,23 +171,23 @@ Ao entregar um carrossel, use este formato:
 ```
 [SLIDE 1 - CAPA]
 TÍTULO: [Headline impactante]
-VISUAL: [Descrição da imagem/design]
 TEXTO: [Texto da capa se houver]
+VISUAL RECOMENDADO: [Descrição da imagem/design - SEMPRE no final do slide]
 
 [SLIDE 2]
 TÍTULO: [Título do ponto]
-VISUAL: [Descrição do visual]
 TEXTO: [Texto do slide - máx 30 palavras]
+VISUAL RECOMENDADO: [Descrição do visual - SEMPRE no final do slide]
 
 [...continue para todos os slides...]
 
 [SLIDE 9 - RESUMO]
-VISUAL: [Descrição]
 TEXTO: [Lista dos pontos principais]
+VISUAL RECOMENDADO: [Descrição - SEMPRE no final do slide]
 
 [SLIDE 10 - CTA]
-VISUAL: [Descrição]
 TEXTO: [CTA + "Salve para depois" + "Manda pra alguém"]
+VISUAL RECOMENDADO: [Descrição - SEMPRE no final do slide]
 
 ---
 
@@ -199,31 +199,31 @@ LEGENDA:
 ```
 [SLIDE 1 - CAPA]
 TÍTULO: "5 erros que destroem produtividade"
-VISUAL: Fundo com cores da marca, texto grande e centralizado
 TEXTO: "Você está cometendo algum desses erros?"
+VISUAL RECOMENDADO: Fundo com cores da marca, texto grande e centralizado
 
 [SLIDE 2]
 TÍTULO: "Erro #1: Multitarefa"
-VISUAL: Ícone de múltiplas tarefas
 TEXTO: "Estudos mostram que multitarefa reduz produtividade em 40%.
 Foque em uma tarefa por vez."
+VISUAL RECOMENDADO: Ícone de múltiplas tarefas com X vermelho sobreposto
 
 [...slides 3-8...]
 
 [SLIDE 9 - RESUMO]
-VISUAL: Resumo visual com lista
 TEXTO: "RECAPITULANDO:
 1. Evite multitarefa
 2. Elimine distrações
 3. Use técnica Pomodoro
 4. Priorize tarefas importantes
 5. Descanse adequadamente"
+VISUAL RECOMENDADO: Layout de lista numerada com ícones para cada item
 
 [SLIDE 10 - CTA]
-VISUAL: CTA visual com ícones
 TEXTO: "SALVE ESTE POST 📌
 MANDE PARA ALGUÉM 📤
 SEGUIR [@conta] ➡️"
+VISUAL RECOMENDADO: CTA visual com ícones de salvar, compartilhar e seguir
 
 ---
 
