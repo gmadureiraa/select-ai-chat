@@ -130,7 +130,7 @@ export function GlobalKAIChat({
                 isLastMessage={index === messages.length - 1}
                 onSendMessage={onSendMessage}
                 disableAutoPostDetection={true}
-                hideContentActions={true}
+                hideContentActions={chatMode !== "content"}
               />
             </motion.div>
           ))}
