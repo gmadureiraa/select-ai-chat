@@ -1,10 +1,9 @@
 import { createContext, useContext, useState, useCallback, useEffect, ReactNode, useRef } from "react";
 import { Message, ProcessStep, MultiAgentStep } from "@/types/chat";
 import { 
-  KAIContextValue, 
-  KAIGlobalState, 
-  KAIFileAttachment,
+  KAIActionType,
   KAIActionStatus,
+  KAIFileAttachment,
   PendingAction,
   DetectedAction,
 } from "@/types/kaiActions";
@@ -13,11 +12,11 @@ import { useKAIActions } from "@/hooks/useKAIActions";
 import { useKAICSVAnalysis } from "@/hooks/useKAICSVAnalysis";
 import { useKAIURLAnalysis } from "@/hooks/useKAIURLAnalysis";
 import { useKAIExecuteAction } from "@/hooks/useKAIExecuteAction";
-import { useCSVValidation, ValidationResult } from "@/hooks/useCSVValidation";
+import { useClientChat } from "@/hooks/useClientChat";
 import { supabase } from "@/integrations/supabase/client";
 import { Citation } from "@/components/chat/CitationChip";
 
-// Library item types
+// Library item types (matching useClientChat return types)
 interface ContentLibraryItem {
   id: string;
   title: string;
@@ -45,71 +44,121 @@ interface ClientItem {
   avatar_url?: string;
 }
 
-// Extended state with streaming response and libraries
-interface ExtendedKAIState extends KAIGlobalState {
-  streamingResponse: string;
-  workspaceId: string | null;
+// Extended context value with all features
+interface GlobalKAIContextValue {
+  // Panel state
+  isOpen: boolean;
+  openPanel: () => void;
+  closePanel: () => void;
+  togglePanel: () => void;
+  
+  // Chat state (from useClientChat)
+  messages: Message[];
+  isProcessing: boolean;
+  currentStep: ProcessStep;
+  multiAgentStep: MultiAgentStep;
+  multiAgentDetails: Record<string, string>;
+  conversationId: string | null;
+  
+  // Libraries (from useClientChat)
   contentLibrary: ContentLibraryItem[];
   referenceLibrary: ReferenceLibraryItem[];
+  
+  // Workspace data
   assignees: AssigneeItem[];
   clients: ClientItem[];
-  csvValidationResults: ValidationResult[];
-  pendingCSVFiles: File[];
-}
-
-// Extended context value with libraries
-interface ExtendedKAIContextValue extends KAIContextValue {
-  contentLibrary: ContentLibraryItem[];
-  referenceLibrary: ReferenceLibraryItem[];
-  assignees: AssigneeItem[];
-  clients: ClientItem[];
-  csvValidationResults: ValidationResult[];
+  
+  // Client selection
+  selectedClientId: string | null;
+  setSelectedClientId: (clientId: string | null) => void;
+  
+  // Message handling (delegates to useClientChat)
   sendMessage: (text: string, files?: File[], citations?: Citation[]) => Promise<void>;
-  proceedCSVImport: () => void;
-  cancelCSVValidation: () => void;
-  applyCSVFix: (fileIndex: number, warningIndex: number) => void;
+  clearConversation: () => void;
+  startNewConversation: () => Promise<void>;
+  regenerateLastMessage: () => Promise<void>;
+  
+  // Action handling
+  actionStatus: KAIActionStatus;
+  pendingAction: PendingAction | null;
+  confirmAction: () => Promise<void>;
+  cancelAction: () => void;
+  
+  // File handling
+  attachedFiles: KAIFileAttachment[];
+  attachFiles: (files: File[]) => void;
+  removeFile: (fileId: string) => void;
+  clearFiles: () => void;
+  
+  // Mode selection
+  chatMode: "content" | "ideas" | "free_chat";
+  setChatMode: (mode: "content" | "ideas" | "free_chat") => void;
+  
+  // Workflow state
+  isIdeaMode: boolean;
+  isFreeChatMode: boolean;
 }
-
-const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/kai-chat`;
-
-const initialState: ExtendedKAIState = {
-  isOpen: false,
-  messages: [],
-  isProcessing: false,
-  currentAction: null,
-  actionStatus: "idle",
-  pendingAction: null,
-  attachedFiles: [],
-  selectedClientId: null,
-  currentStep: null,
-  multiAgentStep: null,
-  streamingResponse: "",
-  workspaceId: null,
-  contentLibrary: [],
-  referenceLibrary: [],
-  assignees: [],
-  clients: [],
-  csvValidationResults: [],
-  pendingCSVFiles: [],
-};
 
 // Export context for external use
-export const GlobalKAIContext = createContext<ExtendedKAIContextValue | null>(null);
+export const GlobalKAIContext = createContext<GlobalKAIContextValue | null>(null);
 
 interface GlobalKAIProviderProps {
   children: ReactNode;
 }
 
 export function GlobalKAIProvider({ children }: GlobalKAIProviderProps) {
-  const [state, setState] = useState<ExtendedKAIState>(initialState);
-  const abortControllerRef = useRef<AbortController | null>(null);
+  // Panel state
+  const [isOpen, setIsOpen] = useState(false);
+  
+  // Client and workspace state
+  const [selectedClientId, setSelectedClientIdState] = useState<string | null>(null);
+  const [workspaceId, setWorkspaceId] = useState<string | null>(null);
+  
+  // Action handling state
+  const [actionStatus, setActionStatus] = useState<KAIActionStatus>("idle");
+  const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
+  const [attachedFiles, setAttachedFiles] = useState<KAIFileAttachment[]>([]);
+  
+  // Chat mode
+  const [chatMode, setChatMode] = useState<"content" | "ideas" | "free_chat">("content");
+  
+  // Workspace data
+  const [assignees, setAssignees] = useState<AssigneeItem[]>([]);
+  const [clients, setClients] = useState<ClientItem[]>([]);
 
   // Hooks for action handling
   const { detectAction, isDetecting } = useKAIActions();
   const { analyzeCSV, isAnalyzing: isAnalyzingCSV } = useKAICSVAnalysis();
   const { analyzeURL, isAnalyzing: isAnalyzingURL } = useKAIURLAnalysis();
   const { executeAction: executeActionHook, isExecuting } = useKAIExecuteAction();
-  const { validateFiles, applyFix } = useCSVValidation();
+
+  // ============================================
+  // USE THE MAIN useClientChat HOOK
+  // This gives us: persistence, multi-agent pipeline, libraries, etc.
+  // ============================================
+  const clientChat = useClientChat(
+    selectedClientId || "",
+    undefined, // templateId - global doesn't use templates
+    undefined  // conversationIdParam
+  );
+
+  // Destructure all the goodies from useClientChat
+  const {
+    messages,
+    isLoading: isClientChatLoading,
+    currentStep,
+    multiAgentStep,
+    multiAgentDetails,
+    conversationId,
+    contentLibrary,
+    referenceLibrary,
+    sendMessage: clientChatSendMessage,
+    clearConversation: clientChatClearConversation,
+    startNewConversation: clientChatStartNewConversation,
+    regenerateLastMessage: clientChatRegenerateLastMessage,
+    isIdeaMode,
+    isFreeChatMode,
+  } = clientChat;
 
   // Fetch user's workspace on mount
   useEffect(() => {
@@ -124,7 +173,7 @@ export function GlobalKAIProvider({ children }: GlobalKAIProviderProps) {
           .single();
         
         if (membership) {
-          setState(prev => ({ ...prev, workspaceId: membership.workspace_id }));
+          setWorkspaceId(membership.workspace_id);
         }
       }
     };
@@ -133,12 +182,9 @@ export function GlobalKAIProvider({ children }: GlobalKAIProviderProps) {
 
   // Fetch assignees (workspace members) and clients when workspace is set
   useEffect(() => {
-    if (!state.workspaceId) {
-      setState(prev => ({
-        ...prev,
-        assignees: [],
-        clients: [],
-      }));
+    if (!workspaceId) {
+      setAssignees([]);
+      setClients([]);
       return;
     }
 
@@ -148,7 +194,7 @@ export function GlobalKAIProvider({ children }: GlobalKAIProviderProps) {
         const { data: members } = await supabase
           .from("workspace_members")
           .select("user_id, role")
-          .eq("workspace_id", state.workspaceId);
+          .eq("workspace_id", workspaceId);
 
         if (members && members.length > 0) {
           const userIds = members.map(m => m.user_id);
@@ -158,13 +204,13 @@ export function GlobalKAIProvider({ children }: GlobalKAIProviderProps) {
             .in("id", userIds);
 
           if (profiles) {
-            const assignees = profiles.map(profile => ({
+            const assigneesList = profiles.map(profile => ({
               id: profile.id,
               name: profile.full_name || profile.email || "Usuário",
               email: profile.email || undefined,
               avatar_url: profile.avatar_url || undefined,
             }));
-            setState(prev => ({ ...prev, assignees }));
+            setAssignees(assigneesList);
           }
         }
 
@@ -172,16 +218,16 @@ export function GlobalKAIProvider({ children }: GlobalKAIProviderProps) {
         const { data: clientsData } = await supabase
           .from("clients")
           .select("id, name, avatar_url")
-          .eq("workspace_id", state.workspaceId)
+          .eq("workspace_id", workspaceId)
           .order("name", { ascending: true });
 
         if (clientsData) {
-          const clients = clientsData.map(c => ({
+          const clientsList = clientsData.map(c => ({
             id: c.id,
             name: c.name,
             avatar_url: c.avatar_url || undefined,
           }));
-          setState(prev => ({ ...prev, clients }));
+          setClients(clientsList);
         }
       } catch (error) {
         console.error("Error fetching workspace data:", error);
@@ -189,56 +235,14 @@ export function GlobalKAIProvider({ children }: GlobalKAIProviderProps) {
     };
 
     fetchWorkspaceData();
-  }, [state.workspaceId]);
-
-  // Fetch libraries when client is selected
-  useEffect(() => {
-    if (!state.selectedClientId) {
-      setState(prev => ({
-        ...prev,
-        contentLibrary: [],
-        referenceLibrary: [],
-      }));
-      return;
-    }
-
-    const fetchLibraries = async () => {
-      try {
-        // Fetch content library
-        const { data: contentData } = await supabase
-          .from("client_content_library")
-          .select("id, title, content_type, content")
-          .eq("client_id", state.selectedClientId)
-          .order("created_at", { ascending: false })
-          .limit(50);
-
-        // Fetch reference library
-        const { data: referenceData } = await supabase
-          .from("client_reference_library")
-          .select("id, title, reference_type, content")
-          .eq("client_id", state.selectedClientId)
-          .order("created_at", { ascending: false })
-          .limit(50);
-
-        setState(prev => ({
-          ...prev,
-          contentLibrary: contentData || [],
-          referenceLibrary: referenceData || [],
-        }));
-      } catch (error) {
-        console.error("Error fetching libraries:", error);
-      }
-    };
-
-    fetchLibraries();
-  }, [state.selectedClientId]);
+  }, [workspaceId]);
 
   // Keyboard shortcut: Cmd/Ctrl + K
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
         e.preventDefault();
-        setState((prev) => ({ ...prev, isOpen: !prev.isOpen }));
+        setIsOpen(prev => !prev);
       }
     };
 
@@ -247,16 +251,13 @@ export function GlobalKAIProvider({ children }: GlobalKAIProviderProps) {
   }, []);
 
   // Panel controls
-  const openPanel = useCallback(() => {
-    setState((prev) => ({ ...prev, isOpen: true }));
-  }, []);
+  const openPanel = useCallback(() => setIsOpen(true), []);
+  const closePanel = useCallback(() => setIsOpen(false), []);
+  const togglePanel = useCallback(() => setIsOpen(prev => !prev), []);
 
-  const closePanel = useCallback(() => {
-    setState((prev) => ({ ...prev, isOpen: false }));
-  }, []);
-
-  const togglePanel = useCallback(() => {
-    setState((prev) => ({ ...prev, isOpen: !prev.isOpen }));
+  // Client selection
+  const setSelectedClientId = useCallback((clientId: string | null) => {
+    setSelectedClientIdState(clientId);
   }, []);
 
   // Process detected action to prepare pending action
@@ -264,7 +265,7 @@ export function GlobalKAIProvider({ children }: GlobalKAIProviderProps) {
     detected: DetectedAction,
     files?: KAIFileAttachment[]
   ): Promise<PendingAction | null> => {
-    const pendingAction: PendingAction = {
+    const action: PendingAction = {
       id: crypto.randomUUID(),
       type: detected.type,
       status: "previewing",
@@ -274,12 +275,11 @@ export function GlobalKAIProvider({ children }: GlobalKAIProviderProps) {
     };
 
     try {
-      // Analyze files or URLs to build preview
       if (detected.type === "upload_metrics" && files && files.length > 0) {
         const csvFile = files.find(f => f.type === "text/csv" || f.name.endsWith(".csv"));
         if (csvFile) {
           const analysis = await analyzeCSV(csvFile.file);
-          pendingAction.preview = {
+          action.preview = {
             title: `Importar métricas de ${analysis.platform || "plataforma desconhecida"}`,
             description: `${analysis.preview?.totalRows || 0} registros encontrados`,
             data: analysis as unknown as Record<string, unknown>,
@@ -287,7 +287,7 @@ export function GlobalKAIProvider({ children }: GlobalKAIProviderProps) {
         }
       } else if ((detected.type === "upload_to_library" || detected.type === "upload_to_references" || detected.type === "analyze_url") && detected.params.url) {
         const analysis = await analyzeURL(detected.params.url);
-        pendingAction.preview = {
+        action.preview = {
           title: analysis.title || "Conteúdo extraído",
           description: analysis.description || "Conteúdo da URL foi analisado",
           data: {
@@ -296,31 +296,31 @@ export function GlobalKAIProvider({ children }: GlobalKAIProviderProps) {
             type: analysis.type,
           },
         };
-        pendingAction.params = { ...pendingAction.params, title: analysis.title };
+        action.params = { ...action.params, title: analysis.title };
       } else if (detected.type === "create_planning_card") {
-        pendingAction.preview = {
+        action.preview = {
           title: detected.params.title || "Novo card",
           description: detected.params.description || "Card será criado no planejamento",
         };
       } else if (detected.type === "create_content") {
-        pendingAction.preview = {
+        action.preview = {
           title: `Criar ${detected.params.format || "post"}`,
           description: detected.params.description || "Conteúdo será gerado com IA",
         };
       }
 
-      return pendingAction;
+      return action;
     } catch (error) {
       console.error("Error preparing action:", error);
-      return pendingAction;
+      return action;
     }
   }, [analyzeCSV, analyzeURL]);
 
-  // Message handling with real streaming
+  // Wrapped send message that handles action detection + delegates to useClientChat
   const sendMessage = useCallback(async (text: string, files?: File[], citations?: Citation[]) => {
     if (!text.trim() && (!files || files.length === 0)) return;
 
-    // Convert files to attachments
+    // Convert files to attachments for action detection
     const fileAttachments: KAIFileAttachment[] = files?.map(file => ({
       id: crypto.randomUUID(),
       file,
@@ -330,284 +330,101 @@ export function GlobalKAIProvider({ children }: GlobalKAIProviderProps) {
       previewUrl: file.type.startsWith("image/") ? URL.createObjectURL(file) : undefined,
     })) || [];
 
-    const allAttachments = [...state.attachedFiles, ...fileAttachments];
+    const allAttachments = [...attachedFiles, ...fileAttachments];
 
-    const userMessage: Message = {
-      id: crypto.randomUUID(),
-      role: "user",
-      content: text,
-      created_at: new Date().toISOString(),
-    };
-
-    const allMessages = [...state.messages, userMessage];
-
-    setState((prev) => ({
-      ...prev,
-      messages: allMessages,
-      isProcessing: true,
-      actionStatus: "detecting",
-      attachedFiles: [],
-      streamingResponse: "",
-    }));
+    setActionStatus("detecting");
 
     try {
       // Step 1: Detect action intent
       const detected = await detectAction(text, allAttachments, {
-        clientId: state.selectedClientId || undefined,
+        clientId: selectedClientId || undefined,
         currentPage: window.location.pathname,
       });
 
       // Step 2: If action requires confirmation, prepare and show dialog
       if (detected.requiresConfirmation && detected.type !== "general_chat") {
-        setState(prev => ({ ...prev, actionStatus: "analyzing" }));
+        setActionStatus("analyzing");
         
         const preparedAction = await prepareAction(detected, allAttachments);
         
         if (preparedAction) {
-          setState(prev => ({
-            ...prev,
-            pendingAction: preparedAction,
-            actionStatus: "confirming",
-            isProcessing: false,
-          }));
+          setPendingAction(preparedAction);
+          setActionStatus("confirming");
           return; // Wait for user confirmation
         }
       }
 
-      // Step 3: For general chat or non-confirmation actions, proceed with streaming
-      await streamChatResponse(allMessages, citations);
+      // Step 3: For general chat or non-confirmation actions, use clientChat
+      setActionStatus("idle");
+      setAttachedFiles([]);
+      
+      // Map chatMode to explicitMode for useClientChat
+      const explicitMode = chatMode === "content" ? "content" : chatMode === "ideas" ? "ideas" : "free_chat";
+      
+      await clientChatSendMessage(text, undefined, "fast", explicitMode, citations);
 
     } catch (error) {
-      if ((error as Error).name === "AbortError") {
-        setState((prev) => ({ ...prev, isProcessing: false, actionStatus: "idle" }));
-        return;
-      }
-      
       console.error("kAI chat error:", error);
       toast.error(error instanceof Error ? error.message : "Erro ao processar mensagem");
-      
-      setState((prev) => ({
-        ...prev,
-        messages: [...prev.messages, {
-          id: crypto.randomUUID(),
-          role: "assistant",
-          content: "Desculpe, ocorreu um erro ao processar sua mensagem. Tente novamente.",
-          created_at: new Date().toISOString(),
-        }],
-        isProcessing: false,
-        actionStatus: "idle",
-      }));
+      setActionStatus("idle");
     }
-  }, [state.messages, state.selectedClientId, state.attachedFiles, detectAction, prepareAction]);
+  }, [selectedClientId, attachedFiles, detectAction, prepareAction, clientChatSendMessage, chatMode]);
 
-  // Stream chat response
-  const streamChatResponse = useCallback(async (allMessages: Message[], citations?: Citation[]) => {
-    abortControllerRef.current = new AbortController();
-    let fullResponse = "";
-
-    try {
-      const chatMessages = allMessages.map((m) => ({
-        role: m.role,
-        content: m.content,
-      }));
-
-      // Prepare citations data for the edge function
-      const citationsData = citations?.map(c => ({
-        id: c.id,
-        type: c.type,
-        title: c.title,
-        category: c.category,
-      }));
-
-      const resp = await fetch(CHAT_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-        },
-        body: JSON.stringify({
-          messages: chatMessages,
-          clientId: state.selectedClientId,
-          workspaceId: state.workspaceId,
-          citations: citationsData,
-        }),
-        signal: abortControllerRef.current.signal,
-      });
-
-      if (!resp.ok) {
-        const errorData = await resp.json().catch(() => ({}));
-        throw new Error(errorData.error || `Erro: ${resp.status}`);
-      }
-
-      if (!resp.body) {
-        throw new Error("Stream não disponível");
-      }
-
-      const reader = resp.body.getReader();
-      const decoder = new TextDecoder();
-      let textBuffer = "";
-
-      // Create assistant message placeholder
-      const assistantMessageId = crypto.randomUUID();
-      setState((prev) => ({
-        ...prev,
-        messages: [...prev.messages, {
-          id: assistantMessageId,
-          role: "assistant",
-          content: "",
-          created_at: new Date().toISOString(),
-        }],
-        actionStatus: "idle",
-      }));
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        textBuffer += decoder.decode(value, { stream: true });
-
-        let newlineIndex: number;
-        while ((newlineIndex = textBuffer.indexOf("\n")) !== -1) {
-          let line = textBuffer.slice(0, newlineIndex);
-          textBuffer = textBuffer.slice(newlineIndex + 1);
-
-          if (line.endsWith("\r")) line = line.slice(0, -1);
-          if (line.startsWith(":") || line.trim() === "") continue;
-          if (!line.startsWith("data: ")) continue;
-
-          const jsonStr = line.slice(6).trim();
-          if (jsonStr === "[DONE]") break;
-
-          try {
-            const parsed = JSON.parse(jsonStr);
-            const content = parsed.choices?.[0]?.delta?.content as string | undefined;
-            if (content) {
-              fullResponse += content;
-              setState((prev) => {
-                const msgs = [...prev.messages];
-                const lastIdx = msgs.length - 1;
-                if (lastIdx >= 0 && msgs[lastIdx].role === "assistant") {
-                  msgs[lastIdx] = { ...msgs[lastIdx], content: fullResponse };
-                }
-                return { ...prev, messages: msgs, streamingResponse: fullResponse };
-              });
-            }
-          } catch {
-            textBuffer = line + "\n" + textBuffer;
-            break;
-          }
-        }
-      }
-
-      // Flush remaining buffer
-      if (textBuffer.trim()) {
-        for (let raw of textBuffer.split("\n")) {
-          if (!raw) continue;
-          if (raw.endsWith("\r")) raw = raw.slice(0, -1);
-          if (raw.startsWith(":") || raw.trim() === "") continue;
-          if (!raw.startsWith("data: ")) continue;
-          const jsonStr = raw.slice(6).trim();
-          if (jsonStr === "[DONE]") continue;
-          try {
-            const parsed = JSON.parse(jsonStr);
-            const content = parsed.choices?.[0]?.delta?.content as string | undefined;
-            if (content) {
-              fullResponse += content;
-            }
-          } catch {
-            // Ignore
-          }
-        }
-      }
-
-      // Final update
-      setState((prev) => {
-        const msgs = [...prev.messages];
-        const lastIdx = msgs.length - 1;
-        if (lastIdx >= 0 && msgs[lastIdx].role === "assistant") {
-          msgs[lastIdx] = { ...msgs[lastIdx], content: fullResponse };
-        }
-        return { ...prev, messages: msgs, isProcessing: false, actionStatus: "idle" };
-      });
-    } catch (error) {
-      if ((error as Error).name === "AbortError") {
-        return;
-      }
-      throw error;
-    } finally {
-      abortControllerRef.current = null;
-    }
-  }, [state.selectedClientId, state.workspaceId]);
-
+  // Clear conversation
   const clearConversation = useCallback(() => {
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
-    setState((prev) => ({
-      ...prev,
-      messages: [],
-      currentAction: null,
-      actionStatus: "idle",
-      pendingAction: null,
-      streamingResponse: "",
-    }));
-  }, []);
+    clientChatClearConversation();
+    setPendingAction(null);
+    setActionStatus("idle");
+  }, [clientChatClearConversation]);
+
+  // Start new conversation
+  const startNewConversation = useCallback(async () => {
+    await clientChatStartNewConversation();
+    setPendingAction(null);
+    setActionStatus("idle");
+  }, [clientChatStartNewConversation]);
+
+  // Regenerate last message
+  const regenerateLastMessage = useCallback(async () => {
+    await clientChatRegenerateLastMessage();
+  }, [clientChatRegenerateLastMessage]);
 
   // Action confirmation handler
   const confirmAction = useCallback(async () => {
-    if (!state.pendingAction || !state.selectedClientId || !state.workspaceId) {
+    if (!pendingAction || !selectedClientId || !workspaceId) {
       toast.error("Selecione um cliente antes de executar a ação");
       return;
     }
 
-    setState((prev) => ({
-      ...prev,
-      actionStatus: "executing",
-      isProcessing: true,
-    }));
+    setActionStatus("executing");
 
     try {
       const result = await executeActionHook({
-        action: state.pendingAction,
-        clientId: state.selectedClientId,
-        workspaceId: state.workspaceId,
+        action: pendingAction,
+        clientId: selectedClientId,
+        workspaceId: workspaceId,
       });
 
-      // Add success message
-      setState((prev) => ({
-        ...prev,
-        messages: [...prev.messages, {
-          id: crypto.randomUUID(),
-          role: "assistant",
-          content: result.success 
-            ? `✅ ${result.message}` 
-            : `❌ ${result.message}`,
-          created_at: new Date().toISOString(),
-        }],
-        actionStatus: "completed",
-        pendingAction: null,
-        isProcessing: false,
-      }));
+      // Add success message via clientChat
+      const resultMessage = result.success 
+        ? `✅ ${result.message}` 
+        : `❌ ${result.message}`;
+      
+      toast(resultMessage);
+      
+      setActionStatus("completed");
+      setPendingAction(null);
     } catch (error) {
       console.error("Error executing action:", error);
       toast.error("Erro ao executar ação");
-      setState((prev) => ({
-        ...prev,
-        actionStatus: "idle",
-        pendingAction: null,
-        isProcessing: false,
-      }));
+      setActionStatus("idle");
+      setPendingAction(null);
     }
-  }, [state.pendingAction, state.selectedClientId, state.workspaceId, executeActionHook]);
+  }, [pendingAction, selectedClientId, workspaceId, executeActionHook]);
 
   const cancelAction = useCallback(() => {
-    setState((prev) => ({
-      ...prev,
-      currentAction: null,
-      actionStatus: "idle",
-      pendingAction: null,
-      isProcessing: false,
-    }));
+    setPendingAction(null);
+    setActionStatus("idle");
   }, []);
 
   // File handling
@@ -623,84 +440,80 @@ export function GlobalKAIProvider({ children }: GlobalKAIProviderProps) {
         : undefined,
     }));
 
-    setState((prev) => ({
-      ...prev,
-      attachedFiles: [...prev.attachedFiles, ...newAttachments],
-    }));
+    setAttachedFiles(prev => [...prev, ...newAttachments]);
   }, []);
 
   const removeFile = useCallback((fileId: string) => {
-    setState((prev) => {
-      const file = prev.attachedFiles.find((f) => f.id === fileId);
+    setAttachedFiles(prev => {
+      const file = prev.find((f) => f.id === fileId);
       if (file?.previewUrl) {
         URL.revokeObjectURL(file.previewUrl);
       }
-      return {
-        ...prev,
-        attachedFiles: prev.attachedFiles.filter((f) => f.id !== fileId),
-      };
+      return prev.filter((f) => f.id !== fileId);
     });
   }, []);
 
   const clearFiles = useCallback(() => {
-    setState((prev) => {
-      prev.attachedFiles.forEach((f) => {
+    setAttachedFiles(prev => {
+      prev.forEach((f) => {
         if (f.previewUrl) URL.revokeObjectURL(f.previewUrl);
       });
-      return {
-        ...prev,
-        attachedFiles: [],
-      };
+      return [];
     });
   }, []);
 
-  // Client selection
-  const setSelectedClientId = useCallback((clientId: string | null) => {
-    setState((prev) => ({
-      ...prev,
-      selectedClientId: clientId,
-    }));
-  }, []);
-
-  // CSV Validation handlers
-  const proceedCSVImport = useCallback(() => {
-    // TODO: Implement actual import using useSmartInstagramImport
-    toast.success("Importação de CSV iniciada");
-    setState((prev) => ({
-      ...prev,
-      csvValidationResults: [],
-      pendingCSVFiles: [],
-    }));
-  }, []);
-
-  const cancelCSVValidation = useCallback(() => {
-    setState((prev) => ({
-      ...prev,
-      csvValidationResults: [],
-      pendingCSVFiles: [],
-    }));
-  }, []);
-
-  const applyCSVFix = useCallback((fileIndex: number, warningIndex: number) => {
-    applyFix(fileIndex, warningIndex);
-  }, [applyFix]);
-
-  const value: ExtendedKAIContextValue = {
-    ...state,
+  const value: GlobalKAIContextValue = {
+    // Panel state
+    isOpen,
     openPanel,
     closePanel,
     togglePanel,
+    
+    // Chat state (from useClientChat)
+    messages,
+    isProcessing: isClientChatLoading || isDetecting || isAnalyzingCSV || isAnalyzingURL || isExecuting,
+    currentStep,
+    multiAgentStep,
+    multiAgentDetails,
+    conversationId,
+    
+    // Libraries (from useClientChat)
+    contentLibrary: contentLibrary as ContentLibraryItem[],
+    referenceLibrary: referenceLibrary as ReferenceLibraryItem[],
+    
+    // Workspace data
+    assignees,
+    clients,
+    
+    // Client selection
+    selectedClientId,
+    setSelectedClientId,
+    
+    // Message handling
     sendMessage,
     clearConversation,
+    startNewConversation,
+    regenerateLastMessage,
+    
+    // Action handling
+    actionStatus,
+    pendingAction,
     confirmAction,
     cancelAction,
+    
+    // File handling
+    attachedFiles,
     attachFiles,
     removeFile,
     clearFiles,
-    setSelectedClientId,
-    proceedCSVImport,
-    cancelCSVValidation,
-    applyCSVFix,
+    
+    // Mode selection
+    chatMode,
+    setChatMode,
+    
+    // Workflow state
+    isIdeaMode,
+    isFreeChatMode,
   };
 
   return (

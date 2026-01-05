@@ -7,8 +7,7 @@ import { Message, ProcessStep, MultiAgentStep } from "@/types/chat";
 import { KAIActionStatus } from "@/types/kaiActions";
 import { EnhancedMessageBubble } from "@/components/chat/EnhancedMessageBubble";
 import { MinimalProgress } from "@/components/chat/MinimalProgress";
-import { KAICSVValidationCard } from "./KAICSVValidationCard";
-import { ValidationResult } from "@/hooks/useCSVValidation";
+import { MultiAgentProgress } from "@/components/chat/MultiAgentProgress";
 import kaleidosLogo from "@/assets/kaleidos-logo.svg";
 
 interface GlobalKAIChatProps {
@@ -19,11 +18,9 @@ interface GlobalKAIChatProps {
   actionStatus?: KAIActionStatus;
   currentStep?: ProcessStep;
   multiAgentStep?: MultiAgentStep;
+  multiAgentDetails?: Record<string, string>;
   onSendMessage?: (content: string, images?: string[], quality?: "fast" | "high") => void;
-  csvValidationResults?: ValidationResult[];
-  onProceedCSVImport?: () => void;
-  onCancelCSVValidation?: () => void;
-  onApplyCSVFix?: (fileIndex: number, warningIndex: number) => void;
+  chatMode?: "content" | "ideas" | "free_chat";
 }
 
 export function GlobalKAIChat({
@@ -34,11 +31,9 @@ export function GlobalKAIChat({
   actionStatus = "idle",
   currentStep,
   multiAgentStep,
+  multiAgentDetails,
   onSendMessage,
-  csvValidationResults = [],
-  onProceedCSVImport,
-  onCancelCSVValidation,
-  onApplyCSVFix,
+  chatMode = "content",
 }: GlobalKAIChatProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -141,8 +136,8 @@ export function GlobalKAIChat({
           ))}
         </AnimatePresence>
 
-        {/* CSV Validation Card */}
-        {csvValidationResults.length > 0 && (
+        {/* Multi-Agent Pipeline Progress - Show when multi-agent is active */}
+        {isProcessing && currentStep === "multi_agent" && multiAgentStep && (
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -151,17 +146,17 @@ export function GlobalKAIChat({
             <div className="flex-shrink-0 w-9 h-9 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/20 flex items-center justify-center shadow-sm">
               <img src={kaleidosLogo} alt="kAI" className="h-5 w-5 object-contain" />
             </div>
-            <KAICSVValidationCard
-              validationResults={csvValidationResults}
-              onProceed={onProceedCSVImport || (() => {})}
-              onCancel={onCancelCSVValidation || (() => {})}
-              onApplyFix={onApplyCSVFix}
-            />
+            <div className="flex-1">
+              <MultiAgentProgress 
+                currentStep={multiAgentStep} 
+                stepDetails={multiAgentDetails}
+              />
+            </div>
           </motion.div>
         )}
 
-        {/* Processing indicator with step tracking */}
-        {isProcessing && (
+        {/* Simple Processing indicator (for non-multi-agent steps) */}
+        {isProcessing && currentStep !== "multi_agent" && (
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
