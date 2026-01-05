@@ -155,3 +155,6 @@ verify_jwt = true
 
 [functions.process-automations]
 verify_jwt = false
+
+[functions.kai-smart-planner]
+verify_jwt = true

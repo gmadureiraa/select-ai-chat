@@ -8,7 +8,9 @@ import { ImageActionButtons } from "./ImageActionButtons";
 import { AddToPlanningButton } from "./AddToPlanningButton";
 import { EditAndPlanButton } from "./EditAndPlanButton";
 import { AdjustImageButton } from "./AdjustImageButton";
+import { ResponseCard, hasResponseCardPayload, ResponseCardPayload } from "./ResponseCard";
 import { useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Dialog,
   DialogContent,
@@ -75,6 +77,7 @@ export const EnhancedMessageBubble = ({
   const isUser = role === "user";
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   const hasImages = imageUrls && imageUrls.length > 0;
   const isSingleImage = hasImages && imageUrls.length === 1;
@@ -82,6 +85,14 @@ export const EnhancedMessageBubble = ({
 
   // Extract citations from payload
   const citations = payload?.citations || [];
+
+  // Check if this message has a ResponseCard payload
+  const responseCardPayload = useMemo(() => {
+    if (payload && hasResponseCardPayload({ payload })) {
+      return payload as unknown as ResponseCardPayload;
+    }
+    return null;
+  }, [payload]);
 
   // Parse content for artifacts
   const { textContent, artifacts } = useMemo(() => {
@@ -236,6 +247,14 @@ export const EnhancedMessageBubble = ({
                 </div>
               )}
             </div>
+          )}
+
+          {/* Response Card (for structured responses like cards_created) */}
+          {responseCardPayload && (
+            <ResponseCard 
+              payload={responseCardPayload} 
+              onViewPlanning={() => navigate(`?tab=planning`)}
+            />
           )}
 
           {/* Social post preview removed - just show formatted text */}
