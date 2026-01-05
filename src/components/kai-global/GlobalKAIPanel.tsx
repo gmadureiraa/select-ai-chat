@@ -25,7 +25,7 @@ interface GlobalKAIPanelProps {
   onClientChange?: (clientId: string) => void;
   deliveryMode?: DeliveryMode;
   onDeliveryModeChange?: (mode: DeliveryMode) => void;
-  chatMode?: "content" | "ideas" | "free_chat";
+  chatMode?: "ideas" | "content" | "performance" | "free_chat";
 }
 
 export function GlobalKAIPanel({
@@ -199,7 +199,9 @@ export function GlobalKAIPanel({
                     ? "Ideias serão criadas como cards automaticamente"
                     : chatMode === "content"
                     ? "Conteúdo será gerado e salvo no planejamento"
-                    : "Cards serão criados no planejamento"
+                    : chatMode === "performance"
+                    ? "Modo de análise - dados não são salvos automaticamente"
+                    : "Respostas serão exibidas no chat"
                   }
                 </p>
               )}

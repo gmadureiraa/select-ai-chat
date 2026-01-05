@@ -9,6 +9,7 @@ import { KAIFileAttachment } from "@/types/kaiActions";
 import { toast } from "sonner";
 import { CitationPopover } from "@/components/chat/CitationPopover";
 import { CitationChip, Citation } from "@/components/chat/CitationChip";
+import { ModeSelector, ChatMode } from "@/components/chat/ModeSelector";
 
 interface ContentLibraryItem {
   id: string;
@@ -49,6 +50,9 @@ interface GlobalKAIInputProps {
   referenceLibrary?: ReferenceLibraryItem[];
   assignees?: AssigneeItem[];
   clients?: ClientItem[];
+  // Mode selection
+  chatMode?: ChatMode;
+  onChatModeChange?: (mode: ChatMode) => void;
 }
 
 // URL detection regex
@@ -68,6 +72,8 @@ export function GlobalKAIInput({
   referenceLibrary = [],
   assignees = [],
   clients = [],
+  chatMode = "ideas",
+  onChatModeChange,
 }: GlobalKAIInputProps) {
   const [message, setMessage] = useState("");
   const [detectedUrls, setDetectedUrls] = useState<string[]>([]);
@@ -546,14 +552,20 @@ export function GlobalKAIInput({
         </Button>
       </div>
 
-      {/* Hints */}
-      <div className="flex items-center justify-between mt-2">
-        <p className="text-[10px] text-muted-foreground">
-          Enter para enviar • @ para mencionar • Shift+Enter para nova linha
-        </p>
-        <p className="text-[10px] text-muted-foreground">
-          Até {MAX_FILES} arquivos
-        </p>
+      {/* Mode selector and hints */}
+      <div className="flex items-center justify-between mt-2 gap-2">
+        {onChatModeChange && (
+          <ModeSelector
+            mode={chatMode}
+            onChange={onChatModeChange}
+            disabled={isProcessing || disabled}
+          />
+        )}
+        <div className="flex-1 flex items-center justify-end gap-4">
+          <p className="text-[10px] text-muted-foreground">
+            Enter para enviar • @ para mencionar
+          </p>
+        </div>
       </div>
     </div>
   );

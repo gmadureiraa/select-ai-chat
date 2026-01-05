@@ -20,7 +20,7 @@ interface GlobalKAIChatProps {
   multiAgentStep?: MultiAgentStep;
   multiAgentDetails?: Record<string, string>;
   onSendMessage?: (content: string, images?: string[], quality?: "fast" | "high") => void;
-  chatMode?: "content" | "ideas" | "free_chat";
+  chatMode?: "ideas" | "content" | "performance" | "free_chat";
 }
 
 export function GlobalKAIChat({
@@ -33,7 +33,7 @@ export function GlobalKAIChat({
   multiAgentStep,
   multiAgentDetails,
   onSendMessage,
-  chatMode = "content",
+  chatMode = "ideas",
 }: GlobalKAIChatProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
