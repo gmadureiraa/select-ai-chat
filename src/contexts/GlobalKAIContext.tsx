@@ -17,6 +17,7 @@ import { useKAIExecuteAction } from "@/hooks/useKAIExecuteAction";
 import { useClientChat } from "@/hooks/useClientChat";
 import { supabase } from "@/integrations/supabase/client";
 import { Citation } from "@/components/chat/CitationChip";
+import { uploadAndGetSignedUrl } from "@/lib/storage";
 
 const LOCAL_STORAGE_KEY = "kai-selected-client";
 
@@ -438,6 +439,31 @@ export function GlobalKAIProvider({ children }: GlobalKAIProviderProps) {
       setActionStatus("idle");
       setAttachedFiles([]);
       
+      // Upload image files to storage and get signed URLs
+      let imageUrls: string[] = [];
+      const imageAttachments = allAttachments.filter(f => f.type.startsWith("image/"));
+      
+      if (imageAttachments.length > 0) {
+        console.log("[GlobalKAI] Uploading", imageAttachments.length, "images to storage");
+        try {
+          const uploadPromises = imageAttachments.map(async (attachment) => {
+            const { signedUrl, error } = await uploadAndGetSignedUrl(attachment.file, "chat-images");
+            if (error) {
+              console.error("[GlobalKAI] Image upload error:", error);
+              return null;
+            }
+            return signedUrl;
+          });
+          
+          const results = await Promise.all(uploadPromises);
+          imageUrls = results.filter((url): url is string => url !== null);
+          console.log("[GlobalKAI] Uploaded images, got", imageUrls.length, "URLs");
+        } catch (uploadError) {
+          console.error("[GlobalKAI] Error uploading images:", uploadError);
+          toast.error("Erro ao enviar imagens. Tente novamente.");
+        }
+      }
+      
       // Call intelligent router to determine the pipeline
       let explicitMode: "content" | "ideas" | "free_chat" = chatMode;
       
@@ -469,7 +495,8 @@ export function GlobalKAIProvider({ children }: GlobalKAIProviderProps) {
         explicitMode = chatMode === "content" ? "content" : chatMode === "ideas" ? "ideas" : "free_chat";
       }
       
-      await clientChatSendMessage(text, undefined, "fast", explicitMode, citations);
+      // Pass image URLs to chat - this enables multimodal AI analysis
+      await clientChatSendMessage(text, imageUrls.length > 0 ? imageUrls : undefined, "fast", explicitMode, citations);
       clearTimeout(timeoutId);
 
     } catch (error) {
