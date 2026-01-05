@@ -1,4 +1,5 @@
-import { createContext, useContext, useState, useCallback, useEffect, ReactNode, useRef } from "react";
+import { createContext, useContext, useState, useCallback, useEffect, ReactNode } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Message, ProcessStep, MultiAgentStep } from "@/types/chat";
 import { 
   KAIActionType,
@@ -15,6 +16,8 @@ import { useKAIExecuteAction } from "@/hooks/useKAIExecuteAction";
 import { useClientChat } from "@/hooks/useClientChat";
 import { supabase } from "@/integrations/supabase/client";
 import { Citation } from "@/components/chat/CitationChip";
+
+const LOCAL_STORAGE_KEY = "kai-selected-client";
 
 // Library item types (matching useClientChat return types)
 interface ContentLibraryItem {
@@ -107,12 +110,19 @@ interface GlobalKAIProviderProps {
 }
 
 export function GlobalKAIProvider({ children }: GlobalKAIProviderProps) {
+  const [searchParams] = useSearchParams();
+  
   // Panel state
   const [isOpen, setIsOpen] = useState(false);
   
-  // Client and workspace state
-  const [selectedClientId, setSelectedClientIdState] = useState<string | null>(null);
+  // Client and workspace state - initialize from URL or localStorage
+  const [selectedClientId, setSelectedClientIdState] = useState<string | null>(() => {
+    const fromUrl = searchParams.get("client");
+    if (fromUrl) return fromUrl;
+    return localStorage.getItem(LOCAL_STORAGE_KEY);
+  });
   const [workspaceId, setWorkspaceId] = useState<string | null>(null);
+  const [isInitializing, setIsInitializing] = useState(true);
   
   // Action handling state
   const [actionStatus, setActionStatus] = useState<KAIActionStatus>("idle");
@@ -255,9 +265,36 @@ export function GlobalKAIProvider({ children }: GlobalKAIProviderProps) {
   const closePanel = useCallback(() => setIsOpen(false), []);
   const togglePanel = useCallback(() => setIsOpen(prev => !prev), []);
 
-  // Client selection
+  // Sync selectedClientId from URL when it changes
+  useEffect(() => {
+    const clientFromUrl = searchParams.get("client");
+    if (clientFromUrl && clientFromUrl !== selectedClientId) {
+      setSelectedClientIdState(clientFromUrl);
+      localStorage.setItem(LOCAL_STORAGE_KEY, clientFromUrl);
+    }
+  }, [searchParams, selectedClientId]);
+
+  // Auto-select first client if none selected and clients loaded
+  useEffect(() => {
+    if (!selectedClientId && clients.length > 0) {
+      const firstClient = clients[0].id;
+      setSelectedClientIdState(firstClient);
+      localStorage.setItem(LOCAL_STORAGE_KEY, firstClient);
+    }
+    // Mark initialization complete
+    if (clients.length > 0 || workspaceId) {
+      setIsInitializing(false);
+    }
+  }, [selectedClientId, clients, workspaceId]);
+
+  // Client selection with localStorage persistence
   const setSelectedClientId = useCallback((clientId: string | null) => {
     setSelectedClientIdState(clientId);
+    if (clientId) {
+      localStorage.setItem(LOCAL_STORAGE_KEY, clientId);
+    } else {
+      localStorage.removeItem(LOCAL_STORAGE_KEY);
+    }
   }, []);
 
   // Process detected action to prepare pending action
@@ -319,6 +356,18 @@ export function GlobalKAIProvider({ children }: GlobalKAIProviderProps) {
   // Wrapped send message that handles action detection + delegates to useClientChat
   const sendMessage = useCallback(async (text: string, files?: File[], citations?: Citation[]) => {
     if (!text.trim() && (!files || files.length === 0)) return;
+    
+    // Guard: ensure client is selected
+    if (!selectedClientId) {
+      toast.error("Selecione um cliente antes de enviar mensagem");
+      return;
+    }
+    
+    // Guard: ensure conversation is ready (useClientChat will create one automatically)
+    if (!conversationId && isInitializing) {
+      toast.info("Inicializando chat...");
+      return;
+    }
 
     // Convert files to attachments for action detection
     const fileAttachments: KAIFileAttachment[] = files?.map(file => ({
@@ -368,7 +417,7 @@ export function GlobalKAIProvider({ children }: GlobalKAIProviderProps) {
       toast.error(error instanceof Error ? error.message : "Erro ao processar mensagem");
       setActionStatus("idle");
     }
-  }, [selectedClientId, attachedFiles, detectAction, prepareAction, clientChatSendMessage, chatMode]);
+  }, [selectedClientId, attachedFiles, detectAction, prepareAction, clientChatSendMessage, chatMode, conversationId, isInitializing]);
 
   // Clear conversation
   const clearConversation = useCallback(() => {
