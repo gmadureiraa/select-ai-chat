@@ -1,4 +1,4 @@
-import { useGlobalKAI } from "@/contexts/GlobalKAIContext";
+import { useGlobalKAI } from "@/hooks/useGlobalKAI";
 import { useClients } from "@/hooks/useClients";
 import { FloatingKAIButton } from "./FloatingKAIButton";
 import { GlobalKAIPanel } from "./GlobalKAIPanel";
