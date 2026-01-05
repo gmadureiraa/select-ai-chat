@@ -1690,6 +1690,88 @@ export type Database = {
           },
         ]
       }
+      planning_automations: {
+        Row: {
+          auto_generate_content: boolean | null
+          client_id: string | null
+          content_type: string | null
+          created_at: string | null
+          created_by: string | null
+          id: string
+          is_active: boolean | null
+          items_created: number | null
+          last_triggered_at: string | null
+          name: string
+          platform: string | null
+          prompt_template: string | null
+          target_column_id: string | null
+          trigger_config: Json
+          trigger_type: string
+          updated_at: string | null
+          workspace_id: string
+        }
+        Insert: {
+          auto_generate_content?: boolean | null
+          client_id?: string | null
+          content_type?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          is_active?: boolean | null
+          items_created?: number | null
+          last_triggered_at?: string | null
+          name: string
+          platform?: string | null
+          prompt_template?: string | null
+          target_column_id?: string | null
+          trigger_config?: Json
+          trigger_type: string
+          updated_at?: string | null
+          workspace_id: string
+        }
+        Update: {
+          auto_generate_content?: boolean | null
+          client_id?: string | null
+          content_type?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          is_active?: boolean | null
+          items_created?: number | null
+          last_triggered_at?: string | null
+          name?: string
+          platform?: string | null
+          prompt_template?: string | null
+          target_column_id?: string | null
+          trigger_config?: Json
+          trigger_type?: string
+          updated_at?: string | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "planning_automations_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "planning_automations_target_column_id_fkey"
+            columns: ["target_column_id"]
+            isOneToOne: false
+            referencedRelation: "kanban_columns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "planning_automations_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       planning_item_comments: {
         Row: {
           content: string

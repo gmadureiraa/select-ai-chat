@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Plus, Loader2 } from 'lucide-react';
+import { Plus, Loader2, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { usePlanningItems, type PlanningFilters, type PlanningItem } from '@/hooks/usePlanningItems';
 import { PlanningFilters as FiltersComponent } from './PlanningFilters';
@@ -9,10 +9,11 @@ import { PlanningItemCard } from './PlanningItemCard';
 import { PlanningItemDialog } from './PlanningItemDialog';
 import { KanbanView } from './KanbanView';
 import { CalendarView } from './CalendarView';
-import { ViewSettingsPopover, useViewSettings, type ViewSettings } from './ViewSettingsPopover';
+import { ViewSettingsPopover, useViewSettings } from './ViewSettingsPopover';
 import { useWorkspace } from '@/hooks/useWorkspace';
 import { useMemberClientAccess } from '@/hooks/useMemberClientAccess';
 import { useTeamMembers } from '@/hooks/useTeamMembers';
+import { PlanningAutomations } from './PlanningAutomations';
 
 interface PlanningBoardProps {
   clientId?: string;
@@ -27,6 +28,7 @@ export function PlanningBoard({ clientId, isEnterprise = false, onClientChange }
   const [editingItem, setEditingItem] = useState<PlanningItem | null>(null);
   const [defaultDate, setDefaultDate] = useState<Date | undefined>();
   const [defaultColumnId, setDefaultColumnId] = useState<string | undefined>();
+  const [showAutomations, setShowAutomations] = useState(false);
   const { settings, setSettings } = useViewSettings();
   
   const { isViewer, workspace } = useWorkspace();
@@ -168,6 +170,15 @@ export function PlanningBoard({ clientId, isEnterprise = false, onClientChange }
           <ViewToggle view={view} onChange={setView} />
         </div>
         <div className="flex items-center gap-2">
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => setShowAutomations(!showAutomations)}
+            className={showAutomations ? 'bg-primary/10' : ''}
+          >
+            <Zap className="h-4 w-4 mr-1" />
+            Automações
+          </Button>
           <ViewSettingsPopover settings={settings} onChange={setSettings} />
           <Button onClick={() => handleNewCard()} size="sm">
             <Plus className="h-4 w-4 mr-1" />
@@ -182,6 +193,13 @@ export function PlanningBoard({ clientId, isEnterprise = false, onClientChange }
           filters={effectiveFilters} 
           onChange={handleFiltersChange} 
         />
+      )}
+
+      {/* Automations Panel */}
+      {showAutomations && (
+        <div className="mb-4">
+          <PlanningAutomations />
+        </div>
       )}
 
       {/* Content */}
