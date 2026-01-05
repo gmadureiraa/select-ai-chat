@@ -1,14 +1,23 @@
 import { useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Loader2 } from "lucide-react";
+import { Loader2, Newspaper, FileText, Video, Mail, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Button } from "@/components/ui/button";
 import { Message, ProcessStep, MultiAgentStep } from "@/types/chat";
 import { KAIActionStatus } from "@/types/kaiActions";
 import { EnhancedMessageBubble } from "@/components/chat/EnhancedMessageBubble";
 import { MinimalProgress } from "@/components/chat/MinimalProgress";
 import { MultiAgentProgress } from "@/components/chat/MultiAgentProgress";
 import kaleidosLogo from "@/assets/kaleidos-logo.svg";
+
+const quickActionChips = [
+  { icon: Newspaper, label: "Newsletter", prompt: "Crie uma newsletter semanal" },
+  { icon: FileText, label: "Carrossel", prompt: "Crie um carrossel de Instagram" },
+  { icon: Video, label: "Stories", prompt: "Crie uma sequência de stories" },
+  { icon: Mail, label: "Thread", prompt: "Escreva uma thread para X" },
+  { icon: Sparkles, label: "Post LinkedIn", prompt: "Crie um post para LinkedIn" },
+];
 
 interface GlobalKAIChatProps {
   messages: Message[];
@@ -96,6 +105,29 @@ export function GlobalKAIChat({
               )}
             </div>
           </div>
+
+          {/* Quick Action Chips */}
+          {selectedClientId && onSendMessage && (
+            <div className="mt-4 w-full">
+              <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide text-center mb-2">
+                Ações rápidas
+              </p>
+              <div className="flex flex-wrap gap-1.5 justify-center">
+                {quickActionChips.map((chip) => (
+                  <Button
+                    key={chip.label}
+                    variant="outline"
+                    size="sm"
+                    onClick={() => onSendMessage(chip.prompt)}
+                    className="h-7 px-2 text-xs gap-1 bg-muted/30 border-border/50 hover:bg-muted hover:border-border"
+                  >
+                    <chip.icon className="h-3 w-3" />
+                    {chip.label}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {!selectedClientId && (
             <p className="text-xs text-muted-foreground mt-4 px-4 py-2 rounded-lg bg-muted/30">
