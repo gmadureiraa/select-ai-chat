@@ -175,36 +175,64 @@ export function usePlanningContentGeneration() {
 
       console.log("[PlanningContent] Generating with content type:", contentType, "hasReference:", allReferenceContent.length > 0);
 
-      // Use fetch directly to handle streaming response properly
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      // Fetch client data for multi-agent context
+      const { data: client } = await supabase
+        .from("clients")
+        .select("name, identity_guide, description")
+        .eq("id", clientId)
+        .single();
+
+      // Fetch content library for context
+      const { data: contentLibrary } = await supabase
+        .from("client_content_library")
+        .select("id, title, content, content_type")
+        .eq("client_id", clientId)
+        .order("created_at", { ascending: false })
+        .limit(20);
+
+      // Fetch reference library for context
+      const { data: referenceLibrary } = await supabase
+        .from("client_reference_library")
+        .select("id, title, content, reference_type")
+        .eq("client_id", clientId)
+        .limit(10);
+
+      // Use chat-multi-agent with full pipeline (researcher → writer → editor → reviewer)
+      console.log("[PlanningContent] Using multi-agent pipeline for quality content generation");
       
-      const response = await fetch(`${supabaseUrl}/functions/v1/kai-content-agent`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${supabaseKey}`,
+      const { data, error } = await supabase.functions.invoke("chat-multi-agent", {
+        body: {
+          userMessage: prompt,
+          contentLibrary: (contentLibrary || []).map(c => ({
+            id: c.id,
+            title: c.title,
+            content_type: c.content_type,
+            content: c.content
+          })),
+          referenceLibrary: (referenceLibrary || []).map(r => ({
+            id: r.id,
+            title: r.title,
+            reference_type: r.reference_type,
+            content: r.content
+          })),
+          identityGuide: client?.identity_guide || "",
+          copywritingGuide: "",
+          clientName: client?.name || "Cliente",
+          contentType: contentType
         },
-        body: JSON.stringify({
-          clientId,
-          request: prompt,
-          format: contentType,
-          platform: getPlatformFromContentType(contentType)
-        })
       });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error("[PlanningContent] Response error:", response.status, errorText);
-        throw new Error(`Erro ao gerar conteúdo: ${response.status}`);
+      if (error) {
+        console.error("[PlanningContent] Multi-agent error:", error);
+        throw error;
       }
 
-      // Handle streaming response
+      // Process streaming response from multi-agent
       let generatedContent = "";
-      const reader = response.body?.getReader();
+      const reader = data.body?.getReader();
       
       if (!reader) {
-        throw new Error("Não foi possível ler a resposta");
+        throw new Error("Não foi possível ler a resposta do pipeline");
       }
 
       const decoder = new TextDecoder();
@@ -215,46 +243,54 @@ export function usePlanningContentGeneration() {
         if (done) break;
 
         buffer += decoder.decode(value, { stream: true });
-        
-        // Process complete lines
         const lines = buffer.split("\n");
-        buffer = lines.pop() || ""; // Keep incomplete line in buffer
+        buffer = lines.pop() || "";
 
         for (const line of lines) {
-          if (line.startsWith("data: ") && !line.includes("[DONE]")) {
-            try {
-              const jsonStr = line.slice(6).trim();
-              if (jsonStr) {
-                const parsed = JSON.parse(jsonStr);
-                const content = parsed.choices?.[0]?.delta?.content;
-                if (content) {
-                  generatedContent += content;
-                }
-              }
-            } catch {
-              // Skip unparseable lines
-            }
-          }
-        }
-      }
+          const trimmed = line.trim();
+          if (!trimmed || !trimmed.startsWith("data: ")) continue;
 
-      // Process any remaining buffer
-      if (buffer.startsWith("data: ") && !buffer.includes("[DONE]")) {
-        try {
-          const jsonStr = buffer.slice(6).trim();
-          if (jsonStr) {
+          const jsonStr = trimmed.slice(6);
+          if (jsonStr === "[DONE]") continue;
+
+          try {
             const parsed = JSON.parse(jsonStr);
-            const content = parsed.choices?.[0]?.delta?.content;
-            if (content) {
-              generatedContent += content;
+            const { step, status, content: stepContent } = parsed;
+
+            // Capture final content when complete
+            if (step === "complete" && status === "done" && stepContent) {
+              generatedContent = stepContent;
+            } else if (step === "error") {
+              throw new Error(stepContent || "Erro no pipeline multi-agente");
             }
+          } catch (e) {
+            if (e instanceof Error && e.message.includes("pipeline")) throw e;
+            // Skip unparseable lines
           }
-        } catch {
-          // Ignore
         }
       }
 
-      console.log("[PlanningContent] Generated content length:", generatedContent.length);
+      // Process remaining buffer
+      if (buffer.trim()) {
+        for (const line of buffer.split("\n")) {
+          const trimmed = line.trim();
+          if (!trimmed || !trimmed.startsWith("data: ")) continue;
+          
+          const jsonStr = trimmed.slice(6);
+          if (jsonStr === "[DONE]") continue;
+          
+          try {
+            const parsed = JSON.parse(jsonStr);
+            if (parsed.step === "complete" && parsed.status === "done" && parsed.content) {
+              generatedContent = parsed.content;
+            }
+          } catch {
+            // Ignore
+          }
+        }
+      }
+
+      console.log("[PlanningContent] Multi-agent generated content length:", generatedContent.length);
 
       if (generatedContent) {
         const imageCount = extractedImages.length;
@@ -299,25 +335,7 @@ export function usePlanningContentGeneration() {
   };
 }
 
-function getPlatformFromContentType(contentType: string): string {
-  const platformMapping: Record<string, string> = {
-    tweet: "Twitter/X",
-    thread: "Twitter/X",
-    x_article: "Twitter/X",
-    linkedin_post: "LinkedIn",
-    carousel: "Instagram",
-    stories: "Instagram",
-    static_image: "Instagram",
-    instagram_post: "Instagram",
-    newsletter: "Email",
-    blog_post: "Blog",
-    short_video: "Instagram/TikTok",
-    long_video: "YouTube",
-    other: "Geral"
-  };
-
-  return platformMapping[contentType] || "Instagram";
-}
+// Removed getPlatformFromContentType - no longer needed with multi-agent pipeline
 
 function buildPrompt(
   title: string, 
