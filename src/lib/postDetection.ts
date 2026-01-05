@@ -1,5 +1,5 @@
-import { PostPlatform } from "@/components/posts";
-import { CarouselSlide } from "@/components/posts/CarouselEditor";
+import type { PostPlatform } from "@/components/posts";
+import type { CarouselSlide } from "@/components/posts/CarouselEditor";
 
 export interface DetectedPost {
   platform: PostPlatform;
