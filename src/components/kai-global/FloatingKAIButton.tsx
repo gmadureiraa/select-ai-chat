@@ -36,9 +36,9 @@ export function FloatingKAIButton({
     >
       <Button
         onClick={onClick}
-        size="lg"
+        size="icon"
         className={cn(
-          "relative h-14 w-14 rounded-full shadow-lg transition-all duration-300",
+          "relative h-14 w-14 min-h-14 min-w-14 p-0 rounded-full shadow-lg transition-all duration-300",
           "bg-gradient-to-br from-primary to-primary/80",
           "hover:shadow-xl hover:scale-105",
           "focus:ring-2 focus:ring-primary/50 focus:ring-offset-2",
