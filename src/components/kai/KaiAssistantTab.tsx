@@ -1,5 +1,5 @@
-import { useRef, useEffect, useCallback, useState } from "react";
-import { Trash2, PanelLeft, PanelLeftClose, Download, FileText } from "lucide-react";
+import { useRef, useEffect, useCallback } from "react";
+import { Trash2, Download, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -9,11 +9,8 @@ import { Citation } from "@/components/chat/CitationChip";
 import { EnhancedMessageBubble } from "@/components/chat/EnhancedMessageBubble";
 import { MinimalProgress } from "@/components/chat/MinimalProgress";
 import { QuickSuggestions } from "@/components/chat/QuickSuggestions";
-import { ChatOptionsSidebar } from "@/components/assistant/ChatOptionsSidebar";
 import { Client } from "@/hooks/useClients";
 import KaleidosLogo from "@/assets/kaleidos-logo.svg";
-import { cn } from "@/lib/utils";
-import { deleteConversation } from "@/hooks/useConversationHistory";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { exportToMarkdown, exportToPDF, downloadFile } from "@/lib/exportConversation";
@@ -37,11 +34,10 @@ interface KaiAssistantTabProps {
 export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const [showSidebar, setShowSidebar] = useState(true);
-  const [activeConversationId, setActiveConversationId] = useState<string | undefined>(undefined);
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
+  // Always use the single default conversation per client (no sidebar, no multiple conversations)
   const {
     messages,
     isLoading,
@@ -52,9 +48,8 @@ export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
     multiAgentStep,
     contentLibrary,
     referenceLibrary,
-    setConversationId,
     regenerateLastMessage,
-  } = useClientChat(clientId, undefined, activeConversationId);
+  } = useClientChat(clientId, undefined, undefined);
 
   // Export handlers
   const handleExportMarkdown = async () => {
@@ -97,67 +92,39 @@ export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
     await sendMessage(content, images, quality, mode, citations);
   };
 
-  const handleDeleteConversation = async () => {
+  // Clear all messages from the conversation (but keep the conversation itself)
+  const handleClearHistory = async () => {
     if (!conversationId) return;
     
     try {
-      await deleteConversation(conversationId);
-      setActiveConversationId(undefined);
-      queryClient.invalidateQueries({ queryKey: ["conversation-history", clientId] });
+      clearConversation();
+      queryClient.invalidateQueries({ queryKey: ["messages", conversationId] });
       toast({
-        title: "Conversa apagada",
-        description: "A conversa foi removida permanentemente.",
+        title: "Histórico limpo",
+        description: "As mensagens foram removidas.",
       });
     } catch (error) {
-      console.error("Error deleting conversation:", error);
+      console.error("Error clearing history:", error);
       toast({
-        title: "Erro ao apagar",
-        description: "Não foi possível apagar a conversa.",
+        title: "Erro ao limpar",
+        description: "Não foi possível limpar o histórico.",
         variant: "destructive",
       });
     }
   };
 
-  const handleNewChat = () => {
-    setActiveConversationId(undefined);
-  };
-
-  const handleSelectConversation = (convId: string) => {
-    setActiveConversationId(convId);
-  };
-
   return (
     <div className="flex h-[calc(100vh-140px)] relative">
-      {/* Sidebar */}
-      {showSidebar && (
-        <ChatOptionsSidebar
-          clientId={clientId}
-          currentConversationId={conversationId}
-          onSelectTemplate={handleNewChat}
-          onSelectConversation={handleSelectConversation}
-        />
-      )}
-
-      {/* Main Chat Area */}
+      {/* Main Chat Area - Full Width (no sidebar) */}
       <div className="flex-1 flex flex-col min-w-0 bg-background/50">
         {/* Header */}
         <div className="flex items-center gap-2 px-4 py-2 border-b border-border/20">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setShowSidebar(!showSidebar)}
-            className="text-muted-foreground h-7 px-2"
-          >
-            {showSidebar ? (
-              <PanelLeftClose className="h-4 w-4" />
-            ) : (
-              <PanelLeft className="h-4 w-4" />
-            )}
-          </Button>
-
           <div className="flex items-center gap-2 flex-1 min-w-0">
+            <div className="h-7 w-7 rounded-lg bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/20 flex items-center justify-center">
+              <img src={KaleidosLogo} alt="kAI" className="h-4 w-4" />
+            </div>
             <span className="text-sm font-medium text-foreground/80 truncate">
-              Chat Livre
+              Chat
             </span>
             <span className="text-muted-foreground/40">•</span>
             <span className="text-xs text-muted-foreground truncate">{client.name}</span>
@@ -192,20 +159,20 @@ export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
                     className="text-muted-foreground hover:text-destructive h-7 px-2"
                   >
                     <Trash2 className="h-3.5 w-3.5 mr-1" />
-                    <span className="text-xs">Apagar</span>
+                    <span className="text-xs">Limpar</span>
                   </Button>
                 </AlertDialogTrigger>
                 <AlertDialogContent>
                   <AlertDialogHeader>
-                    <AlertDialogTitle>Apagar conversa?</AlertDialogTitle>
+                    <AlertDialogTitle>Limpar histórico?</AlertDialogTitle>
                     <AlertDialogDescription>
-                      Esta ação não pode ser desfeita. A conversa e todas as mensagens serão removidas permanentemente.
+                      As mensagens serão removidas. Você pode continuar a conversa normalmente.
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
                     <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleDeleteConversation} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                      Apagar
+                    <AlertDialogAction onClick={handleClearHistory} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                      Limpar
                     </AlertDialogAction>
                   </AlertDialogFooter>
                 </AlertDialogContent>

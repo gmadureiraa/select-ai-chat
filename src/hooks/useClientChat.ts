@@ -358,6 +358,9 @@ export const useClientChat = (clientId: string, templateId?: string, conversatio
 
       if (insertError) throw insertError;
 
+      // Immediately invalidate messages so UI shows user message right away
+      queryClient.invalidateQueries({ queryKey: ["messages", conversationId] });
+
       // DETECTAR PEDIDO DE GERAÇÃO DE IMAGEM
       // Modo "image" (template de imagem) OU detecção automática de pedido de imagem
       const isImageTemplateMode = explicitMode === "image";

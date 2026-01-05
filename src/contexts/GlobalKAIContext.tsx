@@ -379,9 +379,16 @@ export function GlobalKAIProvider({ children }: GlobalKAIProviderProps) {
       return;
     }
     
-    // Guard: ensure conversation is ready (useClientChat will create one automatically)
-    if (!conversationId && isInitializing) {
-      toast.info("Inicializando chat...");
+    // Guard: wait for conversation to be ready (with timeout)
+    let attempts = 0;
+    const maxAttempts = 10;
+    while (!conversationId && attempts < maxAttempts) {
+      await new Promise(resolve => setTimeout(resolve, 200));
+      attempts++;
+    }
+    
+    if (!conversationId) {
+      toast.error("Chat não está pronto. Tente novamente.");
       return;
     }
 
@@ -399,6 +406,13 @@ export function GlobalKAIProvider({ children }: GlobalKAIProviderProps) {
 
     setActionStatus("detecting");
 
+    // Set a timeout to reset loading state if things take too long (90 seconds)
+    const timeoutId = setTimeout(() => {
+      console.warn("[GlobalKAI] Request timeout - resetting state");
+      setActionStatus("idle");
+      toast.error("A resposta demorou muito. Tente novamente.");
+    }, 90000);
+
     try {
       // Step 1: Detect action intent
       const detected = await detectAction(text, allAttachments, {
@@ -413,6 +427,7 @@ export function GlobalKAIProvider({ children }: GlobalKAIProviderProps) {
         const preparedAction = await prepareAction(detected, allAttachments);
         
         if (preparedAction) {
+          clearTimeout(timeoutId);
           setPendingAction(preparedAction);
           setActionStatus("confirming");
           return; // Wait for user confirmation
@@ -455,13 +470,15 @@ export function GlobalKAIProvider({ children }: GlobalKAIProviderProps) {
       }
       
       await clientChatSendMessage(text, undefined, "fast", explicitMode, citations);
+      clearTimeout(timeoutId);
 
     } catch (error) {
+      clearTimeout(timeoutId);
       console.error("kAI chat error:", error);
       toast.error(error instanceof Error ? error.message : "Erro ao processar mensagem");
       setActionStatus("idle");
     }
-  }, [selectedClientId, attachedFiles, detectAction, prepareAction, clientChatSendMessage, chatMode, conversationId, isInitializing]);
+  }, [selectedClientId, attachedFiles, detectAction, prepareAction, clientChatSendMessage, chatMode, conversationId]);
 
   // Clear conversation
   const clearConversation = useCallback(() => {
