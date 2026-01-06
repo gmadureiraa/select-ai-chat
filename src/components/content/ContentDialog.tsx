@@ -10,7 +10,18 @@ import { CONTENT_TYPE_OPTIONS } from "@/types/contentTypes";
 import { supabase } from "@/integrations/supabase/client";
 import { uploadAndGetSignedUrl } from "@/lib/storage";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, ChevronDown, Video, Wand2 } from "lucide-react";
+import { 
+  Loader2, 
+  ChevronDown, 
+  Video, 
+  Wand2, 
+  Link as LinkIcon, 
+  FileText, 
+  Image as ImageIcon,
+  X,
+  ExternalLink,
+  Sparkles
+} from "lucide-react";
 import { RichContentEditor } from "@/components/planning/RichContentEditor";
 import { usePlanningContentGeneration } from "@/hooks/usePlanningContentGeneration";
 import { MentionableInput } from "@/components/planning/MentionableInput";
@@ -34,11 +45,34 @@ export const ContentDialog = ({ open, onClose, onSave, content, clientId }: Cont
     content_url: "",
     thumbnail_url: "",
   });
+
+  // Video states
   const [videoUrl, setVideoUrl] = useState("");
   const [isUploadingVideo, setIsUploadingVideo] = useState(false);
   const [isTranscribingVideo, setIsTranscribingVideo] = useState(false);
+
+  // Link states
+  const [linkUrl, setLinkUrl] = useState("");
+  const [isScrapingLink, setIsScrapingLink] = useState(false);
+  const [scrapedLinkUrl, setScrapedLinkUrl] = useState<string | null>(null);
+
+  // PDF states
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [pdfFileName, setPdfFileName] = useState<string | null>(null);
+  const [isUploadingPdf, setIsUploadingPdf] = useState(false);
+  const [isExtractingPdf, setIsExtractingPdf] = useState(false);
+
+  // Image states
+  const [uploadedImages, setUploadedImages] = useState<string[]>([]);
+  const [isUploadingImages, setIsUploadingImages] = useState(false);
+  const [isTranscribingImages, setIsTranscribingImages] = useState(false);
+
+  // UI states
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [showVideo, setShowVideo] = useState(false);
+  const [showLink, setShowLink] = useState(false);
+  const [showPdf, setShowPdf] = useState(false);
+  const [showImages, setShowImages] = useState(false);
 
   useEffect(() => {
     if (content) {
@@ -49,8 +83,28 @@ export const ContentDialog = ({ open, onClose, onSave, content, clientId }: Cont
         content_url: content.content_url || "",
         thumbnail_url: content.thumbnail_url || "",
       });
-      setVideoUrl(content.metadata?.video_url || "");
-      setShowVideo(!!content.metadata?.video_url);
+      
+      // Restore attachments from metadata
+      const metadata = content.metadata as Record<string, any> | null;
+      if (metadata?.video_url) {
+        setVideoUrl(metadata.video_url);
+        setShowVideo(true);
+      }
+      if (metadata?.scraped_url) {
+        setScrapedLinkUrl(metadata.scraped_url);
+        setLinkUrl(metadata.scraped_url);
+        setShowLink(true);
+      }
+      if (metadata?.pdf_url) {
+        setPdfUrl(metadata.pdf_url);
+        setPdfFileName(metadata.pdf_file_name || "documento.pdf");
+        setShowPdf(true);
+      }
+      if (metadata?.image_urls?.length > 0) {
+        setUploadedImages(metadata.image_urls);
+        setShowImages(true);
+      }
+      
       setShowAdvanced(!!(content.content_url || content.thumbnail_url));
     } else {
       setFormData({
@@ -61,11 +115,212 @@ export const ContentDialog = ({ open, onClose, onSave, content, clientId }: Cont
         thumbnail_url: "",
       });
       setVideoUrl("");
+      setLinkUrl("");
+      setScrapedLinkUrl(null);
+      setPdfUrl(null);
+      setPdfFileName(null);
+      setUploadedImages([]);
       setShowVideo(false);
+      setShowLink(false);
+      setShowPdf(false);
+      setShowImages(false);
       setShowAdvanced(false);
     }
   }, [content, open]);
 
+  // ============== LINK HANDLERS ==============
+  const handleScrapeLink = async () => {
+    if (!linkUrl.trim()) {
+      toast({ title: "Erro", description: "Insira uma URL válida", variant: "destructive" });
+      return;
+    }
+
+    setIsScrapingLink(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      const { data, error } = await supabase.functions.invoke("scrape-research-link", {
+        body: { 
+          url: linkUrl.trim(),
+          userId: session?.user?.id 
+        },
+      });
+
+      if (error) throw error;
+
+      // Build content from scraped data
+      let newContent = formData.content || "";
+      
+      if (data.title) {
+        newContent += `\n\n## ${data.title}\n`;
+      }
+      if (data.description) {
+        newContent += `\n${data.description}\n`;
+      }
+      if (data.content) {
+        newContent += `\n${data.content}`;
+      }
+      if (data.imageDescriptions?.length > 0) {
+        newContent += `\n\n### Imagens encontradas:\n${data.imageDescriptions.join("\n")}`;
+      }
+
+      setFormData(prev => ({ 
+        ...prev, 
+        content: newContent.trim(),
+        thumbnail_url: prev.thumbnail_url || data.ogImage || data.images?.[0] || ""
+      }));
+      setScrapedLinkUrl(linkUrl.trim());
+      
+      toast({ title: "Sucesso", description: "Conteúdo extraído do link" });
+    } catch (error) {
+      console.error("Error scraping link:", error);
+      toast({ title: "Erro", description: "Não foi possível extrair o conteúdo", variant: "destructive" });
+    } finally {
+      setIsScrapingLink(false);
+    }
+  };
+
+  // ============== PDF HANDLERS ==============
+  const handlePdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 20 * 1024 * 1024) {
+      toast({ title: "Erro", description: "PDF deve ter no máximo 20MB", variant: "destructive" });
+      return;
+    }
+
+    setIsUploadingPdf(true);
+    try {
+      const { signedUrl, error } = await uploadAndGetSignedUrl(file, "content-pdfs");
+      if (error || !signedUrl) throw error || new Error("Upload failed");
+      
+      setPdfUrl(signedUrl);
+      setPdfFileName(file.name);
+      toast({ title: "Sucesso", description: "PDF enviado. Clique em 'Extrair' para obter o texto." });
+    } catch (error) {
+      console.error("Error uploading PDF:", error);
+      toast({ title: "Erro", description: "Falha ao enviar PDF", variant: "destructive" });
+    } finally {
+      setIsUploadingPdf(false);
+    }
+  };
+
+  const handleExtractPdf = async () => {
+    if (!pdfUrl) {
+      toast({ title: "Erro", description: "Envie um PDF primeiro", variant: "destructive" });
+      return;
+    }
+
+    setIsExtractingPdf(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      const { data, error } = await supabase.functions.invoke("extract-pdf", {
+        body: { 
+          fileUrl: pdfUrl,
+          fileName: pdfFileName,
+          userId: session?.user?.id
+        },
+      });
+
+      if (error) throw error;
+
+      if (data?.extractedText) {
+        const newContent = formData.content 
+          ? `${formData.content}\n\n---\n\n## Conteúdo do PDF: ${pdfFileName}\n\n${data.extractedText}`
+          : `## Conteúdo do PDF: ${pdfFileName}\n\n${data.extractedText}`;
+        
+        setFormData(prev => ({ ...prev, content: newContent }));
+        toast({ title: "Sucesso", description: `Texto extraído (${data.pageCount || "?"} páginas)` });
+      }
+    } catch (error) {
+      console.error("Error extracting PDF:", error);
+      toast({ title: "Erro", description: "Não foi possível extrair o texto", variant: "destructive" });
+    } finally {
+      setIsExtractingPdf(false);
+    }
+  };
+
+  // ============== IMAGE HANDLERS ==============
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    const remainingSlots = 10 - uploadedImages.length;
+    if (files.length > remainingSlots) {
+      toast({ 
+        title: "Limite excedido", 
+        description: `Você pode adicionar mais ${remainingSlots} imagens`, 
+        variant: "destructive" 
+      });
+      return;
+    }
+
+    setIsUploadingImages(true);
+    try {
+      const newUrls: string[] = [];
+      
+      for (const file of Array.from(files)) {
+        const { signedUrl, error } = await uploadAndGetSignedUrl(file, "content-images");
+        if (error || !signedUrl) {
+          console.error("Error uploading image:", error);
+          continue;
+        }
+        newUrls.push(signedUrl);
+      }
+
+      setUploadedImages(prev => [...prev, ...newUrls]);
+      toast({ title: "Sucesso", description: `${newUrls.length} imagem(ns) enviada(s)` });
+    } catch (error) {
+      console.error("Error uploading images:", error);
+      toast({ title: "Erro", description: "Falha ao enviar imagens", variant: "destructive" });
+    } finally {
+      setIsUploadingImages(false);
+    }
+  };
+
+  const handleRemoveImage = (index: number) => {
+    setUploadedImages(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleTranscribeImages = async () => {
+    if (uploadedImages.length === 0) {
+      toast({ title: "Erro", description: "Envie imagens primeiro", variant: "destructive" });
+      return;
+    }
+
+    setIsTranscribingImages(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      const { data, error } = await supabase.functions.invoke("transcribe-images", {
+        body: { 
+          imageUrls: uploadedImages,
+          userId: session?.user?.id,
+          clientId: clientId
+        },
+      });
+
+      if (error) throw error;
+
+      if (data?.transcription) {
+        const newContent = formData.content 
+          ? `${formData.content}\n\n---\n\n## Transcrição das Imagens\n\n${data.transcription}`
+          : `## Transcrição das Imagens\n\n${data.transcription}`;
+        
+        setFormData(prev => ({ ...prev, content: newContent }));
+        toast({ title: "Sucesso", description: "Imagens transcritas com sucesso" });
+      }
+    } catch (error) {
+      console.error("Error transcribing images:", error);
+      toast({ title: "Erro", description: "Não foi possível transcrever as imagens", variant: "destructive" });
+    } finally {
+      setIsTranscribingImages(false);
+    }
+  };
+
+  // ============== VIDEO HANDLERS ==============
   const handleVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -113,22 +368,33 @@ export const ContentDialog = ({ open, onClose, onSave, content, clientId }: Cont
 
     setIsTranscribingVideo(true);
     try {
-      const { data, error } = await supabase.functions.invoke('transcribe-video', {
-        body: { videoUrl }
-      });
+      const { data: { session } } = await supabase.auth.getSession();
+      const isYouTube = videoUrl.includes("youtube.com") || videoUrl.includes("youtu.be");
+
+      const { data, error } = await supabase.functions.invoke(
+        isYouTube ? "extract-youtube" : "transcribe-video",
+        {
+          body: isYouTube 
+            ? { url: videoUrl, userId: session?.user?.id }
+            : { videoUrl, userId: session?.user?.id }
+        }
+      );
 
       if (error) throw error;
 
-      const existingContent = formData.content.trim();
-      const newContent = existingContent 
-        ? `${existingContent}\n\n--- TRANSCRIÇÃO DO VÍDEO ---\n${data.transcription}`
-        : data.transcription;
+      const transcription = data?.transcription || data?.transcript;
+      if (transcription) {
+        const existingContent = formData.content.trim();
+        const newContent = existingContent 
+          ? `${existingContent}\n\n---\n\n## Transcrição do Vídeo\n\n${transcription}`
+          : `## Transcrição do Vídeo\n\n${transcription}`;
 
-      setFormData({ ...formData, content: newContent });
-      toast({
-        title: "Transcrição concluída",
-        description: "O conteúdo do vídeo foi adicionado",
-      });
+        setFormData({ ...formData, content: newContent });
+        toast({
+          title: "Transcrição concluída",
+          description: "O conteúdo do vídeo foi adicionado",
+        });
+      }
     } catch (error) {
       console.error("Error transcribing video:", error);
       toast({
@@ -141,23 +407,11 @@ export const ContentDialog = ({ open, onClose, onSave, content, clientId }: Cont
     }
   };
 
-  // AI content generation - similar to PlanningItemDialog
+  // ============== AI GENERATION ==============
   const canGenerateContent = formData.title.trim() && clientId;
   
   const handleGenerateContent = async () => {
     if (!canGenerateContent || !clientId) return;
-    
-    // Map content_type to platform for the agent
-    const platformMap: Record<string, string> = {
-      newsletter: 'newsletter',
-      tweet: 'twitter',
-      thread: 'twitter',
-      article: 'blog',
-      instagram_post: 'instagram',
-      linkedin_post: 'linkedin',
-    };
-    
-    const platform = platformMap[formData.content_type] || 'blog';
     
     const result = await generateContent({
       title: formData.title,
@@ -170,18 +424,33 @@ export const ContentDialog = ({ open, onClose, onSave, content, clientId }: Cont
     }
   };
 
+  // ============== SUBMIT ==============
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    const metadata: Record<string, any> = {};
+    
+    if (videoUrl) metadata.video_url = videoUrl;
+    if (scrapedLinkUrl) metadata.scraped_url = scrapedLinkUrl;
+    if (pdfUrl) {
+      metadata.pdf_url = pdfUrl;
+      metadata.pdf_file_name = pdfFileName;
+    }
+    if (uploadedImages.length > 0) {
+      metadata.image_urls = uploadedImages;
+    }
+
     const dataWithMetadata = {
       ...formData,
-      metadata: {
-        ...formData.metadata,
-        video_url: videoUrl || undefined,
-      },
+      metadata: Object.keys(metadata).length > 0 ? metadata : undefined,
     };
     onSave(dataWithMetadata);
     onClose();
   };
+
+  const isProcessing = isGeneratingContent || isScrapingLink || isExtractingPdf || 
+    isTranscribingImages || isUploadingVideo || isTranscribingVideo || 
+    isUploadingPdf || isUploadingImages;
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -254,7 +523,288 @@ export const ContentDialog = ({ open, onClose, onSave, content, clientId }: Cont
             </div>
           )}
 
-          {/* Main Content Editor - Using RichContentEditor like PlanningItemDialog */}
+          {/* ============== LINK SECTION ============== */}
+          <Collapsible open={showLink} onOpenChange={setShowLink}>
+            <CollapsibleTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="gap-2 text-muted-foreground hover:text-foreground w-full justify-start"
+              >
+                <LinkIcon className="h-4 w-4" />
+                Link (Blog, Artigo, Newsletter)
+                {scrapedLinkUrl && (
+                  <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded ml-2">
+                    Anexado
+                  </span>
+                )}
+                <ChevronDown className={`h-4 w-4 ml-auto transition-transform ${showLink ? 'rotate-180' : ''}`} />
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="space-y-3 pt-2">
+              <div className="p-3 rounded-md border border-border bg-muted/30 space-y-3">
+                <div className="flex gap-2">
+                  <Input
+                    value={linkUrl}
+                    onChange={(e) => setLinkUrl(e.target.value)}
+                    placeholder="https://exemplo.com/artigo"
+                    className="flex-1"
+                  />
+                  <Button
+                    type="button"
+                    onClick={handleScrapeLink}
+                    disabled={isScrapingLink || !linkUrl.trim()}
+                    variant="secondary"
+                    size="sm"
+                    className="gap-1"
+                  >
+                    {isScrapingLink ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <ExternalLink className="h-4 w-4" />
+                    )}
+                    Ler
+                  </Button>
+                </div>
+                {scrapedLinkUrl && (
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/50 rounded p-2">
+                    <LinkIcon className="h-3 w-3 flex-shrink-0" />
+                    <span className="truncate flex-1">{scrapedLinkUrl}</span>
+                    <Button 
+                      type="button"
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-5 w-5 flex-shrink-0"
+                      onClick={() => { setScrapedLinkUrl(null); setLinkUrl(""); }}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
+
+          {/* ============== PDF SECTION ============== */}
+          <Collapsible open={showPdf} onOpenChange={setShowPdf}>
+            <CollapsibleTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="gap-2 text-muted-foreground hover:text-foreground w-full justify-start"
+              >
+                <FileText className="h-4 w-4" />
+                PDF (Documento)
+                {pdfUrl && (
+                  <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded ml-2">
+                    Anexado
+                  </span>
+                )}
+                <ChevronDown className={`h-4 w-4 ml-auto transition-transform ${showPdf ? 'rotate-180' : ''}`} />
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="space-y-3 pt-2">
+              <div className="p-3 rounded-md border border-border bg-muted/30 space-y-3">
+                <div className="flex gap-2">
+                  <div className="flex-1">
+                    <Input
+                      type="file"
+                      accept=".pdf"
+                      onChange={handlePdfUpload}
+                      disabled={isUploadingPdf}
+                      className="cursor-pointer"
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    onClick={handleExtractPdf}
+                    disabled={isExtractingPdf || !pdfUrl}
+                    variant="secondary"
+                    size="sm"
+                    className="gap-1"
+                  >
+                    {isExtractingPdf ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <FileText className="h-4 w-4" />
+                    )}
+                    Extrair
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">Máx. 20MB</p>
+                {pdfUrl && (
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/50 rounded p-2">
+                    <FileText className="h-3 w-3 flex-shrink-0" />
+                    <span className="truncate flex-1">{pdfFileName}</span>
+                    <Button 
+                      type="button"
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-5 w-5 flex-shrink-0"
+                      onClick={() => { setPdfUrl(null); setPdfFileName(null); }}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
+
+          {/* ============== IMAGES SECTION ============== */}
+          <Collapsible open={showImages} onOpenChange={setShowImages}>
+            <CollapsibleTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="gap-2 text-muted-foreground hover:text-foreground w-full justify-start"
+              >
+                <ImageIcon className="h-4 w-4" />
+                Imagens (até 10)
+                {uploadedImages.length > 0 && (
+                  <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded ml-2">
+                    {uploadedImages.length}/10
+                  </span>
+                )}
+                <ChevronDown className={`h-4 w-4 ml-auto transition-transform ${showImages ? 'rotate-180' : ''}`} />
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="space-y-3 pt-2">
+              <div className="p-3 rounded-md border border-border bg-muted/30 space-y-3">
+                <div className="flex gap-2">
+                  <div className="flex-1">
+                    <Input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      onChange={handleImageUpload}
+                      disabled={isUploadingImages || uploadedImages.length >= 10}
+                      className="cursor-pointer"
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    onClick={handleTranscribeImages}
+                    disabled={isTranscribingImages || uploadedImages.length === 0}
+                    variant="secondary"
+                    size="sm"
+                    className="gap-1"
+                  >
+                    {isTranscribingImages ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Sparkles className="h-4 w-4" />
+                    )}
+                    Transcrever
+                  </Button>
+                </div>
+                
+                {uploadedImages.length > 0 && (
+                  <div className="grid grid-cols-5 gap-2">
+                    {uploadedImages.map((url, index) => (
+                      <div key={index} className="relative group aspect-square">
+                        <img
+                          src={url}
+                          alt={`Imagem ${index + 1}`}
+                          className="w-full h-full object-cover rounded-md border"
+                        />
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="icon"
+                          className="absolute -top-1 -right-1 h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={() => handleRemoveImage(index)}
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
+
+          {/* ============== VIDEO SECTION ============== */}
+          <Collapsible open={showVideo} onOpenChange={setShowVideo}>
+            <CollapsibleTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="gap-2 text-muted-foreground hover:text-foreground w-full justify-start"
+              >
+                <Video className="h-4 w-4" />
+                Vídeo (Upload ou YouTube)
+                {videoUrl && (
+                  <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded ml-2">
+                    Anexado
+                  </span>
+                )}
+                <ChevronDown className={`h-4 w-4 ml-auto transition-transform ${showVideo ? 'rotate-180' : ''}`} />
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="space-y-3 pt-2">
+              <div className="p-3 rounded-md border border-border bg-muted/30 space-y-3">
+                <div className="flex gap-2">
+                  <Input
+                    value={videoUrl}
+                    onChange={(e) => setVideoUrl(e.target.value)}
+                    placeholder="Cole o link do YouTube ou faça upload"
+                    className="flex-1"
+                  />
+                  <Button
+                    type="button"
+                    onClick={handleTranscribeVideo}
+                    disabled={isTranscribingVideo || !videoUrl}
+                    variant="secondary"
+                    size="sm"
+                    className="gap-1"
+                  >
+                    {isTranscribingVideo ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Sparkles className="h-4 w-4" />
+                    )}
+                    Transcrever
+                  </Button>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="file"
+                    accept="video/*"
+                    onChange={handleVideoUpload}
+                    disabled={isUploadingVideo}
+                    className="text-xs flex-1"
+                  />
+                  {isUploadingVideo && <Loader2 className="h-4 w-4 animate-spin" />}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Upload de vídeo (max 20MB) ou cole o link do YouTube
+                </p>
+                {videoUrl && (
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/50 rounded p-2">
+                    <Video className="h-3 w-3 flex-shrink-0" />
+                    <span className="truncate flex-1">{videoUrl}</span>
+                    <Button 
+                      type="button"
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-5 w-5 flex-shrink-0"
+                      onClick={() => setVideoUrl("")}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
+
+          {/* Main Content Editor */}
           <div className="space-y-2">
             <Label>Conteúdo</Label>
             <RichContentEditor
@@ -265,60 +815,6 @@ export const ContentDialog = ({ open, onClose, onSave, content, clientId }: Cont
               clientId={clientId}
             />
           </div>
-
-          {/* Video Section (Collapsible) */}
-          <Collapsible open={showVideo} onOpenChange={setShowVideo}>
-            <CollapsibleTrigger asChild>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="gap-2 text-muted-foreground hover:text-foreground w-full justify-start"
-              >
-                <Video className="h-4 w-4" />
-                Adicionar vídeo
-                <ChevronDown className={`h-4 w-4 ml-auto transition-transform ${showVideo ? 'rotate-180' : ''}`} />
-              </Button>
-            </CollapsibleTrigger>
-            <CollapsibleContent className="space-y-3 pt-2">
-              <div className="p-3 rounded-md border border-border bg-muted/30 space-y-3">
-                <div className="flex gap-2">
-                  <Input
-                    value={videoUrl}
-                    onChange={(e) => setVideoUrl(e.target.value)}
-                    placeholder="Cole o link do vídeo ou faça upload"
-                    className="flex-1"
-                  />
-                  <Button
-                    type="button"
-                    onClick={handleTranscribeVideo}
-                    disabled={isTranscribingVideo || !videoUrl}
-                    variant="secondary"
-                    size="sm"
-                  >
-                    {isTranscribingVideo ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      "Transcrever"
-                    )}
-                  </Button>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Input
-                    type="file"
-                    accept="video/*"
-                    onChange={handleVideoUpload}
-                    disabled={isUploadingVideo}
-                    className="text-xs"
-                  />
-                  {isUploadingVideo && <Loader2 className="h-4 w-4 animate-spin" />}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Upload de vídeo (max 20MB) ou cole o link para transcrever
-                </p>
-              </div>
-            </CollapsibleContent>
-          </Collapsible>
 
           {/* Advanced Options (Collapsible) */}
           <Collapsible open={showAdvanced} onOpenChange={setShowAdvanced}>
@@ -365,7 +861,8 @@ export const ContentDialog = ({ open, onClose, onSave, content, clientId }: Cont
             <Button type="button" variant="outline" onClick={onClose}>
               Cancelar
             </Button>
-            <Button type="submit">
+            <Button type="submit" disabled={isProcessing}>
+              {isProcessing && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               {content ? "Atualizar" : "Adicionar"}
             </Button>
           </DialogFooter>
