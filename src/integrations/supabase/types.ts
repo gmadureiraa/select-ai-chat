@@ -1173,63 +1173,78 @@ export type Database = {
           caption: string | null
           client_id: string
           comments: number | null
+          content_objective: string | null
           created_at: string
           engagement_rate: number | null
           id: string
           impressions: number | null
+          is_collab: boolean | null
           likes: number | null
+          link_clicks: number | null
           metadata: Json | null
           permalink: string | null
           post_id: string | null
           post_type: string | null
           posted_at: string | null
+          profile_visits: number | null
           reach: number | null
           saves: number | null
           shares: number | null
           thumbnail_url: string | null
           updated_at: string
+          website_taps: number | null
         }
         Insert: {
           analyzed_at?: string | null
           caption?: string | null
           client_id: string
           comments?: number | null
+          content_objective?: string | null
           created_at?: string
           engagement_rate?: number | null
           id?: string
           impressions?: number | null
+          is_collab?: boolean | null
           likes?: number | null
+          link_clicks?: number | null
           metadata?: Json | null
           permalink?: string | null
           post_id?: string | null
           post_type?: string | null
           posted_at?: string | null
+          profile_visits?: number | null
           reach?: number | null
           saves?: number | null
           shares?: number | null
           thumbnail_url?: string | null
           updated_at?: string
+          website_taps?: number | null
         }
         Update: {
           analyzed_at?: string | null
           caption?: string | null
           client_id?: string
           comments?: number | null
+          content_objective?: string | null
           created_at?: string
           engagement_rate?: number | null
           id?: string
           impressions?: number | null
+          is_collab?: boolean | null
           likes?: number | null
+          link_clicks?: number | null
           metadata?: Json | null
           permalink?: string | null
           post_id?: string | null
           post_type?: string | null
           posted_at?: string | null
+          profile_visits?: number | null
           reach?: number | null
           saves?: number | null
           shares?: number | null
           thumbnail_url?: string | null
           updated_at?: string
+          website_taps?: number | null
         }
         Relationships: [
           {

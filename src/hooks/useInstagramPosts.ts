@@ -21,6 +21,12 @@ export interface InstagramPost {
   metadata: Record<string, unknown> | null;
   created_at: string | null;
   updated_at: string | null;
+  // New fields
+  link_clicks: number | null;
+  profile_visits: number | null;
+  website_taps: number | null;
+  content_objective: string | null;
+  is_collab: boolean | null;
 }
 
 export function useInstagramPosts(clientId: string, limit: number = 100) {
@@ -136,5 +142,37 @@ export function useInstagramPostsStats(clientId: string) {
       };
     },
     enabled: !!clientId,
+  });
+}
+
+export function useUpdateInstagramPost() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      postId,
+      updates,
+    }: {
+      postId: string;
+      updates: Record<string, unknown>;
+    }) => {
+      const { error } = await supabase
+        .from("instagram_posts")
+        .update({
+          ...updates,
+          updated_at: new Date().toISOString(),
+        } as any)
+        .eq("id", postId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["instagram-posts"] });
+      toast.success("Post atualizado com sucesso");
+    },
+    onError: (error) => {
+      console.error("Error updating Instagram post:", error);
+      toast.error("Erro ao atualizar post");
+    },
   });
 }

@@ -4,26 +4,29 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowUpDown, Search, ExternalLink, Image as ImageIcon, Copy, ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowUpDown, Search, ExternalLink, Image as ImageIcon, Copy, ChevronLeft, ChevronRight, Pencil, Users } from "lucide-react";
 import { InstagramPost } from "@/hooks/useInstagramPosts";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
+import { InstagramPostEditDialog } from "./InstagramPostEditDialog";
 
 interface InstagramPostsTableProps {
   posts: InstagramPost[];
   isLoading?: boolean;
+  clientId: string;
 }
 
 type SortField = "posted_at" | "likes" | "comments" | "saves" | "shares" | "reach" | "impressions";
 type SortOrder = "asc" | "desc";
 
-export function InstagramPostsTable({ posts, isLoading }: InstagramPostsTableProps) {
+export function InstagramPostsTable({ posts, isLoading, clientId }: InstagramPostsTableProps) {
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [sortField, setSortField] = useState<SortField>("posted_at");
   const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
   const [currentPage, setCurrentPage] = useState(1);
+  const [editingPost, setEditingPost] = useState<InstagramPost | null>(null);
   const { toast } = useToast();
   
   const ITEMS_PER_PAGE = 15;
@@ -163,6 +166,7 @@ export function InstagramPostsTable({ posts, isLoading }: InstagramPostsTablePro
                   Salv. <ArrowUpDown className="ml-1 h-3 w-3" />
                 </Button>
               </TableHead>
+              <TableHead className="w-[40px]"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -252,6 +256,24 @@ export function InstagramPostsTable({ posts, isLoading }: InstagramPostsTablePro
                 <TableCell className="text-right text-xs py-2">
                   {post.saves?.toLocaleString() || 0}
                 </TableCell>
+                <TableCell className="py-2">
+                  <div className="flex items-center gap-1">
+                    {post.is_collab && (
+                      <span title="Collab">
+                        <Users className="h-3 w-3 text-purple-500" />
+                      </span>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={() => setEditingPost(post)}
+                      title="Editar post"
+                    >
+                      <Pencil className="h-3 w-3 text-muted-foreground" />
+                    </Button>
+                  </div>
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>
@@ -289,6 +311,14 @@ export function InstagramPostsTable({ posts, isLoading }: InstagramPostsTablePro
           </div>
         )}
       </div>
+
+      {/* Edit Dialog */}
+      <InstagramPostEditDialog
+        post={editingPost}
+        open={!!editingPost}
+        onOpenChange={(open) => !open && setEditingPost(null)}
+        clientId={clientId}
+      />
     </div>
   );
 }

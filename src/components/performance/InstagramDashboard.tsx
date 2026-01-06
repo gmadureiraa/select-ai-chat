@@ -614,7 +614,8 @@ export function InstagramDashboard({
         <CardContent>
           <InstagramPostsTable 
             posts={filteredPosts} 
-            isLoading={isLoadingPosts} 
+            isLoading={isLoadingPosts}
+            clientId={clientId}
           />
         </CardContent>
       </Card>
