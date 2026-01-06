@@ -154,8 +154,8 @@ export function InstagramPostsTable({ posts, isLoading }: InstagramPostsTablePro
                 </Button>
               </TableHead>
               <TableHead className="w-[55px] text-right">
-                <Button variant="ghost" size="sm" className="h-7 px-1.5 text-xs" onClick={() => handleSort("shares")}>
-                  Env. <ArrowUpDown className="ml-1 h-3 w-3" />
+                <Button variant="ghost" size="sm" className="h-7 px-1.5 text-xs" onClick={() => handleSort("shares")} title="Compartilhamentos">
+                  Comp. <ArrowUpDown className="ml-1 h-3 w-3" />
                 </Button>
               </TableHead>
               <TableHead className="w-[55px] text-right">

@@ -76,57 +76,92 @@ serve(async (req) => {
     const platformName = platform === "youtube" ? "YouTube" : "Instagram";
     const periodInfo = periodLabel || (startDate && endDate ? `${startDate} a ${endDate}` : "período selecionado");
 
+    // Calculate averages
+    const totalPosts = context.instagram?.totalPosts || 0;
+    const avgLikes = totalPosts > 0 ? Math.round((context.instagram?.totalLikes || 0) / totalPosts) : 0;
+    const avgComments = totalPosts > 0 ? Math.round((context.instagram?.totalComments || 0) / totalPosts) : 0;
+    const avgShares = totalPosts > 0 ? Math.round((context.instagram?.totalShares || 0) / totalPosts) : 0;
+    const avgSaves = totalPosts > 0 ? Math.round((context.instagram?.totalSaves || 0) / totalPosts) : 0;
+
     // Build context summary for AI
     const contextSummary = platform === "youtube" ? `
+═══════════════════════════════════════════════════════════════
+DADOS DE PERFORMANCE - YOUTUBE
 Cliente: ${clientName}
 Período: ${periodInfo}
+═══════════════════════════════════════════════════════════════
 
-## YouTube
+## MÉTRICAS MACRO
 - Views totais: ${context.youtube?.totalViews?.toLocaleString() || 0}
-- Horas assistidas: ${context.youtube?.watchHours?.toLocaleString() || 0}
+- Horas assistidas: ${context.youtube?.watchHours?.toLocaleString() || 0}h
 - Subscribers ganhos: ${context.youtube?.subscribers?.toLocaleString() || 0}
-${context.youtube?.topVideos?.length ? `
-Top Vídeos:
+
+${context.youtube?.topVideos?.length ? `## TOP VÍDEOS
 ${context.youtube.topVideos.slice(0, 5).map((v: any, i: number) => 
-  `${i + 1}. "${v.title?.slice(0, 50) || 'Sem título'}..." - ${v.views?.toLocaleString() || 0} views, CTR ${v.ctr?.toFixed(1) || 0}%`
-).join('\n')}` : ''}
+  `${i + 1}. "${v.title?.slice(0, 60) || 'Sem título'}..."
+   • Views: ${v.views?.toLocaleString() || 0} | CTR: ${v.ctr?.toFixed(2) || 0}%`
+).join('\n\n')}` : ''}
 ` : `
+═══════════════════════════════════════════════════════════════
+DADOS DE PERFORMANCE - INSTAGRAM
 Cliente: ${clientName}
 Período: ${periodInfo}
+═══════════════════════════════════════════════════════════════
 
-## Instagram
-- Total de posts: ${context.instagram?.totalPosts || 0}
-- Total de curtidas: ${context.instagram?.totalLikes?.toLocaleString() || 0}
-- Total de comentários: ${context.instagram?.totalComments?.toLocaleString() || 0}
-- Total de salvamentos: ${context.instagram?.totalSaves?.toLocaleString() || 0}
-- Total de compartilhamentos: ${context.instagram?.totalShares?.toLocaleString() || 0}
+## MÉTRICAS MACRO
+- Total de posts: ${totalPosts}
+- Curtidas: ${context.instagram?.totalLikes?.toLocaleString() || 0}
+- Comentários: ${context.instagram?.totalComments?.toLocaleString() || 0}
+- Salvamentos: ${context.instagram?.totalSaves?.toLocaleString() || 0}
+- Compartilhamentos: ${context.instagram?.totalShares?.toLocaleString() || 0}
 - Alcance total: ${context.instagram?.totalReach?.toLocaleString() || 0}
 - Engajamento médio: ${context.instagram?.avgEngagement?.toFixed(2) || 0}%
-${context.instagram?.topPosts?.length ? `
-Top Posts por Engajamento:
+
+## MÉDIAS POR POST
+- Curtidas/post: ${avgLikes}
+- Comentários/post: ${avgComments}
+- Compartilhamentos/post: ${avgShares}
+- Salvamentos/post: ${avgSaves}
+
+${context.instagram?.topPosts?.length ? `## TOP POSTS (por engajamento)
 ${context.instagram.topPosts.slice(0, 5).map((p: any, i: number) => 
-  `${i + 1}. "${p.caption?.slice(0, 60) || 'Sem legenda'}..." - ${p.likes} curtidas, ${p.saves || 0} salvamentos, ${p.shares || 0} compartilhamentos, ${p.engagement?.toFixed(1) || 0}% engajamento, tipo: ${p.type || 'post'}`
-).join('\n')}` : ''}
+  `${i + 1}. [${p.type || 'post'}] "${p.caption?.slice(0, 60) || 'Sem legenda'}..."
+   • Curtidas: ${p.likes} | Comentários: ${p.comments || 0} | Salvamentos: ${p.saves || 0} | Compartilhamentos: ${p.shares || 0}
+   • Engajamento: ${p.engagement?.toFixed(2) || 0}%`
+).join('\n\n')}` : ''}
 `;
 
-    const prompt = `Você é um especialista em análise de redes sociais e marketing digital. Analise as métricas de performance de ${platformName} abaixo e gere insights práticos e acionáveis.
+    const prompt = `Você é um analista sênior de marketing digital. Analise os dados de ${platformName} e gere insights ESTRATÉGICOS e ACIONÁVEIS.
 
 ${contextSummary}
 
-Gere um resumo executivo estruturado (máximo 6-7 frases) com:
+═══════════════════════════════════════════════════════════════
+FORMATO DA RESPOSTA
+═══════════════════════════════════════════════════════════════
 
-**📊 Visão Geral do Período**
-Uma frase sobre o desempenho geral.
+Gere uma análise estruturada em Markdown com:
 
-**⭐ Destaques**
-- O melhor conteúdo e por que performou bem
-- Métricas que se destacaram
+## 📊 Visão Geral
+[1-2 frases resumindo o desempenho geral do período, citando números específicos]
 
-**📈 Oportunidades**
-- Uma oportunidade de melhoria identificada
-- Uma recomendação concreta para próximos passos
+## ⭐ Destaques do Período
+- [Destaque 1: métrica ou conteúdo que performou bem, com números]
+- [Destaque 2: padrão positivo identificado]
+- [Destaque 3: conquista ou marco importante]
 
-Seja direto, prático e específico ao ${platformName}. Use números e porcentagens quando relevante. Formate em markdown.`;
+## 📈 Oportunidades de Melhoria
+- [Oportunidade 1: baseada nos dados, com justificativa]
+- [Oportunidade 2: ação concreta para melhorar resultados]
+
+## 💡 Recomendações Estratégicas
+1. **[Ação imediata]:** [O que fazer e por quê, baseado nos dados]
+2. **[Ação de médio prazo]:** [Estratégia para melhorar métricas específicas]
+
+REGRAS:
+- Use APENAS dados fornecidos, nunca invente
+- Cite números específicos e porcentagens
+- Seja direto e prático
+- Máximo 200 palavras total`;
 
     const MODEL = "gemini-2.0-flash";
     const response = await fetch(

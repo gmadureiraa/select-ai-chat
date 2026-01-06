@@ -16,6 +16,7 @@ import { StatCard } from "./StatCard";
 import { GoalGauge } from "./GoalGauge";
 import { MetricMiniCard } from "./MetricMiniCard";
 import { PerformanceReportGenerator } from "./PerformanceReportGenerator";
+import { PostAveragesSection } from "./PostAveragesSection";
 
 import { TopContentTable } from "./TopContentTable";
 import { ImportHistoryPanel } from "./ImportHistoryPanel";
@@ -555,6 +556,18 @@ export function InstagramDashboard({
           onMetricChange={(m) => setTopPostsMetric(m)}
         />
       )}
+
+      {/* Post Averages Section */}
+      <PostAveragesSection
+        totalPosts={filteredPosts.length}
+        totalLikes={kpis.totalLikes}
+        totalComments={kpis.totalComments}
+        totalShares={kpis.totalShares}
+        totalSaves={kpis.totalSaves}
+        totalReach={kpis.totalReach}
+        totalImpressions={filteredPosts.reduce((sum, p) => sum + (p.impressions || 0), 0)}
+        avgEngagement={kpis.avgEngagement}
+      />
 
       {/* Secondary Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
