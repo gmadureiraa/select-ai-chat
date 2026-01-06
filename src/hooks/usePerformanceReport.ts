@@ -84,36 +84,141 @@ export function usePerformanceReport(clientId: string) {
 function buildReportPrompt(data: ReportData): string {
   const { platform, period, kpis, posts, videos } = data;
 
-  let prompt = `Analise os dados de performance do ${platform} no período de ${period} e gere um relatório executivo.
+  // Calculate averages if posts exist
+  const totalPosts = posts?.length || 0;
+  const avgLikes = totalPosts > 0 ? Math.round((kpis.totalLikes || 0) / totalPosts) : 0;
+  const avgComments = totalPosts > 0 ? Math.round((kpis.totalComments || 0) / totalPosts) : 0;
+  const avgShares = totalPosts > 0 ? Math.round((kpis.totalShares || 0) / totalPosts) : 0;
+  const avgSaves = totalPosts > 0 ? Math.round((kpis.totalSaves || 0) / totalPosts) : 0;
+  const avgReach = totalPosts > 0 ? Math.round((kpis.totalReach || 0) / totalPosts) : 0;
 
-DADOS DE PERFORMANCE:
-${JSON.stringify(kpis, null, 2)}
+  let prompt = `Você é um analista de marketing digital especializado em redes sociais. Gere um RELATÓRIO ESTRATÉGICO DE PERFORMANCE profissional para ${platform}.
+
+═══════════════════════════════════════════════════════════════
+DADOS DO PERÍODO: ${period}
+═══════════════════════════════════════════════════════════════
+
+## MÉTRICAS MACRO (KPIs)
+- Total de posts: ${totalPosts}
+- Visualizações: ${(kpis.totalViews || 0).toLocaleString()}
+- Alcance: ${(kpis.totalReach || 0).toLocaleString()}
+- Interações totais: ${(kpis.totalInteractions || 0).toLocaleString()}
+- Curtidas: ${(kpis.totalLikes || 0).toLocaleString()}
+- Comentários: ${(kpis.totalComments || 0).toLocaleString()}
+- Compartilhamentos: ${(kpis.totalShares || 0).toLocaleString()}
+- Salvamentos: ${(kpis.totalSaves || 0).toLocaleString()}
+- Novos seguidores: ${(kpis.followersGained || 0).toLocaleString()}
+- Engajamento médio: ${(kpis.avgEngagement || 0).toFixed(2)}%
+
+## MÉDIAS POR POST
+- Curtidas/post: ${avgLikes.toLocaleString()}
+- Comentários/post: ${avgComments}
+- Compartilhamentos/post: ${avgShares}
+- Salvamentos/post: ${avgSaves}
+- Alcance/post: ${avgReach.toLocaleString()}
 
 `;
 
   if (posts && posts.length > 0) {
-    prompt += `TOP 5 POSTS:
-${posts.slice(0, 5).map((p: any, i: number) => `${i + 1}. ${p.caption?.slice(0, 50) || 'Sem legenda'} - Engajamento: ${p.engagement_rate || 0}%`).join('\n')}
+    const topPosts = [...posts]
+      .sort((a: any, b: any) => (b.engagement_rate || 0) - (a.engagement_rate || 0))
+      .slice(0, 5);
+    
+    prompt += `## TOP 5 POSTS (por engajamento)
+${topPosts.map((p: any, i: number) => 
+  `${i + 1}. [${p.post_type || 'post'}] "${p.caption?.slice(0, 80) || 'Sem legenda'}..."
+   • Curtidas: ${p.likes || 0} | Comentários: ${p.comments || 0} | Salvamentos: ${p.saves || 0} | Compartilhamentos: ${p.shares || 0}
+   • Alcance: ${(p.reach || 0).toLocaleString()} | Engajamento: ${(p.engagement_rate || 0).toFixed(2)}%`
+).join('\n\n')}
 
 `;
   }
 
   if (videos && videos.length > 0) {
-    prompt += `TOP 5 VÍDEOS:
-${videos.slice(0, 5).map((v: any, i: number) => `${i + 1}. ${v.title?.slice(0, 50) || 'Sem título'} - Views: ${v.views || 0}`).join('\n')}
+    prompt += `## TOP 5 VÍDEOS (por views)
+${videos.slice(0, 5).map((v: any, i: number) => 
+  `${i + 1}. "${v.title?.slice(0, 60) || 'Sem título'}..."
+   • Views: ${(v.total_views || v.views || 0).toLocaleString()} | Horas assistidas: ${(v.watch_hours || 0).toFixed(1)}h
+   • CTR: ${(v.click_rate || 0).toFixed(2)}% | Inscritos ganhos: ${v.subscribers_gained || 0}`
+).join('\n\n')}
 
 `;
   }
 
   prompt += `
-FORMATO DA RESPOSTA:
-1. RESUMO EXECUTIVO (2-3 frases sobre o desempenho geral)
-2. DESTAQUES (3 conquistas ou números importantes)
-3. INSIGHTS (3 observações baseadas nos dados)
-4. RECOMENDAÇÕES (3 ações concretas para melhorar)
-5. MELHOR CONTEÚDO (qual post/vídeo performou melhor e por quê)
+═══════════════════════════════════════════════════════════════
+FORMATO OBRIGATÓRIO DO RELATÓRIO
+═══════════════════════════════════════════════════════════════
 
-Seja direto, use números específicos dos dados fornecidos, e foque em insights acionáveis.`;
+Gere o relatório EXATAMENTE neste formato:
+
+# RELATÓRIO ESTRATÉGICO DE PERFORMANCE: ${platform.toUpperCase()}
+**Período:** ${period}
+
+---
+
+## 1. RESUMO EXECUTIVO
+[2-3 parágrafos com visão geral do desempenho, contextualizando os números principais e a tendência geral do período]
+
+---
+
+## 2. PERFORMANCE MACRO (KPIs)
+Análise detalhada das métricas principais com interpretação:
+
+| Métrica | Valor | Análise |
+|---------|-------|---------|
+| Alcance | [valor] | [breve interpretação] |
+| Impressões | [valor] | [breve interpretação] |
+| Engajamento | [valor]% | [breve interpretação] |
+
+**Análise Técnica:** [Parágrafo explicando o que os números significam para a estratégia]
+
+---
+
+## 3. ANÁLISE DE ENGAJAMENTO
+- **Total de interações:** [número]
+- **Curtidas:** [número] ([porcentagem do total])
+- **Comentários:** [número] ([porcentagem do total])
+- **Compartilhamentos:** [número] ([porcentagem do total])
+- **Salvamentos:** [número] ([porcentagem do total])
+
+**Análise Técnica:** [Explicar qual tipo de engajamento está mais forte e o que isso indica]
+
+---
+
+## 4. DESTAQUES: TOP 3 POSTS DO PERÍODO
+Para cada post, inclua:
+1. **[Título/Tema do post]**
+   - Tipo: [tipo]
+   - Métricas: [curtidas, comentários, salvamentos]
+   - Engajamento: [%]
+   - **Por que performou bem:** [análise do que funcionou]
+
+---
+
+## 5. INSIGHTS E PADRÕES IDENTIFICADOS
+Liste 3-5 padrões observados nos dados:
+- 📊 [Insight 1 com dados específicos]
+- 📈 [Insight 2 com dados específicos]
+- 💡 [Insight 3 com dados específicos]
+
+---
+
+## 6. RECOMENDAÇÕES ESTRATÉGICAS
+Liste 3-5 ações concretas baseadas nos dados:
+1. **[Ação 1]:** [Justificativa baseada nos dados]
+2. **[Ação 2]:** [Justificativa baseada nos dados]
+3. **[Ação 3]:** [Justificativa baseada nos dados]
+
+---
+
+REGRAS IMPORTANTES:
+- Use APENAS os dados fornecidos, nunca invente números
+- Cite valores específicos e porcentagens
+- Seja objetivo e prático
+- Destaque tanto pontos fortes quanto oportunidades de melhoria
+- Use emojis para facilitar a leitura
+- Formate em Markdown válido`;
 
   return prompt;
 }
