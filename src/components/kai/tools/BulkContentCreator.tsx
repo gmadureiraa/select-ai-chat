@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Textarea } from "@/components/ui/textarea";
+
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
@@ -222,12 +222,14 @@ export function BulkContentCreator({ clientId }: BulkContentCreatorProps) {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <Textarea
+          <MentionableInput
             value={briefing}
-            onChange={(e) => setBriefing(e.target.value)}
-            placeholder="Ex: Preciso de conteúdos sobre produtividade para empreendedores, focando em rotina matinal e gestão de tempo. O tom deve ser inspirador mas prático..."
+            onChange={setBriefing}
+            clientId={clientId}
+            placeholder="Ex: Preciso de conteúdos sobre produtividade... Use @ para mencionar materiais da biblioteca"
             className="min-h-[120px]"
-            disabled={isGenerating}
+            multiline
+            rows={5}
           />
 
           {/* Attachments */}
