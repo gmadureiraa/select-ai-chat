@@ -1,14 +1,18 @@
 import { useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Users, Heart, MessageCircle, Eye, Bookmark, Upload, Calendar, Share2, Target, TrendingUp, Settings, FileText, MousePointer } from "lucide-react";
 import { GoalsPanel } from "./GoalsPanel";
 import { InstagramPost } from "@/hooks/useInstagramPosts";
 import { PerformanceMetrics } from "@/hooks/usePerformanceMetrics";
 import { usePerformanceGoals } from "@/hooks/usePerformanceGoals";
-import { InstagramPostsTable } from "./InstagramPostsTable";
+import { InstagramPostsTableAdvanced } from "./InstagramPostsTableAdvanced";
 import { SmartCSVUpload } from "./SmartCSVUpload";
 import { EnhancedAreaChart } from "./EnhancedAreaChart";
 import { AIInsightsCard } from "./AIInsightsCard";
@@ -26,7 +30,7 @@ import { BestPostsByMetric } from "./BestPostsByMetric";
 import { InstagramStoriesSection } from "./InstagramStoriesSection";
 import { InstagramStoriesCSVUpload } from "./InstagramStoriesCSVUpload";
 import { useInstagramStories } from "@/hooks/useInstagramStories";
-import { format, subDays, isAfter, parseISO, startOfDay, getDay, getHours } from "date-fns";
+import { format, subDays, isAfter, isBefore, parseISO, startOfDay, getDay, getHours } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 interface InstagramDashboardProps {
@@ -44,6 +48,7 @@ const periodOptions = [
   { value: "60", label: "Últimos 60 dias" },
   { value: "90", label: "Últimos 90 dias" },
   { value: "all", label: "Todo período" },
+  { value: "custom", label: "Personalizado" },
 ];
 
 const metricOptions = [
@@ -63,6 +68,8 @@ export function InstagramDashboard({
   isLoadingMetrics 
 }: InstagramDashboardProps) {
   const [period, setPeriod] = useState("30");
+  const [customDateFrom, setCustomDateFrom] = useState<Date | undefined>(undefined);
+  const [customDateTo, setCustomDateTo] = useState<Date | undefined>(undefined);
   const [selectedMetric, setSelectedMetric] = useState("views");
   const [showUploadPosts, setShowUploadPosts] = useState(false);
   const [topPostsMetric, setTopPostsMetric] = useState("engagement");
@@ -75,29 +82,47 @@ export function InstagramDashboard({
   // Filter data by period
   const cutoffDate = useMemo(() => {
     if (period === "all") return null;
+    if (period === "custom") {
+      return customDateFrom ? startOfDay(customDateFrom) : null;
+    }
     return startOfDay(subDays(new Date(), parseInt(period)));
-  }, [period]);
+  }, [period, customDateFrom]);
+
+  const endDate = useMemo(() => {
+    if (period === "custom" && customDateTo) {
+      return startOfDay(customDateTo);
+    }
+    return null;
+  }, [period, customDateTo]);
 
   // Previous period cutoff for comparison
   const previousPeriodCutoff = useMemo(() => {
-    if (period === "all") return null;
+    if (period === "all" || period === "custom") return null;
     const days = parseInt(period);
     return startOfDay(subDays(new Date(), days * 2));
   }, [period]);
 
   const filteredPosts = useMemo(() => {
-    if (!cutoffDate) return posts;
-    return posts.filter(post => 
-      post.posted_at && isAfter(parseISO(post.posted_at), cutoffDate)
-    );
-  }, [posts, cutoffDate]);
+    if (period === "all") return posts;
+    return posts.filter(post => {
+      if (!post.posted_at) return false;
+      const postDate = parseISO(post.posted_at);
+      if (cutoffDate && isBefore(postDate, cutoffDate)) return false;
+      if (endDate && isAfter(postDate, endDate)) return false;
+      return true;
+    });
+  }, [posts, cutoffDate, endDate, period]);
 
   const filteredMetrics = useMemo(() => {
-    if (!cutoffDate) return metrics;
-    return metrics.filter(m => 
-      m.metric_date && isAfter(parseISO(m.metric_date), cutoffDate)
-    );
-  }, [metrics, cutoffDate]);
+    if (period === "all") return metrics;
+    return metrics.filter(m => {
+      if (!m.metric_date) return false;
+      const metricDate = parseISO(m.metric_date);
+      if (cutoffDate && isBefore(metricDate, cutoffDate)) return false;
+      if (endDate && isAfter(metricDate, endDate)) return false;
+      return true;
+    });
+  }, [metrics, cutoffDate, endDate, period]);
 
   // Previous period metrics for comparison
   const previousPeriodMetrics = useMemo(() => {
@@ -401,19 +426,59 @@ export function InstagramDashboard({
           <DataCompletenessWarning platform="instagram" data={dataCompleteness} />
         </div>
         <div className="flex items-center gap-3">
-          <Select value={period} onValueChange={setPeriod}>
-            <SelectTrigger className="w-[180px] bg-card border-border/50">
-              <Calendar className="h-4 w-4 mr-2 text-muted-foreground" />
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {periodOptions.map(opt => (
-                <SelectItem key={opt.value} value={opt.value}>
-                  {opt.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="flex items-center gap-2">
+            <Select value={period} onValueChange={setPeriod}>
+              <SelectTrigger className="w-[180px] bg-card border-border/50">
+                <Calendar className="h-4 w-4 mr-2 text-muted-foreground" />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {periodOptions.map(opt => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            
+            {period === "custom" && (
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className="gap-2">
+                    {customDateFrom || customDateTo ? (
+                      <span className="text-xs">
+                        {customDateFrom ? format(customDateFrom, "dd/MM/yy") : "..."} - {customDateTo ? format(customDateTo, "dd/MM/yy") : "..."}
+                      </span>
+                    ) : (
+                      <span className="text-xs">Selecionar datas</span>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <div className="flex gap-4 p-4">
+                    <div>
+                      <Label className="text-xs font-medium mb-2 block">De</Label>
+                      <CalendarComponent
+                        mode="single"
+                        selected={customDateFrom}
+                        onSelect={setCustomDateFrom}
+                        locale={ptBR}
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs font-medium mb-2 block">Até</Label>
+                      <CalendarComponent
+                        mode="single"
+                        selected={customDateTo}
+                        onSelect={setCustomDateTo}
+                        locale={ptBR}
+                      />
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
+            )}
+          </div>
           <Button 
             variant="outline" 
             className="border-border/50"
@@ -606,14 +671,14 @@ export function InstagramDashboard({
         endDate={new Date()}
       />
 
-      {/* Posts Table */}
+      {/* Posts Table - Advanced */}
       <Card className="border-border/50">
         <CardHeader className="pb-3">
-          <CardTitle className="text-lg">Posts Recentes</CardTitle>
+          <CardTitle className="text-lg">Posts</CardTitle>
         </CardHeader>
         <CardContent>
-          <InstagramPostsTable 
-            posts={filteredPosts} 
+          <InstagramPostsTableAdvanced 
+            posts={posts} 
             isLoading={isLoadingPosts}
             clientId={clientId}
           />
