@@ -9,6 +9,7 @@ import { CreateReferenceData, ReferenceItem } from "@/hooks/useReferenceLibrary"
 import { CONTENT_TYPE_OPTIONS } from "@/types/contentTypes";
 import { supabase } from "@/integrations/supabase/client";
 import { uploadToClientFiles, getSignedUrl, downloadAsBlob } from "@/lib/storage";
+import { transcribeImagesChunked } from "@/lib/transcribeImages";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Upload, X, Link, FileText, ExternalLink } from "lucide-react";
 
@@ -180,16 +181,17 @@ export function ReferenceDialog({ open, onClose, onSave, reference }: ReferenceD
         throw new Error("Não foi possível processar as imagens");
       }
 
-      const { data, error } = await supabase.functions.invoke('transcribe-images', {
-        body: { imageUrls: base64Images }
+      const { data: { user } } = await supabase.auth.getUser();
+
+      const transcription = await transcribeImagesChunked(base64Images, {
+        userId: user?.id,
+        chunkSize: 1,
       });
 
-      if (error) throw error;
-
       const existingContent = formData.content.trim();
-      const newContent = existingContent 
-        ? `${existingContent}\n\n--- CONTEÚDO DAS IMAGENS ---\n${data.transcription}`
-        : data.transcription;
+      const newContent = existingContent
+        ? `${existingContent}\n\n--- CONTEÚDO DAS IMAGENS ---\n${transcription}`
+        : transcription;
 
       setFormData({ ...formData, content: newContent });
       toast({

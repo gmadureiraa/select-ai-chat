@@ -8,16 +8,74 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const BATCH_SIZE = 2; // Reduced to prevent memory limit errors
+// Mantemos o limite bem baixo para evitar WORKER_LIMIT / CPU Time exceeded.
+// O frontend deve fazer o chunking (1 imagem por chamada) e recompor o texto.
+const MAX_IMAGES_PER_REQUEST = 1;
 const MODEL = "gemini-2.5-flash";
+
+type InlineDataPart = {
+  inline_data: {
+    mime_type: string;
+    data: string;
+  };
+};
+
+type TextPart = { text: string };
+
+type GeminiPart = InlineDataPart | TextPart;
+
+async function urlToInlineData(url: string): Promise<InlineDataPart | null> {
+  // data URL
+  if (url.startsWith("data:")) {
+    const matches = url.match(/^data:([^;]+);base64,(.+)$/);
+    if (!matches) return null;
+    const mimeType = matches[1];
+    const base64Data = matches[2];
+    return {
+      inline_data: {
+        mime_type: mimeType,
+        data: base64Data,
+      },
+    };
+  }
+
+  // remote URL
+  try {
+    const imageResponse = await fetch(url, {
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+      },
+    });
+
+    if (!imageResponse.ok) {
+      console.warn(`[transcribe-images] Failed to fetch image: ${imageResponse.status}`);
+      return null;
+    }
+
+    const arrayBuffer = await imageResponse.arrayBuffer();
+    const base64Data = encodeBase64(arrayBuffer);
+    const mimeType = imageResponse.headers.get("content-type") || "image/jpeg";
+
+    return {
+      inline_data: {
+        mime_type: mimeType,
+        data: base64Data,
+      },
+    };
+  } catch (err) {
+    console.warn("[transcribe-images] Error fetching image:", err);
+    return null;
+  }
+}
 
 async function transcribeBatch(
   imageUrls: string[],
   startIndex: number,
   apiKey: string
 ): Promise<{ transcription: string; inputTokens: number; outputTokens: number }> {
-  const parts: any[] = [];
-  
+  const parts: GeminiPart[] = [];
+
   const systemPrompt = `Você é um transcritor de texto preciso. Sua ÚNICA tarefa é extrair TODO o texto visível nas imagens.
 
 REGRAS IMPORTANTES:
@@ -33,56 +91,21 @@ Você receberá ${imageUrls.length} imagens (páginas ${startIndex + 1} a ${star
   parts.push({ text: systemPrompt });
 
   let validImageCount = 0;
-  for (let i = 0; i < imageUrls.length; i++) {
-    const url = imageUrls[i];
-    let base64Data: string;
-    let mimeType: string;
-
-    if (url.startsWith("data:")) {
-      const matches = url.match(/^data:([^;]+);base64,(.+)$/);
-      if (matches) {
-        mimeType = matches[1];
-        base64Data = matches[2];
-        validImageCount++;
-      } else {
-        console.warn(`[transcribe-images] Invalid data URL format for image ${startIndex + i + 1}`);
-        continue;
-      }
-    } else {
-      try {
-        const imageResponse = await fetch(url, {
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-          }
-        });
-        if (imageResponse.ok) {
-          const arrayBuffer = await imageResponse.arrayBuffer();
-          base64Data = encodeBase64(arrayBuffer);
-          mimeType = imageResponse.headers.get("content-type") || "image/jpeg";
-          validImageCount++;
-        } else {
-          console.warn(`[transcribe-images] Failed to fetch image ${startIndex + i + 1}: ${imageResponse.status}`);
-          continue;
-        }
-      } catch (fetchError) {
-        console.warn(`[transcribe-images] Error fetching image ${startIndex + i + 1}:`, fetchError);
-        continue;
-      }
+  for (const url of imageUrls) {
+    const inlineData = await urlToInlineData(url);
+    if (inlineData) {
+      parts.push(inlineData);
+      validImageCount++;
     }
-
-    parts.push({
-      inline_data: {
-        mime_type: mimeType,
-        data: base64Data
-      }
-    });
   }
 
   if (validImageCount === 0) {
     return { transcription: "", inputTokens: 0, outputTokens: 0 };
   }
 
-  console.log(`[transcribe-images] Processing batch: ${validImageCount} images (pages ${startIndex + 1}-${startIndex + imageUrls.length})`);
+  console.log(
+    `[transcribe-images] Processing ${validImageCount} image(s) (pages ${startIndex + 1}-${startIndex + imageUrls.length})`
+  );
 
   const response = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${apiKey}`,
@@ -93,7 +116,7 @@ Você receberá ${imageUrls.length} imagens (páginas ${startIndex + 1} a ${star
         contents: [{ parts }],
         generationConfig: {
           temperature: 0.2,
-          maxOutputTokens: 16384,
+          maxOutputTokens: 8192,
         },
       }),
     }
@@ -106,27 +129,46 @@ Você receberá ${imageUrls.length} imagens (páginas ${startIndex + 1} a ${star
   }
 
   const data = await response.json();
-  const transcription = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-  const inputTokens = data.usageMetadata?.promptTokenCount || estimateImageTokens(validImageCount);
-  const outputTokens = data.usageMetadata?.candidatesTokenCount || Math.ceil(transcription.length / 4);
-  
+  let transcription = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+
+  // Normaliza a numeração de páginas para o índice global (mesmo se o modelo retornar 1..N)
+  for (let i = imageUrls.length; i >= 1; i--) {
+    const oldPage = `---PÁGINA ${i}---`;
+    const newPage = `---PÁGINA ${startIndex + i}---`;
+    transcription = transcription.replace(new RegExp(oldPage, "g"), newPage);
+  }
+
+  const inputTokens =
+    data.usageMetadata?.promptTokenCount || estimateImageTokens(validImageCount);
+  const outputTokens =
+    data.usageMetadata?.candidatesTokenCount || Math.ceil(transcription.length / 4);
+
   return { transcription, inputTokens, outputTokens };
 }
 
 serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { imageUrls, userId, clientId } = await req.json();
+    const body = await req.json();
+    const { imageUrls, userId, clientId } = body;
+    const startIndex = Number(body?.startIndex ?? 0);
 
     if (!imageUrls || !Array.isArray(imageUrls) || imageUrls.length === 0) {
       throw new Error("imageUrls array is required");
     }
 
-    if (imageUrls.length > 25) {
-      throw new Error("Maximum 25 images allowed");
+    if (!Number.isFinite(startIndex) || startIndex < 0) {
+      throw new Error("startIndex must be a non-negative number");
+    }
+
+    if (imageUrls.length > MAX_IMAGES_PER_REQUEST) {
+      throw new Error(
+        `Maximum ${MAX_IMAGES_PER_REQUEST} images allowed per request`
+      );
     }
 
     const GOOGLE_API_KEY = Deno.env.get("GOOGLE_AI_STUDIO_API_KEY");
@@ -134,74 +176,41 @@ serve(async (req) => {
       throw new Error("GOOGLE_AI_STUDIO_API_KEY not configured");
     }
 
-    console.log(`[transcribe-images] Transcribing ${imageUrls.length} images with batch size ${BATCH_SIZE}`);
+    console.log(
+      `[transcribe-images] Request: ${imageUrls.length} image(s), startIndex=${startIndex}`
+    );
 
-    // Process images in batches
-    const batches: string[][] = [];
-    for (let i = 0; i < imageUrls.length; i += BATCH_SIZE) {
-      batches.push(imageUrls.slice(i, i + BATCH_SIZE));
-    }
+    const startedAt = Date.now();
+    const result = await transcribeBatch(imageUrls, startIndex, GOOGLE_API_KEY);
+    const durationMs = Date.now() - startedAt;
 
-    console.log(`[transcribe-images] Split into ${batches.length} batches`);
-
-    const transcriptions: string[] = [];
-    let globalPageIndex = 0;
-    let totalInputTokens = 0;
-    let totalOutputTokens = 0;
-
-    for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
-      const batch = batches[batchIndex];
-      const result = await transcribeBatch(batch, globalPageIndex, GOOGLE_API_KEY);
-      
-      totalInputTokens += result.inputTokens;
-      totalOutputTokens += result.outputTokens;
-      
-      if (result.transcription) {
-        let adjustedTranscription = result.transcription;
-        
-        // Adjust page numbers for batches after the first
-        if (batchIndex > 0) {
-          for (let i = batch.length; i >= 1; i--) {
-            const oldPage = `---PÁGINA ${i}---`;
-            const newPage = `---PÁGINA ${globalPageIndex + i}---`;
-            adjustedTranscription = adjustedTranscription.replace(new RegExp(oldPage, 'g'), newPage);
-          }
-        }
-        
-        transcriptions.push(adjustedTranscription);
-      }
-      
-      globalPageIndex += batch.length;
-      
-      // Small delay between batches
-      if (batchIndex < batches.length - 1) {
-        await new Promise(resolve => setTimeout(resolve, 500));
-      }
-    }
+    console.log(
+      `[transcribe-images] Done: ${imageUrls.length} image(s), ${durationMs}ms, tokens=${result.inputTokens + result.outputTokens}`
+    );
 
     // Log AI usage
     if (userId) {
       const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
       const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
       const supabase = createClient(supabaseUrl, supabaseServiceKey);
-      
+
       await logAIUsage(
         supabase,
         userId,
         MODEL,
         "transcribe-images",
-        totalInputTokens,
-        totalOutputTokens,
-        { imageCount: imageUrls.length, batchCount: batches.length, clientId }
+        result.inputTokens,
+        result.outputTokens,
+        { imageCount: imageUrls.length, startIndex, clientId }
       );
     }
 
-    const fullTranscription = transcriptions.join('\n\n');
-    
-    console.log(`[transcribe-images] Complete: ${batches.length} batches, ${totalInputTokens + totalOutputTokens} tokens`);
-
+    // Mantém compatibilidade com usos antigos que esperam um array
     return new Response(
-      JSON.stringify({ transcription: fullTranscription }),
+      JSON.stringify({
+        transcription: result.transcription,
+        transcriptions: [result.transcription],
+      }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       }
@@ -209,12 +218,9 @@ serve(async (req) => {
   } catch (error) {
     console.error("[transcribe-images] Error:", error);
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
-    return new Response(
-      JSON.stringify({ error: errorMessage }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
-    );
+    return new Response(JSON.stringify({ error: errorMessage }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 });
