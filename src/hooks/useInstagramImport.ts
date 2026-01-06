@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { transcribeImagesChunked } from "@/lib/transcribeImages";
 import { useToast } from "@/hooks/use-toast";
 
 interface ExtractedData {
@@ -70,21 +71,9 @@ export function useInstagramImport() {
 
       console.log("Starting transcription for", extracted.images.length, "images");
 
-      const { data: transcribeData, error: transcribeError } = await supabase.functions.invoke(
-        "transcribe-images",
-        { body: { imageUrls: extracted.images } }
-      );
-
-      if (transcribeError) {
-        console.error("Transcribe error:", transcribeError);
-        throw new Error(transcribeError.message);
-      }
-      if (transcribeData?.error) {
-        console.error("Transcribe data error:", transcribeData.error);
-        throw new Error(transcribeData.error);
-      }
-
-      const imageTranscription = transcribeData?.transcription || "";
+      const imageTranscription = await transcribeImagesChunked(extracted.images, {
+        chunkSize: 1,
+      });
       console.log("Transcription received, length:", imageTranscription.length);
       
       // Set transcription state BEFORE creating result

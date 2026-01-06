@@ -5,6 +5,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { uploadAndGetSignedUrl } from "@/lib/storage";
+import { transcribeImagesChunked } from "@/lib/transcribeImages";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 
@@ -123,24 +124,21 @@ export function ContentEditor({
         return;
       }
 
-      // Now transcribe
-      const { data, error } = await supabase.functions.invoke('transcribe-images', {
-        body: { imageUrls: uploadedUrls }
+      const transcription = await transcribeImagesChunked(uploadedUrls, {
+        chunkSize: 1,
       });
-
-      if (error) throw error;
 
       // Insert transcribed text at cursor
       const textarea = textareaRef.current;
-      if (textarea && data?.transcription) {
+      if (textarea && transcription) {
         const start = textarea.selectionStart;
-        const transcribedText = `\n\n--- CONTEÚDO TRANSCRITO ---\n${data.transcription}\n`;
-        
-        const newValue = 
-          value.substring(0, start) + 
-          transcribedText + 
+        const transcribedText = `\n\n--- CONTEÚDO TRANSCRITO ---\n${transcription}\n`;
+
+        const newValue =
+          value.substring(0, start) +
+          transcribedText +
           value.substring(start);
-        
+
         onChange(newValue);
         toast.success(`${uploadedUrls.length} imagem(ns) transcrita(s)`);
       }

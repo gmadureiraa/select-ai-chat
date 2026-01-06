@@ -9,6 +9,7 @@ import { ContentItem, ContentType, CreateContentData } from "@/hooks/useContentL
 import { CONTENT_TYPE_OPTIONS } from "@/types/contentTypes";
 import { supabase } from "@/integrations/supabase/client";
 import { uploadAndGetSignedUrl } from "@/lib/storage";
+import { transcribeImagesChunked } from "@/lib/transcribeImages";
 import { useToast } from "@/hooks/use-toast";
 import { 
   Loader2, 
@@ -294,22 +295,18 @@ export const ContentDialog = ({ open, onClose, onSave, content, clientId }: Cont
     try {
       const { data: { session } } = await supabase.auth.getSession();
       
-      const { data, error } = await supabase.functions.invoke("transcribe-images", {
-        body: { 
-          imageUrls: uploadedImages,
-          userId: session?.user?.id,
-          clientId: clientId
-        },
+      const transcription = await transcribeImagesChunked(uploadedImages, {
+        userId: session?.user?.id,
+        clientId: clientId,
+        chunkSize: 1,
       });
 
-      if (error) throw error;
+      if (transcription) {
+        const newContent = formData.content
+          ? `${formData.content}\n\n---\n\n## Transcrição das Imagens\n\n${transcription}`
+          : `## Transcrição das Imagens\n\n${transcription}`;
 
-      if (data?.transcription) {
-        const newContent = formData.content 
-          ? `${formData.content}\n\n---\n\n## Transcrição das Imagens\n\n${data.transcription}`
-          : `## Transcrição das Imagens\n\n${data.transcription}`;
-        
-        setFormData(prev => ({ ...prev, content: newContent }));
+        setFormData((prev) => ({ ...prev, content: newContent }));
         toast({ title: "Sucesso", description: "Imagens transcritas com sucesso" });
       }
     } catch (error) {
