@@ -62,7 +62,7 @@ export function ClientEditTabs({ client, onClose }: ClientEditTabsProps) {
   const [autoSaveStatus, setAutoSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
   const [hasChanges, setHasChanges] = useState(false);
   
-  const [socialMedia, setSocialMedia] = useState<Record<string, string>>(client.social_media as Record<string, string> || {});
+  const [socialMedia, setSocialMedia] = useState<Record<string, any>>(client.social_media as Record<string, any> || {});
   const [tags, setTags] = useState<Record<string, string>>(client.tags as Record<string, string> || {});
   const [functionTemplates, setFunctionTemplates] = useState<string[]>((client.function_templates as string[]) || []);
   const [templateInput, setTemplateInput] = useState("");

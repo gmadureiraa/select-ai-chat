@@ -1705,6 +1705,74 @@ export type Database = {
           },
         ]
       }
+      performance_reports: {
+        Row: {
+          client_id: string
+          content: string
+          content_recommendations: Json | null
+          created_at: string
+          created_by: string
+          highlights: Json | null
+          id: string
+          insights: Json | null
+          kpis: Json | null
+          metadata: Json | null
+          period: string
+          platform: string
+          recommendations: Json | null
+          summary: string | null
+          title: string
+          top_content: Json | null
+          updated_at: string
+        }
+        Insert: {
+          client_id: string
+          content: string
+          content_recommendations?: Json | null
+          created_at?: string
+          created_by: string
+          highlights?: Json | null
+          id?: string
+          insights?: Json | null
+          kpis?: Json | null
+          metadata?: Json | null
+          period: string
+          platform: string
+          recommendations?: Json | null
+          summary?: string | null
+          title: string
+          top_content?: Json | null
+          updated_at?: string
+        }
+        Update: {
+          client_id?: string
+          content?: string
+          content_recommendations?: Json | null
+          created_at?: string
+          created_by?: string
+          highlights?: Json | null
+          id?: string
+          insights?: Json | null
+          kpis?: Json | null
+          metadata?: Json | null
+          period?: string
+          platform?: string
+          recommendations?: Json | null
+          summary?: string | null
+          title?: string
+          top_content?: Json | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "performance_reports_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       planning_automations: {
         Row: {
           auto_generate_content: boolean | null
