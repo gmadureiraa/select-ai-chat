@@ -158,3 +158,6 @@ verify_jwt = false
 
 [functions.kai-smart-planner]
 verify_jwt = true
+
+[functions.execute-agent]
+verify_jwt = true
