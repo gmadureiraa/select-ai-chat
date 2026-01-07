@@ -32,16 +32,21 @@ interface ContentPreviewProps {
   className?: string;
 }
 
-const platformIcons = {
+const platformIcons: Record<string, typeof Twitter | undefined> = {
   twitter: Twitter,
   instagram: Instagram,
   linkedin: Linkedin,
 };
 
-const platformLabels = {
+const platformLabels: Record<string, string> = {
   twitter: "X/Twitter",
   instagram: "Instagram",
   linkedin: "LinkedIn",
+  newsletter: "Newsletter",
+  blog: "Blog",
+  tiktok: "TikTok",
+  youtube: "YouTube",
+  other: "Preview",
 };
 
 // Twitter/X Preview
@@ -358,9 +363,9 @@ export function ContentPreview({
     return null;
   }
   
-  const platform = CONTENT_TO_PLATFORM[contentType] as 'twitter' | 'instagram' | 'linkedin' | undefined;
-  const Icon = platform ? platformIcons[platform] : Eye;
-  const label = platform ? platformLabels[platform] : 'Preview';
+  const platform = CONTENT_TO_PLATFORM[contentType];
+  const Icon = (platform && platformIcons[platform]) || Eye;
+  const label = (platform && platformLabels[platform]) || 'Preview';
   
   // Detect carousel from content
   const carouselData = contentType === 'carousel' ? detectCarousel(content) : null;
