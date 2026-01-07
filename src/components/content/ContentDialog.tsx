@@ -7,10 +7,11 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Input } from "@/components/ui/input";
 import { ContentItem, ContentType, CreateContentData } from "@/hooks/useContentLibrary";
 import { CONTENT_TYPE_OPTIONS } from "@/types/contentTypes";
-import { Loader2, ChevronDown, Settings2 } from "lucide-react";
+import { Loader2, ChevronDown, Wand2, Settings2 } from "lucide-react";
 import { RichContentEditor } from "@/components/planning/RichContentEditor";
+import { usePlanningContentGeneration } from "@/hooks/usePlanningContentGeneration";
 import { MentionableInput } from "@/components/planning/MentionableInput";
-import { ContentSourceInput } from "@/components/library/ContentSourceInput";
+import { UnifiedUploader } from "@/components/library/UnifiedUploader";
 
 interface ContentDialogProps {
   open: boolean;
@@ -21,6 +22,8 @@ interface ContentDialogProps {
 }
 
 export const ContentDialog = ({ open, onClose, onSave, content, clientId }: ContentDialogProps) => {
+  const { generateContent, isGenerating: isGeneratingContent } = usePlanningContentGeneration();
+  
   const [formData, setFormData] = useState<CreateContentData>({
     title: "",
     content_type: "newsletter",
@@ -66,8 +69,20 @@ export const ContentDialog = ({ open, onClose, onSave, content, clientId }: Cont
     }));
   };
 
-  const handleContentGenerated = (generatedContent: string) => {
-    setFormData(prev => ({ ...prev, content: generatedContent }));
+  const canGenerateContent = formData.title.trim() && clientId;
+  
+  const handleGenerateContent = async () => {
+    if (!canGenerateContent || !clientId) return;
+    
+    const result = await generateContent({
+      title: formData.title,
+      contentType: formData.content_type,
+      clientId
+    });
+
+    if (result) {
+      setFormData({ ...formData, content: result.content });
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -81,6 +96,8 @@ export const ContentDialog = ({ open, onClose, onSave, content, clientId }: Cont
       setIsSubmitting(false);
     }
   };
+
+  const isProcessing = isGeneratingContent;
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -132,13 +149,33 @@ export const ContentDialog = ({ open, onClose, onSave, content, clientId }: Cont
             </div>
           </div>
 
-          {/* Content Source Input - Unified upload + generate */}
-          <ContentSourceInput
+          {/* AI Generation Button */}
+          {clientId && (
+            <div className="flex justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleGenerateContent}
+                disabled={!canGenerateContent || isGeneratingContent}
+                className="gap-2"
+              >
+                {isGeneratingContent ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Wand2 className="h-4 w-4" />
+                )}
+                Escrever com IA
+              </Button>
+            </div>
+          )}
+
+          {/* Unified Uploader */}
+          <UnifiedUploader
+            onContentExtracted={handleContentExtracted}
             clientId={clientId}
-            contentType={formData.content_type}
-            showGenerateButton={true}
-            onExtracted={handleContentExtracted}
-            onGenerated={handleContentGenerated}
+            maxFiles={10}
+            maxSizeMB={20}
           />
 
           {/* Main Content Editor */}
@@ -199,8 +236,8 @@ export const ContentDialog = ({ open, onClose, onSave, content, clientId }: Cont
             <Button type="button" variant="outline" onClick={onClose}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+            <Button type="submit" disabled={isProcessing || isSubmitting}>
+              {(isProcessing || isSubmitting) && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               {content ? "Atualizar" : "Adicionar"}
             </Button>
           </DialogFooter>

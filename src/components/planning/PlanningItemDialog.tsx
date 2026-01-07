@@ -12,6 +12,7 @@ import { CalendarIcon, Loader2, Wand2, ChevronDown, Image, User, Settings2 } fro
 import { useClients } from '@/hooks/useClients';
 import { useTeamMembers } from '@/hooks/useTeamMembers';
 import { usePlanningImageGeneration } from '@/hooks/usePlanningImageGeneration';
+import { usePlanningContentGeneration } from '@/hooks/usePlanningContentGeneration';
 import { cn } from '@/lib/utils';
 import { MediaUploader, MediaItem } from './MediaUploader';
 import { RichContentEditor } from './RichContentEditor';
@@ -20,7 +21,6 @@ import { ImageGenerationModal, ImageGenerationOptions } from './ImageGenerationM
 import { PlanningItemComments } from './PlanningItemComments';
 import { MentionableInput } from './MentionableInput';
 import { RecurrenceConfig } from './RecurrenceConfig';
-import { ContentSourceInput } from '@/components/library/ContentSourceInput';
 import { CONTENT_TYPE_OPTIONS, CONTENT_TO_PLATFORM, ContentTypeKey } from '@/types/contentTypes';
 import type { PlanningItem, CreatePlanningItemInput, PlanningPlatform, PlanningPriority, KanbanColumn } from '@/hooks/usePlanningItems';
 import type { RecurrenceConfig as RecurrenceConfigType } from '@/types/recurrence';
@@ -80,6 +80,7 @@ export function PlanningItemDialog({
   const [mediaItems, setMediaItems] = useState<MediaItem[]>([]);
   const [threadTweets, setThreadTweets] = useState<ThreadTweet[]>([]);
   const [assignedTo, setAssignedTo] = useState<string>('');
+  const [referenceInput, setReferenceInput] = useState('');
   const [recurrenceConfig, setRecurrenceConfig] = useState<RecurrenceConfigType>({
     type: 'none',
     days: [],
@@ -88,12 +89,46 @@ export function PlanningItemDialog({
   });
 
   const { generateImage, isGenerating: isGeneratingImage } = usePlanningImageGeneration(selectedClientId);
+  const { generateContent, isGenerating: isGeneratingContent, isFetchingReference } = usePlanningContentGeneration();
 
   // Derive platform from content type
   const platform = CONTENT_TO_PLATFORM[contentType] as PlanningPlatform;
 
+  const canGenerateContent = title.trim() && contentType && selectedClientId;
   const canGenerateImage = (content.trim() || threadTweets.some(t => t.text.trim())) && selectedClientId;
+  const hasReference = referenceInput.trim();
   const isTwitterThread = contentType === 'thread';
+
+  const handleGenerateContent = async () => {
+    if (!canGenerateContent) return;
+    
+    const result = await generateContent({
+      title,
+      contentType,
+      clientId: selectedClientId,
+      referenceInput: referenceInput.trim() || undefined,
+    });
+
+    if (result) {
+      if (isTwitterThread) {
+        setThreadTweets([{ id: 'tweet-1', text: result.content, media_urls: [] }]);
+      } else {
+        setContent(result.content);
+      }
+
+      // Add extracted images to media
+      if (result.images && result.images.length > 0) {
+        const newMediaItems: MediaItem[] = result.images.map((url, i) => ({
+          id: `ref-img-${Date.now()}-${i}`,
+          url,
+          type: 'image' as const
+        }));
+        setMediaItems(prev => [...newMediaItems, ...prev]);
+      }
+
+      setReferenceInput('');
+    }
+  };
 
   useEffect(() => {
     if (item) {
@@ -146,6 +181,7 @@ export function PlanningItemDialog({
       setMediaItems([]);
       setThreadTweets([{ id: 'tweet-1', text: '', media_urls: [] }]);
       setAssignedTo('');
+      setReferenceInput('');
       setRecurrenceConfig({ type: 'none', days: [], time: null, endDate: null });
       setShowMoreOptions(false);
     }
@@ -269,39 +305,38 @@ export function PlanningItemDialog({
             </Select>
           </div>
 
-          {/* Content Source Input - Upload + Generate */}
-          <ContentSourceInput
-            clientId={selectedClientId}
-            contentType={contentType}
-            showGenerateButton={true}
-            onExtracted={(result) => {
-              // Add extracted text to content
-              if (isTwitterThread) {
-                setThreadTweets(prev => [{
-                  ...prev[0],
-                  text: prev[0].text + (prev[0].text ? '\n\n' : '') + result.text
-                }, ...prev.slice(1)]);
-              } else {
-                setContent(prev => prev + (prev ? '\n\n' : '') + result.text);
-              }
-            }}
-            onGenerated={(generatedContent, images) => {
-              if (isTwitterThread) {
-                setThreadTweets([{ id: 'tweet-1', text: generatedContent, media_urls: [] }]);
-              } else {
-                setContent(generatedContent);
-              }
-              // Add extracted images to media
-              if (images && images.length > 0) {
-                const newMediaItems: MediaItem[] = images.map((url, i) => ({
-                  id: `ref-img-${Date.now()}-${i}`,
-                  url,
-                  type: 'image' as const
-                }));
-                setMediaItems(prev => [...newMediaItems, ...prev]);
-              }
-            }}
-          />
+          {/* Reference Input with @mentions + Generate */}
+          <div className="space-y-2 p-3 bg-muted/30 rounded-lg border border-dashed">
+            <Label className="text-xs text-muted-foreground">
+              Gerar a partir de... (link, @referência ou descrição)
+            </Label>
+            <div className="flex gap-2 items-end">
+              <div className="flex-1">
+                <MentionableInput
+                  value={referenceInput}
+                  onChange={setReferenceInput}
+                  clientId={selectedClientId}
+                  placeholder="Cole link, use @referência, ou descreva..."
+                  multiline
+                  rows={2}
+                />
+              </div>
+              <Button
+                type="button"
+                size="sm"
+                onClick={handleGenerateContent}
+                disabled={!canGenerateContent || isGeneratingContent || isFetchingReference}
+                className="shrink-0 gap-1.5 h-9"
+              >
+                {isGeneratingContent || isFetchingReference ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Wand2 className="h-3.5 w-3.5" />
+                )}
+                {hasReference ? 'Gerar' : 'Escrever'}
+              </Button>
+            </div>
+          </div>
 
           {/* Content Editor */}
           <div className="space-y-2">

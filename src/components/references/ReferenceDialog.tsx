@@ -10,7 +10,7 @@ import { CONTENT_TYPE_OPTIONS } from "@/types/contentTypes";
 import { Loader2, ChevronDown, Settings2 } from "lucide-react";
 import { RichContentEditor } from "@/components/planning/RichContentEditor";
 import { MentionableInput } from "@/components/planning/MentionableInput";
-import { ContentSourceInput } from "@/components/library/ContentSourceInput";
+import { UnifiedUploader } from "@/components/library/UnifiedUploader";
 
 interface ReferenceDialogProps {
   open: boolean;
@@ -129,11 +129,12 @@ export function ReferenceDialog({ open, onClose, onSave, reference, clientId }: 
             </div>
           </div>
 
-          {/* Content Source Input - Only extraction, no generation */}
-          <ContentSourceInput
+          {/* Unified Uploader */}
+          <UnifiedUploader
+            onContentExtracted={handleContentExtracted}
             clientId={clientId}
-            showGenerateButton={false}
-            onExtracted={handleContentExtracted}
+            maxFiles={10}
+            maxSizeMB={20}
           />
 
           {/* Main Content Editor */}
