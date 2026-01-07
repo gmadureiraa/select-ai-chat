@@ -1,10 +1,12 @@
 import { useGlobalKAI } from "@/hooks/useGlobalKAI";
 import { useClients } from "@/hooks/useClients";
+import { useWorkspace } from "@/hooks/useWorkspace";
 import { FloatingKAIButton } from "./FloatingKAIButton";
 import { GlobalKAIPanel } from "./GlobalKAIPanel";
 import { GlobalKAIChat } from "./GlobalKAIChat";
 import { GlobalKAIInput } from "./GlobalKAIInput";
 import { ActionConfirmationDialog } from "./ActionConfirmationDialog";
+import { ViewerBlockedPanel } from "./ViewerBlockedPanel";
 import { useMemo, useCallback } from "react";
 import { Citation } from "@/components/chat/CitationChip";
 
@@ -37,6 +39,7 @@ export function GlobalKAIAssistant() {
   } = useGlobalKAI();
 
   const { clients: clientsData } = useClients();
+  const { canUseAssistant } = useWorkspace();
 
   // Get selected client name
   const selectedClientName = useMemo(() => {
@@ -75,43 +78,51 @@ export function GlobalKAIAssistant() {
         onClientChange={setSelectedClientId}
         chatMode={chatMode}
       >
-        {/* Chat messages with multi-agent progress */}
-        <GlobalKAIChat
-          messages={messages}
-          isProcessing={isProcessing}
-          selectedClientId={selectedClientId}
-          selectedClientName={selectedClientName}
-          actionStatus={actionStatus}
-          currentStep={currentStep}
-          multiAgentStep={multiAgentStep}
-          multiAgentDetails={multiAgentDetails}
-          onSendMessage={handleSendFromChat}
-          chatMode={chatMode}
-        />
+        {canUseAssistant ? (
+          <>
+            {/* Chat messages with multi-agent progress */}
+            <GlobalKAIChat
+              messages={messages}
+              isProcessing={isProcessing}
+              selectedClientId={selectedClientId}
+              selectedClientName={selectedClientName}
+              actionStatus={actionStatus}
+              currentStep={currentStep}
+              multiAgentStep={multiAgentStep}
+              multiAgentDetails={multiAgentDetails}
+              onSendMessage={handleSendFromChat}
+              chatMode={chatMode}
+            />
 
-        {/* Input area with @ mentions support and mode selector */}
-        <GlobalKAIInput
-          onSend={handleSendWithCitations}
-          isProcessing={isProcessing}
-          attachedFiles={attachedFiles}
-          onAttachFiles={attachFiles}
-          onRemoveFile={removeFile}
-          placeholder="Pergunte ao kAI... (@ para mencionar)"
-          contentLibrary={contentLibrary}
-          referenceLibrary={referenceLibrary}
-          assignees={assignees}
-          clients={workspaceClients}
-          chatMode={chatMode}
-          onChatModeChange={setChatMode}
-        />
+            {/* Input area with @ mentions support and mode selector */}
+            <GlobalKAIInput
+              onSend={handleSendWithCitations}
+              isProcessing={isProcessing}
+              attachedFiles={attachedFiles}
+              onAttachFiles={attachFiles}
+              onRemoveFile={removeFile}
+              placeholder="Pergunte ao kAI... (@ para mencionar)"
+              contentLibrary={contentLibrary}
+              referenceLibrary={referenceLibrary}
+              assignees={assignees}
+              clients={workspaceClients}
+              chatMode={chatMode}
+              onChatModeChange={setChatMode}
+            />
+          </>
+        ) : (
+          <ViewerBlockedPanel onClose={closePanel} />
+        )}
       </GlobalKAIPanel>
 
-      {/* Action Confirmation Dialog */}
-      <ActionConfirmationDialog
-        pendingAction={pendingAction}
-        onConfirm={confirmAction}
-        onCancel={cancelAction}
-      />
+      {/* Action Confirmation Dialog - only if has permission */}
+      {canUseAssistant && (
+        <ActionConfirmationDialog
+          pendingAction={pendingAction}
+          onConfirm={confirmAction}
+          onCancel={cancelAction}
+        />
+      )}
     </>
   );
 }
