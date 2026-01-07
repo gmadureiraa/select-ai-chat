@@ -1,10 +1,13 @@
 import { useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { uploadAndGetSignedUrl } from "@/lib/storage";
 import { transcribeImagesChunked } from "@/lib/transcribeImages";
 import { useToast } from "@/hooks/use-toast";
+import { usePlanningContentGeneration } from "@/hooks/usePlanningContentGeneration";
+import { MentionableInput } from "@/components/planning/MentionableInput";
 import { 
   Loader2, 
   Upload, 
@@ -14,7 +17,7 @@ import {
   Image as ImageIcon,
   Video,
   Sparkles,
-  File,
+  Wand2,
   ExternalLink
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -37,22 +40,30 @@ interface ExtractedContent {
   };
 }
 
-interface UnifiedUploaderProps {
-  onContentExtracted: (result: ExtractedContent) => void;
+interface ContentSourceInputProps {
   clientId?: string;
+  contentType?: string;
+  onExtracted: (result: ExtractedContent) => void;
+  onGenerated?: (content: string, images?: string[]) => void;
+  showGenerateButton?: boolean;
   maxFiles?: number;
   maxSizeMB?: number;
   className?: string;
 }
 
-export function UnifiedUploader({ 
-  onContentExtracted, 
+export function ContentSourceInput({ 
   clientId,
+  contentType = 'tweet',
+  onExtracted,
+  onGenerated,
+  showGenerateButton = true,
   maxFiles = 10,
   maxSizeMB = 20,
   className
-}: UnifiedUploaderProps) {
+}: ContentSourceInputProps) {
   const { toast } = useToast();
+  const { generateContent, isGenerating, isFetchingReference } = usePlanningContentGeneration();
+  
   const [inputValue, setInputValue] = useState("");
   const [attachedItems, setAttachedItems] = useState<AttachedItem[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -77,19 +88,17 @@ export function UnifiedUploader({
     const url = inputValue.trim();
     if (!url) return;
 
+    // Check if it's a URL or just text
     const type = detectContentType(url);
-    if (!type) {
-      toast({ title: "Erro", description: "URL inválida", variant: "destructive" });
-      return;
+    if (type) {
+      setAttachedItems(prev => [...prev, {
+        id: `url-${Date.now()}`,
+        type,
+        url,
+        name: type === 'youtube' ? 'Vídeo do YouTube' : url.substring(0, 40) + '...'
+      }]);
+      setInputValue("");
     }
-
-    setAttachedItems(prev => [...prev, {
-      id: `url-${Date.now()}`,
-      type,
-      url,
-      name: type === 'youtube' ? 'Vídeo do YouTube' : url.substring(0, 40) + '...'
-    }]);
-    setInputValue("");
   };
 
   // Handle file upload
@@ -160,7 +169,7 @@ export function UnifiedUploader({
     setAttachedItems(prev => prev.filter(item => item.id !== id));
   };
 
-  // Process all and extract
+  // Extract content from all attached items
   const handleExtractAll = async () => {
     if (attachedItems.length === 0) return;
 
@@ -239,7 +248,7 @@ export function UnifiedUploader({
             }
 
             case 'image': {
-              // Images are handled in batch
+              // Images are handled in batch below
               break;
             }
           }
@@ -274,7 +283,7 @@ export function UnifiedUploader({
       const combinedText = allTexts.join("\n\n---\n\n");
 
       if (combinedText) {
-        onContentExtracted({
+        onExtracted({
           text: combinedText,
           metadata: {
             source_url: mainSourceUrl,
@@ -298,6 +307,76 @@ export function UnifiedUploader({
     }
   };
 
+  // Generate content with AI
+  const handleGenerateContent = async () => {
+    if (!clientId || !onGenerated) return;
+
+    // Build reference input from attached items and text input
+    let referenceInput = inputValue;
+    
+    // Add URLs from attached items to reference input
+    const urlItems = attachedItems.filter(i => i.type === 'link' || i.type === 'youtube');
+    for (const item of urlItems) {
+      referenceInput += ` ${item.url}`;
+    }
+
+    // For PDFs and images, extract first then generate
+    const fileItems = attachedItems.filter(i => i.type === 'pdf' || i.type === 'image' || i.type === 'video');
+    if (fileItems.length > 0) {
+      // Extract content first
+      setIsProcessing(true);
+      setProcessingType("extract");
+      
+      const allTexts: string[] = [];
+      const { data: { session } } = await supabase.auth.getSession();
+      const userId = session?.user?.id;
+
+      for (const item of fileItems) {
+        try {
+          if (item.type === 'pdf') {
+            const { data } = await supabase.functions.invoke("extract-pdf", {
+              body: { fileUrl: item.url, fileName: item.name, userId }
+            });
+            if (data?.extractedText || data?.content) {
+              allTexts.push(data.extractedText || data.content);
+            }
+          } else if (item.type === 'image') {
+            const transcription = await transcribeImagesChunked([item.url], { userId, clientId, chunkSize: 1 });
+            if (transcription) allTexts.push(transcription);
+          } else if (item.type === 'video') {
+            const { data } = await supabase.functions.invoke("transcribe-video", {
+              body: { videoUrl: item.url, userId }
+            });
+            if (data?.transcription) allTexts.push(data.transcription);
+          }
+        } catch (err) {
+          console.error(`Error extracting ${item.type}:`, err);
+        }
+      }
+
+      if (allTexts.length > 0) {
+        referenceInput += `\n\n${allTexts.join('\n\n')}`;
+      }
+      
+      setIsProcessing(false);
+      setProcessingType(null);
+    }
+
+    // Generate with the combined reference
+    const result = await generateContent({
+      title: inputValue.substring(0, 100) || 'Conteúdo',
+      contentType,
+      clientId,
+      referenceInput: referenceInput.trim() || undefined
+    });
+
+    if (result) {
+      onGenerated(result.content, result.images);
+      setAttachedItems([]);
+      setInputValue("");
+    }
+  };
+
   const getItemIcon = (type: AttachedItem['type']) => {
     switch (type) {
       case 'link': return <LinkIcon className="h-3.5 w-3.5" />;
@@ -309,6 +388,9 @@ export function UnifiedUploader({
   };
 
   const hasItems = attachedItems.length > 0;
+  const hasInput = inputValue.trim().length > 0;
+  const canGenerate = showGenerateButton && clientId && (hasItems || hasInput);
+  const isLoading = isProcessing || isGenerating || isFetchingReference;
 
   return (
     <div className={cn("space-y-3 p-3 rounded-lg border border-dashed bg-muted/30", className)}>
@@ -323,26 +405,38 @@ export function UnifiedUploader({
         )}
       </div>
 
-      {/* URL Input */}
+      {/* Main Input - URL, @mention, or description */}
       <div className="flex gap-2">
-        <Input
-          value={inputValue}
-          onChange={(e) => setInputValue(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddUrl())}
-          placeholder="Cole um link (YouTube, blog, artigo...)"
-          className="flex-1 h-9 text-sm"
-        />
-        <Button
-          type="button"
-          variant="secondary"
-          size="sm"
-          onClick={handleAddUrl}
-          disabled={!inputValue.trim() || isProcessing}
-          className="h-9 gap-1"
-        >
-          <ExternalLink className="h-3.5 w-3.5" />
-          Adicionar
-        </Button>
+        {clientId ? (
+          <MentionableInput
+            value={inputValue}
+            onChange={setInputValue}
+            clientId={clientId}
+            placeholder="Cole link, use @referência, ou descreva..."
+            className="flex-1"
+          />
+        ) : (
+          <Input
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddUrl())}
+            placeholder="Cole um link (YouTube, blog, artigo...)"
+            className="flex-1 h-9 text-sm"
+          />
+        )}
+        {detectContentType(inputValue) && (
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={handleAddUrl}
+            disabled={!inputValue.trim() || isLoading}
+            className="h-9 gap-1 shrink-0"
+          >
+            <ExternalLink className="h-3.5 w-3.5" />
+            Adicionar
+          </Button>
+        )}
       </div>
 
       {/* File Upload */}
@@ -353,7 +447,7 @@ export function UnifiedUploader({
             accept="image/*,video/*,.pdf"
             multiple
             onChange={handleFileUpload}
-            disabled={isProcessing}
+            disabled={isLoading}
             className="cursor-pointer h-9 text-sm"
           />
         </label>
@@ -385,22 +479,48 @@ export function UnifiedUploader({
               </Button>
             </div>
           ))}
+        </div>
+      )}
 
-          {/* Extract Button */}
-          <Button
-            type="button"
-            onClick={handleExtractAll}
-            disabled={isProcessing}
-            className="w-full gap-2"
-            size="sm"
-          >
-            {processingType === 'extract' ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Sparkles className="h-4 w-4" />
-            )}
-            Extrair Conteúdo de Tudo
-          </Button>
+      {/* Action Buttons */}
+      {(hasItems || (showGenerateButton && hasInput)) && (
+        <div className="flex gap-2">
+          {/* Extract Button - only when there are file items */}
+          {hasItems && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleExtractAll}
+              disabled={isLoading}
+              className="flex-1 gap-2"
+              size="sm"
+            >
+              {processingType === 'extract' ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Sparkles className="h-4 w-4" />
+              )}
+              Extrair Texto
+            </Button>
+          )}
+
+          {/* Generate Button - when showGenerateButton is true */}
+          {canGenerate && (
+            <Button
+              type="button"
+              onClick={handleGenerateContent}
+              disabled={isLoading}
+              className="flex-1 gap-2"
+              size="sm"
+            >
+              {isGenerating || isFetchingReference ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Wand2 className="h-4 w-4" />
+              )}
+              Gerar Conteúdo com IA
+            </Button>
+          )}
         </div>
       )}
     </div>
