@@ -2824,6 +2824,83 @@ export type Database = {
           },
         ]
       }
+      twitter_posts: {
+        Row: {
+          client_id: string
+          content: string | null
+          created_at: string
+          detail_expands: number | null
+          engagement_rate: number | null
+          engagements: number | null
+          hashtag_clicks: number | null
+          id: string
+          impressions: number | null
+          likes: number | null
+          media_engagements: number | null
+          media_views: number | null
+          metadata: Json | null
+          posted_at: string | null
+          profile_clicks: number | null
+          replies: number | null
+          retweets: number | null
+          tweet_id: string
+          updated_at: string
+          url_clicks: number | null
+        }
+        Insert: {
+          client_id: string
+          content?: string | null
+          created_at?: string
+          detail_expands?: number | null
+          engagement_rate?: number | null
+          engagements?: number | null
+          hashtag_clicks?: number | null
+          id?: string
+          impressions?: number | null
+          likes?: number | null
+          media_engagements?: number | null
+          media_views?: number | null
+          metadata?: Json | null
+          posted_at?: string | null
+          profile_clicks?: number | null
+          replies?: number | null
+          retweets?: number | null
+          tweet_id: string
+          updated_at?: string
+          url_clicks?: number | null
+        }
+        Update: {
+          client_id?: string
+          content?: string | null
+          created_at?: string
+          detail_expands?: number | null
+          engagement_rate?: number | null
+          engagements?: number | null
+          hashtag_clicks?: number | null
+          id?: string
+          impressions?: number | null
+          likes?: number | null
+          media_engagements?: number | null
+          media_views?: number | null
+          metadata?: Json | null
+          posted_at?: string | null
+          profile_clicks?: number | null
+          replies?: number | null
+          retweets?: number | null
+          tweet_id?: string
+          updated_at?: string
+          url_clicks?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "twitter_posts_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_activities: {
         Row: {
           activity_type: Database["public"]["Enums"]["activity_type"]
