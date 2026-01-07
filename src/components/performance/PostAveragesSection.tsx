@@ -105,9 +105,9 @@ export function PostAveragesSection({
           />
           <AverageCard
             icon={Target}
-            label="Alcance/Post"
+            label="Contas alc./Post"
             value={formatAvg(totalReach)}
-            tooltip={`Total: ${totalReach.toLocaleString()} alcance`}
+            tooltip={`Total: ${totalReach.toLocaleString()} contas alcançadas`}
             color="text-purple-500"
           />
           <AverageCard
