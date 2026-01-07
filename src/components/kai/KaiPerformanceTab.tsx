@@ -1,12 +1,14 @@
 import { useState } from "react";
-import { Eye, Instagram, Mail } from "lucide-react";
+import { Eye, Instagram, Mail, Twitter } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { usePerformanceMetrics } from "@/hooks/usePerformanceMetrics";
 import { useYouTubeVideos } from "@/hooks/useYouTubeMetrics";
 import { useInstagramPosts } from "@/hooks/useInstagramPosts";
+import { useTwitterPosts } from "@/hooks/useTwitterMetrics";
 import { InstagramDashboard } from "@/components/performance/InstagramDashboard";
 import { YouTubeDashboard } from "@/components/performance/YouTubeDashboard";
 import { NewsletterDashboard } from "@/components/performance/NewsletterDashboard";
+import { TwitterDashboard } from "@/components/performance/TwitterDashboard";
 import { Client } from "@/hooks/useClients";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -18,6 +20,7 @@ interface KaiPerformanceTabProps {
 const allChannels = [
   { id: "instagram", label: "Instagram", icon: Instagram },
   { id: "youtube", label: "YouTube", icon: Eye },
+  { id: "twitter", label: "Twitter/X", icon: Twitter },
   { id: "newsletter", label: "Newsletter", icon: Mail },
 ];
 
@@ -36,6 +39,7 @@ export const KaiPerformanceTab = ({ clientId, client }: KaiPerformanceTabProps) 
   const { data: instagramPosts, isLoading: isLoadingInstagramPosts } = useInstagramPosts(clientId, 500);
   const { data: videos, isLoading: isLoadingVideos } = useYouTubeVideos(clientId, 100);
   const { data: newsletterMetrics, isLoading: isLoadingNewsletter } = usePerformanceMetrics(clientId, "newsletter", 365);
+  const { data: twitterPosts, isLoading: isLoadingTwitter } = useTwitterPosts(clientId, 500);
 
   const isLoading = isLoadingInstagram;
 
@@ -81,6 +85,15 @@ export const KaiPerformanceTab = ({ clientId, client }: KaiPerformanceTabProps) 
             clientId={clientId}
             videos={videos || []}
             isLoading={isLoadingVideos}
+          />
+        </TabsContent>
+
+        {/* Twitter/X - Full Dashboard */}
+        <TabsContent value="twitter" className="mt-4">
+          <TwitterDashboard
+            clientId={clientId}
+            posts={twitterPosts || []}
+            isLoading={isLoadingTwitter}
           />
         </TabsContent>
 

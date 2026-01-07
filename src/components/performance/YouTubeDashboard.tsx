@@ -322,11 +322,12 @@ export function YouTubeDashboard({ clientId, videos, isLoading }: YouTubeDashboa
             title="Performance por Data de Publicação"
           />
         </div>
-        <GoalsPanel 
+        {/* GoalsPanel temporariamente desabilitado - bugs ao mudar período */}
+        {/* <GoalsPanel 
           clientId={clientId} 
           platform="youtube"
           currentMetrics={currentMetrics}
-        />
+        /> */}
       </div>
 
       {/* Secondary Metrics */}

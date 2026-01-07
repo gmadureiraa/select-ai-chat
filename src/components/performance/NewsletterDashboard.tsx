@@ -346,11 +346,12 @@ export function NewsletterDashboard({ clientId, metrics, isLoading }: Newsletter
             title="Evolução de Métricas"
           />
         </div>
-        <GoalsPanel 
+        {/* GoalsPanel temporariamente desabilitado - bugs ao mudar período */}
+        {/* <GoalsPanel 
           clientId={clientId} 
           platform="newsletter"
           currentMetrics={currentMetrics}
-        />
+        /> */}
       </div>
 
       {/* Secondary Metrics */}
