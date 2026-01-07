@@ -9,8 +9,6 @@ verify_jwt = true
 [functions.scrape-website]
 verify_jwt = true
 
-[functions.scrape-research-link]
-verify_jwt = true
 
 [functions.generate-image]
 verify_jwt = true

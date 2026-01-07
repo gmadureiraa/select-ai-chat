@@ -180,19 +180,21 @@ export function UnifiedUploader({
         try {
           switch (item.type) {
             case 'link': {
-              const { data, error } = await supabase.functions.invoke("scrape-research-link", {
-                body: { url: item.url, userId }
+              const { data, error } = await supabase.functions.invoke("scrape-newsletter", {
+                body: { url: item.url }
               });
               if (error) throw error;
               
               let text = "";
-              if (data.title) text += `## ${data.title}\n\n`;
-              if (data.description) text += `${data.description}\n\n`;
-              if (data.content) text += data.content;
+              const scraped = data?.data || data;
+              if (scraped?.title) text += `## ${scraped.title}\n\n`;
+              if (scraped?.paragraphs?.length > 0) {
+                text += scraped.paragraphs.join("\n\n");
+              }
               
-              allTexts.push(text.trim());
-              mainThumbnail = mainThumbnail || data.ogImage || data.images?.[0];
-              mainTitle = mainTitle || data.title;
+              allTexts.push(text.trim() || "Nenhum conteúdo extraído.");
+              mainThumbnail = mainThumbnail || scraped?.images?.[0]?.url;
+              mainTitle = mainTitle || scraped?.title;
               mainSourceUrl = mainSourceUrl || item.url;
               break;
             }
@@ -203,9 +205,10 @@ export function UnifiedUploader({
               });
               if (error) throw error;
               
-              const transcript = data?.transcript || data?.transcription;
+              // extract-youtube retorna: { title, content, thumbnail, videoId, metadata }
+              const transcript = data?.content || data?.transcript || data?.transcription;
               if (transcript) {
-                allTexts.push(`## Transcrição do Vídeo\n\n${transcript}`);
+                allTexts.push(`## ${data?.title || 'Transcrição do Vídeo'}\n\n${transcript}`);
               }
               mainThumbnail = mainThumbnail || data?.thumbnail;
               mainTitle = mainTitle || data?.title;
@@ -245,9 +248,10 @@ export function UnifiedUploader({
           }
         } catch (err) {
           console.error(`Error processing ${item.type}:`, err);
+          const typeLabels = { link: 'link', youtube: 'vídeo do YouTube', pdf: 'PDF', image: 'imagem', video: 'vídeo' };
           toast({ 
-            title: "Erro ao processar", 
-            description: item.name || item.url.substring(0, 30), 
+            title: `Erro ao processar ${typeLabels[item.type] || item.type}`, 
+            description: err instanceof Error ? err.message : (item.name || item.url.substring(0, 30)), 
             variant: "destructive" 
           });
         }
