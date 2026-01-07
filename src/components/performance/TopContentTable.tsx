@@ -164,16 +164,20 @@ export function TopContentTable({
                 </div>
 
                 {/* Metrics */}
-                <div className="flex items-center gap-4 flex-shrink-0">
-                  <div className="flex items-center gap-1 text-muted-foreground">
+                <div className="flex items-center gap-3 flex-shrink-0">
+                  <div className="flex items-center gap-1 text-muted-foreground" title="Alcance">
+                    <Eye className="h-3.5 w-3.5" />
+                    <span className="text-xs font-medium">{formatNumber(item.reach)}</span>
+                  </div>
+                  <div className="flex items-center gap-1 text-muted-foreground" title="Curtidas">
                     <Heart className="h-3.5 w-3.5" />
                     <span className="text-xs font-medium">{formatNumber(item.likes)}</span>
                   </div>
-                  <div className="flex items-center gap-1 text-muted-foreground">
+                  <div className="hidden sm:flex items-center gap-1 text-muted-foreground" title="Salvamentos">
                     <Bookmark className="h-3.5 w-3.5" />
                     <span className="text-xs font-medium">{formatNumber(item.saves)}</span>
                   </div>
-                  <div className="hidden sm:flex items-center gap-1 text-muted-foreground">
+                  <div className="hidden md:flex items-center gap-1 text-muted-foreground" title="Compartilhamentos">
                     <Share2 className="h-3.5 w-3.5" />
                     <span className="text-xs font-medium">{formatNumber(item.shares)}</span>
                   </div>
