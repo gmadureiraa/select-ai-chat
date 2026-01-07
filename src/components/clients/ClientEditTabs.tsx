@@ -10,8 +10,9 @@ import {
   User, FileText, Loader2, Globe, Instagram, Twitter, 
   Linkedin, Youtube, Mail, Megaphone, Trash2, RefreshCw, Check,
   Building, MessageSquare, Users, Target, Hash, Eye, Award, TrendingUp,
-  Palette, Plus, BookOpen, Brain, Plug, Image
+  Palette, Plus, BookOpen, Brain, Plug, Image, BarChart3
 } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import { AvatarUpload } from "@/components/ui/avatar-upload";
 import { SocialIntegrationsTab } from "./SocialIntegrationsTab";
 import { ClientDocumentsManager } from "./ClientDocumentsManager";
@@ -538,6 +539,55 @@ Estruture: Visão Geral, Posicionamento, Tom de Voz, Público-Alvo, Presença Di
                     />
                   </div>
                 ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Performance Channels Toggle */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <BarChart3 className="h-4 w-4" />
+                Canais de Performance
+              </CardTitle>
+              <CardDescription>Escolha quais canais aparecem no dashboard de performance</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  { key: "instagram", label: "Instagram", icon: Instagram },
+                  { key: "youtube", label: "YouTube", icon: Youtube },
+                  { key: "twitter", label: "X/Twitter", icon: Twitter },
+                  { key: "newsletter", label: "Newsletter", icon: Mail },
+                  { key: "tiktok", label: "TikTok", icon: Megaphone },
+                  { key: "linkedin", label: "LinkedIn", icon: Linkedin },
+                ].map((channel) => {
+                  const archivedChannels = (socialMedia as any)?.archived_channels || [];
+                  const isArchived = archivedChannels.includes(channel.key);
+                  
+                  return (
+                    <div key={channel.key} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <channel.icon className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm font-medium">{channel.label}</span>
+                      </div>
+                      <Switch
+                        checked={!isArchived}
+                        onCheckedChange={(checked) => {
+                          const currentArchived = (socialMedia as any)?.archived_channels || [];
+                          const newArchived = checked
+                            ? currentArchived.filter((c: string) => c !== channel.key)
+                            : [...currentArchived, channel.key];
+                          setSocialMedia({
+                            ...socialMedia,
+                            archived_channels: newArchived,
+                          });
+                          markChanged();
+                        }}
+                      />
+                    </div>
+                  );
+                })}
               </div>
             </CardContent>
           </Card>
