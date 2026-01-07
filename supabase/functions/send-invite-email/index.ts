@@ -1,5 +1,33 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { Resend } from "npm:resend@2.0.0";
+
+// Resend client implementation
+class ResendClient {
+  private apiKey: string;
+  
+  constructor(apiKey: string | undefined) {
+    this.apiKey = apiKey || "";
+  }
+  
+  async sendEmail(params: { from: string; to: string[]; subject: string; html: string }) {
+    const response = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${this.apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(params),
+    });
+    
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`Resend API error: ${error}`);
+    }
+    
+    return response.json();
+  }
+}
+
+const Resend = ResendClient;
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 
@@ -103,7 +131,7 @@ const handler = async (req: Request): Promise<Response> => {
 </html>
     `;
 
-    const emailResponse = await resend.emails.send({
+    const emailResponse = await resend.sendEmail({
       from: "kAI <noreply@kaleidos.app>",
       to: [email],
       subject: `Convite para ${workspaceName} no kAI`,
