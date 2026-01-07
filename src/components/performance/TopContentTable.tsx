@@ -35,7 +35,7 @@ const metricLabels: Record<MetricType, string> = {
   shares: "Compartilhamentos",
   likes: "Curtidas",
   comments: "Comentários",
-  reach: "Alcance",
+  reach: "Contas alcançadas",
 };
 
 const TrendIndicator = ({ value }: { value?: number }) => {
@@ -110,7 +110,7 @@ export function TopContentTable({
                 <SelectItem value="shares">Compartilhamentos</SelectItem>
                 <SelectItem value="likes">Curtidas</SelectItem>
                 <SelectItem value="comments">Comentários</SelectItem>
-                <SelectItem value="reach">Alcance</SelectItem>
+                <SelectItem value="reach">Contas alcançadas</SelectItem>
               </SelectContent>
             </Select>
           )}
@@ -165,7 +165,7 @@ export function TopContentTable({
 
                 {/* Metrics */}
                 <div className="flex items-center gap-3 flex-shrink-0">
-                  <div className="flex items-center gap-1 text-muted-foreground" title="Alcance">
+                  <div className="flex items-center gap-1 text-muted-foreground" title="Contas alcançadas">
                     <Eye className="h-3.5 w-3.5" />
                     <span className="text-xs font-medium">{formatNumber(item.reach)}</span>
                   </div>

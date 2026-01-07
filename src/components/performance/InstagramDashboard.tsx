@@ -53,7 +53,7 @@ const periodOptions = [
 
 const metricOptions = [
   { key: "views", label: "Visualizações", dataKey: "views", color: "hsl(270, 70%, 55%)" },
-  { key: "reach", label: "Alcance", dataKey: "reach", color: "hsl(290, 70%, 55%)" },
+  { key: "reach", label: "Contas alcançadas", dataKey: "reach", color: "hsl(290, 70%, 55%)" },
   { key: "interactions", label: "Interações", dataKey: "interactions", color: "hsl(45, 80%, 50%)" },
   { key: "linkClicks", label: "Clique no Link", dataKey: "linkClicks", color: "hsl(200, 80%, 55%)" },
   { key: "subscribers", label: "Novos Seguidores", dataKey: "subscribers", color: "hsl(145, 80%, 45%)" },
@@ -402,7 +402,7 @@ export function InstagramDashboard({
 
     return [
       { name: 'Visualizações', key: 'views', hasData: hasViews, count: filteredMetrics.filter(m => m.views && m.views > 0).length },
-      { name: 'Alcance', key: 'reach', hasData: hasReach, count: filteredMetrics.filter(m => getMetadataValue(m, 'reach') > 0).length },
+      { name: 'Contas alcançadas', key: 'reach', hasData: hasReach, count: filteredMetrics.filter(m => getMetadataValue(m, 'reach') > 0).length },
       { name: 'Interações', key: 'interactions', hasData: hasInteractions, count: filteredMetrics.filter(m => getMetadataValue(m, 'interactions') > 0).length },
       { name: 'Cliques no Link', key: 'linkClicks', hasData: hasLinkClicks, count: filteredMetrics.filter(m => getMetadataValue(m, 'linkClicks') > 0).length },
       { name: 'Seguidores', key: 'followers', hasData: hasFollowers, count: filteredMetrics.filter(m => m.subscribers && m.subscribers > 0).length },

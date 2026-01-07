@@ -38,7 +38,7 @@ const ALL_COLUMNS: Column[] = [
   { id: "type", label: "Tipo", sortable: false, defaultVisible: true, width: "80px" },
   { id: "posted_at", label: "Data", sortable: true, defaultVisible: true, width: "85px" },
   { id: "impressions", label: "Impressões", sortable: true, defaultVisible: true, width: "90px" },
-  { id: "reach", label: "Alcance", sortable: true, defaultVisible: true, width: "80px" },
+  { id: "reach", label: "Contas alc.", sortable: true, defaultVisible: true, width: "80px" },
   { id: "likes", label: "Curtidas", sortable: true, defaultVisible: true, width: "75px" },
   { id: "comments", label: "Comentários", sortable: true, defaultVisible: true, width: "95px" },
   { id: "shares", label: "Comp.", sortable: true, defaultVisible: true, width: "70px" },

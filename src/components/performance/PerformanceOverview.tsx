@@ -192,7 +192,7 @@ export function PerformanceOverview({ clientId, clientName }: PerformanceOvervie
       platform: "Instagram",
     },
     {
-      label: "Alcance Total",
+      label: "Contas alcançadas",
       value: stats.instagram.reach,
       icon: Eye,
       color: "violet",
