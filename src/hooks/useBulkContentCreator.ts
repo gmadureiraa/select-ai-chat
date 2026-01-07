@@ -230,10 +230,10 @@ Siga as regras do formato e gere o conteúdo pronto para publicar. Seja criativo
           },
           body: JSON.stringify({
             userMessage,
-            contentLibrary: [],
-            referenceLibrary: [],
-            identityGuide: clientData?.identity_guide || "",
-            clientName: clientData?.name || "Cliente",
+            contentLibrary: clientData?.contentLibrary || [],
+            referenceLibrary: clientData?.referenceLibrary || [],
+            identityGuide: clientData?.identityGuide || "",
+            clientName: clientData?.clientName || "Cliente",
             contentType,
           }),
         }
@@ -346,12 +346,28 @@ Siga as regras do formato e gere o conteúdo pronto para publicar. Seja criativo
 
       setResearchContext(context);
 
-      // Fetch client data
+      // Fetch client data with content library
       const { data: clientData } = await supabase
         .from("clients")
         .select("name, identity_guide, description")
         .eq("id", clientId)
         .single();
+
+      // Fetch client's content library for context
+      const { data: contentLibrary } = await supabase
+        .from("client_content_library")
+        .select("id, title, content, content_type")
+        .eq("client_id", clientId)
+        .order("created_at", { ascending: false })
+        .limit(20);
+
+      // Fetch client's reference library
+      const { data: referenceLibrary } = await supabase
+        .from("client_reference_library")
+        .select("id, title, content, reference_type")
+        .eq("client_id", clientId)
+        .order("created_at", { ascending: false })
+        .limit(10);
 
       // Phase 2: Parallel Generation by Complexity Group
       const grouped: Record<FormatComplexity, BulkContentItem[]> = {
@@ -379,7 +395,12 @@ Siga as regras do formato e gere o conteúdo pronto para publicar. Seja criativo
           item.index,
           clientId,
           context,
-          clientData
+          {
+            contentLibrary: contentLibrary || [],
+            referenceLibrary: referenceLibrary || [],
+            identityGuide: clientData?.identity_guide || "",
+            clientName: clientData?.name || "Cliente",
+          }
         );
 
         // Create planning item if enabled

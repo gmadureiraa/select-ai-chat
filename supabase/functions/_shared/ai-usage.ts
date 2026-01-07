@@ -1,4 +1,4 @@
-import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2";
 
 // Pricing por 1M tokens (USD) - Preços Google Cloud Billing (Janeiro 2026)
 // Baseado em custo real: R$46.9 = ~$7.80 USD para ~1.7M tokens
