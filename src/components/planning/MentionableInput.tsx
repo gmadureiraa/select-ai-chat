@@ -233,12 +233,14 @@ export function MentionableInput({
         </PopoverContent>
       </Popover>
 
-      <ReferencePopup
-        open={popupOpen}
-        onClose={() => setPopupOpen(false)}
-        type={popupType}
-        id={popupId}
-      />
+      {popupId && (
+        <ReferencePopup
+          open={popupOpen}
+          onClose={() => setPopupOpen(false)}
+          type={popupType}
+          id={popupId}
+        />
+      )}
     </>
   );
 }
