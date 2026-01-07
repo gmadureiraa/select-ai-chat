@@ -82,7 +82,7 @@ REGRAS IMPORTANTES:
 - NÃO descreva a imagem, NÃO mencione cores, layout, design, ou elementos visuais
 - APENAS transcreva o texto que está escrito
 - Transcreva CADA imagem separadamente
-- Use o formato "---PÁGINA N---" antes do texto de cada imagem
+- Use o formato "## 📄 Página N" como header antes do texto de cada imagem
 - Se uma imagem não tiver texto, escreva "(sem texto)"
 - NÃO pule nenhuma imagem
 
@@ -131,11 +131,11 @@ Você receberá ${imageUrls.length} imagens (páginas ${startIndex + 1} a ${star
   const data = await response.json();
   let transcription = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
 
-  // Normaliza a numeração de páginas para o índice global (mesmo se o modelo retornar 1..N)
+  // Normaliza a numeração de páginas para o índice global (formato novo com headers)
   for (let i = imageUrls.length; i >= 1; i--) {
-    const oldPage = `---PÁGINA ${i}---`;
-    const newPage = `---PÁGINA ${startIndex + i}---`;
-    transcription = transcription.replace(new RegExp(oldPage, "g"), newPage);
+    const oldPage = `## 📄 Página ${i}`;
+    const newPage = `## 📄 Página ${startIndex + i}`;
+    transcription = transcription.replace(new RegExp(oldPage.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), "g"), newPage);
   }
 
   const inputTokens =

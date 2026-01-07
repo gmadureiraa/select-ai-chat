@@ -433,7 +433,7 @@ export const GLOBAL_CONTENT_RULES = {
   hook: "Primeiros 3 segundos/primeira linha decidem tudo. O gancho é CRÍTICO.",
   cta: "SEMPRE tenha um CTA. 1 CTA por conteúdo. Não confunda o usuário.",
   value: "Se não é útil, educativo, inspirador ou divertido, não publique.",
-  slideFormatting: "SEMPRE pule uma linha em branco após o fim de cada slide/página em conteúdos multi-página (carrossel, stories, threads). Use '---PÁGINA N---' ou '---SLIDE N---' como separador, seguido de linha em branco antes do próximo conteúdo.",
+  slideFormatting: "Para conteúdos multi-página (carrossel, stories, threads), use headers Markdown: '## 📱 Slide N' para carrossel ou '## 📄 Página N' para outros formatos. NUNCA use '---PÁGINA---', '---SLIDE---' ou separadores com traços.",
   antiRepetition: "PROIBIDO repetir estruturas de frase, palavras-chave emocionais ou transições entre slides/páginas. Cada parte do conteúdo deve ter linguagem única e variada.",
   storytelling: "PRIORIZE storytelling e fatos concretos sobre frases de impacto genéricas. Conte histórias reais, use dados específicos, mostre ao invés de afirmar.",
 };

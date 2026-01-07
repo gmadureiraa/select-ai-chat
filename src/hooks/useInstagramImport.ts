@@ -142,9 +142,11 @@ function extractTitleFromTranscription(transcription: string, url: string): stri
     return match ? `Post ${match[2]}` : "Post Instagram";
   }
   
-  // Remove page separators and get first page text
+  // Remove page separators (legacy and new formats) and get first page text
   const cleanText = transcription
     .replace(/---PÁGINA \d+---/gi, "")
+    .replace(/##\s*📄\s*Página\s*\d+/gi, "")
+    .replace(/##\s*📱\s*Slide\s*\d+/gi, "")
     .trim();
   
   const firstLine = cleanText.split("\n")[0].trim();

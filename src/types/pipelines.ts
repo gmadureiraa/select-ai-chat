@@ -187,7 +187,7 @@ ESTRUTURA OBRIGATÓRIA:
 ### SLIDE 7: CTA
 - Recapitule benefício + CTA específico (não genérico)
 
-Use separador "---PÁGINA N---" entre cada slide.`
+Use header Markdown "## 📱 Slide N" para cada slide. Inclua **Texto:** e **Visual:** em negrito.`
     },
     STYLE_EDITOR_AGENT,
     {
@@ -196,7 +196,7 @@ Use separador "---PÁGINA N---" entre cada slide.`
 
 REGRAS ESPECÍFICAS DE CARROSSEL:
 - Verifique se Slide 1 cria curiosidade irresistível
-- Confirme separadores "---PÁGINA N---" entre slides
+- Confirme headers "## 📱 Slide N" em cada slide
 - Máximo 20 palavras no Slide 1, 30 nos demais
 - CTA final NÃO pode ser genérico ("siga para mais")
 - Adicione numeração (1/7, 2/7...) se não tiver`
