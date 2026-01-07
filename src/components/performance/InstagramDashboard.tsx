@@ -622,30 +622,7 @@ export function InstagramDashboard({
       />
       */}
 
-      {/* Secondary Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <MetricMiniCard
-          icon={Share2}
-          label="Compartilhamentos"
-          value={kpis.totalShares}
-          sparklineData={postSparklines.shares}
-          color="emerald"
-        />
-        <MetricMiniCard
-          icon={Bookmark}
-          label="Salvos"
-          value={kpis.totalSaves}
-          sparklineData={postSparklines.saves}
-          color="amber"
-        />
-        <MetricMiniCard
-          icon={TrendingUp}
-          label="Engajamento Médio"
-          value={`${kpis.avgEngagement.toFixed(2)}%`}
-          sparklineData={postSparklines.engagement}
-          color="violet"
-        />
-      </div>
+      {/* Secondary Metrics - Removido: dados duplicados com a seção BestPostsByMetric acima */}
 
 
       {/* Posts Table - Advanced */}
