@@ -195,7 +195,7 @@ export function ReferenceDialog({ open, onClose, onSave, reference, clientId }: 
             <Button type="button" variant="outline" onClick={onClose}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={isSubmitting}>
+            <Button type="submit" disabled={isSubmitting || !formData.title.trim()}>
               {isSubmitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               {reference ? "Salvar" : "Adicionar"}
             </Button>
