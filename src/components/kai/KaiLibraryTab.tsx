@@ -566,6 +566,7 @@ export const KaiLibraryTab = ({ clientId, client }: KaiLibraryTabProps) => {
         }}
         onSave={handleSaveReference}
         reference={selectedReference || undefined}
+        clientId={clientId}
       />
 
       <ReferenceViewDialog
