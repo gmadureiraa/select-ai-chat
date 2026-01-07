@@ -206,7 +206,37 @@ Mantenha todo o conteúdo, mas refine completamente o estilo.`;
 ## CONTEÚDO PARA REVISÃO:
 ${contentToReview}
 
-IMPORTANTE: Retorne APENAS o conteúdo final. Sem comentários, sem explicações, sem "Aqui está", sem prefixos ou sufixos. Somente o conteúdo pronto para publicação.`;
+## REGRAS DE FORMATAÇÃO OBRIGATÓRIAS:
+
+1. **USE MARKDOWN RICO** para estruturar o conteúdo:
+   - Use \`## Título\` para seções principais
+   - Use \`### Subtítulo\` para subsections
+   - Use \`**negrito**\` para destacar palavras-chave
+   - Use \`- item\` para listas
+   - Use \`> citação\` para destaques importantes
+   - Use \`---\` para separar seções quando apropriado
+
+2. **PARA CARROSSÉIS/SLIDES:**
+   - Cada slide deve ter \`## 📱 Slide X\` como header
+   - Conteúdo do slide abaixo em formato limpo
+   - Sugestão visual como \`> 🎨 Visual: descrição\`
+
+3. **PARA NEWSLETTERS:**
+   - Use headers claros para cada seção
+   - Separe blocos com linhas vazias
+   - CTAs em destaque com **negrito**
+
+4. **PARA STORIES:**
+   - Cada story como \`### Story X/Y\`
+   - Texto curto e impactante
+   - Sugestão visual incluída
+
+5. **NUNCA** use formatos feios como:
+   - "---PÁGINA 1---" ou "---SLIDE 1---" (use headers markdown)
+   - Texto corrido sem estrutura
+   - Blocos de texto densos sem espaçamento
+
+IMPORTANTE: Retorne APENAS o conteúdo final formatado em Markdown rico. Sem comentários, sem "Aqui está", sem prefixos. O conteúdo deve renderizar bonito no chat.`;
   } else {
     const lastOutput = Object.values(context.previousOutputs).pop() || "";
     userPrompt = `## CLIENTE: ${context.clientName}
@@ -408,23 +438,38 @@ ENTREGUE:
         name: "Revisor Final",
         description: "Revisão final e polish",
         model: "flash",
-        systemPrompt: `Você é o Revisor Final.
+        systemPrompt: `Você é o Revisor Final especialista em formatação.
 
 REGRA ABSOLUTA DE OUTPUT:
-- Retorne EXCLUSIVAMENTE o conteúdo final
+- Retorne EXCLUSIVAMENTE o conteúdo final FORMATADO EM MARKDOWN RICO
 - NÃO inclua comentários, explicações ou introduções
 - NÃO diga "Aqui está", "Versão final", "Pronto", etc.
-- APENAS o conteúdo pronto para publicação
 
-CHECKLIST SILENCIOSO (verifique mas não comente):
-✓ Gramática e ortografia corretas
-✓ Estrutura do formato seguida
-✓ Emojis apenas onde apropriado
-✓ CTAs claros e persuasivos
-✓ Hook forte e envolvente
-✓ Zero linguagem genérica de IA
+FORMATAÇÃO OBRIGATÓRIA:
+- Use ## para títulos de seções/slides/páginas
+- Use ### para subtítulos
+- Use **negrito** para destaques
+- Use - para listas
+- Use > para citações/destaques visuais
+- Use --- para separar seções quando necessário
+- NUNCA use "---PÁGINA X---" ou "---SLIDE X---" (use ## 📱 Slide X)
 
-OUTPUT: Apenas o conteúdo final, nada mais.`
+PARA CARROSSÉIS:
+## 📱 Slide 1 - Capa
+**Título impactante aqui**
+> 🎨 Visual: descrição da arte
+
+## 📱 Slide 2
+Conteúdo do slide...
+
+CHECKLIST SILENCIOSO:
+✓ Markdown rico e bem formatado
+✓ Gramática correta
+✓ Emojis estratégicos (não excessivos)
+✓ CTAs claros
+✓ Hook forte
+
+OUTPUT: Conteúdo final em Markdown rico, renderizável.`
       }
     ];
 
