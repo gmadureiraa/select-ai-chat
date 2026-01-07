@@ -7,10 +7,14 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Product ID to plan type mapping
+// Product ID to plan type mapping (BRL + legacy USD for compatibility)
 const PRODUCT_TO_PLAN: Record<string, string> = {
+  // BRL prices
   "prod_Tf3GbZjJw3c29F": "starter",
   "prod_Tf3GyfJj9Kfi61": "pro",
+  // Legacy USD (for existing subscriptions)
+  "prod_TfNT7f3WMVagaz": "starter",
+  "prod_TfNTm4r0XyYOPB": "pro",
 };
 
 const logStep = (step: string, details?: any) => {
