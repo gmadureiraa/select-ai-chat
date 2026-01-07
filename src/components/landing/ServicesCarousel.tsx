@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { ChevronLeft, ChevronRight, Users, Shield, Zap, ArrowRight, BarChart3, FolderOpen, Target, MoveHorizontal } from "lucide-react";
+import { ChevronLeft, ChevronRight, Users, Shield, Zap, ArrowRight, BarChart3, Target, MoveHorizontal } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 
@@ -31,13 +31,6 @@ const services = [
       "Métricas de Instagram, YouTube e Newsletter em um só lugar. Dashboards visuais e insights para cada cliente.",
     icon: BarChart3,
     colorClass: "from-emerald-500 to-teal-500",
-  },
-  {
-    title: "Research Lab",
-    description:
-      "Canvas visual para pesquisar, organizar referências e criar moodboards. Importe links, imagens e documentos em um espaço colaborativo.",
-    icon: FolderOpen,
-    colorClass: "from-amber-500 to-orange-500",
   },
   {
     title: "Base de Conhecimento",

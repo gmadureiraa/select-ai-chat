@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { MessageSquare, Palette, FlaskConical, BarChart3, ArrowRight, Sparkles } from "lucide-react";
+import { MessageSquare, Palette, BarChart3, ArrowRight, Sparkles } from "lucide-react";
 import FluidWaves from "./FluidWaves";
 
 const features = [
@@ -12,11 +12,6 @@ const features = [
     icon: Palette,
     title: "Contexto de Marca",
     description: "A IA aprende o tom de voz e estilo de cada cliente.",
-  },
-  {
-    icon: FlaskConical,
-    title: "Research Lab",
-    description: "Pesquise e organize referências em um canvas visual.",
   },
   {
     icon: BarChart3,
