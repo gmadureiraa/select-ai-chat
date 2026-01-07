@@ -577,33 +577,17 @@ export function InstagramDashboard({
         />
       </div>
 
-      {/* Chart + Goals */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Main Chart - expanded */}
-        <div className="lg:col-span-2">
-          {chartData.length > 0 && availableMetrics.length > 0 && (
-            <EnhancedAreaChart
-              data={chartData}
-              metrics={availableMetrics}
-              selectedMetric={selectedMetric}
-              onMetricChange={setSelectedMetric}
-              title="Evolução das Métricas"
-              dateRange={selectedPeriodLabel}
-            />
-          )}
-        </div>
-
-        {/* Goals Panel */}
-        <GoalsPanel
-          clientId={clientId}
-          platform="instagram"
-          currentMetrics={{
-            followers: kpis.followersGained,
-            views: kpis.totalViews,
-            engagement: kpis.avgEngagement,
-          }}
+      {/* Chart */}
+      {chartData.length > 0 && availableMetrics.length > 0 && (
+        <EnhancedAreaChart
+          data={chartData}
+          metrics={availableMetrics}
+          selectedMetric={selectedMetric}
+          onMetricChange={setSelectedMetric}
+          title="Evolução das Métricas"
+          dateRange={selectedPeriodLabel}
         />
-      </div>
+      )}
 
       {/* Best Posts by Metric - New Section like Instagram Native */}
       <BestPostsByMetric 
@@ -659,17 +643,6 @@ export function InstagramDashboard({
         />
       </div>
 
-      {/* AI Insights - Full Width */}
-      <AIInsightsCard 
-        clientId={clientId}
-        clientName={undefined}
-        posts={filteredPosts} 
-        metrics={filteredMetrics}
-        periodLabel={selectedPeriodLabel}
-        platform="instagram"
-        startDate={cutoffDate || undefined}
-        endDate={new Date()}
-      />
 
       {/* Posts Table - Advanced */}
       <Card className="border-border/50">
