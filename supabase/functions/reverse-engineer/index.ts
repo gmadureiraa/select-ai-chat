@@ -265,12 +265,12 @@ MAS ADAPTANDO:
 
 **FORMATO DE SAÍDA OBRIGATÓRIO:**
 ${analysis.page_count > 1 ? `
-Separe cada página com ---PÁGINA N--- assim:
+Use headers Markdown para cada página:
 
----PÁGINA 1---
+## 📄 Página 1
 [conteúdo da primeira página]
 
----PÁGINA 2---
+## 📄 Página 2
 [conteúdo da segunda página]
 
 E assim por diante para todas as ${analysis.page_count} páginas.

@@ -31,10 +31,13 @@ const contentTypeConfig: Record<string, { icon: any; color: string }> = {
 const cleanContentForPreview = (text: string): string => {
   if (!text) return "";
   return text
-    .replace(/---\s*(PÁGINA|SLIDE|PAGE)\s*\d+\s*---/gi, "") // Remove page separators
+    .replace(/---\s*(PÁGINA|SLIDE|PAGE)\s*\d+\s*---/gi, "") // Remove legacy page separators
+    .replace(/##\s*📱\s*Slide\s*\d+/gi, "") // Remove new slide headers
+    .replace(/##\s*📄\s*Página\s*\d+/gi, "") // Remove new page headers
     .replace(/\*\*([^*]+)\*\*/g, "$1") // Remove bold markdown
     .replace(/\*([^*]+)\*/g, "$1") // Remove italic markdown
     .replace(/#{1,6}\s/g, "") // Remove headers
+    .replace(/`([^`]+)`/g, "$1") // Remove inline code
     .replace(/`([^`]+)`/g, "$1") // Remove inline code
     .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1") // Remove links, keep text
     .replace(/!\[([^\]]*)\]\([^)]+\)/g, "") // Remove images

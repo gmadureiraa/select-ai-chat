@@ -166,7 +166,12 @@ export function InstagramCarouselImporter({
                   />
                   {transcription && (
                     <p className="text-xs text-muted-foreground mt-2">
-                      {transcription.split('---PÁGINA').length - 1} páginas transcritas
+                      {Math.max(
+                        (transcription.match(/---PÁGINA/gi) || []).length,
+                        (transcription.match(/##\s*📄\s*Página/gi) || []).length,
+                        (transcription.match(/##\s*📱\s*Slide/gi) || []).length,
+                        1
+                      )} páginas transcritas
                     </p>
                   )}
                 </div>

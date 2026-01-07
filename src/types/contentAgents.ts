@@ -109,11 +109,12 @@ REGRAS DE OURO:
 
 FORMATO DE RESPOSTA:
 Para cada slide retorne:
-[SLIDE X]
-TEXTO: "..."
-VISUAL: descrição da imagem/design
 
-LEGENDA:
+## 📱 Slide X
+**Texto:** ...
+> 🎨 Visual: descrição da imagem/design
+
+## 📝 Legenda
 Texto da legenda com hashtags`,
     requiredData: ["identity_guide", "visual_references", "content_library"]
   },

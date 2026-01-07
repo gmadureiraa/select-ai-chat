@@ -17,7 +17,9 @@ interface ReferenceCardProps {
 const cleanContentForPreview = (text: string): string => {
   if (!text) return "";
   return text
-    .replace(/---\s*(PÁGINA|SLIDE|PAGE)\s*\d+\s*---/gi, "")
+    .replace(/---\s*(PÁGINA|SLIDE|PAGE)\s*\d+\s*---/gi, "") // Remove legacy separators
+    .replace(/##\s*📱\s*Slide\s*\d+/gi, "") // Remove new slide headers
+    .replace(/##\s*📄\s*Página\s*\d+/gi, "") // Remove new page headers
     .replace(/\*\*([^*]+)\*\*/g, "$1")
     .replace(/\*([^*]+)\*/g, "$1")
     .replace(/#{1,6}\s/g, "")
