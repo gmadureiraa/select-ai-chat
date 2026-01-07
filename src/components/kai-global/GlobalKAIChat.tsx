@@ -1,6 +1,6 @@
 import { useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Loader2, Newspaper, FileText, Video, Mail, Sparkles } from "lucide-react";
+import { Newspaper, FileText, Video, Mail, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
@@ -205,13 +205,29 @@ export function GlobalKAIChat({
                 />
               ) : (
                 <div className="flex items-center gap-2 text-muted-foreground py-4">
-                  <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                  <span className="flex gap-1">
+                    <motion.span 
+                      animate={{ opacity: [0.4, 1, 0.4] }} 
+                      transition={{ duration: 1.2, repeat: Infinity, delay: 0 }}
+                      className="text-primary"
+                    >•</motion.span>
+                    <motion.span 
+                      animate={{ opacity: [0.4, 1, 0.4] }} 
+                      transition={{ duration: 1.2, repeat: Infinity, delay: 0.2 }}
+                      className="text-primary"
+                    >•</motion.span>
+                    <motion.span 
+                      animate={{ opacity: [0.4, 1, 0.4] }} 
+                      transition={{ duration: 1.2, repeat: Infinity, delay: 0.4 }}
+                      className="text-primary"
+                    >•</motion.span>
+                  </span>
                   <span className="text-sm">
                     {actionStatus === "detecting" && "Analisando sua solicitação..."}
                     {actionStatus === "analyzing" && "Processando informações..."}
                     {actionStatus === "confirming" && "Aguardando confirmação..."}
                     {actionStatus === "executing" && "Executando ação..."}
-                    {actionStatus === "idle" && "kAI está pensando..."}
+                    {actionStatus === "idle" && "kAI está digitando..."}
                   </span>
                 </div>
               )}

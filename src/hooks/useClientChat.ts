@@ -569,8 +569,9 @@ export const useClientChat = (clientId: string, templateId?: string, conversatio
                                   slide.type === 'bridge' ? '🌉 PONTE' : 
                                   slide.type === 'cta' ? '📢 CTA' : '📝 CONTEÚDO';
                 
-                responseContent += `---SLIDE ${slide.slideNumber}/${carouselSlides.length}---\n`;
-                responseContent += `**${slideType}**\n\n`;
+                responseContent += `---\n\n`;
+                responseContent += `## 📱 Slide ${slide.slideNumber} de ${carouselSlides.length}\n\n`;
+                responseContent += `**Tipo:** ${slideType}\n\n`;
                 
                 // Heading se existir
                 if (slide.heading && slide.type === 'content') {
@@ -586,7 +587,6 @@ export const useClientChat = (clientId: string, templateId?: string, conversatio
                 if (slide.imageUrl) {
                   responseContent += `**🖼️ Imagem sugerida:**\n\n`;
                   responseContent += `![Slide ${slide.slideNumber}](${slide.imageUrl})\n\n`;
-                  responseContent += `Link: \`${slide.imageUrl}\`\n\n`;
                 }
                 
                 responseContent += `\n`;
