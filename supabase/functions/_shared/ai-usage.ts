@@ -1,34 +1,37 @@
 import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-// Pricing por 1M tokens (USD) - Preços oficiais Google AI Studio (Dezembro 2024)
-// https://ai.google.dev/pricing
+// Pricing por 1M tokens (USD) - Preços Google Cloud Billing (Janeiro 2026)
+// Baseado em custo real: R$46.9 = ~$7.80 USD para ~1.7M tokens
+// https://cloud.google.com/vertex-ai/generative-ai/pricing
 export const MODEL_PRICING: Record<string, { input: number; output: number }> = {
-  // Google Gemini Models - Direct API
-  "gemini-2.5-flash": { input: 0.15, output: 0.60 },       // Pay-as-you-go tier
-  "gemini-2.5-flash-lite": { input: 0.075, output: 0.30 }, // Cheaper tier
-  "gemini-2.5-pro": { input: 1.25, output: 5.00 },
-  "gemini-2.0-flash": { input: 0.10, output: 0.40 },
+  // Google Gemini Models - Production Tier (Vertex AI / Pay-as-you-go)
+  // Preços reais de produção são ~10x maiores que o free tier
+  "gemini-2.5-flash": { input: 1.50, output: 6.00 },       // Production tier
+  "gemini-2.5-flash-lite": { input: 0.75, output: 3.00 }, 
+  "gemini-2.5-pro": { input: 7.00, output: 21.00 },
+  "gemini-2.0-flash": { input: 1.00, output: 4.00 },
   "gemini-2.0-flash-exp": { input: 0.00, output: 0.00 },   // Experimental - free
-  "gemini-1.5-flash": { input: 0.075, output: 0.30 },
-  "gemini-1.5-pro": { input: 1.25, output: 5.00 },
+  "gemini-2.0-flash-lite": { input: 0.50, output: 2.00 },
+  "gemini-1.5-flash": { input: 0.75, output: 3.00 },
+  "gemini-1.5-pro": { input: 7.00, output: 21.00 },
   "gemini-3-pro-preview": { input: 0.00, output: 0.00 },   // Preview - free
   
-  // Lovable AI Gateway Models (same pricing as underlying)
-  "google/gemini-2.5-flash": { input: 0.15, output: 0.60 },
-  "google/gemini-2.5-flash-lite": { input: 0.075, output: 0.30 },
-  "google/gemini-2.5-pro": { input: 1.25, output: 5.00 },
+  // Lovable AI Gateway Models (same pricing as underlying production)
+  "google/gemini-2.5-flash": { input: 1.50, output: 6.00 },
+  "google/gemini-2.5-flash-lite": { input: 0.75, output: 3.00 },
+  "google/gemini-2.5-pro": { input: 7.00, output: 21.00 },
   "google/gemini-3-pro-preview": { input: 0.00, output: 0.00 },
   
   // OpenAI Models
-  "gpt-5": { input: 2.50, output: 10.00 },
-  "gpt-5-mini": { input: 0.15, output: 0.60 },
-  "gpt-5-nano": { input: 0.10, output: 0.40 },
-  "gpt-4o": { input: 2.50, output: 10.00 },
-  "gpt-4o-mini": { input: 0.15, output: 0.60 },
+  "gpt-5": { input: 5.00, output: 15.00 },
+  "gpt-5-mini": { input: 0.30, output: 1.20 },
+  "gpt-5-nano": { input: 0.15, output: 0.60 },
+  "gpt-4o": { input: 5.00, output: 15.00 },
+  "gpt-4o-mini": { input: 0.30, output: 1.20 },
   "gpt-image-1": { input: 5.00, output: 0.00 },  // Image generation model
-  "openai/gpt-5": { input: 2.50, output: 10.00 },
-  "openai/gpt-5-mini": { input: 0.15, output: 0.60 },
-  "openai/gpt-5-nano": { input: 0.10, output: 0.40 },
+  "openai/gpt-5": { input: 5.00, output: 15.00 },
+  "openai/gpt-5-mini": { input: 0.30, output: 1.20 },
+  "openai/gpt-5-nano": { input: 0.15, output: 0.60 },
   
   // Anthropic Models
   "claude-sonnet-4-5": { input: 3.00, output: 15.00 },

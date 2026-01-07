@@ -59,8 +59,6 @@ O kAI é uma plataforma completa de inteligência artificial para criação e ge
 | \`/kai\` | Interface principal unificada |
 | \`/kai/docs\` | Documentação |
 | \`/knowledge-base\` | Base de conhecimento global |
-| \`/research-lab\` | Canvas de pesquisa |
-| \`/agent-builder\` | Construtor de workflows |
 | \`/settings\` | Configurações do workspace |
 
 ---
@@ -729,7 +727,6 @@ CREATE TABLE token_transactions (
 | \`chat-multi-agent\` | Pipeline multi-agente completo |
 | \`orchestrator\` | Orquestrador de agentes |
 | \`execute-agent\` | Executa agente específico |
-| \`execute-workflow\` | Executa workflow do Agent Builder |
 | \`generate-image\` | Geração de imagens com brand assets |
 | \`analyze-style\` | Analisa estilo de escrita |
 | \`reverse-engineer\` | Engenharia reversa de conteúdo |
@@ -864,7 +861,6 @@ serve(async (req) => {
 | \`messages\` | ~500000 | Mensagens do chat |
 | \`global_knowledge\` | ~5000 | Base de conhecimento |
 | \`ai_agents\` | ~100 | Agentes customizados |
-| \`ai_workflows\` | ~200 | Workflows do Agent Builder |
 
 ## 11.2 ENUMs
 
