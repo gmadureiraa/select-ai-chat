@@ -318,7 +318,7 @@ export function ReferenceDialog({ open, onClose, onSave, reference }: ReferenceD
 
     setIsScrapingLink(true);
     try {
-      const { data: response, error } = await supabase.functions.invoke('scrape-research-link', {
+      const { data: response, error } = await supabase.functions.invoke('scrape-website', {
         body: { url: linkUrl }
       });
 

@@ -7,20 +7,16 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Plan configuration with Stripe price IDs
-// IMPORTANTE: Os preços precisam ser criados no Stripe Dashboard em BRL:
-// - Starter: R$ 497,90/mês (1 cliente, 1 usuário)
-// - Pro: R$ 1.497,90/mês (5 clientes, 3 membros, 10 visualizadores)
-// Após criar os produtos/preços no Stripe, atualize os IDs abaixo.
+// Plan configuration with Stripe price IDs (BRL)
 const PLANS = {
   starter: {
-    priceId: "price_1Si2iLPIJtcImSMvHG6aWpCm", // TODO: Atualizar para preço em BRL
-    productId: "prod_TfNT7f3WMVagaz",
+    priceId: "price_1ShjAAPIJtcImSMvRqRHP8eJ", // R$ 497,90/mês
+    productId: "prod_Tf3GbZjJw3c29F",
     trialDays: 14,
   },
   pro: {
-    priceId: "price_1Si2iNPIJtcImSMvot2pJbyr", // TODO: Atualizar para preço em BRL
-    productId: "prod_TfNTm4r0XyYOPB",
+    priceId: "price_1ShjAIPIJtcImSMvuFrHLB7P", // R$ 1.497,90/mês
+    productId: "prod_Tf3GyfJj9Kfi61",
     trialDays: 14,
   },
 };

@@ -23,7 +23,6 @@ export const TOKEN_COSTS = {
   knowledge_processing: 5,
   style_analysis: 5,
   performance_insights: 3,
-  research_analysis: 5,
   youtube_sentiment: 3,
   branding_extraction: 5,
 };
