@@ -28,7 +28,7 @@ export default function Kai() {
   const tab = searchParams.get("tab") || "home";
   
   const { clients, isLoading: isLoadingClients } = useClients();
-  const { canManageTeam, canViewTools, canViewPerformance, canViewLibrary, canViewKnowledgeBase, canViewActivities, canViewClients } = useWorkspace();
+  const { canManageTeam, canViewTools, canViewPerformance, canViewLibrary, canViewKnowledgeBase, canViewActivities, canViewClients, canViewHome, canUseAssistant, canViewRepurpose, isViewer } = useWorkspace();
   const { isEnterprise } = usePlanFeatures();
   const selectedClient = clients?.find(c => c.id === clientId);
   
@@ -36,13 +36,41 @@ export default function Kai() {
   const [pendingContentType, setPendingContentType] = useState<string | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
-  // Route protection: redirect to home if trying to access unauthorized tabs
+  // Route protection: redirect to allowed tabs if trying to access unauthorized ones
   useEffect(() => {
     let shouldRedirect = false;
+    let redirectTab = "performance"; // Default for viewers
     
     // Removed dev-only tools - redirect if accessing removed tabs
     if (tab === "agent-builder" || tab === "research-lab") {
       shouldRedirect = true;
+    }
+    
+    // Viewer-blocked tabs
+    if (isViewer) {
+      const blockedTabs = ["home", "assistant", "repurpose"];
+      if (blockedTabs.includes(tab)) {
+        shouldRedirect = true;
+        redirectTab = "performance";
+      }
+    }
+    
+    // Home requires canViewHome
+    if (tab === "home" && !canViewHome) {
+      shouldRedirect = true;
+      redirectTab = "performance";
+    }
+    
+    // Assistant requires canUseAssistant
+    if (tab === "assistant" && !canUseAssistant) {
+      shouldRedirect = true;
+      redirectTab = "performance";
+    }
+    
+    // Repurpose requires canViewRepurpose
+    if (tab === "repurpose" && !canViewRepurpose) {
+      shouldRedirect = true;
+      redirectTab = "performance";
     }
     
     // Knowledge base requires canViewKnowledgeBase (member+)
@@ -68,10 +96,10 @@ export default function Kai() {
     
     if (shouldRedirect) {
       const params = new URLSearchParams(searchParams);
-      params.set("tab", "home");
+      params.set("tab", redirectTab);
       setSearchParams(params);
     }
-  }, [tab, canViewKnowledgeBase, canViewLibrary, canViewActivities, canViewClients, canManageTeam, searchParams, setSearchParams]);
+  }, [tab, canViewKnowledgeBase, canViewLibrary, canViewActivities, canViewClients, canManageTeam, canViewHome, canUseAssistant, canViewRepurpose, isViewer, searchParams, setSearchParams]);
 
 
   const handleTabChange = (newTab: string) => {

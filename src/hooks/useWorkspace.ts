@@ -79,9 +79,16 @@ export const useWorkspace = () => {
   const canViewTools = isAdminOrOwner;
   const canViewKnowledgeBase = !isViewer && userRole !== undefined;
   const canViewPerformance = userRole !== undefined;
-  const canViewLibrary = !isViewer && userRole !== undefined;
+  const canViewLibrary = userRole !== undefined; // Viewers CAN access library
   const canViewActivities = isAdminOrOwner;
   const canViewClients = isAdminOrOwner;
+  
+  // New permissions for viewer restrictions
+  const canUseAssistant = !isViewer && userRole !== undefined;
+  const canViewHome = !isViewer && userRole !== undefined;
+  const canViewRepurpose = !isViewer && userRole !== undefined;
+  const canViewSettings = !isViewer && userRole !== undefined;
+  const canViewDocs = !isViewer && userRole !== undefined;
 
   return {
     workspace,
@@ -101,5 +108,10 @@ export const useWorkspace = () => {
     canViewLibrary,
     canViewActivities,
     canViewClients,
+    canUseAssistant,
+    canViewHome,
+    canViewRepurpose,
+    canViewSettings,
+    canViewDocs,
   };
 };

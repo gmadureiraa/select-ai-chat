@@ -16,7 +16,8 @@ import {
   CalendarDays,
   Zap,
   Command,
-  Youtube
+  Youtube,
+  Lock
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useClients } from "@/hooks/useClients";
@@ -118,6 +119,60 @@ function SectionLabel({ children, collapsed }: SectionLabelProps) {
   );
 }
 
+// Locked nav item for viewers
+interface NavItemLockedProps {
+  icon: React.ReactNode;
+  label: string;
+  collapsed?: boolean;
+}
+
+function NavItemLocked({ icon, label, collapsed }: NavItemLockedProps) {
+  const content = (
+    <div
+      className={cn(
+        "w-full flex items-center gap-3 px-3 py-2 rounded-md text-[13px] font-medium cursor-not-allowed opacity-50",
+        "text-sidebar-foreground/40",
+        collapsed && "justify-center px-2"
+      )}
+    >
+      <span className="flex-shrink-0 text-sidebar-foreground/30">
+        {icon}
+      </span>
+      {!collapsed && (
+        <>
+          <span className="flex-1 text-left truncate">{label}</span>
+          <Lock className="h-3.5 w-3.5 text-sidebar-foreground/30 flex-shrink-0" />
+        </>
+      )}
+    </div>
+  );
+
+  if (collapsed) {
+    return (
+      <Tooltip delayDuration={0}>
+        <TooltipTrigger asChild>
+          {content}
+        </TooltipTrigger>
+        <TooltipContent side="right" className="flex items-center gap-2">
+          <Lock className="h-3 w-3" />
+          {label} - Acesso restrito
+        </TooltipContent>
+      </Tooltip>
+    );
+  }
+
+  return (
+    <Tooltip delayDuration={0}>
+      <TooltipTrigger asChild>
+        {content}
+      </TooltipTrigger>
+      <TooltipContent side="right">
+        Acesso restrito para visualizadores
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
 
 interface KaiSidebarProps {
   activeTab: string;
@@ -139,7 +194,17 @@ export function KaiSidebar({
   const navigate = useNavigate();
   const { slug } = useParams<{ slug: string }>();
   const { clients } = useClients();
-  const { canViewPerformance, canViewLibrary, canViewClients, workspace } = useWorkspace();
+  const { 
+    canViewPerformance, 
+    canViewLibrary, 
+    canViewClients, 
+    canViewHome, 
+    canUseAssistant, 
+    canViewRepurpose, 
+    canViewSettings, 
+    canViewDocs,
+    workspace 
+  } = useWorkspace();
   const { user, signOut } = useAuth();
   const selectedClient = clients?.find(c => c.id === selectedClientId);
   const [searchQuery, setSearchQuery] = useState("");
@@ -276,21 +341,37 @@ export function KaiSidebar({
         <SectionLabel collapsed={collapsed}>Cliente</SectionLabel>
         
         <div className="space-y-0.5">
-          <NavItem
-            icon={<Home className="h-4 w-4" />}
-            label="Início"
-            active={activeTab === "home"}
-            onClick={() => onTabChange("home")}
-            collapsed={collapsed}
-          />
+          {canViewHome ? (
+            <NavItem
+              icon={<Home className="h-4 w-4" />}
+              label="Início"
+              active={activeTab === "home"}
+              onClick={() => onTabChange("home")}
+              collapsed={collapsed}
+            />
+          ) : (
+            <NavItemLocked
+              icon={<Home className="h-4 w-4" />}
+              label="Início"
+              collapsed={collapsed}
+            />
+          )}
           
-          <NavItem
-            icon={<MessageSquare className="h-4 w-4" />}
-            label="Assistente"
-            active={activeTab === "assistant"}
-            onClick={() => onTabChange("assistant")}
-            collapsed={collapsed}
-          />
+          {canUseAssistant ? (
+            <NavItem
+              icon={<MessageSquare className="h-4 w-4" />}
+              label="Assistente"
+              active={activeTab === "assistant"}
+              onClick={() => onTabChange("assistant")}
+              collapsed={collapsed}
+            />
+          ) : (
+            <NavItemLocked
+              icon={<MessageSquare className="h-4 w-4" />}
+              label="Assistente"
+              collapsed={collapsed}
+            />
+          )}
 
           {canViewPerformance && (
             <NavItem
@@ -312,13 +393,21 @@ export function KaiSidebar({
             />
           )}
 
-          <NavItem
-            icon={<Youtube className="h-4 w-4" />}
-            label="Reaproveitar"
-            active={activeTab === "repurpose"}
-            onClick={() => onTabChange("repurpose")}
-            collapsed={collapsed}
-          />
+          {canViewRepurpose ? (
+            <NavItem
+              icon={<Youtube className="h-4 w-4" />}
+              label="Reaproveitar"
+              active={activeTab === "repurpose"}
+              onClick={() => onTabChange("repurpose")}
+              collapsed={collapsed}
+            />
+          ) : (
+            <NavItemLocked
+              icon={<Youtube className="h-4 w-4" />}
+              label="Reaproveitar"
+              collapsed={collapsed}
+            />
+          )}
         </div>
 
         <SectionLabel collapsed={collapsed}>Planejamento</SectionLabel>
@@ -346,21 +435,37 @@ export function KaiSidebar({
             />
           )}
 
-          <NavItem
-            icon={<Settings className="h-4 w-4" />}
-            label="Configurações"
-            active={false}
-            onClick={() => navigate(`/${currentSlug}/settings`)}
-            collapsed={collapsed}
-          />
+          {canViewSettings ? (
+            <NavItem
+              icon={<Settings className="h-4 w-4" />}
+              label="Configurações"
+              active={false}
+              onClick={() => navigate(`/${currentSlug}/settings`)}
+              collapsed={collapsed}
+            />
+          ) : (
+            <NavItemLocked
+              icon={<Settings className="h-4 w-4" />}
+              label="Configurações"
+              collapsed={collapsed}
+            />
+          )}
 
-          <NavItem
-            icon={<HelpCircle className="h-4 w-4" />}
-            label="Ajuda"
-            active={activeTab === "docs"}
-            onClick={() => navigate(`/${currentSlug}/docs`)}
-            collapsed={collapsed}
-          />
+          {canViewDocs ? (
+            <NavItem
+              icon={<HelpCircle className="h-4 w-4" />}
+              label="Ajuda"
+              active={activeTab === "docs"}
+              onClick={() => navigate(`/${currentSlug}/docs`)}
+              collapsed={collapsed}
+            />
+          ) : (
+            <NavItemLocked
+              icon={<HelpCircle className="h-4 w-4" />}
+              label="Ajuda"
+              collapsed={collapsed}
+            />
+          )}
         </div>
       </nav>
 
