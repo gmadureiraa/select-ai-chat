@@ -268,6 +268,7 @@ export const useClientChat = (clientId: string, templateId?: string, conversatio
       return data;
     },
     enabled: !!clientId,
+    staleTime: 5 * 60 * 1000, // 5 minutes cache
   });
 
   // Get reference library
@@ -284,6 +285,7 @@ export const useClientChat = (clientId: string, templateId?: string, conversatio
       return data;
     },
     enabled: !!clientId,
+    staleTime: 5 * 60 * 1000, // 5 minutes cache
   });
 
   // Get global knowledge base
@@ -300,6 +302,7 @@ export const useClientChat = (clientId: string, templateId?: string, conversatio
       return data;
     },
     enabled: !!workspace?.id,
+    staleTime: 5 * 60 * 1000, // 5 minutes cache
   });
 
   const sendMessage = useCallback(async (content: string, imageUrls?: string[], quality?: "fast" | "high", explicitMode?: "content" | "ideas" | "free_chat" | "image", citations?: Citation[]) => {

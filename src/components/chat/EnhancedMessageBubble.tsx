@@ -116,9 +116,7 @@ export const EnhancedMessageBubble = ({
   const isLongFormContent = !isUser && content.length > 1500 && !artifacts.length;
   const hasStructuredContent = !isUser && (
     content.includes("# ") || 
-    content.includes("## ") || 
-    content.includes("---PÁGINA") ||
-    content.includes("---SLIDE")
+    content.includes("## ")
   );
 
   const handleAdjustImage = (prompt: string) => {
