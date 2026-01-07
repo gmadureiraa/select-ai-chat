@@ -21,7 +21,6 @@ import { ImageGenerationModal, ImageGenerationOptions } from './ImageGenerationM
 import { PlanningItemComments } from './PlanningItemComments';
 import { MentionableInput } from './MentionableInput';
 import { RecurrenceConfig } from './RecurrenceConfig';
-import { ContentPreview } from './ContentPreview';
 import { CONTENT_TYPE_OPTIONS, CONTENT_TO_PLATFORM, ContentTypeKey } from '@/types/contentTypes';
 import type { PlanningItem, CreatePlanningItemInput, PlanningPlatform, PlanningPriority, KanbanColumn } from '@/hooks/usePlanningItems';
 import type { RecurrenceConfig as RecurrenceConfigType } from '@/types/recurrence';
@@ -358,16 +357,6 @@ export function PlanningItemDialog({
             )}
           </div>
 
-          {/* Content Preview */}
-          {(content.trim() || threadTweets.some(t => t.text.trim())) && (
-            <ContentPreview
-              content={isTwitterThread ? threadTweets.map(t => t.text).join('\n\n---\n\n') : content}
-              contentType={contentType}
-              mediaUrls={mediaItems.map(m => m.url)}
-              authorName={clients?.find(c => c.id === selectedClientId)?.name || 'Seu Nome'}
-              authorHandle={`@${(clients?.find(c => c.id === selectedClientId)?.name || 'handle').toLowerCase().replace(/\s+/g, '')}`}
-            />
-          )}
 
           {/* Media Section */}
           <div className="space-y-2">
