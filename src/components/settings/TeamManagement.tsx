@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,10 +8,12 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Users, UserPlus, Crown, Shield, User, X, Mail, Clock, Building2, Eye } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Users, UserPlus, Crown, Shield, User, X, Mail, Clock, Building2, Eye, ChevronDown, ChevronUp, RefreshCw } from "lucide-react";
 import { useWorkspace, WorkspaceRole, WorkspaceMember } from "@/hooks/useWorkspace";
 import { useTeamMembers } from "@/hooks/useTeamMembers";
 import { useAuth } from "@/hooks/useAuth";
+import { useClients } from "@/hooks/useClients";
 import { useAllMemberClientAccess } from "@/hooks/useMemberClientAccess";
 import { MemberClientAccessDialog } from "./MemberClientAccessDialog";
 import {
@@ -22,6 +26,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { format, formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -48,31 +57,92 @@ const roleColors: Record<WorkspaceRole, string> = {
 };
 
 export function TeamManagement() {
+  const { toast } = useToast();
   const { user } = useAuth();
   const { workspace, canManageTeam, isOwner } = useWorkspace();
   const { members, invites, isLoadingMembers, isLoadingInvites, inviteMember, updateMemberRole, removeMember, cancelInvite } = useTeamMembers();
+  const { clients } = useClients();
   const { data: allMemberAccess = [] } = useAllMemberClientAccess(workspace?.id);
   
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<WorkspaceRole>("member");
+  const [selectedClientIds, setSelectedClientIds] = useState<string[]>([]);
+  const [showClientSelection, setShowClientSelection] = useState(false);
   const [memberToRemove, setMemberToRemove] = useState<string | null>(null);
   const [memberToEditAccess, setMemberToEditAccess] = useState<WorkspaceMember | null>(null);
+  const [resendingInviteId, setResendingInviteId] = useState<string | null>(null);
 
   // Helper to get client access count for a member
   const getMemberClientCount = (memberId: string): number => {
     return allMemberAccess.filter(a => a.workspace_member_id === memberId).length;
   };
 
+  // Toggle client selection
+  const toggleClientSelection = (clientId: string) => {
+    setSelectedClientIds(prev =>
+      prev.includes(clientId)
+        ? prev.filter(id => id !== clientId)
+        : [...prev, clientId]
+    );
+  };
+
   const handleInvite = (e: React.FormEvent) => {
     e.preventDefault();
     if (!email.trim()) return;
     
-    inviteMember.mutate({ email: email.trim(), role }, {
+    // Get selected client names for the email
+    const selectedClientNames = clients
+      .filter(c => selectedClientIds.includes(c.id))
+      .map(c => c.name);
+    
+    inviteMember.mutate({ 
+      email: email.trim(), 
+      role,
+      clientIds: (role === "member" || role === "viewer") ? selectedClientIds : undefined,
+      clientNames: (role === "member" || role === "viewer") ? selectedClientNames : undefined,
+    }, {
       onSuccess: () => {
         setEmail("");
         setRole("member");
+        setSelectedClientIds([]);
+        setShowClientSelection(false);
       },
     });
+  };
+
+  // Resend invite email
+  const handleResendInvite = async (invite: typeof invites[0]) => {
+    setResendingInviteId(invite.id);
+    try {
+      const { data: inviterProfile } = await supabase
+        .from("profiles")
+        .select("full_name, email")
+        .eq("id", invite.invited_by)
+        .single();
+
+      await supabase.functions.invoke("send-invite-email", {
+        body: {
+          email: invite.email,
+          workspaceName: workspace?.name || "",
+          inviterName: inviterProfile?.full_name || inviterProfile?.email || "Um administrador",
+          role: invite.role,
+          expiresAt: invite.expires_at,
+        },
+      });
+
+      toast({
+        title: "Email reenviado",
+        description: `O convite foi reenviado para ${invite.email}.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Erro ao reenviar",
+        description: "Não foi possível reenviar o email de convite.",
+        variant: "destructive",
+      });
+    } finally {
+      setResendingInviteId(null);
+    }
   };
 
   if (!canManageTeam) {
@@ -93,34 +163,74 @@ export function TeamManagement() {
       <CardContent className="space-y-6">
         {/* Invite Form */}
         <form onSubmit={handleInvite} className="space-y-4">
-          <div className="flex gap-3">
-            <div className="flex-1 space-y-2">
-              <Label htmlFor="invite-email">Email do novo membro</Label>
-              <div className="flex gap-2">
-                <Input
-                  id="invite-email"
-                  type="email"
-                  placeholder="email@exemplo.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="flex-1"
-                />
-                <Select value={role} onValueChange={(v) => setRole(v as WorkspaceRole)}>
-                  <SelectTrigger className="w-[160px]">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="viewer">Visualizador</SelectItem>
-                    <SelectItem value="member">Membro</SelectItem>
-                    <SelectItem value="admin">Admin</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Button type="submit" disabled={inviteMember.isPending || !email.trim()}>
-                  <UserPlus className="h-4 w-4 mr-2" />
-                  Convidar
-                </Button>
-              </div>
+          <div className="space-y-3">
+            <Label htmlFor="invite-email">Email do novo membro</Label>
+            <div className="flex gap-2">
+              <Input
+                id="invite-email"
+                type="email"
+                placeholder="email@exemplo.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="flex-1"
+              />
+              <Select value={role} onValueChange={(v) => setRole(v as WorkspaceRole)}>
+                <SelectTrigger className="w-[160px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="viewer">Visualizador</SelectItem>
+                  <SelectItem value="member">Membro</SelectItem>
+                  <SelectItem value="admin">Admin</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button type="submit" disabled={inviteMember.isPending || !email.trim()}>
+                <UserPlus className="h-4 w-4 mr-2" />
+                Convidar
+              </Button>
             </div>
+
+            {/* Client Selection for member/viewer roles */}
+            {(role === "member" || role === "viewer") && clients.length > 0 && (
+              <Collapsible open={showClientSelection} onOpenChange={setShowClientSelection}>
+                <CollapsibleTrigger asChild>
+                  <Button variant="outline" size="sm" className="w-full justify-between">
+                    <span className="flex items-center gap-2">
+                      <Building2 className="h-4 w-4" />
+                      Restringir acesso a clientes específicos
+                      {selectedClientIds.length > 0 && (
+                        <Badge variant="secondary" className="ml-1">
+                          {selectedClientIds.length} selecionado{selectedClientIds.length > 1 ? "s" : ""}
+                        </Badge>
+                      )}
+                    </span>
+                    {showClientSelection ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                  </Button>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="pt-3">
+                  <div className="border rounded-lg p-3 space-y-2 max-h-48 overflow-y-auto">
+                    <p className="text-xs text-muted-foreground mb-2">
+                      {selectedClientIds.length === 0 
+                        ? "Nenhum cliente selecionado = acesso a todos os clientes"
+                        : "Selecione os clientes que este membro poderá acessar:"}
+                    </p>
+                    {clients.map((client) => (
+                      <div
+                        key={client.id}
+                        className="flex items-center gap-2 p-2 rounded hover:bg-muted/50 cursor-pointer"
+                        onClick={() => toggleClientSelection(client.id)}
+                      >
+                        <Checkbox
+                          checked={selectedClientIds.includes(client.id)}
+                          onCheckedChange={() => toggleClientSelection(client.id)}
+                        />
+                        <span className="text-sm">{client.name}</span>
+                      </div>
+                    ))}
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
+            )}
           </div>
         </form>
 
@@ -150,6 +260,21 @@ export function TeamManagement() {
                     <Badge variant="outline" className={roleColors[invite.role]}>
                       {roleLabels[invite.role]}
                     </Badge>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleResendInvite(invite)}
+                            disabled={resendingInviteId === invite.id}
+                          >
+                            <RefreshCw className={`h-4 w-4 ${resendingInviteId === invite.id ? "animate-spin" : ""}`} />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Reenviar email</TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                     <Button
                       variant="ghost"
                       size="icon"

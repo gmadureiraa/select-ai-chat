@@ -75,11 +75,18 @@ export const useTeamMembers = () => {
   });
 
   const inviteMember = useMutation({
-    mutationFn: async ({ email, role, clientIds }: { email: string; role: WorkspaceRole; clientIds?: string[] }) => {
+    mutationFn: async ({ email, role, clientIds, clientNames }: { email: string; role: WorkspaceRole; clientIds?: string[]; clientNames?: string[] }) => {
       if (!workspace?.id) throw new Error("No workspace");
 
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
+
+      // Get inviter profile
+      const { data: inviterProfile } = await supabase
+        .from("profiles")
+        .select("full_name, email")
+        .eq("id", user.id)
+        .single();
 
       const { data, error } = await supabase
         .from("workspace_invites")
@@ -115,6 +122,23 @@ export const useTeamMembers = () => {
         }
       }
 
+      // Send invite email
+      try {
+        await supabase.functions.invoke("send-invite-email", {
+          body: {
+            email: email.toLowerCase(),
+            workspaceName: workspace.name,
+            inviterName: inviterProfile?.full_name || inviterProfile?.email || "Um administrador",
+            role,
+            expiresAt: data.expires_at,
+            clientNames: clientNames || [],
+          },
+        });
+      } catch (emailError) {
+        console.error("Error sending invite email:", emailError);
+        // Don't throw - invite was created successfully, just log the email error
+      }
+
       return data;
     },
     onSuccess: () => {
@@ -122,7 +146,7 @@ export const useTeamMembers = () => {
       queryClient.invalidateQueries({ queryKey: ["invite-clients"] });
       toast({
         title: "Convite enviado",
-        description: "O membro receberá acesso ao fazer login com este email.",
+        description: "O email de convite foi enviado com sucesso.",
       });
     },
     onError: (error: Error) => {

@@ -161,3 +161,6 @@ verify_jwt = true
 
 [functions.execute-agent]
 verify_jwt = true
+
+[functions.send-invite-email]
+verify_jwt = true
