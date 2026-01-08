@@ -101,28 +101,81 @@ export interface ChatError {
 }
 
 // Função para detectar pedidos de geração de imagem
-// IMPORTANTE: Apenas comandos explícitos @gerar imagem ou @imagem ativam a geração
-export function detectImageGenerationRequest(message: string): { isImageRequest: boolean; prompt: string } {
-  // APENAS comandos explícitos @ ativam a geração de imagem
+// Suporta comandos explícitos @ e linguagem natural
+export function detectImageGenerationRequest(message: string): { 
+  isImageRequest: boolean; 
+  prompt: string;
+  isContextual: boolean; // true quando o usuário quer imagem "disso" (do conteúdo anterior)
+} {
+  // Comandos explícitos @ (prioridade máxima)
   const explicitImageCommands = [
-    /@gerar[\s_-]?imagem/i,           // @gerar imagem, @gerar_imagem, @gerar-imagem
-    /@imagem/i,                        // @imagem
-    /@generate[\s_-]?image/i,          // @generate image (inglês)
-    /@image/i,                         // @image (inglês)
+    /@gerar[\s_-]?imagem/i,
+    /@imagem/i,
+    /@generate[\s_-]?image/i,
+    /@image/i,
   ];
 
-  const isImageRequest = explicitImageCommands.some(pattern => pattern.test(message));
+  // Padrões de linguagem natural para geração de imagem
+  const naturalImagePatterns = [
+    /gera(r)? (uma? )?imagem/i,
+    /cria(r)? (uma? )?imagem/i,
+    /faz(er)? (uma? )?(arte|imagem|visual)/i,
+    /gera(r)? (uma? )?(arte|visual)/i,
+    /(quero|preciso) (de )?(uma? )?(imagem|arte|visual)/i,
+    /produz(ir)? (uma? )?imagem/i,
+    /me (faz|gera|cria) (uma? )?imagem/i,
+  ];
+
+  // Padrões que indicam referência ao conteúdo anterior
+  const contextualPatterns = [
+    /(imagem|arte|visual) (pra |para )?(isso|esse|essa|este|esta)/i,
+    /(imagem|arte|visual) (do|da|desse|dessa) (conteúdo|post|texto|ideia)/i,
+    /gera(r)? imagem (pra|para) (isso|esse|essa)/i,
+    /(faz|cria|gera) (uma? )?(imagem|arte) (disso|desse|dessa)/i,
+    /imagem (baseada?|inspirada?) (no|na|nisso|nesse|nessa)/i,
+  ];
+
+  const isExplicitCommand = explicitImageCommands.some(pattern => pattern.test(message));
+  const isNaturalRequest = naturalImagePatterns.some(pattern => pattern.test(message));
+  const isContextual = contextualPatterns.some(pattern => pattern.test(message));
+
+  const isImageRequest = isExplicitCommand || isNaturalRequest;
   
-  // Extrair o prompt removendo os comandos @
+  // Extrair o prompt removendo os comandos
   let prompt = message;
   if (isImageRequest) {
     prompt = message
+      // Remover comandos @
       .replace(/@gerar[\s_-]?imagem\s*/gi, '')
       .replace(/@imagem\s*/gi, '')
       .replace(/@generate[\s_-]?image\s*/gi, '')
       .replace(/@image\s*/gi, '')
+      // Remover padrões naturais comuns
+      .replace(/gera(r)? (uma? )?imagem\s*/gi, '')
+      .replace(/cria(r)? (uma? )?imagem\s*/gi, '')
+      .replace(/faz(er)? (uma? )?(arte|imagem|visual)\s*/gi, '')
+      .replace(/me (faz|gera|cria) (uma? )?imagem\s*/gi, '')
+      .replace(/(quero|preciso) (de )?(uma? )?(imagem|arte|visual)\s*/gi, '')
+      // Limpar referências contextuais
+      .replace(/(pra |para )?(isso|esse|essa|este|esta|disso|desse|dessa)/gi, '')
+      .replace(/(do|da) (conteúdo|post|texto|ideia)/gi, '')
       .trim();
   }
 
-  return { isImageRequest, prompt };
+  return { isImageRequest, prompt, isContextual };
+}
+
+// Função para extrair o último conteúdo relevante das mensagens
+export function extractLastRelevantContent(messages: Message[]): string | null {
+  // Procurar de trás para frente por conteúdo substantivo do assistente
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const msg = messages[i];
+    if (msg.role === 'assistant' && msg.content) {
+      // Ignorar mensagens muito curtas ou que são apenas confirmações
+      if (msg.content.length > 100) {
+        return msg.content;
+      }
+    }
+  }
+  return null;
 }

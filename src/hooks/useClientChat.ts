@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Message, Client, Website, Document, ProcessStep, MultiAgentStep, detectImageGenerationRequest } from "@/types/chat";
+import { Message, Client, Website, Document, ProcessStep, MultiAgentStep, detectImageGenerationRequest, extractLastRelevantContent } from "@/types/chat";
 import { createChatError, getErrorMessage } from "@/lib/errors";
 import { validateMessage, validateModelId } from "@/lib/validation";
 import { withRetry, RetryError } from "@/lib/retry";
@@ -367,8 +367,22 @@ export const useClientChat = (clientId: string, templateId?: string, conversatio
         try {
           // Para templates de imagem, usa o conteúdo diretamente como prompt
           // Para detecção automática, usa o prompt extraído
-          const imagePrompt = isImageTemplateMode ? content : (imageGenRequest.prompt || content);
-          console.log("[CHAT] Image generation - mode:", isImageTemplateMode ? "template" : "auto-detect", "prompt:", imagePrompt);
+          // Se for contextual (ex: "gera imagem disso"), usa o conteúdo anterior
+          let imagePrompt = isImageTemplateMode ? content : (imageGenRequest.prompt || content);
+          
+          // Se for um pedido contextual e o prompt está vazio/curto, buscar conteúdo anterior
+          if (imageGenRequest.isContextual || imagePrompt.length < 20) {
+            const lastContent = extractLastRelevantContent(messages || []);
+            if (lastContent) {
+              console.log("[CHAT] Using contextual content for image generation, content length:", lastContent.length);
+              // Combinar o prompt do usuário (se houver) com o conteúdo anterior
+              imagePrompt = imagePrompt.length > 5 
+                ? `${imagePrompt}\n\nBaseado no seguinte conteúdo:\n${lastContent.substring(0, 2000)}`
+                : `Crie uma imagem visual impactante para o seguinte conteúdo:\n${lastContent.substring(0, 2000)}`;
+            }
+          }
+          
+          console.log("[CHAT] Image generation - mode:", isImageTemplateMode ? "template" : "auto-detect", "contextual:", imageGenRequest.isContextual, "prompt length:", imagePrompt.length);
           
           // Detectar formato baseado no template ativo
           const imageFormat = detectImageFormat(template?.name);
