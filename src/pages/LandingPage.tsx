@@ -1,4 +1,3 @@
-import { ThemeProvider } from "next-themes";
 import NewLandingHeader from "@/components/landing/NewLandingHeader";
 import NewHeroSection from "@/components/landing/NewHeroSection";
 import ServicesCarousel from "@/components/landing/ServicesCarousel";
@@ -17,25 +16,23 @@ import LandingFooter from "@/components/landing/LandingFooter";
 
 const LandingPage = () => {
   return (
-    <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
-      <div className="min-h-screen bg-background">
-        <NewLandingHeader />
-        <NewHeroSection />
-        <ServicesCarousel />
-        <StatsSection />
-        <AboutSection />
-        <AgentFlowSection />
-        <PlannerDiagramSection />
-        <WorkflowSection />
-        <FeaturesGrid />
-        <IntegrationsOrbit />
-        <TestimonialsSection />
-        <PricingSection />
-        <FAQSection />
-        <CTASection />
-        <LandingFooter />
-      </div>
-    </ThemeProvider>
+    <div className="min-h-screen bg-background">
+      <NewLandingHeader />
+      <NewHeroSection />
+      <ServicesCarousel />
+      <StatsSection />
+      <AboutSection />
+      <AgentFlowSection />
+      <PlannerDiagramSection />
+      <WorkflowSection />
+      <FeaturesGrid />
+      <IntegrationsOrbit />
+      <TestimonialsSection />
+      <PricingSection />
+      <FAQSection />
+      <CTASection />
+      <LandingFooter />
+    </div>
   );
 };
 
