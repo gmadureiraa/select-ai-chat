@@ -162,3 +162,6 @@ verify_jwt = true
 
 [functions.send-invite-email]
 verify_jwt = true
+
+[functions.firecrawl-scrape]
+verify_jwt = true

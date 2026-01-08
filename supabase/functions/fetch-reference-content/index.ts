@@ -10,6 +10,7 @@ interface ReferenceResult {
   success: boolean;
   title?: string;
   content?: string;
+  markdown?: string;
   type?: 'youtube' | 'article' | 'html' | 'newsletter';
   thumbnail?: string;
   images?: string[];
@@ -60,7 +61,8 @@ serve(async (req) => {
       if (isYoutubeUrl(url)) {
         result = await fetchYoutubeContent(url, supabase, authHeader);
       } else {
-        result = await fetchArticleContent(url);
+        // Try Firecrawl first, then fallback
+        result = await fetchWithFirecrawl(url) || await fetchArticleContent(url);
       }
     } else {
       return new Response(JSON.stringify({ error: 'URL or HTML required' }), {
@@ -72,7 +74,8 @@ serve(async (req) => {
     console.log('[fetch-reference-content] Result:', { 
       success: result.success, 
       type: result.type,
-      contentLength: result.content?.length || 0 
+      contentLength: result.content?.length || 0,
+      imagesCount: result.images?.length || 0,
     });
 
     return new Response(JSON.stringify(result), {
@@ -96,19 +99,15 @@ function isYoutubeUrl(url: string): boolean {
 }
 
 function extractYoutubeVideoId(url: string): string | null {
-  // Thumbnail URL: https://i.ytimg.com/an_webp/VIDEO_ID/... or https://i.ytimg.com/vi/VIDEO_ID/...
   const thumbnailMatch = url.match(/ytimg\.com\/(?:an_webp|vi|vi_webp)\/([^\/]+)/);
   if (thumbnailMatch) return thumbnailMatch[1];
   
-  // Standard URL: https://www.youtube.com/watch?v=VIDEO_ID
   const watchMatch = url.match(/youtube\.com\/watch\?v=([^&]+)/);
   if (watchMatch) return watchMatch[1];
   
-  // Short URL: https://youtu.be/VIDEO_ID
   const shortMatch = url.match(/youtu\.be\/([^?]+)/);
   if (shortMatch) return shortMatch[1];
   
-  // Embed URL: https://www.youtube.com/embed/VIDEO_ID
   const embedMatch = url.match(/youtube\.com\/embed\/([^?]+)/);
   if (embedMatch) return embedMatch[1];
   
@@ -117,39 +116,43 @@ function extractYoutubeVideoId(url: string): string | null {
 
 function processHtml(html: string): ReferenceResult {
   try {
-    // Extract text content from HTML, removing tags
     let content = html
-      // Remove script and style tags with content
       .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
       .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
-      // Remove HTML comments
       .replace(/<!--[\s\S]*?-->/g, '')
-      // Replace block elements with newlines
       .replace(/<\/?(p|div|br|h[1-6]|li|tr)[^>]*>/gi, '\n')
-      // Remove remaining tags
       .replace(/<[^>]+>/g, ' ')
-      // Decode HTML entities
       .replace(/&nbsp;/g, ' ')
       .replace(/&amp;/g, '&')
       .replace(/&lt;/g, '<')
       .replace(/&gt;/g, '>')
       .replace(/&quot;/g, '"')
       .replace(/&#39;/g, "'")
-      // Clean up whitespace
       .replace(/\s+/g, ' ')
       .replace(/\n\s*\n/g, '\n\n')
       .trim();
 
-    // Try to extract title from HTML
     const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
     const h1Match = html.match(/<h1[^>]*>([^<]+)<\/h1>/i);
     const title = titleMatch?.[1] || h1Match?.[1] || 'Newsletter Content';
+
+    // Extract images from HTML
+    const images: string[] = [];
+    const imgRegex = /<img[^>]+src=["']([^"']+)["'][^>]*>/gi;
+    let match;
+    while ((match = imgRegex.exec(html)) !== null) {
+      const imgUrl = match[1];
+      if (!imgUrl.includes('pixel') && !imgUrl.includes('1x1') && !imgUrl.startsWith('data:')) {
+        images.push(imgUrl);
+      }
+    }
 
     return {
       success: true,
       title: title.trim(),
       content,
       type: 'newsletter',
+      images,
     };
   } catch (error) {
     return {
@@ -159,13 +162,97 @@ function processHtml(html: string): ReferenceResult {
   }
 }
 
+async function fetchWithFirecrawl(url: string): Promise<ReferenceResult | null> {
+  const apiKey = Deno.env.get('FIRECRAWL_API_KEY');
+  if (!apiKey) {
+    console.log('[fetch-reference-content] Firecrawl not configured');
+    return null;
+  }
+
+  try {
+    console.log('[fetch-reference-content] Using Firecrawl for:', url);
+    
+    const response = await fetch('https://api.firecrawl.dev/v1/scrape', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        url,
+        formats: ['markdown', 'html'],
+        onlyMainContent: true,
+      }),
+    });
+
+    if (!response.ok) {
+      console.error('[fetch-reference-content] Firecrawl error:', response.status);
+      return null;
+    }
+
+    const result = await response.json();
+    const data = result.data || result;
+    const metadata = data.metadata || {};
+    
+    // Extract images from HTML
+    const images: string[] = [];
+    const html = data.html || '';
+    
+    // Add OG image first
+    if (metadata.ogImage) {
+      images.push(metadata.ogImage);
+    }
+
+    const imgRegex = /<img[^>]+src=["']([^"']+)["'][^>]*>/gi;
+    let match;
+    while ((match = imgRegex.exec(html)) !== null) {
+      let imgUrl = match[1];
+      
+      if (imgUrl.includes('pixel') || imgUrl.includes('1x1') || imgUrl.startsWith('data:')) {
+        continue;
+      }
+      
+      // Convert relative URLs
+      if (imgUrl.startsWith('//')) {
+        imgUrl = 'https:' + imgUrl;
+      } else if (imgUrl.startsWith('/')) {
+        try {
+          const baseUrl = new URL(url);
+          imgUrl = baseUrl.origin + imgUrl;
+        } catch { continue; }
+      }
+      
+      if (imgUrl.startsWith('http') && !images.includes(imgUrl)) {
+        images.push(imgUrl);
+      }
+    }
+
+    console.log('[fetch-reference-content] Firecrawl success:', {
+      contentLength: (data.markdown || '').length,
+      imagesCount: images.length,
+    });
+
+    return {
+      success: true,
+      title: metadata.title || 'Article',
+      content: data.markdown || '',
+      markdown: data.markdown || '',
+      type: 'article',
+      thumbnail: metadata.ogImage || images[0],
+      images,
+    };
+  } catch (error) {
+    console.error('[fetch-reference-content] Firecrawl error:', error);
+    return null;
+  }
+}
+
 async function fetchYoutubeContent(
   url: string, 
   supabase: any,
   authHeader: string
 ): Promise<ReferenceResult> {
   try {
-    // Extract video ID from various URL formats (including thumbnails)
     const videoId = extractYoutubeVideoId(url);
     if (!videoId) {
       console.error('[fetch-reference-content] Could not extract video ID from:', url);
@@ -175,11 +262,9 @@ async function fetchYoutubeContent(
       };
     }
 
-    // Use standard YouTube URL for extraction
     const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
-    console.log('[fetch-reference-content] Extracted video ID:', videoId, 'Using URL:', videoUrl);
+    console.log('[fetch-reference-content] Extracted video ID:', videoId);
 
-    // Call the existing extract-youtube function
     const { data, error } = await supabase.functions.invoke('extract-youtube', {
       body: { url: videoUrl },
     });
@@ -192,7 +277,6 @@ async function fetchYoutubeContent(
       };
     }
 
-    // Build thumbnail URL if not provided
     const thumbnail = data.thumbnailUrl || `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`;
 
     return {
@@ -234,12 +318,12 @@ async function fetchArticleContent(url: string): Promise<ReferenceResult> {
     const ogTitleMatch = html.match(/<meta[^>]*property=["']og:title["'][^>]*content=["']([^"']+)["']/i);
     const title = ogTitleMatch?.[1] || titleMatch?.[1] || 'Article';
 
-    // Extract og:image as main thumbnail
+    // Extract thumbnail
     const ogImageMatch = html.match(/<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["']/i) ||
                          html.match(/<meta[^>]*content=["']([^"']+)["'][^>]*property=["']og:image["']/i);
     const thumbnail = ogImageMatch?.[1] || null;
 
-    // Extract other images from the article
+    // Extract all images (no limit)
     const images: string[] = [];
     if (thumbnail) {
       images.push(thumbnail);
@@ -247,10 +331,9 @@ async function fetchArticleContent(url: string): Promise<ReferenceResult> {
 
     const imgRegex = /<img[^>]+src=["']([^"']+)["'][^>]*>/gi;
     let imgMatch;
-    while ((imgMatch = imgRegex.exec(html)) !== null && images.length < 5) {
+    while ((imgMatch = imgRegex.exec(html)) !== null) {
       let imgUrl = imgMatch[1];
       
-      // Normalize relative URLs
       if (imgUrl.startsWith('//')) {
         imgUrl = 'https:' + imgUrl;
       } else if (imgUrl.startsWith('/')) {
@@ -260,14 +343,11 @@ async function fetchArticleContent(url: string): Promise<ReferenceResult> {
         } catch { continue; }
       }
       
-      // Filter out tracking pixels, icons, and data URIs
       if (
         !imgUrl.includes('1x1') &&
         !imgUrl.includes('pixel') &&
         !imgUrl.includes('.svg') &&
         !imgUrl.includes('data:image') &&
-        !imgUrl.includes('icon') &&
-        !imgUrl.includes('logo') &&
         imgUrl.startsWith('http') &&
         !images.includes(imgUrl)
       ) {
@@ -275,17 +355,13 @@ async function fetchArticleContent(url: string): Promise<ReferenceResult> {
       }
     }
 
-    // Try to extract main article content using common patterns
-    let content = '';
-    
-    // Look for article, main, or content divs
+    // Extract content
     const articleMatch = html.match(/<article[^>]*>([\s\S]*?)<\/article>/i);
     const mainMatch = html.match(/<main[^>]*>([\s\S]*?)<\/main>/i);
     
     const rawContent = articleMatch?.[1] || mainMatch?.[1] || html;
     
-    // Clean HTML to text
-    content = rawContent
+    let content = rawContent
       .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
       .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
       .replace(/<nav[^>]*>[\s\S]*?<\/nav>/gi, '')
@@ -304,15 +380,15 @@ async function fetchArticleContent(url: string): Promise<ReferenceResult> {
       .replace(/\n\s*\n/g, '\n\n')
       .trim();
 
-    // Limit content length
-    if (content.length > 15000) {
-      content = content.substring(0, 15000) + '...';
+    // Increased limit: 100k characters
+    if (content.length > 100000) {
+      content = content.substring(0, 100000) + '...';
     }
 
     console.log('[fetch-reference-content] Article extracted:', { 
       title: title.trim(), 
-      thumbnail,
-      imagesCount: images.length 
+      contentLength: content.length,
+      imagesCount: images.length,
     });
 
     return {
