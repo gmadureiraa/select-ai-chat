@@ -22,7 +22,7 @@
 
 ## 🎯 ESTRUTURA OBRIGATÓRIA
 
-### SLIDE 1: CAPA (Crítico!)
+### PÁGINA 1: CAPA (Crítico!)
 
 **Função:** Criar curiosidade e fazer a pessoa continuar
 
@@ -47,37 +47,24 @@
 
 ---
 
-### SLIDES 2-8: CONTEÚDO
+### PÁGINAS 2-8: CONTEÚDO
 
-**Princípio Fundamental:** Um ponto por slide
+**Princípio Fundamental:** Um ponto por página
 
-**Estrutura de Cada Slide:**
-- Título/Headline do ponto (opcional, mas recomendado)
-- Texto principal (máximo 30 palavras por slide)
+**Estrutura de Cada Página:**
+- Título do ponto (opcional)
+- Texto principal (máximo 30 palavras por página)
 - Visual que complementa o texto
-- Cada slide deve ter valor próprio
-
-**Exemplo de Slide:**
-```
-[VISUAL: Ícone ou imagem relacionada]
-
-TÍTULO: "Erro #1: Multitarefa"
-
-TEXTO:
-"Estudos mostram que multitarefa reduz produtividade em 40%.
-
-Foco em uma tarefa por vez aumenta qualidade e velocidade."
-```
+- Cada página deve ter valor próprio
 
 **Técnicas:**
-- Use números para indicar progresso (1/7, 2/7, etc.)
 - Mantenha consistência visual
-- Transição suave entre slides
+- Transição suave entre páginas
 - Gancho que cria curiosidade para o próximo
 
 ---
 
-### SLIDE 9: RESUMO ou CONCLUSÃO
+### PÁGINA 9: RESUMO ou CONCLUSÃO
 
 **Função:** Reforçar os pontos principais
 
@@ -86,41 +73,15 @@ Foco em uma tarefa por vez aumenta qualidade e velocidade."
 - Ou mensagem final forte
 - Visual de fechamento
 
-**Exemplo:**
-```
-[VISUAL: Resumo visual]
-
-"RECAPITULANDO:
-• Ponto 1
-• Ponto 2
-• Ponto 3
-• Ponto 4
-• Ponto 5"
-```
-
 ---
 
-### SLIDE 10: CTA + ENGAGEMENT
+### PÁGINA 10: CTA + ENGAGEMENT
 
 **Elementos Obrigatórios:**
 - Call-to-action principal
 - "Salve para depois" (instrução)
 - "Manda pra alguém" (instrução de compartilhamento)
 - Visual de fechamento
-
-**Exemplo:**
-```
-[VISUAL: CTA visual]
-
-"SALVE ESTE POST
-Para consultar depois 📌
-
-MANDE PARA ALGUÉM
-Que precisa ver isso 📤
-
-SEGUIR [@conta]
-Para mais conteúdo como esse ➡️"
-```
 
 ---
 
@@ -131,7 +92,7 @@ Para mais conteúdo como esse ➡️"
 - Promessa clara de valor
 - Gera curiosidade
 
-### 2. Cada Slide: Máximo 30 Palavras
+### 2. Cada Página: Máximo 30 Palavras
 - Texto deve ser legível
 - Evite textos longos (dificulta leitura)
 - Menos é mais
@@ -146,8 +107,8 @@ Para mais conteúdo como esse ➡️"
 - Preto no branco ou branco no preto
 - Evite cores similares
 
-### 5. Gancho Entre Slides
-- Cada slide deve criar curiosidade para o próximo
+### 5. Gancho Entre Páginas
+- Cada página deve criar curiosidade para a próxima
 - Use frases de transição quando necessário
 - Mantenha fluxo narrativo
 
@@ -155,10 +116,10 @@ Para mais conteúdo como esse ➡️"
 - Mantenha estilo visual consistente
 - Cores da marca
 - Tipografia consistente
-- Layout similar entre slides
+- Layout similar entre páginas
 
-### 7. Um Ponto por Slide
-- Não sobrecarregue o slide
+### 7. Um Ponto por Página
+- Não sobrecarregue a página
 - Foco em clareza
 - Fácil de consumir
 
@@ -169,25 +130,46 @@ Para mais conteúdo como esse ➡️"
 Ao entregar um carrossel, use este formato:
 
 ```
-[SLIDE 1 - CAPA]
-TÍTULO: [Headline impactante]
-TEXTO: [Texto da capa se houver]
-VISUAL RECOMENDADO: [Descrição da imagem/design - SEMPRE no final do slide]
+Página 1:
+[Headline impactante]
 
-[SLIDE 2]
-TÍTULO: [Título do ponto]
-TEXTO: [Texto do slide - máx 30 palavras]
-VISUAL RECOMENDADO: [Descrição do visual - SEMPRE no final do slide]
+[Texto da capa se houver]
 
-[...continue para todos os slides...]
+VISUAL RECOMENDADO: [Descrição da imagem/design]
 
-[SLIDE 9 - RESUMO]
-TEXTO: [Lista dos pontos principais]
-VISUAL RECOMENDADO: [Descrição - SEMPRE no final do slide]
+---
 
-[SLIDE 10 - CTA]
-TEXTO: [CTA + "Salve para depois" + "Manda pra alguém"]
-VISUAL RECOMENDADO: [Descrição - SEMPRE no final do slide]
+Página 2:
+[Título do ponto - opcional]
+
+[Texto da página - máx 30 palavras]
+
+VISUAL RECOMENDADO: [Descrição do visual]
+
+---
+
+[...continue para todas as páginas...]
+
+---
+
+Página 9:
+[Lista dos pontos principais ou mensagem de fechamento]
+
+VISUAL RECOMENDADO: [Descrição]
+
+---
+
+Página 10:
+SALVE ESTE POST 📌
+Para consultar depois
+
+MANDE PARA ALGUÉM 📤
+Que precisa ver isso
+
+SEGUIR [@conta] ➡️
+Para mais conteúdo como esse
+
+VISUAL RECOMENDADO: [Descrição]
 
 ---
 
@@ -197,46 +179,95 @@ LEGENDA:
 
 **Exemplo Completo:**
 ```
-[SLIDE 1 - CAPA]
-TÍTULO: "5 erros que destroem produtividade"
-TEXTO: "Você está cometendo algum desses erros?"
+Página 1:
+5 erros que destroem produtividade
+
+Você está cometendo algum desses erros?
+
 VISUAL RECOMENDADO: Fundo com cores da marca, texto grande e centralizado
 
-[SLIDE 2]
-TÍTULO: "Erro #1: Multitarefa"
-TEXTO: "Estudos mostram que multitarefa reduz produtividade em 40%.
-Foque em uma tarefa por vez."
+---
+
+Página 2:
+Erro #1: Multitarefa
+
+Estudos mostram que multitarefa reduz produtividade em 40%.
+Foque em uma tarefa por vez.
+
 VISUAL RECOMENDADO: Ícone de múltiplas tarefas com X vermelho sobreposto
 
-[...slides 3-8...]
+---
 
-[SLIDE 9 - RESUMO]
-TEXTO: "RECAPITULANDO:
+Página 3:
+Erro #2: Sem foco
+
+Distrações quebram sua concentração constantemente.
+Elimine notificações durante tarefas importantes.
+
+VISUAL RECOMENDADO: Ícone de celular com notificações sendo silenciadas
+
+---
+
+Página 4:
+Erro #3: Sem descanso
+
+Descanso não é luxo, é necessidade para alta performance.
+Faça pausas regulares.
+
+VISUAL RECOMENDADO: Ícone de pessoa relaxando ou timer de pausa
+
+---
+
+Página 5:
+Erro #4: Sem priorização
+
+Nem tudo é urgente. Identifique o que realmente importa.
+Use a matriz de Eisenhower.
+
+VISUAL RECOMENDADO: Matriz 2x2 simplificada de priorização
+
+---
+
+Página 6:
+Erro #5: Perfeccionismo
+
+Feito é melhor que perfeito.
+Progresso > Perfeição.
+
+VISUAL RECOMENDADO: Barra de progresso mostrando avanço
+
+---
+
+Página 7:
+RECAPITULANDO:
+
 1. Evite multitarefa
 2. Elimine distrações
-3. Use técnica Pomodoro
+3. Descanse adequadamente
 4. Priorize tarefas importantes
-5. Descanse adequadamente"
+5. Pare de buscar perfeição
+
 VISUAL RECOMENDADO: Layout de lista numerada com ícones para cada item
 
-[SLIDE 10 - CTA]
-TEXTO: "SALVE ESTE POST 📌
+---
+
+Página 8:
+SALVE ESTE POST 📌
 MANDE PARA ALGUÉM 📤
-SEGUIR [@conta] ➡️"
+SEGUIR [@conta] ➡️
+
 VISUAL RECOMENDADO: CTA visual com ícones de salvar, compartilhar e seguir
 
 ---
 
 LEGENDA:
-"Quer aumentar sua produtividade? ⚡
+Quer aumentar sua produtividade? ⚡
 
 Neste carrossel compartilho os 5 erros mais comuns que destroem a produtividade e como evitá-los.
 
-[Slide 1-10 do carrossel]
-
 Qual desses erros você mais comete? Deixa nos comentários! 👇
 
-#produtividade #foco #trabalho #dicas #empreendedorismo"
+#produtividade #foco #trabalho #dicas #empreendedorismo
 ```
 
 ---
@@ -274,13 +305,13 @@ Qual desses erros você mais comete? Deixa nos comentários! 👇
 ## ❌ ERROS COMUNS A EVITAR
 
 1. ❌ Capa sem headline impactante
-2. ❌ Slides com texto muito longo (>30 palavras)
+2. ❌ Páginas com texto muito longo (>30 palavras)
 3. ❌ Fonte muito pequena (ilegível)
 4. ❌ Baixo contraste (texto vs fundo)
-5. ❌ Inconsistência visual entre slides
-6. ❌ Mais de um ponto por slide
-7. ❌ Sem gancho entre slides
-8. ❌ Slide final sem CTA claro
+5. ❌ Inconsistência visual entre páginas
+6. ❌ Mais de um ponto por página
+7. ❌ Sem gancho entre páginas
+8. ❌ Página final sem CTA claro
 9. ❌ Legenda genérica ou sem valor
 10. ❌ Muitas hashtags (parece spam)
 
