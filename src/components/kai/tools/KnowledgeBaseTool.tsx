@@ -106,8 +106,9 @@ export const KnowledgeBaseTool = () => {
       
       completeAllTasks();
       toast.success('PDF extraído com sucesso!');
-    } catch (error: any) {
-      toast.error('Erro ao processar PDF: ' + error.message);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+      toast.error('Erro ao processar PDF: ' + errorMessage);
     } finally {
       setIsUploading(false);
     }
@@ -174,8 +175,9 @@ export const KnowledgeBaseTool = () => {
       advanceToTask("categorize");
       completeAllTasks();
       toast.success('Conteúdo extraído e resumido!');
-    } catch (error: any) {
-      toast.error('Erro ao processar URL: ' + error.message);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+      toast.error('Erro ao processar URL: ' + errorMessage);
     } finally {
       setIsProcessingUrl(false);
     }
@@ -199,8 +201,9 @@ export const KnowledgeBaseTool = () => {
       setFormSummary(data.summary || '');
       setFormKeyTakeaways(data.keyTakeaways || []);
       toast.success('Resumo gerado!');
-    } catch (error: any) {
-      toast.error('Erro ao gerar resumo: ' + error.message);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+      toast.error('Erro ao gerar resumo: ' + errorMessage);
     }
   };
 
