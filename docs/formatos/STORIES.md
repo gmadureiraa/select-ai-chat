@@ -22,14 +22,13 @@
 
 ## 🎯 ESTRUTURA DE SEQUÊNCIA
 
-### Story 1: CAPA/GANCHO
+### Página 1: CAPA/GANCHO
 
 **Função:** Criar curiosidade para continuar
 
 **Características:**
 - Visual impactante
 - Texto curto e claro
-- Indicação de sequência ("1/5")
 - Deve fazer querer continuar
 
 **Exemplos:**
@@ -39,15 +38,15 @@
 
 ---
 
-### Stories 2-N: CONTEÚDO
+### Páginas 2-N: CONTEÚDO
 
-**Princípio:** Uma ideia por story
+**Princípio:** Uma ideia por página
 
-**Estrutura de Cada Story:**
+**Estrutura de Cada Página:**
 - Visual claro e atrativo
 - Texto curto (máximo 50 palavras)
 - Fácil de ler rapidamente
-- Cada story tem valor próprio
+- Cada página tem valor próprio
 
 **Tipos de Conteúdo:**
 - Dicas rápidas
@@ -58,7 +57,7 @@
 
 ---
 
-### Último Story: CTA/ENCERRAMENTO
+### Última Página: CTA/ENCERRAMENTO
 
 **Elementos:**
 - Resumo ou mensagem final
@@ -70,12 +69,12 @@
 
 ## ✅ REGRAS DE OURO
 
-### 1. Sequência de 3-7 Stories Ideal
-- Menos de 3: Pode ser 1 story só
+### 1. Sequência de 3-7 Páginas Ideal
+- Menos de 3: Pode ser 1 página só
 - Mais de 7: Risco de perder atenção
-- 5 stories é a zona doce
+- 5 páginas é a zona doce
 
-### 2. Uma Ideia por Story
+### 2. Uma Ideia por Página
 - Foque em clareza
 - Não sobrecarregue
 - Fácil de consumir rapidamente
@@ -91,14 +90,9 @@
 - Cores atrativas
 
 ### 5. Sequência com Fluxo
-- Stories conectadas
+- Páginas conectadas
 - Narrativa clara
 - Progressão lógica
-
-### 6. Indicação de Sequência
-- "1/5", "2/5", etc.
-- Facilita navegação
-- Mostra progresso
 
 ---
 
@@ -107,61 +101,77 @@
 Ao entregar uma sequência de stories, use este formato:
 
 ```
-**SEQUÊNCIA:** [X stories]
+Página 1:
+[Texto da capa - máx 50 palavras]
 
-[STORY 1/5 - CAPA]
-TEXTO: [Texto da capa - máx 50 palavras]
-INDICAÇÃO: "1/5" ou "1 de 5"
-VISUAL RECOMENDADO: [Descrição do visual - SEMPRE no final do story]
+VISUAL RECOMENDADO: [Descrição do visual]
 
-[STORY 2/5]
-TEXTO: [Texto - máx 50 palavras]
-INDICAÇÃO: "2/5"
-VISUAL RECOMENDADO: [Descrição - SEMPRE no final do story]
+---
 
-[...continue para todos os stories...]
+Página 2:
+[Texto - máx 50 palavras]
 
-[STORY 5/5 - CTA]
-TEXTO: [CTA e encerramento]
-INDICAÇÃO: "5/5"
+VISUAL RECOMENDADO: [Descrição]
+
+---
+
+[...continue para todas as páginas...]
+
+---
+
+Página 5:
+[CTA e encerramento]
+
 LINK: [Se aplicável]
-VISUAL RECOMENDADO: [Descrição - SEMPRE no final do story]
+
+VISUAL RECOMENDADO: [Descrição]
 ```
 
 **Exemplo Completo:**
 ```
-**SEQUÊNCIA:** 5 stories
+Página 1:
+3 erros que destroem produtividade ⚡
 
-[STORY 1/5 - CAPA]
-TEXTO: "3 erros que destroem produtividade ⚡"
-INDICAÇÃO: "1/5"
 VISUAL RECOMENDADO: Fundo com cores da marca, texto centralizado grande
 
-[STORY 2/5]
-TEXTO: "Erro #1: Multitarefa
-Estudos mostram que reduz produtividade em 40%"
-INDICAÇÃO: "2/5"
+---
+
+Página 2:
+Erro #1: Multitarefa
+
+Estudos mostram que reduz produtividade em 40%
+
 VISUAL RECOMENDADO: Texto grande com ícone de multitarefa
 
-[STORY 3/5]
-VISUAL: Texto grande com ícone
-TEXTO: "Erro #2: Sem foco
-Distrações quebram sua concentração constantemente"
-INDICAÇÃO: "3/5"
+---
 
-[STORY 4/5]
-VISUAL: Texto grande com ícone
-TEXTO: "Erro #3: Sem descanso
-Descanso não é luxo, é necessidade para alta performance"
-INDICAÇÃO: "4/5"
+Página 3:
+Erro #2: Sem foco
 
-[STORY 5/5 - CTA]
-VISUAL: CTA visual com fundo atrativo
-TEXTO: "SALVA ESTE POST
+Distrações quebram sua concentração constantemente
+
+VISUAL RECOMENDADO: Texto grande com ícone de notificações
+
+---
+
+Página 4:
+Erro #3: Sem descanso
+
+Descanso não é luxo, é necessidade para alta performance
+
+VISUAL RECOMENDADO: Texto grande com ícone de pausa
+
+---
+
+Página 5:
+SALVA ESTE POST
 Para consultar depois 📌
-LINK NA BIO ➡️"
-INDICAÇÃO: "5/5"
+
+LINK NA BIO ➡️
+
 LINK: [Se disponível]
+
+VISUAL RECOMENDADO: CTA visual com fundo atrativo
 ```
 
 ---
@@ -204,7 +214,7 @@ LINK: [Se disponível]
 - Visual limpo (não poluído)
 
 ### Texto
-- Máximo 50 palavras por story
+- Máximo 50 palavras por página
 - Fonte grande (mínimo 32px)
 - Frases curtas
 - Linguagem direta
@@ -212,7 +222,7 @@ LINK: [Se disponível]
 ### Sequência
 - Fluxo narrativo claro
 - Progressão lógica
-- Cada story constrói sobre anterior
+- Cada página constrói sobre anterior
 - Fechamento com valor
 
 ### Engajamento
@@ -227,13 +237,12 @@ LINK: [Se disponível]
 1. ❌ Stories muito longas (>10 segundos)
 2. ❌ Texto muito pequeno (ilegível)
 3. ❌ Muito texto (sobrecarrega)
-4. ❌ Sequência muito longa (>7 stories)
-5. ❌ Sem indicação de sequência
-6. ❌ Stories desconectadas
-7. ❌ Visual poluído
-8. ❌ Sem CTA no final
-9. ❌ Baixo contraste (texto vs fundo)
-10. ❌ Sem valor claro em cada story
+4. ❌ Sequência muito longa (>7 páginas)
+5. ❌ Páginas desconectadas
+6. ❌ Visual poluído
+7. ❌ Sem CTA no final
+8. ❌ Baixo contraste (texto vs fundo)
+9. ❌ Sem valor claro em cada página
 
 ---
 
