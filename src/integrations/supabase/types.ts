@@ -3490,6 +3490,10 @@ export type Database = {
         Args: { p_client_id: string; p_user_id: string }
         Returns: boolean
       }
+      can_access_planning_item: {
+        Args: { _planning_item_id: string }
+        Returns: boolean
+      }
       can_delete_in_specific_workspace: {
         Args: { _user_id: string; _workspace_id: string }
         Returns: boolean
