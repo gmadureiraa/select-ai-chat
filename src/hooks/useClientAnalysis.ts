@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -61,18 +61,38 @@ export function useClientAnalysis() {
   const [analysis, setAnalysis] = useState<ClientAnalysis | null>(null);
   const [progress, setProgress] = useState<AnalysisProgress>({ step: '', progress: 0 });
   const [error, setError] = useState<string | null>(null);
+  const progressIntervalRef = useRef<number | null>(null);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (progressIntervalRef.current) {
+        clearInterval(progressIntervalRef.current);
+        progressIntervalRef.current = null;
+      }
+    };
+  }, []);
 
   const runAnalysis = useCallback(async (clientData: ClientData): Promise<ClientAnalysis | null> => {
+    // Clear any existing interval
+    if (progressIntervalRef.current) {
+      clearInterval(progressIntervalRef.current);
+      progressIntervalRef.current = null;
+    }
+
     setIsAnalyzing(true);
     setError(null);
     setProgress({ step: 'Iniciando análise...', progress: 10 });
 
     try {
       // Simulate progress updates with detailed steps
-      const progressInterval = setInterval(() => {
+      progressIntervalRef.current = window.setInterval(() => {
         setProgress(prev => {
           if (prev.progress >= 90) {
-            clearInterval(progressInterval);
+            if (progressIntervalRef.current) {
+              clearInterval(progressIntervalRef.current);
+              progressIntervalRef.current = null;
+            }
             return prev;
           }
           
@@ -95,7 +115,11 @@ export function useClientAnalysis() {
         body: { clientData }
       });
 
-      clearInterval(progressInterval);
+      // Clear interval after API call
+      if (progressIntervalRef.current) {
+        clearInterval(progressIntervalRef.current);
+        progressIntervalRef.current = null;
+      }
 
       if (fnError) {
         throw new Error(fnError.message);

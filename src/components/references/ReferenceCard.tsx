@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Edit, Trash2, Eye, ExternalLink } from "lucide-react";
 import { getContentTypeLabel } from "@/types/contentTypes";
 import { getPublicUrl } from "@/lib/storage";
+import { cleanContentForPreview } from "@/lib/text-utils";
 
 interface ReferenceCardProps {
   reference: ReferenceItem;
@@ -13,32 +14,12 @@ interface ReferenceCardProps {
   onView: (reference: ReferenceItem) => void;
 }
 
-// Clean markdown and page separators from content for preview
-const cleanContentForPreview = (text: string): string => {
-  if (!text) return "";
-  return text
-    .replace(/---\s*(PÁGINA|SLIDE|PAGE)\s*\d+\s*---/gi, "") // Remove legacy separators
-    .replace(/##\s*📱\s*Slide\s*\d+/gi, "") // Remove new slide headers
-    .replace(/##\s*📄\s*Página\s*\d+/gi, "") // Remove new page headers
-    .replace(/\*\*([^*]+)\*\*/g, "$1")
-    .replace(/\*([^*]+)\*/g, "$1")
-    .replace(/#{1,6}\s/g, "")
-    .replace(/`([^`]+)`/g, "$1")
-    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
-    .replace(/!\[([^\]]*)\]\([^)]+\)/g, "")
-    .replace(/^\s*[-*+]\s/gm, "")
-    .replace(/^\s*\d+\.\s/gm, "")
-    .replace(/\n{2,}/g, " ")
-    .replace(/\n/g, " ")
-    .trim();
-};
-
 // Get the first image URL from reference metadata
 const getPreviewImageUrl = (reference: ReferenceItem): string | null => {
   if (reference.thumbnail_url) return getPublicUrl(reference.thumbnail_url);
   
   if (reference.metadata && typeof reference.metadata === 'object') {
-    const meta = reference.metadata as any;
+    const meta = reference.metadata as Record<string, unknown>;
     if (meta.image_urls && Array.isArray(meta.image_urls) && meta.image_urls.length > 0) {
       return getPublicUrl(meta.image_urls[0]);
     }

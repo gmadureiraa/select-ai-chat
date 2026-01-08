@@ -210,7 +210,7 @@ export function usePlanningItems(filters: PlanningFilters = {}) {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['planning-items'] });
+      queryClient.invalidateQueries({ queryKey: ['planning-items', workspaceId] });
       toast.success('Card criado com sucesso');
     },
     onError: (error) => {
@@ -252,7 +252,7 @@ export function usePlanningItems(filters: PlanningFilters = {}) {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['planning-items'] });
+      queryClient.invalidateQueries({ queryKey: ['planning-items', workspaceId] });
     },
     onError: (error) => {
       toast.error('Erro ao atualizar: ' + error.message);
@@ -270,7 +270,7 @@ export function usePlanningItems(filters: PlanningFilters = {}) {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['planning-items'] });
+      queryClient.invalidateQueries({ queryKey: ['planning-items', workspaceId] });
       toast.success('Card excluído');
     },
     onError: (error) => {
@@ -304,7 +304,7 @@ export function usePlanningItems(filters: PlanningFilters = {}) {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['planning-items'] });
+      queryClient.invalidateQueries({ queryKey: ['planning-items', workspaceId] });
     }
   });
 
@@ -348,7 +348,7 @@ export function usePlanningItems(filters: PlanningFilters = {}) {
       return libraryItem;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['planning-items'] });
+      queryClient.invalidateQueries({ queryKey: ['planning-items', workspaceId] });
       queryClient.invalidateQueries({ queryKey: ['content-library'] });
       toast.success('Adicionado à biblioteca!');
     },
@@ -374,7 +374,7 @@ export function usePlanningItems(filters: PlanningFilters = {}) {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['planning-items'] });
+      queryClient.invalidateQueries({ queryKey: ['planning-items', workspaceId] });
       toast.success('Agendado com sucesso!');
     },
     onError: (error) => {
@@ -397,7 +397,7 @@ export function usePlanningItems(filters: PlanningFilters = {}) {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['planning-items'] });
+      queryClient.invalidateQueries({ queryKey: ['planning-items', workspaceId] });
       toast.success('Agendado para nova tentativa');
     }
   });
