@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Message, Client, Website, Document, ProcessStep, MultiAgentStep, detectImageGenerationRequest, extractLastRelevantContent } from "@/types/chat";
 import { detectContextualReference } from "@/hooks/useContextualReference";
+import { autoDetectImageFormat } from "@/hooks/useAutoImageFormat";
 import { createChatError, getErrorMessage } from "@/lib/errors";
 import { validateMessage, validateModelId } from "@/lib/validation";
 import { withRetry, RetryError } from "@/lib/retry";
@@ -385,10 +386,11 @@ export const useClientChat = (clientId: string, templateId?: string, conversatio
           
           console.log("[CHAT] Image generation - mode:", isImageTemplateMode ? "template" : "auto-detect", "contextual:", imageGenRequest.isContextual, "prompt length:", imagePrompt.length);
           
-          // Detectar formato baseado no template ativo
-          const imageFormat = detectImageFormat(template?.name);
-          const formatSpec = getImageFormatSpec(imageFormat);
-          console.log("[CHAT] Image format detected:", imageFormat, "aspect:", formatSpec.aspectRatio);
+          // SPRINT 4: Detecção automática de formato baseado no contexto
+          // Prioridade: prompt do usuário > template > conteúdo anterior
+          const lastContent = extractLastRelevantContent(messages || []);
+          const autoFormat = autoDetectImageFormat(imagePrompt, lastContent || undefined, template?.name);
+          console.log("[CHAT] Auto-detected image format:", autoFormat.format, "aspect:", autoFormat.aspectRatio, "confidence:", autoFormat.confidence, "reason:", autoFormat.reason);
           
           // Buscar análises de estilo das referências visuais
           const { data: visualRefs } = await supabase
@@ -429,8 +431,8 @@ export const useClientChat = (clientId: string, templateId?: string, conversatio
                   clientId: clientId,
                   styleAnalyses: styleAnalyses,
                   brandAssets: brandAssets,
-                  imageFormat: imageFormat,
-                  aspectRatio: formatSpec.aspectRatio,
+                  imageFormat: autoFormat.format,
+                  aspectRatio: autoFormat.aspectRatio,
                 },
               });
               
@@ -477,9 +479,9 @@ export const useClientChat = (clientId: string, templateId?: string, conversatio
               userId: user?.id,
               referenceImages: allReferenceImages.length > 0 ? allReferenceImages : undefined,
               styleAnalysis: references.styleAnalysis || undefined,
-              imageFormat: imageFormat,
-              formatInstructions: formatSpec.instructions,
-              aspectRatio: formatSpec.aspectRatio,
+              imageFormat: autoFormat.format,
+              formatInstructions: `Formato: ${autoFormat.format} | Aspect Ratio: ${autoFormat.aspectRatio} | Plataforma: ${autoFormat.platform || 'universal'} | ${autoFormat.reason}`,
+              aspectRatio: autoFormat.aspectRatio,
               templateName: template?.name,
               imageSpec: imageSpec,
             },
