@@ -8,6 +8,7 @@ import { ImageActionButtons } from "./ImageActionButtons";
 import { AddToPlanningButton } from "./AddToPlanningButton";
 import { AdjustImageButton } from "./AdjustImageButton";
 import { ResponseCard, hasResponseCardPayload, ResponseCardPayload } from "./ResponseCard";
+import { QuickActionsSuggestions, detectContentType } from "./QuickActionsSuggestions";
 import { useState, useMemo, memo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -99,14 +100,17 @@ export const EnhancedMessageBubble = memo(function EnhancedMessageBubble({
     return parseArtifacts(content);
   }, [content, isUser]);
 
-  // Social post detection completely disabled - always return empty
-  const detectedPosts: any[] = [];
+  // Detect content type for smart quick actions
+  const contentType = useMemo(() => {
+    if (isUser || content.length < 100) return "general";
+    return detectContentType(content);
+  }, [content, isUser]);
 
   // Check if content is substantial (could be a post or content worth action)
   const isSubstantialContent = !isUser && content.length > 100 && !hideContentActions;
 
-  // Check if this is a social media post that could use image generation
-  const showImageActions = isSubstantialContent && onSendMessage && !hideContentActions;
+  // Show smart quick actions for substantial assistant responses
+  const showQuickActions = isSubstantialContent && onSendMessage && isLastMessage;
 
   // Check if this is a generated image message
   const isGeneratedImageMessage = !isUser && hasImages && (content.includes("Imagem gerada") || isGeneratedImage);
@@ -328,33 +332,14 @@ export const EnhancedMessageBubble = memo(function EnhancedMessageBubble({
             </div>
           )}
 
-          {/* Action buttons for content - AFTER text content */}
-          {!isUser && isSubstantialContent && onSendMessage && (
-            <div className="flex items-center gap-2 flex-wrap animate-in fade-in slide-in-from-bottom-2 duration-300">
-              <ImageActionButtons
-                postContent={detectedPosts.length > 0 ? detectedPosts[0].content : content.substring(0, 500)}
-                onGenerateImage={handleGenerateImage}
-                onRequestIdeas={handleRequestIdeas}
-                platform={detectedPosts.length > 0 ? detectedPosts[0].platform : undefined}
-                clientName={clientName}
-              />
-              <AddToPlanningButton
-                content={detectedPosts.length > 0 ? detectedPosts[0].content : content}
-                platform={detectedPosts.length > 0 ? detectedPosts[0].platform : undefined}
-                clientId={clientId}
-                clientName={clientName}
-                mediaUrls={hasImages ? imageUrls : undefined}
-              />
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => onSendMessage(`Revise e melhore este conteúdo, mantendo a essência mas tornando-o mais engajante:\n\n${content.substring(0, 1000)}`)}
-                className="h-7 text-xs gap-1.5"
-              >
-                <RefreshCw className="h-3 w-3" />
-                Revisar
-              </Button>
-            </div>
+          {/* Smart Quick Actions based on content type */}
+          {showQuickActions && (
+            <QuickActionsSuggestions
+              contentType={contentType}
+              content={content}
+              onAction={(prompt) => onSendMessage(prompt)}
+              className="animate-in fade-in slide-in-from-bottom-2 duration-300"
+            />
           )}
           
           {/* Ações */}
