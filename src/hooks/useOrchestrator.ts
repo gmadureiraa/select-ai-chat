@@ -38,7 +38,7 @@ export function useOrchestrator(options: UseOrchestratorOptions) {
 
   const analyzeRequest = useCallback(async (
     userMessage: string,
-    availableData: Record<string, any>
+    availableData: Record<string, unknown>
   ): Promise<OrchestratorDecision | null> => {
     try {
       // Quick local analysis first
@@ -78,9 +78,10 @@ export function useOrchestrator(options: UseOrchestratorOptions) {
 
       if (error) throw error;
       return data as OrchestratorDecision;
-    } catch (error: any) {
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Erro desconhecido";
       console.error("[ORCHESTRATOR] Analysis error:", error);
-      options.onError?.(error.message);
+      options.onError?.(errorMessage);
       return null;
     }
   }, [options.clientId, options.clientContext, user?.id, options.onError]);
@@ -88,7 +89,7 @@ export function useOrchestrator(options: UseOrchestratorOptions) {
   const executeStep = useCallback(async (
     step: AgentExecution,
     userMessage: string,
-    additionalData: Record<string, any>
+    additionalData: Record<string, unknown>
   ): Promise<AgentExecution> => {
     const startTime = new Date().toISOString();
     
@@ -151,11 +152,12 @@ export function useOrchestrator(options: UseOrchestratorOptions) {
       options.onStepComplete?.(completedStep);
       return completedStep;
 
-    } catch (error: any) {
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Erro desconhecido";
       const errorStep: AgentExecution = {
         ...step,
         status: "error",
-        error: error.message,
+        error: errorMessage,
         startedAt: startTime,
         completedAt: new Date().toISOString()
       };
@@ -174,7 +176,7 @@ export function useOrchestrator(options: UseOrchestratorOptions) {
   const executePlan = useCallback(async (
     plan: OrchestratorDecision,
     userMessage: string,
-    additionalData: Record<string, any>
+    additionalData: Record<string, unknown>
   ) => {
     // Initialize executions
     const initialExecutions: AgentExecution[] = plan.executionPlan.map(step => ({
@@ -233,13 +235,14 @@ export function useOrchestrator(options: UseOrchestratorOptions) {
 
       options.onComplete?.(lastOutput);
 
-    } catch (error: any) {
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Erro desconhecido";
       setState(prev => ({
         ...prev,
         isActive: false,
         completedAt: new Date().toISOString()
       }));
-      options.onError?.(error.message);
+      options.onError?.(errorMessage);
     }
   }, [executeStep, state.isPaused, options]);
 
