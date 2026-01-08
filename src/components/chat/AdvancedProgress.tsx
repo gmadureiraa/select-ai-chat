@@ -19,6 +19,13 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ProcessStep, MultiAgentStep } from "@/types/chat";
+import { 
+  AGENT_STEPS, 
+  PROCESS_STEP_LABELS, 
+  MULTI_AGENT_STEP_LABELS,
+  formatTokens,
+  formatCost 
+} from "@/config/ai-models";
 
 interface SubTask {
   id: string;
@@ -63,16 +70,6 @@ const stepIcons: Record<string, typeof Brain> = {
   reviewer: CheckCircle2,
 };
 
-// Model pricing per 1M tokens (input/output) in USD
-const MODEL_PRICING: Record<string, { input: number; output: number }> = {
-  "gemini-2.5-flash": { input: 0.075, output: 0.30 },
-  "gemini-2.5-pro": { input: 1.25, output: 5.00 },
-  "gemini-2.0-flash-lite": { input: 0.02, output: 0.08 },
-  "flash": { input: 0.075, output: 0.30 },
-  "pro": { input: 1.25, output: 5.00 },
-  "flash-lite": { input: 0.02, output: 0.08 },
-};
-
 export const AdvancedProgress = ({
   currentStep,
   multiAgentStep,
@@ -102,20 +99,6 @@ export const AdvancedProgress = ({
     return mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
   };
 
-  const formatTokens = (tokens: number) => {
-    if (tokens >= 1000) {
-      return `${(tokens / 1000).toFixed(1)}k`;
-    }
-    return tokens.toString();
-  };
-
-  const formatCost = (cost: number) => {
-    if (cost < 0.01) {
-      return `$${cost.toFixed(4)}`;
-    }
-    return `$${cost.toFixed(3)}`;
-  };
-
   const getProgressPercentage = () => {
     if (multiAgentStep) {
       const steps = ["researcher", "writer", "editor", "reviewer", "complete"];
@@ -130,27 +113,9 @@ export const AdvancedProgress = ({
 
   const getCurrentStepLabel = () => {
     if (multiAgentStep) {
-      const labels: Record<string, string> = {
-        researcher: "🔍 Pesquisador analisando contexto...",
-        writer: "✍️ Escritor criando rascunho...",
-        editor: "📝 Editor de estilo refinando...",
-        reviewer: "✅ Revisor finalizando...",
-        complete: "✨ Completo!",
-        error: "❌ Erro no processamento"
-      };
-      return labels[multiAgentStep] || "Processando...";
+      return MULTI_AGENT_STEP_LABELS[multiAgentStep] || "Processando...";
     }
-    
-    const labels: Record<string, string> = {
-      analyzing: "Analisando sua solicitação...",
-      analyzing_library: "Lendo biblioteca de conteúdo...",
-      selecting: "Selecionando referências...",
-      reviewing: "Preparando contexto...",
-      creating: "Gerando resposta...",
-      generating_image: "Gerando imagem com IA...",
-      multi_agent: "Pipeline multi-agente ativo..."
-    };
-    return labels[currentStep || ""] || "Processando...";
+    return PROCESS_STEP_LABELS[currentStep || ""] || "Processando...";
   };
 
   const Icon = stepIcons[multiAgentStep || currentStep || "analyzing"] || Brain;
@@ -292,19 +257,12 @@ export const AdvancedProgress = ({
         <div className="pt-3 border-t border-border/40">
           <p className="text-[9px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">Pipeline de Geração</p>
           <div className="flex items-center gap-1 bg-muted/30 rounded-xl p-2">
-            {["researcher", "writer", "editor", "reviewer"].map((agent, i) => {
+            {(["researcher", "writer", "editor", "reviewer"] as const).map((agent, i) => {
               const isActive = agent === multiAgentStep;
               const isCompleted = ["researcher", "writer", "editor", "reviewer"].indexOf(agent) < 
                                  ["researcher", "writer", "editor", "reviewer"].indexOf(multiAgentStep);
               
-              const agentConfig = {
-                researcher: { icon: "🔍", label: "Pesquisador", color: "blue" },
-                writer: { icon: "✍️", label: "Escritor", color: "violet" },
-                editor: { icon: "📝", label: "Editor", color: "rose" },
-                reviewer: { icon: "✅", label: "Revisor", color: "emerald" }
-              };
-              
-              const config = agentConfig[agent as keyof typeof agentConfig];
+              const config = AGENT_STEPS[agent];
 
               // Find token usage for this agent
               const agentUsage = tokenUsage.find(u => u.agentId === agent);

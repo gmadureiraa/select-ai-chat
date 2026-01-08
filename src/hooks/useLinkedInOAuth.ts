@@ -1,15 +1,38 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useQueryClient } from '@tanstack/react-query';
 
+const POPUP_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes max
+
 export function useLinkedInOAuthPopup(clientId: string) {
   const [isLoading, setIsLoading] = useState(false);
-  const [popup, setPopup] = useState<Window | null>(null);
+  const popupRef = useRef<Window | null>(null);
+  const intervalRef = useRef<number | null>(null);
+  const timeoutRef = useRef<number | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  // Cleanup function
+  const cleanup = useCallback(() => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+    popupRef.current = null;
+  }, []);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return cleanup;
+  }, [cleanup]);
+
   const openPopup = useCallback(async () => {
+    cleanup(); // Clean any previous state
     setIsLoading(true);
     
     try {
@@ -41,10 +64,32 @@ export function useLinkedInOAuthPopup(clientId: string) {
           description: 'Permita popups para conectar o LinkedIn.',
           variant: 'destructive'
         });
+        setIsLoading(false);
         return;
       }
 
-      setPopup(newPopup);
+      popupRef.current = newPopup;
+
+      // Set timeout to prevent infinite polling
+      timeoutRef.current = window.setTimeout(() => {
+        if (popupRef.current && !popupRef.current.closed) {
+          popupRef.current.close();
+        }
+        cleanup();
+        toast({
+          title: 'Tempo esgotado',
+          description: 'A conexão com LinkedIn expirou. Tente novamente.',
+          variant: 'destructive'
+        });
+      }, POPUP_TIMEOUT_MS);
+
+      // Monitor popup close
+      intervalRef.current = window.setInterval(() => {
+        if (popupRef.current?.closed) {
+          cleanup();
+          queryClient.invalidateQueries({ queryKey: ['social-credentials', clientId] });
+        }
+      }, 500);
     } catch (error) {
       console.error('[useLinkedInOAuth] Error:', error);
       const message = error instanceof Error ? error.message : 'Erro desconhecido';
@@ -65,28 +110,11 @@ export function useLinkedInOAuthPopup(clientId: string) {
     } finally {
       setIsLoading(false);
     }
-  }, [clientId, toast]);
-
-  // Monitor popup close and check for success
-  useEffect(() => {
-    if (!popup) return;
-
-    const interval = setInterval(() => {
-      if (popup.closed) {
-        clearInterval(interval);
-        setPopup(null);
-        
-        // Invalidate queries to refresh credential status
-        queryClient.invalidateQueries({ queryKey: ['social-credentials', clientId] });
-      }
-    }, 500);
-
-    return () => clearInterval(interval);
-  }, [popup, clientId, queryClient]);
+  }, [clientId, toast, cleanup, queryClient]);
 
   return {
     openPopup,
     isLoading,
-    isPopupOpen: !!popup
+    isPopupOpen: !!popupRef.current
   };
 }

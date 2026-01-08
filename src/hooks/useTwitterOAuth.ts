@@ -1,6 +1,9 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useEffect, useRef, useCallback } from "react";
+
+const POPUP_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes max
 
 export function useStartTwitterOAuth() {
   return useMutation({
@@ -24,8 +27,37 @@ export function useStartTwitterOAuth() {
 export function useTwitterOAuthPopup(clientId: string) {
   const queryClient = useQueryClient();
   const startOAuth = useStartTwitterOAuth();
+  
+  const popupRef = useRef<Window | null>(null);
+  const pollTimerRef = useRef<number | null>(null);
+  const timeoutRef = useRef<number | null>(null);
+  const messageHandlerRef = useRef<((event: MessageEvent) => void) | null>(null);
+
+  // Cleanup function
+  const cleanup = useCallback(() => {
+    if (pollTimerRef.current) {
+      clearInterval(pollTimerRef.current);
+      pollTimerRef.current = null;
+    }
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+    if (messageHandlerRef.current) {
+      window.removeEventListener('message', messageHandlerRef.current);
+      messageHandlerRef.current = null;
+    }
+    popupRef.current = null;
+  }, []);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return cleanup;
+  }, [cleanup]);
 
   const openPopup = async () => {
+    cleanup(); // Clean any previous state
+    
     try {
       const authUrl = await startOAuth.mutateAsync(clientId);
       
@@ -46,25 +78,36 @@ export function useTwitterOAuthPopup(clientId: string) {
         return;
       }
 
+      popupRef.current = popup;
+
       // Listen for messages from popup
       const handleMessage = (event: MessageEvent) => {
         if (event.data?.type === 'TWITTER_OAUTH_SUCCESS') {
           toast.success(`X/Twitter conectado! @${event.data.accountName}`);
           queryClient.invalidateQueries({ queryKey: ['social-credentials', clientId] });
-          window.removeEventListener('message', handleMessage);
+          cleanup();
         } else if (event.data?.type === 'TWITTER_OAUTH_ERROR') {
           toast.error(`Erro ao conectar: ${event.data.error}`);
-          window.removeEventListener('message', handleMessage);
+          cleanup();
         }
       };
 
+      messageHandlerRef.current = handleMessage;
       window.addEventListener('message', handleMessage);
 
-      // Also poll for popup close (in case message fails)
-      const pollTimer = setInterval(() => {
-        if (popup.closed) {
-          clearInterval(pollTimer);
-          window.removeEventListener('message', handleMessage);
+      // Set timeout to prevent infinite polling
+      timeoutRef.current = window.setTimeout(() => {
+        if (popupRef.current && !popupRef.current.closed) {
+          popupRef.current.close();
+        }
+        cleanup();
+        toast.error('Tempo esgotado. Tente novamente.');
+      }, POPUP_TIMEOUT_MS);
+
+      // Poll for popup close (in case message fails)
+      pollTimerRef.current = window.setInterval(() => {
+        if (popupRef.current?.closed) {
+          cleanup();
           // Refresh credentials after popup closes
           setTimeout(() => {
             queryClient.invalidateQueries({ queryKey: ['social-credentials', clientId] });
@@ -74,6 +117,7 @@ export function useTwitterOAuthPopup(clientId: string) {
 
     } catch (error) {
       console.error('Twitter OAuth error:', error);
+      cleanup();
     }
   };
 

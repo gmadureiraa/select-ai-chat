@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Edit, Trash2, FileText, Instagram, Video, Film, Globe, MessageSquare, Smartphone, Image as ImageIcon, Play, Twitter, Linkedin } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { getContentTypeLabel } from "@/types/contentTypes";
+import { cleanContentForPreview } from "@/lib/text-utils";
 
 interface ContentCardProps {
   content: ContentItem;
@@ -12,7 +13,7 @@ interface ContentCardProps {
   onView: (content: ContentItem) => void;
 }
 
-const contentTypeConfig: Record<string, { icon: any; color: string }> = {
+const contentTypeConfig: Record<string, { icon: typeof FileText; color: string }> = {
   newsletter: { icon: FileText, color: "bg-blue-500/10 text-blue-500" },
   carousel: { icon: Instagram, color: "bg-pink-500/10 text-pink-500" },
   stories: { icon: Smartphone, color: "bg-orange-500/10 text-orange-500" },
@@ -27,27 +28,6 @@ const contentTypeConfig: Record<string, { icon: any; color: string }> = {
   other: { icon: FileText, color: "bg-gray-500/10 text-gray-500" },
 };
 
-// Clean markdown and page separators from content for preview
-const cleanContentForPreview = (text: string): string => {
-  if (!text) return "";
-  return text
-    .replace(/---\s*(PÁGINA|SLIDE|PAGE)\s*\d+\s*---/gi, "") // Remove legacy page separators
-    .replace(/##\s*📱\s*Slide\s*\d+/gi, "") // Remove new slide headers
-    .replace(/##\s*📄\s*Página\s*\d+/gi, "") // Remove new page headers
-    .replace(/\*\*([^*]+)\*\*/g, "$1") // Remove bold markdown
-    .replace(/\*([^*]+)\*/g, "$1") // Remove italic markdown
-    .replace(/#{1,6}\s/g, "") // Remove headers
-    .replace(/`([^`]+)`/g, "$1") // Remove inline code
-    .replace(/`([^`]+)`/g, "$1") // Remove inline code
-    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1") // Remove links, keep text
-    .replace(/!\[([^\]]*)\]\([^)]+\)/g, "") // Remove images
-    .replace(/^\s*[-*+]\s/gm, "") // Remove list markers
-    .replace(/^\s*\d+\.\s/gm, "") // Remove numbered list markers
-    .replace(/\n{2,}/g, " ") // Replace multiple newlines with space
-    .replace(/\n/g, " ") // Replace single newlines with space
-    .trim();
-};
-
 // Get the first image from content metadata
 const getPreviewImage = (content: ContentItem): string | null => {
   // Check thumbnail_url first
@@ -55,7 +35,7 @@ const getPreviewImage = (content: ContentItem): string | null => {
   
   // Check metadata for image_urls
   if (content.metadata && typeof content.metadata === 'object') {
-    const meta = content.metadata as any;
+    const meta = content.metadata as Record<string, unknown>;
     if (meta.image_urls && Array.isArray(meta.image_urls) && meta.image_urls.length > 0) {
       return meta.image_urls[0];
     }
