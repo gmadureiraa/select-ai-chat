@@ -29,7 +29,12 @@ class ResendClient {
 
 const Resend = ResendClient;
 
-const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
+// Validate API key at startup and create client
+const resendApiKey = Deno.env.get("RESEND_API_KEY");
+if (!resendApiKey) {
+  console.error("RESEND_API_KEY not configured");
+}
+const resend = new Resend(resendApiKey);
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -59,6 +64,14 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
+    // Check if Resend API key is configured
+    if (!resendApiKey) {
+      return new Response(
+        JSON.stringify({ error: "Email service not configured" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const { email, workspaceName, workspaceSlug, inviterName, role, expiresAt, clientNames }: InviteEmailRequest = await req.json();
 
     const roleLabel = roleLabels[role] || role;
