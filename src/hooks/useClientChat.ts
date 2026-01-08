@@ -170,12 +170,10 @@ export const useClientChat = (clientId: string, templateId?: string, conversatio
       if (fetchError) throw fetchError;
 
       if (existing) {
-        console.log("[useClientChat] Found existing conversation:", existing.id);
         return existing;
       }
 
       // Create the single main conversation if none exists
-      console.log("[useClientChat] Creating new default conversation for client:", clientId);
       const { data: newConv, error: createError } = await supabase
         .from("conversations")
         .insert({
@@ -200,13 +198,6 @@ export const useClientChat = (clientId: string, templateId?: string, conversatio
     }
   }, [conversation]);
 
-  // DEPRECATED: We no longer create new conversations
-  // Each client has ONE conversation. Use clearConversation to reset.
-  const startNewConversation = useCallback(async () => {
-    console.warn("[useClientChat] startNewConversation is deprecated. Use clearConversation instead.");
-    // Just refetch the existing conversation
-    await refetchConversation();
-  }, [refetchConversation]);
 
   // Get messages
   const { data: messages = [] } = useQuery({
@@ -344,7 +335,7 @@ export const useClientChat = (clientId: string, templateId?: string, conversatio
     setIsIdeaMode(isExplicitIdeaMode);
     setIsFreeChatMode(isFreeChatModeExplicit);
     
-    console.log("[CHAT] Explicit mode:", explicitMode, "| isExplicitIdeaMode:", isExplicitIdeaMode, "| isFreeChatMode:", isFreeChatModeExplicit);
+    
 
     try {
       // Save user message with citations in payload
@@ -2103,7 +2094,6 @@ IMPORTANTE: O novo conteúdo deve parecer escrito pelo mesmo autor.`;
     sendMessage,
     regenerateLastMessage,
     clearConversation,
-    startNewConversation,
     contentLibrary,
     referenceLibrary,
   };

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Send, Paperclip, Sparkles, MoreHorizontal, Copy, ThumbsUp, RefreshCw } from "lucide-react";
+import { Send, Paperclip, Copy, ThumbsUp, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import kaleidosLogo from "@/assets/kaleidos-logo.svg";
@@ -98,7 +98,7 @@ export function Kai2ChatArea({ messages, onSendMessage, isLoading }: Kai2ChatAre
   };
 
   return (
-    <div className="flex flex-col h-full bg-[hsl(0,0%,4%)]">
+    <div className="flex flex-col h-full bg-background">
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-6 py-4">
         <div className="max-w-3xl mx-auto space-y-6">
