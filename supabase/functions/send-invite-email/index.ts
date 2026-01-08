@@ -61,7 +61,7 @@ const handler = async (req: Request): Promise<Response> => {
     const { email, workspaceName, inviterName, role, expiresAt, clientNames }: InviteEmailRequest = await req.json();
 
     const roleLabel = roleLabels[role] || role;
-    const appUrl = Deno.env.get("APP_URL") || "https://kaleidos.app";
+    const appUrl = Deno.env.get("APP_URL") || "https://kai-marketing-assistant.lovable.app";
     
     // Format client access info
     let clientAccessHtml = "";
@@ -109,9 +109,15 @@ const handler = async (req: Request): Promise<Response> => {
         </p>
         
         <div style="text-align: center; margin: 32px 0;">
-          <a href="${appUrl}/auth" style="display: inline-block; background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%); color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 600; font-size: 15px;">
-            Aceitar Convite
-          </a>
+          <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="margin: 0 auto;">
+            <tr>
+              <td style="border-radius: 8px; background-color: #7c3aed;">
+                <a href="${appUrl}/auth" target="_blank" style="display: inline-block; padding: 14px 32px; font-size: 15px; font-weight: 600; color: #ffffff; text-decoration: none; border-radius: 8px; background-color: #7c3aed;">
+                  Aceitar Convite
+                </a>
+              </td>
+            </tr>
+          </table>
         </div>
         
         <p style="margin: 24px 0 0 0; color: #9ca3af; font-size: 13px; text-align: center;">
