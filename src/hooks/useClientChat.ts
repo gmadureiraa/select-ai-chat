@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Message, Client, Website, Document, ProcessStep, MultiAgentStep, detectImageGenerationRequest, extractLastRelevantContent } from "@/types/chat";
+import { detectContextualReference } from "@/hooks/useContextualReference";
 import { createChatError, getErrorMessage } from "@/lib/errors";
 import { validateMessage, validateModelId } from "@/lib/validation";
 import { withRetry, RetryError } from "@/lib/retry";
@@ -1000,8 +1001,14 @@ INSTRUÇÕES:
         return;
       }
 
+      // Detectar referência contextual ("isso", "essa ideia", etc.)
+      const contextualRef = detectContextualReference(messages || [], content);
+      const enrichedContent = contextualRef.hasReference ? contextualRef.enrichedPrompt : content;
+      
+      console.log("[CHAT] Contextual reference detected:", contextualRef.hasReference);
+      
       // Detectar tipo de conteúdo para multi-agente (apenas se NÃO estiver em modo ideias)
-      const earlyDetectedType = detectContentType(content);
+      const earlyDetectedType = detectContentType(enrichedContent);
       
       // Usar pipeline multi-agente APENAS quando:
       // 1. NÃO está em modo ideias explícito E
@@ -1042,7 +1049,7 @@ INSTRUÇÕES:
 
           const { data, error } = await supabase.functions.invoke("chat-multi-agent", {
             body: {
-              userMessage: content,
+              userMessage: enrichedContent, // Usar conteúdo enriquecido com contexto
               contentLibrary: contentLibrary.slice(0, 20).map(c => ({
                 id: c.id,
                 title: c.title,
@@ -1298,7 +1305,7 @@ ${referenceLibrary.length > 0 ? `## 📖 REFERÊNCIAS DE ESTILO:\n${referenceCon
         
         // Criar "seleção" a partir das citações manuais
         selection = {
-          detected_content_type: detectContentType(content) || 'general',
+          detected_content_type: detectContentType(enrichedContent) || 'general',
           selected_references: citations.map(c => ({
             id: c.id,
             type: c.type,
@@ -1418,7 +1425,7 @@ AGORA CHAME A FUNÇÃO select_relevant_content com:
         const selectionMessages = [
           { role: "system", content: selectionSystemMessage },
           ...messages.map(m => ({ role: m.role, content: m.content })),
-          { role: "user", content: `TAREFA: Analise a biblioteca acima e use a função select_relevant_content para selecionar materiais relevantes para: "${content}"` }
+          { role: "user", content: `TAREFA: Analise a biblioteca acima e use a função select_relevant_content para selecionar materiais relevantes para: "${enrichedContent}"` }
         ];
 
         // USAR MODELO MAIS BARATO para seleção automática
@@ -1613,7 +1620,7 @@ IMPORTANTE: O novo conteúdo deve parecer escrito pelo mesmo autor.`;
       contextParts.push(``);
 
       // Detectar se usuário está pedindo ideias de forma inteligente
-      const ideaRequest = parseIdeaRequest(content);
+      const ideaRequest = parseIdeaRequest(enrichedContent);
       let isAskingForIdeas = ideaRequest.isIdea;
       const requestedQuantity = ideaRequest.quantity || 5;
 
@@ -1644,7 +1651,7 @@ IMPORTANTE: O novo conteúdo deve parecer escrito pelo mesmo autor.`;
       
 
       // Priorizar: citação manual > detecção no texto > seleção automática
-      const detectedType = detectedTypeFromCitation || ideaRequest.contentType || detectContentType(content) || selection.detected_content_type;
+      const detectedType = detectedTypeFromCitation || ideaRequest.contentType || detectContentType(enrichedContent) || selection.detected_content_type;
 
       // Se é pedido de IDEIAS, aplicar regras específicas de ideias
       if (isAskingForIdeas) {
@@ -1910,7 +1917,7 @@ IMPORTANTE: O novo conteúdo deve parecer escrito pelo mesmo autor.`;
         }),
         { 
           role: "user" as const, 
-          content,
+          content: enrichedContent, // Usar conteúdo enriquecido com contexto
           ...(imageUrls && imageUrls.length > 0 ? { image_urls: imageUrls } : {})
         },
       ];
