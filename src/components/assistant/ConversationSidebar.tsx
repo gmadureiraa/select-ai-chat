@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { formatDistanceToNow, isToday, isYesterday, isThisWeek, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import { ConversationSearch } from "@/components/chat/ConversationSearch";
 
 interface ConversationSidebarProps {
   clientId: string;
@@ -166,14 +167,17 @@ export const ConversationSidebar = ({
         </Button>
         
         {hasConversations && (
-          <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-            <Input
-              placeholder="Buscar conversas..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="h-8 pl-8 text-xs"
-            />
+          <div className="space-y-2">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+              <Input
+                placeholder="Buscar conversas..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="h-8 pl-8 text-xs"
+              />
+            </div>
+            <ConversationSearch clientId={clientId} onSelectConversation={onSelectConversation} />
           </div>
         )}
       </div>

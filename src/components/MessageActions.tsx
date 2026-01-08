@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { useToast } from "@/hooks/use-toast";
 import { useFavoriteMessages } from "@/hooks/useFavoriteMessages";
+import { MessageRating } from "@/components/chat/MessageRating";
 import {
   Tooltip,
   TooltipContent,
@@ -115,6 +116,11 @@ export const MessageActions = ({
               <p>Regenerar resposta</p>
             </TooltipContent>
           </Tooltip>
+        )}
+
+        {/* Rating buttons for assistant messages */}
+        {role === "assistant" && messageId && (
+          <MessageRating messageId={messageId} />
         )}
       </TooltipProvider>
     </div>
