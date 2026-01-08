@@ -1,7 +1,8 @@
+import { memo, useCallback, KeyboardEvent } from "react";
 import { ContentItem } from "@/hooks/useContentLibrary";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Edit, Trash2, FileText, Instagram, Video, Film, Globe, MessageSquare, Smartphone, Image as ImageIcon, Play, Twitter, Linkedin } from "lucide-react";
+import { Edit, Trash2, FileText, Instagram, Video, Globe, Smartphone, Image as ImageIcon, Play, Twitter, Linkedin } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { getContentTypeLabel } from "@/types/contentTypes";
 import { cleanContentForPreview } from "@/lib/text-utils";
@@ -47,15 +48,29 @@ const getPreviewImage = (content: ContentItem): string | null => {
   return null;
 };
 
-export const ContentCard = ({ content, onEdit, onDelete, onView }: ContentCardProps) => {
+export const ContentCard = memo(function ContentCard({ content, onEdit, onDelete, onView }: ContentCardProps) {
   const config = contentTypeConfig[content.content_type] || contentTypeConfig.other;
   const Icon = config.icon;
   const label = getContentTypeLabel(content.content_type);
   const cleanedContent = cleanContentForPreview(content.content);
   const previewImage = getPreviewImage(content);
 
+  const handleKeyDown = useCallback((e: KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      onView(content);
+    }
+  }, [content, onView]);
+
   return (
-    <Card className="group cursor-pointer hover:border-primary/50 transition-all h-[280px] flex flex-col overflow-hidden" onClick={() => onView(content)}>
+    <Card 
+      className="group cursor-pointer hover:border-primary/50 transition-all h-[280px] flex flex-col overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2" 
+      onClick={() => onView(content)}
+      onKeyDown={handleKeyDown}
+      tabIndex={0}
+      role="button"
+      aria-label={`Ver conteúdo: ${content.title}`}
+    >
       {/* Image Preview */}
       {previewImage ? (
         <div className="relative h-[100px] bg-muted overflow-hidden shrink-0">
@@ -135,4 +150,4 @@ export const ContentCard = ({ content, onEdit, onDelete, onView }: ContentCardPr
       </div>
     </Card>
   );
-};
+});

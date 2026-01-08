@@ -1,3 +1,4 @@
+import { memo, useCallback, KeyboardEvent } from "react";
 import { ReferenceItem } from "@/hooks/useReferenceLibrary";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -31,12 +32,26 @@ const getPreviewImageUrl = (reference: ReferenceItem): string | null => {
   return null;
 };
 
-export function ReferenceCard({ reference, onEdit, onDelete, onView }: ReferenceCardProps) {
+export const ReferenceCard = memo(function ReferenceCard({ reference, onEdit, onDelete, onView }: ReferenceCardProps) {
   const cleanedContent = cleanContentForPreview(reference.content);
   const imageUrl = getPreviewImageUrl(reference);
+
+  const handleKeyDown = useCallback((e: KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      onView(reference);
+    }
+  }, [reference, onView]);
   
   return (
-    <Card className="bg-card/50 border-border/50 hover:border-border transition-all h-[280px] flex flex-col group cursor-pointer overflow-hidden" onClick={() => onView(reference)}>
+    <Card 
+      className="bg-card/50 border-border/50 hover:border-border transition-all h-[280px] flex flex-col group cursor-pointer overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2" 
+      onClick={() => onView(reference)}
+      onKeyDown={handleKeyDown}
+      tabIndex={0}
+      role="button"
+      aria-label={`Ver referência: ${reference.title}`}
+    >
       {/* Image Preview */}
       {imageUrl ? (
         <div className="relative h-[100px] bg-muted overflow-hidden shrink-0">
@@ -125,4 +140,4 @@ export function ReferenceCard({ reference, onEdit, onDelete, onView }: Reference
       </div>
     </Card>
   );
-}
+});
