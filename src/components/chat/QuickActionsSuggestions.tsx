@@ -10,8 +10,9 @@ import {
   Sparkles
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { detectContentType, type ContentType } from "@/lib/contentTypeDetection";
 
-export type ContentType = "idea" | "content" | "analysis" | "list" | "general";
+export type { ContentType };
 
 interface QuickAction {
   icon: React.ElementType;
@@ -149,62 +150,8 @@ function getActionsForContentType(contentType: ContentType, content: string): Qu
   }
 }
 
-export function detectContentType(content: string): ContentType {
-  const lowerContent = content.toLowerCase();
-  
-  // Detect numbered or bulleted lists (likely ideas)
-  const hasNumberedList = /^\s*(\d+[\.\)]|\-|\•|\*)\s+/m.test(content);
-  const listItemCount = (content.match(/^\s*(\d+[\.\)]|\-|\•|\*)\s+/gm) || []).length;
-  
-  // Detect analysis patterns
-  const analysisPatterns = [
-    /análise|analis[ae]/i,
-    /métricas|metrics/i,
-    /engajamento|engagement/i,
-    /crescimento|growth/i,
-    /desempenho|performance/i,
-    /comparando|comparing/i,
-    /tendência|trend/i,
-    /aumento de|queda de/i,
-    /\d+%/,
-    /alcance|reach/i,
-  ];
-  const isAnalysis = analysisPatterns.some(p => p.test(content));
-  
-  // Detect idea patterns
-  const ideaPatterns = [
-    /ideia[s]?:|sugestão|sugestões/i,
-    /aqui estão.*ideias/i,
-    /considere.*seguintes/i,
-    /pode.*explorar/i,
-    /algumas ideias/i,
-    /opções para/i,
-  ];
-  const isIdea = ideaPatterns.some(p => p.test(content)) || (hasNumberedList && listItemCount >= 3);
-  
-  // Detect full content patterns
-  const contentPatterns = [
-    /post.*instagram|instagram.*post/i,
-    /carrossel|carousel/i,
-    /stories/i,
-    /thread/i,
-    /newsletter/i,
-    /legendas?:/i,
-    /título:/i,
-    /slide \d+/i,
-    /^\*\*.*\*\*$/m,
-    /caption|legenda/i,
-  ];
-  const isContent = contentPatterns.some(p => p.test(content));
-  
-  // Priority: analysis > content > ideas > list > general
-  if (isAnalysis && content.length > 200) return "analysis";
-  if (isContent) return "content";
-  if (isIdea) return "idea";
-  if (hasNumberedList && listItemCount >= 2) return "list";
-  
-  return "general";
-}
+// Re-export detectContentType from the consolidated module
+export { detectContentType } from "@/lib/contentTypeDetection";
 
 export function QuickActionsSuggestions({
   contentType,
