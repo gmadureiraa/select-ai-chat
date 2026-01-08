@@ -188,14 +188,12 @@ export function autoDetectImageFormat(
   // 1. Prioridade máxima: menção explícita no prompt do usuário
   const userResult = detectFormatFromText(userPrompt);
   if (userResult && userResult.confidence === 'high') {
-    console.log('[AUTO-FORMAT] Detected from user prompt:', userResult);
     return userResult;
   }
   
   // 2. Template ativo
   const templateResult = detectFormatFromTemplate(templateName);
   if (templateResult) {
-    console.log('[AUTO-FORMAT] Detected from template:', templateResult);
     return templateResult;
   }
   
@@ -203,19 +201,16 @@ export function autoDetectImageFormat(
   if (assistantContent) {
     const contentResult = detectFormatFromContent(assistantContent);
     if (contentResult) {
-      console.log('[AUTO-FORMAT] Detected from assistant content:', contentResult);
       return contentResult;
     }
   }
   
   // 4. Prompt do usuário com confiança média
   if (userResult) {
-    console.log('[AUTO-FORMAT] Detected from user prompt (medium confidence):', userResult);
     return userResult;
   }
   
   // 5. Fallback: formato padrão quadrado (mais versátil)
-  console.log('[AUTO-FORMAT] Using default square format');
   return {
     format: 'default',
     aspectRatio: '1:1',

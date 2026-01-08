@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { detectContentTypeSimple } from "@/lib/contentTypeDetection";
 
 interface Message {
   role: "user" | "assistant";
@@ -31,44 +32,6 @@ const contextualPatterns = [
   /\b(a |o )?(primeira?|segund[oa]|terceir[oa]|quart[oa]|quint[oa]|últim[oa])\s*(ideia|sugestão|opção|item)?\b/i,
   /\b(opção|item|número)\s*\d+\b/i,
 ];
-
-// Detectar tipo de conteúdo na mensagem do assistente
-function detectContentType(content: string): "idea" | "content" | "analysis" | "general" {
-  const lowerContent = content.toLowerCase();
-  
-  // Ideias geralmente têm listas numeradas ou bullets com sugestões
-  if (
-    (lowerContent.includes("ideia") || lowerContent.includes("sugestão")) &&
-    (/\d+\.|•|-/.test(content))
-  ) {
-    return "idea";
-  }
-  
-  // Análises contêm palavras específicas
-  if (
-    lowerContent.includes("análise") ||
-    lowerContent.includes("insight") ||
-    lowerContent.includes("métrica") ||
-    lowerContent.includes("performance") ||
-    lowerContent.includes("resultado")
-  ) {
-    return "analysis";
-  }
-  
-  // Conteúdo geralmente é mais longo e estruturado
-  if (
-    content.length > 500 ||
-    lowerContent.includes("legenda") ||
-    lowerContent.includes("caption") ||
-    lowerContent.includes("post") ||
-    lowerContent.includes("roteiro") ||
-    lowerContent.includes("script")
-  ) {
-    return "content";
-  }
-  
-  return "general";
-}
 
 // Extrair item específico se referência numérica
 function extractSpecificItem(userMessage: string, assistantContent: string): string | null {
@@ -135,7 +98,7 @@ export function useContextualReference(
       };
     }
     
-    const referenceType = detectContentType(lastAssistantMessage.content);
+    const referenceType = detectContentTypeSimple(lastAssistantMessage.content);
     
     // Tentar extrair item específico
     const specificItem = extractSpecificItem(currentUserMessage, lastAssistantMessage.content);

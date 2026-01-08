@@ -12,7 +12,9 @@ import {
   Search,
   Home,
   BookOpen,
-  Download
+  Download,
+  Wand2,
+  MessageSquare
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -171,15 +173,6 @@ const sections: DocSection[] = [
               O progresso do pipeline é exibido em tempo real durante a geração
             </p>
           </div>
-
-          {/* Screenshot placeholder for pipeline */}
-          <div className="p-6 rounded-xl bg-muted/30 border border-dashed border-border flex flex-col items-center justify-center gap-3">
-            <div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center">
-              <Sparkles className="h-6 w-6 text-muted-foreground/50" />
-            </div>
-            <p className="text-sm text-muted-foreground">Screenshot: Visualização do Pipeline em Ação</p>
-            <p className="text-xs text-muted-foreground/60">GIF ou imagem do progresso será adicionado aqui</p>
-          </div>
         </div>
 
         <div className="space-y-4">
@@ -214,6 +207,196 @@ const sections: DocSection[] = [
           <p className="text-sm text-muted-foreground">
             Quanto mais exemplos na biblioteca, melhor a IA captura a voz autêntica do cliente.
           </p>
+        </div>
+      </div>
+    ),
+  },
+  {
+    id: "smart-commands",
+    title: "Comandos Inteligentes",
+    icon: Wand2,
+    content: (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold mb-4">Comandos Inteligentes</h1>
+          <p className="text-muted-foreground text-lg">
+            O kAI entende linguagem natural e detecta automaticamente o que você precisa.
+          </p>
+        </div>
+
+        {/* Image Generation */}
+        <div className="space-y-4">
+          <h2 className="text-xl font-semibold">🎨 Geração de Imagens com Linguagem Natural</h2>
+          <p className="text-muted-foreground">
+            Você não precisa usar comandos específicos. Basta pedir uma imagem naturalmente:
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="p-4 rounded-lg bg-violet-500/10 border border-violet-500/20">
+              <h4 className="font-medium mb-2">Comandos Suportados</h4>
+              <ul className="text-sm text-muted-foreground space-y-1">
+                <li>• "Gera uma imagem de..."</li>
+                <li>• "Cria uma arte para..."</li>
+                <li>• "Faz um visual de..."</li>
+                <li>• "@imagem [descrição]"</li>
+                <li>• "Preciso de uma imagem..."</li>
+              </ul>
+            </div>
+            <div className="p-4 rounded-lg bg-pink-500/10 border border-pink-500/20">
+              <h4 className="font-medium mb-2">Detecção de Plataforma</h4>
+              <ul className="text-sm text-muted-foreground space-y-1">
+                <li>• Stories/Reels → 9:16 vertical</li>
+                <li>• Post Instagram → 1:1 quadrado</li>
+                <li>• YouTube thumbnail → 16:9 horizontal</li>
+                <li>• LinkedIn → 1.91:1</li>
+                <li>• Pinterest → 2:3 vertical</li>
+              </ul>
+            </div>
+          </div>
+          <div className="p-4 rounded-lg bg-gradient-to-r from-violet-500/5 to-pink-500/5 border">
+            <h4 className="font-medium mb-2">💡 Exemplo de Uso</h4>
+            <p className="text-sm text-muted-foreground italic">
+              "Cria uma imagem para story do Instagram sobre meditação matinal, com cores suaves e uma pessoa em paz"
+            </p>
+            <p className="text-xs text-muted-foreground/70 mt-2">
+              → O kAI detecta automaticamente: formato 9:16, estilo calmo, plataforma Instagram
+            </p>
+          </div>
+        </div>
+
+        {/* Contextual References */}
+        <div className="space-y-4">
+          <h2 className="text-xl font-semibold">🔗 Referências Contextuais</h2>
+          <p className="text-muted-foreground">
+            O kAI entende quando você referencia algo que ele disse antes:
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="p-4 rounded-lg border border-border/50">
+              <h4 className="font-medium mb-2 text-primary">Referências Diretas</h4>
+              <ul className="text-sm text-muted-foreground space-y-1">
+                <li>• "Desenvolva <strong>isso</strong>"</li>
+                <li>• "Usa <strong>essa ideia</strong>"</li>
+                <li>• "Baseado <strong>no que você falou</strong>..."</li>
+                <li>• "Transforma <strong>isso</strong> em post"</li>
+              </ul>
+            </div>
+            <div className="p-4 rounded-lg border border-border/50">
+              <h4 className="font-medium mb-2 text-primary">Referências Numéricas</h4>
+              <ul className="text-sm text-muted-foreground space-y-1">
+                <li>• "Desenvolve a <strong>primeira</strong> ideia"</li>
+                <li>• "Gostei da <strong>terceira opção</strong>"</li>
+                <li>• "A <strong>última sugestão</strong> ficou boa"</li>
+                <li>• "Usa a <strong>opção 2</strong>"</li>
+              </ul>
+            </div>
+          </div>
+          <div className="p-4 rounded-lg bg-blue-500/10 border border-blue-500/20">
+            <h4 className="font-medium mb-2">💬 Fluxo de Conversa Natural</h4>
+            <div className="space-y-2 text-sm">
+              <p className="text-muted-foreground"><strong>Você:</strong> "Me dá 5 ideias de post sobre produtividade"</p>
+              <p className="text-muted-foreground"><strong>kAI:</strong> [lista 5 ideias]</p>
+              <p className="text-muted-foreground"><strong>Você:</strong> "Desenvolve a segunda"</p>
+              <p className="text-xs text-muted-foreground/70 mt-2">
+                → O kAI sabe exatamente qual ideia você quer e a desenvolve automaticamente
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Quick Actions */}
+        <div className="space-y-4">
+          <h2 className="text-xl font-semibold">⚡ Quick Actions Inteligentes</h2>
+          <p className="text-muted-foreground">
+            Após cada resposta, botões de ação aparecem automaticamente baseados no tipo de conteúdo:
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="p-4 rounded-lg bg-primary/5 border border-primary/20">
+              <h4 className="font-medium mb-2">💡 Para Ideias</h4>
+              <div className="flex flex-wrap gap-2">
+                <span className="px-2 py-1 text-xs rounded-full bg-primary/10 text-primary">Desenvolver</span>
+                <span className="px-2 py-1 text-xs rounded-full bg-violet-500/10 text-violet-500">Gerar imagem</span>
+                <span className="px-2 py-1 text-xs rounded-full bg-pink-500/10 text-pink-500">Carrossel</span>
+                <span className="px-2 py-1 text-xs rounded-full bg-amber-500/10 text-amber-500">Mais ideias</span>
+              </div>
+            </div>
+            <div className="p-4 rounded-lg bg-emerald-500/5 border border-emerald-500/20">
+              <h4 className="font-medium mb-2">📝 Para Conteúdo</h4>
+              <div className="flex flex-wrap gap-2">
+                <span className="px-2 py-1 text-xs rounded-full bg-primary/10 text-primary">Gerar imagem</span>
+                <span className="px-2 py-1 text-xs rounded-full bg-emerald-500/10 text-emerald-500">Agendar</span>
+                <span className="px-2 py-1 text-xs rounded-full bg-blue-500/10 text-blue-500">Revisar</span>
+                <span className="px-2 py-1 text-xs rounded-full bg-purple-500/10 text-purple-500">Adaptar</span>
+              </div>
+            </div>
+            <div className="p-4 rounded-lg bg-rose-500/5 border border-rose-500/20">
+              <h4 className="font-medium mb-2">📊 Para Análises</h4>
+              <div className="flex flex-wrap gap-2">
+                <span className="px-2 py-1 text-xs rounded-full bg-rose-500/10 text-rose-500">Sugestões</span>
+                <span className="px-2 py-1 text-xs rounded-full bg-orange-500/10 text-orange-500">Relatório</span>
+                <span className="px-2 py-1 text-xs rounded-full bg-teal-500/10 text-teal-500">Plano de ação</span>
+              </div>
+            </div>
+            <div className="p-4 rounded-lg bg-cyan-500/5 border border-cyan-500/20">
+              <h4 className="font-medium mb-2">📋 Para Listas</h4>
+              <div className="flex flex-wrap gap-2">
+                <span className="px-2 py-1 text-xs rounded-full bg-primary/10 text-primary">Desenvolver 1ª</span>
+                <span className="px-2 py-1 text-xs rounded-full bg-violet-500/10 text-violet-500">Todas em posts</span>
+                <span className="px-2 py-1 text-xs rounded-full bg-amber-500/10 text-amber-500">Expandir</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Auto Format */}
+        <div className="space-y-4">
+          <h2 className="text-xl font-semibold">📐 Formato Automático de Imagens</h2>
+          <p className="text-muted-foreground">
+            O kAI detecta automaticamente o melhor formato baseado no contexto:
+          </p>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b">
+                  <th className="text-left py-2 font-medium">Plataforma</th>
+                  <th className="text-left py-2 font-medium">Formato</th>
+                  <th className="text-left py-2 font-medium">Dimensões</th>
+                </tr>
+              </thead>
+              <tbody className="text-muted-foreground">
+                <tr className="border-b border-border/50">
+                  <td className="py-2">Instagram Stories/Reels</td>
+                  <td>9:16 vertical</td>
+                  <td>1024×1820</td>
+                </tr>
+                <tr className="border-b border-border/50">
+                  <td className="py-2">Instagram Post/Carrossel</td>
+                  <td>1:1 quadrado</td>
+                  <td>1024×1024</td>
+                </tr>
+                <tr className="border-b border-border/50">
+                  <td className="py-2">YouTube Thumbnail</td>
+                  <td>16:9 horizontal</td>
+                  <td>1792×1024</td>
+                </tr>
+                <tr className="border-b border-border/50">
+                  <td className="py-2">LinkedIn</td>
+                  <td>1.91:1 banner</td>
+                  <td>1200×628</td>
+                </tr>
+                <tr>
+                  <td className="py-2">Pinterest</td>
+                  <td>2:3 vertical</td>
+                  <td>1024×1536</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div className="p-4 rounded-lg bg-amber-500/10 border border-amber-500/20">
+            <h3 className="font-semibold mb-2">🎯 Dica Avançada</h3>
+            <p className="text-sm text-muted-foreground">
+              Você pode especificar o formato manualmente se preferir: 
+              "Gera uma imagem <strong>quadrada</strong>..." ou "Cria um banner <strong>horizontal</strong>..."
+            </p>
+          </div>
         </div>
       </div>
     ),
