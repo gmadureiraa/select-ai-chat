@@ -132,7 +132,7 @@ const handler = async (req: Request): Promise<Response> => {
     `;
 
     const emailResponse = await resend.sendEmail({
-      from: "kAI <noreply@kaleidos.app>",
+      from: "kAI <noreply@news.kaleidos.com.br>",
       to: [email],
       subject: `Convite para ${workspaceName} no kAI`,
       html: emailHtml,
