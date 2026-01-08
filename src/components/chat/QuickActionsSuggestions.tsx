@@ -1,13 +1,13 @@
 import { Button } from "@/components/ui/button";
 import { 
-  ImageIcon, 
   FileText, 
   Lightbulb, 
   LayoutGrid, 
   RefreshCw,
   Rocket,
   CalendarPlus,
-  Wand2
+  Wand2,
+  Sparkles
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -17,7 +17,7 @@ interface QuickAction {
   icon: React.ElementType;
   label: string;
   prompt: string;
-  variant?: "default" | "primary";
+  colorClass: string;
 }
 
 interface QuickActionsSuggestionsProps {
@@ -37,47 +37,53 @@ function getActionsForContentType(contentType: ContentType, content: string): Qu
           icon: Rocket,
           label: "Desenvolver",
           prompt: `Desenvolva esta ideia em um conteúdo completo e pronto para publicar:\n\n${contentPreview}`,
-          variant: "primary"
+          colorClass: "from-primary/5 to-primary/10 border-primary/20 hover:from-primary/10 hover:to-primary/20 hover:border-primary/40"
         },
         {
-          icon: ImageIcon,
+          icon: Sparkles,
           label: "Gerar imagem",
-          prompt: `@imagem Crie uma imagem visual impactante para esta ideia:\n\n${contentPreview}`
+          prompt: `@imagem Crie uma imagem visual impactante para esta ideia:\n\n${contentPreview}`,
+          colorClass: "from-violet-500/5 to-violet-500/10 border-violet-500/20 hover:from-violet-500/10 hover:to-violet-500/20 hover:border-violet-500/40"
         },
         {
           icon: LayoutGrid,
           label: "Carrossel",
-          prompt: `Transforme esta ideia em um carrossel de Instagram com 5-7 slides:\n\n${contentPreview}`
+          prompt: `Transforme esta ideia em um carrossel de Instagram com 5-7 slides:\n\n${contentPreview}`,
+          colorClass: "from-pink-500/5 to-pink-500/10 border-pink-500/20 hover:from-pink-500/10 hover:to-pink-500/20 hover:border-pink-500/40"
         },
         {
           icon: Lightbulb,
           label: "Mais ideias",
-          prompt: `Me dê mais 5 ideias relacionadas a este tema:\n\n${contentPreview}`
+          prompt: `Me dê mais 5 ideias relacionadas a este tema:\n\n${contentPreview}`,
+          colorClass: "from-amber-500/5 to-amber-500/10 border-amber-500/20 hover:from-amber-500/10 hover:to-amber-500/20 hover:border-amber-500/40"
         }
       ];
       
     case "content":
       return [
         {
-          icon: ImageIcon,
+          icon: Sparkles,
           label: "Gerar imagem",
           prompt: `@imagem Crie uma imagem visual impactante para este conteúdo:\n\n${contentPreview}`,
-          variant: "primary"
+          colorClass: "from-primary/5 to-primary/10 border-primary/20 hover:from-primary/10 hover:to-primary/20 hover:border-primary/40"
         },
         {
           icon: CalendarPlus,
-          label: "Agendar",
-          prompt: `Adicione este conteúdo ao planejamento para a próxima semana`
+          label: "Enviar para Planejamento",
+          prompt: `Adicione este conteúdo ao planejamento para a próxima semana`,
+          colorClass: "from-emerald-500/5 to-emerald-500/10 border-emerald-500/20 hover:from-emerald-500/10 hover:to-emerald-500/20 hover:border-emerald-500/40"
         },
         {
           icon: RefreshCw,
           label: "Revisar",
-          prompt: `Revise e melhore este conteúdo, mantendo a essência:\n\n${contentPreview}`
+          prompt: `Revise e melhore este conteúdo, mantendo a essência:\n\n${contentPreview}`,
+          colorClass: "from-blue-500/5 to-blue-500/10 border-blue-500/20 hover:from-blue-500/10 hover:to-blue-500/20 hover:border-blue-500/40"
         },
         {
           icon: Wand2,
           label: "Adaptar formato",
-          prompt: `Adapte este conteúdo para Stories de Instagram:\n\n${contentPreview}`
+          prompt: `Adapte este conteúdo para Stories de Instagram:\n\n${contentPreview}`,
+          colorClass: "from-violet-500/5 to-violet-500/10 border-violet-500/20 hover:from-violet-500/10 hover:to-violet-500/20 hover:border-violet-500/40"
         }
       ];
       
@@ -87,17 +93,19 @@ function getActionsForContentType(contentType: ContentType, content: string): Qu
           icon: Rocket,
           label: "Desenvolver 1ª",
           prompt: `Desenvolva a primeira ideia da lista em um conteúdo completo:\n\n${contentPreview}`,
-          variant: "primary"
+          colorClass: "from-primary/5 to-primary/10 border-primary/20 hover:from-primary/10 hover:to-primary/20 hover:border-primary/40"
         },
         {
           icon: FileText,
           label: "Todas em posts",
-          prompt: `Transforme cada item da lista em um post curto e engajante:\n\n${contentPreview}`
+          prompt: `Transforme cada item da lista em um post curto e engajante:\n\n${contentPreview}`,
+          colorClass: "from-blue-500/5 to-blue-500/10 border-blue-500/20 hover:from-blue-500/10 hover:to-blue-500/20 hover:border-blue-500/40"
         },
         {
           icon: Lightbulb,
           label: "Expandir lista",
-          prompt: `Adicione mais 5 ideias a esta lista:\n\n${contentPreview}`
+          prompt: `Adicione mais 5 ideias a esta lista:\n\n${contentPreview}`,
+          colorClass: "from-amber-500/5 to-amber-500/10 border-amber-500/20 hover:from-amber-500/10 hover:to-amber-500/20 hover:border-amber-500/40"
         }
       ];
       
@@ -107,17 +115,19 @@ function getActionsForContentType(contentType: ContentType, content: string): Qu
           icon: Lightbulb,
           label: "Sugestões",
           prompt: `Com base nesta análise, me dê sugestões práticas de melhoria:\n\n${contentPreview}`,
-          variant: "primary"
+          colorClass: "from-amber-500/5 to-amber-500/10 border-amber-500/20 hover:from-amber-500/10 hover:to-amber-500/20 hover:border-amber-500/40"
         },
         {
           icon: FileText,
           label: "Relatório",
-          prompt: `Transforme esta análise em um relatório executivo formatado`
+          prompt: `Transforme esta análise em um relatório executivo formatado`,
+          colorClass: "from-blue-500/5 to-blue-500/10 border-blue-500/20 hover:from-blue-500/10 hover:to-blue-500/20 hover:border-blue-500/40"
         },
         {
           icon: Rocket,
           label: "Plano de ação",
-          prompt: `Crie um plano de ação baseado nesta análise:\n\n${contentPreview}`
+          prompt: `Crie um plano de ação baseado nesta análise:\n\n${contentPreview}`,
+          colorClass: "from-primary/5 to-primary/10 border-primary/20 hover:from-primary/10 hover:to-primary/20 hover:border-primary/40"
         }
       ];
       
@@ -126,12 +136,14 @@ function getActionsForContentType(contentType: ContentType, content: string): Qu
         {
           icon: Lightbulb,
           label: "Continuar",
-          prompt: `Continue desenvolvendo este tema:\n\n${contentPreview}`
+          prompt: `Continue desenvolvendo este tema:\n\n${contentPreview}`,
+          colorClass: "from-amber-500/5 to-amber-500/10 border-amber-500/20 hover:from-amber-500/10 hover:to-amber-500/20 hover:border-amber-500/40"
         },
         {
-          icon: ImageIcon,
+          icon: Sparkles,
           label: "Gerar imagem",
-          prompt: `@imagem Crie uma imagem visual para:\n\n${contentPreview}`
+          prompt: `@imagem Crie uma imagem visual para:\n\n${contentPreview}`,
+          colorClass: "from-violet-500/5 to-violet-500/10 border-violet-500/20 hover:from-violet-500/10 hover:to-violet-500/20 hover:border-violet-500/40"
         }
       ];
   }
@@ -206,20 +218,18 @@ export function QuickActionsSuggestions({
   
   return (
     <div className={cn(
-      "flex items-center gap-1.5 flex-wrap pt-1",
+      "flex items-center gap-2 flex-wrap pt-2",
       className
     )}>
       {actions.map((action, index) => (
         <Button
           key={index}
-          variant={action.variant === "primary" ? "default" : "outline"}
+          variant="outline"
           size="sm"
           onClick={() => onAction(action.prompt)}
           className={cn(
-            "h-7 text-xs gap-1.5 transition-all",
-            action.variant === "primary" 
-              ? "bg-primary/90 hover:bg-primary text-primary-foreground shadow-sm" 
-              : "bg-muted/50 border-border/50 hover:bg-muted hover:border-border"
+            "h-7 text-xs gap-1.5 transition-all duration-200 bg-gradient-to-r border",
+            action.colorClass
           )}
         >
           <action.icon className="h-3 w-3" />
