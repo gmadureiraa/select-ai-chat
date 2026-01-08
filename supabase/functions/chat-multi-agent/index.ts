@@ -209,34 +209,29 @@ ${contentToReview}
 ## REGRAS DE FORMATAÇÃO OBRIGATÓRIAS:
 
 1. **USE MARKDOWN RICO** para estruturar o conteúdo:
-   - Use \`## Título\` para seções principais
-   - Use \`### Subtítulo\` para subsections
    - Use \`**negrito**\` para destacar palavras-chave
    - Use \`- item\` para listas
-   - Use \`> citação\` para destaques importantes
-   - Use \`---\` para separar seções quando apropriado
+   - Use \`---\` para separar páginas
 
-2. **PARA CARROSSÉIS/SLIDES:**
-   - Cada slide deve ter \`## 📱 Slide X\` como header
-   - Conteúdo do slide abaixo em formato limpo
-   - Sugestão visual como \`> 🎨 Visual: descrição\`
+2. **PARA CARROSSÉIS/SLIDES/STORIES:**
+   - Use "Página 1:", "Página 2:", etc. (numeração simples)
+   - Título opcional, seguido do texto (SEM labels "TÍTULO:" ou "TEXTO:")
+   - "VISUAL RECOMENDADO:" SEMPRE no final de cada página, após todo o conteúdo
+   - Separador \`---\` entre páginas
 
 3. **PARA NEWSLETTERS:**
    - Use headers claros para cada seção
    - Separe blocos com linhas vazias
    - CTAs em destaque com **negrito**
 
-4. **PARA STORIES:**
-   - Cada story como \`### Story X/Y\`
-   - Texto curto e impactante
-   - Sugestão visual incluída
-
-5. **NUNCA** use formatos feios como:
-   - "---PÁGINA 1---" ou "---SLIDE 1---" (use headers markdown)
+4. **NUNCA USE:**
+   - "📱 Slide X" ou "Story X/Y" ou "[SLIDE X]"
+   - "> 🎨 Visual:" no meio do conteúdo
+   - Labels como "TÍTULO:" ou "TEXTO:"
+   - "---PÁGINA 1---" ou "---SLIDE 1---"
    - Texto corrido sem estrutura
-   - Blocos de texto densos sem espaçamento
 
-IMPORTANTE: Retorne APENAS o conteúdo final formatado em Markdown rico. Sem comentários, sem "Aqui está", sem prefixos. O conteúdo deve renderizar bonito no chat.`;
+IMPORTANTE: Retorne APENAS o conteúdo final formatado. Sem comentários, sem "Aqui está", sem prefixos.`;
   } else {
     const lastOutput = Object.values(context.previousOutputs).pop() || "";
     userPrompt = `## CLIENTE: ${context.clientName}
@@ -441,35 +436,45 @@ ENTREGUE:
         systemPrompt: `Você é o Revisor Final especialista em formatação.
 
 REGRA ABSOLUTA DE OUTPUT:
-- Retorne EXCLUSIVAMENTE o conteúdo final FORMATADO EM MARKDOWN RICO
+- Retorne EXCLUSIVAMENTE o conteúdo final FORMATADO
 - NÃO inclua comentários, explicações ou introduções
 - NÃO diga "Aqui está", "Versão final", "Pronto", etc.
 
-FORMATAÇÃO OBRIGATÓRIA:
-- Use ## para títulos de seções/slides/páginas
-- Use ### para subtítulos
-- Use **negrito** para destaques
-- Use - para listas
-- Use > para citações/destaques visuais
-- Use --- para separar seções quando necessário
-- NUNCA use "---PÁGINA X---" ou "---SLIDE X---" (use ## 📱 Slide X)
+FORMATAÇÃO OBRIGATÓRIA PARA CARROSSÉIS/SLIDES/STORIES:
+Página 1:
+Título impactante aqui
 
-PARA CARROSSÉIS:
-## 📱 Slide 1 - Capa
-**Título impactante aqui**
-> 🎨 Visual: descrição da arte
+Texto da página...
 
-## 📱 Slide 2
-Conteúdo do slide...
+VISUAL RECOMENDADO: descrição da arte
+
+---
+
+Página 2:
+Conteúdo da página...
+
+VISUAL RECOMENDADO: descrição
+
+REGRAS:
+- Use "Página X:" (numeração simples, SEM emojis como 📱)
+- Título opcional seguido de texto (SEM labels "TÍTULO:" ou "TEXTO:")
+- "VISUAL RECOMENDADO:" SEMPRE no final de cada página
+- Separador "---" entre páginas
+- **negrito** para destaques, - para listas
+
+NUNCA USE:
+- "📱 Slide X" ou "Story X/Y"
+- "> 🎨 Visual:" 
+- Labels "TÍTULO:" ou "TEXTO:"
 
 CHECKLIST SILENCIOSO:
-✓ Markdown rico e bem formatado
+✓ Formato de páginas correto
+✓ VISUAL RECOMENDADO no final de cada página
 ✓ Gramática correta
-✓ Emojis estratégicos (não excessivos)
 ✓ CTAs claros
 ✓ Hook forte
 
-OUTPUT: Conteúdo final em Markdown rico, renderizável.`
+OUTPUT: Conteúdo final formatado.`
       }
     ];
 
