@@ -516,6 +516,54 @@ export type Database = {
           },
         ]
       }
+      client_preferences: {
+        Row: {
+          client_id: string | null
+          confidence: number | null
+          created_at: string | null
+          created_from_message_id: string | null
+          id: string
+          preference_type: string
+          preference_value: string
+          updated_at: string | null
+        }
+        Insert: {
+          client_id?: string | null
+          confidence?: number | null
+          created_at?: string | null
+          created_from_message_id?: string | null
+          id?: string
+          preference_type: string
+          preference_value: string
+          updated_at?: string | null
+        }
+        Update: {
+          client_id?: string | null
+          confidence?: number | null
+          created_at?: string | null
+          created_from_message_id?: string | null
+          id?: string
+          preference_type?: string
+          preference_value?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_preferences_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_preferences_created_from_message_id_fkey"
+            columns: ["created_from_message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       client_reference_library: {
         Row: {
           client_id: string
@@ -1568,7 +1616,11 @@ export type Database = {
           created_at: string | null
           id: string
           image_urls: string[] | null
+          rated_at: string | null
+          rating: number | null
+          rating_feedback: string | null
           role: string
+          search_vector: unknown
         }
         Insert: {
           content: string
@@ -1576,7 +1628,11 @@ export type Database = {
           created_at?: string | null
           id?: string
           image_urls?: string[] | null
+          rated_at?: string | null
+          rating?: number | null
+          rating_feedback?: string | null
           role: string
+          search_vector?: unknown
         }
         Update: {
           content?: string
@@ -1584,7 +1640,11 @@ export type Database = {
           created_at?: string | null
           id?: string
           image_urls?: string[] | null
+          rated_at?: string | null
+          rating?: number | null
+          rating_feedback?: string | null
           role?: string
+          search_vector?: unknown
         }
         Relationships: [
           {
@@ -2127,6 +2187,50 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "platform_metrics_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      proactive_suggestions: {
+        Row: {
+          client_id: string | null
+          created_at: string | null
+          description: string | null
+          id: string
+          is_dismissed: boolean | null
+          is_used: boolean | null
+          metadata: Json | null
+          suggestion_type: string
+          title: string
+        }
+        Insert: {
+          client_id?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_dismissed?: boolean | null
+          is_used?: boolean | null
+          metadata?: Json | null
+          suggestion_type: string
+          title: string
+        }
+        Update: {
+          client_id?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_dismissed?: boolean | null
+          is_used?: boolean | null
+          metadata?: Json | null
+          suggestion_type?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proactive_suggestions_client_id_fkey"
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "clients"
@@ -3654,6 +3758,18 @@ export type Database = {
           source_url: string
           summary: string
           title: string
+        }[]
+      }
+      search_messages: {
+        Args: { p_client_id: string; p_limit?: number; p_query: string }
+        Returns: {
+          content: string
+          conversation_id: string
+          conversation_title: string
+          created_at: string
+          message_id: string
+          rank: number
+          role: string
         }[]
       }
       workflow_workspace_accessible: {
