@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, memo } from 'react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { 
@@ -80,7 +80,7 @@ const statusProgress: Record<string, number> = {
   failed: 85,
 };
 
-export function PlanningItemCard({
+export const PlanningItemCard = memo(function PlanningItemCard({
   item,
   onEdit,
   onDelete,
@@ -250,4 +250,6 @@ export function PlanningItemCard({
       </div>
     </div>
   );
-}
+});
+
+PlanningItemCard.displayName = 'PlanningItemCard';

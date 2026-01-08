@@ -1,4 +1,4 @@
-import { memo } from "react";
+import { memo, useMemo } from "react";
 import { Target, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -45,13 +45,16 @@ export const GoalGauge = memo(function GoalGauge({
   const remaining = Math.max(targetValue - currentValue, 0);
   const exceeded = currentValue > targetValue;
 
-  // SVG Arc calculation
+  // SVG Arc calculation with useMemo for performance
   const size = 140;
   const strokeWidth = 12;
-  const radius = (size - strokeWidth) / 2;
-  const circumference = 2 * Math.PI * radius;
-  const arc = circumference * 0.75; // 270 degrees
-  const offset = arc - (arc * Math.min(progress, 100)) / 100;
+  const arcData = useMemo(() => {
+    const radius = (size - strokeWidth) / 2;
+    const circumference = 2 * Math.PI * radius;
+    const arc = circumference * 0.75; // 270 degrees
+    const offset = arc - (arc * Math.min(progress, 100)) / 100;
+    return { radius, circumference, arc, offset };
+  }, [progress]);
 
   const formatNumber = (num: number) => {
     if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
@@ -94,11 +97,11 @@ export const GoalGauge = memo(function GoalGauge({
           <circle
             cx={size / 2}
             cy={size / 2}
-            r={radius}
+            r={arcData.radius}
             fill="none"
             stroke="hsl(var(--muted))"
             strokeWidth={strokeWidth}
-            strokeDasharray={arc}
+            strokeDasharray={arcData.arc}
             strokeDashoffset={0}
             strokeLinecap="round"
           />
@@ -106,12 +109,12 @@ export const GoalGauge = memo(function GoalGauge({
           <circle
             cx={size / 2}
             cy={size / 2}
-            r={radius}
+            r={arcData.radius}
             fill="none"
             stroke={colors.stroke}
             strokeWidth={strokeWidth}
-            strokeDasharray={arc}
-            strokeDashoffset={offset}
+            strokeDasharray={arcData.arc}
+            strokeDashoffset={arcData.offset}
             strokeLinecap="round"
             className="transition-all duration-700 ease-out"
           />

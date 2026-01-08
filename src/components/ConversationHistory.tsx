@@ -1,10 +1,11 @@
+import { memo } from "react";
 import { MessageSquare, Plus, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useConversationHistory } from "@/hooks/useConversationHistory";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Skeleton } from "@/components/ui/skeleton";
+import { SkeletonList } from "@/components/ui/skeleton-list";
 
 interface ConversationHistoryProps {
   clientId: string;
@@ -13,20 +14,18 @@ interface ConversationHistoryProps {
   onNewConversation: () => void;
 }
 
-export const ConversationHistory = ({
+export const ConversationHistory = memo(function ConversationHistory({
   clientId,
   currentConversationId,
   onSelectConversation,
   onNewConversation,
-}: ConversationHistoryProps) => {
+}: ConversationHistoryProps) {
   const { data: conversations, isLoading } = useConversationHistory(clientId);
 
   if (isLoading) {
     return (
-      <div className="space-y-2 p-4">
-        {[...Array(3)].map((_, i) => (
-          <Skeleton key={i} className="h-16 w-full" />
-        ))}
+      <div className="p-4">
+        <SkeletonList count={3} height="h-16" />
       </div>
     );
   }
@@ -86,4 +85,6 @@ export const ConversationHistory = ({
       </ScrollArea>
     </div>
   );
-};
+});
+
+ConversationHistory.displayName = 'ConversationHistory';
