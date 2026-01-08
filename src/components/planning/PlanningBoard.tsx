@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Plus, Loader2, Zap } from 'lucide-react';
+import { Plus, Loader2, Zap, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { usePlanningItems, type PlanningFilters, type PlanningItem } from '@/hooks/usePlanningItems';
 import { PlanningFilters as FiltersComponent } from './PlanningFilters';
@@ -163,6 +163,14 @@ export function PlanningBoard({ clientId, isEnterprise = false, onClientChange }
 
   return (
     <div className="h-full flex flex-col gap-4">
+      {/* Viewer Mode Banner */}
+      {isViewer && (
+        <div className="flex items-center gap-2 px-3 py-2 bg-muted/50 border border-border rounded-lg text-sm text-muted-foreground">
+          <Eye className="h-4 w-4" />
+          <span>Modo visualização — você pode ver os itens mas não pode editá-los</span>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">
@@ -170,20 +178,24 @@ export function PlanningBoard({ clientId, isEnterprise = false, onClientChange }
           <ViewToggle view={view} onChange={setView} />
         </div>
         <div className="flex items-center gap-2">
-          <Button 
-            variant="outline" 
-            size="sm"
-            onClick={() => setShowAutomations(!showAutomations)}
-            className={showAutomations ? 'bg-primary/10' : ''}
-          >
-            <Zap className="h-4 w-4 mr-1" />
-            Automações
-          </Button>
-          <ViewSettingsPopover settings={settings} onChange={setSettings} />
-          <Button onClick={() => handleNewCard()} size="sm">
-            <Plus className="h-4 w-4 mr-1" />
-            Novo Card
-          </Button>
+          {!isViewer && (
+            <>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => setShowAutomations(!showAutomations)}
+                className={showAutomations ? 'bg-primary/10' : ''}
+              >
+                <Zap className="h-4 w-4 mr-1" />
+                Automações
+              </Button>
+              <ViewSettingsPopover settings={settings} onChange={setSettings} />
+              <Button onClick={() => handleNewCard()} size="sm">
+                <Plus className="h-4 w-4 mr-1" />
+                Novo Card
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
