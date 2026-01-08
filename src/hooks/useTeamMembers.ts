@@ -128,6 +128,7 @@ export const useTeamMembers = () => {
           body: {
             email: email.toLowerCase(),
             workspaceName: workspace.name,
+            workspaceSlug: workspace.slug,
             inviterName: inviterProfile?.full_name || inviterProfile?.email || "Um administrador",
             role,
             expiresAt: data.expires_at,

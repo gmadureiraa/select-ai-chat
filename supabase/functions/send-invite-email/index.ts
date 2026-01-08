@@ -39,6 +39,7 @@ const corsHeaders = {
 interface InviteEmailRequest {
   email: string;
   workspaceName: string;
+  workspaceSlug?: string;
   inviterName: string;
   role: string;
   expiresAt: string;
@@ -58,10 +59,11 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    const { email, workspaceName, inviterName, role, expiresAt, clientNames }: InviteEmailRequest = await req.json();
+    const { email, workspaceName, workspaceSlug, inviterName, role, expiresAt, clientNames }: InviteEmailRequest = await req.json();
 
     const roleLabel = roleLabels[role] || role;
-    const appUrl = Deno.env.get("APP_URL") || "https://kai-marketing-assistant.lovable.app";
+    const appUrl = "https://kai-kaleidos.lovable.app";
+    const inviteUrl = workspaceSlug ? `${appUrl}/${workspaceSlug}` : `${appUrl}/auth`;
     
     // Format client access info
     let clientAccessHtml = "";
@@ -112,7 +114,7 @@ const handler = async (req: Request): Promise<Response> => {
           <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="margin: 0 auto;">
             <tr>
               <td style="border-radius: 8px; background-color: #7c3aed;">
-                <a href="${appUrl}/auth" target="_blank" style="display: inline-block; padding: 14px 32px; font-size: 15px; font-weight: 600; color: #ffffff; text-decoration: none; border-radius: 8px; background-color: #7c3aed;">
+                <a href="${inviteUrl}" target="_blank" style="display: inline-block; padding: 14px 32px; font-size: 15px; font-weight: 600; color: #ffffff; text-decoration: none; border-radius: 8px; background-color: #7c3aed;">
                   Aceitar Convite
                 </a>
               </td>
