@@ -8,7 +8,7 @@ import { ImageActionButtons } from "./ImageActionButtons";
 import { AddToPlanningButton } from "./AddToPlanningButton";
 import { AdjustImageButton } from "./AdjustImageButton";
 import { ResponseCard, hasResponseCardPayload, ResponseCardPayload } from "./ResponseCard";
-import { useState, useMemo } from "react";
+import { useState, useMemo, memo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Dialog,
@@ -58,7 +58,7 @@ const getCitationColorClass = (citation: Citation) => {
   return "bg-blue-500/10 text-blue-600 border-blue-500/20";
 };
 
-export const EnhancedMessageBubble = ({ 
+export const EnhancedMessageBubble = memo(function EnhancedMessageBubble({ 
   role, 
   content,
   imageUrls,
@@ -72,7 +72,7 @@ export const EnhancedMessageBubble = ({
   onSendMessage,
   disableAutoPostDetection = false,
   hideContentActions = false,
-}: EnhancedMessageBubbleProps) => {
+}: EnhancedMessageBubbleProps) {
   const isUser = role === "user";
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
   const { toast } = useToast();
@@ -393,4 +393,6 @@ export const EnhancedMessageBubble = ({
       </Dialog>
     </>
   );
-};
+});
+
+EnhancedMessageBubble.displayName = 'EnhancedMessageBubble';

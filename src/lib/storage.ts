@@ -1,7 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
-const SUPABASE_URL = "https://tkbsjtgrumhvwlxkmojg.supabase.co";
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || "https://tkbsjtgrumhvwlxkmojg.supabase.co";
 
 /**
  * Check if a string is already a full URL (not just a path)
