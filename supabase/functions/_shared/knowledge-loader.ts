@@ -70,8 +70,13 @@ const AGENT_KEY_ALIASES: Record<string, string> = {
 
 // Criar cliente Supabase para edge functions
 function getSupabaseClient() {
-  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-  const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const supabaseUrl = Deno.env.get("SUPABASE_URL");
+  const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  
+  if (!supabaseUrl || !supabaseServiceKey) {
+    throw new Error("Missing required environment variables: SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
+  }
+  
   return createClient(supabaseUrl, supabaseServiceKey);
 }
 
