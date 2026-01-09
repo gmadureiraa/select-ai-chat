@@ -39,6 +39,7 @@ interface ExtractedContent {
 
 interface UnifiedUploaderProps {
   onContentExtracted: (result: ExtractedContent) => void;
+  onAttachOnly?: (attachments: AttachedItem[]) => void;
   clientId?: string;
   maxFiles?: number;
   maxSizeMB?: number;
@@ -46,7 +47,8 @@ interface UnifiedUploaderProps {
 }
 
 export function UnifiedUploader({ 
-  onContentExtracted, 
+  onContentExtracted,
+  onAttachOnly,
   clientId,
   maxFiles = 10,
   maxSizeMB = 20,
@@ -390,21 +392,40 @@ export function UnifiedUploader({
             </div>
           ))}
 
-          {/* Extract Button */}
-          <Button
-            type="button"
-            onClick={handleExtractAll}
-            disabled={isProcessing}
-            className="w-full gap-2"
-            size="sm"
-          >
-            {processingType === 'extract' ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Sparkles className="h-4 w-4" />
+          {/* Action Buttons */}
+          <div className="flex gap-2">
+            {onAttachOnly && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  onAttachOnly(attachedItems);
+                  toast({ title: "Anexos adicionados" });
+                  setAttachedItems([]);
+                }}
+                disabled={isProcessing}
+                className="flex-1 gap-2"
+                size="sm"
+              >
+                <File className="h-4 w-4" />
+                Apenas Anexar
+              </Button>
             )}
-            Extrair Conteúdo de Tudo
-          </Button>
+            <Button
+              type="button"
+              onClick={handleExtractAll}
+              disabled={isProcessing}
+              className={cn("gap-2", onAttachOnly ? "flex-1" : "w-full")}
+              size="sm"
+            >
+              {processingType === 'extract' ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Sparkles className="h-4 w-4" />
+              )}
+              Extrair Conteúdo
+            </Button>
+          </div>
         </div>
       )}
     </div>

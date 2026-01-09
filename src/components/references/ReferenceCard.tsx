@@ -27,6 +27,11 @@ const getPreviewImageUrl = (reference: ReferenceItem): string | null => {
     if (meta.images && Array.isArray(meta.images) && meta.images.length > 0) {
       return getPublicUrl(meta.images[0]);
     }
+    // Check attachments for images
+    if (meta.attachments && Array.isArray(meta.attachments)) {
+      const firstImage = meta.attachments.find((a: any) => a.type === 'image');
+      if (firstImage?.url) return firstImage.url;
+    }
   }
   
   return null;

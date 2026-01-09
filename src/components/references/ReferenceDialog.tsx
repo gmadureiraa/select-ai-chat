@@ -62,6 +62,34 @@ export function ReferenceDialog({ open, onClose, onSave, reference, clientId }: 
       title: prev.title || result.metadata?.title || "",
       source_url: prev.source_url || result.metadata?.source_url || "",
       thumbnail_url: prev.thumbnail_url || result.metadata?.thumbnail_url || "",
+      metadata: {
+        ...(prev.metadata as Record<string, unknown> || {}),
+        attachments: [
+          ...((prev.metadata as Record<string, unknown>)?.attachments as any[] || []),
+          ...(result.metadata?.attachments || [])
+        ],
+        image_urls: [
+          ...((prev.metadata as Record<string, unknown>)?.image_urls as string[] || []),
+          ...(result.metadata?.attachments?.filter((a: any) => a.type === 'image').map((a: any) => a.url) || [])
+        ]
+      }
+    }));
+  };
+
+  const handleAttachOnly = (attachments: any[]) => {
+    setFormData(prev => ({
+      ...prev,
+      metadata: {
+        ...(prev.metadata as Record<string, unknown> || {}),
+        attachments: [
+          ...((prev.metadata as Record<string, unknown>)?.attachments as any[] || []),
+          ...attachments
+        ],
+        image_urls: [
+          ...((prev.metadata as Record<string, unknown>)?.image_urls as string[] || []),
+          ...(attachments.filter((a: any) => a.type === 'image').map((a: any) => a.url) || [])
+        ]
+      }
     }));
   };
 
@@ -132,6 +160,7 @@ export function ReferenceDialog({ open, onClose, onSave, reference, clientId }: 
           {/* Unified Uploader */}
           <UnifiedUploader
             onContentExtracted={handleContentExtracted}
+            onAttachOnly={handleAttachOnly}
             clientId={clientId}
             maxFiles={10}
             maxSizeMB={20}

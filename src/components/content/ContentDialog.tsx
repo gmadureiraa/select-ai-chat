@@ -66,6 +66,34 @@ export const ContentDialog = ({ open, onClose, onSave, content, clientId }: Cont
       title: prev.title || result.metadata?.title || "",
       content_url: prev.content_url || result.metadata?.source_url || "",
       thumbnail_url: prev.thumbnail_url || result.metadata?.thumbnail_url || "",
+      metadata: {
+        ...(prev.metadata as Record<string, unknown> || {}),
+        attachments: [
+          ...((prev.metadata as Record<string, unknown>)?.attachments as any[] || []),
+          ...(result.metadata?.attachments || [])
+        ],
+        image_urls: [
+          ...((prev.metadata as Record<string, unknown>)?.image_urls as string[] || []),
+          ...(result.metadata?.attachments?.filter((a: any) => a.type === 'image').map((a: any) => a.url) || [])
+        ]
+      }
+    }));
+  };
+
+  const handleAttachOnly = (attachments: any[]) => {
+    setFormData(prev => ({
+      ...prev,
+      metadata: {
+        ...(prev.metadata as Record<string, unknown> || {}),
+        attachments: [
+          ...((prev.metadata as Record<string, unknown>)?.attachments as any[] || []),
+          ...attachments
+        ],
+        image_urls: [
+          ...((prev.metadata as Record<string, unknown>)?.image_urls as string[] || []),
+          ...(attachments.filter((a: any) => a.type === 'image').map((a: any) => a.url) || [])
+        ]
+      }
     }));
   };
 
@@ -173,6 +201,7 @@ export const ContentDialog = ({ open, onClose, onSave, content, clientId }: Cont
           {/* Unified Uploader */}
           <UnifiedUploader
             onContentExtracted={handleContentExtracted}
+            onAttachOnly={handleAttachOnly}
             clientId={clientId}
             maxFiles={10}
             maxSizeMB={20}
