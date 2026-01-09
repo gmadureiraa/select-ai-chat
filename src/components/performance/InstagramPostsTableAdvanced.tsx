@@ -7,12 +7,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuCheckboxItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { ArrowUpDown, Search, ExternalLink, Image as ImageIcon, Copy, ChevronLeft, ChevronRight, Pencil, Users, Settings2, ArrowUp, ArrowDown, Filter, X, Calendar } from "lucide-react";
+import { ArrowUpDown, Search, ExternalLink, Image as ImageIcon, Copy, ChevronLeft, ChevronRight, Pencil, Users, Settings2, ArrowUp, ArrowDown, Filter, X, Calendar, FolderPlus } from "lucide-react";
 import { InstagramPost } from "@/hooks/useInstagramPosts";
 import { format, parseISO, isAfter, isBefore, startOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
 import { InstagramPostEditDialog } from "./InstagramPostEditDialog";
+import { SyncToLibraryDialog } from "./SyncToLibraryDialog";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 
 interface InstagramPostsTableAdvancedProps {
@@ -69,6 +70,7 @@ export function InstagramPostsTableAdvanced({ posts, isLoading, clientId }: Inst
   const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
   const [currentPage, setCurrentPage] = useState(1);
   const [editingPost, setEditingPost] = useState<InstagramPost | null>(null);
+  const [syncingPost, setSyncingPost] = useState<InstagramPost | null>(null);
   const [visibleColumns, setVisibleColumns] = useState<Set<string>>(
     new Set(ALL_COLUMNS.filter(c => c.defaultVisible).map(c => c.id))
   );
@@ -518,15 +520,26 @@ export function InstagramPostsTableAdvanced({ posts, isLoading, clientId }: Inst
                 )}
                 {visibleColumns.has("actions") && (
                   <TableCell className="py-2">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
-                      onClick={() => setEditingPost(post)}
-                      title="Editar post"
-                    >
-                      <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
-                    </Button>
+                    <div className="flex gap-0.5">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={() => setSyncingPost(post)}
+                        title="Salvar na Biblioteca"
+                      >
+                        <FolderPlus className="h-3.5 w-3.5 text-muted-foreground" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={() => setEditingPost(post)}
+                        title="Editar post"
+                      >
+                        <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+                      </Button>
+                    </div>
                   </TableCell>
                 )}
               </TableRow>
@@ -572,6 +585,14 @@ export function InstagramPostsTableAdvanced({ posts, isLoading, clientId }: Inst
         post={editingPost}
         open={!!editingPost}
         onOpenChange={(open) => !open && setEditingPost(null)}
+        clientId={clientId}
+      />
+
+      {/* Sync to Library Dialog */}
+      <SyncToLibraryDialog
+        post={syncingPost}
+        open={!!syncingPost}
+        onOpenChange={(open) => !open && setSyncingPost(null)}
         clientId={clientId}
       />
     </div>
