@@ -28,30 +28,21 @@ const Login = () => {
           const { data: { user: authUser } } = await supabase.auth.getUser();
           const userEmail = authUser?.email;
 
-          // Check for pending invites and accept them automatically
-          if (userEmail) {
-            const { data: pendingInvites } = await supabase
-              .from("workspace_invites")
-              .select("id, workspace_id, workspaces(slug)")
-              .eq("email", userEmail)
-              .is("accepted_at", null)
-              .gt("expires_at", new Date().toISOString())
-              .limit(1);
+          // Check for pending invites using RPC (bypasses RLS)
+          const { data: pendingInvites } = await supabase.rpc("get_my_pending_workspace_invites");
 
-            if (pendingInvites && pendingInvites.length > 0) {
-              const invite = pendingInvites[0];
-              const workspace = invite.workspaces as { slug: string } | null;
-              
-              // Accept the invite via RPC
-              const { data: accepted } = await supabase.rpc("accept_pending_invite", {
-                p_workspace_id: invite.workspace_id,
-                p_user_id: user.id
-              });
-              
-              if (accepted && workspace?.slug) {
-                navigate(`/${workspace.slug}`, { replace: true });
-                return;
-              }
+          if (pendingInvites && pendingInvites.length > 0) {
+            const invite = pendingInvites[0];
+            
+            // Accept the invite via RPC
+            const { data: accepted } = await supabase.rpc("accept_pending_invite", {
+              p_workspace_id: invite.workspace_id,
+              p_user_id: user.id
+            });
+            
+            if (accepted && invite.workspace_slug) {
+              navigate(`/${invite.workspace_slug}`, { replace: true });
+              return;
             }
           }
 

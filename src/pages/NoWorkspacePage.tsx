@@ -1,21 +1,68 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Building2, LogOut, Mail } from "lucide-react";
+import { Building2, LogOut, Mail, Loader2 } from "lucide-react";
 import kaleidosLogo from "@/assets/kaleidos-logo.svg";
 import { CreateWorkspaceDialog } from "@/components/workspace/CreateWorkspaceDialog";
 
 const NoWorkspacePage = () => {
   const navigate = useNavigate();
-  const { signOut } = useAuth();
+  const { signOut, user } = useAuth();
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [checkingInvites, setCheckingInvites] = useState(true);
+
+  // Check for pending invites on mount
+  useEffect(() => {
+    const checkPendingInvites = async () => {
+      if (!user) {
+        setCheckingInvites(false);
+        return;
+      }
+
+      try {
+        const { data: pendingInvites } = await supabase.rpc("get_my_pending_workspace_invites");
+
+        if (pendingInvites && pendingInvites.length > 0) {
+          const invite = pendingInvites[0];
+          
+          // Accept the invite via RPC
+          await supabase.rpc("accept_pending_invite", {
+            p_workspace_id: invite.workspace_id,
+            p_user_id: user.id
+          });
+          
+          // Redirect to the workspace
+          navigate(`/${invite.workspace_slug}`, { replace: true });
+          return;
+        }
+      } catch (err) {
+        console.error("Error checking invites:", err);
+      } finally {
+        setCheckingInvites(false);
+      }
+    };
+
+    checkPendingInvites();
+  }, [user, navigate]);
 
   const handleLogout = async () => {
     await signOut();
     navigate("/login");
   };
+
+  if (checkingInvites) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-muted-foreground">Verificando convites pendentes...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">

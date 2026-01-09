@@ -75,8 +75,28 @@ const handler = async (req: Request): Promise<Response> => {
     const { email, workspaceName, workspaceSlug, inviterName, role, expiresAt, clientNames }: InviteEmailRequest = await req.json();
 
     const roleLabel = roleLabels[role] || role;
-    const appUrl = "https://kai-kaleidos.lovable.app";
-    const inviteUrl = workspaceSlug ? `${appUrl}/${workspaceSlug}` : `${appUrl}/auth`;
+    
+    // Get base URL dynamically from request headers
+    const origin = req.headers.get("origin") || req.headers.get("referer");
+    let baseUrl = "https://kai-kaleidos.lovable.app"; // fallback
+    
+    if (origin) {
+      try {
+        const url = new URL(origin);
+        baseUrl = url.origin;
+      } catch {
+        // Keep fallback if parsing fails
+      }
+    }
+    
+    // Generate invite URL pointing to workspace login
+    const inviteUrl = workspaceSlug 
+      ? `${baseUrl}/${workspaceSlug}/login?invite=1` 
+      : `${baseUrl}/login`;
+    
+    const createAccountUrl = workspaceSlug
+      ? `${baseUrl}/${workspaceSlug}/join`
+      : `${baseUrl}/register`;
     
     // Format client access info
     let clientAccessHtml = "";
@@ -120,7 +140,7 @@ const handler = async (req: Request): Promise<Response> => {
         ${clientAccessHtml}
         
         <p style="margin: 0 0 24px 0; color: #4b5563; font-size: 15px; line-height: 1.6;">
-          Clique no botão abaixo para aceitar o convite e acessar a plataforma:
+          Clique no botão abaixo para acessar a plataforma:
         </p>
         
         <div style="text-align: center; margin: 32px 0;">
@@ -128,14 +148,18 @@ const handler = async (req: Request): Promise<Response> => {
             <tr>
               <td style="border-radius: 8px; background-color: #7c3aed;">
                 <a href="${inviteUrl}" target="_blank" style="display: inline-block; padding: 14px 32px; font-size: 15px; font-weight: 600; color: #ffffff; text-decoration: none; border-radius: 8px; background-color: #7c3aed;">
-                  Aceitar Convite
+                  Acessar kAI
                 </a>
               </td>
             </tr>
           </table>
         </div>
         
-        <p style="margin: 24px 0 0 0; color: #9ca3af; font-size: 13px; text-align: center;">
+        <p style="margin: 16px 0 0 0; color: #6b7280; font-size: 13px; text-align: center;">
+          Não tem conta? <a href="${createAccountUrl}" style="color: #7c3aed; text-decoration: underline;">Crie uma aqui</a>
+        </p>
+        
+        <p style="margin: 16px 0 0 0; color: #9ca3af; font-size: 12px; text-align: center;">
           Este convite expira em 7 dias.
         </p>
       </div>

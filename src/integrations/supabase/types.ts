@@ -3594,6 +3594,16 @@ export type Database = {
         Args: { p_user_id: string; p_workspace_id: string }
         Returns: boolean
       }
+      add_workspace_member_or_invite: {
+        Args: {
+          p_client_ids?: string[]
+          p_email: string
+          p_invited_by: string
+          p_role: string
+          p_workspace_id: string
+        }
+        Returns: Json
+      }
       can_access_client: {
         Args: { p_client_id: string; p_user_id: string }
         Returns: boolean
@@ -3675,6 +3685,16 @@ export type Database = {
           owner_email: string
           owner_id: string
           slug: string
+        }[]
+      }
+      get_my_pending_workspace_invites: {
+        Args: never
+        Returns: {
+          expires_at: string
+          role: string
+          workspace_id: string
+          workspace_name: string
+          workspace_slug: string
         }[]
       }
       get_user_role_in_workspace: {
