@@ -363,9 +363,12 @@ export function TeamManagement() {
                       {canChangeRole ? (
                         <Select
                           value={member.role}
-                          onValueChange={(v) =>
-                            updateMemberRole.mutate({ memberId: member.id, role: v as WorkspaceRole })
-                          }
+                          onValueChange={(v) => {
+                            // Guard to prevent infinite loop - only mutate if value actually changed
+                            if (v !== member.role) {
+                              updateMemberRole.mutate({ memberId: member.id, role: v as WorkspaceRole });
+                            }
+                          }}
                         >
                           <SelectTrigger className="w-[140px]">
                             <SelectValue />
