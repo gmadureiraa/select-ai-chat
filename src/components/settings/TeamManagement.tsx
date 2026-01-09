@@ -150,6 +150,7 @@ export function TeamManagement() {
   }
 
   return (
+    <TooltipProvider>
     <Card>
       <CardHeader>
         <div className="flex items-center gap-2">
@@ -263,21 +264,19 @@ export function TeamManagement() {
                     <Badge variant="outline" className={roleColors[invite.role]}>
                       {roleLabels[invite.role]}
                     </Badge>
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleResendInvite(invite)}
-                            disabled={resendingInviteId === invite.id}
-                          >
-                            <RefreshCw className={`h-4 w-4 ${resendingInviteId === invite.id ? "animate-spin" : ""}`} />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>Reenviar email</TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleResendInvite(invite)}
+                          disabled={resendingInviteId === invite.id}
+                        >
+                          <RefreshCw className={`h-4 w-4 ${resendingInviteId === invite.id ? "animate-spin" : ""}`} />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Reenviar email</TooltipContent>
+                    </Tooltip>
                     <Button
                       variant="ghost"
                       size="icon"
@@ -343,24 +342,22 @@ export function TeamManagement() {
                     <div className="flex items-center gap-2">
                       {/* Client Access Button (only for members) */}
                       {canEditClientAccess && (
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setMemberToEditAccess(member)}
-                                className="h-8 gap-1.5"
-                              >
-                                <Building2 className="h-3.5 w-3.5" />
-                                <span className="hidden sm:inline">Clientes</span>
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              Gerenciar acesso a clientes
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setMemberToEditAccess(member)}
+                              className="h-8 gap-1.5"
+                            >
+                              <Building2 className="h-3.5 w-3.5" />
+                              <span className="hidden sm:inline">Clientes</span>
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            Gerenciar acesso a clientes
+                          </TooltipContent>
+                        </Tooltip>
                       )}
 
                       {canChangeRole ? (
@@ -461,5 +458,6 @@ export function TeamManagement() {
         member={memberToEditAccess}
       />
     </Card>
+    </TooltipProvider>
   );
 }
