@@ -1,14 +1,17 @@
 import { useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Checkbox } from "@/components/ui/checkbox";
 import { 
   Users, UserPlus, Crown, Shield, User, X, Mail, Clock, 
-  Building2, UserCheck, AlertCircle, Eye, ChevronDown, ChevronUp, UserX, RotateCcw
+  Building2, UserCheck, AlertCircle, Eye, ChevronDown, ChevronUp, UserX, RotateCcw, Loader2, Check
 } from "lucide-react";
 import { useWorkspace, WorkspaceRole, WorkspaceMember } from "@/hooks/useWorkspace";
 import { useTeamMembers } from "@/hooks/useTeamMembers";
@@ -18,7 +21,6 @@ import { useAllMemberClientAccess } from "@/hooks/useMemberClientAccess";
 import { useClients } from "@/hooks/useClients";
 import { usePlanLimits } from "@/hooks/usePlanLimits";
 import { useUpgradePrompt } from "@/hooks/useUpgradePrompt";
-import { MemberClientAccessDialog } from "@/components/settings/MemberClientAccessDialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -34,7 +36,6 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -61,6 +62,7 @@ const roleColors: Record<WorkspaceRole, string> = {
 };
 
 export function TeamTool() {
+  const { toast } = useToast();
   const { user } = useAuth();
   const { workspace, canManageTeam, isOwner } = useWorkspace();
   const { members, invites, isLoadingMembers, isLoadingInvites, inviteMember, updateMemberRole, removeMember, cancelInvite } = useTeamMembers();
@@ -69,17 +71,27 @@ export function TeamTool() {
   const { clients } = useClients();
   const { canAddMember, membersRemaining, maxMembers } = usePlanLimits();
   const { showUpgradePrompt } = useUpgradePrompt();
+  const queryClient = useQueryClient();
   
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<WorkspaceRole>("member");
   const [selectedClients, setSelectedClients] = useState<string[]>([]);
   const [showClientSelection, setShowClientSelection] = useState(false);
   const [memberToRemove, setMemberToRemove] = useState<string | null>(null);
-  const [memberToEditAccess, setMemberToEditAccess] = useState<WorkspaceMember | null>(null);
   const [selectedRoleForPending, setSelectedRoleForPending] = useState<Record<string, WorkspaceRole>>({});
+
+  // Inline client access editing state
+  const [editingMember, setEditingMember] = useState<WorkspaceMember | null>(null);
+  const [editingClientIds, setEditingClientIds] = useState<string[]>([]);
 
   const getMemberClientCount = (memberId: string): number => {
     return allMemberAccess.filter(a => a.workspace_member_id === memberId).length;
+  };
+
+  const getMemberClientIds = (memberId: string): string[] => {
+    return allMemberAccess
+      .filter(a => a.workspace_member_id === memberId)
+      .map(a => a.client_id);
   };
 
   const toggleClientSelection = (clientId: string) => {
@@ -90,17 +102,87 @@ export function TeamTool() {
     );
   };
 
+  const toggleEditingClient = (clientId: string) => {
+    setEditingClientIds(prev =>
+      prev.includes(clientId)
+        ? prev.filter(id => id !== clientId)
+        : [...prev, clientId]
+    );
+  };
+
+  const openEditingPanel = (member: WorkspaceMember) => {
+    const currentIds = getMemberClientIds(member.id);
+    setEditingMember(member);
+    setEditingClientIds(currentIds);
+  };
+
+  const closeEditingPanel = () => {
+    setEditingMember(null);
+    setEditingClientIds([]);
+  };
+
+  // Mutation to save client access
+  const saveClientAccess = useMutation({
+    mutationFn: async ({ memberId, clientIds }: { memberId: string; clientIds: string[] }) => {
+      const { error: deleteError } = await supabase
+        .from("workspace_member_clients")
+        .delete()
+        .eq("workspace_member_id", memberId);
+
+      if (deleteError) throw deleteError;
+
+      if (clientIds.length === 0) {
+        return [];
+      }
+
+      const accessRecords = clientIds.map(clientId => ({
+        workspace_member_id: memberId,
+        client_id: clientId,
+      }));
+
+      const { data, error: insertError } = await supabase
+        .from("workspace_member_clients")
+        .insert(accessRecords)
+        .select();
+
+      if (insertError) throw insertError;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["all-member-client-access"] });
+      queryClient.invalidateQueries({ queryKey: ["member-client-access"] });
+      toast({
+        title: "Acesso atualizado",
+        description: "As permissões de cliente foram atualizadas.",
+      });
+      closeEditingPanel();
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Erro ao atualizar acesso",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleSaveClientAccess = () => {
+    if (!editingMember) return;
+    saveClientAccess.mutate({
+      memberId: editingMember.id,
+      clientIds: editingClientIds,
+    });
+  };
+
   const handleInvite = (e: React.FormEvent) => {
     e.preventDefault();
     if (!email.trim()) return;
     
-    // Check plan limits before inviting
     if (!canAddMember) {
       showUpgradePrompt("max_members", `Você atingiu o limite de ${maxMembers} membro(s) do seu plano atual.`);
       return;
     }
     
-    // Only pass clientIds if role is member or viewer (those that can have restricted access)
     const clientIds = (role === "member" || role === "viewer") && selectedClients.length > 0 
       ? selectedClients 
       : undefined;
@@ -116,7 +198,6 @@ export function TeamTool() {
   };
 
   const handleAddPendingUser = (pendingUser: PendingUser) => {
-    // Check plan limits before adding
     if (!canAddMember) {
       showUpgradePrompt("max_members", `Você atingiu o limite de ${maxMembers} membro(s) do seu plano atual.`);
       return;
@@ -136,6 +217,8 @@ export function TeamTool() {
       </div>
     );
   }
+
+  const isViewerEditing = editingMember?.role === "viewer";
 
   return (
     <div className="p-6 space-y-6 overflow-auto h-full">
@@ -357,9 +440,11 @@ export function TeamTool() {
                               : "bg-background border-border hover:bg-muted/50"
                           )}
                         >
-                          <Checkbox
+                          <input
+                            type="checkbox"
                             checked={selectedClients.includes(client.id)}
-                            onCheckedChange={() => toggleClientSelection(client.id)}
+                            onChange={() => toggleClientSelection(client.id)}
+                            className="h-4 w-4 rounded border-input accent-primary"
                           />
                           <span className="text-sm truncate">{client.name}</span>
                         </label>
@@ -449,91 +534,209 @@ export function TeamTool() {
                 const RoleIcon = roleIcons[member.role];
                 const isCurrentUser = member.user_id === user?.id;
                 const isMemberOwner = member.role === "owner";
-                const isMemberViewer = member.role === "viewer";
                 const canChangeRole = isOwner && !isMemberOwner && !isCurrentUser;
                 const canRemove = canManageTeam && !isMemberOwner && !isCurrentUser;
                 const canEditClientAccess = canManageTeam && (member.role === "member" || member.role === "viewer") && !isCurrentUser;
                 const clientAccessCount = getMemberClientCount(member.id);
+                const isEditing = editingMember?.id === member.id;
 
                 return (
-                  <div
-                    key={member.id}
-                    className="flex items-center justify-between p-3 rounded-lg bg-muted/30"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
-                        <RoleIcon className="h-4 w-4 text-primary" />
-                      </div>
-                      <div>
-                        <div className="text-sm font-medium flex items-center gap-2">
-                          {member.profile?.full_name || member.profile?.email || "Usuário"}
-                          {isCurrentUser && (
-                            <span className="text-xs text-muted-foreground">(você)</span>
-                          )}
+                  <div key={member.id} className="space-y-2">
+                    <div
+                      className={`flex items-center justify-between p-3 rounded-lg bg-muted/30 ${isEditing ? "ring-2 ring-primary" : ""}`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+                          <RoleIcon className="h-4 w-4 text-primary" />
                         </div>
-                        <div className="text-xs text-muted-foreground flex items-center gap-2">
-                          {member.profile?.email}
-                          {member.role === "member" && clientAccessCount > 0 && (
-                            <Badge variant="outline" className="text-[10px] h-4 px-1.5 bg-amber-500/10 text-amber-600 border-amber-500/20">
-                              {clientAccessCount} cliente{clientAccessCount > 1 ? "s" : ""}
-                            </Badge>
-                          )}
+                        <div>
+                          <div className="text-sm font-medium flex items-center gap-2">
+                            {member.profile?.full_name || member.profile?.email || "Usuário"}
+                            {isCurrentUser && (
+                              <span className="text-xs text-muted-foreground">(você)</span>
+                            )}
+                          </div>
+                          <div className="text-xs text-muted-foreground flex items-center gap-2">
+                            {member.profile?.email}
+                            {(member.role === "member" || member.role === "viewer") && clientAccessCount > 0 && (
+                              <Badge variant="outline" className="text-[10px] h-4 px-1.5 bg-amber-500/10 text-amber-600 border-amber-500/20">
+                                {clientAccessCount} cliente{clientAccessCount > 1 ? "s" : ""}
+                              </Badge>
+                            )}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {canEditClientAccess && (
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setMemberToEditAccess(member)}
-                                className="h-8 gap-1.5"
-                              >
-                                <Building2 className="h-3.5 w-3.5" />
-                                <span className="hidden sm:inline">Clientes</span>
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              Gerenciar acesso a clientes
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {canEditClientAccess && (
+                          <Button
+                            variant={isEditing ? "default" : "outline"}
+                            size="sm"
+                            title="Gerenciar acesso a clientes"
+                            onClick={() => isEditing ? closeEditingPanel() : openEditingPanel(member)}
+                            className="h-8 gap-1.5"
+                          >
+                            <Building2 className="h-3.5 w-3.5" />
+                            <span className="hidden sm:inline">Clientes</span>
+                          </Button>
+                        )}
 
-                      {canChangeRole ? (
-                        <Select
-                          value={member.role}
-                          onValueChange={(v) =>
-                            updateMemberRole.mutate({ memberId: member.id, role: v as WorkspaceRole })
-                          }
-                        >
-                          <SelectTrigger className="w-[140px]">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="viewer">Visualizador</SelectItem>
-                            <SelectItem value="member">Membro</SelectItem>
-                            <SelectItem value="admin">Admin</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      ) : (
-                        <Badge variant="outline" className={roleColors[member.role]}>
-                          {roleLabels[member.role]}
-                        </Badge>
-                      )}
-                      {canRemove && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => setMemberToRemove(member.id)}
-                        >
-                          <X className="h-4 w-4 text-destructive" />
-                        </Button>
-                      )}
+                        {canChangeRole ? (
+                          <Select
+                            value={member.role}
+                            onValueChange={(v) =>
+                              updateMemberRole.mutate({ memberId: member.id, role: v as WorkspaceRole })
+                            }
+                          >
+                            <SelectTrigger className="w-[140px]">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="viewer">Visualizador</SelectItem>
+                              <SelectItem value="member">Membro</SelectItem>
+                              <SelectItem value="admin">Admin</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <Badge variant="outline" className={roleColors[member.role]}>
+                            {roleLabels[member.role]}
+                          </Badge>
+                        )}
+                        {canRemove && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setMemberToRemove(member.id)}
+                          >
+                            <X className="h-4 w-4 text-destructive" />
+                          </Button>
+                        )}
+                      </div>
                     </div>
+
+                    {/* Inline Client Access Panel */}
+                    {isEditing && (
+                      <div className="ml-11 p-4 border rounded-lg bg-background space-y-4">
+                        {/* Access Mode Indicator */}
+                        <div className="p-3 rounded-lg bg-muted/50 border">
+                          {editingClientIds.length > 0 ? (
+                            <div className="flex items-start gap-2">
+                              <Building2 className="h-4 w-4 text-amber-500 mt-0.5" />
+                              <div className="text-sm">
+                                <span className="font-medium text-amber-600">Acesso restrito</span>
+                                <p className="text-muted-foreground text-xs mt-0.5">
+                                  {isViewerEditing ? "Visualizador" : "Membro"} só verá os clientes selecionados abaixo
+                                </p>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="flex items-start gap-2">
+                              <Building2 className={`h-4 w-4 mt-0.5 ${isViewerEditing ? "text-red-500" : "text-emerald-500"}`} />
+                              <div className="text-sm">
+                                {isViewerEditing ? (
+                                  <>
+                                    <span className="font-medium text-red-600">Sem acesso</span>
+                                    <p className="text-muted-foreground text-xs mt-0.5">
+                                      Visualizador não verá nenhum cliente. Selecione pelo menos um.
+                                    </p>
+                                  </>
+                                ) : (
+                                  <>
+                                    <span className="font-medium text-emerald-600">Acesso total</span>
+                                    <p className="text-muted-foreground text-xs mt-0.5">
+                                      Membro pode ver todos os clientes do workspace
+                                    </p>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Select All */}
+                        <div className="flex items-center justify-between">
+                          <Label className="text-sm font-medium">Clientes disponíveis</Label>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              if (editingClientIds.length === clients.length) {
+                                setEditingClientIds([]);
+                              } else {
+                                setEditingClientIds(clients.map(c => c.id));
+                              }
+                            }}
+                          >
+                            {editingClientIds.length === clients.length ? "Desmarcar todos" : "Selecionar todos"}
+                          </Button>
+                        </div>
+
+                        {/* Client List with native checkboxes */}
+                        <div className="max-h-[200px] overflow-y-auto border rounded-lg p-2 space-y-1">
+                          {clients.length === 0 ? (
+                            <div className="text-center py-6 text-muted-foreground text-sm">
+                              Nenhum cliente cadastrado
+                            </div>
+                          ) : (
+                            clients.map((client) => {
+                              const isSelected = editingClientIds.includes(client.id);
+                              return (
+                                <label
+                                  key={client.id}
+                                  className="flex items-center gap-3 p-2.5 rounded-md hover:bg-muted/50 cursor-pointer transition-colors"
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={isSelected}
+                                    onChange={() => toggleEditingClient(client.id)}
+                                    className="h-4 w-4 rounded border-input accent-primary"
+                                  />
+                                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                                    <div className="h-7 w-7 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
+                                      <span className="text-xs font-semibold text-primary">
+                                        {client.name.charAt(0).toUpperCase()}
+                                      </span>
+                                    </div>
+                                    <span className="text-sm font-medium truncate">{client.name}</span>
+                                  </div>
+                                </label>
+                              );
+                            })
+                          )}
+                        </div>
+
+                        {/* Info */}
+                        <p className="text-xs text-muted-foreground">
+                          {isViewerEditing 
+                            ? "Visualizadores precisam ter pelo menos um cliente selecionado."
+                            : "Deixe vazio para dar acesso a todos os clientes."}
+                        </p>
+
+                        {/* Actions */}
+                        <div className="flex justify-end gap-2">
+                          <Button variant="outline" size="sm" onClick={closeEditingPanel}>
+                            Cancelar
+                          </Button>
+                          <Button
+                            size="sm"
+                            onClick={handleSaveClientAccess}
+                            disabled={saveClientAccess.isPending || (isViewerEditing && editingClientIds.length === 0)}
+                          >
+                            {saveClientAccess.isPending ? (
+                              <>
+                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                Salvando...
+                              </>
+                            ) : (
+                              <>
+                                <Check className="h-4 w-4 mr-2" />
+                                Salvar
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -592,13 +795,6 @@ export function TeamTool() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      {/* Member Client Access Dialog */}
-      <MemberClientAccessDialog
-        open={!!memberToEditAccess}
-        onOpenChange={(open) => !open && setMemberToEditAccess(null)}
-        member={memberToEditAccess}
-      />
     </div>
   );
 }
