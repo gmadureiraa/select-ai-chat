@@ -12,6 +12,7 @@ import { RichContentEditor } from "@/components/planning/RichContentEditor";
 import { usePlanningContentGeneration } from "@/hooks/usePlanningContentGeneration";
 import { MentionableInput } from "@/components/planning/MentionableInput";
 import { UnifiedUploader } from "@/components/library/UnifiedUploader";
+import { AttachmentsEditor, AttachedItem } from "@/components/library/AttachmentsEditor";
 
 interface ContentDialogProps {
   open: boolean;
@@ -43,6 +44,7 @@ export const ContentDialog = ({ open, onClose, onSave, content, clientId }: Cont
         content: content.content,
         content_url: content.content_url || "",
         thumbnail_url: content.thumbnail_url || "",
+        metadata: content.metadata as Record<string, unknown> || {},
       });
       setShowAdvanced(!!(content.content_url || content.thumbnail_url));
     } else {
@@ -52,10 +54,32 @@ export const ContentDialog = ({ open, onClose, onSave, content, clientId }: Cont
         content: "",
         content_url: "",
         thumbnail_url: "",
+        metadata: {},
       });
       setShowAdvanced(false);
     }
   }, [content, open]);
+
+  const handleRemoveAttachment = (attachmentId: string) => {
+    setFormData(prev => {
+      const currentAttachments = ((prev.metadata as Record<string, unknown>)?.attachments as AttachedItem[] || []);
+      const updatedAttachments = currentAttachments.filter(a => a.id !== attachmentId);
+      const updatedImageUrls = updatedAttachments
+        .filter(a => a.type === 'image')
+        .map(a => a.url);
+      
+      return {
+        ...prev,
+        metadata: {
+          ...(prev.metadata as Record<string, unknown> || {}),
+          attachments: updatedAttachments,
+          image_urls: updatedImageUrls,
+        }
+      };
+    });
+  };
+
+  const currentAttachments = ((formData.metadata as Record<string, unknown>)?.attachments as AttachedItem[] || []);
 
   const handleContentExtracted = (result: { text: string; metadata?: any }) => {
     setFormData(prev => ({
@@ -205,6 +229,12 @@ export const ContentDialog = ({ open, onClose, onSave, content, clientId }: Cont
             clientId={clientId}
             maxFiles={10}
             maxSizeMB={20}
+          />
+
+          {/* Attachments Editor - mostrar anexos já adicionados */}
+          <AttachmentsEditor
+            attachments={currentAttachments}
+            onRemove={handleRemoveAttachment}
           />
 
           {/* Main Content Editor */}
