@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -174,16 +174,19 @@ export function TeamManagement() {
                 onChange={(e) => setEmail(e.target.value)}
                 className="flex-1"
               />
-              <Select value={role} onValueChange={(v) => setRole(v as WorkspaceRole)}>
-                <SelectTrigger className="w-[160px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="viewer">Visualizador</SelectItem>
-                  <SelectItem value="member">Membro</SelectItem>
-                  <SelectItem value="admin">Admin</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="relative w-[160px]">
+                <select
+                  aria-label="Cargo"
+                  value={role}
+                  onChange={(e) => setRole(e.target.value as WorkspaceRole)}
+                  className="h-10 w-full appearance-none rounded-md border border-input bg-background px-3 py-2 pr-9 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <option value="viewer">Visualizador</option>
+                  <option value="member">Membro</option>
+                  <option value="admin">Admin</option>
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              </div>
               <Button type="submit" disabled={inviteMember.isPending || !email.trim()}>
                 <UserPlus className="h-4 w-4 mr-2" />
                 Convidar
@@ -361,24 +364,24 @@ export function TeamManagement() {
                       )}
 
                       {canChangeRole ? (
-                        <Select
-                          key={`role-select-${member.id}`}
-                          value={member.role}
-                          onValueChange={(v) => {
-                            if (v !== member.role) {
-                              updateMemberRole.mutate({ memberId: member.id, role: v as WorkspaceRole });
-                            }
-                          }}
-                        >
-                          <SelectTrigger className="w-[140px]">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="viewer">Visualizador</SelectItem>
-                            <SelectItem value="member">Membro</SelectItem>
-                            <SelectItem value="admin">Admin</SelectItem>
-                          </SelectContent>
-                        </Select>
+                        <div className="relative w-[140px]">
+                          <select
+                            aria-label="Alterar cargo"
+                            value={member.role}
+                            onChange={(e) => {
+                              const v = e.target.value as WorkspaceRole;
+                              if (v !== member.role) {
+                                updateMemberRole.mutate({ memberId: member.id, role: v });
+                              }
+                            }}
+                            className="h-10 w-full appearance-none rounded-md border border-input bg-background px-3 py-2 pr-8 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            <option value="viewer">Visualizador</option>
+                            <option value="member">Membro</option>
+                            <option value="admin">Admin</option>
+                          </select>
+                          <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                        </div>
                       ) : (
                         <Badge variant="outline" className={roleColors[member.role]}>
                           {roleLabels[member.role]}
