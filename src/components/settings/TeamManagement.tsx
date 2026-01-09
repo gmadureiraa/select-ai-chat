@@ -1,21 +1,19 @@
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Users, UserPlus, Crown, Shield, User, X, Mail, Clock, Building2, Eye, ChevronDown, ChevronUp, RefreshCw } from "lucide-react";
+import { Users, UserPlus, Crown, Shield, User, X, Mail, Clock, Building2, Eye, ChevronDown, ChevronUp, RefreshCw, Loader2, Check } from "lucide-react";
 import { useWorkspace, WorkspaceRole, WorkspaceMember } from "@/hooks/useWorkspace";
 import { useTeamMembers } from "@/hooks/useTeamMembers";
 import { useAuth } from "@/hooks/useAuth";
 import { useClients } from "@/hooks/useClients";
 import { useAllMemberClientAccess } from "@/hooks/useMemberClientAccess";
-import { MemberClientAccessDialog } from "./MemberClientAccessDialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -31,7 +29,6 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { format, formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -63,27 +60,116 @@ export function TeamManagement() {
   const { members, invites, isLoadingMembers, isLoadingInvites, inviteMember, updateMemberRole, removeMember, cancelInvite } = useTeamMembers();
   const { clients } = useClients();
   const { data: allMemberAccess = [] } = useAllMemberClientAccess(workspace?.id);
+  const queryClient = useQueryClient();
   
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<WorkspaceRole>("member");
   const [selectedClientIds, setSelectedClientIds] = useState<string[]>([]);
   const [showClientSelection, setShowClientSelection] = useState(false);
   const [memberToRemove, setMemberToRemove] = useState<string | null>(null);
-  const [memberToEditAccess, setMemberToEditAccess] = useState<WorkspaceMember | null>(null);
   const [resendingInviteId, setResendingInviteId] = useState<string | null>(null);
+
+  // Inline client access editing state
+  const [editingMember, setEditingMember] = useState<WorkspaceMember | null>(null);
+  const [editingClientIds, setEditingClientIds] = useState<string[]>([]);
 
   // Helper to get client access count for a member
   const getMemberClientCount = (memberId: string): number => {
     return allMemberAccess.filter(a => a.workspace_member_id === memberId).length;
   };
 
-  // Toggle client selection
+  // Get current client IDs for a member from allMemberAccess
+  const getMemberClientIds = (memberId: string): string[] => {
+    return allMemberAccess
+      .filter(a => a.workspace_member_id === memberId)
+      .map(a => a.client_id);
+  };
+
+  // Toggle client selection for invite form
   const toggleClientSelection = (clientId: string) => {
     setSelectedClientIds(prev =>
       prev.includes(clientId)
         ? prev.filter(id => id !== clientId)
         : [...prev, clientId]
     );
+  };
+
+  // Toggle client selection for editing panel
+  const toggleEditingClient = (clientId: string) => {
+    setEditingClientIds(prev =>
+      prev.includes(clientId)
+        ? prev.filter(id => id !== clientId)
+        : [...prev, clientId]
+    );
+  };
+
+  // Open inline editing panel
+  const openEditingPanel = (member: WorkspaceMember) => {
+    const currentIds = getMemberClientIds(member.id);
+    setEditingMember(member);
+    setEditingClientIds(currentIds);
+  };
+
+  // Close inline editing panel
+  const closeEditingPanel = () => {
+    setEditingMember(null);
+    setEditingClientIds([]);
+  };
+
+  // Mutation to save client access
+  const saveClientAccess = useMutation({
+    mutationFn: async ({ memberId, clientIds }: { memberId: string; clientIds: string[] }) => {
+      // Delete all existing access
+      const { error: deleteError } = await supabase
+        .from("workspace_member_clients")
+        .delete()
+        .eq("workspace_member_id", memberId);
+
+      if (deleteError) throw deleteError;
+
+      // If no clients selected, done (full access for member, no access for viewer handled by UI)
+      if (clientIds.length === 0) {
+        return [];
+      }
+
+      // Insert new access records
+      const accessRecords = clientIds.map(clientId => ({
+        workspace_member_id: memberId,
+        client_id: clientId,
+      }));
+
+      const { data, error: insertError } = await supabase
+        .from("workspace_member_clients")
+        .insert(accessRecords)
+        .select();
+
+      if (insertError) throw insertError;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["all-member-client-access"] });
+      queryClient.invalidateQueries({ queryKey: ["member-client-access"] });
+      toast({
+        title: "Acesso atualizado",
+        description: "As permissões de cliente foram atualizadas.",
+      });
+      closeEditingPanel();
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Erro ao atualizar acesso",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleSaveClientAccess = () => {
+    if (!editingMember) return;
+    saveClientAccess.mutate({
+      memberId: editingMember.id,
+      clientIds: editingClientIds,
+    });
   };
 
   const handleInvite = (e: React.FormEvent) => {
@@ -149,8 +235,9 @@ export function TeamManagement() {
     return null;
   }
 
+  const isViewerEditing = editingMember?.role === "viewer";
+
   return (
-    <TooltipProvider>
     <Card>
       <CardHeader>
         <div className="flex items-center gap-2">
@@ -219,17 +306,18 @@ export function TeamManagement() {
                         : "Selecione os clientes que este membro poderá acessar:"}
                     </p>
                     {clients.map((client) => (
-                      <div
+                      <label
                         key={client.id}
                         className="flex items-center gap-2 p-2 rounded hover:bg-muted/50 cursor-pointer"
-                        onClick={() => toggleClientSelection(client.id)}
                       >
-                        <Checkbox
+                        <input
+                          type="checkbox"
                           checked={selectedClientIds.includes(client.id)}
-                          onCheckedChange={() => toggleClientSelection(client.id)}
+                          onChange={() => toggleClientSelection(client.id)}
+                          className="h-4 w-4 rounded border-input accent-primary"
                         />
                         <span className="text-sm">{client.name}</span>
-                      </div>
+                      </label>
                     ))}
                   </div>
                 </CollapsibleContent>
@@ -264,19 +352,15 @@ export function TeamManagement() {
                     <Badge variant="outline" className={roleColors[invite.role]}>
                       {roleLabels[invite.role]}
                     </Badge>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleResendInvite(invite)}
-                          disabled={resendingInviteId === invite.id}
-                        >
-                          <RefreshCw className={`h-4 w-4 ${resendingInviteId === invite.id ? "animate-spin" : ""}`} />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>Reenviar email</TooltipContent>
-                    </Tooltip>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      title="Reenviar email"
+                      onClick={() => handleResendInvite(invite)}
+                      disabled={resendingInviteId === invite.id}
+                    >
+                      <RefreshCw className={`h-4 w-4 ${resendingInviteId === invite.id ? "animate-spin" : ""}`} />
+                    </Button>
                     <Button
                       variant="ghost"
                       size="icon"
@@ -306,94 +390,213 @@ export function TeamManagement() {
                 const RoleIcon = roleIcons[member.role];
                 const isCurrentUser = member.user_id === user?.id;
                 const isMemberOwner = member.role === "owner";
-                const isMemberViewer = member.role === "viewer";
                 const canChangeRole = isOwner && !isMemberOwner && !isCurrentUser;
                 const canRemove = canManageTeam && !isMemberOwner && !isCurrentUser;
-                // Allow client access editing for both members and viewers
                 const canEditClientAccess = canManageTeam && (member.role === "member" || member.role === "viewer") && !isCurrentUser;
                 const clientAccessCount = getMemberClientCount(member.id);
+                const isEditing = editingMember?.id === member.id;
 
                 return (
-                  <div
-                    key={member.id}
-                    className="flex items-center justify-between p-3 rounded-lg bg-muted/30"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
-                        <RoleIcon className="h-4 w-4 text-primary" />
+                  <div key={member.id} className="space-y-2">
+                    <div
+                      className={`flex items-center justify-between p-3 rounded-lg bg-muted/30 ${isEditing ? "ring-2 ring-primary" : ""}`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+                          <RoleIcon className="h-4 w-4 text-primary" />
+                        </div>
+                        <div>
+                          <div className="text-sm font-medium flex items-center gap-2">
+                            {member.profile?.full_name || member.profile?.email || "Usuário"}
+                            {isCurrentUser && (
+                              <span className="text-xs text-muted-foreground">(você)</span>
+                            )}
+                          </div>
+                          <div className="text-xs text-muted-foreground flex items-center gap-2">
+                            {member.profile?.email}
+                            {(member.role === "member" || member.role === "viewer") && clientAccessCount > 0 && (
+                              <Badge variant="outline" className="text-[10px] h-4 px-1.5 bg-amber-500/10 text-amber-600 border-amber-500/20">
+                                {clientAccessCount} cliente{clientAccessCount > 1 ? "s" : ""}
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
                       </div>
-                      <div>
-                        <div className="text-sm font-medium flex items-center gap-2">
-                          {member.profile?.full_name || member.profile?.email || "Usuário"}
-                          {isCurrentUser && (
-                            <span className="text-xs text-muted-foreground">(você)</span>
-                          )}
-                        </div>
-                        <div className="text-xs text-muted-foreground flex items-center gap-2">
-                          {member.profile?.email}
-                          {member.role === "member" && clientAccessCount > 0 && (
-                            <Badge variant="outline" className="text-[10px] h-4 px-1.5 bg-amber-500/10 text-amber-600 border-amber-500/20">
-                              {clientAccessCount} cliente{clientAccessCount > 1 ? "s" : ""}
-                            </Badge>
-                          )}
-                        </div>
+                      <div className="flex items-center gap-2">
+                        {/* Client Access Button */}
+                        {canEditClientAccess && (
+                          <Button
+                            variant={isEditing ? "default" : "outline"}
+                            size="sm"
+                            title="Gerenciar acesso a clientes"
+                            onClick={() => isEditing ? closeEditingPanel() : openEditingPanel(member)}
+                            className="h-8 gap-1.5"
+                          >
+                            <Building2 className="h-3.5 w-3.5" />
+                            <span className="hidden sm:inline">Clientes</span>
+                          </Button>
+                        )}
+
+                        {canChangeRole ? (
+                          <div className="relative w-[140px]">
+                            <select
+                              aria-label="Alterar cargo"
+                              value={member.role}
+                              onChange={(e) => {
+                                const v = e.target.value as WorkspaceRole;
+                                if (v !== member.role) {
+                                  updateMemberRole.mutate({ memberId: member.id, role: v });
+                                }
+                              }}
+                              className="h-10 w-full appearance-none rounded-md border border-input bg-background px-3 py-2 pr-8 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              <option value="viewer">Visualizador</option>
+                              <option value="member">Membro</option>
+                              <option value="admin">Admin</option>
+                            </select>
+                            <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                          </div>
+                        ) : (
+                          <Badge variant="outline" className={roleColors[member.role]}>
+                            {roleLabels[member.role]}
+                          </Badge>
+                        )}
+                        {canRemove && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setMemberToRemove(member.id)}
+                          >
+                            <X className="h-4 w-4 text-destructive" />
+                          </Button>
+                        )}
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      {/* Client Access Button (only for members) */}
-                      {canEditClientAccess && (
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => setMemberToEditAccess(member)}
-                              className="h-8 gap-1.5"
-                            >
-                              <Building2 className="h-3.5 w-3.5" />
-                              <span className="hidden sm:inline">Clientes</span>
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            Gerenciar acesso a clientes
-                          </TooltipContent>
-                        </Tooltip>
-                      )}
 
-                      {canChangeRole ? (
-                        <div className="relative w-[140px]">
-                          <select
-                            aria-label="Alterar cargo"
-                            value={member.role}
-                            onChange={(e) => {
-                              const v = e.target.value as WorkspaceRole;
-                              if (v !== member.role) {
-                                updateMemberRole.mutate({ memberId: member.id, role: v });
+                    {/* Inline Client Access Panel */}
+                    {isEditing && (
+                      <div className="ml-11 p-4 border rounded-lg bg-background space-y-4">
+                        {/* Access Mode Indicator */}
+                        <div className="p-3 rounded-lg bg-muted/50 border">
+                          {editingClientIds.length > 0 ? (
+                            <div className="flex items-start gap-2">
+                              <Building2 className="h-4 w-4 text-amber-500 mt-0.5" />
+                              <div className="text-sm">
+                                <span className="font-medium text-amber-600">Acesso restrito</span>
+                                <p className="text-muted-foreground text-xs mt-0.5">
+                                  {isViewerEditing ? "Visualizador" : "Membro"} só verá os clientes selecionados abaixo
+                                </p>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="flex items-start gap-2">
+                              <Building2 className={`h-4 w-4 mt-0.5 ${isViewerEditing ? "text-red-500" : "text-emerald-500"}`} />
+                              <div className="text-sm">
+                                {isViewerEditing ? (
+                                  <>
+                                    <span className="font-medium text-red-600">Sem acesso</span>
+                                    <p className="text-muted-foreground text-xs mt-0.5">
+                                      Visualizador não verá nenhum cliente. Selecione pelo menos um.
+                                    </p>
+                                  </>
+                                ) : (
+                                  <>
+                                    <span className="font-medium text-emerald-600">Acesso total</span>
+                                    <p className="text-muted-foreground text-xs mt-0.5">
+                                      Membro pode ver todos os clientes do workspace
+                                    </p>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Select All */}
+                        <div className="flex items-center justify-between">
+                          <Label className="text-sm font-medium">Clientes disponíveis</Label>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              if (editingClientIds.length === clients.length) {
+                                setEditingClientIds([]);
+                              } else {
+                                setEditingClientIds(clients.map(c => c.id));
                               }
                             }}
-                            className="h-10 w-full appearance-none rounded-md border border-input bg-background px-3 py-2 pr-8 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                           >
-                            <option value="viewer">Visualizador</option>
-                            <option value="member">Membro</option>
-                            <option value="admin">Admin</option>
-                          </select>
-                          <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                            {editingClientIds.length === clients.length ? "Desmarcar todos" : "Selecionar todos"}
+                          </Button>
                         </div>
-                      ) : (
-                        <Badge variant="outline" className={roleColors[member.role]}>
-                          {roleLabels[member.role]}
-                        </Badge>
-                      )}
-                      {canRemove && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => setMemberToRemove(member.id)}
-                        >
-                          <X className="h-4 w-4 text-destructive" />
-                        </Button>
-                      )}
-                    </div>
+
+                        {/* Client List with native checkboxes */}
+                        <div className="max-h-[200px] overflow-y-auto border rounded-lg p-2 space-y-1">
+                          {clients.length === 0 ? (
+                            <div className="text-center py-6 text-muted-foreground text-sm">
+                              Nenhum cliente cadastrado
+                            </div>
+                          ) : (
+                            clients.map((client) => {
+                              const isSelected = editingClientIds.includes(client.id);
+                              return (
+                                <label
+                                  key={client.id}
+                                  className="flex items-center gap-3 p-2.5 rounded-md hover:bg-muted/50 cursor-pointer transition-colors"
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={isSelected}
+                                    onChange={() => toggleEditingClient(client.id)}
+                                    className="h-4 w-4 rounded border-input accent-primary"
+                                  />
+                                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                                    <div className="h-7 w-7 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
+                                      <span className="text-xs font-semibold text-primary">
+                                        {client.name.charAt(0).toUpperCase()}
+                                      </span>
+                                    </div>
+                                    <span className="text-sm font-medium truncate">{client.name}</span>
+                                  </div>
+                                </label>
+                              );
+                            })
+                          )}
+                        </div>
+
+                        {/* Info */}
+                        <p className="text-xs text-muted-foreground">
+                          {isViewerEditing 
+                            ? "Visualizadores precisam ter pelo menos um cliente selecionado."
+                            : "Deixe vazio para dar acesso a todos os clientes."}
+                        </p>
+
+                        {/* Actions */}
+                        <div className="flex justify-end gap-2">
+                          <Button variant="outline" size="sm" onClick={closeEditingPanel}>
+                            Cancelar
+                          </Button>
+                          <Button
+                            size="sm"
+                            onClick={handleSaveClientAccess}
+                            disabled={saveClientAccess.isPending || (isViewerEditing && editingClientIds.length === 0)}
+                          >
+                            {saveClientAccess.isPending ? (
+                              <>
+                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                Salvando...
+                              </>
+                            ) : (
+                              <>
+                                <Check className="h-4 w-4 mr-2" />
+                                Salvar
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -450,14 +653,6 @@ export function TeamManagement() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      {/* Member Client Access Dialog */}
-      <MemberClientAccessDialog
-        open={!!memberToEditAccess}
-        onOpenChange={(open) => !open && setMemberToEditAccess(null)}
-        member={memberToEditAccess}
-      />
     </Card>
-    </TooltipProvider>
   );
 }
