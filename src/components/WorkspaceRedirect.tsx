@@ -18,6 +18,24 @@ export const WorkspaceRedirect = () => {
       }
 
       try {
+        // First check for pending invites using RPC (bypasses RLS)
+        const { data: pendingInvites } = await supabase.rpc("get_my_pending_workspace_invites");
+
+        if (pendingInvites && pendingInvites.length > 0) {
+          const invite = pendingInvites[0];
+          
+          // Accept the invite via RPC
+          await supabase.rpc("accept_pending_invite", {
+            p_workspace_id: invite.workspace_id,
+            p_user_id: user.id
+          });
+          
+          // Redirect to the workspace
+          setSlug(invite.workspace_slug);
+          setIsLoading(false);
+          return;
+        }
+
         // Get user's workspace slug using the database function
         const { data, error } = await supabase
           .rpc("get_user_workspace_slug", { p_user_id: user.id });

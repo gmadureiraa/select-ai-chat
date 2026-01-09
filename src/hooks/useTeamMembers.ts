@@ -88,67 +88,70 @@ export const useTeamMembers = () => {
         .eq("id", user.id)
         .single();
 
-      const { data, error } = await supabase
-        .from("workspace_invites")
-        .insert({
-          workspace_id: workspace.id,
-          email: email.toLowerCase(),
-          role,
-          invited_by: user.id,
-        })
-        .select()
-        .single();
+      // Use RPC to add member directly if user exists, or create invite if not
+      const { data: result, error } = await supabase.rpc("add_workspace_member_or_invite", {
+        p_workspace_id: workspace.id,
+        p_email: email.toLowerCase(),
+        p_role: role,
+        p_invited_by: user.id,
+        p_client_ids: clientIds || null,
+      });
 
       if (error) {
-        if (error.code === "23505") {
-          throw new Error("Este email já foi convidado");
-        }
         throw error;
       }
 
-      // If clientIds provided, create workspace_invite_clients records
-      if (clientIds && clientIds.length > 0 && data) {
-        const inviteClients = clientIds.map(clientId => ({
-          invite_id: data.id,
-          client_id: clientId,
-        }));
+      const status = (result as any)?.status;
 
-        const { error: clientError } = await supabase
-          .from("workspace_invite_clients")
-          .insert(inviteClients);
+      // If user was added directly as member, no email needed
+      if (status === "member_added") {
+        return { status: "member_added", ...(typeof result === 'object' && result !== null ? result : {}) };
+      }
 
-        if (clientError) {
-          console.error("Error adding invite clients:", clientError);
+      // If already a member, throw friendly error
+      if (status === "already_member") {
+        throw new Error("Este usuário já é membro do workspace");
+      }
+
+      // User doesn't exist yet - send invite email
+      if (status === "invite_created") {
+        try {
+          await supabase.functions.invoke("send-invite-email", {
+            body: {
+              email: email.toLowerCase(),
+              workspaceName: workspace.name,
+              workspaceSlug: workspace.slug,
+              inviterName: inviterProfile?.full_name || inviterProfile?.email || "Um administrador",
+              role,
+              clientNames: clientNames || [],
+            },
+          });
+        } catch (emailError) {
+          console.error("Error sending invite email:", emailError);
+          // Don't throw - invite was created successfully, just log the email error
         }
       }
 
-      // Send invite email
-      try {
-        await supabase.functions.invoke("send-invite-email", {
-          body: {
-            email: email.toLowerCase(),
-            workspaceName: workspace.name,
-            workspaceSlug: workspace.slug,
-            inviterName: inviterProfile?.full_name || inviterProfile?.email || "Um administrador",
-            role,
-            expiresAt: data.expires_at,
-            clientNames: clientNames || [],
-          },
-        });
-      } catch (emailError) {
-        console.error("Error sending invite email:", emailError);
-        // Don't throw - invite was created successfully, just log the email error
-      }
-
-      return data;
+      return { status: "invite_created", ...(typeof result === 'object' && result !== null ? result : {}) };
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["team-members", workspace?.id] });
       queryClient.invalidateQueries({ queryKey: ["team-invites", workspace?.id] });
       queryClient.invalidateQueries({ queryKey: ["invite-clients"] });
-      toast({
-        title: "Convite enviado",
-        description: "O email de convite foi enviado com sucesso.",
-      });
+      queryClient.invalidateQueries({ queryKey: ["all-member-client-access", workspace?.id] });
+      
+      const status = (data as any)?.status;
+      if (status === "member_added") {
+        toast({
+          title: "Membro adicionado",
+          description: "O usuário foi adicionado ao workspace com sucesso.",
+        });
+      } else {
+        toast({
+          title: "Convite enviado",
+          description: "O email de convite foi enviado com sucesso.",
+        });
+      }
     },
     onError: (error: Error) => {
       toast({
