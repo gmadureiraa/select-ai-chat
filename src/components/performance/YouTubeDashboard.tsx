@@ -48,11 +48,14 @@ const periodOptions = [
   { value: "all", label: "Todo período" },
 ];
 
+import { useWorkspace } from "@/hooks/useWorkspace";
+
 export function YouTubeDashboard({ clientId, videos, isLoading }: YouTubeDashboardProps) {
   const [period, setPeriod] = useState("30");
   const [showUpload, setShowUpload] = useState(false);
   const [selectedMetric, setSelectedMetric] = useState("views");
   const [showReportGenerator, setShowReportGenerator] = useState(false);
+  const { canImportData, canGenerateReports } = useWorkspace();
 
   const cutoffDate = useMemo(() => {
     if (period === "all") return null;
@@ -222,23 +225,27 @@ export function YouTubeDashboard({ clientId, videos, isLoading }: YouTubeDashboa
               ))}
             </SelectContent>
           </Select>
-          <Button 
-            variant="outline" 
-            className="border-border/50"
-            onClick={() => setShowReportGenerator(true)}
-          >
-            <FileText className="h-4 w-4 mr-2" />
-            Relatório IA
-          </Button>
-          <Collapsible open={showUpload} onOpenChange={setShowUpload}>
-            <CollapsibleTrigger asChild>
-              <Button variant="outline" className="border-border/50">
-                <Upload className="h-4 w-4 mr-2" />
-                Importar
-                <ChevronDown className={`h-4 w-4 ml-2 transition-transform ${showUpload ? 'rotate-180' : ''}`} />
-              </Button>
-            </CollapsibleTrigger>
-          </Collapsible>
+          {canGenerateReports && (
+            <Button 
+              variant="outline" 
+              className="border-border/50"
+              onClick={() => setShowReportGenerator(true)}
+            >
+              <FileText className="h-4 w-4 mr-2" />
+              Relatório IA
+            </Button>
+          )}
+          {canImportData && (
+            <Collapsible open={showUpload} onOpenChange={setShowUpload}>
+              <CollapsibleTrigger asChild>
+                <Button variant="outline" className="border-border/50">
+                  <Upload className="h-4 w-4 mr-2" />
+                  Importar
+                  <ChevronDown className={`h-4 w-4 ml-2 transition-transform ${showUpload ? 'rotate-180' : ''}`} />
+                </Button>
+              </CollapsibleTrigger>
+            </Collapsible>
+          )}
         </div>
       </div>
 
@@ -254,11 +261,13 @@ export function YouTubeDashboard({ clientId, videos, isLoading }: YouTubeDashboa
       />
 
       {/* CSV Upload */}
-      <Collapsible open={showUpload} onOpenChange={setShowUpload}>
-        <CollapsibleContent className="pt-2">
-          <SmartCSVUpload clientId={clientId} platform="youtube" />
-        </CollapsibleContent>
-      </Collapsible>
+      {canImportData && (
+        <Collapsible open={showUpload} onOpenChange={setShowUpload}>
+          <CollapsibleContent className="pt-2">
+            <SmartCSVUpload clientId={clientId} platform="youtube" />
+          </CollapsibleContent>
+        </Collapsible>
+      )}
 
       {/* Primary KPIs - 6 cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">

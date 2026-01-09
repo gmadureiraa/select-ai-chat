@@ -13,6 +13,7 @@ interface ReferenceCardProps {
   onEdit: (reference: ReferenceItem) => void;
   onDelete: (id: string) => void;
   onView: (reference: ReferenceItem) => void;
+  canDelete?: boolean;
 }
 
 // Get the first image URL from reference metadata
@@ -37,7 +38,7 @@ const getPreviewImageUrl = (reference: ReferenceItem): string | null => {
   return null;
 };
 
-export const ReferenceCard = memo(function ReferenceCard({ reference, onEdit, onDelete, onView }: ReferenceCardProps) {
+export const ReferenceCard = memo(function ReferenceCard({ reference, onEdit, onDelete, onView, canDelete = true }: ReferenceCardProps) {
   const cleanedContent = cleanContentForPreview(reference.content);
   const imageUrl = getPreviewImageUrl(reference);
 
@@ -130,17 +131,19 @@ export const ReferenceCard = memo(function ReferenceCard({ reference, onEdit, on
           >
             <Edit className="h-3.5 w-3.5" />
           </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
-            onClick={(e) => {
-              e.stopPropagation();
-              onDelete(reference.id);
-            }}
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-          </Button>
+          {canDelete && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete(reference.id);
+              }}
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          )}
         </CardFooter>
       </div>
     </Card>

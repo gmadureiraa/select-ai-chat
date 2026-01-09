@@ -47,6 +47,8 @@ const periodOptions = [
   { value: "all", label: "Todo período" },
 ];
 
+import { useWorkspace } from "@/hooks/useWorkspace";
+
 export function TwitterDashboard({ clientId, posts, isLoading }: TwitterDashboardProps) {
   const [period, setPeriod] = useState("30");
   const [showUpload, setShowUpload] = useState(false);
@@ -56,6 +58,7 @@ export function TwitterDashboard({ clientId, posts, isLoading }: TwitterDashboar
 
   const importMutation = useImportTwitterCSV();
   const { logImport } = useImportHistory(clientId);
+  const { canImportData } = useWorkspace();
 
   const cutoffDate = useMemo(() => {
     if (period === "all") return null;
@@ -316,14 +319,16 @@ export function TwitterDashboard({ clientId, posts, isLoading }: TwitterDashboar
           </Select>
 
           {/* Upload Toggle */}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowUpload(!showUpload)}
-          >
-            <Upload className="h-4 w-4 mr-2" />
-            Importar CSV
-          </Button>
+          {canImportData && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowUpload(!showUpload)}
+            >
+              <Upload className="h-4 w-4 mr-2" />
+              Importar CSV
+            </Button>
+          )}
         </div>
       </div>
 
@@ -340,7 +345,7 @@ export function TwitterDashboard({ clientId, posts, isLoading }: TwitterDashboar
       )}
 
       {/* Upload Section */}
-      {showUpload && (
+      {showUpload && canImportData && (
         <Card className="border-dashed">
           <CardContent className="pt-6">
             <div

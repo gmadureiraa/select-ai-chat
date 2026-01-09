@@ -17,6 +17,7 @@ interface KanbanViewProps {
   onDuplicate: (item: PlanningItem) => void;
   onMoveItem: (itemId: string, columnId: string, position: number) => void;
   onAddCard: (columnId: string) => void;
+  canDelete?: boolean;
 }
 
 const columnConfig: Record<string, { 
@@ -80,6 +81,7 @@ export function KanbanView({
   onDuplicate,
   onMoveItem,
   onAddCard,
+  canDelete = true,
 }: KanbanViewProps) {
   const [draggedItem, setDraggedItem] = useState<PlanningItem | null>(null);
   const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
@@ -209,6 +211,7 @@ export function KanbanView({
                       onDuplicate={onDuplicate}
                       isDragging={draggedItem?.id === item.id}
                       compact
+                      canDelete={canDelete}
                     />
                   </div>
                 ))}

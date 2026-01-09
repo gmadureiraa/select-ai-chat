@@ -167,7 +167,7 @@ export function PlanningBoard({ clientId, isEnterprise = false, onClientChange }
       {isViewer && (
         <div className="flex items-center gap-2 px-3 py-2 bg-muted/50 border border-border rounded-lg text-sm text-muted-foreground">
           <Eye className="h-4 w-4" />
-          <span>Modo visualização — você pode ver os itens mas não pode editá-los</span>
+          <span>Modo visualização — você pode criar e mover itens, mas não pode excluí-los</span>
         </div>
       )}
 
@@ -227,6 +227,7 @@ export function PlanningBoard({ clientId, isEnterprise = false, onClientChange }
             onDuplicate={handleDuplicate}
             onMoveItem={(itemId, columnId, position) => moveToColumn.mutate({ itemId, columnId, newPosition: position })}
             onAddCard={(columnId) => handleNewCard(columnId)}
+            canDelete={!isViewer}
           />
         )}
 
@@ -253,6 +254,7 @@ export function PlanningBoard({ clientId, isEnterprise = false, onClientChange }
                 onRetry={(id) => retryPublication.mutate(id)}
                 onDuplicate={handleDuplicate}
                 compact
+                canDelete={!isViewer}
               />
             ))}
             {items.length === 0 && (

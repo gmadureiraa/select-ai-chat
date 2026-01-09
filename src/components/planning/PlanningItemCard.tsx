@@ -38,6 +38,7 @@ interface PlanningItemCardProps {
   onDuplicate?: (item: PlanningItem) => void;
   isDragging?: boolean;
   compact?: boolean;
+  canDelete?: boolean;
 }
 
 const platformIcons: Record<string, React.ElementType> = {
@@ -88,7 +89,8 @@ export const PlanningItemCard = memo(function PlanningItemCard({
   onRetry,
   onDuplicate,
   isDragging = false,
-  compact = false
+  compact = false,
+  canDelete = true
 }: PlanningItemCardProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { getPublicationMode, getPlatformStatus } = useClientPlatformStatus(item.client_id);
@@ -242,8 +244,12 @@ export const PlanningItemCard = memo(function PlanningItemCard({
             <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
               <DropdownMenuItem onClick={() => { onEdit(item); setIsMenuOpen(false); }}>Editar</DropdownMenuItem>
               {onDuplicate && <DropdownMenuItem onClick={() => { onDuplicate(item); setIsMenuOpen(false); }}>Duplicar</DropdownMenuItem>}
-              <DropdownMenuSeparator />
-              <DropdownMenuItem className="text-destructive" onClick={() => { onDelete(item.id); setIsMenuOpen(false); }}>Excluir</DropdownMenuItem>
+              {canDelete && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem className="text-destructive" onClick={() => { onDelete(item.id); setIsMenuOpen(false); }}>Excluir</DropdownMenuItem>
+                </>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
