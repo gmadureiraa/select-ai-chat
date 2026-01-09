@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   Dialog,
   DialogContent,
@@ -8,10 +8,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Badge } from "@/components/ui/badge";
 import { Loader2, User, Building2 } from "lucide-react";
 import { useMemberClientAccess } from "@/hooks/useMemberClientAccess";
 import { useClients } from "@/hooks/useClients";
@@ -23,21 +21,30 @@ interface MemberClientAccessDialogProps {
   member: WorkspaceMember | null;
 }
 
+const keyFromIds = (ids: string[]) => ids.slice().sort().join("|");
+
 export function MemberClientAccessDialog({
   open,
   onOpenChange,
   member,
 }: MemberClientAccessDialogProps) {
   const { clients = [], isLoading: isLoadingClients } = useClients();
-  const { memberClients, isLoading: isLoadingAccess, updateMemberClients, clientIds } = useMemberClientAccess(member?.id);
+  const { isLoading: isLoadingAccess, updateMemberClients, clientIds } = useMemberClientAccess(member?.id);
   const [selectedClients, setSelectedClients] = useState<string[]>([]);
 
-  // Initialize selected clients when dialog opens or member changes
+  const clientIdsKey = useMemo(() => keyFromIds(clientIds), [clientIds]);
+
+  // Initialize selected clients when dialog opens or member changes.
+  // Important: avoid setting state repeatedly with a new array reference (can cause an infinite render loop).
   useEffect(() => {
     if (!open || !member || isLoadingAccess) return;
-    setSelectedClients(clientIds);
-    // NOTE: clientIds is memoized in the hook; we only re-init on open/member change.
-  }, [open, member?.id, isLoadingAccess, clientIds]);
+
+    setSelectedClients((prev) => {
+      const prevKey = keyFromIds(prev);
+      if (prevKey === clientIdsKey) return prev;
+      return clientIds;
+    });
+  }, [open, member?.id, isLoadingAccess, clientIdsKey]);
 
   const handleToggleClient = (clientId: string) => {
     setSelectedClients(prev =>
