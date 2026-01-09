@@ -117,6 +117,11 @@ export function useBulkContentCreator() {
     });
   }, []);
 
+  // Apply a package of formats (replaces current selection)
+  const applyPackage = useCallback((formats: { format: ContentFormat; quantity: number }[]) => {
+    setFormatQuantities(formats.filter(f => f.quantity > 0));
+  }, []);
+
   // Add attachment
   const addAttachment = useCallback((attachment: BulkAttachment) => {
     setAttachments(prev => [...prev, attachment]);
@@ -494,6 +499,7 @@ Siga as regras do formato e gere o conteúdo pronto para publicar. Seja criativo
     removeAttachment,
     formatQuantities,
     updateQuantity,
+    applyPackage,
     
     // Planning
     autoAddToPlanning,

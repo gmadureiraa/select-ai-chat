@@ -16,7 +16,7 @@ import {
   CalendarDays,
   Zap,
   Command,
-  Youtube,
+  Factory,
   Lock
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -395,16 +395,16 @@ export function KaiSidebar({
 
           {canViewRepurpose ? (
             <NavItem
-              icon={<Youtube className="h-4 w-4" />}
-              label="Reaproveitar"
+              icon={<Factory className="h-4 w-4" />}
+              label="Fábrica"
               active={activeTab === "repurpose"}
               onClick={() => onTabChange("repurpose")}
               collapsed={collapsed}
             />
           ) : (
             <NavItemLocked
-              icon={<Youtube className="h-4 w-4" />}
-              label="Reaproveitar"
+              icon={<Factory className="h-4 w-4" />}
+              label="Fábrica"
               collapsed={collapsed}
             />
           )}
