@@ -362,9 +362,9 @@ export function TeamManagement() {
 
                       {canChangeRole ? (
                         <Select
+                          key={`role-select-${member.id}`}
                           value={member.role}
                           onValueChange={(v) => {
-                            // Guard to prevent infinite loop - only mutate if value actually changed
                             if (v !== member.role) {
                               updateMemberRole.mutate({ memberId: member.id, role: v as WorkspaceRole });
                             }
