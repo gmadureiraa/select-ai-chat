@@ -10,55 +10,36 @@ import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import kaleidosLogo from "@/assets/kaleidos-logo.svg";
 
-const Login = () => {
+const SimpleSignup = () => {
   const navigate = useNavigate();
-  const { signIn, user } = useAuth();
+  const { user } = useAuth();
+  const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [checkingRedirect, setCheckingRedirect] = useState(false);
 
-  // Redirect to workspace if already logged in
+  // If already logged in, check for workspace and redirect
   useEffect(() => {
-    const redirectToWorkspace = async () => {
+    const checkAndRedirect = async () => {
       if (user) {
-        setCheckingRedirect(true);
         try {
-          // First, check if user has pending invites that were just accepted
-          const { data: memberships } = await supabase
-            .from("workspace_members")
-            .select("workspace_id, workspaces(slug)")
-            .eq("user_id", user.id)
-            .limit(1);
+          const { data: slug } = await supabase.rpc("get_user_workspace_slug", {
+            p_user_id: user.id,
+          });
 
-          if (memberships && memberships.length > 0) {
-            const workspace = memberships[0].workspaces as { slug: string } | null;
-            if (workspace?.slug) {
-              navigate(`/${workspace.slug}`, { replace: true });
-              return;
-            }
-          }
-
-          // Fallback to RPC
-          const { data: slug } = await supabase
-            .rpc("get_user_workspace_slug", { p_user_id: user.id });
-          
           if (slug) {
             navigate(`/${slug}`, { replace: true });
           } else {
-            // User has no workspace, redirect to no-workspace page
             navigate("/no-workspace", { replace: true });
           }
         } catch (err) {
-          console.error("Error fetching workspace:", err);
+          console.error("Error checking workspace:", err);
           navigate("/no-workspace", { replace: true });
-        } finally {
-          setCheckingRedirect(false);
         }
       }
     };
 
-    redirectToWorkspace();
+    checkAndRedirect();
   }, [user, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -66,27 +47,47 @@ const Login = () => {
     setLoading(true);
 
     try {
-      await signIn(email, password);
-      // The useEffect will handle redirection after successful login
+      // 1. Create user account
+      const { data: authData, error: signUpError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            full_name: fullName,
+          },
+          emailRedirectTo: window.location.origin,
+        },
+      });
+
+      if (signUpError) throw signUpError;
+      if (!authData.user) throw new Error("Erro ao criar conta");
+
+      toast.success("Conta criada com sucesso!");
+
+      // 2. Check if trigger added user to a workspace (via invite)
+      // Small delay to allow trigger to execute
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
+      const { data: slug } = await supabase.rpc("get_user_workspace_slug", {
+        p_user_id: authData.user.id,
+      });
+
+      if (slug) {
+        // User was invited - redirect to workspace
+        toast.success("Você foi adicionado ao workspace automaticamente!");
+        navigate(`/${slug}`, { replace: true });
+      } else {
+        // No invite - go to no-workspace page
+        navigate("/no-workspace", { replace: true });
+      }
     } catch (err: unknown) {
-      console.error("Login error:", err);
-      const errorMessage = err instanceof Error ? err.message : "Erro ao entrar";
+      console.error("Signup error:", err);
+      const errorMessage = err instanceof Error ? err.message : "Erro ao criar conta";
       toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
   };
-
-  if (checkingRedirect) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <div className="flex flex-col items-center gap-4">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="text-muted-foreground">Carregando seu workspace...</p>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
@@ -99,16 +100,26 @@ const Login = () => {
             </h1>
           </div>
           <div>
-            <CardTitle className="text-2xl text-center">
-              Entrar
-            </CardTitle>
+            <CardTitle className="text-2xl text-center">Criar Conta</CardTitle>
             <CardDescription className="text-center">
-              Entre com suas credenciais
+              Crie sua conta para acessar o kAI
             </CardDescription>
           </div>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="fullName">Nome Completo</Label>
+              <Input
+                id="fullName"
+                type="text"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                required
+                disabled={loading}
+                placeholder="Seu nome"
+              />
+            </div>
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
@@ -118,6 +129,7 @@ const Login = () => {
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 disabled={loading}
+                placeholder="seu@email.com"
               />
             </div>
             <div className="space-y-2">
@@ -130,31 +142,28 @@ const Login = () => {
                 required
                 disabled={loading}
                 minLength={6}
+                placeholder="Mínimo 6 caracteres"
               />
             </div>
-            <Button
-              type="submit"
-              className="w-full"
-              disabled={loading}
-            >
+            <Button type="submit" className="w-full" disabled={loading}>
               {loading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Entrando...
+                  Criando conta...
                 </>
               ) : (
-                "Entrar"
+                "Criar Conta"
               )}
             </Button>
           </form>
           <div className="mt-4 text-center space-y-2">
             <button
               type="button"
-              onClick={() => navigate("/register")}
+              onClick={() => navigate("/login")}
               className="text-sm text-muted-foreground hover:text-foreground transition-colors"
               disabled={loading}
             >
-              Não tem conta? Criar conta
+              Já tem conta? Faça login
             </button>
             <p className="text-xs text-muted-foreground">
               Recebeu um convite? Clique no link do convite para acessar.
@@ -166,4 +175,4 @@ const Login = () => {
   );
 };
 
-export default Login;
+export default SimpleSignup;

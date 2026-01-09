@@ -14,7 +14,9 @@ import { AuthOnlyRoute } from "@/components/AuthOnlyRoute";
 import { SuperAdminRoute } from "@/components/SuperAdminRoute";
 import Settings from "./pages/Settings";
 import Login from "./pages/Login";
-import Signup from "./pages/Signup";
+import SimpleSignup from "./pages/SimpleSignup";
+import CreateFirstWorkspace from "./pages/CreateFirstWorkspace";
+import NoWorkspacePage from "./pages/NoWorkspacePage";
 import JoinWorkspace from "./pages/JoinWorkspace";
 import WorkspaceLogin from "./pages/WorkspaceLogin";
 import CreateWorkspaceCallback from "./pages/CreateWorkspaceCallback";
@@ -41,7 +43,19 @@ const App = () => (
                 <Routes>
                   {/* Public routes */}
                   <Route path="/login" element={<Login />} />
-                  <Route path="/signup" element={<Signup />} />
+                  <Route path="/register" element={<SimpleSignup />} />
+                  <Route path="/signup" element={<CreateFirstWorkspace />} />
+                  <Route path="/create-workspace" element={<CreateFirstWorkspace />} />
+                  
+                  {/* Protected route for users without workspace */}
+                  <Route
+                    path="/no-workspace"
+                    element={
+                      <AuthOnlyRoute>
+                        <NoWorkspacePage />
+                      </AuthOnlyRoute>
+                    }
+                  />
                   <Route path="/page" element={<LandingPage />} />
                   
                   {/* Public landing page */}
