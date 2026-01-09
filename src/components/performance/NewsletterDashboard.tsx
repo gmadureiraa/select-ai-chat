@@ -59,6 +59,8 @@ const periodOptions = [
   { value: "all", label: "Todo período" },
 ];
 
+import { useWorkspace } from "@/hooks/useWorkspace";
+
 export function NewsletterDashboard({ clientId, metrics, isLoading }: NewsletterDashboardProps) {
   const [period, setPeriod] = useState("30");
   const [showUpload, setShowUpload] = useState(false);
@@ -69,6 +71,7 @@ export function NewsletterDashboard({ clientId, metrics, isLoading }: Newsletter
   
   // Fetch newsletter posts separately
   const { data: newsletterPosts = [], isLoading: isLoadingPosts } = useNewsletterPosts(clientId);
+  const { canImportData } = useWorkspace();
 
   const cutoffDate = useMemo(() => {
     if (period === "all") return null;
@@ -267,24 +270,28 @@ export function NewsletterDashboard({ clientId, metrics, isLoading }: Newsletter
               ))}
             </SelectContent>
           </Select>
-          <Collapsible open={showUpload} onOpenChange={setShowUpload}>
-            <CollapsibleTrigger asChild>
-              <Button variant="outline" className="border-border/50">
-                <Upload className="h-4 w-4 mr-2" />
-                Importar
-                <ChevronDown className={`h-4 w-4 ml-2 transition-transform ${showUpload ? 'rotate-180' : ''}`} />
-              </Button>
-            </CollapsibleTrigger>
-          </Collapsible>
+          {canImportData && (
+            <Collapsible open={showUpload} onOpenChange={setShowUpload}>
+              <CollapsibleTrigger asChild>
+                <Button variant="outline" className="border-border/50">
+                  <Upload className="h-4 w-4 mr-2" />
+                  Importar
+                  <ChevronDown className={`h-4 w-4 ml-2 transition-transform ${showUpload ? 'rotate-180' : ''}`} />
+                </Button>
+              </CollapsibleTrigger>
+            </Collapsible>
+          )}
         </div>
       </div>
 
       {/* CSV Upload */}
-      <Collapsible open={showUpload} onOpenChange={setShowUpload}>
-        <CollapsibleContent className="pt-2">
-          <SmartCSVUpload clientId={clientId} platform="newsletter" />
-        </CollapsibleContent>
-      </Collapsible>
+      {canImportData && (
+        <Collapsible open={showUpload} onOpenChange={setShowUpload}>
+          <CollapsibleContent className="pt-2">
+            <SmartCSVUpload clientId={clientId} platform="newsletter" />
+          </CollapsibleContent>
+        </Collapsible>
+      )}
 
       {/* Primary KPIs - 6 cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">

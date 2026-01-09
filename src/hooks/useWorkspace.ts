@@ -89,6 +89,12 @@ export const useWorkspace = () => {
   const canViewRepurpose = !isViewer && userRole !== undefined;
   const canViewSettings = !isViewer && userRole !== undefined;
   const canViewDocs = !isViewer && userRole !== undefined;
+  
+  // Granular permissions for specific actions
+  const canImportData = !isViewer && userRole !== undefined;
+  const canGenerateReports = !isViewer && userRole !== undefined;
+  const canDeleteFromLibrary = !isViewer && userRole !== undefined;
+  const canDeleteFromPlanning = !isViewer && userRole !== undefined;
 
   return {
     workspace,
@@ -113,5 +119,9 @@ export const useWorkspace = () => {
     canViewRepurpose,
     canViewSettings,
     canViewDocs,
+    canImportData,
+    canGenerateReports,
+    canDeleteFromLibrary,
+    canDeleteFromPlanning,
   };
 };

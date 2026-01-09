@@ -16,6 +16,7 @@ import {
 import { useContentLibrary, ContentItem, CreateContentData } from "@/hooks/useContentLibrary";
 import { useReferenceLibrary, ReferenceItem, CreateReferenceData } from "@/hooks/useReferenceLibrary";
 import { useClientVisualReferences } from "@/hooks/useClientVisualReferences";
+import { useWorkspace } from "@/hooks/useWorkspace";
 import { ContentCard } from "@/components/content/ContentCard";
 import { ContentDialog } from "@/components/content/ContentDialog";
 import { ContentViewDialog } from "@/components/content/ContentViewDialog";
@@ -45,6 +46,9 @@ export const KaiLibraryTab = ({ clientId, client }: KaiLibraryTabProps) => {
   const [sortOption, setSortOption] = useState<SortOption>("newest");
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+  
+  // Workspace permissions
+  const { canDeleteFromLibrary } = useWorkspace();
   
   // Content Library
   const [contentDialogOpen, setContentDialogOpen] = useState(false);
@@ -271,6 +275,7 @@ export const KaiLibraryTab = ({ clientId, client }: KaiLibraryTabProps) => {
               setContentDialogOpen(true);
             }}
             onDelete={() => deleteContent.mutate(content.id)}
+            canDelete={canDeleteFromLibrary}
           />
         </div>
       </div>
@@ -349,6 +354,7 @@ export const KaiLibraryTab = ({ clientId, client }: KaiLibraryTabProps) => {
             setReferenceDialogOpen(true);
           }}
           onDelete={() => deleteReference.mutate(reference.id)}
+          canDelete={canDeleteFromLibrary}
         />
       </div>
     );
@@ -437,16 +443,17 @@ export const KaiLibraryTab = ({ clientId, client }: KaiLibraryTabProps) => {
             )}
             
             <LibraryFilters
-            typeFilter={typeFilter}
-            onTypeFilterChange={setTypeFilter}
-            sortOption={sortOption}
-            onSortChange={setSortOption}
-            viewMode={viewMode}
-            onViewModeChange={setViewMode}
-            selectedCount={selectedItems.size}
-            onClearSelection={handleClearSelection}
-            onDeleteSelected={handleDeleteSelected}
-          />
+              typeFilter={typeFilter}
+              onTypeFilterChange={setTypeFilter}
+              sortOption={sortOption}
+              onSortChange={setSortOption}
+              viewMode={viewMode}
+              onViewModeChange={setViewMode}
+              selectedCount={selectedItems.size}
+              onClearSelection={handleClearSelection}
+              onDeleteSelected={handleDeleteSelected}
+              canDelete={canDeleteFromLibrary}
+            />
           </div>
         </div>
 

@@ -12,6 +12,7 @@ interface ContentCardProps {
   onEdit: (content: ContentItem) => void;
   onDelete: (id: string) => void;
   onView: (content: ContentItem) => void;
+  canDelete?: boolean;
 }
 
 const contentTypeConfig: Record<string, { icon: typeof FileText; color: string }> = {
@@ -53,7 +54,7 @@ const getPreviewImage = (content: ContentItem): string | null => {
   return null;
 };
 
-export const ContentCard = memo(function ContentCard({ content, onEdit, onDelete, onView }: ContentCardProps) {
+export const ContentCard = memo(function ContentCard({ content, onEdit, onDelete, onView, canDelete = true }: ContentCardProps) {
   const config = contentTypeConfig[content.content_type] || contentTypeConfig.other;
   const Icon = config.icon;
   const label = getContentTypeLabel(content.content_type);
@@ -139,17 +140,19 @@ export const ContentCard = memo(function ContentCard({ content, onEdit, onDelete
             >
               <Edit className="h-3.5 w-3.5" />
             </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7"
-              onClick={(e) => {
-                e.stopPropagation();
-                onDelete(content.id);
-              }}
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-            </Button>
+            {canDelete && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDelete(content.id);
+                }}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
+            )}
           </div>
         </CardFooter>
       </div>

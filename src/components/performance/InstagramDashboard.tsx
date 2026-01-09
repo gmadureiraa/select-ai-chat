@@ -60,6 +60,8 @@ const metricOptions = [
   { key: "profileVisits", label: "Visitas", dataKey: "profileVisits", color: "hsl(350, 80%, 55%)" },
 ];
 
+import { useWorkspace } from "@/hooks/useWorkspace";
+
 export function InstagramDashboard({ 
   clientId, 
   posts, 
@@ -78,6 +80,7 @@ export function InstagramDashboard({
   const { goals } = usePerformanceGoals(clientId);
   const { data: stories = [], isLoading: isLoadingStories, refetch: refetchStories } = useInstagramStories(clientId);
   const instagramGoal = goals.find(g => g.platform === 'instagram' && g.metric_name === 'followers');
+  const { canImportData, canGenerateReports } = useWorkspace();
 
   // Filter data by period
   const cutoffDate = useMemo(() => {
@@ -479,22 +482,26 @@ export function InstagramDashboard({
               </Popover>
             )}
           </div>
-          <Button 
-            variant="outline" 
-            className="border-border/50"
-            onClick={() => setShowReportGenerator(true)}
-          >
-            <FileText className="h-4 w-4 mr-2" />
-            Relatório IA
-          </Button>
-          <Button 
-            variant="outline" 
-            className="border-border/50"
-            onClick={() => setShowUploadPosts(!showUploadPosts)}
-          >
-            <Upload className="h-4 w-4 mr-2" />
-            Importar CSV
-          </Button>
+          {canGenerateReports && (
+            <Button 
+              variant="outline" 
+              className="border-border/50"
+              onClick={() => setShowReportGenerator(true)}
+            >
+              <FileText className="h-4 w-4 mr-2" />
+              Relatório IA
+            </Button>
+          )}
+          {canImportData && (
+            <Button 
+              variant="outline" 
+              className="border-border/50"
+              onClick={() => setShowUploadPosts(!showUploadPosts)}
+            >
+              <Upload className="h-4 w-4 mr-2" />
+              Importar CSV
+            </Button>
+          )}
         </div>
       </div>
 
@@ -511,11 +518,13 @@ export function InstagramDashboard({
       />
 
       {/* CSV Upload - Smart (detecta automaticamente Posts ou Stories) */}
-      <Collapsible open={showUploadPosts} onOpenChange={setShowUploadPosts}>
-        <CollapsibleContent className="pt-2">
-          <SmartCSVUpload clientId={clientId} platform="instagram" />
-        </CollapsibleContent>
-      </Collapsible>
+      {canImportData && (
+        <Collapsible open={showUploadPosts} onOpenChange={setShowUploadPosts}>
+          <CollapsibleContent className="pt-2">
+            <SmartCSVUpload clientId={clientId} platform="instagram" />
+          </CollapsibleContent>
+        </Collapsible>
+      )}
 
       {/* Data Alert for missing metrics */}
       <MetricsDataAlert 

@@ -39,6 +39,7 @@ interface LibraryFiltersProps {
   selectedCount?: number;
   onClearSelection?: () => void;
   onDeleteSelected?: () => void;
+  canDelete?: boolean;
 }
 
 const contentTypeLabels: Record<ContentTypeFilter, string> = {
@@ -72,6 +73,7 @@ export const LibraryFilters = ({
   selectedCount = 0,
   onClearSelection,
   onDeleteSelected,
+  canDelete = true,
 }: LibraryFiltersProps) => {
   const hasActiveFilter = typeFilter !== "all";
 
@@ -92,14 +94,16 @@ export const LibraryFilters = ({
             <X className="h-3 w-3 mr-1" />
             Limpar
           </Button>
-          <Button
-            variant="destructive"
-            size="sm"
-            className="h-6 px-2 text-xs"
-            onClick={onDeleteSelected}
-          >
-            Excluir
-          </Button>
+          {canDelete && (
+            <Button
+              variant="destructive"
+              size="sm"
+              className="h-6 px-2 text-xs"
+              onClick={onDeleteSelected}
+            >
+              Excluir
+            </Button>
+          )}
         </div>
       )}
 
