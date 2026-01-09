@@ -531,30 +531,122 @@ export const useClientChat = (clientId: string, templateId?: string, conversatio
       }
 
       // =====================================================
-      // DETECTAR PEDIDO DE EXTRAÇÃO DE NEWSLETTER
+      // DETECTAR URL E SEPARAR EXTRAÇÃO vs GERAÇÃO DE CONTEÚDO
       // =====================================================
-      const newsletterUrlMatch = content.match(/https?:\/\/[^\s]+/gi);
-      const isNewsletterExtractionRequest = (
-        newsletterUrlMatch && 
-        (content.toLowerCase().includes("newsletter") ||
-         content.toLowerCase().includes("extrai") ||
-         content.toLowerCase().includes("extraia") ||
-         content.toLowerCase().includes("extrair") ||
-         content.toLowerCase().includes("pega") ||
-         content.toLowerCase().includes("carrossel") ||
-         content.toLowerCase().includes("carousel") ||
-         content.toLowerCase().includes("conteúdo") ||
-         content.toLowerCase().includes("conteudo") ||
-         content.toLowerCase().includes("imagens"))
+      const urlMatch = content.match(/https?:\/\/[^\s]+/gi);
+      const hasUrl = urlMatch && urlMatch.length > 0;
+      
+      // Keywords que indicam APENAS extração (mostrar conteúdo, não gerar)
+      const isExtractionOnly = (
+        content.toLowerCase().includes("extrai") ||
+        content.toLowerCase().includes("extraia") ||
+        content.toLowerCase().includes("extrair") ||
+        content.toLowerCase().includes("mostra") ||
+        content.toLowerCase().includes("mostre") ||
+        content.toLowerCase().includes("veja") ||
+        content.toLowerCase().includes("analise") ||
+        content.toLowerCase().includes("analisa")
+      ) && !(
+        content.toLowerCase().includes("crie") ||
+        content.toLowerCase().includes("gere") ||
+        content.toLowerCase().includes("faça") ||
+        content.toLowerCase().includes("escreva") ||
+        content.toLowerCase().includes("baseado") ||
+        content.toLowerCase().includes("a partir")
       );
       
-      if (isNewsletterExtractionRequest && newsletterUrlMatch) {
-        console.log("[CHAT] Newsletter extraction detected for URL:", newsletterUrlMatch[0]);
+      // Keywords que indicam GERAÇÃO de conteúdo a partir da URL
+      const isContentGenerationFromUrl = hasUrl && (
+        content.toLowerCase().includes("crie") ||
+        content.toLowerCase().includes("gere") ||
+        content.toLowerCase().includes("faça") ||
+        content.toLowerCase().includes("escreva") ||
+        content.toLowerCase().includes("baseado") ||
+        content.toLowerCase().includes("a partir") ||
+        content.toLowerCase().includes("carrossel") ||
+        content.toLowerCase().includes("carousel") ||
+        content.toLowerCase().includes("post") ||
+        content.toLowerCase().includes("thread") ||
+        content.toLowerCase().includes("newsletter") ||
+        content.toLowerCase().includes("stories") ||
+        content.toLowerCase().includes("reels") ||
+        content.toLowerCase().includes("conteúdo") ||
+        content.toLowerCase().includes("conteudo")
+      );
+      
+      // Variáveis para armazenar conteúdo extraído
+      let extractedUrlContent: { title?: string; content?: string; highlights?: string[]; url?: string } | null = null;
+      
+      // Se tem URL e é pedido de geração, extrair conteúdo primeiro
+      if (hasUrl && isContentGenerationFromUrl && !isExtractionOnly) {
+        console.log("[CHAT] Content generation from URL detected:", urlMatch[0]);
+        setCurrentStep("analyzing");
+        
+        try {
+          // Detectar tipo de URL
+          const isYouTube = urlMatch[0].includes("youtube.com") || urlMatch[0].includes("youtu.be");
+          
+          if (isYouTube) {
+            // Extrair transcrição do YouTube
+            const { data: ytData, error: ytError } = await supabase.functions.invoke("extract-youtube", {
+              body: { url: urlMatch[0] },
+            });
+            
+            if (!ytError && ytData) {
+              extractedUrlContent = {
+                title: ytData.title || "Vídeo do YouTube",
+                content: ytData.transcript || ytData.description || "",
+                highlights: [],
+                url: urlMatch[0]
+              };
+              console.log("[CHAT] YouTube content extracted, transcript length:", extractedUrlContent.content?.length);
+            }
+          } else {
+            // Extrair conteúdo de newsletter/artigo
+            const { data: newsletterData, error: newsletterError } = await supabase.functions.invoke("scrape-newsletter", {
+              body: { url: urlMatch[0] },
+            });
+            
+            if (!newsletterError && newsletterData?.success && newsletterData?.data) {
+              const { title, paragraphs, highlights, markdown } = newsletterData.data;
+              extractedUrlContent = {
+                title: title || "Conteúdo extraído",
+                content: markdown || paragraphs?.join('\n\n') || "",
+                highlights: highlights || [],
+                url: urlMatch[0]
+              };
+              console.log("[CHAT] Newsletter content extracted, length:", extractedUrlContent.content?.length);
+            }
+          }
+          
+          // Se extraiu conteúdo, enriquecer a mensagem e CONTINUAR para o pipeline
+          if (extractedUrlContent && extractedUrlContent.content) {
+            // Não retornamos aqui - deixamos o fluxo continuar para o pipeline multi-agente
+            // O conteúdo extraído será usado como contexto
+            console.log("[CHAT] Content extracted successfully, will pass to multi-agent pipeline");
+          } else {
+            throw new Error("Não foi possível extrair conteúdo da URL");
+          }
+        } catch (urlError: any) {
+          console.error("[CHAT] URL extraction error:", urlError);
+          
+          // Se falhou a extração, informar e continuar sem o conteúdo
+          toast({
+            title: "Aviso",
+            description: "Não foi possível extrair o conteúdo da URL. Tentando gerar conteúdo com as informações disponíveis.",
+            variant: "default",
+          });
+        }
+      }
+      
+      // Se é APENAS extração (sem geração), mostrar conteúdo estruturado e retornar
+      if (hasUrl && isExtractionOnly && urlMatch) {
+        console.log("[CHAT] Extraction-only request for URL:", urlMatch[0]);
         setCurrentStep("analyzing");
         
         try {
           const { data: newsletterData, error: newsletterError } = await supabase.functions.invoke("scrape-newsletter", {
-            body: { url: newsletterUrlMatch[0] },
+            body: { url: urlMatch[0] },
           });
 
           if (newsletterError) throw newsletterError;
@@ -1005,20 +1097,46 @@ INSTRUÇÕES:
 
       // Detectar referência contextual ("isso", "essa ideia", etc.)
       const contextualRef = detectContextualReference(messages || [], content);
-      const enrichedContent = contextualRef.hasReference ? contextualRef.enrichedPrompt : content;
+      let enrichedContent = contextualRef.hasReference ? contextualRef.enrichedPrompt : content;
       
       console.log("[CHAT] Contextual reference detected:", contextualRef.hasReference);
+      
+      // ENRIQUECER MENSAGEM COM CONTEÚDO EXTRAÍDO DA URL (se houver)
+      if (extractedUrlContent && extractedUrlContent.content) {
+        console.log("[CHAT] Enriching message with extracted URL content");
+        
+        // Adicionar o conteúdo extraído como material de referência
+        const highlightsText = extractedUrlContent.highlights && extractedUrlContent.highlights.length > 0
+          ? `\n\n### Destaques:\n${extractedUrlContent.highlights.map(h => `- ${h}`).join('\n')}`
+          : '';
+        
+        enrichedContent = `${content}
+
+## MATERIAL DE REFERÊNCIA EXTRAÍDO DA URL:
+**Título:** ${extractedUrlContent.title}
+**Fonte:** ${extractedUrlContent.url}
+
+### Conteúdo:
+${extractedUrlContent.content.substring(0, 15000)}${highlightsText}
+
+---
+Por favor, use este material como base para criar o conteúdo solicitado, adaptando ao tom e estilo do cliente.`;
+        
+        console.log("[CHAT] Enriched content length:", enrichedContent.length);
+      }
       
       // Detectar tipo de conteúdo para multi-agente (apenas se NÃO estiver em modo ideias)
       const earlyDetectedType = detectContentType(enrichedContent);
       
-      // Usar pipeline multi-agente APENAS quando:
+      // Usar pipeline multi-agente QUANDO:
       // 1. NÃO está em modo ideias explícito E
-      // 2. (Usuário escolheu "Alta Qualidade" OU é conteúdo longo com modelo premium)
-      const shouldUseMultiAgent = !isExplicitIdeaMode && (quality === "high" || (
-        MULTI_AGENT_CONTENT_TYPES.includes(earlyDetectedType || "") &&
-        (selectedModel.includes("pro") || selectedModel.includes("gpt-5"))
-      ));
+      // 2. (Usuário escolheu "Alta Qualidade" OU é conteúdo longo com modelo premium OU tem conteúdo extraído de URL)
+      const shouldUseMultiAgent = !isExplicitIdeaMode && (
+        quality === "high" || 
+        extractedUrlContent !== null ||
+        (MULTI_AGENT_CONTENT_TYPES.includes(earlyDetectedType || "") &&
+        (selectedModel.includes("pro") || selectedModel.includes("gpt-5")))
+      );
 
       if (shouldUseMultiAgent) {
         // Determinar tipo de conteúdo baseado no template ou detecção automática
