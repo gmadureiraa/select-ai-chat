@@ -16,7 +16,7 @@ export const WorkspaceGuard = ({ children }: WorkspaceGuardProps) => {
   const queryClient = useQueryClient();
 
   // Check if user is member of this specific workspace
-  const { data: membership, isLoading: isCheckingMembership } = useQuery({
+  const { data: membership, isLoading: isCheckingMembership, refetch: refetchMembership } = useQuery({
     queryKey: ["workspace-membership", workspace?.id, user?.id],
     queryFn: async () => {
       if (!workspace?.id || !user?.id) return null;
@@ -37,6 +37,36 @@ export const WorkspaceGuard = ({ children }: WorkspaceGuardProps) => {
     },
     enabled: !!workspace?.id && !!user?.id,
   });
+
+  // Check and accept pending invite if not a member
+  const { data: inviteAccepted, isLoading: isCheckingInvite } = useQuery({
+    queryKey: ["pending-invite-check", workspace?.id, user?.id],
+    queryFn: async () => {
+      if (!workspace?.id || !user?.id) return false;
+      
+      // Call RPC to check and accept pending invite
+      const { data, error } = await supabase
+        .rpc("accept_pending_invite", {
+          p_workspace_id: workspace.id,
+          p_user_id: user.id
+        });
+      
+      if (error) {
+        console.error("[WorkspaceGuard] Error checking/accepting invite:", error);
+        return false;
+      }
+      
+      return data === true;
+    },
+    enabled: !!workspace?.id && !!user?.id && !membership && !isCheckingMembership,
+  });
+
+  // Refetch membership if invite was accepted
+  useEffect(() => {
+    if (inviteAccepted === true) {
+      refetchMembership();
+    }
+  }, [inviteAccepted, refetchMembership]);
 
   // Check if user already has an access request
   const { data: accessRequest, isLoading: isCheckingRequest } = useQuery({
@@ -101,7 +131,7 @@ export const WorkspaceGuard = ({ children }: WorkspaceGuardProps) => {
   }, [workspace?.id, user?.id, membership, accessRequest, isCheckingMembership, isCheckingRequest]);
 
   const isMember = !!membership;
-  const isLoading = authLoading || isLoadingWorkspace || isCheckingMembership || isCheckingRequest;
+  const isLoading = authLoading || isLoadingWorkspace || isCheckingMembership || isCheckingInvite || isCheckingRequest;
 
   if (isLoading) {
     return (
