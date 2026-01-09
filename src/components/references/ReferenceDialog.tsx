@@ -11,6 +11,7 @@ import { Loader2, ChevronDown, Settings2 } from "lucide-react";
 import { RichContentEditor } from "@/components/planning/RichContentEditor";
 import { MentionableInput } from "@/components/planning/MentionableInput";
 import { UnifiedUploader } from "@/components/library/UnifiedUploader";
+import { AttachmentsEditor, AttachedItem } from "@/components/library/AttachmentsEditor";
 
 interface ReferenceDialogProps {
   open: boolean;
@@ -39,6 +40,7 @@ export function ReferenceDialog({ open, onClose, onSave, reference, clientId }: 
         content: reference.content,
         source_url: reference.source_url || "",
         thumbnail_url: reference.thumbnail_url || "",
+        metadata: reference.metadata as Record<string, unknown> || {},
       });
       setShowAdvanced(!!(reference.source_url || reference.thumbnail_url));
     } else {
@@ -48,10 +50,32 @@ export function ReferenceDialog({ open, onClose, onSave, reference, clientId }: 
         content: "",
         source_url: "",
         thumbnail_url: "",
+        metadata: {},
       });
       setShowAdvanced(false);
     }
   }, [reference, open]);
+
+  const handleRemoveAttachment = (attachmentId: string) => {
+    setFormData(prev => {
+      const currentAttachments = ((prev.metadata as Record<string, unknown>)?.attachments as AttachedItem[] || []);
+      const updatedAttachments = currentAttachments.filter(a => a.id !== attachmentId);
+      const updatedImageUrls = updatedAttachments
+        .filter(a => a.type === 'image')
+        .map(a => a.url);
+      
+      return {
+        ...prev,
+        metadata: {
+          ...(prev.metadata as Record<string, unknown> || {}),
+          attachments: updatedAttachments,
+          image_urls: updatedImageUrls,
+        }
+      };
+    });
+  };
+
+  const currentAttachments = ((formData.metadata as Record<string, unknown>)?.attachments as AttachedItem[] || []);
 
   const handleContentExtracted = (result: { text: string; metadata?: any }) => {
     setFormData(prev => ({
@@ -164,6 +188,12 @@ export function ReferenceDialog({ open, onClose, onSave, reference, clientId }: 
             clientId={clientId}
             maxFiles={10}
             maxSizeMB={20}
+          />
+
+          {/* Attachments Editor - mostrar anexos já adicionados */}
+          <AttachmentsEditor
+            attachments={currentAttachments}
+            onRemove={handleRemoveAttachment}
           />
 
           {/* Main Content Editor */}
