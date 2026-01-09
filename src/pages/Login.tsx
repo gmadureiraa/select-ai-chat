@@ -24,7 +24,38 @@ const Login = () => {
       if (user) {
         setCheckingRedirect(true);
         try {
-          // First, check if user has pending invites that were just accepted
+          // Get user email
+          const { data: { user: authUser } } = await supabase.auth.getUser();
+          const userEmail = authUser?.email;
+
+          // Check for pending invites and accept them automatically
+          if (userEmail) {
+            const { data: pendingInvites } = await supabase
+              .from("workspace_invites")
+              .select("id, workspace_id, workspaces(slug)")
+              .eq("email", userEmail)
+              .is("accepted_at", null)
+              .gt("expires_at", new Date().toISOString())
+              .limit(1);
+
+            if (pendingInvites && pendingInvites.length > 0) {
+              const invite = pendingInvites[0];
+              const workspace = invite.workspaces as { slug: string } | null;
+              
+              // Accept the invite via RPC
+              const { data: accepted } = await supabase.rpc("accept_pending_invite", {
+                p_workspace_id: invite.workspace_id,
+                p_user_id: user.id
+              });
+              
+              if (accepted && workspace?.slug) {
+                navigate(`/${workspace.slug}`, { replace: true });
+                return;
+              }
+            }
+          }
+
+          // Check existing memberships
           const { data: memberships } = await supabase
             .from("workspace_members")
             .select("workspace_id, workspaces(slug)")
