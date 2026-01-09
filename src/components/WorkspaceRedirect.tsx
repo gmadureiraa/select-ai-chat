@@ -66,9 +66,9 @@ export const WorkspaceRedirect = () => {
     return <Navigate to={`/${slug}`} replace />;
   }
 
-  // No workspace - redirect to signup to create one
+  // No workspace - redirect to no-workspace page
   if (!hasWorkspace) {
-    return <Navigate to="/signup" replace />;
+    return <Navigate to="/no-workspace" replace />;
   }
 
   return null;
