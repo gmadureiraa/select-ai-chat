@@ -17,6 +17,7 @@ import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import JoinWorkspace from "./pages/JoinWorkspace";
 import WorkspaceLogin from "./pages/WorkspaceLogin";
+import CreateWorkspaceCallback from "./pages/CreateWorkspaceCallback";
 import NotFound from "./pages/NotFound";
 import { WorkspaceProvider } from "@/contexts/WorkspaceContext";
 import { WorkspaceRouter } from "@/components/WorkspaceRouter";
@@ -64,6 +65,16 @@ const App = () => (
                     element={
                       <ProtectedRoute>
                         <WorkspaceRedirect />
+                      </ProtectedRoute>
+                    }
+                  />
+                  
+                  {/* Callback for creating new workspace after Stripe checkout */}
+                  <Route
+                    path="/create-workspace-callback"
+                    element={
+                      <ProtectedRoute>
+                        <CreateWorkspaceCallback />
                       </ProtectedRoute>
                     }
                   />

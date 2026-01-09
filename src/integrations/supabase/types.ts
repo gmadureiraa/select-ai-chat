@@ -3621,10 +3621,31 @@ export type Database = {
         Returns: boolean
       }
       create_publish_reminders: { Args: never; Returns: undefined }
-      create_workspace_with_subscription: {
-        Args: { p_name: string; p_owner_id: string; p_slug: string }
+      create_workspace_with_paid_subscription: {
+        Args: {
+          p_name: string
+          p_owner_id: string
+          p_plan_type: string
+          p_slug: string
+          p_stripe_customer_id: string
+          p_stripe_subscription_id: string
+        }
         Returns: string
       }
+      create_workspace_with_subscription:
+        | {
+            Args: { p_name: string; p_owner_id: string; p_slug: string }
+            Returns: string
+          }
+        | {
+            Args: {
+              p_name: string
+              p_owner_full_name?: string
+              p_owner_id: string
+              p_slug: string
+            }
+            Returns: string
+          }
       debit_workspace_tokens: {
         Args: {
           p_amount: number

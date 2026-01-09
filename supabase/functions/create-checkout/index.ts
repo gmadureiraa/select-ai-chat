@@ -39,8 +39,8 @@ serve(async (req) => {
   try {
     logStep("Function started");
 
-    const { planType } = await req.json();
-    logStep("Received plan type", { planType });
+    const { planType, isNewWorkspace, workspaceName, workspaceSlug, currentSlug } = await req.json();
+    logStep("Received request", { planType, isNewWorkspace, workspaceName, workspaceSlug, currentSlug });
 
     if (!planType || !PLANS[planType as keyof typeof PLANS]) {
       throw new Error(`Invalid plan type: ${planType}. Must be 'starter' or 'pro'`);
@@ -69,6 +69,16 @@ serve(async (req) => {
 
     const origin = req.headers.get("origin") || "https://tkbsjtgrumhvwlxkmojg.lovableproject.com";
 
+    // Determine success URL based on context
+    let successUrl: string;
+    if (isNewWorkspace) {
+      successUrl = `${origin}/create-workspace-callback?session_id={CHECKOUT_SESSION_ID}`;
+    } else if (currentSlug) {
+      successUrl = `${origin}/${currentSlug}?checkout=success&plan=${planType}`;
+    } else {
+      successUrl = `${origin}/app?checkout=success&plan=${planType}`;
+    }
+
     // Create checkout session with trial
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
@@ -87,11 +97,14 @@ serve(async (req) => {
           plan_type: planType,
         },
       },
-      success_url: `${origin}/app?checkout=success&plan=${planType}`,
+      success_url: successUrl,
       cancel_url: `${origin}/?checkout=canceled`,
       metadata: {
         user_id: user.id,
         plan_type: planType,
+        is_new_workspace: isNewWorkspace ? "true" : "false",
+        workspace_name: workspaceName || "",
+        workspace_slug: workspaceSlug || "",
       },
     });
 
