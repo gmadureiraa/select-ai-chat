@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useWorkspaceContext } from "@/contexts/WorkspaceContext";
 import { useAuth } from "@/hooks/useAuth";
-import { GeneratedContent } from "./useContentRepurpose";
+import { GeneratedContent } from "./useContentCreator";
 
 export interface RepurposeHistoryItem {
   id: string;

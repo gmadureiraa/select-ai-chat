@@ -23,7 +23,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { RepurposeHistoryItem, useRepurposeHistory } from "@/hooks/useRepurposeHistory";
-import { GeneratedContent } from "@/hooks/useContentRepurpose";
+import { GeneratedContent } from "@/hooks/useContentCreator";
 import { cn } from "@/lib/utils";
 
 interface RepurposeHistoryCardsProps {

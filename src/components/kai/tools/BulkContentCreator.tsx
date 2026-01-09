@@ -26,6 +26,7 @@ import { useBulkContentCreator } from "@/hooks/useBulkContentCreator";
 import { FormatQuantitySelector } from "./FormatQuantitySelector";
 import { BulkContentCard } from "./BulkContentCard";
 import { BulkProgressGrid } from "./BulkProgressGrid";
+import { BriefingTemplates } from "./BriefingTemplates";
 import { MentionableInput } from "@/components/planning/MentionableInput";
 import { useNavigate } from "react-router-dom";
 
@@ -47,6 +48,7 @@ export function BulkContentCreator({ clientId }: BulkContentCreatorProps) {
     removeAttachment,
     formatQuantities,
     updateQuantity,
+    applyPackage,
     autoAddToPlanning,
     setAutoAddToPlanning,
     targetColumnId,
@@ -206,9 +208,9 @@ export function BulkContentCreator({ clientId }: BulkContentCreatorProps) {
           <Sparkles className="h-6 w-6 text-primary-foreground" />
         </div>
         <div>
-          <h1 className="text-2xl font-semibold">Criador em Massa</h1>
+          <h1 className="text-2xl font-semibold">Fábrica de Conteúdo</h1>
           <p className="text-muted-foreground">
-            Gere múltiplos conteúdos de uma vez, em paralelo
+            Crie dezenas de conteúdos de uma vez, em diferentes formatos
           </p>
         </div>
       </div>
@@ -222,6 +224,12 @@ export function BulkContentCreator({ clientId }: BulkContentCreatorProps) {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          {/* Briefing Templates */}
+          <BriefingTemplates 
+            onSelect={(template) => setBriefing(prev => prev ? `${prev}\n\n${template}` : template)}
+            disabled={isGenerating}
+          />
+
           <MentionableInput
             value={briefing}
             onChange={setBriefing}
@@ -297,6 +305,7 @@ export function BulkContentCreator({ clientId }: BulkContentCreatorProps) {
           <FormatQuantitySelector
             formatQuantities={formatQuantities}
             onUpdateQuantity={updateQuantity}
+            onApplyPackage={applyPackage}
             disabled={isGenerating}
           />
         </CardContent>
