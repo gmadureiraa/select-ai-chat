@@ -72,7 +72,7 @@ export const useAuth = () => {
         description: "Login realizado com sucesso.",
       });
 
-      navigate("/kai");
+      // Don't navigate here - let Login.tsx handle the redirect to the correct workspace
       return { data, error: null };
     } catch (error) {
       const authError = error as AuthError;
