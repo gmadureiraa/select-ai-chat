@@ -10,6 +10,7 @@ const services = [
       "Organize todos os seus clientes com briefings, brand guidelines e histórico centralizado. Cada cliente tem seu espaço dedicado.",
     icon: Users,
     colorClass: "from-secondary to-accent",
+    targetSection: "features",
   },
   {
     title: "Time Colaborativo",
@@ -17,6 +18,7 @@ const services = [
       "Convide seu time e clientes com permissões granulares. Cada membro vê apenas o que precisa, mantendo tudo organizado.",
     icon: Shield,
     colorClass: "from-violet-500 to-purple-500",
+    targetSection: "testimonials",
   },
   {
     title: "Assistente IA",
@@ -24,6 +26,7 @@ const services = [
       "Converse com a IA que aprende o tom de voz de cada cliente. Gere conteúdo, analise referências e receba sugestões personalizadas.",
     icon: Zap,
     colorClass: "from-primary to-cyan-500",
+    targetSection: "workflow",
   },
   {
     title: "Performance Analytics",
@@ -31,6 +34,7 @@ const services = [
       "Métricas de Instagram, YouTube e Newsletter em um só lugar. Dashboards visuais e insights para cada cliente.",
     icon: BarChart3,
     colorClass: "from-emerald-500 to-teal-500",
+    targetSection: "stats",
   },
   {
     title: "Base de Conhecimento",
@@ -38,6 +42,7 @@ const services = [
       "Armazene PDFs, documentos e referências que a IA usa para gerar conteúdo mais preciso e alinhado com cada cliente.",
     icon: Target,
     colorClass: "from-blue-500 to-indigo-500",
+    targetSection: "integrations",
   },
 ];
 
@@ -258,7 +263,13 @@ const ServicesCarousel = () => {
                       <Button
                         variant="ghost"
                         className="w-fit text-muted-foreground hover:text-foreground p-0 h-auto font-normal group/btn pointer-events-auto"
-                        onClick={(e) => e.stopPropagation()}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const targetElement = document.getElementById(service.targetSection);
+                          if (targetElement) {
+                            targetElement.scrollIntoView({ behavior: "smooth", block: "start" });
+                          }
+                        }}
                       >
                         Saiba mais
                         <ArrowRight className="w-4 h-4 ml-2 group-hover/btn:translate-x-1 transition-transform" />

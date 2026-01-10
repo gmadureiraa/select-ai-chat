@@ -14,6 +14,7 @@ import { ContentRepurposeTool } from "@/components/kai/tools/ContentRepurposeToo
 import { PlanningBoard } from "@/components/planning/PlanningBoard";
 import { FormatRulesTool } from "@/components/tools/FormatRulesTool";
 import { EnterpriseLockScreen } from "@/components/shared/EnterpriseLockScreen";
+import { AccountSettingsSection } from "@/components/settings/AccountSettingsSection";
 import { OnboardingFlow } from "@/components/onboarding";
 import { UpgradePromptProvider } from "@/hooks/useUpgradePrompt";
 import { useClients } from "@/hooks/useClients";
@@ -167,9 +168,8 @@ export default function Kai() {
           return <FormatRulesTool />;
         case "account":
           return (
-            <div className="p-6">
-              <h1 className="text-2xl font-semibold mb-4">Configurações da Conta</h1>
-              <p className="text-muted-foreground">Em breve...</p>
+            <div className="p-6 overflow-y-auto h-full">
+              <AccountSettingsSection />
             </div>
           );
       }
