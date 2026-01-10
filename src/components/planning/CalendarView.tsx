@@ -17,6 +17,7 @@ interface CalendarViewProps {
   onDeleteItem: (id: string) => void;
   onMoveToLibrary: (id: string) => void;
   onRetry: (id: string) => void;
+  canEdit?: boolean;
 }
 
 const statusColors: Record<string, string> = {
@@ -41,7 +42,7 @@ const platformIcons: Record<string, string> = {
   other: '📱',
 };
 
-function CalendarCard({ item, onEdit }: { item: PlanningItem; onEdit: () => void }) {
+function CalendarCard({ item, onEdit, canEdit = true }: { item: PlanningItem; onEdit: () => void; canEdit?: boolean }) {
   const { canAutoPublish } = useClientPlatformStatus(item.client_id);
   const platform = item.platform as SupportedPlatform | null;
   const isAutoPublish = canAutoPublish(platform);
@@ -55,7 +56,7 @@ function CalendarCard({ item, onEdit }: { item: PlanningItem; onEdit: () => void
               "text-[10px] px-1.5 py-1 rounded-md border cursor-pointer hover:scale-[1.02] transition-all shadow-sm",
               statusColors[item.status]
             )}
-            onClick={(e) => { e.stopPropagation(); onEdit(); }}
+            onClick={(e) => { e.stopPropagation(); if (canEdit) onEdit(); }}
           >
             <div className="flex items-center gap-1">
               {/* Platform icon */}
@@ -147,6 +148,7 @@ export function CalendarView({
   onDeleteItem,
   onMoveToLibrary,
   onRetry,
+  canEdit = true,
 }: CalendarViewProps) {
   const [currentDate, setCurrentDate] = useState(new Date());
 
@@ -210,11 +212,11 @@ export function CalendarView({
               <div
                 key={i}
                 className={cn(
-                  "min-h-20 border-b border-r border-border/30 p-1 cursor-pointer transition-colors group",
+                  "min-h-20 border-b border-r border-border/30 p-1 transition-colors group",
                   !isCurrentMonth && "bg-muted/20 text-muted-foreground",
-                  "hover:bg-muted/30"
+                  canEdit && "cursor-pointer hover:bg-muted/30"
                 )}
-                onClick={() => onAddItem(day)}
+                onClick={() => canEdit && onAddItem(day)}
               >
                 {/* Day Header */}
                 <div className="flex items-center justify-between mb-0.5">
@@ -224,14 +226,16 @@ export function CalendarView({
                   )}>
                     {format(day, 'd')}
                   </span>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-4 w-4 opacity-0 group-hover:opacity-100 transition-opacity"
-                    onClick={(e) => { e.stopPropagation(); onAddItem(day); }}
-                  >
-                    <Plus className="h-2.5 w-2.5" />
-                  </Button>
+                  {canEdit && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-4 w-4 opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={(e) => { e.stopPropagation(); onAddItem(day); }}
+                    >
+                      <Plus className="h-2.5 w-2.5" />
+                    </Button>
+                  )}
                 </div>
 
                 {/* Items - More compact */}
@@ -241,6 +245,7 @@ export function CalendarView({
                       key={item.id}
                       item={item}
                       onEdit={() => onEditItem(item)}
+                      canEdit={canEdit}
                     />
                   ))}
                   {dayItems.length > 3 && (

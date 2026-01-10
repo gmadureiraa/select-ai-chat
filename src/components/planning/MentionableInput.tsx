@@ -18,6 +18,7 @@ interface MentionableInputProps {
   className?: string;
   multiline?: boolean;
   rows?: number;
+  disabled?: boolean;
 }
 
 export function MentionableInput({
@@ -27,7 +28,8 @@ export function MentionableInput({
   placeholder,
   className,
   multiline = false,
-  rows = 3
+  rows = 3,
+  disabled = false
 }: MentionableInputProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [showPopover, setShowPopover] = useState(false);
@@ -156,9 +158,10 @@ export function MentionableInput({
                   "min-h-[38px] flex items-center flex-wrap gap-1 break-all",
                   multiline && "min-h-[80px] items-start",
                   !value && "text-muted-foreground",
+                  disabled && "opacity-60 cursor-not-allowed",
                   className
                 )}
-                onClick={() => setIsEditing(true)}
+                onClick={() => !disabled && setIsEditing(true)}
               >
                 {value ? (
                   <MentionRenderer 

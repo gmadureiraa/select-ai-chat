@@ -95,6 +95,14 @@ export const useWorkspace = () => {
   const canGenerateReports = !isViewer && userRole !== undefined;
   const canDeleteFromLibrary = !isViewer && userRole !== undefined;
   const canDeleteFromPlanning = !isViewer && userRole !== undefined;
+  
+  // NEW: More granular permissions for specific features
+  const canEditInLibrary = !isViewer && userRole !== undefined;
+  const canEditInPlanning = userRole !== undefined; // Viewers CAN edit in planning
+  const canEditClients = !isViewer && userRole !== undefined;
+  const canEditKnowledgeBase = !isViewer && userRole !== undefined;
+  const canManageAutomations = isAdminOrOwner;
+  const canEditClientSettings = !isViewer && userRole !== undefined;
 
   return {
     workspace,
@@ -123,5 +131,12 @@ export const useWorkspace = () => {
     canGenerateReports,
     canDeleteFromLibrary,
     canDeleteFromPlanning,
+    // NEW granular permissions
+    canEditInLibrary,
+    canEditInPlanning,
+    canEditClients,
+    canEditKnowledgeBase,
+    canManageAutomations,
+    canEditClientSettings,
   };
 };

@@ -34,6 +34,7 @@ interface PlanningItemDialogProps {
   defaultDate?: Date;
   onSave: (data: CreatePlanningItemInput) => Promise<void>;
   onUpdate?: (id: string, data: Partial<PlanningItem>) => Promise<void>;
+  readOnly?: boolean;
 }
 
 const priorities: { value: PlanningPriority; label: string }[] = [
@@ -60,7 +61,8 @@ export function PlanningItemDialog({
   defaultColumnId,
   defaultDate,
   onSave,
-  onUpdate
+  onUpdate,
+  readOnly = false
 }: PlanningItemDialogProps) {
   const { clients } = useClients();
   const { members } = useTeamMembers();
@@ -260,7 +262,12 @@ export function PlanningItemDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{item ? 'Editar Card' : 'Novo Card'}</DialogTitle>
+          <DialogTitle>
+            {readOnly ? 'Visualizar Card' : (item ? 'Editar Card' : 'Novo Card')}
+          </DialogTitle>
+          {readOnly && (
+            <p className="text-sm text-muted-foreground">Modo visualização - você não tem permissão para editar.</p>
+          )}
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -269,9 +276,10 @@ export function PlanningItemDialog({
             <Label htmlFor="title">Título *</Label>
             <MentionableInput
               value={title}
-              onChange={setTitle}
+              onChange={readOnly ? () => {} : setTitle}
               clientId={selectedClientId}
               placeholder="Título do conteúdo (use @ para refs)"
+              disabled={readOnly}
             />
           </div>
 
@@ -508,12 +516,14 @@ export function PlanningItemDialog({
           {/* Submit */}
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
-              Cancelar
+              {readOnly ? 'Fechar' : 'Cancelar'}
             </Button>
-            <Button type="submit" disabled={isSubmitting || !title.trim()}>
-              {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-              {item ? 'Salvar' : 'Criar'}
-            </Button>
+            {!readOnly && (
+              <Button type="submit" disabled={isSubmitting || !title.trim()}>
+                {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                {item ? 'Salvar' : 'Criar'}
+              </Button>
+            )}
           </div>
         </form>
       </DialogContent>
