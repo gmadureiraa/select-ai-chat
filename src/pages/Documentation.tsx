@@ -14,7 +14,13 @@ import {
   BookOpen,
   Download,
   Wand2,
-  MessageSquare
+  MessageSquare,
+  Calendar,
+  Shield,
+  HelpCircle,
+  History,
+  CheckCircle,
+  XCircle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -102,13 +108,31 @@ const sections: DocSection[] = [
           </ol>
         </div>
 
-        {/* Screenshot placeholder */}
-        <div className="p-8 rounded-xl bg-muted/30 border border-dashed border-border flex flex-col items-center justify-center gap-3">
-          <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center">
-            <Library className="h-8 w-8 text-muted-foreground/50" />
+        {/* Interface Overview */}
+        <div className="p-6 rounded-xl bg-gradient-to-br from-violet-500/10 to-pink-500/10 border border-border/50">
+          <div className="flex items-center gap-4 mb-4">
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-violet-500 to-pink-500 flex items-center justify-center">
+              <Sparkles className="h-6 w-6 text-white" />
+            </div>
+            <div>
+              <h3 className="font-semibold">Interface Principal</h3>
+              <p className="text-sm text-muted-foreground">Sidebar + Área de trabalho adaptativa</p>
+            </div>
           </div>
-          <p className="text-sm text-muted-foreground">Screenshot: Interface principal do kAI</p>
-          <p className="text-xs text-muted-foreground/60">Imagem ilustrativa será adicionada aqui</p>
+          <div className="grid grid-cols-3 gap-3 text-sm">
+            <div className="p-3 rounded-lg bg-background/50 border">
+              <p className="font-medium mb-1">Sidebar Esquerda</p>
+              <p className="text-xs text-muted-foreground">Navegação, clientes, ferramentas</p>
+            </div>
+            <div className="p-3 rounded-lg bg-background/50 border">
+              <p className="font-medium mb-1">Área Central</p>
+              <p className="text-xs text-muted-foreground">Conteúdo da aba ativa</p>
+            </div>
+            <div className="p-3 rounded-lg bg-background/50 border">
+              <p className="font-medium mb-1">Chat Assistente</p>
+              <p className="text-xs text-muted-foreground">Interação com IA</p>
+            </div>
+          </div>
         </div>
 
         {/* Pricing info */}
@@ -776,6 +800,327 @@ const sections: DocSection[] = [
               <li>• <strong>Cancelamento</strong>: Pode parar geração a qualquer momento</li>
             </ul>
           </div>
+        </div>
+      </div>
+    ),
+  },
+  {
+    id: "planning",
+    title: "Planejamento",
+    icon: Calendar,
+    content: (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold mb-4">Planejamento de Conteúdo</h1>
+          <p className="text-muted-foreground text-lg">
+            Organize e gerencie todo o pipeline de produção de conteúdo com o quadro Kanban.
+          </p>
+        </div>
+
+        <div className="space-y-4">
+          <h2 className="text-xl font-semibold">Quadro Kanban</h2>
+          <p className="text-muted-foreground">
+            Visualize o status de cada conteúdo através das colunas do quadro:
+          </p>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="p-3 rounded-lg border border-border/50 bg-muted/30">
+              <div className="w-3 h-3 rounded-full bg-blue-500 mb-2" />
+              <p className="font-medium text-sm">Planejado</p>
+              <p className="text-xs text-muted-foreground">Ideias e briefings</p>
+            </div>
+            <div className="p-3 rounded-lg border border-border/50 bg-muted/30">
+              <div className="w-3 h-3 rounded-full bg-amber-500 mb-2" />
+              <p className="font-medium text-sm">Em Produção</p>
+              <p className="text-xs text-muted-foreground">Sendo criado</p>
+            </div>
+            <div className="p-3 rounded-lg border border-border/50 bg-muted/30">
+              <div className="w-3 h-3 rounded-full bg-violet-500 mb-2" />
+              <p className="font-medium text-sm">Aprovação</p>
+              <p className="text-xs text-muted-foreground">Aguardando review</p>
+            </div>
+            <div className="p-3 rounded-lg border border-border/50 bg-muted/30">
+              <div className="w-3 h-3 rounded-full bg-emerald-500 mb-2" />
+              <p className="font-medium text-sm">Publicado</p>
+              <p className="text-xs text-muted-foreground">Finalizado</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <h2 className="text-xl font-semibold">Funcionalidades</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="p-4 rounded-lg border border-border/50">
+              <h4 className="font-medium mb-2">📅 Agendamento</h4>
+              <p className="text-sm text-muted-foreground">
+                Defina datas de publicação e visualize no calendário integrado.
+              </p>
+            </div>
+            <div className="p-4 rounded-lg border border-border/50">
+              <h4 className="font-medium mb-2">🏷️ Labels</h4>
+              <p className="text-sm text-muted-foreground">
+                Organize por tipo de conteúdo, plataforma ou prioridade.
+              </p>
+            </div>
+            <div className="p-4 rounded-lg border border-border/50">
+              <h4 className="font-medium mb-2">👤 Atribuição</h4>
+              <p className="text-sm text-muted-foreground">
+                Atribua responsáveis para cada item do planejamento.
+              </p>
+            </div>
+            <div className="p-4 rounded-lg border border-border/50">
+              <h4 className="font-medium mb-2">🔄 Drag & Drop</h4>
+              <p className="text-sm text-muted-foreground">
+                Mova itens entre colunas arrastando e soltando.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="p-4 rounded-lg bg-violet-500/10 border border-violet-500/20">
+          <h3 className="font-semibold mb-2">🚀 Publicação Automática (Enterprise)</h3>
+          <p className="text-sm text-muted-foreground">
+            No plano Enterprise, conecte suas redes sociais para publicação automática 
+            quando o item atingir a data agendada.
+          </p>
+        </div>
+      </div>
+    ),
+  },
+  {
+    id: "permissions",
+    title: "Permissões e Roles",
+    icon: Shield,
+    content: (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold mb-4">Permissões e Roles</h1>
+          <p className="text-muted-foreground text-lg">
+            Entenda o sistema de permissões e como gerenciar acessos no seu workspace.
+          </p>
+        </div>
+
+        <div className="space-y-4">
+          <h2 className="text-xl font-semibold">Tabela de Permissões</h2>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm border rounded-lg overflow-hidden">
+              <thead className="bg-muted/50">
+                <tr>
+                  <th className="text-left py-3 px-4 font-medium">Funcionalidade</th>
+                  <th className="text-center py-3 px-2 font-medium">Owner</th>
+                  <th className="text-center py-3 px-2 font-medium">Admin</th>
+                  <th className="text-center py-3 px-2 font-medium">Member</th>
+                  <th className="text-center py-3 px-2 font-medium">Viewer</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {[
+                  { feature: "Usar Assistente IA", owner: true, admin: true, member: true, viewer: false },
+                  { feature: "Editar Biblioteca", owner: true, admin: true, member: true, viewer: false },
+                  { feature: "Editar Planejamento", owner: true, admin: true, member: true, viewer: false },
+                  { feature: "Visualizar Performance", owner: true, admin: true, member: true, viewer: true },
+                  { feature: "Gerenciar Clientes", owner: true, admin: true, member: false, viewer: false },
+                  { feature: "Editar Base de Conhecimento", owner: true, admin: true, member: false, viewer: false },
+                  { feature: "Gerenciar Time", owner: true, admin: true, member: false, viewer: false },
+                  { feature: "Configurações Avançadas", owner: true, admin: true, member: false, viewer: false },
+                  { feature: "Billing e Plano", owner: true, admin: false, member: false, viewer: false },
+                  { feature: "Excluir Workspace", owner: true, admin: false, member: false, viewer: false },
+                ].map((row) => (
+                  <tr key={row.feature} className="hover:bg-muted/30">
+                    <td className="py-2 px-4">{row.feature}</td>
+                    <td className="text-center py-2 px-2">
+                      {row.owner ? <CheckCircle className="h-4 w-4 text-emerald-500 mx-auto" /> : <XCircle className="h-4 w-4 text-muted-foreground/30 mx-auto" />}
+                    </td>
+                    <td className="text-center py-2 px-2">
+                      {row.admin ? <CheckCircle className="h-4 w-4 text-emerald-500 mx-auto" /> : <XCircle className="h-4 w-4 text-muted-foreground/30 mx-auto" />}
+                    </td>
+                    <td className="text-center py-2 px-2">
+                      {row.member ? <CheckCircle className="h-4 w-4 text-emerald-500 mx-auto" /> : <XCircle className="h-4 w-4 text-muted-foreground/30 mx-auto" />}
+                    </td>
+                    <td className="text-center py-2 px-2">
+                      {row.viewer ? <CheckCircle className="h-4 w-4 text-emerald-500 mx-auto" /> : <XCircle className="h-4 w-4 text-muted-foreground/30 mx-auto" />}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <h2 className="text-xl font-semibold">Convidando Membros</h2>
+          <ol className="list-decimal list-inside space-y-2 text-muted-foreground">
+            <li>Acesse <strong>Configurações → Time</strong></li>
+            <li>Clique em <strong>"Convidar membro"</strong></li>
+            <li>Escolha o email e a role desejada</li>
+            <li>O convidado receberá um email com link de acesso</li>
+          </ol>
+        </div>
+
+        <div className="space-y-4">
+          <h2 className="text-xl font-semibold">Atribuição de Clientes</h2>
+          <p className="text-muted-foreground">
+            Membros só veem os clientes aos quais foram atribuídos. Admins e owners 
+            podem atribuir clientes específicos para cada membro na área de Time.
+          </p>
+          <div className="p-4 rounded-lg bg-amber-500/10 border border-amber-500/20">
+            <h4 className="font-medium mb-2">💡 Dica</h4>
+            <p className="text-sm text-muted-foreground">
+              Use roles de Viewer para clientes que precisam apenas acompanhar o progresso 
+              sem poder editar conteúdo.
+            </p>
+          </div>
+        </div>
+      </div>
+    ),
+  },
+  {
+    id: "troubleshooting",
+    title: "Troubleshooting",
+    icon: HelpCircle,
+    content: (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold mb-4">Troubleshooting</h1>
+          <p className="text-muted-foreground text-lg">
+            Soluções para problemas comuns e perguntas frequentes.
+          </p>
+        </div>
+
+        <div className="space-y-4">
+          {[
+            {
+              q: "O CSV não importa corretamente",
+              a: "Verifique se o arquivo está no formato correto (UTF-8) e se as colunas correspondem ao esperado. O sistema detecta automaticamente o tipo de CSV baseado nas colunas."
+            },
+            {
+              q: "A IA está gerando conteúdo fora do tom de voz",
+              a: "Adicione mais exemplos na Biblioteca do cliente e revise o Guia de Identidade. Quanto mais contexto, melhor a IA captura o estilo."
+            },
+            {
+              q: "Imagens não aparecem na biblioteca",
+              a: "Verifique se o upload foi concluído. Arquivos muito grandes (>5MB) podem falhar. Tente reduzir o tamanho da imagem."
+            },
+            {
+              q: "Não consigo acessar uma ferramenta",
+              a: "Verifique sua role no workspace. Algumas ferramentas são restritas a Admins e Owners. Peça ao administrador para alterar sua permissão se necessário."
+            },
+            {
+              q: "O carrossel do Instagram não importou todas as imagens",
+              a: "Alguns carrosséis têm restrições de privacidade. Tente copiar o link diretamente do app do Instagram (não do navegador)."
+            },
+            {
+              q: "Tokens acabaram antes do fim do mês",
+              a: "Considere fazer upgrade do plano ou otimizar prompts. Gerar imagens consome mais tokens que texto. Verifique o uso detalhado em Configurações."
+            }
+          ].map((item, i) => (
+            <div key={i} className="p-4 rounded-lg border border-border/50">
+              <h4 className="font-medium mb-2 text-primary">❓ {item.q}</h4>
+              <p className="text-sm text-muted-foreground">{item.a}</p>
+            </div>
+          ))}
+        </div>
+
+        <div className="p-4 rounded-lg bg-blue-500/10 border border-blue-500/20">
+          <h3 className="font-semibold mb-2">📧 Suporte</h3>
+          <p className="text-sm text-muted-foreground">
+            Não encontrou a solução? Entre em contato pelo email{" "}
+            <a href="mailto:suporte@kaleidos.com.br" className="text-primary underline">
+              suporte@kaleidos.com.br
+            </a>{" "}
+            ou pelo chat no canto inferior direito.
+          </p>
+        </div>
+      </div>
+    ),
+  },
+  {
+    id: "changelog",
+    title: "Changelog",
+    icon: History,
+    content: (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold mb-4">Changelog</h1>
+          <p className="text-muted-foreground text-lg">
+            Histórico de atualizações e melhorias do sistema.
+          </p>
+        </div>
+
+        <div className="space-y-6">
+          {[
+            {
+              version: "2.5.0",
+              date: "Janeiro 2026",
+              changes: [
+                "Sistema completo de permissões (Owner, Admin, Member, Viewer)",
+                "Página de configurações da conta reformulada",
+                "Documentação expandida com novas seções",
+                "Melhorias de performance no carregamento",
+              ],
+              type: "major"
+            },
+            {
+              version: "2.4.0",
+              date: "Dezembro 2025",
+              changes: [
+                "Novo sistema de planejamento com Kanban",
+                "Calendário integrado para visualização",
+                "Automações de publicação (Enterprise)",
+                "Suporte a recorrência de posts",
+              ],
+              type: "major"
+            },
+            {
+              version: "2.3.5",
+              date: "Novembro 2025",
+              changes: [
+                "Correção de bugs no importador de CSV",
+                "Melhorias na detecção de formato de imagem",
+                "Performance otimizada no chat",
+              ],
+              type: "patch"
+            },
+            {
+              version: "2.3.0",
+              date: "Outubro 2025",
+              changes: [
+                "Base de Conhecimento com busca semântica",
+                "Upload de PDFs com extração de texto",
+                "Integração com websites para scraping",
+              ],
+              type: "minor"
+            },
+          ].map((release) => (
+            <div key={release.version} className="relative pl-6 border-l-2 border-border">
+              <div className={cn(
+                "absolute -left-2 top-0 w-4 h-4 rounded-full border-2 border-background",
+                release.type === "major" ? "bg-primary" : 
+                release.type === "minor" ? "bg-violet-500" : "bg-muted-foreground"
+              )} />
+              <div className="pb-6">
+                <div className="flex items-center gap-3 mb-2">
+                  <span className="font-mono font-semibold">v{release.version}</span>
+                  <span className="text-sm text-muted-foreground">{release.date}</span>
+                  <span className={cn(
+                    "px-2 py-0.5 rounded-full text-xs",
+                    release.type === "major" ? "bg-primary/10 text-primary" :
+                    release.type === "minor" ? "bg-violet-500/10 text-violet-500" :
+                    "bg-muted text-muted-foreground"
+                  )}>
+                    {release.type}
+                  </span>
+                </div>
+                <ul className="space-y-1">
+                  {release.changes.map((change, i) => (
+                    <li key={i} className="text-sm text-muted-foreground flex items-start gap-2">
+                      <span className="text-primary mt-1">•</span>
+                      {change}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     ),
