@@ -19,10 +19,12 @@ import { TagsInput } from "@/components/knowledge/TagsInput";
 import { TasksPanel } from "@/components/kai/TasksPanel";
 import { useContextualTasks } from "@/hooks/useContextualTasks";
 import { useDebounce } from "@/hooks/useDebounce";
+import { useWorkspace } from "@/hooks/useWorkspace";
 
 export const KnowledgeBaseTool = () => {
   const { knowledge, isLoading, createKnowledge, updateKnowledge, deleteKnowledge, processKnowledge, searchKnowledge } = useGlobalKnowledge();
   const { tasks, isActive: tasksActive, startTasks, advanceToTask, completeAllTasks } = useContextualTasks();
+  const { canEditKnowledgeBase, isAdminOrOwner } = useWorkspace();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
@@ -327,10 +329,12 @@ export const KnowledgeBaseTool = () => {
             <h1 className="text-2xl font-semibold">Base de Conhecimento</h1>
             <p className="text-muted-foreground text-sm">Materiais de referência para IA (PDFs e URLs)</p>
           </div>
-          <Button onClick={() => { resetForm(); setIsAddDialogOpen(true); }}>
-            <Plus className="h-4 w-4 mr-2" />
-            Adicionar
-          </Button>
+          {canEditKnowledgeBase && (
+            <Button onClick={() => { resetForm(); setIsAddDialogOpen(true); }}>
+              <Plus className="h-4 w-4 mr-2" />
+              Adicionar
+            </Button>
+          )}
         </div>
 
         <div className="flex gap-3 flex-wrap">
@@ -401,32 +405,36 @@ export const KnowledgeBaseTool = () => {
                         </div>
                         <CardTitle className="text-sm font-medium line-clamp-2">{item.title}</CardTitle>
                       </div>
-                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" onClick={e => e.stopPropagation()}>
-                        <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handleEdit(item)}>
-                          <Edit className="h-3.5 w-3.5" />
-                        </Button>
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive hover:text-destructive">
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Remover conhecimento?</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                Esta ação não pode ser desfeita.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                              <AlertDialogAction onClick={() => deleteKnowledge.mutate(item.id)}>
-                                Remover
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      </div>
+                      {canEditKnowledgeBase && (
+                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" onClick={e => e.stopPropagation()}>
+                          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handleEdit(item)}>
+                            <Edit className="h-3.5 w-3.5" />
+                          </Button>
+                          {isAdminOrOwner && (
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive hover:text-destructive">
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Remover conhecimento?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    Esta ação não pode ser desfeita.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                  <AlertDialogAction onClick={() => deleteKnowledge.mutate(item.id)}>
+                                    Remover
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </CardHeader>
                   <CardContent className="pt-0 space-y-3">

@@ -239,6 +239,7 @@ export function PlanningBoard({ clientId, isEnterprise = false, onClientChange }
             onDeleteItem={(id) => deleteItem.mutate(id)}
             onMoveToLibrary={(id) => moveToLibrary.mutate(id)}
             onRetry={(id) => retryPublication.mutate(id)}
+            canEdit={!isViewer}
           />
         )}
 

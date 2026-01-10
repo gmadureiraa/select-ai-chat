@@ -13,6 +13,7 @@ interface ContentCardProps {
   onDelete: (id: string) => void;
   onView: (content: ContentItem) => void;
   canDelete?: boolean;
+  canEdit?: boolean;
 }
 
 const contentTypeConfig: Record<string, { icon: typeof FileText; color: string }> = {
@@ -54,7 +55,7 @@ const getPreviewImage = (content: ContentItem): string | null => {
   return null;
 };
 
-export const ContentCard = memo(function ContentCard({ content, onEdit, onDelete, onView, canDelete = true }: ContentCardProps) {
+export const ContentCard = memo(function ContentCard({ content, onEdit, onDelete, onView, canDelete = true, canEdit = true }: ContentCardProps) {
   const config = contentTypeConfig[content.content_type] || contentTypeConfig.other;
   const Icon = config.icon;
   const label = getContentTypeLabel(content.content_type);
@@ -129,17 +130,19 @@ export const ContentCard = memo(function ContentCard({ content, onEdit, onDelete
             {new Date(content.created_at).toLocaleDateString("pt-BR")}
           </span>
           <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7"
-              onClick={(e) => {
-                e.stopPropagation();
-                onEdit(content);
-              }}
-            >
-              <Edit className="h-3.5 w-3.5" />
-            </Button>
+            {canEdit && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEdit(content);
+                }}
+              >
+                <Edit className="h-3.5 w-3.5" />
+              </Button>
+            )}
             {canDelete && (
               <Button
                 variant="ghost"

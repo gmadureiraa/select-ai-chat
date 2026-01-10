@@ -48,7 +48,7 @@ export const KaiLibraryTab = ({ clientId, client }: KaiLibraryTabProps) => {
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   
   // Workspace permissions
-  const { canDeleteFromLibrary } = useWorkspace();
+  const { canDeleteFromLibrary, canEditInLibrary } = useWorkspace();
   
   // Content Library
   const [contentDialogOpen, setContentDialogOpen] = useState(false);
@@ -276,6 +276,7 @@ export const KaiLibraryTab = ({ clientId, client }: KaiLibraryTabProps) => {
             }}
             onDelete={() => deleteContent.mutate(content.id)}
             canDelete={canDeleteFromLibrary}
+            canEdit={canEditInLibrary}
           />
         </div>
       </div>
@@ -355,6 +356,7 @@ export const KaiLibraryTab = ({ clientId, client }: KaiLibraryTabProps) => {
           }}
           onDelete={() => deleteReference.mutate(reference.id)}
           canDelete={canDeleteFromLibrary}
+          canEdit={canEditInLibrary}
         />
       </div>
     );
