@@ -1656,6 +1656,228 @@ export type Database = {
           },
         ]
       }
+      meta_ads_ads: {
+        Row: {
+          ad_name: string
+          ad_status: string | null
+          adset_name: string | null
+          amount_spent: number | null
+          client_id: string
+          conversion_rate_ranking: string | null
+          cost_per_result: number | null
+          created_at: string | null
+          end_date: string | null
+          engagement_rate_ranking: string | null
+          id: string
+          impressions: number | null
+          metadata: Json | null
+          quality_ranking: string | null
+          reach: number | null
+          result_type: string | null
+          results: number | null
+          start_date: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          ad_name: string
+          ad_status?: string | null
+          adset_name?: string | null
+          amount_spent?: number | null
+          client_id: string
+          conversion_rate_ranking?: string | null
+          cost_per_result?: number | null
+          created_at?: string | null
+          end_date?: string | null
+          engagement_rate_ranking?: string | null
+          id?: string
+          impressions?: number | null
+          metadata?: Json | null
+          quality_ranking?: string | null
+          reach?: number | null
+          result_type?: string | null
+          results?: number | null
+          start_date?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          ad_name?: string
+          ad_status?: string | null
+          adset_name?: string | null
+          amount_spent?: number | null
+          client_id?: string
+          conversion_rate_ranking?: string | null
+          cost_per_result?: number | null
+          created_at?: string | null
+          end_date?: string | null
+          engagement_rate_ranking?: string | null
+          id?: string
+          impressions?: number | null
+          metadata?: Json | null
+          quality_ranking?: string | null
+          reach?: number | null
+          result_type?: string | null
+          results?: number | null
+          start_date?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meta_ads_ads_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      meta_ads_adsets: {
+        Row: {
+          adset_name: string
+          adset_status: string | null
+          amount_spent: number | null
+          attribution_setting: string | null
+          bid: number | null
+          bid_type: string | null
+          budget: number | null
+          budget_type: string | null
+          client_id: string
+          cost_per_result: number | null
+          created_at: string | null
+          end_date: string | null
+          id: string
+          impressions: number | null
+          metadata: Json | null
+          reach: number | null
+          result_type: string | null
+          results: number | null
+          start_date: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          adset_name: string
+          adset_status?: string | null
+          amount_spent?: number | null
+          attribution_setting?: string | null
+          bid?: number | null
+          bid_type?: string | null
+          budget?: number | null
+          budget_type?: string | null
+          client_id: string
+          cost_per_result?: number | null
+          created_at?: string | null
+          end_date?: string | null
+          id?: string
+          impressions?: number | null
+          metadata?: Json | null
+          reach?: number | null
+          result_type?: string | null
+          results?: number | null
+          start_date?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          adset_name?: string
+          adset_status?: string | null
+          amount_spent?: number | null
+          attribution_setting?: string | null
+          bid?: number | null
+          bid_type?: string | null
+          budget?: number | null
+          budget_type?: string | null
+          client_id?: string
+          cost_per_result?: number | null
+          created_at?: string | null
+          end_date?: string | null
+          id?: string
+          impressions?: number | null
+          metadata?: Json | null
+          reach?: number | null
+          result_type?: string | null
+          results?: number | null
+          start_date?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meta_ads_adsets_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      meta_ads_campaigns: {
+        Row: {
+          amount_spent: number | null
+          attribution_setting: string | null
+          budget: number | null
+          budget_type: string | null
+          campaign_name: string
+          campaign_status: string | null
+          client_id: string
+          cost_per_result: number | null
+          created_at: string | null
+          end_date: string | null
+          id: string
+          impressions: number | null
+          metadata: Json | null
+          reach: number | null
+          result_type: string | null
+          results: number | null
+          start_date: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          amount_spent?: number | null
+          attribution_setting?: string | null
+          budget?: number | null
+          budget_type?: string | null
+          campaign_name: string
+          campaign_status?: string | null
+          client_id: string
+          cost_per_result?: number | null
+          created_at?: string | null
+          end_date?: string | null
+          id?: string
+          impressions?: number | null
+          metadata?: Json | null
+          reach?: number | null
+          result_type?: string | null
+          results?: number | null
+          start_date?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          amount_spent?: number | null
+          attribution_setting?: string | null
+          budget?: number | null
+          budget_type?: string | null
+          campaign_name?: string
+          campaign_status?: string | null
+          client_id?: string
+          cost_per_result?: number | null
+          created_at?: string | null
+          end_date?: string | null
+          id?: string
+          impressions?: number | null
+          metadata?: Json | null
+          reach?: number | null
+          result_type?: string | null
+          results?: number | null
+          start_date?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meta_ads_campaigns_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notifications: {
         Row: {
           created_at: string | null
