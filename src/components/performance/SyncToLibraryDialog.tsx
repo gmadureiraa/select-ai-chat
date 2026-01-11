@@ -23,42 +23,14 @@ interface SyncToLibraryDialogProps {
 interface AttachedItem {
   id: string;
   name: string;
-  url: string;
+  url: string; // Storage path, not full URL
   type: 'image' | 'video';
-}
-
-// Helper to re-upload external image to Supabase Storage
-async function reuploadExternalImage(
-  externalUrl: string,
-  clientId: string,
-  index: number
-): Promise<string | null> {
-  try {
-    const response = await fetch(externalUrl);
-    if (!response.ok) return null;
-
-    const blob = await response.blob();
-    const extension = blob.type.split('/')[1]?.split(';')[0] || 'jpg';
-    const fileName = `instagram-sync/${clientId}/${Date.now()}-${index}.${extension}`;
-
-    const { error } = await supabase.storage
-      .from('client-files')
-      .upload(fileName, blob, { contentType: blob.type });
-
-    if (error) {
-      console.warn('Upload error:', error);
-      return null;
-    }
-
-    return fileName;
-  } catch (err) {
-    console.warn('Re-upload failed:', err);
-    return null;
-  }
 }
 
 // Get public URL from storage path
 function getStoragePublicUrl(path: string): string {
+  // If already a full URL, return as-is
+  if (path.startsWith('http')) return path;
   const { data } = supabase.storage.from('client-files').getPublicUrl(path);
   return data.publicUrl;
 }
@@ -88,18 +60,30 @@ export function SyncToLibraryDialog({ post, open, onOpenChange, clientId }: Sync
 
     try {
       let attachments: AttachedItem[] = [];
-      let extractedImageUrls: string[] = [];
 
-      // Extract images from permalink
+      // Extract and upload images via edge function (bypasses CORS)
       if (post.permalink && downloadImages) {
-        setSyncStatus("Extraindo imagens do post...");
+        setSyncStatus("Extraindo e salvando imagens...");
         try {
           const { data, error } = await supabase.functions.invoke('extract-instagram', {
-            body: { url: post.permalink }
+            body: { 
+              url: post.permalink,
+              clientId,
+              uploadToStorage: true
+            }
           });
 
-          if (!error && data?.images && Array.isArray(data.images)) {
-            extractedImageUrls = data.images;
+          if (!error && data?.uploadedPaths && Array.isArray(data.uploadedPaths) && data.uploadedPaths.length > 0) {
+            // Use paths from server-side upload
+            attachments = data.uploadedPaths.map((path: string, idx: number) => ({
+              id: `img-${idx + 1}`,
+              name: `Imagem ${idx + 1}`,
+              url: path, // Store path, not full URL
+              type: 'image' as const,
+            }));
+            console.log(`Got ${attachments.length} images from edge function`);
+          } else if (error) {
+            console.warn('Extract error:', error);
           }
         } catch (extractError) {
           console.warn('Could not extract images from permalink:', extractError);
@@ -107,28 +91,13 @@ export function SyncToLibraryDialog({ post, open, onOpenChange, clientId }: Sync
       }
 
       // Fallback to thumbnail if no images extracted
-      if (extractedImageUrls.length === 0 && post.thumbnail_url) {
-        extractedImageUrls = [post.thumbnail_url];
-      }
-
-      // Re-upload images to Supabase Storage
-      if (extractedImageUrls.length > 0) {
-        setSyncStatus(`Salvando ${extractedImageUrls.length} imagem(ns)...`);
-        
-        const uploadPromises = extractedImageUrls.map((url, idx) =>
-          reuploadExternalImage(url, clientId, idx)
-        );
-        
-        const uploadedPaths = await Promise.all(uploadPromises);
-        
-        attachments = uploadedPaths
-          .filter((path): path is string => path !== null)
-          .map((path, idx) => ({
-            id: `img-${idx + 1}`,
-            name: `Imagem ${idx + 1}`,
-            url: getStoragePublicUrl(path),
-            type: 'image' as const,
-          }));
+      if (attachments.length === 0 && post.thumbnail_url) {
+        attachments = [{
+          id: 'thumb-1',
+          name: 'Thumbnail',
+          url: post.thumbnail_url,
+          type: 'image' as const,
+        }];
       }
 
       // Transcribe images
@@ -138,16 +107,19 @@ export function SyncToLibraryDialog({ post, open, onOpenChange, clientId }: Sync
         setSyncStatus("Transcrevendo texto das imagens...");
         try {
           const { data: userData } = await supabase.auth.getUser();
-          const imageUrls = attachments.map(a => a.url);
+          // Convert storage paths to public URLs for transcription
+          const imageUrls = attachments.map(a => getStoragePublicUrl(a.url));
+          console.log(`Transcribing ${imageUrls.length} images...`);
           
           const transcription = await transcribeImagesChunked(imageUrls, {
             userId: userData?.user?.id,
             clientId,
-            chunkSize: 1
+            chunkSize: 2
           });
 
           if (transcription && transcription.trim()) {
             transcribedContent += `\n\n---\n\n## Transcrição das Imagens\n\n${transcription}`;
+            console.log('Transcription added successfully');
           }
         } catch (err) {
           console.warn('Transcription failed:', err);
@@ -175,7 +147,7 @@ export function SyncToLibraryDialog({ post, open, onOpenChange, clientId }: Sync
         content_type: contentType,
         content: transcribedContent,
         content_url: post.permalink || '',
-        thumbnail_url: attachments[0]?.url || post.thumbnail_url || '',
+        thumbnail_url: attachments[0] ? getStoragePublicUrl(attachments[0].url) : (post.thumbnail_url || ''),
         metadata: {
           attachments,
           source: 'performance_sync',

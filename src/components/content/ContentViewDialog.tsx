@@ -5,6 +5,16 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Copy, FileText, Video, Link as LinkIcon, Image as ImageIcon, ExternalLink } from "lucide-react";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
+import { supabase } from "@/integrations/supabase/client";
+
+// Helper to get image URL from storage path or external URL
+function getImageUrl(urlOrPath: string): string {
+  if (!urlOrPath) return '';
+  if (urlOrPath.startsWith('http')) return urlOrPath;
+  // It's a storage path, convert to public URL
+  const { data } = supabase.storage.from('client-files').getPublicUrl(urlOrPath);
+  return data.publicUrl;
+}
 
 interface AttachedItem {
   id: string;
@@ -107,9 +117,9 @@ export const ContentViewDialog = ({ open, onClose, content }: ContentViewDialogP
                       className="border rounded-lg p-2 bg-muted/30 hover:bg-muted/50 transition-colors"
                     >
                       {item.type === 'image' ? (
-                        <a href={item.url} target="_blank" rel="noopener noreferrer" className="block">
+                        <a href={getImageUrl(item.url)} target="_blank" rel="noopener noreferrer" className="block">
                           <img 
-                            src={item.url} 
+                            src={getImageUrl(item.url)} 
                             alt={item.name || 'Imagem'} 
                             className="w-full h-24 object-cover rounded mb-1"
                           />
@@ -119,7 +129,7 @@ export const ContentViewDialog = ({ open, onClose, content }: ContentViewDialogP
                         </a>
                       ) : (
                         <a 
-                          href={item.url} 
+                          href={getImageUrl(item.url)} 
                           target="_blank" 
                           rel="noopener noreferrer"
                           className="flex items-center gap-2 text-sm text-primary hover:underline"
