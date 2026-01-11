@@ -11,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { transcribeImagesChunked } from "@/lib/transcribeImages";
 
 interface SyncToLibraryDialogProps {
   post: InstagramPost | null;
@@ -26,10 +27,47 @@ interface AttachedItem {
   type: 'image' | 'video';
 }
 
+// Helper to re-upload external image to Supabase Storage
+async function reuploadExternalImage(
+  externalUrl: string,
+  clientId: string,
+  index: number
+): Promise<string | null> {
+  try {
+    const response = await fetch(externalUrl);
+    if (!response.ok) return null;
+
+    const blob = await response.blob();
+    const extension = blob.type.split('/')[1]?.split(';')[0] || 'jpg';
+    const fileName = `instagram-sync/${clientId}/${Date.now()}-${index}.${extension}`;
+
+    const { error } = await supabase.storage
+      .from('client-files')
+      .upload(fileName, blob, { contentType: blob.type });
+
+    if (error) {
+      console.warn('Upload error:', error);
+      return null;
+    }
+
+    return fileName;
+  } catch (err) {
+    console.warn('Re-upload failed:', err);
+    return null;
+  }
+}
+
+// Get public URL from storage path
+function getStoragePublicUrl(path: string): string {
+  const { data } = supabase.storage.from('client-files').getPublicUrl(path);
+  return data.publicUrl;
+}
+
 export function SyncToLibraryDialog({ post, open, onOpenChange, clientId }: SyncToLibraryDialogProps) {
   const [title, setTitle] = useState("");
   const [downloadImages, setDownloadImages] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [syncStatus, setSyncStatus] = useState("");
   const [syncSuccess, setSyncSuccess] = useState(false);
   const { createContent } = useContentLibrary(clientId);
   const { toast } = useToast();
@@ -37,10 +75,10 @@ export function SyncToLibraryDialog({ post, open, onOpenChange, clientId }: Sync
   // Reset state when post changes
   useEffect(() => {
     if (post) {
-      // Generate title from caption (first 60 chars) or fallback
       const captionTitle = post.caption?.split('\n')[0]?.slice(0, 60) || "";
       setTitle(captionTitle || `Post ${post.post_type || 'Instagram'}`);
       setSyncSuccess(false);
+      setSyncStatus("");
     }
   }, [post]);
 
@@ -50,36 +88,71 @@ export function SyncToLibraryDialog({ post, open, onOpenChange, clientId }: Sync
 
     try {
       let attachments: AttachedItem[] = [];
+      let extractedImageUrls: string[] = [];
 
-      // If we have a permalink and user wants to download images, try to extract them
+      // Extract images from permalink
       if (post.permalink && downloadImages) {
+        setSyncStatus("Extraindo imagens do post...");
         try {
           const { data, error } = await supabase.functions.invoke('extract-instagram', {
             body: { url: post.permalink }
           });
 
           if (!error && data?.images && Array.isArray(data.images)) {
-            attachments = data.images.map((url: string, idx: number) => ({
-              id: `img-${idx + 1}`,
-              name: `Imagem ${idx + 1}`,
-              url,
-              type: 'image' as const,
-            }));
+            extractedImageUrls = data.images;
           }
         } catch (extractError) {
           console.warn('Could not extract images from permalink:', extractError);
-          // Continue without extracted images
         }
       }
 
-      // If no images extracted but has thumbnail, use it
-      if (attachments.length === 0 && post.thumbnail_url) {
-        attachments = [{
-          id: 'thumb-1',
-          name: 'Thumbnail',
-          url: post.thumbnail_url,
-          type: 'image' as const,
-        }];
+      // Fallback to thumbnail if no images extracted
+      if (extractedImageUrls.length === 0 && post.thumbnail_url) {
+        extractedImageUrls = [post.thumbnail_url];
+      }
+
+      // Re-upload images to Supabase Storage
+      if (extractedImageUrls.length > 0) {
+        setSyncStatus(`Salvando ${extractedImageUrls.length} imagem(ns)...`);
+        
+        const uploadPromises = extractedImageUrls.map((url, idx) =>
+          reuploadExternalImage(url, clientId, idx)
+        );
+        
+        const uploadedPaths = await Promise.all(uploadPromises);
+        
+        attachments = uploadedPaths
+          .filter((path): path is string => path !== null)
+          .map((path, idx) => ({
+            id: `img-${idx + 1}`,
+            name: `Imagem ${idx + 1}`,
+            url: getStoragePublicUrl(path),
+            type: 'image' as const,
+          }));
+      }
+
+      // Transcribe images
+      let transcribedContent = post.caption || '';
+      
+      if (attachments.length > 0) {
+        setSyncStatus("Transcrevendo texto das imagens...");
+        try {
+          const { data: userData } = await supabase.auth.getUser();
+          const imageUrls = attachments.map(a => a.url);
+          
+          const transcription = await transcribeImagesChunked(imageUrls, {
+            userId: userData?.user?.id,
+            clientId,
+            chunkSize: 1
+          });
+
+          if (transcription && transcription.trim()) {
+            transcribedContent += `\n\n---\n\n## Transcrição das Imagens\n\n${transcription}`;
+          }
+        } catch (err) {
+          console.warn('Transcription failed:', err);
+          // Continue without transcription
+        }
       }
 
       // Map post_type to content_type
@@ -94,16 +167,17 @@ export function SyncToLibraryDialog({ post, open, onOpenChange, clientId }: Sync
         contentType = 'static_image';
       }
 
+      setSyncStatus("Salvando na biblioteca...");
+
       // Create the content in library
       await createContent.mutateAsync({
         title: title.trim() || `Post Instagram ${post.post_type || ''}`,
         content_type: contentType,
-        content: post.caption || '',
+        content: transcribedContent,
         content_url: post.permalink || '',
-        thumbnail_url: post.thumbnail_url || attachments[0]?.url || '',
+        thumbnail_url: attachments[0]?.url || post.thumbnail_url || '',
         metadata: {
           attachments,
-          image_urls: attachments.map(a => a.url),
           source: 'performance_sync',
           original_post_id: post.id,
           post_type: post.post_type,
@@ -121,8 +195,8 @@ export function SyncToLibraryDialog({ post, open, onOpenChange, clientId }: Sync
       });
 
       setSyncSuccess(true);
+      setSyncStatus("");
       
-      // Close after brief delay to show success state
       setTimeout(() => {
         onOpenChange(false);
         setSyncSuccess(false);
@@ -137,6 +211,7 @@ export function SyncToLibraryDialog({ post, open, onOpenChange, clientId }: Sync
       });
     } finally {
       setIsSyncing(false);
+      setSyncStatus("");
     }
   };
 
@@ -252,7 +327,7 @@ export function SyncToLibraryDialog({ post, open, onOpenChange, clientId }: Sync
               {isSyncing ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Sincronizando...
+                  {syncStatus || "Sincronizando..."}
                 </>
               ) : (
                 <>
