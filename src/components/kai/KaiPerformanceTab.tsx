@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Eye, Instagram, Mail, Twitter } from "lucide-react";
+import { Eye, Instagram, Mail, Twitter, Megaphone } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { usePerformanceMetrics } from "@/hooks/usePerformanceMetrics";
 import { useYouTubeVideos } from "@/hooks/useYouTubeMetrics";
@@ -9,6 +9,7 @@ import { InstagramDashboard } from "@/components/performance/InstagramDashboard"
 import { YouTubeDashboard } from "@/components/performance/YouTubeDashboard";
 import { NewsletterDashboard } from "@/components/performance/NewsletterDashboard";
 import { TwitterDashboard } from "@/components/performance/TwitterDashboard";
+import { MetaAdsDashboard } from "@/components/performance/MetaAdsDashboard";
 import { Client } from "@/hooks/useClients";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -22,6 +23,7 @@ const allChannels = [
   { id: "youtube", label: "YouTube", icon: Eye },
   { id: "twitter", label: "Twitter/X", icon: Twitter },
   { id: "newsletter", label: "Newsletter", icon: Mail },
+  { id: "meta_ads", label: "Meta Ads", icon: Megaphone },
 ];
 
 export const KaiPerformanceTab = ({ clientId, client }: KaiPerformanceTabProps) => {
@@ -104,6 +106,11 @@ export const KaiPerformanceTab = ({ clientId, client }: KaiPerformanceTabProps) 
             metrics={newsletterMetrics || []}
             isLoading={isLoadingNewsletter}
           />
+        </TabsContent>
+
+        {/* Meta Ads - Full Dashboard */}
+        <TabsContent value="meta_ads" className="mt-4">
+          <MetaAdsDashboard clientId={clientId} />
         </TabsContent>
       </Tabs>
     </div>

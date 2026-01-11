@@ -25,7 +25,8 @@ export type Platform =
   | 'twitter' 
   | 'newsletter' 
   | 'tiktok' 
-  | 'linkedin';
+  | 'linkedin'
+  | 'meta_ads';
 
 export interface PerformanceGoal {
   id: string;
