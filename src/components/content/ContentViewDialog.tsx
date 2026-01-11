@@ -68,19 +68,8 @@ export const ContentViewDialog = ({ open, onClose, content }: ContentViewDialogP
         </DialogHeader>
         <ScrollArea className="max-h-[60vh]">
           <div className="space-y-4 pr-4">
-            {content.metadata?.image_urls && content.metadata.image_urls.length > 0 && (
-              <div className="space-y-2">
-                {content.metadata.image_urls.map((url: string, index: number) => (
-                  <img
-                    key={index}
-                    src={url}
-                    alt={`${content.title} - imagem ${index + 1}`}
-                    className="w-full rounded-lg border"
-                  />
-                ))}
-              </div>
-            )}
-            {content.thumbnail_url && (
+            {/* Show thumbnail only if no attachments exist */}
+            {(!attachments || attachments.length === 0) && content.thumbnail_url && (
               <img
                 src={content.thumbnail_url}
                 alt={content.title}
