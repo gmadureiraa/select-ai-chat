@@ -24,9 +24,14 @@ serve(async (req) => {
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    
     const supabase = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } }
     });
+    
+    // Admin client for storage uploads
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
@@ -36,7 +41,7 @@ serve(async (req) => {
       );
     }
 
-    const { url } = await req.json();
+    const { url, clientId, uploadToStorage } = await req.json();
     const apifyApiKey = Deno.env.get('APIFY_API_KEY');
 
     if (!apifyApiKey) {
@@ -138,9 +143,55 @@ serve(async (req) => {
 
     console.log(`Extracted ${uniqueImages.length} images from Instagram post`);
 
+    // If uploadToStorage is requested, download and re-upload images to Supabase Storage
+    let uploadedPaths: string[] = [];
+    
+    if (uploadToStorage && clientId) {
+      console.log(`Uploading ${uniqueImages.length} images to storage for client ${clientId}`);
+      
+      for (let i = 0; i < uniqueImages.length; i++) {
+        const imageUrl = uniqueImages[i];
+        
+        try {
+          // Download image from Instagram CDN (no CORS on server)
+          const imgResponse = await fetch(imageUrl);
+          if (!imgResponse.ok) {
+            console.warn(`Failed to fetch image ${i}: ${imgResponse.status}`);
+            continue;
+          }
+          
+          const arrayBuffer = await imgResponse.arrayBuffer();
+          const contentType = imgResponse.headers.get('content-type') || 'image/jpeg';
+          const extension = contentType.split('/')[1]?.split(';')[0] || 'jpg';
+          const fileName = `instagram-sync/${clientId}/${Date.now()}-${i}.${extension}`;
+          
+          // Upload to Supabase Storage using service role
+          const { error: uploadError } = await supabaseAdmin.storage
+            .from('client-files')
+            .upload(fileName, arrayBuffer, { 
+              contentType,
+              upsert: false 
+            });
+          
+          if (uploadError) {
+            console.warn(`Upload error for image ${i}:`, uploadError);
+            continue;
+          }
+          
+          uploadedPaths.push(fileName);
+          console.log(`Uploaded image ${i + 1}/${uniqueImages.length}: ${fileName}`);
+        } catch (imgError) {
+          console.warn(`Error processing image ${i}:`, imgError);
+        }
+      }
+      
+      console.log(`Successfully uploaded ${uploadedPaths.length} of ${uniqueImages.length} images`);
+    }
+
     return new Response(
       JSON.stringify({
         images: uniqueImages,
+        uploadedPaths,
         caption: post.caption || '',
         imageCount: uniqueImages.length,
       }),
