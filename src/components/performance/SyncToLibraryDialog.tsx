@@ -114,7 +114,7 @@ export function SyncToLibraryDialog({ post, open, onOpenChange, clientId }: Sync
           const transcription = await transcribeImagesChunked(imageUrls, {
             userId: userData?.user?.id,
             clientId,
-            chunkSize: 2
+            chunkSize: 1 // Edge function only accepts 1 image per request
           });
 
           if (transcription && transcription.trim()) {
