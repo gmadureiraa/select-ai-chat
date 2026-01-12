@@ -31,7 +31,8 @@ const PLATFORM_LABELS: Record<Platform, string> = {
   linkedin: "LinkedIn",
   twitter: "Twitter/X",
   youtube: "YouTube",
-  tiktok: "TikTok"
+  tiktok: "TikTok",
+  other: "Outro"
 };
 
 function ContentOutputNodeComponent({ 

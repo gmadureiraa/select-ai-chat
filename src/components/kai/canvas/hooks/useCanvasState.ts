@@ -41,7 +41,7 @@ export type ContentFormat =
   | "stories" 
   | "newsletter";
 
-export type Platform = "instagram" | "linkedin" | "twitter" | "youtube" | "tiktok";
+export type Platform = "instagram" | "linkedin" | "twitter" | "youtube" | "tiktok" | "other";
 
 export interface GeneratorNodeData {
   type: "generator";
@@ -182,15 +182,19 @@ export function useCanvasState(clientId: string) {
     updateNodeData(nodeId, { isExtracting: true } as Partial<SourceNodeData>);
 
     try {
-      const { data, error } = await supabase.functions.invoke("fetch-url-content", {
+      const { data, error } = await supabase.functions.invoke("fetch-reference-content", {
         body: { url }
       });
 
       if (error) throw error;
+      
+      if (!data.success) {
+        throw new Error(data.error || "Falha ao extrair conteúdo");
+      }
 
       updateNodeData(nodeId, {
-        extractedContent: data.content || data.transcript,
-        title: data.title,
+        extractedContent: data.content || data.markdown || "",
+        title: data.title || url,
         isExtracting: false
       } as Partial<SourceNodeData>);
 
@@ -203,7 +207,7 @@ export function useCanvasState(clientId: string) {
       updateNodeData(nodeId, { isExtracting: false } as Partial<SourceNodeData>);
       toast({
         title: "Erro na extração",
-        description: "Não foi possível extrair o conteúdo da URL",
+        description: error instanceof Error ? error.message : "Não foi possível extrair o conteúdo da URL",
         variant: "destructive",
       });
     }
@@ -373,7 +377,7 @@ export function useCanvasState(clientId: string) {
         title: `${formatLabels[outData.format]} - ${new Date().toLocaleDateString("pt-BR")}`,
         content: outData.content,
         content_type: outData.format,
-        platform: outData.platform,
+        platform: outData.platform as any,
         column_id: draftColumn.id,
         client_id: clientId,
         labels: [formatLabels[outData.format]]

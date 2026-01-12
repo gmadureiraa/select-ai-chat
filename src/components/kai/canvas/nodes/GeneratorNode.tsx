@@ -29,6 +29,7 @@ const PLATFORM_OPTIONS: { value: Platform; label: string }[] = [
   { value: "twitter", label: "Twitter/X" },
   { value: "youtube", label: "YouTube" },
   { value: "tiktok", label: "TikTok" },
+  { value: "other", label: "Outro" },
 ];
 
 function GeneratorNodeComponent({ 
