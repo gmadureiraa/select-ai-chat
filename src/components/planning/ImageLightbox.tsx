@@ -79,26 +79,34 @@ export function ImageLightbox({
     setZoom(1);
   };
 
-  const handleDownload = async () => {
+  const handleDownload = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
     if (!currentImage) return;
     
     try {
-      const response = await fetch(currentImage.url);
-      const blob = await response.blob();
+      const blob = await urlToBlob(currentImage.url);
+      const extension = getExtensionFromUrl(currentImage.url, currentImage.type);
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `image-${Date.now()}.${currentImage.type === 'video' ? 'mp4' : 'png'}`;
+      a.download = `media-${Date.now()}.${extension}`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
+      toast.success('Mídia baixada com sucesso!');
     } catch (error) {
       console.error('Download error:', error);
+      toast.error('Erro ao baixar mídia');
     }
   };
 
-  const handleDownloadAll = async () => {
+  const handleDownloadAll = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
     if (downloadingAll || images.length === 0) return;
     
     setDownloadingAll(true);
@@ -141,8 +149,8 @@ export function ImageLightbox({
     }
   };
 
-  const handleZoomIn = () => setZoom((z) => Math.min(z + 0.5, 3));
-  const handleZoomOut = () => setZoom((z) => Math.max(z - 0.5, 0.5));
+  const handleZoomIn = (e: React.MouseEvent) => { e.preventDefault(); e.stopPropagation(); setZoom((z) => Math.min(z + 0.5, 3)); };
+  const handleZoomOut = (e: React.MouseEvent) => { e.preventDefault(); e.stopPropagation(); setZoom((z) => Math.max(z - 0.5, 0.5)); };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'ArrowLeft') handlePrev();
@@ -169,6 +177,7 @@ export function ImageLightbox({
           </div>
           <div className="flex items-center gap-2">
             <Button
+              type="button"
               variant="ghost"
               size="icon"
               onClick={handleZoomOut}
@@ -181,6 +190,7 @@ export function ImageLightbox({
               {Math.round(zoom * 100)}%
             </span>
             <Button
+              type="button"
               variant="ghost"
               size="icon"
               onClick={handleZoomIn}
@@ -190,6 +200,7 @@ export function ImageLightbox({
               <ZoomIn className="h-5 w-5" />
             </Button>
             <Button
+              type="button"
               variant="ghost"
               size="icon"
               onClick={handleDownload}
@@ -200,6 +211,7 @@ export function ImageLightbox({
             </Button>
             {hasMultiple && (
               <Button
+                type="button"
                 variant="ghost"
                 size="icon"
                 onClick={handleDownloadAll}
@@ -215,9 +227,10 @@ export function ImageLightbox({
               </Button>
             )}
             <Button
+              type="button"
               variant="ghost"
               size="icon"
-              onClick={() => onOpenChange(false)}
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); onOpenChange(false); }}
               className="text-white hover:bg-white/20"
             >
               <X className="h-5 w-5" />
@@ -251,17 +264,19 @@ export function ImageLightbox({
         {hasMultiple && (
           <>
             <Button
+              type="button"
               variant="ghost"
               size="icon"
-              onClick={handlePrev}
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); handlePrev(); }}
               className="absolute left-4 top-1/2 -translate-y-1/2 text-white hover:bg-white/20 h-12 w-12"
             >
               <ChevronLeft className="h-8 w-8" />
             </Button>
             <Button
+              type="button"
               variant="ghost"
               size="icon"
-              onClick={handleNext}
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleNext(); }}
               className="absolute right-4 top-1/2 -translate-y-1/2 text-white hover:bg-white/20 h-12 w-12"
             >
               <ChevronRight className="h-8 w-8" />
@@ -274,8 +289,9 @@ export function ImageLightbox({
           <div className="absolute bottom-0 left-0 right-0 z-10 flex items-center justify-center gap-2 p-4 bg-gradient-to-t from-black/60 to-transparent">
             {images.map((img, idx) => (
               <button
+                type="button"
                 key={idx}
-                onClick={() => { setCurrentIndex(idx); setZoom(1); }}
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); setCurrentIndex(idx); setZoom(1); }}
                 className={cn(
                   "w-12 h-12 rounded-lg overflow-hidden border-2 transition-all",
                   currentIndex === idx 

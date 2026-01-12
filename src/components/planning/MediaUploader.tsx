@@ -69,12 +69,17 @@ export function MediaUploader({
   const [downloadingAll, setDownloadingAll] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleOpenLightbox = (index: number) => {
+  const handleOpenLightbox = (e: React.MouseEvent, index: number) => {
+    e.preventDefault();
+    e.stopPropagation();
     setLightboxIndex(index);
     setLightboxOpen(true);
   };
 
-  const handleDownloadAll = async () => {
+  const handleDownloadAll = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
     if (downloadingAll || value.length === 0) return;
     
     setDownloadingAll(true);
@@ -184,7 +189,9 @@ export function MediaUploader({
     }
   };
 
-  const handleRemove = (id: string) => {
+  const handleRemove = (e: React.MouseEvent, id: string) => {
+    e.preventDefault();
+    e.stopPropagation();
     onChange(value.filter(item => item.id !== id));
   };
 
@@ -219,6 +226,7 @@ export function MediaUploader({
         </div>
         {value.length > 0 && (
           <Button
+            type="button"
             variant="ghost"
             size="sm"
             onClick={handleDownloadAll}
@@ -258,12 +266,13 @@ export function MediaUploader({
                 src={item.url}
                 alt=""
                 className="w-full h-full object-cover cursor-pointer"
-                onClick={() => handleOpenLightbox(index)}
+                onClick={(e) => handleOpenLightbox(e, index)}
               />
             )}
 
             <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1">
               <Button
+                type="button"
                 variant="ghost"
                 size="icon"
                 className="h-6 w-6 text-white hover:bg-white/20 cursor-move"
@@ -272,18 +281,20 @@ export function MediaUploader({
                 <GripVertical className="h-4 w-4" />
               </Button>
               <Button
+                type="button"
                 variant="ghost"
                 size="icon"
                 className="h-6 w-6 text-white hover:bg-white/20"
-                onClick={(e) => { e.stopPropagation(); handleOpenLightbox(index); }}
+                onClick={(e) => handleOpenLightbox(e, index)}
               >
                 <Maximize2 className="h-4 w-4" />
               </Button>
               <Button
+                type="button"
                 variant="ghost"
                 size="icon"
                 className="h-6 w-6 text-white hover:bg-white/20"
-                onClick={(e) => { e.stopPropagation(); handleRemove(item.id); }}
+                onClick={(e) => handleRemove(e, item.id)}
               >
                 <X className="h-4 w-4" />
               </Button>
