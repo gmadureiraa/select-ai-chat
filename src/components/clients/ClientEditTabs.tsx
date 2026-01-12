@@ -561,6 +561,7 @@ Estruture: Visão Geral, Posicionamento, Tom de Voz, Público-Alvo, Presença Di
                   { key: "newsletter", label: "Newsletter", icon: Mail },
                   { key: "tiktok", label: "TikTok", icon: Megaphone },
                   { key: "linkedin", label: "LinkedIn", icon: Linkedin },
+                  { key: "meta_ads", label: "Meta Ads", icon: Megaphone },
                 ].map((channel) => {
                   const archivedChannels = (socialMedia as any)?.archived_channels || [];
                   const isArchived = archivedChannels.includes(channel.key);
