@@ -23,6 +23,7 @@ import { PerformanceReportGenerator } from "./PerformanceReportGenerator";
 import { PostAveragesSection } from "./PostAveragesSection";
 
 import { TopContentTable } from "./TopContentTable";
+import { TopPostsGrid } from "./TopPostsGrid";
 import { ImportHistoryPanel } from "./ImportHistoryPanel";
 import { DataCompletenessWarning } from "./DataCompletenessWarning";
 import { MetricsDataAlert } from "./MetricsDataAlert";
@@ -605,12 +606,12 @@ export function InstagramDashboard({
         periodLabel={selectedPeriodLabel}
       />
 
-      {/* Top Content Table with metric selector */}
-      {topContentItems.length > 0 && (
-        <TopContentTable 
-          title="Top 5 Posts"
-          items={topContentItems}
-          selectedMetric={topPostsMetric as any}
+      {/* Top 3 Posts Grid */}
+      {filteredPosts.length > 0 && (
+        <TopPostsGrid 
+          posts={filteredPosts}
+          maxItems={3}
+          selectedMetric={topPostsMetric}
           onMetricChange={(m) => setTopPostsMetric(m)}
         />
       )}
@@ -641,7 +642,7 @@ export function InstagramDashboard({
         </CardHeader>
         <CardContent>
           <InstagramPostsTableAdvanced 
-            posts={posts} 
+            posts={filteredPosts} 
             isLoading={isLoadingPosts}
             clientId={clientId}
           />
