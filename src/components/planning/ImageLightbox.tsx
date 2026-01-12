@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Download, X, ZoomIn, ZoomOut, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Download, X, ZoomIn, ZoomOut, ChevronLeft, ChevronRight, FolderDown, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 
 interface ImageLightboxProps {
   images: { url: string; type: 'image' | 'video' }[];
@@ -19,6 +20,15 @@ export function ImageLightbox({
 }: ImageLightboxProps) {
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const [zoom, setZoom] = useState(1);
+  const [downloadingAll, setDownloadingAll] = useState(false);
+
+  // Reset index when dialog opens
+  useEffect(() => {
+    if (open) {
+      setCurrentIndex(initialIndex);
+      setZoom(1);
+    }
+  }, [open, initialIndex]);
 
   const currentImage = images[currentIndex];
   const hasMultiple = images.length > 1;
@@ -49,6 +59,40 @@ export function ImageLightbox({
       window.URL.revokeObjectURL(url);
     } catch (error) {
       console.error('Download error:', error);
+    }
+  };
+
+  const handleDownloadAll = async () => {
+    if (downloadingAll || images.length === 0) return;
+    
+    setDownloadingAll(true);
+    let successCount = 0;
+    
+    for (const [idx, img] of images.entries()) {
+      try {
+        const response = await fetch(img.url);
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `media-${idx + 1}.${img.type === 'video' ? 'mp4' : 'png'}`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+        successCount++;
+        // Small delay between downloads to prevent browser blocking
+        if (idx < images.length - 1) {
+          await new Promise(r => setTimeout(r, 300));
+        }
+      } catch (error) {
+        console.error(`Download error for image ${idx + 1}:`, error);
+      }
+    }
+    
+    setDownloadingAll(false);
+    if (successCount > 0) {
+      toast.success(`${successCount} ${successCount === 1 ? 'mídia baixada' : 'mídias baixadas'} com sucesso!`);
     }
   };
 
@@ -105,9 +149,26 @@ export function ImageLightbox({
               size="icon"
               onClick={handleDownload}
               className="text-white hover:bg-white/20"
+              title="Baixar mídia atual"
             >
               <Download className="h-5 w-5" />
             </Button>
+            {hasMultiple && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleDownloadAll}
+                className="text-white hover:bg-white/20"
+                disabled={downloadingAll}
+                title="Baixar todas as mídias"
+              >
+                {downloadingAll ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : (
+                  <FolderDown className="h-5 w-5" />
+                )}
+              </Button>
+            )}
             <Button
               variant="ghost"
               size="icon"

@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { Plus, X, GripVertical, Video, Loader2, Maximize2 } from 'lucide-react';
+import { Plus, X, GripVertical, Video, Loader2, Maximize2, FolderDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
@@ -32,11 +32,45 @@ export function MediaUploader({
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
+  const [downloadingAll, setDownloadingAll] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleOpenLightbox = (index: number) => {
     setLightboxIndex(index);
     setLightboxOpen(true);
+  };
+
+  const handleDownloadAll = async () => {
+    if (downloadingAll || value.length === 0) return;
+    
+    setDownloadingAll(true);
+    let successCount = 0;
+    
+    for (const [idx, item] of value.entries()) {
+      try {
+        const response = await fetch(item.url);
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `media-${idx + 1}.${item.type === 'video' ? 'mp4' : 'png'}`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+        successCount++;
+        if (idx < value.length - 1) {
+          await new Promise(r => setTimeout(r, 300));
+        }
+      } catch (error) {
+        console.error(`Download error for item ${idx + 1}:`, error);
+      }
+    }
+    
+    setDownloadingAll(false);
+    if (successCount > 0) {
+      toast.success(`${successCount} ${successCount === 1 ? 'mídia baixada' : 'mídias baixadas'} com sucesso!`);
+    }
   };
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -132,11 +166,29 @@ export function MediaUploader({
 
   return (
     <div className={cn("space-y-3", className)}>
-      <div className="flex items-center gap-2">
-        <span className="text-sm font-medium">Mídia</span>
-        <span className="text-xs text-muted-foreground">
-          ({value.length}/{maxItems})
-        </span>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium">Mídia</span>
+          <span className="text-xs text-muted-foreground">
+            ({value.length}/{maxItems})
+          </span>
+        </div>
+        {value.length > 0 && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleDownloadAll}
+            disabled={downloadingAll}
+            className="h-7 text-xs gap-1.5"
+          >
+            {downloadingAll ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <FolderDown className="h-3.5 w-3.5" />
+            )}
+            Baixar todas
+          </Button>
+        )}
       </div>
 
       <div className="flex flex-wrap gap-3">
