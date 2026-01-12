@@ -1,7 +1,11 @@
-import { Link2, BookOpen, Lightbulb, Sparkles, Trash2, ZoomIn, ZoomOut, Maximize } from "lucide-react";
+import { Link2, BookOpen, Lightbulb, Sparkles, Trash2, ZoomIn, ZoomOut, Maximize, Save, FolderOpen, ChevronDown, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
+import { SavedCanvas } from "./hooks/useCanvasState";
+import { useState } from "react";
 
 interface CanvasToolbarProps {
   onAddNode: (type: "source" | "library" | "prompt" | "generator") => void;
@@ -9,6 +13,13 @@ interface CanvasToolbarProps {
   onZoomIn: () => void;
   onZoomOut: () => void;
   onFitView: () => void;
+  // Canvas persistence
+  currentCanvasName?: string;
+  onSave?: (name?: string) => Promise<any>;
+  onLoad?: (canvasId: string) => void;
+  savedCanvases?: SavedCanvas[];
+  isLoadingCanvases?: boolean;
+  isSaving?: boolean;
 }
 
 export function CanvasToolbar({
@@ -16,11 +27,58 @@ export function CanvasToolbar({
   onClear,
   onZoomIn,
   onZoomOut,
-  onFitView
+  onFitView,
+  currentCanvasName = "Novo Canvas",
+  onSave,
+  onLoad,
+  savedCanvases = [],
+  isLoadingCanvases = false,
+  isSaving = false,
 }: CanvasToolbarProps) {
+  const [canvasName, setCanvasName] = useState(currentCanvasName);
+  const [isEditing, setIsEditing] = useState(false);
+
+  const handleSave = async () => {
+    await onSave?.(canvasName);
+  };
+
+  const handleNameBlur = () => {
+    setIsEditing(false);
+  };
+
+  const handleNameKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      setIsEditing(false);
+    }
+  };
+
   return (
     <TooltipProvider delayDuration={300}>
       <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1 px-2 py-1.5 rounded-lg bg-background/95 backdrop-blur border shadow-lg">
+        {/* Canvas name */}
+        <div className="flex items-center gap-1 mr-2">
+          {isEditing ? (
+            <Input
+              value={canvasName}
+              onChange={(e) => setCanvasName(e.target.value)}
+              onBlur={handleNameBlur}
+              onKeyDown={handleNameKeyDown}
+              className="h-7 w-[140px] text-xs"
+              autoFocus
+            />
+          ) : (
+            <span 
+              className="text-xs font-medium cursor-pointer hover:text-primary px-1.5"
+              onClick={() => setIsEditing(true)}
+              title="Clique para editar"
+            >
+              {canvasName}
+            </span>
+          )}
+        </div>
+
+        <Separator orientation="vertical" className="h-6 mx-1" />
+
         {/* Add nodes */}
         <Tooltip>
           <TooltipTrigger asChild>
@@ -97,6 +155,79 @@ export function CanvasToolbar({
             <p>Adicionar gerador de conteúdo</p>
           </TooltipContent>
         </Tooltip>
+
+        <Separator orientation="vertical" className="h-6 mx-1" />
+
+        {/* Save/Load */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={handleSave} 
+              className="h-8 gap-1.5 text-xs"
+              disabled={isSaving}
+            >
+              {isSaving ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Save className="h-4 w-4" />
+              )}
+              Salvar
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">Salvar canvas</TooltipContent>
+        </Tooltip>
+
+        <DropdownMenu>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm" className="h-8 gap-1 text-xs">
+                  <FolderOpen className="h-4 w-4" />
+                  <ChevronDown className="h-3 w-3" />
+                </Button>
+              </DropdownMenuTrigger>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">Carregar canvas salvo</TooltipContent>
+          </Tooltip>
+          <DropdownMenuContent align="center" className="w-56">
+            {isLoadingCanvases ? (
+              <div className="flex items-center justify-center py-4">
+                <Loader2 className="h-4 w-4 animate-spin" />
+              </div>
+            ) : savedCanvases.length === 0 ? (
+              <div className="px-2 py-4 text-center text-sm text-muted-foreground">
+                Nenhum canvas salvo
+              </div>
+            ) : (
+              savedCanvases.map((canvas) => (
+                <DropdownMenuItem 
+                  key={canvas.id}
+                  onClick={() => onLoad?.(canvas.id)}
+                  className="flex flex-col items-start"
+                >
+                  <span className="font-medium">{canvas.name}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {new Date(canvas.updated_at).toLocaleDateString("pt-BR")}
+                  </span>
+                </DropdownMenuItem>
+              ))
+            )}
+            {savedCanvases.length > 0 && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem 
+                  onClick={onClear}
+                  className="text-muted-foreground"
+                >
+                  <Sparkles className="h-4 w-4 mr-2" />
+                  Novo canvas
+                </DropdownMenuItem>
+              </>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
 
         <Separator orientation="vertical" className="h-6 mx-1" />
 

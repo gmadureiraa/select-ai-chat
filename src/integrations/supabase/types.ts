@@ -891,6 +891,57 @@ export type Database = {
           },
         ]
       }
+      content_canvas: {
+        Row: {
+          client_id: string | null
+          created_at: string | null
+          edges: Json
+          id: string
+          name: string
+          nodes: Json
+          updated_at: string | null
+          user_id: string
+          workspace_id: string
+        }
+        Insert: {
+          client_id?: string | null
+          created_at?: string | null
+          edges?: Json
+          id?: string
+          name?: string
+          nodes?: Json
+          updated_at?: string | null
+          user_id: string
+          workspace_id: string
+        }
+        Update: {
+          client_id?: string | null
+          created_at?: string | null
+          edges?: Json
+          id?: string
+          name?: string
+          nodes?: Json
+          updated_at?: string | null
+          user_id?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_canvas_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_canvas_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       content_repurpose_history: {
         Row: {
           client_id: string | null
