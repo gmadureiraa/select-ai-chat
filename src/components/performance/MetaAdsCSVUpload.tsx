@@ -1,11 +1,12 @@
 import { useState, useCallback } from "react";
-import { Upload, FileSpreadsheet, CheckCircle2, AlertCircle, X } from "lucide-react";
+import { Upload, FileSpreadsheet, CheckCircle2, AlertCircle, AlertTriangle, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useImportMetaAdsCSV } from "@/hooks/useMetaAdsData";
-import { parseMetaAdsCSV, parseCSVContent, detectCSVType } from "@/utils/parseMetaAdsCSV";
+import { parseMetaAdsCSV, parseCSVContent, detectCSVType, validateParsedData, CSVValidationResult } from "@/utils/parseMetaAdsCSV";
 import { cn } from "@/lib/utils";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface MetaAdsCSVUploadProps {
   clientId: string;
@@ -17,6 +18,7 @@ interface FilePreview {
   type: 'campaigns' | 'adsets' | 'ads' | null;
   recordCount: number;
   content: string;
+  validation?: CSVValidationResult;
 }
 
 const typeLabels = {
@@ -55,11 +57,21 @@ export function MetaAdsCSVUpload({ clientId, onComplete }: MetaAdsCSVUploadProps
     const headers = rows.length > 0 ? Object.keys(rows[0]) : [];
     const type = detectCSVType(headers);
     
+    // Validate parsed data
+    let validation: CSVValidationResult | undefined;
+    if (type) {
+      const parsed = parseMetaAdsCSV(content);
+      if (parsed) {
+        validation = validateParsedData(parsed);
+      }
+    }
+    
     return {
       file,
       type,
       recordCount: rows.length,
-      content
+      content,
+      validation
     };
   };
   
@@ -174,39 +186,66 @@ export function MetaAdsCSVUpload({ clientId, onComplete }: MetaAdsCSVUploadProps
             {files.map((filePreview, index) => (
               <div
                 key={index}
-                className="flex items-center justify-between p-3 bg-muted/50 rounded-lg"
+                className="p-3 bg-muted/50 rounded-lg space-y-2"
               >
-                <div className="flex items-center gap-3">
-                  <FileSpreadsheet className="h-5 w-5 text-muted-foreground" />
-                  <div>
-                    <p className="text-sm font-medium truncate max-w-[200px]">
-                      {filePreview.file.name}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {filePreview.recordCount} registros
-                    </p>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <FileSpreadsheet className="h-5 w-5 text-muted-foreground" />
+                    <div>
+                      <p className="text-sm font-medium truncate max-w-[200px]">
+                        {filePreview.file.name}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {filePreview.recordCount} registros
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {filePreview.type ? (
+                      <Badge variant="outline" className={typeColors[filePreview.type]}>
+                        {typeLabels[filePreview.type]}
+                      </Badge>
+                    ) : (
+                      <Badge variant="destructive">
+                        <AlertCircle className="h-3 w-3 mr-1" />
+                        Formato inválido
+                      </Badge>
+                    )}
+                    {filePreview.validation?.warnings && filePreview.validation.warnings.length > 0 && (
+                      <Tooltip>
+                        <TooltipTrigger>
+                          <Badge variant="outline" className="bg-yellow-500/10 text-yellow-600 border-yellow-500/20">
+                            <AlertTriangle className="h-3 w-3 mr-1" />
+                            {filePreview.validation.warnings.length}
+                          </Badge>
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-xs">
+                          <ul className="text-xs space-y-1">
+                            {filePreview.validation.warnings.map((w, i) => (
+                              <li key={i}>• {w}</li>
+                            ))}
+                          </ul>
+                        </TooltipContent>
+                      </Tooltip>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7"
+                      onClick={() => removeFile(index)}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  {filePreview.type ? (
-                    <Badge variant="outline" className={typeColors[filePreview.type]}>
-                      {typeLabels[filePreview.type]}
-                    </Badge>
-                  ) : (
-                    <Badge variant="destructive">
-                      <AlertCircle className="h-3 w-3 mr-1" />
-                      Formato inválido
-                    </Badge>
-                  )}
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7"
-                    onClick={() => removeFile(index)}
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
+                {/* Validation errors */}
+                {filePreview.validation?.errors && filePreview.validation.errors.length > 0 && (
+                  <div className="text-xs text-destructive bg-destructive/10 p-2 rounded">
+                    {filePreview.validation.errors.map((e, i) => (
+                      <p key={i}>• {e}</p>
+                    ))}
+                  </div>
+                )}
               </div>
             ))}
           </div>
