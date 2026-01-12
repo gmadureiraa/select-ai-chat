@@ -126,6 +126,22 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
   const [isSaving, setIsSaving] = useState(false);
   const { columns, createItem } = usePlanningItems({ clientId });
 
+  // Fetch client data for name
+  const { data: clientData } = useQuery({
+    queryKey: ['client-for-canvas', clientId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('clients')
+        .select('id, name, identity_guide, context_notes')
+        .eq('id', clientId)
+        .single();
+      
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!clientId
+  });
+
   // Fetch saved canvases for this client
   const { data: savedCanvases = [], isLoading: isLoadingCanvases } = useQuery({
     queryKey: ['content-canvas', clientId],
@@ -586,7 +602,8 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
             userMessage,
             contentType: genData.format,
             platform: genData.platform,
-            clientData: clientData || {},
+            clientName: clientData?.name || "Cliente",
+            identityGuide: clientData?.identity_guide || "",
             libraryContext: "",
             referenceContext: "",
           }
