@@ -1,7 +1,7 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, Plus, Clock, AlertCircle, CheckCircle2, Bot, FileEdit, User } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, Clock, AlertCircle, CheckCircle2, Bot, FileEdit, User, GripVertical } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -17,6 +17,7 @@ interface CalendarViewProps {
   onDeleteItem: (id: string) => void;
   onMoveToLibrary: (id: string) => void;
   onRetry: (id: string) => void;
+  onMoveItem?: (itemId: string, newDate: Date) => void;
   canEdit?: boolean;
 }
 
@@ -42,7 +43,19 @@ const platformIcons: Record<string, string> = {
   other: '📱',
 };
 
-function CalendarCard({ item, onEdit, canEdit = true }: { item: PlanningItem; onEdit: () => void; canEdit?: boolean }) {
+function CalendarCard({ 
+  item, 
+  onEdit, 
+  canEdit = true,
+  onDragStart,
+  isDragging 
+}: { 
+  item: PlanningItem; 
+  onEdit: () => void; 
+  canEdit?: boolean;
+  onDragStart?: (e: React.DragEvent, item: PlanningItem) => void;
+  isDragging?: boolean;
+}) {
   const { canAutoPublish } = useClientPlatformStatus(item.client_id);
   const platform = item.platform as SupportedPlatform | null;
   const isAutoPublish = canAutoPublish(platform);
@@ -52,13 +65,22 @@ function CalendarCard({ item, onEdit, canEdit = true }: { item: PlanningItem; on
       <Tooltip>
         <TooltipTrigger asChild>
           <div
+            draggable={canEdit}
+            onDragStart={(e) => onDragStart?.(e, item)}
             className={cn(
-              "text-[10px] px-1.5 py-1 rounded-md border cursor-pointer hover:scale-[1.02] transition-all shadow-sm",
-              statusColors[item.status]
+              "text-[10px] px-1.5 py-1 rounded-md border cursor-pointer hover:scale-[1.02] transition-all shadow-sm group/card",
+              statusColors[item.status],
+              isDragging && "opacity-50 scale-95",
+              canEdit && "cursor-grab active:cursor-grabbing"
             )}
             onClick={(e) => { e.stopPropagation(); if (canEdit) onEdit(); }}
           >
             <div className="flex items-center gap-1">
+              {/* Drag handle */}
+              {canEdit && (
+                <GripVertical className="h-2.5 w-2.5 opacity-0 group-hover/card:opacity-50 shrink-0" />
+              )}
+              
               {/* Platform icon */}
               {item.platform && (
                 <span className="text-[9px]">{platformIcons[item.platform] || '📱'}</span>
@@ -135,6 +157,12 @@ function CalendarCard({ item, onEdit, canEdit = true }: { item: PlanningItem; on
           {item.description && (
             <p className="text-xs text-muted-foreground line-clamp-2">{item.description}</p>
           )}
+          
+          {canEdit && (
+            <p className="text-[10px] text-muted-foreground italic">
+              Arraste para mover de data
+            </p>
+          )}
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>
@@ -148,9 +176,12 @@ export function CalendarView({
   onDeleteItem,
   onMoveToLibrary,
   onRetry,
+  onMoveItem,
   canEdit = true,
 }: CalendarViewProps) {
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [draggedItem, setDraggedItem] = useState<PlanningItem | null>(null);
+  const [dragOverDay, setDragOverDay] = useState<Date | null>(null);
 
   const days = useMemo(() => {
     const monthStart = startOfMonth(currentDate);
@@ -168,6 +199,48 @@ export function CalendarView({
       return isSameDay(parsedDate, day);
     });
   };
+
+  const handleDragStart = useCallback((e: React.DragEvent, item: PlanningItem) => {
+    setDraggedItem(item);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', item.id);
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent, day: Date) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverDay(day);
+  }, []);
+
+  const handleDragLeave = useCallback(() => {
+    setDragOverDay(null);
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent, day: Date) => {
+    e.preventDefault();
+    setDragOverDay(null);
+    
+    if (draggedItem && onMoveItem) {
+      // Don't move if dropped on the same day
+      const itemDate = draggedItem.scheduled_at || draggedItem.due_date;
+      if (itemDate) {
+        const parsedDate = typeof itemDate === 'string' ? parseISO(itemDate) : itemDate;
+        if (isSameDay(parsedDate, day)) {
+          setDraggedItem(null);
+          return;
+        }
+      }
+      
+      onMoveItem(draggedItem.id, day);
+    }
+    
+    setDraggedItem(null);
+  }, [draggedItem, onMoveItem]);
+
+  const handleDragEnd = useCallback(() => {
+    setDraggedItem(null);
+    setDragOverDay(null);
+  }, []);
 
   const weekDays = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
@@ -208,6 +281,7 @@ export function CalendarView({
             const dayItems = getItemsForDay(day);
             const isCurrentMonth = isSameMonth(day, currentDate);
             const isToday = isSameDay(day, new Date());
+            const isDragOver = dragOverDay && isSameDay(dragOverDay, day);
 
             return (
               <div
@@ -215,9 +289,13 @@ export function CalendarView({
                 className={cn(
                   "min-h-20 border-b border-r border-border/30 p-1 transition-colors group",
                   !isCurrentMonth && "bg-muted/20 text-muted-foreground",
-                  canEdit && "cursor-pointer hover:bg-muted/30"
+                  canEdit && "cursor-pointer hover:bg-muted/30",
+                  isDragOver && "bg-primary/10 ring-2 ring-primary/50 ring-inset"
                 )}
                 onClick={() => canEdit && onAddItem(day)}
+                onDragOver={(e) => handleDragOver(e, day)}
+                onDragLeave={handleDragLeave}
+                onDrop={(e) => handleDrop(e, day)}
               >
                 {/* Day Header */}
                 <div className="flex items-center justify-between mb-0.5">
@@ -247,6 +325,8 @@ export function CalendarView({
                       item={item}
                       onEdit={() => onEditItem(item)}
                       canEdit={canEdit}
+                      onDragStart={handleDragStart}
+                      isDragging={draggedItem?.id === item.id}
                     />
                   ))}
                   {dayItems.length > 3 && (
