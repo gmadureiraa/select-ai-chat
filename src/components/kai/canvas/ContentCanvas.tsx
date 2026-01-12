@@ -1,4 +1,4 @@
-import { useCallback, useRef, useMemo } from "react";
+import { useCallback, useRef, useMemo, useState, useEffect } from "react";
 import ReactFlow, {
   Background,
   Controls,
@@ -9,24 +9,47 @@ import ReactFlow, {
 } from "reactflow";
 import "reactflow/dist/style.css";
 
-import { useCanvasState, NodeDataType, CanvasNodeData, SourceNodeData, LibraryNodeData, PromptNodeData, GeneratorNodeData, OutputNodeData } from "./hooks/useCanvasState";
+import { useCanvasState, NodeDataType, CanvasNodeData, SourceNodeData, LibraryNodeData, PromptNodeData, GeneratorNodeData, OutputNodeData, ContentFormat } from "./hooks/useCanvasState";
 import { CanvasToolbar } from "./CanvasToolbar";
 import { SourceNode } from "./nodes/SourceNode";
 import { LibraryRefNode } from "./nodes/LibraryRefNode";
 import { PromptNode } from "./nodes/PromptNode";
 import { GeneratorNode } from "./nodes/GeneratorNode";
 import { ContentOutputNode } from "./nodes/ContentOutputNode";
+import { PlanningItemDialog } from "@/components/planning/PlanningItemDialog";
+import { usePlanningItems } from "@/hooks/usePlanningItems";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useToast } from "@/hooks/use-toast";
+import { CONTENT_TO_PLATFORM, ContentTypeKey } from "@/types/contentTypes";
 
 interface ContentCanvasProps {
   clientId: string;
 }
 
+// Map canvas format to content type key
+const FORMAT_TO_CONTENT_TYPE: Record<ContentFormat, ContentTypeKey> = {
+  carousel: 'carousel',
+  thread: 'thread',
+  reel_script: 'short_video',
+  post: 'instagram_post',
+  stories: 'stories',
+  newsletter: 'newsletter',
+  image: 'static_image',
+};
+
 function ContentCanvasInner({ clientId }: ContentCanvasProps) {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const { zoomIn, zoomOut, fitView, getViewport } = useReactFlow();
+  const { toast } = useToast();
+
+  // Planning dialog state
+  const [planningDialogOpen, setPlanningDialogOpen] = useState(false);
+  const [planningOutputNode, setPlanningOutputNode] = useState<OutputNodeData | null>(null);
+  const [planningOutputNodeId, setPlanningOutputNodeId] = useState<string | null>(null);
+
+  const { columns, createItem, updateItem } = usePlanningItems({ clientId });
 
   // Fetch client data for header
   const { data: client } = useQuery({
@@ -55,7 +78,7 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
     transcribeFile,
     analyzeImageStyle,
     generateContent,
-    sendToPlanning,
+    regenerateContent,
     clearCanvas,
     saveCanvas,
     loadCanvas,
@@ -67,6 +90,45 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
     isSaving,
   } = useCanvasState(clientId);
 
+  // Handler to open planning dialog with output data
+  const handleOpenPlanningDialog = useCallback((nodeId: string) => {
+    const node = nodes.find(n => n.id === nodeId);
+    if (node && node.data.type === "output") {
+      setPlanningOutputNode(node.data as OutputNodeData);
+      setPlanningOutputNodeId(nodeId);
+      setPlanningDialogOpen(true);
+    }
+  }, [nodes]);
+
+  // Handle saving from planning dialog
+  const handlePlanningDialogSave = useCallback(async (data: any) => {
+    await createItem.mutateAsync(data);
+    if (planningOutputNodeId) {
+      updateNodeData(planningOutputNodeId, { addedToPlanning: true } as Partial<OutputNodeData>);
+    }
+    setPlanningDialogOpen(false);
+    setPlanningOutputNode(null);
+    setPlanningOutputNodeId(null);
+    toast({
+      title: "Enviado para planejamento",
+      description: "Conteúdo adicionado com sucesso",
+    });
+  }, [createItem, planningOutputNodeId, updateNodeData, toast]);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ctrl+S to save
+      if (e.ctrlKey && e.key === 's') {
+        e.preventDefault();
+        saveCanvas();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [saveCanvas]);
+
   // Use refs to maintain stable references for handlers
   const handlersRef = useRef({
     clientId,
@@ -76,7 +138,8 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
     updateNodeData,
     deleteNode,
     generateContent,
-    sendToPlanning,
+    regenerateContent,
+    handleOpenPlanningDialog,
   });
 
   // Update refs on each render so they always have latest values
@@ -88,7 +151,8 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
     updateNodeData,
     deleteNode,
     generateContent,
-    sendToPlanning,
+    regenerateContent,
+    handleOpenPlanningDialog,
   };
 
   // Create nodeTypes only once - handlers are accessed via ref
@@ -131,7 +195,8 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
         {...props}
         onUpdateData={(id, data) => handlersRef.current.updateNodeData(id, data)}
         onDelete={(id) => handlersRef.current.deleteNode(id)}
-        onSendToPlanning={(id) => handlersRef.current.sendToPlanning(id)}
+        onSendToPlanning={(id) => handlersRef.current.handleOpenPlanningDialog(id)}
+        onRegenerate={(id) => handlersRef.current.regenerateContent(id)}
       />
     ),
   }), []);
@@ -255,6 +320,50 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Planning Item Dialog */}
+      {planningOutputNode && (
+        <PlanningItemDialog
+          open={planningDialogOpen}
+          onOpenChange={(open) => {
+            setPlanningDialogOpen(open);
+            if (!open) {
+              setPlanningOutputNode(null);
+              setPlanningOutputNodeId(null);
+            }
+          }}
+          columns={columns}
+          defaultClientId={clientId}
+          defaultColumnId={columns.find(c => c.column_type === "draft")?.id || columns[0]?.id}
+          item={{
+            id: '',
+            title: `${planningOutputNode.format === 'carousel' ? 'Carrossel' : 
+                    planningOutputNode.format === 'thread' ? 'Thread' :
+                    planningOutputNode.format === 'reel_script' ? 'Roteiro Reel' :
+                    planningOutputNode.format === 'post' ? 'Post' :
+                    planningOutputNode.format === 'stories' ? 'Stories' :
+                    planningOutputNode.format === 'newsletter' ? 'Newsletter' :
+                    planningOutputNode.format === 'image' ? 'Imagem' : 'Conteúdo'} - ${new Date().toLocaleDateString("pt-BR")}`,
+            content: planningOutputNode.isImage ? '' : planningOutputNode.content,
+            client_id: clientId,
+            workspace_id: '',
+            created_by: '',
+            created_at: '',
+            updated_at: '',
+            status: 'draft',
+            priority: 'medium',
+            platform: planningOutputNode.platform as any,
+            content_type: FORMAT_TO_CONTENT_TYPE[planningOutputNode.format] || 'post',
+            media_urls: planningOutputNode.isImage ? [planningOutputNode.content] : [],
+            metadata: {
+              content_type: FORMAT_TO_CONTENT_TYPE[planningOutputNode.format] || 'post',
+              from_canvas: true,
+            },
+          } as any}
+          onSave={handlePlanningDialogSave}
+          onUpdate={async () => {}}
+        />
       )}
     </div>
   );
