@@ -20,17 +20,22 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { User, Key, Trash2, Mail, Loader2, Check, Save } from "lucide-react";
+import { User, Key, Trash2, Mail, Loader2, Check, Save, AlertTriangle } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 export function AccountSettingsSection() {
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   
   const [isResettingPassword, setIsResettingPassword] = useState(false);
   const [passwordResetSent, setPasswordResetSent] = useState(false);
   const [editedName, setEditedName] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [deleteConfirmEmail, setDeleteConfirmEmail] = useState("");
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
   // Fetch user profile
   const { data: profile, isLoading: profileLoading } = useQuery({
@@ -112,6 +117,46 @@ export function AccountSettingsSection() {
 
   const handleAvatarUpload = (url: string | null) => {
     updateProfile.mutate({ avatar_url: url });
+  };
+
+  const handleDeleteAccount = async () => {
+    if (deleteConfirmEmail !== user?.email) {
+      toast({
+        title: "Email incorreto",
+        description: "O email digitado não corresponde ao seu email de cadastro.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsDeleting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("delete-account", {
+        body: { confirmEmail: deleteConfirmEmail },
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Conta excluída",
+        description: "Sua conta foi excluída com sucesso. Você será redirecionado.",
+      });
+
+      // Sign out and redirect
+      await signOut();
+      navigate("/login");
+    } catch (error: any) {
+      console.error("Error deleting account:", error);
+      toast({
+        title: "Erro ao excluir conta",
+        description: error.message || "Não foi possível excluir sua conta. Tente novamente.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeleting(false);
+      setDeleteDialogOpen(false);
+      setDeleteConfirmEmail("");
+    }
   };
 
   const currentName = editedName !== null ? editedName : (profile?.full_name || "");
@@ -271,7 +316,7 @@ export function AccountSettingsSection() {
                 Esta ação é permanente e não pode ser desfeita
               </p>
             </div>
-            <AlertDialog>
+            <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
               <AlertDialogTrigger asChild>
                 <Button variant="destructive">
                   <Trash2 className="h-4 w-4 mr-2" />
@@ -280,8 +325,11 @@ export function AccountSettingsSection() {
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
-                  <AlertDialogTitle>Você tem certeza absoluta?</AlertDialogTitle>
-                  <AlertDialogDescription className="space-y-2">
+                  <AlertDialogTitle className="flex items-center gap-2">
+                    <AlertTriangle className="h-5 w-5 text-destructive" />
+                    Você tem certeza absoluta?
+                  </AlertDialogTitle>
+                  <AlertDialogDescription className="space-y-3">
                     <p>Esta ação é <strong>irreversível</strong>. Ao excluir sua conta:</p>
                     <ul className="list-disc list-inside space-y-1 text-sm">
                       <li>Todos os seus dados pessoais serão removidos</li>
@@ -289,27 +337,42 @@ export function AccountSettingsSection() {
                       <li>Todo conteúdo criado por você será desvinculado</li>
                       <li>Sua assinatura será cancelada imediatamente</li>
                     </ul>
-                    <p className="pt-2">
-                      Para prosseguir, entre em contato com o suporte em{" "}
-                      <a href="mailto:suporte@kaleidos.com.br" className="text-primary underline">
-                        suporte@kaleidos.com.br
-                      </a>
-                    </p>
+                    <div className="pt-3 space-y-2">
+                      <Label htmlFor="confirm-email" className="text-foreground font-medium">
+                        Para confirmar, digite seu email: <strong>{user?.email}</strong>
+                      </Label>
+                      <Input
+                        id="confirm-email"
+                        type="email"
+                        placeholder="Digite seu email para confirmar"
+                        value={deleteConfirmEmail}
+                        onChange={(e) => setDeleteConfirmEmail(e.target.value)}
+                        className="border-destructive/50 focus-visible:ring-destructive"
+                      />
+                    </div>
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                  <AlertDialogAction 
-                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                    onClick={() => {
-                      toast({
-                        title: "Solicitação recebida",
-                        description: "Entre em contato com o suporte para confirmar a exclusão.",
-                      });
-                    }}
+                  <AlertDialogCancel onClick={() => setDeleteConfirmEmail("")}>
+                    Cancelar
+                  </AlertDialogCancel>
+                  <Button
+                    variant="destructive"
+                    onClick={handleDeleteAccount}
+                    disabled={isDeleting || deleteConfirmEmail !== user?.email}
                   >
-                    Entendi, quero excluir
-                  </AlertDialogAction>
+                    {isDeleting ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Excluindo...
+                      </>
+                    ) : (
+                      <>
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Excluir minha conta
+                      </>
+                    )}
+                  </Button>
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
