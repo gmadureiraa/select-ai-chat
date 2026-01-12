@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Download, X, ZoomIn, ZoomOut, ChevronLeft, ChevronRight, FolderDown, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import JSZip from 'jszip';
 
 interface ImageLightboxProps {
   images: { url: string; type: 'image' | 'video' }[];
@@ -66,33 +67,32 @@ export function ImageLightbox({
     if (downloadingAll || images.length === 0) return;
     
     setDownloadingAll(true);
-    let successCount = 0;
+    const zip = new JSZip();
     
-    for (const [idx, img] of images.entries()) {
-      try {
+    try {
+      for (const [idx, img] of images.entries()) {
         const response = await fetch(img.url);
         const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `media-${idx + 1}.${img.type === 'video' ? 'mp4' : 'png'}`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        window.URL.revokeObjectURL(url);
-        successCount++;
-        // Small delay between downloads to prevent browser blocking
-        if (idx < images.length - 1) {
-          await new Promise(r => setTimeout(r, 300));
-        }
-      } catch (error) {
-        console.error(`Download error for image ${idx + 1}:`, error);
+        const extension = img.type === 'video' ? 'mp4' : 'png';
+        zip.file(`media-${idx + 1}.${extension}`, blob);
       }
-    }
-    
-    setDownloadingAll(false);
-    if (successCount > 0) {
-      toast.success(`${successCount} ${successCount === 1 ? 'mídia baixada' : 'mídias baixadas'} com sucesso!`);
+      
+      const content = await zip.generateAsync({ type: 'blob' });
+      const url = window.URL.createObjectURL(content);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `midias-${Date.now()}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      
+      toast.success(`${images.length} mídias baixadas em um arquivo ZIP!`);
+    } catch (error) {
+      console.error('Download error:', error);
+      toast.error('Erro ao baixar mídias');
+    } finally {
+      setDownloadingAll(false);
     }
   };
 

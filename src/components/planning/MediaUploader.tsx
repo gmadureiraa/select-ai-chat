@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { ImageLightbox } from './ImageLightbox';
+import JSZip from 'jszip';
 
 export interface MediaItem {
   id: string;
@@ -44,32 +45,32 @@ export function MediaUploader({
     if (downloadingAll || value.length === 0) return;
     
     setDownloadingAll(true);
-    let successCount = 0;
+    const zip = new JSZip();
     
-    for (const [idx, item] of value.entries()) {
-      try {
+    try {
+      for (const [idx, item] of value.entries()) {
         const response = await fetch(item.url);
         const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `media-${idx + 1}.${item.type === 'video' ? 'mp4' : 'png'}`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        window.URL.revokeObjectURL(url);
-        successCount++;
-        if (idx < value.length - 1) {
-          await new Promise(r => setTimeout(r, 300));
-        }
-      } catch (error) {
-        console.error(`Download error for item ${idx + 1}:`, error);
+        const extension = item.type === 'video' ? 'mp4' : 'png';
+        zip.file(`media-${idx + 1}.${extension}`, blob);
       }
-    }
-    
-    setDownloadingAll(false);
-    if (successCount > 0) {
-      toast.success(`${successCount} ${successCount === 1 ? 'mídia baixada' : 'mídias baixadas'} com sucesso!`);
+      
+      const content = await zip.generateAsync({ type: 'blob' });
+      const url = window.URL.createObjectURL(content);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `midias-${Date.now()}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      
+      toast.success(`${value.length} mídias baixadas em um arquivo ZIP!`);
+    } catch (error) {
+      console.error('Download error:', error);
+      toast.error('Erro ao baixar mídias');
+    } finally {
+      setDownloadingAll(false);
     }
   };
 

@@ -133,13 +133,18 @@ export const PlanningItemCard = memo(function PlanningItemCard({
         isPublished && "border-emerald-500/20 bg-emerald-500/5",
         compact && "p-2"
       )}
-      onClick={() => onEdit(item)}
+      onClick={() => {
+        if (!lightboxOpen) {
+          onEdit(item);
+        }
+      }}
     >
       {/* Media Preview - Only if not compact */}
       {hasMedia && firstMedia && !compact && (
         <div 
           className="relative h-20 bg-muted overflow-hidden cursor-zoom-in"
           onClick={(e) => {
+            e.preventDefault();
             e.stopPropagation();
             setLightboxOpen(true);
           }}
@@ -156,19 +161,6 @@ export const PlanningItemCard = memo(function PlanningItemCard({
             </div>
           )}
         </div>
-      )}
-
-      {/* Lightbox for media preview */}
-      {hasMedia && (
-        <ImageLightbox
-          images={item.media_urls.map(url => ({
-            url,
-            type: url.match(/\.(mp4|webm|mov)$/i) ? 'video' as const : 'image' as const
-          }))}
-          initialIndex={0}
-          open={lightboxOpen}
-          onOpenChange={setLightboxOpen}
-        />
       )}
 
       <div className={cn(compact ? "" : "p-2.5")}>
@@ -275,6 +267,19 @@ export const PlanningItemCard = memo(function PlanningItemCard({
           </DropdownMenu>
         </div>
       </div>
+
+      {/* Lightbox for media preview - Outside of card to prevent event conflicts */}
+      {hasMedia && (
+        <ImageLightbox
+          images={item.media_urls.map(url => ({
+            url,
+            type: url.match(/\.(mp4|webm|mov)$/i) ? 'video' as const : 'image' as const
+          }))}
+          initialIndex={0}
+          open={lightboxOpen}
+          onOpenChange={setLightboxOpen}
+        />
+      )}
     </div>
   );
 });
