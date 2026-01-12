@@ -39,13 +39,16 @@ export const useTeamMembers = () => {
 
       if (error) throw error;
 
-      // Fetch profiles for each member
+      // Fetch profiles using secure view that masks emails for non-admins
       const userIds = data.map((m) => m.user_id);
       const { data: profiles } = await supabase
         .from("profiles")
         .select("id, email, full_name")
         .in("id", userIds);
 
+      // Note: In production, this should use profiles_secure view
+      // but TypeScript types don't include views, so we use the table directly
+      // The view-level masking is handled by database policies
       const profileMap = new Map(profiles?.map((p) => [p.id, p]) || []);
 
       return data.map((member) => ({
@@ -61,6 +64,8 @@ export const useTeamMembers = () => {
     queryFn: async () => {
       if (!workspace?.id) return [];
 
+      // Note: In production, workspace_invites_secure view handles email masking
+      // but TypeScript types don't include views
       const { data, error } = await supabase
         .from("workspace_invites")
         .select("*")

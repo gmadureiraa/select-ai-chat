@@ -3055,6 +3055,64 @@ export type Database = {
           },
         ]
       }
+      social_credentials_audit_log: {
+        Row: {
+          action: string
+          client_id: string
+          created_at: string
+          credential_id: string
+          id: string
+          ip_address: string | null
+          metadata: Json | null
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          action: string
+          client_id: string
+          created_at?: string
+          credential_id: string
+          id?: string
+          ip_address?: string | null
+          metadata?: Json | null
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          action?: string
+          client_id?: string
+          created_at?: string
+          credential_id?: string
+          id?: string
+          ip_address?: string | null
+          metadata?: Json | null
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "social_credentials_audit_log_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "social_credentials_audit_log_credential_id_fkey"
+            columns: ["credential_id"]
+            isOneToOne: false
+            referencedRelation: "client_social_credentials"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "social_credentials_audit_log_credential_id_fkey"
+            columns: ["credential_id"]
+            isOneToOne: false
+            referencedRelation: "client_social_credentials_decrypted"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       subscription_plans: {
         Row: {
           created_at: string | null
@@ -4167,6 +4225,15 @@ export type Database = {
       is_workspace_member: {
         Args: { p_user_id: string; p_workspace_id: string }
         Returns: boolean
+      }
+      log_credential_access: {
+        Args: {
+          p_action: string
+          p_client_id: string
+          p_credential_id: string
+          p_metadata?: Json
+        }
+        Returns: undefined
       }
       log_user_activity: {
         Args: {
