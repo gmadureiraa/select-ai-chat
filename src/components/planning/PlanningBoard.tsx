@@ -275,6 +275,7 @@ export function PlanningBoard({ clientId, isEnterprise = false, onClientChange }
         columns={columns}
         defaultColumnId={defaultColumnId}
         defaultDate={defaultDate}
+        defaultClientId={localFilters.clientId || clientId}
         onSave={handleCreateItem}
         onUpdate={handleUpdateItem}
       />

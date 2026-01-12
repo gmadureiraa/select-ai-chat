@@ -32,6 +32,7 @@ interface PlanningItemDialogProps {
   columns: KanbanColumn[];
   defaultColumnId?: string;
   defaultDate?: Date;
+  defaultClientId?: string;
   onSave: (data: CreatePlanningItemInput) => Promise<void>;
   onUpdate?: (id: string, data: Partial<PlanningItem>) => Promise<void>;
   readOnly?: boolean;
@@ -60,6 +61,7 @@ export function PlanningItemDialog({
   columns,
   defaultColumnId,
   defaultDate,
+  defaultClientId,
   onSave,
   onUpdate,
   readOnly = false
@@ -174,7 +176,7 @@ export function PlanningItemDialog({
     } else {
       setTitle('');
       setContent('');
-      setSelectedClientId('');
+      setSelectedClientId(defaultClientId || '');
       setColumnId(defaultColumnId || columns[0]?.id || '');
       setContentType('tweet');
       setPriority('medium');
@@ -187,7 +189,7 @@ export function PlanningItemDialog({
       setRecurrenceConfig({ type: 'none', days: [], time: null, endDate: null });
       setShowMoreOptions(false);
     }
-  }, [item, defaultColumnId, defaultDate, columns, open]);
+  }, [item, defaultColumnId, defaultDate, defaultClientId, columns, open]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
