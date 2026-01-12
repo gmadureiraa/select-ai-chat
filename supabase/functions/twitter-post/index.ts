@@ -212,8 +212,9 @@ Deno.serve(async (req) => {
 
     await supabaseClient.from(tableName).update({ status: 'publishing' }).eq('id', postId);
 
+    // Use decrypted view to get credentials
     const { data: credentials, error: credError } = await supabaseClient
-      .from('client_social_credentials')
+      .from('client_social_credentials_decrypted')
       .select('*')
       .eq('client_id', post.client_id)
       .eq('platform', 'twitter')

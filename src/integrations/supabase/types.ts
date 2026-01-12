@@ -614,11 +614,15 @@ export type Database = {
       client_social_credentials: {
         Row: {
           access_token: string | null
+          access_token_encrypted: string | null
           access_token_secret: string | null
+          access_token_secret_encrypted: string | null
           account_id: string | null
           account_name: string | null
           api_key: string | null
+          api_key_encrypted: string | null
           api_secret: string | null
+          api_secret_encrypted: string | null
           client_id: string
           created_at: string
           expires_at: string | null
@@ -627,18 +631,24 @@ export type Database = {
           last_validated_at: string | null
           metadata: Json | null
           oauth_access_token: string | null
+          oauth_access_token_encrypted: string | null
           oauth_refresh_token: string | null
+          oauth_refresh_token_encrypted: string | null
           platform: string
           updated_at: string
           validation_error: string | null
         }
         Insert: {
           access_token?: string | null
+          access_token_encrypted?: string | null
           access_token_secret?: string | null
+          access_token_secret_encrypted?: string | null
           account_id?: string | null
           account_name?: string | null
           api_key?: string | null
+          api_key_encrypted?: string | null
           api_secret?: string | null
+          api_secret_encrypted?: string | null
           client_id: string
           created_at?: string
           expires_at?: string | null
@@ -647,18 +657,24 @@ export type Database = {
           last_validated_at?: string | null
           metadata?: Json | null
           oauth_access_token?: string | null
+          oauth_access_token_encrypted?: string | null
           oauth_refresh_token?: string | null
+          oauth_refresh_token_encrypted?: string | null
           platform: string
           updated_at?: string
           validation_error?: string | null
         }
         Update: {
           access_token?: string | null
+          access_token_encrypted?: string | null
           access_token_secret?: string | null
+          access_token_secret_encrypted?: string | null
           account_id?: string | null
           account_name?: string | null
           api_key?: string | null
+          api_key_encrypted?: string | null
           api_secret?: string | null
+          api_secret_encrypted?: string | null
           client_id?: string
           created_at?: string
           expires_at?: string | null
@@ -667,7 +683,9 @@ export type Database = {
           last_validated_at?: string | null
           metadata?: Json | null
           oauth_access_token?: string | null
+          oauth_access_token_encrypted?: string | null
           oauth_refresh_token?: string | null
+          oauth_refresh_token_encrypted?: string | null
           platform?: string
           updated_at?: string
           validation_error?: string | null
@@ -3383,6 +3401,13 @@ export type Database = {
             referencedRelation: "workspace_invites"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "workspace_invite_clients_invite_id_fkey"
+            columns: ["invite_id"]
+            isOneToOne: false
+            referencedRelation: "workspace_invites_secure"
+            referencedColumns: ["id"]
+          },
         ]
       }
       workspace_invites: {
@@ -3809,7 +3834,142 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      client_social_credentials_decrypted: {
+        Row: {
+          access_token: string | null
+          access_token_secret: string | null
+          account_id: string | null
+          account_name: string | null
+          api_key: string | null
+          api_secret: string | null
+          client_id: string | null
+          created_at: string | null
+          expires_at: string | null
+          id: string | null
+          is_valid: boolean | null
+          last_validated_at: string | null
+          metadata: Json | null
+          oauth_access_token: string | null
+          oauth_refresh_token: string | null
+          platform: string | null
+          updated_at: string | null
+          validation_error: string | null
+        }
+        Insert: {
+          access_token?: never
+          access_token_secret?: never
+          account_id?: string | null
+          account_name?: string | null
+          api_key?: never
+          api_secret?: never
+          client_id?: string | null
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string | null
+          is_valid?: boolean | null
+          last_validated_at?: string | null
+          metadata?: Json | null
+          oauth_access_token?: never
+          oauth_refresh_token?: never
+          platform?: string | null
+          updated_at?: string | null
+          validation_error?: string | null
+        }
+        Update: {
+          access_token?: never
+          access_token_secret?: never
+          account_id?: string | null
+          account_name?: string | null
+          api_key?: never
+          api_secret?: never
+          client_id?: string | null
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string | null
+          is_valid?: boolean | null
+          last_validated_at?: string | null
+          metadata?: Json | null
+          oauth_access_token?: never
+          oauth_refresh_token?: never
+          platform?: string | null
+          updated_at?: string | null
+          validation_error?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_social_credentials_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles_secure: {
+        Row: {
+          avatar_url: string | null
+          created_at: string | null
+          email: string | null
+          full_name: string | null
+          id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string | null
+          email?: never
+          full_name?: string | null
+          id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string | null
+          email?: never
+          full_name?: string | null
+          id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      workspace_invites_secure: {
+        Row: {
+          accepted_at: string | null
+          created_at: string | null
+          email: string | null
+          id: string | null
+          invited_by: string | null
+          role: Database["public"]["Enums"]["workspace_role"] | null
+          workspace_id: string | null
+        }
+        Insert: {
+          accepted_at?: string | null
+          created_at?: string | null
+          email?: never
+          id?: string | null
+          invited_by?: string | null
+          role?: Database["public"]["Enums"]["workspace_role"] | null
+          workspace_id?: string | null
+        }
+        Update: {
+          accepted_at?: string | null
+          created_at?: string | null
+          email?: never
+          id?: string | null
+          invited_by?: string | null
+          role?: Database["public"]["Enums"]["workspace_role"] | null
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workspace_invites_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       accept_pending_invite: {
@@ -3840,6 +4000,10 @@ export type Database = {
       }
       can_delete_in_workspace: { Args: { p_user_id: string }; Returns: boolean }
       can_modify_data: { Args: { p_user_id: string }; Returns: boolean }
+      can_view_full_email: {
+        Args: { target_user_id: string; viewer_user_id: string }
+        Returns: boolean
+      }
       can_view_workspace_ai_usage: {
         Args: { p_target_user_id: string; p_user_id: string }
         Returns: boolean
@@ -3896,6 +4060,11 @@ export type Database = {
           success: boolean
         }[]
       }
+      decrypt_social_token: {
+        Args: { encrypted_text: string }
+        Returns: string
+      }
+      encrypt_social_token: { Args: { plain_text: string }; Returns: string }
       get_all_workspaces_admin: {
         Args: never
         Returns: {
@@ -4010,6 +4179,7 @@ export type Database = {
         }
         Returns: string
       }
+      mask_email: { Args: { email: string }; Returns: string }
       search_knowledge_semantic: {
         Args: {
           match_count?: number
