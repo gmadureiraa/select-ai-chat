@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths } from 'date-fns';
+import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight, Plus, Clock, AlertCircle, CheckCircle2, Bot, FileEdit, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -121,7 +121,7 @@ function CalendarCard({ item, onEdit, canEdit = true }: { item: PlanningItem; on
           {item.scheduled_at && (
             <p className="text-xs flex items-center gap-1">
               <Clock className="h-3 w-3" />
-              Agendado: {format(new Date(item.scheduled_at), "dd/MM 'às' HH:mm")}
+              Agendado: {format(parseISO(item.scheduled_at), "dd/MM 'às' HH:mm")}
             </p>
           )}
           
@@ -164,7 +164,8 @@ export function CalendarView({
     return items.filter(item => {
       const itemDate = item.scheduled_at || item.due_date;
       if (!itemDate) return false;
-      return isSameDay(new Date(itemDate), day);
+      const parsedDate = typeof itemDate === 'string' ? parseISO(itemDate) : itemDate;
+      return isSameDay(parsedDate, day);
     });
   };
 

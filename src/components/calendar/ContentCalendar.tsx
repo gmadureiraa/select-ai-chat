@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isSameMonth, addMonths, subMonths, startOfWeek, endOfWeek } from "date-fns";
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isSameMonth, addMonths, subMonths, startOfWeek, endOfWeek, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { ChevronLeft, ChevronRight, Plus, Twitter, Linkedin, AlertCircle, Check, Clock, Loader2, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -30,7 +30,7 @@ export function ContentCalendar({ clientId }: ContentCalendarProps) {
 
   const getPostsForDay = (day: Date) => {
     return posts.filter(post => {
-      const postDate = new Date(post.scheduled_at);
+      const postDate = parseISO(post.scheduled_at);
       return isSameDay(postDate, day);
     });
   };
@@ -65,7 +65,7 @@ export function ContentCalendar({ clientId }: ContentCalendarProps) {
   const handlePostClick = (post: ScheduledPost, e: React.MouseEvent) => {
     e.stopPropagation();
     setEditingPost(post);
-    setSelectedDate(new Date(post.scheduled_at));
+    setSelectedDate(parseISO(post.scheduled_at));
     setIsDialogOpen(true);
   };
 
@@ -176,7 +176,7 @@ export function ContentCalendar({ clientId }: ContentCalendarProps) {
                             <div className="space-y-1">
                               <p className="font-medium">{post.title}</p>
                               <p className="text-xs text-muted-foreground">
-                                {format(new Date(post.scheduled_at), "HH:mm", { locale: ptBR })}
+                                {format(parseISO(post.scheduled_at), "HH:mm", { locale: ptBR })}
                               </p>
                               {post.error_message && (
                                 <p className="text-xs text-destructive">{post.error_message}</p>
