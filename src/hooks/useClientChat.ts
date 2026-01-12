@@ -94,20 +94,76 @@ export const useClientChat = (clientId: string, templateId?: string, conversatio
   const { identityGuide, knowledgeFiles, isLoading: isLoadingKnowledge } = useClientKnowledge(clientId, client?.name);
 
   // Função auxiliar para detectar feedback
-  const detectFeedback = (message: string): boolean => {
+  const detectFeedback = (message: string): { hasFeedback: boolean; extractedRule?: string } => {
     const feedbackPatterns = [
-      /não era (bem )?(isso|assim)/i,
-      /prefiro/i,
-      /mais (informal|formal|curto|longo)/i,
-      /menos/i,
-      /sempre (use|faça|inclua)/i,
-      /nunca (use|faça|inclua)/i,
-      /por favor/i,
-      /corrija/i,
-      /mude/i,
-      /altere/i,
+      { pattern: /não era (bem )?(isso|assim)/i, type: "correction" },
+      { pattern: /prefiro\s+(.+)/i, type: "preference" },
+      { pattern: /mais (informal|formal|curto|longo|direto|detalhado)/i, type: "style" },
+      { pattern: /menos (informal|formal|longo|detalhado)/i, type: "style" },
+      { pattern: /sempre (use|faça|inclua|coloque)\s+(.+)/i, type: "always" },
+      { pattern: /nunca (use|faça|inclua|coloque)\s+(.+)/i, type: "never" },
+      { pattern: /evite\s+(.+)/i, type: "avoid" },
+      { pattern: /use\s+(mais|menos)\s+(.+)/i, type: "usage" },
+      { pattern: /o tom (deve ser|precisa ser|tem que ser)\s+(.+)/i, type: "tone" },
+      { pattern: /mude\s+(.+)\s+para\s+(.+)/i, type: "change" },
+      { pattern: /altere\s+(.+)/i, type: "change" },
+      { pattern: /não gostei d(e|o|a)\s+(.+)/i, type: "dislike" },
     ];
-    return feedbackPatterns.some(p => p.test(message));
+    
+    for (const { pattern, type } of feedbackPatterns) {
+      const match = message.match(pattern);
+      if (match) {
+        let extractedRule = "";
+        switch (type) {
+          case "preference":
+            extractedRule = `Preferência do cliente: ${match[1] || match[0]}`;
+            break;
+          case "style":
+            extractedRule = `Estilo: usar tom ${match[1]}`;
+            break;
+          case "always":
+            extractedRule = `Sempre: ${match[2] || match[1]}`;
+            break;
+          case "never":
+            extractedRule = `Nunca: ${match[2] || match[1]}`;
+            break;
+          case "avoid":
+            extractedRule = `Evitar: ${match[1]}`;
+            break;
+          case "tone":
+            extractedRule = `Tom: ${match[2]}`;
+            break;
+          case "change":
+            extractedRule = `Alteração solicitada: ${match[0]}`;
+            break;
+          case "dislike":
+            extractedRule = `Evitar: ${match[2] || match[0]}`;
+            break;
+          default:
+            extractedRule = `Feedback: ${match[0]}`;
+        }
+        return { hasFeedback: true, extractedRule };
+      }
+    }
+    return { hasFeedback: false };
+  };
+
+  // Função para salvar preferência extraída
+  const saveClientPreference = async (preference: string, messageId?: string) => {
+    if (!clientId || !preference) return;
+    
+    try {
+      await supabase.from("client_preferences").insert({
+        client_id: clientId,
+        preference_type: "feedback_extracted",
+        preference_value: preference,
+        created_from_message_id: messageId || null,
+        confidence: 0.8,
+      });
+      console.log("[CHAT] Saved client preference:", preference);
+    } catch (error) {
+      console.error("[CHAT] Error saving preference:", error);
+    }
   };
 
   // Get or create THE SINGLE default conversation for this client
@@ -2132,11 +2188,21 @@ IMPORTANTE: O novo conteúdo deve parecer escrito pelo mesmo autor.`;
         },
       });
 
-      // Detectar feedback na mensagem do usuário (próxima implementação)
-      // TODO: Implementar detecção de feedback e extração de regras
-      const hasFeedback = detectFeedback(content);
-      if (hasFeedback) {
-        console.log("Feedback detected in message, future implementation will extract rules");
+      // Detectar feedback na mensagem do usuário e salvar como preferência
+      const { hasFeedback, extractedRule } = detectFeedback(content);
+      if (hasFeedback && extractedRule) {
+        console.log("[CHAT] Feedback detected:", extractedRule);
+        // Get last message ID to link the preference
+        const { data: lastMsg } = await supabase
+          .from("messages")
+          .select("id")
+          .eq("conversation_id", conversationId)
+          .eq("role", "user")
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .single();
+        
+        await saveClientPreference(extractedRule, lastMsg?.id);
       }
 
       // Não precisa invalidar - realtime vai atualizar automaticamente
