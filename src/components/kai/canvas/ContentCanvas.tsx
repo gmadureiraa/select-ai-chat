@@ -52,19 +52,27 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
     updateNodeData,
     deleteNode,
     extractUrlContent,
+    transcribeFile,
+    analyzeImageStyle,
     generateContent,
     sendToPlanning,
     clearCanvas,
     saveCanvas,
     loadCanvas,
+    deleteCanvas,
     savedCanvases,
+    isLoadingCanvases,
     currentCanvasName,
+    setCanvasName,
+    isSaving,
   } = useCanvasState(clientId);
 
   // Use refs to maintain stable references for handlers
   const handlersRef = useRef({
     clientId,
     extractUrlContent,
+    transcribeFile,
+    analyzeImageStyle,
     updateNodeData,
     deleteNode,
     generateContent,
@@ -75,6 +83,8 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
   handlersRef.current = {
     clientId,
     extractUrlContent,
+    transcribeFile,
+    analyzeImageStyle,
     updateNodeData,
     deleteNode,
     generateContent,
@@ -89,6 +99,8 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
         onExtractUrl={(id, url) => handlersRef.current.extractUrlContent(id, url)}
         onUpdateData={(id, data) => handlersRef.current.updateNodeData(id, data)}
         onDelete={(id) => handlersRef.current.deleteNode(id)}
+        onTranscribeFile={(id, fileId) => handlersRef.current.transcribeFile(id, fileId)}
+        onAnalyzeStyle={(id, fileId) => handlersRef.current.analyzeImageStyle(id, fileId)}
       />
     ),
     library: (props: NodeProps<LibraryNodeData>) => (
@@ -204,8 +216,12 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
         onFitView={() => fitView()}
         onSave={saveCanvas}
         onLoad={loadCanvas}
+        onDelete={deleteCanvas}
         savedCanvases={savedCanvases}
         currentCanvasName={currentCanvasName}
+        setCanvasName={setCanvasName}
+        isLoadingCanvases={isLoadingCanvases}
+        isSaving={isSaving}
       />
 
       {/* Empty state */}

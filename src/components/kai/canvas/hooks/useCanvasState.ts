@@ -123,6 +123,7 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
   const [edges, setEdges] = useState<Edge[]>(defaultEdges);
   const [currentCanvasId, setCurrentCanvasId] = useState<string | null>(null);
   const [currentCanvasName, setCurrentCanvasName] = useState<string>("Novo Canvas");
+  const [isSaving, setIsSaving] = useState(false);
   const { columns, createItem } = usePlanningItems({ clientId });
 
   // Fetch saved canvases for this client
@@ -699,6 +700,7 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
 
   // Save canvas
   const saveCanvas = useCallback(async (name?: string) => {
+    setIsSaving(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Usuário não autenticado");
@@ -749,6 +751,8 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
         variant: "destructive",
       });
       return null;
+    } finally {
+      setIsSaving(false);
     }
   }, [nodes, edges, clientId, currentCanvasId, currentCanvasName, queryClient, toast]);
 
@@ -847,6 +851,7 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
     // Canvas persistence
     savedCanvases,
     isLoadingCanvases,
+    isSaving,
     currentCanvasId,
     currentCanvasName,
     setCanvasName,

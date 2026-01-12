@@ -1,10 +1,12 @@
 import { memo } from "react";
 import { Handle, Position, NodeProps } from "reactflow";
-import { Sparkles, X, Loader2, Play } from "lucide-react";
+import { Sparkles, X, Loader2, Play, Image } from "lucide-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { GeneratorNodeData, ContentFormat, Platform } from "../hooks/useCanvasState";
 
@@ -21,6 +23,22 @@ const FORMAT_OPTIONS: { value: ContentFormat; label: string; icon: string }[] = 
   { value: "post", label: "Post", icon: "📝" },
   { value: "stories", label: "Stories", icon: "📱" },
   { value: "newsletter", label: "Newsletter", icon: "📧" },
+  { value: "image", label: "Imagem", icon: "🖼️" },
+];
+
+const IMAGE_STYLE_OPTIONS = [
+  { value: "photographic", label: "Fotográfico" },
+  { value: "illustration", label: "Ilustração" },
+  { value: "3d", label: "3D Render" },
+  { value: "minimalist", label: "Minimalista" },
+  { value: "artistic", label: "Artístico" },
+];
+
+const ASPECT_RATIO_OPTIONS = [
+  { value: "1:1", label: "1:1 (Quadrado)" },
+  { value: "4:5", label: "4:5 (Vertical)" },
+  { value: "9:16", label: "9:16 (Stories)" },
+  { value: "16:9", label: "16:9 (Paisagem)" },
 ];
 
 const PLATFORM_OPTIONS: { value: Platform; label: string }[] = [
@@ -129,6 +147,67 @@ function GeneratorNodeComponent({
             </SelectContent>
           </Select>
         </div>
+
+        {/* Image-specific options */}
+        {data.format === "image" && (
+          <>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+                Estilo Visual
+              </label>
+              <Select
+                value={data.imageStyle || "photographic"}
+                onValueChange={(value) => onUpdateData?.(id, { imageStyle: value })}
+                disabled={data.isGenerating}
+              >
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {IMAGE_STYLE_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value} className="text-xs">
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+                Proporção
+              </label>
+              <Select
+                value={data.aspectRatio || "1:1"}
+                onValueChange={(value) => onUpdateData?.(id, { aspectRatio: value })}
+                disabled={data.isGenerating}
+              >
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {ASPECT_RATIO_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value} className="text-xs">
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id={`no-text-${id}`}
+                checked={data.noTextInImage || false}
+                onCheckedChange={(checked) => onUpdateData?.(id, { noTextInImage: !!checked })}
+                disabled={data.isGenerating}
+              />
+              <Label htmlFor={`no-text-${id}`} className="text-[10px] text-muted-foreground cursor-pointer">
+                Sem texto na imagem
+              </Label>
+            </div>
+          </>
+        )}
 
         {/* Progress */}
         {data.isGenerating && (
