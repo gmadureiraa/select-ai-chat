@@ -5,10 +5,11 @@ import ReactFlow, {
   MiniMap,
   ReactFlowProvider,
   useReactFlow,
+  NodeProps,
 } from "reactflow";
 import "reactflow/dist/style.css";
 
-import { useCanvasState, NodeDataType } from "./hooks/useCanvasState";
+import { useCanvasState, NodeDataType, CanvasNodeData, SourceNodeData, LibraryNodeData, PromptNodeData, GeneratorNodeData, OutputNodeData } from "./hooks/useCanvasState";
 import { CanvasToolbar } from "./CanvasToolbar";
 import { SourceNode } from "./nodes/SourceNode";
 import { LibraryRefNode } from "./nodes/LibraryRefNode";
@@ -39,47 +40,68 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
     clearCanvas,
   } = useCanvasState(clientId);
 
+  // Use refs to maintain stable references for handlers
+  const handlersRef = useRef({
+    clientId,
+    extractUrlContent,
+    updateNodeData,
+    deleteNode,
+    generateContent,
+    sendToPlanning,
+  });
+
+  // Update refs on each render so they always have latest values
+  handlersRef.current = {
+    clientId,
+    extractUrlContent,
+    updateNodeData,
+    deleteNode,
+    generateContent,
+    sendToPlanning,
+  };
+
+  // Create nodeTypes only once - handlers are accessed via ref
   const nodeTypes = useMemo(() => ({
-    source: (props: any) => (
+    source: (props: NodeProps<SourceNodeData>) => (
       <SourceNode
         {...props}
-        onExtractUrl={extractUrlContent}
-        onUpdateData={updateNodeData}
-        onDelete={deleteNode}
+        onExtractUrl={(id, url) => handlersRef.current.extractUrlContent(id, url)}
+        onUpdateData={(id, data) => handlersRef.current.updateNodeData(id, data)}
+        onDelete={(id) => handlersRef.current.deleteNode(id)}
       />
     ),
-    library: (props: any) => (
+    library: (props: NodeProps<LibraryNodeData>) => (
       <LibraryRefNode
         {...props}
-        clientId={clientId}
-        onUpdateData={updateNodeData}
-        onDelete={deleteNode}
+        clientId={handlersRef.current.clientId}
+        onUpdateData={(id, data) => handlersRef.current.updateNodeData(id, data)}
+        onDelete={(id) => handlersRef.current.deleteNode(id)}
       />
     ),
-    prompt: (props: any) => (
+    prompt: (props: NodeProps<PromptNodeData>) => (
       <PromptNode
         {...props}
-        onUpdateData={updateNodeData}
-        onDelete={deleteNode}
+        onUpdateData={(id, data) => handlersRef.current.updateNodeData(id, data)}
+        onDelete={(id) => handlersRef.current.deleteNode(id)}
       />
     ),
-    generator: (props: any) => (
+    generator: (props: NodeProps<GeneratorNodeData>) => (
       <GeneratorNode
         {...props}
-        onUpdateData={updateNodeData}
-        onDelete={deleteNode}
-        onGenerate={generateContent}
+        onUpdateData={(id, data) => handlersRef.current.updateNodeData(id, data)}
+        onDelete={(id) => handlersRef.current.deleteNode(id)}
+        onGenerate={(id) => handlersRef.current.generateContent(id)}
       />
     ),
-    output: (props: any) => (
+    output: (props: NodeProps<OutputNodeData>) => (
       <ContentOutputNode
         {...props}
-        onUpdateData={updateNodeData}
-        onDelete={deleteNode}
-        onSendToPlanning={sendToPlanning}
+        onUpdateData={(id, data) => handlersRef.current.updateNodeData(id, data)}
+        onDelete={(id) => handlersRef.current.deleteNode(id)}
+        onSendToPlanning={(id) => handlersRef.current.sendToPlanning(id)}
       />
     ),
-  }), [clientId, extractUrlContent, updateNodeData, deleteNode, generateContent, sendToPlanning]);
+  }), []);
 
   const handleAddNode = useCallback((type: NodeDataType) => {
     const viewport = getViewport();
