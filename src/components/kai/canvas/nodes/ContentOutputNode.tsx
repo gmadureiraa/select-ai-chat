@@ -1,6 +1,6 @@
 import { memo, useState } from "react";
 import { Handle, Position, NodeProps } from "reactflow";
-import { FileOutput, X, Copy, RefreshCw, Calendar, Check, Edit3, Save } from "lucide-react";
+import { FileOutput, X, Copy, RefreshCw, Calendar, Check, Edit3, Save, Download, Image } from "lucide-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -23,7 +23,8 @@ const FORMAT_LABELS: Record<ContentFormat, string> = {
   reel_script: "Roteiro",
   post: "Post",
   stories: "Stories",
-  newsletter: "Newsletter"
+  newsletter: "Newsletter",
+  image: "Imagem"
 };
 
 const PLATFORM_LABELS: Record<Platform, string> = {
@@ -114,7 +115,59 @@ function ContentOutputNodeComponent({
       </CardHeader>
 
       <CardContent className="px-3 pb-3 space-y-2">
-        {isEditing ? (
+        {/* Image output */}
+        {data.isImage ? (
+          <div className="space-y-2">
+            <div className="relative rounded-md border overflow-hidden bg-muted/30">
+              {data.content ? (
+                <img 
+                  src={data.content} 
+                  alt="Generated image" 
+                  className="w-full h-auto max-h-[200px] object-contain"
+                />
+              ) : (
+                <div className="h-[150px] flex items-center justify-center">
+                  <Image className="h-8 w-8 text-muted-foreground animate-pulse" />
+                </div>
+              )}
+            </div>
+            {data.content && (
+              <div className="flex gap-1.5">
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  onClick={handleCopy}
+                  className="flex-1 h-7 text-xs gap-1"
+                >
+                  <Copy className="h-3 w-3" />
+                  Copiar URL
+                </Button>
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  onClick={() => {
+                    const link = document.createElement('a');
+                    link.href = data.content;
+                    link.download = `image-${id}.png`;
+                    link.click();
+                  }}
+                  className="flex-1 h-7 text-xs gap-1"
+                >
+                  <Download className="h-3 w-3" />
+                  Download
+                </Button>
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  onClick={() => onRegenerate?.(id)}
+                  className="h-7 text-xs px-2"
+                >
+                  <RefreshCw className="h-3 w-3" />
+                </Button>
+              </div>
+            )}
+          </div>
+        ) : isEditing ? (
           <div className="space-y-2">
             <Textarea
               value={editedContent}

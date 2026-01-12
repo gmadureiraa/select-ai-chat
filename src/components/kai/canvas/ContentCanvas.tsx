@@ -16,6 +16,9 @@ import { LibraryRefNode } from "./nodes/LibraryRefNode";
 import { PromptNode } from "./nodes/PromptNode";
 import { GeneratorNode } from "./nodes/GeneratorNode";
 import { ContentOutputNode } from "./nodes/ContentOutputNode";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 interface ContentCanvasProps {
   clientId: string;
@@ -24,6 +27,20 @@ interface ContentCanvasProps {
 function ContentCanvasInner({ clientId }: ContentCanvasProps) {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const { zoomIn, zoomOut, fitView, getViewport } = useReactFlow();
+
+  // Fetch client data for header
+  const { data: client } = useQuery({
+    queryKey: ['client', clientId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('clients')
+        .select('id, name, avatar_url')
+        .eq('id', clientId)
+        .single();
+      return data;
+    },
+    enabled: !!clientId,
+  });
 
   const {
     nodes,
@@ -38,6 +55,10 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
     generateContent,
     sendToPlanning,
     clearCanvas,
+    saveCanvas,
+    loadCanvas,
+    savedCanvases,
+    currentCanvasName,
   } = useCanvasState(clientId);
 
   // Use refs to maintain stable references for handlers
@@ -122,7 +143,21 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
   }, [nodes.length, clearCanvas]);
 
   return (
-    <div ref={reactFlowWrapper} className="w-full h-full">
+    <div ref={reactFlowWrapper} className="w-full h-full relative">
+      {/* Client Header */}
+      <div className="absolute top-0 left-0 right-0 z-10 bg-background/80 backdrop-blur-sm border-b px-4 py-2 flex items-center gap-3">
+        <Avatar className="h-8 w-8 rounded-lg">
+          <AvatarImage src={client?.avatar_url || ''} alt={client?.name} className="object-cover" />
+          <AvatarFallback className="rounded-lg bg-primary/20 text-primary text-sm font-semibold">
+            {client?.name?.charAt(0).toUpperCase() || 'C'}
+          </AvatarFallback>
+        </Avatar>
+        <div>
+          <h3 className="font-medium text-sm">{client?.name || 'Cliente'}</h3>
+          <p className="text-xs text-muted-foreground">Canvas de Criação</p>
+        </div>
+      </div>
+
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -138,7 +173,7 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
           style: { stroke: "hsl(var(--primary))", strokeWidth: 2 },
         }}
         proOptions={{ hideAttribution: true }}
-        className="bg-muted/30"
+        className="bg-muted/30 pt-12"
       >
         <Background gap={20} size={1} className="bg-muted/50" />
         <Controls 
@@ -167,6 +202,10 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
         onZoomIn={() => zoomIn()}
         onZoomOut={() => zoomOut()}
         onFitView={() => fitView()}
+        onSave={saveCanvas}
+        onLoad={loadCanvas}
+        savedCanvases={savedCanvases}
+        currentCanvasName={currentCanvasName}
       />
 
       {/* Empty state */}
