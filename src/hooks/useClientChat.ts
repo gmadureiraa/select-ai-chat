@@ -1046,7 +1046,9 @@ INSTRUÇÕES:
         // Chamar IA diretamente - modelo rápido e barato
         const freeChatMessages = [
           { role: "system", content: freeChatContext },
-          ...messages.map((m) => ({ role: m.role, content: m.content })),
+          ...messages
+            .filter((m) => m.content && m.content.trim() !== '')
+            .map((m) => ({ role: m.role, content: m.content })),
           { role: "user", content }
         ];
 
@@ -1352,7 +1354,9 @@ ${referenceLibrary.length > 0 ? `## 📖 REFERÊNCIAS DE ESTILO:\n${referenceCon
         // Chamar IA diretamente para ideias
         const ideaMessages = [
           { role: "system", content: ideaSystemPrompt },
-          ...messages.map((m) => ({ role: m.role, content: m.content })),
+          ...messages
+            .filter((m) => m.content && m.content.trim() !== '')
+            .map((m) => ({ role: m.role, content: m.content })),
           { role: "user", content }
         ];
 
@@ -1544,7 +1548,9 @@ AGORA CHAME A FUNÇÃO select_relevant_content com:
         // Histórico completo de mensagens para contexto
         const selectionMessages = [
           { role: "system", content: selectionSystemMessage },
-          ...messages.map(m => ({ role: m.role, content: m.content })),
+          ...messages
+            .filter((m) => m.content && m.content.trim() !== '')
+            .map(m => ({ role: m.role, content: m.content })),
           { role: "user", content: `TAREFA: Analise a biblioteca acima e use a função select_relevant_content para selecionar materiais relevantes para: "${enrichedContent}"` }
         ];
 
