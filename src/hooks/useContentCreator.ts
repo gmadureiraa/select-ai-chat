@@ -346,7 +346,45 @@ Retorne APENAS o JSON com os 5 momentos, ordenados do maior score para o menor. 
     { "timestamp": "0:00", "title": "Título do momento", "description": "Descrição", "score": 95, "hook": "Gancho inicial" }
   ]
 }`
-        : `Crie um conteúdo de ${format.replace(/_/g, " ")} baseado no conteúdo abaixo.
+        : format === "carousel" 
+          ? `TAREFA: TRANSFORMAR este conteúdo em um CARROSSEL PERSUASIVO de 7-10 slides.
+
+⚠️ ATENÇÃO: Você NÃO está resumindo. Você está TRANSFORMANDO em narrativa persuasiva que faz a pessoa QUERER DESLIZAR.
+
+## FONTE ORIGINAL:
+Título: ${sourceData.title}
+
+Conteúdo:
+${sourceData.content.substring(0, 15000)}
+
+${additionalContext ? `INSTRUÇÕES ADICIONAIS: ${additionalContext}` : ''}
+
+## PROCESSO OBRIGATÓRIO:
+
+1. IDENTIFIQUE os 3-5 INSIGHTS MAIS IMPACTANTES (não todos os pontos)
+   - Dados surpreendentes, revelações, contrastes, erros comuns
+
+2. ESCOLHA uma FÓRMULA DE GANCHO para o Slide 1:
+   - Dor + Promessa: "Você está perdendo X por não fazer Y"
+   - Segredo Revelado: "O que ninguém te conta sobre X"
+   - Contraste Chocante: "Antes: X / Depois: Y"
+   - Erro Comum: "90% das pessoas erram nisso"
+
+3. ESTRUTURE narrativamente:
+   Slide 1: Gancho (máx 20 palavras) → 
+   Slide 2: Ponte (aprofunda dor/curiosidade) → 
+   Slides 3-7: Um insight por slide → 
+   Slides 8-9: Fechamento/Recapitulação → 
+   Slide 10: CTA
+
+4. USE LINGUAGEM CONVERSACIONAL E DIRETA:
+   ✓ "Você está perdendo", "O segredo é", "Faça isso agora"
+   ✗ "Entenda como", "Neste carrossel você vai aprender", "Vamos falar sobre"
+
+5. MÁXIMO 30 palavras por slide (20 no slide 1)
+
+O carrossel deve fazer a pessoa QUERER DESLIZAR, não apenas informar.`
+          : `Crie um conteúdo de ${format.replace(/_/g, " ")} baseado no conteúdo abaixo.
 
 TÍTULO/TEMA: ${sourceData.title}
 
