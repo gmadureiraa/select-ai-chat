@@ -13,6 +13,41 @@ interface ImageLightboxProps {
   onOpenChange: (open: boolean) => void;
 }
 
+// Helper to convert any URL (HTTP or Data URL) to Blob
+const urlToBlob = async (url: string): Promise<Blob> => {
+  if (url.startsWith('data:')) {
+    // Data URL: decode base64
+    const [header, base64Data] = url.split(',');
+    const mimeMatch = header.match(/data:([^;]+)/);
+    const mimeType = mimeMatch ? mimeMatch[1] : 'application/octet-stream';
+    const binaryString = atob(base64Data);
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+    return new Blob([bytes], { type: mimeType });
+  }
+  // HTTP URL
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`Failed to fetch: ${response.status}`);
+  return response.blob();
+};
+
+// Helper to get file extension from URL or Data URL
+const getExtensionFromUrl = (url: string, type: 'image' | 'video'): string => {
+  if (url.startsWith('data:')) {
+    const match = url.match(/data:(\w+)\/(\w+)/);
+    if (match) return match[2] === 'jpeg' ? 'jpg' : match[2];
+  } else {
+    const urlPath = url.split('?')[0];
+    const ext = urlPath.split('.').pop()?.toLowerCase();
+    if (ext && ['png', 'jpg', 'jpeg', 'gif', 'webp', 'mp4', 'webm', 'mov'].includes(ext)) {
+      return ext;
+    }
+  }
+  return type === 'video' ? 'mp4' : 'png';
+};
+
 export function ImageLightbox({
   images,
   initialIndex,
@@ -68,13 +103,23 @@ export function ImageLightbox({
     
     setDownloadingAll(true);
     const zip = new JSZip();
+    let successCount = 0;
     
     try {
       for (const [idx, img] of images.entries()) {
-        const response = await fetch(img.url);
-        const blob = await response.blob();
-        const extension = img.type === 'video' ? 'mp4' : 'png';
-        zip.file(`media-${idx + 1}.${extension}`, blob);
+        try {
+          const blob = await urlToBlob(img.url);
+          const extension = getExtensionFromUrl(img.url, img.type);
+          zip.file(`media-${idx + 1}.${extension}`, blob);
+          successCount++;
+        } catch (err) {
+          console.error(`Error downloading image ${idx + 1}:`, err);
+        }
+      }
+      
+      if (successCount === 0) {
+        toast.error('Não foi possível baixar nenhuma mídia');
+        return;
       }
       
       const content = await zip.generateAsync({ type: 'blob' });
@@ -87,10 +132,10 @@ export function ImageLightbox({
       document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
       
-      toast.success(`${images.length} mídias baixadas em um arquivo ZIP!`);
+      toast.success(`${successCount} mídia(s) baixada(s) em um arquivo ZIP!`);
     } catch (error) {
       console.error('Download error:', error);
-      toast.error('Erro ao baixar mídias');
+      toast.error('Erro ao criar arquivo ZIP');
     } finally {
       setDownloadingAll(false);
     }

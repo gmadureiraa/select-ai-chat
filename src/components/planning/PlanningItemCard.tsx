@@ -1,5 +1,5 @@
 import { useState, useMemo, memo } from 'react';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { 
   Calendar, Clock, Library, 
@@ -229,7 +229,7 @@ export const PlanningItemCard = memo(function PlanningItemCard({
             <PlatformIcon className={cn("h-3 w-3", colors.text)} />
             {displayDate && (
               <span className="text-[9px] text-muted-foreground">
-                {format(new Date(displayDate), 'dd/MM', { locale: ptBR })}
+                {format(parseISO(displayDate), 'dd/MM', { locale: ptBR })}
               </span>
             )}
             {/* Assignee Avatar */}
