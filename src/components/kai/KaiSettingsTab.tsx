@@ -454,6 +454,7 @@ Estruture o documento com seções para: Visão Geral, Posicionamento, Tom de Vo
                 { key: "youtube", label: "YouTube", icon: Eye },
                 { key: "twitter", label: "X/Twitter", icon: Twitter },
                 { key: "newsletter", label: "Newsletter", icon: Mail },
+                { key: "meta_ads", label: "Meta Ads", icon: Megaphone },
               ].map((channel) => {
                 const archivedChannels = (formData.social_media as any)?.archived_channels || [];
                 const isArchived = archivedChannels.includes(channel.key);
