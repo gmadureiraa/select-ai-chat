@@ -1,8 +1,9 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Plus, Loader2, Zap, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { usePlanningItems, type PlanningFilters, type PlanningItem } from '@/hooks/usePlanningItems';
+import { usePlanningRealtime } from '@/hooks/usePlanningRealtime';
 import { PlanningFilters as FiltersComponent } from './PlanningFilters';
 import { ViewToggle, type PlanningView } from './ViewToggle';
 import { PlanningItemCard } from './PlanningItemCard';
@@ -14,6 +15,7 @@ import { useWorkspace } from '@/hooks/useWorkspace';
 import { useMemberClientAccess } from '@/hooks/useMemberClientAccess';
 import { useTeamMembers } from '@/hooks/useTeamMembers';
 import { PlanningAutomations } from './PlanningAutomations';
+import { format } from 'date-fns';
 
 interface PlanningBoardProps {
   clientId?: string;
@@ -89,6 +91,9 @@ export function PlanningBoard({ clientId, isEnterprise = false, onClientChange }
     getItemsByColumn,
   } = usePlanningItems(effectiveFilters);
 
+  // Enable realtime updates
+  usePlanningRealtime();
+
   // Handle opening item from URL (e.g., from notification click)
   useEffect(() => {
     const openItemId = searchParams.get('openItem');
@@ -149,6 +154,19 @@ export function PlanningBoard({ clientId, isEnterprise = false, onClientChange }
       platform: item.platform || undefined,
     });
   };
+
+  // Handle moving item to a new date (from calendar drag-and-drop)
+  const handleMoveToDate = useCallback((itemId: string, newDate: Date) => {
+    const item = items.find(i => i.id === itemId);
+    if (!item) return;
+
+    // If item has scheduled_at, update that; otherwise update due_date
+    const updateData = item.scheduled_at
+      ? { scheduled_at: format(newDate, "yyyy-MM-dd'T'HH:mm:ss") }
+      : { due_date: format(newDate, 'yyyy-MM-dd') };
+
+    updateItem.mutate({ id: itemId, ...updateData });
+  }, [items, updateItem]);
   
   // Determine if we should show the filters (hide for viewers with single client access)
   const showFilters = !(isViewer && viewerClientIds.length === 1);
@@ -239,6 +257,7 @@ export function PlanningBoard({ clientId, isEnterprise = false, onClientChange }
             onDeleteItem={(id) => deleteItem.mutate(id)}
             onMoveToLibrary={(id) => moveToLibrary.mutate(id)}
             onRetry={(id) => retryPublication.mutate(id)}
+            onMoveItem={handleMoveToDate}
             canEdit={!isViewer}
           />
         )}
