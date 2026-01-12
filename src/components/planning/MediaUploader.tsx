@@ -154,8 +154,11 @@ export function MediaUploader({
           : `planning/general/${fileName}`;
 
         const { data, error } = await supabase.storage
-          .from('media')
-          .upload(filePath, file);
+          .from('planning-media')
+          .upload(filePath, file, {
+            cacheControl: '3600',
+            upsert: false
+          });
 
         if (error) {
           console.error('Upload error:', error);
@@ -164,7 +167,7 @@ export function MediaUploader({
         }
 
         const { data: urlData } = supabase.storage
-          .from('media')
+          .from('planning-media')
           .getPublicUrl(data.path);
 
         newItems.push({
