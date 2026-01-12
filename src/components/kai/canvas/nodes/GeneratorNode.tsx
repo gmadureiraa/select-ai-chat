@@ -50,6 +50,15 @@ const PLATFORM_OPTIONS: { value: Platform; label: string }[] = [
   { value: "other", label: "Outro" },
 ];
 
+const TONE_OPTIONS = [
+  { value: "professional", label: "Profissional" },
+  { value: "casual", label: "Casual" },
+  { value: "humorous", label: "Humorístico" },
+  { value: "technical", label: "Técnico" },
+  { value: "inspirational", label: "Inspiracional" },
+  { value: "educational", label: "Educativo" },
+];
+
 function GeneratorNodeComponent({ 
   id, 
   data, 
@@ -125,27 +134,51 @@ function GeneratorNodeComponent({
           </Select>
         </div>
 
-        {/* Platform */}
-        <div className="space-y-1.5">
-          <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
-            Plataforma
-          </label>
-          <Select
-            value={data.platform}
-            onValueChange={handlePlatformChange}
-            disabled={data.isGenerating}
-          >
-            <SelectTrigger className="h-8 text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {PLATFORM_OPTIONS.map((option) => (
-                <SelectItem key={option.value} value={option.value} className="text-xs">
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        {/* Platform + Tone row */}
+        <div className="grid grid-cols-2 gap-2">
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+              Plataforma
+            </label>
+            <Select
+              value={data.platform}
+              onValueChange={handlePlatformChange}
+              disabled={data.isGenerating}
+            >
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {PLATFORM_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value} className="text-xs">
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+              Tom
+            </label>
+            <Select
+              value={data.tone || "professional"}
+              onValueChange={(tone) => onUpdateData?.(id, { tone })}
+              disabled={data.isGenerating}
+            >
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {TONE_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value} className="text-xs">
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
         {/* Image-specific options */}

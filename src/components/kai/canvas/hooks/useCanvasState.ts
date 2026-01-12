@@ -73,6 +73,8 @@ export interface GeneratorNodeData {
   isGenerating: boolean;
   progress?: number;
   currentStep?: string;
+  // Content generation options
+  tone?: string;
   // Image generation options
   imageStyle?: string;
   aspectRatio?: string;
@@ -208,6 +210,7 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
           format: "carousel",
           platform: "instagram",
           isGenerating: false,
+          tone: "professional",
           imageStyle: "photographic",
           aspectRatio: "1:1",
           noTextInImage: false,
@@ -616,6 +619,7 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
               userMessage,
               contentType: genData.format,
               platform: genData.platform,
+              tone: genData.tone || "professional",
               clientName: clientData?.name || "Cliente",
               identityGuide: clientData?.identity_guide || "",
               libraryContext: "",
@@ -791,6 +795,31 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
     }
   }, [nodes, columns, clientId, createItem, updateNodeData, toast]);
 
+  // Regenerate content from an output node
+  const regenerateContent = useCallback(async (outputNodeId: string) => {
+    const outputNode = nodes.find((n) => n.id === outputNodeId);
+    if (!outputNode || outputNode.data.type !== "output") return;
+
+    // Find the generator node that created this output
+    const connectedEdge = edges.find((e) => e.target === outputNodeId);
+    if (!connectedEdge) {
+      toast({
+        title: "Erro",
+        description: "Não foi possível encontrar o gerador conectado",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const generatorNodeId = connectedEdge.source;
+    
+    // Delete the current output node
+    deleteNode(outputNodeId);
+    
+    // Regenerate from the generator
+    await generateContent(generatorNodeId);
+  }, [nodes, edges, deleteNode, generateContent, toast]);
+
   // Save canvas
   const saveCanvas = useCallback(async (name?: string) => {
     setIsSaving(true);
@@ -938,6 +967,7 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
     transcribeFile,
     analyzeImageStyle,
     generateContent,
+    regenerateContent,
     sendToPlanning,
     clearCanvas,
     getConnectedInputs,

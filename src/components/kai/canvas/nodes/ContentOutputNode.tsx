@@ -1,14 +1,25 @@
-import { memo, useState } from "react";
+import { memo, useState, useMemo } from "react";
 import { Handle, Position, NodeProps } from "reactflow";
-import { FileOutput, X, Copy, RefreshCw, Calendar, Check, Edit3, Save, Download, Image } from "lucide-react";
+import { FileOutput, X, Copy, RefreshCw, Calendar, Check, Edit3, Save, Download, Image, ExternalLink } from "lucide-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { OutputNodeData, ContentFormat, Platform } from "../hooks/useCanvasState";
 import { useToast } from "@/hooks/use-toast";
+
+// Platform character limits
+const PLATFORM_LIMITS: Record<Platform, number | null> = {
+  twitter: 280,
+  instagram: 2200,
+  linkedin: 3000,
+  youtube: null,
+  tiktok: 2200,
+  other: null,
+};
 
 interface ContentOutputNodeProps extends NodeProps<OutputNodeData> {
   onUpdateData?: (nodeId: string, data: Partial<OutputNodeData>) => void;
@@ -48,6 +59,16 @@ function ContentOutputNodeComponent({
   const { toast } = useToast();
   const [isEditing, setIsEditing] = useState(false);
   const [editedContent, setEditedContent] = useState(data.content);
+
+  // Calculate content stats
+  const contentStats = useMemo(() => {
+    if (data.isImage || !data.content) return null;
+    const charCount = data.content.length;
+    const wordCount = data.content.trim().split(/\s+/).filter(Boolean).length;
+    const platformLimit = PLATFORM_LIMITS[data.platform];
+    const isOverLimit = platformLimit ? charCount > platformLimit : false;
+    return { charCount, wordCount, platformLimit, isOverLimit };
+  }, [data.content, data.platform, data.isImage]);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(data.content);
@@ -187,11 +208,27 @@ function ContentOutputNodeComponent({
           </div>
         ) : (
           <>
-            <ScrollArea className="h-[180px] rounded-md border p-2 bg-muted/30">
+            <ScrollArea className="h-[160px] rounded-md border p-2 bg-muted/30">
               <div className="text-xs whitespace-pre-wrap">
                 {data.content || "Aguardando geração..."}
               </div>
             </ScrollArea>
+
+            {/* Content stats */}
+            {contentStats && data.content && (
+              <div className="flex items-center justify-between text-[10px] text-muted-foreground px-1">
+                <span>{contentStats.wordCount} palavras</span>
+                <span className={cn(
+                  contentStats.isOverLimit && "text-destructive font-medium"
+                )}>
+                  {contentStats.charCount}
+                  {contentStats.platformLimit && (
+                    <span>/{contentStats.platformLimit}</span>
+                  )}
+                  {contentStats.isOverLimit && " ⚠️"}
+                </span>
+              </div>
+            )}
 
             {data.content && (
               <div className="flex gap-1.5">
@@ -225,13 +262,22 @@ function ContentOutputNodeComponent({
             )}
 
             {data.content && !data.addedToPlanning && (
-              <Button 
-                onClick={() => onSendToPlanning?.(id)}
-                className="w-full h-8 gap-1.5 text-xs"
-              >
-                <Calendar className="h-3.5 w-3.5" />
-                Enviar para Planejamento
-              </Button>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      onClick={() => onSendToPlanning?.(id)}
+                      className="w-full h-8 gap-1.5 text-xs"
+                    >
+                      <ExternalLink className="h-3.5 w-3.5" />
+                      Enviar para Planejamento
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Abre o editor para revisar antes de salvar</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             )}
 
             {data.addedToPlanning && (
