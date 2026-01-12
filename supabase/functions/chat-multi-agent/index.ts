@@ -132,6 +132,23 @@ async function executeAgent(
       `ID: ${r.id}\nTítulo: ${r.title}\nTipo: ${r.reference_type}\nPreview: ${r.content.substring(0, 300)}...`
     ).join("\n\n---\n\n");
 
+    // Instruções específicas para carrossel
+    const carouselResearchInstructions = context.contentType === 'carousel' ? `
+## INSTRUÇÕES ESPECIAIS PARA CARROSSEL:
+
+NÃO resuma todo o conteúdo. EXTRAIA apenas:
+1. Os 3-5 INSIGHTS MAIS IMPACTANTES (dados, revelações, contrastes chocantes)
+2. NÚMEROS ESPECÍFICOS que possam ser usados (estatísticas, percentuais, valores)
+3. Uma FÓRMULA DE GANCHO sugerida para o Slide 1:
+   - Dor + Promessa: "Você está perdendo X por não fazer Y"
+   - Segredo Revelado: "O que ninguém te conta sobre X"
+   - Contraste Chocante: "Antes: X / Depois: Y"
+   - Erro Comum: "90% das pessoas erram nisso"
+4. TOM EMOCIONAL adequado (provocativo, educativo, inspirador, urgente)
+
+FOCO: Identificar O QUE VAI FAZER A PESSOA QUERER DESLIZAR, não resumir informação.
+` : '';
+
     userPrompt = `Cliente: ${context.clientName}
 
 ## BIBLIOTECA DE CONTEÚDO (${context.contentLibrary.length} itens):
@@ -139,7 +156,7 @@ ${libraryContext}
 
 ## BIBLIOTECA DE REFERÊNCIAS (${context.referenceLibrary.length} itens):
 ${refContext}
-
+${carouselResearchInstructions}
 ## SOLICITAÇÃO DO USUÁRIO:
 ${context.userMessage}
 
@@ -154,6 +171,51 @@ Analise e selecione os materiais mais relevantes para criar este conteúdo.`;
       `### ${m.title} (${m.content_type})\n${m.content}`
     ).join("\n\n---\n\n");
 
+    // Instruções específicas para carrossel
+    const carouselWriterInstructions = context.contentType === 'carousel' ? `
+## INSTRUÇÕES OBRIGATÓRIAS PARA CARROSSEL:
+
+REGRA PRINCIPAL: Você está TRANSFORMANDO conteúdo em narrativa persuasiva, NÃO resumindo.
+
+### SLIDE 1 (GANCHO) - MÁXIMO 20 PALAVRAS:
+Use UMA dessas fórmulas:
+- Dor + Promessa: "Você perde X por mês sem saber. Mas existe uma forma de..."
+- Segredo Revelado: "O segredo que poucos conhecem sobre X"
+- Contraste Chocante: "Antes: X / Depois: Y"  
+- Erro Comum: "90% das pessoas cometem este erro com X"
+
+PROIBIDO NO SLIDE 1:
+- "Entenda como", "Neste carrossel", "Vamos falar sobre", "Descubra"
+- Qualquer linguagem educativa ou explicativa
+- Mais de 20 palavras
+
+### SLIDE 2 (PONTE) - MÁXIMO 30 PALAVRAS:
+- Aprofunde a dor ou curiosidade
+- NÃO entregue a solução ainda
+- Termine com transição: "→" ou "Mas calma. Tem solução."
+
+### SLIDES 3-7 (CONTEÚDO) - MÁXIMO 30 PALAVRAS CADA:
+- UM insight por slide (não dois, não três - UM)
+- Use TRANSIÇÕES entre slides: "E tem mais →", "Aqui está o melhor"
+- Seja ESPECÍFICO: números, exemplos concretos, não generalidades
+- Tom CONVERSACIONAL: "Você está perdendo", "O segredo é", "Faça isso"
+- Cada slide deve criar curiosidade para o próximo
+
+### SLIDES 8-9 (FECHAMENTO):
+- Recapitulação dos pontos OU insight final forte
+- Mensagem que fecha o raciocínio
+
+### SLIDE 10 (CTA):
+- "Salve para depois" + CTA específico
+- "Mande para alguém que precisa ver isso"
+
+REGRAS ABSOLUTAS:
+- NUNCA use linguagem genérica: "Entenda", "Aprenda", "Descubra como"
+- SEMPRE use linguagem direta: "Você está perdendo", "O segredo é", "Faça isso"
+- O leitor deve QUERER deslizar para ver mais
+- Máximo 30 palavras por slide (exceto slide 1 que é 20)
+` : '';
+
     userPrompt = `## CLIENTE: ${context.clientName}
 
 ## GUIA DE IDENTIDADE:
@@ -166,7 +228,7 @@ ${materialsContext || "Nenhum material selecionado"}
 ${researchOutput}
 
 ## TIPO DE CONTEÚDO: ${context.contentType}
-
+${carouselWriterInstructions}
 ## SOLICITAÇÃO:
 ${context.userMessage}
 
@@ -200,12 +262,34 @@ Mantenha todo o conteúdo, mas refine completamente o estilo.`;
   } else if (agent.id === "reviewer") {
     const contentToReview = context.previousOutputs["editor"] || context.previousOutputs["writer"] || "";
 
+    // Checklist específico para carrossel
+    const carouselReviewerChecklist = context.contentType === 'carousel' ? `
+## CHECKLIST OBRIGATÓRIO PARA CARROSSEL (VALIDE CADA ITEM):
+
+□ SLIDE 1: Tem máximo 20 palavras?
+□ SLIDE 1: Usa fórmula de gancho (Dor+Promessa, Segredo, Contraste, Erro)?
+□ SLIDE 1: Cria URGÊNCIA ou CURIOSIDADE (não é educativo)?
+□ SLIDE 1: NÃO começa com "Entenda", "Descubra", "Aprenda", "Neste carrossel"?
+□ CADA SLIDE: Tem máximo 30 palavras?
+□ CADA SLIDE: Tem apenas UM insight/ponto?
+□ TRANSIÇÕES: Há ganchos entre slides ("→", "E tem mais", "Mas calma")?
+□ TOM: É conversacional e direto, não acadêmico?
+□ CTA: Slide final tem call-to-action claro?
+
+SE QUALQUER ITEM FALHAR: Reescreva o slide problemático.
+
+ATENÇÃO ESPECIAL AO SLIDE 1:
+- Se tiver mais de 20 palavras → REESCREVA
+- Se for educativo/explicativo → REESCREVA com gancho emocional
+- Se usar linguagem genérica → REESCREVA com linguagem direta
+` : '';
+
     userPrompt = `## CLIENTE: ${context.clientName}
 ## TIPO DE CONTEÚDO: ${context.contentType || "geral"}
 
 ## CONTEÚDO PARA REVISÃO:
 ${contentToReview}
-
+${carouselReviewerChecklist}
 ## REGRAS DE FORMATAÇÃO OBRIGATÓRIAS:
 
 1. **USE MARKDOWN RICO** para estruturar o conteúdo:
