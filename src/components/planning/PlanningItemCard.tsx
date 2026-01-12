@@ -7,6 +7,7 @@ import {
   Twitter, Linkedin, Instagram, Youtube, Mail, FileText, Video,
   Image as ImageIcon, MessageSquare
 } from 'lucide-react';
+import { ImageLightbox } from './ImageLightbox';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -93,6 +94,7 @@ export const PlanningItemCard = memo(function PlanningItemCard({
   canDelete = true
 }: PlanningItemCardProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
   const { getPublicationMode, getPlatformStatus } = useClientPlatformStatus(item.client_id);
   
   const platform = item.platform || 'other';
@@ -135,11 +137,17 @@ export const PlanningItemCard = memo(function PlanningItemCard({
     >
       {/* Media Preview - Only if not compact */}
       {hasMedia && firstMedia && !compact && (
-        <div className="relative h-20 bg-muted overflow-hidden">
+        <div 
+          className="relative h-20 bg-muted overflow-hidden cursor-zoom-in"
+          onClick={(e) => {
+            e.stopPropagation();
+            setLightboxOpen(true);
+          }}
+        >
           <img 
             src={firstMedia} 
             alt="" 
-            className="w-full h-full object-cover"
+            className="w-full h-full object-cover hover:scale-105 transition-transform duration-200"
           />
           {item.media_urls.length > 1 && (
             <div className="absolute bottom-0.5 right-0.5 bg-black/60 text-white text-[9px] px-1 py-0.5 rounded flex items-center gap-0.5">
@@ -148,6 +156,19 @@ export const PlanningItemCard = memo(function PlanningItemCard({
             </div>
           )}
         </div>
+      )}
+
+      {/* Lightbox for media preview */}
+      {hasMedia && (
+        <ImageLightbox
+          images={item.media_urls.map(url => ({
+            url,
+            type: url.match(/\.(mp4|webm|mov)$/i) ? 'video' as const : 'image' as const
+          }))}
+          initialIndex={0}
+          open={lightboxOpen}
+          onOpenChange={setLightboxOpen}
+        />
       )}
 
       <div className={cn(compact ? "" : "p-2.5")}>
