@@ -58,6 +58,34 @@ export function useMetaAdsAds(clientId: string) {
 }
 
 // Import Meta Ads CSV data
+// Helper to deduplicate data based on key fields
+function deduplicateData<T extends Record<string, unknown>>(
+  data: T[],
+  keyFields: string[]
+): T[] {
+  const seen = new Map<string, T>();
+  
+  for (const item of data) {
+    const key = keyFields.map(f => String(item[f] ?? '')).join('|');
+    // Keep the last occurrence (or merge values if needed)
+    if (seen.has(key)) {
+      // Merge: prefer non-null values from the new item
+      const existing = seen.get(key)!;
+      const merged: Record<string, unknown> = { ...existing };
+      for (const [k, v] of Object.entries(item)) {
+        if (v !== null && v !== undefined && v !== '') {
+          merged[k] = v;
+        }
+      }
+      seen.set(key, merged as T);
+    } else {
+      seen.set(key, item);
+    }
+  }
+  
+  return Array.from(seen.values());
+}
+
 export function useImportMetaAdsCSV(clientId: string) {
   const queryClient = useQueryClient();
   
@@ -72,29 +100,42 @@ export function useImportMetaAdsCSV(clientId: string) {
       let count = 0;
       
       if (parsed.type === 'campaigns') {
+        // Deduplicate based on unique constraint fields
+        const dedupedData = deduplicateData(dataWithClientId, [
+          'client_id', 'campaign_name', 'start_date', 'end_date'
+        ]);
+        
         const result = await supabase
           .from('meta_ads_campaigns')
-          .upsert(dataWithClientId as any, {
+          .upsert(dedupedData as any, {
             onConflict: 'client_id,campaign_name,start_date,end_date'
           });
         error = result.error;
-        count = dataWithClientId.length;
+        count = dedupedData.length;
       } else if (parsed.type === 'adsets') {
+        const dedupedData = deduplicateData(dataWithClientId, [
+          'client_id', 'adset_name', 'start_date', 'end_date'
+        ]);
+        
         const result = await supabase
           .from('meta_ads_adsets')
-          .upsert(dataWithClientId as any, {
+          .upsert(dedupedData as any, {
             onConflict: 'client_id,adset_name,start_date,end_date'
           });
         error = result.error;
-        count = dataWithClientId.length;
+        count = dedupedData.length;
       } else if (parsed.type === 'ads') {
+        const dedupedData = deduplicateData(dataWithClientId, [
+          'client_id', 'ad_name', 'start_date', 'end_date'
+        ]);
+        
         const result = await supabase
           .from('meta_ads_ads')
-          .upsert(dataWithClientId as any, {
+          .upsert(dedupedData as any, {
             onConflict: 'client_id,ad_name,start_date,end_date'
           });
         error = result.error;
-        count = dataWithClientId.length;
+        count = dedupedData.length;
       }
       
       if (error) throw error;
