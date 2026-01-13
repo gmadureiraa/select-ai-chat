@@ -108,10 +108,26 @@ export function InstagramPostEditDialog({ post, open, onOpenChange, clientId }: 
   const handleSave = async () => {
     if (!post) return;
 
+    // Fix timezone issue: preserve original time or use midday UTC to avoid day shifts
+    let newPostedAt: string | null = null;
+    if (formData.posted_at) {
+      const originalDate = post.posted_at 
+        ? format(new Date(post.posted_at), "yyyy-MM-dd") 
+        : "";
+      
+      if (formData.posted_at === originalDate && post.posted_at) {
+        // Date unchanged - preserve original timestamp
+        newPostedAt = post.posted_at;
+      } else {
+        // Date changed - use midday UTC to avoid timezone day shifts
+        newPostedAt = `${formData.posted_at}T12:00:00.000Z`;
+      }
+    }
+
     const updates = {
       caption: formData.caption,
       post_type: formData.post_type,
-      posted_at: formData.posted_at ? new Date(formData.posted_at).toISOString() : null,
+      posted_at: newPostedAt,
       permalink: formData.permalink,
       thumbnail_url: formData.thumbnail_url,
       likes: Number(formData.likes),
