@@ -25,33 +25,77 @@ export function InstagramStoriesCSVUpload({ clientId, onSuccess }: InstagramStor
   
   const importMutation = useImportInstagramStoriesCSV(clientId);
 
-  const parseCSV = (text: string) => {
-    // Clean the text and split into lines
-    const cleanText = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-    const lines = cleanText.split("\n").filter(line => line.trim());
-    if (lines.length < 2) return [];
+  /**
+   * RFC 4180-compliant CSV parser that handles:
+   * - Fields with embedded newlines inside quotes
+   * - Fields with commas/semicolons inside quotes
+   * - Escaped quotes ("" inside quoted fields)
+   * - BOM characters at the start of the file
+   */
+  const parseCSV = (text: string): Record<string, string>[] => {
+    // Remove BOM if present
+    let cleanText = text.replace(/^\uFEFF/, '');
+    // Normalize line endings
+    cleanText = cleanText.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
     
-    // Find delimiter (comma or semicolon) - check first line without quotes
-    const firstLine = lines[0];
-    const delimiter = firstLine.includes(";") ? ";" : ",";
+    if (cleanText.trim().length === 0) return [];
     
-    // Parse a CSV line respecting quoted fields
+    // Detect delimiter from first line (ignoring quoted content)
+    const firstLineEnd = cleanText.indexOf('\n');
+    const firstLine = firstLineEnd > 0 ? cleanText.slice(0, firstLineEnd) : cleanText;
+    const delimiter = firstLine.includes(';') ? ';' : ',';
+    
+    // Split the entire text into records, respecting quoted fields with embedded newlines
+    const records: string[] = [];
+    let currentRecord = '';
+    let inQuotes = false;
+    
+    for (let i = 0; i < cleanText.length; i++) {
+      const char = cleanText[i];
+      
+      if (char === '"') {
+        // Check for escaped quote ("")
+        if (inQuotes && cleanText[i + 1] === '"') {
+          currentRecord += '""';
+          i++; // Skip next quote
+        } else {
+          inQuotes = !inQuotes;
+          currentRecord += char;
+        }
+      } else if (char === '\n' && !inQuotes) {
+        // End of record
+        if (currentRecord.trim()) {
+          records.push(currentRecord);
+        }
+        currentRecord = '';
+      } else {
+        currentRecord += char;
+      }
+    }
+    // Don't forget the last record
+    if (currentRecord.trim()) {
+      records.push(currentRecord);
+    }
+    
+    if (records.length < 2) return [];
+    
+    // Parse a single CSV line into fields
     const parseLine = (line: string): string[] => {
       const result: string[] = [];
       let current = '';
-      let inQuotes = false;
+      let fieldInQuotes = false;
       
       for (let i = 0; i < line.length; i++) {
         const char = line[i];
         
         if (char === '"') {
-          if (inQuotes && line[i + 1] === '"') {
+          if (fieldInQuotes && line[i + 1] === '"') {
             current += '"';
-            i++; // Skip next quote
+            i++; // Skip escaped quote
           } else {
-            inQuotes = !inQuotes;
+            fieldInQuotes = !fieldInQuotes;
           }
-        } else if (char === delimiter && !inQuotes) {
+        } else if (char === delimiter && !fieldInQuotes) {
           result.push(current.trim());
           current = '';
         } else {
@@ -63,15 +107,17 @@ export function InstagramStoriesCSVUpload({ clientId, onSuccess }: InstagramStor
       return result;
     };
     
-    const headers = parseLine(lines[0]);
+    // Parse headers
+    const headers = parseLine(records[0]).map(h => 
+      h.replace(/^"|"$/g, '').trim()
+    );
     
-    return lines.slice(1).map(line => {
-      const values = parseLine(line);
+    // Parse data rows
+    return records.slice(1).map(record => {
+      const values = parseLine(record);
       const row: Record<string, string> = {};
       headers.forEach((header, i) => {
-        // Clean header of any remaining quotes
-        const cleanHeader = header.replace(/^"|"$/g, '');
-        row[cleanHeader] = values[i] || "";
+        row[header] = values[i] || '';
       });
       return row;
     });

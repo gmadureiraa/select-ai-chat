@@ -32,6 +32,7 @@ import { MetricsDataAlert } from "./MetricsDataAlert";
 import { BestPostsByMetric } from "./BestPostsByMetric";
 import { InstagramStoriesSection } from "./InstagramStoriesSection";
 import { InstagramStoriesCSVUpload } from "./InstagramStoriesCSVUpload";
+import { InstagramStoriesMetricsCards } from "./InstagramStoriesMetricsCards";
 import { useInstagramStories } from "@/hooks/useInstagramStories";
 import { format, subDays, isAfter, isBefore, parseISO, startOfDay, getDay, getHours } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -149,6 +150,30 @@ export function InstagramDashboard({
       return isAfter(date, previousPeriodCutoff) && !isAfter(date, cutoffDate);
     });
   }, [posts, previousPeriodCutoff, cutoffDate]);
+
+  // Filter stories by period (matching posts filtering logic)
+  const filteredStories = useMemo(() => {
+    if (period === "all") return stories;
+    return stories.filter(story => {
+      if (!story.posted_at) return false;
+      const storyDate = parseISO(story.posted_at);
+      if (cutoffDate && isBefore(storyDate, cutoffDate)) return false;
+      if (endDate && isAfter(storyDate, endDate)) return false;
+      return true;
+    });
+  }, [stories, cutoffDate, endDate, period]);
+
+  // Previous period stories for comparison
+  const previousPeriodStories = useMemo(() => {
+    if (!previousPeriodCutoff || !cutoffDate) return [];
+    return stories.filter(story => {
+      if (!story.posted_at) return false;
+      const date = parseISO(story.posted_at);
+      return isAfter(date, previousPeriodCutoff) && !isAfter(date, cutoffDate);
+    });
+  }, [stories, previousPeriodCutoff, cutoffDate]);
+
+  const hasPreviousStoriesData = previousPeriodStories.length > 0;
 
   // Helper to extract metrics from metadata safely
   const getMetadataValue = (m: PerformanceMetrics, key: string): number => {
@@ -783,9 +808,16 @@ export function InstagramDashboard({
         </CardContent>
       </Card>
 
+      {/* Stories Metrics Cards */}
+      <InstagramStoriesMetricsCards
+        stories={filteredStories}
+        previousStories={previousPeriodStories}
+        hasPreviousData={hasPreviousStoriesData}
+      />
+
       {/* Stories Section */}
       <InstagramStoriesSection 
-        stories={stories}
+        stories={filteredStories}
         isLoading={isLoadingStories}
         period={period}
         clientId={clientId}
