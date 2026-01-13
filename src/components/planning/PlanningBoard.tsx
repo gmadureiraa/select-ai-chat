@@ -2,6 +2,8 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Plus, Loader2, Zap, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { cn } from '@/lib/utils';
 import { usePlanningItems, type PlanningFilters, type PlanningItem } from '@/hooks/usePlanningItems';
 import { usePlanningRealtime } from '@/hooks/usePlanningRealtime';
 import { PlanningFilters as FiltersComponent } from './PlanningFilters';
@@ -24,6 +26,7 @@ interface PlanningBoardProps {
 }
 
 export function PlanningBoard({ clientId, isEnterprise = false, onClientChange }: PlanningBoardProps) {
+  const isMobile = useIsMobile();
   const [searchParams, setSearchParams] = useSearchParams();
   const [view, setView] = useState<PlanningView>('board');
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -190,29 +193,31 @@ export function PlanningBoard({ clientId, isEnterprise = false, onClientChange }
       )}
 
       {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <h2 className="text-xl font-semibold">Planejamento</h2>
-          <ViewToggle view={view} onChange={setView} />
-        </div>
-        <div className="flex items-center gap-2">
+      <div className={cn(
+        "flex items-center gap-3",
+        isMobile ? "flex-col items-stretch" : "flex-wrap justify-between gap-4"
+      )}>
+        <div className="flex items-center justify-between gap-3 w-full">
+          <div className="flex items-center gap-3">
+            <h2 className={cn("font-semibold", isMobile ? "text-lg" : "text-xl")}>Planejamento</h2>
+            <ViewToggle view={view} onChange={setView} />
+          </div>
           {!isViewer && (
-            <>
+            <div className="flex items-center gap-2">
               <Button 
                 variant="outline" 
-                size="sm"
+                size="icon"
                 onClick={() => setShowAutomations(!showAutomations)}
-                className={showAutomations ? 'bg-primary/10' : ''}
+                className={cn("h-8 w-8", showAutomations && 'bg-primary/10')}
               >
-                <Zap className="h-4 w-4 mr-1" />
-                Automações
+                <Zap className="h-4 w-4" />
               </Button>
               <ViewSettingsPopover settings={settings} onChange={setSettings} />
-              <Button onClick={() => handleNewCard()} size="sm">
-                <Plus className="h-4 w-4 mr-1" />
-                Novo Card
+              <Button onClick={() => handleNewCard()} size="sm" className="h-8">
+                <Plus className="h-4 w-4" />
+                {!isMobile && <span className="ml-1">Novo Card</span>}
               </Button>
-            </>
+            </div>
           )}
         </div>
       </div>

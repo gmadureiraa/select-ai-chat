@@ -2,11 +2,14 @@ import { useState, useEffect } from 'react';
 import { Bell, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { cn } from '@/lib/utils';
 
 const STORAGE_KEY = 'notification-prompt-dismissed';
 
 export function NotificationPermissionPrompt() {
   const { permission, isSupported, requestPermission } = usePushNotifications();
+  const isMobile = useIsMobile();
   const [dismissed, setDismissed] = useState(true); // Start as dismissed to avoid flash
   const [isVisible, setIsVisible] = useState(false);
 
@@ -17,11 +20,12 @@ export function NotificationPermissionPrompt() {
     
     // Only show if supported, not granted, and not dismissed
     if (isSupported && permission !== 'granted' && !wasDismissed) {
-      // Delay showing to not be intrusive on first load
-      const timer = setTimeout(() => setIsVisible(true), 5000);
+      // Delay showing to not be intrusive on first load (longer on mobile)
+      const delay = isMobile ? 8000 : 5000;
+      const timer = setTimeout(() => setIsVisible(true), delay);
       return () => clearTimeout(timer);
     }
-  }, [isSupported, permission]);
+  }, [isSupported, permission, isMobile]);
 
   const handleDismiss = () => {
     setIsVisible(false);
@@ -39,16 +43,21 @@ export function NotificationPermissionPrompt() {
   if (!isVisible || dismissed || permission === 'granted') return null;
 
   return (
-    <div className="fixed bottom-4 left-4 right-4 md:left-auto md:right-4 md:w-80 bg-card border border-border rounded-lg shadow-lg p-4 z-50 animate-in slide-in-from-bottom-4 duration-300">
+    <div className={cn(
+      "fixed z-50 bg-card border border-border shadow-lg animate-in duration-300",
+      isMobile 
+        ? "bottom-0 left-0 right-0 rounded-t-xl p-4 slide-in-from-bottom-4" 
+        : "bottom-4 right-4 w-80 rounded-lg p-4 slide-in-from-bottom-4"
+    )}>
       <button 
         onClick={handleDismiss}
-        className="absolute top-2 right-2 p-1 rounded-full hover:bg-muted transition-colors"
+        className="absolute top-3 right-3 p-1 rounded-full hover:bg-muted transition-colors"
       >
         <X className="h-4 w-4 text-muted-foreground" />
       </button>
       
       <div className="flex items-start gap-3 pr-6">
-        <div className="p-2 rounded-full bg-primary/10 shrink-0">
+        <div className="p-2 rounded-full bg-primary/10 shrink-0 animate-pulse">
           <Bell className="h-5 w-5 text-primary" />
         </div>
         <div className="flex-1">
@@ -56,11 +65,11 @@ export function NotificationPermissionPrompt() {
           <p className="text-xs text-muted-foreground mt-1">
             Receba alertas sobre prazos, atribuições e menções mesmo com o app em background.
           </p>
-          <div className="flex gap-2 mt-3">
-            <Button size="sm" onClick={handleEnable} className="h-7 text-xs">
-              Ativar
+          <div className={cn("flex gap-2 mt-3", isMobile && "flex-col")}>
+            <Button size="sm" onClick={handleEnable} className={cn("h-8 text-xs", isMobile && "w-full")}>
+              Ativar agora
             </Button>
-            <Button size="sm" variant="ghost" onClick={handleDismiss} className="h-7 text-xs">
+            <Button size="sm" variant="ghost" onClick={handleDismiss} className={cn("h-8 text-xs", isMobile && "w-full")}>
               Agora não
             </Button>
           </div>
@@ -69,3 +78,4 @@ export function NotificationPermissionPrompt() {
     </div>
   );
 }
+

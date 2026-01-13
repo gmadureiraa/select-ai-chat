@@ -1,6 +1,8 @@
+export type MentionType = 'content' | 'reference' | 'user';
+
 export interface Mention {
   title: string;
-  type: 'content' | 'reference';
+  type: MentionType;
   id: string;
   start: number;
   end: number;
@@ -8,7 +10,7 @@ export interface Mention {
 }
 
 // Regex para detectar menções no formato @[título](tipo:id)
-const MENTION_REGEX = /@\[([^\]]+)\]\((content|reference):([a-f0-9-]+)\)/g;
+const MENTION_REGEX = /@\[([^\]]+)\]\((content|reference|user):([a-f0-9-]+)\)/g;
 
 /**
  * Extrai todas as menções de um texto
@@ -25,7 +27,7 @@ export function parseMentions(text: string): Mention[] {
   while ((match = MENTION_REGEX.exec(text)) !== null) {
     mentions.push({
       title: match[1],
-      type: match[2] as 'content' | 'reference',
+      type: match[2] as MentionType,
       id: match[3],
       start: match.index,
       end: match.index + match[0].length,
@@ -39,7 +41,7 @@ export function parseMentions(text: string): Mention[] {
 /**
  * Cria uma string de menção no formato correto
  */
-export function createMentionString(title: string, type: 'content' | 'reference', id: string): string {
+export function createMentionString(title: string, type: MentionType, id: string): string {
   return `@[${title}](${type}:${id})`;
 }
 
@@ -47,7 +49,7 @@ export function createMentionString(title: string, type: 'content' | 'reference'
  * Remove uma menção específica do texto
  */
 export function removeMention(text: string, mentionId: string): string {
-  const regex = new RegExp(`@\\[[^\\]]+\\]\\((content|reference):${mentionId}\\)`, 'g');
+  const regex = new RegExp(`@\\[[^\\]]+\\]\\((content|reference|user):${mentionId}\\)`, 'g');
   return text.replace(regex, '').trim();
 }
 

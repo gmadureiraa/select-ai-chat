@@ -75,6 +75,7 @@ interface VirtualizedKanbanColumnProps {
   onDragLeave: (e: React.DragEvent) => void;
   onDrop: (e: React.DragEvent, columnId: string) => void;
   height: number;
+  className?: string;
 }
 
 export const VirtualizedKanbanColumn = memo(function VirtualizedKanbanColumn({
@@ -95,6 +96,7 @@ export const VirtualizedKanbanColumn = memo(function VirtualizedKanbanColumn({
   onDragLeave,
   onDrop,
   height,
+  className,
 }: VirtualizedKanbanColumnProps) {
   const config = columnConfig[column.column_type || ''] || columnConfig.idea;
   const ColumnIcon = config.icon;
@@ -106,8 +108,10 @@ export const VirtualizedKanbanColumn = memo(function VirtualizedKanbanColumn({
     <div
       data-column-id={column.id}
       className={cn(
-        "flex-shrink-0 w-80 bg-card/50 rounded-xl border border-border/50 flex flex-col",
+        "flex-shrink-0 bg-card/50 rounded-xl border border-border/50 flex flex-col",
         "transition-all duration-300 backdrop-blur-sm hover:shadow-lg",
+        !className && "w-80",
+        className,
         isDropTarget && "ring-2 ring-primary/50 ring-offset-2 ring-offset-background bg-primary/5 scale-[1.02] shadow-xl"
       )}
       style={{ maxHeight: height }}

@@ -1,6 +1,8 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { VirtualizedKanbanColumn } from './VirtualizedKanbanColumn';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { cn } from '@/lib/utils';
 import type { PlanningItem, KanbanColumn } from '@/hooks/usePlanningItems';
 
 interface KanbanViewProps {
@@ -28,6 +30,7 @@ export function KanbanView({
   onAddCard,
   canDelete = true,
 }: KanbanViewProps) {
+  const isMobile = useIsMobile();
   const [draggedItem, setDraggedItem] = useState<PlanningItem | null>(null);
   const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
   const [containerHeight, setContainerHeight] = useState(500);
@@ -93,7 +96,10 @@ export function KanbanView({
   return (
     <div ref={containerRef} className="h-full w-full">
       <ScrollArea className="h-full w-full">
-        <div className="flex gap-6 pb-4 min-h-full px-1">
+        <div className={cn(
+          "flex pb-4 min-h-full px-1",
+          isMobile ? "gap-3 snap-x snap-mandatory overflow-x-auto" : "gap-6"
+        )}>
           {columns.map(column => {
             const items = getItemsByColumn(column.id);
             
@@ -117,6 +123,7 @@ export function KanbanView({
                 onDragLeave={handleDragLeave}
                 onDrop={handleDrop}
                 height={containerHeight}
+                className={isMobile ? "w-[85vw] min-w-[85vw] snap-center" : undefined}
               />
             );
           })}

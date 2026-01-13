@@ -2,12 +2,13 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Popover, PopoverContent, PopoverAnchor } from "@/components/ui/popover";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useMentionSearch, MentionItem } from "@/hooks/useMentionSearch";
 import { createMentionString } from "@/lib/mentionParser";
 import { MentionRenderer } from "./MentionRenderer";
 import { ReferencePopup } from "./ReferencePopup";
 import { cn } from "@/lib/utils";
-import { FileText, BookOpen, Loader2 } from "lucide-react";
+import { FileText, BookOpen, Loader2, User } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface MentionableInputProps {
@@ -129,6 +130,32 @@ export function MentionableInput({
     }
   };
 
+  const getItemIcon = (item: MentionItem) => {
+    if (item.type === 'user') {
+      return (
+        <Avatar className="h-6 w-6">
+          <AvatarImage src={item.avatarUrl} />
+          <AvatarFallback className="text-[10px] bg-blue-500/10 text-blue-600">
+            {item.title[0]?.toUpperCase() || 'U'}
+          </AvatarFallback>
+        </Avatar>
+      );
+    }
+    
+    const Icon = item.type === 'content' ? FileText : BookOpen;
+    return (
+      <div className={cn(
+        "p-1 rounded",
+        item.type === 'content' ? "bg-primary/10" : "bg-amber-500/10"
+      )}>
+        <Icon className={cn(
+          "h-3.5 w-3.5",
+          item.type === 'content' ? "text-primary" : "text-amber-600 dark:text-amber-400"
+        )} />
+      </div>
+    );
+  };
+
   const InputComponent = multiline ? Textarea : Input;
 
   return (
@@ -184,7 +211,7 @@ export function MentionableInput({
         >
           <div className="p-2 border-b">
             <p className="text-xs text-muted-foreground">
-              {searchQuery ? `Buscando "${searchQuery}"...` : 'Digite para buscar referências'}
+              {searchQuery ? `Buscando "${searchQuery}"...` : 'Digite para buscar @usuários ou referências'}
             </p>
           </div>
           <ScrollArea className="max-h-60">
@@ -194,42 +221,31 @@ export function MentionableInput({
               </div>
             ) : items.length === 0 ? (
               <div className="py-4 text-center text-sm text-muted-foreground">
-                {searchQuery ? 'Nenhuma referência encontrada' : 'Digite para buscar'}
+                {searchQuery ? 'Nenhum resultado encontrado' : 'Digite para buscar'}
               </div>
             ) : (
               <div className="p-1">
-                {items.map((item, index) => {
-                  const Icon = item.type === 'content' ? FileText : BookOpen;
-                  return (
-                    <button
-                      key={item.id}
-                      className={cn(
-                        "w-full flex items-start gap-2 p-2 rounded-md text-left text-sm transition-colors",
-                        index === selectedIndex
-                          ? "bg-accent text-accent-foreground"
-                          : "hover:bg-muted"
-                      )}
-                      onClick={() => insertMention(item)}
-                      onMouseEnter={() => setSelectedIndex(index)}
-                    >
-                      <div className={cn(
-                        "p-1 rounded",
-                        item.type === 'content' ? "bg-primary/10" : "bg-amber-500/10"
-                      )}>
-                        <Icon className={cn(
-                          "h-3.5 w-3.5",
-                          item.type === 'content' ? "text-primary" : "text-amber-600 dark:text-amber-400"
-                        )} />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium truncate">{item.title}</p>
-                        <p className="text-xs text-muted-foreground truncate">
-                          {item.category}
-                        </p>
-                      </div>
-                    </button>
-                  );
-                })}
+                {items.map((item, index) => (
+                  <button
+                    key={`${item.type}-${item.id}`}
+                    className={cn(
+                      "w-full flex items-center gap-2 p-2 rounded-md text-left text-sm transition-colors",
+                      index === selectedIndex
+                        ? "bg-accent text-accent-foreground"
+                        : "hover:bg-muted"
+                    )}
+                    onClick={() => insertMention(item)}
+                    onMouseEnter={() => setSelectedIndex(index)}
+                  >
+                    {getItemIcon(item)}
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium truncate">{item.title}</p>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {item.category}
+                      </p>
+                    </div>
+                  </button>
+                ))}
               </div>
             )}
           </ScrollArea>

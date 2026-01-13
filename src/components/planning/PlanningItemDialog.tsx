@@ -13,6 +13,7 @@ import { useClients } from '@/hooks/useClients';
 import { useTeamMembers } from '@/hooks/useTeamMembers';
 import { usePlanningImageGeneration } from '@/hooks/usePlanningImageGeneration';
 import { usePlanningContentGeneration } from '@/hooks/usePlanningContentGeneration';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
 import { MediaUploader, MediaItem } from './MediaUploader';
 import { RichContentEditor } from './RichContentEditor';
@@ -66,6 +67,7 @@ export function PlanningItemDialog({
   onUpdate,
   readOnly = false
 }: PlanningItemDialogProps) {
+  const isMobile = useIsMobile();
   const { clients } = useClients();
   const { members } = useTeamMembers();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -262,7 +264,10 @@ export function PlanningItemDialog({
   return (
     <>
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className={cn(
+        "max-h-[90vh] overflow-y-auto",
+        isMobile ? "max-w-full w-full h-full max-h-full rounded-none" : "max-w-xl"
+      )}>
         <DialogHeader>
           <DialogTitle>
             {readOnly ? 'Visualizar Card' : (item ? 'Editar Card' : 'Novo Card')}
