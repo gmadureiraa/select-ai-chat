@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { KaiSidebar } from "@/components/kai/KaiSidebar";
+import { MobileHeader } from "@/components/kai/MobileHeader";
 import { GradientHero } from "@/components/kai/GradientHero";
 import { KaiAssistantTab } from "@/components/kai/KaiAssistantTab";
 import { KaiPerformanceTab } from "@/components/kai/KaiPerformanceTab";
@@ -16,17 +17,21 @@ import { FormatRulesTool } from "@/components/tools/FormatRulesTool";
 import { EnterpriseLockScreen } from "@/components/shared/EnterpriseLockScreen";
 import { AccountSettingsSection } from "@/components/settings/AccountSettingsSection";
 import { OnboardingFlow } from "@/components/onboarding";
+import { NotificationPermissionPrompt } from "@/components/notifications/NotificationPermissionPrompt";
 import { UpgradePromptProvider } from "@/hooks/useUpgradePrompt";
 import { useClients } from "@/hooks/useClients";
 import { useWorkspace } from "@/hooks/useWorkspace";
 import { usePlanFeatures } from "@/hooks/usePlanFeatures";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 import { Loader2 } from "lucide-react";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
 
 export default function Kai() {
   const [searchParams, setSearchParams] = useSearchParams();
   const clientId = searchParams.get("client");
   const tab = searchParams.get("tab") || "home";
+  const isMobile = useIsMobile();
   
   const { clients, isLoading: isLoadingClients } = useClients();
   const { canManageTeam, canViewTools, canViewPerformance, canViewLibrary, canViewKnowledgeBase, canViewActivities, canViewClients, canViewHome, canUseAssistant, canViewRepurpose, isViewer } = useWorkspace();
@@ -36,6 +41,7 @@ export default function Kai() {
   const [pendingMessage, setPendingMessage] = useState<string | null>(null);
   const [pendingContentType, setPendingContentType] = useState<string | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Route protection: redirect to allowed tabs if trying to access unauthorized ones
   useEffect(() => {
@@ -107,6 +113,8 @@ export default function Kai() {
     const params = new URLSearchParams(searchParams);
     params.set("tab", newTab);
     setSearchParams(params);
+    // Close mobile menu when tab changes
+    setMobileMenuOpen(false);
   };
 
   const handleClientChange = (newClientId: string | null) => {
@@ -178,7 +186,7 @@ export default function Kai() {
     // Planning tab - available for all users, publishing is Enterprise only
     if (tab === "planning") {
       return (
-        <div className="p-6 h-full overflow-hidden">
+        <div className={cn("h-full overflow-hidden", isMobile ? "p-2" : "p-6")}>
           <PlanningBoard 
             clientId={selectedClient?.id} 
             isEnterprise={isEnterprise}
@@ -219,14 +227,14 @@ export default function Kai() {
       
       case "performance":
         return (
-          <div className="p-6 overflow-auto h-full">
+          <div className={cn("overflow-auto h-full", isMobile ? "p-3" : "p-6")}>
             <KaiPerformanceTab clientId={selectedClient.id} client={selectedClient} />
           </div>
         );
       
       case "library":
         return (
-          <div className="p-6 overflow-auto h-full">
+          <div className={cn("overflow-auto h-full", isMobile ? "p-3" : "p-6")}>
             <KaiLibraryTab clientId={selectedClient.id} client={selectedClient} />
           </div>
         );
@@ -248,16 +256,48 @@ export default function Kai() {
         {/* Onboarding Flow */}
         <OnboardingFlow />
         
-        <KaiSidebar
-          activeTab={tab}
-          onTabChange={handleTabChange}
-          selectedClientId={clientId}
-          onClientChange={handleClientChange}
-          collapsed={sidebarCollapsed}
-          onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
-        />
+        {/* Notification Permission Prompt */}
+        <NotificationPermissionPrompt />
+        
+        {/* Desktop: Fixed Sidebar */}
+        {!isMobile && (
+          <KaiSidebar
+            activeTab={tab}
+            onTabChange={handleTabChange}
+            selectedClientId={clientId}
+            onClientChange={handleClientChange}
+            collapsed={sidebarCollapsed}
+            onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
+          />
+        )}
 
-        <main className="flex-1 overflow-hidden">
+        {/* Mobile: Header + Sheet Sidebar */}
+        {isMobile && (
+          <>
+            <MobileHeader 
+              onMenuClick={() => setMobileMenuOpen(true)}
+              clientName={selectedClient?.name}
+            />
+            <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+              <SheetContent side="left" className="p-0 w-72">
+                <KaiSidebar
+                  activeTab={tab}
+                  onTabChange={handleTabChange}
+                  selectedClientId={clientId}
+                  onClientChange={handleClientChange}
+                  collapsed={false}
+                  onToggleCollapse={() => {}}
+                  isMobile={true}
+                />
+              </SheetContent>
+            </Sheet>
+          </>
+        )}
+
+        <main className={cn(
+          "flex-1 overflow-hidden",
+          isMobile && "pt-14" // Space for mobile header
+        )}>
           {renderContent()}
         </main>
       </div>
