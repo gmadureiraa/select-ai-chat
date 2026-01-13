@@ -7,12 +7,13 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Input } from "@/components/ui/input";
 import { ContentItem, ContentType, CreateContentData } from "@/hooks/useContentLibrary";
 import { CONTENT_TYPE_OPTIONS } from "@/types/contentTypes";
-import { Loader2, ChevronDown, Wand2, Settings2 } from "lucide-react";
+import { Loader2, ChevronDown, Wand2, Settings2, Rss } from "lucide-react";
 import { RichContentEditor } from "@/components/planning/RichContentEditor";
 import { usePlanningContentGeneration } from "@/hooks/usePlanningContentGeneration";
 import { MentionableInput } from "@/components/planning/MentionableInput";
 import { UnifiedUploader } from "@/components/library/UnifiedUploader";
 import { AttachmentsEditor, AttachedItem } from "@/components/library/AttachmentsEditor";
+import { RSSImporter } from "@/components/library/RSSImporter";
 
 interface ContentDialogProps {
   open: boolean;
@@ -35,6 +36,7 @@ export const ContentDialog = ({ open, onClose, onSave, content, clientId }: Cont
 
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showRSSImporter, setShowRSSImporter] = useState(false);
 
   useEffect(() => {
     if (content) {
@@ -137,6 +139,40 @@ export const ContentDialog = ({ open, onClose, onSave, content, clientId }: Cont
     }
   };
 
+  const handleRSSImport = (items: Array<{
+    title: string;
+    content: string;
+    content_url: string;
+    thumbnail_url?: string;
+  }>) => {
+    if (items.length === 0) return;
+    
+    // Se só tem um item, preenche o form
+    if (items.length === 1) {
+      const item = items[0];
+      setFormData(prev => ({
+        ...prev,
+        title: item.title,
+        content: item.content,
+        content_url: item.content_url,
+        thumbnail_url: item.thumbnail_url || prev.thumbnail_url,
+      }));
+    } else {
+      // Se tem múltiplos, combina os conteúdos
+      const combinedContent = items.map(item => 
+        `## ${item.title}\n\n${item.content}`
+      ).join("\n\n---\n\n");
+      
+      setFormData(prev => ({
+        ...prev,
+        title: prev.title || `Importação RSS (${items.length} itens)`,
+        content: prev.content 
+          ? `${prev.content}\n\n---\n\n${combinedContent}` 
+          : combinedContent,
+      }));
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -222,6 +258,20 @@ export const ContentDialog = ({ open, onClose, onSave, content, clientId }: Cont
             </div>
           )}
 
+          {/* RSS Import Button */}
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setShowRSSImporter(true)}
+              className="gap-2"
+            >
+              <Rss className="h-4 w-4" />
+              Importar do RSS
+            </Button>
+          </div>
+
           {/* Unified Uploader */}
           <UnifiedUploader
             onContentExtracted={handleContentExtracted}
@@ -302,6 +352,13 @@ export const ContentDialog = ({ open, onClose, onSave, content, clientId }: Cont
           </DialogFooter>
         </form>
       </DialogContent>
+
+      {/* RSS Importer Dialog */}
+      <RSSImporter
+        open={showRSSImporter}
+        onClose={() => setShowRSSImporter(false)}
+        onImport={handleRSSImport}
+      />
     </Dialog>
   );
 };
