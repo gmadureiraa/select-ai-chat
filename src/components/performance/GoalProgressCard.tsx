@@ -18,15 +18,16 @@ const formatNumber = (num: number) => {
   return num.toLocaleString('pt-BR');
 };
 
-const metricLabels: Record<string, string> = {
-  followers: "Novos Seguidores",
-  views: "Visualizações",
-  reach: "Alcance",
-  engagement_rate: "Taxa de Engajamento",
-  likes: "Curtidas",
-  comments: "Comentários",
-  shares: "Compartilhamentos",
-  saves: "Salvamentos",
+const metricLabels: Record<string, { label: string; isPercent?: boolean }> = {
+  followers: { label: "Novos Seguidores" },
+  views: { label: "Visualizações" },
+  reach: { label: "Alcance" },
+  posts: { label: "Número de Posts" },
+  engagement_rate: { label: "Engajamento Médio", isPercent: true },
+  likes: { label: "Curtidas" },
+  comments: { label: "Comentários" },
+  shares: { label: "Compartilhamentos" },
+  saves: { label: "Salvamentos" },
 };
 
 const periodLabels: Record<string, string> = {
@@ -38,8 +39,16 @@ const periodLabels: Record<string, string> = {
 
 export function GoalProgressCard({ goal, currentValue, onDelete }: GoalProgressCardProps) {
   const progress = Math.min((currentValue / goal.target_value) * 100, 100);
-  const metricLabel = metricLabels[goal.metric_name] || goal.metric_name;
+  const metricInfo = metricLabels[goal.metric_name] || { label: goal.metric_name };
+  const metricLabel = metricInfo.label;
+  const isPercent = metricInfo.isPercent;
   const periodLabel = periodLabels[goal.period] || goal.period;
+  
+  const displayValue = isPercent ? `${currentValue.toFixed(2)}%` : formatNumber(currentValue);
+  const displayTarget = isPercent ? `${goal.target_value}%` : formatNumber(goal.target_value);
+  const remaining = isPercent 
+    ? `${(goal.target_value - currentValue).toFixed(2)}%` 
+    : formatNumber(goal.target_value - currentValue);
   
   return (
     <Card className="border-border/50 bg-card/50">
@@ -67,13 +76,13 @@ export function GoalProgressCard({ goal, currentValue, onDelete }: GoalProgressC
         </div>
         
         <div className="flex items-baseline gap-2 mb-2">
-          <span className="text-2xl font-bold">{formatNumber(currentValue)}</span>
+          <span className="text-2xl font-bold">{displayValue}</span>
           <span className="text-sm text-muted-foreground">
-            / {formatNumber(goal.target_value)}
+            / {displayTarget}
           </span>
           <span className={cn(
             "text-sm font-semibold ml-auto",
-            progress >= 100 ? "text-emerald-500" : 
+            progress >= 100 ? "text-emerald-500" :
             progress >= 75 ? "text-amber-500" : 
             progress >= 50 ? "text-blue-500" : "text-muted-foreground"
           )}>
@@ -94,7 +103,7 @@ export function GoalProgressCard({ goal, currentValue, onDelete }: GoalProgressC
         <p className="text-xs text-muted-foreground mt-2">
           {progress >= 100 
             ? "✅ Meta atingida!" 
-            : `Faltam ${formatNumber(goal.target_value - currentValue)} para atingir a meta`
+            : `Faltam ${remaining} para atingir a meta`
           }
         </p>
       </CardContent>

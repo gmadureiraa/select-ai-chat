@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Heart, MessageCircle, Bookmark, Share2, Eye, MousePointer, HelpCircle } from "lucide-react";
+import { Heart, MessageCircle, Bookmark, Share2, Eye, MousePointer, HelpCircle, TrendingUp } from "lucide-react";
 import { InstagramPost } from "@/hooks/useInstagramPosts";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
@@ -18,6 +18,7 @@ interface MetricCardProps {
   post: InstagramPost | null;
   color: string;
   helpText?: string;
+  isPercent?: boolean;
 }
 
 const formatNumber = (num: number) => {
@@ -31,9 +32,10 @@ const calcChange = (current: number, previous: number) => {
   return ((current - previous) / previous) * 100;
 };
 
-function MetricCard({ icon: Icon, label, value, previousValue, post, color, helpText }: MetricCardProps) {
+function MetricCard({ icon: Icon, label, value, previousValue, post, color, helpText, isPercent }: MetricCardProps) {
   const change = previousValue !== undefined ? calcChange(value, previousValue) : undefined;
-  
+  const displayValue = isPercent ? `${value.toFixed(2)}%` : formatNumber(value);
+  const displayPrevValue = isPercent && previousValue !== undefined ? `${previousValue.toFixed(2)}%` : previousValue !== undefined ? formatNumber(previousValue) : undefined;
   return (
     <Card className="border-border/30 shadow-sm hover:shadow-md transition-shadow">
       <CardContent className="p-4">
@@ -57,7 +59,7 @@ function MetricCard({ icon: Icon, label, value, previousValue, post, color, help
         </div>
         
         <div className="flex items-baseline gap-2 mb-1">
-          <span className="text-2xl font-bold tracking-tight">{formatNumber(value)}</span>
+          <span className="text-2xl font-bold tracking-tight">{displayValue}</span>
           {change !== undefined && (
             <span className={cn(
               "text-xs font-medium",
@@ -68,9 +70,9 @@ function MetricCard({ icon: Icon, label, value, previousValue, post, color, help
           )}
         </div>
         
-        {previousValue !== undefined && (
+        {displayPrevValue !== undefined && (
           <p className="text-xs text-muted-foreground">
-            {formatNumber(previousValue)} no período anterior
+            {displayPrevValue} no período anterior
           </p>
         )}
         
@@ -97,44 +99,45 @@ function MetricCard({ icon: Icon, label, value, previousValue, post, color, help
 }
 
 export function BestPostsByMetric({ posts, previousPeriodPosts = [], periodLabel }: BestPostsByMetricProps) {
-  // Calculate totals for current period
-  const totalPosts = posts.length;
-  const totalLikes = posts.reduce((sum, p) => sum + (p.likes || 0), 0);
+  if (!posts || posts.length === 0) return null;
+
+  // Current period totals
   const totalSaves = posts.reduce((sum, p) => sum + (p.saves || 0), 0);
+  const totalLikes = posts.reduce((sum, p) => sum + (p.likes || 0), 0);
   const totalComments = posts.reduce((sum, p) => sum + (p.comments || 0), 0);
   const totalShares = posts.reduce((sum, p) => sum + (p.shares || 0), 0);
   const totalReach = posts.reduce((sum, p) => sum + (p.reach || 0), 0);
-  const totalInteractions = totalLikes + totalComments + totalSaves + totalShares;
+  const totalInteractions = totalLikes + totalComments + totalShares + totalSaves;
+  const postCount = posts.length;
+  
+  // Average engagement
+  const avgEngagement = posts.length > 0
+    ? posts.reduce((sum, p) => sum + (p.engagement_rate || 0), 0) / posts.length
+    : 0;
 
-  // Calculate totals for previous period
-  const prevPosts = previousPeriodPosts.length;
-  const prevLikes = previousPeriodPosts.reduce((sum, p) => sum + (p.likes || 0), 0);
+  // Previous period totals
   const prevSaves = previousPeriodPosts.reduce((sum, p) => sum + (p.saves || 0), 0);
+  const prevLikes = previousPeriodPosts.reduce((sum, p) => sum + (p.likes || 0), 0);
   const prevComments = previousPeriodPosts.reduce((sum, p) => sum + (p.comments || 0), 0);
   const prevShares = previousPeriodPosts.reduce((sum, p) => sum + (p.shares || 0), 0);
   const prevReach = previousPeriodPosts.reduce((sum, p) => sum + (p.reach || 0), 0);
-  const prevInteractions = prevLikes + prevComments + prevSaves + prevShares;
+  const prevInteractions = prevLikes + prevComments + prevShares + prevSaves;
+  const prevPostCount = previousPeriodPosts.length;
+  
+  // Previous average engagement
+  const prevAvgEngagement = previousPeriodPosts.length > 0
+    ? previousPeriodPosts.reduce((sum, p) => sum + (p.engagement_rate || 0), 0) / previousPeriodPosts.length
+    : 0;
 
-  // Find best posts by each metric
-  const bestBySaves = posts.length > 0 
-    ? [...posts].sort((a, b) => (b.saves || 0) - (a.saves || 0))[0] 
-    : null;
-  const bestByLikes = posts.length > 0 
-    ? [...posts].sort((a, b) => (b.likes || 0) - (a.likes || 0))[0] 
-    : null;
-  const bestByComments = posts.length > 0 
-    ? [...posts].sort((a, b) => (b.comments || 0) - (a.comments || 0))[0] 
-    : null;
-  const bestByShares = posts.length > 0 
-    ? [...posts].sort((a, b) => (b.shares || 0) - (a.shares || 0))[0] 
-    : null;
-  const bestByReach = posts.length > 0 
-    ? [...posts].sort((a, b) => (b.reach || 0) - (a.reach || 0))[0] 
-    : null;
+  // Best posts
+  const bestBySaves = [...posts].sort((a, b) => (b.saves || 0) - (a.saves || 0))[0];
+  const bestByLikes = [...posts].sort((a, b) => (b.likes || 0) - (a.likes || 0))[0];
+  const bestByComments = [...posts].sort((a, b) => (b.comments || 0) - (a.comments || 0))[0];
+  const bestByShares = [...posts].sort((a, b) => (b.shares || 0) - (a.shares || 0))[0];
+  const bestByReach = [...posts].sort((a, b) => (b.reach || 0) - (a.reach || 0))[0];
+  const bestByEngagement = [...posts].sort((a, b) => (b.engagement_rate || 0) - (a.engagement_rate || 0))[0];
 
-  if (posts.length === 0) {
-    return null;
-  }
+  const hasPreviousData = previousPeriodPosts.length > 0;
 
   return (
     <div className="space-y-4">
@@ -147,13 +150,13 @@ export function BestPostsByMetric({ posts, previousPeriodPosts = [], periodLabel
         )}
       </div>
       
-      {/* First row: Posts count + Reach + Interactions */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      {/* First row: Posts count + Reach + Interactions + Avg Engagement */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <MetricCard
           icon={Eye}
           label="Número de postagens do feed"
-          value={totalPosts}
-          previousValue={previousPeriodPosts.length > 0 ? prevPosts : undefined}
+          value={postCount}
+          previousValue={hasPreviousData ? prevPostCount : undefined}
           post={null}
           color="text-blue-500"
           helpText="Total de posts publicados no período selecionado"
@@ -162,7 +165,7 @@ export function BestPostsByMetric({ posts, previousPeriodPosts = [], periodLabel
           icon={Eye}
           label="Alcance das postagens"
           value={totalReach}
-          previousValue={previousPeriodPosts.length > 0 ? prevReach : undefined}
+          previousValue={hasPreviousData ? prevReach : undefined}
           post={bestByReach}
           color="text-purple-500"
           helpText="Número de contas únicas que viram suas postagens"
@@ -171,10 +174,20 @@ export function BestPostsByMetric({ posts, previousPeriodPosts = [], periodLabel
           icon={Heart}
           label="Interações nas postagens"
           value={totalInteractions}
-          previousValue={previousPeriodPosts.length > 0 ? prevInteractions : undefined}
+          previousValue={hasPreviousData ? prevInteractions : undefined}
           post={null}
           color="text-rose-500"
           helpText="Soma de curtidas, comentários, salvamentos e compartilhamentos"
+        />
+        <MetricCard
+          icon={TrendingUp}
+          label="Engajamento médio"
+          value={avgEngagement}
+          previousValue={hasPreviousData ? prevAvgEngagement : undefined}
+          post={bestByEngagement}
+          color="text-primary"
+          helpText="Taxa média de engajamento dos posts (interações/alcance)"
+          isPercent={true}
         />
       </div>
 
@@ -184,7 +197,7 @@ export function BestPostsByMetric({ posts, previousPeriodPosts = [], periodLabel
           icon={Heart}
           label="Curtidas em postagens"
           value={totalLikes}
-          previousValue={previousPeriodPosts.length > 0 ? prevLikes : undefined}
+          previousValue={hasPreviousData ? prevLikes : undefined}
           post={bestByLikes}
           color="text-rose-500"
           helpText="Total de curtidas recebidas nas postagens"
@@ -193,7 +206,7 @@ export function BestPostsByMetric({ posts, previousPeriodPosts = [], periodLabel
           icon={Bookmark}
           label="Salvamento das postagens"
           value={totalSaves}
-          previousValue={previousPeriodPosts.length > 0 ? prevSaves : undefined}
+          previousValue={hasPreviousData ? prevSaves : undefined}
           post={bestBySaves}
           color="text-amber-500"
           helpText="Total de vezes que suas postagens foram salvas"
@@ -202,7 +215,7 @@ export function BestPostsByMetric({ posts, previousPeriodPosts = [], periodLabel
           icon={MessageCircle}
           label="Comentários em postagens"
           value={totalComments}
-          previousValue={previousPeriodPosts.length > 0 ? prevComments : undefined}
+          previousValue={hasPreviousData ? prevComments : undefined}
           post={bestByComments}
           color="text-blue-500"
           helpText="Total de comentários recebidos nas postagens"
@@ -211,7 +224,7 @@ export function BestPostsByMetric({ posts, previousPeriodPosts = [], periodLabel
           icon={Share2}
           label="Compartilhamento das postagens"
           value={totalShares}
-          previousValue={previousPeriodPosts.length > 0 ? prevShares : undefined}
+          previousValue={hasPreviousData ? prevShares : undefined}
           post={bestByShares}
           color="text-emerald-500"
           helpText="Total de vezes que suas postagens foram compartilhadas"
