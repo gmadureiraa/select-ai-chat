@@ -1,5 +1,7 @@
 import { useState, useMemo } from "react";
-import { Library, FileText, Link2, Plus, Search, Trash2, Image } from "lucide-react";
+import { Library, FileText, Link2, Plus, Search, Trash2, Image, Mail } from "lucide-react";
+import { NewsletterPicker } from "@/components/library/NewsletterPicker";
+import { NewsletterQuickView } from "@/components/library/NewsletterQuickView";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -54,6 +56,7 @@ export const KaiLibraryTab = ({ clientId, client }: KaiLibraryTabProps) => {
   const [contentDialogOpen, setContentDialogOpen] = useState(false);
   const [selectedContent, setSelectedContent] = useState<ContentItem | null>(null);
   const [contentViewOpen, setContentViewOpen] = useState(false);
+  const [newsletterQuickViewOpen, setNewsletterQuickViewOpen] = useState(false);
   const { contents, createContent, updateContent, deleteContent } = useContentLibrary(clientId);
 
   // Reference Library
@@ -381,6 +384,18 @@ export const KaiLibraryTab = ({ clientId, client }: KaiLibraryTabProps) => {
               className="pl-9 w-full sm:w-56 lg:w-64"
             />
           </div>
+          
+          {/* Newsletter Picker - Only show on content tab */}
+          {activeTab === "content" && (
+            <NewsletterPicker
+              clientId={clientId}
+              onSelect={(newsletter) => {
+                setSelectedContent(newsletter);
+                setNewsletterQuickViewOpen(true);
+              }}
+            />
+          )}
+          
           <Button
             onClick={() => {
               if (activeTab === "content") {
@@ -585,6 +600,19 @@ export const KaiLibraryTab = ({ clientId, client }: KaiLibraryTabProps) => {
           setSelectedReference(null);
         }}
         reference={selectedReference || undefined}
+      />
+
+      <NewsletterQuickView
+        newsletter={selectedContent}
+        open={newsletterQuickViewOpen}
+        onClose={() => {
+          setNewsletterQuickViewOpen(false);
+          setSelectedContent(null);
+        }}
+        onSendToCanvas={(content) => {
+          // TODO: Integrate with Canvas when ready
+          console.log("Send to canvas:", content);
+        }}
       />
 
       {/* Instagram Importer temporariamente desabilitado
