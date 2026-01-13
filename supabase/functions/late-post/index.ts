@@ -6,12 +6,16 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+const LATE_API_BASE = "https://getlate.dev/api";
+
 interface PostRequest {
   clientId: string;
-  platform: 'twitter' | 'linkedin' | 'instagram' | 'tiktok' | 'youtube';
+  platform: 'twitter' | 'linkedin' | 'instagram' | 'tiktok' | 'youtube' | 'facebook' | 'threads';
   content: string;
   mediaUrls?: string[];
   planningItemId?: string;
+  scheduledFor?: string; // ISO date string for scheduling
+  publishNow?: boolean;
 }
 
 serve(async (req: Request) => {
@@ -49,7 +53,7 @@ serve(async (req: Request) => {
     // Use service role for database operations
     const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
 
-    const { clientId, platform, content, mediaUrls, planningItemId }: PostRequest = await req.json();
+    const { clientId, platform, content, mediaUrls, planningItemId, scheduledFor, publishNow = true }: PostRequest = await req.json();
 
     if (!clientId || !platform || !content) {
       return new Response(JSON.stringify({ error: "Missing required fields" }), {
@@ -105,21 +109,42 @@ serve(async (req: Request) => {
       });
     }
 
-    // Prepare post payload for Late API
+    // Prepare post payload for Late API according to OpenAPI spec
     const postPayload: Record<string, unknown> = {
-      account_id: lateAccountId,
-      text: content,
+      content: content,
+      platforms: [
+        {
+          platform: platform,
+          accountId: lateAccountId,
+        }
+      ],
+      publishNow: publishNow,
     };
+
+    // Add scheduled time if provided
+    if (scheduledFor && !publishNow) {
+      postPayload.scheduledFor = scheduledFor;
+      postPayload.publishNow = false;
+    }
 
     // Add media if provided
     if (mediaUrls && mediaUrls.length > 0) {
-      postPayload.media = mediaUrls.map(url => ({ url }));
+      postPayload.mediaItems = mediaUrls.map(url => ({
+        type: url.match(/\.(mp4|mov|webm|avi)$/i) ? 'video' : 'image',
+        url: url,
+      }));
     }
 
-    console.log("Posting via Late API:", { platform, accountId: lateAccountId, contentLength: content.length });
+    console.log("Posting via Late API:", { 
+      platform, 
+      accountId: lateAccountId, 
+      contentLength: content.length,
+      publishNow,
+      scheduledFor 
+    });
 
     // Post via Late API
-    const postResponse = await fetch("https://api.getlate.dev/v1/posts", {
+    const postResponse = await fetch(`${LATE_API_BASE}/v1/posts`, {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${LATE_API_KEY}`,
@@ -156,41 +181,72 @@ serve(async (req: Request) => {
     const postData = await postResponse.json();
     console.log("Post successful:", postData);
 
+    // Extract published URL from response
+    const publishedUrl = postData.post?.platforms?.[0]?.platformPostUrl || 
+                        postData.post?.platforms?.[0]?.publishedUrl ||
+                        null;
+
+    // Determine new status based on whether post was scheduled or published
+    const newStatus = publishNow ? "published" : "scheduled";
+
     // Update planning item status if applicable
     if (planningItemId) {
+      const updateData: Record<string, unknown> = {
+        status: newStatus,
+        error_message: null,
+        updated_at: new Date().toISOString(),
+        external_post_id: postData.post?._id,
+      };
+
+      if (publishNow) {
+        updateData.published_at = new Date().toISOString();
+      }
+
+      if (scheduledFor) {
+        updateData.scheduled_at = scheduledFor;
+      }
+
       await supabase
         .from("planning_items")
-        .update({
-          status: "published",
-          published_at: new Date().toISOString(),
-          published_url: postData.url || postData.permalink,
-          error_message: null,
-          updated_at: new Date().toISOString(),
-        })
+        .update(updateData)
         .eq("id", planningItemId);
 
-      // Also save to client content library
-      await supabase
-        .from("client_content_library")
-        .insert({
-          client_id: clientId,
-          title: content.substring(0, 100),
-          content: content,
-          content_type: platform === 'twitter' ? 'tweet' : 'linkedin_post',
-          content_url: postData.url || postData.permalink,
-          metadata: {
-            platform,
-            posted_at: new Date().toISOString(),
-            late_post_id: postData.id,
-          },
-        });
+      // Also save to client content library if published
+      if (publishNow) {
+        const contentTypeMap: Record<string, string> = {
+          twitter: 'tweet',
+          linkedin: 'linkedin_post',
+          instagram: 'instagram_post',
+          facebook: 'facebook_post',
+          tiktok: 'tiktok_video',
+          youtube: 'youtube_video',
+          threads: 'threads_post',
+        };
+
+        await supabase
+          .from("client_content_library")
+          .insert({
+            client_id: clientId,
+            title: content.substring(0, 100),
+            content: content,
+            content_type: contentTypeMap[platform] || 'post',
+            content_url: publishedUrl,
+            metadata: {
+              platform,
+              posted_at: new Date().toISOString(),
+              late_post_id: postData.post?._id,
+            },
+          });
+      }
     }
 
     return new Response(JSON.stringify({
       success: true,
-      postId: postData.id,
-      url: postData.url || postData.permalink,
+      postId: postData.post?._id,
+      status: newStatus,
+      url: publishedUrl,
       platform,
+      message: postData.message,
     }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },

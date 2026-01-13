@@ -45,6 +45,18 @@ const platformConfig: Record<LatePlatform, {
     color: "bg-gradient-to-tr from-[#833AB4] via-[#FD1D1D] to-[#F77737]",
     description: "Feed, Reels e Stories"
   },
+  facebook: { 
+    name: "Facebook", 
+    icon: Share2, 
+    color: "bg-[#1877F2]",
+    description: "Posts e Stories em páginas"
+  },
+  threads: { 
+    name: "Threads", 
+    icon: Share2, 
+    color: "bg-black",
+    description: "Threads do Instagram"
+  },
   tiktok: { 
     name: "TikTok", 
     icon: Video, 
