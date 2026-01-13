@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
-export type SupportedPlatform = 'twitter' | 'linkedin' | 'instagram' | 'youtube' | 'newsletter' | 'blog' | 'tiktok' | 'other';
+export type SupportedPlatform = 'twitter' | 'linkedin' | 'instagram' | 'youtube' | 'newsletter' | 'blog' | 'tiktok' | 'facebook' | 'threads' | 'other';
 
 export interface PlatformStatus {
   platform: SupportedPlatform;
@@ -10,14 +10,15 @@ export interface PlatformStatus {
   accountName: string | null;
   lastValidated: string | null;
   error: string | null;
+  isLateApi: boolean;
 }
 
 export interface ClientPlatformStatuses {
   [key: string]: PlatformStatus;
 }
 
-// Platforms that support auto-publishing via API
-const AUTO_PUBLISH_PLATFORMS: SupportedPlatform[] = ['twitter', 'linkedin'];
+// Platforms that support auto-publishing via Late API
+const LATE_API_PLATFORMS: SupportedPlatform[] = ['twitter', 'linkedin', 'instagram', 'facebook', 'threads', 'tiktok', 'youtube'];
 
 export function useClientPlatformStatus(clientId: string | null | undefined) {
   const { data: statuses, isLoading } = useQuery({
@@ -27,7 +28,7 @@ export function useClientPlatformStatus(clientId: string | null | undefined) {
 
       const { data: credentials, error } = await supabase
         .from('client_social_credentials')
-        .select('platform, is_valid, account_name, last_validated_at, validation_error')
+        .select('platform, is_valid, account_name, last_validated_at, validation_error, metadata')
         .eq('client_id', clientId);
 
       if (error) throw error;
@@ -35,7 +36,7 @@ export function useClientPlatformStatus(clientId: string | null | undefined) {
       const statusMap: ClientPlatformStatuses = {};
 
       // Initialize all platforms with default status
-      const allPlatforms: SupportedPlatform[] = ['twitter', 'linkedin', 'instagram', 'youtube', 'newsletter', 'blog', 'tiktok', 'other'];
+      const allPlatforms: SupportedPlatform[] = ['twitter', 'linkedin', 'instagram', 'youtube', 'newsletter', 'blog', 'tiktok', 'facebook', 'threads', 'other'];
       
       for (const platform of allPlatforms) {
         statusMap[platform] = {
@@ -45,12 +46,16 @@ export function useClientPlatformStatus(clientId: string | null | undefined) {
           accountName: null,
           lastValidated: null,
           error: null,
+          isLateApi: false,
         };
       }
 
       // Update with actual credentials
       for (const cred of credentials || []) {
         const platform = cred.platform as SupportedPlatform;
+        const metadata = cred.metadata as Record<string, unknown> | null;
+        const isLateApi = !!(metadata?.late_account_id || metadata?.late_profile_id);
+        
         if (statusMap[platform]) {
           statusMap[platform] = {
             platform,
@@ -59,6 +64,7 @@ export function useClientPlatformStatus(clientId: string | null | undefined) {
             accountName: cred.account_name,
             lastValidated: cred.last_validated_at,
             error: cred.validation_error,
+            isLateApi,
           };
         }
       }
@@ -76,7 +82,7 @@ export function useClientPlatformStatus(clientId: string | null | undefined) {
 
   const canAutoPublish = (platform: SupportedPlatform | null): boolean => {
     if (!platform) return false;
-    if (!AUTO_PUBLISH_PLATFORMS.includes(platform)) return false;
+    if (!LATE_API_PLATFORMS.includes(platform)) return false;
     const status = getPlatformStatus(platform);
     return status?.hasApi === true && status?.isValid === true;
   };
@@ -91,6 +97,6 @@ export function useClientPlatformStatus(clientId: string | null | undefined) {
     getPlatformStatus,
     canAutoPublish,
     getPublicationMode,
-    supportedAutoPublishPlatforms: AUTO_PUBLISH_PLATFORMS,
+    supportedAutoPublishPlatforms: LATE_API_PLATFORMS,
   };
 }
