@@ -75,9 +75,12 @@ export function useImportInstagramStoriesCSV(clientId: string) {
       const stories = rows.map((row) => {
         const duration = parseNumber(row["Duração (s)"] || row["Duration (s)"]);
         
+        // story_id is stored as text to handle large Instagram IDs
+        const storyIdRaw = row["Identificação do post"] || row["Post ID"] || null;
+        
         return {
           client_id: clientId,
-          story_id: row["Identificação do post"] || row["Post ID"] || null,
+          story_id: storyIdRaw ? String(storyIdRaw).trim() : null,
           media_type: duration > 0 ? "video" : "image",
           views: parseNumber(row["Visualizações"] || row["Views"]),
           reach: parseNumber(row["Alcance"] || row["Reach"]),

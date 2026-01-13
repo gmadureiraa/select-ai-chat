@@ -300,6 +300,9 @@ export function InstagramDashboard({
         case 'saves':
           currentValue = goalPeriodPosts.reduce((sum, p) => sum + (p.saves || 0), 0);
           break;
+        case 'link_clicks':
+          currentValue = goalPeriodMetrics.reduce((sum, m) => sum + getMetadataValue(m, 'linkClicks'), 0);
+          break;
         default:
           currentValue = 0;
       }
@@ -820,7 +823,7 @@ function CreateGoalForm({ clientId, onSuccess }: { clientId: string; onSuccess: 
     period: "monthly",
   });
 
-  const metricOptions = [
+  const goalMetricOptions = [
     { label: "Novos Seguidores", value: "followers" },
     { label: "Visualizações", value: "views" },
     { label: "Alcance", value: "reach" },
@@ -830,6 +833,7 @@ function CreateGoalForm({ clientId, onSuccess }: { clientId: string; onSuccess: 
     { label: "Comentários", value: "comments" },
     { label: "Salvamentos", value: "saves" },
     { label: "Compartilhamentos", value: "shares" },
+    { label: "Cliques no Link", value: "link_clicks" },
   ];
 
   const handleCreate = async () => {
@@ -858,7 +862,7 @@ function CreateGoalForm({ clientId, onSuccess }: { clientId: string; onSuccess: 
             <SelectValue placeholder="Selecione uma métrica" />
           </SelectTrigger>
           <SelectContent>
-            {metricOptions.map((option) => (
+            {goalMetricOptions.map((option) => (
               <SelectItem key={option.value} value={option.value}>
                 {option.label}
               </SelectItem>

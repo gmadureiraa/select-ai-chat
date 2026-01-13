@@ -28,6 +28,7 @@ const metricLabels: Record<string, { label: string; isPercent?: boolean }> = {
   comments: { label: "Comentários" },
   shares: { label: "Compartilhamentos" },
   saves: { label: "Salvamentos" },
+  link_clicks: { label: "Cliques no Link" },
 };
 
 const periodLabels: Record<string, string> = {
