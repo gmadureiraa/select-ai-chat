@@ -164,7 +164,7 @@ export function InstagramDashboard({
     if (!previousPeriodCutoff || !previousPeriodEnd) return [];
     return metrics.filter(m => {
       const date = parseISO(m.metric_date);
-      return isAfter(date, previousPeriodCutoff) && !isAfter(date, previousPeriodEnd);
+      return !isBefore(date, previousPeriodCutoff) && !isAfter(date, previousPeriodEnd);
     });
   }, [metrics, previousPeriodCutoff, previousPeriodEnd]);
 
@@ -174,7 +174,7 @@ export function InstagramDashboard({
     return posts.filter(post => {
       if (!post.posted_at) return false;
       const date = parseISO(post.posted_at);
-      return isAfter(date, previousPeriodCutoff) && !isAfter(date, previousPeriodEnd);
+      return !isBefore(date, previousPeriodCutoff) && !isAfter(date, previousPeriodEnd);
     });
   }, [posts, previousPeriodCutoff, previousPeriodEnd]);
 
@@ -196,7 +196,7 @@ export function InstagramDashboard({
     return stories.filter(story => {
       if (!story.posted_at) return false;
       const date = parseISO(story.posted_at);
-      return isAfter(date, previousPeriodCutoff) && !isAfter(date, previousPeriodEnd);
+      return !isBefore(date, previousPeriodCutoff) && !isAfter(date, previousPeriodEnd);
     });
   }, [stories, previousPeriodCutoff, previousPeriodEnd]);
 
