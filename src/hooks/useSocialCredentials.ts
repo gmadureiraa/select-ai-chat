@@ -2,10 +2,12 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
+export type SocialPlatform = 'twitter' | 'linkedin' | 'instagram' | 'facebook' | 'threads' | 'tiktok' | 'youtube';
+
 export interface SocialCredential {
   id: string;
   client_id: string;
-  platform: 'twitter' | 'linkedin';
+  platform: SocialPlatform;
   is_valid: boolean;
   last_validated_at: string | null;
   validation_error: string | null;
@@ -98,7 +100,7 @@ export function useSocialCredentials(clientId: string) {
   });
 
   const deleteCredential = useMutation({
-    mutationFn: async (platform: 'twitter' | 'linkedin') => {
+    mutationFn: async (platform: SocialPlatform) => {
       const { error } = await supabase
         .from('client_social_credentials')
         .delete()
@@ -109,7 +111,17 @@ export function useSocialCredentials(clientId: string) {
     },
     onSuccess: (_, platform) => {
       queryClient.invalidateQueries({ queryKey: ['social-credentials', clientId] });
-      toast.success(`${platform === 'twitter' ? 'Twitter' : 'LinkedIn'} desconectado!`);
+      queryClient.invalidateQueries({ queryKey: ['client-platform-status', clientId] });
+      const platformNames: Record<SocialPlatform, string> = {
+        twitter: 'Twitter',
+        linkedin: 'LinkedIn',
+        instagram: 'Instagram',
+        facebook: 'Facebook',
+        threads: 'Threads',
+        tiktok: 'TikTok',
+        youtube: 'YouTube'
+      };
+      toast.success(`${platformNames[platform]} desconectado!`);
     },
     onError: (error) => {
       toast.error(`Erro ao desconectar: ${error.message}`);
