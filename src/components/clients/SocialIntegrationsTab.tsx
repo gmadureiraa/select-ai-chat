@@ -282,10 +282,10 @@ export function SocialIntegrationsTab({ clientId }: SocialIntegrationsTabProps) 
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => deleteCredential.mutate(platform as 'twitter' | 'linkedin')}
-                  disabled={deleteCredential.isPending}
+                  onClick={() => lateConnection.disconnect(platform)}
+                  disabled={lateConnection.isLoading && lateConnection.currentPlatform === platform}
                 >
-                  {deleteCredential.isPending ? (
+                  {lateConnection.isLoading && lateConnection.currentPlatform === platform ? (
                     <Loader2 className="h-4 w-4 animate-spin mr-2" />
                   ) : (
                     <Trash2 className="h-4 w-4 mr-2" />
@@ -356,7 +356,7 @@ export function SocialIntegrationsTab({ clientId }: SocialIntegrationsTabProps) 
         </div>
 
         <div className="grid gap-4">
-          {(['twitter', 'linkedin', 'instagram', 'tiktok', 'youtube'] as LatePlatform[]).map(platform => 
+          {(['twitter', 'linkedin', 'instagram', 'facebook', 'threads', 'tiktok', 'youtube'] as LatePlatform[]).map(platform => 
             renderPlatformCard(platform)
           )}
         </div>

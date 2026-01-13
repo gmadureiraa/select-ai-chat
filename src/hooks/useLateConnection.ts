@@ -163,9 +163,55 @@ export function useLateConnection({ clientId }: UseLateConnectionProps) {
     }
   }, [clientId, toast]);
 
+  const disconnect = useCallback(async (platform: LatePlatform) => {
+    try {
+      setIsLoading(true);
+      setCurrentPlatform(platform);
+
+      const { error } = await supabase
+        .from('client_social_credentials')
+        .delete()
+        .eq('client_id', clientId)
+        .eq('platform', platform);
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      queryClient.invalidateQueries({ queryKey: ['social-credentials', clientId] });
+      queryClient.invalidateQueries({ queryKey: ['client-platform-status', clientId] });
+
+      const platformNames: Record<LatePlatform, string> = {
+        twitter: 'Twitter',
+        linkedin: 'LinkedIn',
+        instagram: 'Instagram',
+        facebook: 'Facebook',
+        threads: 'Threads',
+        tiktok: 'TikTok',
+        youtube: 'YouTube'
+      };
+
+      toast({
+        title: "Desconectado",
+        description: `${platformNames[platform]} foi desconectado com sucesso.`,
+      });
+
+    } catch (error) {
+      toast({
+        title: "Erro ao desconectar",
+        description: error instanceof Error ? error.message : "Falha ao desconectar",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+      setCurrentPlatform(null);
+    }
+  }, [clientId, queryClient, toast]);
+
   return {
     openOAuth,
     publishContent,
+    disconnect,
     isLoading,
     currentPlatform,
     isPopupOpen: popupRef.current !== null && !popupRef.current.closed,
