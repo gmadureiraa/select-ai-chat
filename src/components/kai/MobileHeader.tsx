@@ -1,10 +1,12 @@
-import { Menu } from "lucide-react";
+import { Menu, BellOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
+import { cn } from "@/lib/utils";
 
 interface MobileHeaderProps {
   onMenuClick: () => void;
@@ -13,6 +15,7 @@ interface MobileHeaderProps {
 
 export function MobileHeader({ onMenuClick, clientName }: MobileHeaderProps) {
   const { user } = useAuth();
+  const { permission, requestPermission, isSupported } = usePushNotifications();
 
   const { data: userProfile } = useQuery({
     queryKey: ["user-profile", user?.id],
@@ -29,6 +32,7 @@ export function MobileHeader({ onMenuClick, clientName }: MobileHeaderProps) {
   });
 
   const userInitials = user?.email?.slice(0, 2).toUpperCase() || "K";
+  const showNotificationWarning = isSupported && permission !== 'granted';
 
   return (
     <header className="fixed top-0 left-0 right-0 h-14 bg-background border-b border-border z-50 flex items-center px-3 gap-2">
@@ -41,6 +45,18 @@ export function MobileHeader({ onMenuClick, clientName }: MobileHeaderProps) {
           {clientName || "KAI"}
         </span>
       </div>
+
+      {/* Notification warning indicator */}
+      {showNotificationWarning && (
+        <Button 
+          variant="ghost" 
+          size="icon"
+          onClick={requestPermission}
+          className="shrink-0 text-amber-500 hover:text-amber-600"
+        >
+          <BellOff className="h-5 w-5" />
+        </Button>
+      )}
       
       <NotificationBell />
       
@@ -53,3 +69,4 @@ export function MobileHeader({ onMenuClick, clientName }: MobileHeaderProps) {
     </header>
   );
 }
+
