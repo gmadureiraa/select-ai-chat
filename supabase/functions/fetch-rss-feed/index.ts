@@ -13,6 +13,7 @@ interface RSSItem {
   pubDate: string;
   content: string;
   imageUrl?: string;
+  allImages?: string[];
 }
 
 function parseRSSFeed(xml: string): { title: string; items: RSSItem[] } {
@@ -39,6 +40,24 @@ function parseRSSFeed(xml: string): { title: string; items: RSSItem[] } {
     const imgTag = (contentEncoded || description).match(/<img[^>]*src="([^"]+)"[^>]*>/i)?.[1];
     imageUrl = mediaContent || enclosure || imgTag || '';
     
+    // Extract ALL images from content before converting
+    const allImages: string[] = [];
+    const rawContent = contentEncoded || description;
+    const imgMatches = rawContent.matchAll(/<img[^>]*src=["']([^"']+)["'][^>]*>/gi);
+    for (const match of imgMatches) {
+      if (match[1] && !allImages.includes(match[1])) {
+        allImages.push(match[1]);
+      }
+    }
+    
+    // Also check for data-src (lazy loading)
+    const lazySrcMatches = rawContent.matchAll(/data-src=["']([^"']+)["']/gi);
+    for (const match of lazySrcMatches) {
+      if (match[1] && !allImages.includes(match[1])) {
+        allImages.push(match[1]);
+      }
+    }
+    
     // Clean HTML from description for preview
     const cleanDescription = description
       .replace(/<[^>]+>/g, '')
@@ -50,27 +69,52 @@ function parseRSSFeed(xml: string): { title: string; items: RSSItem[] } {
       .replace(/&#39;/g, "'")
       .substring(0, 300);
     
-    // Convert content to markdown-like format
+    // Convert content to markdown-like format with IMAGES preserved
     const content = (contentEncoded || description)
       .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
       .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+      // Convert images to markdown BEFORE removing other tags
+      .replace(/<figure[^>]*>[\s\S]*?<img[^>]*src=["']([^"']+)["'][^>]*>[\s\S]*?<figcaption[^>]*>([\s\S]*?)<\/figcaption>[\s\S]*?<\/figure>/gi, '\n\n![$2]($1)\n\n')
+      .replace(/<img[^>]*src=["']([^"']+)["'][^>]*alt=["']([^"']*)["'][^>]*>/gi, '\n\n![$2]($1)\n\n')
+      .replace(/<img[^>]*alt=["']([^"']*)["'][^>]*src=["']([^"']+)["'][^>]*>/gi, '\n\n![$1]($2)\n\n')
+      .replace(/<img[^>]*src=["']([^"']+)["'][^>]*>/gi, '\n\n![]($1)\n\n')
+      // Headings
       .replace(/<h1[^>]*>([\s\S]*?)<\/h1>/gi, '\n\n# $1\n\n')
       .replace(/<h2[^>]*>([\s\S]*?)<\/h2>/gi, '\n\n## $1\n\n')
       .replace(/<h3[^>]*>([\s\S]*?)<\/h3>/gi, '\n\n### $1\n\n')
       .replace(/<h[4-6][^>]*>([\s\S]*?)<\/h[4-6]>/gi, '\n\n#### $1\n\n')
+      // Blockquotes
       .replace(/<blockquote[^>]*>([\s\S]*?)<\/blockquote>/gi, '\n\n> $1\n\n')
-      .replace(/<br\s*\/?>/gi, '\n')
+      // Horizontal rules
+      .replace(/<hr[^>]*>/gi, '\n\n---\n\n')
+      // Line breaks - double br = paragraph, single = line break with 2 spaces
+      .replace(/<br\s*\/?>\s*<br\s*\/?>/gi, '\n\n')
+      .replace(/<br\s*\/?>/gi, '  \n')
+      // Paragraphs
+      .replace(/<\/p>\s*<p[^>]*>/gi, '\n\n')
       .replace(/<\/p>/gi, '\n\n')
       .replace(/<p[^>]*>/gi, '')
+      // Divs as paragraph separators
+      .replace(/<\/div>\s*<div[^>]*>/gi, '\n\n')
+      .replace(/<div[^>]*>/gi, '\n')
+      .replace(/<\/div>/gi, '\n')
+      // Lists
       .replace(/<li[^>]*>/gi, '• ')
       .replace(/<\/li>/gi, '\n')
       .replace(/<\/?[ou]l[^>]*>/gi, '\n')
-      .replace(/<a[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/gi, '[$2]($1)')
+      // Links
+      .replace(/<a[^>]*href=["']([^"']*)["'][^>]*>([\s\S]*?)<\/a>/gi, '[$2]($1)')
+      // Bold and italic
       .replace(/<strong[^>]*>([\s\S]*?)<\/strong>/gi, '**$1**')
       .replace(/<b[^>]*>([\s\S]*?)<\/b>/gi, '**$1**')
       .replace(/<em[^>]*>([\s\S]*?)<\/em>/gi, '*$1*')
       .replace(/<i[^>]*>([\s\S]*?)<\/i>/gi, '*$1*')
+      // Code
+      .replace(/<code[^>]*>([\s\S]*?)<\/code>/gi, '`$1`')
+      .replace(/<pre[^>]*>([\s\S]*?)<\/pre>/gi, '\n\n```\n$1\n```\n\n')
+      // Remove remaining tags
       .replace(/<[^>]+>/g, '')
+      // Decode HTML entities
       .replace(/&nbsp;/g, ' ')
       .replace(/&amp;/g, '&')
       .replace(/&lt;/g, '<')
@@ -84,9 +128,13 @@ function parseRSSFeed(xml: string): { title: string; items: RSSItem[] } {
       .replace(/&mdash;/g, '—')
       .replace(/&ndash;/g, '–')
       .replace(/&hellip;/g, '...')
+      // Clean up extra whitespace but preserve paragraph breaks
       .replace(/\n{3,}/g, '\n\n')
       .replace(/[ \t]+/g, ' ')
       .trim();
+    
+    // Use first extracted image or fall back to media/enclosure
+    const finalImageUrl = imageUrl || allImages[0] || '';
     
     items.push({
       guid,
@@ -95,7 +143,8 @@ function parseRSSFeed(xml: string): { title: string; items: RSSItem[] } {
       description: cleanDescription,
       pubDate,
       content,
-      imageUrl
+      imageUrl: finalImageUrl,
+      allImages
     });
   }
   
