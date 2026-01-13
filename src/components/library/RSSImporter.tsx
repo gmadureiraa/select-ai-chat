@@ -29,6 +29,7 @@ interface RSSItem {
   pubDate: string;
   content: string;
   imageUrl?: string;
+  allImages?: string[];
 }
 
 interface RSSImporterProps {
@@ -285,13 +286,39 @@ export function RSSImporter({ open, onClose, onImport }: RSSImporterProps) {
                             {item.content.length.toLocaleString()} chars
                           </Badge>
                         )}
-                        {item.imageUrl && (
+                        {item.allImages && item.allImages.length > 0 && (
                           <span className="flex items-center gap-1">
                             <ImageIcon className="h-3 w-3" />
-                            imagem
+                            {item.allImages.length} {item.allImages.length === 1 ? 'imagem' : 'imagens'}
                           </span>
                         )}
                       </div>
+                      
+                      {/* Preview of all images */}
+                      {item.allImages && item.allImages.length > 1 && (
+                        <div className="flex gap-1 mt-2 flex-wrap">
+                          {item.allImages.slice(0, 5).map((img, idx) => (
+                            <div 
+                              key={idx} 
+                              className="w-8 h-8 rounded overflow-hidden bg-muted border border-border"
+                            >
+                              <img 
+                                src={img} 
+                                alt="" 
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  e.currentTarget.parentElement!.style.display = 'none';
+                                }}
+                              />
+                            </div>
+                          ))}
+                          {item.allImages.length > 5 && (
+                            <div className="w-8 h-8 rounded bg-muted border border-border flex items-center justify-center text-[10px] text-muted-foreground">
+                              +{item.allImages.length - 5}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                     
                     {/* External Link */}
