@@ -22,10 +22,15 @@ interface GoalsPanelProps {
 
 const METRIC_OPTIONS: Record<string, { label: string; value: string }[]> = {
   instagram: [
-    { label: "Seguidores", value: "followers" },
+    { label: "Novos Seguidores", value: "followers" },
     { label: "Visualizações", value: "views" },
     { label: "Alcance", value: "reach" },
-    { label: "Engajamento (%)", value: "engagement" },
+    { label: "Número de Posts", value: "posts" },
+    { label: "Engajamento Médio (%)", value: "engagement_rate" },
+    { label: "Curtidas", value: "likes" },
+    { label: "Comentários", value: "comments" },
+    { label: "Salvamentos", value: "saves" },
+    { label: "Compartilhamentos", value: "shares" },
   ],
   twitter: [
     { label: "Seguidores", value: "followers" },
@@ -45,7 +50,7 @@ const METRIC_OPTIONS: Record<string, { label: string; value: string }[]> = {
   tiktok: [
     { label: "Seguidores", value: "followers" },
     { label: "Visualizações", value: "views" },
-    { label: "Engajamento (%)", value: "engagement" },
+    { label: "Engajamento (%)", value: "engagement_rate" },
   ],
 };
 
@@ -92,14 +97,9 @@ export const GoalsPanel = ({ clientId, platform, currentMetrics }: GoalsPanelPro
     
     // Try to get current value from metrics
     if (currentMetrics) {
-      if (goal.metric_name === "followers" && currentMetrics.followers) {
-        currentValue = currentMetrics.followers;
-      } else if (goal.metric_name === "views" && currentMetrics.views) {
-        currentValue = currentMetrics.views;
-      } else if (goal.metric_name === "reach" && currentMetrics.reach) {
-        currentValue = currentMetrics.reach;
-      } else if (goal.metric_name === "engagement" && currentMetrics.engagement) {
-        currentValue = currentMetrics.engagement;
+      const metricKey = goal.metric_name as keyof typeof currentMetrics;
+      if (currentMetrics[metricKey] !== undefined) {
+        currentValue = currentMetrics[metricKey] as number;
       }
     }
 
@@ -151,7 +151,7 @@ export const GoalsPanel = ({ clientId, platform, currentMetrics }: GoalsPanelPro
         <CardContent className="space-y-4">
           {platformGoals.map((goal) => {
             const { currentValue, progress } = calculateProgress(goal);
-            const isPercentMetric = goal.metric_name === "engagement" || goal.metric_name === "open_rate" || goal.metric_name === "click_rate";
+            const isPercentMetric = goal.metric_name === "engagement_rate" || goal.metric_name === "open_rate" || goal.metric_name === "click_rate";
             
             return (
               <div key={goal.id} className="relative p-4 rounded-xl border border-border/50 bg-background/50">
@@ -260,8 +260,6 @@ export const GoalsPanel = ({ clientId, platform, currentMetrics }: GoalsPanelPro
                 <SelectContent>
                   <SelectItem value="weekly">Semanal</SelectItem>
                   <SelectItem value="monthly">Mensal</SelectItem>
-                  <SelectItem value="quarterly">Trimestral</SelectItem>
-                  <SelectItem value="yearly">Anual</SelectItem>
                 </SelectContent>
               </Select>
             </div>

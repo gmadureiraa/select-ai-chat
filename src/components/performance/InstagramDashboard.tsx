@@ -6,8 +6,9 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
-import { Users, Heart, MessageCircle, Eye, Bookmark, Upload, Calendar, Share2, Target, TrendingUp, Settings, FileText, MousePointer } from "lucide-react";
+import { Users, Heart, MessageCircle, Eye, Bookmark, Upload, Calendar, Share2, Target, TrendingUp, Settings, FileText, MousePointer, Plus } from "lucide-react";
 import { GoalsPanel } from "./GoalsPanel";
 import { InstagramPost } from "@/hooks/useInstagramPosts";
 import { PerformanceMetrics } from "@/hooks/usePerformanceMetrics";
@@ -78,6 +79,7 @@ export function InstagramDashboard({
   const [showUploadPosts, setShowUploadPosts] = useState(false);
   const [topPostsMetric, setTopPostsMetric] = useState("engagement");
   const [showReportGenerator, setShowReportGenerator] = useState(false);
+  const [showGoalDialog, setShowGoalDialog] = useState(false);
   
   const { goals } = usePerformanceGoals(clientId);
   const { data: stories = [], isLoading: isLoadingStories, refetch: refetchStories } = useInstagramStories(clientId);
@@ -268,20 +270,38 @@ export function InstagramDashboard({
       
       // Calculate current value based on metric type
       let currentValue = 0;
-      if (goal.metric_name === 'followers') {
-        currentValue = goalPeriodMetrics.reduce((sum, m) => sum + (m.subscribers || 0), 0);
-      } else if (goal.metric_name === 'views') {
-        currentValue = goalPeriodMetrics.reduce((sum, m) => sum + (m.views || 0), 0);
-      } else if (goal.metric_name === 'reach') {
-        currentValue = goalPeriodMetrics.reduce((sum, m) => sum + getMetadataValue(m, 'reach'), 0);
-      } else if (goal.metric_name === 'likes') {
-        currentValue = goalPeriodPosts.reduce((sum, p) => sum + (p.likes || 0), 0);
-      } else if (goal.metric_name === 'comments') {
-        currentValue = goalPeriodPosts.reduce((sum, p) => sum + (p.comments || 0), 0);
-      } else if (goal.metric_name === 'shares') {
-        currentValue = goalPeriodPosts.reduce((sum, p) => sum + (p.shares || 0), 0);
-      } else if (goal.metric_name === 'saves') {
-        currentValue = goalPeriodPosts.reduce((sum, p) => sum + (p.saves || 0), 0);
+      switch(goal.metric_name) {
+        case 'followers':
+          currentValue = goalPeriodMetrics.reduce((sum, m) => sum + (m.subscribers || 0), 0);
+          break;
+        case 'views':
+          currentValue = goalPeriodMetrics.reduce((sum, m) => sum + (m.views || 0), 0);
+          break;
+        case 'reach':
+          currentValue = goalPeriodMetrics.reduce((sum, m) => sum + getMetadataValue(m, 'reach'), 0);
+          break;
+        case 'posts':
+          currentValue = goalPeriodPosts.length;
+          break;
+        case 'engagement_rate':
+          currentValue = goalPeriodPosts.length > 0
+            ? goalPeriodPosts.reduce((sum, p) => sum + (p.engagement_rate || 0), 0) / goalPeriodPosts.length
+            : 0;
+          break;
+        case 'likes':
+          currentValue = goalPeriodPosts.reduce((sum, p) => sum + (p.likes || 0), 0);
+          break;
+        case 'comments':
+          currentValue = goalPeriodPosts.reduce((sum, p) => sum + (p.comments || 0), 0);
+          break;
+        case 'shares':
+          currentValue = goalPeriodPosts.reduce((sum, p) => sum + (p.shares || 0), 0);
+          break;
+        case 'saves':
+          currentValue = goalPeriodPosts.reduce((sum, p) => sum + (p.saves || 0), 0);
+          break;
+        default:
+          currentValue = 0;
       }
       
       return { ...goal, calculatedValue: currentValue };
@@ -653,17 +673,26 @@ export function InstagramDashboard({
       </div>
 
       {/* Goals Section - Independent of date filter */}
-      {goalsWithProgress.length > 0 && (
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold flex items-center gap-2">
-              <Target className="h-5 w-5 text-primary" />
-              Metas
-            </h3>
-            <span className="text-xs text-muted-foreground">
-              Calculadas independentemente do filtro de período
-            </span>
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-semibold flex items-center gap-2">
+            <Target className="h-5 w-5 text-primary" />
+            Metas
+          </h3>
+          <div className="flex items-center gap-3">
+            {goalsWithProgress.length > 0 && (
+              <span className="text-xs text-muted-foreground">
+                Calculadas independentemente do filtro
+              </span>
+            )}
+            <Button size="sm" variant="outline" onClick={() => setShowGoalDialog(true)} className="gap-1">
+              <Plus className="h-4 w-4" />
+              Nova Meta
+            </Button>
           </div>
+        </div>
+        
+        {goalsWithProgress.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {goalsWithProgress.map(goal => (
               <GoalProgressCard 
@@ -674,8 +703,20 @@ export function InstagramDashboard({
               />
             ))}
           </div>
-        </div>
-      )}
+        ) : (
+          <Card className="border-dashed border-border/50">
+            <CardContent className="flex flex-col items-center justify-center py-8">
+              <Target className="h-8 w-8 text-muted-foreground mb-2" />
+              <p className="text-sm text-muted-foreground">Nenhuma meta definida</p>
+              <p className="text-xs text-muted-foreground mb-3">Defina metas semanais ou mensais para acompanhar seu progresso</p>
+              <Button size="sm" onClick={() => setShowGoalDialog(true)} className="gap-1">
+                <Plus className="h-4 w-4" />
+                Criar Primeira Meta
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+      </div>
 
       {/* Chart */}
       {chartData.length > 0 && availableMetrics.length > 0 && (
@@ -750,6 +791,116 @@ export function InstagramDashboard({
 
       {/* Import History */}
       <ImportHistoryPanel clientId={clientId} platform="instagram" />
+
+      {/* Goal Creation Dialog */}
+      <Dialog open={showGoalDialog} onOpenChange={setShowGoalDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Target className="h-5 w-5 text-primary" />
+              Criar Nova Meta
+            </DialogTitle>
+          </DialogHeader>
+          <CreateGoalForm 
+            clientId={clientId}
+            onSuccess={() => setShowGoalDialog(false)}
+          />
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+// Inline form component for goal creation
+function CreateGoalForm({ clientId, onSuccess }: { clientId: string; onSuccess: () => void }) {
+  const { createGoal } = usePerformanceGoals(clientId);
+  const [formData, setFormData] = useState({
+    metric_name: "",
+    target_value: 0,
+    period: "monthly",
+  });
+
+  const metricOptions = [
+    { label: "Novos Seguidores", value: "followers" },
+    { label: "Visualizações", value: "views" },
+    { label: "Alcance", value: "reach" },
+    { label: "Número de Posts", value: "posts" },
+    { label: "Engajamento Médio (%)", value: "engagement_rate" },
+    { label: "Curtidas", value: "likes" },
+    { label: "Comentários", value: "comments" },
+    { label: "Salvamentos", value: "saves" },
+    { label: "Compartilhamentos", value: "shares" },
+  ];
+
+  const handleCreate = async () => {
+    if (!formData.metric_name || !formData.target_value) return;
+
+    await createGoal.mutateAsync({
+      client_id: clientId,
+      platform: "instagram",
+      metric_name: formData.metric_name,
+      target_value: formData.target_value,
+      period: formData.period,
+    });
+
+    onSuccess();
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="space-y-2">
+        <Label>Métrica</Label>
+        <Select
+          value={formData.metric_name}
+          onValueChange={(v) => setFormData({ ...formData, metric_name: v })}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Selecione uma métrica" />
+          </SelectTrigger>
+          <SelectContent>
+            {metricOptions.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="space-y-2">
+        <Label>Valor Alvo</Label>
+        <Input
+          type="number"
+          value={formData.target_value || ""}
+          onChange={(e) => setFormData({ ...formData, target_value: Number(e.target.value) })}
+          placeholder="Ex: 10000"
+        />
+        {formData.metric_name === "engagement_rate" && (
+          <p className="text-xs text-muted-foreground">Para engajamento, use valores em % (ex: 5 para 5%)</p>
+        )}
+      </div>
+      <div className="space-y-2">
+        <Label>Período</Label>
+        <Select
+          value={formData.period}
+          onValueChange={(v) => setFormData({ ...formData, period: v })}
+        >
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="weekly">Semanal</SelectItem>
+            <SelectItem value="monthly">Mensal</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      <DialogFooter>
+        <Button 
+          onClick={handleCreate} 
+          disabled={createGoal.isPending || !formData.metric_name || !formData.target_value}
+        >
+          Criar Meta
+        </Button>
+      </DialogFooter>
     </div>
   );
 }
