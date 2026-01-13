@@ -26,20 +26,52 @@ export function InstagramStoriesCSVUpload({ clientId, onSuccess }: InstagramStor
   const importMutation = useImportInstagramStoriesCSV(clientId);
 
   const parseCSV = (text: string) => {
-    const lines = text.split("\n").filter(line => line.trim());
+    // Clean the text and split into lines
+    const cleanText = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+    const lines = cleanText.split("\n").filter(line => line.trim());
     if (lines.length < 2) return [];
     
-    // Find delimiter (comma or semicolon)
+    // Find delimiter (comma or semicolon) - check first line without quotes
     const firstLine = lines[0];
     const delimiter = firstLine.includes(";") ? ";" : ",";
     
-    const headers = firstLine.split(delimiter).map(h => h.trim().replace(/^"|"$/g, ''));
+    // Parse a CSV line respecting quoted fields
+    const parseLine = (line: string): string[] => {
+      const result: string[] = [];
+      let current = '';
+      let inQuotes = false;
+      
+      for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+        
+        if (char === '"') {
+          if (inQuotes && line[i + 1] === '"') {
+            current += '"';
+            i++; // Skip next quote
+          } else {
+            inQuotes = !inQuotes;
+          }
+        } else if (char === delimiter && !inQuotes) {
+          result.push(current.trim());
+          current = '';
+        } else {
+          current += char;
+        }
+      }
+      result.push(current.trim());
+      
+      return result;
+    };
+    
+    const headers = parseLine(lines[0]);
     
     return lines.slice(1).map(line => {
-      const values = line.split(delimiter).map(v => v.trim().replace(/^"|"$/g, ''));
+      const values = parseLine(line);
       const row: Record<string, string> = {};
       headers.forEach((header, i) => {
-        row[header] = values[i] || "";
+        // Clean header of any remaining quotes
+        const cleanHeader = header.replace(/^"|"$/g, '');
+        row[cleanHeader] = values[i] || "";
       });
       return row;
     });
