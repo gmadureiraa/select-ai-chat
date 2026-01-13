@@ -12,6 +12,33 @@ export type NodeDataType =
   | "generator" 
   | "output";
 
+// Structured metadata for each image reference
+export interface ImageMetadata {
+  uploadedAt: string;
+  dimensions: { width: number; height: number } | null;
+  analyzed: boolean;
+  analyzedAt?: string;
+  
+  // Detailed style analysis
+  styleAnalysis?: {
+    dominantColors: string[];
+    colorMood: string;
+    visualStyle: string;
+    artDirection: string;
+    composition: string;
+    hasText: boolean;
+    textStyle?: string;
+    mood: string;
+    lighting: string;
+    promptDescription: string;
+  };
+  
+  // Additional metadata
+  userNotes?: string;
+  isPrimary?: boolean;
+  referenceType?: "style" | "composition" | "color" | "general";
+}
+
 export interface SourceFile {
   id: string;
   name: string;
@@ -19,6 +46,7 @@ export interface SourceFile {
   mimeType: string;
   size: number;
   url: string;
+  storagePath?: string;
   transcription?: string;
   styleAnalysis?: {
     colors?: string[];
@@ -27,6 +55,7 @@ export interface SourceFile {
     fonts?: string[];
     description?: string;
   };
+  metadata?: ImageMetadata;
   isProcessing?: boolean;
 }
 
@@ -396,7 +425,7 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
     try {
       const file = files[fileIndex];
       
-      // Call transcribe-images to analyze the image
+      // Call transcribe-images to analyze the image with detailed analysis
       const { data, error } = await supabase.functions.invoke("transcribe-images", {
         body: { 
           imageUrls: [file.url],
@@ -406,6 +435,7 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
 
       if (error) throw error;
 
+      // Legacy format for compatibility
       const styleAnalysis = {
         colors: data.colors || [],
         mood: data.mood || "Não identificado",
@@ -414,9 +444,32 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
         description: data.description || data.analysis || "Análise de estilo visual"
       };
 
+      // New structured metadata format
+      const metadata: ImageMetadata = {
+        uploadedAt: file.metadata?.uploadedAt || new Date().toISOString(),
+        dimensions: file.metadata?.dimensions || null,
+        analyzed: true,
+        analyzedAt: new Date().toISOString(),
+        isPrimary: file.metadata?.isPrimary || false,
+        referenceType: file.metadata?.referenceType || "general",
+        styleAnalysis: {
+          dominantColors: data.colors || [],
+          colorMood: data.colorMood || data.mood || "neutral",
+          visualStyle: data.style || "general",
+          artDirection: data.artDirection || "mixed",
+          composition: data.composition || "centered",
+          hasText: data.hasText || false,
+          textStyle: data.textStyle,
+          mood: data.mood || "neutral",
+          lighting: data.lighting || "natural",
+          promptDescription: data.promptDescription || data.description || data.analysis || ""
+        }
+      };
+
       updatedFiles[fileIndex] = { 
         ...updatedFiles[fileIndex], 
         styleAnalysis,
+        metadata,
         isProcessing: false 
       };
       updateNodeData(nodeId, { files: updatedFiles } as Partial<SourceNodeData>);
@@ -472,10 +525,21 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
           
           // Collect image references and transcriptions from files
           if (sourceData.files) {
-            for (const file of sourceData.files) {
+            // Sort to prioritize primary images first
+            const sortedFiles = [...sourceData.files].sort((a, b) => {
+              if (a.metadata?.isPrimary && !b.metadata?.isPrimary) return -1;
+              if (!a.metadata?.isPrimary && b.metadata?.isPrimary) return 1;
+              return 0;
+            });
+            
+            for (const file of sortedFiles) {
               if (file.type === "image") {
                 imageReferences.push(file.url);
-                if (file.styleAnalysis) {
+                
+                // Use new structured metadata if available
+                if (file.metadata?.styleAnalysis?.promptDescription) {
+                  styleContext.push(file.metadata.styleAnalysis.promptDescription);
+                } else if (file.styleAnalysis) {
                   styleContext.push(JSON.stringify(file.styleAnalysis));
                 }
               }
