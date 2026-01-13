@@ -1,6 +1,5 @@
 import { useState, useMemo } from "react";
-import { Library, FileText, Link2, Plus, Search, Trash2, Image, Mail } from "lucide-react";
-import { NewsletterPicker } from "@/components/library/NewsletterPicker";
+import { Library, FileText, Link2, Plus, Search, Trash2, Image } from "lucide-react";
 import { NewsletterQuickView } from "@/components/library/NewsletterQuickView";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -384,17 +383,6 @@ export const KaiLibraryTab = ({ clientId, client }: KaiLibraryTabProps) => {
               className="pl-9 w-full sm:w-56 lg:w-64"
             />
           </div>
-          
-          {/* Newsletter Picker - Only show on content tab */}
-          {activeTab === "content" && (
-            <NewsletterPicker
-              clientId={clientId}
-              onSelect={(newsletter) => {
-                setSelectedContent(newsletter);
-                setNewsletterQuickViewOpen(true);
-              }}
-            />
-          )}
           
           <Button
             onClick={() => {
