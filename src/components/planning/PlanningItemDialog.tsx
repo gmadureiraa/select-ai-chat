@@ -8,12 +8,14 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { CalendarIcon, Loader2, Wand2, ChevronDown, Image, User, Settings2 } from 'lucide-react';
+import { CalendarIcon, Loader2, Wand2, ChevronDown, Image, User, Settings2, Send, Bot } from 'lucide-react';
 import { useClients } from '@/hooks/useClients';
 import { useTeamMembers } from '@/hooks/useTeamMembers';
 import { usePlanningImageGeneration } from '@/hooks/usePlanningImageGeneration';
 import { usePlanningContentGeneration } from '@/hooks/usePlanningContentGeneration';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useClientPlatformStatus } from '@/hooks/useClientPlatformStatus';
+import { useLateConnection, LatePlatform } from '@/hooks/useLateConnection';
 import { cn } from '@/lib/utils';
 import { MediaUploader, MediaItem } from './MediaUploader';
 import { RichContentEditor } from './RichContentEditor';
@@ -23,6 +25,7 @@ import { PlanningItemComments } from './PlanningItemComments';
 import { MentionableInput } from './MentionableInput';
 import { RecurrenceConfig } from './RecurrenceConfig';
 import { CONTENT_TYPE_OPTIONS, CONTENT_TO_PLATFORM, ContentTypeKey } from '@/types/contentTypes';
+import { toast } from 'sonner';
 import type { PlanningItem, CreatePlanningItemInput, PlanningPlatform, PlanningPriority, KanbanColumn } from '@/hooks/usePlanningItems';
 import type { RecurrenceConfig as RecurrenceConfigType } from '@/types/recurrence';
 
@@ -71,6 +74,7 @@ export function PlanningItemDialog({
   const { clients } = useClients();
   const { members } = useTeamMembers();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isPublishing, setIsPublishing] = useState(false);
   const [showImageModal, setShowImageModal] = useState(false);
   const [showMoreOptions, setShowMoreOptions] = useState(false);
   
@@ -96,9 +100,13 @@ export function PlanningItemDialog({
 
   const { generateImage, isGenerating: isGeneratingImage } = usePlanningImageGeneration(selectedClientId);
   const { generateContent, isGenerating: isGeneratingContent, isFetchingReference } = usePlanningContentGeneration();
+  const { canAutoPublish, getPlatformStatus } = useClientPlatformStatus(selectedClientId);
+  const lateConnection = useLateConnection({ clientId: selectedClientId });
 
   // Derive platform from content type
   const platform = CONTENT_TO_PLATFORM[contentType] as PlanningPlatform;
+  const platformStatus = getPlatformStatus(platform);
+  const canPublishNow = canAutoPublish(platform) && (content.trim() || threadTweets.some(t => t.text.trim()));
 
   const canGenerateContent = title.trim() && contentType && selectedClientId;
   const canGenerateImage = (content.trim() || threadTweets.some(t => t.text.trim())) && selectedClientId;
@@ -235,6 +243,38 @@ export function PlanningItemDialog({
       onOpenChange(false);
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handlePublishNow = async () => {
+    if (!canPublishNow || !platform) return;
+    
+    let finalContent = content;
+    if (isTwitterThread) {
+      finalContent = threadTweets.map(t => t.text).join('\n\n');
+    }
+    
+    if (!finalContent.trim()) {
+      toast.error('Adicione conteúdo para publicar');
+      return;
+    }
+    
+    setIsPublishing(true);
+    try {
+      await lateConnection.publishContent(
+        platform as LatePlatform,
+        finalContent,
+        {
+          mediaUrls: mediaItems.map(m => m.url),
+          planningItemId: item?.id,
+        }
+      );
+      toast.success(`Publicado em ${platform}!`);
+      onOpenChange(false);
+    } catch (error) {
+      // Error toast is handled by useLateConnection
+    } finally {
+      setIsPublishing(false);
     }
   };
 
@@ -525,6 +565,22 @@ export function PlanningItemDialog({
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
               {readOnly ? 'Fechar' : 'Cancelar'}
             </Button>
+            {!readOnly && canPublishNow && (
+              <Button 
+                type="button" 
+                variant="secondary"
+                onClick={handlePublishNow}
+                disabled={isPublishing || isSubmitting}
+                className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white"
+              >
+                {isPublishing ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Send className="h-4 w-4" />
+                )}
+                Publicar Agora
+              </Button>
+            )}
             {!readOnly && (
               <Button type="submit" disabled={isSubmitting || !title.trim()}>
                 {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
