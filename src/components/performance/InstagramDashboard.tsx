@@ -105,10 +105,37 @@ export function InstagramDashboard({
 
   // Previous period cutoff for comparison
   const previousPeriodCutoff = useMemo(() => {
-    if (period === "all" || period === "custom") return null;
+    if (period === "all") return null;
+    
+    if (period === "custom") {
+      // For custom period, calculate based on selected dates
+      if (!customDateFrom || !customDateTo) return null;
+      
+      // Calculate duration of selected period in days
+      const durationMs = customDateTo.getTime() - customDateFrom.getTime();
+      const durationDays = Math.ceil(durationMs / (1000 * 60 * 60 * 24)) + 1;
+      
+      // Previous period starts "durationDays" before customDateFrom
+      return startOfDay(subDays(customDateFrom, durationDays));
+    }
+    
     const days = parseInt(period);
     return startOfDay(subDays(new Date(), days * 2));
-  }, [period]);
+  }, [period, customDateFrom, customDateTo]);
+
+  // End of previous period (for custom periods)
+  const previousPeriodEnd = useMemo(() => {
+    if (period === "all") return null;
+    
+    if (period === "custom") {
+      // Previous period ends 1 day before current period starts
+      if (!customDateFrom) return null;
+      return startOfDay(subDays(customDateFrom, 1));
+    }
+    
+    // For numeric periods, previous period ends at cutoffDate
+    return cutoffDate;
+  }, [period, customDateFrom, cutoffDate]);
 
   const filteredPosts = useMemo(() => {
     if (period === "all") return posts;
@@ -134,22 +161,22 @@ export function InstagramDashboard({
 
   // Previous period metrics for comparison
   const previousPeriodMetrics = useMemo(() => {
-    if (!previousPeriodCutoff || !cutoffDate) return [];
+    if (!previousPeriodCutoff || !previousPeriodEnd) return [];
     return metrics.filter(m => {
       const date = parseISO(m.metric_date);
-      return isAfter(date, previousPeriodCutoff) && !isAfter(date, cutoffDate);
+      return isAfter(date, previousPeriodCutoff) && !isAfter(date, previousPeriodEnd);
     });
-  }, [metrics, previousPeriodCutoff, cutoffDate]);
+  }, [metrics, previousPeriodCutoff, previousPeriodEnd]);
 
   // Previous period posts for comparison
   const previousPeriodPosts = useMemo(() => {
-    if (!previousPeriodCutoff || !cutoffDate) return [];
+    if (!previousPeriodCutoff || !previousPeriodEnd) return [];
     return posts.filter(post => {
       if (!post.posted_at) return false;
       const date = parseISO(post.posted_at);
-      return isAfter(date, previousPeriodCutoff) && !isAfter(date, cutoffDate);
+      return isAfter(date, previousPeriodCutoff) && !isAfter(date, previousPeriodEnd);
     });
-  }, [posts, previousPeriodCutoff, cutoffDate]);
+  }, [posts, previousPeriodCutoff, previousPeriodEnd]);
 
   // Filter stories by period (matching posts filtering logic)
   const filteredStories = useMemo(() => {
@@ -165,13 +192,13 @@ export function InstagramDashboard({
 
   // Previous period stories for comparison
   const previousPeriodStories = useMemo(() => {
-    if (!previousPeriodCutoff || !cutoffDate) return [];
+    if (!previousPeriodCutoff || !previousPeriodEnd) return [];
     return stories.filter(story => {
       if (!story.posted_at) return false;
       const date = parseISO(story.posted_at);
-      return isAfter(date, previousPeriodCutoff) && !isAfter(date, cutoffDate);
+      return isAfter(date, previousPeriodCutoff) && !isAfter(date, previousPeriodEnd);
     });
-  }, [stories, previousPeriodCutoff, cutoffDate]);
+  }, [stories, previousPeriodCutoff, previousPeriodEnd]);
 
   const hasPreviousStoriesData = previousPeriodStories.length > 0;
 
