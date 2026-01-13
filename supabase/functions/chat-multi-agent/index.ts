@@ -101,7 +101,200 @@ interface PipelineConfig {
   agents: PipelineAgent[];
 }
 
-// ============ EXECUÇÃO GENÉRICA DE AGENTE ============
+// ============ SELEÇÃO INTELIGENTE DE REFERÊNCIAS ============
+interface SelectedReferences {
+  carouselExamples: any[];
+  contentReferences: any[];
+}
+
+function selectBestReferences(
+  contentLibrary: any[],
+  referenceLibrary: any[],
+  contentType: string
+): SelectedReferences {
+  // Para carrosséis: buscar carrosséis do cliente primeiro (exemplos de estilo)
+  const carouselExamples = contentLibrary
+    .filter(c => c.content_type === 'carousel')
+    .slice(0, 2); // Máximo 2 exemplos completos para não sobrecarregar
+  
+  // Referências mais recentes (fontes de informação)
+  const contentReferences = referenceLibrary
+    .slice(0, 2); // Máximo 2 referências completas
+    
+  console.log(`[SELECT-REFS] Selected ${carouselExamples.length} carousel examples, ${contentReferences.length} references`);
+  
+  return { carouselExamples, contentReferences };
+}
+
+// ============ PIPELINE SIMPLIFICADO PARA CARROSSEL ============
+const CAROUSEL_SIMPLE_PIPELINE: PipelineAgent[] = [
+  {
+    id: "writer",
+    name: "Escritor de Carrossel",
+    description: "Escreve o carrossel baseado em exemplos e referências",
+    model: "pro",
+    systemPrompt: `Você é um especialista em criar carrosséis para Instagram que PARAM O SCROLL.
+
+MISSÃO: Criar carrosséis persuasivos que fazem as pessoas DESLIZAREM até o final.
+
+PROCESSO OBRIGATÓRIO:
+1. ESTUDE os exemplos de carrosséis do cliente - IMITE este estilo
+2. USE as referências como fonte de informação
+3. TRANSFORME informação em narrativa persuasiva
+
+ESTRUTURA OBRIGATÓRIA:
+- Página 1: GANCHO (máx 20 palavras) - Dor/Promessa/Segredo/Contraste
+- Página 2: PONTE (máx 30 palavras) - Aprofunde a curiosidade, termine com "→"
+- Páginas 3-7: CONTEÚDO (máx 30 palavras cada) - 1 insight por página
+- Páginas 8-9: FECHAMENTO - Recapitulação ou insight final
+- Página 10: CTA - "Salve" + ação específica
+
+LINGUAGEM PROIBIDA:
+- "Entenda", "Descubra", "Aprenda", "Neste carrossel", "Vamos falar sobre"
+
+LINGUAGEM OBRIGATÓRIA:
+- "Você está perdendo", "O segredo é", "Faça isso", "Pare de"
+
+REGRA DE OURO: O leitor deve QUERER deslizar. Cada slide cria curiosidade para o próximo.`
+  },
+  {
+    id: "reviewer",
+    name: "Revisor de Carrossel",
+    description: "Valida estrutura e corrige problemas",
+    model: "flash",
+    systemPrompt: `Você é um revisor rigoroso de carrosséis.
+
+CHECKLIST OBRIGATÓRIO - VALIDE CADA ITEM:
+
+□ PÁGINA 1: Tem máximo 20 palavras?
+□ PÁGINA 1: Usa gancho emocional (não educativo)?
+□ PÁGINA 1: NÃO começa com "Entenda", "Descubra", "Aprenda"?
+□ DEMAIS PÁGINAS: Têm máximo 30 palavras cada?
+□ CADA PÁGINA: Tem apenas UM ponto/insight?
+□ TRANSIÇÕES: Há ganchos entre páginas ("→", "E tem mais", "Mas calma")?
+□ TOM: É conversacional e direto?
+□ CTA: Última página tem call-to-action claro?
+
+SE QUALQUER ITEM FALHAR:
+- Identifique o problema
+- REESCREVA a página problemática
+- Retorne a versão corrigida
+
+SE TUDO OK:
+- Retorne o carrossel sem alterações
+
+FORMATAÇÃO OBRIGATÓRIA:
+Página 1:
+[Título/Gancho]
+
+[Texto se houver]
+
+VISUAL RECOMENDADO: [descrição]
+
+---
+
+Página 2:
+[Conteúdo]
+
+VISUAL RECOMENDADO: [descrição]
+
+(continue para todas as páginas)
+
+REGRA ABSOLUTA: Retorne APENAS o conteúdo formatado. Sem comentários, sem "Aqui está".`
+  }
+];
+
+// ============ EXECUÇÃO DO ESCRITOR DE CARROSSEL ============
+async function executeCarouselWriter(
+  agent: PipelineAgent,
+  context: {
+    userMessage: string;
+    clientName: string;
+    identityGuide: string;
+    carouselExamples: any[];
+    contentReferences: any[];
+  }
+): Promise<{ content: string; inputTokens: number; outputTokens: number }> {
+  console.log(`[CAROUSEL-WRITER] Examples: ${context.carouselExamples.length}, References: ${context.contentReferences.length}`);
+
+  // Formatar exemplos COMPLETOS de carrosséis do cliente
+  const examplesText = context.carouselExamples.length > 0
+    ? context.carouselExamples.map((e, i) => 
+        `### EXEMPLO ${i + 1}: ${e.title}\n${e.content}`
+      ).join("\n\n---\n\n")
+    : "Nenhum exemplo disponível - use tom profissional e direto.";
+
+  // Formatar referências COMPLETAS
+  const referencesText = context.contentReferences.length > 0
+    ? context.contentReferences.map((r, i) => 
+        `### REFERÊNCIA ${i + 1}: ${r.title}\n${r.content}`
+      ).join("\n\n---\n\n")
+    : "Nenhuma referência específica - crie baseado na solicitação.";
+
+  const userPrompt = `## CLIENTE: ${context.clientName}
+
+## GUIA DE IDENTIDADE:
+${context.identityGuide || "Use tom profissional, direto e envolvente."}
+
+## EXEMPLOS DE CARROSSÉIS DO CLIENTE (IMITE ESTE ESTILO):
+${examplesText}
+
+## REFERÊNCIAS PARA USAR COMO FONTE DE INFORMAÇÃO:
+${referencesText}
+
+## TEMPLATE OBRIGATÓRIO:
+Página 1: [Gancho - máx 20 palavras, use dor/urgência/curiosidade]
+Página 2: [Ponte - aprofunde a dor, termine com "→"]
+Páginas 3-7: [Conteúdo - 1 insight por página, máx 30 palavras]
+Páginas 8-9: [Fechamento - recapitule ou insight final]
+Página 10: [CTA - "Salve" + ação específica]
+
+## REGRAS CRÍTICAS:
+1. IMITE o estilo dos exemplos do cliente acima
+2. USE informações das referências
+3. NÃO use: "Entenda", "Descubra", "Neste carrossel"
+4. USE: "Você está perdendo", "O segredo é", "Faça isso"
+5. Máximo 20 palavras na página 1, 30 nas demais
+
+## SOLICITAÇÃO:
+${context.userMessage}
+
+Crie o carrossel agora, seguindo EXATAMENTE a estrutura e estilo indicados.`;
+
+  const messages = [
+    { role: "system", content: agent.systemPrompt },
+    { role: "user", content: userPrompt }
+  ];
+
+  return await callGemini(messages, agent.model);
+}
+
+// ============ EXECUÇÃO DO REVISOR DE CARROSSEL ============
+async function executeCarouselReviewer(
+  agent: PipelineAgent,
+  context: {
+    clientName: string;
+    draftContent: string;
+  }
+): Promise<{ content: string; inputTokens: number; outputTokens: number }> {
+  console.log(`[CAROUSEL-REVIEWER] Reviewing ${context.draftContent.length} chars`);
+
+  const userPrompt = `## CLIENTE: ${context.clientName}
+
+## CARROSSEL PARA REVISAR:
+${context.draftContent}
+
+Execute a validação do checklist e retorne a versão final formatada.`;
+
+  const messages = [
+    { role: "system", content: agent.systemPrompt },
+    { role: "user", content: userPrompt }
+  ];
+
+  return await callGemini(messages, agent.model);
+}
+
+// ============ EXECUÇÃO GENÉRICA DE AGENTE (para outros formatos) ============
 async function executeAgent(
   agent: PipelineAgent,
   context: {
@@ -132,23 +325,6 @@ async function executeAgent(
       `ID: ${r.id}\nTítulo: ${r.title}\nTipo: ${r.reference_type}\nPreview: ${r.content.substring(0, 300)}...`
     ).join("\n\n---\n\n");
 
-    // Instruções específicas para carrossel
-    const carouselResearchInstructions = context.contentType === 'carousel' ? `
-## INSTRUÇÕES ESPECIAIS PARA CARROSSEL:
-
-NÃO resuma todo o conteúdo. EXTRAIA apenas:
-1. Os 3-5 INSIGHTS MAIS IMPACTANTES (dados, revelações, contrastes chocantes)
-2. NÚMEROS ESPECÍFICOS que possam ser usados (estatísticas, percentuais, valores)
-3. Uma FÓRMULA DE GANCHO sugerida para o Slide 1:
-   - Dor + Promessa: "Você está perdendo X por não fazer Y"
-   - Segredo Revelado: "O que ninguém te conta sobre X"
-   - Contraste Chocante: "Antes: X / Depois: Y"
-   - Erro Comum: "90% das pessoas erram nisso"
-4. TOM EMOCIONAL adequado (provocativo, educativo, inspirador, urgente)
-
-FOCO: Identificar O QUE VAI FAZER A PESSOA QUERER DESLIZAR, não resumir informação.
-` : '';
-
     userPrompt = `Cliente: ${context.clientName}
 
 ## BIBLIOTECA DE CONTEÚDO (${context.contentLibrary.length} itens):
@@ -156,7 +332,7 @@ ${libraryContext}
 
 ## BIBLIOTECA DE REFERÊNCIAS (${context.referenceLibrary.length} itens):
 ${refContext}
-${carouselResearchInstructions}
+
 ## SOLICITAÇÃO DO USUÁRIO:
 ${context.userMessage}
 
@@ -171,51 +347,6 @@ Analise e selecione os materiais mais relevantes para criar este conteúdo.`;
       `### ${m.title} (${m.content_type})\n${m.content}`
     ).join("\n\n---\n\n");
 
-    // Instruções específicas para carrossel
-    const carouselWriterInstructions = context.contentType === 'carousel' ? `
-## INSTRUÇÕES OBRIGATÓRIAS PARA CARROSSEL:
-
-REGRA PRINCIPAL: Você está TRANSFORMANDO conteúdo em narrativa persuasiva, NÃO resumindo.
-
-### SLIDE 1 (GANCHO) - MÁXIMO 20 PALAVRAS:
-Use UMA dessas fórmulas:
-- Dor + Promessa: "Você perde X por mês sem saber. Mas existe uma forma de..."
-- Segredo Revelado: "O segredo que poucos conhecem sobre X"
-- Contraste Chocante: "Antes: X / Depois: Y"  
-- Erro Comum: "90% das pessoas cometem este erro com X"
-
-PROIBIDO NO SLIDE 1:
-- "Entenda como", "Neste carrossel", "Vamos falar sobre", "Descubra"
-- Qualquer linguagem educativa ou explicativa
-- Mais de 20 palavras
-
-### SLIDE 2 (PONTE) - MÁXIMO 30 PALAVRAS:
-- Aprofunde a dor ou curiosidade
-- NÃO entregue a solução ainda
-- Termine com transição: "→" ou "Mas calma. Tem solução."
-
-### SLIDES 3-7 (CONTEÚDO) - MÁXIMO 30 PALAVRAS CADA:
-- UM insight por slide (não dois, não três - UM)
-- Use TRANSIÇÕES entre slides: "E tem mais →", "Aqui está o melhor"
-- Seja ESPECÍFICO: números, exemplos concretos, não generalidades
-- Tom CONVERSACIONAL: "Você está perdendo", "O segredo é", "Faça isso"
-- Cada slide deve criar curiosidade para o próximo
-
-### SLIDES 8-9 (FECHAMENTO):
-- Recapitulação dos pontos OU insight final forte
-- Mensagem que fecha o raciocínio
-
-### SLIDE 10 (CTA):
-- "Salve para depois" + CTA específico
-- "Mande para alguém que precisa ver isso"
-
-REGRAS ABSOLUTAS:
-- NUNCA use linguagem genérica: "Entenda", "Aprenda", "Descubra como"
-- SEMPRE use linguagem direta: "Você está perdendo", "O segredo é", "Faça isso"
-- O leitor deve QUERER deslizar para ver mais
-- Máximo 30 palavras por slide (exceto slide 1 que é 20)
-` : '';
-
     userPrompt = `## CLIENTE: ${context.clientName}
 
 ## GUIA DE IDENTIDADE:
@@ -228,7 +359,7 @@ ${materialsContext || "Nenhum material selecionado"}
 ${researchOutput}
 
 ## TIPO DE CONTEÚDO: ${context.contentType}
-${carouselWriterInstructions}
+
 ## SOLICITAÇÃO:
 ${context.userMessage}
 
@@ -262,34 +393,12 @@ Mantenha todo o conteúdo, mas refine completamente o estilo.`;
   } else if (agent.id === "reviewer") {
     const contentToReview = context.previousOutputs["editor"] || context.previousOutputs["writer"] || "";
 
-    // Checklist específico para carrossel
-    const carouselReviewerChecklist = context.contentType === 'carousel' ? `
-## CHECKLIST OBRIGATÓRIO PARA CARROSSEL (VALIDE CADA ITEM):
-
-□ SLIDE 1: Tem máximo 20 palavras?
-□ SLIDE 1: Usa fórmula de gancho (Dor+Promessa, Segredo, Contraste, Erro)?
-□ SLIDE 1: Cria URGÊNCIA ou CURIOSIDADE (não é educativo)?
-□ SLIDE 1: NÃO começa com "Entenda", "Descubra", "Aprenda", "Neste carrossel"?
-□ CADA SLIDE: Tem máximo 30 palavras?
-□ CADA SLIDE: Tem apenas UM insight/ponto?
-□ TRANSIÇÕES: Há ganchos entre slides ("→", "E tem mais", "Mas calma")?
-□ TOM: É conversacional e direto, não acadêmico?
-□ CTA: Slide final tem call-to-action claro?
-
-SE QUALQUER ITEM FALHAR: Reescreva o slide problemático.
-
-ATENÇÃO ESPECIAL AO SLIDE 1:
-- Se tiver mais de 20 palavras → REESCREVA
-- Se for educativo/explicativo → REESCREVA com gancho emocional
-- Se usar linguagem genérica → REESCREVA com linguagem direta
-` : '';
-
     userPrompt = `## CLIENTE: ${context.clientName}
 ## TIPO DE CONTEÚDO: ${context.contentType || "geral"}
 
 ## CONTEÚDO PARA REVISÃO:
 ${contentToReview}
-${carouselReviewerChecklist}
+
 ## REGRAS DE FORMATAÇÃO OBRIGATÓRIAS:
 
 1. **USE MARKDOWN RICO** para estruturar o conteúdo:
@@ -436,21 +545,154 @@ serve(async (req) => {
 
     console.log(`[MULTI-AGENT] Starting pipeline for ${clientName}`);
     console.log(`[MULTI-AGENT] Content type: ${contentType}`);
-    console.log(`[MULTI-AGENT] Pipeline: ${pipeline?.name || "default"}`);
-    console.log(`[MULTI-AGENT] Agents: ${pipeline?.agents?.map((a: any) => a.id).join(" → ") || "default"}`);
+    
+    // Detectar se é carrossel para usar pipeline simplificado
+    const isCarousel = contentType === 'carousel';
+    console.log(`[MULTI-AGENT] Using ${isCarousel ? 'SIMPLIFIED CAROUSEL' : 'DEFAULT'} pipeline`);
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Use pipeline received or fallback to default
-    const agents: PipelineAgent[] = pipeline?.agents || [
-      {
-        id: "researcher",
-        name: "Pesquisador",
-        description: "Analisa materiais disponíveis",
-        model: "flash",
-        systemPrompt: `Você é um Pesquisador especializado.
+    // Stream de progresso
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream({
+      async start(controller) {
+        // Enhanced sendProgress with token tracking
+        const sendProgress = (
+          step: string, 
+          status: string, 
+          content?: string, 
+          agentName?: string,
+          tokens?: { input: number; output: number; cost: number; savedContentId?: string | null }
+        ) => {
+          const data = JSON.stringify({ step, status, content, agentName, tokens });
+          controller.enqueue(encoder.encode(`data: ${data}\n\n`));
+        };
+
+        // Track cumulative tokens
+        let totalInputTokens = 0;
+        let totalOutputTokens = 0;
+        let totalCost = 0;
+
+        // Model pricing per 1M tokens
+        const MODEL_COSTS: Record<string, { input: number; output: number }> = {
+          "gemini-2.5-flash": { input: 0.075, output: 0.30 },
+          "gemini-2.5-pro": { input: 1.25, output: 5.00 },
+          "gemini-2.0-flash-lite": { input: 0.02, output: 0.08 },
+          "flash": { input: 0.075, output: 0.30 },
+          "pro": { input: 1.25, output: 5.00 },
+          "flash-lite": { input: 0.02, output: 0.08 },
+        };
+
+        const calculateCost = (model: string, inputTokens: number, outputTokens: number): number => {
+          const pricing = MODEL_COSTS[model] || MODEL_COSTS["flash"];
+          return (inputTokens * pricing.input + outputTokens * pricing.output) / 1_000_000;
+        };
+
+        try {
+          // ============ PIPELINE SIMPLIFICADO PARA CARROSSEL ============
+          if (isCarousel) {
+            console.log(`[CAROUSEL-PIPELINE] Starting simplified 2-agent pipeline`);
+            
+            // Selecionar referências programaticamente
+            const { carouselExamples, contentReferences } = selectBestReferences(
+              contentLibrary,
+              referenceLibrary,
+              contentType || "carousel"
+            );
+
+            // AGENTE 1: Escritor de Carrossel
+            const writerAgent = CAROUSEL_SIMPLE_PIPELINE[0];
+            sendProgress(writerAgent.id, "running", `${writerAgent.description}...`, writerAgent.name);
+            
+            const writerResult = await executeCarouselWriter(writerAgent, {
+              userMessage,
+              clientName,
+              identityGuide,
+              carouselExamples,
+              contentReferences
+            });
+
+            const writerCost = calculateCost(writerAgent.model, writerResult.inputTokens, writerResult.outputTokens);
+            totalInputTokens += writerResult.inputTokens;
+            totalOutputTokens += writerResult.outputTokens;
+            totalCost += writerCost;
+
+            if (userId) {
+              await logAIUsage(
+                supabase,
+                userId,
+                mapToGeminiModel(writerAgent.model),
+                `chat-multi-agent/${writerAgent.id}`,
+                writerResult.inputTokens,
+                writerResult.outputTokens,
+                { clientId, contentType, agentId: writerAgent.id, agentName: writerAgent.name, pipelineId: "carousel-simple" }
+              );
+            }
+
+            sendProgress(writerAgent.id, "completed", `${writerResult.content.length} caracteres`, writerAgent.name, {
+              input: writerResult.inputTokens,
+              output: writerResult.outputTokens,
+              cost: writerCost
+            });
+
+            // AGENTE 2: Revisor de Carrossel
+            const reviewerAgent = CAROUSEL_SIMPLE_PIPELINE[1];
+            sendProgress(reviewerAgent.id, "running", `${reviewerAgent.description}...`, reviewerAgent.name);
+
+            const reviewerResult = await executeCarouselReviewer(reviewerAgent, {
+              clientName,
+              draftContent: writerResult.content
+            });
+
+            const reviewerCost = calculateCost(reviewerAgent.model, reviewerResult.inputTokens, reviewerResult.outputTokens);
+            totalInputTokens += reviewerResult.inputTokens;
+            totalOutputTokens += reviewerResult.outputTokens;
+            totalCost += reviewerCost;
+
+            if (userId) {
+              await logAIUsage(
+                supabase,
+                userId,
+                mapToGeminiModel(reviewerAgent.model),
+                `chat-multi-agent/${reviewerAgent.id}`,
+                reviewerResult.inputTokens,
+                reviewerResult.outputTokens,
+                { clientId, contentType, agentId: reviewerAgent.id, agentName: reviewerAgent.name, pipelineId: "carousel-simple" }
+              );
+            }
+
+            sendProgress(reviewerAgent.id, "completed", `Finalizado`, reviewerAgent.name, {
+              input: reviewerResult.inputTokens,
+              output: reviewerResult.outputTokens,
+              cost: reviewerCost
+            });
+
+            // Send final result
+            sendProgress("complete", "done", reviewerResult.content, undefined, {
+              input: totalInputTokens,
+              output: totalOutputTokens,
+              cost: totalCost
+            });
+
+            controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+            controller.close();
+            return;
+          }
+
+          // ============ PIPELINE PADRÃO PARA OUTROS FORMATOS ============
+          console.log(`[MULTI-AGENT] Pipeline: ${pipeline?.name || "default"}`);
+          console.log(`[MULTI-AGENT] Agents: ${pipeline?.agents?.map((a: any) => a.id).join(" → ") || "default"}`);
+
+          // Use pipeline received or fallback to default
+          const agents: PipelineAgent[] = pipeline?.agents || [
+            {
+              id: "researcher",
+              name: "Pesquisador",
+              description: "Analisa materiais disponíveis",
+              model: "flash",
+              systemPrompt: `Você é um Pesquisador especializado.
 
 MISSÃO: Analisar materiais disponíveis e selecionar os mais relevantes para a tarefa.
 
@@ -464,13 +706,13 @@ ENTREGUE:
 - IDs e títulos dos materiais mais relevantes
 - Insights aplicáveis ao conteúdo solicitado
 - Padrões de tom/estilo identificados nos exemplos`
-      },
-      {
-        id: "writer",
-        name: "Escritor",
-        description: "Cria o primeiro rascunho",
-        model: "pro",
-        systemPrompt: `Você é um Escritor de Conteúdo especializado.
+            },
+            {
+              id: "writer",
+              name: "Escritor",
+              description: "Cria o primeiro rascunho",
+              model: "pro",
+              systemPrompt: `Você é um Escritor de Conteúdo especializado.
 
 HIERARQUIA DE PRIORIDADE (SIGA RIGOROSAMENTE):
 1. IDENTIDADE DO CLIENTE (identity_guide) - tom, voz, estilo são SAGRADOS
@@ -487,13 +729,13 @@ REGRAS ABSOLUTAS:
 ENTREGUE:
 - Rascunho completo seguindo a estrutura do formato
 - Tom de voz alinhado aos exemplos do cliente`
-      },
-      {
-        id: "editor",
-        name: "Editor de Estilo",
-        description: "Refina o estilo do conteúdo",
-        model: "pro",
-        systemPrompt: `Você é um Editor de Estilo especializado.
+            },
+            {
+              id: "editor",
+              name: "Editor de Estilo",
+              description: "Refina o estilo do conteúdo",
+              model: "pro",
+              systemPrompt: `Você é um Editor de Estilo especializado.
 
 MISSÃO: Fazer o conteúdo soar EXATAMENTE como o cliente escreve.
 
@@ -511,13 +753,13 @@ CHECKLIST DE EDIÇÃO:
 
 ENTREGUE:
 - Conteúdo refinado que pareça escrito PELO cliente`
-      },
-      {
-        id: "reviewer",
-        name: "Revisor Final",
-        description: "Revisão final e polish",
-        model: "flash",
-        systemPrompt: `Você é o Revisor Final especialista em formatação.
+            },
+            {
+              id: "reviewer",
+              name: "Revisor Final",
+              description: "Revisão final e polish",
+              model: "flash",
+              systemPrompt: `Você é o Revisor Final especialista em formatação.
 
 REGRA ABSOLUTA DE OUTPUT:
 - Retorne EXCLUSIVAMENTE o conteúdo final FORMATADO
@@ -559,46 +801,9 @@ CHECKLIST SILENCIOSO:
 ✓ Hook forte
 
 OUTPUT: Conteúdo final formatado.`
-      }
-    ];
+            }
+          ];
 
-    // Stream de progresso
-    const encoder = new TextEncoder();
-    const stream = new ReadableStream({
-      async start(controller) {
-        // Enhanced sendProgress with token tracking
-        const sendProgress = (
-          step: string, 
-          status: string, 
-          content?: string, 
-          agentName?: string,
-          tokens?: { input: number; output: number; cost: number; savedContentId?: string | null }
-        ) => {
-          const data = JSON.stringify({ step, status, content, agentName, tokens });
-          controller.enqueue(encoder.encode(`data: ${data}\n\n`));
-        };
-
-        // Track cumulative tokens
-        let totalInputTokens = 0;
-        let totalOutputTokens = 0;
-        let totalCost = 0;
-
-        // Model pricing per 1M tokens
-        const MODEL_COSTS: Record<string, { input: number; output: number }> = {
-          "gemini-2.5-flash": { input: 0.075, output: 0.30 },
-          "gemini-2.5-pro": { input: 1.25, output: 5.00 },
-          "gemini-2.0-flash-lite": { input: 0.02, output: 0.08 },
-          "flash": { input: 0.075, output: 0.30 },
-          "pro": { input: 1.25, output: 5.00 },
-          "flash-lite": { input: 0.02, output: 0.08 },
-        };
-
-        const calculateCost = (model: string, inputTokens: number, outputTokens: number): number => {
-          const pricing = MODEL_COSTS[model] || MODEL_COSTS["flash"];
-          return (inputTokens * pricing.input + outputTokens * pricing.output) / 1_000_000;
-        };
-
-        try {
           const context = {
             userMessage,
             clientName,
@@ -657,10 +862,6 @@ OUTPUT: Conteúdo final formatado.`
                   output: result.outputTokens,
                   cost: agentCost
                 });
-                
-                // NOTE: Content is NOT auto-saved here anymore.
-                // Content will be saved to content library when the user sends it 
-                // to planning and it gets published successfully.
                 
                 // Send final result with cumulative tokens
                 sendProgress("complete", "done", result.content, undefined, {
