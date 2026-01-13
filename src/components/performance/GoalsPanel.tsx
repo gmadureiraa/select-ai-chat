@@ -31,6 +31,7 @@ const METRIC_OPTIONS: Record<string, { label: string; value: string }[]> = {
     { label: "Comentários", value: "comments" },
     { label: "Salvamentos", value: "saves" },
     { label: "Compartilhamentos", value: "shares" },
+    { label: "Cliques no Link", value: "link_clicks" },
   ],
   twitter: [
     { label: "Seguidores", value: "followers" },
