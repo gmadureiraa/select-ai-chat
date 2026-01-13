@@ -7,7 +7,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 
 interface MentionRendererProps {
   text: string;
-  onMentionDoubleClick?: (type: 'content' | 'reference', id: string) => void;
+  onMentionDoubleClick?: (type: 'content' | 'reference' | 'user', id: string) => void;
   className?: string;
 }
 
