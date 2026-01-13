@@ -1,8 +1,8 @@
 import { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Eye, Target, Heart, MessageCircle, Share2, ArrowRight, ArrowLeft, LogOut, Play, Image as ImageIcon, Upload } from "lucide-react";
+import { Eye, Target, Heart, MessageCircle, Share2, ArrowRight, ArrowLeft, LogOut, Play, Image as ImageIcon } from "lucide-react";
 import { InstagramStory } from "@/hooks/useInstagramStories";
-import { format, parseISO, isAfter, startOfDay, subDays } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { InstagramStoriesCSVUpload } from "./InstagramStoriesCSVUpload";
@@ -39,14 +39,9 @@ export function InstagramStoriesSection({
   clientId,
   onRefresh,
 }: InstagramStoriesSectionProps) {
-  // Filter stories by period
-  const filteredStories = useMemo(() => {
-    if (period === "all") return stories;
-    const cutoffDate = startOfDay(subDays(new Date(), parseInt(period)));
-    return stories.filter(s => 
-      s.posted_at && isAfter(parseISO(s.posted_at), cutoffDate)
-    );
-  }, [stories, period]);
+  // Stories are now pre-filtered from the parent component
+  // We just use them directly
+  const filteredStories = stories;
 
   // Calculate summary stats
   const stats = useMemo(() => {
