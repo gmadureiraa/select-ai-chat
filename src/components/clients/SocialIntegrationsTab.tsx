@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Twitter, Linkedin, Loader2, Check, Eye, EyeOff, Trash2, Share2, X, RefreshCw, ChevronDown } from "lucide-react";
+import { Twitter, Linkedin, Loader2, Check, Eye, EyeOff, Trash2, Share2, X, RefreshCw, ChevronDown, Instagram, Video, Youtube } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,6 +10,7 @@ import { usePlanFeatures } from "@/hooks/usePlanFeatures";
 import { EnterpriseLockScreen } from "@/components/shared/EnterpriseLockScreen";
 import { useTwitterOAuthPopup } from "@/hooks/useTwitterOAuth";
 import { useLinkedInOAuthPopup } from "@/hooks/useLinkedInOAuth";
+import { useLateConnection, LatePlatform } from "@/hooks/useLateConnection";
 import { useSearchParams } from "react-router-dom";
 import { useToast } from "@/components/ui/use-toast";
 import { Separator } from "@/components/ui/separator";
@@ -19,6 +20,47 @@ interface SocialIntegrationsTabProps {
   clientId: string;
 }
 
+const platformConfig: Record<LatePlatform, { 
+  name: string; 
+  icon: React.ComponentType<{ className?: string }>; 
+  color: string;
+  description: string;
+  comingSoon?: boolean;
+}> = {
+  twitter: { 
+    name: "X / Twitter", 
+    icon: Twitter, 
+    color: "bg-black",
+    description: "Publique tweets automaticamente"
+  },
+  linkedin: { 
+    name: "LinkedIn", 
+    icon: Linkedin, 
+    color: "bg-[#0A66C2]",
+    description: "Posts e artigos profissionais"
+  },
+  instagram: { 
+    name: "Instagram", 
+    icon: Instagram, 
+    color: "bg-gradient-to-tr from-[#833AB4] via-[#FD1D1D] to-[#F77737]",
+    description: "Feed, Reels e Stories"
+  },
+  tiktok: { 
+    name: "TikTok", 
+    icon: Video, 
+    color: "bg-black",
+    description: "Vídeos curtos virais",
+    comingSoon: true
+  },
+  youtube: { 
+    name: "YouTube", 
+    icon: Youtube, 
+    color: "bg-[#FF0000]",
+    description: "Vídeos e Shorts",
+    comingSoon: true
+  },
+};
+
 export function SocialIntegrationsTab({ clientId }: SocialIntegrationsTabProps) {
   const { 
     credentials, 
@@ -27,19 +69,22 @@ export function SocialIntegrationsTab({ clientId }: SocialIntegrationsTabProps) 
     linkedInCredential, 
     validateTwitter, 
     validateLinkedIn,
-    deleteCredential 
+    deleteCredential,
+    getCredential
   } = useSocialCredentials(clientId);
   const { isEnterprise } = usePlanFeatures();
   const { toast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  // Twitter OAuth 2.0
-  const twitterOAuth = useTwitterOAuthPopup(clientId);
+  // Late API connection hook
+  const lateConnection = useLateConnection({ clientId });
   
-  // LinkedIn OAuth 2.0
+  // Legacy OAuth hooks (fallback)
+  const twitterOAuth = useTwitterOAuthPopup(clientId);
   const linkedInOAuth = useLinkedInOAuthPopup(clientId);
   
   const [showAdvancedTwitter, setShowAdvancedTwitter] = useState(false);
+  const [useLateApi, setUseLateApi] = useState(true); // Prefer Late API
 
   const [twitterForm, setTwitterForm] = useState({
     apiKey: "",
@@ -57,7 +102,30 @@ export function SocialIntegrationsTab({ clientId }: SocialIntegrationsTabProps) 
   // Handle OAuth callback messages
   useEffect(() => {
     const linkedInOAuthStatus = searchParams.get('linkedin_oauth');
+    const lateOAuthStatus = searchParams.get('late_oauth');
+    const platform = searchParams.get('platform');
     const message = searchParams.get('message');
+
+    if (lateOAuthStatus === 'success' && platform) {
+      toast({
+        title: `${platformConfig[platform as LatePlatform]?.name || platform} conectado!`,
+        description: "Sua conta foi conectada com sucesso via Late API.",
+      });
+      searchParams.delete('late_oauth');
+      searchParams.delete('platform');
+      searchParams.delete('message');
+      setSearchParams(searchParams);
+    } else if (lateOAuthStatus === 'error') {
+      toast({
+        title: "Erro ao conectar",
+        description: message || "Ocorreu um erro ao conectar sua conta.",
+        variant: "destructive",
+      });
+      searchParams.delete('late_oauth');
+      searchParams.delete('platform');
+      searchParams.delete('message');
+      setSearchParams(searchParams);
+    }
 
     if (linkedInOAuthStatus === 'success') {
       toast({
@@ -119,6 +187,128 @@ export function SocialIntegrationsTab({ clientId }: SocialIntegrationsTabProps) 
     );
   };
 
+  const getCredentialForPlatform = (platform: LatePlatform) => {
+    return credentials?.find(c => c.platform === platform);
+  };
+
+  const renderPlatformCard = (platform: LatePlatform) => {
+    const config = platformConfig[platform];
+    const credential = getCredentialForPlatform(platform);
+    const Icon = config.icon;
+    const isConnecting = lateConnection.isLoading && lateConnection.currentPlatform === platform;
+
+    if (config.comingSoon) {
+      return (
+        <Card key={platform} className="border-2 border-dashed border-muted opacity-60">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className={`h-10 w-10 rounded-lg ${config.color} flex items-center justify-center`}>
+                  <Icon className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                  <CardTitle className="text-base">{config.name}</CardTitle>
+                  <CardDescription>{config.description}</CardDescription>
+                </div>
+              </div>
+              <Badge variant="secondary" className="text-xs">Em breve</Badge>
+            </div>
+          </CardHeader>
+        </Card>
+      );
+    }
+
+    return (
+      <Card key={platform} className="border-2 border-dashed border-primary/20 hover:border-primary/40 transition-colors">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className={`h-10 w-10 rounded-lg ${config.color} flex items-center justify-center`}>
+                <Icon className="h-5 w-5 text-white" />
+              </div>
+              <div>
+                <CardTitle className="text-base">{config.name}</CardTitle>
+                <CardDescription>{config.description}</CardDescription>
+              </div>
+            </div>
+            {credential?.is_valid && (
+              <Badge variant="outline" className="text-green-600 border-green-600">
+                <Check className="h-3 w-3 mr-1" />
+                Conectado
+              </Badge>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent className="pt-0">
+          {credential?.is_valid ? (
+            <div className="space-y-3">
+              <div className="p-3 rounded-lg bg-muted/50">
+                <p className="text-sm">
+                  <span className="text-muted-foreground">Conta conectada:</span>{" "}
+                  <span className="font-medium">{credential.account_name || config.name}</span>
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Conectado em: {credential.last_validated_at 
+                    ? new Date(credential.last_validated_at).toLocaleDateString('pt-BR')
+                    : 'N/A'}
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => lateConnection.openOAuth(platform)}
+                  disabled={isConnecting}
+                >
+                  {isConnecting ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  ) : (
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                  )}
+                  Reconectar
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => deleteCredential.mutate(platform as 'twitter' | 'linkedin')}
+                  disabled={deleteCredential.isPending}
+                >
+                  {deleteCredential.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  ) : (
+                    <Trash2 className="h-4 w-4 mr-2" />
+                  )}
+                  Desconectar
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">
+                Conecte sua conta {config.name} para publicação automática.
+              </p>
+              <Button
+                onClick={() => lateConnection.openOAuth(platform)}
+                disabled={isConnecting}
+                className={config.color}
+              >
+                {isConnecting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                <Icon className="h-4 w-4 mr-2" />
+                Conectar {config.name}
+              </Button>
+              
+              {credential?.validation_error && (
+                <div className="p-2 rounded bg-destructive/10 text-destructive text-xs">
+                  {credential.validation_error}
+                </div>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    );
+  };
+
   if (!isEnterprise) {
     return (
       <EnterpriseLockScreen
@@ -142,195 +332,22 @@ export function SocialIntegrationsTab({ clientId }: SocialIntegrationsTabProps) 
       <div>
         <h3 className="text-lg font-medium">Integrações Sociais</h3>
         <p className="text-sm text-muted-foreground">
-          Conecte suas redes sociais para publicação automática
+          Conecte suas redes sociais para publicação automática via Late API
         </p>
       </div>
 
-      {/* Section: OAuth Connections (Easy) */}
+      {/* Section: Late API Connections */}
       <div className="space-y-4">
         <div className="flex items-center gap-2">
-          <h4 className="text-sm font-medium text-muted-foreground">Conexão Simples (OAuth)</h4>
+          <h4 className="text-sm font-medium text-muted-foreground">Conexões (Late API)</h4>
           <Badge variant="secondary" className="text-xs">Recomendado</Badge>
         </div>
 
-        {/* Twitter/X OAuth 2.0 */}
-        <Card className="border-2 border-dashed border-primary/20 hover:border-primary/40 transition-colors">
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-lg bg-black flex items-center justify-center">
-                  <Twitter className="h-5 w-5 text-white" />
-                </div>
-                <div>
-                  <CardTitle className="text-base">X / Twitter</CardTitle>
-                  <CardDescription>Publicação de tweets via OAuth 2.0</CardDescription>
-                </div>
-              </div>
-              {twitterCredential?.is_valid && (
-                <Badge variant="outline" className="text-green-600 border-green-600">
-                  <Check className="h-3 w-3 mr-1" />
-                  Conectado
-                </Badge>
-              )}
-            </div>
-          </CardHeader>
-          <CardContent className="pt-0">
-            {twitterCredential?.is_valid ? (
-              <div className="space-y-3">
-                <div className="p-3 rounded-lg bg-muted/50">
-                  <p className="text-sm">
-                    <span className="text-muted-foreground">Conta conectada:</span>{" "}
-                    <span className="font-medium">@{twitterCredential.account_name || 'Twitter'}</span>
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Conectado em: {twitterCredential.last_validated_at 
-                      ? new Date(twitterCredential.last_validated_at).toLocaleDateString('pt-BR')
-                      : 'N/A'}
-                  </p>
-                </div>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => twitterOAuth.openPopup()}
-                    disabled={twitterOAuth.isLoading}
-                  >
-                    {twitterOAuth.isLoading ? (
-                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                    ) : (
-                      <RefreshCw className="h-4 w-4 mr-2" />
-                    )}
-                    Reconectar
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => deleteCredential.mutate('twitter')}
-                    disabled={deleteCredential.isPending}
-                  >
-                    {deleteCredential.isPending ? (
-                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                    ) : (
-                      <Trash2 className="h-4 w-4 mr-2" />
-                    )}
-                    Desconectar
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                <p className="text-sm text-muted-foreground">
-                  Conecte sua conta X/Twitter para publicação automática de tweets. 
-                  Você será redirecionado para autorizar o acesso.
-                </p>
-                <Button
-                  onClick={() => twitterOAuth.openPopup()}
-                  disabled={twitterOAuth.isLoading}
-                  className="bg-black hover:bg-black/80"
-                >
-                  {twitterOAuth.isLoading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                  <Twitter className="h-4 w-4 mr-2" />
-                  Conectar com X
-                </Button>
-                
-                {twitterCredential?.validation_error && (
-                  <div className="p-2 rounded bg-destructive/10 text-destructive text-xs">
-                    {twitterCredential.validation_error}
-                  </div>
-                )}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* LinkedIn OAuth */}
-        <Card className="border-2 border-dashed border-primary/20 hover:border-primary/40 transition-colors">
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-lg bg-[#0A66C2] flex items-center justify-center">
-                  <Linkedin className="h-5 w-5 text-white" />
-                </div>
-                <div>
-                  <CardTitle className="text-base">LinkedIn</CardTitle>
-                  <CardDescription>Publicação via OAuth 2.0</CardDescription>
-                </div>
-              </div>
-              {linkedInCredential?.is_valid && (
-                <Badge variant="outline" className="text-green-600 border-green-600">
-                  <Check className="h-3 w-3 mr-1" />
-                  Conectado
-                </Badge>
-              )}
-            </div>
-          </CardHeader>
-          <CardContent className="pt-0">
-            {linkedInCredential?.is_valid ? (
-              <div className="space-y-3">
-                <div className="p-3 rounded-lg bg-muted/50">
-                  <p className="text-sm">
-                    <span className="text-muted-foreground">Conta conectada:</span>{" "}
-                    <span className="font-medium">{linkedInCredential.account_name || 'LinkedIn User'}</span>
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Conectado em: {linkedInCredential.last_validated_at 
-                      ? new Date(linkedInCredential.last_validated_at).toLocaleDateString('pt-BR')
-                      : 'N/A'}
-                  </p>
-                </div>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => linkedInOAuth.openPopup()}
-                    disabled={linkedInOAuth.isLoading}
-                  >
-                    {linkedInOAuth.isLoading ? (
-                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                    ) : (
-                      <RefreshCw className="h-4 w-4 mr-2" />
-                    )}
-                    Reconectar
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => deleteCredential.mutate('linkedin')}
-                    disabled={deleteCredential.isPending}
-                  >
-                    {deleteCredential.isPending ? (
-                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                    ) : (
-                      <Trash2 className="h-4 w-4 mr-2" />
-                    )}
-                    Desconectar
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                <p className="text-sm text-muted-foreground">
-                  Conecte sua conta LinkedIn para publicar posts automaticamente.
-                </p>
-                <Button
-                  onClick={() => linkedInOAuth.openPopup()}
-                  disabled={linkedInOAuth.isLoading}
-                  className="bg-[#0A66C2] hover:bg-[#0A66C2]/90"
-                >
-                  {linkedInOAuth.isLoading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                  <Linkedin className="h-4 w-4 mr-2" />
-                  Conectar LinkedIn
-                </Button>
-                
-                {linkedInCredential?.validation_error && (
-                  <div className="p-2 rounded bg-destructive/10 text-destructive text-xs">
-                    {linkedInCredential.validation_error}
-                  </div>
-                )}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        <div className="grid gap-4">
+          {(['twitter', 'linkedin', 'instagram', 'tiktok', 'youtube'] as LatePlatform[]).map(platform => 
+            renderPlatformCard(platform)
+          )}
+        </div>
       </div>
 
       <Separator />
@@ -345,7 +362,7 @@ export function SocialIntegrationsTab({ clientId }: SocialIntegrationsTabProps) 
         </CollapsibleTrigger>
         <CollapsibleContent className="space-y-4 pt-4">
           <p className="text-xs text-muted-foreground">
-            Use esta opção apenas se a conexão OAuth não funcionar ou se você precisa de tokens específicos.
+            Use esta opção apenas se a conexão via Late API não funcionar ou se você precisa de tokens específicos.
           </p>
           
           {/* Twitter API Keys Card */}

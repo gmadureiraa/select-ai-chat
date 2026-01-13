@@ -58,6 +58,14 @@ const roleLabels: Record<string, string> = {
   viewer: "Visualizador",
 };
 
+// Format expiration date
+function formatExpirationDate(expiresAt: string): string {
+  const date = new Date(expiresAt);
+  const months = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 
+                  'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+  return `${date.getDate()} de ${months[date.getMonth()]} de ${date.getFullYear()}`;
+}
+
 const handler = async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -111,14 +119,25 @@ const handler = async (req: Request): Promise<Response> => {
       `;
     }
 
+    const formattedExpiration = formatExpirationDate(expiresAt);
+    
     const emailHtml = `
 <!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!--[if !mso]><!-->
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <!--<![endif]-->
 </head>
 <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f3f4f6;">
+  <!-- Preheader text (appears in email preview) -->
+  <div style="display: none; max-height: 0; overflow: hidden; mso-hide: all;">
+    ${inviterName} te convidou para colaborar no workspace "${workspaceName}" como ${roleLabel}. Aceite agora!
+    &nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;
+  </div>
+  
   <div style="max-width: 600px; margin: 0 auto; padding: 40px 20px;">
     <div style="background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05); overflow: hidden;">
       <!-- Header -->
@@ -130,25 +149,25 @@ const handler = async (req: Request): Promise<Response> => {
       <!-- Content -->
       <div style="padding: 32px;">
         <h2 style="margin: 0 0 16px 0; color: #111827; font-size: 20px; font-weight: 600;">
-          Você foi convidado! 🎉
+          Você foi convidado para colaborar! 🎉
         </h2>
         
         <p style="margin: 0 0 16px 0; color: #4b5563; font-size: 15px; line-height: 1.6;">
-          <strong>${inviterName}</strong> convidou você para participar do workspace <strong>"${workspaceName}"</strong> como <strong>${roleLabel}</strong>.
+          Olá! <strong>${inviterName}</strong> convidou você para fazer parte do workspace <strong>"${workspaceName}"</strong> como <strong>${roleLabel}</strong>.
         </p>
 
         ${clientAccessHtml}
         
         <p style="margin: 0 0 24px 0; color: #4b5563; font-size: 15px; line-height: 1.6;">
-          Clique no botão abaixo para acessar a plataforma:
+          Clique no botão abaixo para aceitar o convite e começar a colaborar:
         </p>
         
         <div style="text-align: center; margin: 32px 0;">
           <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="margin: 0 auto;">
             <tr>
-              <td style="border-radius: 8px; background-color: #7c3aed;">
-                <a href="${inviteUrl}" target="_blank" style="display: inline-block; padding: 14px 32px; font-size: 15px; font-weight: 600; color: #ffffff; text-decoration: none; border-radius: 8px; background-color: #7c3aed;">
-                  Acessar kAI
+              <td style="border-radius: 8px; background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%);">
+                <a href="${inviteUrl}" target="_blank" style="display: inline-block; padding: 16px 40px; font-size: 16px; font-weight: 600; color: #ffffff; text-decoration: none; border-radius: 8px;">
+                  ✨ Aceitar Convite
                 </a>
               </td>
             </tr>
@@ -156,18 +175,23 @@ const handler = async (req: Request): Promise<Response> => {
         </div>
         
         <p style="margin: 16px 0 0 0; color: #6b7280; font-size: 13px; text-align: center;">
-          Não tem conta? <a href="${createAccountUrl}" style="color: #7c3aed; text-decoration: underline;">Crie uma aqui</a>
+          Não tem conta? <a href="${createAccountUrl}" style="color: #7c3aed; text-decoration: underline; font-weight: 500;">Crie uma gratuitamente</a>
         </p>
         
-        <p style="margin: 16px 0 0 0; color: #9ca3af; font-size: 12px; text-align: center;">
-          Este convite expira em 7 dias.
-        </p>
+        <div style="margin-top: 24px; padding: 12px; background-color: #fef3c7; border-radius: 8px; text-align: center;">
+          <p style="margin: 0; color: #92400e; font-size: 12px;">
+            ⏰ Este convite expira em <strong>${formattedExpiration}</strong>
+          </p>
+        </div>
       </div>
       
       <!-- Footer -->
       <div style="background-color: #f9fafb; padding: 24px; text-align: center; border-top: 1px solid #e5e7eb;">
         <p style="margin: 0; color: #9ca3af; font-size: 12px;">
-          Se você não esperava este convite, pode ignorar este email.
+          Se você não esperava este convite, pode ignorar este email com segurança.
+        </p>
+        <p style="margin: 8px 0 0 0; color: #d1d5db; font-size: 11px;">
+          kAI - Assistente de Marketing com IA | Kaleidos
         </p>
       </div>
     </div>
@@ -179,7 +203,7 @@ const handler = async (req: Request): Promise<Response> => {
     const emailResponse = await resend.sendEmail({
       from: "kAI <noreply@news.kaleidos.com.br>",
       to: [email],
-      subject: `Convite para ${workspaceName} no kAI`,
+      subject: `🎉 ${inviterName} te convidou para ${workspaceName}`,
       html: emailHtml,
     });
 

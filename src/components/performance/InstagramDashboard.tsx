@@ -8,7 +8,8 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
-import { Users, Heart, MessageCircle, Eye, Bookmark, Upload, Calendar, Share2, Target, TrendingUp, Settings, FileText, MousePointer, Plus } from "lucide-react";
+import { Users, Heart, MessageCircle, Eye, Bookmark, Upload, Calendar, Share2, Target, TrendingUp, Settings, FileText, MousePointer, Plus, Clock, RefreshCw } from "lucide-react";
+import { useImportHistory } from "@/hooks/useImportHistory";
 import { GoalsPanel } from "./GoalsPanel";
 import { InstagramPost } from "@/hooks/useInstagramPosts";
 import { PerformanceMetrics } from "@/hooks/usePerformanceMetrics";
@@ -84,8 +85,15 @@ export function InstagramDashboard({
   
   const { goals } = usePerformanceGoals(clientId);
   const { data: stories = [], isLoading: isLoadingStories, refetch: refetchStories } = useInstagramStories(clientId);
+  const { imports: importHistory } = useImportHistory(clientId);
   const instagramGoal = goals.find(g => g.platform === 'instagram' && g.metric_name === 'followers');
   const { canImportData, canGenerateReports } = useWorkspace();
+
+  // Get last import date for Instagram
+  const lastInstagramImport = useMemo(() => {
+    const instagramImports = importHistory.filter(i => i.platform === 'instagram');
+    return instagramImports.length > 0 ? instagramImports[0] : null;
+  }, [importHistory]);
 
   // Filter data by period
   const cutoffDate = useMemo(() => {
@@ -563,9 +571,19 @@ export function InstagramDashboard({
         <div className="flex items-center gap-3">
           <div>
             <h2 className="text-2xl font-bold tracking-tight">Instagram Analytics</h2>
-            <p className="text-sm text-muted-foreground mt-1">
-              {filteredPosts.length} posts • {filteredMetrics.length} dias de dados
-            </p>
+            <div className="flex items-center gap-3 mt-1">
+              <p className="text-sm text-muted-foreground">
+                {filteredPosts.length} posts • {filteredMetrics.length} dias de dados
+              </p>
+              {lastInstagramImport && (
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground bg-muted/50 px-2 py-1 rounded-md">
+                  <Clock className="h-3 w-3" />
+                  <span>
+                    Atualizado: {format(new Date(lastInstagramImport.imported_at), "dd/MM/yy 'às' HH:mm", { locale: ptBR })}
+                  </span>
+                </div>
+              )}
+            </div>
           </div>
           <DataCompletenessWarning platform="instagram" data={dataCompleteness} />
         </div>
