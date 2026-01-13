@@ -129,8 +129,8 @@ export function TopPostsGrid({
               key={post.id}
               className="group relative bg-muted/30 rounded-xl overflow-hidden border border-border/50 hover:border-primary/30 transition-all hover:shadow-lg"
             >
-              {/* Image Container */}
-              <div className="relative aspect-[4/5] overflow-hidden bg-muted">
+            {/* Image Container - 30% smaller height */}
+              <div className="relative aspect-[4/3.5] overflow-hidden bg-muted">
                 {post.thumbnail_url ? (
                   <img
                     src={post.thumbnail_url}
@@ -139,13 +139,13 @@ export function TopPostsGrid({
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-muted-foreground">
-                    <Eye className="h-12 w-12 opacity-20" />
+                    <Eye className="h-8 w-8 opacity-20" />
                   </div>
                 )}
                 
                 {/* Ranking Badge */}
                 <div
-                  className={`absolute top-3 right-3 w-10 h-10 rounded-full ${rankingColors[index]?.bg || "bg-muted"} flex items-center justify-center text-lg font-bold shadow-lg`}
+                  className={`absolute top-2 right-2 w-8 h-8 rounded-full ${rankingColors[index]?.bg || "bg-muted"} flex items-center justify-center text-sm font-bold shadow-lg`}
                 >
                   {rankingColors[index]?.icon || index + 1}
                 </div>
@@ -153,7 +153,7 @@ export function TopPostsGrid({
                 {/* Type Badge */}
                 <Badge 
                   variant="secondary" 
-                  className="absolute bottom-3 left-3 bg-background/80 backdrop-blur-sm text-xs"
+                  className="absolute bottom-2 left-2 bg-background/80 backdrop-blur-sm text-xs"
                 >
                   {getPostTypeLabel(post.post_type)}
                 </Badge>

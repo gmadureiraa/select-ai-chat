@@ -20,6 +20,7 @@ import { StatCard } from "./StatCard";
 import { GoalGauge } from "./GoalGauge";
 import { MetricMiniCard } from "./MetricMiniCard";
 import { PerformanceReportGenerator } from "./PerformanceReportGenerator";
+import { GoalProgressCard } from "./GoalProgressCard";
 import { PostAveragesSection } from "./PostAveragesSection";
 
 import { TopContentTable } from "./TopContentTable";
@@ -224,6 +225,70 @@ export function InstagramDashboard({
       avgEngagement: Math.round(avgEngagement * 100) / 100,
     };
   }, [filteredPosts, filteredMetrics, previousPeriodMetrics]);
+
+  // Goals with calculated progress based on goal's own period (not dashboard filter)
+  const goalsWithProgress = useMemo(() => {
+    const instagramGoals = goals.filter(g => g.platform === 'instagram');
+    
+    return instagramGoals.map(goal => {
+      // Calculate date range based on goal's period
+      let startDate: Date;
+      const endDate = new Date();
+      
+      switch(goal.period) {
+        case 'weekly':
+          startDate = subDays(endDate, 7);
+          break;
+        case 'monthly':
+          startDate = subDays(endDate, 30);
+          break;
+        case 'quarterly':
+          startDate = subDays(endDate, 90);
+          break;
+        case 'yearly':
+          startDate = subDays(endDate, 365);
+          break;
+        default:
+          startDate = subDays(endDate, 30);
+      }
+      
+      // Filter metrics for the GOAL's period (not the dashboard filter)
+      const goalPeriodMetrics = metrics.filter(m => {
+        if (!m.metric_date) return false;
+        const date = parseISO(m.metric_date);
+        return isAfter(date, startDate) && isBefore(date, endDate);
+      });
+      
+      // Filter posts for the GOAL's period
+      const goalPeriodPosts = posts.filter(p => {
+        if (!p.posted_at) return false;
+        const date = parseISO(p.posted_at);
+        return isAfter(date, startDate) && isBefore(date, endDate);
+      });
+      
+      // Calculate current value based on metric type
+      let currentValue = 0;
+      if (goal.metric_name === 'followers') {
+        currentValue = goalPeriodMetrics.reduce((sum, m) => sum + (m.subscribers || 0), 0);
+      } else if (goal.metric_name === 'views') {
+        currentValue = goalPeriodMetrics.reduce((sum, m) => sum + (m.views || 0), 0);
+      } else if (goal.metric_name === 'reach') {
+        currentValue = goalPeriodMetrics.reduce((sum, m) => sum + getMetadataValue(m, 'reach'), 0);
+      } else if (goal.metric_name === 'likes') {
+        currentValue = goalPeriodPosts.reduce((sum, p) => sum + (p.likes || 0), 0);
+      } else if (goal.metric_name === 'comments') {
+        currentValue = goalPeriodPosts.reduce((sum, p) => sum + (p.comments || 0), 0);
+      } else if (goal.metric_name === 'shares') {
+        currentValue = goalPeriodPosts.reduce((sum, p) => sum + (p.shares || 0), 0);
+      } else if (goal.metric_name === 'saves') {
+        currentValue = goalPeriodPosts.reduce((sum, p) => sum + (p.saves || 0), 0);
+      }
+      
+      return { ...goal, calculatedValue: currentValue };
+    });
+  }, [goals, metrics, posts]);
+
+  const { deleteGoal } = usePerformanceGoals(clientId);
 
   // Sparkline data for KPIs (last 14 data points)
   const sparklineData = useMemo(() => {
@@ -586,6 +651,31 @@ export function InstagramDashboard({
           color="secondary"
         />
       </div>
+
+      {/* Goals Section - Independent of date filter */}
+      {goalsWithProgress.length > 0 && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold flex items-center gap-2">
+              <Target className="h-5 w-5 text-primary" />
+              Metas
+            </h3>
+            <span className="text-xs text-muted-foreground">
+              Calculadas independentemente do filtro de período
+            </span>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {goalsWithProgress.map(goal => (
+              <GoalProgressCard 
+                key={goal.id}
+                goal={goal}
+                currentValue={goal.calculatedValue}
+                onDelete={(id) => deleteGoal.mutate(id)}
+              />
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Chart */}
       {chartData.length > 0 && availableMetrics.length > 0 && (
