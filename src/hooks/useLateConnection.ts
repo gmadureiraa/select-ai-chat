@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/components/ui/use-toast";
 
-export type LatePlatform = 'twitter' | 'linkedin' | 'instagram' | 'tiktok' | 'youtube';
+export type LatePlatform = 'twitter' | 'linkedin' | 'instagram' | 'tiktok' | 'youtube' | 'facebook' | 'threads';
 
 interface UseLateConnectionProps {
   clientId: string;
@@ -33,8 +33,25 @@ export function useLateConnection({ clientId }: UseLateConnectionProps) {
   }, []);
 
   useEffect(() => {
-    return () => cleanup();
-  }, [cleanup]);
+    // Listen for postMessage from OAuth callback popup
+    const handleMessage = (event: MessageEvent) => {
+      if (event.data?.type === 'late_oauth_success') {
+        cleanup();
+        queryClient.invalidateQueries({ queryKey: ['social-credentials', clientId] });
+        queryClient.invalidateQueries({ queryKey: ['client-platform-status', clientId] });
+        toast({
+          title: "Connected!",
+          description: `${event.data.platform} connected successfully.`,
+        });
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+    return () => {
+      window.removeEventListener('message', handleMessage);
+      cleanup();
+    };
+  }, [cleanup, clientId, queryClient, toast]);
 
   const openOAuth = useCallback(async (platform: LatePlatform) => {
     try {

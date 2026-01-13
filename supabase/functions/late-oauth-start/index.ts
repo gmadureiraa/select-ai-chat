@@ -8,9 +8,10 @@ const corsHeaders = {
 
 interface OAuthStartRequest {
   clientId: string;
-  platform: 'twitter' | 'linkedin' | 'instagram' | 'tiktok' | 'youtube';
-  redirectUri?: string;
+  platform: 'twitter' | 'linkedin' | 'instagram' | 'tiktok' | 'youtube' | 'facebook' | 'threads';
 }
+
+const LATE_API_BASE = "https://getlate.dev/api";
 
 serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
@@ -41,7 +42,7 @@ serve(async (req: Request) => {
       });
     }
 
-    const { clientId, platform, redirectUri }: OAuthStartRequest = await req.json();
+    const { clientId, platform }: OAuthStartRequest = await req.json();
 
     if (!clientId || !platform) {
       return new Response(JSON.stringify({ error: "Missing clientId or platform" }), {
@@ -58,38 +59,97 @@ serve(async (req: Request) => {
       });
     }
 
-    // Get origin for callback URL
-    const origin = req.headers.get("origin") || req.headers.get("referer") || "https://kai-kaleidos.lovable.app";
-    let baseUrl = origin;
-    try {
-      const url = new URL(origin);
-      baseUrl = url.origin;
-    } catch {
-      baseUrl = "https://kai-kaleidos.lovable.app";
+    // Get or create Late profile for this client
+    // First, check if we have a stored profile ID
+    const { data: credentials } = await supabase
+      .from('client_social_credentials')
+      .select('metadata')
+      .eq('client_id', clientId)
+      .eq('platform', 'late_profile')
+      .single();
+
+    let profileId = credentials?.metadata?.late_profile_id;
+
+    // If no profile exists, get or create one
+    if (!profileId) {
+      // List existing profiles
+      const profilesResponse = await fetch(`${LATE_API_BASE}/v1/profiles`, {
+        headers: {
+          "Authorization": `Bearer ${LATE_API_KEY}`,
+        },
+      });
+
+      if (profilesResponse.ok) {
+        const profilesData = await profilesResponse.json();
+        if (profilesData.profiles && profilesData.profiles.length > 0) {
+          // Use the first profile
+          profileId = profilesData.profiles[0]._id;
+        } else {
+          // Create a new profile
+          const createProfileResponse = await fetch(`${LATE_API_BASE}/v1/profiles`, {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${LATE_API_KEY}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              name: `Client ${clientId}`,
+            }),
+          });
+
+          if (createProfileResponse.ok) {
+            const newProfile = await createProfileResponse.json();
+            profileId = newProfile.profile._id;
+          } else {
+            const errorText = await createProfileResponse.text();
+            console.error("Failed to create Late profile:", errorText);
+            return new Response(JSON.stringify({ 
+              error: "Failed to create Late profile",
+              details: errorText 
+            }), {
+              status: 500,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          }
+        }
+      } else {
+        const errorText = await profilesResponse.text();
+        console.error("Failed to list Late profiles:", errorText);
+        return new Response(JSON.stringify({ 
+          error: "Failed to access Late profiles",
+          details: errorText 
+        }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Store the profile ID for this client
+      await supabase
+        .from('client_social_credentials')
+        .upsert({
+          client_id: clientId,
+          platform: 'late_profile',
+          metadata: { late_profile_id: profileId },
+          is_valid: true,
+        }, {
+          onConflict: 'client_id,platform',
+        });
     }
 
-    // Create state with all necessary data
-    const state = btoa(JSON.stringify({
-      clientId,
-      platform,
-      userId: user.id,
-      timestamp: Date.now(),
-    }));
-
+    // Build callback URL
     const callbackUrl = `${supabaseUrl}/functions/v1/late-oauth-callback`;
 
     // Call Late API to start OAuth flow
-    const lateResponse = await fetch("https://api.getlate.dev/v1/oauth/authorize", {
-      method: "POST",
+    const connectUrl = new URL(`${LATE_API_BASE}/v1/connect/${platform}`);
+    connectUrl.searchParams.set('profileId', profileId);
+    connectUrl.searchParams.set('redirect_url', `${callbackUrl}?clientId=${clientId}&platform=${platform}`);
+
+    const lateResponse = await fetch(connectUrl.toString(), {
+      method: "GET",
       headers: {
         "Authorization": `Bearer ${LATE_API_KEY}`,
-        "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        provider: platform,
-        redirect_uri: callbackUrl,
-        state: state,
-      }),
     });
 
     if (!lateResponse.ok) {
@@ -106,12 +166,11 @@ serve(async (req: Request) => {
 
     const lateData = await lateResponse.json();
     
-    console.log("Late OAuth started:", { platform, clientId, authUrl: lateData.authorization_url });
+    console.log("Late OAuth started:", { platform, clientId, profileId, authUrl: lateData.authUrl });
 
     return new Response(JSON.stringify({
-      authUrl: lateData.authorization_url,
-      callbackUrl,
-      state,
+      authUrl: lateData.authUrl,
+      profileId,
     }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
