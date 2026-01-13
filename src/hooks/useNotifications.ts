@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useWorkspaceContext } from '@/contexts/WorkspaceContext';
 import { useAuth } from '@/hooks/useAuth';
+import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { useEffect } from 'react';
 
 export interface Notification {
@@ -44,6 +45,9 @@ export function useNotifications() {
     enabled: !!user?.id && !!workspace?.id,
   });
 
+  // Push notifications for background
+  const { showNotificationIfHidden, permission } = usePushNotifications();
+
   // Subscribe to realtime updates
   useEffect(() => {
     if (!user?.id || !workspace?.id) return;
@@ -58,8 +62,17 @@ export function useNotifications() {
           table: 'notifications',
           filter: `user_id=eq.${user.id}`,
         },
-        () => {
+        (payload) => {
           refetch();
+          
+          // Show push notification if tab is in background and permission granted
+          if (permission === 'granted' && payload.new) {
+            const newNotification = payload.new as Notification;
+            showNotificationIfHidden(newNotification.title, {
+              body: newNotification.message || undefined,
+              tag: newNotification.id, // Prevents duplicate notifications
+            });
+          }
         }
       )
       .subscribe();
@@ -67,7 +80,7 @@ export function useNotifications() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user?.id, workspace?.id, refetch]);
+  }, [user?.id, workspace?.id, refetch, permission, showNotificationIfHidden]);
 
   // Mark single as read
   const markAsRead = useMutation({

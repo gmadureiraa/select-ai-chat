@@ -181,6 +181,7 @@ interface KaiSidebarProps {
   onClientChange: (id: string) => void;
   collapsed: boolean;
   onToggleCollapse: () => void;
+  isMobile?: boolean;
 }
 
 export function KaiSidebar({ 
@@ -189,7 +190,8 @@ export function KaiSidebar({
   selectedClientId, 
   onClientChange,
   collapsed,
-  onToggleCollapse
+  onToggleCollapse,
+  isMobile = false
 }: KaiSidebarProps) {
   const navigate = useNavigate();
   const { slug } = useParams<{ slug: string }>();
@@ -236,7 +238,8 @@ export function KaiSidebar({
 
   return (
     <aside className={cn(
-      "h-screen bg-sidebar border-r border-sidebar-border flex flex-col transition-all duration-300",
+      "h-screen bg-sidebar flex flex-col transition-all duration-300",
+      !isMobile && "border-r border-sidebar-border",
       collapsed ? "w-16" : "w-60"
     )}>
       {/* Workspace Switcher + Notifications */}
@@ -476,27 +479,29 @@ export function KaiSidebar({
         </div>
       )}
 
-      {/* Collapse Toggle */}
-      <div className={cn("px-2 py-2", !collapsed && "border-t border-sidebar-border")}>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onToggleCollapse}
-          className={cn(
-            "w-full flex items-center gap-2 justify-center h-8 text-sidebar-foreground/50 hover:text-sidebar-foreground hover:bg-sidebar-accent",
-            !collapsed && "justify-start px-3"
-          )}
-        >
-          {collapsed ? (
-            <ChevronRight className="h-4 w-4" />
-          ) : (
-            <>
-              <ChevronLeft className="h-4 w-4" />
-              <span className="text-xs font-medium">Recolher menu</span>
-            </>
-          )}
-        </Button>
-      </div>
+      {/* Collapse Toggle - Hidden on mobile */}
+      {!isMobile && (
+        <div className={cn("px-2 py-2", !collapsed && "border-t border-sidebar-border")}>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onToggleCollapse}
+            className={cn(
+              "w-full flex items-center gap-2 justify-center h-8 text-sidebar-foreground/50 hover:text-sidebar-foreground hover:bg-sidebar-accent",
+              !collapsed && "justify-start px-3"
+            )}
+          >
+            {collapsed ? (
+              <ChevronRight className="h-4 w-4" />
+            ) : (
+              <>
+                <ChevronLeft className="h-4 w-4" />
+                <span className="text-xs font-medium">Recolher menu</span>
+              </>
+            )}
+          </Button>
+        </div>
+      )}
 
       {/* User Footer */}
       <div className={cn("p-2 border-t border-sidebar-border", collapsed && "p-1.5")}>
