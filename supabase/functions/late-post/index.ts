@@ -337,10 +337,10 @@ serve(async (req: Request) => {
         updateData.scheduled_at = scheduledFor;
       }
 
-      // Get current item to merge metadata
+      // Get current item to merge metadata and get workspace_id
       const { data: currentItem } = await supabase
         .from("planning_items")
-        .select("metadata")
+        .select("metadata, workspace_id")
         .eq("id", planningItemId)
         .single();
 
@@ -350,7 +350,22 @@ serve(async (req: Request) => {
           ...existingMetadata,
           published_url: publishedUrl,
           late_post_id: postData.post?._id,
+          late_confirmed: !publishNow, // Confirmed if scheduled
         };
+
+        // If published, move to "published" column
+        if (publishNow && currentItem.workspace_id) {
+          const { data: publishedColumn } = await supabase
+            .from("kanban_columns")
+            .select("id")
+            .eq("workspace_id", currentItem.workspace_id)
+            .eq("column_type", "published")
+            .single();
+          
+          if (publishedColumn) {
+            updateData.column_id = publishedColumn.id;
+          }
+        }
       }
 
       await supabase
