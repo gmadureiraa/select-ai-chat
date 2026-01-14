@@ -21,22 +21,25 @@ import {
   MessageCircle,
   Eye,
   Edit,
-  CheckCircle2
+  CheckCircle2,
+  Image as ImageIcon
 } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { TwitterPost } from "@/types/twitter";
 import { TwitterPostEditDialog } from "./TwitterPostEditDialog";
+import { ContentSyncBadge } from "./ContentSyncBadge";
 
 interface TwitterPostsTableProps {
   posts: TwitterPost[];
   isLoading?: boolean;
+  clientId?: string;
 }
 
 type SortField = 'posted_at' | 'impressions' | 'engagements' | 'likes' | 'retweets' | 'replies' | 'engagement_rate';
 type SortDirection = 'asc' | 'desc';
 
-export function TwitterPostsTable({ posts, isLoading }: TwitterPostsTableProps) {
+export function TwitterPostsTable({ posts, isLoading, clientId }: TwitterPostsTableProps) {
   const [search, setSearch] = useState("");
   const [sortField, setSortField] = useState<SortField>('posted_at');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
@@ -168,7 +171,8 @@ export function TwitterPostsTable({ posts, isLoading }: TwitterPostsTableProps) 
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/50">
-                <TableHead className="w-[300px]">Tweet</TableHead>
+                <TableHead className="w-[50px]"></TableHead>
+                <TableHead className="w-[280px]">Tweet</TableHead>
                 <TableHead 
                   className="cursor-pointer hover:bg-muted/80 transition-colors"
                   onClick={() => handleSort('posted_at')}
@@ -223,79 +227,121 @@ export function TwitterPostsTable({ posts, isLoading }: TwitterPostsTableProps) 
                     <SortIcon field="engagement_rate" />
                   </div>
                 </TableHead>
-                <TableHead className="w-[100px] text-center">Ações</TableHead>
+                {clientId && <TableHead className="w-[70px] text-center">Sync</TableHead>}
+                <TableHead className="w-[60px] text-center">Editar</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {paginatedPosts.map((post) => (
-                <TableRow key={post.id} className="hover:bg-muted/30">
-                  <TableCell className="max-w-[300px]">
-                    <div className="space-y-1">
-                      <p className="text-sm line-clamp-2">
-                        {post.content || <span className="text-muted-foreground italic">Sem texto</span>}
-                      </p>
-                      <div className="flex items-center gap-2">
-                        {post.tweet_id && (
-                          <a 
-                            href={`https://twitter.com/i/web/status/${post.tweet_id}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1"
-                          >
-                            <ExternalLink className="h-3 w-3" />
-                            Ver tweet
-                          </a>
-                        )}
-                        {post.content_synced_at && (
-                          <span className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-0.5">
-                            <CheckCircle2 className="h-3 w-3" />
-                            Sincronizado
-                          </span>
+              {paginatedPosts.map((post) => {
+                const images = post.images as string[] | null;
+                const firstImage = images?.[0];
+                
+                return (
+                  <TableRow key={post.id} className="hover:bg-muted/30">
+                    {/* Thumbnail */}
+                    <TableCell className="py-2">
+                      <div className="w-10 h-10 rounded overflow-hidden flex-shrink-0 bg-gradient-to-br from-sky-400 to-blue-600">
+                        {firstImage ? (
+                          <img 
+                            src={firstImage} 
+                            alt="Tweet media" 
+                            className="w-full h-full object-cover"
+                            loading="lazy"
+                            onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-white">
+                            <ImageIcon className="h-4 w-4 opacity-60" />
+                          </div>
                         )}
                       </div>
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
-                    {post.posted_at 
-                      ? format(parseISO(post.posted_at), "dd/MM/yy HH:mm", { locale: ptBR })
-                      : '-'
-                    }
-                  </TableCell>
-                  <TableCell className="text-right font-medium">
-                    {formatNumber(post.impressions)}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <span className="text-rose-600 dark:text-rose-400">
-                      {formatNumber(post.likes)}
-                    </span>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <span className="text-emerald-600 dark:text-emerald-400">
-                      {formatNumber(post.retweets)}
-                    </span>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <span className="text-blue-600 dark:text-blue-400">
-                      {formatNumber(post.replies)}
-                    </span>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Badge variant="outline" className="font-mono">
-                      {(post.engagement_rate || 0).toFixed(2)}%
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-center">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setEditingPost(post)}
-                      className="h-7 w-7 p-0"
-                    >
-                      <Edit className="h-3.5 w-3.5" />
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
+                    </TableCell>
+                    
+                    {/* Content */}
+                    <TableCell className="max-w-[280px]">
+                      <div className="space-y-1">
+                        <p className="text-sm line-clamp-2">
+                          {post.content || <span className="text-muted-foreground italic">Sem texto</span>}
+                        </p>
+                        <div className="flex items-center gap-2">
+                          {post.tweet_id && (
+                            <a 
+                              href={`https://twitter.com/i/web/status/${post.tweet_id}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1"
+                            >
+                              <ExternalLink className="h-3 w-3" />
+                              Ver tweet
+                            </a>
+                          )}
+                          {images && images.length > 1 && (
+                            <Badge variant="secondary" className="text-[10px] h-4">
+                              +{images.length - 1} imagens
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                    </TableCell>
+                    
+                    <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
+                      {post.posted_at 
+                        ? format(parseISO(post.posted_at), "dd/MM/yy HH:mm", { locale: ptBR })
+                        : '-'
+                      }
+                    </TableCell>
+                    <TableCell className="text-right font-medium">
+                      {formatNumber(post.impressions)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <span className="text-rose-600 dark:text-rose-400">
+                        {formatNumber(post.likes)}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <span className="text-emerald-600 dark:text-emerald-400">
+                        {formatNumber(post.retweets)}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <span className="text-blue-600 dark:text-blue-400">
+                        {formatNumber(post.replies)}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Badge variant="outline" className="font-mono">
+                        {(post.engagement_rate || 0).toFixed(2)}%
+                      </Badge>
+                    </TableCell>
+                    
+                    {/* Sync Badge */}
+                    {clientId && (
+                      <TableCell className="text-center">
+                        <ContentSyncBadge
+                          postId={post.id}
+                          clientId={clientId}
+                          platform="twitter"
+                          content={post.content}
+                          contentSyncedAt={post.content_synced_at}
+                          tableName="twitter_posts"
+                        />
+                      </TableCell>
+                    )}
+                    
+                    {/* Edit */}
+                    <TableCell className="text-center">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setEditingPost(post)}
+                        className="h-7 w-7 p-0"
+                      >
+                        <Edit className="h-3.5 w-3.5" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </div>

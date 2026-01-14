@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   Table,
   TableBody,
@@ -21,6 +22,11 @@ import {
   ChevronLeft,
   ChevronRight,
   FileText,
+  Image as ImageIcon,
+  Heart,
+  MessageCircle,
+  Share2,
+  Edit,
 } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -33,10 +39,10 @@ interface LinkedInPostsTableProps {
   clientId?: string;
 }
 
-type SortField = "posted_at" | "impressions" | "engagements" | "engagement_rate";
+type SortField = "posted_at" | "impressions" | "engagements" | "engagement_rate" | "likes" | "comments" | "shares";
 type SortDirection = "asc" | "desc";
 
-const POSTS_PER_PAGE = 10;
+const POSTS_PER_PAGE = 15;
 
 export function LinkedInPostsTable({ posts, isLoading, clientId }: LinkedInPostsTableProps) {
   const [searchQuery, setSearchQuery] = useState("");
@@ -78,6 +84,18 @@ export function LinkedInPostsTable({ posts, isLoading, clientId }: LinkedInPosts
         case "engagement_rate":
           aVal = a.engagement_rate || 0;
           bVal = b.engagement_rate || 0;
+          break;
+        case "likes":
+          aVal = a.likes || 0;
+          bVal = b.likes || 0;
+          break;
+        case "comments":
+          aVal = a.comments || 0;
+          bVal = b.comments || 0;
+          break;
+        case "shares":
+          aVal = a.shares || 0;
+          bVal = b.shares || 0;
           break;
       }
 
@@ -152,10 +170,11 @@ export function LinkedInPostsTable({ posts, isLoading, clientId }: LinkedInPosts
       <div className="rounded-md border overflow-x-auto">
         <Table>
           <TableHeader>
-            <TableRow>
-              <TableHead className="w-[50%]">Post</TableHead>
+            <TableRow className="bg-muted/50">
+              <TableHead className="w-[50px]"></TableHead>
+              <TableHead className="w-[35%]">Post</TableHead>
               <TableHead
-                className="cursor-pointer hover:bg-muted/50"
+                className="cursor-pointer hover:bg-muted/80"
                 onClick={() => handleSort("posted_at")}
               >
                 <div className="flex items-center gap-1">
@@ -163,103 +182,161 @@ export function LinkedInPostsTable({ posts, isLoading, clientId }: LinkedInPosts
                 </div>
               </TableHead>
               <TableHead
-                className="cursor-pointer hover:bg-muted/50"
+                className="cursor-pointer hover:bg-muted/80 text-right"
                 onClick={() => handleSort("impressions")}
               >
-                <div className="flex items-center gap-1">
+                <div className="flex items-center justify-end gap-1">
                   <Eye className="h-4 w-4" />
-                  <span className="hidden sm:inline">Impressões</span>
                   <SortIcon field="impressions" />
                 </div>
               </TableHead>
               <TableHead
-                className="cursor-pointer hover:bg-muted/50"
-                onClick={() => handleSort("engagements")}
+                className="cursor-pointer hover:bg-muted/80 text-right"
+                onClick={() => handleSort("likes")}
               >
-                <div className="flex items-center gap-1">
-                  <MousePointer className="h-4 w-4" />
-                  <span className="hidden sm:inline">Engaj.</span>
-                  <SortIcon field="engagements" />
+                <div className="flex items-center justify-end gap-1">
+                  <Heart className="h-4 w-4" />
+                  <SortIcon field="likes" />
                 </div>
               </TableHead>
               <TableHead
-                className="cursor-pointer hover:bg-muted/50"
+                className="cursor-pointer hover:bg-muted/80 text-right"
+                onClick={() => handleSort("comments")}
+              >
+                <div className="flex items-center justify-end gap-1">
+                  <MessageCircle className="h-4 w-4" />
+                  <SortIcon field="comments" />
+                </div>
+              </TableHead>
+              <TableHead
+                className="cursor-pointer hover:bg-muted/80 text-right"
+                onClick={() => handleSort("shares")}
+              >
+                <div className="flex items-center justify-end gap-1">
+                  <Share2 className="h-4 w-4" />
+                  <SortIcon field="shares" />
+                </div>
+              </TableHead>
+              <TableHead
+                className="cursor-pointer hover:bg-muted/80 text-right"
                 onClick={() => handleSort("engagement_rate")}
               >
-                <div className="flex items-center gap-1">
-                  <TrendingUp className="h-4 w-4" />
-                  <span className="hidden sm:inline">Taxa</span>
+                <div className="flex items-center justify-end gap-1">
+                  Eng.%
                   <SortIcon field="engagement_rate" />
                 </div>
               </TableHead>
               {clientId && (
-                <TableHead>
-                  <div className="flex items-center gap-1">
-                    <FileText className="h-4 w-4" />
-                    Sync
-                  </div>
-                </TableHead>
+                <TableHead className="w-[70px] text-center">Sync</TableHead>
               )}
             </TableRow>
           </TableHeader>
           <TableBody>
             {paginatedPosts.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={clientId ? 9 : 8} className="text-center py-8 text-muted-foreground">
                   {searchQuery ? "Nenhum post encontrado" : "Nenhum post disponível"}
                 </TableCell>
               </TableRow>
             ) : (
-              paginatedPosts.map((post) => (
-                <TableRow key={post.id} className="group">
-                  <TableCell>
-                    <div className="space-y-1">
-                      <p className="text-sm line-clamp-2">
-                        {post.content || (
-                          <span className="text-muted-foreground italic">Sem texto</span>
+              paginatedPosts.map((post) => {
+                const images = post.images as string[] | null;
+                const firstImage = images?.[0];
+                
+                return (
+                  <TableRow key={post.id} className="group hover:bg-muted/30">
+                    {/* Thumbnail */}
+                    <TableCell className="py-2">
+                      <div className="w-10 h-10 rounded overflow-hidden flex-shrink-0 bg-gradient-to-br from-blue-600 to-blue-800">
+                        {firstImage ? (
+                          <img 
+                            src={firstImage} 
+                            alt="Post media" 
+                            className="w-full h-full object-cover"
+                            loading="lazy"
+                            onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-white">
+                            <ImageIcon className="h-4 w-4 opacity-60" />
+                          </div>
                         )}
-                      </p>
-                      {post.post_url && (
-                        <a
-                          href={post.post_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1"
-                        >
-                          <ExternalLink className="h-3 w-3" />
-                          Ver no LinkedIn
-                        </a>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell className="whitespace-nowrap">
-                    {post.posted_at
-                      ? format(parseISO(post.posted_at), "dd/MM/yyyy", { locale: ptBR })
-                      : "-"}
-                  </TableCell>
-                  <TableCell className="text-blue-600 font-medium">
-                    {formatNumber(post.impressions)}
-                  </TableCell>
-                  <TableCell className="text-emerald-600 font-medium">
-                    {formatNumber(post.engagements)}
-                  </TableCell>
-                  <TableCell className="text-violet-600 font-medium">
-                    {post.engagement_rate ? `${post.engagement_rate.toFixed(2)}%` : "-"}
-                  </TableCell>
-                  {clientId && (
-                    <TableCell>
-                      <ContentSyncBadge
-                        postId={post.id}
-                        clientId={clientId}
-                        platform="linkedin"
-                        content={post.content}
-                        contentSyncedAt={(post as any).content_synced_at}
-                        tableName="linkedin_posts"
-                      />
+                      </div>
                     </TableCell>
-                  )}
-                </TableRow>
-              ))
+                    
+                    {/* Content */}
+                    <TableCell>
+                      <div className="space-y-1">
+                        <p className="text-sm line-clamp-2">
+                          {post.content || (
+                            <span className="text-muted-foreground italic">Sem texto</span>
+                          )}
+                        </p>
+                        <div className="flex items-center gap-2">
+                          {post.post_url && (
+                            <a
+                              href={post.post_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1"
+                            >
+                              <ExternalLink className="h-3 w-3" />
+                              Ver no LinkedIn
+                            </a>
+                          )}
+                          {images && images.length > 1 && (
+                            <Badge variant="secondary" className="text-[10px] h-4">
+                              +{images.length - 1} imagens
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                    </TableCell>
+                    
+                    <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
+                      {post.posted_at
+                        ? format(parseISO(post.posted_at), "dd/MM/yy", { locale: ptBR })
+                        : "-"}
+                    </TableCell>
+                    <TableCell className="text-right text-blue-600 font-medium">
+                      {formatNumber(post.impressions)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <span className="text-rose-600 dark:text-rose-400">
+                        {formatNumber(post.likes)}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <span className="text-sky-600 dark:text-sky-400">
+                        {formatNumber(post.comments)}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <span className="text-emerald-600 dark:text-emerald-400">
+                        {formatNumber(post.shares)}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Badge variant="outline" className="font-mono">
+                        {post.engagement_rate ? `${post.engagement_rate.toFixed(2)}%` : "-"}
+                      </Badge>
+                    </TableCell>
+                    
+                    {clientId && (
+                      <TableCell className="text-center">
+                        <ContentSyncBadge
+                          postId={post.id}
+                          clientId={clientId}
+                          platform="linkedin"
+                          content={post.content}
+                          contentSyncedAt={post.content_synced_at}
+                          tableName="linkedin_posts"
+                        />
+                      </TableCell>
+                    )}
+                  </TableRow>
+                );
+              })
             )}
           </TableBody>
         </Table>
