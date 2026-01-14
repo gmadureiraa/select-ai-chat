@@ -303,72 +303,30 @@ function generateSuccessPage(displayName: string, platform: string, clientId: st
 }
 
 function generateErrorPage(message: string, platform: string | null, clientId: string | null): string {
-  // Escape single quotes in message
-  const escapedMessage = message.replace(/'/g, "\\'");
+  // Escape single quotes and double quotes in message for JS string safety
+  const escapedMessage = message.replace(/'/g, "\\'").replace(/"/g, '\\"');
   const platformStr = platform ? `'${platform}'` : 'null';
   const clientIdStr = clientId ? `'${clientId}'` : 'null';
   
+  // Minimal page that just sends postMessage and closes immediately
   return `<!DOCTYPE html>
-<html lang="pt-BR">
-  <head>
-    <title>Erro na Conexão</title>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <style>
-      body {
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        text-align: center;
-        padding: 50px 20px;
-        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-        min-height: 100vh;
-        margin: 0;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      }
-      .card {
-        background: white;
-        border-radius: 16px;
-        padding: 40px;
-        box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-        max-width: 400px;
-      }
-      .error-icon {
-        font-size: 64px;
-        margin-bottom: 20px;
-      }
-      h2 {
-        color: #1a1a2e;
-        margin-bottom: 10px;
-      }
-      p {
-        color: #666;
-        margin-bottom: 20px;
-      }
-      .close-text {
-        font-size: 14px;
-        color: #999;
-      }
-    </style>
-  </head>
-  <body>
-    <div class="card">
-      <div class="error-icon">❌</div>
-      <h2>Erro na Conexão</h2>
-      <p>${message}</p>
-      <p class="close-text">Você pode fechar esta janela e tentar novamente.</p>
-    </div>
-    <script>
-      if (window.opener) {
-        window.opener.postMessage({ 
-          type: 'late_oauth_error', 
-          error: '${escapedMessage}',
-          platform: ${platformStr},
-          clientId: ${clientIdStr}
-        }, '*');
-      }
-    </script>
-  </body>
+<html>
+<head><meta charset="UTF-8"><title>Erro</title></head>
+<body>
+<script>
+  if (window.opener) {
+    window.opener.postMessage({ 
+      type: 'late_oauth_error', 
+      error: '${escapedMessage}',
+      platform: ${platformStr},
+      clientId: ${clientIdStr}
+    }, '*');
+    window.close();
+  } else {
+    document.body.innerHTML = '<p style="font-family:sans-serif;text-align:center;padding:50px;color:#e74c3c;">Erro: ${escapedMessage}<br><br>Pode fechar esta janela.</p>';
+  }
+</script>
+</body>
 </html>`;
 }
 
