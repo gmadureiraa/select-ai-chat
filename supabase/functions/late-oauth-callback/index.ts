@@ -252,15 +252,24 @@ serve(async (req: Request) => {
 
     const displayName = platformNames[platform] || platform;
     
-    // Build account name, filtering out undefined values
+    // Build account name, filtering out undefined values thoroughly
     let accountName = '';
-    if (accountData?.displayName && !accountData.displayName.includes('undefined')) {
-      accountName = accountData.displayName;
-    } else if (accountData?.username) {
+    if (accountData?.displayName) {
+      // Clean displayName removing any "undefined" words
+      accountName = accountData.displayName
+        .replace(/\s*undefined\s*/gi, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    }
+    
+    // If cleaned name is empty or still invalid, try alternatives
+    if (!accountName && accountData?.username) {
       accountName = `@${accountData.username}`;
-    } else if (username) {
+    } else if (!accountName && username) {
       accountName = `@${username}`;
-    } else {
+    }
+    
+    if (!accountName) {
       accountName = displayName;
     }
 
@@ -277,55 +286,166 @@ serve(async (req: Request) => {
 });
 
 function generateSuccessPage(displayName: string, platform: string, clientId: string, accountName: string): string {
-  // Escape single quotes for JS string safety
   const safeAccountName = accountName.replace(/'/g, "\\'");
   
-  // Minimal page that just sends postMessage and closes immediately
   return `<!DOCTYPE html>
 <html>
-<head><meta charset="UTF-8"><title>Conectado</title></head>
+<head>
+  <meta charset="UTF-8">
+  <title>Conectado</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+      background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+    }
+    .message {
+      background: white;
+      padding: 40px;
+      border-radius: 16px;
+      text-align: center;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+    }
+    .success { color: #22c55e; font-size: 48px; }
+    h2 { color: #1a1a2e; margin: 16px 0 8px; }
+    p { color: #666; margin: 0; }
+    button {
+      margin-top: 20px;
+      padding: 12px 24px;
+      background: #22c55e;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 16px;
+    }
+    button:hover { background: #16a34a; }
+    .hidden { display: none; }
+  </style>
+</head>
 <body>
-<script>
-  if (window.opener) {
-    window.opener.postMessage({ 
-      type: 'late_oauth_success', 
-      platform: '${platform}',
-      clientId: '${clientId}',
-      accountName: '${safeAccountName}'
-    }, '*');
-    window.close();
-  } else {
-    document.body.innerHTML = '<p style="font-family:sans-serif;text-align:center;padding:50px;">Conectado! Pode fechar esta janela.</p>';
-  }
-</script>
+  <div class="message">
+    <div class="success">✓</div>
+    <h2>Conectado!</h2>
+    <p>${displayName} foi conectado com sucesso.</p>
+    <button id="closeBtn" class="hidden" onclick="window.close()">Fechar esta janela</button>
+  </div>
+  <script>
+    // Send message to parent window
+    if (window.opener && !window.opener.closed) {
+      try {
+        window.opener.postMessage({ 
+          type: 'late_oauth_success', 
+          platform: '${platform}',
+          clientId: '${clientId}',
+          accountName: '${safeAccountName}'
+        }, '*');
+      } catch(e) { console.error('postMessage failed:', e); }
+    }
+    
+    // Try to close the window multiple times
+    let attempts = 0;
+    const tryClose = () => {
+      attempts++;
+      try {
+        window.close();
+      } catch(e) {}
+      
+      // If still open after 3 attempts, show close button
+      if (attempts >= 3) {
+        document.getElementById('closeBtn').classList.remove('hidden');
+      } else {
+        setTimeout(tryClose, 300);
+      }
+    };
+    
+    // Start closing after a short delay
+    setTimeout(tryClose, 100);
+  </script>
 </body>
 </html>`;
 }
 
 function generateErrorPage(message: string, platform: string | null, clientId: string | null): string {
-  // Escape single quotes and double quotes in message for JS string safety
   const escapedMessage = message.replace(/'/g, "\\'").replace(/"/g, '\\"');
-  const platformStr = platform ? `'${platform}'` : 'null';
-  const clientIdStr = clientId ? `'${clientId}'` : 'null';
   
-  // Minimal page that just sends postMessage and closes immediately
   return `<!DOCTYPE html>
 <html>
-<head><meta charset="UTF-8"><title>Erro</title></head>
+<head>
+  <meta charset="UTF-8">
+  <title>Erro na Conexão</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+      background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+    }
+    .message {
+      background: white;
+      padding: 40px;
+      border-radius: 16px;
+      text-align: center;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+      max-width: 400px;
+    }
+    .error { color: #ef4444; font-size: 48px; }
+    h2 { color: #1a1a2e; margin: 16px 0 8px; }
+    p { color: #666; margin: 0; line-height: 1.5; }
+    button {
+      margin-top: 20px;
+      padding: 12px 24px;
+      background: #ef4444;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 16px;
+    }
+    button:hover { background: #dc2626; }
+    .hidden { display: none; }
+  </style>
+</head>
 <body>
-<script>
-  if (window.opener) {
-    window.opener.postMessage({ 
-      type: 'late_oauth_error', 
-      error: '${escapedMessage}',
-      platform: ${platformStr},
-      clientId: ${clientIdStr}
-    }, '*');
-    window.close();
-  } else {
-    document.body.innerHTML = '<p style="font-family:sans-serif;text-align:center;padding:50px;color:#e74c3c;">Erro: ${escapedMessage}<br><br>Pode fechar esta janela.</p>';
-  }
-</script>
+  <div class="message">
+    <div class="error">✕</div>
+    <h2>Erro na Conexão</h2>
+    <p>${escapedMessage}</p>
+    <button id="closeBtn" class="hidden" onclick="window.close()">Fechar esta janela</button>
+  </div>
+  <script>
+    // Send error message to parent window
+    if (window.opener && !window.opener.closed) {
+      try {
+        window.opener.postMessage({ 
+          type: 'late_oauth_error', 
+          error: '${escapedMessage}',
+          platform: ${platform ? `'${platform}'` : 'null'},
+          clientId: ${clientId ? `'${clientId}'` : 'null'}
+        }, '*');
+      } catch(e) { console.error('postMessage failed:', e); }
+    }
+    
+    // Try to close the window
+    let attempts = 0;
+    const tryClose = () => {
+      attempts++;
+      try { window.close(); } catch(e) {}
+      if (attempts >= 3) {
+        document.getElementById('closeBtn').classList.remove('hidden');
+      } else {
+        setTimeout(tryClose, 300);
+      }
+    };
+    setTimeout(tryClose, 100);
+  </script>
 </body>
 </html>`;
 }
@@ -333,77 +453,88 @@ function generateErrorPage(message: string, platform: string | null, clientId: s
 function generateWaitingPage(): string {
   return `<!DOCTYPE html>
 <html lang="pt-BR">
-  <head>
-    <title>Conectando...</title>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <style>
-      body {
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        text-align: center;
-        padding: 50px 20px;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        min-height: 100vh;
-        margin: 0;
-        display: flex;
-        align-items: center;
-        justify-content: center;
+<head>
+  <title>Conectando...</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+    .card {
+      background: white;
+      padding: 40px;
+      border-radius: 16px;
+      text-align: center;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+      max-width: 400px;
+    }
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border: 4px solid #f3f3f3;
+      border-top: 4px solid #667eea;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 16px;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    h2 { color: #1a1a2e; margin: 0 0 8px; font-size: 18px; }
+    p { color: #666; margin: 0; font-size: 14px; }
+    button {
+      margin-top: 20px;
+      padding: 12px 24px;
+      background: #667eea;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    button:hover { background: #5a67d8; }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="spinner" id="spinner"></div>
+    <h2 id="title">Conectando...</h2>
+    <p id="message">Complete a autorização na janela da rede social.</p>
+    <button id="closeBtn" class="hidden" onclick="window.close()">Fechar esta janela</button>
+  </div>
+  <script>
+    // Check if parent window is still open - if not, close this popup
+    const checkParent = setInterval(() => {
+      if (!window.opener || window.opener.closed) {
+        clearInterval(checkParent);
+        window.close();
       }
-      .card {
-        background: white;
-        border-radius: 16px;
-        padding: 40px;
-        box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-        max-width: 400px;
-      }
-      .spinner {
-        width: 50px;
-        height: 50px;
-        border: 4px solid #f3f3f3;
-        border-top: 4px solid #667eea;
-        border-radius: 50%;
-        animation: spin 1s linear infinite;
-        margin: 0 auto 20px;
-      }
-      @keyframes spin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
-      }
-      h2 {
-        color: #1a1a2e;
-        margin-bottom: 10px;
-      }
-      p {
-        color: #666;
-      }
-      .timeout-message {
-        display: none;
-        color: #e74c3c;
-        margin-top: 15px;
-      }
-    </style>
-  </head>
-  <body>
-    <div class="card">
-      <div class="spinner" id="spinner"></div>
-      <h2 id="title">Conectando...</h2>
-      <p id="message">Complete a autorização na janela que abriu.</p>
-      <p class="timeout-message" id="timeout-msg">Se a conexão demorar muito, feche esta janela e tente novamente.</p>
-    </div>
-    <script>
-      // Show timeout message after 60 seconds
-      setTimeout(() => {
-        document.getElementById('timeout-msg').style.display = 'block';
-      }, 60000);
-      
-      // Update message after 2 minutes
-      setTimeout(() => {
-        document.getElementById('spinner').style.display = 'none';
-        document.getElementById('title').textContent = 'Tempo limite atingido';
-        document.getElementById('message').textContent = 'A conexão demorou mais que o esperado. Feche esta janela e tente novamente.';
-        document.getElementById('timeout-msg').style.display = 'none';
-      }, 120000);
-    </script>
-  </body>
+    }, 1000);
+    
+    // Show close button after 30 seconds
+    setTimeout(() => {
+      document.getElementById('closeBtn').classList.remove('hidden');
+    }, 30000);
+    
+    // Update message after 60 seconds
+    setTimeout(() => {
+      document.getElementById('message').textContent = 'Demorando? Tente fechar e conectar novamente.';
+    }, 60000);
+    
+    // Auto-close after 5 minutes if nothing happens
+    setTimeout(() => {
+      window.close();
+    }, 5 * 60 * 1000);
+  </script>
+</body>
 </html>`;
 }
