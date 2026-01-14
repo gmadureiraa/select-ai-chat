@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Library, FileText, Link2, Plus, Search, Trash2, Image } from "lucide-react";
+import { Library, FileText, Link2, Plus, Search, Trash2, Image, Instagram, Play, Eye } from "lucide-react";
 import { NewsletterQuickView } from "@/components/library/NewsletterQuickView";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -17,6 +17,7 @@ import {
 import { useContentLibrary, ContentItem, CreateContentData } from "@/hooks/useContentLibrary";
 import { useReferenceLibrary, ReferenceItem, CreateReferenceData } from "@/hooks/useReferenceLibrary";
 import { useClientVisualReferences } from "@/hooks/useClientVisualReferences";
+import { useInstagramPosts, InstagramPost } from "@/hooks/useInstagramPosts";
 import { useWorkspace } from "@/hooks/useWorkspace";
 import { ContentCard } from "@/components/content/ContentCard";
 import { ContentDialog } from "@/components/content/ContentDialog";
@@ -24,13 +25,14 @@ import { ContentViewDialog } from "@/components/content/ContentViewDialog";
 import { ReferenceCard } from "@/components/references/ReferenceCard";
 import { ReferenceDialog } from "@/components/references/ReferenceDialog";
 import { ReferenceViewDialog } from "@/components/references/ReferenceViewDialog";
-// Instagram Importer temporariamente desabilitado
-// import { InstagramCarouselImporter } from "@/components/images/InstagramCarouselImporter";
+import { PostContentDialog } from "@/components/performance/PostContentDialog";
 import { VisualReferencesManager, REFERENCE_TYPES } from "@/components/clients/VisualReferencesManager";
 import { LibraryFilters, ContentTypeFilter, SortOption, ViewMode } from "@/components/kai/LibraryFilters";
 import { Client } from "@/hooks/useClients";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 interface KaiLibraryTabProps {
   clientId: string;
@@ -62,20 +64,51 @@ export const KaiLibraryTab = ({ clientId, client }: KaiLibraryTabProps) => {
   const [referenceDialogOpen, setReferenceDialogOpen] = useState(false);
   const [selectedReference, setSelectedReference] = useState<ReferenceItem | null>(null);
   const [referenceViewOpen, setReferenceViewOpen] = useState(false);
-
-  // Instagram Importer temporariamente desabilitado
-  // const [instagramImporterOpen, setInstagramImporterOpen] = useState(false);
   const { references, createReference, updateReference, deleteReference } = useReferenceLibrary(clientId);
+
+  // Instagram Posts (Performance Content)
+  const { data: instagramPosts } = useInstagramPosts(clientId, 500);
+  const [selectedPost, setSelectedPost] = useState<InstagramPost | null>(null);
+  const [postDialogOpen, setPostDialogOpen] = useState(false);
 
   // Visual References
   const { references: visualReferences, deleteReference: deleteVisualRef } = useClientVisualReferences(clientId);
   const [showVisualUploadForm, setShowVisualUploadForm] = useState(false);
 
+  // Filter and sort Instagram posts (synced ones only)
+  const filteredPosts = useMemo(() => {
+    let result = (instagramPosts || []).filter(p => p.content_synced_at);
+    
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      result = result.filter(p => 
+        p.caption?.toLowerCase().includes(query) ||
+        p.full_content?.toLowerCase().includes(query)
+      );
+    }
+    
+    if (typeFilter !== "all") {
+      result = result.filter(p => p.post_type === typeFilter);
+    }
+    
+    result = [...result].sort((a, b) => {
+      switch (sortOption) {
+        case "newest":
+          return new Date(b.posted_at || 0).getTime() - new Date(a.posted_at || 0).getTime();
+        case "oldest":
+          return new Date(a.posted_at || 0).getTime() - new Date(b.posted_at || 0).getTime();
+        default:
+          return 0;
+      }
+    });
+    
+    return result;
+  }, [instagramPosts, searchQuery, typeFilter, sortOption]);
+
   // Filter and sort content
   const filteredContents = useMemo(() => {
     let result = contents || [];
     
-    // Search filter
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       result = result.filter(c => 
@@ -84,12 +117,10 @@ export const KaiLibraryTab = ({ clientId, client }: KaiLibraryTabProps) => {
       );
     }
     
-    // Type filter
     if (typeFilter !== "all") {
       result = result.filter(c => c.content_type === typeFilter);
     }
     
-    // Sort
     result = [...result].sort((a, b) => {
       switch (sortOption) {
         case "newest":
@@ -410,9 +441,9 @@ export const KaiLibraryTab = ({ clientId, client }: KaiLibraryTabProps) => {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <TabsList>
             <TabsTrigger value="content" className="gap-2 data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
-              <FileText className="h-4 w-4" />
+              <Instagram className="h-4 w-4" />
               <span className="hidden sm:inline">Conteúdo</span>
-              <Badge variant="secondary" className="ml-1 bg-primary/20 text-primary font-bold">{contents?.length || 0}</Badge>
+              <Badge variant="secondary" className="ml-1 bg-primary/20 text-primary font-bold">{filteredPosts.length}</Badge>
             </TabsTrigger>
             <TabsTrigger value="references" className="gap-2 data-[state=active]:bg-secondary/10 data-[state=active]:text-secondary">
               <Link2 className="h-4 w-4" />
@@ -464,35 +495,44 @@ export const KaiLibraryTab = ({ clientId, client }: KaiLibraryTabProps) => {
 
         {/* Content Library */}
         <TabsContent value="content" className="mt-4">
-          {filteredContents.length === 0 ? (
+          {filteredPosts.length === 0 ? (
             <Card>
               <CardContent className="pt-6">
                 <div className="text-center py-8 text-muted-foreground">
-                  <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p>{searchQuery || typeFilter !== "all" ? "Nenhum resultado encontrado" : "Nenhum conteúdo na biblioteca"}</p>
-                  {!searchQuery && typeFilter === "all" && (
-                    <Button
-                      variant="outline"
-                      className="mt-4"
-                      onClick={() => {
-                        setSelectedContent(null);
-                        setContentDialogOpen(true);
-                      }}
-                    >
-                      <Plus className="h-4 w-4 mr-2" />
-                      Adicionar Conteúdo
-                    </Button>
-                  )}
+                  <Instagram className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>{searchQuery ? "Nenhum resultado encontrado" : "Nenhum conteúdo sincronizado"}</p>
+                  <p className="text-xs mt-2">Vá em Performance → Instagram e clique em "Carregar" para sincronizar posts</p>
                 </div>
               </CardContent>
             </Card>
           ) : (
-            <div className={cn(
-              viewMode === "grid" 
-                ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3"
-                : "space-y-2"
-            )}>
-              {filteredContents.map(renderContentItem)}
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+              {filteredPosts.map((post) => (
+                <Card 
+                  key={post.id} 
+                  className="cursor-pointer hover:shadow-md transition-shadow overflow-hidden"
+                  onClick={() => { setSelectedPost(post); setPostDialogOpen(true); }}
+                >
+                  <div className="aspect-square relative bg-muted">
+                    {post.thumbnail_url ? (
+                      <img src={post.thumbnail_url} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <Instagram className="h-8 w-8 text-muted-foreground/50" />
+                      </div>
+                    )}
+                    <Badge className="absolute top-2 right-2 text-[10px]" variant="secondary">
+                      {post.post_type || "post"}
+                    </Badge>
+                  </div>
+                  <CardContent className="p-2">
+                    <p className="text-xs line-clamp-2 text-muted-foreground">{post.caption?.slice(0, 80) || "Sem legenda"}</p>
+                    <p className="text-[10px] text-muted-foreground/70 mt-1">
+                      {post.posted_at ? format(new Date(post.posted_at), "dd/MM/yy", { locale: ptBR }) : ""}
+                    </p>
+                  </CardContent>
+                </Card>
+              ))}
             </div>
           )}
         </TabsContent>
@@ -609,7 +649,12 @@ export const KaiLibraryTab = ({ clientId, client }: KaiLibraryTabProps) => {
         onOpenChange={setInstagramImporterOpen}
         clientId={clientId}
       />
-      */}
+      {/* Post Content Dialog */}
+      <PostContentDialog
+        post={selectedPost}
+        open={postDialogOpen}
+        onOpenChange={(open) => { setPostDialogOpen(open); if (!open) setSelectedPost(null); }}
+      />
     </div>
   );
 };

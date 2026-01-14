@@ -1292,9 +1292,12 @@ export type Database = {
           comments: number | null
           content_library_id: string | null
           content_objective: string | null
+          content_synced_at: string | null
           created_at: string
           engagement_rate: number | null
+          full_content: string | null
           id: string
+          images: Json | null
           impressions: number | null
           is_collab: boolean | null
           likes: number | null
@@ -1319,9 +1322,12 @@ export type Database = {
           comments?: number | null
           content_library_id?: string | null
           content_objective?: string | null
+          content_synced_at?: string | null
           created_at?: string
           engagement_rate?: number | null
+          full_content?: string | null
           id?: string
+          images?: Json | null
           impressions?: number | null
           is_collab?: boolean | null
           likes?: number | null
@@ -1346,9 +1352,12 @@ export type Database = {
           comments?: number | null
           content_library_id?: string | null
           content_objective?: string | null
+          content_synced_at?: string | null
           created_at?: string
           engagement_rate?: number | null
+          full_content?: string | null
           id?: string
+          images?: Json | null
           impressions?: number | null
           is_collab?: boolean | null
           likes?: number | null
