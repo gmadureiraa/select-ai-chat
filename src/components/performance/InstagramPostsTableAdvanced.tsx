@@ -15,6 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import { InstagramPostEditDialog } from "./InstagramPostEditDialog";
 import { SyncToLibraryDialog } from "./SyncToLibraryDialog";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import { LibraryStatusBadge } from "./LibraryStatusBadge";
 
 interface InstagramPostsTableAdvancedProps {
   posts: InstagramPost[];
@@ -37,6 +38,7 @@ const ALL_COLUMNS: Column[] = [
   { id: "thumbnail", label: "Capa", sortable: false, defaultVisible: true, width: "50px" },
   { id: "caption", label: "Legenda", sortable: false, defaultVisible: true },
   { id: "type", label: "Tipo", sortable: false, defaultVisible: true, width: "80px" },
+  { id: "library" as any, label: "Biblioteca", sortable: false, defaultVisible: true, width: "90px" },
   { id: "posted_at", label: "Data", sortable: true, defaultVisible: true, width: "85px" },
   { id: "impressions", label: "Impressões", sortable: true, defaultVisible: true, width: "90px" },
   { id: "reach", label: "Contas alc.", sortable: true, defaultVisible: true, width: "80px" },
@@ -339,6 +341,7 @@ export function InstagramPostsTableAdvanced({ posts, isLoading, clientId }: Inst
               {visibleColumns.has("thumbnail") && <TableHead style={{ width: "50px" }}></TableHead>}
               {visibleColumns.has("caption") && <TableHead className="min-w-[180px]">Legenda</TableHead>}
               {visibleColumns.has("type") && <TableHead style={{ width: "80px" }}>Tipo</TableHead>}
+              {visibleColumns.has("library") && <TableHead style={{ width: "90px" }}>Biblioteca</TableHead>}
               {visibleColumns.has("posted_at") && (
                 <TableHead style={{ width: "85px" }}>
                   <SortButton field="posted_at">Data</SortButton>
@@ -466,6 +469,20 @@ export function InstagramPostsTableAdvanced({ posts, isLoading, clientId }: Inst
                     <Badge variant="outline" className="text-[10px] px-1.5 py-0">
                       {post.post_type || "image"}
                     </Badge>
+                  </TableCell>
+                )}
+                {visibleColumns.has("library") && (
+                  <TableCell className="py-2">
+                    <LibraryStatusBadge
+                      postId={post.id}
+                      clientId={clientId}
+                      contentLibraryId={(post as any).content_library_id}
+                      caption={post.caption}
+                      postType={post.post_type}
+                      permalink={post.permalink}
+                      thumbnailUrl={post.thumbnail_url}
+                      postedAt={post.posted_at}
+                    />
                   </TableCell>
                 )}
                 {visibleColumns.has("posted_at") && (

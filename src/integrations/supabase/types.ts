@@ -1290,6 +1290,7 @@ export type Database = {
           caption: string | null
           client_id: string
           comments: number | null
+          content_library_id: string | null
           content_objective: string | null
           created_at: string
           engagement_rate: number | null
@@ -1316,6 +1317,7 @@ export type Database = {
           caption?: string | null
           client_id: string
           comments?: number | null
+          content_library_id?: string | null
           content_objective?: string | null
           created_at?: string
           engagement_rate?: number | null
@@ -1342,6 +1344,7 @@ export type Database = {
           caption?: string | null
           client_id?: string
           comments?: number | null
+          content_library_id?: string | null
           content_objective?: string | null
           created_at?: string
           engagement_rate?: number | null
@@ -1369,6 +1372,13 @@ export type Database = {
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "instagram_posts_content_library_id_fkey"
+            columns: ["content_library_id"]
+            isOneToOne: false
+            referencedRelation: "client_content_library"
             referencedColumns: ["id"]
           },
         ]
@@ -3919,6 +3929,7 @@ export type Database = {
         Row: {
           click_rate: number | null
           client_id: string
+          content_library_id: string | null
           created_at: string | null
           duration_seconds: number | null
           id: string
@@ -3936,6 +3947,7 @@ export type Database = {
         Insert: {
           click_rate?: number | null
           client_id: string
+          content_library_id?: string | null
           created_at?: string | null
           duration_seconds?: number | null
           id?: string
@@ -3953,6 +3965,7 @@ export type Database = {
         Update: {
           click_rate?: number | null
           client_id?: string
+          content_library_id?: string | null
           created_at?: string | null
           duration_seconds?: number | null
           id?: string
@@ -3973,6 +3986,13 @@ export type Database = {
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "youtube_videos_content_library_id_fkey"
+            columns: ["content_library_id"]
+            isOneToOne: false
+            referencedRelation: "client_content_library"
             referencedColumns: ["id"]
           },
         ]

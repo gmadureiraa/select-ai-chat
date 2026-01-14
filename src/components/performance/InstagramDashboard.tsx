@@ -26,6 +26,7 @@ import { GoalProgressCard } from "./GoalProgressCard";
 import { PostAveragesSection } from "./PostAveragesSection";
 
 import { TopContentTable } from "./TopContentTable";
+import { ContentLearningsCard } from "./ContentLearningsCard";
 import { TopPostsGrid } from "./TopPostsGrid";
 import { ImportHistoryPanel } from "./ImportHistoryPanel";
 import { DataCompletenessWarning } from "./DataCompletenessWarning";
@@ -809,6 +810,14 @@ export function InstagramDashboard({
         previousPeriodPosts={previousPeriodPosts}
         periodLabel={selectedPeriodLabel}
       />
+
+      {/* Content Learnings Card */}
+      {filteredPosts.length >= 5 && (
+        <ContentLearningsCard
+          clientId={clientId}
+          posts={filteredPosts}
+        />
+      )}
 
       {/* Top 3 Posts Grid */}
       {filteredPosts.length > 0 && (
