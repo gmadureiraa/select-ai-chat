@@ -16,6 +16,7 @@ export interface PerformanceMetrics {
   comments?: number;
   shares?: number;
   metadata?: Record<string, any>;
+  content_library_id?: string | null;
   created_at: string;
   updated_at: string;
 }

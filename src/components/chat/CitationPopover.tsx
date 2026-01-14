@@ -143,6 +143,7 @@ export const CitationPopover = ({
   onSelect,
   contentLibrary,
   referenceLibrary,
+  performancePosts = [],
   assignees = [],
   clients = [],
   anchorRef,
@@ -179,6 +180,19 @@ export const CitationPopover = ({
     }));
   }, [clients]);
 
+  // Convert performance posts to CitationItems
+  const performanceItems = useMemo((): CitationItem[] => {
+    return performancePosts.map((p) => ({
+      id: p.id,
+      title: p.caption?.substring(0, 50) || `Post de ${p.posted_at || 'Instagram'}`,
+      type: "performance" as const,
+      category: p.post_type || "post",
+      preview: `${p.likes || 0} likes • ${p.engagement_rate?.toFixed(1) || 0}% engajamento`,
+      thumbnail_url: p.thumbnail_url || undefined,
+      engagement_rate: p.engagement_rate || undefined,
+    }));
+  }, [performancePosts]);
+
   // Combinar e formatar itens
   const allItems = useMemo((): CitationItem[] => {
     const formatItems: CitationItem[] = showFormats ? contentFormats : [];
@@ -199,8 +213,8 @@ export const CitationPopover = ({
       preview: r.content.substring(0, 100) + (r.content.length > 100 ? "..." : ""),
     }));
 
-    return [...formatItems, ...contentItems, ...referenceItems, ...assigneeItems, ...clientItems];
-  }, [contentLibrary, referenceLibrary, showFormats, assigneeItems, clientItems]);
+    return [...formatItems, ...contentItems, ...referenceItems, ...assigneeItems, ...clientItems, ...performanceItems];
+  }, [contentLibrary, referenceLibrary, showFormats, assigneeItems, clientItems, performanceItems]);
 
 
   // Filtrar por busca
@@ -235,9 +249,21 @@ export const CitationPopover = ({
       .slice(0, 10);
   }, [clientItems, internalSearch]);
 
+  const filteredPerformance = useMemo(() => {
+    if (!internalSearch.trim()) return performanceItems.slice(0, 5);
+    const query = internalSearch.toLowerCase();
+    return performanceItems
+      .filter(
+        (item) =>
+          item.title.toLowerCase().includes(query) ||
+          item.category.toLowerCase().includes(query)
+      )
+      .slice(0, 5);
+  }, [performanceItems, internalSearch]);
+
   const filteredLibrary = useMemo(() => {
     const libraryItems = allItems.filter((item) => 
-      item.type !== "format" && item.type !== "assignee" && item.type !== "client"
+      item.type !== "format" && item.type !== "assignee" && item.type !== "client" && item.type !== "performance"
     );
     if (!internalSearch.trim()) return libraryItems.slice(0, 15);
 
@@ -374,6 +400,46 @@ export const CitationPopover = ({
                     </Badge>
                   </CommandItem>
                 ))}
+              </CommandGroup>
+            )}
+
+            {/* Performance Group */}
+            {filteredPerformance.length > 0 && (
+              <CommandGroup heading="📊 Performance">
+                {filteredPerformance.map((item) => {
+                  const colorClass = getColorClass("performance");
+                  
+                  return (
+                    <CommandItem
+                      key={`perf-${item.id}`}
+                      value={`${item.title}-${item.id}`}
+                      onSelect={() => handleSelect(item)}
+                      className="flex items-center gap-3 py-2.5 cursor-pointer"
+                    >
+                      {item.thumbnail_url ? (
+                        <img 
+                          src={item.thumbnail_url} 
+                          alt="" 
+                          className="h-8 w-8 rounded object-cover shrink-0"
+                        />
+                      ) : (
+                        <div className="h-8 w-8 rounded bg-green-500/10 flex items-center justify-center shrink-0">
+                          <FileText className="h-4 w-4 text-green-600" />
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <span className="font-medium text-sm line-clamp-1">{item.title}</span>
+                        <p className="text-xs text-muted-foreground truncate">{item.preview}</p>
+                      </div>
+                      <Badge
+                        variant="outline"
+                        className={cn("text-[10px] px-1.5 py-0 h-5 shrink-0", colorClass)}
+                      >
+                        {item.category.replace(/_/g, " ")}
+                      </Badge>
+                    </CommandItem>
+                  );
+                })}
               </CommandGroup>
             )}
 
