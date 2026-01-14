@@ -72,7 +72,10 @@ serve(async (req: Request) => {
 
     // If no profile exists for this client, always create a new unique one
     if (!profileId) {
-      // Always create a new profile for each client to ensure unique 1:1 mapping
+      // Create a new unique profile for each client using timestamp for uniqueness
+      const uniqueName = `kai-client-${clientId.substring(0, 8)}-${Date.now()}`;
+      console.log("Creating new Late profile with name:", uniqueName);
+      
       const createProfileResponse = await fetch(`${LATE_API_BASE}/v1/profiles`, {
         method: "POST",
         headers: {
@@ -80,13 +83,14 @@ serve(async (req: Request) => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          name: `Client ${clientId}`,
+          name: uniqueName,
         }),
       });
 
       if (createProfileResponse.ok) {
         const newProfile = await createProfileResponse.json();
         profileId = newProfile.profile._id;
+        console.log("Created new Late profile:", { profileId, name: uniqueName });
       } else {
         const errorText = await createProfileResponse.text();
         console.error("Failed to create Late profile:", errorText);
@@ -105,16 +109,25 @@ serve(async (req: Request) => {
         Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
       );
       
-      await supabaseServiceRole
+      const { data: savedProfile, error: saveError } = await supabaseServiceRole
         .from('client_social_credentials')
         .upsert({
           client_id: clientId,
           platform: 'late_profile',
+          account_id: profileId, // Also save as account_id for easier lookup
+          account_name: uniqueName,
           metadata: { late_profile_id: profileId, client_id: clientId },
           is_valid: true,
         }, {
           onConflict: 'client_id,platform',
-        });
+        })
+        .select();
+
+      console.log("Saved late_profile:", { savedProfile, saveError });
+      
+      if (saveError) {
+        console.error("Error saving late_profile:", saveError);
+      }
     }
 
     // Build callback URL - DO NOT add query params here, Late API will append its own
