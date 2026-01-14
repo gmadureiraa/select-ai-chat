@@ -3,6 +3,15 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const LATE_API_BASE = "https://getlate.dev/api";
 
+interface LateAccount {
+  _id: string;
+  platform: string;
+  username?: string;
+  displayName?: string;
+  profilePicture?: string;
+  createdAt?: string;
+}
+
 serve(async (req: Request) => {
   try {
     const url = new URL(req.url);
@@ -62,13 +71,6 @@ serve(async (req: Request) => {
       });
     }
 
-    // If no connection info, show waiting page with timeout
-    if (!connected && !profileId) {
-      return new Response(generateWaitingPage(), {
-        headers: { "Content-Type": "text/html; charset=utf-8" },
-      });
-    }
-
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const LATE_API_KEY = Deno.env.get("LATE_API_KEY");
@@ -84,6 +86,7 @@ serve(async (req: Request) => {
 
     let clientId: string | null = null;
     let platform: string | null = null;
+    let attemptProfileId: string | null = null;
 
     // Strategy 1: Use attemptId to find exact client and platform (new method)
     if (attemptId) {
@@ -104,7 +107,115 @@ serve(async (req: Request) => {
           });
         }
 
-        // Check if already used
+        clientId = attempt.client_id;
+        platform = attempt.platform;
+        attemptProfileId = attempt.profile_id;
+
+        console.log("Found attempt:", { clientId, platform, attemptId, attemptProfileId });
+
+        // If we have attemptId but no connected/profileId, try to fetch accounts from Late API
+        // This handles the case where LinkedIn redirects without proper params
+        if (!connected && !profileId && attemptProfileId) {
+          console.log("No connected/profileId received, checking Late API for new accounts...");
+          
+          const accountsResponse = await fetch(`${LATE_API_BASE}/v1/accounts?profileId=${attemptProfileId}`, {
+            headers: {
+              "Authorization": `Bearer ${LATE_API_KEY}`,
+            },
+          });
+
+          if (accountsResponse.ok) {
+            const accountsData = await accountsResponse.json();
+            const accounts: LateAccount[] = accountsData.accounts || [];
+            
+            console.log(`Found ${accounts.length} accounts for profile ${attemptProfileId}`);
+            
+            // Find account for the expected platform that was created recently (within last 5 minutes)
+            const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+            const newPlatformAccount = accounts.find(acc => {
+              const isCorrectPlatform = acc.platform?.toLowerCase() === platform?.toLowerCase();
+              const isRecent = acc.createdAt && acc.createdAt > fiveMinutesAgo;
+              return isCorrectPlatform && isRecent;
+            }) || accounts.find(acc => acc.platform?.toLowerCase() === platform?.toLowerCase());
+
+            if (newPlatformAccount) {
+              console.log("Found matching account via API lookup:", newPlatformAccount);
+              
+              // Mark attempt as used
+              await supabase
+                .from("oauth_connection_attempts")
+                .update({ used_at: new Date().toISOString() })
+                .eq("id", attemptId);
+
+              // Store credentials in database
+              const { error: upsertError } = await supabase
+                .from("client_social_credentials")
+                .upsert({
+                  client_id: clientId,
+                  platform: platform,
+                  account_id: newPlatformAccount._id,
+                  account_name: newPlatformAccount.displayName || newPlatformAccount.username || platform,
+                  is_valid: true,
+                  last_validated_at: new Date().toISOString(),
+                  validation_error: null,
+                  metadata: {
+                    provider: "oauth",
+                    late_account_id: newPlatformAccount._id,
+                    late_profile_id: attemptProfileId,
+                    username: newPlatformAccount.username,
+                    display_name: newPlatformAccount.displayName,
+                    profile_picture: newPlatformAccount.profilePicture,
+                    connected_at: new Date().toISOString(),
+                  },
+                  updated_at: new Date().toISOString(),
+                }, {
+                  onConflict: "client_id,platform",
+                });
+
+              if (upsertError) {
+                console.error("Database upsert error:", upsertError);
+                return new Response(generateErrorPage("Falha ao salvar credenciais", platform, clientId), {
+                  headers: { "Content-Type": "text/html; charset=utf-8" },
+                });
+              }
+
+              console.log("Successfully saved credentials via API lookup:", { clientId, platform });
+              
+              const platformNames: Record<string, string> = {
+                twitter: 'Twitter/X',
+                linkedin: 'LinkedIn',
+                instagram: 'Instagram',
+                facebook: 'Facebook',
+                threads: 'Threads',
+                tiktok: 'TikTok',
+                youtube: 'YouTube'
+              };
+
+              const displayName = platformNames[platform || ''] || platform || 'Plataforma';
+              let accountName = newPlatformAccount.displayName || '';
+              if (!accountName && newPlatformAccount.username) {
+                accountName = `@${newPlatformAccount.username}`;
+              }
+              if (!accountName) {
+                accountName = displayName;
+              }
+
+              return new Response(generateSuccessPage(displayName, platform || '', clientId || '', accountName), {
+                headers: { "Content-Type": "text/html; charset=utf-8" },
+              });
+            } else {
+              console.log("No matching account found for platform:", platform);
+              // Show waiting page - connection might still be processing
+              return new Response(generateWaitingPage(), {
+                headers: { "Content-Type": "text/html; charset=utf-8" },
+              });
+            }
+          } else {
+            console.error("Failed to fetch accounts from Late API:", await accountsResponse.text());
+          }
+        }
+
+        // Check if already used (only if we didn't just use it above)
         if (attempt.used_at) {
           console.error("Attempt already used:", attemptId);
           return new Response(generateErrorPage("Esta sessão já foi utilizada. Tente conectar novamente.", null, null), {
@@ -112,17 +223,19 @@ serve(async (req: Request) => {
           });
         }
 
-        clientId = attempt.client_id;
-        platform = attempt.platform;
-
         // Mark attempt as used
         await supabase
           .from("oauth_connection_attempts")
           .update({ used_at: new Date().toISOString() })
           .eq("id", attemptId);
-
-        console.log("Found attempt:", { clientId, platform, attemptId });
       }
+    }
+
+    // If no connection info and no successful lookup above, show waiting page with timeout
+    if (!connected && !profileId) {
+      return new Response(generateWaitingPage(), {
+        headers: { "Content-Type": "text/html; charset=utf-8" },
+      });
     }
 
     // Strategy 2: Fallback - find by profile_id in metadata
@@ -178,21 +291,21 @@ serve(async (req: Request) => {
       },
     });
 
-    let accountData = null;
+    let accountData: LateAccount | null = null;
     if (accountsResponse.ok) {
       const accountsData = await accountsResponse.json();
       console.log("Accounts from Late API:", accountsData);
       
       // Find the account matching the platform
-      const platformAccounts = accountsData.accounts?.filter(
-        (acc: { platform: string }) => acc.platform?.toLowerCase() === platform
+      const platformAccounts: LateAccount[] = accountsData.accounts?.filter(
+        (acc: LateAccount) => acc.platform?.toLowerCase() === platform
       ) || [];
 
       if (platformAccounts.length > 0) {
         // If username provided, try to match it; otherwise use the first/most recent
         if (username) {
           accountData = platformAccounts.find(
-            (acc: { username: string }) => acc.username === username
+            (acc: LateAccount) => acc.username === username
           ) || platformAccounts[0];
         } else {
           // Use the most recently connected account (last in array usually)

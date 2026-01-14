@@ -54,15 +54,13 @@ const platformConfig: Record<LatePlatform, {
     name: "TikTok", 
     icon: Video, 
     color: "bg-black",
-    description: "Vídeos curtos virais",
-    comingSoon: true
+    description: "Vídeos curtos virais"
   },
   youtube: { 
     name: "YouTube", 
     icon: Youtube, 
     color: "bg-[#FF0000]",
-    description: "Vídeos e Shorts",
-    comingSoon: true
+    description: "Vídeos e Shorts"
   },
 };
 

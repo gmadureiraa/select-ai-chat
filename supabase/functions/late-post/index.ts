@@ -184,20 +184,25 @@ serve(async (req: Request) => {
       });
     }
 
-    // Build media items array
-    let finalMediaItems: Array<{ type: string; url: string }> = [];
+    // Build media items array - IMPORTANT: Preserve order for carousels
+    let finalMediaItems: Array<{ type: string; url: string; order?: number }> = [];
     
     if (inputMediaItems && inputMediaItems.length > 0) {
-      finalMediaItems = inputMediaItems.map(m => ({
+      // Use index to preserve order - critical for Instagram carousels
+      finalMediaItems = inputMediaItems.map((m, index) => ({
         type: m.type || (m.url.match(/\.(mp4|mov|webm|avi)$/i) ? 'video' : 'image'),
         url: m.url,
+        order: index,
       }));
     } else if (mediaUrls && mediaUrls.length > 0) {
-      finalMediaItems = mediaUrls.map(url => ({
+      finalMediaItems = mediaUrls.map((url, index) => ({
         type: url.match(/\.(mp4|mov|webm|avi)$/i) ? 'video' : 'image',
         url: url,
+        order: index,
       }));
     }
+
+    console.log("Media items with order:", finalMediaItems.map(m => ({ url: m.url.substring(0, 50), order: m.order })));
 
     // Build post payload for Late API
     const postPayload: Record<string, unknown> = {
@@ -207,16 +212,18 @@ serve(async (req: Request) => {
     // Handle threads (for Twitter/X and Threads)
     if (threadItems && threadItems.length > 0 && (platform === 'twitter' || platform === 'threads')) {
       // Build ALL thread items - Late API expects every tweet in threadItems
-      const lateThreadItems = threadItems.map(item => {
+      const lateThreadItems = threadItems.map((item, index) => {
         const threadItem: Record<string, unknown> = {
           content: item.text,
+          order: index, // Preserve thread order
         };
         
-        // Add media to thread item if present
+        // Add media to thread item if present - preserve order
         if (item.media_urls && item.media_urls.length > 0) {
-          threadItem.mediaItems = item.media_urls.map(url => ({
+          threadItem.mediaItems = item.media_urls.map((url, mediaIndex) => ({
             type: url.match(/\.(mp4|mov|webm|avi)$/i) ? 'video' : 'image',
             url: url,
+            order: mediaIndex,
           }));
         }
         
@@ -240,13 +247,47 @@ serve(async (req: Request) => {
     } else {
       // Standard post (non-thread)
       postPayload.content = content;
+      
+      // Build platform-specific data
+      const platformSpecificData: Record<string, unknown> = {};
+      
+      // TikTok specific data
+      if (platform === 'tiktok') {
+        platformSpecificData.privacy_level = 'PUBLIC_TO_EVERYONE';
+        // TikTok uses title separately from content for video description
+        if (content.length > 150) {
+          platformSpecificData.title = content.substring(0, 147) + '...';
+        }
+      }
+      
+      // YouTube specific data
+      if (platform === 'youtube') {
+        platformSpecificData.visibility = 'public';
+        // First line as title, rest as description
+        const lines = content.split('\n');
+        platformSpecificData.title = lines[0]?.substring(0, 100) || 'Untitled';
+        if (lines.length > 1) {
+          platformSpecificData.description = lines.slice(1).join('\n');
+        }
+      }
+      
+      // Instagram carousel - ensure order is preserved
+      if (platform === 'instagram' && finalMediaItems.length > 1) {
+        console.log("Instagram carousel detected with", finalMediaItems.length, "items");
+        // Late API should receive items in order
+        platformSpecificData.isCarousel = true;
+      }
+      
       postPayload.platforms = [{
         platform: platform,
         accountId: lateAccountId,
+        ...(Object.keys(platformSpecificData).length > 0 && { platformSpecificData }),
       }];
 
       if (finalMediaItems.length > 0) {
-        postPayload.mediaItems = finalMediaItems;
+        // Sort by order to ensure correct sequence
+        const sortedMedia = [...finalMediaItems].sort((a, b) => (a.order || 0) - (b.order || 0));
+        postPayload.mediaItems = sortedMedia.map(({ type, url }) => ({ type, url }));
       }
     }
 
