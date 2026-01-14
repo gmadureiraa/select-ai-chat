@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link2, BookOpen, Lightbulb, Sparkles, Trash2, ZoomIn, ZoomOut, Maximize, Save, FolderOpen, ChevronDown, Loader2, X } from "lucide-react";
+import { Link2, BookOpen, Lightbulb, Sparkles, Trash2, ZoomIn, ZoomOut, Maximize, Save, FolderOpen, ChevronDown, Loader2, X, Pencil, Wand2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { SavedCanvas } from "./hooks/useCanvasState";
 
 interface CanvasToolbarProps {
-  onAddNode: (type: "source" | "library" | "prompt" | "generator") => void;
+  onAddNode: (type: "source" | "library" | "prompt" | "generator" | "image-editor") => void;
   onClear: () => void;
   onZoomIn: () => void;
   onZoomOut: () => void;
@@ -86,13 +86,28 @@ export function CanvasToolbar({
               autoFocus
             />
           ) : (
-            <span 
-              className="text-xs font-medium cursor-pointer hover:text-primary px-1.5"
-              onClick={() => setIsEditing(true)}
-              title="Clique para editar"
-            >
-              {canvasName}
-            </span>
+            <div className="flex items-center gap-1">
+              <span 
+                className="text-xs font-medium cursor-pointer hover:text-primary px-1.5"
+                onClick={() => setIsEditing(true)}
+                title="Clique para editar"
+              >
+                {canvasName}
+              </span>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6"
+                    onClick={() => setIsEditing(true)}
+                  >
+                    <Pencil className="h-3 w-3" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">Renomear canvas</TooltipContent>
+              </Tooltip>
+            </div>
           )}
         </div>
 
@@ -172,6 +187,25 @@ export function CanvasToolbar({
           </TooltipTrigger>
           <TooltipContent side="bottom">
             <p>Adicionar gerador de conteúdo</p>
+          </TooltipContent>
+        </Tooltip>
+
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => onAddNode("image-editor")}
+              className="h-8 gap-1.5 text-xs hover:bg-orange-50 hover:text-orange-600 dark:hover:bg-orange-950"
+            >
+              <div className="h-4 w-4 rounded bg-orange-500 flex items-center justify-center">
+                <Wand2 className="h-2.5 w-2.5 text-white" />
+              </div>
+              Editor
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">
+            <p>Editar imagem existente</p>
           </TooltipContent>
         </Tooltip>
 

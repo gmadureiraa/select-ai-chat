@@ -10,7 +10,8 @@ export type NodeDataType =
   | "library" 
   | "prompt" 
   | "generator" 
-  | "output";
+  | "output"
+  | "image-editor";
 
 // Structured metadata for each image reference
 export interface ImageMetadata {
@@ -36,7 +37,7 @@ export interface ImageMetadata {
   // Additional metadata
   userNotes?: string;
   isPrimary?: boolean;
-  referenceType?: "style" | "composition" | "color" | "general";
+  referenceType?: "base" | "style" | "composition" | "color" | "general";
 }
 
 export interface SourceFile {
@@ -121,12 +122,23 @@ export interface OutputNodeData {
   imageUrl?: string;
 }
 
+export interface ImageEditorNodeData {
+  type: "image-editor";
+  baseImageUrl?: string;
+  editInstruction: string;
+  aspectRatio?: string;
+  isProcessing: boolean;
+  progress?: number;
+  currentStep?: string;
+}
+
 export type CanvasNodeData = 
   | SourceNodeData 
   | LibraryNodeData 
   | PromptNodeData 
   | GeneratorNodeData 
-  | OutputNodeData;
+  | OutputNodeData
+  | ImageEditorNodeData;
 
 export interface SavedCanvas {
   id: string;
@@ -257,6 +269,15 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
           isImage: false,
           ...data
         } as OutputNodeData;
+        break;
+      case "image-editor":
+        nodeData = {
+          type: "image-editor",
+          editInstruction: "",
+          aspectRatio: "1:1",
+          isProcessing: false,
+          ...data
+        } as ImageEditorNodeData;
         break;
       default:
         throw new Error(`Unknown node type: ${nodeType}`);
@@ -884,6 +905,117 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
     await generateContent(generatorNodeId);
   }, [nodes, edges, deleteNode, generateContent, toast]);
 
+  // Edit image using ImageEditorNode
+  const editImage = useCallback(async (editorNodeId: string) => {
+    const editorNode = nodes.find((n) => n.id === editorNodeId);
+    if (!editorNode || editorNode.data.type !== "image-editor") return;
+
+    const editorData = editorNode.data as ImageEditorNodeData;
+    
+    // Get base image from connected source node
+    const inputEdge = edges.find((e) => e.target === editorNodeId);
+    let baseImageUrl = editorData.baseImageUrl;
+    
+    if (!baseImageUrl && inputEdge) {
+      const sourceNode = nodes.find((n) => n.id === inputEdge.source);
+      if (sourceNode?.data.type === "source") {
+        const sourceData = sourceNode.data as SourceNodeData;
+        const imageFile = sourceData.files?.find(f => f.type === "image");
+        if (imageFile) {
+          baseImageUrl = imageFile.url;
+          updateNodeData(editorNodeId, { baseImageUrl } as Partial<ImageEditorNodeData>);
+        }
+      } else if (sourceNode?.data.type === "output" && (sourceNode.data as OutputNodeData).isImage) {
+        baseImageUrl = (sourceNode.data as OutputNodeData).content;
+        updateNodeData(editorNodeId, { baseImageUrl } as Partial<ImageEditorNodeData>);
+      }
+    }
+
+    if (!baseImageUrl) {
+      toast({
+        title: "Imagem necessária",
+        description: "Conecte uma fonte com imagem ao editor",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!editorData.editInstruction.trim()) {
+      toast({
+        title: "Instrução necessária",
+        description: "Digite uma instrução de edição",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    updateNodeData(editorNodeId, { 
+      isProcessing: true, 
+      progress: 0,
+      currentStep: "Editando imagem..." 
+    } as Partial<ImageEditorNodeData>);
+
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-image', {
+        body: {
+          prompt: editorData.editInstruction,
+          clientId,
+          aspectRatio: editorData.aspectRatio || "1:1",
+          referenceImages: [{ url: baseImageUrl, isPrimary: true }],
+        }
+      });
+
+      if (error) throw error;
+
+      updateNodeData(editorNodeId, { 
+        isProcessing: false, 
+        progress: 100,
+        currentStep: "Concluído" 
+      } as Partial<ImageEditorNodeData>);
+
+      // Create output node with edited image
+      const outputPosition = {
+        x: editorNode.position.x + 350,
+        y: editorNode.position.y
+      };
+
+      const outputId = addNode("output", outputPosition, {
+        type: "output",
+        content: data.imageUrl || data.url || "",
+        format: "image",
+        platform: "instagram",
+        isEditing: false,
+        addedToPlanning: false,
+        isImage: true,
+      } as OutputNodeData);
+
+      // Connect editor to output
+      setEdges((eds) => addEdge({
+        id: `${editorNodeId}-${outputId}`,
+        source: editorNodeId,
+        target: outputId,
+        sourceHandle: "output",
+        targetHandle: "input"
+      }, eds));
+
+      toast({
+        title: "Imagem editada",
+        description: "Sua imagem foi editada com sucesso",
+      });
+    } catch (error) {
+      console.error("Edit error:", error);
+      updateNodeData(editorNodeId, { 
+        isProcessing: false,
+        currentStep: "Erro" 
+      } as Partial<ImageEditorNodeData>);
+      toast({
+        title: "Erro na edição",
+        description: "Não foi possível editar a imagem",
+        variant: "destructive",
+      });
+    }
+  }, [nodes, edges, updateNodeData, addNode, clientId, toast]);
+
   // Save canvas
   const saveCanvas = useCallback(async (name?: string) => {
     setIsSaving(true);
@@ -1032,6 +1164,7 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
     analyzeImageStyle,
     generateContent,
     regenerateContent,
+    editImage,
     sendToPlanning,
     clearCanvas,
     getConnectedInputs,
