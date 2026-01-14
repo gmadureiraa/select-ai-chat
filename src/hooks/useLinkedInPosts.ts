@@ -21,6 +21,24 @@ export const useLinkedInPosts = (clientId: string, limit: number = 100) => {
   });
 };
 
+export const useUpdateLinkedInPost = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, updates }: { id: string; updates: Record<string, unknown> }) => {
+      const { error } = await supabase
+        .from("linkedin_posts")
+        .update({ ...updates, updated_at: new Date().toISOString() })
+        .eq("id", id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["linkedin-posts"] });
+    },
+  });
+};
+
 interface ImportLinkedInParams {
   clientId: string;
   posts: LinkedInExcelData["posts"];

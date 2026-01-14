@@ -21,14 +21,15 @@ import {
   MessageCircle,
   Eye,
   Edit,
-  CheckCircle2,
   Image as ImageIcon
 } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { TwitterPost } from "@/types/twitter";
 import { TwitterPostEditDialog } from "./TwitterPostEditDialog";
+import { TwitterPostContentDialog } from "./TwitterPostContentDialog";
 import { ContentSyncBadge } from "./ContentSyncBadge";
+import { supabase } from "@/integrations/supabase/client";
 
 interface TwitterPostsTableProps {
   posts: TwitterPost[];
@@ -39,12 +40,18 @@ interface TwitterPostsTableProps {
 type SortField = 'posted_at' | 'impressions' | 'engagements' | 'likes' | 'retweets' | 'replies' | 'engagement_rate';
 type SortDirection = 'asc' | 'desc';
 
+const getStorageUrl = (path: string) => {
+  const { data } = supabase.storage.from("client-files").getPublicUrl(path);
+  return data.publicUrl;
+};
+
 export function TwitterPostsTable({ posts, isLoading, clientId }: TwitterPostsTableProps) {
   const [search, setSearch] = useState("");
   const [sortField, setSortField] = useState<SortField>('posted_at');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [page, setPage] = useState(0);
   const [editingPost, setEditingPost] = useState<TwitterPost | null>(null);
+  const [viewingPost, setViewingPost] = useState<TwitterPost | null>(null);
   const pageSize = 20;
 
   const filteredPosts = useMemo(() => {
@@ -132,6 +139,11 @@ export function TwitterPostsTable({ posts, isLoading, clientId }: TwitterPostsTa
     if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
     if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
     return num.toLocaleString('pt-BR');
+  };
+
+  const getImageUrl = (path: string) => {
+    if (path.startsWith("http")) return path;
+    return getStorageUrl(path);
   };
 
   if (isLoading) {
@@ -228,7 +240,7 @@ export function TwitterPostsTable({ posts, isLoading, clientId }: TwitterPostsTa
                   </div>
                 </TableHead>
                 {clientId && <TableHead className="w-[70px] text-center">Sync</TableHead>}
-                <TableHead className="w-[60px] text-center">Editar</TableHead>
+                <TableHead className="w-[60px] text-center">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -237,13 +249,17 @@ export function TwitterPostsTable({ posts, isLoading, clientId }: TwitterPostsTa
                 const firstImage = images?.[0];
                 
                 return (
-                  <TableRow key={post.id} className="hover:bg-muted/30">
+                  <TableRow 
+                    key={post.id} 
+                    className="hover:bg-muted/30 cursor-pointer"
+                    onClick={() => setViewingPost(post)}
+                  >
                     {/* Thumbnail */}
                     <TableCell className="py-2">
                       <div className="w-10 h-10 rounded overflow-hidden flex-shrink-0 bg-gradient-to-br from-sky-400 to-blue-600">
                         {firstImage ? (
                           <img 
-                            src={firstImage} 
+                            src={getImageUrl(firstImage)} 
                             alt="Tweet media" 
                             className="w-full h-full object-cover"
                             loading="lazy"
@@ -270,6 +286,7 @@ export function TwitterPostsTable({ posts, isLoading, clientId }: TwitterPostsTa
                               target="_blank"
                               rel="noopener noreferrer"
                               className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1"
+                              onClick={(e) => e.stopPropagation()}
                             >
                               <ExternalLink className="h-3 w-3" />
                               Ver tweet
@@ -316,7 +333,7 @@ export function TwitterPostsTable({ posts, isLoading, clientId }: TwitterPostsTa
                     
                     {/* Sync Badge */}
                     {clientId && (
-                      <TableCell className="text-center">
+                      <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
                         <ContentSyncBadge
                           postId={post.id}
                           clientId={clientId}
@@ -328,8 +345,8 @@ export function TwitterPostsTable({ posts, isLoading, clientId }: TwitterPostsTa
                       </TableCell>
                     )}
                     
-                    {/* Edit */}
-                    <TableCell className="text-center">
+                    {/* Actions */}
+                    <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
                       <Button
                         variant="ghost"
                         size="sm"
@@ -373,6 +390,13 @@ export function TwitterPostsTable({ posts, isLoading, clientId }: TwitterPostsTa
           </div>
         </div>
       )}
+
+      {/* View Dialog */}
+      <TwitterPostContentDialog
+        post={viewingPost}
+        open={!!viewingPost}
+        onOpenChange={(open) => !open && setViewingPost(null)}
+      />
 
       {/* Edit Dialog */}
       <TwitterPostEditDialog
