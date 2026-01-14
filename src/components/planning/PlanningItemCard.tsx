@@ -192,6 +192,8 @@ export const PlanningItemCard = memo(function PlanningItemCard({
             errorMessage={item.error_message}
             retryCount={item.retry_count}
             accountName={platformStatus?.accountName}
+            scheduledAt={item.scheduled_at}
+            lateConfirmed={!!(item.external_post_id || (item.metadata as any)?.late_confirmed)}
             onRetry={onRetry ? () => onRetry(item.id) : undefined}
             compact
           />

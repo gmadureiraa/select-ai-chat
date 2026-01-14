@@ -38,7 +38,7 @@ interface PlanningItemDialogProps {
   defaultColumnId?: string;
   defaultDate?: Date;
   defaultClientId?: string;
-  onSave: (data: CreatePlanningItemInput) => Promise<void>;
+  onSave: (data: CreatePlanningItemInput) => Promise<{ id: string } | void>;
   onUpdate?: (id: string, data: Partial<PlanningItem>) => Promise<void>;
   readOnly?: boolean;
 }
@@ -249,11 +249,48 @@ export function PlanningItemDialog({
         is_recurrence_template: recurrenceConfig.type !== 'none',
       };
 
+      // Save or update the planning item first
+      let savedItemId: string | undefined;
       if (item && onUpdate) {
         await onUpdate(item.id, data);
+        savedItemId = item.id;
       } else {
-        await onSave(data);
+        const result = await onSave(data);
+        savedItemId = result && 'id' in result ? result.id : undefined;
       }
+
+      // If scheduling is set AND we can publish to this platform, send to Late API
+      const shouldScheduleToLate = 
+        finalScheduledAt && 
+        canPublishNow && 
+        platform && 
+        selectedClientId &&
+        (finalContent.trim() || threadTweets.some(t => t.text.trim()));
+
+      if (shouldScheduleToLate && savedItemId) {
+        setIsSchedulingToLate(true);
+        try {
+          await lateConnection.publishContent(
+            platform as LatePlatform,
+            isTwitterThread ? threadTweets.map(t => t.text).join('\n\n') : finalContent,
+            {
+              mediaUrls: mediaItems.map(m => m.url),
+              planningItemId: savedItemId,
+              threadItems: isTwitterThread ? threadTweets : undefined,
+              scheduledFor: finalScheduledAt.toISOString(),
+              publishNow: false,
+            }
+          );
+          toast.success(`Agendado para ${format(finalScheduledAt, "dd/MM 'às' HH:mm")}`);
+        } catch (scheduleError) {
+          // If Late API scheduling fails, keep local scheduling (cron will handle it)
+          console.warn('Late API scheduling failed, keeping local schedule:', scheduleError);
+          toast.info("Salvo! Será publicado automaticamente no horário agendado.");
+        } finally {
+          setIsSchedulingToLate(false);
+        }
+      }
+
       onOpenChange(false);
     } finally {
       setIsSubmitting(false);

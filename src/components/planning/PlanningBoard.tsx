@@ -129,7 +129,8 @@ export function PlanningBoard({ clientId, isEnterprise = false, onClientChange }
   };
 
   const handleCreateItem = async (data: Parameters<typeof createItem.mutateAsync>[0]) => {
-    await createItem.mutateAsync(data);
+    const result = await createItem.mutateAsync(data);
+    return result;
   };
 
   const handleUpdateItem = async (id: string, data: Partial<PlanningItem>) => {
