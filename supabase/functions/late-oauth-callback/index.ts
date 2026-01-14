@@ -95,18 +95,19 @@ serve(async (req: Request) => {
       }
     }
 
-    // Strategy 2: Fallback - find by profile_id in metadata (legacy method)
+    // Strategy 2: Fallback - find by profile_id in metadata
+    // IMPORTANT: Only match to the client that OWNS this profile
     if (!clientId) {
       const { data: allProfiles, error: mappingError } = await supabase
         .from("client_social_credentials")
         .select("client_id, metadata, account_id")
-        .or("platform.eq.late_profile,platform.eq.late_workspace_profile");
+        .eq("platform", "late_profile"); // Only look at client-specific profiles, not shared
 
       if (mappingError) {
         console.error("Error finding profile mappings:", mappingError);
       }
 
-      console.log("Looking for profileId:", profileId, "in profiles:", allProfiles?.length);
+      console.log("Looking for profileId:", profileId, "in client profiles:", allProfiles?.length);
 
       if (allProfiles && allProfiles.length > 0) {
         const matchingProfile = allProfiles.find((p) => {
@@ -116,7 +117,7 @@ serve(async (req: Request) => {
         
         if (matchingProfile) {
           clientId = matchingProfile.client_id;
-          console.log("Found matching profile:", matchingProfile);
+          console.log("Found matching client profile:", matchingProfile);
         }
       }
     }
