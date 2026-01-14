@@ -2000,6 +2000,50 @@ export type Database = {
           },
         ]
       }
+      oauth_connection_attempts: {
+        Row: {
+          client_id: string
+          created_at: string
+          created_by: string
+          error_message: string | null
+          expires_at: string
+          id: string
+          platform: string
+          profile_id: string | null
+          used_at: string | null
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          created_by: string
+          error_message?: string | null
+          expires_at?: string
+          id?: string
+          platform: string
+          profile_id?: string | null
+          used_at?: string | null
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          created_by?: string
+          error_message?: string | null
+          expires_at?: string
+          id?: string
+          platform?: string
+          profile_id?: string | null
+          used_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "oauth_connection_attempts_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       performance_goals: {
         Row: {
           client_id: string
@@ -3111,7 +3155,7 @@ export type Database = {
           action: string
           client_id: string
           created_at: string
-          credential_id: string
+          credential_id: string | null
           id: string
           ip_address: string | null
           metadata: Json | null
@@ -3122,7 +3166,7 @@ export type Database = {
           action: string
           client_id: string
           created_at?: string
-          credential_id: string
+          credential_id?: string | null
           id?: string
           ip_address?: string | null
           metadata?: Json | null
@@ -3133,7 +3177,7 @@ export type Database = {
           action?: string
           client_id?: string
           created_at?: string
-          credential_id?: string
+          credential_id?: string | null
           id?: string
           ip_address?: string | null
           metadata?: Json | null
@@ -3146,20 +3190,6 @@ export type Database = {
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "clients"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "social_credentials_audit_log_credential_id_fkey"
-            columns: ["credential_id"]
-            isOneToOne: false
-            referencedRelation: "client_social_credentials"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "social_credentials_audit_log_credential_id_fkey"
-            columns: ["credential_id"]
-            isOneToOne: false
-            referencedRelation: "client_social_credentials_decrypted"
             referencedColumns: ["id"]
           },
         ]
