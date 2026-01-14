@@ -1,14 +1,16 @@
 import { useState } from "react";
-import { Eye, Instagram, Mail, Twitter, Megaphone } from "lucide-react";
+import { Eye, Instagram, Mail, Twitter, Megaphone, Linkedin } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { usePerformanceMetrics } from "@/hooks/usePerformanceMetrics";
 import { useYouTubeVideos } from "@/hooks/useYouTubeMetrics";
 import { useInstagramPosts } from "@/hooks/useInstagramPosts";
 import { useTwitterPosts } from "@/hooks/useTwitterMetrics";
+import { useLinkedInPosts } from "@/hooks/useLinkedInPosts";
 import { InstagramDashboard } from "@/components/performance/InstagramDashboard";
 import { YouTubeDashboard } from "@/components/performance/YouTubeDashboard";
 import { NewsletterDashboard } from "@/components/performance/NewsletterDashboard";
 import { TwitterDashboard } from "@/components/performance/TwitterDashboard";
+import { LinkedInDashboard } from "@/components/performance/LinkedInDashboard";
 import { MetaAdsDashboard } from "@/components/performance/MetaAdsDashboard";
 import { Client } from "@/hooks/useClients";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -22,6 +24,7 @@ const allChannels = [
   { id: "instagram", label: "Instagram", icon: Instagram },
   { id: "youtube", label: "YouTube", icon: Eye },
   { id: "twitter", label: "Twitter/X", icon: Twitter },
+  { id: "linkedin", label: "LinkedIn", icon: Linkedin },
   { id: "newsletter", label: "Newsletter", icon: Mail },
   { id: "meta_ads", label: "Meta Ads", icon: Megaphone },
 ];
@@ -42,6 +45,7 @@ export const KaiPerformanceTab = ({ clientId, client }: KaiPerformanceTabProps) 
   const { data: videos, isLoading: isLoadingVideos } = useYouTubeVideos(clientId, 100);
   const { data: newsletterMetrics, isLoading: isLoadingNewsletter } = usePerformanceMetrics(clientId, "newsletter", 365);
   const { data: twitterPosts, isLoading: isLoadingTwitter } = useTwitterPosts(clientId, 500);
+  const { data: linkedInPosts, isLoading: isLoadingLinkedIn } = useLinkedInPosts(clientId, 500);
 
   const isLoading = isLoadingInstagram;
 
@@ -96,6 +100,15 @@ export const KaiPerformanceTab = ({ clientId, client }: KaiPerformanceTabProps) 
             clientId={clientId}
             posts={twitterPosts || []}
             isLoading={isLoadingTwitter}
+          />
+        </TabsContent>
+
+        {/* LinkedIn - Full Dashboard */}
+        <TabsContent value="linkedin" className="mt-4">
+          <LinkedInDashboard
+            clientId={clientId}
+            posts={linkedInPosts || []}
+            isLoading={isLoadingLinkedIn}
           />
         </TabsContent>
 

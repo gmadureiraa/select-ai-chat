@@ -1697,6 +1697,83 @@ export type Database = {
           },
         ]
       }
+      linkedin_posts: {
+        Row: {
+          clicks: number | null
+          client_id: string
+          comments: number | null
+          content: string | null
+          content_synced_at: string | null
+          created_at: string
+          engagement_rate: number | null
+          engagements: number | null
+          follows: number | null
+          full_content: string | null
+          id: string
+          images: Json | null
+          impressions: number | null
+          likes: number | null
+          metadata: Json | null
+          post_id: string
+          post_url: string | null
+          posted_at: string | null
+          shares: number | null
+          updated_at: string
+        }
+        Insert: {
+          clicks?: number | null
+          client_id: string
+          comments?: number | null
+          content?: string | null
+          content_synced_at?: string | null
+          created_at?: string
+          engagement_rate?: number | null
+          engagements?: number | null
+          follows?: number | null
+          full_content?: string | null
+          id?: string
+          images?: Json | null
+          impressions?: number | null
+          likes?: number | null
+          metadata?: Json | null
+          post_id: string
+          post_url?: string | null
+          posted_at?: string | null
+          shares?: number | null
+          updated_at?: string
+        }
+        Update: {
+          clicks?: number | null
+          client_id?: string
+          comments?: number | null
+          content?: string | null
+          content_synced_at?: string | null
+          created_at?: string
+          engagement_rate?: number | null
+          engagements?: number | null
+          follows?: number | null
+          full_content?: string | null
+          id?: string
+          images?: Json | null
+          impressions?: number | null
+          likes?: number | null
+          metadata?: Json | null
+          post_id?: string
+          post_url?: string | null
+          posted_at?: string | null
+          shares?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "linkedin_posts_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       messages: {
         Row: {
           content: string
@@ -3346,12 +3423,15 @@ export type Database = {
         Row: {
           client_id: string
           content: string | null
+          content_synced_at: string | null
           created_at: string
           detail_expands: number | null
           engagement_rate: number | null
           engagements: number | null
+          full_content: string | null
           hashtag_clicks: number | null
           id: string
+          images: Json | null
           impressions: number | null
           likes: number | null
           media_engagements: number | null
@@ -3368,12 +3448,15 @@ export type Database = {
         Insert: {
           client_id: string
           content?: string | null
+          content_synced_at?: string | null
           created_at?: string
           detail_expands?: number | null
           engagement_rate?: number | null
           engagements?: number | null
+          full_content?: string | null
           hashtag_clicks?: number | null
           id?: string
+          images?: Json | null
           impressions?: number | null
           likes?: number | null
           media_engagements?: number | null
@@ -3390,12 +3473,15 @@ export type Database = {
         Update: {
           client_id?: string
           content?: string | null
+          content_synced_at?: string | null
           created_at?: string
           detail_expands?: number | null
           engagement_rate?: number | null
           engagements?: number | null
+          full_content?: string | null
           hashtag_clicks?: number | null
           id?: string
+          images?: Json | null
           impressions?: number | null
           likes?: number | null
           media_engagements?: number | null

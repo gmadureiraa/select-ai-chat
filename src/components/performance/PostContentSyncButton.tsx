@@ -52,7 +52,7 @@ export const PostContentSyncButton = ({
 
       if (extractError) throw extractError;
 
-      const imageUrls = extractData?.imageUrls || [];
+      const imageUrls = extractData?.images || [];
       const uploadedPaths = extractData?.uploadedPaths || [];
 
       // 2. Transcribe images if available
