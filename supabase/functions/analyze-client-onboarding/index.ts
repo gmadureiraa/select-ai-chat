@@ -282,27 +282,64 @@ Gere uma análise estruturada usando a função generate_client_analysis.`;
 
   console.log("Calling Lovable AI for analysis...");
 
-  const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${lovableApiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "google/gemini-2.5-flash",
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
-      ],
-      tools,
-      tool_choice: { type: "function", function: { name: "generate_client_analysis" } },
-    }),
-  });
+  const maxRetries = 3;
+  let lastError: Error | null = null;
+  let response: Response | null = null;
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error("AI Gateway error:", response.status, errorText);
-    throw new Error(`AI analysis failed: ${response.status}`);
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      console.log(`AI API attempt ${attempt}/${maxRetries}`);
+      
+      response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${lovableApiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-2.5-flash",
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userPrompt },
+          ],
+          tools,
+          tool_choice: { type: "function", function: { name: "generate_client_analysis" } },
+        }),
+      });
+
+      if (response.ok) {
+        break; // Success, exit retry loop
+      }
+
+      const errorText = await response.text();
+      console.error(`AI Gateway error (attempt ${attempt}):`, response.status, errorText);
+
+      // Only retry on 5xx errors (server errors)
+      if (response.status >= 500 && attempt < maxRetries) {
+        const waitTime = Math.pow(2, attempt) * 1000; // Exponential backoff: 2s, 4s, 8s
+        console.log(`Retrying in ${waitTime}ms...`);
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+        continue;
+      }
+
+      // For 4xx errors or final attempt, throw immediately
+      throw new Error(`AI analysis failed: ${response.status}`);
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+      
+      if (attempt < maxRetries && !lastError.message.includes("AI analysis failed: 4")) {
+        const waitTime = Math.pow(2, attempt) * 1000;
+        console.log(`Network error, retrying in ${waitTime}ms...`, lastError.message);
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+        continue;
+      }
+      
+      throw lastError;
+    }
+  }
+
+  if (!response || !response.ok) {
+    throw lastError || new Error("AI analysis failed after retries");
   }
 
   const data = await response.json();
