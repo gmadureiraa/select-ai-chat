@@ -206,7 +206,7 @@ serve(async (req: Request) => {
 
     // Handle threads (for Twitter/X and Threads)
     if (threadItems && threadItems.length > 0 && (platform === 'twitter' || platform === 'threads')) {
-      // Use native thread support
+      // Build ALL thread items - Late API expects every tweet in threadItems
       const lateThreadItems = threadItems.map(item => {
         const threadItem: Record<string, unknown> = {
           content: item.text,
@@ -223,25 +223,20 @@ serve(async (req: Request) => {
         return threadItem;
       });
 
-      // First item content goes to main content
-      postPayload.content = lateThreadItems[0]?.content || content;
-      
-      // Thread items go to platformSpecificData
+      console.log("Building thread with items:", lateThreadItems.length);
+
+      // IMPORTANT: Late API expects ALL tweets in threadItems, including the first one
+      // Do NOT set content separately - Late API uses first item from threadItems
       postPayload.platforms = [{
         platform: platform,
         accountId: lateAccountId,
         platformSpecificData: {
-          threadItems: lateThreadItems.slice(1), // Remaining items after first
+          threadItems: lateThreadItems, // ALL tweets here, including the first
         }
       }];
 
-      // Add first item's media to main mediaItems
-      if (threadItems[0]?.media_urls && threadItems[0].media_urls.length > 0) {
-        postPayload.mediaItems = threadItems[0].media_urls.map(url => ({
-          type: url.match(/\.(mp4|mov|webm|avi)$/i) ? 'video' : 'image',
-          url: url,
-        }));
-      }
+      // Set content to first tweet for backwards compatibility, but Late uses threadItems
+      postPayload.content = lateThreadItems[0]?.content || content;
     } else {
       // Standard post (non-thread)
       postPayload.content = content;

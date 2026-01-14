@@ -31,10 +31,13 @@ Deno.serve(async (req) => {
   const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
 
   try {
-    console.log("Processing scheduled posts from planning_items...");
-
-    const now = new Date().toISOString();
+    const now = new Date();
+    // Add 2 minute margin to catch posts that are about to be due
+    const marginTime = new Date(now.getTime() + 2 * 60 * 1000);
     
+    console.log(`[process-scheduled-posts] Running at ${now.toISOString()}`);
+    console.log(`[process-scheduled-posts] Looking for posts scheduled before ${marginTime.toISOString()}`);
+
     // First, process planning_items (new unified table)
     const { data: planningItems, error: planningError } = await supabaseClient
       .from('planning_items')
@@ -46,10 +49,10 @@ Deno.serve(async (req) => {
         )
       `)
       .eq('status', 'scheduled')
-      .lte('scheduled_at', now)
+      .lte('scheduled_at', marginTime.toISOString())
       .lt('retry_count', 3)
       .order('scheduled_at', { ascending: true })
-      .limit(10);
+      .limit(25);
 
     if (planningError) {
       console.error("Error fetching planning items:", planningError);
@@ -61,10 +64,10 @@ Deno.serve(async (req) => {
       .from('scheduled_posts')
       .select('*')
       .eq('status', 'scheduled')
-      .lte('scheduled_at', now)
+      .lte('scheduled_at', marginTime.toISOString())
       .lt('retry_count', 3)
       .order('scheduled_at', { ascending: true })
-      .limit(10);
+      .limit(25);
 
     if (legacyError) {
       console.error("Error fetching legacy posts:", legacyError);
