@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -46,6 +46,7 @@ export function LinkedInDashboard({ clientId, posts, isLoading }: LinkedInDashbo
   const [selectedMetric, setSelectedMetric] = useState("impressions");
   const [isDragging, setIsDragging] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const importMutation = useImportLinkedInExcel();
   const { logImport } = useImportHistory(clientId);
@@ -232,18 +233,21 @@ export function LinkedInDashboard({ clientId, posts, isLoading }: LinkedInDashbo
             <p className="text-sm text-muted-foreground mb-4">
               Arraste arquivos XLSX do LinkedIn Analytics aqui ou
             </p>
-            <label className="cursor-pointer">
-              <Button variant="outline" disabled={isImporting}>
-                {isImporting ? 'Importando...' : 'Selecionar Arquivos'}
-              </Button>
-              <input
-                type="file"
-                accept=".xlsx,.xls"
-                multiple
-                className="hidden"
-                onChange={(e) => handleFileUpload(e.target.files)}
-              />
-            </label>
+            <Button 
+              variant="outline" 
+              disabled={isImporting}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              {isImporting ? 'Importando...' : 'Selecionar Arquivos'}
+            </Button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".xlsx,.xls"
+              multiple
+              className="hidden"
+              onChange={(e) => handleFileUpload(e.target.files)}
+            />
           </div>
           
           <div className="mt-6 text-sm text-muted-foreground">
@@ -326,18 +330,13 @@ export function LinkedInDashboard({ clientId, posts, isLoading }: LinkedInDashbo
               <p className="text-sm text-muted-foreground mb-4">
                 Arraste arquivos XLSX do LinkedIn Analytics aqui ou
               </p>
-              <label className="cursor-pointer">
-                <Button variant="outline" disabled={isImporting}>
-                  {isImporting ? 'Importando...' : 'Selecionar Arquivos'}
-                </Button>
-                <input
-                  type="file"
-                  accept=".xlsx,.xls"
-                  multiple
-                  className="hidden"
-                  onChange={(e) => handleFileUpload(e.target.files)}
-                />
-              </label>
+              <Button 
+                variant="outline" 
+                disabled={isImporting}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                {isImporting ? 'Importando...' : 'Selecionar Arquivos'}
+              </Button>
             </div>
           </CardContent>
         </Card>
@@ -427,7 +426,7 @@ export function LinkedInDashboard({ clientId, posts, isLoading }: LinkedInDashbo
           <CardTitle className="text-base">Todos os Posts</CardTitle>
         </CardHeader>
         <CardContent>
-          <LinkedInPostsTable posts={posts} isLoading={isLoading} />
+          <LinkedInPostsTable posts={posts} isLoading={isLoading} clientId={clientId} />
         </CardContent>
       </Card>
 
