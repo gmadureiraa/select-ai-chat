@@ -1,4 +1,3 @@
-import { useEffect } from "react";
 import { Twitter, Linkedin, Loader2, Check, Trash2, Share2, RefreshCw, Instagram, Video, Youtube } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,8 +6,6 @@ import { useSocialCredentials } from "@/hooks/useSocialCredentials";
 import { usePlanFeatures } from "@/hooks/usePlanFeatures";
 import { EnterpriseLockScreen } from "@/components/shared/EnterpriseLockScreen";
 import { useLateConnection, LatePlatform } from "@/hooks/useLateConnection";
-import { useSearchParams } from "react-router-dom";
-import { useToast } from "@/components/ui/use-toast";
 
 interface SocialIntegrationsTabProps {
   clientId: string;
@@ -73,38 +70,11 @@ export function SocialIntegrationsTab({ clientId }: SocialIntegrationsTabProps) 
     isLoading, 
   } = useSocialCredentials(clientId);
   const { isEnterprise } = usePlanFeatures();
-  const { toast } = useToast();
-  const [searchParams, setSearchParams] = useSearchParams();
 
   const lateConnection = useLateConnection({ clientId });
 
-  // Handle OAuth callback messages
-  useEffect(() => {
-    const lateOAuthStatus = searchParams.get('late_oauth');
-    const platform = searchParams.get('platform');
-    const message = searchParams.get('message');
-
-    if (lateOAuthStatus === 'success' && platform) {
-      toast({
-        title: `${platformConfig[platform as LatePlatform]?.name || platform} conectado!`,
-        description: "Sua conta foi conectada com sucesso.",
-      });
-      searchParams.delete('late_oauth');
-      searchParams.delete('platform');
-      searchParams.delete('message');
-      setSearchParams(searchParams);
-    } else if (lateOAuthStatus === 'error') {
-      toast({
-        title: "Erro ao conectar",
-        description: message || "Ocorreu um erro ao conectar sua conta.",
-        variant: "destructive",
-      });
-      searchParams.delete('late_oauth');
-      searchParams.delete('platform');
-      searchParams.delete('message');
-      setSearchParams(searchParams);
-    }
-  }, [searchParams, setSearchParams, toast]);
+  // Removed the useEffect that reads query params - all OAuth handling is now via postMessage only
+  // This eliminates "ghost toasts" from stale query parameters
 
   const getCredentialForPlatform = (platform: LatePlatform) => {
     return credentials?.find(c => c.platform === platform);

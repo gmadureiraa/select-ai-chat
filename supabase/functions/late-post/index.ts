@@ -79,8 +79,9 @@ serve(async (req: Request) => {
       .single();
 
     if (credError || !credentials) {
+      console.error("No credentials found:", { clientId, platform, credError });
       return new Response(JSON.stringify({ 
-        error: `No ${platform} credentials found for this client` 
+        error: `Credenciais do ${platform} não encontradas para este cliente. Conecte a conta primeiro.` 
       }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -88,8 +89,9 @@ serve(async (req: Request) => {
     }
 
     if (!credentials.is_valid) {
+      console.error("Invalid credentials:", { clientId, platform, validationError: credentials.validation_error });
       return new Response(JSON.stringify({ 
-        error: `${platform} credentials are invalid. Please reconnect.` 
+        error: `Credenciais do ${platform} estão inválidas. Reconecte a conta.` 
       }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -100,9 +102,19 @@ serve(async (req: Request) => {
     const metadata = credentials.metadata as Record<string, unknown> | null;
     const lateAccountId = metadata?.late_account_id || credentials.account_id;
 
+    console.log("Credentials found:", { 
+      clientId, 
+      platform, 
+      accountId: credentials.account_id,
+      lateAccountId,
+      accountName: credentials.account_name,
+      metadata: credentials.metadata
+    });
+
     if (!lateAccountId) {
+      console.error("No Late account ID found:", { clientId, platform, metadata });
       return new Response(JSON.stringify({ 
-        error: "Account not properly connected via Late API" 
+        error: "Conta não está corretamente conectada via Late API. Reconecte a conta." 
       }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -135,13 +147,7 @@ serve(async (req: Request) => {
       }));
     }
 
-    console.log("Posting via Late API:", { 
-      platform, 
-      accountId: lateAccountId, 
-      contentLength: content.length,
-      publishNow,
-      scheduledFor 
-    });
+    console.log("Late API post payload:", JSON.stringify(postPayload, null, 2));
 
     // Post via Late API
     const postResponse = await fetch(`${LATE_API_BASE}/v1/posts`, {
@@ -155,7 +161,13 @@ serve(async (req: Request) => {
 
     if (!postResponse.ok) {
       const errorText = await postResponse.text();
-      console.error("Late API post error:", postResponse.status, errorText);
+      console.error("Late API post error:", { 
+        status: postResponse.status, 
+        errorText,
+        clientId,
+        platform,
+        lateAccountId 
+      });
       
       // Update planning item if applicable
       if (planningItemId) {
@@ -163,14 +175,27 @@ serve(async (req: Request) => {
           .from("planning_items")
           .update({
             status: "failed",
-            error_message: `Late API error: ${errorText}`,
+            error_message: `Erro Late API (${postResponse.status}): ${errorText}`,
             updated_at: new Date().toISOString(),
           })
           .eq("id", planningItemId);
       }
 
+      // Parse error for better user message
+      let userMessage = "Falha ao publicar conteúdo";
+      try {
+        const errorJson = JSON.parse(errorText);
+        if (errorJson.message) {
+          userMessage = errorJson.message;
+        } else if (errorJson.error) {
+          userMessage = errorJson.error;
+        }
+      } catch {
+        // Keep default message if not JSON
+      }
+
       return new Response(JSON.stringify({ 
-        error: "Failed to post content",
+        error: userMessage,
         details: errorText 
       }), {
         status: 500,
