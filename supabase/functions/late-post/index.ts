@@ -135,6 +135,33 @@ serve(async (req: Request) => {
     // Get Late account ID from metadata
     const metadata = credentials.metadata as Record<string, unknown> | null;
     const lateAccountId = metadata?.late_account_id || credentials.account_id;
+    const credentialProfileId = metadata?.late_profile_id as string | undefined;
+
+    // SECURITY: Verify this account belongs to this client's profile
+    // Fetch the client's Late profile to validate
+    const { data: clientProfile } = await supabase
+      .from("client_social_credentials")
+      .select("metadata, account_id")
+      .eq("client_id", clientId)
+      .eq("platform", "late_profile")
+      .single();
+
+    const clientProfileId = (clientProfile?.metadata as Record<string, unknown>)?.late_profile_id || clientProfile?.account_id;
+
+    if (credentialProfileId && clientProfileId && credentialProfileId !== clientProfileId) {
+      console.error("SECURITY: Account profile mismatch!", { 
+        clientId, 
+        platform, 
+        credentialProfileId, 
+        clientProfileId 
+      });
+      return new Response(JSON.stringify({ 
+        error: "Esta conta não pertence a este cliente. Reconecte a conta nas Integrações." 
+      }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     console.log("Publicando com credenciais:", { 
       clientId, 
@@ -142,6 +169,7 @@ serve(async (req: Request) => {
       accountId: credentials.account_id,
       lateAccountId,
       accountName: credentials.account_name,
+      profileId: credentialProfileId,
       hasThread: !!threadItems,
       threadCount: threadItems?.length || 0
     });

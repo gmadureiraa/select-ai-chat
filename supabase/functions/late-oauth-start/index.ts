@@ -64,96 +64,120 @@ serve(async (req: Request) => {
     // Use service role for database operations
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey);
 
-    // Strategy: Use a shared workspace profile to avoid "Profile limit reached" errors
-    // Each client will have their own connected accounts within this shared profile
+    // STRATEGY: Each client gets their OWN Late profile for complete isolation
+    // This prevents account mixing between clients
     
-    // Check if we have a shared workspace profile
-    const { data: workspaceProfile } = await supabaseAdmin
+    // Check if this CLIENT already has a Late profile
+    const { data: clientProfile } = await supabaseAdmin
       .from('client_social_credentials')
-      .select('metadata')
-      .eq('platform', 'late_workspace_profile')
+      .select('metadata, account_id')
+      .eq('client_id', clientId)
+      .eq('platform', 'late_profile')
       .single();
 
-    let profileId = (workspaceProfile?.metadata as Record<string, unknown>)?.late_profile_id as string;
+    let profileId = (clientProfile?.metadata as Record<string, unknown>)?.late_profile_id as string || clientProfile?.account_id;
 
-    // If no workspace profile exists, create one
+    // If client doesn't have a profile, try to create or find one
     if (!profileId) {
-      const uniqueName = `kai-workspace-${Date.now()}`;
-      console.log("Creating new Late workspace profile:", uniqueName);
+      console.log("Client has no Late profile, creating/finding one for:", clientId);
       
-      const createProfileResponse = await fetch(`${LATE_API_BASE}/v1/profiles`, {
-        method: "POST",
+      // First, try to list existing profiles to see what's available
+      const listProfilesResponse = await fetch(`${LATE_API_BASE}/v1/profiles`, {
+        method: "GET",
         headers: {
           "Authorization": `Bearer ${LATE_API_KEY}`,
-          "Content-Type": "application/json",
         },
-        body: JSON.stringify({ name: uniqueName }),
       });
 
-      if (createProfileResponse.ok) {
-        const newProfile = await createProfileResponse.json();
-        profileId = newProfile.profile._id;
-        console.log("Created workspace profile:", { profileId, name: uniqueName });
+      let existingProfiles: Array<{ _id: string; name: string }> = [];
+      if (listProfilesResponse.ok) {
+        const profilesData = await listProfilesResponse.json();
+        existingProfiles = profilesData.profiles || [];
+        console.log("Existing profiles:", existingProfiles.length);
+      }
 
-        // Save as workspace-level profile (using a special client_id placeholder)
+      // Check if there's already a profile for this client (by name pattern)
+      const clientProfileName = `kai-${clientId.substring(0, 8)}`;
+      const existingClientProfile = existingProfiles.find(p => p.name === clientProfileName);
+      
+      if (existingClientProfile) {
+        profileId = existingClientProfile._id;
+        console.log("Found existing profile for client:", { profileId, name: clientProfileName });
+      } else {
+        // Try to create a new profile for this client
+        const createProfileResponse = await fetch(`${LATE_API_BASE}/v1/profiles`, {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${LATE_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ name: clientProfileName }),
+        });
+
+        if (createProfileResponse.ok) {
+          const newProfile = await createProfileResponse.json();
+          profileId = newProfile.profile._id;
+          console.log("Created new profile for client:", { profileId, name: clientProfileName });
+        } else {
+          const errorText = await createProfileResponse.text();
+          console.error("Failed to create Late profile:", errorText);
+          
+          // If profile limit reached, check if there's an unassigned profile we can use
+          if (errorText.includes("Profile limit") && existingProfiles.length > 0) {
+            // Find a profile not yet assigned to any client
+            const { data: assignedProfiles } = await supabaseAdmin
+              .from('client_social_credentials')
+              .select('metadata')
+              .eq('platform', 'late_profile');
+            
+            const assignedProfileIds = new Set(
+              (assignedProfiles || []).map(p => 
+                (p.metadata as Record<string, unknown>)?.late_profile_id
+              ).filter(Boolean)
+            );
+            
+            const unassignedProfile = existingProfiles.find(p => !assignedProfileIds.has(p._id));
+            
+            if (unassignedProfile) {
+              profileId = unassignedProfile._id;
+              console.log("Using unassigned profile for client:", { profileId, name: unassignedProfile.name });
+            } else {
+              // No unassigned profiles - user needs to upgrade Late plan
+              return new Response(JSON.stringify({ 
+                error: "Limite de perfis atingido. Para conectar mais clientes, considere fazer upgrade do plano Late API.",
+                details: "Cada cliente precisa de um perfil separado para garantir isolamento das contas." 
+              }), {
+                status: 500,
+                headers: { ...corsHeaders, "Content-Type": "application/json" },
+              });
+            }
+          } else if (!profileId) {
+            return new Response(JSON.stringify({ 
+              error: "Falha ao criar perfil para o cliente.",
+              details: errorText 
+            }), {
+              status: 500,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          }
+        }
+      }
+
+      // Save this profile as belonging to THIS client specifically
+      if (profileId) {
         await supabaseAdmin
           .from('client_social_credentials')
           .upsert({
-            client_id: clientId, // Use requesting client, but mark as workspace profile
-            platform: 'late_workspace_profile',
+            client_id: clientId,
+            platform: 'late_profile',
             account_id: profileId,
-            account_name: uniqueName,
-            metadata: { late_profile_id: profileId, is_workspace_profile: true },
+            account_name: clientProfileName,
+            metadata: { late_profile_id: profileId, created_for_client: true },
             is_valid: true,
           }, {
             onConflict: 'client_id,platform',
           });
-      } else {
-        const errorText = await createProfileResponse.text();
-        console.error("Failed to create Late profile:", errorText);
-        
-        // Check if it's a profile limit error - try to find existing profile
-        if (errorText.includes("Profile limit")) {
-          // Try to get any existing profile from Late API
-          const listProfilesResponse = await fetch(`${LATE_API_BASE}/v1/profiles`, {
-            method: "GET",
-            headers: {
-              "Authorization": `Bearer ${LATE_API_KEY}`,
-            },
-          });
-          
-          if (listProfilesResponse.ok) {
-            const profilesData = await listProfilesResponse.json();
-            if (profilesData.profiles && profilesData.profiles.length > 0) {
-              profileId = profilesData.profiles[0]._id;
-              console.log("Using existing profile due to limit:", profileId);
-              
-              // Save this as workspace profile
-              await supabaseAdmin
-                .from('client_social_credentials')
-                .upsert({
-                  client_id: clientId,
-                  platform: 'late_workspace_profile',
-                  account_id: profileId,
-                  account_name: profilesData.profiles[0].name || 'shared',
-                  metadata: { late_profile_id: profileId, is_workspace_profile: true },
-                  is_valid: true,
-                }, {
-                  onConflict: 'client_id,platform',
-                });
-            }
-          }
-        }
-        
-        if (!profileId) {
-          return new Response(JSON.stringify({ 
-            error: "Limite de perfis do Late atingido. Entre em contato com o suporte.",
-            details: errorText 
-          }), {
-            status: 500,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
-        }
+        console.log("Saved profile mapping for client:", { clientId, profileId });
       }
     }
 
