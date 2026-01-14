@@ -6,6 +6,8 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+const LATE_API_BASE = "https://getlate.dev/api/v1";
+
 interface VerifyResult {
   platform: string;
   status: 'valid' | 'invalid' | 'deleted' | 'error';
@@ -72,8 +74,8 @@ serve(async (req: Request) => {
         // Check if account exists in Late API
         const accountIdToCheck = lateAccountId || lateProfileId;
         const endpoint = lateAccountId 
-          ? `https://api.getlate.dev/social-accounts/${lateAccountId}`
-          : `https://api.getlate.dev/profiles/${lateProfileId}`;
+          ? `${LATE_API_BASE}/accounts/${lateAccountId}`
+          : `${LATE_API_BASE}/profiles/${lateProfileId}`;
 
         console.log(`Checking ${credential.platform} account at ${endpoint}`);
 

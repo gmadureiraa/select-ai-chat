@@ -77,6 +77,37 @@ serve(async (req: Request) => {
 
     let profileId = (clientProfile?.metadata as Record<string, unknown>)?.late_profile_id as string || clientProfile?.account_id;
 
+    // Verify if the profile still exists in Late API
+    if (profileId) {
+      console.log("Verifying existing profile in Late API:", profileId);
+      const checkProfileResponse = await fetch(`${LATE_API_BASE}/v1/profiles/${profileId}`, {
+        method: "GET",
+        headers: {
+          "Authorization": `Bearer ${LATE_API_KEY}`,
+        },
+      });
+
+      if (checkProfileResponse.status === 404) {
+        console.log("Profile not found in Late API, will create new one. Cleaning orphan data...");
+        
+        // Delete orphan late_profile reference
+        await supabaseAdmin
+          .from('client_social_credentials')
+          .delete()
+          .eq('client_id', clientId)
+          .eq('platform', 'late_profile');
+        
+        // Also delete any social credentials linked to this orphan profile
+        await supabaseAdmin
+          .from('client_social_credentials')
+          .delete()
+          .eq('client_id', clientId)
+          .not('platform', 'eq', 'late_profile');
+        
+        profileId = undefined as unknown as string; // Force creation of new profile
+      }
+    }
+
     // If client doesn't have a profile, try to create or find one
     if (!profileId) {
       console.log("Client has no Late profile, creating/finding one for:", clientId);

@@ -6,6 +6,8 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+const LATE_API_BASE = "https://getlate.dev/api/v1";
+
 serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -64,7 +66,7 @@ serve(async (req: Request) => {
       try {
         console.log("Deleting Late account:", lateAccountId);
         
-        const response = await fetch(`https://api.getlate.dev/social-accounts/${lateAccountId}`, {
+        const response = await fetch(`${LATE_API_BASE}/accounts/${lateAccountId}`, {
           method: "DELETE",
           headers: {
             "Authorization": `Bearer ${lateApiKey}`,
@@ -88,7 +90,7 @@ serve(async (req: Request) => {
       try {
         console.log("Disconnecting Late profile:", lateProfileId);
         
-        const response = await fetch(`https://api.getlate.dev/profiles/${lateProfileId}/disconnect`, {
+        const response = await fetch(`${LATE_API_BASE}/profiles/${lateProfileId}/disconnect`, {
           method: "POST",
           headers: {
             "Authorization": `Bearer ${lateApiKey}`,
