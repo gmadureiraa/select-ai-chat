@@ -54,29 +54,32 @@ serve(async (req: Request) => {
 
     // Find the client_id associated with this profile
     // We stored the mapping when starting OAuth
-    const { data: profileMapping, error: mappingError } = await supabase
+    // Using in-memory filter because JSONB filter can be unreliable
+    const { data: allProfiles, error: mappingError } = await supabase
       .from("client_social_credentials")
-      .select("client_id, metadata")
-      .eq("platform", "late_profile")
-      .filter("metadata->>late_profile_id", "eq", profileId)
-      .maybeSingle();
+      .select("client_id, metadata, account_id")
+      .eq("platform", "late_profile");
 
     if (mappingError) {
-      console.error("Error finding profile mapping:", mappingError);
+      console.error("Error finding profile mappings:", mappingError);
     }
 
-    let clientId = profileMapping?.client_id;
+    console.log("All late_profile records:", allProfiles);
+    console.log("Looking for profileId:", profileId);
 
-    // Fallback: if no direct mapping found, try to find any client with this profile
-    if (!clientId && profileId) {
-      const { data: anyCredential } = await supabase
-        .from("client_social_credentials")
-        .select("client_id")
-        .filter("metadata->>late_profile_id", "eq", profileId)
-        .limit(1)
-        .maybeSingle();
+    // Find the client by matching late_profile_id in metadata OR account_id
+    let clientId: string | null = null;
+    
+    if (allProfiles && allProfiles.length > 0) {
+      const matchingProfile = allProfiles.find((p) => {
+        const metadata = p.metadata as Record<string, unknown> | null;
+        return metadata?.late_profile_id === profileId || p.account_id === profileId;
+      });
       
-      clientId = anyCredential?.client_id;
+      if (matchingProfile) {
+        clientId = matchingProfile.client_id;
+        console.log("Found matching profile:", matchingProfile);
+      }
     }
 
     if (!clientId) {
