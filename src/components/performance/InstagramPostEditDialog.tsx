@@ -11,7 +11,7 @@ import { Image as ImageIcon, Upload, Loader2, Save, Link, Users, MousePointer, E
 import { InstagramPost, useUpdateInstagramPost } from "@/hooks/useInstagramPosts";
 import { uploadToClientFiles, getPublicUrl } from "@/lib/storage";
 import { format } from "date-fns";
-
+import { PostImagesManager } from "./PostImagesManager";
 interface InstagramPostEditDialogProps {
   post: InstagramPost | null;
   open: boolean;
@@ -61,6 +61,8 @@ export function InstagramPostEditDialog({ post, open, onOpenChange, clientId }: 
     content_objective: "",
     is_collab: false,
     follows_from_post: 0,
+    images: [] as string[],
+    full_content: "",
   });
 
   useEffect(() => {
@@ -83,6 +85,8 @@ export function InstagramPostEditDialog({ post, open, onOpenChange, clientId }: 
         content_objective: (post as any)?.content_objective || "",
         is_collab: (post as any)?.is_collab ?? false,
         follows_from_post: (post?.metadata as any)?.follows_from_post ?? 0,
+        images: Array.isArray(post.images) ? post.images : [],
+        full_content: post.full_content || "",
       });
     }
   }, [post]);
@@ -141,6 +145,9 @@ export function InstagramPostEditDialog({ post, open, onOpenChange, clientId }: 
       profile_visits: Number(formData.profile_visits),
       content_objective: formData.content_objective || null,
       is_collab: formData.is_collab,
+      images: formData.images,
+      full_content: formData.full_content || null,
+      content_synced_at: formData.images.length > 0 ? new Date().toISOString() : (post.content_synced_at || null),
       metadata: {
         ...(post.metadata as object || {}),
         follows_from_post: Number(formData.follows_from_post),
@@ -263,6 +270,21 @@ export function InstagramPostEditDialog({ post, open, onOpenChange, clientId }: 
               </div>
             </div>
           </div>
+
+          <Separator />
+
+          {/* Images Manager */}
+          <PostImagesManager
+            images={formData.images}
+            onChange={(images) => updateField("images", images)}
+            clientId={clientId}
+            onTranscribe={(transcription) => {
+              const parts: string[] = [];
+              if (formData.caption) parts.push(formData.caption);
+              parts.push("---\n\n## Transcrição das Imagens\n\n" + transcription);
+              updateField("full_content", parts.join("\n\n"));
+            }}
+          />
 
           <Separator />
 

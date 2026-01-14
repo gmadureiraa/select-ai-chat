@@ -59,7 +59,7 @@ interface PostContentDialogProps {
 }
 
 const getStorageUrl = (path: string) => {
-  const { data } = supabase.storage.from("instagram-images").getPublicUrl(path);
+  const { data } = supabase.storage.from("client-files").getPublicUrl(path);
   return data.publicUrl;
 };
 
