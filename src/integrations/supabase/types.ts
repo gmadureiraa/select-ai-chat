@@ -2482,6 +2482,7 @@ export type Database = {
           click_rate: number | null
           client_id: string
           comments: number | null
+          content_library_id: string | null
           created_at: string | null
           engagement_rate: number | null
           id: string
@@ -2500,6 +2501,7 @@ export type Database = {
           click_rate?: number | null
           client_id: string
           comments?: number | null
+          content_library_id?: string | null
           created_at?: string | null
           engagement_rate?: number | null
           id?: string
@@ -2518,6 +2520,7 @@ export type Database = {
           click_rate?: number | null
           client_id?: string
           comments?: number | null
+          content_library_id?: string | null
           created_at?: string | null
           engagement_rate?: number | null
           id?: string
@@ -2538,6 +2541,13 @@ export type Database = {
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "platform_metrics_content_library_id_fkey"
+            columns: ["content_library_id"]
+            isOneToOne: false
+            referencedRelation: "client_content_library"
             referencedColumns: ["id"]
           },
         ]

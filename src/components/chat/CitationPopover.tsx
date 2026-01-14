@@ -9,10 +9,12 @@ import { cn } from "@/lib/utils";
 export interface CitationItem {
   id: string;
   title: string;
-  type: "content_library" | "reference_library" | "format" | "assignee" | "client";
+  type: "content_library" | "reference_library" | "format" | "assignee" | "client" | "performance";
   category: string;
   preview: string;
   avatar_url?: string;
+  thumbnail_url?: string;
+  engagement_rate?: number;
 }
 
 interface CitationPopoverProps {
@@ -30,6 +32,15 @@ interface CitationPopoverProps {
     title: string;
     reference_type: string;
     content: string;
+  }>;
+  performancePosts?: Array<{
+    id: string;
+    caption: string | null;
+    post_type: string | null;
+    engagement_rate: number | null;
+    likes: number | null;
+    thumbnail_url: string | null;
+    posted_at: string | null;
   }>;
   assignees?: Array<{
     id: string;
@@ -102,6 +113,8 @@ const categoryColors: Record<string, string> = {
   // People and Clients
   assignee: "bg-indigo-500/10 text-indigo-600 border-indigo-500/20",
   client: "bg-teal-500/10 text-teal-600 border-teal-500/20",
+  // Performance
+  performance: "bg-green-500/10 text-green-600 border-green-500/20",
 };
 
 // Pre-defined content formats - synchronized with FormatItem.tsx
