@@ -15,6 +15,10 @@ export function useLateConnection({ clientId }: UseLateConnectionProps) {
   const popupRef = useRef<Window | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Track expected connection to correlate postMessage with the correct attempt
+  const expectedConnectionRef = useRef<{ clientId: string; platform: LatePlatform } | null>(null);
+  
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -38,6 +42,7 @@ export function useLateConnection({ clientId }: UseLateConnectionProps) {
       timeoutRef.current = null;
     }
     popupRef.current = null;
+    expectedConnectionRef.current = null;
     setIsLoading(false);
     setCurrentPlatform(null);
   }, []);
@@ -45,25 +50,73 @@ export function useLateConnection({ clientId }: UseLateConnectionProps) {
   useEffect(() => {
     // Listen for postMessage from OAuth callback popup
     const handleMessage = (event: MessageEvent) => {
-      if (event.data?.type === 'late_oauth_success') {
-        cleanup();
-        queryClient.invalidateQueries({ queryKey: ['social-credentials', clientId] });
-        queryClient.invalidateQueries({ queryKey: ['client-platform-status', clientId] });
+      // Only process our OAuth messages
+      if (!event.data?.type?.startsWith('late_oauth_')) {
+        return;
+      }
+
+      const messageClientId = event.data.clientId as string | undefined;
+      const messagePlatform = event.data.platform as LatePlatform | undefined;
+      
+      // Validate that this message corresponds to our current connection attempt
+      const expected = expectedConnectionRef.current;
+      
+      if (event.data.type === 'late_oauth_success') {
+        // Always invalidate queries for the clientId that actually got connected
+        if (messageClientId) {
+          queryClient.invalidateQueries({ queryKey: ['social-credentials', messageClientId] });
+          queryClient.invalidateQueries({ queryKey: ['client-platform-status', messageClientId] });
+        }
         
-        const platform = event.data.platform as LatePlatform;
-        const displayName = platformNames[platform] || platform;
+        // Check if this is for our current connection attempt
+        if (expected && messagePlatform === expected.platform) {
+          cleanup();
+          
+          const displayName = platformNames[messagePlatform] || messagePlatform;
+          
+          // If the connected clientId differs from what we expected, warn the user
+          if (messageClientId && messageClientId !== expected.clientId) {
+            toast({
+              title: "Atenção",
+              description: `${displayName} foi conectado para outro cliente. Verifique qual cliente está selecionado.`,
+              variant: "default",
+            });
+          } else {
+            toast({
+              title: "Conectado!",
+              description: `${displayName} foi conectado com sucesso.`,
+            });
+          }
+          
+          // Also invalidate the expected client queries to refresh UI
+          queryClient.invalidateQueries({ queryKey: ['social-credentials', expected.clientId] });
+          queryClient.invalidateQueries({ queryKey: ['client-platform-status', expected.clientId] });
+        } else if (!expected) {
+          // No active connection attempt, just invalidate received clientId
+          const displayName = messagePlatform ? (platformNames[messagePlatform] || messagePlatform) : 'Plataforma';
+          toast({
+            title: "Conectado!",
+            description: `${displayName} foi conectado com sucesso.`,
+          });
+        }
+        // If platform doesn't match, ignore (stale message from another attempt)
         
-        toast({
-          title: "Conectado!",
-          description: `${displayName} foi conectado com sucesso.`,
-        });
-      } else if (event.data?.type === 'late_oauth_error') {
-        cleanup();
-        toast({
-          title: "Erro na conexão",
-          description: event.data.error || "Falha ao conectar. Tente novamente.",
-          variant: "destructive",
-        });
+      } else if (event.data.type === 'late_oauth_error') {
+        // Only show error if it matches our expected connection
+        if (expected && (!messagePlatform || messagePlatform === expected.platform)) {
+          cleanup();
+          toast({
+            title: "Erro na conexão",
+            description: event.data.error || "Falha ao conectar. Tente novamente.",
+            variant: "destructive",
+          });
+        }
+        
+        // Invalidate queries for the affected client
+        if (messageClientId) {
+          queryClient.invalidateQueries({ queryKey: ['social-credentials', messageClientId] });
+          queryClient.invalidateQueries({ queryKey: ['client-platform-status', messageClientId] });
+        }
       }
     };
 
@@ -72,12 +125,15 @@ export function useLateConnection({ clientId }: UseLateConnectionProps) {
       window.removeEventListener('message', handleMessage);
       cleanup();
     };
-  }, [cleanup, clientId, queryClient, toast, platformNames]);
+  }, [cleanup, queryClient, toast, platformNames]);
 
   const openOAuth = useCallback(async (platform: LatePlatform) => {
     try {
       setIsLoading(true);
       setCurrentPlatform(platform);
+      
+      // Store expected connection for correlation
+      expectedConnectionRef.current = { clientId, platform };
 
       const { data, error } = await supabase.functions.invoke('late-oauth-start', {
         body: { clientId, platform }
@@ -172,6 +228,12 @@ export function useLateConnection({ clientId }: UseLateConnectionProps) {
         description: `Conteúdo publicado no ${displayName} com sucesso.`,
       });
 
+      // Invalidate planning and content library queries to refresh UI immediately
+      queryClient.invalidateQueries({ queryKey: ['planning-items'] });
+      queryClient.invalidateQueries({ queryKey: ['planning-columns'] });
+      queryClient.invalidateQueries({ queryKey: ['client-content-library', clientId] });
+      queryClient.invalidateQueries({ queryKey: ['content-library', clientId] });
+
       return data;
 
     } catch (error) {
@@ -186,7 +248,7 @@ export function useLateConnection({ clientId }: UseLateConnectionProps) {
     } finally {
       setIsLoading(false);
     }
-  }, [clientId, toast, platformNames]);
+  }, [clientId, toast, platformNames, queryClient]);
 
   const disconnect = useCallback(async (platform: LatePlatform) => {
     try {

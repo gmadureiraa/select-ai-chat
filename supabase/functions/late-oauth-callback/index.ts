@@ -27,15 +27,15 @@ serve(async (req: Request) => {
     // Check for OAuth errors
     if (error) {
       console.error("OAuth error:", error, errorDescription);
-      return new Response(generateErrorPage(errorDescription || error), {
-        headers: { "Content-Type": "text/html" },
+      return new Response(generateErrorPage(errorDescription || error, null, null), {
+        headers: { "Content-Type": "text/html; charset=utf-8" },
       });
     }
 
     // If no connection info, show waiting page
     if (!connected && !profileId) {
       return new Response(generateWaitingPage(), {
-        headers: { "Content-Type": "text/html" },
+        headers: { "Content-Type": "text/html; charset=utf-8" },
       });
     }
 
@@ -45,8 +45,8 @@ serve(async (req: Request) => {
 
     if (!LATE_API_KEY) {
       console.error("LATE_API_KEY not configured");
-      return new Response(generateErrorPage("Configuração incompleta"), {
-        headers: { "Content-Type": "text/html" },
+      return new Response(generateErrorPage("Configuração incompleta", null, null), {
+        headers: { "Content-Type": "text/html; charset=utf-8" },
       });
     }
 
@@ -84,8 +84,8 @@ serve(async (req: Request) => {
 
     if (!clientId) {
       console.error("Could not find client for profileId:", profileId);
-      return new Response(generateErrorPage("Cliente não encontrado"), {
-        headers: { "Content-Type": "text/html" },
+      return new Response(generateErrorPage("Cliente não encontrado", null, null), {
+        headers: { "Content-Type": "text/html; charset=utf-8" },
       });
     }
 
@@ -94,8 +94,8 @@ serve(async (req: Request) => {
 
     if (!platform) {
       console.error("No platform detected");
-      return new Response(generateErrorPage("Plataforma não detectada"), {
-        headers: { "Content-Type": "text/html" },
+      return new Response(generateErrorPage("Plataforma não detectada", null, clientId), {
+        headers: { "Content-Type": "text/html; charset=utf-8" },
       });
     }
 
@@ -160,8 +160,8 @@ serve(async (req: Request) => {
 
     if (upsertError) {
       console.error("Database upsert error:", upsertError);
-      return new Response(generateErrorPage("Falha ao salvar credenciais"), {
-        headers: { "Content-Type": "text/html" },
+      return new Response(generateErrorPage("Falha ao salvar credenciais", platform, clientId), {
+        headers: { "Content-Type": "text/html; charset=utf-8" },
       });
     }
 
@@ -181,13 +181,13 @@ serve(async (req: Request) => {
     const displayName = platformNames[platform] || platform;
 
     return new Response(generateSuccessPage(displayName, platform, clientId), {
-      headers: { "Content-Type": "text/html" },
+      headers: { "Content-Type": "text/html; charset=utf-8" },
     });
 
   } catch (error) {
     console.error("Error in late-oauth-callback:", error);
-    return new Response(generateErrorPage("Ocorreu um erro inesperado"), {
-      headers: { "Content-Type": "text/html" },
+    return new Response(generateErrorPage("Ocorreu um erro inesperado", null, null), {
+      headers: { "Content-Type": "text/html; charset=utf-8" },
     });
   }
 });
@@ -260,7 +260,10 @@ function generateSuccessPage(displayName: string, platform: string, clientId: st
   `;
 }
 
-function generateErrorPage(message: string): string {
+function generateErrorPage(message: string, platform: string | null, clientId: string | null): string {
+  const platformStr = platform ? `'${platform}'` : 'null';
+  const clientIdStr = clientId ? `'${clientId}'` : 'null';
+  
   return `
     <!DOCTYPE html>
     <html>
@@ -315,7 +318,9 @@ function generateErrorPage(message: string): string {
           if (window.opener) {
             window.opener.postMessage({ 
               type: 'late_oauth_error', 
-              error: '${message}'
+              error: '${message}',
+              platform: ${platformStr},
+              clientId: ${clientIdStr}
             }, '*');
           }
         </script>
