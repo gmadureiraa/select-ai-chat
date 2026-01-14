@@ -15,6 +15,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { AvatarUpload } from "@/components/ui/avatar-upload";
 import { SocialIntegrationsTab } from "./SocialIntegrationsTab";
+import { ClientReferencesManager } from "./ClientReferencesManager";
 import { ClientDocumentsManager } from "./ClientDocumentsManager";
 import { BrandAssetsEditor } from "./BrandAssetsEditor";
 import { VisualReferencesManager } from "./VisualReferencesManager";
@@ -299,7 +300,7 @@ Estruture: Visão Geral, Posicionamento, Tom de Voz, Público-Alvo, Presença Di
 
       {/* Tabs */}
       <Tabs defaultValue="info" className="w-full">
-        <TabsList className="grid w-full grid-cols-6">
+        <TabsList className="grid w-full grid-cols-7">
           <TabsTrigger value="info" className="text-xs">
             <User className="h-3 w-3 mr-1" />
             Informações
@@ -315,6 +316,10 @@ Estruture: Visão Geral, Posicionamento, Tom de Voz, Público-Alvo, Presença Di
           <TabsTrigger value="digital" className="text-xs">
             <Globe className="h-3 w-3 mr-1" />
             Presença Digital
+          </TabsTrigger>
+          <TabsTrigger value="references" className="text-xs">
+            <FileText className="h-3 w-3 mr-1" />
+            Referências
           </TabsTrigger>
           <TabsTrigger value="integrations" className="text-xs">
             <Plug className="h-3 w-3 mr-1" />
@@ -634,6 +639,11 @@ Estruture: Visão Geral, Posicionamento, Tom de Voz, Público-Alvo, Presença Di
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Tab: Referências */}
+        <TabsContent value="references" className="mt-4">
+          <ClientReferencesManager clientId={client.id} />
         </TabsContent>
 
         {/* Tab: Integrações */}
