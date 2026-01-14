@@ -177,3 +177,9 @@ verify_jwt = false
 
 [functions.late-post]
 verify_jwt = true
+
+[functions.late-verify-accounts]
+verify_jwt = true
+
+[functions.late-disconnect-account]
+verify_jwt = true

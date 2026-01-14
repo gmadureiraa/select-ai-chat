@@ -7,13 +7,19 @@ const corsHeaders = {
 };
 
 interface LateWebhookEvent {
-  type: 'post.published' | 'post.failed' | 'post.scheduled';
-  postId: string;
+  type: 'post.published' | 'post.failed' | 'post.scheduled' | 'account.connected' | 'account.disconnected' | 'account.expired';
+  postId?: string;
+  accountId?: string;
+  profileId?: string;
   platform?: string;
   platformPostId?: string;
   platformPostUrl?: string;
   error?: string;
   timestamp?: string;
+  // Account event data
+  socialAccountId?: string;
+  socialPlatform?: string;
+  accountName?: string;
 }
 
 serve(async (req: Request) => {
@@ -31,9 +37,58 @@ serve(async (req: Request) => {
     
     console.log("Late webhook received:", event);
 
+    // Handle account events first
+    if (event.type === 'account.disconnected' || event.type === 'account.expired') {
+      const accountId = event.accountId || event.socialAccountId;
+      const platform = event.platform || event.socialPlatform;
+      
+      console.log("Account event:", event.type, { accountId, platform });
+
+      if (accountId) {
+        // Find and delete/invalidate credentials with this Late account ID
+        const { data: credentials, error: findError } = await supabase
+          .from("client_social_credentials")
+          .select("id, client_id, platform, metadata")
+          .or(`metadata->late_account_id.eq.${accountId},metadata->late_profile_id.eq.${accountId}`);
+
+        if (!findError && credentials && credentials.length > 0) {
+          for (const cred of credentials) {
+            if (event.type === 'account.disconnected') {
+              // Delete the credential
+              console.log("Deleting credential for disconnected account:", cred.id);
+              await supabase.from("client_social_credentials").delete().eq("id", cred.id);
+            } else if (event.type === 'account.expired') {
+              // Mark as invalid
+              console.log("Marking credential as invalid for expired account:", cred.id);
+              await supabase
+                .from("client_social_credentials")
+                .update({ 
+                  is_valid: false, 
+                  validation_error: "Conta expirada no Late API",
+                  updated_at: new Date().toISOString(),
+                })
+                .eq("id", cred.id);
+            }
+          }
+        }
+      }
+
+      return new Response(JSON.stringify({ 
+        success: true,
+        eventType: event.type,
+        accountId,
+      }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // For post events, postId is required
     if (!event.postId) {
-      return new Response(JSON.stringify({ error: "postId is required" }), {
-        status: 400,
+      // Not necessarily an error - could be an account event we don't handle
+      console.log("No postId in event, skipping:", event.type);
+      return new Response(JSON.stringify({ success: true, message: "Event skipped - no postId" }), {
+        status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }

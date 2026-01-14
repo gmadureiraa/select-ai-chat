@@ -1,5 +1,6 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useEffect, useRef } from 'react';
 
 export type SupportedPlatform = 'twitter' | 'linkedin' | 'instagram' | 'youtube' | 'newsletter' | 'blog' | 'tiktok' | 'facebook' | 'threads' | 'other';
 
@@ -21,6 +22,9 @@ export interface ClientPlatformStatuses {
 const LATE_API_PLATFORMS: SupportedPlatform[] = ['twitter', 'linkedin', 'instagram', 'facebook', 'threads', 'tiktok', 'youtube'];
 
 export function useClientPlatformStatus(clientId: string | null | undefined) {
+  const queryClient = useQueryClient();
+  const lastVerifiedRef = useRef<string | null>(null);
+  
   const { data: statuses, isLoading } = useQuery({
     queryKey: ['client-platform-status', clientId],
     queryFn: async (): Promise<ClientPlatformStatuses> => {
@@ -91,6 +95,53 @@ export function useClientPlatformStatus(clientId: string | null | undefined) {
     return canAutoPublish(platform) ? 'auto' : 'manual';
   };
 
+  // Mutation to verify accounts with Late API
+  const verifyAccountsMutation = useMutation({
+    mutationFn: async () => {
+      if (!clientId) return null;
+      
+      const { data, error } = await supabase.functions.invoke('late-verify-accounts', {
+        body: { clientId }
+      });
+      
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (data) => {
+      if (data?.deletedCount > 0 || data?.invalidCount > 0) {
+        // Invalidate queries to refresh UI
+        queryClient.invalidateQueries({ queryKey: ['client-platform-status', clientId] });
+        queryClient.invalidateQueries({ queryKey: ['social-credentials', clientId] });
+      }
+    },
+  });
+
+  // Auto-verify accounts on mount (with 5 minute stale time)
+  useEffect(() => {
+    if (!clientId || !statuses) return;
+    
+    // Check if we have any Late API connected platforms
+    const hasLateConnections = Object.values(statuses).some(s => s.isLateApi && s.hasApi);
+    if (!hasLateConnections) return;
+    
+    // Only verify once per 5 minutes per client
+    const now = Date.now();
+    const lastVerifiedKey = `late-verify-${clientId}`;
+    const lastVerified = localStorage.getItem(lastVerifiedKey);
+    const staleTime = 5 * 60 * 1000; // 5 minutes
+    
+    if (lastVerified && (now - parseInt(lastVerified)) < staleTime) {
+      return;
+    }
+    
+    // Prevent duplicate verifications
+    if (lastVerifiedRef.current === clientId) return;
+    lastVerifiedRef.current = clientId;
+    
+    localStorage.setItem(lastVerifiedKey, now.toString());
+    verifyAccountsMutation.mutate();
+  }, [clientId, statuses, verifyAccountsMutation]);
+
   return {
     statuses: statuses || {},
     isLoading,
@@ -98,5 +149,7 @@ export function useClientPlatformStatus(clientId: string | null | undefined) {
     canAutoPublish,
     getPublicationMode,
     supportedAutoPublishPlatforms: LATE_API_PLATFORMS,
+    verifyAccounts: verifyAccountsMutation,
+    isVerifying: verifyAccountsMutation.isPending,
   };
 }
