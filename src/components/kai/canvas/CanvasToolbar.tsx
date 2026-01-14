@@ -7,7 +7,17 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Input } from "@/components/ui/input";
 import { SavedCanvas } from "./hooks/useCanvasState";
 
-export type CanvasTemplate = "carousel_from_url" | "thread_from_video" | "newsletter_curated" | "reel_script" | "image_series";
+export type CanvasTemplate = 
+  | "carousel_from_url" 
+  | "thread_from_video" 
+  | "newsletter_curated" 
+  | "reel_script" 
+  | "image_series"
+  | "linkedin_article"
+  | "podcast_highlights"
+  | "story_sequence"
+  | "repurpose_blog"
+  | "weekly_summary";
 
 interface CanvasToolbarProps {
   onAddNode: (type: "source" | "library" | "prompt" | "generator" | "image-editor") => void;
@@ -27,12 +37,37 @@ interface CanvasToolbarProps {
   isSaving?: boolean;
 }
 
-const TEMPLATE_OPTIONS: { id: CanvasTemplate; icon: string; label: string; description: string }[] = [
-  { id: "carousel_from_url", icon: "🎠", label: "Carrossel de URL", description: "Extraia conteúdo e transforme em carrossel" },
-  { id: "thread_from_video", icon: "🧵", label: "Thread de Vídeo", description: "Transcreva vídeo e crie thread viral" },
-  { id: "newsletter_curated", icon: "📧", label: "Newsletter Curada", description: "Compile fontes em newsletter" },
-  { id: "reel_script", icon: "🎬", label: "Roteiro de Reel", description: "Crie roteiro para vídeo curto" },
-  { id: "image_series", icon: "🖼️", label: "Série de Imagens", description: "Gere múltiplas imagens de uma vez" },
+interface TemplateCategory {
+  category: string;
+  templates: { id: CanvasTemplate; icon: string; label: string; description: string }[];
+}
+
+const TEMPLATE_CATEGORIES: TemplateCategory[] = [
+  {
+    category: "📱 Redes Sociais",
+    templates: [
+      { id: "carousel_from_url", icon: "🎠", label: "Carrossel de URL", description: "Transforme conteúdo em carrossel" },
+      { id: "thread_from_video", icon: "🧵", label: "Thread de Vídeo", description: "Crie thread viral de vídeo" },
+      { id: "story_sequence", icon: "📖", label: "Sequência de Stories", description: "5 stories em sequência" },
+      { id: "reel_script", icon: "🎬", label: "Roteiro de Reel", description: "Script para vídeo curto" },
+    ]
+  },
+  {
+    category: "💼 Profissional",
+    templates: [
+      { id: "linkedin_article", icon: "💼", label: "Artigo LinkedIn", description: "Post profissional" },
+      { id: "newsletter_curated", icon: "📧", label: "Newsletter Curada", description: "Compile fontes em newsletter" },
+      { id: "weekly_summary", icon: "📋", label: "Resumo Semanal", description: "Curadoria de 3 fontes" },
+    ]
+  },
+  {
+    category: "🔄 Repurpose",
+    templates: [
+      { id: "repurpose_blog", icon: "🔄", label: "Repurpose de Blog", description: "Blog → Carrossel + Thread" },
+      { id: "podcast_highlights", icon: "🎙️", label: "Destaques de Podcast", description: "Áudio → Thread" },
+      { id: "image_series", icon: "🖼️", label: "Série de Imagens", description: "Gere 3 imagens de uma vez" },
+    ]
+  },
 ];
 
 export function CanvasToolbar({
@@ -139,19 +174,27 @@ export function CanvasToolbar({
             </TooltipTrigger>
             <TooltipContent side="bottom">Carregar template de fluxo</TooltipContent>
           </Tooltip>
-          <DropdownMenuContent align="center" className="w-72">
-            {TEMPLATE_OPTIONS.map((template) => (
-              <DropdownMenuItem 
-                key={template.id}
-                onClick={() => onLoadTemplate?.(template.id)}
-                className="flex items-start gap-3 py-2"
-              >
-                <span className="text-lg">{template.icon}</span>
-                <div className="flex flex-col">
-                  <span className="font-medium text-sm">{template.label}</span>
-                  <span className="text-xs text-muted-foreground">{template.description}</span>
+          <DropdownMenuContent align="center" className="w-80 max-h-[400px] overflow-y-auto">
+            {TEMPLATE_CATEGORIES.map((category, idx) => (
+              <div key={category.category}>
+                {idx > 0 && <DropdownMenuSeparator />}
+                <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
+                  {category.category}
                 </div>
-              </DropdownMenuItem>
+                {category.templates.map((template) => (
+                  <DropdownMenuItem 
+                    key={template.id}
+                    onClick={() => onLoadTemplate?.(template.id)}
+                    className="flex items-start gap-3 py-2 cursor-pointer"
+                  >
+                    <span className="text-lg">{template.icon}</span>
+                    <div className="flex flex-col">
+                      <span className="font-medium text-sm">{template.label}</span>
+                      <span className="text-xs text-muted-foreground">{template.description}</span>
+                    </div>
+                  </DropdownMenuItem>
+                ))}
+              </div>
             ))}
           </DropdownMenuContent>
         </DropdownMenu>

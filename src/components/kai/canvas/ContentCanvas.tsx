@@ -305,38 +305,51 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
         isSaving={isSaving}
       />
 
-      {/* Empty state */}
+      {/* Empty state with template quick actions */}
       {nodes.length === 0 && (
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <div className="text-center space-y-3 max-w-md px-4">
-            <div className="text-6xl">🎨</div>
-            <h3 className="text-lg font-medium">Canvas de Criação</h3>
-            <p className="text-sm text-muted-foreground">
-              Arraste fontes, conecte a geradores e crie conteúdos visualmente.
-              <br />
-              Clique nos botões acima para começar.
-            </p>
-            <div className="flex justify-center gap-4 text-xs text-muted-foreground pt-2 flex-wrap">
-              <div className="flex items-center gap-1.5">
-                <div className="h-3 w-3 rounded bg-blue-500" />
-                <span>Fonte</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <div className="h-3 w-3 rounded bg-yellow-500" />
-                <span>Briefing</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <div className="h-3 w-3 rounded bg-green-500" />
-                <span>Gerador</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <div className="h-3 w-3 rounded bg-orange-500" />
-                <span>Editor</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <div className="h-3 w-3 rounded bg-pink-500" />
-                <span>Resultado</span>
-              </div>
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none pt-20">
+          <div className="text-center space-y-6 max-w-2xl px-4 pointer-events-auto">
+            <div className="space-y-2">
+              <div className="text-5xl">✨</div>
+              <h3 className="text-xl font-semibold">Canvas de Criação</h3>
+              <p className="text-sm text-muted-foreground max-w-md mx-auto">
+                Escolha um template para começar rapidamente ou adicione nós manualmente
+              </p>
+            </div>
+            
+            {/* Quick template cards */}
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-left">
+              {[
+                { id: "carousel_from_url", icon: "🎠", label: "Carrossel", desc: "URL → Carrossel" },
+                { id: "thread_from_video", icon: "🧵", label: "Thread", desc: "Vídeo → Thread" },
+                { id: "linkedin_article", icon: "💼", label: "LinkedIn", desc: "URL → Artigo" },
+                { id: "story_sequence", icon: "📖", label: "Stories", desc: "Texto → Stories" },
+                { id: "repurpose_blog", icon: "🔄", label: "Repurpose", desc: "Blog → Multi" },
+                { id: "image_series", icon: "🖼️", label: "Imagens", desc: "Texto → 3 imgs" },
+              ].map((template) => (
+                <button
+                  key={template.id}
+                  onClick={() => loadTemplate(template.id)}
+                  className="flex flex-col items-center gap-2 p-4 rounded-xl border bg-card hover:bg-accent hover:border-primary/50 transition-all group"
+                >
+                  <span className="text-2xl group-hover:scale-110 transition-transform">{template.icon}</span>
+                  <div className="text-center">
+                    <p className="font-medium text-sm">{template.label}</p>
+                    <p className="text-xs text-muted-foreground">{template.desc}</p>
+                  </div>
+                </button>
+              ))}
+            </div>
+
+            <div className="pt-2">
+              <p className="text-xs text-muted-foreground">
+                Ou use a toolbar acima para criar do zero • 
+                <span className="ml-1 inline-flex items-center gap-1">
+                  <span className="h-2 w-2 rounded bg-blue-500" /> Fonte
+                  <span className="h-2 w-2 rounded bg-yellow-500 ml-2" /> Briefing
+                  <span className="h-2 w-2 rounded bg-green-500 ml-2" /> Gerador
+                </span>
+              </p>
             </div>
           </div>
         </div>
