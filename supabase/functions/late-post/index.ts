@@ -8,11 +8,24 @@ const corsHeaders = {
 
 const LATE_API_BASE = "https://getlate.dev/api";
 
+interface ThreadItem {
+  id?: string;
+  text: string;
+  media_urls?: string[];
+}
+
+interface MediaItem {
+  url: string;
+  type?: 'image' | 'video';
+}
+
 interface PostRequest {
   clientId: string;
   platform: 'twitter' | 'linkedin' | 'instagram' | 'tiktok' | 'youtube' | 'facebook' | 'threads';
   content: string;
   mediaUrls?: string[];
+  mediaItems?: MediaItem[];
+  threadItems?: ThreadItem[]; // For native thread support
   planningItemId?: string;
   scheduledFor?: string; // ISO date string for scheduling
   publishNow?: boolean;
@@ -27,7 +40,7 @@ serve(async (req: Request) => {
     // Verify authentication
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
-      return new Response(JSON.stringify({ error: "Missing authorization header" }), {
+      return new Response(JSON.stringify({ error: "Autenticação necessária" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -44,7 +57,7 @@ serve(async (req: Request) => {
 
     const { data: { user }, error: userError } = await supabaseAuth.auth.getUser();
     if (userError || !user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      return new Response(JSON.stringify({ error: "Não autorizado" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -53,10 +66,31 @@ serve(async (req: Request) => {
     // Use service role for database operations
     const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
 
-    const { clientId, platform, content, mediaUrls, planningItemId, scheduledFor, publishNow = true }: PostRequest = await req.json();
+    const { 
+      clientId, 
+      platform, 
+      content, 
+      mediaUrls, 
+      mediaItems: inputMediaItems,
+      threadItems,
+      planningItemId, 
+      scheduledFor, 
+      publishNow = true 
+    }: PostRequest = await req.json();
 
-    if (!clientId || !platform || !content) {
-      return new Response(JSON.stringify({ error: "Missing required fields" }), {
+    if (!clientId || !platform) {
+      return new Response(JSON.stringify({ error: "Cliente e plataforma são obrigatórios" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Content validation
+    const hasContent = content?.trim();
+    const hasThreadItems = threadItems && threadItems.length > 0 && threadItems.some(t => t.text?.trim());
+    
+    if (!hasContent && !hasThreadItems) {
+      return new Response(JSON.stringify({ error: "Conteúdo é obrigatório" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -64,7 +98,7 @@ serve(async (req: Request) => {
 
     const LATE_API_KEY = Deno.env.get("LATE_API_KEY");
     if (!LATE_API_KEY) {
-      return new Response(JSON.stringify({ error: "LATE_API_KEY not configured" }), {
+      return new Response(JSON.stringify({ error: "LATE_API_KEY não configurada" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -79,9 +113,9 @@ serve(async (req: Request) => {
       .single();
 
     if (credError || !credentials) {
-      console.error("No credentials found:", { clientId, platform, credError });
+      console.error("Credenciais não encontradas:", { clientId, platform, credError });
       return new Response(JSON.stringify({ 
-        error: `Credenciais do ${platform} não encontradas para este cliente. Conecte a conta primeiro.` 
+        error: `Conta ${platform} não conectada. Conecte a conta primeiro nas Integrações.` 
       }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -89,9 +123,9 @@ serve(async (req: Request) => {
     }
 
     if (!credentials.is_valid) {
-      console.error("Invalid credentials:", { clientId, platform, validationError: credentials.validation_error });
+      console.error("Credenciais inválidas:", { clientId, platform, validationError: credentials.validation_error });
       return new Response(JSON.stringify({ 
-        error: `Credenciais do ${platform} estão inválidas. Reconecte a conta.` 
+        error: `Credenciais do ${platform} expiradas ou inválidas. Reconecte a conta.` 
       }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -102,36 +136,96 @@ serve(async (req: Request) => {
     const metadata = credentials.metadata as Record<string, unknown> | null;
     const lateAccountId = metadata?.late_account_id || credentials.account_id;
 
-    console.log("Credentials found:", { 
+    console.log("Publicando com credenciais:", { 
       clientId, 
       platform, 
       accountId: credentials.account_id,
       lateAccountId,
       accountName: credentials.account_name,
-      metadata: credentials.metadata
+      hasThread: !!threadItems,
+      threadCount: threadItems?.length || 0
     });
 
     if (!lateAccountId) {
-      console.error("No Late account ID found:", { clientId, platform, metadata });
+      console.error("Late account ID não encontrado:", { clientId, platform, metadata });
       return new Response(JSON.stringify({ 
-        error: "Conta não está corretamente conectada via Late API. Reconecte a conta." 
+        error: "Conta não configurada corretamente. Reconecte nas Integrações." 
       }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Prepare post payload for Late API according to OpenAPI spec
+    // Build media items array
+    let finalMediaItems: Array<{ type: string; url: string }> = [];
+    
+    if (inputMediaItems && inputMediaItems.length > 0) {
+      finalMediaItems = inputMediaItems.map(m => ({
+        type: m.type || (m.url.match(/\.(mp4|mov|webm|avi)$/i) ? 'video' : 'image'),
+        url: m.url,
+      }));
+    } else if (mediaUrls && mediaUrls.length > 0) {
+      finalMediaItems = mediaUrls.map(url => ({
+        type: url.match(/\.(mp4|mov|webm|avi)$/i) ? 'video' : 'image',
+        url: url,
+      }));
+    }
+
+    // Build post payload for Late API
     const postPayload: Record<string, unknown> = {
-      content: content,
-      platforms: [
-        {
-          platform: platform,
-          accountId: lateAccountId,
-        }
-      ],
       publishNow: publishNow,
     };
+
+    // Handle threads (for Twitter/X and Threads)
+    if (threadItems && threadItems.length > 0 && (platform === 'twitter' || platform === 'threads')) {
+      // Use native thread support
+      const lateThreadItems = threadItems.map(item => {
+        const threadItem: Record<string, unknown> = {
+          content: item.text,
+        };
+        
+        // Add media to thread item if present
+        if (item.media_urls && item.media_urls.length > 0) {
+          threadItem.mediaItems = item.media_urls.map(url => ({
+            type: url.match(/\.(mp4|mov|webm|avi)$/i) ? 'video' : 'image',
+            url: url,
+          }));
+        }
+        
+        return threadItem;
+      });
+
+      // First item content goes to main content
+      postPayload.content = lateThreadItems[0]?.content || content;
+      
+      // Thread items go to platformSpecificData
+      postPayload.platforms = [{
+        platform: platform,
+        accountId: lateAccountId,
+        platformSpecificData: {
+          threadItems: lateThreadItems.slice(1), // Remaining items after first
+        }
+      }];
+
+      // Add first item's media to main mediaItems
+      if (threadItems[0]?.media_urls && threadItems[0].media_urls.length > 0) {
+        postPayload.mediaItems = threadItems[0].media_urls.map(url => ({
+          type: url.match(/\.(mp4|mov|webm|avi)$/i) ? 'video' : 'image',
+          url: url,
+        }));
+      }
+    } else {
+      // Standard post (non-thread)
+      postPayload.content = content;
+      postPayload.platforms = [{
+        platform: platform,
+        accountId: lateAccountId,
+      }];
+
+      if (finalMediaItems.length > 0) {
+        postPayload.mediaItems = finalMediaItems;
+      }
+    }
 
     // Add scheduled time if provided
     if (scheduledFor && !publishNow) {
@@ -139,15 +233,7 @@ serve(async (req: Request) => {
       postPayload.publishNow = false;
     }
 
-    // Add media if provided
-    if (mediaUrls && mediaUrls.length > 0) {
-      postPayload.mediaItems = mediaUrls.map(url => ({
-        type: url.match(/\.(mp4|mov|webm|avi)$/i) ? 'video' : 'image',
-        url: url,
-      }));
-    }
-
-    console.log("Late API post payload:", JSON.stringify(postPayload, null, 2));
+    console.log("Late API payload:", JSON.stringify(postPayload, null, 2));
 
     // Post via Late API
     const postResponse = await fetch(`${LATE_API_BASE}/v1/posts`, {
@@ -159,11 +245,17 @@ serve(async (req: Request) => {
       body: JSON.stringify(postPayload),
     });
 
+    const responseText = await postResponse.text();
+    console.log("Late API response:", { 
+      status: postResponse.status, 
+      ok: postResponse.ok,
+      body: responseText.substring(0, 500) 
+    });
+
     if (!postResponse.ok) {
-      const errorText = await postResponse.text();
-      console.error("Late API post error:", { 
+      console.error("Erro Late API:", { 
         status: postResponse.status, 
-        errorText,
+        body: responseText,
         clientId,
         platform,
         lateAccountId 
@@ -175,7 +267,7 @@ serve(async (req: Request) => {
           .from("planning_items")
           .update({
             status: "failed",
-            error_message: `Erro Late API (${postResponse.status}): ${errorText}`,
+            error_message: `Erro ao publicar (${postResponse.status}): ${responseText.substring(0, 200)}`,
             updated_at: new Date().toISOString(),
           })
           .eq("id", planningItemId);
@@ -184,7 +276,7 @@ serve(async (req: Request) => {
       // Parse error for better user message
       let userMessage = "Falha ao publicar conteúdo";
       try {
-        const errorJson = JSON.parse(errorText);
+        const errorJson = JSON.parse(responseText);
         if (errorJson.message) {
           userMessage = errorJson.message;
         } else if (errorJson.error) {
@@ -192,23 +284,35 @@ serve(async (req: Request) => {
         }
       } catch {
         // Keep default message if not JSON
+        if (responseText.includes("rate limit")) {
+          userMessage = "Limite de publicações atingido. Tente novamente mais tarde.";
+        } else if (responseText.includes("unauthorized") || responseText.includes("401")) {
+          userMessage = "Credenciais expiradas. Reconecte a conta.";
+        }
       }
 
       return new Response(JSON.stringify({ 
         error: userMessage,
-        details: errorText 
+        details: responseText 
       }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const postData = await postResponse.json();
-    console.log("Post successful:", postData);
+    let postData;
+    try {
+      postData = JSON.parse(responseText);
+    } catch {
+      postData = { message: "Publicado com sucesso" };
+    }
+    
+    console.log("Publicação bem sucedida:", postData);
 
     // Extract published URL from response
     const publishedUrl = postData.post?.platforms?.[0]?.platformPostUrl || 
                         postData.post?.platforms?.[0]?.publishedUrl ||
+                        postData.post?.url ||
                         null;
 
     // Determine new status based on whether post was scheduled or published
@@ -220,15 +324,33 @@ serve(async (req: Request) => {
         status: newStatus,
         error_message: null,
         updated_at: new Date().toISOString(),
-        external_post_id: postData.post?._id,
+        external_post_id: postData.post?._id || postData.postId,
       };
 
       if (publishNow) {
         updateData.published_at = new Date().toISOString();
       }
 
+      // metadata will be merged below after fetching current item
+
       if (scheduledFor) {
         updateData.scheduled_at = scheduledFor;
+      }
+
+      // Get current item to merge metadata
+      const { data: currentItem } = await supabase
+        .from("planning_items")
+        .select("metadata")
+        .eq("id", planningItemId)
+        .single();
+
+      if (currentItem) {
+        const existingMetadata = (currentItem.metadata as Record<string, unknown>) || {};
+        updateData.metadata = {
+          ...existingMetadata,
+          published_url: publishedUrl,
+          late_post_id: postData.post?._id,
+        };
       }
 
       await supabase
@@ -248,39 +370,55 @@ serve(async (req: Request) => {
           threads: 'threads_post',
         };
 
+        // Build full content for library (including thread if applicable)
+        let libraryContent = content;
+        if (threadItems && threadItems.length > 0) {
+          libraryContent = threadItems.map(t => t.text).join('\n\n---\n\n');
+        }
+
         await supabase
           .from("client_content_library")
           .insert({
             client_id: clientId,
-            title: content.substring(0, 100),
-            content: content,
+            title: libraryContent.substring(0, 100),
+            content: libraryContent,
             content_type: contentTypeMap[platform] || 'post',
             content_url: publishedUrl,
             metadata: {
               platform,
               posted_at: new Date().toISOString(),
               late_post_id: postData.post?._id,
+              is_thread: threadItems && threadItems.length > 1,
+              thread_count: threadItems?.length,
             },
           });
+
+        // Mark planning item as added to library
+        await supabase
+          .from("planning_items")
+          .update({ added_to_library: true })
+          .eq("id", planningItemId);
       }
     }
 
     return new Response(JSON.stringify({
       success: true,
-      postId: postData.post?._id,
+      postId: postData.post?._id || postData.postId,
       status: newStatus,
       url: publishedUrl,
       platform,
-      message: postData.message,
+      message: publishNow 
+        ? `Publicado em ${platform}!` 
+        : `Agendado para ${new Date(scheduledFor!).toLocaleString('pt-BR')}`,
     }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
 
   } catch (error) {
-    console.error("Error in late-post:", error);
+    console.error("Erro em late-post:", error);
     return new Response(JSON.stringify({ 
-      error: error instanceof Error ? error.message : "Unknown error" 
+      error: error instanceof Error ? error.message : "Erro desconhecido" 
     }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
