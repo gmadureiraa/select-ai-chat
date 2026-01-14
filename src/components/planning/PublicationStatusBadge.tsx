@@ -1,4 +1,4 @@
-import { Bot, Hand, AlertCircle, Check, Loader2, RefreshCw } from 'lucide-react';
+import { Bot, Hand, AlertCircle, Check, Loader2, RefreshCw, Clock, CheckCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -8,6 +8,8 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
+import { format, parseISO } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 interface PublicationStatusBadgeProps {
   mode: 'auto' | 'manual';
@@ -15,6 +17,8 @@ interface PublicationStatusBadgeProps {
   errorMessage?: string | null;
   retryCount?: number;
   accountName?: string | null;
+  scheduledAt?: string | null;
+  lateConfirmed?: boolean;
   onRetry?: () => void;
   compact?: boolean;
 }
@@ -25,6 +29,8 @@ export function PublicationStatusBadge({
   errorMessage,
   retryCount = 0,
   accountName,
+  scheduledAt,
+  lateConfirmed = false,
   onRetry,
   compact = false,
 }: PublicationStatusBadgeProps) {
@@ -123,8 +129,56 @@ export function PublicationStatusBadge({
     );
   }
 
-  // Auto/Manual mode badge for scheduled items
-  if (isScheduled || mode) {
+  // Scheduled state with Late confirmation status
+  if (isScheduled && scheduledAt) {
+    const scheduledDate = parseISO(scheduledAt);
+    const formattedTime = format(scheduledDate, "dd/MM HH:mm", { locale: ptBR });
+    
+    return (
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Badge 
+              variant="outline" 
+              className={cn(
+                "gap-1",
+                lateConfirmed 
+                  ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300" 
+                  : "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-300",
+                compact && "text-[10px] px-1.5 py-0"
+              )}
+            >
+              {lateConfirmed ? (
+                <CheckCircle className={cn("h-3 w-3", compact && "h-2.5 w-2.5")} />
+              ) : (
+                <Clock className={cn("h-3 w-3", compact && "h-2.5 w-2.5")} />
+              )}
+              {compact ? formattedTime.split(' ')[1] : formattedTime}
+            </Badge>
+          </TooltipTrigger>
+          <TooltipContent side="top">
+            <div className="space-y-1">
+              <p className="font-medium">
+                {lateConfirmed ? '✓ Agendamento Confirmado' : '⏳ Agendado'}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {lateConfirmed 
+                  ? `Será publicado automaticamente em ${format(scheduledDate, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}`
+                  : `Publicação local agendada para ${format(scheduledDate, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}`
+                }
+              </p>
+              {accountName && (
+                <p className="text-xs">Conta: {accountName}</p>
+              )}
+            </div>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
+  }
+
+  // Auto/Manual mode badge for non-scheduled items
+  if (mode) {
     const isAuto = mode === 'auto';
     
     return (
