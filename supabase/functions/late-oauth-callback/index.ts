@@ -13,26 +13,56 @@ serve(async (req: Request) => {
     const username = url.searchParams.get("username");
     const error = url.searchParams.get("error");
     const errorDescription = url.searchParams.get("error_description") || url.searchParams.get("message");
-    const attemptId = url.searchParams.get("attemptId");
+    let attemptId = url.searchParams.get("attemptId");
+
+    // Late API sometimes embeds errors in the attemptId as query params
+    // e.g., attemptId = "abc123?error=account_limit_exceeded"
+    let embeddedError: string | null = null;
+    if (attemptId?.includes('?')) {
+      const [cleanAttemptId, queryPart] = attemptId.split('?');
+      attemptId = cleanAttemptId;
+      const embeddedParams = new URLSearchParams(queryPart);
+      embeddedError = embeddedParams.get('error');
+      console.log("Parsed embedded error from attemptId:", { cleanAttemptId, embeddedError });
+    }
+
+    // Combine all error sources
+    const finalError = error || embeddedError;
 
     console.log("OAuth callback received:", { 
       connected, 
       profileId, 
       username, 
       error,
+      embeddedError,
+      finalError,
       attemptId,
       allParams: Object.fromEntries(url.searchParams.entries())
     });
 
-    // Check for OAuth errors
-    if (error) {
-      console.error("OAuth error:", error, errorDescription);
-      return new Response(generateErrorPage(errorDescription || error, null, null), {
+    // User-friendly error messages
+    const getErrorMessage = (errorCode: string): string => {
+      const errorMessages: Record<string, string> = {
+        'account_limit_exceeded': 'Limite de contas atingido no Late API. Para conectar mais redes sociais, considere fazer upgrade do seu plano Late.',
+        'access_denied': 'Acesso negado. Você cancelou a autorização ou não concedeu as permissões necessárias.',
+        'invalid_request': 'Requisição inválida. Por favor, tente conectar novamente.',
+        'unauthorized': 'Não autorizado. Verifique suas credenciais e tente novamente.',
+        'rate_limit': 'Muitas tentativas. Aguarde alguns minutos e tente novamente.',
+        'server_error': 'Erro no servidor. Por favor, tente novamente mais tarde.',
+      };
+      return errorMessages[errorCode] || errorCode;
+    };
+
+    // Check for OAuth errors BEFORE anything else
+    if (finalError) {
+      const errorMessage = getErrorMessage(finalError);
+      console.error("OAuth error detected:", { finalError, errorMessage, errorDescription });
+      return new Response(generateErrorPage(errorDescription || errorMessage, null, null), {
         headers: { "Content-Type": "text/html; charset=utf-8" },
       });
     }
 
-    // If no connection info, show waiting page
+    // If no connection info, show waiting page with timeout
     if (!connected && !profileId) {
       return new Response(generateWaitingPage(), {
         headers: { "Content-Type": "text/html; charset=utf-8" },
@@ -423,14 +453,34 @@ function generateWaitingPage(): string {
       p {
         color: #666;
       }
+      .timeout-message {
+        display: none;
+        color: #e74c3c;
+        margin-top: 15px;
+      }
     </style>
   </head>
   <body>
     <div class="card">
-      <div class="spinner"></div>
-      <h2>Conectando...</h2>
-      <p>Complete a autorização na janela que abriu.</p>
+      <div class="spinner" id="spinner"></div>
+      <h2 id="title">Conectando...</h2>
+      <p id="message">Complete a autorização na janela que abriu.</p>
+      <p class="timeout-message" id="timeout-msg">Se a conexão demorar muito, feche esta janela e tente novamente.</p>
     </div>
+    <script>
+      // Show timeout message after 60 seconds
+      setTimeout(() => {
+        document.getElementById('timeout-msg').style.display = 'block';
+      }, 60000);
+      
+      // Update message after 2 minutes
+      setTimeout(() => {
+        document.getElementById('spinner').style.display = 'none';
+        document.getElementById('title').textContent = 'Tempo limite atingido';
+        document.getElementById('message').textContent = 'A conexão demorou mais que o esperado. Feche esta janela e tente novamente.';
+        document.getElementById('timeout-msg').style.display = 'none';
+      }, 120000);
+    </script>
   </body>
 </html>`;
 }
