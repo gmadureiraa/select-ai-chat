@@ -1,6 +1,5 @@
 import { useState, useMemo } from "react";
-import { Library, FileText, Link2, Plus, Search, Trash2, Image, Instagram, Play, Eye } from "lucide-react";
-import { NewsletterQuickView } from "@/components/library/NewsletterQuickView";
+import { Library, Link2, Plus, Search, Image } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -14,25 +13,17 @@ import {
   SelectTrigger,
   SelectValue
 } from "@/components/ui/select";
-import { useContentLibrary, ContentItem, CreateContentData } from "@/hooks/useContentLibrary";
 import { useReferenceLibrary, ReferenceItem, CreateReferenceData } from "@/hooks/useReferenceLibrary";
 import { useClientVisualReferences } from "@/hooks/useClientVisualReferences";
-import { useInstagramPosts, InstagramPost } from "@/hooks/useInstagramPosts";
 import { useWorkspace } from "@/hooks/useWorkspace";
-import { ContentCard } from "@/components/content/ContentCard";
-import { ContentDialog } from "@/components/content/ContentDialog";
-import { ContentViewDialog } from "@/components/content/ContentViewDialog";
 import { ReferenceCard } from "@/components/references/ReferenceCard";
 import { ReferenceDialog } from "@/components/references/ReferenceDialog";
 import { ReferenceViewDialog } from "@/components/references/ReferenceViewDialog";
-import { PostContentDialog } from "@/components/performance/PostContentDialog";
 import { VisualReferencesManager, REFERENCE_TYPES } from "@/components/clients/VisualReferencesManager";
 import { LibraryFilters, ContentTypeFilter, SortOption, ViewMode } from "@/components/kai/LibraryFilters";
 import { Client } from "@/hooks/useClients";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
 
 interface KaiLibraryTabProps {
   clientId: string;
@@ -40,7 +31,7 @@ interface KaiLibraryTabProps {
 }
 
 export const KaiLibraryTab = ({ clientId, client }: KaiLibraryTabProps) => {
-  const [activeTab, setActiveTab] = useState("content");
+  const [activeTab, setActiveTab] = useState("references");
   const [searchQuery, setSearchQuery] = useState("");
   
   // Filters state
@@ -52,13 +43,6 @@ export const KaiLibraryTab = ({ clientId, client }: KaiLibraryTabProps) => {
   
   // Workspace permissions
   const { canDeleteFromLibrary, canEditInLibrary } = useWorkspace();
-  
-  // Content Library
-  const [contentDialogOpen, setContentDialogOpen] = useState(false);
-  const [selectedContent, setSelectedContent] = useState<ContentItem | null>(null);
-  const [contentViewOpen, setContentViewOpen] = useState(false);
-  const [newsletterQuickViewOpen, setNewsletterQuickViewOpen] = useState(false);
-  const { contents, createContent, updateContent, deleteContent } = useContentLibrary(clientId);
 
   // Reference Library
   const [referenceDialogOpen, setReferenceDialogOpen] = useState(false);
@@ -66,78 +50,9 @@ export const KaiLibraryTab = ({ clientId, client }: KaiLibraryTabProps) => {
   const [referenceViewOpen, setReferenceViewOpen] = useState(false);
   const { references, createReference, updateReference, deleteReference } = useReferenceLibrary(clientId);
 
-  // Instagram Posts (Performance Content)
-  const { data: instagramPosts } = useInstagramPosts(clientId, 500);
-  const [selectedPost, setSelectedPost] = useState<InstagramPost | null>(null);
-  const [postDialogOpen, setPostDialogOpen] = useState(false);
-
   // Visual References
   const { references: visualReferences, deleteReference: deleteVisualRef } = useClientVisualReferences(clientId);
   const [showVisualUploadForm, setShowVisualUploadForm] = useState(false);
-
-  // Filter and sort Instagram posts (synced ones only)
-  const filteredPosts = useMemo(() => {
-    let result = (instagramPosts || []).filter(p => p.content_synced_at);
-    
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      result = result.filter(p => 
-        p.caption?.toLowerCase().includes(query) ||
-        p.full_content?.toLowerCase().includes(query)
-      );
-    }
-    
-    if (typeFilter !== "all") {
-      result = result.filter(p => p.post_type === typeFilter);
-    }
-    
-    result = [...result].sort((a, b) => {
-      switch (sortOption) {
-        case "newest":
-          return new Date(b.posted_at || 0).getTime() - new Date(a.posted_at || 0).getTime();
-        case "oldest":
-          return new Date(a.posted_at || 0).getTime() - new Date(b.posted_at || 0).getTime();
-        default:
-          return 0;
-      }
-    });
-    
-    return result;
-  }, [instagramPosts, searchQuery, typeFilter, sortOption]);
-
-  // Filter and sort content
-  const filteredContents = useMemo(() => {
-    let result = contents || [];
-    
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      result = result.filter(c => 
-        c.title.toLowerCase().includes(query) ||
-        c.content.toLowerCase().includes(query)
-      );
-    }
-    
-    if (typeFilter !== "all") {
-      result = result.filter(c => c.content_type === typeFilter);
-    }
-    
-    result = [...result].sort((a, b) => {
-      switch (sortOption) {
-        case "newest":
-          return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
-        case "oldest":
-          return new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime();
-        case "a-z":
-          return a.title.localeCompare(b.title);
-        case "z-a":
-          return b.title.localeCompare(a.title);
-        default:
-          return 0;
-      }
-    });
-    
-    return result;
-  }, [contents, searchQuery, typeFilter, sortOption]);
 
   const filteredReferences = useMemo(() => {
     let result = references || [];
@@ -175,16 +90,6 @@ export const KaiLibraryTab = ({ clientId, client }: KaiLibraryTabProps) => {
     return result;
   }, [references, searchQuery, typeFilter, sortOption]);
 
-  const handleSaveContent = (data: CreateContentData) => {
-    if (selectedContent) {
-      updateContent.mutate({ id: selectedContent.id, data });
-    } else {
-      createContent.mutate(data);
-    }
-    setContentDialogOpen(false);
-    setSelectedContent(null);
-  };
-
   const handleSaveReference = (data: CreateReferenceData) => {
     if (selectedReference) {
       updateReference.mutate({ id: selectedReference.id, data });
@@ -217,9 +122,7 @@ export const KaiLibraryTab = ({ clientId, client }: KaiLibraryTabProps) => {
 
     try {
       const deletePromises = Array.from(selectedItems).map(id => {
-        if (activeTab === "content") {
-          return deleteContent.mutateAsync(id);
-        } else if (activeTab === "references") {
+        if (activeTab === "references") {
           return deleteReference.mutateAsync(id);
         } else if (activeTab === "visual-refs") {
           return deleteVisualRef.mutateAsync(id);
@@ -233,87 +136,6 @@ export const KaiLibraryTab = ({ clientId, client }: KaiLibraryTabProps) => {
     } catch (error) {
       toast.error("Erro ao excluir itens");
     }
-  };
-
-  const renderContentItem = (content: ContentItem) => {
-    const isSelected = selectedItems.has(content.id);
-    
-    if (viewMode === "list") {
-      return (
-        <div
-          key={content.id}
-          className={cn(
-            "flex items-center gap-3 p-3 rounded-lg border transition-colors",
-            isSelected ? "bg-primary/5 border-primary/30" : "bg-card hover:bg-muted/50"
-          )}
-        >
-          <Checkbox
-            checked={isSelected}
-            onCheckedChange={() => toggleSelection(content.id)}
-          />
-          <div className="flex-1 min-w-0">
-            <p className="font-medium text-sm truncate">{content.title}</p>
-            <p className="text-xs text-muted-foreground truncate">{content.content.slice(0, 100)}...</p>
-          </div>
-          <Badge variant="outline" className="text-[10px] shrink-0">
-            {content.content_type}
-          </Badge>
-          <div className="flex items-center gap-1 shrink-0">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                setSelectedContent(content);
-                setContentViewOpen(true);
-              }}
-            >
-              Ver
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                setSelectedContent(content);
-                setContentDialogOpen(true);
-              }}
-            >
-              Editar
-            </Button>
-          </div>
-        </div>
-      );
-    }
-
-    return (
-      <div key={content.id} className="relative group">
-        <div className={cn(
-          "absolute top-2 left-2 z-10 opacity-0 group-hover:opacity-100 transition-all duration-200",
-          isSelected && "opacity-100"
-        )}>
-          <Checkbox
-            checked={isSelected}
-            onCheckedChange={() => toggleSelection(content.id)}
-            className="bg-background shadow-sm"
-          />
-        </div>
-        <div className="transition-all duration-200 hover:scale-[1.02] hover:-translate-y-1 hover:shadow-lg rounded-xl">
-          <ContentCard
-            content={content}
-            onView={() => {
-              setSelectedContent(content);
-              setContentViewOpen(true);
-            }}
-            onEdit={() => {
-              setSelectedContent(content);
-              setContentDialogOpen(true);
-            }}
-            onDelete={() => deleteContent.mutate(content.id)}
-            canDelete={canDeleteFromLibrary}
-            canEdit={canEditInLibrary}
-          />
-        </div>
-      </div>
-    );
   };
 
   const renderReferenceItem = (reference: ReferenceItem) => {
@@ -417,10 +239,7 @@ export const KaiLibraryTab = ({ clientId, client }: KaiLibraryTabProps) => {
           
           <Button
             onClick={() => {
-              if (activeTab === "content") {
-                setSelectedContent(null);
-                setContentDialogOpen(true);
-              } else if (activeTab === "references") {
+              if (activeTab === "references") {
                 setSelectedReference(null);
                 setReferenceDialogOpen(true);
               } else if (activeTab === "visual-refs") {
@@ -440,15 +259,10 @@ export const KaiLibraryTab = ({ clientId, client }: KaiLibraryTabProps) => {
       <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v); setSelectedItems(new Set()); }}>
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <TabsList>
-            <TabsTrigger value="content" className="gap-2 data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
-              <Instagram className="h-4 w-4" />
-              <span className="hidden sm:inline">Conteúdo</span>
-              <Badge variant="secondary" className="ml-1 bg-primary/20 text-primary font-bold">{filteredPosts.length}</Badge>
-            </TabsTrigger>
-            <TabsTrigger value="references" className="gap-2 data-[state=active]:bg-secondary/10 data-[state=active]:text-secondary">
+            <TabsTrigger value="references" className="gap-2 data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
               <Link2 className="h-4 w-4" />
               <span className="hidden sm:inline">Referências</span>
-              <Badge variant="secondary" className="ml-1 bg-secondary/20 text-secondary font-bold">{references?.length || 0}</Badge>
+              <Badge variant="secondary" className="ml-1 bg-primary/20 text-primary font-bold">{references?.length || 0}</Badge>
             </TabsTrigger>
             <TabsTrigger value="visual-refs" className="gap-2 data-[state=active]:bg-accent/10 data-[state=active]:text-accent">
               <Image className="h-4 w-4" />
@@ -492,50 +306,6 @@ export const KaiLibraryTab = ({ clientId, client }: KaiLibraryTabProps) => {
             />
           </div>
         </div>
-
-        {/* Content Library */}
-        <TabsContent value="content" className="mt-4">
-          {filteredPosts.length === 0 ? (
-            <Card>
-              <CardContent className="pt-6">
-                <div className="text-center py-8 text-muted-foreground">
-                  <Instagram className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p>{searchQuery ? "Nenhum resultado encontrado" : "Nenhum conteúdo sincronizado"}</p>
-                  <p className="text-xs mt-2">Vá em Performance → Instagram e clique em "Carregar" para sincronizar posts</p>
-                </div>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-              {filteredPosts.map((post) => (
-                <Card 
-                  key={post.id} 
-                  className="cursor-pointer hover:shadow-md transition-shadow overflow-hidden"
-                  onClick={() => { setSelectedPost(post); setPostDialogOpen(true); }}
-                >
-                  <div className="aspect-square relative bg-muted">
-                    {post.thumbnail_url ? (
-                      <img src={post.thumbnail_url} alt="" className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <Instagram className="h-8 w-8 text-muted-foreground/50" />
-                      </div>
-                    )}
-                    <Badge className="absolute top-2 right-2 text-[10px]" variant="secondary">
-                      {post.post_type || "post"}
-                    </Badge>
-                  </div>
-                  <CardContent className="p-2">
-                    <p className="text-xs line-clamp-2 text-muted-foreground">{post.caption?.slice(0, 80) || "Sem legenda"}</p>
-                    <p className="text-[10px] text-muted-foreground/70 mt-1">
-                      {post.posted_at ? format(new Date(post.posted_at), "dd/MM/yy", { locale: ptBR }) : ""}
-                    </p>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-        </TabsContent>
 
         {/* Reference Library */}
         <TabsContent value="references" className="mt-4">
@@ -590,26 +360,6 @@ export const KaiLibraryTab = ({ clientId, client }: KaiLibraryTabProps) => {
       </Tabs>
 
       {/* Dialogs */}
-      <ContentDialog
-        open={contentDialogOpen}
-        onClose={() => {
-          setContentDialogOpen(false);
-          setSelectedContent(null);
-        }}
-        onSave={handleSaveContent}
-        content={selectedContent || undefined}
-        clientId={clientId}
-      />
-
-      <ContentViewDialog
-        open={contentViewOpen}
-        onClose={() => {
-          setContentViewOpen(false);
-          setSelectedContent(null);
-        }}
-        content={selectedContent || undefined}
-      />
-
       <ReferenceDialog
         open={referenceDialogOpen}
         onClose={() => {
@@ -628,32 +378,6 @@ export const KaiLibraryTab = ({ clientId, client }: KaiLibraryTabProps) => {
           setSelectedReference(null);
         }}
         reference={selectedReference || undefined}
-      />
-
-      <NewsletterQuickView
-        newsletter={selectedContent}
-        open={newsletterQuickViewOpen}
-        onClose={() => {
-          setNewsletterQuickViewOpen(false);
-          setSelectedContent(null);
-        }}
-        onSendToCanvas={(content) => {
-          // TODO: Integrate with Canvas when ready
-          console.log("Send to canvas:", content);
-        }}
-      />
-
-      {/* Instagram Importer temporariamente desabilitado
-      <InstagramCarouselImporter
-        open={instagramImporterOpen}
-        onOpenChange={setInstagramImporterOpen}
-        clientId={clientId}
-      />
-      {/* Post Content Dialog */}
-      <PostContentDialog
-        post={selectedPost}
-        open={postDialogOpen}
-        onOpenChange={(open) => { setPostDialogOpen(open); if (!open) setSelectedPost(null); }}
       />
     </div>
   );
