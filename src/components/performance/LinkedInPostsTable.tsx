@@ -17,11 +17,9 @@ import {
   ChevronUp,
   ChevronDown,
   Eye,
-  MousePointer,
   TrendingUp,
   ChevronLeft,
   ChevronRight,
-  FileText,
   Image as ImageIcon,
   Heart,
   MessageCircle,
@@ -32,6 +30,9 @@ import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { LinkedInPost } from "@/types/linkedin";
 import { ContentSyncBadge } from "./ContentSyncBadge";
+import { LinkedInPostContentDialog } from "./LinkedInPostContentDialog";
+import { LinkedInPostEditDialog } from "./LinkedInPostEditDialog";
+import { supabase } from "@/integrations/supabase/client";
 
 interface LinkedInPostsTableProps {
   posts: LinkedInPost[];
@@ -44,11 +45,18 @@ type SortDirection = "asc" | "desc";
 
 const POSTS_PER_PAGE = 15;
 
+const getStorageUrl = (path: string) => {
+  const { data } = supabase.storage.from("client-files").getPublicUrl(path);
+  return data.publicUrl;
+};
+
 export function LinkedInPostsTable({ posts, isLoading, clientId }: LinkedInPostsTableProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [sortField, setSortField] = useState<SortField>("posted_at");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [currentPage, setCurrentPage] = useState(1);
+  const [viewingPost, setViewingPost] = useState<LinkedInPost | null>(null);
+  const [editingPost, setEditingPost] = useState<LinkedInPost | null>(null);
 
   const filteredPosts = useMemo(() => {
     let result = posts;
@@ -140,6 +148,11 @@ export function LinkedInPostsTable({ posts, isLoading, clientId }: LinkedInPosts
     return num.toLocaleString("pt-BR");
   };
 
+  const getImageUrl = (path: string) => {
+    if (path.startsWith("http")) return path;
+    return getStorageUrl(path);
+  };
+
   if (isLoading) {
     return (
       <div className="space-y-3">
@@ -229,12 +242,13 @@ export function LinkedInPostsTable({ posts, isLoading, clientId }: LinkedInPosts
               {clientId && (
                 <TableHead className="w-[70px] text-center">Sync</TableHead>
               )}
+              <TableHead className="w-[60px] text-center">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {paginatedPosts.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={clientId ? 9 : 8} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={clientId ? 10 : 9} className="text-center py-8 text-muted-foreground">
                   {searchQuery ? "Nenhum post encontrado" : "Nenhum post disponível"}
                 </TableCell>
               </TableRow>
@@ -244,13 +258,17 @@ export function LinkedInPostsTable({ posts, isLoading, clientId }: LinkedInPosts
                 const firstImage = images?.[0];
                 
                 return (
-                  <TableRow key={post.id} className="group hover:bg-muted/30">
+                  <TableRow 
+                    key={post.id} 
+                    className="group hover:bg-muted/30 cursor-pointer"
+                    onClick={() => setViewingPost(post)}
+                  >
                     {/* Thumbnail */}
                     <TableCell className="py-2">
                       <div className="w-10 h-10 rounded overflow-hidden flex-shrink-0 bg-gradient-to-br from-blue-600 to-blue-800">
                         {firstImage ? (
                           <img 
-                            src={firstImage} 
+                            src={getImageUrl(firstImage)} 
                             alt="Post media" 
                             className="w-full h-full object-cover"
                             loading="lazy"
@@ -279,6 +297,7 @@ export function LinkedInPostsTable({ posts, isLoading, clientId }: LinkedInPosts
                               target="_blank"
                               rel="noopener noreferrer"
                               className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1"
+                              onClick={(e) => e.stopPropagation()}
                             >
                               <ExternalLink className="h-3 w-3" />
                               Ver no LinkedIn
@@ -323,7 +342,7 @@ export function LinkedInPostsTable({ posts, isLoading, clientId }: LinkedInPosts
                     </TableCell>
                     
                     {clientId && (
-                      <TableCell className="text-center">
+                      <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
                         <ContentSyncBadge
                           postId={post.id}
                           clientId={clientId}
@@ -334,6 +353,18 @@ export function LinkedInPostsTable({ posts, isLoading, clientId }: LinkedInPosts
                         />
                       </TableCell>
                     )}
+                    
+                    {/* Actions */}
+                    <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setEditingPost(post)}
+                        className="h-7 w-7 p-0"
+                      >
+                        <Edit className="h-3.5 w-3.5" />
+                      </Button>
+                    </TableCell>
                   </TableRow>
                 );
               })
@@ -373,6 +404,20 @@ export function LinkedInPostsTable({ posts, isLoading, clientId }: LinkedInPosts
           </div>
         </div>
       )}
+
+      {/* View Dialog */}
+      <LinkedInPostContentDialog
+        post={viewingPost}
+        open={!!viewingPost}
+        onOpenChange={(open) => !open && setViewingPost(null)}
+      />
+
+      {/* Edit Dialog */}
+      <LinkedInPostEditDialog
+        post={editingPost}
+        open={!!editingPost}
+        onOpenChange={(open) => !open && setEditingPost(null)}
+      />
     </div>
   );
 }

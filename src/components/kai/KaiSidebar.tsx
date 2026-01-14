@@ -387,15 +387,6 @@ export function KaiSidebar({
             />
           )}
 
-          {canViewLibrary && (
-            <NavItem
-              icon={<Library className="h-4 w-4" />}
-              label="Biblioteca"
-              active={activeTab === "library"}
-              onClick={() => onTabChange("library")}
-              collapsed={collapsed}
-            />
-          )}
 
           {canViewRepurpose ? (
             <NavItem
