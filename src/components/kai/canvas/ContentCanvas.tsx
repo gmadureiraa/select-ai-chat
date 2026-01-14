@@ -9,13 +9,14 @@ import ReactFlow, {
 } from "reactflow";
 import "reactflow/dist/style.css";
 
-import { useCanvasState, NodeDataType, CanvasNodeData, SourceNodeData, LibraryNodeData, PromptNodeData, GeneratorNodeData, OutputNodeData, ContentFormat } from "./hooks/useCanvasState";
+import { useCanvasState, NodeDataType, CanvasNodeData, SourceNodeData, LibraryNodeData, PromptNodeData, GeneratorNodeData, OutputNodeData, ContentFormat, ImageEditorNodeData } from "./hooks/useCanvasState";
 import { CanvasToolbar } from "./CanvasToolbar";
 import { SourceNode } from "./nodes/SourceNode";
 import { LibraryRefNode } from "./nodes/LibraryRefNode";
 import { PromptNode } from "./nodes/PromptNode";
 import { GeneratorNode } from "./nodes/GeneratorNode";
 import { ContentOutputNode } from "./nodes/ContentOutputNode";
+import { ImageEditorNode } from "./nodes/ImageEditorNode";
 import { PlanningItemDialog } from "@/components/planning/PlanningItemDialog";
 import { usePlanningItems } from "@/hooks/usePlanningItems";
 import { useQuery } from "@tanstack/react-query";
@@ -79,6 +80,7 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
     analyzeImageStyle,
     generateContent,
     regenerateContent,
+    editImage,
     clearCanvas,
     saveCanvas,
     loadCanvas,
@@ -139,6 +141,7 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
     deleteNode,
     generateContent,
     regenerateContent,
+    editImage,
     handleOpenPlanningDialog,
   });
 
@@ -152,6 +155,7 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
     deleteNode,
     generateContent,
     regenerateContent,
+    editImage,
     handleOpenPlanningDialog,
   };
 
@@ -197,6 +201,14 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
         onDelete={(id) => handlersRef.current.deleteNode(id)}
         onSendToPlanning={(id) => handlersRef.current.handleOpenPlanningDialog(id)}
         onRegenerate={(id) => handlersRef.current.regenerateContent(id)}
+      />
+    ),
+    "image-editor": (props: NodeProps<ImageEditorNodeData>) => (
+      <ImageEditorNode
+        {...props}
+        onUpdateData={(id, data) => handlersRef.current.updateNodeData(id, data)}
+        onDelete={(id) => handlersRef.current.deleteNode(id)}
+        onEdit={(id) => handlersRef.current.editImage(id)}
       />
     ),
   }), []);
@@ -266,6 +278,7 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
               case "prompt": return "#eab308";
               case "generator": return "#22c55e";
               case "output": return "#ec4899";
+              case "image-editor": return "#f97316";
               default: return "#888";
             }
           }}
@@ -300,7 +313,7 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
               <br />
               Clique nos botões acima para começar.
             </p>
-            <div className="flex justify-center gap-4 text-xs text-muted-foreground pt-2">
+            <div className="flex justify-center gap-4 text-xs text-muted-foreground pt-2 flex-wrap">
               <div className="flex items-center gap-1.5">
                 <div className="h-3 w-3 rounded bg-blue-500" />
                 <span>Fonte</span>
@@ -312,6 +325,10 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
               <div className="flex items-center gap-1.5">
                 <div className="h-3 w-3 rounded bg-green-500" />
                 <span>Gerador</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="h-3 w-3 rounded bg-orange-500" />
+                <span>Editor</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <div className="h-3 w-3 rounded bg-pink-500" />

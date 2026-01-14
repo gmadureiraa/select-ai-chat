@@ -17,7 +17,8 @@ import {
   Zap,
   Command,
   Factory,
-  Lock
+  Lock,
+  Palette
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useClients } from "@/hooks/useClients";
@@ -408,6 +409,22 @@ export function KaiSidebar({
             <NavItemLocked
               icon={<Factory className="h-4 w-4" />}
               label="Fábrica"
+              collapsed={collapsed}
+            />
+          )}
+
+          {canViewRepurpose ? (
+            <NavItem
+              icon={<Palette className="h-4 w-4" />}
+              label="Canvas"
+              active={activeTab === "canvas"}
+              onClick={() => onTabChange("canvas")}
+              collapsed={collapsed}
+            />
+          ) : (
+            <NavItemLocked
+              icon={<Palette className="h-4 w-4" />}
+              label="Canvas"
               collapsed={collapsed}
             />
           )}

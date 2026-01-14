@@ -135,7 +135,7 @@ function GeneratorNodeComponent({
         </div>
 
         {/* Platform + Tone row */}
-        <div className="grid grid-cols-2 gap-2">
+        <div className={data.format === "image" ? "" : "grid grid-cols-2 gap-2"}>
           <div className="space-y-1.5">
             <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
               Plataforma
@@ -158,27 +158,30 @@ function GeneratorNodeComponent({
             </Select>
           </div>
 
-          <div className="space-y-1.5">
-            <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
-              Tom
-            </label>
-            <Select
-              value={data.tone || "professional"}
-              onValueChange={(tone) => onUpdateData?.(id, { tone })}
-              disabled={data.isGenerating}
-            >
-              <SelectTrigger className="h-8 text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {TONE_OPTIONS.map((option) => (
-                  <SelectItem key={option.value} value={option.value} className="text-xs">
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          {/* Only show tone for text content, not for images */}
+          {data.format !== "image" && (
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+                Tom
+              </label>
+              <Select
+                value={data.tone || "professional"}
+                onValueChange={(tone) => onUpdateData?.(id, { tone })}
+                disabled={data.isGenerating}
+              >
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {TONE_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value} className="text-xs">
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
         </div>
 
         {/* Image-specific options */}
