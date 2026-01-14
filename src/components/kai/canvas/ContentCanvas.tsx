@@ -131,19 +131,19 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [saveCanvas]);
 
-  // Use refs to maintain stable references for handlers
-  const handlersRef = useRef({
-    clientId,
-    extractUrlContent,
-    transcribeFile,
-    analyzeImageStyle,
-    updateNodeData,
-    deleteNode,
-    generateContent,
-    regenerateContent,
-    editImage,
-    handleOpenPlanningDialog,
-  });
+  // Use refs to maintain stable references for handlers - initialized once with null-safe defaults
+  const handlersRef = useRef<{
+    clientId: string;
+    extractUrlContent: typeof extractUrlContent;
+    transcribeFile: typeof transcribeFile;
+    analyzeImageStyle: typeof analyzeImageStyle;
+    updateNodeData: typeof updateNodeData;
+    deleteNode: typeof deleteNode;
+    generateContent: typeof generateContent;
+    regenerateContent: typeof regenerateContent;
+    editImage: typeof editImage;
+    handleOpenPlanningDialog: typeof handleOpenPlanningDialog;
+  } | null>(null);
 
   // Update refs on each render so they always have latest values
   handlersRef.current = {
@@ -160,55 +160,56 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
   };
 
   // Create nodeTypes only once - handlers are accessed via ref
+  // Create nodeTypes only once - handlers are accessed via ref
   const nodeTypes = useMemo(() => ({
     source: (props: NodeProps<SourceNodeData>) => (
       <SourceNode
         {...props}
-        onExtractUrl={(id, url) => handlersRef.current.extractUrlContent(id, url)}
-        onUpdateData={(id, data) => handlersRef.current.updateNodeData(id, data)}
-        onDelete={(id) => handlersRef.current.deleteNode(id)}
-        onTranscribeFile={(id, fileId) => handlersRef.current.transcribeFile(id, fileId)}
-        onAnalyzeStyle={(id, fileId) => handlersRef.current.analyzeImageStyle(id, fileId)}
+        onExtractUrl={(id, url) => handlersRef.current?.extractUrlContent(id, url)}
+        onUpdateData={(id, data) => handlersRef.current?.updateNodeData(id, data)}
+        onDelete={(id) => handlersRef.current?.deleteNode(id)}
+        onTranscribeFile={(id, fileId) => handlersRef.current?.transcribeFile(id, fileId)}
+        onAnalyzeStyle={(id, fileId) => handlersRef.current?.analyzeImageStyle(id, fileId)}
       />
     ),
     library: (props: NodeProps<LibraryNodeData>) => (
       <LibraryRefNode
         {...props}
-        clientId={handlersRef.current.clientId}
-        onUpdateData={(id, data) => handlersRef.current.updateNodeData(id, data)}
-        onDelete={(id) => handlersRef.current.deleteNode(id)}
+        clientId={handlersRef.current?.clientId || ""}
+        onUpdateData={(id, data) => handlersRef.current?.updateNodeData(id, data)}
+        onDelete={(id) => handlersRef.current?.deleteNode(id)}
       />
     ),
     prompt: (props: NodeProps<PromptNodeData>) => (
       <PromptNode
         {...props}
-        onUpdateData={(id, data) => handlersRef.current.updateNodeData(id, data)}
-        onDelete={(id) => handlersRef.current.deleteNode(id)}
+        onUpdateData={(id, data) => handlersRef.current?.updateNodeData(id, data)}
+        onDelete={(id) => handlersRef.current?.deleteNode(id)}
       />
     ),
     generator: (props: NodeProps<GeneratorNodeData>) => (
       <GeneratorNode
         {...props}
-        onUpdateData={(id, data) => handlersRef.current.updateNodeData(id, data)}
-        onDelete={(id) => handlersRef.current.deleteNode(id)}
-        onGenerate={(id) => handlersRef.current.generateContent(id)}
+        onUpdateData={(id, data) => handlersRef.current?.updateNodeData(id, data)}
+        onDelete={(id) => handlersRef.current?.deleteNode(id)}
+        onGenerate={(id) => handlersRef.current?.generateContent(id)}
       />
     ),
     output: (props: NodeProps<OutputNodeData>) => (
       <ContentOutputNode
         {...props}
-        onUpdateData={(id, data) => handlersRef.current.updateNodeData(id, data)}
-        onDelete={(id) => handlersRef.current.deleteNode(id)}
-        onSendToPlanning={(id) => handlersRef.current.handleOpenPlanningDialog(id)}
-        onRegenerate={(id) => handlersRef.current.regenerateContent(id)}
+        onUpdateData={(id, data) => handlersRef.current?.updateNodeData(id, data)}
+        onDelete={(id) => handlersRef.current?.deleteNode(id)}
+        onSendToPlanning={(id) => handlersRef.current?.handleOpenPlanningDialog(id)}
+        onRegenerate={(id) => handlersRef.current?.regenerateContent(id)}
       />
     ),
     "image-editor": (props: NodeProps<ImageEditorNodeData>) => (
       <ImageEditorNode
         {...props}
-        onUpdateData={(id, data) => handlersRef.current.updateNodeData(id, data)}
-        onDelete={(id) => handlersRef.current.deleteNode(id)}
-        onEdit={(id) => handlersRef.current.editImage(id)}
+        onUpdateData={(id, data) => handlersRef.current?.updateNodeData(id, data)}
+        onDelete={(id) => handlersRef.current?.deleteNode(id)}
+        onEdit={(id) => handlersRef.current?.editImage(id)}
       />
     ),
   }), []);
