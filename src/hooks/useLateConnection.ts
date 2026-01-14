@@ -18,6 +18,16 @@ export function useLateConnection({ clientId }: UseLateConnectionProps) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
+  const platformNames: Record<LatePlatform, string> = {
+    twitter: 'Twitter/X',
+    linkedin: 'LinkedIn',
+    instagram: 'Instagram',
+    facebook: 'Facebook',
+    threads: 'Threads',
+    tiktok: 'TikTok',
+    youtube: 'YouTube'
+  };
+
   const cleanup = useCallback(() => {
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
@@ -39,9 +49,20 @@ export function useLateConnection({ clientId }: UseLateConnectionProps) {
         cleanup();
         queryClient.invalidateQueries({ queryKey: ['social-credentials', clientId] });
         queryClient.invalidateQueries({ queryKey: ['client-platform-status', clientId] });
+        
+        const platform = event.data.platform as LatePlatform;
+        const displayName = platformNames[platform] || platform;
+        
         toast({
-          title: "Connected!",
-          description: `${event.data.platform} connected successfully.`,
+          title: "Conectado!",
+          description: `${displayName} foi conectado com sucesso.`,
+        });
+      } else if (event.data?.type === 'late_oauth_error') {
+        cleanup();
+        toast({
+          title: "Erro na conexão",
+          description: event.data.error || "Falha ao conectar. Tente novamente.",
+          variant: "destructive",
         });
       }
     };
@@ -51,7 +72,7 @@ export function useLateConnection({ clientId }: UseLateConnectionProps) {
       window.removeEventListener('message', handleMessage);
       cleanup();
     };
-  }, [cleanup, clientId, queryClient, toast]);
+  }, [cleanup, clientId, queryClient, toast, platformNames]);
 
   const openOAuth = useCallback(async (platform: LatePlatform) => {
     try {
@@ -67,7 +88,7 @@ export function useLateConnection({ clientId }: UseLateConnectionProps) {
       }
 
       if (!data?.authUrl) {
-        throw new Error("No authorization URL received");
+        throw new Error("URL de autorização não recebida");
       }
 
       // Open popup
@@ -83,7 +104,7 @@ export function useLateConnection({ clientId }: UseLateConnectionProps) {
       );
 
       if (!popupRef.current) {
-        throw new Error("Popup blocked. Please allow popups for this site.");
+        throw new Error("Popup bloqueado. Por favor, permita popups para este site.");
       }
 
       // Set timeout for OAuth (5 minutes)
@@ -93,8 +114,8 @@ export function useLateConnection({ clientId }: UseLateConnectionProps) {
         }
         cleanup();
         toast({
-          title: "Timeout",
-          description: "OAuth process timed out. Please try again.",
+          title: "Tempo esgotado",
+          description: "O processo de conexão expirou. Tente novamente.",
           variant: "destructive",
         });
       }, 5 * 60 * 1000);
@@ -112,8 +133,8 @@ export function useLateConnection({ clientId }: UseLateConnectionProps) {
     } catch (error) {
       cleanup();
       toast({
-        title: "Connection Error",
-        description: error instanceof Error ? error.message : "Failed to start OAuth",
+        title: "Erro na conexão",
+        description: error instanceof Error ? error.message : "Falha ao iniciar conexão",
         variant: "destructive",
       });
     }
@@ -144,24 +165,28 @@ export function useLateConnection({ clientId }: UseLateConnectionProps) {
         throw new Error(error.message);
       }
 
+      const displayName = platformNames[platform] || platform;
+      
       toast({
-        title: "Published!",
-        description: `Content published to ${platform} successfully.`,
+        title: "Publicado!",
+        description: `Conteúdo publicado no ${displayName} com sucesso.`,
       });
 
       return data;
 
     } catch (error) {
+      const displayName = platformNames[platform] || platform;
+      
       toast({
-        title: "Publication Failed",
-        description: error instanceof Error ? error.message : "Failed to publish content",
+        title: "Falha na publicação",
+        description: error instanceof Error ? error.message : `Falha ao publicar no ${displayName}`,
         variant: "destructive",
       });
       throw error;
     } finally {
       setIsLoading(false);
     }
-  }, [clientId, toast]);
+  }, [clientId, toast, platformNames]);
 
   const disconnect = useCallback(async (platform: LatePlatform) => {
     try {
@@ -181,19 +206,11 @@ export function useLateConnection({ clientId }: UseLateConnectionProps) {
       queryClient.invalidateQueries({ queryKey: ['social-credentials', clientId] });
       queryClient.invalidateQueries({ queryKey: ['client-platform-status', clientId] });
 
-      const platformNames: Record<LatePlatform, string> = {
-        twitter: 'Twitter',
-        linkedin: 'LinkedIn',
-        instagram: 'Instagram',
-        facebook: 'Facebook',
-        threads: 'Threads',
-        tiktok: 'TikTok',
-        youtube: 'YouTube'
-      };
+      const displayName = platformNames[platform];
 
       toast({
         title: "Desconectado",
-        description: `${platformNames[platform]} foi desconectado com sucesso.`,
+        description: `${displayName} foi desconectado com sucesso.`,
       });
 
     } catch (error) {
@@ -206,7 +223,7 @@ export function useLateConnection({ clientId }: UseLateConnectionProps) {
       setIsLoading(false);
       setCurrentPlatform(null);
     }
-  }, [clientId, queryClient, toast]);
+  }, [clientId, queryClient, toast, platformNames]);
 
   return {
     openOAuth,

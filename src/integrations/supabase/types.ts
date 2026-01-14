@@ -3116,7 +3116,7 @@ export type Database = {
           ip_address: string | null
           metadata: Json | null
           user_agent: string | null
-          user_id: string
+          user_id: string | null
         }
         Insert: {
           action: string
@@ -3127,7 +3127,7 @@ export type Database = {
           ip_address?: string | null
           metadata?: Json | null
           user_agent?: string | null
-          user_id: string
+          user_id?: string | null
         }
         Update: {
           action?: string
@@ -3138,7 +3138,7 @@ export type Database = {
           ip_address?: string | null
           metadata?: Json | null
           user_agent?: string | null
-          user_id?: string
+          user_id?: string | null
         }
         Relationships: [
           {
