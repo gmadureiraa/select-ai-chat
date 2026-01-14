@@ -21,12 +21,16 @@ export interface InstagramPost {
   metadata: Record<string, unknown> | null;
   created_at: string | null;
   updated_at: string | null;
-  // New fields
+  // Extended fields
   link_clicks: number | null;
   profile_visits: number | null;
   website_taps: number | null;
   content_objective: string | null;
   is_collab: boolean | null;
+  // Content fields
+  full_content: string | null;
+  images: string[] | null;
+  content_synced_at: string | null;
 }
 
 export function useInstagramPosts(clientId: string, limit: number = 100) {

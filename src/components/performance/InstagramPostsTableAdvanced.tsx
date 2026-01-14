@@ -7,15 +7,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuCheckboxItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { ArrowUpDown, Search, ExternalLink, Image as ImageIcon, Copy, ChevronLeft, ChevronRight, Pencil, Users, Settings2, ArrowUp, ArrowDown, Filter, X, Calendar, FolderPlus } from "lucide-react";
+import { ArrowUpDown, Search, ExternalLink, Image as ImageIcon, Copy, ChevronLeft, ChevronRight, Pencil, Users, Settings2, ArrowUp, ArrowDown, X, Calendar } from "lucide-react";
 import { InstagramPost } from "@/hooks/useInstagramPosts";
 import { format, parseISO, isAfter, isBefore, startOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
 import { InstagramPostEditDialog } from "./InstagramPostEditDialog";
-import { SyncToLibraryDialog } from "./SyncToLibraryDialog";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
-import { LibraryStatusBadge } from "./LibraryStatusBadge";
+import { PostContentSyncButton } from "./PostContentSyncButton";
+import { PostContentDialog } from "./PostContentDialog";
 
 interface InstagramPostsTableAdvancedProps {
   posts: InstagramPost[];
@@ -38,7 +38,7 @@ const ALL_COLUMNS: Column[] = [
   { id: "thumbnail", label: "Capa", sortable: false, defaultVisible: true, width: "50px" },
   { id: "caption", label: "Legenda", sortable: false, defaultVisible: true },
   { id: "type", label: "Tipo", sortable: false, defaultVisible: true, width: "80px" },
-  { id: "library" as any, label: "Biblioteca", sortable: false, defaultVisible: true, width: "90px" },
+  { id: "content" as any, label: "Conteúdo", sortable: false, defaultVisible: true, width: "100px" },
   { id: "posted_at", label: "Data", sortable: true, defaultVisible: true, width: "85px" },
   { id: "impressions", label: "Impressões", sortable: true, defaultVisible: true, width: "90px" },
   { id: "reach", label: "Contas alc.", sortable: true, defaultVisible: true, width: "80px" },
@@ -72,7 +72,7 @@ export function InstagramPostsTableAdvanced({ posts, isLoading, clientId }: Inst
   const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
   const [currentPage, setCurrentPage] = useState(1);
   const [editingPost, setEditingPost] = useState<InstagramPost | null>(null);
-  const [syncingPost, setSyncingPost] = useState<InstagramPost | null>(null);
+  const [viewingPost, setViewingPost] = useState<InstagramPost | null>(null);
   const [visibleColumns, setVisibleColumns] = useState<Set<string>>(
     new Set(ALL_COLUMNS.filter(c => c.defaultVisible).map(c => c.id))
   );
@@ -341,7 +341,7 @@ export function InstagramPostsTableAdvanced({ posts, isLoading, clientId }: Inst
               {visibleColumns.has("thumbnail") && <TableHead style={{ width: "50px" }}></TableHead>}
               {visibleColumns.has("caption") && <TableHead className="min-w-[180px]">Legenda</TableHead>}
               {visibleColumns.has("type") && <TableHead style={{ width: "80px" }}>Tipo</TableHead>}
-              {visibleColumns.has("library") && <TableHead style={{ width: "90px" }}>Biblioteca</TableHead>}
+              {visibleColumns.has("content") && <TableHead style={{ width: "100px" }}>Conteúdo</TableHead>}
               {visibleColumns.has("posted_at") && (
                 <TableHead style={{ width: "85px" }}>
                   <SortButton field="posted_at">Data</SortButton>
@@ -397,7 +397,7 @@ export function InstagramPostsTableAdvanced({ posts, isLoading, clientId }: Inst
           </TableHeader>
           <TableBody>
             {paginatedPosts.map((post) => (
-              <TableRow key={post.id} className="group">
+              <TableRow key={post.id} className="group cursor-pointer hover:bg-muted/50" onClick={() => setViewingPost(post)}>
                 {visibleColumns.has("thumbnail") && (
                   <TableCell className="py-2">
                     <div className="w-9 h-9 rounded overflow-hidden flex-shrink-0 bg-gradient-to-br from-pink-500 via-purple-500 to-orange-500">
@@ -471,17 +471,14 @@ export function InstagramPostsTableAdvanced({ posts, isLoading, clientId }: Inst
                     </Badge>
                   </TableCell>
                 )}
-                {visibleColumns.has("library") && (
-                  <TableCell className="py-2">
-                    <LibraryStatusBadge
+                {visibleColumns.has("content") && (
+                  <TableCell className="py-2" onClick={(e) => e.stopPropagation()}>
+                    <PostContentSyncButton
                       postId={post.id}
                       clientId={clientId}
-                      contentLibraryId={(post as any).content_library_id}
-                      caption={post.caption}
-                      postType={post.post_type}
                       permalink={post.permalink}
-                      thumbnailUrl={post.thumbnail_url}
-                      postedAt={post.posted_at}
+                      caption={post.caption}
+                      contentSyncedAt={(post as any).content_synced_at}
                     />
                   </TableCell>
                 )}
@@ -536,27 +533,16 @@ export function InstagramPostsTableAdvanced({ posts, isLoading, clientId }: Inst
                   </TableCell>
                 )}
                 {visibleColumns.has("actions") && (
-                  <TableCell className="py-2">
-                    <div className="flex gap-0.5">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
-                        onClick={() => setSyncingPost(post)}
-                        title="Salvar na Biblioteca"
-                      >
-                        <FolderPlus className="h-3.5 w-3.5 text-muted-foreground" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
-                        onClick={() => setEditingPost(post)}
-                        title="Editar post"
-                      >
-                        <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
-                      </Button>
-                    </div>
+                  <TableCell className="py-2" onClick={(e) => e.stopPropagation()}>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={() => setEditingPost(post)}
+                      title="Editar post"
+                    >
+                      <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+                    </Button>
                   </TableCell>
                 )}
               </TableRow>
@@ -605,12 +591,11 @@ export function InstagramPostsTableAdvanced({ posts, isLoading, clientId }: Inst
         clientId={clientId}
       />
 
-      {/* Sync to Library Dialog */}
-      <SyncToLibraryDialog
-        post={syncingPost}
-        open={!!syncingPost}
-        onOpenChange={(open) => !open && setSyncingPost(null)}
-        clientId={clientId}
+      {/* View Post Dialog */}
+      <PostContentDialog
+        post={viewingPost}
+        open={!!viewingPost}
+        onOpenChange={(open) => !open && setViewingPost(null)}
       />
     </div>
   );
