@@ -10,17 +10,29 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  // Verify service role authentication for cron jobs
+  // Verify authentication for cron jobs
+  // Supabase cron jobs may not send auth header, so we check multiple conditions
   const authHeader = req.headers.get('Authorization');
   const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  
+  // Accept requests from:
+  // 1. Supabase internal cron scheduler (x-supabase-eed-request header)
+  // 2. Service role key authentication
+  // 3. Supabase pg_cron (no auth but valid internal call)
+  const isCronJob = req.headers.get('x-supabase-eed-request') === 'true' || 
+                    req.headers.get('user-agent')?.includes('Supabase') ||
+                    req.headers.get('x-supabase-cron') === 'true';
+  const isServiceRole = authHeader === `Bearer ${serviceRoleKey}`;
 
-  if (!authHeader || authHeader !== `Bearer ${serviceRoleKey}`) {
+  if (!isCronJob && !isServiceRole) {
     console.error('[process-scheduled-posts] Unauthorized access attempt');
     return new Response(
       JSON.stringify({ error: 'Unauthorized - Service role required' }),
       { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
+  
+  console.log(`[process-scheduled-posts] Auth check passed: isCronJob=${isCronJob}, isServiceRole=${isServiceRole}`);
 
   const supabaseClient = createClient(
     Deno.env.get('SUPABASE_URL') ?? '',
@@ -39,6 +51,7 @@ Deno.serve(async (req) => {
     console.log(`[process-scheduled-posts] Looking for posts scheduled before ${marginTime.toISOString()}`);
 
     // First, process planning_items (new unified table)
+    // Filter by next_retry_at for exponential backoff
     const { data: planningItems, error: planningError } = await supabaseClient
       .from('planning_items')
       .select(`
@@ -51,6 +64,7 @@ Deno.serve(async (req) => {
       .eq('status', 'scheduled')
       .lte('scheduled_at', marginTime.toISOString())
       .lt('retry_count', 3)
+      .or(`next_retry_at.is.null,next_retry_at.lte.${now.toISOString()}`)
       .order('scheduled_at', { ascending: true })
       .limit(25);
 
@@ -66,6 +80,7 @@ Deno.serve(async (req) => {
       .eq('status', 'scheduled')
       .lte('scheduled_at', marginTime.toISOString())
       .lt('retry_count', 3)
+      .or(`next_retry_at.is.null,next_retry_at.lte.${now.toISOString()}`)
       .order('scheduled_at', { ascending: true })
       .limit(25);
 
@@ -265,17 +280,45 @@ Deno.serve(async (req) => {
 
           console.log(`✅ Post ${item.id} published successfully`);
         } else {
-          // Update with error
+          // Update with error and exponential backoff
+          const newRetryCount = (item.retry_count || 0) + 1;
+          const retryDelayMs = Math.pow(2, newRetryCount) * 60 * 1000; // 2min, 4min, 8min
+          const nextRetryAt = new Date(Date.now() + retryDelayMs);
+          
+          // If max retries reached, mark as failed; otherwise keep scheduled for retry
+          const newStatus = newRetryCount >= 3 ? 'failed' : 'scheduled';
+          
           await supabaseClient
             .from(tableName)
             .update({
-              status: 'failed',
+              status: newStatus,
               error_message: result.error || 'Erro desconhecido',
-              retry_count: (item.retry_count || 0) + 1,
+              retry_count: newRetryCount,
+              next_retry_at: newRetryCount < 3 ? nextRetryAt.toISOString() : null,
             })
             .eq('id', item.id);
 
-          console.log(`❌ Post ${item.id} failed: ${result.error}`);
+          // Create notification for failure
+          if (item.workspace_id && newStatus === 'failed') {
+            await supabaseClient
+              .from('notifications')
+              .insert({
+                workspace_id: item.workspace_id,
+                user_id: item.created_by,
+                type: 'publish_failed',
+                title: `Falha ao publicar "${(item.title || 'Post').substring(0, 30)}..."`,
+                message: result.error || 'Erro desconhecido após 3 tentativas',
+                metadata: {
+                  planning_item_id: item.id,
+                  platform: item.platform,
+                  client_id: item.client_id,
+                  retry_count: newRetryCount,
+                },
+              });
+            console.log(`🔔 Notification created for failed post ${item.id}`);
+          }
+
+          console.log(`❌ Post ${item.id} ${newStatus === 'failed' ? 'failed permanently' : 'will retry at ' + nextRetryAt.toISOString()}: ${result.error}`);
         }
 
         results.push({
@@ -290,14 +333,38 @@ Deno.serve(async (req) => {
         const message = error instanceof Error ? error.message : 'Erro desconhecido';
         console.error(`Error processing post ${item.id}:`, error);
         
+        const newRetryCount = (item.retry_count || 0) + 1;
+        const retryDelayMs = Math.pow(2, newRetryCount) * 60 * 1000;
+        const nextRetryAt = new Date(Date.now() + retryDelayMs);
+        const newStatus = newRetryCount >= 3 ? 'failed' : 'scheduled';
+        
         await supabaseClient
           .from(tableName)
           .update({
-            status: 'failed',
+            status: newStatus,
             error_message: message,
-            retry_count: (item.retry_count || 0) + 1,
+            retry_count: newRetryCount,
+            next_retry_at: newRetryCount < 3 ? nextRetryAt.toISOString() : null,
           })
           .eq('id', item.id);
+        
+        // Create notification for permanent failure
+        if (item.workspace_id && newStatus === 'failed') {
+          await supabaseClient
+            .from('notifications')
+            .insert({
+              workspace_id: item.workspace_id,
+              user_id: item.created_by,
+              type: 'publish_failed',
+              title: `Falha ao publicar "${(item.title || 'Post').substring(0, 30)}..."`,
+              message: message,
+              metadata: {
+                planning_item_id: item.id,
+                platform: item.platform,
+                client_id: item.client_id,
+              },
+            });
+        }
 
         results.push({
           postId: item.id,

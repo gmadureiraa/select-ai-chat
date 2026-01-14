@@ -2340,6 +2340,7 @@ export type Database = {
           labels: Json | null
           media_urls: Json | null
           metadata: Json | null
+          next_retry_at: string | null
           platform: string | null
           position: number | null
           priority: string | null
@@ -2375,6 +2376,7 @@ export type Database = {
           labels?: Json | null
           media_urls?: Json | null
           metadata?: Json | null
+          next_retry_at?: string | null
           platform?: string | null
           position?: number | null
           priority?: string | null
@@ -2410,6 +2412,7 @@ export type Database = {
           labels?: Json | null
           media_urls?: Json | null
           metadata?: Json | null
+          next_retry_at?: string | null
           platform?: string | null
           position?: number | null
           priority?: string | null
@@ -3084,6 +3087,7 @@ export type Database = {
           id: string
           media_urls: Json | null
           metadata: Json | null
+          next_retry_at: string | null
           platform: string
           published_at: string | null
           retry_count: number | null
@@ -3104,6 +3108,7 @@ export type Database = {
           id?: string
           media_urls?: Json | null
           metadata?: Json | null
+          next_retry_at?: string | null
           platform: string
           published_at?: string | null
           retry_count?: number | null
@@ -3124,6 +3129,7 @@ export type Database = {
           id?: string
           media_urls?: Json | null
           metadata?: Json | null
+          next_retry_at?: string | null
           platform?: string
           published_at?: string | null
           retry_count?: number | null
