@@ -50,13 +50,11 @@ const PLATFORM_OPTIONS: { value: Platform; label: string }[] = [
   { value: "other", label: "Outro" },
 ];
 
-const TONE_OPTIONS = [
-  { value: "professional", label: "Profissional" },
-  { value: "casual", label: "Casual" },
-  { value: "humorous", label: "Humorístico" },
-  { value: "technical", label: "Técnico" },
-  { value: "inspirational", label: "Inspiracional" },
-  { value: "educational", label: "Educativo" },
+const QUANTITY_OPTIONS = [
+  { value: 1, label: "1 conteúdo" },
+  { value: 3, label: "3 conteúdos" },
+  { value: 5, label: "5 conteúdos" },
+  { value: 10, label: "10 conteúdos" },
 ];
 
 function GeneratorNodeComponent({ 
@@ -134,7 +132,7 @@ function GeneratorNodeComponent({
           </Select>
         </div>
 
-        {/* Platform + Tone row */}
+        {/* Platform + Quantity row */}
         <div className={data.format === "image" ? "" : "grid grid-cols-2 gap-2"}>
           <div className="space-y-1.5">
             <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
@@ -158,23 +156,23 @@ function GeneratorNodeComponent({
             </Select>
           </div>
 
-          {/* Only show tone for text content, not for images */}
+          {/* Quantity selector - only for text content */}
           {data.format !== "image" && (
             <div className="space-y-1.5">
               <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
-                Tom
+                Quantidade
               </label>
               <Select
-                value={data.tone || "professional"}
-                onValueChange={(tone) => onUpdateData?.(id, { tone })}
+                value={String(data.quantity || 1)}
+                onValueChange={(qty) => onUpdateData?.(id, { quantity: Number(qty) })}
                 disabled={data.isGenerating}
               >
                 <SelectTrigger className="h-8 text-xs">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {TONE_OPTIONS.map((option) => (
-                    <SelectItem key={option.value} value={option.value} className="text-xs">
+                  {QUANTITY_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={String(option.value)} className="text-xs">
                       {option.label}
                     </SelectItem>
                   ))}
@@ -253,7 +251,9 @@ function GeneratorNodeComponent({
                 {data.currentStep || "Processando..."}
               </span>
               <span className="text-[10px] text-muted-foreground">
-                {data.progress || 0}%
+                {data.generatedCount && data.quantity && data.quantity > 1 
+                  ? `${data.generatedCount}/${data.quantity}` 
+                  : `${data.progress || 0}%`}
               </span>
             </div>
             <Progress value={data.progress || 0} className="h-1.5" />

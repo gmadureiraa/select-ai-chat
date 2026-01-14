@@ -85,6 +85,7 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
     saveCanvas,
     loadCanvas,
     deleteCanvas,
+    loadTemplate,
     savedCanvases,
     isLoadingCanvases,
     currentCanvasName,
@@ -296,6 +297,7 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
         onSave={saveCanvas}
         onLoad={loadCanvas}
         onDelete={deleteCanvas}
+        onLoadTemplate={loadTemplate}
         savedCanvases={savedCanvases}
         currentCanvasName={currentCanvasName}
         setCanvasName={setCanvasName}
