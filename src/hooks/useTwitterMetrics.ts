@@ -71,14 +71,16 @@ export const useImportTwitterCSV = () => {
 
   return useMutation({
     mutationFn: async ({ clientId, posts, dailyMetrics }: ImportTwitterCSVParams) => {
-      // Upsert posts
+      // Upsert posts - mark content as synced since CSV includes the text
       if (posts.length > 0) {
         const { error: postsError } = await supabase
           .from('twitter_posts')
           .upsert(
             posts.map(p => ({
               client_id: clientId,
-              ...p
+              ...p,
+              full_content: p.content || null,
+              content_synced_at: p.content ? new Date().toISOString() : null,
             })),
             { onConflict: 'client_id,tweet_id' }
           );
@@ -113,6 +115,24 @@ export const useImportTwitterCSV = () => {
       queryClient.invalidateQueries({ queryKey: ['twitter-metrics'] });
       queryClient.invalidateQueries({ queryKey: ['performance-metrics'] });
       queryClient.invalidateQueries({ queryKey: ['import-history'] });
+    },
+  });
+};
+
+export const useUpdateTwitterPost = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, updates }: { id: string; updates: Partial<Omit<TwitterPost, 'metadata'>> }) => {
+      const { error } = await supabase
+        .from('twitter_posts')
+        .update({ ...updates, updated_at: new Date().toISOString() })
+        .eq('id', id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['twitter-posts'] });
     },
   });
 };
