@@ -20,14 +20,17 @@ import {
   TrendingUp,
   ChevronLeft,
   ChevronRight,
+  FileText,
 } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { LinkedInPost } from "@/types/linkedin";
+import { ContentSyncBadge } from "./ContentSyncBadge";
 
 interface LinkedInPostsTableProps {
   posts: LinkedInPost[];
   isLoading?: boolean;
+  clientId?: string;
 }
 
 type SortField = "posted_at" | "impressions" | "engagements" | "engagement_rate";
@@ -35,7 +38,7 @@ type SortDirection = "asc" | "desc";
 
 const POSTS_PER_PAGE = 10;
 
-export function LinkedInPostsTable({ posts, isLoading }: LinkedInPostsTableProps) {
+export function LinkedInPostsTable({ posts, isLoading, clientId }: LinkedInPostsTableProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [sortField, setSortField] = useState<SortField>("posted_at");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
@@ -189,6 +192,14 @@ export function LinkedInPostsTable({ posts, isLoading }: LinkedInPostsTableProps
                   <SortIcon field="engagement_rate" />
                 </div>
               </TableHead>
+              {clientId && (
+                <TableHead>
+                  <div className="flex items-center gap-1">
+                    <FileText className="h-4 w-4" />
+                    Sync
+                  </div>
+                </TableHead>
+              )}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -235,6 +246,18 @@ export function LinkedInPostsTable({ posts, isLoading }: LinkedInPostsTableProps
                   <TableCell className="text-violet-600 font-medium">
                     {post.engagement_rate ? `${post.engagement_rate.toFixed(2)}%` : "-"}
                   </TableCell>
+                  {clientId && (
+                    <TableCell>
+                      <ContentSyncBadge
+                        postId={post.id}
+                        clientId={clientId}
+                        platform="linkedin"
+                        content={post.content}
+                        contentSyncedAt={(post as any).content_synced_at}
+                        tableName="linkedin_posts"
+                      />
+                    </TableCell>
+                  )}
                 </TableRow>
               ))
             )}

@@ -137,7 +137,7 @@ export const useUpdateTwitterPost = () => {
   });
 };
 
-// Parse Twitter Analytics CSV
+// Parse Twitter Analytics CSV - supports multiple formats
 export const parseTwitterCSV = (csvContent: string): {
   posts: ImportTwitterCSVParams['posts'];
   dailyMetrics: ImportTwitterCSVParams['dailyMetrics'];
@@ -156,7 +156,50 @@ export const parseTwitterCSV = (csvContent: string): {
   );
 
   const posts: ImportTwitterCSVParams['posts'] = [];
-  const dailyMetricsMap = new Map<string, { impressions: number; engagements: number }>();
+  const dailyMetricsMap = new Map<string, { impressions: number; engagements: number; followers?: number }>();
+
+  // Detect format type
+  const isNewFormat = headers.includes('post id') || headers.includes('post text') || headers.includes('post link');
+  const isOverviewFormat = headers.includes('date') && headers.includes('impressions') && !headers.includes('post id') && !headers.includes('tweet id');
+
+  // If it's a daily overview format (not posts), parse only daily metrics
+  if (isOverviewFormat) {
+    for (let i = 1; i < lines.length; i++) {
+      const values = parseCSVLine(lines[i], delimiter);
+      if (values.length < 2) continue;
+
+      const row: Record<string, string> = {};
+      headers.forEach((header, idx) => {
+        row[header] = values[idx]?.trim().replace(/['"]/g, '') || '';
+      });
+
+      const dateStr = row['date'] || '';
+      const parsedDate = parseTwitterDate(dateStr);
+      if (!parsedDate) continue;
+
+      const dateKey = parsedDate.split('T')[0];
+      const impressions = parseNumber(row['impressions']);
+      const engagements = parseNumber(row['engagements']);
+      const newFollows = parseNumber(row['new follows']);
+      const unfollows = parseNumber(row['unfollows']);
+
+      const existing = dailyMetricsMap.get(dateKey) || { impressions: 0, engagements: 0 };
+      dailyMetricsMap.set(dateKey, {
+        impressions: existing.impressions + impressions,
+        engagements: existing.engagements + engagements,
+        followers: newFollows - unfollows,
+      });
+    }
+
+    const dailyMetrics = Array.from(dailyMetricsMap.entries()).map(([date, data]) => ({
+      date,
+      impressions: data.impressions,
+      engagements: data.engagements,
+      followers: data.followers,
+    }));
+
+    return { posts: [], dailyMetrics };
+  }
 
   for (let i = 1; i < lines.length; i++) {
     const values = parseCSVLine(lines[i], delimiter);
@@ -167,34 +210,48 @@ export const parseTwitterCSV = (csvContent: string): {
       row[header] = values[idx]?.trim().replace(/['"]/g, '') || '';
     });
 
-    // Try to find tweet ID
-    const tweetId = row['tweet id'] || row['tweet_id'] || row['id'] || 
-                    extractTweetIdFromPermalink(row['tweet permalink'] || row['permalink'] || '');
+    // Try to find tweet ID - support both old and new formats
+    let tweetId = row['tweet id'] || row['tweet_id'] || row['id'] || row['post id'] || '';
+    
+    // Extract from post link if not found
+    if (!tweetId && row['post link']) {
+      tweetId = extractTweetIdFromPermalink(row['post link']) || '';
+    }
+    if (!tweetId) {
+      tweetId = extractTweetIdFromPermalink(row['tweet permalink'] || row['permalink'] || '');
+    }
 
     if (!tweetId) continue;
 
-    // Parse date
+    // Parse date - support new format "Wed, Jan 14, 2026"
     const dateStr = row['time'] || row['date'] || row['posted_at'] || '';
     const postedAt = parseTwitterDate(dateStr);
 
-    // Parse numeric values
+    // Parse numeric values - support both old column names and new format
     const impressions = parseNumber(row['impressions']);
     const engagements = parseNumber(row['engagements']);
-    const retweets = parseNumber(row['retweets']);
-    const replies = parseNumber(row['replies']);
     const likes = parseNumber(row['likes']);
-    const profileClicks = parseNumber(row['user profile clicks'] || row['profile_clicks']);
+    const retweets = parseNumber(row['retweets'] || row['reposts']);
+    const replies = parseNumber(row['replies']);
+    const bookmarks = parseNumber(row['bookmarks']);
+    const shares = parseNumber(row['shares']);
+    const newFollows = parseNumber(row['new follows']);
+    const profileClicks = parseNumber(row['user profile clicks'] || row['profile_clicks'] || row['profile visits']);
     const urlClicks = parseNumber(row['url clicks'] || row['url_clicks']);
     const hashtagClicks = parseNumber(row['hashtag clicks'] || row['hashtag_clicks']);
     const detailExpands = parseNumber(row['detail expands'] || row['detail_expands']);
+    const permalinkClicks = parseNumber(row['permalink clicks']);
     const mediaViews = parseNumber(row['media views'] || row['media_views']);
     const mediaEngagements = parseNumber(row['media engagements'] || row['media_engagements']);
 
     const engagementRate = impressions > 0 ? (engagements / impressions) * 100 : 0;
 
+    // Get content - support both old and new format
+    const content = row['tweet text'] || row['text'] || row['content'] || row['post text'] || null;
+
     posts.push({
       tweet_id: tweetId,
-      content: row['tweet text'] || row['text'] || row['content'] || null,
+      content,
       posted_at: postedAt,
       impressions,
       engagements,
@@ -260,7 +317,9 @@ function parseNumber(value: string | undefined): number {
 }
 
 function extractTweetIdFromPermalink(permalink: string): string | null {
-  const match = permalink.match(/status\/(\d+)/);
+  if (!permalink) return null;
+  // Match status/ID in various twitter URL formats
+  const match = permalink.match(/(?:status|statuses)\/(\d+)/);
   return match ? match[1] : null;
 }
 
@@ -269,16 +328,33 @@ function parseTwitterDate(dateStr: string): string | null {
   
   try {
     // Try ISO format first
-    if (dateStr.includes('T') || dateStr.includes('-')) {
+    if (dateStr.includes('T') || (dateStr.includes('-') && !dateStr.includes(','))) {
       const date = new Date(dateStr);
       if (!isNaN(date.getTime())) {
         return date.toISOString();
       }
     }
 
+    // Parse format like "Wed, Jan 14, 2026" or "Tue, Jan 13, 2026"
+    const newFormatMatch = dateStr.match(/^\w{3},\s+(\w{3})\s+(\d{1,2}),\s+(\d{4})$/);
+    if (newFormatMatch) {
+      const [, monthStr, day, year] = newFormatMatch;
+      const months: Record<string, number> = {
+        'Jan': 0, 'Feb': 1, 'Mar': 2, 'Apr': 3, 'May': 4, 'Jun': 5,
+        'Jul': 6, 'Aug': 7, 'Sep': 8, 'Oct': 9, 'Nov': 10, 'Dec': 11
+      };
+      const month = months[monthStr];
+      if (month !== undefined) {
+        const date = new Date(parseInt(year), month, parseInt(day));
+        if (!isNaN(date.getTime())) {
+          return date.toISOString();
+        }
+      }
+    }
+
     // Try common Twitter formats: "2024-01-15 14:30 +0000"
     const parts = dateStr.split(' ');
-    if (parts.length >= 2) {
+    if (parts.length >= 2 && parts[0].includes('-')) {
       const date = new Date(`${parts[0]}T${parts[1]}Z`);
       if (!isNaN(date.getTime())) {
         return date.toISOString();
