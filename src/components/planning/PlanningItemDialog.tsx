@@ -226,13 +226,26 @@ export function PlanningItemDialog({
         finalScheduledAt = setMinutes(setHours(scheduledAt, hours), minutes);
       }
 
+      // IMPORTANT: If scheduling is set, auto-move to "scheduled" column
+      let targetColumnId = columnId;
+      let targetStatus: 'idea' | 'draft' | 'review' | 'approved' | 'scheduled' | 'publishing' | 'published' | 'failed' = 'idea';
+      
+      if (finalScheduledAt && columns.length > 0) {
+        const scheduledColumn = columns.find(c => c.column_type === 'scheduled');
+        if (scheduledColumn) {
+          targetColumnId = scheduledColumn.id;
+          targetStatus = 'scheduled';
+        }
+      }
+
       const data: CreatePlanningItemInput & Record<string, any> = {
         title: title.trim(),
         content: finalContent.trim() || undefined,
         client_id: selectedClientId || undefined,
-        column_id: columnId || undefined,
+        column_id: targetColumnId || undefined,
         platform: platform || undefined,
         priority,
+        status: finalScheduledAt ? targetStatus : undefined,
         due_date: dueDate ? format(dueDate, 'yyyy-MM-dd') : undefined,
         scheduled_at: finalScheduledAt ? finalScheduledAt.toISOString() : undefined,
         media_urls: mediaItems.map(m => m.url),
