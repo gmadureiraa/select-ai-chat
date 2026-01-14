@@ -8,6 +8,8 @@ export interface Citation {
   category: string;
 }
 
+export type CitationType = Citation["type"];
+
 interface CitationChipProps {
   citation: Citation;
   onRemove: (id: string) => void;
