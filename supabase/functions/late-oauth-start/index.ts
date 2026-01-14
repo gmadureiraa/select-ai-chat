@@ -124,26 +124,35 @@ serve(async (req: Request) => {
         });
       }
 
-      // Store the profile ID for this client
-      await supabase
+      // Store the profile ID for this client (using service role to bypass RLS)
+      const supabaseServiceRole = createClient(
+        supabaseUrl, 
+        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+      );
+      
+      await supabaseServiceRole
         .from('client_social_credentials')
         .upsert({
           client_id: clientId,
           platform: 'late_profile',
-          metadata: { late_profile_id: profileId },
+          metadata: { late_profile_id: profileId, client_id: clientId },
           is_valid: true,
         }, {
           onConflict: 'client_id,platform',
         });
     }
 
-    // Build callback URL
+    // Build callback URL - DO NOT add query params here, Late API will append its own
+    // We'll store the mapping client_id -> profile_id so the callback can look it up
     const callbackUrl = `${supabaseUrl}/functions/v1/late-oauth-callback`;
 
     // Call Late API to start OAuth flow
     const connectUrl = new URL(`${LATE_API_BASE}/v1/connect/${platform}`);
     connectUrl.searchParams.set('profileId', profileId);
-    connectUrl.searchParams.set('redirect_url', `${callbackUrl}?clientId=${clientId}&platform=${platform}`);
+    // Use clean redirect_url without extra query params
+    connectUrl.searchParams.set('redirect_url', callbackUrl);
+
+    console.log("Starting OAuth with URL:", connectUrl.toString());
 
     const lateResponse = await fetch(connectUrl.toString(), {
       method: "GET",
