@@ -19,7 +19,6 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { SettingsNavigation, SettingsSection } from "@/components/settings/SettingsNavigation";
 import { ActivitiesSection } from "@/components/settings/ActivitiesSection";
-import { AdvancedSection } from "@/components/settings/AdvancedSection";
 
 export default function Settings() {
   const { user } = useAuth();
@@ -340,8 +339,6 @@ export default function Settings() {
         return <TeamManagement />;
       case "activities":
         return <ActivitiesSection />;
-      case "advanced":
-        return <AdvancedSection />;
       case "appearance":
         return renderAppearanceSection();
       default:
@@ -359,7 +356,6 @@ export default function Settings() {
             onSectionChange={setActiveSection}
             showTeam={canManageTeam}
             showActivities={canViewActivities}
-            showAdvanced={canViewKnowledgeBase}
           />
           
           {/* Content */}

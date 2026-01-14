@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Check, MessageCircle, Sparkles, Crown, Loader2 } from "lucide-react";
+import { Check, MessageCircle, LayoutDashboard, BarChart3, Crown, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -23,59 +23,55 @@ const WHATSAPP_LINK = "https://api.whatsapp.com/send/?phone=12936180547&text=Ol%
 
 const plans = [
   {
-    id: "starter",
-    name: "Starter",
-    price: "R$ 497,90",
+    id: "basic",
+    name: "Basic",
+    price: "$25",
     period: "/mês",
-    description: "Para criadores individuais",
+    description: "Focado no Canvas de Criação",
     features: [
       "1 cliente",
-      "1 usuário (apenas você)",
-      "Convidados visualizadores",
-      "10.000 tokens/mês",
-      "Acesso a todos os modelos IA",
-      "Biblioteca completa",
-      "Performance analytics",
+      "1 usuário",
+      "Canvas ilimitado",
+      "10 templates",
+      "Batch até 5",
+      "IA multi-agente",
     ],
-    icon: Sparkles,
+    icon: LayoutDashboard,
     highlighted: false,
-    planType: "starter",
+    planType: "basic",
   },
   {
-    id: "pro",
-    name: "Pro",
-    price: "R$ 1.497,90",
+    id: "agency",
+    name: "Agency",
+    price: "$100",
     period: "/mês",
-    description: "Para agências e equipes",
+    description: "Suite completa para agências",
     features: [
-      "Até 5 clientes",
-      "Até 3 membros no time",
-      "Até 10 visualizadores",
-      "50.000 tokens/mês",
-      "Tudo do Starter",
-      "Integrações avançadas",
-      "API completa",
-      "Gerente de sucesso dedicado",
+      "Até 10 clientes",
+      "Até 5 membros",
+      "Tudo do Basic",
+      "Performance analytics",
+      "Biblioteca de conteúdos",
+      "Publicação agendada",
+      "Integrações",
     ],
-    icon: Crown,
+    icon: BarChart3,
     highlighted: true,
-    planType: "pro",
+    planType: "agency",
   },
   {
     id: "enterprise",
     name: "Enterprise",
     price: "Sob consulta",
     period: "",
-    description: "Soluções sob medida para grandes operações",
+    description: "Soluções sob medida",
     features: [
       "Clientes ilimitados",
       "Membros ilimitados",
-      "Tokens ilimitados",
-      "Infraestrutura dedicada",
+      "White label",
+      "API completa",
       "SLA garantido",
-      "Treinamento personalizado",
-      "Integrações customizadas",
-      "Suporte 24/7",
+      "Treinamento dedicado",
     ],
     icon: Crown,
     highlighted: false,
@@ -121,7 +117,7 @@ export function UpgradePlanDialog({ open, onOpenChange, currentPlan }: UpgradePl
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-2xl flex items-center gap-2">
-            <Sparkles className="h-6 w-6 text-primary" />
+            <LayoutDashboard className="h-6 w-6 text-primary" />
             Escolha seu plano
           </DialogTitle>
           <DialogDescription>

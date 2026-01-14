@@ -1,25 +1,25 @@
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Sparkles, Users, Brain, LayoutDashboard } from "lucide-react";
+import { ArrowRight, Sparkles, LayoutDashboard, Brain, Zap } from "lucide-react";
 import { Link } from "react-router-dom";
 import RollingText from "./RollingText";
 import { useEffect, useRef } from "react";
 
 const featureCards = [
   {
-    icon: Users,
-    title: "Multi-clientes",
-    description: "Gerenciar vários clientes mantendo identidade única",
+    icon: LayoutDashboard,
+    title: "Canvas Visual",
+    description: "Arraste, conecte e crie fluxos de conteúdo",
   },
   {
     icon: Brain,
-    title: "IA que aprende",
-    description: "Cada cliente tem sua identidade preservada",
+    title: "IA Multi-Agente",
+    description: "4 agentes especializados por conteúdo",
   },
   {
-    icon: LayoutDashboard,
-    title: "Tudo em um só lugar",
-    description: "Criação + Planejamento + Analytics em um lugar",
+    icon: Zap,
+    title: "Geração em Batch",
+    description: "Crie até 10 variações de uma vez",
   },
 ];
 
@@ -137,9 +137,9 @@ const NewHeroSection = () => {
           transition={{ duration: 0.5 }}
           className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 mb-8"
         >
-          <Sparkles className="w-4 h-4 text-primary" />
+          <LayoutDashboard className="w-4 h-4 text-primary" />
           <span className="text-sm font-medium text-foreground">
-            Novo: IA para conteúdo com Kai Features
+            Canvas de Criação com IA Multi-Agente
           </span>
           <ArrowRight className="w-4 h-4 text-primary" />
         </motion.div>
@@ -151,9 +151,9 @@ const NewHeroSection = () => {
           transition={{ duration: 0.6, delay: 0.1 }}
           className="text-4xl sm:text-5xl md:text-7xl font-bold text-foreground leading-[1.1] mb-6 tracking-tight"
         >
-          A plataforma de conteúdo
+          O Canvas de criação de
           <br />
-          feita para{" "}
+          conteúdo para{" "}
           <RollingText words={rollingWords} />
         </motion.h1>
 
@@ -164,7 +164,8 @@ const NewHeroSection = () => {
           transition={{ duration: 0.6, delay: 0.2 }}
           className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-10 leading-relaxed"
         >
-          Produza, automatize, programe, organize e veja os resultados de tudo criado.
+          Crie conteúdos profissionais com fluxos visuais. 
+          Conecte fontes, briefings e IA em um só lugar.
         </motion.p>
 
         {/* CTAs */}
@@ -180,16 +181,16 @@ const NewHeroSection = () => {
               className="bg-foreground text-background hover:bg-foreground/90 px-8 py-6 text-base font-semibold rounded-full group"
             >
               <Sparkles className="mr-2 w-4 h-4" />
-              Começar agora
+              Começar 14 dias grátis
             </Button>
           </Link>
-          <a href="#features">
+          <a href="#canvas-demo">
             <Button
               size="lg"
               variant="outline"
               className="px-8 py-6 text-base font-medium rounded-full border-border hover:bg-muted"
             >
-              Ver funcionalidades
+              Ver o Canvas
               <ArrowRight className="ml-2 w-4 h-4" />
             </Button>
           </a>

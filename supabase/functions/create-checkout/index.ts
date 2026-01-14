@@ -7,16 +7,28 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Plan configuration with Stripe price IDs (BRL)
+// Plan configuration with Stripe price IDs (USD)
+// TODO: Update these with actual Stripe price IDs after creating products
 const PLANS = {
+  basic: {
+    priceId: "price_BASIC_25_USD", // $25/mês - PLACEHOLDER
+    productId: "prod_BASIC_USD",
+    trialDays: 14,
+  },
+  agency: {
+    priceId: "price_AGENCY_100_USD", // $100/mês - PLACEHOLDER
+    productId: "prod_AGENCY_USD",
+    trialDays: 14,
+  },
+  // Legacy support for old plan names
   starter: {
-    priceId: "price_1ShjAAPIJtcImSMvRqRHP8eJ", // R$ 497,90/mês
-    productId: "prod_Tf3GbZjJw3c29F",
+    priceId: "price_BASIC_25_USD", // Maps to basic
+    productId: "prod_BASIC_USD",
     trialDays: 14,
   },
   pro: {
-    priceId: "price_1ShjAIPIJtcImSMvuFrHLB7P", // R$ 1.497,90/mês
-    productId: "prod_Tf3GyfJj9Kfi61",
+    priceId: "price_AGENCY_100_USD", // Maps to agency
+    productId: "prod_AGENCY_USD",
     trialDays: 14,
   },
 };
@@ -43,7 +55,7 @@ serve(async (req) => {
     logStep("Received request", { planType, isNewWorkspace, workspaceName, workspaceSlug, currentSlug });
 
     if (!planType || !PLANS[planType as keyof typeof PLANS]) {
-      throw new Error(`Invalid plan type: ${planType}. Must be 'starter' or 'pro'`);
+      throw new Error(`Invalid plan type: ${planType}. Must be 'basic', 'agency', 'starter', or 'pro'`);
     }
 
     const plan = PLANS[planType as keyof typeof PLANS];
