@@ -1,4 +1,4 @@
-import { Twitter, Linkedin, Loader2, Check, Trash2, Share2, RefreshCw, Instagram, Video, Youtube } from "lucide-react";
+import { Twitter, Linkedin, Loader2, Check, Trash2, Share2, RefreshCw, Instagram, Video, Youtube, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -6,6 +6,8 @@ import { useSocialCredentials } from "@/hooks/useSocialCredentials";
 import { usePlanFeatures } from "@/hooks/usePlanFeatures";
 import { EnterpriseLockScreen } from "@/components/shared/EnterpriseLockScreen";
 import { useLateConnection, LatePlatform } from "@/hooks/useLateConnection";
+import { useClientPlatformStatus } from "@/hooks/useClientPlatformStatus";
+import { useToast } from "@/components/ui/use-toast";
 
 interface SocialIntegrationsTabProps {
   clientId: string;
@@ -70,8 +72,26 @@ export function SocialIntegrationsTab({ clientId }: SocialIntegrationsTabProps) 
     isLoading, 
   } = useSocialCredentials(clientId);
   const { isEnterprise } = usePlanFeatures();
+  const { toast } = useToast();
 
   const lateConnection = useLateConnection({ clientId });
+  const { verifyAccounts, isVerifying } = useClientPlatformStatus(clientId);
+
+  const handleSyncWithLate = async () => {
+    try {
+      await verifyAccounts.mutateAsync();
+      toast({
+        title: "Sincronizado",
+        description: "Status das contas atualizado com sucesso.",
+      });
+    } catch (error) {
+      toast({
+        title: "Erro ao sincronizar",
+        description: error instanceof Error ? error.message : "Falha ao verificar contas",
+        variant: "destructive",
+      });
+    }
+  };
 
   // Removed the useEffect that reads query params - all OAuth handling is now via postMessage only
   // This eliminates "ghost toasts" from stale query parameters
@@ -218,11 +238,26 @@ export function SocialIntegrationsTab({ clientId }: SocialIntegrationsTabProps) 
 
   return (
     <div className="space-y-6">
-      <div>
-        <h3 className="text-lg font-medium">Integrações Sociais</h3>
-        <p className="text-sm text-muted-foreground">
-          Conecte suas redes sociais para publicação automática
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-lg font-medium">Integrações Sociais</h3>
+          <p className="text-sm text-muted-foreground">
+            Conecte suas redes sociais para publicação automática
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleSyncWithLate}
+          disabled={isVerifying}
+        >
+          {isVerifying ? (
+            <Loader2 className="h-4 w-4 animate-spin mr-2" />
+          ) : (
+            <RefreshCw className="h-4 w-4 mr-2" />
+          )}
+          Sincronizar
+        </Button>
       </div>
 
       <div className="grid gap-4">

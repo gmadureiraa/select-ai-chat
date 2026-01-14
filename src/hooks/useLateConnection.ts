@@ -270,11 +270,10 @@ export function useLateConnection({ clientId }: UseLateConnectionProps) {
       setIsLoading(true);
       setCurrentPlatform(platform);
 
-      const { error } = await supabase
-        .from('client_social_credentials')
-        .delete()
-        .eq('client_id', clientId)
-        .eq('platform', platform);
+      // Call edge function to disconnect from Late API and delete local credential
+      const { error } = await supabase.functions.invoke('late-disconnect-account', {
+        body: { clientId, platform }
+      });
 
       if (error) {
         throw new Error(error.message);
