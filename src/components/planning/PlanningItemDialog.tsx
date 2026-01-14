@@ -318,6 +318,7 @@ export function PlanningItemDialog({
         {
           mediaUrls: mediaItems.map(m => m.url),
           planningItemId: item?.id,
+          threadItems: isTwitterThread ? threadTweets : undefined,
         }
       );
       toast.success(`Publicado em ${platform}!`);

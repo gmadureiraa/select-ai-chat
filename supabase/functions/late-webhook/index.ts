@@ -64,12 +64,28 @@ serve(async (req: Request) => {
       // Update planning item to published status
       const existingMetadata = (planningItem.metadata as Record<string, unknown>) || {};
       
+      // Find the published column for this workspace
+      let publishedColumnId = planningItem.column_id;
+      if (planningItem.workspace_id) {
+        const { data: publishedColumn } = await supabase
+          .from("kanban_columns")
+          .select("id")
+          .eq("workspace_id", planningItem.workspace_id)
+          .eq("column_type", "published")
+          .single();
+        
+        if (publishedColumn) {
+          publishedColumnId = publishedColumn.id;
+        }
+      }
+      
       const { error: updateError } = await supabase
         .from("planning_items")
         .update({
           status: "published",
           published_at: event.timestamp || new Date().toISOString(),
           error_message: null,
+          column_id: publishedColumnId,
           metadata: {
             ...existingMetadata,
             published_url: event.platformPostUrl,
