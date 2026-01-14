@@ -18,6 +18,9 @@ export interface TwitterPost {
   detail_expands?: number | null;
   media_views?: number | null;
   media_engagements?: number | null;
+  full_content?: string | null;
+  images?: string[] | null;
+  content_synced_at?: string | null;
   metadata?: Record<string, unknown> | null;
   created_at?: string | null;
   updated_at?: string | null;

@@ -20,11 +20,13 @@ import {
   Repeat2,
   MessageCircle,
   Eye,
-  MousePointer
+  Edit,
+  CheckCircle2
 } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { TwitterPost } from "@/types/twitter";
+import { TwitterPostEditDialog } from "./TwitterPostEditDialog";
 
 interface TwitterPostsTableProps {
   posts: TwitterPost[];
@@ -39,6 +41,7 @@ export function TwitterPostsTable({ posts, isLoading }: TwitterPostsTableProps) 
   const [sortField, setSortField] = useState<SortField>('posted_at');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [page, setPage] = useState(0);
+  const [editingPost, setEditingPost] = useState<TwitterPost | null>(null);
   const pageSize = 20;
 
   const filteredPosts = useMemo(() => {
@@ -220,6 +223,7 @@ export function TwitterPostsTable({ posts, isLoading }: TwitterPostsTableProps) 
                     <SortIcon field="engagement_rate" />
                   </div>
                 </TableHead>
+                <TableHead className="w-[100px] text-center">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -230,17 +234,25 @@ export function TwitterPostsTable({ posts, isLoading }: TwitterPostsTableProps) 
                       <p className="text-sm line-clamp-2">
                         {post.content || <span className="text-muted-foreground italic">Sem texto</span>}
                       </p>
-                      {post.tweet_id && (
-                        <a 
-                          href={`https://twitter.com/i/web/status/${post.tweet_id}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1"
-                        >
-                          <ExternalLink className="h-3 w-3" />
-                          Ver tweet
-                        </a>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {post.tweet_id && (
+                          <a 
+                            href={`https://twitter.com/i/web/status/${post.tweet_id}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1"
+                          >
+                            <ExternalLink className="h-3 w-3" />
+                            Ver tweet
+                          </a>
+                        )}
+                        {post.content_synced_at && (
+                          <span className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-0.5">
+                            <CheckCircle2 className="h-3 w-3" />
+                            Sincronizado
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
@@ -271,6 +283,16 @@ export function TwitterPostsTable({ posts, isLoading }: TwitterPostsTableProps) 
                     <Badge variant="outline" className="font-mono">
                       {(post.engagement_rate || 0).toFixed(2)}%
                     </Badge>
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setEditingPost(post)}
+                      className="h-7 w-7 p-0"
+                    >
+                      <Edit className="h-3.5 w-3.5" />
+                    </Button>
                   </TableCell>
                 </TableRow>
               ))}
@@ -305,6 +327,13 @@ export function TwitterPostsTable({ posts, isLoading }: TwitterPostsTableProps) 
           </div>
         </div>
       )}
+
+      {/* Edit Dialog */}
+      <TwitterPostEditDialog
+        post={editingPost}
+        open={!!editingPost}
+        onOpenChange={(open) => !open && setEditingPost(null)}
+      />
     </div>
   );
 }
