@@ -463,7 +463,7 @@ export function TwitterDashboard({ clientId, posts, isLoading }: TwitterDashboar
           <CardTitle className="text-base">Todos os Tweets</CardTitle>
         </CardHeader>
         <CardContent>
-          <TwitterPostsTable posts={posts} isLoading={isLoading} />
+          <TwitterPostsTable posts={posts} isLoading={isLoading} clientId={clientId} />
         </CardContent>
       </Card>
 

@@ -2,9 +2,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Eye, MousePointer, Mail, TrendingUp, TrendingDown, Minus, Library } from "lucide-react";
+import { Eye, MousePointer, Mail, TrendingUp, TrendingDown, Minus, Rss } from "lucide-react";
 import { useNewsletterPosts } from "@/hooks/usePerformanceMetrics";
-import { NewsletterLibraryBadge } from "./NewsletterLibraryBadge";
+import { NewsletterSyncBadge } from "./NewsletterSyncBadge";
 
 interface NewsletterMetricsTableProps {
   clientId: string;
@@ -93,8 +93,8 @@ export function NewsletterMetricsTable({ clientId, isLoading: externalLoading }:
             <TableHead className="text-xs text-center">Status</TableHead>
             <TableHead className="text-xs text-center">
               <div className="flex items-center justify-center gap-1">
-                <Library className="h-3 w-3" />
-                Biblioteca
+                <Rss className="h-3 w-3" />
+                Sync
               </div>
             </TableHead>
           </TableRow>
@@ -141,7 +141,7 @@ export function NewsletterMetricsTable({ clientId, isLoading: externalLoading }:
                   {openRate > 0 ? getOpenRateBadge(openRate) : "-"}
                 </TableCell>
                 <TableCell className="text-center">
-                  <NewsletterLibraryBadge
+                  <NewsletterSyncBadge
                     postId={post.id}
                     clientId={clientId}
                     contentLibraryId={post.content_library_id}
