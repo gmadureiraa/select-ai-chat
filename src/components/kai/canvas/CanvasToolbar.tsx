@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link2, BookOpen, Lightbulb, Sparkles, Trash2, ZoomIn, ZoomOut, Maximize, Save, FolderOpen, ChevronDown, Loader2, X, Pencil, Wand2 } from "lucide-react";
+import { Link2, BookOpen, Lightbulb, Sparkles, Trash2, ZoomIn, ZoomOut, Maximize, Save, FolderOpen, ChevronDown, Loader2, X, Pencil, Wand2, LayoutTemplate } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -7,12 +7,15 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Input } from "@/components/ui/input";
 import { SavedCanvas } from "./hooks/useCanvasState";
 
+export type CanvasTemplate = "carousel_from_url" | "thread_from_video" | "newsletter_curated" | "reel_script" | "image_series";
+
 interface CanvasToolbarProps {
   onAddNode: (type: "source" | "library" | "prompt" | "generator" | "image-editor") => void;
   onClear: () => void;
   onZoomIn: () => void;
   onZoomOut: () => void;
   onFitView: () => void;
+  onLoadTemplate?: (templateId: CanvasTemplate) => void;
   // Canvas persistence
   currentCanvasName?: string;
   setCanvasName?: (name: string) => void;
@@ -24,12 +27,21 @@ interface CanvasToolbarProps {
   isSaving?: boolean;
 }
 
+const TEMPLATE_OPTIONS: { id: CanvasTemplate; icon: string; label: string; description: string }[] = [
+  { id: "carousel_from_url", icon: "🎠", label: "Carrossel de URL", description: "Extraia conteúdo e transforme em carrossel" },
+  { id: "thread_from_video", icon: "🧵", label: "Thread de Vídeo", description: "Transcreva vídeo e crie thread viral" },
+  { id: "newsletter_curated", icon: "📧", label: "Newsletter Curada", description: "Compile fontes em newsletter" },
+  { id: "reel_script", icon: "🎬", label: "Roteiro de Reel", description: "Crie roteiro para vídeo curto" },
+  { id: "image_series", icon: "🖼️", label: "Série de Imagens", description: "Gere múltiplas imagens de uma vez" },
+];
+
 export function CanvasToolbar({
   onAddNode,
   onClear,
   onZoomIn,
   onZoomOut,
   onFitView,
+  onLoadTemplate,
   currentCanvasName = "Novo Canvas",
   setCanvasName,
   onSave,
@@ -110,6 +122,39 @@ export function CanvasToolbar({
             </div>
           )}
         </div>
+
+        <Separator orientation="vertical" className="h-6 mx-1" />
+
+        {/* Templates dropdown */}
+        <DropdownMenu>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm" className="h-8 gap-1.5 text-xs hover:bg-primary/10 hover:text-primary">
+                  <LayoutTemplate className="h-4 w-4" />
+                  Templates
+                  <ChevronDown className="h-3 w-3" />
+                </Button>
+              </DropdownMenuTrigger>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">Carregar template de fluxo</TooltipContent>
+          </Tooltip>
+          <DropdownMenuContent align="center" className="w-72">
+            {TEMPLATE_OPTIONS.map((template) => (
+              <DropdownMenuItem 
+                key={template.id}
+                onClick={() => onLoadTemplate?.(template.id)}
+                className="flex items-start gap-3 py-2"
+              >
+                <span className="text-lg">{template.icon}</span>
+                <div className="flex flex-col">
+                  <span className="font-medium text-sm">{template.label}</span>
+                  <span className="text-xs text-muted-foreground">{template.description}</span>
+                </div>
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
 
         <Separator orientation="vertical" className="h-6 mx-1" />
 

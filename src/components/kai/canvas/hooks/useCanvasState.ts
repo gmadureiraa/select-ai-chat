@@ -103,8 +103,9 @@ export interface GeneratorNodeData {
   isGenerating: boolean;
   progress?: number;
   currentStep?: string;
-  // Content generation options
-  tone?: string;
+  // Batch generation
+  quantity?: number;
+  generatedCount?: number;
   // Image generation options
   imageStyle?: string;
   aspectRatio?: string;
@@ -251,7 +252,7 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
           format: "carousel",
           platform: "instagram",
           isGenerating: false,
-          tone: "professional",
+          quantity: 1,
           imageStyle: "photographic",
           aspectRatio: "1:1",
           noTextInImage: false,
@@ -680,143 +681,163 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
           description: "Sua imagem foi criada com sucesso",
         });
       } else {
-      // Generate text content
-        const userMessage = briefing 
-          ? `${briefing}\n\nMaterial de referência:\n${combinedContext}`
-          : `Crie conteúdo baseado no seguinte material:\n${combinedContext}`;
-
+        // Generate text content with batch support
+        const quantity = genData.quantity || 1;
+        
         // Get auth session for API call
         const { data: sessionData } = await supabase.auth.getSession();
         const accessToken = sessionData?.session?.access_token;
         if (!accessToken) throw new Error("Usuário não autenticado");
 
-        // Use fetch with SSE stream processing
-        const response = await fetch(
-          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat-multi-agent`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "Authorization": `Bearer ${accessToken}`,
-              "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-            },
-            body: JSON.stringify({
-              userMessage,
-              contentType: genData.format,
-              platform: genData.platform,
-              tone: genData.tone || "professional",
-              clientName: clientData?.name || "Cliente",
-              identityGuide: clientData?.identity_guide || "",
-              libraryContext: "",
-              referenceContext: "",
-              userId: sessionData?.session?.user?.id,
-              clientId,
-            }),
+        // Generate multiple variations
+        for (let i = 0; i < quantity; i++) {
+          const variationSuffix = quantity > 1 
+            ? `\n\nIMPORTANTE: Esta é a variação ${i + 1} de ${quantity}. Crie uma versão DIFERENTE e ÚNICA, com abordagem, estrutura ou ângulo distintos das outras variações.`
+            : "";
+          
+          const userMessage = briefing 
+            ? `${briefing}\n\nMaterial de referência:\n${combinedContext}${variationSuffix}`
+            : `Crie conteúdo baseado no seguinte material:\n${combinedContext}${variationSuffix}`;
+
+          // Update progress for batch
+          updateNodeData(generatorNodeId, {
+            currentStep: quantity > 1 ? `Gerando ${i + 1}/${quantity}...` : "Pesquisando...",
+            progress: Math.round((i / quantity) * 100),
+            generatedCount: i,
+          } as Partial<GeneratorNodeData>);
+
+          // Use fetch with SSE stream processing
+          const response = await fetch(
+            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat-multi-agent`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${accessToken}`,
+                "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+              },
+              body: JSON.stringify({
+                userMessage,
+                contentType: genData.format,
+                platform: genData.platform,
+                clientName: clientData?.name || "Cliente",
+                identityGuide: clientData?.identity_guide || "",
+                libraryContext: "",
+                referenceContext: "",
+                userId: sessionData?.session?.user?.id,
+                clientId,
+              }),
+            }
+          );
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Erro na API: ${response.status} - ${errorText}`);
           }
-        );
 
-        if (!response.ok) {
-          const errorText = await response.text();
-          throw new Error(`Erro na API: ${response.status} - ${errorText}`);
-        }
+          // Process SSE stream
+          const reader = response.body?.getReader();
+          if (!reader) throw new Error("Não foi possível ler a resposta");
 
-        // Process SSE stream
-        const reader = response.body?.getReader();
-        if (!reader) throw new Error("Não foi possível ler a resposta");
+          const decoder = new TextDecoder();
+          let buffer = "";
+          let finalContent = "";
 
-        const decoder = new TextDecoder();
-        let buffer = "";
-        let finalContent = "";
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
 
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split("\n");
+            buffer = lines.pop() || "";
 
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split("\n");
-          buffer = lines.pop() || "";
+            for (const line of lines) {
+              const trimmed = line.trim();
+              if (!trimmed || trimmed.startsWith(":")) continue;
 
-          for (const line of lines) {
-            const trimmed = line.trim();
-            if (!trimmed || trimmed.startsWith(":")) continue;
+              if (trimmed.startsWith("data: ")) {
+                const jsonStr = trimmed.slice(6).trim();
+                if (jsonStr === "[DONE]") continue;
 
-            if (trimmed.startsWith("data: ")) {
-              const jsonStr = trimmed.slice(6).trim();
-              if (jsonStr === "[DONE]") continue;
-
-              try {
-                const parsed = JSON.parse(jsonStr);
-                
-                // Update progress in real-time based on agent
-                if (parsed.status === "running" && parsed.agentName) {
-                  const progressMap: Record<string, number> = {
-                    "researcher": 25,
-                    "writer": 50,
-                    "editor": 75,
-                    "reviewer": 90,
-                  };
-                  const progressPercent = progressMap[parsed.step] || 50;
+                try {
+                  const parsed = JSON.parse(jsonStr);
                   
-                  updateNodeData(generatorNodeId, {
-                    currentStep: parsed.agentName,
-                    progress: progressPercent,
-                  } as Partial<GeneratorNodeData>);
+                  // Update progress in real-time based on agent (for single content)
+                  if (quantity === 1 && parsed.status === "running" && parsed.agentName) {
+                    const progressMap: Record<string, number> = {
+                      "researcher": 25,
+                      "writer": 50,
+                      "editor": 75,
+                      "reviewer": 90,
+                    };
+                    const progressPercent = progressMap[parsed.step] || 50;
+                    
+                    updateNodeData(generatorNodeId, {
+                      currentStep: parsed.agentName,
+                      progress: progressPercent,
+                    } as Partial<GeneratorNodeData>);
+                  }
+                  
+                  // Capture final content
+                  if (parsed.step === "complete" && parsed.status === "done" && parsed.content) {
+                    finalContent = parsed.content;
+                  }
+                } catch {
+                  // Ignore JSON parse errors for incomplete chunks
                 }
-                
-                // Capture final content
-                if (parsed.step === "complete" && parsed.status === "done" && parsed.content) {
-                  finalContent = parsed.content;
-                }
-              } catch {
-                // Ignore JSON parse errors for incomplete chunks
               }
             }
           }
-        }
 
-        if (!finalContent) throw new Error("Nenhum conteúdo gerado");
+          if (!finalContent) continue; // Skip this variation if no content
+
+          // Create output node with offset for batch
+          const yOffset = i * 180; // Stack outputs vertically
+          const outputPosition = {
+            x: generatorNode.position.x + 350,
+            y: generatorNode.position.y + yOffset
+          };
+
+          const outputId = addNode("output", outputPosition, {
+            type: "output",
+            content: finalContent,
+            format: genData.format,
+            platform: genData.platform,
+            isEditing: false,
+            addedToPlanning: false,
+            isImage: false,
+          } as OutputNodeData);
+
+          // Connect generator to output
+          setEdges((eds) => addEdge({
+            id: `${generatorNodeId}-${outputId}-${i}`,
+            source: generatorNodeId,
+            target: outputId,
+            sourceHandle: "output",
+            targetHandle: "input"
+          }, eds));
+        }
 
         updateNodeData(generatorNodeId, { 
           isGenerating: false, 
           progress: 100,
-          currentStep: "Concluído" 
+          currentStep: "Concluído",
+          generatedCount: quantity,
         } as Partial<GeneratorNodeData>);
 
-        // Create output node
-        const outputPosition = {
-          x: generatorNode.position.x + 350,
-          y: generatorNode.position.y
-        };
-
-        const outputId = addNode("output", outputPosition, {
-          type: "output",
-          content: finalContent,
-          format: genData.format,
-          platform: genData.platform,
-          isEditing: false,
-          addedToPlanning: false,
-          isImage: false,
-        } as OutputNodeData);
-
-        // Connect generator to output
-        setEdges((eds) => addEdge({
-          id: `${generatorNodeId}-${outputId}`,
-          source: generatorNodeId,
-          target: outputId,
-          sourceHandle: "output",
-          targetHandle: "input"
-        }, eds));
-
         toast({
-          title: "Conteúdo gerado",
-          description: `${genData.format} criado com sucesso`,
+          title: quantity > 1 ? "Conteúdos gerados" : "Conteúdo gerado",
+          description: quantity > 1 
+            ? `${quantity} variações de ${genData.format} criadas com sucesso`
+            : `${genData.format} criado com sucesso`,
         });
       }
     } catch (error) {
       console.error("Generation error:", error);
       updateNodeData(generatorNodeId, { 
         isGenerating: false,
-        currentStep: "Erro" 
+        currentStep: "Erro",
+        generatedCount: 0,
       } as Partial<GeneratorNodeData>);
       toast({
         title: "Erro na geração",
@@ -1150,6 +1171,78 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
     setCurrentCanvasName(name);
   }, []);
 
+  // Load template - pre-configured canvas flows
+  const loadTemplate = useCallback((templateId: string) => {
+    clearCanvas();
+    
+    const templates: Record<string, { nodes: any[]; edges: any[] }> = {
+      carousel_from_url: {
+        nodes: [
+          { id: "source-t1", type: "source", position: { x: 100, y: 150 }, data: { type: "source", sourceType: "url", value: "", files: [] } },
+          { id: "prompt-t1", type: "prompt", position: { x: 100, y: 350 }, data: { type: "prompt", briefing: "Transforme este conteúdo em um carrossel de 7-10 slides para Instagram" } },
+          { id: "generator-t1", type: "generator", position: { x: 450, y: 250 }, data: { type: "generator", format: "carousel", platform: "instagram", isGenerating: false, quantity: 1 } },
+        ],
+        edges: [
+          { id: "e1", source: "source-t1", target: "generator-t1", sourceHandle: "output", targetHandle: "input-1" },
+          { id: "e2", source: "prompt-t1", target: "generator-t1", sourceHandle: "output", targetHandle: "input-2" },
+        ]
+      },
+      thread_from_video: {
+        nodes: [
+          { id: "source-t1", type: "source", position: { x: 100, y: 200 }, data: { type: "source", sourceType: "file", value: "", files: [] } },
+          { id: "prompt-t1", type: "prompt", position: { x: 100, y: 400 }, data: { type: "prompt", briefing: "Crie uma thread viral com os principais insights deste vídeo" } },
+          { id: "generator-t1", type: "generator", position: { x: 450, y: 300 }, data: { type: "generator", format: "thread", platform: "twitter", isGenerating: false, quantity: 1 } },
+        ],
+        edges: [
+          { id: "e1", source: "source-t1", target: "generator-t1", sourceHandle: "output", targetHandle: "input-1" },
+          { id: "e2", source: "prompt-t1", target: "generator-t1", sourceHandle: "output", targetHandle: "input-2" },
+        ]
+      },
+      newsletter_curated: {
+        nodes: [
+          { id: "source-t1", type: "source", position: { x: 100, y: 100 }, data: { type: "source", sourceType: "url", value: "", files: [] } },
+          { id: "source-t2", type: "source", position: { x: 100, y: 300 }, data: { type: "source", sourceType: "url", value: "", files: [] } },
+          { id: "prompt-t1", type: "prompt", position: { x: 100, y: 500 }, data: { type: "prompt", briefing: "Compile estas fontes em uma newsletter com curadoria e análise" } },
+          { id: "generator-t1", type: "generator", position: { x: 450, y: 300 }, data: { type: "generator", format: "newsletter", platform: "other", isGenerating: false, quantity: 1 } },
+        ],
+        edges: [
+          { id: "e1", source: "source-t1", target: "generator-t1", sourceHandle: "output", targetHandle: "input-1" },
+          { id: "e2", source: "source-t2", target: "generator-t1", sourceHandle: "output", targetHandle: "input-2" },
+          { id: "e3", source: "prompt-t1", target: "generator-t1", sourceHandle: "output", targetHandle: "input-3" },
+        ]
+      },
+      reel_script: {
+        nodes: [
+          { id: "source-t1", type: "source", position: { x: 100, y: 150 }, data: { type: "source", sourceType: "text", value: "", files: [] } },
+          { id: "library-t1", type: "library", position: { x: 100, y: 350 }, data: { type: "library" } },
+          { id: "generator-t1", type: "generator", position: { x: 450, y: 250 }, data: { type: "generator", format: "reel_script", platform: "instagram", isGenerating: false, quantity: 1 } },
+        ],
+        edges: [
+          { id: "e1", source: "source-t1", target: "generator-t1", sourceHandle: "output", targetHandle: "input-1" },
+          { id: "e2", source: "library-t1", target: "generator-t1", sourceHandle: "output", targetHandle: "input-2" },
+        ]
+      },
+      image_series: {
+        nodes: [
+          { id: "source-t1", type: "source", position: { x: 100, y: 150 }, data: { type: "source", sourceType: "text", value: "", files: [] } },
+          { id: "prompt-t1", type: "prompt", position: { x: 100, y: 350 }, data: { type: "prompt", briefing: "Descreva o estilo visual desejado" } },
+          { id: "generator-t1", type: "generator", position: { x: 450, y: 250 }, data: { type: "generator", format: "image", platform: "instagram", isGenerating: false, imageStyle: "photographic", aspectRatio: "1:1" } },
+        ],
+        edges: [
+          { id: "e1", source: "source-t1", target: "generator-t1", sourceHandle: "output", targetHandle: "input-1" },
+          { id: "e2", source: "prompt-t1", target: "generator-t1", sourceHandle: "output", targetHandle: "input-2" },
+        ]
+      },
+    };
+
+    const template = templates[templateId];
+    if (template) {
+      setNodes(template.nodes);
+      setEdges(template.edges);
+      setCurrentCanvasName(templateId.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase()));
+    }
+  }, [clearCanvas]);
+
   return {
     nodes,
     edges,
@@ -1168,6 +1261,7 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
     sendToPlanning,
     clearCanvas,
     getConnectedInputs,
+    loadTemplate,
     // Canvas persistence
     savedCanvases,
     isLoadingCanvases,
