@@ -1,14 +1,13 @@
 import { cn } from "@/lib/utils";
-import { User, CreditCard, Users, Activity, BookOpen, Palette } from "lucide-react";
+import { User, CreditCard, Users, Activity, Palette } from "lucide-react";
 
-export type SettingsSection = "profile" | "billing" | "team" | "activities" | "advanced" | "appearance";
+export type SettingsSection = "profile" | "billing" | "team" | "activities" | "appearance";
 
 interface SettingsNavigationProps {
   activeSection: SettingsSection;
   onSectionChange: (section: SettingsSection) => void;
   showTeam?: boolean;
   showActivities?: boolean;
-  showAdvanced?: boolean;
 }
 
 const sections = [
@@ -16,7 +15,6 @@ const sections = [
   { id: "billing" as const, label: "Plano & Créditos", icon: CreditCard },
   { id: "team" as const, label: "Time", icon: Users, requiresPermission: "team" },
   { id: "activities" as const, label: "Atividades", icon: Activity, requiresPermission: "activities" },
-  { id: "advanced" as const, label: "Avançado", icon: BookOpen, requiresPermission: "advanced" },
   { id: "appearance" as const, label: "Aparência", icon: Palette },
 ];
 
@@ -24,13 +22,11 @@ export function SettingsNavigation({
   activeSection, 
   onSectionChange, 
   showTeam = true,
-  showActivities = true,
-  showAdvanced = true
+  showActivities = true
 }: SettingsNavigationProps) {
   const visibleSections = sections.filter(section => {
     if (section.requiresPermission === "team" && !showTeam) return false;
     if (section.requiresPermission === "activities" && !showActivities) return false;
-    if (section.requiresPermission === "advanced" && !showAdvanced) return false;
     return true;
   });
 

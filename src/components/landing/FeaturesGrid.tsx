@@ -1,29 +1,28 @@
 import { motion } from "framer-motion";
-import { Users, FolderOpen, Zap, BarChart3 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { LayoutDashboard, Layers, Zap, Sparkles } from "lucide-react";
 
 const features = [
   {
-    icon: Users,
-    title: "Acesso por Time",
+    icon: LayoutDashboard,
+    title: "Canvas Drag-and-Drop",
     description:
-      "Cada membro do time acessa os clientes atribuídos com permissões personalizadas.",
+      "Arraste fontes, conecte nós e visualize todo o fluxo de criação em tempo real.",
   },
   {
-    icon: FolderOpen,
-    title: "Clientes Organizados",
+    icon: Layers,
+    title: "Templates Prontos",
     description:
-      "Briefings, brand guidelines, histórico de conversas e arquivos em um só lugar.",
+      "10+ templates: Carrossel, Thread, Newsletter, Artigo, Reels e mais.",
   },
   {
     icon: Zap,
-    title: "Geração Inteligente",
-    description: "IA especializada para criar conteúdo no tom de voz do cliente.",
+    title: "Geração Múltipla",
+    description: "Crie até 10 variações de conteúdo com um único clique no Canvas.",
   },
   {
-    icon: BarChart3,
-    title: "Performance",
-    description: "Dashboard com métricas de todos os clientes e canais integrados.",
+    icon: Sparkles,
+    title: "IA Multi-Agente",
+    description: "4 agentes especializados refinam cada conteúdo automaticamente.",
   },
 ];
 
@@ -40,11 +39,11 @@ const FeaturesGrid = () => {
           className="text-center mb-16"
         >
           <h2 className="text-4xl md:text-5xl font-light text-foreground mb-4">
-            Como seu{" "}
-            <span className="italic text-muted-foreground">time</span> vai trabalhar
+            O que o{" "}
+            <span className="italic text-primary">Canvas</span> faz por você
           </h2>
           <p className="text-muted-foreground text-lg font-light max-w-xl mx-auto">
-            Uma plataforma onde cada pessoa vê o que precisa, sem confusão.
+            Tudo que você precisa para criar conteúdo profissional em escala.
           </p>
         </motion.div>
 
@@ -57,14 +56,14 @@ const FeaturesGrid = () => {
             transition={{ duration: 0.7 }}
             className="relative order-2 lg:order-1"
           >
-            <div className="relative rounded-3xl overflow-hidden h-[400px] bg-gradient-to-br from-violet-500/10 to-secondary/10 border border-border">
+            <div className="relative rounded-3xl overflow-hidden h-[400px] bg-gradient-to-br from-primary/10 via-secondary/10 to-accent/10 border border-border">
               {/* Gradient blob */}
               <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] h-[300px] rounded-full bg-primary/20 blur-[80px]" />
 
-              {/* Decorative workflow illustration */}
+              {/* Decorative Canvas illustration */}
               <div className="absolute inset-0 flex items-center justify-center p-8">
                 <div className="flex flex-col gap-4 w-full max-w-xs">
-                  {["Agência", "Time", "Clientes"].map((item, index) => (
+                  {["Fonte", "Template", "Conteúdo"].map((item, index) => (
                     <motion.div
                       key={item}
                       initial={{ opacity: 0, x: -20 }}
@@ -73,7 +72,7 @@ const FeaturesGrid = () => {
                       transition={{ delay: 0.3 + index * 0.15 }}
                       className="flex items-center gap-3"
                     >
-                      <div className="w-3 h-3 rounded-full bg-gradient-to-r from-secondary to-accent" />
+                      <div className="w-3 h-3 rounded-full bg-gradient-to-r from-primary to-secondary" />
                       <div className="flex-1 h-12 rounded-xl bg-card border border-border flex items-center px-4">
                         <span className="text-muted-foreground text-sm">{item}</span>
                       </div>

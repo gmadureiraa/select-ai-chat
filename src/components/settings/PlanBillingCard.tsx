@@ -96,8 +96,10 @@ export function PlanBillingCard() {
 
   const planTypeLabels: Record<string, { label: string; color: string }> = {
     free: { label: "Gratuito", color: "bg-muted text-muted-foreground" },
-    starter: { label: "Starter", color: "bg-blue-500/10 text-blue-600 dark:text-blue-400" },
-    pro: { label: "Pro", color: "bg-purple-500/10 text-purple-600 dark:text-purple-400" },
+    basic: { label: "Basic", color: "bg-blue-500/10 text-blue-600 dark:text-blue-400" },
+    starter: { label: "Basic", color: "bg-blue-500/10 text-blue-600 dark:text-blue-400" },
+    agency: { label: "Agency", color: "bg-purple-500/10 text-purple-600 dark:text-purple-400" },
+    pro: { label: "Agency", color: "bg-purple-500/10 text-purple-600 dark:text-purple-400" },
     enterprise: { label: "Enterprise", color: "bg-gradient-to-r from-amber-500/10 to-orange-500/10 text-amber-600 dark:text-amber-400" },
   };
 

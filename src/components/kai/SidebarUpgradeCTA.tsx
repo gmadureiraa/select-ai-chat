@@ -1,4 +1,4 @@
-import { Sparkles, Zap, Users, Building2 } from "lucide-react";
+import { Sparkles, LayoutDashboard, BarChart3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useNavigate, useParams } from "react-router-dom";
@@ -8,7 +8,7 @@ interface SidebarUpgradeCTAProps {
   planName?: string;
 }
 
-export function SidebarUpgradeCTA({ collapsed, planName = "Starter" }: SidebarUpgradeCTAProps) {
+export function SidebarUpgradeCTA({ collapsed, planName = "Basic" }: SidebarUpgradeCTAProps) {
   const navigate = useNavigate();
   const { slug } = useParams<{ slug: string }>();
 
@@ -16,8 +16,9 @@ export function SidebarUpgradeCTA({ collapsed, planName = "Starter" }: SidebarUp
     return null;
   }
 
-  // Only show for Starter plan users
-  if (planName?.toLowerCase() !== "starter") {
+  // Only show for Basic plan users
+  const normalizedPlan = planName?.toLowerCase();
+  if (normalizedPlan !== "basic" && normalizedPlan !== "starter") {
     return null;
   }
 
@@ -38,28 +39,28 @@ export function SidebarUpgradeCTA({ collapsed, planName = "Starter" }: SidebarUp
         <div className="relative z-10">
           <div className="flex items-center gap-2 mb-2">
             <div className="p-1.5 rounded-lg bg-primary/20">
-              <Sparkles className="h-4 w-4 text-primary" />
+              <BarChart3 className="h-4 w-4 text-primary" />
             </div>
-            <span className="text-sm font-semibold text-foreground">Upgrade Pro</span>
+            <span className="text-sm font-semibold text-foreground">Upgrade Agency</span>
           </div>
 
           <p className="text-xs text-muted-foreground mb-3 leading-relaxed">
-            Desbloqueie todo o potencial do Kaleidos
+            Desbloqueie analytics, biblioteca e publicação
           </p>
 
           {/* Benefits */}
           <div className="space-y-1.5 mb-4">
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <Building2 className="h-3.5 w-3.5 text-primary" />
-              <span>+5 clientes</span>
+              <LayoutDashboard className="h-3.5 w-3.5 text-primary" />
+              <span>+10 clientes</span>
             </div>
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <Users className="h-3.5 w-3.5 text-secondary" />
-              <span>+10 membros</span>
+              <BarChart3 className="h-3.5 w-3.5 text-secondary" />
+              <span>Performance analytics</span>
             </div>
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <Zap className="h-3.5 w-3.5 text-accent" />
-              <span>Automações ilimitadas</span>
+              <Sparkles className="h-3.5 w-3.5 text-accent" />
+              <span>Publicação agendada</span>
             </div>
           </div>
 
@@ -74,7 +75,7 @@ export function SidebarUpgradeCTA({ collapsed, planName = "Starter" }: SidebarUp
             )}
           >
             <Sparkles className="h-3.5 w-3.5 mr-1.5" />
-            Fazer Upgrade
+            Upgrade $100/mês
           </Button>
         </div>
       </div>

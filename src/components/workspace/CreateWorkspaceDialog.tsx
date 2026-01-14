@@ -22,17 +22,17 @@ interface CreateWorkspaceDialogProps {
 }
 
 const PLANS = {
-  starter: {
-    name: "Starter",
-    price: "R$ 497,90",
-    description: "Ideal para começar",
-    features: ["1.000 tokens/mês", "Até 5 clientes", "Suporte por email"],
+  basic: {
+    name: "Basic",
+    price: "$25",
+    description: "Canvas de criação focado",
+    features: ["1 cliente", "Canvas ilimitado", "10 templates"],
   },
-  pro: {
-    name: "Pro",
-    price: "R$ 1.497,90",
-    description: "Para agências em crescimento",
-    features: ["5.000 tokens/mês", "Clientes ilimitados", "Suporte prioritário"],
+  agency: {
+    name: "Agency",
+    price: "$100",
+    description: "Suite completa para agências",
+    features: ["10 clientes", "5 membros", "Analytics + Biblioteca"],
   },
 };
 
@@ -40,7 +40,7 @@ export function CreateWorkspaceDialog({ open, onOpenChange }: CreateWorkspaceDia
   const navigate = useNavigate();
   const [workspaceName, setWorkspaceName] = useState("");
   const [slug, setSlug] = useState("");
-  const [selectedPlan, setSelectedPlan] = useState<"starter" | "pro">("starter");
+  const [selectedPlan, setSelectedPlan] = useState<"basic" | "agency">("basic");
   const [isCheckingSlug, setIsCheckingSlug] = useState(false);
   const [isSlugAvailable, setIsSlugAvailable] = useState<boolean | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -120,7 +120,7 @@ export function CreateWorkspaceDialog({ open, onOpenChange }: CreateWorkspaceDia
   const handleReset = () => {
     setWorkspaceName("");
     setSlug("");
-    setSelectedPlan("starter");
+    setSelectedPlan("basic");
     setIsSlugAvailable(null);
   };
 
@@ -186,7 +186,7 @@ export function CreateWorkspaceDialog({ open, onOpenChange }: CreateWorkspaceDia
             <Label>Escolha seu Plano</Label>
             <RadioGroup
               value={selectedPlan}
-              onValueChange={(value) => setSelectedPlan(value as "starter" | "pro")}
+              onValueChange={(value) => setSelectedPlan(value as "basic" | "agency")}
               className="grid grid-cols-2 gap-3"
             >
               {(Object.keys(PLANS) as Array<keyof typeof PLANS>).map((planKey) => {
