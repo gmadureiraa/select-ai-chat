@@ -9,6 +9,9 @@ export type ReferenceType =
   | "reel"
   | "video"
   | "article"
+  | "video_script"
+  | "podcast"
+  | "newsletter"
   | "other";
 
 export interface ReferenceItem {

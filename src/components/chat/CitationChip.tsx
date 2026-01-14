@@ -1,10 +1,10 @@
-import { X, FileText, BookOpen, Wand2, User, Building2 } from "lucide-react";
+import { X, FileText, BookOpen, Wand2, User, Building2, BarChart3 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export interface Citation {
   id: string;
   title: string;
-  type: "content_library" | "reference_library" | "format" | "assignee" | "client";
+  type: "content_library" | "reference_library" | "format" | "assignee" | "client" | "performance";
   category: string;
 }
 
@@ -21,6 +21,7 @@ export const CitationChip = ({ citation, onRemove, className }: CitationChipProp
     if (citation.type === "client") return Building2;
     if (citation.type === "format") return Wand2;
     if (citation.type === "reference_library") return BookOpen;
+    if (citation.type === "performance") return BarChart3;
     return FileText;
   };
   

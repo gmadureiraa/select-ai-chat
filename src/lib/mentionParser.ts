@@ -1,4 +1,4 @@
-export type MentionType = 'content' | 'reference' | 'user';
+export type MentionType = 'content' | 'reference' | 'user' | 'performance';
 
 export interface Mention {
   title: string;
@@ -10,7 +10,7 @@ export interface Mention {
 }
 
 // Regex para detectar menções no formato @[título](tipo:id)
-const MENTION_REGEX = /@\[([^\]]+)\]\((content|reference|user):([a-f0-9-]+)\)/g;
+const MENTION_REGEX = /@\[([^\]]+)\]\((content|reference|user|performance):([a-f0-9-]+)\)/g;
 
 /**
  * Extrai todas as menções de um texto
