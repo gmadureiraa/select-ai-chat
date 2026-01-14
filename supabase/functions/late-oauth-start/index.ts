@@ -70,53 +70,28 @@ serve(async (req: Request) => {
 
     let profileId = credentials?.metadata?.late_profile_id;
 
-    // If no profile exists, get or create one
+    // If no profile exists for this client, always create a new unique one
     if (!profileId) {
-      // List existing profiles
-      const profilesResponse = await fetch(`${LATE_API_BASE}/v1/profiles`, {
+      // Always create a new profile for each client to ensure unique 1:1 mapping
+      const createProfileResponse = await fetch(`${LATE_API_BASE}/v1/profiles`, {
+        method: "POST",
         headers: {
           "Authorization": `Bearer ${LATE_API_KEY}`,
+          "Content-Type": "application/json",
         },
+        body: JSON.stringify({
+          name: `Client ${clientId}`,
+        }),
       });
 
-      if (profilesResponse.ok) {
-        const profilesData = await profilesResponse.json();
-        if (profilesData.profiles && profilesData.profiles.length > 0) {
-          // Use the first profile
-          profileId = profilesData.profiles[0]._id;
-        } else {
-          // Create a new profile
-          const createProfileResponse = await fetch(`${LATE_API_BASE}/v1/profiles`, {
-            method: "POST",
-            headers: {
-              "Authorization": `Bearer ${LATE_API_KEY}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              name: `Client ${clientId}`,
-            }),
-          });
-
-          if (createProfileResponse.ok) {
-            const newProfile = await createProfileResponse.json();
-            profileId = newProfile.profile._id;
-          } else {
-            const errorText = await createProfileResponse.text();
-            console.error("Failed to create Late profile:", errorText);
-            return new Response(JSON.stringify({ 
-              error: "Failed to create Late profile",
-              details: errorText 
-            }), {
-              status: 500,
-              headers: { ...corsHeaders, "Content-Type": "application/json" },
-            });
-          }
-        }
+      if (createProfileResponse.ok) {
+        const newProfile = await createProfileResponse.json();
+        profileId = newProfile.profile._id;
       } else {
-        const errorText = await profilesResponse.text();
-        console.error("Failed to list Late profiles:", errorText);
+        const errorText = await createProfileResponse.text();
+        console.error("Failed to create Late profile:", errorText);
         return new Response(JSON.stringify({ 
-          error: "Failed to access Late profiles",
+          error: "Failed to create Late profile",
           details: errorText 
         }), {
           status: 500,

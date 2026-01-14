@@ -58,7 +58,7 @@ serve(async (req: Request) => {
       .from("client_social_credentials")
       .select("client_id, metadata")
       .eq("platform", "late_profile")
-      .filter("metadata->late_profile_id", "eq", profileId)
+      .filter("metadata->>late_profile_id", "eq", profileId)
       .maybeSingle();
 
     if (mappingError) {
@@ -72,7 +72,7 @@ serve(async (req: Request) => {
       const { data: anyCredential } = await supabase
         .from("client_social_credentials")
         .select("client_id")
-        .filter("metadata->late_profile_id", "eq", profileId)
+        .filter("metadata->>late_profile_id", "eq", profileId)
         .limit(1)
         .maybeSingle();
       
