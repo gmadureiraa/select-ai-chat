@@ -1,23 +1,26 @@
 import { useState, useEffect } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Building2, Loader2 } from "lucide-react";
+import { Building2, Loader2, Sparkles } from "lucide-react";
 import kaleidosLogo from "@/assets/kaleidos-logo.svg";
 import { toast } from "sonner";
 
 const WorkspaceLogin = () => {
   const navigate = useNavigate();
   const { slug } = useParams<{ slug: string }>();
+  const [searchParams] = useSearchParams();
+  const isInvite = searchParams.get("invite") === "1";
   const { signIn, user } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [workspaceName, setWorkspaceName] = useState<string | null>(null);
+  const [workspaceId, setWorkspaceId] = useState<string | null>(null);
   const [checkingWorkspace, setCheckingWorkspace] = useState(true);
 
   // Check if workspace exists and get its name
@@ -42,6 +45,7 @@ const WorkspaceLogin = () => {
         }
 
         setWorkspaceName(data.name);
+        setWorkspaceId(data.id);
       } catch (err) {
         console.error("Error checking workspace:", err);
         navigate("/login");
@@ -53,12 +57,32 @@ const WorkspaceLogin = () => {
     checkWorkspace();
   }, [slug, navigate]);
 
-  // Redirect if already logged in
+  // Redirect if already logged in and accept invite if needed
   useEffect(() => {
-    if (user && !checkingWorkspace && slug) {
-      navigate(`/${slug}`, { replace: true });
-    }
-  }, [user, checkingWorkspace, slug, navigate]);
+    const handleLoggedInUser = async () => {
+      if (user && !checkingWorkspace && slug && workspaceId) {
+        // If user came from invite, try to accept it
+        if (isInvite) {
+          try {
+            const { data: accepted } = await supabase.rpc("accept_pending_invite", {
+              p_workspace_id: workspaceId,
+              p_user_id: user.id
+            });
+            
+            if (accepted) {
+              toast.success("Convite aceito! Bem-vindo ao workspace.");
+            }
+          } catch (err) {
+            console.error("Error accepting invite:", err);
+          }
+        }
+        
+        navigate(`/${slug}`, { replace: true });
+      }
+    };
+
+    handleLoggedInUser();
+  }, [user, checkingWorkspace, slug, workspaceId, isInvite, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -66,7 +90,23 @@ const WorkspaceLogin = () => {
 
     try {
       const result = await signIn(email, password);
-      if (!result.error) {
+      if (!result.error && result.data?.user) {
+        // If this is an invite, accept it after login
+        if (isInvite && workspaceId) {
+          try {
+            const { data: accepted } = await supabase.rpc("accept_pending_invite", {
+              p_workspace_id: workspaceId,
+              p_user_id: result.data.user.id
+            });
+            
+            if (accepted) {
+              toast.success("Convite aceito! Bem-vindo ao workspace.");
+            }
+          } catch (err) {
+            console.error("Error accepting invite:", err);
+          }
+        }
+        
         // Redirect to the workspace
         navigate(`/${slug}`, { replace: true });
       }
@@ -97,13 +137,19 @@ const WorkspaceLogin = () => {
           </div>
           <div>
             <CardTitle className="text-2xl text-center">
-              Entrar
+              {isInvite ? "Aceitar Convite" : "Entrar"}
             </CardTitle>
             <CardDescription className="text-center">
               <span className="flex items-center justify-center gap-2 mt-2">
                 <Building2 className="h-4 w-4" />
                 <strong>{workspaceName}</strong>
               </span>
+              {isInvite && (
+                <span className="flex items-center justify-center gap-1 mt-2 text-primary text-sm">
+                  <Sparkles className="h-3 w-3" />
+                  Você foi convidado para este workspace!
+                </span>
+              )}
             </CardDescription>
           </div>
         </CardHeader>
@@ -140,7 +186,12 @@ const WorkspaceLogin = () => {
               {loading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Carregando...
+                  Entrando...
+                </>
+              ) : isInvite ? (
+                <>
+                  <Sparkles className="mr-2 h-4 w-4" />
+                  Entrar e Aceitar Convite
                 </>
               ) : (
                 "Entrar"
