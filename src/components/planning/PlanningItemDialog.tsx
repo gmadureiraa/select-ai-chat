@@ -1,14 +1,15 @@
 import { useState, useEffect } from 'react';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, setHours, setMinutes } from 'date-fns';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { CalendarIcon, Loader2, Wand2, ChevronDown, Image, User, Settings2, Send, Bot } from 'lucide-react';
+import { CalendarIcon, Loader2, Wand2, ChevronDown, Image, User, Settings2, Send, Bot, Clock } from 'lucide-react';
 import { useClients } from '@/hooks/useClients';
 import { useTeamMembers } from '@/hooks/useTeamMembers';
 import { usePlanningImageGeneration } from '@/hooks/usePlanningImageGeneration';
@@ -87,6 +88,8 @@ export function PlanningItemDialog({
   const [priority, setPriority] = useState<PlanningPriority>('medium');
   const [dueDate, setDueDate] = useState<Date | undefined>();
   const [scheduledAt, setScheduledAt] = useState<Date | undefined>();
+  const [scheduledTime, setScheduledTime] = useState<string>('09:00');
+  const [isSchedulingToLate, setIsSchedulingToLate] = useState(false);
   const [mediaItems, setMediaItems] = useState<MediaItem[]>([]);
   const [threadTweets, setThreadTweets] = useState<ThreadTweet[]>([]);
   const [assignedTo, setAssignedTo] = useState<string>('');
@@ -152,7 +155,9 @@ export function PlanningItemDialog({
       setColumnId(item.column_id || '');
       setPriority(item.priority);
       setDueDate(item.due_date ? parseISO(item.due_date) : undefined);
-      setScheduledAt(item.scheduled_at ? parseISO(item.scheduled_at) : undefined);
+      const parsedScheduledAt = item.scheduled_at ? parseISO(item.scheduled_at) : undefined;
+      setScheduledAt(parsedScheduledAt);
+      setScheduledTime(parsedScheduledAt ? format(parsedScheduledAt, 'HH:mm') : '09:00');
       setAssignedTo(item.assigned_to || '');
       
       const metadata = item.metadata as any || {};
@@ -192,6 +197,8 @@ export function PlanningItemDialog({
       setPriority('medium');
       setDueDate(defaultDate);
       setScheduledAt(undefined);
+      setScheduledTime('09:00');
+      setIsSchedulingToLate(false);
       setMediaItems([]);
       setThreadTweets([{ id: 'tweet-1', text: '', media_urls: [] }]);
       setAssignedTo('');
@@ -212,6 +219,13 @@ export function PlanningItemDialog({
         finalContent = threadTweets.map(t => t.text).join('\n\n---\n\n');
       }
 
+      // Build scheduled datetime with time
+      let finalScheduledAt: Date | undefined = undefined;
+      if (scheduledAt) {
+        const [hours, minutes] = scheduledTime.split(':').map(Number);
+        finalScheduledAt = setMinutes(setHours(scheduledAt, hours), minutes);
+      }
+
       const data: CreatePlanningItemInput & Record<string, any> = {
         title: title.trim(),
         content: finalContent.trim() || undefined,
@@ -220,7 +234,7 @@ export function PlanningItemDialog({
         platform: platform || undefined,
         priority,
         due_date: dueDate ? format(dueDate, 'yyyy-MM-dd') : undefined,
-        scheduled_at: scheduledAt ? scheduledAt.toISOString() : undefined,
+        scheduled_at: finalScheduledAt ? finalScheduledAt.toISOString() : undefined,
         media_urls: mediaItems.map(m => m.url),
         assigned_to: assignedTo || undefined,
         content_type: contentType,
@@ -529,20 +543,37 @@ export function PlanningItemDialog({
                 </div>
               </div>
 
-              {/* Scheduling */}
-              <div>
+              {/* Scheduling with time */}
+              <div className="space-y-2">
                 <Label className="text-xs">Agendamento</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" size="sm" className={cn("w-full justify-start h-8 text-sm", !scheduledAt && "text-muted-foreground")}>
-                      <CalendarIcon className="mr-2 h-3 w-3" />
-                      {scheduledAt ? format(scheduledAt, 'dd/MM/yyyy HH:mm') : 'Agendar publicação'}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0">
-                    <Calendar mode="single" selected={scheduledAt} onSelect={setScheduledAt} initialFocus />
-                  </PopoverContent>
-                </Popover>
+                <div className="flex gap-2">
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" size="sm" className={cn("flex-1 justify-start h-8 text-sm", !scheduledAt && "text-muted-foreground")}>
+                        <CalendarIcon className="mr-2 h-3 w-3" />
+                        {scheduledAt ? format(scheduledAt, 'dd/MM/yyyy') : 'Data'}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0">
+                      <Calendar mode="single" selected={scheduledAt} onSelect={setScheduledAt} initialFocus />
+                    </PopoverContent>
+                  </Popover>
+                  <div className="flex items-center gap-1">
+                    <Clock className="h-3 w-3 text-muted-foreground" />
+                    <Input
+                      type="time"
+                      value={scheduledTime}
+                      onChange={(e) => setScheduledTime(e.target.value)}
+                      className="h-8 w-24 text-sm"
+                      disabled={!scheduledAt}
+                    />
+                  </div>
+                </div>
+                {scheduledAt && canPublishNow && (
+                  <p className="text-[10px] text-muted-foreground">
+                    ✓ Será enviado ao {platform} automaticamente
+                  </p>
+                )}
               </div>
 
               {/* Recurrence */}

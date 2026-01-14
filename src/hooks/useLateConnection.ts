@@ -202,10 +202,15 @@ export function useLateConnection({ clientId }: UseLateConnectionProps) {
     options?: {
       mediaUrls?: string[];
       planningItemId?: string;
+      threadItems?: Array<{ id?: string; text: string; media_urls?: string[] }>;
+      scheduledFor?: string; // ISO date string for scheduling
+      publishNow?: boolean;
     }
   ) => {
     try {
       setIsLoading(true);
+
+      const isScheduling = !!options?.scheduledFor && options?.publishNow === false;
 
       const { data, error } = await supabase.functions.invoke('late-post', {
         body: {
@@ -213,7 +218,10 @@ export function useLateConnection({ clientId }: UseLateConnectionProps) {
           platform,
           content,
           mediaUrls: options?.mediaUrls,
+          threadItems: options?.threadItems,
           planningItemId: options?.planningItemId,
+          scheduledFor: options?.scheduledFor,
+          publishNow: options?.publishNow ?? true,
         }
       });
 
@@ -223,10 +231,17 @@ export function useLateConnection({ clientId }: UseLateConnectionProps) {
 
       const displayName = platformNames[platform] || platform;
       
-      toast({
-        title: "Publicado!",
-        description: `Conteúdo publicado no ${displayName} com sucesso.`,
-      });
+      if (isScheduling) {
+        toast({
+          title: "Agendado!",
+          description: `Conteúdo agendado para publicação no ${displayName}.`,
+        });
+      } else {
+        toast({
+          title: "Publicado!",
+          description: `Conteúdo publicado no ${displayName} com sucesso.`,
+        });
+      }
 
       // Invalidate planning and content library queries to refresh UI immediately
       queryClient.invalidateQueries({ queryKey: ['planning-items'] });

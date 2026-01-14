@@ -106,17 +106,13 @@ Deno.serve(async (req) => {
           .update({ status: 'publishing' })
           .eq('id', item.id);
 
-        let functionName: string | null = null;
+        // Use late-post for all supported platforms
+        const supportedPlatforms = ['twitter', 'linkedin', 'instagram', 'tiktok', 'youtube', 'facebook', 'threads'];
         
-        if (item.platform === 'twitter') {
-          functionName = 'twitter-post';
-        } else if (item.platform === 'linkedin') {
-          functionName = 'linkedin-post';
-        } else {
+        if (!supportedPlatforms.includes(item.platform)) {
           // Mark as manual publish required for unsupported platforms
           console.log(`Platform ${item.platform} requires manual publishing`);
           
-          // Move back to scheduled but don't fail
           await supabaseClient
             .from(tableName)
             .update({
@@ -164,16 +160,25 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        // Call the appropriate posting function
-        const response = await fetch(`${supabaseUrl}/functions/v1/${functionName}`, {
+        // Extract thread items from metadata if available
+        const metadata = item.metadata as Record<string, unknown> | null;
+        const threadTweets = metadata?.thread_tweets as Array<{ text: string; media_urls?: string[] }> | undefined;
+
+        // Call late-post for all platforms
+        const response = await fetch(`${supabaseUrl}/functions/v1/late-post`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${supabaseAnonKey}`,
+            'Authorization': `Bearer ${serviceRoleKey}`,
           },
           body: JSON.stringify({ 
-            scheduledPostId: item.id,
-            source: tableName,
+            clientId: item.client_id,
+            platform: item.platform,
+            content: item.content || item.description || '',
+            mediaUrls: item.media_urls || [],
+            threadItems: threadTweets,
+            planningItemId: item.id,
+            publishNow: true,
           }),
         });
 
