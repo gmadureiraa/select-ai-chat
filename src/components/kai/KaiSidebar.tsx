@@ -360,21 +360,6 @@ export function KaiSidebar({
             />
           )}
           
-          {canUseAssistant ? (
-            <NavItem
-              icon={<MessageSquare className="h-4 w-4" />}
-              label="Assistente"
-              active={activeTab === "assistant"}
-              onClick={() => onTabChange("assistant")}
-              collapsed={collapsed}
-            />
-          ) : (
-            <NavItemLocked
-              icon={<MessageSquare className="h-4 w-4" />}
-              label="Assistente"
-              collapsed={collapsed}
-            />
-          )}
 
           {canViewPerformance && (
             <NavItem

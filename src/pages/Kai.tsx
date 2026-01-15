@@ -3,18 +3,14 @@ import { useSearchParams } from "react-router-dom";
 import { KaiSidebar } from "@/components/kai/KaiSidebar";
 import { MobileHeader } from "@/components/kai/MobileHeader";
 import { GradientHero } from "@/components/kai/GradientHero";
-import { KaiAssistantTab } from "@/components/kai/KaiAssistantTab";
 import { KaiPerformanceTab } from "@/components/kai/KaiPerformanceTab";
-import { KaiLibraryTab } from "@/components/kai/KaiLibraryTab";
 
-import { KnowledgeBaseTool } from "@/components/kai/tools/KnowledgeBaseTool";
 import { TeamTool } from "@/components/kai/tools/TeamTool";
 import { ClientsManagementTool } from "@/components/kai/tools/ClientsManagementTool";
 import { ContentRepurposeTool } from "@/components/kai/tools/ContentRepurposeTool";
 import { ContentCanvas } from "@/components/kai/canvas/ContentCanvas";
 import { PlanningBoard } from "@/components/planning/PlanningBoard";
 import { FormatRulesTool } from "@/components/tools/FormatRulesTool";
-import { EnterpriseLockScreen } from "@/components/shared/EnterpriseLockScreen";
 import { AccountSettingsSection } from "@/components/settings/AccountSettingsSection";
 import { OnboardingFlow } from "@/components/onboarding";
 import { NotificationPermissionPrompt } from "@/components/notifications/NotificationPermissionPrompt";
@@ -34,7 +30,7 @@ export default function Kai() {
   const isMobile = useIsMobile();
   
   const { clients, isLoading: isLoadingClients } = useClients();
-  const { canManageTeam, canViewTools, canViewPerformance, canViewLibrary, canViewKnowledgeBase, canViewClients, canViewHome, canUseAssistant, canViewRepurpose, isViewer } = useWorkspace();
+  const { canManageTeam, canViewPerformance, canViewClients, canViewHome, canViewRepurpose, isViewer } = useWorkspace();
   const { isEnterprise } = usePlanFeatures();
   const selectedClient = clients?.find(c => c.id === clientId);
   
@@ -48,14 +44,15 @@ export default function Kai() {
     let shouldRedirect = false;
     let redirectTab = "performance"; // Default for viewers
     
-    // Removed dev-only tools - redirect if accessing removed tabs
-    if (tab === "agent-builder" || tab === "research-lab") {
+    // Removed tabs - redirect if accessing them
+    const removedTabs = ["agent-builder", "research-lab", "assistant", "library", "knowledge-base"];
+    if (removedTabs.includes(tab)) {
       shouldRedirect = true;
     }
     
     // Viewer-blocked tabs
     if (isViewer) {
-      const blockedTabs = ["home", "assistant", "repurpose"];
+      const blockedTabs = ["home", "repurpose"];
       if (blockedTabs.includes(tab)) {
         shouldRedirect = true;
         redirectTab = "performance";
@@ -68,26 +65,10 @@ export default function Kai() {
       redirectTab = "performance";
     }
     
-    // Assistant requires canUseAssistant
-    if (tab === "assistant" && !canUseAssistant) {
-      shouldRedirect = true;
-      redirectTab = "performance";
-    }
-    
     // Repurpose requires canViewRepurpose
     if (tab === "repurpose" && !canViewRepurpose) {
       shouldRedirect = true;
       redirectTab = "performance";
-    }
-    
-    // Knowledge base requires canViewKnowledgeBase (member+)
-    if (tab === "knowledge-base" && !canViewKnowledgeBase) {
-      shouldRedirect = true;
-    }
-    
-    // Library requires canViewLibrary (member+)
-    if (tab === "library" && !canViewLibrary) {
-      shouldRedirect = true;
     }
     
     // Admin tabs require specific permissions
@@ -103,7 +84,7 @@ export default function Kai() {
       params.set("tab", redirectTab);
       setSearchParams(params);
     }
-  }, [tab, canViewKnowledgeBase, canViewLibrary, canViewClients, canManageTeam, canViewHome, canUseAssistant, canViewRepurpose, isViewer, searchParams, setSearchParams]);
+  }, [tab, canViewClients, canManageTeam, canViewHome, canViewRepurpose, isViewer, searchParams, setSearchParams]);
 
 
   const handleTabChange = (newTab: string) => {
@@ -151,7 +132,7 @@ export default function Kai() {
     }
 
     // Tools that don't need client
-    const toolTabs = ["repurpose", "canvas", "knowledge-base", "team", "clients", "account", "format-rules"];
+    const toolTabs = ["repurpose", "canvas", "team", "clients", "account", "format-rules"];
     
     if (toolTabs.includes(tab)) {
       switch (tab) {
@@ -167,8 +148,6 @@ export default function Kai() {
               <ContentCanvas clientId={clientId || ""} />
             </div>
           );
-        case "knowledge-base":
-          return <KnowledgeBaseTool />;
         case "team":
           return <TeamTool />;
         case "clients":
@@ -218,25 +197,10 @@ export default function Kai() {
           />
         );
       
-      case "assistant":
-        return (
-          <KaiAssistantTab
-            clientId={selectedClient.id}
-            client={selectedClient}
-          />
-        );
-      
       case "performance":
         return (
           <div className={cn("overflow-auto h-full", isMobile ? "p-3" : "p-6")}>
             <KaiPerformanceTab clientId={selectedClient.id} client={selectedClient} />
-          </div>
-        );
-      
-      case "library":
-        return (
-          <div className={cn("overflow-auto h-full", isMobile ? "p-3" : "p-6")}>
-            <KaiLibraryTab clientId={selectedClient.id} client={selectedClient} />
           </div>
         );
       

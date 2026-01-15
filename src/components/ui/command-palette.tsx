@@ -1,7 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import {
-  Bot, BarChart3, Library, Settings, Send,
-  BookOpen, Search, User, ArrowRight
+  Bot, BarChart3, Library, Settings, User, ArrowRight
 } from "lucide-react";
 import {
   CommandDialog,
@@ -31,16 +30,15 @@ export function CommandPalette({
   const { clients } = useClients();
 
   const pages = [
-    { id: "assistant", label: "Assistente", icon: Bot, action: () => onSelectTab?.("assistant") },
     { id: "performance", label: "Performance", icon: BarChart3, action: () => onSelectTab?.("performance") },
-    { id: "library", label: "Biblioteca", icon: Library, action: () => onSelectTab?.("library") },
+    { id: "planning", label: "Planejamento", icon: Bot, action: () => onSelectTab?.("planning") },
+    { id: "canvas", label: "Canvas", icon: Library, action: () => onSelectTab?.("canvas") },
     { id: "settings-client", label: "Configurações do Cliente", icon: Settings, action: () => onSelectTab?.("settings") },
   ];
 
   const tools = [
-    { id: "social-publisher", label: "Publicador Social", icon: Send, action: () => navigate("/social-publisher") },
-    { id: "knowledge-base", label: "Base de Conhecimento", icon: BookOpen, action: () => navigate("/knowledge-base") },
-    { id: "settings", label: "Configurações Gerais", icon: User, action: () => navigate("/settings") },
+    { id: "clients", label: "Clientes", icon: User, action: () => onSelectTab?.("clients") },
+    { id: "settings", label: "Configurações Gerais", icon: Settings, action: () => navigate("/settings") },
   ];
 
   const runCommand = (action: () => void) => {
