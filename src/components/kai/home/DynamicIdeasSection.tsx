@@ -1,10 +1,9 @@
-import { useState } from "react";
-import { Sparkles, Loader2, RefreshCw, ArrowRight } from "lucide-react";
+import { useState, useMemo } from "react";
+import { Sparkles, Loader2, RefreshCw, ArrowRight, TrendingUp } from "lucide-react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { useTopPerformingContent } from "@/hooks/useUnifiedContent";
 
 interface ContentIdea {
   id: string;
@@ -12,9 +11,10 @@ interface ContentIdea {
   description: string;
   format: string;
   icon: string;
+  basedOn?: string;
 }
 
-// Default ideas when AI isn't available or loading
+// Default ideas when no data available
 const DEFAULT_IDEAS: ContentIdea[] = [
   {
     id: "1",
@@ -39,6 +39,13 @@ const DEFAULT_IDEAS: ContentIdea[] = [
   },
 ];
 
+const PLATFORM_ICONS: Record<string, string> = {
+  instagram: "📸",
+  twitter: "🐦",
+  linkedin: "💼",
+  content: "📝"
+};
+
 interface DynamicIdeasSectionProps {
   clientId?: string;
   clientName?: string;
@@ -48,50 +55,33 @@ interface DynamicIdeasSectionProps {
 export function DynamicIdeasSection({ clientId, clientName, onSelectIdea }: DynamicIdeasSectionProps) {
   const [isRefreshing, setIsRefreshing] = useState(false);
   
-  // Fetch client context for personalized ideas
-  const { data: clientContext } = useQuery({
-    queryKey: ['client-context-ideas', clientId],
-    queryFn: async () => {
-      if (!clientId) return null;
-      const { data } = await supabase
-        .from('clients')
-        .select('name, description, identity_guide, tags')
-        .eq('id', clientId)
-        .single();
-      return data;
-    },
-    enabled: !!clientId,
-  });
+  // Fetch top performing content
+  const { data: topContent, isLoading, refetch } = useTopPerformingContent(clientId || "", 5);
 
-  // Generate personalized ideas based on client context
-  const ideas: ContentIdea[] = clientContext ? [
-    {
-      id: "1",
-      title: `Novidade de ${clientContext.name?.split(' ')[0] || 'hoje'}`,
-      description: "Compartilhe uma atualização ou lançamento recente",
-      format: "Carrossel",
-      icon: "🚀"
-    },
-    {
-      id: "2", 
-      title: "Case de sucesso",
-      description: "Mostre um resultado real que você ajudou a conquistar",
-      format: "Post",
-      icon: "🏆"
-    },
-    {
-      id: "3",
-      title: "Tendência do momento",
-      description: "Comente sobre algo relevante no seu nicho",
-      format: "Thread/Reels",
-      icon: "📈"
-    },
-  ] : DEFAULT_IDEAS;
+  // Generate ideas based on top performing content
+  const ideas: ContentIdea[] = useMemo(() => {
+    if (!topContent?.length) return DEFAULT_IDEAS;
+
+    return topContent.slice(0, 3).map((post, index) => {
+      const theme = extractTheme(post.content);
+      const engagementLabel = post.engagement_rate 
+        ? `${post.engagement_rate.toFixed(1)}% eng` 
+        : `${post.metrics.likes} likes`;
+
+      return {
+        id: String(index + 1),
+        title: theme,
+        description: `Baseado em conteúdo com ${engagementLabel}. Explore mais deste tema!`,
+        format: post.platform === 'instagram' ? 'Carrossel/Reels' : post.platform === 'twitter' ? 'Thread' : 'Post',
+        icon: PLATFORM_ICONS[post.platform] || "📝",
+        basedOn: post.title,
+      };
+    });
+  }, [topContent]);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
-    // Simulate refresh delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await refetch();
     setIsRefreshing(false);
   };
 
@@ -101,15 +91,21 @@ export function DynamicIdeasSection({ clientId, clientName, onSelectIdea }: Dyna
         <div className="flex items-center gap-2">
           <Sparkles className="h-4 w-4 text-primary" />
           <h3 className="text-sm font-medium text-foreground">Ideias para hoje</h3>
+          {topContent && topContent.length > 0 && (
+            <span className="flex items-center gap-1 text-[10px] text-green-600 bg-green-500/10 px-2 py-0.5 rounded-full">
+              <TrendingUp className="h-3 w-3" />
+              Baseado em performance
+            </span>
+          )}
         </div>
         <Button
           variant="ghost"
           size="sm"
           onClick={handleRefresh}
-          disabled={isRefreshing}
+          disabled={isRefreshing || isLoading}
           className="h-7 text-xs text-muted-foreground hover:text-foreground"
         >
-          {isRefreshing ? (
+          {isRefreshing || isLoading ? (
             <Loader2 className="h-3 w-3 animate-spin mr-1" />
           ) : (
             <RefreshCw className="h-3 w-3 mr-1" />
@@ -157,4 +153,26 @@ export function DynamicIdeasSection({ clientId, clientName, onSelectIdea }: Dyna
       </div>
     </div>
   );
+}
+
+// Helper function to extract theme from content
+function extractTheme(content: string): string {
+  if (!content) return "Criar mais conteúdo";
+  
+  // Simple theme extraction - get first meaningful phrase
+  const cleaned = content
+    .replace(/https?:\/\/\S+/g, '') // Remove URLs
+    .replace(/#\w+/g, '') // Remove hashtags
+    .replace(/@\w+/g, '') // Remove mentions
+    .replace(/\n+/g, ' ')
+    .trim();
+  
+  const words = cleaned.split(' ').filter(w => w.length > 3);
+  const theme = words.slice(0, 4).join(' ');
+  
+  if (theme.length < 10) {
+    return "Explorar este formato";
+  }
+  
+  return theme.length > 40 ? theme.slice(0, 40) + "..." : theme;
 }

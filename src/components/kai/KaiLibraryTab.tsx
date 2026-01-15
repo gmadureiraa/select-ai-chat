@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Library, Link2, Plus, Search, Image } from "lucide-react";
+import { Library, Link2, Plus, Search, Image, Layers } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -15,11 +15,13 @@ import {
 } from "@/components/ui/select";
 import { useReferenceLibrary, ReferenceItem, CreateReferenceData } from "@/hooks/useReferenceLibrary";
 import { useClientVisualReferences } from "@/hooks/useClientVisualReferences";
+import { useUnifiedContent } from "@/hooks/useUnifiedContent";
 import { useWorkspace } from "@/hooks/useWorkspace";
 import { ReferenceCard } from "@/components/references/ReferenceCard";
 import { ReferenceDialog } from "@/components/references/ReferenceDialog";
 import { ReferenceViewDialog } from "@/components/references/ReferenceViewDialog";
 import { VisualReferencesManager, REFERENCE_TYPES } from "@/components/clients/VisualReferencesManager";
+import { UnifiedContentGrid } from "@/components/kai/library/UnifiedContentGrid";
 import { LibraryFilters, ContentTypeFilter, SortOption, ViewMode } from "@/components/kai/LibraryFilters";
 import { Client } from "@/hooks/useClients";
 import { cn } from "@/lib/utils";
@@ -31,7 +33,7 @@ interface KaiLibraryTabProps {
 }
 
 export const KaiLibraryTab = ({ clientId, client }: KaiLibraryTabProps) => {
-  const [activeTab, setActiveTab] = useState("references");
+  const [activeTab, setActiveTab] = useState("content");
   const [searchQuery, setSearchQuery] = useState("");
   
   // Filters state
@@ -53,6 +55,9 @@ export const KaiLibraryTab = ({ clientId, client }: KaiLibraryTabProps) => {
   // Visual References
   const { references: visualReferences, deleteReference: deleteVisualRef } = useClientVisualReferences(clientId);
   const [showVisualUploadForm, setShowVisualUploadForm] = useState(false);
+
+  // Unified Content (Instagram, Twitter, LinkedIn posts)
+  const { data: unifiedContent } = useUnifiedContent(clientId);
 
   const filteredReferences = useMemo(() => {
     let result = references || [];
@@ -259,6 +264,11 @@ export const KaiLibraryTab = ({ clientId, client }: KaiLibraryTabProps) => {
       <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v); setSelectedItems(new Set()); }}>
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <TabsList>
+            <TabsTrigger value="content" className="gap-2 data-[state=active]:bg-green-500/10 data-[state=active]:text-green-600">
+              <Layers className="h-4 w-4" />
+              <span className="hidden sm:inline">Conteúdo</span>
+              <Badge variant="secondary" className="ml-1 bg-green-500/20 text-green-600 font-bold">{unifiedContent?.length || 0}</Badge>
+            </TabsTrigger>
             <TabsTrigger value="references" className="gap-2 data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
               <Link2 className="h-4 w-4" />
               <span className="hidden sm:inline">Referências</span>
@@ -306,6 +316,16 @@ export const KaiLibraryTab = ({ clientId, client }: KaiLibraryTabProps) => {
             />
           </div>
         </div>
+
+        {/* Unified Content Library */}
+        <TabsContent value="content" className="mt-4">
+          <UnifiedContentGrid
+            clientId={clientId}
+            onSelectContent={(item) => {
+              toast.success(`Conteúdo selecionado: ${item.title}`);
+            }}
+          />
+        </TabsContent>
 
         {/* Reference Library */}
         <TabsContent value="references" className="mt-4">
