@@ -209,7 +209,7 @@ export function PlanBillingCard() {
           {/* Subscription Actions */}
           <Separator />
           <div className="space-y-3">
-            {plan?.type !== "enterprise" && plan?.type !== "free" && (
+            {plan?.type !== "enterprise" && plan?.type !== "free" && plan?.hasStripeSubscription && (
               <Button 
                 variant="outline"
                 className="w-full gap-2" 

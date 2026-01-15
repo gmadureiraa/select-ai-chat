@@ -74,6 +74,7 @@ export const useTokens = () => {
         .select(`
           id,
           status,
+          stripe_subscription_id,
           subscription_plans (
             id,
             name,
@@ -103,6 +104,7 @@ export const useTokens = () => {
       return {
         ...planData,
         status: data.status,
+        hasStripeSubscription: !!data.stripe_subscription_id,
       };
     },
     enabled: !!workspace?.id,
