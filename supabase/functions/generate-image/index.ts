@@ -284,8 +284,8 @@ serve(async (req) => {
         .from("client_visual_references")
         .select("*")
         .eq("client_id", clientId)
-        .order("is_primary", { ascending: false })  // Primary first, but include all
-        .limit(10);
+        .order("is_primary", { ascending: false })  // Primary first, limit to 2
+        .limit(2);
       
       if (visualRefsError) {
         console.error(`[generate-image] Error fetching visual refs:`, visualRefsError);
@@ -335,11 +335,11 @@ serve(async (req) => {
       }
     }
     
-    // Add reference images (increased limit to 8 for better style matching)
+    // Add reference images (limited to 2 for optimal style matching)
     if (allRefs.length > 0) {
-      console.log(`[generate-image] Processing ${allRefs.length} reference images (max 8 after logo)`);
+      console.log(`[generate-image] Processing ${allRefs.length} reference images (max 2 after logo)`);
       
-      for (const ref of allRefs.slice(0, 8 - processedImageCount)) {
+      for (const ref of allRefs.slice(0, 2 - processedImageCount)) {
         const imageData = ref.base64 || ref.url;
         if (imageData) {
           try {
@@ -468,8 +468,8 @@ RESULTADO: Uma imagem NOVA sobre "${prompt}" que seja VISUALMENTE CONSISTENTE co
     
     parts.push({ text: enhancedPrompt });
 
-    // Use the correct Nano Banana model (gemini-2.5-flash is the image generation model)
-    const GEMINI_MODEL = "gemini-2.5-flash-preview-image-generation";
+    // Use the correct Nano Banana model for image generation
+    const GEMINI_MODEL = "gemini-2.5-flash-image-preview";
     console.log(`[generate-image] Generating with ${GEMINI_MODEL}, ${processedImageCount} reference images, brand assets: ${!!effectiveBrandAssets}, logo: ${!!logoUrl}`);
 
     // Build the request with images FIRST, then text prompt (per Gemini documentation)

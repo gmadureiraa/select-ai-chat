@@ -183,3 +183,6 @@ verify_jwt = true
 
 [functions.late-disconnect-account]
 verify_jwt = true
+
+[functions.analyze-image-complete]
+verify_jwt = true
