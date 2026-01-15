@@ -11,7 +11,7 @@ import { withRetry, RetryError } from "@/lib/retry";
 import { parseSSEStream } from "@/lib/sse";
 import { useRealtimeMessages } from "@/hooks/useRealtimeMessages";
 import { useTemplateReferences } from "@/hooks/useTemplateReferences";
-import { useActivities } from "@/hooks/useActivities";
+
 import { useAuth } from "@/hooks/useAuth";
 import { useClientKnowledge, formatKnowledgeForContext } from "@/hooks/useClientKnowledge";
 import { useCitationParser, ParsedCitation } from "@/hooks/useCitationParser";
@@ -59,7 +59,7 @@ export const useClientChat = (clientId: string, templateId?: string, conversatio
   });
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { logActivity } = useActivities();
+  
   const { user } = useAuth();
   const { workspace } = useWorkspace();
   const { fetchCitationContents, formatCitationsForContext } = useCitationParser();
@@ -552,16 +552,6 @@ export const useClientChat = (clientId: string, templateId?: string, conversatio
               role: "assistant",
               content: "", // Sem texto, apenas a imagem
               image_urls: [imageData.imageUrl],
-            });
-
-            // Log activity
-            logActivity.mutate({
-              activityType: "image_generated",
-              entityType: "conversation",
-              entityId: conversationId,
-              entityName: client.name,
-              description: `Imagem gerada no chat de ${client.name}`,
-              metadata: { prompt: imageGenRequest.prompt || content },
             });
 
             queryClient.invalidateQueries({ queryKey: ["messages", conversationId] });
@@ -1135,18 +1125,6 @@ INSTRUÇÕES:
           content: aiResponse,
         });
 
-        logActivity.mutate({
-          activityType: "message_sent",
-          entityType: "conversation",
-          entityId: conversationId,
-          entityName: client.name,
-          description: `Chat livre com ${client.name}`,
-          metadata: { 
-            model: "gemini-2.5-flash-lite",
-            isFreeChatMode: true
-          },
-        });
-
         queryClient.invalidateQueries({ queryKey: ["messages", conversationId] });
         setIsLoading(false);
         setCurrentStep(null);
@@ -1309,22 +1287,6 @@ Por favor, use este material como base para criar o conteúdo solicitado, adapta
               role: "assistant",
               content: finalContent,
             });
-
-            // Log activity
-            logActivity.mutate({
-              activityType: "message_sent",
-              entityType: "conversation",
-              entityId: conversationId,
-              entityName: client.name,
-              description: `Conteúdo gerado via ${pipeline.name} para ${client.name}`,
-              metadata: { 
-                model: "multi-agent-pipeline",
-                pipelineId: pipeline.id,
-                pipelineName: pipeline.name,
-                agentCount: pipeline.agents.length,
-                contentType: contentTypeForPipeline,
-                responseLength: finalContent.length
-              },
             });
 
             queryClient.invalidateQueries({ queryKey: ["messages", conversationId] });
@@ -1442,21 +1404,6 @@ ${referenceLibrary.length > 0 ? `## 📖 REFERÊNCIAS DE ESTILO:\n${referenceCon
           role: "assistant",
           content: aiResponse,
         });
-
-        logActivity.mutate({
-          activityType: "message_sent",
-          entityType: "conversation",
-          entityId: conversationId,
-          entityName: client.name,
-          description: `${requestedQuantity} ideias geradas para ${client.name}`,
-          metadata: { 
-            model: "gemini-2.5-flash",
-            isIdeaMode: true,
-            requestedQuantity
-          },
-        });
-
-        queryClient.invalidateQueries({ queryKey: ["messages", conversationId] });
         setIsLoading(false);
         setCurrentStep(null);
         return;
@@ -2172,23 +2119,6 @@ IMPORTANTE: O novo conteúdo deve parecer escrito pelo mesmo autor.`;
         role: "assistant",
         content: cleanedResponse,
       });
-
-      // Log activity
-      logActivity.mutate({
-        activityType: "message_sent",
-        entityType: "conversation",
-        entityId: conversationId,
-        entityName: client.name,
-        description: `Mensagem enviada no chat de ${client.name}`,
-        metadata: { 
-          model: responseModel,
-          hasImages: (imageUrls && imageUrls.length > 0) || false,
-          messageLength: content.length,
-          responseLength: aiResponse.length
-        },
-      });
-
-      // Detectar feedback na mensagem do usuário e salvar como preferência
       const { hasFeedback, extractedRule } = detectFeedback(content);
       if (hasFeedback && extractedRule) {
         console.log("[CHAT] Feedback detected:", extractedRule);

@@ -23,9 +23,18 @@ import {
   AGENT_STEPS, 
   PROCESS_STEP_LABELS, 
   MULTI_AGENT_STEP_LABELS,
-  formatTokens,
-  formatCost 
 } from "@/config/ai-models";
+
+// Simple formatters for display
+const formatTokens = (tokens: number): string => {
+  if (tokens >= 1000) return `${(tokens / 1000).toFixed(1)}k`;
+  return tokens.toString();
+};
+
+const formatCost = (cost: number): string => {
+  if (cost < 0.01) return `$${cost.toFixed(4)}`;
+  return `$${cost.toFixed(3)}`;
+};
 
 interface SubTask {
   id: string;

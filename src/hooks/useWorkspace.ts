@@ -79,11 +79,10 @@ export const useWorkspace = () => {
   const canViewTools = isAdminOrOwner;
   const canViewKnowledgeBase = !isViewer && userRole !== undefined;
   const canViewPerformance = userRole !== undefined;
-  const canViewLibrary = userRole !== undefined; // Viewers CAN access library
-  const canViewActivities = isAdminOrOwner;
+  const canViewLibrary = userRole !== undefined;
   const canViewClients = isAdminOrOwner;
   
-  // New permissions for viewer restrictions
+  // Permissions for viewer restrictions
   const canUseAssistant = !isViewer && userRole !== undefined;
   const canViewHome = !isViewer && userRole !== undefined;
   const canViewRepurpose = !isViewer && userRole !== undefined;
@@ -96,9 +95,9 @@ export const useWorkspace = () => {
   const canDeleteFromLibrary = !isViewer && userRole !== undefined;
   const canDeleteFromPlanning = !isViewer && userRole !== undefined;
   
-  // NEW: More granular permissions for specific features
+  // More granular permissions for specific features
   const canEditInLibrary = !isViewer && userRole !== undefined;
-  const canEditInPlanning = userRole !== undefined; // Viewers CAN edit in planning
+  const canEditInPlanning = userRole !== undefined;
   const canEditClients = !isViewer && userRole !== undefined;
   const canEditKnowledgeBase = !isViewer && userRole !== undefined;
   const canManageAutomations = isAdminOrOwner;
@@ -120,7 +119,6 @@ export const useWorkspace = () => {
     canViewKnowledgeBase,
     canViewPerformance,
     canViewLibrary,
-    canViewActivities,
     canViewClients,
     canUseAssistant,
     canViewHome,
@@ -131,7 +129,6 @@ export const useWorkspace = () => {
     canGenerateReports,
     canDeleteFromLibrary,
     canDeleteFromPlanning,
-    // NEW granular permissions
     canEditInLibrary,
     canEditInPlanning,
     canEditClients,

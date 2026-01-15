@@ -8,7 +8,6 @@ import { KaiPerformanceTab } from "@/components/kai/KaiPerformanceTab";
 import { KaiLibraryTab } from "@/components/kai/KaiLibraryTab";
 
 import { KnowledgeBaseTool } from "@/components/kai/tools/KnowledgeBaseTool";
-import { ActivitiesTool } from "@/components/kai/tools/ActivitiesTool";
 import { TeamTool } from "@/components/kai/tools/TeamTool";
 import { ClientsManagementTool } from "@/components/kai/tools/ClientsManagementTool";
 import { ContentRepurposeTool } from "@/components/kai/tools/ContentRepurposeTool";
@@ -35,7 +34,7 @@ export default function Kai() {
   const isMobile = useIsMobile();
   
   const { clients, isLoading: isLoadingClients } = useClients();
-  const { canManageTeam, canViewTools, canViewPerformance, canViewLibrary, canViewKnowledgeBase, canViewActivities, canViewClients, canViewHome, canUseAssistant, canViewRepurpose, isViewer } = useWorkspace();
+  const { canManageTeam, canViewTools, canViewPerformance, canViewLibrary, canViewKnowledgeBase, canViewClients, canViewHome, canUseAssistant, canViewRepurpose, isViewer } = useWorkspace();
   const { isEnterprise } = usePlanFeatures();
   const selectedClient = clients?.find(c => c.id === clientId);
   
@@ -92,9 +91,6 @@ export default function Kai() {
     }
     
     // Admin tabs require specific permissions
-    if (tab === "activities" && !canViewActivities) {
-      shouldRedirect = true;
-    }
     if (tab === "clients" && !canViewClients) {
       shouldRedirect = true;
     }
@@ -107,7 +103,7 @@ export default function Kai() {
       params.set("tab", redirectTab);
       setSearchParams(params);
     }
-  }, [tab, canViewKnowledgeBase, canViewLibrary, canViewActivities, canViewClients, canManageTeam, canViewHome, canUseAssistant, canViewRepurpose, isViewer, searchParams, setSearchParams]);
+  }, [tab, canViewKnowledgeBase, canViewLibrary, canViewClients, canManageTeam, canViewHome, canUseAssistant, canViewRepurpose, isViewer, searchParams, setSearchParams]);
 
 
   const handleTabChange = (newTab: string) => {
@@ -155,7 +151,7 @@ export default function Kai() {
     }
 
     // Tools that don't need client
-    const toolTabs = ["repurpose", "canvas", "knowledge-base", "activities", "team", "clients", "account", "format-rules"];
+    const toolTabs = ["repurpose", "canvas", "knowledge-base", "team", "clients", "account", "format-rules"];
     
     if (toolTabs.includes(tab)) {
       switch (tab) {
@@ -173,8 +169,6 @@ export default function Kai() {
           );
         case "knowledge-base":
           return <KnowledgeBaseTool />;
-        case "activities":
-          return <ActivitiesTool />;
         case "team":
           return <TeamTool />;
         case "clients":
