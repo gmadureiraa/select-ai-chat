@@ -125,71 +125,23 @@ export function PlanBillingCard() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <CreditCard className="h-5 w-5 text-muted-foreground" />
-              <CardTitle>Plano & Créditos</CardTitle>
+              <CardTitle>Plano</CardTitle>
             </div>
             <Badge className={planInfo.color}>
               {planInfo.label}
             </Badge>
           </div>
           <CardDescription>
-            Gerencie seu plano e acompanhe o uso de créditos
+            Gerencie seu plano e limites
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          {/* Credit Balance */}
-          <div className="p-4 rounded-lg bg-gradient-to-br from-primary/5 to-primary/10 border border-primary/20">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                {isUnlimited ? (
-                  <Infinity className="h-4 w-4 text-primary" />
-                ) : (
-                  <Coins className="h-4 w-4 text-primary" />
-                )}
-                Créditos Disponíveis
-              </div>
-              {!isUnlimited && isLowBalance && (
-                <Badge variant="destructive" className="text-xs">
-                  {isCriticalBalance ? "Crítico" : "Baixo"}
-                </Badge>
-              )}
-            </div>
-            <div className="flex items-baseline gap-2">
-              <span className="text-3xl font-bold">
-                {isUnlimited ? "∞" : creditsAvailable.toLocaleString("pt-BR")}
-              </span>
-              <span className="text-sm text-muted-foreground">
-                {isUnlimited ? "Ilimitado" : "créditos"}
-              </span>
-            </div>
-          </div>
-
-          {/* Usage Progress */}
-          {!isUnlimited && (
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Créditos usados</span>
-                <span className="font-medium">
-                  {creditsUsed.toLocaleString("pt-BR")} / {creditsMonthly.toLocaleString("pt-BR")}
-                </span>
-              </div>
-              <Progress 
-                value={usagePercentage} 
-                className="h-2"
-              />
-              <p className="text-xs text-muted-foreground">
-                {remainingPercentage.toFixed(0)}% restante do período
-              </p>
-            </div>
-          )}
-
-          <Separator />
-
           {/* Plan Limits */}
           <div className="grid gap-3">
             <div className="flex items-center justify-between text-sm">
               <div className="flex items-center gap-2 text-muted-foreground">
                 <Briefcase className="h-4 w-4" />
-                Limite de clientes
+                Limite de perfis
               </div>
               <span className="font-medium">
                 {plan?.max_clients === 999 ? "Ilimitado" : plan?.max_clients || 3}

@@ -40,7 +40,9 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { supabase } from "@/integrations/supabase/client";
-import { TokensBadge } from "@/components/TokensBadge";
+import { usePlanLimits } from "@/hooks/usePlanLimits";
+import { ClientDialog } from "@/components/clients/ClientDialog";
+import { Plus } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 
 interface NavItemProps {
@@ -245,6 +247,7 @@ export function KaiSidebar({
   const navigate = useNavigate();
   const { slug } = useParams<{ slug: string }>();
   const { clients } = useClients();
+  const { canAddClient } = usePlanLimits();
   const { 
     canViewPerformance, 
     canViewLibrary, 
@@ -256,11 +259,13 @@ export function KaiSidebar({
     canViewDocs,
     workspace 
   } = useWorkspace();
-  const { hasPlanning } = usePlanFeatures();
+  const { hasPlanning, isPro } = usePlanFeatures();
   const { showUpgradePrompt } = useUpgradePrompt();
   const { user, signOut } = useAuth();
   const selectedClient = clients?.find(c => c.id === selectedClientId);
   const [searchQuery, setSearchQuery] = useState("");
+  const [showClientDialog, setShowClientDialog] = useState(false);
+  const hasClients = clients && clients.length > 0;
   
   // Use slug from URL params or fallback to workspace slug
   const currentSlug = slug || (workspace as { slug?: string })?.slug || "";
@@ -324,71 +329,116 @@ export function KaiSidebar({
         </div>
       )}
 
-      {/* Client Selector */}
+      {/* Profile Selector */}
       <div className={cn("px-3 pb-2", collapsed && "px-2")}>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button className={cn(
+        {!hasClients ? (
+          // No clients - show add button
+          <button
+            onClick={() => {
+              if (canAddClient) {
+                setShowClientDialog(true);
+              } else {
+                showUpgradePrompt(isPro ? "max_clients" : "max_clients");
+              }
+            }}
+            className={cn(
               "w-full flex items-center gap-2.5 rounded-md transition-colors",
               "bg-primary text-primary-foreground hover:bg-primary/90",
               collapsed ? "p-2 justify-center" : "px-3 py-2"
-            )}>
-              {selectedClient?.avatar_url ? (
-                <Avatar className={cn("rounded", collapsed ? "w-5 h-5" : "w-6 h-6")}>
-                  <AvatarImage src={selectedClient.avatar_url} alt={selectedClient.name} />
-                  <AvatarFallback className="rounded bg-primary-foreground/20 text-[10px] font-bold">
-                    {selectedClient.name.charAt(0)}
-                  </AvatarFallback>
-                </Avatar>
-              ) : (
-                <div className={cn(
-                  "rounded bg-primary-foreground/20 flex items-center justify-center text-[10px] font-bold",
-                  collapsed ? "w-5 h-5" : "w-6 h-6"
-                )}>
-                  {selectedClient?.name?.charAt(0) || "K"}
-                </div>
-              )}
-              {!collapsed && (
-                <>
-                  <span className="flex-1 text-left text-sm font-medium truncate">
-                    {selectedClient?.name || "Selecionar Cliente"}
-                  </span>
-                  <ChevronDown className="h-4 w-4 opacity-60 flex-shrink-0" />
-                </>
-              )}
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-56">
-            {filteredClients?.map((client) => (
-              <DropdownMenuItem
-                key={client.id}
-                onClick={() => {
-                  onClientChange(client.id);
-                  setSearchQuery("");
-                }}
-                className={cn(
-                  "flex items-center gap-2 cursor-pointer",
-                  selectedClientId === client.id && "bg-primary/10 text-primary"
-                )}
-              >
-                {client.avatar_url ? (
-                  <Avatar className="w-5 h-5 rounded">
-                    <AvatarImage src={client.avatar_url} alt={client.name} />
-                    <AvatarFallback className="rounded bg-primary/20 text-[9px] font-bold">
-                      {client.name.charAt(0)}
+            )}
+          >
+            <Plus className={cn("flex-shrink-0", collapsed ? "h-5 w-5" : "h-4 w-4")} />
+            {!collapsed && (
+              <span className="flex-1 text-left text-sm font-medium truncate">
+                Adicionar Perfil
+              </span>
+            )}
+          </button>
+        ) : (
+          // Has clients - show dropdown
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className={cn(
+                "w-full flex items-center gap-2.5 rounded-md transition-colors",
+                "bg-primary text-primary-foreground hover:bg-primary/90",
+                collapsed ? "p-2 justify-center" : "px-3 py-2"
+              )}>
+                {selectedClient?.avatar_url ? (
+                  <Avatar className={cn("rounded", collapsed ? "w-5 h-5" : "w-6 h-6")}>
+                    <AvatarImage src={selectedClient.avatar_url} alt={selectedClient.name} />
+                    <AvatarFallback className="rounded bg-primary-foreground/20 text-[10px] font-bold">
+                      {selectedClient.name.charAt(0)}
                     </AvatarFallback>
                   </Avatar>
                 ) : (
-                  <div className="w-5 h-5 rounded bg-primary/20 flex items-center justify-center text-[9px] font-bold text-primary">
-                    {client.name.charAt(0)}
+                  <div className={cn(
+                    "rounded bg-primary-foreground/20 flex items-center justify-center text-[10px] font-bold",
+                    collapsed ? "w-5 h-5" : "w-6 h-6"
+                  )}>
+                    {selectedClient?.name?.charAt(0) || "+"}
                   </div>
                 )}
-                <span className="text-sm">{client.name}</span>
+                {!collapsed && (
+                  <>
+                    <span className="flex-1 text-left text-sm font-medium truncate">
+                      {selectedClient?.name || "Selecionar Perfil"}
+                    </span>
+                    <ChevronDown className="h-4 w-4 opacity-60 flex-shrink-0" />
+                  </>
+                )}
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-56">
+              {filteredClients?.map((client) => (
+                <DropdownMenuItem
+                  key={client.id}
+                  onClick={() => {
+                    onClientChange(client.id);
+                    setSearchQuery("");
+                  }}
+                  className={cn(
+                    "flex items-center gap-2 cursor-pointer",
+                    selectedClientId === client.id && "bg-primary/10 text-primary"
+                  )}
+                >
+                  {client.avatar_url ? (
+                    <Avatar className="w-5 h-5 rounded">
+                      <AvatarImage src={client.avatar_url} alt={client.name} />
+                      <AvatarFallback className="rounded bg-primary/20 text-[9px] font-bold">
+                        {client.name.charAt(0)}
+                      </AvatarFallback>
+                    </Avatar>
+                  ) : (
+                    <div className="w-5 h-5 rounded bg-primary/20 flex items-center justify-center text-[9px] font-bold text-primary">
+                      {client.name.charAt(0)}
+                    </div>
+                  )}
+                  <span className="text-sm">{client.name}</span>
+                </DropdownMenuItem>
+              ))}
+              
+              {/* Add profile button in dropdown */}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={() => {
+                  if (canAddClient) {
+                    setShowClientDialog(true);
+                  } else {
+                    showUpgradePrompt(isPro ? "max_clients" : "max_clients");
+                  }
+                }}
+                className="flex items-center gap-2 cursor-pointer text-primary"
+              >
+                <Plus className="h-4 w-4" />
+                <span className="text-sm">Adicionar Perfil</span>
               </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
       </div>
+
+      {/* Client Dialog */}
+      <ClientDialog open={showClientDialog} onOpenChange={setShowClientDialog} />
 
       {/* Main Navigation */}
       <nav className="flex-1 px-2 overflow-y-auto scrollbar-thin scrollbar-thumb-sidebar-muted scrollbar-track-transparent">
@@ -477,7 +527,7 @@ export function KaiSidebar({
           {canViewClients && (
             <NavItem
               icon={<Building2 className="h-4 w-4" />}
-              label="Clientes"
+              label="Perfis"
               active={activeTab === "clients"}
               onClick={() => onTabChange("clients")}
               collapsed={collapsed}
@@ -518,12 +568,6 @@ export function KaiSidebar({
         </div>
       </nav>
 
-      {/* Tokens Badge */}
-      {!collapsed && (
-        <div className="px-3 py-3 border-t border-sidebar-border">
-          <TokensBadge showLabel={true} variant="sidebar" />
-        </div>
-      )}
 
       {/* Collapse Toggle - Hidden on mobile */}
       {!isMobile && (
