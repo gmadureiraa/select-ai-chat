@@ -1287,7 +1287,6 @@ Por favor, use este material como base para criar o conteúdo solicitado, adapta
               role: "assistant",
               content: finalContent,
             });
-            });
 
             queryClient.invalidateQueries({ queryKey: ["messages", conversationId] });
           }
