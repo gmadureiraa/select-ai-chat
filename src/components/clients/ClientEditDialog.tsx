@@ -6,7 +6,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Client } from "@/hooks/useClients";
-import { ClientEditTabs } from "./ClientEditTabs";
+import { ClientEditTabsSimplified } from "./ClientEditTabsSimplified";
 
 interface ClientEditDialogProps {
   open: boolean;
@@ -19,15 +19,15 @@ export const ClientEditDialog = ({ open, onOpenChange, client }: ClientEditDialo
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Editar Cliente</DialogTitle>
           <DialogDescription>
-            Atualize as informações e contexto do cliente
+            Atualize as informações do cliente
           </DialogDescription>
         </DialogHeader>
 
-        <ClientEditTabs 
+        <ClientEditTabsSimplified 
           client={client} 
           onClose={() => onOpenChange(false)} 
         />
