@@ -134,7 +134,7 @@ const handler = async (req: Request): Promise<Response> => {
 <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f3f4f6;">
   <!-- Preheader text (appears in email preview) -->
   <div style="display: none; max-height: 0; overflow: hidden; mso-hide: all;">
-    ${inviterName} te convidou para colaborar no workspace "${workspaceName}" como ${roleLabel}. Aceite agora!
+    ${inviterName} te convidou para o workspace "${workspaceName}" como ${roleLabel}. Entre para acessar!
     &nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;
   </div>
   
@@ -149,7 +149,7 @@ const handler = async (req: Request): Promise<Response> => {
       <!-- Content -->
       <div style="padding: 32px;">
         <h2 style="margin: 0 0 16px 0; color: #111827; font-size: 20px; font-weight: 600;">
-          Você foi convidado para colaborar! 🎉
+          Você foi convidado! 🎉
         </h2>
         
         <p style="margin: 0 0 16px 0; color: #4b5563; font-size: 15px; line-height: 1.6;">
@@ -159,7 +159,7 @@ const handler = async (req: Request): Promise<Response> => {
         ${clientAccessHtml}
         
         <p style="margin: 0 0 24px 0; color: #4b5563; font-size: 15px; line-height: 1.6;">
-          Clique no botão abaixo para aceitar o convite e começar a colaborar:
+          Clique no botão abaixo para acessar:
         </p>
         
         <div style="text-align: center; margin: 32px 0;">
@@ -167,7 +167,7 @@ const handler = async (req: Request): Promise<Response> => {
             <tr>
               <td style="border-radius: 8px; background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%);">
                 <a href="${inviteUrl}" target="_blank" style="display: inline-block; padding: 16px 40px; font-size: 16px; font-weight: 600; color: #ffffff; text-decoration: none; border-radius: 8px;">
-                  ✨ Aceitar Convite
+                  ✨ Acessar Workspace
                 </a>
               </td>
             </tr>

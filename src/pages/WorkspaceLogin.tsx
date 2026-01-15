@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Building2, Loader2, Sparkles } from "lucide-react";
+import { Building2, Loader2 } from "lucide-react";
 import kaleidosLogo from "@/assets/kaleidos-logo.svg";
 import { toast } from "sonner";
 
@@ -136,20 +136,12 @@ const WorkspaceLogin = () => {
             </h1>
           </div>
           <div>
-            <CardTitle className="text-2xl text-center">
-              {isInvite ? "Aceitar Convite" : "Entrar"}
-            </CardTitle>
+            <CardTitle className="text-2xl text-center">Entrar</CardTitle>
             <CardDescription className="text-center">
               <span className="flex items-center justify-center gap-2 mt-2">
                 <Building2 className="h-4 w-4" />
                 <strong>{workspaceName}</strong>
               </span>
-              {isInvite && (
-                <span className="flex items-center justify-center gap-1 mt-2 text-primary text-sm">
-                  <Sparkles className="h-3 w-3" />
-                  Você foi convidado para este workspace!
-                </span>
-              )}
             </CardDescription>
           </div>
         </CardHeader>
@@ -187,11 +179,6 @@ const WorkspaceLogin = () => {
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Entrando...
-                </>
-              ) : isInvite ? (
-                <>
-                  <Sparkles className="mr-2 h-4 w-4" />
-                  Entrar e Aceitar Convite
                 </>
               ) : (
                 "Entrar"

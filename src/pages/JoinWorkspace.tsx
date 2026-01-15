@@ -157,9 +157,7 @@ const JoinWorkspace = () => {
             </h1>
           </div>
           <div>
-            <CardTitle className="text-2xl text-center">
-              Entrar em Workspace
-            </CardTitle>
+            <CardTitle className="text-2xl text-center">Criar Conta</CardTitle>
             <CardDescription className="text-center">
               <span className="flex items-center justify-center gap-2 mt-2">
                 <Building2 className="h-4 w-4" />
@@ -233,7 +231,7 @@ const JoinWorkspace = () => {
                   Criando conta...
                 </>
               ) : (
-                "Criar Conta e Solicitar Acesso"
+                "Criar Conta"
               )}
             </Button>
           </form>
@@ -252,7 +250,7 @@ const JoinWorkspace = () => {
           {/* Info */}
           <div className="mt-6 p-4 bg-muted/50 rounded-lg">
             <p className="text-sm text-muted-foreground text-center">
-              Sua conta será criada e um administrador do workspace precisará aprovar seu acesso.
+              Após criar sua conta, um administrador precisará aprovar seu acesso.
             </p>
           </div>
         </CardContent>

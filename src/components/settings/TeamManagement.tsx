@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Users, UserPlus, Crown, Shield, User, X, Mail, Clock, Building2, Eye, ChevronDown, ChevronUp, RefreshCw, Loader2, Check } from "lucide-react";
 import { useWorkspace, WorkspaceRole, WorkspaceMember } from "@/hooks/useWorkspace";
-import { useTeamMembers } from "@/hooks/useTeamMembers";
+import { useTeamMembers, WorkspaceInvite } from "@/hooks/useTeamMembers";
 import { useAuth } from "@/hooks/useAuth";
 import { useClients } from "@/hooks/useClients";
 import { useAllMemberClientAccess } from "@/hooks/useMemberClientAccess";
@@ -29,7 +29,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { format, formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 const roleLabels: Record<WorkspaceRole, string> = {
@@ -61,6 +61,20 @@ export function TeamManagement() {
   const { clients } = useClients();
   const { data: allMemberAccess = [] } = useAllMemberClientAccess(workspace?.id);
   const queryClient = useQueryClient();
+
+  // Fetch invite clients
+  const { data: inviteClients = [] } = useQuery({
+    queryKey: ["invite-clients", workspace?.id],
+    queryFn: async () => {
+      if (!workspace?.id) return [];
+      const { data, error } = await supabase
+        .from("workspace_invite_clients")
+        .select("invite_id, client_id");
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!workspace?.id && invites.length > 0,
+  });
   
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<WorkspaceRole>("member");
@@ -69,9 +83,13 @@ export function TeamManagement() {
   const [memberToRemove, setMemberToRemove] = useState<string | null>(null);
   const [resendingInviteId, setResendingInviteId] = useState<string | null>(null);
 
-  // Inline client access editing state
+  // Inline client access editing state for members
   const [editingMember, setEditingMember] = useState<WorkspaceMember | null>(null);
   const [editingClientIds, setEditingClientIds] = useState<string[]>([]);
+
+  // Inline client access editing state for invites
+  const [editingInvite, setEditingInvite] = useState<WorkspaceInvite | null>(null);
+  const [editingInviteClientIds, setEditingInviteClientIds] = useState<string[]>([]);
 
   // Helper to get client access count for a member
   const getMemberClientCount = (memberId: string): number => {
@@ -85,6 +103,18 @@ export function TeamManagement() {
       .map(a => a.client_id);
   };
 
+  // Helper to get client access count for an invite
+  const getInviteClientCount = (inviteId: string): number => {
+    return inviteClients.filter(ic => ic.invite_id === inviteId).length;
+  };
+
+  // Get current client IDs for an invite
+  const getInviteClientIds = (inviteId: string): string[] => {
+    return inviteClients
+      .filter(ic => ic.invite_id === inviteId)
+      .map(ic => ic.client_id);
+  };
+
   // Toggle client selection for invite form
   const toggleClientSelection = (clientId: string) => {
     setSelectedClientIds(prev =>
@@ -94,7 +124,7 @@ export function TeamManagement() {
     );
   };
 
-  // Toggle client selection for editing panel
+  // Toggle client selection for member editing panel
   const toggleEditingClient = (clientId: string) => {
     setEditingClientIds(prev =>
       prev.includes(clientId)
@@ -103,17 +133,41 @@ export function TeamManagement() {
     );
   };
 
-  // Open inline editing panel
+  // Toggle client selection for invite editing panel
+  const toggleEditingInviteClient = (clientId: string) => {
+    setEditingInviteClientIds(prev =>
+      prev.includes(clientId)
+        ? prev.filter(id => id !== clientId)
+        : [...prev, clientId]
+    );
+  };
+
+  // Open inline editing panel for member
   const openEditingPanel = (member: WorkspaceMember) => {
+    closeInviteEditingPanel(); // Close invite panel if open
     const currentIds = getMemberClientIds(member.id);
     setEditingMember(member);
     setEditingClientIds(currentIds);
   };
 
-  // Close inline editing panel
+  // Close inline editing panel for member
   const closeEditingPanel = () => {
     setEditingMember(null);
     setEditingClientIds([]);
+  };
+
+  // Open inline editing panel for invite
+  const openInviteEditingPanel = (invite: WorkspaceInvite) => {
+    closeEditingPanel(); // Close member panel if open
+    const currentIds = getInviteClientIds(invite.id);
+    setEditingInvite(invite);
+    setEditingInviteClientIds(currentIds);
+  };
+
+  // Close inline editing panel for invite
+  const closeInviteEditingPanel = () => {
+    setEditingInvite(null);
+    setEditingInviteClientIds([]);
   };
 
   // Mutation to save client access
@@ -164,11 +218,66 @@ export function TeamManagement() {
     },
   });
 
+  // Mutation to save invite client access
+  const saveInviteClientAccess = useMutation({
+    mutationFn: async ({ inviteId, clientIds }: { inviteId: string; clientIds: string[] }) => {
+      // Delete all existing access
+      const { error: deleteError } = await supabase
+        .from("workspace_invite_clients")
+        .delete()
+        .eq("invite_id", inviteId);
+
+      if (deleteError) throw deleteError;
+
+      // If no clients selected, done
+      if (clientIds.length === 0) {
+        return [];
+      }
+
+      // Insert new access records
+      const accessRecords = clientIds.map(clientId => ({
+        invite_id: inviteId,
+        client_id: clientId,
+      }));
+
+      const { data, error: insertError } = await supabase
+        .from("workspace_invite_clients")
+        .insert(accessRecords)
+        .select();
+
+      if (insertError) throw insertError;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["invite-clients"] });
+      toast({
+        title: "Acesso atualizado",
+        description: "Os clientes do convite foram atualizados.",
+      });
+      closeInviteEditingPanel();
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Erro ao atualizar acesso",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleSaveClientAccess = () => {
     if (!editingMember) return;
     saveClientAccess.mutate({
       memberId: editingMember.id,
       clientIds: editingClientIds,
+    });
+  };
+
+  const handleSaveInviteClientAccess = () => {
+    if (!editingInvite) return;
+    saveInviteClientAccess.mutate({
+      inviteId: editingInvite.id,
+      clientIds: editingInviteClientIds,
     });
   };
 
@@ -333,45 +442,192 @@ export function TeamManagement() {
               <Clock className="h-4 w-4" />
               Convites Pendentes
             </h4>
+            <p className="text-xs text-muted-foreground">
+              Ao criar conta ou fazer login, o usuário terá acesso automaticamente ao workspace.
+            </p>
             <div className="space-y-2">
-              {invites.map((invite) => (
-                <div
-                  key={invite.id}
-                  className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-dashed"
-                >
-                  <div className="flex items-center gap-3">
-                    <Mail className="h-4 w-4 text-muted-foreground" />
-                    <div>
-                      <div className="text-sm font-medium">{invite.email}</div>
-                      <div className="text-xs text-muted-foreground">
-                        Expira {formatDistanceToNow(new Date(invite.expires_at), { addSuffix: true, locale: ptBR })}
+              {invites.map((invite) => {
+                const inviteClientCount = getInviteClientCount(invite.id);
+                const canEditInviteClients = invite.role === "member" || invite.role === "viewer";
+                const isEditingThisInvite = editingInvite?.id === invite.id;
+                const isViewerInvite = invite.role === "viewer";
+
+                return (
+                  <div key={invite.id} className="space-y-2">
+                    <div
+                      className={`flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-dashed ${isEditingThisInvite ? "ring-2 ring-primary" : ""}`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <Mail className="h-4 w-4 text-muted-foreground" />
+                        <div>
+                          <div className="text-sm font-medium">{invite.email}</div>
+                          <div className="text-xs text-muted-foreground flex items-center gap-2">
+                            <span>Expira {formatDistanceToNow(new Date(invite.expires_at), { addSuffix: true, locale: ptBR })}</span>
+                            {canEditInviteClients && inviteClientCount > 0 && (
+                              <Badge variant="outline" className="text-[10px] h-4 px-1.5 bg-amber-500/10 text-amber-600 border-amber-500/20">
+                                {inviteClientCount} cliente{inviteClientCount > 1 ? "s" : ""}
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {canEditInviteClients && clients.length > 0 && (
+                          <Button
+                            variant={isEditingThisInvite ? "default" : "outline"}
+                            size="sm"
+                            title="Gerenciar acesso a clientes"
+                            onClick={() => isEditingThisInvite ? closeInviteEditingPanel() : openInviteEditingPanel(invite)}
+                            className="h-8 gap-1.5"
+                          >
+                            <Building2 className="h-3.5 w-3.5" />
+                            <span className="hidden sm:inline">Clientes</span>
+                          </Button>
+                        )}
+                        <Badge variant="outline" className={roleColors[invite.role]}>
+                          {roleLabels[invite.role]}
+                        </Badge>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          title="Reenviar email"
+                          onClick={() => handleResendInvite(invite)}
+                          disabled={resendingInviteId === invite.id}
+                        >
+                          <RefreshCw className={`h-4 w-4 ${resendingInviteId === invite.id ? "animate-spin" : ""}`} />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => cancelInvite.mutate(invite.id)}
+                          disabled={cancelInvite.isPending}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
                       </div>
                     </div>
+
+                    {/* Inline Client Access Panel for Invite */}
+                    {isEditingThisInvite && (
+                      <div className="ml-7 p-4 border rounded-lg bg-background space-y-4">
+                        {/* Access Mode Indicator */}
+                        <div className="p-3 rounded-lg bg-muted/50 border">
+                          {editingInviteClientIds.length > 0 ? (
+                            <div className="flex items-start gap-2">
+                              <Building2 className="h-4 w-4 text-amber-500 mt-0.5" />
+                              <div className="text-sm">
+                                <span className="font-medium text-amber-600">Acesso restrito</span>
+                                <p className="text-muted-foreground text-xs mt-0.5">
+                                  {isViewerInvite ? "Visualizador" : "Membro"} só verá os clientes selecionados
+                                </p>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="flex items-start gap-2">
+                              <Building2 className={`h-4 w-4 mt-0.5 ${isViewerInvite ? "text-red-500" : "text-emerald-500"}`} />
+                              <div className="text-sm">
+                                {isViewerInvite ? (
+                                  <>
+                                    <span className="font-medium text-red-600">Sem acesso</span>
+                                    <p className="text-muted-foreground text-xs mt-0.5">
+                                      Visualizador não verá nenhum cliente. Selecione pelo menos um.
+                                    </p>
+                                  </>
+                                ) : (
+                                  <>
+                                    <span className="font-medium text-emerald-600">Acesso total</span>
+                                    <p className="text-muted-foreground text-xs mt-0.5">
+                                      Membro poderá ver todos os clientes do workspace
+                                    </p>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Select All */}
+                        <div className="flex items-center justify-between">
+                          <Label className="text-sm font-medium">Clientes disponíveis</Label>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              if (editingInviteClientIds.length === clients.length) {
+                                setEditingInviteClientIds([]);
+                              } else {
+                                setEditingInviteClientIds(clients.map(c => c.id));
+                              }
+                            }}
+                          >
+                            {editingInviteClientIds.length === clients.length ? "Desmarcar todos" : "Selecionar todos"}
+                          </Button>
+                        </div>
+
+                        {/* Client List */}
+                        <div className="max-h-[200px] overflow-y-auto border rounded-lg p-2 space-y-1">
+                          {clients.map((client) => {
+                            const isSelected = editingInviteClientIds.includes(client.id);
+                            return (
+                              <label
+                                key={client.id}
+                                className="flex items-center gap-3 p-2.5 rounded-md hover:bg-muted/50 cursor-pointer transition-colors"
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  onChange={() => toggleEditingInviteClient(client.id)}
+                                  className="h-4 w-4 rounded border-input accent-primary"
+                                />
+                                <div className="flex items-center gap-2 flex-1 min-w-0">
+                                  <div className="h-7 w-7 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
+                                    <span className="text-xs font-semibold text-primary">
+                                      {client.name.charAt(0).toUpperCase()}
+                                    </span>
+                                  </div>
+                                  <span className="text-sm font-medium truncate">{client.name}</span>
+                                </div>
+                              </label>
+                            );
+                          })}
+                        </div>
+
+                        {/* Info */}
+                        <p className="text-xs text-muted-foreground">
+                          {isViewerInvite 
+                            ? "Visualizadores precisam ter pelo menos um cliente selecionado."
+                            : "Deixe vazio para dar acesso a todos os clientes."}
+                        </p>
+
+                        {/* Actions */}
+                        <div className="flex justify-end gap-2">
+                          <Button variant="outline" size="sm" onClick={closeInviteEditingPanel}>
+                            Cancelar
+                          </Button>
+                          <Button
+                            size="sm"
+                            onClick={handleSaveInviteClientAccess}
+                            disabled={saveInviteClientAccess.isPending || (isViewerInvite && editingInviteClientIds.length === 0)}
+                          >
+                            {saveInviteClientAccess.isPending ? (
+                              <>
+                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                Salvando...
+                              </>
+                            ) : (
+                              <>
+                                <Check className="h-4 w-4 mr-2" />
+                                Salvar
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Badge variant="outline" className={roleColors[invite.role]}>
-                      {roleLabels[invite.role]}
-                    </Badge>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      title="Reenviar email"
-                      onClick={() => handleResendInvite(invite)}
-                      disabled={resendingInviteId === invite.id}
-                    >
-                      <RefreshCw className={`h-4 w-4 ${resendingInviteId === invite.id ? "animate-spin" : ""}`} />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => cancelInvite.mutate(invite.id)}
-                      disabled={cancelInvite.isPending}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}
