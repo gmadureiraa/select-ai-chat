@@ -31,12 +31,6 @@ verify_jwt = true
 [functions.transcribe-images]
 verify_jwt = true
 
-[functions.transcribe-video]
-verify_jwt = true
-
-[functions.transcribe-audio]
-verify_jwt = true
-
 [functions.grok-search]
 verify_jwt = true
 

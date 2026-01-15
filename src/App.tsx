@@ -58,7 +58,6 @@ const App = () => (
                       </AuthOnlyRoute>
                     }
                   />
-                  <Route path="/page" element={<LandingPage />} />
                   
                   {/* Public landing page */}
                   <Route path="/" element={<LandingPage />} />

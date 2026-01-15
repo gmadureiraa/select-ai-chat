@@ -8,7 +8,7 @@ const WHATSAPP_LINK = "https://api.whatsapp.com/send/?phone=12936180547&text=Ol%
 const plans = [
   {
     name: "Canvas",
-    price: "$25",
+    price: "$49",
     period: "/mês",
     description: "O essencial para criar conteúdo com IA",
     icon: LayoutDashboard,
@@ -27,7 +27,7 @@ const plans = [
   },
   {
     name: "Pro",
-    price: "$100",
+    price: "$249",
     period: "/mês",
     description: "Suite completa para agências",
     icon: BarChart3,
@@ -95,7 +95,7 @@ const PricingSection = () => {
             Preços simples, valor real
           </h2>
           <p className="text-muted-foreground text-lg max-w-xl mx-auto">
-            Comece pelo Canvas a $25/mês ou desbloqueie a suite completa por $100/mês.
+            Comece pelo Canvas a $49/mês ou desbloqueie a suite completa por $249/mês.
             <br />
             <span className="text-foreground font-medium">Sem surpresas, cancele quando quiser.</span>
           </p>

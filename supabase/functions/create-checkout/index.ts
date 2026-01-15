@@ -8,27 +8,26 @@ const corsHeaders = {
 };
 
 // Plan configuration with Stripe price IDs (USD)
-// TODO: Update these with actual Stripe price IDs after creating products
 const PLANS = {
   basic: {
-    priceId: "price_BASIC_25_USD", // $25/mês - PLACEHOLDER
-    productId: "prod_BASIC_USD",
+    priceId: "price_1Si2iLPIJtcImSMvHG6aWpCm", // $49/mês
+    productId: "prod_TfNT7f3WMVagaz",
     trialDays: 14,
   },
   agency: {
-    priceId: "price_AGENCY_100_USD", // $100/mês - PLACEHOLDER
-    productId: "prod_AGENCY_USD",
+    priceId: "price_1Si2iNPIJtcImSMvot2pJbyr", // $249/mês
+    productId: "prod_TfNTm4r0XyYOPB",
     trialDays: 14,
   },
   // Legacy support for old plan names
   starter: {
-    priceId: "price_BASIC_25_USD", // Maps to basic
-    productId: "prod_BASIC_USD",
+    priceId: "price_1Si2iLPIJtcImSMvHG6aWpCm",
+    productId: "prod_TfNT7f3WMVagaz",
     trialDays: 14,
   },
   pro: {
-    priceId: "price_AGENCY_100_USD", // Maps to agency
-    productId: "prod_AGENCY_USD",
+    priceId: "price_1Si2iNPIJtcImSMvot2pJbyr",
+    productId: "prod_TfNTm4r0XyYOPB",
     trialDays: 14,
   },
 };
