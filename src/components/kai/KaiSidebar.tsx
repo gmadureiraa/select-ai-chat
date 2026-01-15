@@ -387,6 +387,16 @@ export function KaiSidebar({
               collapsed={collapsed}
             />
           )}
+
+          {canViewLibrary && (
+            <NavItem
+              icon={<Library className="h-4 w-4" />}
+              label="Biblioteca"
+              active={activeTab === "library"}
+              onClick={() => onTabChange("library")}
+              collapsed={collapsed}
+            />
+          )}
         </div>
 
         <SectionLabel collapsed={collapsed}>Planejamento</SectionLabel>
@@ -418,8 +428,8 @@ export function KaiSidebar({
             <NavItem
               icon={<Settings className="h-4 w-4" />}
               label="Configurações"
-              active={false}
-              onClick={() => navigate(`/${currentSlug}/settings`)}
+              active={activeTab === "settings"}
+              onClick={() => onTabChange("settings")}
               collapsed={collapsed}
             />
           ) : (
@@ -435,7 +445,7 @@ export function KaiSidebar({
               icon={<HelpCircle className="h-4 w-4" />}
               label="Ajuda"
               active={activeTab === "docs"}
-              onClick={() => navigate(`/${currentSlug}/docs`)}
+              onClick={() => onTabChange("docs")}
               collapsed={collapsed}
             />
           ) : (

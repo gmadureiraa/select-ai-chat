@@ -241,10 +241,45 @@ export function ClientEditTabsSimplified({ client, onClose }: ClientEditTabsSimp
         </TabsContent>
 
         {/* Tab: Referências (merged docs + references + visuals) */}
-        <TabsContent value="references" className="space-y-4 mt-4">
-          <ClientDocumentsManager clientId={client.id} />
-          <ClientReferencesManager clientId={client.id} />
-          <VisualReferencesManager clientId={client.id} />
+        <TabsContent value="references" className="space-y-4 mt-4 max-h-[60vh] overflow-y-auto pr-2">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <FileText className="h-4 w-4 text-muted-foreground" />
+                Documentos
+              </CardTitle>
+              <CardDescription>PDFs, apresentações e documentos do cliente</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ClientDocumentsManager clientId={client.id} />
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Megaphone className="h-4 w-4 text-muted-foreground" />
+                Referências de Conteúdo
+              </CardTitle>
+              <CardDescription>Links, textos e inspirações para criação</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ClientReferencesManager clientId={client.id} />
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Target className="h-4 w-4 text-muted-foreground" />
+                Referências Visuais
+              </CardTitle>
+              <CardDescription>Imagens de inspiração visual e identidade</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <VisualReferencesManager clientId={client.id} />
+            </CardContent>
+          </Card>
         </TabsContent>
 
         {/* Tab: Integrações */}

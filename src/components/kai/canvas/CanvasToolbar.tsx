@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link2, Lightbulb, Sparkles, Trash2, ZoomIn, ZoomOut, Maximize, Save, FolderOpen, ChevronDown, Loader2, X, Pencil, LayoutTemplate, ImageIcon, Smartphone, Briefcase, RefreshCw } from "lucide-react";
+import { Link2, Lightbulb, Sparkles, Trash2, ZoomIn, ZoomOut, Maximize, Save, FolderOpen, ChevronDown, Loader2, X, Pencil, LayoutTemplate, ImageIcon, Smartphone, Briefcase, RefreshCw, Library } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -26,6 +26,7 @@ interface CanvasToolbarProps {
   onZoomOut: () => void;
   onFitView: () => void;
   onLoadTemplate?: (templateId: CanvasTemplate) => void;
+  onOpenLibrary?: () => void;
   // Canvas persistence
   currentCanvasName?: string;
   setCanvasName?: (name: string) => void;
@@ -77,6 +78,7 @@ export function CanvasToolbar({
   onZoomOut,
   onFitView,
   onLoadTemplate,
+  onOpenLibrary,
   currentCanvasName = "Novo Canvas",
   setCanvasName,
   onSave,
@@ -283,7 +285,27 @@ export function CanvasToolbar({
 
         <Separator orientation="vertical" className="h-6 mx-1" />
 
-        {/* Save/Load */}
+        {/* Library button */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onOpenLibrary}
+              className="h-8 gap-1.5 text-xs hover:bg-purple-50 hover:text-purple-600 dark:hover:bg-purple-950"
+            >
+              <div className="h-4 w-4 rounded bg-purple-500 flex items-center justify-center">
+                <Library className="h-2.5 w-2.5 text-white" />
+              </div>
+              Biblioteca
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">
+            <p>Adicionar da biblioteca de referências</p>
+          </TooltipContent>
+        </Tooltip>
+
+        <Separator orientation="vertical" className="h-6 mx-1" />
         <Tooltip>
           <TooltipTrigger asChild>
             <Button 

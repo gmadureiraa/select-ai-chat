@@ -11,6 +11,7 @@ import "reactflow/dist/style.css";
 
 import { useCanvasState, NodeDataType, CanvasNodeData, SourceNodeData, PromptNodeData, GeneratorNodeData, OutputNodeData, ContentFormat, ImageSourceNodeData } from "./hooks/useCanvasState";
 import { CanvasToolbar } from "./CanvasToolbar";
+import { CanvasLibraryDrawer } from "./CanvasLibraryDrawer";
 import { SourceNode } from "./nodes/SourceNode";
 import { PromptNode } from "./nodes/PromptNode";
 import { GeneratorNode } from "./nodes/GeneratorNode";
@@ -23,6 +24,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
 import { CONTENT_TO_PLATFORM, ContentTypeKey } from "@/types/contentTypes";
+import { ReferenceItem } from "@/hooks/useReferenceLibrary";
+import { ClientVisualReference } from "@/hooks/useClientVisualReferences";
 
 interface ContentCanvasProps {
   clientId: string;
@@ -48,6 +51,9 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
   const [planningDialogOpen, setPlanningDialogOpen] = useState(false);
   const [planningOutputNode, setPlanningOutputNode] = useState<OutputNodeData | null>(null);
   const [planningOutputNodeId, setPlanningOutputNodeId] = useState<string | null>(null);
+  
+  // Library drawer state
+  const [libraryDrawerOpen, setLibraryDrawerOpen] = useState(false);
 
   const { columns, createItem, updateItem } = usePlanningItems({ clientId });
 
@@ -227,6 +233,36 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
     }
   }, [nodes.length, clearCanvas]);
 
+  // Handle adding reference from library
+  const handleSelectReference = useCallback((ref: ReferenceItem) => {
+    const viewport = getViewport();
+    const centerX = (window.innerWidth / 2 - viewport.x) / viewport.zoom;
+    const centerY = (window.innerHeight / 2 - viewport.y) / viewport.zoom;
+    const offset = nodes.length * 20;
+    
+    addNode("source", { x: centerX + offset, y: centerY + offset });
+    
+    toast({
+      title: "Referência adicionada",
+      description: `"${ref.title}" foi adicionada ao canvas`,
+    });
+  }, [addNode, getViewport, nodes.length, toast]);
+
+  // Handle adding visual reference from library
+  const handleSelectVisualReference = useCallback((ref: ClientVisualReference) => {
+    const viewport = getViewport();
+    const centerX = (window.innerWidth / 2 - viewport.x) / viewport.zoom;
+    const centerY = (window.innerHeight / 2 - viewport.y) / viewport.zoom;
+    const offset = nodes.length * 20;
+    
+    addNode("image-source", { x: centerX + offset, y: centerY + offset });
+    
+    toast({
+      title: "Referência visual adicionada",
+      description: `"${ref.title || 'Imagem'}" foi adicionada ao canvas`,
+    });
+  }, [addNode, getViewport, nodes.length, toast]);
+
   return (
     <div ref={reactFlowWrapper} className="w-full h-full relative">
       {/* Client Header */}
@@ -291,11 +327,21 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
         onLoad={loadCanvas}
         onDelete={deleteCanvas}
         onLoadTemplate={loadTemplate}
+        onOpenLibrary={() => setLibraryDrawerOpen(true)}
         savedCanvases={savedCanvases}
         currentCanvasName={currentCanvasName}
         setCanvasName={setCanvasName}
         isLoadingCanvases={isLoadingCanvases}
         isSaving={isSaving}
+      />
+
+      {/* Library Drawer */}
+      <CanvasLibraryDrawer
+        open={libraryDrawerOpen}
+        onClose={() => setLibraryDrawerOpen(false)}
+        clientId={clientId}
+        onSelectReference={handleSelectReference}
+        onSelectVisualReference={handleSelectVisualReference}
       />
 
       {/* Empty state with template quick actions */}
