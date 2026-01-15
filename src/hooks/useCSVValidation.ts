@@ -54,6 +54,10 @@ export type DetectedCSVType =
   | "interactions" 
   | "profile_visits" 
   | "link_clicks"
+  // YouTube types
+  | "youtube_videos"
+  | "youtube_daily_views"
+  | "youtube_videos_published"
   | "unknown";
 
 export interface ValidationResult {
@@ -277,6 +281,38 @@ const detectCSVTypeEnhanced = (
     normalizedSample.includes('link clicks')
   ) {
     return { type: 'link_clicks', label: 'Cliques no Link', confidence: 90, needsConversion: false };
+  }
+
+  // YouTube: Videos published CSV (Data, Vídeos publicados)
+  if (
+    headerIncludes('vídeos publicados') ||
+    headerIncludes('videos publicados') ||
+    headerIncludes('videos published') ||
+    normalizedSample.includes('vídeos publicados') ||
+    normalizedSample.includes('videos publicados')
+  ) {
+    return { type: 'youtube_videos_published', label: 'YouTube - Vídeos Publicados', confidence: 95, needsConversion: false };
+  }
+
+  // YouTube: Daily views CSV
+  if (
+    (headerIncludes('data') || headerIncludes('date')) &&
+    (headerIncludes('views') || headerIncludes('visualizações')) &&
+    !headerIncludes('alcance') && !headerIncludes('seguidores')
+  ) {
+    return { type: 'youtube_daily_views', label: 'YouTube - Visualizações Diárias', confidence: 85, needsConversion: false };
+  }
+
+  // YouTube: Videos list CSV
+  if (
+    headerIncludes('video id') ||
+    headerIncludes('id do vídeo') ||
+    headerIncludes('video title') ||
+    headerIncludes('título do vídeo') ||
+    headerIncludes('watch time') ||
+    headerIncludes('tempo de exibição')
+  ) {
+    return { type: 'youtube_videos', label: 'YouTube - Lista de Vídeos', confidence: 95, needsConversion: false };
   }
 
   return { type: 'unknown', label: 'Tipo Desconhecido', confidence: 0, needsConversion: false };
