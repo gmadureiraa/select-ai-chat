@@ -1,5 +1,5 @@
-import { useState, useMemo } from "react";
-import { Library, Link2, Image, Search, Plus, X, Layers, Instagram, Twitter, Linkedin, Maximize2 } from "lucide-react";
+import { useState, useMemo, useCallback } from "react";
+import { Library, Link2, Image, Search, Layers, Instagram, Twitter, Linkedin, Maximize2, Star } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
@@ -9,7 +9,9 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useReferenceLibrary, ReferenceItem } from "@/hooks/useReferenceLibrary";
 import { useClientVisualReferences, ClientVisualReference } from "@/hooks/useClientVisualReferences";
-import { useUnifiedContent, UnifiedContentItem } from "@/hooks/useUnifiedContent";
+import { useUnifiedContent, useToggleFavorite, UnifiedContentItem } from "@/hooks/useUnifiedContent";
+import { ContentCard } from "@/components/kai/library/ContentCard";
+import { ContentPreviewDialog } from "@/components/kai/library/ContentPreviewDialog";
 import { cn } from "@/lib/utils";
 
 interface CanvasLibraryDrawerProps {
@@ -43,38 +45,42 @@ export function CanvasLibraryDrawer({
 }: CanvasLibraryDrawerProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("content");
-  const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [isExpanded, setIsExpanded] = useState(false);
+
+  // Content UX state
+  const [contentFilter, setContentFilter] = useState<"all" | "favorites">("all");
+  const [previewItem, setPreviewItem] = useState<UnifiedContentItem | null>(null);
 
   const { references } = useReferenceLibrary(clientId);
   const { references: visualReferences } = useClientVisualReferences(clientId);
   const { data: unifiedContent } = useUnifiedContent(clientId);
+  const toggleFavorite = useToggleFavorite(clientId);
 
   const filteredContent = useMemo(() => {
     if (!unifiedContent) return [];
-    if (!searchQuery) return unifiedContent;
-    const query = searchQuery.toLowerCase();
-    return unifiedContent.filter(
-      (c) => c.title.toLowerCase().includes(query) || c.content.toLowerCase().includes(query)
-    );
-  }, [unifiedContent, searchQuery]);
+
+    const query = searchQuery.trim().toLowerCase();
+
+    return unifiedContent.filter((c) => {
+      if (contentFilter === "favorites" && !c.is_favorite) return false;
+
+      if (!query) return true;
+      return c.title.toLowerCase().includes(query) || c.content.toLowerCase().includes(query);
+    });
+  }, [unifiedContent, searchQuery, contentFilter]);
 
   const filteredReferences = useMemo(() => {
     if (!references) return [];
     if (!searchQuery) return references;
     const query = searchQuery.toLowerCase();
-    return references.filter(
-      (r) => r.title.toLowerCase().includes(query) || r.content.toLowerCase().includes(query)
-    );
+    return references.filter((r) => r.title.toLowerCase().includes(query) || r.content.toLowerCase().includes(query));
   }, [references, searchQuery]);
 
   const filteredVisualRefs = useMemo(() => {
     if (!visualReferences) return [];
     if (!searchQuery) return visualReferences;
     const query = searchQuery.toLowerCase();
-    return visualReferences.filter(
-      (r) => r.title?.toLowerCase().includes(query) || r.description?.toLowerCase().includes(query)
-    );
+    return visualReferences.filter((r) => r.title?.toLowerCase().includes(query) || r.description?.toLowerCase().includes(query));
   }, [visualReferences, searchQuery]);
 
   const handleSelectContent = (content: UnifiedContentItem) => {
@@ -92,10 +98,16 @@ export function CanvasLibraryDrawer({
     onClose();
   };
 
+  const handleDragStart = useCallback((e: React.DragEvent, item: UnifiedContentItem) => {
+    e.dataTransfer.setData("application/x-kai-unified-content", JSON.stringify(item));
+    e.dataTransfer.setData("application/json", JSON.stringify(item));
+    e.dataTransfer.effectAllowed = "copy";
+  }, []);
+
   return (
     <>
       <Sheet open={open} onOpenChange={onClose}>
-        <SheetContent side="right" className="w-full sm:w-[500px] p-0 flex flex-col">
+        <SheetContent side="right" className="w-full sm:w-[520px] p-0 flex flex-col">
           <SheetHeader className="px-4 py-3 border-b">
             <div className="flex items-center justify-between">
               <SheetTitle className="flex items-center gap-2">
@@ -127,23 +139,44 @@ export function CanvasLibraryDrawer({
                 <TabsTrigger value="content" className="gap-1 text-xs data-[state=active]:bg-green-500/10 data-[state=active]:text-green-600">
                   <Layers className="h-3.5 w-3.5" />
                   Conteúdo
-                  <Badge variant="secondary" className="ml-1 text-[10px]">{filteredContent.length}</Badge>
+                  <Badge variant="secondary" className="ml-1 text-[10px]">
+                    {filteredContent.length}
+                  </Badge>
                 </TabsTrigger>
                 <TabsTrigger value="references" className="gap-1 text-xs data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
                   <Link2 className="h-3.5 w-3.5" />
                   Refs
-                  <Badge variant="secondary" className="ml-1 text-[10px]">{filteredReferences.length}</Badge>
+                  <Badge variant="secondary" className="ml-1 text-[10px]">
+                    {filteredReferences.length}
+                  </Badge>
                 </TabsTrigger>
                 <TabsTrigger value="visual" className="gap-1 text-xs data-[state=active]:bg-accent/10 data-[state=active]:text-accent">
                   <Image className="h-3.5 w-3.5" />
                   Visuais
-                  <Badge variant="secondary" className="ml-1 text-[10px]">{filteredVisualRefs.length}</Badge>
+                  <Badge variant="secondary" className="ml-1 text-[10px]">
+                    {filteredVisualRefs.length}
+                  </Badge>
                 </TabsTrigger>
               </TabsList>
             </div>
 
             <ScrollArea className="flex-1">
-              <TabsContent value="content" className="m-0 p-4">
+              <TabsContent value="content" className="m-0 p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="text-xs text-muted-foreground">
+                    Arraste para o canvas ou clique para abrir o preview
+                  </div>
+                  <Button
+                    variant={contentFilter === "favorites" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setContentFilter((v) => (v === "favorites" ? "all" : "favorites"))}
+                    className="h-8 text-xs"
+                  >
+                    <Star className={cn("h-3.5 w-3.5 mr-1", contentFilter === "favorites" && "fill-primary")} />
+                    Favoritos
+                  </Button>
+                </div>
+
                 {filteredContent.length === 0 ? (
                   <div className="text-center py-12 text-muted-foreground">
                     <Layers className="h-10 w-10 mx-auto mb-3 opacity-50" />
@@ -151,33 +184,33 @@ export function CanvasLibraryDrawer({
                   </div>
                 ) : (
                   <div className="space-y-2">
-                    {filteredContent.slice(0, 30).map((item) => {
-                      const Icon = platformIcons[item.platform as keyof typeof platformIcons];
-                      return (
-                        <button
-                          key={item.id}
-                          onClick={() => handleSelectContent(item)}
-                          className="w-full text-left p-3 rounded-lg border hover:bg-muted/50 hover:border-primary/30 transition-all"
+                    {filteredContent.slice(0, 50).map((item) => (
+                      <div
+                        key={item.id}
+                        className="relative"
+                        draggable
+                        onDragStart={(e) => handleDragStart(e, item)}
+                      >
+                        <ContentCard
+                          item={item}
+                          compact
+                          draggable
+                          onSelect={() => setPreviewItem(item)}
+                        />
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="absolute right-2 top-2 h-7 w-7"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleFavorite.mutate({ item });
+                          }}
+                          aria-label={item.is_favorite ? "Remover dos favoritos" : "Adicionar aos favoritos"}
                         >
-                          <div className="flex items-start gap-3">
-                            {Icon && (
-                              <div className="w-10 h-10 rounded bg-muted flex items-center justify-center shrink-0">
-                                <Icon className={cn("h-4 w-4", platformColors[item.platform as keyof typeof platformColors])} />
-                              </div>
-                            )}
-                            <div className="flex-1 min-w-0">
-                              <p className="font-medium text-sm line-clamp-1">{item.title}</p>
-                              <div className="flex items-center gap-2 mt-1">
-                                <Badge variant="outline" className="text-[9px]">{item.platform}</Badge>
-                                {item.engagement_rate && (
-                                  <span className="text-[10px] text-green-600">{item.engagement_rate.toFixed(1)}%</span>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        </button>
-                      );
-                    })}
+                          <Star className={cn("h-4 w-4", item.is_favorite && "fill-primary text-primary")} />
+                        </Button>
+                      </div>
+                    ))}
                   </div>
                 )}
               </TabsContent>
@@ -198,7 +231,9 @@ export function CanvasLibraryDrawer({
                       >
                         <p className="font-medium text-sm truncate">{ref.title}</p>
                         <p className="text-xs text-muted-foreground line-clamp-2 mt-1">{ref.content.slice(0, 120)}</p>
-                        <Badge variant="outline" className="text-[10px] mt-2">{ref.reference_type}</Badge>
+                        <Badge variant="outline" className="text-[10px] mt-2">
+                          {ref.reference_type}
+                        </Badge>
                       </button>
                     ))}
                   </div>
@@ -237,44 +272,88 @@ export function CanvasLibraryDrawer({
 
       {/* Expanded Modal */}
       <Dialog open={isExpanded} onOpenChange={setIsExpanded}>
-        <DialogContent className="max-w-4xl h-[80vh] p-0 flex flex-col">
+        <DialogContent className="max-w-5xl h-[80vh] p-0 flex flex-col">
           <DialogHeader className="px-6 py-4 border-b shrink-0">
             <DialogTitle className="flex items-center gap-2">
               <Library className="h-5 w-5 text-primary" />
               Biblioteca Completa
             </DialogTitle>
           </DialogHeader>
-          
+
           <ScrollArea className="flex-1 p-6">
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
               {filteredContent.map((item) => {
                 const Icon = platformIcons[item.platform as keyof typeof platformIcons];
                 return (
-                  <button
+                  <div
                     key={item.id}
-                    onClick={() => handleSelectContent(item)}
-                    className="text-left rounded-xl border bg-card overflow-hidden hover:shadow-lg hover:border-primary/30 transition-all"
+                    className="relative"
+                    draggable
+                    onDragStart={(e) => handleDragStart(e, item)}
                   >
-                    {item.thumbnail_url ? (
-                      <div className="aspect-square bg-muted overflow-hidden">
-                        <img src={item.thumbnail_url} alt="" className="w-full h-full object-cover" />
+                    <button
+                      onClick={() => setPreviewItem(item)}
+                      className="text-left rounded-xl border bg-card overflow-hidden hover:shadow-lg hover:border-primary/30 transition-all w-full"
+                    >
+                      {item.thumbnail_url ? (
+                        <div className="aspect-square bg-muted overflow-hidden">
+                          <img src={item.thumbnail_url} alt={item.title} className="w-full h-full object-cover" />
+                        </div>
+                      ) : (
+                        <div className="aspect-square bg-muted flex items-center justify-center">
+                          {Icon && (
+                            <Icon
+                              className={cn(
+                                "h-8 w-8 opacity-50",
+                                platformColors[item.platform as keyof typeof platformColors]
+                              )}
+                            />
+                          )}
+                        </div>
+                      )}
+                      <div className="p-3">
+                        <p className="text-sm font-medium line-clamp-2">{item.title}</p>
+                        <div className="flex items-center justify-between mt-2">
+                          <Badge variant="outline" className="text-[10px]">
+                            {item.platform}
+                          </Badge>
+                          {item.is_favorite && <Star className="h-4 w-4 fill-primary text-primary" />}
+                        </div>
                       </div>
-                    ) : (
-                      <div className="aspect-square bg-muted flex items-center justify-center">
-                        {Icon && <Icon className={cn("h-8 w-8 opacity-50", platformColors[item.platform as keyof typeof platformColors])} />}
-                      </div>
-                    )}
-                    <div className="p-3">
-                      <p className="text-sm font-medium line-clamp-2">{item.title}</p>
-                      <Badge variant="outline" className="text-[10px] mt-2">{item.platform}</Badge>
-                    </div>
-                  </button>
+                    </button>
+
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="absolute right-2 top-2 h-8 w-8 bg-background/70 backdrop-blur"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleFavorite.mutate({ item });
+                      }}
+                      aria-label={item.is_favorite ? "Remover dos favoritos" : "Adicionar aos favoritos"}
+                    >
+                      <Star className={cn("h-4 w-4", item.is_favorite && "fill-primary text-primary")} />
+                    </Button>
+                  </div>
                 );
               })}
             </div>
           </ScrollArea>
         </DialogContent>
       </Dialog>
+
+      {/* Preview */}
+      <ContentPreviewDialog
+        item={previewItem}
+        open={!!previewItem}
+        onOpenChange={(o) => !o && setPreviewItem(null)}
+        onToggleFavorite={() => previewItem && toggleFavorite.mutate({ item: previewItem })}
+        onAddToCanvas={() => {
+          if (!previewItem) return;
+          handleSelectContent(previewItem);
+          setPreviewItem(null);
+        }}
+      />
     </>
   );
 }
