@@ -447,26 +447,30 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
     try {
       const file = files[fileIndex];
       
-      // Call transcribe-images to analyze the image with detailed analysis
-      const { data, error } = await supabase.functions.invoke("transcribe-images", {
+      // Call analyze-style for proper image style analysis (not transcribe-images)
+      const { data, error } = await supabase.functions.invoke("analyze-style", {
         body: { 
-          imageUrls: [file.url],
-          mode: "style_analysis"
+          imageUrls: [file.url]
         }
       });
 
       if (error) throw error;
 
+      const analysis = data.styleAnalysis || {};
+      const visualElements = analysis.visual_elements || {};
+      const brandElements = analysis.brand_elements || {};
+      const technicalSpecs = analysis.technical_specs || {};
+      
       // Legacy format for compatibility
       const styleAnalysis = {
-        colors: data.colors || [],
-        mood: data.mood || "Não identificado",
-        style: data.style || "Não identificado",
-        fonts: data.fonts || [],
-        description: data.description || data.analysis || "Análise de estilo visual"
+        colors: visualElements.color_palette || [],
+        mood: visualElements.dominant_mood || "Não identificado",
+        style: visualElements.photography_style || "Não identificado",
+        fonts: brandElements.typography ? [brandElements.typography] : [],
+        description: analysis.style_summary || analysis.generation_prompt_template || "Análise de estilo visual"
       };
 
-      // New structured metadata format
+      // New structured metadata format with complete style analysis
       const metadata: ImageMetadata = {
         uploadedAt: file.metadata?.uploadedAt || new Date().toISOString(),
         dimensions: file.metadata?.dimensions || null,
@@ -475,16 +479,16 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
         isPrimary: file.metadata?.isPrimary || false,
         referenceType: file.metadata?.referenceType || "general",
         styleAnalysis: {
-          dominantColors: data.colors || [],
-          colorMood: data.colorMood || data.mood || "neutral",
-          visualStyle: data.style || "general",
-          artDirection: data.artDirection || "mixed",
-          composition: data.composition || "centered",
-          hasText: data.hasText || false,
-          textStyle: data.textStyle,
-          mood: data.mood || "neutral",
-          lighting: data.lighting || "natural",
-          promptDescription: data.promptDescription || data.description || data.analysis || ""
+          dominantColors: visualElements.color_palette || [],
+          colorMood: visualElements.dominant_mood || "neutral",
+          visualStyle: visualElements.photography_style || "general",
+          artDirection: technicalSpecs.post_processing || "mixed",
+          composition: visualElements.composition || "centered",
+          hasText: !!brandElements.typography,
+          textStyle: brandElements.typography,
+          mood: visualElements.dominant_mood || "neutral",
+          lighting: visualElements.lighting || "natural",
+          promptDescription: analysis.generation_prompt_template || analysis.style_summary || ""
         }
       };
 
@@ -582,6 +586,19 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
         case "prompt": {
           const promptData = inputNode.data as PromptNodeData;
           briefing = promptData.briefing;
+          break;
+        }
+        // NEW: Support output nodes as input for derivation
+        case "output": {
+          const outputData = inputNode.data as OutputNodeData;
+          if (outputData.isImage && outputData.content) {
+            // If it's an image output, use as reference for new image generation
+            imageReferences.push(outputData.content);
+            styleContext.push("Usar estilo visual desta imagem como referência principal");
+          } else if (outputData.content) {
+            // If it's text output, use as context for new content
+            combinedContext += `\n\n### Conteúdo Gerado Anteriormente:\n${outputData.content}`;
+          }
           break;
         }
       }
