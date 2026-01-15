@@ -3,6 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import Kai from "./pages/Kai";
 import Documentation from "./pages/Documentation";
 import LandingPage from "./pages/LandingPage";
+import Help from "./pages/Help";
 import AdminDashboard from "./pages/AdminDashboard";
 import AgentsExplorer from "./pages/AgentsExplorer";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -46,6 +47,7 @@ const App = () => (
                   <Route path="/register" element={<SimpleSignup />} />
                   <Route path="/signup" element={<CreateFirstWorkspace />} />
                   <Route path="/create-workspace" element={<CreateFirstWorkspace />} />
+                  <Route path="/help" element={<Help />} />
                   
                   {/* Protected route for users without workspace */}
                   <Route
