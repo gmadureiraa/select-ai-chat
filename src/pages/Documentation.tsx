@@ -5,20 +5,16 @@ import {
   Book, 
   Sparkles, 
   BarChart3, 
-  Library, 
   Settings,
   Users,
   ChevronRight,
   Search,
   Home,
-  BookOpen,
-  Download,
   Wand2,
   MessageSquare,
   Calendar,
   Shield,
   HelpCircle,
-  History,
   CheckCircle,
   XCircle
 } from "lucide-react";
@@ -26,7 +22,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
-import { ExportableDocumentation } from "@/components/docs/ExportableDocumentation";
 
 interface DocSection {
   id: string;
@@ -36,22 +31,6 @@ interface DocSection {
 }
 
 const sections: DocSection[] = [
-  {
-    id: "export",
-    title: "Exportar Documentação",
-    icon: Download,
-    content: (
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold mb-4">Exportar Documentação</h1>
-          <p className="text-muted-foreground text-lg">
-            Baixe a documentação técnica completa do sistema para análise offline ou uso com outras IAs.
-          </p>
-        </div>
-        <ExportableDocumentation />
-      </div>
-    ),
-  },
   {
     id: "intro",
     title: "Introdução",
@@ -83,10 +62,10 @@ const sections: DocSection[] = [
             </p>
           </div>
           <div className="p-4 rounded-lg border border-border/50 bg-muted/30">
-            <Library className="h-8 w-8 text-blue-500 mb-3" />
-            <h3 className="font-semibold mb-2">Biblioteca</h3>
+            <MessageSquare className="h-8 w-8 text-blue-500 mb-3" />
+            <h3 className="font-semibold mb-2">Assistente kAI</h3>
             <p className="text-sm text-muted-foreground">
-              Organize conteúdo produzido e referências de inspiração.
+              Assistente inteligente para gerar ideias e conteúdos rapidamente.
             </p>
           </div>
           <div className="p-4 rounded-lg border border-border/50 bg-muted/30">
@@ -133,24 +112,6 @@ const sections: DocSection[] = [
               <p className="text-xs text-muted-foreground">Até 10 variações por vez</p>
             </div>
           </div>
-        </div>
-
-        {/* Pricing info */}
-        <div className="p-4 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
-          <h3 className="font-semibold mb-2">Planos Disponíveis</h3>
-          <div className="grid grid-cols-2 gap-3 text-sm">
-            <div className="p-3 rounded bg-background border">
-              <p className="font-medium">Basic</p>
-              <p className="text-muted-foreground">$25/mês</p>
-              <p className="text-xs text-muted-foreground mt-1">1 cliente • Canvas ilimitado</p>
-            </div>
-            <div className="p-3 rounded bg-background border border-primary/30">
-              <p className="font-medium text-primary">Agency</p>
-              <p className="text-muted-foreground">$100/mês</p>
-              <p className="text-xs text-muted-foreground mt-1">10 clientes • Suite completa</p>
-            </div>
-          </div>
-          <p className="text-xs text-muted-foreground mt-2">14 dias de trial gratuito em todos os planos</p>
         </div>
       </div>
     ),
@@ -493,122 +454,6 @@ const sections: DocSection[] = [
             <li>Tendências de crescimento</li>
             <li>Recomendações estratégicas</li>
           </ul>
-        </div>
-      </div>
-    ),
-  },
-  {
-    id: "library",
-    title: "Biblioteca",
-    icon: Library,
-    content: (
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold mb-4">Biblioteca de Conteúdo</h1>
-          <p className="text-muted-foreground text-lg">
-            Organize todo conteúdo produzido e materiais de referência para cada cliente.
-          </p>
-        </div>
-
-        <div className="space-y-4">
-          <h2 className="text-xl font-semibold">Biblioteca de Conteúdo</h2>
-          <p className="text-muted-foreground">
-            Armazena todo conteúdo produzido para o cliente, servindo como 
-            referência de estilo para novas gerações.
-          </p>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {["Newsletter", "Carrossel", "Tweet/Thread", "Roteiro", "Blog", "LinkedIn"].map((type) => (
-              <div key={type} className="p-2 rounded bg-muted/30 text-center text-sm">
-                {type}
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="space-y-4">
-          <h2 className="text-xl font-semibold">Biblioteca de Referências</h2>
-          <p className="text-muted-foreground">
-            Materiais externos de inspiração: exemplos de concorrentes, 
-            tendências, designs de referência.
-          </p>
-        </div>
-
-        <div className="space-y-4">
-          <h2 className="text-xl font-semibold">Importação de Carrossel</h2>
-          <p className="text-muted-foreground">
-            Cole um link do Instagram para extrair automaticamente todas as 
-            imagens e texto de um carrossel.
-          </p>
-        </div>
-
-        <div className="p-4 rounded-lg bg-violet-500/10 border border-violet-500/20">
-          <h3 className="font-semibold mb-2">Importância para a IA</h3>
-          <p className="text-sm text-muted-foreground">
-            O Assistente kAI usa a biblioteca para entender o estilo real do cliente. 
-            Quanto mais exemplos, melhor a qualidade do conteúdo gerado.
-          </p>
-        </div>
-      </div>
-    ),
-  },
-  {
-    id: "knowledge-base",
-    title: "Base de Conhecimento",
-    icon: BookOpen,
-    content: (
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold mb-4">Base de Conhecimento</h1>
-          <p className="text-muted-foreground text-lg">
-            Centralize documentos, guias e materiais de referência para enriquecer 
-            o contexto disponível para a IA.
-          </p>
-        </div>
-
-        <div className="space-y-4">
-          <h2 className="text-xl font-semibold">Tipos de Conteúdo</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div className="p-4 rounded-lg border border-border/50">
-              <h4 className="font-medium mb-2">Documentos PDF</h4>
-              <p className="text-sm text-muted-foreground">
-                Faça upload de PDFs e o sistema extrai o texto automaticamente.
-              </p>
-            </div>
-            <div className="p-4 rounded-lg border border-border/50">
-              <h4 className="font-medium mb-2">Links Web</h4>
-              <p className="text-sm text-muted-foreground">
-                Cole URLs de artigos e referências para salvar o conteúdo.
-              </p>
-            </div>
-            <div className="p-4 rounded-lg border border-border/50">
-              <h4 className="font-medium mb-2">Notas</h4>
-              <p className="text-sm text-muted-foreground">
-                Crie notas e documentos diretamente na plataforma.
-              </p>
-            </div>
-            <div className="p-4 rounded-lg border border-border/50">
-              <h4 className="font-medium mb-2">Guias de Marca</h4>
-              <p className="text-sm text-muted-foreground">
-                Adicione brand books, manuais de identidade e tom de voz.
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="space-y-4">
-          <h2 className="text-xl font-semibold">Busca Inteligente</h2>
-          <p className="text-muted-foreground">
-            A busca semântica encontra documentos relevantes mesmo usando termos diferentes.
-            O sistema entende o significado, não apenas palavras-chave.
-          </p>
-        </div>
-
-        <div className="p-4 rounded-lg bg-blue-500/10 border border-blue-500/20">
-          <h3 className="font-semibold mb-2">Uso pela IA</h3>
-          <p className="text-sm text-muted-foreground">
-            A base de conhecimento é automaticamente consultada pelo Assistente kAI 
-            para enriquecer o contexto das respostas e manter consistência.
-          </p>
         </div>
       </div>
     ),
@@ -1038,7 +883,7 @@ const sections: DocSection[] = [
   {
     id: "changelog",
     title: "Changelog",
-    icon: History,
+    icon: Book,
     content: (
       <div className="space-y-6">
         <div>
