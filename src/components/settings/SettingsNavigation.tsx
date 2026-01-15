@@ -1,20 +1,18 @@
 import { cn } from "@/lib/utils";
-import { User, CreditCard, Users, Activity, Palette } from "lucide-react";
+import { User, CreditCard, Users, Palette } from "lucide-react";
 
-export type SettingsSection = "profile" | "billing" | "team" | "activities" | "appearance";
+export type SettingsSection = "profile" | "billing" | "team" | "appearance";
 
 interface SettingsNavigationProps {
   activeSection: SettingsSection;
   onSectionChange: (section: SettingsSection) => void;
   showTeam?: boolean;
-  showActivities?: boolean;
 }
 
 const sections = [
   { id: "profile" as const, label: "Perfil", icon: User },
   { id: "billing" as const, label: "Plano & Créditos", icon: CreditCard },
   { id: "team" as const, label: "Time", icon: Users, requiresPermission: "team" },
-  { id: "activities" as const, label: "Atividades", icon: Activity, requiresPermission: "activities" },
   { id: "appearance" as const, label: "Aparência", icon: Palette },
 ];
 
@@ -22,11 +20,9 @@ export function SettingsNavigation({
   activeSection, 
   onSectionChange, 
   showTeam = true,
-  showActivities = true
 }: SettingsNavigationProps) {
   const visibleSections = sections.filter(section => {
     if (section.requiresPermission === "team" && !showTeam) return false;
-    if (section.requiresPermission === "activities" && !showActivities) return false;
     return true;
   });
 

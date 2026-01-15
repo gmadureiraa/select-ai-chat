@@ -1,7 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { useActivities } from "@/hooks/useActivities";
 
 export interface ImageGeneration {
   id: string;
@@ -15,7 +14,6 @@ export interface ImageGeneration {
 export const useImageGenerations = (clientId: string, templateId?: string) => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { logActivity } = useActivities();
 
   const { data: generations = [], isLoading } = useQuery({
     queryKey: ["image-generations", clientId, templateId],
@@ -62,17 +60,8 @@ export const useImageGenerations = (clientId: string, templateId?: string) => {
       if (error) throw error;
       return data;
     },
-    onSuccess: (data) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["image-generations", clientId, templateId] });
-      
-      // Log activity
-      logActivity.mutate({
-        activityType: "image_generated",
-        entityType: "image",
-        entityId: data.id,
-        description: `Imagem gerada: "${data.prompt.substring(0, 60)}..."`,
-        metadata: { clientId, templateId: templateId || null },
-      });
     },
     onError: (error: any) => {
       toast({
@@ -85,33 +74,15 @@ export const useImageGenerations = (clientId: string, templateId?: string) => {
 
   const deleteGeneration = useMutation({
     mutationFn: async (id: string) => {
-      // Get image info before deleting
-      const { data: imageData } = await supabase
-        .from("image_generations")
-        .select("prompt")
-        .eq("id", id)
-        .single();
-      
       const { error } = await supabase
         .from("image_generations")
         .delete()
         .eq("id", id);
 
       if (error) throw error;
-      return imageData?.prompt;
     },
-    onSuccess: (prompt) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["image-generations", clientId, templateId] });
-      
-      // Log activity
-      if (prompt) {
-        logActivity.mutate({
-          activityType: "image_deleted",
-          entityType: "image",
-          description: `Imagem excluída: "${prompt.substring(0, 60)}..."`,
-        });
-      }
-      
       toast({
         title: "Imagem excluída",
         description: "A imagem foi removida do histórico.",

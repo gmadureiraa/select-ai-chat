@@ -15,7 +15,6 @@ import {
   Infinity, 
   Users, 
   Briefcase, 
-  TrendingUp,
   ArrowUpRight,
   Sparkles,
   Settings,
@@ -29,10 +28,9 @@ export function PlanBillingCard() {
     tokensUsedThisPeriod, 
     plan, 
     isLoading, 
-    formattedBalance, 
     isUnlimited 
   } = useTokens();
-  const { workspace, isAdminOrOwner } = useWorkspace();
+  const { isAdminOrOwner } = useWorkspace();
   const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
   const [loadingPortal, setLoadingPortal] = useState(false);
 
@@ -110,8 +108,14 @@ export function PlanBillingCard() {
   const usagePercentage = isUnlimited ? 0 : Math.min((tokensUsedThisPeriod / tokensMonthly) * 100, 100);
   const remainingPercentage = isUnlimited ? 100 : Math.max(0, 100 - usagePercentage);
 
-  const isLowBalance = !isUnlimited && balance < (tokensMonthly * 0.1);
-  const isCriticalBalance = !isUnlimited && balance < (tokensMonthly * 0.02);
+  // Simplified credit display (divide by 1000)
+  const formatCredits = (tokens: number) => Math.round(tokens / 1000);
+  const creditsAvailable = formatCredits(balance);
+  const creditsUsed = formatCredits(tokensUsedThisPeriod);
+  const creditsMonthly = formatCredits(tokensMonthly);
+
+  const isLowBalance = !isUnlimited && creditsAvailable < (creditsMonthly * 0.1);
+  const isCriticalBalance = !isUnlimited && creditsAvailable < (creditsMonthly * 0.02);
 
   return (
     <>
@@ -131,7 +135,7 @@ export function PlanBillingCard() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          {/* Token Balance */}
+          {/* Credit Balance */}
           <div className="p-4 rounded-lg bg-gradient-to-br from-primary/5 to-primary/10 border border-primary/20">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -150,18 +154,11 @@ export function PlanBillingCard() {
             </div>
             <div className="flex items-baseline gap-2">
               <span className="text-3xl font-bold">
-                {isUnlimited ? "∞" : formattedBalance}
+                {isUnlimited ? "∞" : creditsAvailable.toLocaleString("pt-BR")}
               </span>
-              {!isUnlimited && (
-                <span className="text-sm text-muted-foreground">
-                  créditos
-                </span>
-              )}
-              {isUnlimited && (
-                <span className="text-sm text-muted-foreground">
-                  Ilimitado
-                </span>
-              )}
+              <span className="text-sm text-muted-foreground">
+                {isUnlimited ? "Ilimitado" : "créditos"}
+              </span>
             </div>
           </div>
 
@@ -169,9 +166,9 @@ export function PlanBillingCard() {
           {!isUnlimited && (
             <div className="space-y-2">
               <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Uso do período</span>
+                <span className="text-muted-foreground">Créditos usados</span>
                 <span className="font-medium">
-                  {new Intl.NumberFormat("pt-BR").format(tokensUsedThisPeriod)} / {new Intl.NumberFormat("pt-BR").format(tokensMonthly)}
+                  {creditsUsed.toLocaleString("pt-BR")} / {creditsMonthly.toLocaleString("pt-BR")}
                 </span>
               </div>
               <Progress 
@@ -204,15 +201,6 @@ export function PlanBillingCard() {
               </div>
               <span className="font-medium">
                 {plan?.max_members === 999 ? "Ilimitado" : plan?.max_members || 1}
-              </span>
-            </div>
-            <div className="flex items-center justify-between text-sm">
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <TrendingUp className="h-4 w-4" />
-                Créditos mensais
-              </div>
-              <span className="font-medium">
-                {isUnlimited ? "Ilimitados" : new Intl.NumberFormat("pt-BR").format(tokensMonthly)}
               </span>
             </div>
           </div>

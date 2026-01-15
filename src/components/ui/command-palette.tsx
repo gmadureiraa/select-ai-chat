@@ -1,8 +1,7 @@
-import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Bot, BarChart3, Library, Settings, Send,
-  BookOpen, Activity, Search, User, ArrowRight
+  BookOpen, Search, User, ArrowRight
 } from "lucide-react";
 import {
   CommandDialog,
@@ -41,7 +40,6 @@ export function CommandPalette({
   const tools = [
     { id: "social-publisher", label: "Publicador Social", icon: Send, action: () => navigate("/social-publisher") },
     { id: "knowledge-base", label: "Base de Conhecimento", icon: BookOpen, action: () => navigate("/knowledge-base") },
-    { id: "activities", label: "Atividades", icon: Activity, action: () => navigate("/activities") },
     { id: "settings", label: "Configurações Gerais", icon: User, action: () => navigate("/settings") },
   ];
 
