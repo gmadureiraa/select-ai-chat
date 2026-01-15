@@ -140,6 +140,13 @@ export function SmartCSVUpload({ clientId, platform, onImportComplete }: SmartCS
       // YouTube types
       "youtube_daily_views",
       "youtube_videos_published",
+      // Newsletter types
+      "newsletter_daily_performance",
+      "newsletter_posts",
+      "newsletter_subscribers",
+      "newsletter_top_urls",
+      "newsletter_web_performance",
+      "newsletter_link_clicks",
     ]);
 
     const dates: string[] = [];

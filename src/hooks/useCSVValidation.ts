@@ -58,6 +58,13 @@ export type DetectedCSVType =
   | "youtube_videos"
   | "youtube_daily_views"
   | "youtube_videos_published"
+  // Newsletter types
+  | "newsletter_daily_performance"
+  | "newsletter_posts"
+  | "newsletter_subscribers"
+  | "newsletter_top_urls"
+  | "newsletter_web_performance"
+  | "newsletter_link_clicks"
   | "unknown";
 
 export interface ValidationResult {
@@ -313,6 +320,60 @@ const detectCSVTypeEnhanced = (
     headerIncludes('tempo de exibição')
   ) {
     return { type: 'youtube_videos', label: 'YouTube - Lista de Vídeos', confidence: 95, needsConversion: false };
+  }
+
+  // ===== NEWSLETTER TYPES =====
+  
+  // Newsletter: Top URLs CSV (position, url, email_clicks)
+  if (
+    headerIncludes('position') &&
+    headerIncludes('url') &&
+    (headerIncludes('email_clicks') || headerIncludes('email clicks') || headerIncludes('total_email_clicks'))
+  ) {
+    return { type: 'newsletter_top_urls', label: 'Newsletter - Top URLs', confidence: 95, needsConversion: false };
+  }
+
+  // Newsletter: Link clicks CSV (url, verified columns)
+  if (
+    headerIncludes('url') &&
+    (headerIncludes('verified') || headerIncludes('verified_clicks'))
+  ) {
+    return { type: 'newsletter_link_clicks', label: 'Newsletter - Cliques em Links', confidence: 90, needsConversion: false };
+  }
+
+  // Newsletter: Posts CSV (subject/title and post id)
+  if (
+    (headerIncludes('subject') || headerIncludes('title') || headerIncludes('título')) &&
+    (headerIncludes('post id') || headerIncludes('post_id') || headerIncludes('id'))
+  ) {
+    return { type: 'newsletter_posts', label: 'Newsletter - Posts', confidence: 90, needsConversion: false };
+  }
+
+  // Newsletter: Subscribers acquisition CSV (acquisition source, count)
+  if (
+    (headerIncludes('acquisition') || headerIncludes('source') || headerIncludes('origem')) &&
+    (headerIncludes('count') || headerIncludes('total') || headerIncludes('quantidade'))
+  ) {
+    return { type: 'newsletter_subscribers', label: 'Newsletter - Assinantes', confidence: 90, needsConversion: false };
+  }
+
+  // Newsletter: Web performance CSV (web views, web clicks)
+  if (
+    headerIncludes('web views') || 
+    headerIncludes('web_views') ||
+    headerIncludes('web clicks') ||
+    headerIncludes('web_clicks')
+  ) {
+    return { type: 'newsletter_web_performance', label: 'Newsletter - Performance Web', confidence: 90, needsConversion: false };
+  }
+
+  // Newsletter: Daily/Email performance CSV (delivered, open rate, click rate)
+  if (
+    (headerIncludes('delivered') || headerIncludes('entregues')) &&
+    (headerIncludes('open rate') || headerIncludes('open_rate') || headerIncludes('taxa de abertura') ||
+     headerIncludes('opens') || headerIncludes('aberturas'))
+  ) {
+    return { type: 'newsletter_daily_performance', label: 'Newsletter - Performance Diária', confidence: 90, needsConversion: false };
   }
 
   return { type: 'unknown', label: 'Tipo Desconhecido', confidence: 0, needsConversion: false };
