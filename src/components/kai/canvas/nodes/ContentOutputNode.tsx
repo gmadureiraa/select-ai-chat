@@ -1,6 +1,6 @@
 import { memo, useState, useMemo } from "react";
 import { Handle, Position, NodeProps } from "reactflow";
-import { FileOutput, X, Copy, RefreshCw, Calendar, Check, Edit3, Save, Download, Image, ExternalLink, Maximize2, Minimize2 } from "lucide-react";
+import { FileOutput, X, Copy, RefreshCw, Calendar, Check, Edit3, Save, Download, Image, ExternalLink, Maximize2, Minimize2, Lock } from "lucide-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -10,6 +10,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { cn } from "@/lib/utils";
 import { OutputNodeData, ContentFormat, Platform } from "../hooks/useCanvasState";
 import { useToast } from "@/hooks/use-toast";
+import { usePlanFeatures } from "@/hooks/usePlanFeatures";
+import { useUpgradePrompt } from "@/hooks/useUpgradePrompt";
 
 // Platform character limits
 const PLATFORM_LIMITS: Record<Platform, number | null> = {
@@ -57,9 +59,19 @@ function ContentOutputNodeComponent({
   onRegenerate
 }: ContentOutputNodeProps) {
   const { toast } = useToast();
+  const { hasPlanning } = usePlanFeatures();
+  const { showUpgradePrompt } = useUpgradePrompt();
   const [isEditing, setIsEditing] = useState(false);
   const [editedContent, setEditedContent] = useState(data.content);
   const [isExpanded, setIsExpanded] = useState(false);
+
+  const handleSendToPlanning = () => {
+    if (!hasPlanning) {
+      showUpgradePrompt("planning_locked");
+      return;
+    }
+    onSendToPlanning?.(id);
+  };
 
   // Calculate content stats
   const contentStats = useMemo(() => {
@@ -292,15 +304,23 @@ function ContentOutputNodeComponent({
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button 
-                      onClick={() => onSendToPlanning?.(id)}
-                      className="w-full h-8 gap-1.5 text-xs"
+                      onClick={handleSendToPlanning}
+                      className={cn(
+                        "w-full h-8 gap-1.5 text-xs",
+                        !hasPlanning && "bg-muted hover:bg-muted/80"
+                      )}
+                      variant={hasPlanning ? "default" : "outline"}
                     >
-                      <ExternalLink className="h-3.5 w-3.5" />
+                      {hasPlanning ? (
+                        <ExternalLink className="h-3.5 w-3.5" />
+                      ) : (
+                        <Lock className="h-3.5 w-3.5 text-amber-500" />
+                      )}
                       Enviar para Planejamento
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>
-                    <p>Abre o editor para revisar antes de salvar</p>
+                    <p>{hasPlanning ? "Abre o editor para revisar antes de salvar" : "Disponível no plano Pro"}</p>
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>

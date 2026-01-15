@@ -23,6 +23,8 @@ import { cn } from "@/lib/utils";
 import { useClients } from "@/hooks/useClients";
 import { useWorkspace } from "@/hooks/useWorkspace";
 import { useAuth } from "@/hooks/useAuth";
+import { usePlanFeatures } from "@/hooks/usePlanFeatures";
+import { useUpgradePrompt } from "@/hooks/useUpgradePrompt";
 import { WorkspaceSwitcher } from "./WorkspaceSwitcher";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 
@@ -173,6 +175,53 @@ function NavItemLocked({ icon, label, collapsed }: NavItemLockedProps) {
   );
 }
 
+// Locked nav item that opens upgrade prompt on click
+interface NavItemLockedUpgradeProps {
+  icon: React.ReactNode;
+  label: string;
+  collapsed?: boolean;
+  onClick: () => void;
+}
+
+function NavItemLockedUpgrade({ icon, label, collapsed, onClick }: NavItemLockedUpgradeProps) {
+  const content = (
+    <button
+      onClick={onClick}
+      className={cn(
+        "w-full flex items-center gap-3 px-3 py-2 rounded-md text-[13px] font-medium transition-all duration-150 group relative",
+        "text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-foreground",
+        collapsed && "justify-center px-2"
+      )}
+    >
+      <span className="flex-shrink-0 text-sidebar-foreground/40 group-hover:text-sidebar-foreground/70">
+        {icon}
+      </span>
+      {!collapsed && (
+        <>
+          <span className="flex-1 text-left truncate">{label}</span>
+          <Lock className="h-3.5 w-3.5 text-amber-500 flex-shrink-0" />
+        </>
+      )}
+    </button>
+  );
+
+  if (collapsed) {
+    return (
+      <Tooltip delayDuration={0}>
+        <TooltipTrigger asChild>
+          {content}
+        </TooltipTrigger>
+        <TooltipContent side="right" className="flex items-center gap-2">
+          <Lock className="h-3 w-3 text-amber-500" />
+          {label} - Disponível no Pro
+        </TooltipContent>
+      </Tooltip>
+    );
+  }
+
+  return content;
+}
+
 
 interface KaiSidebarProps {
   activeTab: string;
@@ -207,6 +256,8 @@ export function KaiSidebar({
     canViewDocs,
     workspace 
   } = useWorkspace();
+  const { hasPlanning } = usePlanFeatures();
+  const { showUpgradePrompt } = useUpgradePrompt();
   const { user, signOut } = useAuth();
   const selectedClient = clients?.find(c => c.id === selectedClientId);
   const [searchQuery, setSearchQuery] = useState("");
@@ -402,13 +453,22 @@ export function KaiSidebar({
         <SectionLabel collapsed={collapsed}>Planejamento</SectionLabel>
 
         <div className="space-y-0.5">
-          <NavItem
-            icon={<CalendarDays className="h-4 w-4" />}
-            label="Planejamento"
-            active={activeTab === "planning"}
-            onClick={() => onTabChange("planning")}
-            collapsed={collapsed}
-          />
+          {hasPlanning ? (
+            <NavItem
+              icon={<CalendarDays className="h-4 w-4" />}
+              label="Planejamento"
+              active={activeTab === "planning"}
+              onClick={() => onTabChange("planning")}
+              collapsed={collapsed}
+            />
+          ) : (
+            <NavItemLockedUpgrade
+              icon={<CalendarDays className="h-4 w-4" />}
+              label="Planejamento"
+              collapsed={collapsed}
+              onClick={() => showUpgradePrompt("planning_locked")}
+            />
+          )}
         </div>
 
         <SectionLabel collapsed={collapsed}>Conta</SectionLabel>

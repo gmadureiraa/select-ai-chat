@@ -4,6 +4,9 @@ import { useWorkspaceContext } from "@/contexts/WorkspaceContext";
 
 export interface PlanFeatures {
   isEnterprise: boolean;
+  isPro: boolean;
+  isCanvas: boolean;
+  hasPlanning: boolean;
   hasCalendar: boolean;
   hasKanban: boolean;
   hasSocialPublishing: boolean;
@@ -45,12 +48,21 @@ export function usePlanFeatures(): PlanFeatures {
 
   const planType = data?.subscription_plans?.type || null;
   const isEnterprise = planType === 'enterprise';
+  const isPro = planType === 'pro' || isEnterprise;
+  // Canvas plan is "starter" in the database (legacy name)
+  const isCanvas = planType === 'starter' || (!isPro && !isEnterprise && planType !== null);
+
+  // Planning features are only available on Pro and Enterprise
+  const hasPlanning = isPro;
 
   return {
     isEnterprise,
-    hasCalendar: isEnterprise,
-    hasKanban: isEnterprise,
-    hasSocialPublishing: isEnterprise,
+    isPro,
+    isCanvas,
+    hasPlanning,
+    hasCalendar: isPro,
+    hasKanban: isPro,
+    hasSocialPublishing: isPro,
     planType,
     isLoading,
   };
