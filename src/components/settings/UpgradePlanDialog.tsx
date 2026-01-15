@@ -25,7 +25,7 @@ const plans = [
   {
     id: "basic",
     name: "Basic",
-    price: "$25",
+    price: "$49",
     period: "/mês",
     description: "Focado no Canvas de Criação",
     features: [
@@ -43,7 +43,7 @@ const plans = [
   {
     id: "agency",
     name: "Agency",
-    price: "$100",
+    price: "$249",
     period: "/mês",
     description: "Suite completa para agências",
     features: [
