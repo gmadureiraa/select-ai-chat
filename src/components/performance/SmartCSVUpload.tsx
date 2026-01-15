@@ -366,19 +366,26 @@ export function SmartCSVUpload({ clientId, platform, onImportComplete }: SmartCS
         const row: Record<string, string> = {};
         headers.forEach((h, i) => { row[h] = values[i] || ''; });
         
-        let dateStr = row['date'] || row['data'] || '';
+        // Get date from first column or named columns
+        let dateStr = row['date'] || row['data'] || Object.values(row)[0] || '';
+        
         // Try to parse date in DD/MM/YYYY format
-        const match = dateStr.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
-        if (match) {
-          dateStr = `${match[3]}-${match[2].padStart(2, '0')}-${match[1].padStart(2, '0')}`;
+        const ddmmyyyy = dateStr.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+        if (ddmmyyyy) {
+          dateStr = `${ddmmyyyy[3]}-${ddmmyyyy[2].padStart(2, '0')}-${ddmmyyyy[1].padStart(2, '0')}`;
+        }
+        // Already in YYYY-MM-DD format - just validate
+        else if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+          // Already valid ISO format
         }
         
         if (isVideosPublishedFile) {
-          // Videos published CSV format
+          // Videos published CSV format - get value from second column
+          const valueColumn = row['vídeos publicados'] || row['videos publicados'] || row['published'] || Object.values(row)[1] || '0';
           return {
             date: dateStr,
             views: 0,
-            total_posts: parseInt((row['vídeos publicados'] || row['videos publicados'] || row['published'] || '0').replace(/[^0-9]/g, '')) || 0,
+            total_posts: parseInt(valueColumn.replace(/[^0-9]/g, '')) || 0,
           };
         }
         
@@ -387,7 +394,7 @@ export function SmartCSVUpload({ clientId, platform, onImportComplete }: SmartCS
           views: parseInt((row['views'] || row['visualizações'] || '0').replace(/[^0-9]/g, '')) || 0,
           total_posts: 0,
         };
-      }).filter(v => v.date);
+      }).filter(v => v.date && /^\d{4}-\d{2}-\d{2}$/.test(v.date));
       
       return { videos: [], dailyViews };
     }
