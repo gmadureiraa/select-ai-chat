@@ -1,23 +1,12 @@
 import { useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Newspaper, FileText, Video, Mail, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Button } from "@/components/ui/button";
 import { Message, ProcessStep, MultiAgentStep } from "@/types/chat";
 import { KAIActionStatus } from "@/types/kaiActions";
 import { EnhancedMessageBubble } from "@/components/chat/EnhancedMessageBubble";
-import { MinimalProgress } from "@/components/chat/MinimalProgress";
-import { MultiAgentProgress } from "@/components/chat/MultiAgentProgress";
+import { SimpleProgress } from "./SimpleProgress";
 import kaleidosLogo from "@/assets/kaleidos-logo.svg";
-
-const quickActionChips = [
-  { icon: Newspaper, label: "Newsletter", prompt: "Crie uma newsletter semanal" },
-  { icon: FileText, label: "Carrossel", prompt: "Crie um carrossel de Instagram" },
-  { icon: Video, label: "Stories", prompt: "Crie uma sequência de stories" },
-  { icon: Mail, label: "Thread", prompt: "Escreva uma thread para X" },
-  { icon: Sparkles, label: "Post LinkedIn", prompt: "Crie um post para LinkedIn" },
-];
 
 interface GlobalKAIChatProps {
   messages: Message[];
@@ -40,7 +29,6 @@ export function GlobalKAIChat({
   actionStatus = "idle",
   currentStep,
   multiAgentStep,
-  multiAgentDetails,
   onSendMessage,
   chatMode = "ideas",
 }: GlobalKAIChatProps) {
@@ -54,7 +42,7 @@ export function GlobalKAIChat({
     }
   }, [messages, isProcessing]);
 
-  // Empty state - simplified without quick actions that don't apply
+  // Empty state - simplified
   if (messages.length === 0 && !isProcessing) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center px-4 py-8">
@@ -62,76 +50,40 @@ export function GlobalKAIChat({
           initial={{ scale: 0.9, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={{ delay: 0.1 }}
-          className="flex flex-col items-center text-center"
+          className="flex flex-col items-center text-center max-w-[300px]"
         >
-          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 mb-4">
-            <img src={kaleidosLogo} alt="kAI" className="h-8 w-8 object-contain" />
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 mb-4">
+            <img src={kaleidosLogo} alt="kAI" className="h-7 w-7 object-contain" />
           </div>
           <h3 className="text-lg font-semibold text-foreground mb-1">
             Olá! Sou o kAI
           </h3>
-          <p className="text-sm text-muted-foreground mb-4 max-w-[280px]">
-            Seu assistente inteligente. Posso analisar métricas, responder dúvidas, 
-            e ajudar com qualquer coisa relacionada ao seu trabalho.
+          <p className="text-sm text-muted-foreground mb-6">
+            Seu assistente inteligente para criar conteúdo e analisar dados.
           </p>
 
-          {/* Contextual hints based on client selection */}
+          {/* Example prompts */}
           <div className="w-full space-y-2 text-left">
-            <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide text-center">
-              Experimente perguntar
+            <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide text-center mb-3">
+              Experimente
             </p>
-            <div className="space-y-1.5">
-              {selectedClientId ? (
-                <>
-                  <div className="px-3 py-2 rounded-lg bg-muted/30 text-xs text-muted-foreground">
-                    💬 "Como está o desempenho do Instagram?"
-                  </div>
-                  <div className="px-3 py-2 rounded-lg bg-muted/30 text-xs text-muted-foreground">
-                    💬 "Quais foram os melhores posts do mês?"
-                  </div>
-                  <div className="px-3 py-2 rounded-lg bg-muted/30 text-xs text-muted-foreground">
-                    💬 "Me dê ideias de conteúdo para essa semana"
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className="px-3 py-2 rounded-lg bg-muted/30 text-xs text-muted-foreground">
-                    💬 "Como funciona o planejamento de conteúdo?"
-                  </div>
-                  <div className="px-3 py-2 rounded-lg bg-muted/30 text-xs text-muted-foreground">
-                    💬 "Quais são as melhores práticas para Instagram?"
-                  </div>
-                </>
-              )}
-            </div>
+            {selectedClientId ? (
+              <>
+                <PromptHint text="Me dê 3 ideias de conteúdo para o LinkedIn" />
+                <PromptHint text="Como está o desempenho do Instagram?" />
+                <PromptHint text="Crie um carrossel sobre produtividade" />
+              </>
+            ) : (
+              <>
+                <PromptHint text="Quais são as melhores práticas para Instagram?" />
+                <PromptHint text="Como criar um calendário de conteúdo?" />
+              </>
+            )}
           </div>
 
-          {/* Quick Action Chips */}
-          {selectedClientId && onSendMessage && (
-            <div className="mt-4 w-full">
-              <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide text-center mb-2">
-                Ações rápidas
-              </p>
-              <div className="flex flex-wrap gap-1.5 justify-center">
-                {quickActionChips.map((chip) => (
-                  <Button
-                    key={chip.label}
-                    variant="outline"
-                    size="sm"
-                    onClick={() => onSendMessage(chip.prompt)}
-                    className="h-7 px-2 text-xs gap-1 bg-muted/30 border-border/50 hover:bg-muted hover:border-border"
-                  >
-                    <chip.icon className="h-3 w-3" />
-                    {chip.label}
-                  </Button>
-                ))}
-              </div>
-            </div>
-          )}
-
           {!selectedClientId && (
-            <p className="text-xs text-muted-foreground mt-4 px-4 py-2 rounded-lg bg-muted/30">
-              💡 Selecione um cliente para acessar métricas e criar conteúdo
+            <p className="text-xs text-muted-foreground mt-6 px-4 py-2 rounded-lg bg-muted/50">
+              💡 Selecione um cliente para criar conteúdo personalizado
             </p>
           )}
         </motion.div>
@@ -168,8 +120,8 @@ export function GlobalKAIChat({
           ))}
         </AnimatePresence>
 
-        {/* Multi-Agent Pipeline Progress - Show when multi-agent is active */}
-        {isProcessing && currentStep === "multi_agent" && multiAgentStep && (
+        {/* Simple Processing indicator */}
+        {isProcessing && (
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -179,58 +131,10 @@ export function GlobalKAIChat({
               <img src={kaleidosLogo} alt="kAI" className="h-5 w-5 object-contain" />
             </div>
             <div className="flex-1">
-              <MultiAgentProgress 
-                currentStep={multiAgentStep} 
-                stepDetails={multiAgentDetails}
+              <SimpleProgress 
+                currentStep={currentStep} 
+                multiAgentStep={multiAgentStep} 
               />
-            </div>
-          </motion.div>
-        )}
-
-        {/* Simple Processing indicator (for non-multi-agent steps) */}
-        {isProcessing && currentStep !== "multi_agent" && (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="flex items-start gap-3"
-          >
-            <div className="flex-shrink-0 w-9 h-9 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/20 flex items-center justify-center shadow-sm">
-              <img src={kaleidosLogo} alt="kAI" className="h-5 w-5 object-contain" />
-            </div>
-            <div className="flex-1">
-              {currentStep ? (
-                <MinimalProgress 
-                  currentStep={currentStep} 
-                  multiAgentStep={multiAgentStep} 
-                />
-              ) : (
-                <div className="flex items-center gap-2 text-muted-foreground py-4">
-                  <span className="flex gap-1">
-                    <motion.span 
-                      animate={{ opacity: [0.4, 1, 0.4] }} 
-                      transition={{ duration: 1.2, repeat: Infinity, delay: 0 }}
-                      className="text-primary"
-                    >•</motion.span>
-                    <motion.span 
-                      animate={{ opacity: [0.4, 1, 0.4] }} 
-                      transition={{ duration: 1.2, repeat: Infinity, delay: 0.2 }}
-                      className="text-primary"
-                    >•</motion.span>
-                    <motion.span 
-                      animate={{ opacity: [0.4, 1, 0.4] }} 
-                      transition={{ duration: 1.2, repeat: Infinity, delay: 0.4 }}
-                      className="text-primary"
-                    >•</motion.span>
-                  </span>
-                  <span className="text-sm">
-                    {actionStatus === "detecting" && "Analisando sua solicitação..."}
-                    {actionStatus === "analyzing" && "Processando informações..."}
-                    {actionStatus === "confirming" && "Aguardando confirmação..."}
-                    {actionStatus === "executing" && "Executando ação..."}
-                    {actionStatus === "idle" && "kAI está digitando..."}
-                  </span>
-                </div>
-              )}
             </div>
           </motion.div>
         )}
@@ -238,5 +142,14 @@ export function GlobalKAIChat({
         <div ref={bottomRef} />
       </div>
     </ScrollArea>
+  );
+}
+
+// Helper component for prompt hints
+function PromptHint({ text }: { text: string }) {
+  return (
+    <div className="px-3 py-2 rounded-lg bg-muted/30 text-xs text-muted-foreground hover:bg-muted/50 transition-colors cursor-default">
+      💬 "{text}"
+    </div>
   );
 }
