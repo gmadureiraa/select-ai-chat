@@ -439,6 +439,7 @@ export type Database = {
           content_url: string | null
           created_at: string | null
           id: string
+          is_favorite: boolean | null
           metadata: Json | null
           thumbnail_url: string | null
           title: string
@@ -451,6 +452,7 @@ export type Database = {
           content_url?: string | null
           created_at?: string | null
           id?: string
+          is_favorite?: boolean | null
           metadata?: Json | null
           thumbnail_url?: string | null
           title: string
@@ -463,6 +465,7 @@ export type Database = {
           content_url?: string | null
           created_at?: string | null
           id?: string
+          is_favorite?: boolean | null
           metadata?: Json | null
           thumbnail_url?: string | null
           title?: string
@@ -1300,6 +1303,7 @@ export type Database = {
           images: Json | null
           impressions: number | null
           is_collab: boolean | null
+          is_favorite: boolean | null
           likes: number | null
           link_clicks: number | null
           metadata: Json | null
@@ -1330,6 +1334,7 @@ export type Database = {
           images?: Json | null
           impressions?: number | null
           is_collab?: boolean | null
+          is_favorite?: boolean | null
           likes?: number | null
           link_clicks?: number | null
           metadata?: Json | null
@@ -1360,6 +1365,7 @@ export type Database = {
           images?: Json | null
           impressions?: number | null
           is_collab?: boolean | null
+          is_favorite?: boolean | null
           likes?: number | null
           link_clicks?: number | null
           metadata?: Json | null
@@ -1712,6 +1718,7 @@ export type Database = {
           id: string
           images: Json | null
           impressions: number | null
+          is_favorite: boolean | null
           likes: number | null
           metadata: Json | null
           post_id: string
@@ -1734,6 +1741,7 @@ export type Database = {
           id?: string
           images?: Json | null
           impressions?: number | null
+          is_favorite?: boolean | null
           likes?: number | null
           metadata?: Json | null
           post_id: string
@@ -1756,6 +1764,7 @@ export type Database = {
           id?: string
           images?: Json | null
           impressions?: number | null
+          is_favorite?: boolean | null
           likes?: number | null
           metadata?: Json | null
           post_id?: string
@@ -3433,6 +3442,7 @@ export type Database = {
           id: string
           images: Json | null
           impressions: number | null
+          is_favorite: boolean | null
           likes: number | null
           media_engagements: number | null
           media_views: number | null
@@ -3458,6 +3468,7 @@ export type Database = {
           id?: string
           images?: Json | null
           impressions?: number | null
+          is_favorite?: boolean | null
           likes?: number | null
           media_engagements?: number | null
           media_views?: number | null
@@ -3483,6 +3494,7 @@ export type Database = {
           id?: string
           images?: Json | null
           impressions?: number | null
+          is_favorite?: boolean | null
           likes?: number | null
           media_engagements?: number | null
           media_views?: number | null

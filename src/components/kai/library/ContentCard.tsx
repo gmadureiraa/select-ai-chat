@@ -1,4 +1,4 @@
-import { Instagram, Twitter, Linkedin, FileText, Heart, MessageCircle, Share2, ExternalLink } from "lucide-react";
+import { Instagram, Twitter, Linkedin, FileText, Heart, MessageCircle, ExternalLink, Star, Eye, GripVertical } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -10,8 +10,11 @@ interface ContentCardProps {
   item: UnifiedContentItem;
   onClick?: () => void;
   onSelect?: () => void;
+  onToggleFavorite?: () => void;
+  onPreview?: () => void;
   selected?: boolean;
   compact?: boolean;
+  draggable?: boolean;
 }
 
 const platformIcons = {
@@ -38,44 +41,66 @@ const platformBgColors = {
   content: "bg-muted/50",
 };
 
-export function ContentCard({ item, onClick, onSelect, selected, compact }: ContentCardProps) {
+export function ContentCard({ 
+  item, 
+  onClick, 
+  onSelect, 
+  onToggleFavorite,
+  onPreview,
+  selected, 
+  compact,
+  draggable 
+}: ContentCardProps) {
   const Icon = platformIcons[item.platform];
   const formattedDate = format(new Date(item.posted_at), "dd MMM yyyy", { locale: ptBR });
 
   if (compact) {
     return (
-      <button
+      <div
         onClick={onClick || onSelect}
+        draggable={draggable}
         className={cn(
-          "w-full text-left p-3 rounded-lg border transition-all",
+          "w-full text-left p-3 rounded-lg border transition-all cursor-pointer",
           "hover:bg-accent/50 hover:border-primary/30",
-          selected && "bg-primary/10 border-primary"
+          selected && "bg-primary/10 border-primary",
+          draggable && "cursor-grab active:cursor-grabbing"
         )}
       >
         <div className="flex items-start gap-3">
-          <div className={cn("p-1.5 rounded-md", platformBgColors[item.platform])}>
+          {draggable && (
+            <GripVertical className="h-4 w-4 text-muted-foreground/50 mt-0.5 flex-shrink-0" />
+          )}
+          <div className={cn("p-1.5 rounded-md flex-shrink-0", platformBgColors[item.platform])}>
             <Icon className={cn("h-3.5 w-3.5", platformColors[item.platform])} />
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium truncate">{item.title}</p>
             <p className="text-xs text-muted-foreground mt-0.5">{formattedDate}</p>
           </div>
-          {item.engagement_rate && (
-            <Badge variant="secondary" className="text-[10px]">
-              {item.engagement_rate.toFixed(1)}%
-            </Badge>
-          )}
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            {item.is_favorite && (
+              <Star className="h-3.5 w-3.5 fill-yellow-400 text-yellow-400" />
+            )}
+            {item.engagement_rate && (
+              <Badge variant="secondary" className="text-[10px]">
+                {item.engagement_rate.toFixed(1)}%
+              </Badge>
+            )}
+          </div>
         </div>
-      </button>
+      </div>
     );
   }
 
   return (
     <div
+      onClick={onClick || onSelect}
+      draggable={draggable}
       className={cn(
-        "group relative rounded-xl border bg-card overflow-hidden transition-all",
+        "group relative rounded-xl border bg-card overflow-hidden transition-all cursor-pointer",
         "hover:shadow-lg hover:border-primary/30",
-        selected && "ring-2 ring-primary border-primary"
+        selected && "ring-2 ring-primary border-primary",
+        draggable && "cursor-grab active:cursor-grabbing"
       )}
     >
       {/* Thumbnail */}
@@ -102,6 +127,13 @@ export function ContentCard({ item, onClick, onSelect, selected, compact }: Cont
           <Icon className={cn("h-4 w-4", platformColors[item.platform])} />
         </div>
       </div>
+
+      {/* Favorite badge */}
+      {item.is_favorite && (
+        <div className="absolute top-2 right-10">
+          <Star className="h-5 w-5 fill-yellow-400 text-yellow-400 drop-shadow-md" />
+        </div>
+      )}
 
       {/* Engagement badge */}
       {item.engagement_rate && item.engagement_rate > 0 && (
@@ -132,9 +164,31 @@ export function ContentCard({ item, onClick, onSelect, selected, compact }: Cont
 
         {/* Actions on hover */}
         <div className="flex gap-2 pt-1 opacity-0 group-hover:opacity-100 transition-opacity">
-          {onSelect && (
-            <Button size="sm" className="flex-1 h-7 text-xs" onClick={onSelect}>
-              Selecionar
+          {onPreview && (
+            <Button 
+              size="sm" 
+              variant="secondary"
+              className="flex-1 h-7 text-xs gap-1"
+              onClick={(e) => {
+                e.stopPropagation();
+                onPreview();
+              }}
+            >
+              <Eye className="h-3 w-3" />
+              Ver
+            </Button>
+          )}
+          {onToggleFavorite && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 px-2"
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleFavorite();
+              }}
+            >
+              <Star className={cn("h-3 w-3", item.is_favorite && "fill-yellow-400 text-yellow-400")} />
             </Button>
           )}
           {item.permalink && (
