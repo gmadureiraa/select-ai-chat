@@ -31,6 +31,7 @@ import { TwitterPost } from "@/types/twitter";
 import { useImportTwitterCSV, parseTwitterCSV } from "@/hooks/useTwitterMetrics";
 import { useImportHistory } from "@/hooks/useImportHistory";
 import { toast } from "sonner";
+import { LateSyncButton } from "./LateSyncButton";
 
 interface TwitterDashboardProps {
   clientId: string;
@@ -322,16 +323,19 @@ export function TwitterDashboard({ clientId, posts, isLoading }: TwitterDashboar
             </SelectContent>
           </Select>
 
-          {/* Upload Toggle */}
+          {/* Sync & Upload */}
           {canImportData && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowUpload(!showUpload)}
-            >
-              <Upload className="h-4 w-4 mr-2" />
-              Importar CSV
-            </Button>
+            <>
+              <LateSyncButton clientId={clientId} platform="twitter" showLastSync={false} />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowUpload(!showUpload)}
+              >
+                <Upload className="h-4 w-4 mr-2" />
+                Importar CSV
+              </Button>
+            </>
           )}
         </div>
       </div>

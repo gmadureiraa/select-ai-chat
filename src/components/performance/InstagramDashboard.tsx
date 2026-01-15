@@ -8,7 +8,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
-import { Users, Heart, MessageCircle, Eye, Bookmark, Upload, Calendar, Share2, Target, TrendingUp, Settings, FileText, MousePointer, Plus, Clock, RefreshCw } from "lucide-react";
+import { Users, Heart, MessageCircle, Eye, Bookmark, Upload, Calendar, Share2, Target, TrendingUp, Settings, FileText, MousePointer, Plus, Clock, RefreshCw, Info } from "lucide-react";
 import { useImportHistory } from "@/hooks/useImportHistory";
 import { GoalsPanel } from "./GoalsPanel";
 import { InstagramPost } from "@/hooks/useInstagramPosts";
@@ -38,6 +38,8 @@ import { InstagramStoriesMetricsCards } from "./InstagramStoriesMetricsCards";
 import { useInstagramStories } from "@/hooks/useInstagramStories";
 import { format, subDays, isAfter, isBefore, parseISO, startOfDay, getDay, getHours } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { LateSyncButton } from "./LateSyncButton";
+import { CSVImportExplanationModal } from "./CSVImportExplanationModal";
 
 interface InstagramDashboardProps {
   clientId: string;
@@ -83,6 +85,7 @@ export function InstagramDashboard({
   const [topPostsMetric, setTopPostsMetric] = useState("engagement");
   const [showReportGenerator, setShowReportGenerator] = useState(false);
   const [showGoalDialog, setShowGoalDialog] = useState(false);
+  const [showCSVExplanation, setShowCSVExplanation] = useState(false);
   
   const { goals } = usePerformanceGoals(clientId);
   const { data: stories = [], isLoading: isLoadingStories, refetch: refetchStories } = useInstagramStories(clientId);
@@ -653,14 +656,17 @@ export function InstagramDashboard({
             </Button>
           )}
           {canImportData && (
-            <Button 
-              variant="outline" 
-              className="border-border/50"
-              onClick={() => setShowUploadPosts(!showUploadPosts)}
-            >
-              <Upload className="h-4 w-4 mr-2" />
-              Importar CSV
-            </Button>
+            <>
+              <LateSyncButton clientId={clientId} platform="instagram" />
+              <Button 
+                variant="outline" 
+                className="border-border/50"
+                onClick={() => setShowCSVExplanation(true)}
+              >
+                <Upload className="h-4 w-4 mr-2" />
+                Importar CSV
+              </Button>
+            </>
           )}
         </div>
       </div>
@@ -677,6 +683,13 @@ export function InstagramDashboard({
         onOpenChange={setShowReportGenerator}
       />
 
+      {/* CSV Import Explanation Modal */}
+      <CSVImportExplanationModal
+        open={showCSVExplanation}
+        onOpenChange={setShowCSVExplanation}
+        platform="instagram"
+        onProceed={() => setShowUploadPosts(true)}
+      />
       {/* CSV Upload - Smart (detecta automaticamente Posts ou Stories) */}
       {canImportData && (
         <Collapsible open={showUploadPosts} onOpenChange={setShowUploadPosts}>
