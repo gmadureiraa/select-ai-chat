@@ -6,7 +6,7 @@ import { useQueryClient } from "@tanstack/react-query";
 interface ImportResult {
   success: boolean;
   count: number;
-  type: "daily_performance" | "posts" | "subscribers" | "web_performance" | "link_clicks" | "unknown";
+  type: "daily_performance" | "posts" | "subscribers" | "web_performance" | "link_clicks" | "top_urls" | "unknown";
   error?: string;
 }
 
@@ -67,7 +67,7 @@ function parsePercentage(value: string): number {
 }
 
 // Detect CSV type based on headers
-function detectCsvType(headers: string[]): "daily_performance" | "posts" | "subscribers" | "web_performance" | "link_clicks" | "unknown" {
+function detectCsvType(headers: string[]): "daily_performance" | "posts" | "subscribers" | "web_performance" | "link_clicks" | "top_urls" | "unknown" {
   const lowerHeaders = headers.map(h => h.toLowerCase().replace(/['"]/g, "").trim());
   
   // Check for posts CSV FIRST (has Subject or Title, Post ID, etc.) - more specific
@@ -76,9 +76,16 @@ function detectCsvType(headers: string[]): "daily_performance" | "posts" | "subs
     return "posts";
   }
   
-  // Check for link clicks CSV (URL, Verified Total Clicks, etc.)
+  // Check for top_urls CSV (Position, url, total_email_clicks, total_unique_email_clicks)
+  if (lowerHeaders.some(h => h === "position") && 
+      lowerHeaders.some(h => h === "url") &&
+      lowerHeaders.some(h => h.includes("email_clicks") || h.includes("email clicks"))) {
+    return "top_urls";
+  }
+  
+  // Check for link clicks CSV (URL, Verified Total Clicks, etc.) - has "verified" columns
   if (lowerHeaders.some(h => h.includes("url")) && 
-      lowerHeaders.some(h => h.includes("clicks") || h.includes("cliques"))) {
+      lowerHeaders.some(h => h.includes("verified"))) {
     return "link_clicks";
   }
   
@@ -93,7 +100,8 @@ function detectCsvType(headers: string[]): "daily_performance" | "posts" | "subs
   }
   
   // Check for subscriber acquisitions (Created At, Acquisition Source, Count)
-  if (lowerHeaders.includes("acquisition source") && lowerHeaders.includes("count")) {
+  if ((lowerHeaders.includes("acquisition source") || lowerHeaders.some(h => h.includes("acquisition"))) && 
+      lowerHeaders.includes("count")) {
     return "subscribers";
   }
   
@@ -464,6 +472,70 @@ export function useSmartNewsletterImport(clientId: string, onImportComplete?: (p
         }
 
         count = topLinks.length;
+      } else if (csvType === "top_urls") {
+        // Process top URLs CSV (Position, url, total_email_clicks, total_unique_email_clicks)
+        const positionIdx = headers.findIndex(h => h.toLowerCase() === "position");
+        const urlIdx = headers.findIndex(h => h.toLowerCase() === "url");
+        const totalClicksIdx = headers.findIndex(h => h.toLowerCase().includes("total_email_clicks") || h.toLowerCase().includes("total email clicks"));
+        const uniqueClicksIdx = headers.findIndex(h => h.toLowerCase().includes("unique_email_clicks") || h.toLowerCase().includes("unique email clicks"));
+
+        const topUrls: Array<{ position: number; url: string; totalClicks: number; uniqueClicks: number }> = [];
+        let totalEmailClicks = 0;
+        let totalUniqueEmailClicks = 0;
+
+        for (let i = 1; i < lines.length; i++) {
+          const values = parseCSVLine(lines[i]);
+          const position = parseNumber(values[positionIdx]);
+          const url = values[urlIdx]?.replace(/['"]/g, "").trim() || "";
+          
+          if (!url) continue;
+
+          const totalClicks = parseNumber(values[totalClicksIdx]);
+          const uniqueClicks = parseNumber(values[uniqueClicksIdx]);
+
+          totalEmailClicks += totalClicks;
+          totalUniqueEmailClicks += uniqueClicks;
+
+          if (topUrls.length < 20) {
+            topUrls.push({ position, url, totalClicks, uniqueClicks });
+          }
+        }
+
+        // Store as aggregate data with today's date
+        const today = new Date().toISOString().split("T")[0];
+        
+        const { data: existingMetric } = await supabase
+          .from("platform_metrics")
+          .select("id, metadata")
+          .eq("client_id", clientId)
+          .eq("platform", "newsletter")
+          .eq("metric_date", today)
+          .maybeSingle();
+        
+        const topUrlsData = {
+          totalEmailClicks,
+          totalUniqueEmailClicks,
+          topUrls: topUrls.slice(0, 10),
+          topUrlsImportedAt: new Date().toISOString(),
+        };
+
+        if (existingMetric) {
+          await supabase.from("platform_metrics").update({
+            metadata: {
+              ...(existingMetric.metadata as Record<string, any> || {}),
+              ...topUrlsData,
+            }
+          }).eq("id", existingMetric.id);
+        } else {
+          await supabase.from("platform_metrics").insert({
+            client_id: clientId,
+            platform: "newsletter",
+            metric_date: today,
+            metadata: topUrlsData,
+          });
+        }
+
+        count = topUrls.length;
       }
       const importResult: ImportResult = { success: true, count, type: csvType };
       setResult(importResult);
@@ -501,6 +573,7 @@ export function useSmartNewsletterImport(clientId: string, onImportComplete?: (p
         subscribers: "Novos Assinantes",
         web_performance: "Performance Web",
         link_clicks: "Cliques em Links",
+        top_urls: "Top URLs",
         unknown: "Dados"
       };
 
