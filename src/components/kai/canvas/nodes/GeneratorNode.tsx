@@ -1,6 +1,6 @@
-import { memo } from "react";
+import { memo, useState } from "react";
 import { Handle, Position, NodeProps } from "reactflow";
-import { Sparkles, X, Loader2, Play, Image } from "lucide-react";
+import { Sparkles, X, Loader2, Play, Plus } from "lucide-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -8,23 +8,31 @@ import { Progress } from "@/components/ui/progress";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
-import { GeneratorNodeData, ContentFormat, Platform } from "../hooks/useCanvasState";
+import { GeneratorNodeData, ContentFormat } from "../hooks/useCanvasState";
+import { contentFormats } from "@/components/chat/FormatItem";
 
 interface GeneratorNodeProps extends NodeProps<GeneratorNodeData> {
   onUpdateData?: (nodeId: string, data: Partial<GeneratorNodeData>) => void;
   onDelete?: (nodeId: string) => void;
   onGenerate?: (nodeId: string) => void;
+  onGenerateMore?: (nodeId: string) => void;
 }
 
-const FORMAT_OPTIONS: { value: ContentFormat; label: string; icon: string }[] = [
-  { value: "carousel", label: "Carrossel", icon: "🎠" },
-  { value: "thread", label: "Thread", icon: "🧵" },
-  { value: "reel_script", label: "Roteiro Reel", icon: "🎬" },
-  { value: "post", label: "Post", icon: "📝" },
-  { value: "stories", label: "Stories", icon: "📱" },
-  { value: "newsletter", label: "Newsletter", icon: "📧" },
-  { value: "image", label: "Imagem", icon: "🖼️" },
-];
+// Use contentFormats from the central definition, excluding special actions
+const FORMAT_OPTIONS = contentFormats
+  .filter(f => !["format_ideias", "format_gerar_imagem"].includes(f.id))
+  .map(f => ({
+    value: f.category as ContentFormat,
+    label: f.name,
+    description: f.description,
+  }));
+
+// Add image option
+FORMAT_OPTIONS.push({
+  value: "image" as ContentFormat,
+  label: "Imagem",
+  description: "Gerar imagem com IA",
+});
 
 const IMAGE_STYLE_OPTIONS = [
   { value: "photographic", label: "Fotográfico" },
@@ -49,43 +57,27 @@ const ASPECT_RATIO_OPTIONS = [
   { value: "16:9", label: "16:9 (Paisagem)" },
 ];
 
-const PLATFORM_OPTIONS: { value: Platform; label: string }[] = [
-  { value: "instagram", label: "Instagram" },
-  { value: "linkedin", label: "LinkedIn" },
-  { value: "twitter", label: "Twitter/X" },
-  { value: "youtube", label: "YouTube" },
-  { value: "tiktok", label: "TikTok" },
-  { value: "other", label: "Outro" },
-];
-
-const QUANTITY_OPTIONS = [
-  { value: 1, label: "1 conteúdo" },
-  { value: 3, label: "3 conteúdos" },
-  { value: 5, label: "5 conteúdos" },
-  { value: 10, label: "10 conteúdos" },
-];
-
 function GeneratorNodeComponent({ 
   id, 
   data, 
   selected,
   onUpdateData,
   onDelete,
-  onGenerate
+  onGenerate,
+  onGenerateMore
 }: GeneratorNodeProps) {
+  const [nodeSize, setNodeSize] = useState<"normal" | "expanded">("normal");
+  
   const handleFormatChange = (format: ContentFormat) => {
     onUpdateData?.(id, { format });
-  };
-
-  const handlePlatformChange = (platform: Platform) => {
-    onUpdateData?.(id, { platform });
   };
 
   const selectedFormat = FORMAT_OPTIONS.find(f => f.value === data.format);
 
   return (
     <Card className={cn(
-      "w-[280px] shadow-lg transition-all border-2",
+      "shadow-lg transition-all border-2",
+      nodeSize === "normal" ? "w-[280px]" : "w-[380px]",
       selected ? "border-primary ring-2 ring-primary/20" : "border-green-500/50",
       data.isGenerating && "animate-pulse",
       "bg-gradient-to-br from-green-50 to-white dark:from-green-950/30 dark:to-background"
@@ -109,7 +101,7 @@ function GeneratorNodeComponent({
       </CardHeader>
 
       <CardContent className="px-3 pb-3 space-y-3">
-        {/* Format */}
+        {/* Format Selection */}
         <div className="space-y-1.5">
           <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
             Formato
@@ -121,73 +113,23 @@ function GeneratorNodeComponent({
           >
             <SelectTrigger className="h-8 text-xs">
               <SelectValue>
-                <span className="flex items-center gap-2">
-                  <span>{selectedFormat?.icon}</span>
-                  <span>{selectedFormat?.label}</span>
-                </span>
+                <span>{selectedFormat?.label || "Selecione"}</span>
               </SelectValue>
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="max-h-[300px]">
               {FORMAT_OPTIONS.map((option) => (
                 <SelectItem key={option.value} value={option.value} className="text-xs">
-                  <span className="flex items-center gap-2">
-                    <span>{option.icon}</span>
+                  <div className="flex flex-col">
                     <span>{option.label}</span>
-                  </span>
+                    {nodeSize === "expanded" && (
+                      <span className="text-[10px] text-muted-foreground">{option.description}</span>
+                    )}
+                  </div>
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
         </div>
-
-        {/* Platform + Quantity row - only for text content */}
-        {data.format !== "image" && (
-          <div className="grid grid-cols-2 gap-2">
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
-                Plataforma
-              </label>
-              <Select
-                value={data.platform}
-                onValueChange={handlePlatformChange}
-                disabled={data.isGenerating}
-              >
-                <SelectTrigger className="h-8 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {PLATFORM_OPTIONS.map((option) => (
-                    <SelectItem key={option.value} value={option.value} className="text-xs">
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
-                Quantidade
-              </label>
-              <Select
-                value={String(data.quantity || 1)}
-                onValueChange={(qty) => onUpdateData?.(id, { quantity: Number(qty) })}
-                disabled={data.isGenerating}
-              >
-                <SelectTrigger className="h-8 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {QUANTITY_OPTIONS.map((option) => (
-                    <SelectItem key={option.value} value={String(option.value)} className="text-xs">
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        )}
 
         {/* Image-specific options */}
         {data.format === "image" && (
@@ -313,25 +255,39 @@ function GeneratorNodeComponent({
           </div>
         )}
 
-        {/* Generate button */}
-        <Button
-          onClick={() => onGenerate?.(id)}
-          disabled={data.isGenerating}
-          className="w-full h-9 gap-2"
-          variant={data.isGenerating ? "secondary" : "default"}
-        >
-          {data.isGenerating ? (
-            <>
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Gerando...
-            </>
-          ) : (
-            <>
-              <Play className="h-4 w-4" />
-              Gerar
-            </>
-          )}
-        </Button>
+        {/* Generate buttons */}
+        <div className="flex gap-2">
+          <Button
+            onClick={() => onGenerate?.(id)}
+            disabled={data.isGenerating}
+            className="flex-1 h-9 gap-2"
+            variant={data.isGenerating ? "secondary" : "default"}
+          >
+            {data.isGenerating ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Gerando...
+              </>
+            ) : (
+              <>
+                <Play className="h-4 w-4" />
+                Gerar
+              </>
+            )}
+          </Button>
+          
+          {/* Generate More button */}
+          <Button
+            onClick={() => onGenerateMore?.(id)}
+            disabled={data.isGenerating}
+            variant="outline"
+            size="icon"
+            className="h-9 w-9"
+            title="Gerar mais um conteúdo"
+          >
+            <Plus className="h-4 w-4" />
+          </Button>
+        </div>
       </CardContent>
 
       {/* Input handles */}

@@ -23,41 +23,41 @@ const WHATSAPP_LINK = "https://api.whatsapp.com/send/?phone=12936180547&text=Ol%
 
 const plans = [
   {
-    id: "basic",
-    name: "Basic",
-    price: "$49",
+    id: "canvas",
+    name: "Canvas",
+    price: "$19.90",
     period: "/mês",
-    description: "Focado no Canvas de Criação",
+    description: "O essencial para criar conteúdo com IA",
     features: [
-      "1 cliente",
+      "3 clientes",
       "1 usuário",
       "Canvas ilimitado",
-      "10 templates",
-      "Batch até 5",
       "IA multi-agente",
+      "Todos os formatos",
+      "Geração de imagens",
     ],
     icon: LayoutDashboard,
     highlighted: false,
-    planType: "basic",
+    planType: "canvas",
   },
   {
-    id: "agency",
-    name: "Agency",
-    price: "$249",
+    id: "pro",
+    name: "Pro",
+    price: "$99.90",
     period: "/mês",
-    description: "Suite completa para agências",
+    description: "Suite completa para criadores e agências",
     features: [
       "Até 10 clientes",
       "Até 5 membros",
-      "Tudo do Basic",
-      "Performance analytics",
+      "Tudo do Canvas",
       "Biblioteca de conteúdos",
       "Publicação agendada",
+      "Performance analytics",
       "Integrações",
     ],
     icon: BarChart3,
     highlighted: true,
-    planType: "agency",
+    planType: "pro",
   },
   {
     id: "enterprise",
@@ -121,7 +121,7 @@ export function UpgradePlanDialog({ open, onOpenChange, currentPlan }: UpgradePl
             Escolha seu plano
           </DialogTitle>
           <DialogDescription>
-            Todos os planos incluem 14 dias grátis. Cancele quando quiser.
+            Selecione o plano ideal para você.
           </DialogDescription>
         </DialogHeader>
 
@@ -200,7 +200,7 @@ export function UpgradePlanDialog({ open, onOpenChange, currentPlan }: UpgradePl
                   ) : plan.planType === "enterprise" ? (
                     "Falar com vendas"
                   ) : (
-                    "Começar 14 dias grátis"
+                    "Assinar agora"
                   )}
                 </Button>
               </div>

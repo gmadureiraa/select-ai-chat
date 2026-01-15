@@ -7,13 +7,16 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Product ID to plan type mapping (BRL + legacy USD for compatibility)
+// Product ID to plan type mapping (Canvas = starter, Pro = pro for compatibility)
 const PRODUCT_TO_PLAN: Record<string, string> = {
-  // BRL prices
-  "prod_Tf3GbZjJw3c29F": "starter",
+  // New USD prices
+  "prod_TnVBYALwIy8qOm": "canvas", // Canvas $19.90
+  "prod_TnVBIbisvWihL7": "pro", // Pro $99.90
+  // Legacy BRL prices
+  "prod_Tf3GbZjJw3c29F": "canvas",
   "prod_Tf3GyfJj9Kfi61": "pro",
   // Legacy USD (for existing subscriptions)
-  "prod_TfNT7f3WMVagaz": "starter",
+  "prod_TfNT7f3WMVagaz": "canvas",
   "prod_TfNTm4r0XyYOPB": "pro",
 };
 
