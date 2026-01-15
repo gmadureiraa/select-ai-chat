@@ -16,9 +16,9 @@ export function SidebarUpgradeCTA({ collapsed, planName = "Basic" }: SidebarUpgr
     return null;
   }
 
-  // Only show for Basic plan users
+  // Only show for Canvas/Basic/Starter plan users (not Pro/Agency/Enterprise)
   const normalizedPlan = planName?.toLowerCase();
-  if (normalizedPlan !== "basic" && normalizedPlan !== "starter") {
+  if (normalizedPlan !== "basic" && normalizedPlan !== "starter" && normalizedPlan !== "canvas") {
     return null;
   }
 
@@ -41,7 +41,7 @@ export function SidebarUpgradeCTA({ collapsed, planName = "Basic" }: SidebarUpgr
             <div className="p-1.5 rounded-lg bg-primary/20">
               <BarChart3 className="h-4 w-4 text-primary" />
             </div>
-            <span className="text-sm font-semibold text-foreground">Upgrade Agency</span>
+            <span className="text-sm font-semibold text-foreground">Upgrade Pro</span>
           </div>
 
           <p className="text-xs text-muted-foreground mb-3 leading-relaxed">

@@ -94,10 +94,11 @@ export function PlanBillingCard() {
 
   const planTypeLabels: Record<string, { label: string; color: string }> = {
     free: { label: "Gratuito", color: "bg-muted text-muted-foreground" },
-    basic: { label: "Basic", color: "bg-blue-500/10 text-blue-600 dark:text-blue-400" },
-    starter: { label: "Basic", color: "bg-blue-500/10 text-blue-600 dark:text-blue-400" },
-    agency: { label: "Agency", color: "bg-purple-500/10 text-purple-600 dark:text-purple-400" },
-    pro: { label: "Agency", color: "bg-purple-500/10 text-purple-600 dark:text-purple-400" },
+    basic: { label: "Canvas", color: "bg-blue-500/10 text-blue-600 dark:text-blue-400" },
+    starter: { label: "Canvas", color: "bg-blue-500/10 text-blue-600 dark:text-blue-400" },
+    canvas: { label: "Canvas", color: "bg-blue-500/10 text-blue-600 dark:text-blue-400" },
+    agency: { label: "Pro", color: "bg-purple-500/10 text-purple-600 dark:text-purple-400" },
+    pro: { label: "Pro", color: "bg-purple-500/10 text-purple-600 dark:text-purple-400" },
     enterprise: { label: "Enterprise", color: "bg-gradient-to-r from-amber-500/10 to-orange-500/10 text-amber-600 dark:text-amber-400" },
   };
 
@@ -229,7 +230,7 @@ export function PlanBillingCard() {
                 onClick={() => setShowUpgradeDialog(true)}
               >
                 <Sparkles className="h-4 w-4" />
-                {plan?.type === "free" ? "Começar 14 dias grátis" : "Fazer Upgrade"}
+                {plan?.type === "free" ? "Fazer Upgrade" : "Fazer Upgrade"}
                 <ArrowUpRight className="h-4 w-4" />
               </Button>
             )}
