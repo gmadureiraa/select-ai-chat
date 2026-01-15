@@ -1,11 +1,14 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Calendar, Loader2 } from "lucide-react";
+import { Calendar, Loader2, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PlanningItemDialog } from "@/components/planning/PlanningItemDialog";
 import { usePlanningItems, CreatePlanningItemInput } from "@/hooks/usePlanningItems";
 import { useWorkspaceContext } from "@/contexts/WorkspaceContext";
+import { usePlanFeatures } from "@/hooks/usePlanFeatures";
+import { useUpgradePrompt } from "@/hooks/useUpgradePrompt";
 import { toast } from "sonner";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface AddToPlanningButtonProps {
   content: string;
@@ -50,8 +53,14 @@ export const AddToPlanningButton = ({
   const [showDialog, setShowDialog] = useState(false);
   const { workspace } = useWorkspaceContext();
   const { columns, createItem, isLoading: isLoadingItems } = usePlanningItems();
+  const { hasPlanning } = usePlanFeatures();
+  const { showUpgradePrompt } = useUpgradePrompt();
 
   const handleOpenDialog = () => {
+    if (!hasPlanning) {
+      showUpgradePrompt("planning_locked");
+      return;
+    }
     if (!workspace?.id) {
       toast.error("Workspace não encontrado. Por favor, recarregue a página.");
       return;
@@ -73,6 +82,33 @@ export const AddToPlanningButton = ({
   const detectedPlatform = platform || detectPlatformFromContent(content);
 
   const isDisabled = isLoadingItems || !workspace?.id;
+
+  // If planning is locked, show a locked button
+  if (!hasPlanning) {
+    return (
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleOpenDialog}
+              className={cn(
+                "h-7 text-xs gap-1.5 bg-muted/50 border-border/50",
+                "hover:bg-muted hover:border-border"
+              )}
+            >
+              <Lock className="h-3 w-3 text-amber-500" />
+              Enviar para Planejamento
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>Disponível no plano Pro</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
+  }
 
   return (
     <>

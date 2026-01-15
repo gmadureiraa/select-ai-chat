@@ -11,6 +11,7 @@ type UpgradeReason =
   | "enterprise_feature"
   | "automations"
   | "advanced_analytics"
+  | "planning_locked"
   | "custom";
 
 interface UpgradePromptContextType {
@@ -25,6 +26,7 @@ const UPGRADE_REASONS: Record<UpgradeReason, {
   description: string; 
   icon: React.ReactNode;
   targetPlan: "pro" | "enterprise";
+  benefits?: string[];
 }> = {
   max_clients: {
     title: "Limite de Clientes Atingido",
@@ -55,6 +57,19 @@ const UPGRADE_REASONS: Record<UpgradeReason, {
     description: "Acesse relatórios detalhados e insights avançados com o plano Pro.",
     icon: <Sparkles className="h-5 w-5" />,
     targetPlan: "pro",
+  },
+  planning_locked: {
+    title: "Planejamento Disponível no Pro",
+    description: "O módulo de Planejamento está disponível no plano Pro. Faça upgrade para organizar todo seu calendário editorial, kanban de produção e agendamento de posts.",
+    icon: <Crown className="h-5 w-5" />,
+    targetPlan: "pro",
+    benefits: [
+      "Kanban de produção de conteúdo",
+      "Calendário editorial completo",
+      "Agendamento de publicações",
+      "Colaboração em equipe",
+      "Histórico de publicações",
+    ],
   },
   custom: {
     title: "Recurso Premium",
@@ -127,18 +142,29 @@ export function UpgradePromptProvider({ children }: { children: ReactNode }) {
                 {reasonInfo.targetPlan === "enterprise" ? "Enterprise inclui" : "Pro inclui"}
               </p>
               <div className="space-y-2">
-                <div className="flex items-center gap-2 text-sm">
-                  <Building2 className="h-4 w-4 text-primary" />
-                  <span>{reasonInfo.targetPlan === "enterprise" ? "Clientes ilimitados" : "+5 clientes"}</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <Users className="h-4 w-4 text-secondary" />
-                  <span>{reasonInfo.targetPlan === "enterprise" ? "Membros ilimitados" : "+10 membros"}</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <Zap className="h-4 w-4 text-accent" />
-                  <span>Automações ilimitadas</span>
-                </div>
+                {reasonInfo.benefits ? (
+                  reasonInfo.benefits.map((benefit, index) => (
+                    <div key={index} className="flex items-center gap-2 text-sm">
+                      <Sparkles className="h-4 w-4 text-primary" />
+                      <span>{benefit}</span>
+                    </div>
+                  ))
+                ) : (
+                  <>
+                    <div className="flex items-center gap-2 text-sm">
+                      <Building2 className="h-4 w-4 text-primary" />
+                      <span>{reasonInfo.targetPlan === "enterprise" ? "Clientes ilimitados" : "+5 clientes"}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm">
+                      <Users className="h-4 w-4 text-secondary" />
+                      <span>{reasonInfo.targetPlan === "enterprise" ? "Membros ilimitados" : "+10 membros"}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm">
+                      <Zap className="h-4 w-4 text-accent" />
+                      <span>Automações ilimitadas</span>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
 
