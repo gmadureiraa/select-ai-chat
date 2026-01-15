@@ -9,14 +9,12 @@ import ReactFlow, {
 } from "reactflow";
 import "reactflow/dist/style.css";
 
-import { useCanvasState, NodeDataType, CanvasNodeData, SourceNodeData, LibraryNodeData, PromptNodeData, GeneratorNodeData, OutputNodeData, ContentFormat, ImageEditorNodeData, ImageSourceNodeData } from "./hooks/useCanvasState";
+import { useCanvasState, NodeDataType, CanvasNodeData, SourceNodeData, PromptNodeData, GeneratorNodeData, OutputNodeData, ContentFormat, ImageSourceNodeData } from "./hooks/useCanvasState";
 import { CanvasToolbar } from "./CanvasToolbar";
 import { SourceNode } from "./nodes/SourceNode";
-import { LibraryRefNode } from "./nodes/LibraryRefNode";
 import { PromptNode } from "./nodes/PromptNode";
 import { GeneratorNode } from "./nodes/GeneratorNode";
 import { ContentOutputNode } from "./nodes/ContentOutputNode";
-import { ImageEditorNode } from "./nodes/ImageEditorNode";
 import { ImageSourceNode } from "./nodes/ImageSourceNode";
 import { PlanningItemDialog } from "@/components/planning/PlanningItemDialog";
 import { usePlanningItems } from "@/hooks/usePlanningItems";
@@ -177,14 +175,6 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
         onAnalyzeStyle={(id, fileId) => handlersRef.current?.analyzeImageStyle(id, fileId)}
       />
     ),
-    library: (props: NodeProps<LibraryNodeData>) => (
-      <LibraryRefNode
-        {...props}
-        clientId={handlersRef.current?.clientId || ""}
-        onUpdateData={(id, data) => handlersRef.current?.updateNodeData(id, data)}
-        onDelete={(id) => handlersRef.current?.deleteNode(id)}
-      />
-    ),
     prompt: (props: NodeProps<PromptNodeData>) => (
       <PromptNode
         {...props}
@@ -207,14 +197,6 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
         onDelete={(id) => handlersRef.current?.deleteNode(id)}
         onSendToPlanning={(id) => handlersRef.current?.handleOpenPlanningDialog(id)}
         onRegenerate={(id) => handlersRef.current?.regenerateContent(id)}
-      />
-    ),
-    "image-editor": (props: NodeProps<ImageEditorNodeData>) => (
-      <ImageEditorNode
-        {...props}
-        onUpdateData={(id, data) => handlersRef.current?.updateNodeData(id, data)}
-        onDelete={(id) => handlersRef.current?.deleteNode(id)}
-        onEdit={(id) => handlersRef.current?.editImage(id)}
       />
     ),
     "image-source": (props: NodeProps<ImageSourceNodeData>) => (
@@ -288,11 +270,9 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
           nodeColor={(node) => {
             switch (node.type) {
               case "source": return "#3b82f6";
-              case "library": return "#a855f7";
               case "prompt": return "#eab308";
               case "generator": return "#22c55e";
               case "output": return "#ec4899";
-              case "image-editor": return "#f97316";
               case "image-source": return "#06b6d4";
               default: return "#888";
             }
