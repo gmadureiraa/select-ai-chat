@@ -61,76 +61,76 @@ const sections: DocSection[] = [
         <div>
           <h1 className="text-3xl font-bold mb-4">Bem-vindo ao kAI</h1>
           <p className="text-muted-foreground text-lg">
-            O kAI é sua plataforma completa de inteligência artificial para criação e gestão de conteúdo. 
-            Desenvolvido pela Kaleidos, ele combina análise de performance, geração de conteúdo por IA 
-            e organização inteligente para maximizar sua presença digital.
+            O kAI é o Canvas de criação de conteúdo com IA para profissionais de marketing. 
+            Crie fluxos visuais que conectam fontes, briefings e IA para gerar conteúdo 
+            profissional em escala.
           </p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="p-4 rounded-lg border border-border/50 bg-muted/30">
-            <Sparkles className="h-8 w-8 text-violet-500 mb-3" />
-            <h3 className="font-semibold mb-2">Assistente IA</h3>
+          <div className="p-4 rounded-lg border border-primary/30 bg-primary/5">
+            <Sparkles className="h-8 w-8 text-primary mb-3" />
+            <h3 className="font-semibold mb-2">Canvas de Criação</h3>
             <p className="text-sm text-muted-foreground">
-              Crie conteúdo de alta qualidade com IA que entende a identidade do seu cliente.
+              Arraste, conecte e crie fluxos visuais de conteúdo com IA multi-agente.
             </p>
           </div>
           <div className="p-4 rounded-lg border border-border/50 bg-muted/30">
             <BarChart3 className="h-8 w-8 text-emerald-500 mb-3" />
-            <h3 className="font-semibold mb-2">Analytics</h3>
+            <h3 className="font-semibold mb-2">Performance Analytics</h3>
             <p className="text-sm text-muted-foreground">
-              Monitore performance em todas as plataformas com insights automáticos.
+              Monitore métricas de todas as plataformas com insights automáticos.
             </p>
           </div>
           <div className="p-4 rounded-lg border border-border/50 bg-muted/30">
             <Library className="h-8 w-8 text-blue-500 mb-3" />
             <h3 className="font-semibold mb-2">Biblioteca</h3>
             <p className="text-sm text-muted-foreground">
-              Organize todo conteúdo produzido e referências de inspiração.
+              Organize conteúdo produzido e referências de inspiração.
             </p>
           </div>
           <div className="p-4 rounded-lg border border-border/50 bg-muted/30">
-            <BookOpen className="h-8 w-8 text-amber-500 mb-3" />
-            <h3 className="font-semibold mb-2">Base de Conhecimento</h3>
+            <Calendar className="h-8 w-8 text-amber-500 mb-3" />
+            <h3 className="font-semibold mb-2">Planejamento</h3>
             <p className="text-sm text-muted-foreground">
-              Centralize documentos, guias e materiais de referência em um só lugar.
+              Organize e agende publicações com quadro Kanban integrado.
             </p>
           </div>
         </div>
 
         <div className="p-4 rounded-lg bg-gradient-to-r from-violet-500/10 to-pink-500/10 border border-violet-500/20">
-          <h3 className="font-semibold mb-2">Primeiros Passos</h3>
+          <h3 className="font-semibold mb-2">🚀 Primeiros Passos com o Canvas</h3>
           <ol className="list-decimal list-inside space-y-2 text-sm text-muted-foreground">
-            <li>Crie ou selecione um cliente na sidebar</li>
-            <li>Configure a identidade do cliente (tom de voz, posicionamento)</li>
-            <li>Comece a criar conteúdo com o Assistente</li>
-            <li>Importe dados de performance via CSV</li>
+            <li>Crie um cliente e configure sua identidade</li>
+            <li>Acesse o <strong>Canvas</strong> na sidebar</li>
+            <li>Adicione nós: URL, briefing, referência</li>
+            <li>Conecte ao nó de IA e gere conteúdo em batch</li>
           </ol>
         </div>
 
-        {/* Interface Overview */}
-        <div className="p-6 rounded-xl bg-gradient-to-br from-violet-500/10 to-pink-500/10 border border-border/50">
+        {/* Canvas Highlight */}
+        <div className="p-6 rounded-xl bg-gradient-to-br from-primary/10 to-pink-500/10 border border-primary/20">
           <div className="flex items-center gap-4 mb-4">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-violet-500 to-pink-500 flex items-center justify-center">
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-pink-500 flex items-center justify-center">
               <Sparkles className="h-6 w-6 text-white" />
             </div>
             <div>
-              <h3 className="font-semibold">Interface Principal</h3>
-              <p className="text-sm text-muted-foreground">Sidebar + Área de trabalho adaptativa</p>
+              <h3 className="font-semibold">O Diferencial: Canvas Visual</h3>
+              <p className="text-sm text-muted-foreground">Fluxos visuais + IA multi-agente</p>
             </div>
           </div>
           <div className="grid grid-cols-3 gap-3 text-sm">
             <div className="p-3 rounded-lg bg-background/50 border">
-              <p className="font-medium mb-1">Sidebar Esquerda</p>
-              <p className="text-xs text-muted-foreground">Navegação, clientes, ferramentas</p>
+              <p className="font-medium mb-1">Drag & Drop</p>
+              <p className="text-xs text-muted-foreground">Arraste nós e conecte</p>
             </div>
             <div className="p-3 rounded-lg bg-background/50 border">
-              <p className="font-medium mb-1">Área Central</p>
-              <p className="text-xs text-muted-foreground">Conteúdo da aba ativa</p>
+              <p className="font-medium mb-1">Multi-Fonte</p>
+              <p className="text-xs text-muted-foreground">URL, PDF, briefing, vídeo</p>
             </div>
             <div className="p-3 rounded-lg bg-background/50 border">
-              <p className="font-medium mb-1">Chat Assistente</p>
-              <p className="text-xs text-muted-foreground">Interação com IA</p>
+              <p className="font-medium mb-1">Batch Generation</p>
+              <p className="text-xs text-muted-foreground">Até 10 variações por vez</p>
             </div>
           </div>
         </div>
@@ -139,13 +139,15 @@ const sections: DocSection[] = [
         <div className="p-4 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
           <h3 className="font-semibold mb-2">Planos Disponíveis</h3>
           <div className="grid grid-cols-2 gap-3 text-sm">
-            <div className="p-2 rounded bg-background">
-              <p className="font-medium">Starter</p>
-              <p className="text-muted-foreground">R$ 497,90/mês • 1 cliente • 10k tokens</p>
+            <div className="p-3 rounded bg-background border">
+              <p className="font-medium">Basic</p>
+              <p className="text-muted-foreground">$25/mês</p>
+              <p className="text-xs text-muted-foreground mt-1">1 cliente • Canvas ilimitado</p>
             </div>
-            <div className="p-2 rounded bg-background">
-              <p className="font-medium">Pro</p>
-              <p className="text-muted-foreground">R$ 1.497,90/mês • 5 clientes • 3 membros</p>
+            <div className="p-3 rounded bg-background border border-primary/30">
+              <p className="font-medium text-primary">Agency</p>
+              <p className="text-muted-foreground">$100/mês</p>
+              <p className="text-xs text-muted-foreground mt-1">10 clientes • Suite completa</p>
             </div>
           </div>
           <p className="text-xs text-muted-foreground mt-2">14 dias de trial gratuito em todos os planos</p>
@@ -877,9 +879,9 @@ const sections: DocSection[] = [
         </div>
 
         <div className="p-4 rounded-lg bg-violet-500/10 border border-violet-500/20">
-          <h3 className="font-semibold mb-2">🚀 Publicação Automática (Enterprise)</h3>
+          <h3 className="font-semibold mb-2">🚀 Publicação Agendada (Agency)</h3>
           <p className="text-sm text-muted-foreground">
-            No plano Enterprise, conecte suas redes sociais para publicação automática 
+            No plano Agency, conecte suas redes sociais para publicação automática 
             quando o item atingir a data agendada.
           </p>
         </div>
@@ -1049,13 +1051,24 @@ const sections: DocSection[] = [
         <div className="space-y-6">
           {[
             {
+              version: "3.0.0",
+              date: "Janeiro 2026",
+              changes: [
+                "Canvas de Criação de Conteúdo - Nova interface visual",
+                "Novos planos: Basic ($25) e Agency ($100)",
+                "IA multi-agente integrada ao Canvas",
+                "Geração em batch (até 10 variações)",
+                "Templates de fluxo prontos",
+              ],
+              type: "major"
+            },
+            {
               version: "2.5.0",
               date: "Janeiro 2026",
               changes: [
                 "Sistema completo de permissões (Owner, Admin, Member, Viewer)",
-                "Página de configurações da conta reformulada",
-                "Documentação expandida com novas seções",
-                "Melhorias de performance no carregamento",
+                "Página de configurações reformulada",
+                "Documentação expandida",
               ],
               type: "major"
             },
@@ -1065,20 +1078,9 @@ const sections: DocSection[] = [
               changes: [
                 "Novo sistema de planejamento com Kanban",
                 "Calendário integrado para visualização",
-                "Automações de publicação (Enterprise)",
-                "Suporte a recorrência de posts",
+                "Publicação agendada (Agency)",
               ],
               type: "major"
-            },
-            {
-              version: "2.3.5",
-              date: "Novembro 2025",
-              changes: [
-                "Correção de bugs no importador de CSV",
-                "Melhorias na detecção de formato de imagem",
-                "Performance otimizada no chat",
-              ],
-              type: "patch"
             },
             {
               version: "2.3.0",
