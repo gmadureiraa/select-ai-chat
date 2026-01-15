@@ -9,7 +9,16 @@ import ReactFlow, {
 } from "reactflow";
 import "reactflow/dist/style.css";
 
-import { useCanvasState, NodeDataType, CanvasNodeData, SourceNodeData, PromptNodeData, GeneratorNodeData, OutputNodeData, ContentFormat, ImageSourceNodeData } from "./hooks/useCanvasState";
+import {
+  useCanvasState,
+  NodeDataType,
+  SourceNodeData,
+  PromptNodeData,
+  GeneratorNodeData,
+  OutputNodeData,
+  ContentFormat,
+  ImageSourceNodeData,
+} from "./hooks/useCanvasState";
 import { CanvasToolbar } from "./CanvasToolbar";
 import { CanvasLibraryDrawer } from "./CanvasLibraryDrawer";
 import { SourceNode } from "./nodes/SourceNode";
@@ -23,9 +32,10 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
-import { CONTENT_TO_PLATFORM, ContentTypeKey } from "@/types/contentTypes";
+import { ContentTypeKey } from "@/types/contentTypes";
 import { ReferenceItem } from "@/hooks/useReferenceLibrary";
 import { ClientVisualReference } from "@/hooks/useClientVisualReferences";
+import type { UnifiedContentItem } from "@/hooks/useUnifiedContent";
 
 interface ContentCanvasProps {
   clientId: string;
@@ -33,38 +43,38 @@ interface ContentCanvasProps {
 
 // Map canvas format to content type key
 const FORMAT_TO_CONTENT_TYPE: Record<ContentFormat, ContentTypeKey> = {
-  carousel: 'carousel',
-  thread: 'thread',
-  reel_script: 'short_video',
-  post: 'instagram_post',
-  stories: 'stories',
-  newsletter: 'newsletter',
-  image: 'static_image',
+  carousel: "carousel",
+  thread: "thread",
+  reel_script: "short_video",
+  post: "instagram_post",
+  stories: "stories",
+  newsletter: "newsletter",
+  image: "static_image",
 };
 
 function ContentCanvasInner({ clientId }: ContentCanvasProps) {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
-  const { zoomIn, zoomOut, fitView, getViewport } = useReactFlow();
+  const { zoomIn, zoomOut, fitView, getViewport, project } = useReactFlow();
   const { toast } = useToast();
 
   // Planning dialog state
   const [planningDialogOpen, setPlanningDialogOpen] = useState(false);
   const [planningOutputNode, setPlanningOutputNode] = useState<OutputNodeData | null>(null);
   const [planningOutputNodeId, setPlanningOutputNodeId] = useState<string | null>(null);
-  
+
   // Library drawer state
   const [libraryDrawerOpen, setLibraryDrawerOpen] = useState(false);
 
-  const { columns, createItem, updateItem } = usePlanningItems({ clientId });
+  const { columns, createItem } = usePlanningItems({ clientId });
 
   // Fetch client data for header
   const { data: client } = useQuery({
-    queryKey: ['client', clientId],
+    queryKey: ["client", clientId],
     queryFn: async () => {
       const { data } = await supabase
-        .from('clients')
-        .select('id, name, avatar_url')
-        .eq('id', clientId)
+        .from("clients")
+        .select("id, name, avatar_url")
+        .eq("id", clientId)
         .single();
       return data;
     },
@@ -100,48 +110,68 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
   } = useCanvasState(clientId);
 
   // Handler to open planning dialog with output data
-  const handleOpenPlanningDialog = useCallback((nodeId: string) => {
-    const node = nodes.find(n => n.id === nodeId);
-    if (node && node.data.type === "output") {
-      setPlanningOutputNode(node.data as OutputNodeData);
-      setPlanningOutputNodeId(nodeId);
-      setPlanningDialogOpen(true);
-    }
-  }, [nodes]);
+  const handleOpenPlanningDialog = useCallback(
+    (nodeId: string) => {
+      const node = nodes.find((n) => n.id === nodeId);
+      if (node && node.data.type === "output") {
+        setPlanningOutputNode(node.data as OutputNodeData);
+        setPlanningOutputNodeId(nodeId);
+        setPlanningDialogOpen(true);
+      }
+    },
+    [nodes]
+  );
 
   // Handle saving from planning dialog
-  const handlePlanningDialogSave = useCallback(async (data: any) => {
-    // Get draft column if available, otherwise first column
-    const targetColumn = columns.find(c => c.column_type === "draft") || columns[0];
-    
-    await createItem.mutateAsync({
-      ...data,
-      column_id: data.column_id || targetColumn?.id,
-    });
-    if (planningOutputNodeId) {
-      updateNodeData(planningOutputNodeId, { addedToPlanning: true } as Partial<OutputNodeData>);
-    }
-    setPlanningDialogOpen(false);
-    setPlanningOutputNode(null);
-    setPlanningOutputNodeId(null);
-    toast({
-      title: "Enviado para planejamento",
-      description: "Conteúdo adicionado com sucesso",
-    });
-  }, [createItem, planningOutputNodeId, updateNodeData, toast, columns]);
+  const handlePlanningDialogSave = useCallback(
+    async (data: any) => {
+      try {
+        const targetColumn = columns.find((c) => c.column_type === "draft") || columns[0];
+
+        const created = await createItem.mutateAsync({
+          ...data,
+          column_id: data.column_id || targetColumn?.id,
+        });
+
+        if (planningOutputNodeId) {
+          updateNodeData(planningOutputNodeId, { addedToPlanning: true } as Partial<OutputNodeData>);
+        }
+
+        setPlanningDialogOpen(false);
+        setPlanningOutputNode(null);
+        setPlanningOutputNodeId(null);
+
+        toast({
+          title: "Enviado para planejamento",
+          description: "Conteúdo adicionado com sucesso",
+        });
+
+        // PlanningItemDialog can use this for downstream actions (ex: agendamento)
+        return created?.id ? { id: created.id } : undefined;
+      } catch (err: any) {
+        console.error("Failed to create planning item from canvas:", err);
+        toast({
+          title: "Não foi possível enviar para planejamento",
+          description: err?.message || "Tente novamente.",
+        });
+        return;
+      }
+    },
+    [columns, createItem, planningOutputNodeId, toast, updateNodeData]
+  );
 
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Ctrl+S to save
-      if (e.ctrlKey && e.key === 's') {
+      if (e.ctrlKey && e.key === "s") {
         e.preventDefault();
         saveCanvas();
       }
     };
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
   }, [saveCanvas]);
 
   // Use refs to maintain stable references for handlers - initialized once with null-safe defaults
@@ -175,62 +205,67 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
   };
 
   // Create nodeTypes only once - handlers are accessed via ref
-  // Create nodeTypes only once - handlers are accessed via ref
-  const nodeTypes = useMemo(() => ({
-    source: (props: NodeProps<SourceNodeData>) => (
-      <SourceNode
-        {...props}
-        onExtractUrl={(id, url) => handlersRef.current?.extractUrlContent(id, url)}
-        onUpdateData={(id, data) => handlersRef.current?.updateNodeData(id, data)}
-        onDelete={(id) => handlersRef.current?.deleteNode(id)}
-        onTranscribeFile={(id, fileId) => handlersRef.current?.transcribeFile(id, fileId)}
-        onAnalyzeStyle={(id, fileId) => handlersRef.current?.analyzeImageStyle(id, fileId)}
-      />
-    ),
-    prompt: (props: NodeProps<PromptNodeData>) => (
-      <PromptNode
-        {...props}
-        onUpdateData={(id, data) => handlersRef.current?.updateNodeData(id, data)}
-        onDelete={(id) => handlersRef.current?.deleteNode(id)}
-      />
-    ),
-    generator: (props: NodeProps<GeneratorNodeData>) => (
-      <GeneratorNode
-        {...props}
-        onUpdateData={(id, data) => handlersRef.current?.updateNodeData(id, data)}
-        onDelete={(id) => handlersRef.current?.deleteNode(id)}
-        onGenerate={(id) => handlersRef.current?.generateContent(id)}
-      />
-    ),
-    output: (props: NodeProps<OutputNodeData>) => (
-      <ContentOutputNode
-        {...props}
-        onUpdateData={(id, data) => handlersRef.current?.updateNodeData(id, data)}
-        onDelete={(id) => handlersRef.current?.deleteNode(id)}
-        onSendToPlanning={(id) => handlersRef.current?.handleOpenPlanningDialog(id)}
-        onRegenerate={(id) => handlersRef.current?.regenerateContent(id)}
-      />
-    ),
-    "image-source": (props: NodeProps<ImageSourceNodeData>) => (
-      <ImageSourceNode
-        {...props}
-        onUpdateData={(id, data) => handlersRef.current?.updateNodeData(id, data)}
-        onDelete={(id) => handlersRef.current?.deleteNode(id)}
-        onAnalyzeImage={(id, imageId) => handlersRef.current?.analyzeImageSourceImage(id, imageId)}
-      />
-    ),
-  }), []);
+  const nodeTypes = useMemo(
+    () => ({
+      source: (props: NodeProps<SourceNodeData>) => (
+        <SourceNode
+          {...props}
+          onExtractUrl={(id, url) => handlersRef.current?.extractUrlContent(id, url)}
+          onUpdateData={(id, data) => handlersRef.current?.updateNodeData(id, data)}
+          onDelete={(id) => handlersRef.current?.deleteNode(id)}
+          onTranscribeFile={(id, fileId) => handlersRef.current?.transcribeFile(id, fileId)}
+          onAnalyzeStyle={(id, fileId) => handlersRef.current?.analyzeImageStyle(id, fileId)}
+        />
+      ),
+      prompt: (props: NodeProps<PromptNodeData>) => (
+        <PromptNode
+          {...props}
+          onUpdateData={(id, data) => handlersRef.current?.updateNodeData(id, data)}
+          onDelete={(id) => handlersRef.current?.deleteNode(id)}
+        />
+      ),
+      generator: (props: NodeProps<GeneratorNodeData>) => (
+        <GeneratorNode
+          {...props}
+          onUpdateData={(id, data) => handlersRef.current?.updateNodeData(id, data)}
+          onDelete={(id) => handlersRef.current?.deleteNode(id)}
+          onGenerate={(id) => handlersRef.current?.generateContent(id)}
+        />
+      ),
+      output: (props: NodeProps<OutputNodeData>) => (
+        <ContentOutputNode
+          {...props}
+          onUpdateData={(id, data) => handlersRef.current?.updateNodeData(id, data)}
+          onDelete={(id) => handlersRef.current?.deleteNode(id)}
+          onSendToPlanning={(id) => handlersRef.current?.handleOpenPlanningDialog(id)}
+          onRegenerate={(id) => handlersRef.current?.regenerateContent(id)}
+        />
+      ),
+      "image-source": (props: NodeProps<ImageSourceNodeData>) => (
+        <ImageSourceNode
+          {...props}
+          onUpdateData={(id, data) => handlersRef.current?.updateNodeData(id, data)}
+          onDelete={(id) => handlersRef.current?.deleteNode(id)}
+          onAnalyzeImage={(id, imageId) => handlersRef.current?.analyzeImageSourceImage(id, imageId)}
+        />
+      ),
+    }),
+    []
+  );
 
-  const handleAddNode = useCallback((type: NodeDataType) => {
-    const viewport = getViewport();
-    const centerX = (window.innerWidth / 2 - viewport.x) / viewport.zoom;
-    const centerY = (window.innerHeight / 2 - viewport.y) / viewport.zoom;
-    
-    // Offset based on existing nodes to avoid overlap
-    const offset = nodes.length * 20;
-    
-    addNode(type, { x: centerX + offset, y: centerY + offset });
-  }, [addNode, getViewport, nodes.length]);
+  const handleAddNode = useCallback(
+    (type: NodeDataType) => {
+      const viewport = getViewport();
+      const centerX = (window.innerWidth / 2 - viewport.x) / viewport.zoom;
+      const centerY = (window.innerHeight / 2 - viewport.y) / viewport.zoom;
+
+      // Offset based on existing nodes to avoid overlap
+      const offset = nodes.length * 20;
+
+      addNode(type, { x: centerX + offset, y: centerY + offset });
+    },
+    [addNode, getViewport, nodes.length]
+  );
 
   const handleClear = useCallback(() => {
     if (nodes.length === 0) return;
@@ -240,47 +275,139 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
   }, [nodes.length, clearCanvas]);
 
   // Handle adding reference from library
-  const handleSelectReference = useCallback((ref: ReferenceItem) => {
-    const viewport = getViewport();
-    const centerX = (window.innerWidth / 2 - viewport.x) / viewport.zoom;
-    const centerY = (window.innerHeight / 2 - viewport.y) / viewport.zoom;
-    const offset = nodes.length * 20;
-    
-    addNode("source", { x: centerX + offset, y: centerY + offset });
-    
-    toast({
-      title: "Referência adicionada",
-      description: `"${ref.title}" foi adicionada ao canvas`,
-    });
-  }, [addNode, getViewport, nodes.length, toast]);
+  const handleSelectReference = useCallback(
+    (ref: ReferenceItem) => {
+      const viewport = getViewport();
+      const centerX = (window.innerWidth / 2 - viewport.x) / viewport.zoom;
+      const centerY = (window.innerHeight / 2 - viewport.y) / viewport.zoom;
+      const offset = nodes.length * 20;
+
+      addNode("source", { x: centerX + offset, y: centerY + offset });
+
+      toast({
+        title: "Referência adicionada",
+        description: `"${ref.title}" foi adicionada ao canvas`,
+      });
+    },
+    [addNode, getViewport, nodes.length, toast]
+  );
 
   // Handle adding visual reference from library
-  const handleSelectVisualReference = useCallback((ref: ClientVisualReference) => {
-    const viewport = getViewport();
-    const centerX = (window.innerWidth / 2 - viewport.x) / viewport.zoom;
-    const centerY = (window.innerHeight / 2 - viewport.y) / viewport.zoom;
-    const offset = nodes.length * 20;
-    
-    addNode("image-source", { x: centerX + offset, y: centerY + offset });
-    
-    toast({
-      title: "Referência visual adicionada",
-      description: `"${ref.title || 'Imagem'}" foi adicionada ao canvas`,
-    });
-  }, [addNode, getViewport, nodes.length, toast]);
+  const handleSelectVisualReference = useCallback(
+    (ref: ClientVisualReference) => {
+      const viewport = getViewport();
+      const centerX = (window.innerWidth / 2 - viewport.x) / viewport.zoom;
+      const centerY = (window.innerHeight / 2 - viewport.y) / viewport.zoom;
+      const offset = nodes.length * 20;
+
+      addNode("image-source", { x: centerX + offset, y: centerY + offset });
+
+      toast({
+        title: "Referência visual adicionada",
+        description: `"${ref.title || "Imagem"}" foi adicionada ao canvas`,
+      });
+    },
+    [addNode, getViewport, nodes.length, toast]
+  );
+
+  // Add a library content item as a "source" node
+  const handleSelectContentFromLibrary = useCallback(
+    (item: UnifiedContentItem) => {
+      const viewport = getViewport();
+      const centerX = (window.innerWidth / 2 - viewport.x) / viewport.zoom;
+      const centerY = (window.innerHeight / 2 - viewport.y) / viewport.zoom;
+      const offset = nodes.length * 20;
+
+      addNode(
+        "source",
+        { x: centerX + offset, y: centerY + offset },
+        {
+          type: "source",
+          sourceType: "text",
+          value: item.content,
+          extractedContent: item.content,
+          title: item.title,
+          thumbnail: item.thumbnail_url,
+        } as Partial<SourceNodeData>
+      );
+
+      toast({
+        title: "Adicionado ao canvas",
+        description: item.title,
+      });
+    },
+    [addNode, getViewport, nodes.length, toast]
+  );
+
+  // Drag & drop from library into canvas
+  const handleDragOver = useCallback((event: React.DragEvent) => {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "copy";
+  }, []);
+
+  const handleDrop = useCallback(
+    (event: React.DragEvent) => {
+      event.preventDefault();
+
+      const raw =
+        event.dataTransfer.getData("application/x-kai-unified-content") ||
+        event.dataTransfer.getData("application/json");
+      if (!raw) return;
+
+      let item: UnifiedContentItem | null = null;
+      try {
+        item = JSON.parse(raw);
+      } catch {
+        return;
+      }
+      if (!item?.content) return;
+
+      const bounds = reactFlowWrapper.current?.getBoundingClientRect();
+      if (!bounds) return;
+
+      const position = project({
+        x: event.clientX - bounds.left,
+        y: event.clientY - bounds.top,
+      });
+
+      addNode(
+        "source",
+        position,
+        {
+          type: "source",
+          sourceType: "text",
+          value: item.content,
+          extractedContent: item.content,
+          title: item.title,
+          thumbnail: item.thumbnail_url,
+        } as Partial<SourceNodeData>
+      );
+
+      toast({
+        title: "Adicionado ao canvas",
+        description: item.title,
+      });
+    },
+    [addNode, project, toast]
+  );
 
   return (
-    <div ref={reactFlowWrapper} className="w-full h-full relative">
+    <div
+      ref={reactFlowWrapper}
+      className="w-full h-full relative"
+      onDrop={handleDrop}
+      onDragOver={handleDragOver}
+    >
       {/* Client Header */}
       <div className="absolute top-0 left-0 right-0 z-10 bg-background/80 backdrop-blur-sm border-b px-4 py-2 flex items-center gap-3">
         <Avatar className="h-8 w-8 rounded-lg">
-          <AvatarImage src={client?.avatar_url || ''} alt={client?.name} className="object-cover" />
+          <AvatarImage src={client?.avatar_url || ""} alt={client?.name} className="object-cover" />
           <AvatarFallback className="rounded-lg bg-primary/20 text-primary text-sm font-semibold">
-            {client?.name?.charAt(0).toUpperCase() || 'C'}
+            {client?.name?.charAt(0).toUpperCase() || "C"}
           </AvatarFallback>
         </Avatar>
         <div>
-          <h3 className="font-medium text-sm">{client?.name || 'Cliente'}</h3>
+          <h3 className="font-medium text-sm">{client?.name || "Cliente"}</h3>
           <p className="text-xs text-muted-foreground">Canvas de Criação</p>
         </div>
       </div>
@@ -303,20 +430,23 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
         className="bg-muted/30 pt-12"
       >
         <Background gap={20} size={1} className="bg-muted/50" />
-        <Controls 
-          className="bg-background border shadow-lg rounded-lg"
-          showInteractive={false}
-        />
-        <MiniMap 
+        <Controls className="bg-background border shadow-lg rounded-lg" showInteractive={false} />
+        <MiniMap
           className="bg-background border shadow-lg rounded-lg"
           nodeColor={(node) => {
             switch (node.type) {
-              case "source": return "#3b82f6";
-              case "prompt": return "#eab308";
-              case "generator": return "#22c55e";
-              case "output": return "#ec4899";
-              case "image-source": return "#06b6d4";
-              default: return "#888";
+              case "source":
+                return "#3b82f6";
+              case "prompt":
+                return "#eab308";
+              case "generator":
+                return "#22c55e";
+              case "output":
+                return "#ec4899";
+              case "image-source":
+                return "#06b6d4";
+              default:
+                return "#888";
             }
           }}
           maskColor="rgba(0, 0, 0, 0.1)"
@@ -348,6 +478,7 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
         clientId={clientId}
         onSelectReference={handleSelectReference}
         onSelectVisualReference={handleSelectVisualReference}
+        onSelectContent={handleSelectContentFromLibrary}
       />
 
       {/* Empty state with template quick actions */}
@@ -361,7 +492,7 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
                 Escolha um template para começar rapidamente ou adicione nós manualmente
               </p>
             </div>
-            
+
             {/* Quick template cards */}
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-left">
               {[
@@ -388,7 +519,7 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
 
             <div className="pt-2">
               <p className="text-xs text-muted-foreground">
-                Ou use a toolbar acima para criar do zero • 
+                Ou use a toolbar acima para criar do zero •
                 <span className="ml-1 inline-flex items-center gap-1">
                   <span className="h-2 w-2 rounded bg-blue-500" /> Fonte
                   <span className="h-2 w-2 rounded bg-yellow-500 ml-2" /> Briefing
@@ -413,34 +544,43 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
           }}
           columns={columns}
           defaultClientId={clientId}
-          defaultColumnId={columns.find(c => c.column_type === "draft")?.id || columns[0]?.id}
+          defaultColumnId={columns.find((c) => c.column_type === "draft")?.id || columns[0]?.id}
           item={{
-            id: '',
-            title: `${planningOutputNode.format === 'carousel' ? 'Carrossel' : 
-                    planningOutputNode.format === 'thread' ? 'Thread' :
-                    planningOutputNode.format === 'reel_script' ? 'Roteiro Reel' :
-                    planningOutputNode.format === 'post' ? 'Post' :
-                    planningOutputNode.format === 'stories' ? 'Stories' :
-                    planningOutputNode.format === 'newsletter' ? 'Newsletter' :
-                    planningOutputNode.format === 'image' ? 'Imagem' : 'Conteúdo'} - ${new Date().toLocaleDateString("pt-BR")}`,
-            content: planningOutputNode.isImage ? '' : planningOutputNode.content,
+            id: "",
+            title: `${
+              planningOutputNode.format === "carousel"
+                ? "Carrossel"
+                : planningOutputNode.format === "thread"
+                  ? "Thread"
+                  : planningOutputNode.format === "reel_script"
+                    ? "Roteiro Reel"
+                    : planningOutputNode.format === "post"
+                      ? "Post"
+                      : planningOutputNode.format === "stories"
+                        ? "Stories"
+                        : planningOutputNode.format === "newsletter"
+                          ? "Newsletter"
+                          : planningOutputNode.format === "image"
+                            ? "Imagem"
+                            : "Conteúdo"
+            } - ${new Date().toLocaleDateString("pt-BR")}`,
+            content: planningOutputNode.isImage ? "" : planningOutputNode.content,
             client_id: clientId,
-            workspace_id: '',
-            created_by: '',
-            created_at: '',
-            updated_at: '',
-            status: 'draft',
-            priority: 'medium',
+            workspace_id: "",
+            created_by: "",
+            created_at: "",
+            updated_at: "",
+            status: "draft",
+            priority: "medium",
             platform: planningOutputNode.platform as any,
-            content_type: FORMAT_TO_CONTENT_TYPE[planningOutputNode.format] || 'post',
+            content_type: FORMAT_TO_CONTENT_TYPE[planningOutputNode.format] || "post",
             media_urls: planningOutputNode.isImage ? [planningOutputNode.content] : [],
             metadata: {
-              content_type: FORMAT_TO_CONTENT_TYPE[planningOutputNode.format] || 'post',
+              content_type: FORMAT_TO_CONTENT_TYPE[planningOutputNode.format] || "post",
               from_canvas: true,
             },
           } as any}
           onSave={handlePlanningDialogSave}
-          onUpdate={async () => {}}
         />
       )}
     </div>
