@@ -55,12 +55,19 @@ export const useClients = () => {
         throw new Error("Você não está em nenhum workspace");
       }
 
+      // Get current user ID explicitly
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user?.id) {
+        throw new Error("Você precisa estar logado para criar perfis");
+      }
+
       const { websites, ...client } = clientData;
       
       const { data, error } = await supabase
         .from("clients")
         .insert({
           ...client,
+          user_id: user.id, // Explicitly set user_id
           social_media: client.social_media || {},
           tags: client.tags || {},
           function_templates: client.function_templates || [],

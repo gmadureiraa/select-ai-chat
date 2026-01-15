@@ -144,7 +144,7 @@ export function PlanBillingCard() {
                 Limite de perfis
               </div>
               <span className="font-medium">
-                {plan?.max_clients === 999 ? "Ilimitado" : plan?.max_clients || 3}
+                {plan?.max_clients === 999 || !Number.isFinite(plan?.max_clients) || plan?.type === 'enterprise' ? "Ilimitado" : plan?.max_clients || 3}
               </span>
             </div>
             <div className="flex items-center justify-between text-sm">
@@ -153,7 +153,7 @@ export function PlanBillingCard() {
                 Limite de membros
               </div>
               <span className="font-medium">
-                {plan?.max_members === 999 ? "Ilimitado" : plan?.max_members || 1}
+                {plan?.max_members === 999 || !Number.isFinite(plan?.max_members) || plan?.type === 'enterprise' ? "Ilimitado" : plan?.max_members || 1}
               </span>
             </div>
           </div>
