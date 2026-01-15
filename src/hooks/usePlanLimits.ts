@@ -14,11 +14,17 @@ interface PlanLimits {
   clientsRemaining: number;
   membersRemaining: number;
   isLoading: boolean;
+  isUnlimitedClients: boolean;
+  isUnlimitedMembers: boolean;
 }
 
 export function usePlanLimits(): PlanLimits {
   const { workspace, subscription } = useWorkspaceContext();
   const { clients } = useClients();
+
+  // Check if enterprise plan (unlimited profiles and members)
+  const planType = subscription?.plan?.type;
+  const isEnterprise = planType === 'enterprise';
 
   // Fetch member count
   const { data: memberCount, isLoading: isLoadingMembers } = useQuery({
@@ -51,8 +57,9 @@ export function usePlanLimits(): PlanLimits {
     enabled: !!workspace?.id,
   });
 
-  const maxClients = subscription?.plan?.max_clients || 1;
-  const maxMembers = subscription?.plan?.max_members || 1;
+  // Enterprise has unlimited clients and members
+  const maxClients = isEnterprise ? Infinity : (subscription?.plan?.max_clients || 1);
+  const maxMembers = isEnterprise ? Infinity : (subscription?.plan?.max_members || 1);
   const currentClients = clients?.length || 0;
   const currentMembers = memberCount || 0;
   const currentPendingInvites = pendingInvites || 0;
@@ -66,10 +73,12 @@ export function usePlanLimits(): PlanLimits {
     currentClients,
     currentMembers,
     pendingInvites: currentPendingInvites,
-    canAddClient: currentClients < maxClients,
-    canAddMember: totalPotentialMembers < maxMembers,
-    clientsRemaining: Math.max(0, maxClients - currentClients),
-    membersRemaining: Math.max(0, maxMembers - totalPotentialMembers),
+    canAddClient: isEnterprise || currentClients < maxClients,
+    canAddMember: isEnterprise || totalPotentialMembers < maxMembers,
+    clientsRemaining: isEnterprise ? Infinity : Math.max(0, maxClients - currentClients),
+    membersRemaining: isEnterprise ? Infinity : Math.max(0, maxMembers - totalPotentialMembers),
     isLoading: isLoadingMembers || isLoadingInvites,
+    isUnlimitedClients: isEnterprise,
+    isUnlimitedMembers: isEnterprise,
   };
 }
