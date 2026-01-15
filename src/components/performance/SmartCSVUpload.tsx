@@ -353,22 +353,36 @@ export function SmartCSVUpload({ clientId, platform, onImportComplete }: SmartCS
       
       return { videos, dailyViews: [] };
     } else {
-      // Daily views file
+      // Daily metrics file (views or videos published)
+      const isVideosPublishedFile = headers.some(h => 
+        h.includes('publicado') || h.includes('published') || h.includes('vídeos publicados')
+      );
+      
       const dailyViews = lines.slice(1).map(line => {
         const values = line.split(delimiter).map(v => v.trim().replace(/^"|"$/g, ''));
         const row: Record<string, string> = {};
         headers.forEach((h, i) => { row[h] = values[i] || ''; });
         
         let dateStr = row['date'] || row['data'] || '';
-        // Try to parse date
+        // Try to parse date in DD/MM/YYYY format
         const match = dateStr.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
         if (match) {
           dateStr = `${match[3]}-${match[2].padStart(2, '0')}-${match[1].padStart(2, '0')}`;
         }
         
+        if (isVideosPublishedFile) {
+          // Videos published CSV format
+          return {
+            date: dateStr,
+            views: 0,
+            total_posts: parseInt((row['vídeos publicados'] || row['videos publicados'] || row['published'] || '0').replace(/[^0-9]/g, '')) || 0,
+          };
+        }
+        
         return {
           date: dateStr,
           views: parseInt((row['views'] || row['visualizações'] || '0').replace(/[^0-9]/g, '')) || 0,
+          total_posts: 0,
         };
       }).filter(v => v.date);
       
