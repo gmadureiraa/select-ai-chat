@@ -1,6 +1,6 @@
 import { memo, useState } from "react";
 import { Handle, Position, NodeProps } from "reactflow";
-import { Lightbulb, X, ChevronDown } from "lucide-react";
+import { Lightbulb, X, ChevronDown, Maximize2, Minimize2 } from "lucide-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -48,6 +48,7 @@ function PromptNodeComponent({
   onDelete 
 }: PromptNodeProps) {
   const [briefing, setBriefing] = useState(data.briefing || "");
+  const [isExpanded, setIsExpanded] = useState(false);
 
   const handleBriefingChange = (value: string) => {
     setBriefing(value);
@@ -60,9 +61,13 @@ function PromptNodeComponent({
     onUpdateData?.(id, { briefing: newValue });
   };
 
+  const cardWidth = isExpanded ? "w-[450px]" : "w-[300px]";
+  const textareaHeight = isExpanded ? "min-h-[200px]" : "min-h-[100px]";
+
   return (
     <Card className={cn(
-      "w-[300px] shadow-lg transition-all border-2",
+      cardWidth,
+      "shadow-lg transition-all border-2",
       selected ? "border-primary ring-2 ring-primary/20" : "border-yellow-500/50",
       "bg-gradient-to-br from-yellow-50 to-white dark:from-yellow-950/30 dark:to-background"
     )}>
@@ -96,6 +101,19 @@ function PromptNodeComponent({
           <Button
             variant="ghost"
             size="icon"
+            className="h-6 w-6"
+            onClick={() => setIsExpanded(!isExpanded)}
+            title={isExpanded ? "Minimizar" : "Expandir"}
+          >
+            {isExpanded ? (
+              <Minimize2 className="h-3.5 w-3.5" />
+            ) : (
+              <Maximize2 className="h-3.5 w-3.5" />
+            )}
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
             className="h-6 w-6 hover:bg-destructive/10 hover:text-destructive"
             onClick={() => onDelete?.(id)}
           >
@@ -111,8 +129,8 @@ function PromptNodeComponent({
 Ex: Crie um conteúdo sobre produtividade para empreendedores, focando em técnicas práticas do dia a dia."
           value={briefing}
           onChange={(e) => handleBriefingChange(e.target.value)}
-          className="min-h-[100px] text-xs resize-none"
-          rows={5}
+          className={cn(textareaHeight, "text-xs resize-none")}
+          rows={isExpanded ? 10 : 5}
         />
       </CardContent>
 

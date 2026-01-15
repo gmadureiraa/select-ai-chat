@@ -1,6 +1,6 @@
 import { memo, useState, useMemo } from "react";
 import { Handle, Position, NodeProps } from "reactflow";
-import { FileOutput, X, Copy, RefreshCw, Calendar, Check, Edit3, Save, Download, Image, ExternalLink } from "lucide-react";
+import { FileOutput, X, Copy, RefreshCw, Calendar, Check, Edit3, Save, Download, Image, ExternalLink, Maximize2, Minimize2 } from "lucide-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -59,6 +59,7 @@ function ContentOutputNodeComponent({
   const { toast } = useToast();
   const [isEditing, setIsEditing] = useState(false);
   const [editedContent, setEditedContent] = useState(data.content);
+  const [isExpanded, setIsExpanded] = useState(false);
 
   // Calculate content stats
   const contentStats = useMemo(() => {
@@ -97,9 +98,13 @@ function ContentOutputNodeComponent({
     setEditedContent(data.content);
   };
 
+  const cardWidth = isExpanded ? "w-[500px]" : "w-[350px]";
+  const scrollHeight = isExpanded ? "h-[320px]" : "h-[160px]";
+
   return (
     <Card className={cn(
-      "w-[350px] shadow-lg transition-all border-2",
+      cardWidth,
+      "shadow-lg transition-all border-2",
       selected ? "border-primary ring-2 ring-primary/20" : "border-pink-500/50",
       data.addedToPlanning && "border-green-500/50",
       "bg-gradient-to-br from-pink-50 to-white dark:from-pink-950/30 dark:to-background"
@@ -125,26 +130,44 @@ function ContentOutputNodeComponent({
             </Badge>
           </div>
         </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-6 w-6 hover:bg-destructive/10 hover:text-destructive"
-          onClick={() => onDelete?.(id)}
-        >
-          <X className="h-3.5 w-3.5" />
-        </Button>
+        <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6"
+            onClick={() => setIsExpanded(!isExpanded)}
+            title={isExpanded ? "Minimizar" : "Expandir"}
+          >
+            {isExpanded ? (
+              <Minimize2 className="h-3.5 w-3.5" />
+            ) : (
+              <Maximize2 className="h-3.5 w-3.5" />
+            )}
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6 hover:bg-destructive/10 hover:text-destructive"
+            onClick={() => onDelete?.(id)}
+          >
+            <X className="h-3.5 w-3.5" />
+          </Button>
+        </div>
       </CardHeader>
 
       <CardContent className="px-3 pb-3 space-y-2">
         {/* Image output */}
         {data.isImage ? (
           <div className="space-y-2">
-            <div className="relative rounded-md border overflow-hidden bg-muted/30">
+            <div className={cn(
+              "relative rounded-md border overflow-hidden bg-muted/30",
+              isExpanded ? "max-h-[300px]" : "max-h-[200px]"
+            )}>
               {data.content ? (
                 <img 
                   src={data.content} 
                   alt="Generated image" 
-                  className="w-full h-auto max-h-[200px] object-contain"
+                  className="w-full h-auto object-contain"
                 />
               ) : (
                 <div className="h-[150px] flex items-center justify-center">
@@ -193,8 +216,11 @@ function ContentOutputNodeComponent({
             <Textarea
               value={editedContent}
               onChange={(e) => setEditedContent(e.target.value)}
-              className="min-h-[200px] text-xs resize-none"
-              rows={10}
+              className={cn(
+                "text-xs resize-none",
+                isExpanded ? "min-h-[300px]" : "min-h-[200px]"
+              )}
+              rows={isExpanded ? 15 : 10}
             />
             <div className="flex gap-2">
               <Button size="sm" onClick={handleSave} className="flex-1 gap-1">
@@ -208,7 +234,7 @@ function ContentOutputNodeComponent({
           </div>
         ) : (
           <>
-            <ScrollArea className="h-[160px] rounded-md border p-2 bg-muted/30">
+            <ScrollArea className={cn(scrollHeight, "rounded-md border p-2 bg-muted/30")}>
               <div className="text-xs whitespace-pre-wrap">
                 {data.content || "Aguardando geração..."}
               </div>

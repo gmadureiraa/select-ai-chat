@@ -1,6 +1,6 @@
 import { memo, useState, useRef } from "react";
 import { Handle, Position, NodeProps } from "reactflow";
-import { Link2, FileText, Upload, Loader2, Check, X, Youtube, FileAudio, FileImage, Trash2, Eye, Wand2, Star, Palette, Code2 } from "lucide-react";
+import { Link2, FileText, Upload, Loader2, Check, X, Youtube, FileAudio, FileImage, Trash2, Eye, Wand2, Star, Palette, Code2, Maximize2, Minimize2 } from "lucide-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -185,6 +185,7 @@ function SourceNodeComponent({
   const [localUrl, setLocalUrl] = useState(data.value || "");
   const [localText, setLocalText] = useState(data.value || "");
   const [isUploading, setIsUploading] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   // State for image analysis modal
@@ -397,9 +398,14 @@ function SourceNodeComponent({
   const otherFiles = (data.files || []).filter(f => f.type !== "image");
   const unanalyzedImages = imageFiles.filter(f => !f.metadata?.analyzed);
 
+  const cardWidth = isExpanded ? "w-[500px]" : "w-[340px]";
+  const gridCols = isExpanded ? "grid-cols-4" : "grid-cols-3";
+  const scrollMaxHeight = isExpanded ? "max-h-[200px]" : "max-h-[100px]";
+
   return (
     <Card className={cn(
-      "w-[340px] shadow-lg transition-all border-2",
+      cardWidth,
+      "shadow-lg transition-all border-2",
       selected ? "border-primary ring-2 ring-primary/20" : "border-blue-500/50",
       "bg-gradient-to-br from-blue-50 to-white dark:from-blue-950/30 dark:to-background"
     )}>
@@ -410,14 +416,29 @@ function SourceNodeComponent({
           </div>
           <span className="font-medium text-sm">Fonte</span>
         </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-6 w-6 hover:bg-destructive/10 hover:text-destructive"
-          onClick={() => onDelete?.(id)}
-        >
-          <X className="h-3.5 w-3.5" />
-        </Button>
+        <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6"
+            onClick={() => setIsExpanded(!isExpanded)}
+            title={isExpanded ? "Minimizar" : "Expandir"}
+          >
+            {isExpanded ? (
+              <Minimize2 className="h-3.5 w-3.5" />
+            ) : (
+              <Maximize2 className="h-3.5 w-3.5" />
+            )}
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6 hover:bg-destructive/10 hover:text-destructive"
+            onClick={() => onDelete?.(id)}
+          >
+            <X className="h-3.5 w-3.5" />
+          </Button>
+        </div>
       </CardHeader>
 
       <CardContent className="px-3 pb-3 space-y-3">
@@ -503,8 +524,8 @@ function SourceNodeComponent({
               placeholder="Cole ou digite o texto aqui..."
               value={localText}
               onChange={(e) => handleTextChange(e.target.value)}
-              className="min-h-[80px] text-xs resize-none"
-              rows={4}
+              className={cn("text-xs resize-none", isExpanded ? "min-h-[150px]" : "min-h-[80px]")}
+              rows={isExpanded ? 8 : 4}
             />
           </TabsContent>
 
@@ -558,7 +579,7 @@ function SourceNodeComponent({
                   )}
                 </div>
                 
-                <div className="grid grid-cols-3 gap-1.5">
+                <div className={cn("grid gap-1.5", gridCols)}>
                   {imageFiles.map((file) => (
                     <ImageReferenceCard
                       key={file.id}
@@ -576,7 +597,7 @@ function SourceNodeComponent({
 
             {/* Other files list */}
             {otherFiles.length > 0 && (
-              <ScrollArea className="max-h-[100px]">
+              <ScrollArea className={scrollMaxHeight}>
                 <div className="space-y-1.5">
                   {otherFiles.map((file) => (
                     <div 
