@@ -35,7 +35,7 @@ const initialNodes: Node[] = [
     type: "source",
     label: "URL do YouTube",
     icon: FileText,
-    position: { x: 50, y: 120 },
+    position: { x: 30, y: 100 },
     color: "from-blue-500/20 to-violet-500/20",
   },
   {
@@ -43,7 +43,7 @@ const initialNodes: Node[] = [
     type: "ai",
     label: "IA Multi-Agente",
     icon: Sparkles,
-    position: { x: 280, y: 100 },
+    position: { x: 260, y: 90 },
     color: "from-primary to-primary/80",
   },
   {
@@ -51,7 +51,7 @@ const initialNodes: Node[] = [
     type: "output",
     label: "Carrossel",
     icon: Instagram,
-    position: { x: 520, y: 30 },
+    position: { x: 500, y: 20 },
     color: "from-pink-500/20 to-rose-500/20",
   },
   {
@@ -59,7 +59,7 @@ const initialNodes: Node[] = [
     type: "output",
     label: "Thread",
     icon: Twitter,
-    position: { x: 520, y: 110 },
+    position: { x: 500, y: 100 },
     color: "from-sky-500/20 to-blue-500/20",
   },
   {
@@ -67,7 +67,7 @@ const initialNodes: Node[] = [
     type: "output",
     label: "Artigo",
     icon: Linkedin,
-    position: { x: 520, y: 190 },
+    position: { x: 500, y: 180 },
     color: "from-blue-600/20 to-indigo-500/20",
   },
 ];
@@ -126,14 +126,27 @@ const InteractiveCanvasDemo = () => {
     setShowSignupDialog(true);
   };
 
-  const getNodeCenter = (node: Node) => ({
-    x: node.position.x + 70,
+  // Get the right edge of a node (for source connections)
+  const getNodeRightEdge = (node: Node, nodeWidth: number) => ({
+    x: node.position.x + nodeWidth,
+    y: node.position.y + 25,
+  });
+
+  // Get the left edge of a node (for target connections)
+  const getNodeLeftEdge = (node: Node) => ({
+    x: node.position.x,
     y: node.position.y + 25,
   });
 
   const sourceNode = nodes.find(n => n.id === "source")!;
   const aiNode = nodes.find(n => n.id === "ai")!;
   const outputNodes = nodes.filter(n => n.type === "output");
+
+  // Create smooth bezier path
+  const createBezierPath = (from: { x: number; y: number }, to: { x: number; y: number }) => {
+    const controlOffset = Math.abs(to.x - from.x) * 0.5;
+    return `M ${from.x} ${from.y} C ${from.x + controlOffset} ${from.y}, ${to.x - controlOffset} ${to.y}, ${to.x} ${to.y}`;
+  };
 
   return (
     <>
@@ -157,9 +170,10 @@ const InteractiveCanvasDemo = () => {
         <svg className="absolute inset-0 w-full h-full pointer-events-none">
           {/* Source to AI */}
           <motion.path
-            d={`M ${getNodeCenter(sourceNode).x + 40} ${getNodeCenter(sourceNode).y} 
-                Q ${(getNodeCenter(sourceNode).x + getNodeCenter(aiNode).x) / 2} ${getNodeCenter(sourceNode).y}
-                  ${getNodeCenter(aiNode).x - 50} ${getNodeCenter(aiNode).y}`}
+            d={createBezierPath(
+              getNodeRightEdge(sourceNode, 120),
+              getNodeLeftEdge(aiNode)
+            )}
             fill="none"
             stroke="hsl(var(--primary))"
             strokeWidth="2"
@@ -173,9 +187,10 @@ const InteractiveCanvasDemo = () => {
           {outputNodes.map((output, index) => (
             <motion.path
               key={output.id}
-              d={`M ${getNodeCenter(aiNode).x + 50} ${getNodeCenter(aiNode).y} 
-                  Q ${(getNodeCenter(aiNode).x + getNodeCenter(output).x) / 2 + 20} ${getNodeCenter(output).y}
-                    ${getNodeCenter(output).x - 50} ${getNodeCenter(output).y}`}
+              d={createBezierPath(
+                getNodeRightEdge(aiNode, 140),
+                getNodeLeftEdge(output)
+              )}
               fill="none"
               stroke="hsl(var(--primary))"
               strokeWidth="2"
@@ -186,20 +201,29 @@ const InteractiveCanvasDemo = () => {
             />
           ))}
 
-          {/* Animated pulse on connections */}
+          {/* Animated pulse on main connection */}
           <motion.circle
             r="4"
             fill="hsl(var(--primary))"
+            initial={{ opacity: 0 }}
             animate={{
-              cx: [getNodeCenter(sourceNode).x + 40, getNodeCenter(aiNode).x - 50],
-              cy: [getNodeCenter(sourceNode).y, getNodeCenter(aiNode).y],
+              opacity: [0, 1, 1, 0],
             }}
             transition={{
               duration: 2,
               repeat: Infinity,
               ease: "easeInOut",
             }}
-          />
+          >
+            <animateMotion
+              dur="2s"
+              repeatCount="indefinite"
+              path={createBezierPath(
+                getNodeRightEdge(sourceNode, 120),
+                getNodeLeftEdge(aiNode)
+              )}
+            />
+          </motion.circle>
         </svg>
 
         {/* Nodes */}

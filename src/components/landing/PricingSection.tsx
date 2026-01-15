@@ -8,41 +8,42 @@ const WHATSAPP_LINK = "https://api.whatsapp.com/send/?phone=12936180547&text=Ol%
 const plans = [
   {
     name: "Canvas",
-    price: "$49",
+    price: "$19.90",
     period: "/mês",
     description: "O essencial para criar conteúdo com IA",
     icon: LayoutDashboard,
     features: [
       "1 cliente/perfil",
       "Canvas de criação ilimitado",
-      "IA multi-agente (4 agentes)",
-      "Geração em batch (até 5 posts)",
-      "10 templates prontos",
-      "Suporte por email",
+      "IA multi-agente especialista",
+      "Templates para todos formatos",
+      "Geração de imagens",
+      "Suporte via email",
     ],
-    cta: "Começar grátis",
+    cta: "Assinar agora",
     popular: false,
     planType: "basic",
     highlight: "Ideal para criadores solo",
   },
   {
     name: "Pro",
-    price: "$249",
+    price: "$99.90",
     period: "/mês",
     description: "Suite completa para agências",
     icon: BarChart3,
     features: [
-      "Até 10 clientes/perfis",
       "Tudo do Canvas",
+      "3 clientes inclusos (+$7/extra)",
+      "3 membros do time (+$4/extra)",
+      "Visualizadores ilimitados",
       "Planejamento Kanban",
-      "Publicação agendada",
       "Performance analytics",
       "Biblioteca de conteúdos",
-      "Até 5 membros no time",
-      "Integrações (Instagram, etc)",
+      "Publicação agendada",
+      "Integrações (Instagram, LinkedIn, Twitter/X, YouTube)",
       "Suporte prioritário",
     ],
-    cta: "Começar grátis",
+    cta: "Assinar agora",
     popular: true,
     planType: "agency",
     highlight: "Mais popular",
@@ -87,15 +88,11 @@ const PricingSection = () => {
           transition={{ duration: 0.5 }}
           className="text-center mb-16"
         >
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-muted border border-border mb-6">
-            <span className="w-2 h-2 rounded-full bg-green-500" />
-            <span className="text-sm text-foreground">14 dias grátis em todos os planos</span>
-          </div>
           <h2 className="text-3xl md:text-5xl font-bold text-foreground mb-4">
             Preços simples, valor real
           </h2>
           <p className="text-muted-foreground text-lg max-w-xl mx-auto">
-            Comece pelo Canvas a $49/mês ou desbloqueie a suite completa por $249/mês.
+            Comece pelo Canvas a $19.90/mês ou desbloqueie a suite completa por $99.90/mês.
             <br />
             <span className="text-foreground font-medium">Sem surpresas, cancele quando quiser.</span>
           </p>

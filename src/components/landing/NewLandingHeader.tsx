@@ -7,10 +7,10 @@ import ThemeToggle from "./ThemeToggle";
 import kaleidosLogo from "@/assets/kaleidos-logo.svg";
 
 const navItems = [
+  { name: "Canvas", href: "#canvas-demo" },
   { name: "Funcionalidades", href: "#features" },
-  { name: "Como Funciona", href: "#workflow" },
-  { name: "Integrações", href: "#integrations" },
   { name: "Preços", href: "#pricing" },
+  { name: "FAQ", href: "#faq" },
 ];
 
 const NewLandingHeader = () => {
@@ -67,9 +67,9 @@ const NewLandingHeader = () => {
                 Entrar
               </Button>
             </Link>
-            <Link to="/login">
+            <Link to="/signup?plan=basic">
               <Button size="sm" className="rounded-full px-5 font-semibold">
-                Começar Grátis
+                Assinar Agora
               </Button>
             </Link>
           </div>
@@ -112,8 +112,8 @@ const NewLandingHeader = () => {
                     Entrar
                   </Button>
                 </Link>
-                <Link to="/login" onClick={() => setIsMobileMenuOpen(false)}>
-                  <Button className="w-full">Começar Grátis</Button>
+                <Link to="/signup?plan=basic" onClick={() => setIsMobileMenuOpen(false)}>
+                  <Button className="w-full">Assinar Agora</Button>
                 </Link>
               </div>
             </nav>
