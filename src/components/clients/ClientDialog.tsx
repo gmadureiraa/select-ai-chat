@@ -5,7 +5,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ClientCreationWizard } from "./ClientCreationWizard";
+import { ClientCreationWizardSimplified } from "./ClientCreationWizardSimplified";
 
 interface ClientDialogProps {
   open: boolean;
@@ -15,15 +15,15 @@ interface ClientDialogProps {
 export const ClientDialog = ({ open, onOpenChange }: ClientDialogProps) => {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Novo Cliente</DialogTitle>
           <DialogDescription>
-            Siga os passos para criar um novo cliente com contexto estruturado
+            Adicione as informações básicas do cliente
           </DialogDescription>
         </DialogHeader>
 
-        <ClientCreationWizard 
+        <ClientCreationWizardSimplified 
           onComplete={() => onOpenChange(false)} 
           onCancel={() => onOpenChange(false)} 
         />
