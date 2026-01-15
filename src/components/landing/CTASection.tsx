@@ -1,12 +1,13 @@
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Calendar } from "lucide-react";
-
-const CALENDLY_LINK = "https://calendly.com/madureira-kaleidosdigital/30min";
+import { ArrowRight, Clock, Sparkles, Zap } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 const CTASection = () => {
+  const navigate = useNavigate();
+
   return (
-    <section className="py-32 bg-foreground dark:bg-card relative overflow-hidden">
+    <section className="py-24 md:py-32 bg-foreground dark:bg-card relative overflow-hidden">
       {/* Animated wave background */}
       <div className="absolute inset-0 overflow-hidden">
         <svg
@@ -31,29 +32,6 @@ const CTASection = () => {
             fill="currentColor"
           />
         </svg>
-        <svg
-          className="absolute bottom-0 left-0 w-full h-48 text-background/10"
-          viewBox="0 0 1440 320"
-          preserveAspectRatio="none"
-        >
-          <motion.path
-            initial={{ d: "M0,224L48,213.3C96,203,192,181,288,181.3C384,181,480,203,576,218.7C672,235,768,245,864,234.7C960,224,1056,192,1152,181.3C1248,171,1344,181,1392,186.7L1440,192L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z" }}
-            animate={{
-              d: [
-                "M0,224L48,213.3C96,203,192,181,288,181.3C384,181,480,203,576,218.7C672,235,768,245,864,234.7C960,224,1056,192,1152,181.3C1248,171,1344,181,1392,186.7L1440,192L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z",
-                "M0,256L48,240C96,224,192,192,288,192C384,192,480,224,576,234.7C672,245,768,235,864,213.3C960,192,1056,160,1152,165.3C1248,171,1344,213,1392,234.7L1440,256L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z",
-                "M0,224L48,213.3C96,203,192,181,288,181.3C384,181,480,203,576,218.7C672,235,768,245,864,234.7C960,224,1056,192,1152,181.3C1248,171,1344,181,1392,186.7L1440,192L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z",
-              ],
-            }}
-            transition={{
-              duration: 8,
-              repeat: Infinity,
-              ease: "easeInOut",
-              delay: 0.5,
-            }}
-            fill="currentColor"
-          />
-        </svg>
       </div>
 
       {/* Gradient orbs */}
@@ -67,42 +45,54 @@ const CTASection = () => {
           viewport={{ once: true }}
           transition={{ duration: 0.6 }}
         >
-          <h2 className="text-4xl md:text-6xl font-light text-background dark:text-foreground mb-4 leading-tight">
-            Pronto para Automatizar de Forma{" "}
-            <span className="bg-gradient-to-r from-secondary to-accent bg-clip-text text-transparent font-medium">
-              Mais Inteligente?
+          {/* Time saving message */}
+          <div className="flex items-center justify-center gap-2 mb-6">
+            <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-background/10 border border-background/20">
+              <Clock className="w-4 h-4 text-accent" />
+              <span className="text-sm font-medium text-background dark:text-foreground">3h economizadas por dia</span>
+            </div>
+          </div>
+
+          <h2 className="text-3xl md:text-5xl lg:text-6xl font-bold text-background dark:text-foreground mb-4 leading-tight">
+            Pare de perder horas{" "}
+            <span className="bg-gradient-to-r from-secondary to-accent bg-clip-text text-transparent">
+              criando conteúdo
             </span>
           </h2>
 
-          <p className="text-xl md:text-2xl text-background/70 dark:text-muted-foreground mb-12 font-light italic">
-            Vamos Construir Juntos
+          <p className="text-xl md:text-2xl text-background/80 dark:text-muted-foreground mb-8 font-light max-w-2xl mx-auto">
+            Comece a produzir <span className="text-background dark:text-foreground font-semibold">10x mais</span> em menos tempo. 
+            Seu próximo mês de conteúdo pode começar agora.
           </p>
 
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <a 
-              href={CALENDLY_LINK}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <Button
-                size="lg"
-                className="bg-background text-foreground hover:bg-background/90 dark:bg-primary dark:text-primary-foreground px-10 py-7 text-lg rounded-full group"
-              >
-                <Calendar className="mr-2 w-5 h-5" />
-                Agendar Demonstração
-              </Button>
-            </a>
-            <a href="#features">
-              <Button
-                size="lg"
-                variant="outline"
-                className="px-8 py-7 text-lg rounded-full border-background/30 text-background hover:bg-background/10 dark:border-border dark:text-foreground dark:hover:bg-muted group"
-              >
-                Saiba Mais
-                <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
-              </Button>
-            </a>
+          {/* Benefits */}
+          <div className="flex flex-wrap items-center justify-center gap-4 mb-10">
+            <div className="flex items-center gap-2 text-background/70 dark:text-muted-foreground">
+              <Sparkles className="w-4 h-4" />
+              <span className="text-sm">IA que entende você</span>
+            </div>
+            <div className="flex items-center gap-2 text-background/70 dark:text-muted-foreground">
+              <Zap className="w-4 h-4" />
+              <span className="text-sm">Conteúdo em minutos</span>
+            </div>
           </div>
+
+          {/* CTA Buttons */}
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+            <Button
+              size="lg"
+              onClick={() => navigate("/login")}
+              className="h-14 px-10 text-lg rounded-full bg-background text-foreground hover:bg-background/90 dark:bg-primary dark:text-primary-foreground shadow-xl group"
+            >
+              Testar grátis por 14 dias
+              <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
+            </Button>
+          </div>
+
+          {/* Trust message */}
+          <p className="mt-6 text-sm text-background/60 dark:text-muted-foreground">
+            Sem cartão de crédito • Setup em 2 minutos • Cancele quando quiser
+          </p>
         </motion.div>
       </div>
     </section>

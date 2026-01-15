@@ -1,9 +1,8 @@
 import NewLandingHeader from "@/components/landing/NewLandingHeader";
 import NewHeroSection from "@/components/landing/NewHeroSection";
 import CanvasDemoSection from "@/components/landing/CanvasDemoSection";
+import ValueProposition from "@/components/landing/ValueProposition";
 import ServicesCarousel from "@/components/landing/ServicesCarousel";
-import AgentFlowSection from "@/components/landing/AgentFlowSection";
-import FeaturesGrid from "@/components/landing/FeaturesGrid";
 import PricingSection from "@/components/landing/PricingSection";
 import FAQSection from "@/components/landing/FAQSection";
 import CTASection from "@/components/landing/CTASection";
@@ -15,9 +14,8 @@ const LandingPage = () => {
       <NewLandingHeader />
       <NewHeroSection />
       <CanvasDemoSection />
+      <ValueProposition />
       <ServicesCarousel />
-      <AgentFlowSection />
-      <FeaturesGrid />
       <PricingSection />
       <FAQSection />
       <CTASection />
