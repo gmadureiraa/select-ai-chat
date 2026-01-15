@@ -477,7 +477,7 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
     }
   }, [updateNodeData, toast]);
 
-  // Transcribe audio/video file
+  // Transcribe audio/video file using transcribe-media edge function
   const transcribeFile = useCallback(async (nodeId: string, fileId: string) => {
     const node = nodes.find(n => n.id === nodeId);
     if (!node || node.data.type !== "source") return;
@@ -487,39 +487,71 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
     const fileIndex = files.findIndex(f => f.id === fileId);
     if (fileIndex === -1) return;
 
+    const file = files[fileIndex];
+    
+    // Verify it's audio or video
+    if (file.type !== "audio" && file.type !== "video") {
+      toast({
+        title: "Tipo de arquivo inválido",
+        description: "Apenas arquivos de áudio e vídeo podem ser transcritos",
+        variant: "destructive",
+      });
+      return;
+    }
+
     // Mark file as processing
     const updatedFiles = [...files];
     updatedFiles[fileIndex] = { ...updatedFiles[fileIndex], isProcessing: true };
     updateNodeData(nodeId, { files: updatedFiles } as Partial<SourceNodeData>);
 
     try {
-      const file = files[fileIndex];
+      console.log("Transcribing file:", file.name, "URL:", file.url, "Type:", file.mimeType);
       
-      // For now, show a placeholder - real implementation would call transcribe-audio
-      const { data, error } = await supabase.functions.invoke("transcribe-audio", {
-        body: { audioUrl: file.url }
+      // Call transcribe-media edge function with the file URL
+      const { data, error } = await supabase.functions.invoke("transcribe-media", {
+        body: { 
+          url: file.url,
+          fileName: file.name,
+          mimeType: file.mimeType
+        }
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error("Transcription error:", error);
+        throw error;
+      }
+      
+      if (data?.error) {
+        console.error("Transcription API error:", data.error);
+        throw new Error(data.error);
+      }
 
-      updatedFiles[fileIndex] = { 
-        ...updatedFiles[fileIndex], 
-        transcription: data.transcription || data.text || "Transcrição não disponível",
+      const transcription = data?.text || "Transcrição não disponível";
+      console.log("Transcription result:", transcription.substring(0, 100) + "...");
+
+      // Update file with transcription
+      const finalFiles = [...files];
+      finalFiles[fileIndex] = { 
+        ...finalFiles[fileIndex], 
+        transcription,
         isProcessing: false 
       };
-      updateNodeData(nodeId, { files: updatedFiles } as Partial<SourceNodeData>);
+      updateNodeData(nodeId, { files: finalFiles } as Partial<SourceNodeData>);
 
       toast({
         title: "Arquivo transcrito",
-        description: `"${file.name}" foi transcrito com sucesso`,
+        description: `"${file.name}" foi transcrito com sucesso (${data?.duration ? Math.round(data.duration) + 's' : ''})`,
       });
     } catch (error) {
       console.error("Error transcribing file:", error);
-      updatedFiles[fileIndex] = { ...updatedFiles[fileIndex], isProcessing: false };
-      updateNodeData(nodeId, { files: updatedFiles } as Partial<SourceNodeData>);
+      const errorFiles = [...files];
+      errorFiles[fileIndex] = { ...errorFiles[fileIndex], isProcessing: false };
+      updateNodeData(nodeId, { files: errorFiles } as Partial<SourceNodeData>);
+      
+      const errorMessage = error instanceof Error ? error.message : "Não foi possível transcrever o arquivo";
       toast({
         title: "Erro na transcrição",
-        description: "Não foi possível transcrever o arquivo",
+        description: errorMessage,
         variant: "destructive",
       });
     }
