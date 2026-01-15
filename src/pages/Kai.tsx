@@ -194,6 +194,7 @@ export default function Kai() {
             onSubmit={handleSendMessage}
             onQuickAction={handleQuickAction}
             clientName={selectedClient.name}
+            clientId={selectedClient.id}
           />
         );
       

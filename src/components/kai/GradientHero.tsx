@@ -1,10 +1,13 @@
 import { useState, useMemo } from "react";
-import { Send, Sparkles, Image, FileText, Video, Mail, BarChart3, Library } from "lucide-react";
+import { Send, Sparkles, Image, FileText, Video, Mail, Palette, BarChart3, CalendarDays } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { DynamicIdeasSection } from "./home/DynamicIdeasSection";
+import { WeekHighlights } from "./home/WeekHighlights";
+import { UpcomingContent } from "./home/UpcomingContent";
 
 interface ContentTypeChip {
   id: string;
@@ -24,6 +27,7 @@ interface GradientHeroProps {
   onSubmit: (message: string, contentType?: string) => void;
   onQuickAction?: (action: string) => void;
   clientName?: string;
+  clientId?: string;
 }
 
 function getTimeGreeting(): { greeting: string; emoji: string } {
@@ -37,12 +41,11 @@ function getTimeGreeting(): { greeting: string; emoji: string } {
   }
 }
 
-export function GradientHero({ onSubmit, onQuickAction, clientName }: GradientHeroProps) {
+export function GradientHero({ onSubmit, onQuickAction, clientName, clientId }: GradientHeroProps) {
   const [input, setInput] = useState("");
   const [selectedType, setSelectedType] = useState<string | null>(null);
   const { user } = useAuth();
 
-  // Fetch user profile for name
   const { data: userProfile } = useQuery({
     queryKey: ["user-profile-hero", user?.id],
     queryFn: async () => {
@@ -69,10 +72,14 @@ export function GradientHero({ onSubmit, onQuickAction, clientName }: GradientHe
     setInput("");
   };
 
+  const handleSelectIdea = (idea: { title: string; description: string }) => {
+    setInput(`${idea.title}: ${idea.description}`);
+  };
+
   return (
-    <div className="relative min-h-[calc(100vh-64px)] flex flex-col items-center justify-center px-8 bg-background">
-      {/* Gradient Background - Pink and Green (Kaleidos colors) */}
-      <div className="absolute inset-0 overflow-hidden">
+    <div className="relative min-h-[calc(100vh-64px)] flex flex-col px-6 py-8 bg-background overflow-auto">
+      {/* Gradient Background */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div 
           className="absolute inset-0"
           style={{
@@ -84,7 +91,6 @@ export function GradientHero({ onSubmit, onQuickAction, clientName }: GradientHe
             `
           }}
         />
-        {/* Noise overlay */}
         <div 
           className="absolute inset-0 opacity-[0.015]"
           style={{
@@ -94,73 +100,59 @@ export function GradientHero({ onSubmit, onQuickAction, clientName }: GradientHe
       </div>
 
       {/* Content */}
-      <motion.div 
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6 }}
-        className="relative z-10 w-full max-w-2xl"
-      >
-        {/* Personalized Greeting */}
-        <motion.p
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.2, duration: 0.5 }}
-          className="text-center text-muted-foreground mb-2 text-sm"
+      <div className="relative z-10 w-full max-w-4xl mx-auto space-y-8">
+        {/* Header Section */}
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+          className="text-center space-y-4"
         >
-          {greeting}{userName ? `, ${userName}` : ""} {emoji}
-        </motion.p>
-
-        {/* Tagline */}
-        <h1 className="text-4xl md:text-5xl font-light text-center text-foreground mb-3 tracking-tight">
-          O que vamos <span className="font-semibold text-primary">criar</span> hoje?
-        </h1>
-        
-        {clientName && (
-          <p className="text-center text-muted-foreground mb-8 text-lg">
-            Trabalhando com <span className="text-foreground/70 font-medium">{clientName}</span>
+          <p className="text-muted-foreground text-sm">
+            {greeting}{userName ? `, ${userName}` : ""} {emoji}
           </p>
-        )}
 
-        {!clientName && (
-          <p className="text-center text-muted-foreground/60 mb-8">
-            Vamos criar algo incrível juntos
-          </p>
-        )}
+          <h1 className="text-3xl md:text-4xl font-light text-foreground tracking-tight">
+            O que vamos <span className="font-semibold text-primary">criar</span> {clientName ? `para ${clientName}` : "hoje"}?
+          </h1>
 
-        {/* Content Type Pills */}
-        <div className="flex items-center justify-center gap-2 mb-6 flex-wrap">
-          {contentTypes.map((type) => (
-            <motion.button
-              key={type.id}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={() => setSelectedType(selectedType === type.id ? null : type.id)}
-              className={cn(
-                "flex items-center gap-1.5 px-4 py-2 rounded-full text-sm transition-all",
-                "border backdrop-blur-sm",
-                selectedType === type.id
-                  ? "bg-primary/20 border-primary/50 text-primary shadow-sm"
-                  : "bg-muted/30 border-border/50 text-muted-foreground hover:bg-muted/50 hover:text-foreground hover:border-border"
-              )}
-            >
-              {type.icon}
-              <span>{type.label}</span>
-            </motion.button>
-          ))}
-        </div>
+          {/* Content Type Pills */}
+          <div className="flex items-center justify-center gap-2 flex-wrap pt-2">
+            {contentTypes.map((type) => (
+              <motion.button
+                key={type.id}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => setSelectedType(selectedType === type.id ? null : type.id)}
+                className={cn(
+                  "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs transition-all",
+                  "border backdrop-blur-sm",
+                  selectedType === type.id
+                    ? "bg-primary/20 border-primary/50 text-primary shadow-sm"
+                    : "bg-muted/30 border-border/50 text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                )}
+              >
+                {type.icon}
+                <span>{type.label}</span>
+              </motion.button>
+            ))}
+          </div>
+        </motion.div>
 
-        {/* Input Container - Glassmorphism */}
-        <div className="relative">
-          <div 
-            className={cn(
-              "relative rounded-2xl overflow-hidden",
-              "bg-card/50 backdrop-blur-xl",
-              "border border-border/50",
-              "shadow-2xl shadow-black/10"
-            )}
-          >
-            {/* Input Area */}
-            <div className="p-6">
+        {/* Input Container */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2, duration: 0.6 }}
+          className="relative"
+        >
+          <div className={cn(
+            "relative rounded-2xl overflow-hidden",
+            "bg-card/50 backdrop-blur-xl",
+            "border border-border/50",
+            "shadow-xl"
+          )}>
+            <div className="p-4">
               <textarea
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
@@ -174,14 +166,12 @@ export function GradientHero({ onSubmit, onQuickAction, clientName }: GradientHe
                 className={cn(
                   "w-full bg-transparent resize-none outline-none",
                   "text-foreground placeholder:text-muted-foreground/50",
-                  "text-base min-h-[60px] max-h-[200px]"
+                  "text-base min-h-[50px] max-h-[120px]"
                 )}
                 rows={2}
               />
             </div>
-
-            {/* Bottom Bar */}
-            <div className="flex items-center justify-end px-6 py-4 border-t border-border/30">
+            <div className="flex items-center justify-end px-4 py-3 border-t border-border/30">
               <button
                 onClick={handleSubmit}
                 disabled={!input.trim()}
@@ -197,47 +187,73 @@ export function GradientHero({ onSubmit, onQuickAction, clientName }: GradientHe
               </button>
             </div>
           </div>
-
-          {/* Glow effect - Pink and Green */}
           <div 
-            className="absolute -inset-1 rounded-2xl opacity-20 blur-xl -z-10"
-            style={{
-              background: "linear-gradient(135deg, hsl(145, 100%, 40%) 0%, hsl(330, 100%, 50%) 100%)"
-            }}
+            className="absolute -inset-1 rounded-2xl opacity-15 blur-xl -z-10"
+            style={{ background: "linear-gradient(135deg, hsl(145, 100%, 40%) 0%, hsl(330, 100%, 50%) 100%)" }}
           />
-        </div>
+        </motion.div>
 
-        {/* Quick Actions - Redesigned as pills */}
-        <div className="flex items-center justify-center gap-3 mt-8">
-          <motion.button 
-            whileHover={{ scale: 1.02, y: -1 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={() => onQuickAction?.("assistant")}
-            className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-all px-4 py-2.5 rounded-xl bg-muted/30 hover:bg-muted/60 border border-transparent hover:border-border/50 backdrop-blur-sm"
+        {/* Quick Actions */}
+        <motion.div 
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.3 }}
+          className="flex items-center justify-center gap-3"
+        >
+          <button 
+            onClick={() => onQuickAction?.("canvas")}
+            className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-all px-4 py-2.5 rounded-xl bg-muted/30 hover:bg-muted/60 border border-transparent hover:border-border/50"
           >
-            <Sparkles className="h-4 w-4 text-primary" />
-            <span>Chat livre</span>
-          </motion.button>
-          <motion.button 
-            whileHover={{ scale: 1.02, y: -1 }}
-            whileTap={{ scale: 0.98 }}
+            <Palette className="h-4 w-4 text-primary" />
+            <span>Canvas</span>
+          </button>
+          <button 
             onClick={() => onQuickAction?.("performance")}
-            className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-all px-4 py-2.5 rounded-xl bg-muted/30 hover:bg-muted/60 border border-transparent hover:border-border/50 backdrop-blur-sm"
+            className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-all px-4 py-2.5 rounded-xl bg-muted/30 hover:bg-muted/60 border border-transparent hover:border-border/50"
           >
             <BarChart3 className="h-4 w-4 text-secondary" />
-            <span>Ver métricas</span>
-          </motion.button>
-          <motion.button 
-            whileHover={{ scale: 1.02, y: -1 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={() => onQuickAction?.("library")}
-            className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-all px-4 py-2.5 rounded-xl bg-muted/30 hover:bg-muted/60 border border-transparent hover:border-border/50 backdrop-blur-sm"
+            <span>Performance</span>
+          </button>
+          <button 
+            onClick={() => onQuickAction?.("planning")}
+            className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-all px-4 py-2.5 rounded-xl bg-muted/30 hover:bg-muted/60 border border-transparent hover:border-border/50"
           >
-            <Library className="h-4 w-4 text-accent" />
-            <span>Biblioteca</span>
-          </motion.button>
-        </div>
-      </motion.div>
+            <CalendarDays className="h-4 w-4 text-accent" />
+            <span>Planejamento</span>
+          </button>
+        </motion.div>
+
+        {/* Dynamic Ideas Section */}
+        {clientId && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4 }}
+          >
+            <DynamicIdeasSection 
+              clientId={clientId}
+              clientName={clientName}
+              onSelectIdea={handleSelectIdea}
+            />
+          </motion.div>
+        )}
+
+        {/* Week Highlights & Upcoming Content */}
+        {clientId && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.5 }}
+            className="grid grid-cols-1 lg:grid-cols-2 gap-6"
+          >
+            <WeekHighlights clientId={clientId} />
+            <UpcomingContent 
+              clientId={clientId} 
+              onViewPlanning={() => onQuickAction?.("planning")} 
+            />
+          </motion.div>
+        )}
+      </div>
     </div>
   );
 }

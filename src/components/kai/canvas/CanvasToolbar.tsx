@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link2, BookOpen, Lightbulb, Sparkles, Trash2, ZoomIn, ZoomOut, Maximize, Save, FolderOpen, ChevronDown, Loader2, X, Pencil, Wand2, LayoutTemplate, ImageIcon } from "lucide-react";
+import { Link2, Lightbulb, Sparkles, Trash2, ZoomIn, ZoomOut, Maximize, Save, FolderOpen, ChevronDown, Loader2, X, Pencil, LayoutTemplate, ImageIcon, Smartphone, Briefcase, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -20,7 +20,7 @@ export type CanvasTemplate =
   | "weekly_summary";
 
 interface CanvasToolbarProps {
-  onAddNode: (type: "source" | "library" | "prompt" | "generator" | "image-editor" | "image-source") => void;
+  onAddNode: (type: "source" | "prompt" | "generator" | "image-source") => void;
   onClear: () => void;
   onZoomIn: () => void;
   onZoomOut: () => void;
@@ -44,7 +44,7 @@ interface TemplateCategory {
 
 const TEMPLATE_CATEGORIES: TemplateCategory[] = [
   {
-    category: "📱 Redes Sociais",
+    category: "Redes Sociais",
     templates: [
       { id: "carousel_from_url", icon: "🎠", label: "Carrossel de URL", description: "Transforme conteúdo em carrossel" },
       { id: "thread_from_video", icon: "🧵", label: "Thread de Vídeo", description: "Crie thread viral de vídeo" },
@@ -53,7 +53,7 @@ const TEMPLATE_CATEGORIES: TemplateCategory[] = [
     ]
   },
   {
-    category: "💼 Profissional",
+    category: "Profissional",
     templates: [
       { id: "linkedin_article", icon: "💼", label: "Artigo LinkedIn", description: "Post profissional" },
       { id: "newsletter_curated", icon: "📧", label: "Newsletter Curada", description: "Compile fontes em newsletter" },
@@ -61,7 +61,7 @@ const TEMPLATE_CATEGORIES: TemplateCategory[] = [
     ]
   },
   {
-    category: "🔄 Repurpose",
+    category: "Repurpose",
     templates: [
       { id: "repurpose_blog", icon: "🔄", label: "Repurpose de Blog", description: "Blog → Carrossel + Thread" },
       { id: "podcast_highlights", icon: "🎙️", label: "Destaques de Podcast", description: "Áudio → Thread" },
@@ -178,7 +178,10 @@ export function CanvasToolbar({
             {TEMPLATE_CATEGORIES.map((category, idx) => (
               <div key={category.category}>
                 {idx > 0 && <DropdownMenuSeparator />}
-                <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
+                <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground flex items-center gap-2">
+                  {category.category === "Redes Sociais" && <Smartphone className="h-3.5 w-3.5" />}
+                  {category.category === "Profissional" && <Briefcase className="h-3.5 w-3.5" />}
+                  {category.category === "Repurpose" && <RefreshCw className="h-3.5 w-3.5" />}
                   {category.category}
                 </div>
                 {category.templates.map((template) => (
@@ -245,25 +248,6 @@ export function CanvasToolbar({
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => onAddNode("library")}
-              className="h-8 gap-1.5 text-xs hover:bg-purple-50 hover:text-purple-600 dark:hover:bg-purple-950"
-            >
-              <div className="h-4 w-4 rounded bg-purple-500 flex items-center justify-center">
-                <BookOpen className="h-2.5 w-2.5 text-white" />
-              </div>
-              Biblioteca
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="bottom">
-            <p>Referenciar item da biblioteca</p>
-          </TooltipContent>
-        </Tooltip>
-
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="sm"
               onClick={() => onAddNode("prompt")}
               className="h-8 gap-1.5 text-xs hover:bg-yellow-50 hover:text-yellow-600 dark:hover:bg-yellow-950"
             >
@@ -294,25 +278,6 @@ export function CanvasToolbar({
           </TooltipTrigger>
           <TooltipContent side="bottom">
             <p>Adicionar gerador de conteúdo</p>
-          </TooltipContent>
-        </Tooltip>
-
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => onAddNode("image-editor")}
-              className="h-8 gap-1.5 text-xs hover:bg-orange-50 hover:text-orange-600 dark:hover:bg-orange-950"
-            >
-              <div className="h-4 w-4 rounded bg-orange-500 flex items-center justify-center">
-                <Wand2 className="h-2.5 w-2.5 text-white" />
-              </div>
-              Editor
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="bottom">
-            <p>Editar imagem existente</p>
           </TooltipContent>
         </Tooltip>
 
