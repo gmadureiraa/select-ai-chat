@@ -77,9 +77,9 @@ export function GradientHero({ onSubmit, onQuickAction, clientName, clientId }: 
   };
 
   return (
-    <div className="relative min-h-[calc(100vh-64px)] flex flex-col px-6 py-8 bg-background overflow-auto">
+    <div className="relative h-full flex flex-col px-6 py-8 overflow-y-auto">
       {/* Gradient Background */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div 
           className="absolute inset-0"
           style={{

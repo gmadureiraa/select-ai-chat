@@ -94,10 +94,11 @@ export function GlobalKAIPanel({
               stiffness: 300 
             }}
             className={cn(
-              "fixed right-0 top-0 bottom-0 z-50",
+              "fixed right-0 top-0 z-50",
               "w-full sm:w-96 lg:w-[28rem]",
+              "h-screen max-h-screen",
               "bg-background border-l border-border",
-              "flex flex-col shadow-2xl",
+              "flex flex-col shadow-2xl overflow-hidden",
               className
             )}
           >
@@ -143,7 +144,7 @@ export function GlobalKAIPanel({
             </div>
 
             {/* Content */}
-            <div className="flex-1 flex flex-col overflow-hidden">
+            <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
               {children}
             </div>
           </motion.div>
