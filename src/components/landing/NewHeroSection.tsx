@@ -320,47 +320,55 @@ const NewHeroSection = () => {
                 </div>
               </motion.div>
 
-              {/* Connection lines */}
-              <svg className="absolute inset-0 w-full h-full pointer-events-none">
+              {/* Connection lines - using percentage-based positioning */}
+              <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 100 100" preserveAspectRatio="none">
+                {/* Source to AI */}
                 <motion.path
                   initial={{ pathLength: 0, opacity: 0 }}
-                  animate={{ pathLength: 1, opacity: 0.3 }}
-                  transition={{ delay: 1, duration: 0.5 }}
-                  d="M 170 120 Q 300 120 350 200"
+                  animate={{ pathLength: 1, opacity: 0.4 }}
+                  transition={{ delay: 1, duration: 0.6 }}
+                  d="M 22 30 C 35 30 40 50 50 50"
                   fill="none"
                   stroke="hsl(var(--primary))"
-                  strokeWidth="2"
-                  strokeDasharray="4 4"
+                  strokeWidth="0.5"
+                  strokeDasharray="2 1"
+                  vectorEffect="non-scaling-stroke"
                 />
+                {/* AI to Output 1 */}
                 <motion.path
                   initial={{ pathLength: 0, opacity: 0 }}
-                  animate={{ pathLength: 1, opacity: 0.3 }}
-                  transition={{ delay: 1.2, duration: 0.5 }}
-                  d="M 450 200 Q 550 100 620 80"
+                  animate={{ pathLength: 1, opacity: 0.4 }}
+                  transition={{ delay: 1.2, duration: 0.4 }}
+                  d="M 60 50 C 70 50 75 25 85 25"
                   fill="none"
                   stroke="hsl(var(--primary))"
-                  strokeWidth="2"
-                  strokeDasharray="4 4"
+                  strokeWidth="0.5"
+                  strokeDasharray="2 1"
+                  vectorEffect="non-scaling-stroke"
                 />
+                {/* AI to Output 2 */}
                 <motion.path
                   initial={{ pathLength: 0, opacity: 0 }}
-                  animate={{ pathLength: 1, opacity: 0.3 }}
-                  transition={{ delay: 1.2, duration: 0.5 }}
-                  d="M 450 200 Q 550 200 620 180"
+                  animate={{ pathLength: 1, opacity: 0.4 }}
+                  transition={{ delay: 1.3, duration: 0.4 }}
+                  d="M 60 50 C 70 50 75 50 85 50"
                   fill="none"
                   stroke="hsl(var(--primary))"
-                  strokeWidth="2"
-                  strokeDasharray="4 4"
+                  strokeWidth="0.5"
+                  strokeDasharray="2 1"
+                  vectorEffect="non-scaling-stroke"
                 />
+                {/* AI to Output 3 */}
                 <motion.path
                   initial={{ pathLength: 0, opacity: 0 }}
-                  animate={{ pathLength: 1, opacity: 0.3 }}
-                  transition={{ delay: 1.2, duration: 0.5 }}
-                  d="M 450 200 Q 550 300 620 280"
+                  animate={{ pathLength: 1, opacity: 0.4 }}
+                  transition={{ delay: 1.4, duration: 0.4 }}
+                  d="M 60 50 C 70 50 75 75 85 75"
                   fill="none"
                   stroke="hsl(var(--primary))"
-                  strokeWidth="2"
-                  strokeDasharray="4 4"
+                  strokeWidth="0.5"
+                  strokeDasharray="2 1"
+                  vectorEffect="non-scaling-stroke"
                 />
               </svg>
 

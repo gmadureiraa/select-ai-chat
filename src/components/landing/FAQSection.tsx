@@ -13,14 +13,19 @@ const faqs = [
       "O KAI centraliza a gestão de clientes, permite criar conteúdo com IA que entende o contexto de cada marca, analisa performance de redes sociais e oferece um espaço colaborativo para pesquisa e organização de referências.",
   },
   {
+    question: "Em quais redes sociais posso publicar?",
+    answer:
+      "Com o plano Pro, você pode publicar diretamente no Instagram (posts, carrosséis e stories), Twitter/X (posts e threads), LinkedIn (posts e artigos), YouTube (descrições e thumbnails) e newsletters via Beehiiv. Novas integrações estão sendo adicionadas constantemente.",
+  },
+  {
+    question: "O que posso criar no Canvas?",
+    answer:
+      "O Canvas permite criar diversos formatos: Carrosséis para Instagram, Threads para Twitter/X, Artigos para LinkedIn e blog, Posts para todas as redes, Scripts para vídeos, Newsletters, Thumbnails e imagens com IA. Você pode transformar uma única fonte (vídeo, texto, URL) em múltiplos conteúdos de uma vez.",
+  },
+  {
     question: "Preciso de habilidades técnicas para usar o KAI?",
     answer:
       "Não! O KAI foi desenhado para ser intuitivo. A interface é visual e amigável, sem necessidade de código. Nosso time também oferece onboarding completo para garantir que você aproveite ao máximo.",
-  },
-  {
-    question: "Quais plataformas vocês integram?",
-    answer:
-      "Atualmente integramos com Instagram, YouTube e newsletters (Beehiiv). Você pode importar dados de performance e a IA usa essas métricas para gerar insights.",
   },
   {
     question: "Como a IA aprende sobre meus clientes?",
@@ -28,19 +33,14 @@ const faqs = [
       "Você cadastra informações do cliente como descrição, tom de voz, brand guidelines e pode fazer upload de documentos. A IA usa esse contexto para gerar conteúdo personalizado.",
   },
   {
-    question: "Como funciona o período de trial de 14 dias?",
+    question: "Como funciona o adicional de clientes e membros?",
     answer:
-      "Você tem acesso completo a todas as funcionalidades por 14 dias, sem precisar cadastrar cartão de crédito. Ao final, escolha o plano que melhor se adapta à sua agência.",
-  },
-  {
-    question: "Como funciona a publicação de conteúdo?",
-    answer:
-      "No plano Enterprise, você pode conectar suas contas do Twitter/X e LinkedIn para publicar conteúdo diretamente do KAI. Basta gerar o conteúdo com a IA e agendar ou publicar com um clique.",
+      "No plano Pro, você tem 3 clientes e 3 membros inclusos. Precisa de mais? Adicione clientes extras por $7/mês cada e membros extras por $4/mês cada. Visualizadores são ilimitados e gratuitos.",
   },
   {
     question: "Quantos clientes e membros posso ter?",
     answer:
-      "Depende do plano escolhido. O plano Starter permite até 5 clientes e 3 membros. O Pro permite 20 clientes e 10 membros. Para agências maiores, temos planos Enterprise personalizados.",
+      "Depende do plano escolhido. O plano Canvas permite 1 cliente. O Pro inclui 3 clientes e 3 membros, com possibilidade de adicionar mais. Para agências maiores, temos planos Enterprise personalizados com clientes e membros ilimitados.",
   },
 ];
 
