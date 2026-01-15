@@ -137,6 +137,9 @@ export function SmartCSVUpload({ clientId, platform, onImportComplete }: SmartCS
       "interactions",
       "profile_visits",
       "link_clicks",
+      // YouTube types
+      "youtube_daily_views",
+      "youtube_videos_published",
     ]);
 
     const dates: string[] = [];
@@ -239,7 +242,7 @@ export function SmartCSVUpload({ clientId, platform, onImportComplete }: SmartCS
           impressions: number;
           click_rate: number;
         }> = [];
-        const dailyViews: Array<{ date: string; views: number }> = [];
+        const dailyViews: Array<{ date: string; views: number; total_posts?: number }> = [];
         
         // Parse each file
         for (const file of selectedFiles) {
@@ -302,7 +305,7 @@ export function SmartCSVUpload({ clientId, platform, onImportComplete }: SmartCS
       impressions: number;
       click_rate: number;
     }>;
-    dailyViews: Array<{ date: string; views: number }>;
+    dailyViews: Array<{ date: string; views: number; total_posts?: number }>;
   } => {
     const lines = text.trim().split('\n');
     if (lines.length < 2) return { videos: [], dailyViews: [] };
