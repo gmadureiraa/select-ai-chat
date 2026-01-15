@@ -1,11 +1,9 @@
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Clock, Sparkles, Zap } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 
 const CTASection = () => {
-  const navigate = useNavigate();
-
   return (
     <section className="py-24 md:py-32 bg-foreground dark:bg-card relative overflow-hidden">
       {/* Animated wave background */}
@@ -79,19 +77,20 @@ const CTASection = () => {
 
           {/* CTA Buttons */}
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Button
-              size="lg"
-              onClick={() => navigate("/login")}
-              className="h-14 px-10 text-lg rounded-full bg-background text-foreground hover:bg-background/90 dark:bg-primary dark:text-primary-foreground shadow-xl group"
-            >
-              Testar grátis por 14 dias
-              <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
-            </Button>
+            <Link to="/signup?plan=basic">
+              <Button
+                size="lg"
+                className="h-14 px-10 text-lg rounded-full bg-background text-foreground hover:bg-background/90 dark:bg-primary dark:text-primary-foreground shadow-xl group"
+              >
+                Começar agora por $19.90/mês
+                <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
+              </Button>
+            </Link>
           </div>
 
           {/* Trust message */}
           <p className="mt-6 text-sm text-background/60 dark:text-muted-foreground">
-            Sem cartão de crédito • Setup em 2 minutos • Cancele quando quiser
+            Setup em 2 minutos • Cancele quando quiser
           </p>
         </motion.div>
       </div>

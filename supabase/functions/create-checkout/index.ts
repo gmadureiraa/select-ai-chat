@@ -10,26 +10,32 @@ const corsHeaders = {
 // Plan configuration with Stripe price IDs (USD)
 const PLANS = {
   basic: {
-    priceId: "price_1Si2iLPIJtcImSMvHG6aWpCm", // $49/mês
-    productId: "prod_TfNT7f3WMVagaz",
-    trialDays: 14,
+    priceId: "price_1SpuAmPIJtcImSMvb7h2pxYa", // $19.90/mês
+    productId: "prod_TnVBYALwIy8qOm",
+  },
+  canvas: {
+    priceId: "price_1SpuAmPIJtcImSMvb7h2pxYa", // $19.90/mês
+    productId: "prod_TnVBYALwIy8qOm",
   },
   agency: {
-    priceId: "price_1Si2iNPIJtcImSMvot2pJbyr", // $249/mês
-    productId: "prod_TfNTm4r0XyYOPB",
-    trialDays: 14,
-  },
-  // Legacy support for old plan names
-  starter: {
-    priceId: "price_1Si2iLPIJtcImSMvHG6aWpCm",
-    productId: "prod_TfNT7f3WMVagaz",
-    trialDays: 14,
+    priceId: "price_1SpuAoPIJtcImSMvLMPO5XUo", // $99.90/mês
+    productId: "prod_TnVBIbisvWihL7",
   },
   pro: {
-    priceId: "price_1Si2iNPIJtcImSMvot2pJbyr",
-    productId: "prod_TfNTm4r0XyYOPB",
-    trialDays: 14,
+    priceId: "price_1SpuAoPIJtcImSMvLMPO5XUo", // $99.90/mês
+    productId: "prod_TnVBIbisvWihL7",
   },
+  // Legacy support
+  starter: {
+    priceId: "price_1SpuAmPIJtcImSMvb7h2pxYa",
+    productId: "prod_TnVBYALwIy8qOm",
+  },
+};
+
+// Add-ons for Pro plan
+const ADDONS = {
+  extraClient: "price_1SpuApPIJtcImSMv7N5e3wE0", // $7/mês
+  extraMember: "price_1SpuArPIJtcImSMvbzkPhebf", // $4/mês
 };
 
 const logStep = (step: string, details?: any) => {
@@ -90,7 +96,7 @@ serve(async (req) => {
       successUrl = `${origin}/app?checkout=success&plan=${planType}`;
     }
 
-    // Create checkout session with trial
+    // Create checkout session (no trial)
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
       customer_email: customerId ? undefined : user.email,
@@ -102,7 +108,6 @@ serve(async (req) => {
       ],
       mode: "subscription",
       subscription_data: {
-        trial_period_days: plan.trialDays,
         metadata: {
           user_id: user.id,
           plan_type: planType,

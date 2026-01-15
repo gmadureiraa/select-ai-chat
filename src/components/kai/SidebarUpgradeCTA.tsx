@@ -75,7 +75,7 @@ export function SidebarUpgradeCTA({ collapsed, planName = "Basic" }: SidebarUpgr
             )}
           >
             <Sparkles className="h-3.5 w-3.5 mr-1.5" />
-            Upgrade $249/mês
+            Upgrade $99.90/mês
           </Button>
         </div>
       </div>
