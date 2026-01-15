@@ -71,11 +71,11 @@ const categories = [
   },
   {
     id: "clients",
-    title: "Gerenciando Clientes",
+    title: "Gerenciando Perfis",
     icon: Users,
-    description: "Configurando e organizando clientes",
+    description: "Configurando e organizando perfis",
     articles: [
-      { title: "Criando um novo cliente", slug: "criar-cliente" },
+      { title: "Criando um novo perfil", slug: "criar-cliente" },
       { title: "Configurando contexto e tom de voz", slug: "contexto-tom" },
       { title: "Adicionando referências e documentos", slug: "referencias" },
       { title: "Conectando redes sociais", slug: "conectar-redes" },
@@ -129,7 +129,7 @@ const faqs = [
   },
   {
     question: "Qual a diferença entre Canvas e Pro?",
-    answer: "O plano Canvas ($25/mês) inclui o Canvas de criação com IA multi-agente para 1 cliente. O Pro ($100/mês) adiciona até 10 clientes, planejamento Kanban, publicação agendada, analytics de performance e membros de equipe.",
+    answer: "O plano Canvas ($25/mês) inclui o Canvas de criação com IA multi-agente para 1 perfil. O Pro ($100/mês) adiciona até 10 perfis, planejamento Kanban, publicação agendada, analytics de performance e membros de equipe.",
   },
   {
     question: "Posso testar antes de pagar?",

@@ -1,7 +1,7 @@
 {
   "name": "KAI - Kaleidos AI",
   "short_name": "KAI",
-  "description": "Plataforma de IA contextual para gerenciar clientes e criar conteúdo estratégico",
+  "description": "Plataforma de IA contextual para gerenciar perfis e criar conteúdo estratégico",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0f172a",

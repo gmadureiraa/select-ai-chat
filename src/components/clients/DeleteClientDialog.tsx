@@ -34,7 +34,7 @@ export const DeleteClientDialog = ({ open, onOpenChange, client }: DeleteClientD
           <AlertDialogHeader>
             <AlertDialogTitle>Sem permissão</AlertDialogTitle>
             <AlertDialogDescription>
-              Você não tem permissão para excluir clientes. Entre em contato com um administrador.
+              Você não tem permissão para excluir perfis. Entre em contato com um administrador.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -51,7 +51,7 @@ export const DeleteClientDialog = ({ open, onOpenChange, client }: DeleteClientD
         <AlertDialogHeader>
           <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
           <AlertDialogDescription>
-            Tem certeza que deseja excluir o cliente <strong>{client?.name}</strong>?
+            Tem certeza que deseja excluir o perfil <strong>{client?.name}</strong>?
             Esta ação não pode ser desfeita e todos os dados relacionados (conversas, 
             documentos, websites) serão permanentemente removidos.
           </AlertDialogDescription>
@@ -59,7 +59,7 @@ export const DeleteClientDialog = ({ open, onOpenChange, client }: DeleteClientD
         <AlertDialogFooter>
           <AlertDialogCancel>Cancelar</AlertDialogCancel>
           <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-            Excluir Cliente
+            Excluir Perfil
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

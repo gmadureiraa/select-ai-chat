@@ -82,10 +82,10 @@ export function PlanningFilters({ filters, onChange }: PlanningFiltersProps) {
         onValueChange={(v) => onChange({ ...filters, clientId: v === 'all' ? '' : v })}
       >
         <SelectTrigger className={cn("h-9 text-sm", inSheet ? "w-full" : "w-[140px]")}>
-          <SelectValue placeholder="Cliente" />
+          <SelectValue placeholder="Perfil" />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">Todos clientes</SelectItem>
+          <SelectItem value="all">Todos perfis</SelectItem>
           {clients?.map(client => (
             <SelectItem key={client.id} value={client.id}>{client.name}</SelectItem>
           ))}

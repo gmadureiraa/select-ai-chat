@@ -29,7 +29,7 @@ const plans = [
     period: "/mês",
     description: "O essencial para criar conteúdo com IA",
     features: [
-      "3 clientes",
+      "3 perfis",
       "1 usuário",
       "Canvas ilimitado",
       "IA multi-agente",
@@ -47,7 +47,7 @@ const plans = [
     period: "/mês",
     description: "Suite completa para criadores e agências",
     features: [
-      "Até 10 clientes",
+      "Até 10 perfis",
       "Até 5 membros",
       "Tudo do Canvas",
       "Biblioteca de conteúdos",
@@ -66,7 +66,7 @@ const plans = [
     period: "",
     description: "Soluções sob medida",
     features: [
-      "Clientes ilimitados",
+      "Perfis ilimitados",
       "Membros ilimitados",
       "White label",
       "API completa",

@@ -151,7 +151,7 @@ const Signup = () => {
               Plano Canvas - $19.90/mês
             </p>
             <div className="text-xs text-muted-foreground text-center space-y-0.5">
-              <p>• 3 clientes • 1 usuário • Visualizadores ilimitados</p>
+              <p>• 3 perfis • 1 usuário • Visualizadores ilimitados</p>
               <p>• Canvas ilimitado • IA multi-agente</p>
             </div>
           </div>

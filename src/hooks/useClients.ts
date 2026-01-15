@@ -89,14 +89,14 @@ export const useClients = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["clients", workspace?.id] });
       toast({
-        title: "Cliente criado",
-        description: "O cliente foi criado com sucesso.",
+        title: "Perfil criado",
+        description: "O perfil foi criado com sucesso.",
       });
     },
     onError: () => {
       toast({
         title: "Erro",
-        description: "Não foi possível criar o cliente.",
+        description: "Não foi possível criar o perfil.",
         variant: "destructive",
       });
     },
@@ -117,14 +117,14 @@ export const useClients = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["clients", workspace?.id] });
       toast({
-        title: "Cliente atualizado",
-        description: "O cliente foi atualizado com sucesso.",
+        title: "Perfil atualizado",
+        description: "O perfil foi atualizado com sucesso.",
       });
     },
     onError: () => {
       toast({
         title: "Erro",
-        description: "Não foi possível atualizar o cliente.",
+        description: "Não foi possível atualizar o perfil.",
         variant: "destructive",
       });
     },
@@ -143,20 +143,20 @@ export const useClients = () => {
         .maybeSingle();
       
       if (stillExists) {
-        throw new Error("Não foi possível excluir o cliente. Verifique suas permissões.");
+        throw new Error("Não foi possível excluir o perfil. Verifique suas permissões.");
       }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["clients", workspace?.id] });
       toast({
-        title: "Cliente excluído",
-        description: "O cliente foi excluído com sucesso.",
+        title: "Perfil excluído",
+        description: "O perfil foi excluído com sucesso.",
       });
     },
     onError: () => {
       toast({
         title: "Erro",
-        description: "Não foi possível excluir o cliente.",
+        description: "Não foi possível excluir o perfil.",
         variant: "destructive",
       });
     },

@@ -33,7 +33,7 @@ const plans = [
     icon: BarChart3,
     features: [
       "Tudo do Canvas",
-      "3 clientes inclusos (+$7/extra)",
+      "3 perfis inclusos (+$7/extra)",
       "3 membros do time (+$4/extra)",
       "Visualizadores ilimitados",
       "Planejamento Kanban",
@@ -55,7 +55,7 @@ const plans = [
     description: "Soluções sob medida",
     icon: Sparkles,
     features: [
-      "Clientes ilimitados",
+      "Perfis ilimitados",
       "Membros ilimitados",
       "White label",
       "API completa",

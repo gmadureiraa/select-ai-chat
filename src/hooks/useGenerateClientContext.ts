@@ -112,7 +112,7 @@ Crie um documento de contexto estruturado seguindo EXATAMENTE este formato:
             {
               role: "system",
               content:
-                "Você é um especialista em planejamento de marketing digital. Crie contextos estruturados e completos para clientes.",
+                "Você é um especialista em planejamento de marketing digital. Crie contextos estruturados e completos para perfis.",
             },
             { role: "user", content: prompt },
           ],

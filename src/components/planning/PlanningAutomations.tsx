@@ -68,9 +68,9 @@ export function PlanningAutomations() {
   };
 
   const getClientName = (clientId: string | null) => {
-    if (!clientId) return 'Todos os clientes';
+    if (!clientId) return 'Todos os perfis';
     const client = clients.find(c => c.id === clientId);
-    return client?.name || 'Cliente desconhecido';
+    return client?.name || 'Perfil desconhecido';
   };
 
   const getScheduleDescription = (config: ScheduleConfig) => {

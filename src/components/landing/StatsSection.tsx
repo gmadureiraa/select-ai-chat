@@ -57,7 +57,7 @@ const stats = [
   {
     value: 500,
     suffix: "+",
-    label: "Clientes gerenciados",
+    label: "Perfis gerenciados",
     description: "Organizados em uma plataforma",
   },
   {

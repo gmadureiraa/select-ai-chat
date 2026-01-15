@@ -33,11 +33,11 @@ export function CommandPalette({
     { id: "performance", label: "Performance", icon: BarChart3, action: () => onSelectTab?.("performance") },
     { id: "planning", label: "Planejamento", icon: Bot, action: () => onSelectTab?.("planning") },
     { id: "canvas", label: "Canvas", icon: Library, action: () => onSelectTab?.("canvas") },
-    { id: "settings-client", label: "Configurações do Cliente", icon: Settings, action: () => onSelectTab?.("settings") },
+    { id: "settings-client", label: "Configurações do Perfil", icon: Settings, action: () => onSelectTab?.("settings") },
   ];
 
   const tools = [
-    { id: "clients", label: "Clientes", icon: User, action: () => onSelectTab?.("clients") },
+    { id: "clients", label: "Perfis", icon: User, action: () => onSelectTab?.("clients") },
     { id: "settings", label: "Configurações Gerais", icon: Settings, action: () => navigate("/settings") },
   ];
 
@@ -48,12 +48,12 @@ export function CommandPalette({
 
   return (
     <CommandDialog open={open} onOpenChange={onOpenChange}>
-      <CommandInput placeholder="Buscar páginas, clientes, ferramentas..." />
+      <CommandInput placeholder="Buscar páginas, perfis, ferramentas..." />
       <CommandList>
         <CommandEmpty>Nenhum resultado encontrado.</CommandEmpty>
         
         {clients && clients.length > 0 && (
-          <CommandGroup heading="Clientes">
+          <CommandGroup heading="Perfis">
             {clients.slice(0, 5).map((client) => (
               <CommandItem
                 key={client.id}

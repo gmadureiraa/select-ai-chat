@@ -152,7 +152,7 @@ export const KaiSettingsTab = ({ clientId, client }: KaiSettingsTabProps) => {
 
 Estruture o documento com seções para: Visão Geral, Posicionamento, Tom de Voz, Público-Alvo, Presença Digital, Pontos-Chave para Conteúdo.`
           }],
-          systemPrompt: "Você é um especialista em branding e marketing digital. Gere documentos de contexto completos e bem estruturados para clientes.",
+          systemPrompt: "Você é um especialista em branding e marketing digital. Gere documentos de contexto completos e bem estruturados para perfis.",
         },
       });
 
