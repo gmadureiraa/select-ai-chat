@@ -398,7 +398,32 @@ serve(async (req) => {
       console.log('[generate-image] Using format instructions for:', imageFormat || templateName);
     }
     
-    if (styleAnalysis) {
+    // CRITICAL: If we have a complete styleAnalysis with generation_prompt, use it directly
+    if (styleAnalysis && styleAnalysis.generation_prompt) {
+      enhancedPrompt = `=== INSTRUÇÃO CRÍTICA DE ESTILO ===
+Você DEVE recriar EXATAMENTE o estilo visual descrito abaixo. Este é o estilo que a imagem gerada DEVE seguir:
+
+${styleAnalysis.generation_prompt}
+
+=== CORES OBRIGATÓRIAS ===
+${styleAnalysis.color_palette?.dominant_colors?.join(', ') || 'Manter paleta similar'}
+
+=== ESTILO VISUAL ===
+${styleAnalysis.style?.art_style || ''} ${styleAnalysis.style?.photography_style || ''} ${styleAnalysis.style?.illustration_technique || ''}
+
+=== COMPOSIÇÃO ===
+${styleAnalysis.composition?.layout || ''}, foco em: ${styleAnalysis.composition?.focal_point || 'sujeito principal'}
+
+=== ATMOSFERA ===
+Mood: ${styleAnalysis.mood_atmosphere?.overall_mood || 'neutro'}, Tom: ${styleAnalysis.mood_atmosphere?.emotional_tone || 'balanceado'}
+
+=== O QUE CRIAR (MANTENDO O ESTILO ACIMA) ===
+${prompt}
+
+RESULTADO ESPERADO: Uma imagem que pareça ter sido criada pelo MESMO ARTISTA/DESIGNER da referência original.`;
+      
+      console.log('[generate-image] Using complete styleAnalysis with generation_prompt');
+    } else if (styleAnalysis) {
       const styleSummary = styleAnalysis.style_summary || '';
       const promptTemplate = styleAnalysis.generation_prompt_template || '';
       const visualElements = styleAnalysis.visual_elements || {};
