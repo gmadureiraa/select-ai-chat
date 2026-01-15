@@ -178,7 +178,7 @@ export function ClientCreationWizardSimplified({ onComplete, onCancel }: ClientC
             className="space-y-6"
           >
             <div>
-              <h3 className="text-lg font-semibold">Dados do Cliente</h3>
+              <h3 className="text-lg font-semibold">Dados do Perfil</h3>
               <p className="text-sm text-muted-foreground">
                 Preencha as informações básicas. A IA vai completar o resto.
               </p>
@@ -195,7 +195,7 @@ export function ClientCreationWizardSimplified({ onComplete, onCancel }: ClientC
               />
               <div className="flex-1 space-y-4">
                 <div className="space-y-2">
-                  <Label>Nome do Cliente *</Label>
+                  <Label>Nome do Perfil *</Label>
                   <Input
                     value={name}
                     onChange={(e) => setName(e.target.value)}
@@ -386,7 +386,7 @@ export function ClientCreationWizardSimplified({ onComplete, onCancel }: ClientC
             ) : (
               <>
                 <Check className="h-4 w-4 mr-1" />
-                Criar Cliente
+                Criar Perfil
               </>
             )}
           </Button>

@@ -11,7 +11,7 @@ interface SettingsNavigationProps {
 
 const sections = [
   { id: "profile" as const, label: "Perfil", icon: User },
-  { id: "billing" as const, label: "Plano & Créditos", icon: CreditCard },
+  { id: "billing" as const, label: "Plano", icon: CreditCard },
   { id: "team" as const, label: "Time", icon: Users, requiresPermission: "team" },
   { id: "appearance" as const, label: "Aparência", icon: Palette },
 ];
