@@ -24,7 +24,6 @@ import { useImportLinkedInExcel, parseLinkedInExcel } from "@/hooks/useLinkedInP
 import { useImportHistory } from "@/hooks/useImportHistory";
 import { useWorkspace } from "@/hooks/useWorkspace";
 import { toast } from "sonner";
-import { LateSyncButton } from "./LateSyncButton";
 
 interface LinkedInDashboardProps {
   clientId: string;
@@ -289,19 +288,16 @@ export function LinkedInDashboard({ clientId, posts, isLoading }: LinkedInDashbo
             </SelectContent>
           </Select>
 
-          {/* Sync & Upload */}
+          {/* Upload Toggle */}
           {canImportData && (
-            <>
-              <LateSyncButton clientId={clientId} platform="linkedin" showLastSync={false} />
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowUpload(!showUpload)}
-              >
-                <Upload className="h-4 w-4 mr-2" />
-                Importar XLSX
-              </Button>
-            </>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowUpload(!showUpload)}
+            >
+              <Upload className="h-4 w-4 mr-2" />
+              Importar XLSX
+            </Button>
           )}
         </div>
       </div>
