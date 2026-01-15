@@ -109,6 +109,7 @@ export const useImportYouTubeCSV = () => {
       dailyViews: Array<{
         date: string;
         views: number;
+        total_posts?: number;
       }>;
     }) => {
       // Upsert videos
@@ -125,17 +126,35 @@ export const useImportYouTubeCSV = () => {
         if (videosError) throw videosError;
       }
 
-      // Insert daily views into platform_metrics
+      // Insert daily metrics into platform_metrics
       if (dailyViews.length > 0) {
         for (const day of dailyViews) {
+          // Build update object dynamically based on what data we have
+          const updateData: {
+            client_id: string;
+            platform: 'youtube';
+            metric_date: string;
+            views?: number;
+            total_posts?: number;
+          } = {
+            client_id: clientId,
+            platform: 'youtube',
+            metric_date: day.date,
+          };
+          
+          // Only set views if > 0 (to not overwrite existing data)
+          if (day.views > 0) {
+            updateData.views = day.views;
+          }
+          
+          // Only set total_posts if > 0
+          if (day.total_posts && day.total_posts > 0) {
+            updateData.total_posts = day.total_posts;
+          }
+          
           const { error: metricsError } = await supabase
             .from('platform_metrics')
-            .upsert({
-              client_id: clientId,
-              platform: 'youtube',
-              metric_date: day.date,
-              views: day.views,
-            }, { 
+            .upsert(updateData, { 
               onConflict: 'client_id,platform,metric_date'
             });
           if (metricsError) console.error('Error inserting metric:', metricsError);
