@@ -140,6 +140,7 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
     extractUrlContent: typeof extractUrlContent;
     transcribeFile: typeof transcribeFile;
     analyzeImageStyle: typeof analyzeImageStyle;
+    analyzeImageSourceImage: typeof analyzeImageSourceImage;
     updateNodeData: typeof updateNodeData;
     deleteNode: typeof deleteNode;
     generateContent: typeof generateContent;

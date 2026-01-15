@@ -104,6 +104,8 @@ function ImageSourceNodeComponent({
           metadata: {
             uploadedAt: new Date().toISOString(),
             isPrimary: images.length === 0 && newImages.length === 0,
+            dimensions: { width: 0, height: 0 },
+            analyzed: false,
           }
         };
 
