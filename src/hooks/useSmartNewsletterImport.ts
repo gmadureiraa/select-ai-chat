@@ -6,7 +6,7 @@ import { useQueryClient } from "@tanstack/react-query";
 interface ImportResult {
   success: boolean;
   count: number;
-  type: "daily_performance" | "posts" | "subscribers" | "unknown";
+  type: "daily_performance" | "posts" | "subscribers" | "web_performance" | "link_clicks" | "unknown";
   error?: string;
 }
 
@@ -67,13 +67,24 @@ function parsePercentage(value: string): number {
 }
 
 // Detect CSV type based on headers
-function detectCsvType(headers: string[]): "daily_performance" | "posts" | "subscribers" | "unknown" {
+function detectCsvType(headers: string[]): "daily_performance" | "posts" | "subscribers" | "web_performance" | "link_clicks" | "unknown" {
   const lowerHeaders = headers.map(h => h.toLowerCase().replace(/['"]/g, "").trim());
   
   // Check for posts CSV FIRST (has Subject or Title, Post ID, etc.) - more specific
   if (lowerHeaders.some(h => h.includes("subject") || h.includes("title")) && 
       lowerHeaders.some(h => h.includes("post id"))) {
     return "posts";
+  }
+  
+  // Check for link clicks CSV (URL, Verified Total Clicks, etc.)
+  if (lowerHeaders.some(h => h.includes("url")) && 
+      lowerHeaders.some(h => h.includes("clicks") || h.includes("cliques"))) {
+    return "link_clicks";
+  }
+  
+  // Check for web performance CSV (Date, Web Views, Web Clicks, Web Click Rate)
+  if (lowerHeaders.some(h => h.includes("web views") || h.includes("web clicks"))) {
+    return "web_performance";
   }
   
   // Check for daily performance CSV (Date, Delivered, Open Rate, Click-Through Rate)
@@ -323,6 +334,136 @@ export function useSmartNewsletterImport(clientId: string, onImportComplete?: (p
           
           count++;
         }
+      } else if (csvType === "web_performance") {
+        // Process web performance metrics (Date, Web Views, Web Clicks, Web Click Rate)
+        const dateIdx = headers.findIndex(h => h.toLowerCase().includes("date"));
+        const webViewsIdx = headers.findIndex(h => h.toLowerCase().includes("web views"));
+        const webClicksIdx = headers.findIndex(h => h.toLowerCase().includes("web clicks") && !h.toLowerCase().includes("rate"));
+        const webClickRateIdx = headers.findIndex(h => h.toLowerCase().includes("web click rate"));
+
+        for (let i = 1; i < lines.length; i++) {
+          const values = parseCSVLine(lines[i]);
+          const date = parseBeehiivDate(values[dateIdx]);
+          
+          if (!date) continue;
+
+          const webViews = parseNumber(values[webViewsIdx]);
+          const webClicks = parseNumber(values[webClicksIdx]);
+          const webClickRate = parsePercentage(values[webClickRateIdx]);
+
+          // Get existing metrics for this date
+          const { data: existingMetric } = await supabase
+            .from("platform_metrics")
+            .select("id, metadata")
+            .eq("client_id", clientId)
+            .eq("platform", "newsletter")
+            .eq("metric_date", date)
+            .maybeSingle();
+          
+          if (existingMetric) {
+            // Update existing with web performance data
+            await supabase.from("platform_metrics").update({
+              metadata: {
+                ...(existingMetric.metadata as Record<string, any> || {}),
+                webViews,
+                webClicks,
+                webClickRate,
+              }
+            }).eq("id", existingMetric.id);
+          } else {
+            // Insert new record with web performance data
+            await supabase.from("platform_metrics").insert({
+              client_id: clientId,
+              platform: "newsletter",
+              metric_date: date,
+              metadata: {
+                webViews,
+                webClicks,
+                webClickRate,
+              }
+            });
+          }
+
+          count++;
+        }
+      } else if (csvType === "link_clicks") {
+        // Process link clicks aggregate data
+        // This CSV has URLs with click counts - we'll aggregate totals
+        const urlIdx = headers.findIndex(h => h.toLowerCase().includes("url") && !h.toLowerCase().includes("full"));
+        const verifiedTotalIdx = headers.findIndex(h => h.toLowerCase().includes("verified total"));
+        const verifiedUniqueIdx = headers.findIndex(h => h.toLowerCase().includes("verified unique"));
+        const totalWebClicksIdx = headers.findIndex(h => h.toLowerCase().includes("total web clicks"));
+        const uniqueWebClicksIdx = headers.findIndex(h => h.toLowerCase().includes("total unique web"));
+
+        // Aggregate link clicks data
+        let totalVerifiedClicks = 0;
+        let totalVerifiedUniqueClicks = 0;
+        let totalWebClicks = 0;
+        let totalUniqueWebClicks = 0;
+        const topLinks: Array<{ url: string; clicks: number }> = [];
+
+        for (let i = 1; i < lines.length; i++) {
+          const values = parseCSVLine(lines[i]);
+          const url = values[urlIdx]?.replace(/['"]/g, "").trim() || "";
+          
+          if (!url) continue;
+
+          const verifiedTotal = parseNumber(values[verifiedTotalIdx]);
+          const verifiedUnique = parseNumber(values[verifiedUniqueIdx]);
+          const webClicks = parseNumber(values[totalWebClicksIdx]);
+          const uniqueWeb = parseNumber(values[uniqueWebClicksIdx]);
+
+          totalVerifiedClicks += verifiedTotal;
+          totalVerifiedUniqueClicks += verifiedUnique;
+          totalWebClicks += webClicks;
+          totalUniqueWebClicks += uniqueWeb;
+
+          const totalClicks = verifiedTotal + webClicks;
+          if (totalClicks > 0 && topLinks.length < 20) {
+            topLinks.push({ url, clicks: totalClicks });
+          }
+        }
+
+        // Sort top links by clicks
+        topLinks.sort((a, b) => b.clicks - a.clicks);
+
+        // Store as aggregate data with today's date
+        const today = new Date().toISOString().split("T")[0];
+        
+        const { data: existingMetric } = await supabase
+          .from("platform_metrics")
+          .select("id, metadata")
+          .eq("client_id", clientId)
+          .eq("platform", "newsletter")
+          .eq("metric_date", today)
+          .maybeSingle();
+        
+        const linkClicksData = {
+          totalVerifiedClicks,
+          totalVerifiedUniqueClicks,
+          totalWebClicks,
+          totalUniqueWebClicks,
+          topLinks: topLinks.slice(0, 10),
+          linkClicksImportedAt: new Date().toISOString(),
+        };
+
+        if (existingMetric) {
+          await supabase.from("platform_metrics").update({
+            metadata: {
+              ...(existingMetric.metadata as Record<string, any> || {}),
+              ...linkClicksData,
+            }
+          }).eq("id", existingMetric.id);
+        } else {
+          await supabase.from("platform_metrics").insert({
+            client_id: clientId,
+            platform: "newsletter",
+            metric_date: today,
+            metadata: linkClicksData,
+          });
+        }
+
+        count = topLinks.length;
       }
       const importResult: ImportResult = { success: true, count, type: csvType };
       setResult(importResult);
@@ -358,6 +499,8 @@ export function useSmartNewsletterImport(clientId: string, onImportComplete?: (p
         daily_performance: "Performance Diária",
         posts: "Posts/Edições",
         subscribers: "Novos Assinantes",
+        web_performance: "Performance Web",
+        link_clicks: "Cliques em Links",
         unknown: "Dados"
       };
 
