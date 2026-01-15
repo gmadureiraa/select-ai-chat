@@ -45,9 +45,9 @@ const services = [
     targetSection: "pricing",
   },
   {
-    title: "Gestão de Clientes",
+    title: "Gestão de Perfis",
     description:
-      "Organize todos os seus clientes com briefings, brand guidelines e histórico centralizado.",
+      "Organize todos os seus perfis com briefings, brand guidelines e histórico centralizado.",
     icon: Users,
     colorClass: "from-blue-500 to-indigo-500",
     targetSection: "features",

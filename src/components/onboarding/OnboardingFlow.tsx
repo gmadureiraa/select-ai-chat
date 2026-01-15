@@ -208,9 +208,9 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
               <div className="mt-4 space-y-3 text-left">
                 <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/30 border border-border/50">
                   <Users className="h-5 w-5 text-primary mt-0.5" />
-                  <div>
-                    <p className="font-medium text-sm">Clientes</p>
-                    <p className="text-xs text-muted-foreground">O admin do workspace já configurou os clientes para você trabalhar</p>
+                   <div>
+                    <p className="font-medium text-sm">Perfis</p>
+                    <p className="text-xs text-muted-foreground">O admin do workspace já configurou os perfis para você trabalhar</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/30 border border-border/50">
@@ -224,7 +224,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                   <BookOpen className="h-5 w-5 text-primary mt-0.5" />
                   <div>
                     <p className="font-medium text-sm">Biblioteca</p>
-                    <p className="text-xs text-muted-foreground">Todo conteúdo gerado fica salvo na biblioteca do cliente</p>
+                    <p className="text-xs text-muted-foreground">Todo conteúdo gerado fica salvo na biblioteca do perfil</p>
                   </div>
                 </div>
               </div>

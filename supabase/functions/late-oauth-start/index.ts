@@ -175,8 +175,8 @@ serve(async (req: Request) => {
             } else {
               // No unassigned profiles - user needs to upgrade Late plan
               return new Response(JSON.stringify({ 
-                error: "Limite de perfis atingido. Para conectar mais clientes, considere fazer upgrade do plano Late API.",
-                details: "Cada cliente precisa de um perfil separado para garantir isolamento das contas." 
+                error: "Limite de perfis atingido. Para conectar mais perfis, considere fazer upgrade do plano Late API.",
+                details: "Cada perfil precisa de uma conta separada para garantir isolamento." 
               }), {
                 status: 500,
                 headers: { ...corsHeaders, "Content-Type": "application/json" },

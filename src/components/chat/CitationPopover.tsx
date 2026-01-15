@@ -378,7 +378,7 @@ export const CitationPopover = ({
 
             {/* Clients Group */}
             {filteredClients.length > 0 && (
-              <CommandGroup heading="🏢 Clientes">
+              <CommandGroup heading="🏢 Perfis">
                 {filteredClients.map((item) => (
                   <CommandItem
                     key={`client-${item.id}`}
@@ -396,7 +396,7 @@ export const CitationPopover = ({
                       <span className="font-medium">{item.title}</span>
                     </div>
                     <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 bg-teal-500/10 text-teal-600 border-teal-500/20">
-                      Cliente
+                      Perfil
                     </Badge>
                   </CommandItem>
                 ))}

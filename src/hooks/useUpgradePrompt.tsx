@@ -29,8 +29,8 @@ const UPGRADE_REASONS: Record<UpgradeReason, {
   benefits?: string[];
 }> = {
   max_clients: {
-    title: "Limite de Clientes Atingido",
-    description: "Você atingiu o limite de clientes do seu plano atual. Faça upgrade para adicionar mais clientes.",
+    title: "Limite de Perfis Atingido",
+    description: "Você atingiu o limite de perfis do seu plano atual. Faça upgrade para adicionar mais perfis.",
     icon: <Building2 className="h-5 w-5" />,
     targetPlan: "pro",
   },
@@ -153,7 +153,7 @@ export function UpgradePromptProvider({ children }: { children: ReactNode }) {
                   <>
                     <div className="flex items-center gap-2 text-sm">
                       <Building2 className="h-4 w-4 text-primary" />
-                      <span>{reasonInfo.targetPlan === "enterprise" ? "Clientes ilimitados" : "+5 clientes"}</span>
+                      <span>{reasonInfo.targetPlan === "enterprise" ? "Perfis ilimitados" : "+5 perfis"}</span>
                     </div>
                     <div className="flex items-center gap-2 text-sm">
                       <Users className="h-4 w-4 text-secondary" />

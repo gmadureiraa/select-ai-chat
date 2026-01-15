@@ -321,13 +321,13 @@ export function AutomationDialog({ open, onOpenChange, automation }: AutomationD
           {/* Cliente e Coluna */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Cliente</Label>
+              <Label>Perfil</Label>
               <Select value={clientId} onValueChange={setClientId}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Selecione um cliente" />
+                  <SelectValue placeholder="Selecione um perfil" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Todos os clientes</SelectItem>
+                  <SelectItem value="">Todos os perfis</SelectItem>
                   {clients.map((client) => (
                     <SelectItem key={client.id} value={client.id}>
                       {client.name}

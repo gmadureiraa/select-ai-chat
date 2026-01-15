@@ -35,7 +35,7 @@ const LandingFooter = () => {
               <span className="text-xl font-semibold text-foreground">KAI</span>
             </Link>
             <p className="text-muted-foreground text-sm leading-relaxed mb-6 max-w-xs">
-              Plataforma inteligente para criação de conteúdo. Organize clientes,
+              Plataforma inteligente para criação de conteúdo. Organize perfis,
               crie com IA e analise performance.
             </p>
           </div>

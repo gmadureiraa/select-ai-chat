@@ -23,7 +23,7 @@ export function ClientsManagementTool() {
 
   const handleAddClient = () => {
     if (!canAddClient) {
-      showUpgradePrompt("max_clients", `Você atingiu o limite de ${maxClients} cliente(s) do seu plano atual.`);
+      showUpgradePrompt("max_clients", `Você atingiu o limite de ${maxClients} perfil(is) do seu plano atual.`);
       return;
     }
     setIsCreateDialogOpen(true);
@@ -56,14 +56,14 @@ export function ClientsManagementTool() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-semibold text-foreground">Clientes</h1>
+          <h1 className="text-2xl font-semibold text-foreground">Perfis</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Gerencie seus clientes, adicione novos ou edite informações existentes.
+            Gerencie seus perfis, adicione novos ou edite informações existentes.
           </p>
         </div>
         <Button onClick={handleAddClient} className="gap-2">
           <Plus className="h-4 w-4" />
-          Novo Cliente
+          Novo Perfil
           {clientsRemaining > 0 && (
             <span className="text-xs opacity-70">({clientsRemaining})</span>
           )}
@@ -74,7 +74,7 @@ export function ClientsManagementTool() {
       <div className="relative max-w-md">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
-          placeholder="Buscar clientes..."
+          placeholder="Buscar perfis..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           className="pl-10"
@@ -135,12 +135,12 @@ export function ClientsManagementTool() {
             <Search className="h-8 w-8 text-muted-foreground" />
           </div>
           <h3 className="text-lg font-medium text-foreground">
-            {searchQuery ? "Nenhum cliente encontrado" : "Nenhum cliente cadastrado"}
+            {searchQuery ? "Nenhum perfil encontrado" : "Nenhum perfil cadastrado"}
           </h3>
           <p className="text-sm text-muted-foreground mt-1">
             {searchQuery
               ? "Tente buscar por outro termo."
-              : "Clique em 'Novo Cliente' para adicionar seu primeiro cliente."}
+              : "Clique em 'Novo Perfil' para adicionar seu primeiro perfil."}
           </p>
         </div>
       )}
