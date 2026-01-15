@@ -4,11 +4,10 @@ import { useWorkspace } from "@/hooks/useWorkspace";
 import { FloatingKAIButton } from "./FloatingKAIButton";
 import { GlobalKAIPanel } from "./GlobalKAIPanel";
 import { GlobalKAIChat } from "./GlobalKAIChat";
-import { GlobalKAIInput } from "./GlobalKAIInput";
+import { GlobalKAIInputMinimal } from "./GlobalKAIInputMinimal";
 import { ActionConfirmationDialog } from "./ActionConfirmationDialog";
 import { ViewerBlockedPanel } from "./ViewerBlockedPanel";
 import { useMemo, useCallback } from "react";
-import { Citation } from "@/components/chat/CitationChip";
 
 export function GlobalKAIAssistant() {
   const {
@@ -18,24 +17,17 @@ export function GlobalKAIAssistant() {
     messages,
     isProcessing,
     selectedClientId,
-    setSelectedClientId,
     actionStatus,
     attachedFiles,
     pendingAction,
     currentStep,
     multiAgentStep,
-    multiAgentDetails,
     sendMessage,
     attachFiles,
     removeFile,
     confirmAction,
     cancelAction,
-    contentLibrary,
-    referenceLibrary,
-    assignees,
-    clients: workspaceClients,
     chatMode,
-    setChatMode,
   } = useGlobalKAI();
 
   const { clients: clientsData } = useClients();
@@ -48,19 +40,19 @@ export function GlobalKAIAssistant() {
     return client?.name;
   }, [selectedClientId, clientsData]);
 
-  // Handler for sending messages from within chat (for regenerate, quick suggestions)
-  const handleSendFromChat = useCallback((content: string, images?: string[], quality?: "fast" | "high") => {
+  // Handler for sending messages from within chat
+  const handleSendFromChat = useCallback((content: string) => {
     sendMessage(content);
   }, [sendMessage]);
 
-  // Handler for sending messages with citations
-  const handleSendWithCitations = useCallback(async (message: string, files?: File[], citations?: Citation[]) => {
-    await sendMessage(message, files, citations);
+  // Simple handler for minimal input
+  const handleSend = useCallback(async (message: string, files?: File[]) => {
+    await sendMessage(message, files);
   }, [sendMessage]);
 
   return (
     <>
-      {/* Floating button - always visible */}
+      {/* Floating button */}
       <FloatingKAIButton
         isOpen={isOpen}
         onClick={togglePanel}
@@ -68,19 +60,16 @@ export function GlobalKAIAssistant() {
         notificationCount={0}
       />
 
-      {/* Slide-in panel */}
+      {/* Simplified slide-in panel */}
       <GlobalKAIPanel 
         isOpen={isOpen} 
         onClose={closePanel}
         selectedClientId={selectedClientId}
         selectedClientName={selectedClientName}
-        clients={workspaceClients}
-        onClientChange={setSelectedClientId}
-        chatMode={chatMode}
       >
         {canUseAssistant ? (
           <>
-            {/* Chat messages with multi-agent progress */}
+            {/* Chat messages */}
             <GlobalKAIChat
               messages={messages}
               isProcessing={isProcessing}
@@ -89,25 +78,18 @@ export function GlobalKAIAssistant() {
               actionStatus={actionStatus}
               currentStep={currentStep}
               multiAgentStep={multiAgentStep}
-              multiAgentDetails={multiAgentDetails}
               onSendMessage={handleSendFromChat}
               chatMode={chatMode}
             />
 
-            {/* Input area with @ mentions support and mode selector */}
-            <GlobalKAIInput
-              onSend={handleSendWithCitations}
+            {/* Minimal input: just attach + text + send */}
+            <GlobalKAIInputMinimal
+              onSend={handleSend}
               isProcessing={isProcessing}
               attachedFiles={attachedFiles}
               onAttachFiles={attachFiles}
               onRemoveFile={removeFile}
-              placeholder="Pergunte ao kAI... (@ para mencionar)"
-              contentLibrary={contentLibrary}
-              referenceLibrary={referenceLibrary}
-              assignees={assignees}
-              clients={workspaceClients}
-              chatMode={chatMode}
-              onChatModeChange={setChatMode}
+              placeholder="Pergunte qualquer coisa..."
             />
           </>
         ) : (
@@ -115,7 +97,7 @@ export function GlobalKAIAssistant() {
         )}
       </GlobalKAIPanel>
 
-      {/* Action Confirmation Dialog - only if has permission */}
+      {/* Action Confirmation Dialog */}
       {canUseAssistant && (
         <ActionConfirmationDialog
           pendingAction={pendingAction}

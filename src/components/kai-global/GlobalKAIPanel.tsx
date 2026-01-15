@@ -18,9 +18,6 @@ interface GlobalKAIPanelProps {
   className?: string;
   selectedClientId?: string | null;
   selectedClientName?: string;
-  clients?: { id: string; name: string; avatar_url?: string }[];
-  onClientChange?: (clientId: string) => void;
-  chatMode?: "ideas" | "content" | "performance" | "free_chat";
 }
 
 export function GlobalKAIPanel({
@@ -30,9 +27,6 @@ export function GlobalKAIPanel({
   className,
   selectedClientId,
   selectedClientName,
-  clients = [],
-  onClientChange,
-  chatMode,
 }: GlobalKAIPanelProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
@@ -107,23 +101,17 @@ export function GlobalKAIPanel({
               className
             )}
           >
-            {/* Header */}
+            {/* Simplified Header */}
             <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-card/50">
               <div className="flex items-center gap-2">
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
                   <Sparkles className="h-4 w-4 text-primary" />
                 </div>
                 <div>
-                  <h2 className="text-sm font-semibold text-foreground">
-                    kAI Assistente
-                  </h2>
-                  {selectedClientName ? (
-                    <p className="text-[10px] text-muted-foreground truncate max-w-[120px]">
+                  <h2 className="text-sm font-semibold text-foreground">kAI</h2>
+                  {selectedClientName && (
+                    <p className="text-[10px] text-muted-foreground truncate max-w-[140px]">
                       {selectedClientName}
-                    </p>
-                  ) : (
-                    <p className="text-[10px] text-muted-foreground">
-                      Pipeline multi-agente ativo
                     </p>
                   )}
                 </div>
