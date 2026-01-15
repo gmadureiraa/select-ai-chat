@@ -1,6 +1,6 @@
 import { memo, useState, useRef } from "react";
 import { Handle, Position, NodeProps } from "reactflow";
-import { Link2, FileText, Upload, Loader2, Check, X, Youtube, FileAudio, FileImage, Trash2, Eye, Wand2, Star, Palette } from "lucide-react";
+import { Link2, FileText, Upload, Loader2, Check, X, Youtube, FileAudio, FileImage, Trash2, Eye, Wand2, Star, Palette, Code2 } from "lucide-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 import { SourceNodeData, SourceFile, ImageMetadata } from "../hooks/useCanvasState";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { ImageAnalysisModal } from "../ImageAnalysisModal";
 
 interface SourceNodeProps extends NodeProps<SourceNodeData> {
   onExtractUrl?: (nodeId: string, url: string) => void;
@@ -35,13 +36,15 @@ function getFileType(file: File): "image" | "audio" | "video" | "document" {
 // Component to display image reference with metadata
 function ImageReferenceCard({ 
   file, 
-  onAnalyze, 
+  onAnalyze,
+  onViewJson,
   onRemove, 
   onSetPrimary,
   isAnalyzing 
 }: {
   file: SourceFile;
   onAnalyze: () => void;
+  onViewJson: () => void;
   onRemove: () => void;
   onSetPrimary: () => void;
   isAnalyzing?: boolean;
@@ -80,7 +83,7 @@ function ImageReferenceCard({
         
         {/* Hover overlay with actions */}
         <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1">
-          {!isAnalyzed && (
+          {!isAnalyzed ? (
             <Button 
               size="icon" 
               variant="secondary" 
@@ -94,6 +97,16 @@ function ImageReferenceCard({
               ) : (
                 <Wand2 className="h-3 w-3" />
               )}
+            </Button>
+          ) : (
+            <Button 
+              size="icon" 
+              variant="secondary" 
+              className="h-6 w-6" 
+              onClick={onViewJson}
+              title="Ver JSON de Análise"
+            >
+              <Code2 className="h-3 w-3" />
             </Button>
           )}
           <Button 
@@ -173,6 +186,15 @@ function SourceNodeComponent({
   const [localText, setLocalText] = useState(data.value || "");
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // State for image analysis modal
+  const [analysisModalOpen, setAnalysisModalOpen] = useState(false);
+  const [selectedFileForAnalysis, setSelectedFileForAnalysis] = useState<SourceFile | null>(null);
+  
+  const handleViewJson = (file: SourceFile) => {
+    setSelectedFileForAnalysis(file);
+    setAnalysisModalOpen(true);
+  };
 
   const handleExtract = () => {
     if (localUrl.trim() && onExtractUrl) {
@@ -542,6 +564,7 @@ function SourceNodeComponent({
                       key={file.id}
                       file={file}
                       onAnalyze={() => handleAnalyzeStyle(file.id)}
+                      onViewJson={() => handleViewJson(file)}
                       onRemove={() => handleRemoveFile(file.id)}
                       onSetPrimary={() => handleSetPrimary(file.id)}
                       isAnalyzing={file.isProcessing}
@@ -620,6 +643,15 @@ function SourceNodeComponent({
         position={Position.Right}
         id="output"
         className="!w-3 !h-3 !bg-blue-500 !border-2 !border-white"
+      />
+      
+      {/* Image Analysis Modal */}
+      <ImageAnalysisModal
+        open={analysisModalOpen}
+        onOpenChange={setAnalysisModalOpen}
+        analysis={selectedFileForAnalysis?.metadata?.imageAnalysis || null}
+        imageName={selectedFileForAnalysis?.name}
+        imageUrl={selectedFileForAnalysis?.url}
       />
     </Card>
   );

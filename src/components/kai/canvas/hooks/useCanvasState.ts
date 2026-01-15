@@ -47,7 +47,7 @@ export interface ImageMetadata {
   analyzed: boolean;
   analyzedAt?: string;
   
-  // Detailed style analysis
+  // Detailed style analysis (legacy format)
   styleAnalysis?: {
     dominantColors: string[];
     colorMood: string;
@@ -59,6 +59,53 @@ export interface ImageMetadata {
     mood: string;
     lighting: string;
     promptDescription: string;
+  };
+  
+  // Complete image analysis JSON from analyze-image-complete
+  imageAnalysis?: {
+    description?: string;
+    style?: {
+      art_style?: string;
+      photography_style?: string;
+      illustration_technique?: string;
+      rendering_quality?: string;
+    };
+    color_palette?: {
+      dominant_colors?: string[];
+      accent_colors?: string[];
+      color_mood?: string;
+      color_harmony?: string;
+    };
+    composition?: {
+      layout?: string;
+      focal_point?: string;
+      symmetry?: string;
+      depth?: string;
+      framing?: string;
+    };
+    lighting?: {
+      type?: string;
+      direction?: string;
+      intensity?: string;
+      mood?: string;
+    };
+    subjects?: Array<{
+      type?: string;
+      description?: string;
+      position?: string;
+      prominence?: string;
+    }>;
+    text_elements?: {
+      has_text?: boolean;
+      text_style?: string;
+      font_characteristics?: string;
+    };
+    mood_atmosphere?: {
+      overall_mood?: string;
+      emotional_tone?: string;
+      energy_level?: string;
+    };
+    generation_prompt?: string;
   };
   
   // Additional metadata
@@ -456,7 +503,7 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
     }
   }, [nodes, updateNodeData, toast]);
 
-  // Analyze image style
+  // Analyze image style using analyze-image-complete for detailed JSON
   const analyzeImageStyle = useCallback(async (nodeId: string, fileId: string) => {
     const node = nodes.find(n => n.id === nodeId);
     if (!node || node.data.type !== "source") return;
@@ -477,30 +524,30 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
       // Convert blob URL to base64 data URL if needed
       const imageUrl = await blobUrlToBase64(file.url);
       
-      // Call analyze-style for proper image style analysis (not transcribe-images)
-      const { data, error } = await supabase.functions.invoke("analyze-style", {
-        body: { 
-          imageUrls: [imageUrl]
-        }
+      // Call analyze-image-complete for detailed JSON analysis
+      const { data, error } = await supabase.functions.invoke("analyze-image-complete", {
+        body: { imageUrl }
       });
 
       if (error) throw error;
 
-      const analysis = data.styleAnalysis || {};
-      const visualElements = analysis.visual_elements || {};
-      const brandElements = analysis.brand_elements || {};
-      const technicalSpecs = analysis.technical_specs || {};
+      const imageAnalysis = data.imageAnalysis || {};
+      const generationPrompt = data.generationPrompt || "";
+      
+      // Extract colors for legacy compatibility
+      const dominantColors = imageAnalysis.color_palette?.dominant_colors || [];
+      const accentColors = imageAnalysis.color_palette?.accent_colors || [];
       
       // Legacy format for compatibility
       const styleAnalysis = {
-        colors: visualElements.color_palette || [],
-        mood: visualElements.dominant_mood || "Não identificado",
-        style: visualElements.photography_style || "Não identificado",
-        fonts: brandElements.typography ? [brandElements.typography] : [],
-        description: analysis.style_summary || analysis.generation_prompt_template || "Análise de estilo visual"
+        colors: [...dominantColors, ...accentColors],
+        mood: imageAnalysis.mood_atmosphere?.overall_mood || "Não identificado",
+        style: imageAnalysis.style?.art_style || imageAnalysis.style?.photography_style || "Não identificado",
+        fonts: imageAnalysis.text_elements?.font_characteristics ? [imageAnalysis.text_elements.font_characteristics] : [],
+        description: generationPrompt || imageAnalysis.description || "Análise de estilo visual"
       };
 
-      // New structured metadata format with complete style analysis
+      // New structured metadata format with COMPLETE image analysis
       const metadata: ImageMetadata = {
         uploadedAt: file.metadata?.uploadedAt || new Date().toISOString(),
         dimensions: file.metadata?.dimensions || null,
@@ -508,17 +555,23 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
         analyzedAt: new Date().toISOString(),
         isPrimary: file.metadata?.isPrimary || false,
         referenceType: file.metadata?.referenceType || "general",
+        // Complete JSON from analyze-image-complete
+        imageAnalysis: {
+          ...imageAnalysis,
+          generation_prompt: generationPrompt
+        },
+        // Legacy styleAnalysis for backwards compatibility
         styleAnalysis: {
-          dominantColors: visualElements.color_palette || [],
-          colorMood: visualElements.dominant_mood || "neutral",
-          visualStyle: visualElements.photography_style || "general",
-          artDirection: technicalSpecs.post_processing || "mixed",
-          composition: visualElements.composition || "centered",
-          hasText: !!brandElements.typography,
-          textStyle: brandElements.typography,
-          mood: visualElements.dominant_mood || "neutral",
-          lighting: visualElements.lighting || "natural",
-          promptDescription: analysis.generation_prompt_template || analysis.style_summary || ""
+          dominantColors,
+          colorMood: imageAnalysis.color_palette?.color_mood || "neutral",
+          visualStyle: imageAnalysis.style?.art_style || imageAnalysis.style?.photography_style || "general",
+          artDirection: imageAnalysis.style?.illustration_technique || "mixed",
+          composition: imageAnalysis.composition?.layout || "centered",
+          hasText: imageAnalysis.text_elements?.has_text || false,
+          textStyle: imageAnalysis.text_elements?.text_style,
+          mood: imageAnalysis.mood_atmosphere?.overall_mood || "neutral",
+          lighting: imageAnalysis.lighting?.type || "natural",
+          promptDescription: generationPrompt
         }
       };
 
@@ -531,8 +584,8 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
       updateNodeData(nodeId, { files: updatedFiles } as Partial<SourceNodeData>);
 
       toast({
-        title: "Estilo analisado",
-        description: `Estilo de "${file.name}" foi identificado`,
+        title: "Análise completa ✓",
+        description: `JSON de "${file.name}" gerado. Clique em Ver JSON para visualizar.`,
       });
     } catch (error) {
       console.error("Error analyzing style:", error);
@@ -686,13 +739,29 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
           imagePrompt += "\n\nIMPORTANTE: A imagem não deve conter texto.";
         }
 
+        // Collect complete styleAnalysis from analyzed images
+        let collectedStyleAnalysis = null;
+        for (const inputNode of inputNodes) {
+          if (inputNode.data.type === "source") {
+            const srcData = inputNode.data as SourceNodeData;
+            for (const f of srcData.files || []) {
+              if (f.type === "image" && f.metadata?.imageAnalysis) {
+                collectedStyleAnalysis = f.metadata.imageAnalysis;
+                break;
+              }
+            }
+            if (collectedStyleAnalysis) break;
+          }
+        }
+
         const { data, error } = await supabase.functions.invoke('generate-image', {
           body: {
             prompt: imagePrompt,
             clientId,
-            format: genData.aspectRatio || "1:1",
-            style: genData.imageStyle || "photographic",
-            imageUrls: allImageRefs.slice(0, 4),
+            aspectRatio: genData.aspectRatio || "1:1",
+            imageFormat: genData.imageStyle || "photographic",
+            imageReferences: allImageRefs.slice(0, 2), // Limit to 2 for optimal style matching
+            styleAnalysis: collectedStyleAnalysis, // Pass complete JSON analysis
           }
         });
 
