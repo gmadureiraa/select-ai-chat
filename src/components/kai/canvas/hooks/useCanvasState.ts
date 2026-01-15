@@ -5,6 +5,33 @@ import { useToast } from "@/hooks/use-toast";
 import { usePlanningItems } from "@/hooks/usePlanningItems";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
+// Helper to convert blob URL to base64 data URL
+async function blobUrlToBase64(blobUrl: string): Promise<string> {
+  // If already a data URL or http URL, return as-is
+  if (blobUrl.startsWith('data:') || blobUrl.startsWith('http')) {
+    return blobUrl;
+  }
+  
+  // If it's a blob URL, fetch and convert
+  if (blobUrl.startsWith('blob:')) {
+    try {
+      const response = await fetch(blobUrl);
+      const blob = await response.blob();
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+    } catch (error) {
+      console.error('Failed to convert blob URL to base64:', error);
+      throw new Error('Failed to process image');
+    }
+  }
+  
+  return blobUrl;
+}
+
 export type NodeDataType = 
   | "source" 
   | "library" 
@@ -447,10 +474,13 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
     try {
       const file = files[fileIndex];
       
+      // Convert blob URL to base64 data URL if needed
+      const imageUrl = await blobUrlToBase64(file.url);
+      
       // Call analyze-style for proper image style analysis (not transcribe-images)
       const { data, error } = await supabase.functions.invoke("analyze-style", {
         body: { 
-          imageUrls: [file.url]
+          imageUrls: [imageUrl]
         }
       });
 
@@ -560,7 +590,13 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
             
             for (const file of sortedFiles) {
               if (file.type === "image") {
-                imageReferences.push(file.url);
+                // Convert blob URL to base64 if needed for edge function compatibility
+                try {
+                  const imageUrl = await blobUrlToBase64(file.url);
+                  imageReferences.push(imageUrl);
+                } catch (e) {
+                  console.warn('Failed to process image reference:', e);
+                }
                 
                 // Use new structured metadata if available
                 if (file.metadata?.styleAnalysis?.promptDescription) {
