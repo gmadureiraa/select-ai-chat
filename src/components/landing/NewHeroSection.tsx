@@ -1,31 +1,41 @@
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Sparkles, LayoutDashboard, Brain, Zap } from "lucide-react";
+import { ArrowRight, Sparkles, LayoutDashboard, Zap, MousePointer2, Play } from "lucide-react";
 import { Link } from "react-router-dom";
-import RollingText from "./RollingText";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
-const featureCards = [
-  {
-    icon: LayoutDashboard,
-    title: "Canvas Visual",
-    description: "Arraste, conecte e crie fluxos de conteúdo",
-  },
-  {
-    icon: Brain,
-    title: "IA Multi-Agente",
-    description: "4 agentes especializados por conteúdo",
-  },
-  {
-    icon: Zap,
-    title: "Geração em Batch",
-    description: "Crie até 10 variações de uma vez",
-  },
-];
+// Simple animated text component
+const AnimatedWord = ({ words }: { words: string[] }) => {
+  const [index, setIndex] = useState(0);
+  
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setIndex((prev) => (prev + 1) % words.length);
+    }, 2500);
+    return () => clearInterval(timer);
+  }, [words.length]);
 
-const rollingWords = ["Agências", "Creators", "Equipes", "Startups", "Marcas"];
+  return (
+    <span className="relative inline-block min-w-[200px]">
+      {words.map((word, i) => (
+        <motion.span
+          key={word}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ 
+            opacity: i === index ? 1 : 0, 
+            y: i === index ? 0 : -20 
+          }}
+          transition={{ duration: 0.3 }}
+          className={`${i === index ? "relative" : "absolute left-0"} text-primary`}
+        >
+          {word}
+        </motion.span>
+      ))}
+    </span>
+  );
+};
 
-// Floating particles component
+// Floating particles - subtle background effect
 const FloatingParticles = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -53,15 +63,15 @@ const FloatingParticles = () => {
 
     const createParticles = () => {
       particles = [];
-      const count = Math.floor((canvas.width * canvas.height) / 15000);
+      const count = Math.floor((canvas.width * canvas.height) / 20000);
       for (let i = 0; i < count; i++) {
         particles.push({
           x: Math.random() * canvas.width,
           y: Math.random() * canvas.height,
-          size: Math.random() * 2 + 0.5,
-          speedX: (Math.random() - 0.5) * 0.3,
-          speedY: (Math.random() - 0.5) * 0.3,
-          opacity: Math.random() * 0.5 + 0.2,
+          size: Math.random() * 1.5 + 0.5,
+          speedX: (Math.random() - 0.5) * 0.2,
+          speedY: (Math.random() - 0.5) * 0.2,
+          opacity: Math.random() * 0.4 + 0.1,
         });
       }
     };
@@ -105,123 +115,280 @@ const FloatingParticles = () => {
   return (
     <canvas
       ref={canvasRef}
-      className="absolute inset-0 pointer-events-none opacity-60"
+      className="absolute inset-0 pointer-events-none opacity-50"
     />
   );
 };
 
+const targetAudience = ["Criadores", "Agências", "Equipes", "Freelancers"];
+
 const NewHeroSection = () => {
   return (
-    <section className="relative min-h-screen flex flex-col items-center justify-center overflow-hidden bg-background pt-20 pb-12">
+    <section className="relative min-h-[90vh] flex flex-col items-center justify-center overflow-hidden bg-background pt-20 pb-16">
       {/* Floating Particles */}
       <FloatingParticles />
       
-      {/* Subtle background pattern */}
-      <div 
-        className="absolute inset-0 opacity-[0.03] dark:opacity-[0.02]"
-        style={{
-          backgroundImage: `radial-gradient(circle at 1px 1px, hsl(var(--foreground)) 1px, transparent 0)`,
-          backgroundSize: "40px 40px",
-        }}
-      />
-
       {/* Gradient blur effects */}
-      <div className="absolute top-20 right-1/4 w-[500px] h-[500px] rounded-full bg-primary/10 blur-[120px] pointer-events-none animate-pulse" />
-      <div className="absolute bottom-20 left-1/4 w-[400px] h-[400px] rounded-full bg-secondary/10 blur-[100px] pointer-events-none animate-pulse" style={{ animationDelay: "1s" }} />
+      <div className="absolute top-20 right-1/4 w-[400px] h-[400px] rounded-full bg-primary/8 blur-[100px] pointer-events-none" />
+      <div className="absolute bottom-20 left-1/4 w-[300px] h-[300px] rounded-full bg-secondary/8 blur-[80px] pointer-events-none" />
 
-      <div className="relative z-10 max-w-5xl mx-auto px-6 text-center">
-        {/* Badge */}
+      <div className="relative z-10 max-w-4xl mx-auto px-6 text-center">
+        {/* Target audience badge */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 mb-8"
+          transition={{ duration: 0.4 }}
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-muted border border-border mb-8"
         >
-          <LayoutDashboard className="w-4 h-4 text-primary" />
-          <span className="text-sm font-medium text-foreground">
-            Canvas de Criação com IA Multi-Agente
-          </span>
-          <ArrowRight className="w-4 h-4 text-primary" />
+          <span className="text-sm text-muted-foreground">Para criadores de conteúdo e pequenas agências</span>
         </motion.div>
 
-        {/* Main Headline */}
+        {/* Main Headline - Simple and direct like isla.to */}
         <motion.h1
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.1 }}
-          className="text-4xl sm:text-5xl md:text-7xl font-bold text-foreground leading-[1.1] mb-6 tracking-tight"
+          transition={{ duration: 0.5, delay: 0.1 }}
+          className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold text-foreground leading-[1.1] mb-6 tracking-tight"
         >
-          O Canvas de criação de
+          Crie conteúdo visual
           <br />
-          conteúdo para{" "}
-          <RollingText words={rollingWords} />
+          em <span className="text-primary">10 minutos</span> com IA
         </motion.h1>
 
-        {/* Subtitle */}
+        {/* Subtitle - Value proposition */}
         <motion.p
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.2 }}
+          transition={{ duration: 0.5, delay: 0.2 }}
           className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-10 leading-relaxed"
         >
-          Crie conteúdos profissionais com fluxos visuais. 
-          Conecte fontes, briefings e IA em um só lugar.
+          Canvas visual de criação. Conecte fontes, arraste nós, 
+          gere conteúdo em batch. Simples assim.
         </motion.p>
 
-        {/* CTAs */}
+        {/* CTAs - Primary action clear */}
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.3 }}
-          className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16"
+          transition={{ duration: 0.5, delay: 0.3 }}
+          className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-12"
         >
           <Link to="/signup">
             <Button
               size="lg"
-              className="bg-foreground text-background hover:bg-foreground/90 px-8 py-6 text-base font-semibold rounded-full group"
+              className="bg-foreground text-background hover:bg-foreground/90 px-8 py-6 text-base font-semibold rounded-full group min-w-[220px]"
             >
               <Sparkles className="mr-2 w-4 h-4" />
-              Começar 14 dias grátis
+              Começar grátis
+              <ArrowRight className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" />
             </Button>
           </Link>
           <a href="#canvas-demo">
             <Button
               size="lg"
               variant="outline"
-              className="px-8 py-6 text-base font-medium rounded-full border-border hover:bg-muted"
+              className="px-8 py-6 text-base font-medium rounded-full border-border hover:bg-muted min-w-[180px]"
             >
-              Ver o Canvas
-              <ArrowRight className="ml-2 w-4 h-4" />
+              <Play className="mr-2 w-4 h-4" />
+              Ver demo
             </Button>
           </a>
         </motion.div>
 
-        {/* Feature Cards */}
+        {/* Social proof - Simple */}
         <motion.div
-          initial={{ opacity: 0, y: 40 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.5 }}
-          className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-3xl mx-auto"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.5, delay: 0.5 }}
+          className="flex items-center justify-center gap-6 text-sm text-muted-foreground"
         >
-          {featureCards.map((card, index) => (
-            <motion.div
-              key={card.title}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.4, delay: 0.6 + index * 0.1 }}
-              className="flex items-center gap-3 px-5 py-4 rounded-2xl bg-card border border-border hover:border-primary/30 hover:shadow-lg transition-all"
-            >
-              <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                <card.icon className="w-5 h-5 text-primary" />
-              </div>
-              <div className="text-left">
-                <p className="font-semibold text-foreground text-sm">{card.title}</p>
-                <p className="text-xs text-muted-foreground">{card.description}</p>
-              </div>
-            </motion.div>
-          ))}
+          <span className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-green-500" />
+            14 dias grátis
+          </span>
+          <span className="hidden sm:block">•</span>
+          <span className="hidden sm:block">Sem cartão de crédito</span>
+          <span className="hidden sm:block">•</span>
+          <span className="hidden sm:block">Cancele quando quiser</span>
         </motion.div>
       </div>
+
+      {/* Canvas Preview - Visual demonstration */}
+      <motion.div
+        initial={{ opacity: 0, y: 60 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.7, delay: 0.6 }}
+        className="relative z-10 w-full max-w-5xl mx-auto mt-16 px-6"
+      >
+        <div className="relative rounded-2xl border border-border bg-card/50 backdrop-blur-sm p-4 shadow-2xl">
+          {/* Browser-like header */}
+          <div className="flex items-center gap-2 mb-4 pb-4 border-b border-border">
+            <div className="flex gap-1.5">
+              <div className="w-3 h-3 rounded-full bg-red-400" />
+              <div className="w-3 h-3 rounded-full bg-yellow-400" />
+              <div className="w-3 h-3 rounded-full bg-green-400" />
+            </div>
+            <div className="flex-1 flex justify-center">
+              <div className="px-4 py-1 rounded-lg bg-muted text-xs text-muted-foreground">
+                kai.kaleidos.app/canvas
+              </div>
+            </div>
+          </div>
+
+          {/* Canvas content preview */}
+          <div className="relative aspect-[16/9] bg-muted/50 rounded-xl overflow-hidden">
+            {/* Grid background */}
+            <div 
+              className="absolute inset-0 opacity-30"
+              style={{
+                backgroundImage: `radial-gradient(circle at 1px 1px, hsl(var(--border)) 1px, transparent 0)`,
+                backgroundSize: "24px 24px",
+              }}
+            />
+            
+            {/* Canvas nodes preview */}
+            <div className="absolute inset-0 p-6">
+              {/* Source node */}
+              <motion.div 
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.9 }}
+                className="absolute top-1/4 left-[10%] bg-card border border-border rounded-lg p-3 shadow-lg w-32"
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-6 h-6 rounded bg-blue-500/20 flex items-center justify-center">
+                    <LayoutDashboard className="w-3 h-3 text-blue-500" />
+                  </div>
+                  <span className="text-xs font-medium">Fonte</span>
+                </div>
+                <div className="h-2 bg-muted rounded w-full" />
+              </motion.div>
+
+              {/* AI node */}
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 1.1 }}
+                className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-primary text-primary-foreground rounded-lg p-4 shadow-lg w-36"
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  <Sparkles className="w-4 h-4" />
+                  <span className="text-xs font-medium">IA Multi-Agente</span>
+                </div>
+                <div className="flex gap-1">
+                  <div className="h-1.5 bg-primary-foreground/30 rounded flex-1" />
+                  <div className="h-1.5 bg-primary-foreground/30 rounded flex-1" />
+                </div>
+              </motion.div>
+
+              {/* Output nodes */}
+              <motion.div 
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 1.3 }}
+                className="absolute top-[20%] right-[10%] bg-card border border-border rounded-lg p-3 shadow-lg w-28"
+              >
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="w-5 h-5 rounded bg-green-500/20 flex items-center justify-center">
+                    <Zap className="w-2.5 h-2.5 text-green-500" />
+                  </div>
+                  <span className="text-xs">Post 1</span>
+                </div>
+              </motion.div>
+
+              <motion.div 
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 1.4 }}
+                className="absolute top-[45%] right-[10%] bg-card border border-border rounded-lg p-3 shadow-lg w-28"
+              >
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="w-5 h-5 rounded bg-green-500/20 flex items-center justify-center">
+                    <Zap className="w-2.5 h-2.5 text-green-500" />
+                  </div>
+                  <span className="text-xs">Post 2</span>
+                </div>
+              </motion.div>
+
+              <motion.div 
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 1.5 }}
+                className="absolute top-[70%] right-[10%] bg-card border border-border rounded-lg p-3 shadow-lg w-28"
+              >
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="w-5 h-5 rounded bg-green-500/20 flex items-center justify-center">
+                    <Zap className="w-2.5 h-2.5 text-green-500" />
+                  </div>
+                  <span className="text-xs">Post 3</span>
+                </div>
+              </motion.div>
+
+              {/* Connection lines */}
+              <svg className="absolute inset-0 w-full h-full pointer-events-none">
+                <motion.path
+                  initial={{ pathLength: 0, opacity: 0 }}
+                  animate={{ pathLength: 1, opacity: 0.3 }}
+                  transition={{ delay: 1, duration: 0.5 }}
+                  d="M 170 120 Q 300 120 350 200"
+                  fill="none"
+                  stroke="hsl(var(--primary))"
+                  strokeWidth="2"
+                  strokeDasharray="4 4"
+                />
+                <motion.path
+                  initial={{ pathLength: 0, opacity: 0 }}
+                  animate={{ pathLength: 1, opacity: 0.3 }}
+                  transition={{ delay: 1.2, duration: 0.5 }}
+                  d="M 450 200 Q 550 100 620 80"
+                  fill="none"
+                  stroke="hsl(var(--primary))"
+                  strokeWidth="2"
+                  strokeDasharray="4 4"
+                />
+                <motion.path
+                  initial={{ pathLength: 0, opacity: 0 }}
+                  animate={{ pathLength: 1, opacity: 0.3 }}
+                  transition={{ delay: 1.2, duration: 0.5 }}
+                  d="M 450 200 Q 550 200 620 180"
+                  fill="none"
+                  stroke="hsl(var(--primary))"
+                  strokeWidth="2"
+                  strokeDasharray="4 4"
+                />
+                <motion.path
+                  initial={{ pathLength: 0, opacity: 0 }}
+                  animate={{ pathLength: 1, opacity: 0.3 }}
+                  transition={{ delay: 1.2, duration: 0.5 }}
+                  d="M 450 200 Q 550 300 620 280"
+                  fill="none"
+                  stroke="hsl(var(--primary))"
+                  strokeWidth="2"
+                  strokeDasharray="4 4"
+                />
+              </svg>
+
+              {/* Floating cursor */}
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ 
+                  opacity: [0, 1, 1, 0],
+                  x: [100, 200, 400, 500],
+                  y: [150, 100, 180, 100]
+                }}
+                transition={{ 
+                  duration: 4, 
+                  repeat: Infinity, 
+                  repeatDelay: 1 
+                }}
+                className="absolute"
+              >
+                <MousePointer2 className="w-5 h-5 text-primary" />
+              </motion.div>
+            </div>
+          </div>
+        </div>
+      </motion.div>
     </section>
   );
 };

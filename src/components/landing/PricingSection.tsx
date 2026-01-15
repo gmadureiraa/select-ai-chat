@@ -1,49 +1,51 @@
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { Check, Sparkles, LayoutDashboard, BarChart3 } from "lucide-react";
+import { Check, Sparkles, LayoutDashboard, BarChart3, ArrowRight } from "lucide-react";
 import { Link } from "react-router-dom";
 
 const WHATSAPP_LINK = "https://api.whatsapp.com/send/?phone=12936180547&text=Ol%C3%A1%21+Gostaria+de+saber+mais+sobre+o+plano+Enterprise.&type=phone_number&app_absent=0";
 
 const plans = [
   {
-    name: "Basic",
+    name: "Canvas",
     price: "$25",
     period: "/mês",
-    description: "Focado no Canvas de Criação",
+    description: "O essencial para criar conteúdo com IA",
     icon: LayoutDashboard,
     features: [
-      "1 cliente",
-      "1 usuário",
+      "1 cliente/perfil",
       "Canvas de criação ilimitado",
+      "IA multi-agente (4 agentes)",
+      "Geração em batch (até 5 posts)",
       "10 templates prontos",
-      "Geração em batch (até 5)",
-      "IA multi-agente",
       "Suporte por email",
     ],
-    cta: "Começar 14 dias grátis",
+    cta: "Começar grátis",
     popular: false,
     planType: "basic",
+    highlight: "Ideal para criadores solo",
   },
   {
-    name: "Agency",
+    name: "Pro",
     price: "$100",
     period: "/mês",
     description: "Suite completa para agências",
     icon: BarChart3,
     features: [
-      "Até 10 clientes",
-      "Até 5 membros no time",
-      "Tudo do Basic",
+      "Até 10 clientes/perfis",
+      "Tudo do Canvas",
+      "Planejamento Kanban",
+      "Publicação agendada",
       "Performance analytics",
       "Biblioteca de conteúdos",
-      "Publicação agendada",
+      "Até 5 membros no time",
       "Integrações (Instagram, etc)",
       "Suporte prioritário",
     ],
-    cta: "Começar 14 dias grátis",
+    cta: "Começar grátis",
     popular: true,
     planType: "agency",
+    highlight: "Mais popular",
   },
   {
     name: "Enterprise",
@@ -58,16 +60,18 @@ const plans = [
       "API completa",
       "SLA garantido",
       "Treinamento dedicado",
+      "Gerente de conta",
     ],
-    cta: "Falar com Vendas",
+    cta: "Falar com vendas",
     popular: false,
     planType: "enterprise",
+    highlight: "Para grandes times",
   },
 ];
 
 const PricingSection = () => {
   return (
-    <section id="pricing" className="py-32 bg-muted/30 relative overflow-hidden">
+    <section id="pricing" className="py-24 md:py-32 bg-background relative overflow-hidden">
       {/* Background decoration */}
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute top-0 left-1/4 w-96 h-96 bg-primary/5 rounded-full blur-3xl" />
@@ -80,20 +84,20 @@ const PricingSection = () => {
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          transition={{ duration: 0.6 }}
+          transition={{ duration: 0.5 }}
           className="text-center mb-16"
         >
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 mb-6">
-            <Sparkles className="w-4 h-4 text-primary" />
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-muted border border-border mb-6">
+            <span className="w-2 h-2 rounded-full bg-green-500" />
             <span className="text-sm text-foreground">14 dias grátis em todos os planos</span>
           </div>
-          <h2 className="text-4xl md:text-5xl font-light text-foreground mb-4">
-            Comece pelo{" "}
-            <span className="italic text-primary">Canvas</span>, escale com a{" "}
-            <span className="italic text-muted-foreground">Agency</span>
+          <h2 className="text-3xl md:text-5xl font-bold text-foreground mb-4">
+            Preços simples, valor real
           </h2>
-          <p className="text-muted-foreground text-lg font-light max-w-xl mx-auto">
-            Use apenas o Canvas por $25/mês ou desbloqueie a suite completa por $100/mês.
+          <p className="text-muted-foreground text-lg max-w-xl mx-auto">
+            Comece pelo Canvas a $25/mês ou desbloqueie a suite completa por $100/mês.
+            <br />
+            <span className="text-foreground font-medium">Sem surpresas, cancele quando quiser.</span>
           </p>
         </motion.div>
 
@@ -110,20 +114,23 @@ const PricingSection = () => {
                 transition={{ duration: 0.5, delay: index * 0.1 }}
                 className={`relative rounded-2xl p-6 ${
                   plan.popular
-                    ? "bg-primary text-primary-foreground border-2 border-primary"
+                    ? "bg-primary text-primary-foreground scale-105 shadow-2xl"
                     : "bg-card border border-border"
                 }`}
               >
-                {plan.popular && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                    <span className="bg-secondary text-secondary-foreground text-xs font-semibold px-3 py-1 rounded-full">
-                      Mais Popular
-                    </span>
-                  </div>
-                )}
+                {/* Badge */}
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                  <span className={`text-xs font-medium px-3 py-1 rounded-full ${
+                    plan.popular 
+                      ? "bg-secondary text-secondary-foreground" 
+                      : "bg-muted text-muted-foreground"
+                  }`}>
+                    {plan.highlight}
+                  </span>
+                </div>
 
-                <div className="mb-6">
-                  <div className="flex items-center gap-2 mb-2">
+                <div className="mb-6 pt-2">
+                  <div className="flex items-center gap-2 mb-3">
                     <div className={`p-2 rounded-lg ${plan.popular ? "bg-primary-foreground/10" : "bg-primary/10"}`}>
                       <Icon className={`w-5 h-5 ${plan.popular ? "text-primary-foreground" : "text-primary"}`} />
                     </div>
@@ -164,6 +171,7 @@ const PricingSection = () => {
                       variant="outline"
                     >
                       {plan.cta}
+                      <ArrowRight className="ml-2 w-4 h-4" />
                     </Button>
                   </a>
                 ) : (
@@ -177,6 +185,7 @@ const PricingSection = () => {
                       variant={plan.popular ? "secondary" : "default"}
                     >
                       {plan.cta}
+                      <ArrowRight className="ml-2 w-4 h-4" />
                     </Button>
                   </Link>
                 )}
@@ -185,25 +194,33 @@ const PricingSection = () => {
           })}
         </div>
 
-        {/* FAQ teaser */}
+        {/* Comparison highlight */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          transition={{ duration: 0.6, delay: 0.4 }}
-          className="text-center mt-16"
+          transition={{ duration: 0.5, delay: 0.4 }}
+          className="mt-16 text-center"
         >
-          <p className="text-muted-foreground">
-            Tem dúvidas?{" "}
+          <div className="inline-flex flex-col sm:flex-row items-center gap-4 p-6 rounded-2xl bg-muted/50 border border-border">
+            <div className="text-center sm:text-left">
+              <p className="font-medium text-foreground mb-1">
+                Não sabe qual escolher?
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Comece com o Canvas. Faça upgrade quando precisar de mais clientes ou analytics.
+              </p>
+            </div>
             <a 
               href={WHATSAPP_LINK}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-primary hover:underline"
             >
-              Fale conosco
+              <Button variant="outline" size="sm">
+                Fale conosco
+              </Button>
             </a>
-          </p>
+          </div>
         </motion.div>
       </div>
     </section>

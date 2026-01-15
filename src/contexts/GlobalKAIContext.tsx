@@ -405,6 +405,7 @@ export function GlobalKAIProvider({ children }: GlobalKAIProviderProps) {
   }, [conversationId, queryClient]);
 
   // Wrapped send message that handles action detection + delegates to useClientChat
+  // OPTIMIZED: Removed blocking waits - use optimistic approach
   const sendMessage = useCallback(async (text: string, files?: File[], citations?: Citation[]) => {
     if (!text.trim() && (!files || files.length === 0)) return;
     
@@ -414,18 +415,8 @@ export function GlobalKAIProvider({ children }: GlobalKAIProviderProps) {
       return;
     }
     
-    // Guard: wait for conversation to be ready (with timeout)
-    let attempts = 0;
-    const maxAttempts = 10;
-    while (!conversationId && attempts < maxAttempts) {
-      await new Promise(resolve => setTimeout(resolve, 200));
-      attempts++;
-    }
-    
-    if (!conversationId) {
-      toast.error("Chat não está pronto. Tente novamente.");
-      return;
-    }
+    // OPTIMIZED: Don't wait for conversationId - let clientChat handle it
+    // This removes up to 2 seconds of blocking wait
 
     // Convert files to attachments for action detection
     const fileAttachments: KAIFileAttachment[] = files?.map(file => ({
