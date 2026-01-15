@@ -111,7 +111,13 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
 
   // Handle saving from planning dialog
   const handlePlanningDialogSave = useCallback(async (data: any) => {
-    await createItem.mutateAsync(data);
+    // Get draft column if available, otherwise first column
+    const targetColumn = columns.find(c => c.column_type === "draft") || columns[0];
+    
+    await createItem.mutateAsync({
+      ...data,
+      column_id: data.column_id || targetColumn?.id,
+    });
     if (planningOutputNodeId) {
       updateNodeData(planningOutputNodeId, { addedToPlanning: true } as Partial<OutputNodeData>);
     }
@@ -122,7 +128,7 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
       title: "Enviado para planejamento",
       description: "Conteúdo adicionado com sucesso",
     });
-  }, [createItem, planningOutputNodeId, updateNodeData, toast]);
+  }, [createItem, planningOutputNodeId, updateNodeData, toast, columns]);
 
   // Keyboard shortcuts
   useEffect(() => {
