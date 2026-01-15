@@ -120,8 +120,6 @@ const FloatingParticles = () => {
   );
 };
 
-const targetAudience = ["Criadores", "Agências", "Equipes", "Freelancers"];
-
 const NewHeroSection = () => {
   return (
     <section className="relative min-h-[90vh] flex flex-col items-center justify-center overflow-hidden bg-background pt-20 pb-16">
@@ -173,13 +171,13 @@ const NewHeroSection = () => {
           transition={{ duration: 0.5, delay: 0.3 }}
           className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-12"
         >
-          <Link to="/signup">
+          <Link to="/signup?plan=basic">
             <Button
               size="lg"
-              className="bg-foreground text-background hover:bg-foreground/90 px-8 py-6 text-base font-semibold rounded-full group min-w-[220px]"
+              className="bg-foreground text-background hover:bg-foreground/90 px-8 py-6 text-base font-semibold rounded-full group min-w-[260px]"
             >
               <Sparkles className="mr-2 w-4 h-4" />
-              Começar grátis
+              Assinar Canvas - $19.90/mês
               <ArrowRight className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" />
             </Button>
           </Link>
@@ -204,10 +202,8 @@ const NewHeroSection = () => {
         >
           <span className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-green-500" />
-            14 dias grátis
+            Setup em 2 minutos
           </span>
-          <span className="hidden sm:block">•</span>
-          <span className="hidden sm:block">Sem cartão de crédito</span>
           <span className="hidden sm:block">•</span>
           <span className="hidden sm:block">Cancele quando quiser</span>
         </motion.div>
