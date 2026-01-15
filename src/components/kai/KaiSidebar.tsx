@@ -488,8 +488,8 @@ export function KaiSidebar({
             <NavItem
               icon={<Settings className="h-4 w-4" />}
               label="Configurações"
-              active={activeTab === "settings"}
-              onClick={() => onTabChange("settings")}
+              active={false}
+              onClick={() => navigate(`/${currentSlug}/settings`)}
               collapsed={collapsed}
             />
           ) : (

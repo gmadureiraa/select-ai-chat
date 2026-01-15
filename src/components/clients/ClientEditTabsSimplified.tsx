@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { 
   User, Loader2, Globe, Instagram, Twitter, 
   Linkedin, Youtube, Mail, Megaphone, Check,
-  Building, MessageSquare, Users, Target, Plug, FileText
+  Building, MessageSquare, Users, Target, Plug, FileText, Sparkles, RefreshCw
 } from "lucide-react";
 import { AvatarUpload } from "@/components/ui/avatar-upload";
 import { SocialIntegrationsTab } from "./SocialIntegrationsTab";
@@ -18,9 +18,11 @@ import { ClientDocumentsManager } from "./ClientDocumentsManager";
 import { VisualReferencesManager } from "./VisualReferencesManager";
 import { Client, useClients } from "@/hooks/useClients";
 import { useClientWebsites } from "@/hooks/useClientWebsites";
+import { useClientDocuments } from "@/hooks/useClientDocuments";
 import { useToast } from "@/hooks/use-toast";
 import { useDebounce } from "@/hooks/useDebounce";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
 
 interface ClientEditTabsSimplifiedProps {
   client: Client;
@@ -42,6 +44,8 @@ export function ClientEditTabsSimplified({ client, onClose }: ClientEditTabsSimp
   const [avatarUrl, setAvatarUrl] = useState<string | null>(client.avatar_url || null);
   const [autoSaveStatus, setAutoSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
   const [hasChanges, setHasChanges] = useState(false);
+  const [isGeneratingContext, setIsGeneratingContext] = useState(false);
+  const [contextNotes, setContextNotes] = useState(client.context_notes || "");
   
   const [socialMedia, setSocialMedia] = useState<Record<string, string>>(
     client.social_media as Record<string, string> || {}
@@ -52,6 +56,7 @@ export function ClientEditTabsSimplified({ client, onClose }: ClientEditTabsSimp
   
   const { updateClient } = useClients();
   const { websites } = useClientWebsites(client.id);
+  const { documents } = useClientDocuments(client.id);
   const { toast } = useToast();
 
   // Form data for debounce
@@ -85,6 +90,79 @@ export function ClientEditTabsSimplified({ client, onClose }: ClientEditTabsSimp
   }, [debouncedFormData]);
 
   const markChanged = () => setHasChanges(true);
+
+  // Generate AI context based on all client data
+  const handleGenerateContext = async () => {
+    setIsGeneratingContext(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("chat", {
+        body: {
+          messages: [{
+            role: "user",
+            content: `Analise todas as informações do cliente "${name}" e gere um documento completo de contexto em markdown, incluindo:
+            
+- Descrição: ${description}
+- Segmento: ${tags.segment || "Não informado"}
+- Tom de Voz: ${tags.tone || "Não informado"}
+- Público-Alvo: ${tags.audience || "Não informado"}
+- Objetivos: ${tags.objectives || "Não informado"}
+- Redes Sociais: ${JSON.stringify(socialMedia)}
+- Websites cadastrados: ${websites?.map(w => w.url).join(", ") || "Nenhum"}
+- Documentos: ${documents?.map(d => d.name).join(", ") || "Nenhum"}
+
+Estruture o documento com seções para: Visão Geral, Posicionamento, Tom de Voz, Público-Alvo, Presença Digital, Pontos-Chave para Conteúdo.`
+          }],
+          systemPrompt: "Você é um especialista em branding e marketing digital. Gere documentos de contexto completos e bem estruturados para clientes. Seja conciso mas informativo.",
+        },
+      });
+
+      if (error) throw error;
+
+      // Parse streaming response
+      if (data) {
+        const reader = data.getReader();
+        const decoder = new TextDecoder();
+        let result = "";
+        
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          const chunk = decoder.decode(value);
+          const lines = chunk.split("\n");
+          for (const line of lines) {
+            if (line.startsWith("data: ") && !line.includes("[DONE]")) {
+              try {
+                const json = JSON.parse(line.slice(6));
+                result += json.choices?.[0]?.delta?.content || "";
+              } catch {}
+            }
+          }
+        }
+
+        setContextNotes(result);
+        
+        // Save the generated context
+        await updateClient.mutateAsync({
+          id: client.id,
+          context_notes: result,
+        });
+        
+        toast({
+          title: "Contexto gerado com IA!",
+          description: "O contexto do cliente foi gerado e salvo automaticamente.",
+        });
+      }
+    } catch (error) {
+      console.error("Error generating context:", error);
+      toast({
+        title: "Erro ao gerar contexto",
+        description: "Não foi possível gerar o contexto com IA.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGeneratingContext(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -211,6 +289,46 @@ export function ClientEditTabsSimplified({ client, onClose }: ClientEditTabsSimp
                 />
               </div>
             </CardContent>
+          </Card>
+
+          {/* AI Context Generation */}
+          <Card className="border-primary/20 bg-primary/5">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Sparkles className="h-4 w-4 text-primary" />
+                    Contexto com IA
+                  </CardTitle>
+                  <CardDescription>Gere um resumo completo do cliente usando IA</CardDescription>
+                </div>
+                <Button 
+                  onClick={handleGenerateContext}
+                  disabled={isGeneratingContext}
+                  size="sm"
+                  className="gap-2"
+                >
+                  {isGeneratingContext ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Gerando...
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="h-4 w-4" />
+                      Gerar Contexto
+                    </>
+                  )}
+                </Button>
+              </div>
+            </CardHeader>
+            {contextNotes && (
+              <CardContent>
+                <div className="p-3 rounded-lg bg-background border text-sm whitespace-pre-wrap max-h-[200px] overflow-y-auto">
+                  {contextNotes}
+                </div>
+              </CardContent>
+            )}
           </Card>
         </TabsContent>
 
