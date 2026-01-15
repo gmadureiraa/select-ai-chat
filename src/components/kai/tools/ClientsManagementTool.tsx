@@ -14,7 +14,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 export function ClientsManagementTool() {
   const { clients, isLoading } = useClients();
-  const { canAddClient, clientsRemaining, maxClients } = usePlanLimits();
+  const { canAddClient, clientsRemaining, maxClients, isUnlimitedClients } = usePlanLimits();
   const { showUpgradePrompt } = useUpgradePrompt();
   const [searchQuery, setSearchQuery] = useState("");
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -64,7 +64,7 @@ export function ClientsManagementTool() {
         <Button onClick={handleAddClient} className="gap-2">
           <Plus className="h-4 w-4" />
           Novo Perfil
-          {clientsRemaining > 0 && (
+          {!isUnlimitedClients && clientsRemaining > 0 && (
             <span className="text-xs opacity-70">({clientsRemaining})</span>
           )}
         </Button>
