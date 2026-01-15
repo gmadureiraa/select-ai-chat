@@ -9,7 +9,7 @@ import ReactFlow, {
 } from "reactflow";
 import "reactflow/dist/style.css";
 
-import { useCanvasState, NodeDataType, CanvasNodeData, SourceNodeData, LibraryNodeData, PromptNodeData, GeneratorNodeData, OutputNodeData, ContentFormat, ImageEditorNodeData } from "./hooks/useCanvasState";
+import { useCanvasState, NodeDataType, CanvasNodeData, SourceNodeData, LibraryNodeData, PromptNodeData, GeneratorNodeData, OutputNodeData, ContentFormat, ImageEditorNodeData, ImageSourceNodeData } from "./hooks/useCanvasState";
 import { CanvasToolbar } from "./CanvasToolbar";
 import { SourceNode } from "./nodes/SourceNode";
 import { LibraryRefNode } from "./nodes/LibraryRefNode";
@@ -17,6 +17,7 @@ import { PromptNode } from "./nodes/PromptNode";
 import { GeneratorNode } from "./nodes/GeneratorNode";
 import { ContentOutputNode } from "./nodes/ContentOutputNode";
 import { ImageEditorNode } from "./nodes/ImageEditorNode";
+import { ImageSourceNode } from "./nodes/ImageSourceNode";
 import { PlanningItemDialog } from "@/components/planning/PlanningItemDialog";
 import { usePlanningItems } from "@/hooks/usePlanningItems";
 import { useQuery } from "@tanstack/react-query";
@@ -78,6 +79,7 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
     extractUrlContent,
     transcribeFile,
     analyzeImageStyle,
+    analyzeImageSourceImage,
     generateContent,
     regenerateContent,
     editImage,
@@ -152,6 +154,7 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
     extractUrlContent,
     transcribeFile,
     analyzeImageStyle,
+    analyzeImageSourceImage,
     updateNodeData,
     deleteNode,
     generateContent,
@@ -211,6 +214,14 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
         onUpdateData={(id, data) => handlersRef.current?.updateNodeData(id, data)}
         onDelete={(id) => handlersRef.current?.deleteNode(id)}
         onEdit={(id) => handlersRef.current?.editImage(id)}
+      />
+    ),
+    "image-source": (props: NodeProps<ImageSourceNodeData>) => (
+      <ImageSourceNode
+        {...props}
+        onUpdateData={(id, data) => handlersRef.current?.updateNodeData(id, data)}
+        onDelete={(id) => handlersRef.current?.deleteNode(id)}
+        onAnalyzeImage={(id, imageId) => handlersRef.current?.analyzeImageSourceImage(id, imageId)}
       />
     ),
   }), []);
@@ -281,6 +292,7 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
               case "generator": return "#22c55e";
               case "output": return "#ec4899";
               case "image-editor": return "#f97316";
+              case "image-source": return "#06b6d4";
               default: return "#888";
             }
           }}

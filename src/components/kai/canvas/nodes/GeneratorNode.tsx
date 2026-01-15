@@ -34,6 +34,14 @@ const IMAGE_STYLE_OPTIONS = [
   { value: "artistic", label: "Artístico" },
 ];
 
+const IMAGE_TYPE_OPTIONS = [
+  { value: "general", label: "Imagem Geral" },
+  { value: "thumbnail", label: "Thumbnail YouTube" },
+  { value: "social_post", label: "Post Social" },
+  { value: "banner", label: "Banner/Header" },
+  { value: "product", label: "Foto de Produto" },
+];
+
 const ASPECT_RATIO_OPTIONS = [
   { value: "1:1", label: "1:1 (Quadrado)" },
   { value: "4:5", label: "4:5 (Vertical)" },
@@ -132,32 +140,31 @@ function GeneratorNodeComponent({
           </Select>
         </div>
 
-        {/* Platform + Quantity row */}
-        <div className={data.format === "image" ? "" : "grid grid-cols-2 gap-2"}>
-          <div className="space-y-1.5">
-            <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
-              Plataforma
-            </label>
-            <Select
-              value={data.platform}
-              onValueChange={handlePlatformChange}
-              disabled={data.isGenerating}
-            >
-              <SelectTrigger className="h-8 text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {PLATFORM_OPTIONS.map((option) => (
-                  <SelectItem key={option.value} value={option.value} className="text-xs">
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+        {/* Platform + Quantity row - only for text content */}
+        {data.format !== "image" && (
+          <div className="grid grid-cols-2 gap-2">
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+                Plataforma
+              </label>
+              <Select
+                value={data.platform}
+                onValueChange={handlePlatformChange}
+                disabled={data.isGenerating}
+              >
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {PLATFORM_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value} className="text-xs">
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-          {/* Quantity selector - only for text content */}
-          {data.format !== "image" && (
             <div className="space-y-1.5">
               <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
                 Quantidade
@@ -179,26 +186,34 @@ function GeneratorNodeComponent({
                 </SelectContent>
               </Select>
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Image-specific options */}
         {data.format === "image" && (
           <>
+            {/* Image Type (Thumbnail, Social, etc) */}
             <div className="space-y-1.5">
               <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
-                Estilo Visual
+                Tipo de Imagem
               </label>
               <Select
-                value={data.imageStyle || "photographic"}
-                onValueChange={(value) => onUpdateData?.(id, { imageStyle: value })}
+                value={(data as any).imageType || "general"}
+                onValueChange={(value) => {
+                  const updates: any = { imageType: value };
+                  // Auto-set aspect ratio for thumbnails
+                  if (value === "thumbnail") {
+                    updates.aspectRatio = "16:9";
+                  }
+                  onUpdateData?.(id, updates);
+                }}
                 disabled={data.isGenerating}
               >
                 <SelectTrigger className="h-8 text-xs">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {IMAGE_STYLE_OPTIONS.map((option) => (
+                  {IMAGE_TYPE_OPTIONS.map((option) => (
                     <SelectItem key={option.value} value={option.value} className="text-xs">
                       {option.label}
                     </SelectItem>
@@ -206,39 +221,77 @@ function GeneratorNodeComponent({
                 </SelectContent>
               </Select>
             </div>
+            
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+                  Estilo Visual
+                </label>
+                <Select
+                  value={data.imageStyle || "photographic"}
+                  onValueChange={(value) => onUpdateData?.(id, { imageStyle: value })}
+                  disabled={data.isGenerating}
+                >
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {IMAGE_STYLE_OPTIONS.map((option) => (
+                      <SelectItem key={option.value} value={option.value} className="text-xs">
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
-                Proporção
-              </label>
-              <Select
-                value={data.aspectRatio || "1:1"}
-                onValueChange={(value) => onUpdateData?.(id, { aspectRatio: value })}
-                disabled={data.isGenerating}
-              >
-                <SelectTrigger className="h-8 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {ASPECT_RATIO_OPTIONS.map((option) => (
-                    <SelectItem key={option.value} value={option.value} className="text-xs">
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+                  Proporção
+                </label>
+                <Select
+                  value={data.aspectRatio || "1:1"}
+                  onValueChange={(value) => onUpdateData?.(id, { aspectRatio: value })}
+                  disabled={data.isGenerating}
+                >
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ASPECT_RATIO_OPTIONS.map((option) => (
+                      <SelectItem key={option.value} value={option.value} className="text-xs">
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
-            <div className="flex items-center gap-2">
-              <Checkbox
-                id={`no-text-${id}`}
-                checked={data.noTextInImage || false}
-                onCheckedChange={(checked) => onUpdateData?.(id, { noTextInImage: !!checked })}
-                disabled={data.isGenerating}
-              />
-              <Label htmlFor={`no-text-${id}`} className="text-[10px] text-muted-foreground cursor-pointer">
-                Sem texto na imagem
-              </Label>
+            <div className="flex flex-col gap-1.5">
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id={`no-text-${id}`}
+                  checked={data.noTextInImage || false}
+                  onCheckedChange={(checked) => onUpdateData?.(id, { noTextInImage: !!checked })}
+                  disabled={data.isGenerating}
+                />
+                <Label htmlFor={`no-text-${id}`} className="text-[10px] text-muted-foreground cursor-pointer">
+                  Sem texto na imagem
+                </Label>
+              </div>
+              
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id={`preserve-person-${id}`}
+                  checked={(data as any).preservePerson || false}
+                  onCheckedChange={(checked) => onUpdateData?.(id, { preservePerson: !!checked } as any)}
+                  disabled={data.isGenerating}
+                />
+                <Label htmlFor={`preserve-person-${id}`} className="text-[10px] text-muted-foreground cursor-pointer">
+                  Manter aparência da pessoa
+                </Label>
+              </div>
             </div>
           </>
         )}

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link2, BookOpen, Lightbulb, Sparkles, Trash2, ZoomIn, ZoomOut, Maximize, Save, FolderOpen, ChevronDown, Loader2, X, Pencil, Wand2, LayoutTemplate } from "lucide-react";
+import { Link2, BookOpen, Lightbulb, Sparkles, Trash2, ZoomIn, ZoomOut, Maximize, Save, FolderOpen, ChevronDown, Loader2, X, Pencil, Wand2, LayoutTemplate, ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -20,7 +20,7 @@ export type CanvasTemplate =
   | "weekly_summary";
 
 interface CanvasToolbarProps {
-  onAddNode: (type: "source" | "library" | "prompt" | "generator" | "image-editor") => void;
+  onAddNode: (type: "source" | "library" | "prompt" | "generator" | "image-editor" | "image-source") => void;
   onClear: () => void;
   onZoomIn: () => void;
   onZoomOut: () => void;
@@ -218,6 +218,25 @@ export function CanvasToolbar({
           </TooltipTrigger>
           <TooltipContent side="bottom">
             <p>Adicionar URL, texto ou arquivo</p>
+          </TooltipContent>
+        </Tooltip>
+
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => onAddNode("image-source")}
+              className="h-8 gap-1.5 text-xs hover:bg-cyan-50 hover:text-cyan-600 dark:hover:bg-cyan-950"
+            >
+              <div className="h-4 w-4 rounded bg-cyan-500 flex items-center justify-center">
+                <ImageIcon className="h-2.5 w-2.5 text-white" />
+              </div>
+              Imagem
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">
+            <p>Adicionar imagens de referência (análise automática)</p>
           </TooltipContent>
         </Tooltip>
 

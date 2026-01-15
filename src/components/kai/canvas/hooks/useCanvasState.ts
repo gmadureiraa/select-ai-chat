@@ -38,7 +38,8 @@ export type NodeDataType =
   | "prompt" 
   | "generator" 
   | "output"
-  | "image-editor";
+  | "image-editor"
+  | "image-source";
 
 // Structured metadata for each image reference
 export interface ImageMetadata {
@@ -207,13 +208,27 @@ export interface ImageEditorNodeData {
   currentStep?: string;
 }
 
+export interface ImageSourceNodeData {
+  type: "image-source";
+  images: Array<{
+    id: string;
+    name: string;
+    url: string;
+    storagePath?: string;
+    isProcessing?: boolean;
+    analyzed?: boolean;
+    metadata?: ImageMetadata;
+  }>;
+}
+
 export type CanvasNodeData = 
   | SourceNodeData 
   | LibraryNodeData 
   | PromptNodeData 
   | GeneratorNodeData 
   | OutputNodeData
-  | ImageEditorNodeData;
+  | ImageEditorNodeData
+  | ImageSourceNodeData;
 
 export interface SavedCanvas {
   id: string;
@@ -353,6 +368,13 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
           isProcessing: false,
           ...data
         } as ImageEditorNodeData;
+        break;
+      case "image-source":
+        nodeData = {
+          type: "image-source",
+          images: [],
+          ...data
+        } as ImageSourceNodeData;
         break;
       default:
         throw new Error(`Unknown node type: ${nodeType}`);
@@ -594,6 +616,81 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
       toast({
         title: "Erro na análise",
         description: "Não foi possível analisar o estilo da imagem",
+        variant: "destructive",
+      });
+    }
+  }, [nodes, updateNodeData, toast]);
+
+  // Analyze image in ImageSourceNode with automatic analysis
+  const analyzeImageSourceImage = useCallback(async (nodeId: string, imageId: string) => {
+    const node = nodes.find(n => n.id === nodeId);
+    if (!node || node.data.type !== "image-source") return;
+
+    const sourceData = node.data as ImageSourceNodeData;
+    const images = sourceData.images || [];
+    const imageIndex = images.findIndex(img => img.id === imageId);
+    if (imageIndex === -1) return;
+
+    // Mark image as processing
+    const updatedImages = [...images];
+    updatedImages[imageIndex] = { ...updatedImages[imageIndex], isProcessing: true };
+    updateNodeData(nodeId, { images: updatedImages } as Partial<ImageSourceNodeData>);
+
+    try {
+      const image = images[imageIndex];
+      const imageUrl = await blobUrlToBase64(image.url);
+      
+      const { data, error } = await supabase.functions.invoke("analyze-image-complete", {
+        body: { imageUrl }
+      });
+
+      if (error) throw error;
+
+      const imageAnalysis = data.imageAnalysis || {};
+      const generationPrompt = data.generationPrompt || "";
+      
+      const dominantColors = imageAnalysis.colors?.dominant || imageAnalysis.color_palette?.dominant_colors || [];
+      
+      const metadata: ImageMetadata = {
+        uploadedAt: image.metadata?.uploadedAt || new Date().toISOString(),
+        dimensions: image.metadata?.dimensions || null,
+        analyzed: true,
+        analyzedAt: new Date().toISOString(),
+        isPrimary: image.metadata?.isPrimary || false,
+        imageAnalysis: { ...imageAnalysis, generation_prompt: generationPrompt },
+        styleAnalysis: {
+          dominantColors,
+          colorMood: imageAnalysis.colors?.mood_from_colors || "neutral",
+          visualStyle: imageAnalysis.style?.art_style || "general",
+          artDirection: imageAnalysis.style?.visual_treatment || "mixed",
+          composition: imageAnalysis.composition?.layout || "centered",
+          hasText: imageAnalysis.text_elements?.has_text || false,
+          textStyle: imageAnalysis.text_elements?.typography_style,
+          mood: imageAnalysis.mood_atmosphere?.primary_mood || "neutral",
+          lighting: imageAnalysis.lighting?.type || "natural",
+          promptDescription: generationPrompt
+        }
+      };
+
+      updatedImages[imageIndex] = { 
+        ...updatedImages[imageIndex], 
+        analyzed: true,
+        isProcessing: false,
+        metadata
+      };
+      updateNodeData(nodeId, { images: updatedImages } as Partial<ImageSourceNodeData>);
+
+      toast({
+        title: "Análise completa ✓",
+        description: `JSON de "${image.name}" gerado automaticamente.`,
+      });
+    } catch (error) {
+      console.error("Error analyzing image:", error);
+      updatedImages[imageIndex] = { ...updatedImages[imageIndex], isProcessing: false };
+      updateNodeData(nodeId, { images: updatedImages } as Partial<ImageSourceNodeData>);
+      toast({
+        title: "Erro na análise",
+        description: "Não foi possível analisar a imagem",
         variant: "destructive",
       });
     }
@@ -1447,6 +1544,7 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
     extractUrlContent,
     transcribeFile,
     analyzeImageStyle,
+    analyzeImageSourceImage,
     generateContent,
     regenerateContent,
     editImage,
