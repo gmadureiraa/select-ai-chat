@@ -141,8 +141,15 @@ export function ClientCreationWizardSimplified({ onComplete, onCancel }: ClientC
       }
 
       onComplete();
-    } catch (error) {
-      console.error("Error creating client:", error);
+    } catch (error: any) {
+      console.error("[ClientCreationWizard] Error creating client:", {
+        message: error?.message,
+        code: error?.code,
+        details: error?.details,
+        hint: error?.hint,
+        fullError: error
+      });
+      // O toast já é mostrado pelo useClients, mas logamos aqui também
     } finally {
       setIsCreating(false);
     }
