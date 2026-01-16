@@ -1,11 +1,13 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Plus, Loader2, Zap, Eye } from 'lucide-react';
+import { Plus, Loader2, Zap, Eye, Keyboard } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
 import { usePlanningItems, type PlanningFilters, type PlanningItem } from '@/hooks/usePlanningItems';
 import { usePlanningRealtime } from '@/hooks/usePlanningRealtime';
+import { usePlanningKeyboardShortcuts, getShortcutHint } from '@/hooks/usePlanningKeyboardShortcuts';
 import { PlanningFilters as FiltersComponent } from './PlanningFilters';
 import { ViewToggle, type PlanningView } from './ViewToggle';
 import { PlanningItemCard } from './PlanningItemCard';
@@ -13,11 +15,13 @@ import { PlanningItemDialog } from './PlanningItemDialog';
 import { KanbanView } from './KanbanView';
 import { CalendarView } from './CalendarView';
 import { ViewSettingsPopover, useViewSettings } from './ViewSettingsPopover';
+import { EmptyState } from './EmptyState';
 import { useWorkspace } from '@/hooks/useWorkspace';
 import { useMemberClientAccess } from '@/hooks/useMemberClientAccess';
 import { useTeamMembers } from '@/hooks/useTeamMembers';
 import { PlanningAutomations } from './PlanningAutomations';
 import { format } from 'date-fns';
+import { toast } from 'sonner';
 
 interface PlanningBoardProps {
   clientId?: string;
@@ -158,9 +162,18 @@ export function PlanningBoard({ clientId, isEnterprise = false, onClientChange }
       : { due_date: format(newDate, 'yyyy-MM-dd') };
 
     updateItem.mutate({ id: itemId, ...updateData });
+    toast.success('Item movido para ' + format(newDate, 'dd/MM'));
   }, [items, updateItem]);
+
+  // Keyboard shortcuts
+  usePlanningKeyboardShortcuts({
+    onNewItem: () => handleNewCard(),
+    onCloseDialog: () => setDialogOpen(false),
+    isDialogOpen: dialogOpen,
+  });
   
   const showFilters = !(isViewer && viewerClientIds.length === 1);
+  const isEmpty = items.length === 0;
 
   if (isLoading) {
     return (
@@ -188,19 +201,36 @@ export function PlanningBoard({ clientId, isEnterprise = false, onClientChange }
         
         {!isViewer && (
           <div className="flex items-center gap-2">
-            <Button 
-              variant="ghost" 
-              size="icon"
-              onClick={() => setShowAutomations(!showAutomations)}
-              className={cn("h-8 w-8", showAutomations && 'bg-primary/10 text-primary')}
-            >
-              <Zap className="h-4 w-4" />
-            </Button>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button 
+                    variant="ghost" 
+                    size="icon"
+                    onClick={() => setShowAutomations(!showAutomations)}
+                    className={cn("h-8 w-8", showAutomations && 'bg-primary/10 text-primary')}
+                  >
+                    <Zap className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Automações</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
             <ViewSettingsPopover settings={settings} onChange={setSettings} />
-            <Button onClick={() => handleNewCard()} size="sm" className="h-8 gap-1.5">
-              <Plus className="h-4 w-4" />
-              {!isMobile && <span>Novo</span>}
-            </Button>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button onClick={() => handleNewCard()} size="sm" className="h-8 gap-1.5">
+                    <Plus className="h-4 w-4" />
+                    {!isMobile && <span>Novo</span>}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <span>Novo item</span>
+                  <span className="ml-2 text-muted-foreground text-[10px]">{getShortcutHint('N')}</span>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
         )}
       </div>
@@ -252,23 +282,28 @@ export function PlanningBoard({ clientId, isEnterprise = false, onClientChange }
 
         {view === 'list' && (
           <div className="h-full overflow-y-auto space-y-2 pr-2">
-            {items.map(item => (
-              <PlanningItemCard
-                key={item.id}
-                item={item}
-                onEdit={handleEdit}
-                onDelete={(id) => deleteItem.mutate(id)}
-                onMoveToLibrary={(id) => moveToLibrary.mutate(id)}
-                onRetry={(id) => retryPublication.mutate(id)}
-                onDuplicate={handleDuplicate}
-                compact
-                canDelete={!isViewer}
+            {isEmpty ? (
+              <EmptyState
+                type="list"
+                action={{
+                  label: 'Criar primeiro item',
+                  onClick: () => handleNewCard(),
+                }}
               />
-            ))}
-            {items.length === 0 && (
-              <div className="text-center py-12 text-muted-foreground text-sm">
-                Nenhum item encontrado
-              </div>
+            ) : (
+              items.map(item => (
+                <PlanningItemCard
+                  key={item.id}
+                  item={item}
+                  onEdit={handleEdit}
+                  onDelete={(id) => deleteItem.mutate(id)}
+                  onMoveToLibrary={(id) => moveToLibrary.mutate(id)}
+                  onRetry={(id) => retryPublication.mutate(id)}
+                  onDuplicate={handleDuplicate}
+                  compact
+                  canDelete={!isViewer}
+                />
+              ))
             )}
           </div>
         )}

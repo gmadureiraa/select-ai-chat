@@ -1,13 +1,15 @@
 import { useState, useMemo, useCallback } from 'react';
-import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, parseISO, isToday as isDateToday } from 'date-fns';
+import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, parseISO, isToday as isDateToday, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, Plus, Clock, AlertCircle, CheckCircle2, Bot, FileEdit, RefreshCw, Calendar as CalendarIcon, MoreHorizontal } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, Clock, AlertCircle, CheckCircle2, Bot, FileEdit, RefreshCw, Calendar as CalendarIcon, MoreHorizontal, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import { cn } from '@/lib/utils';
 import type { PlanningItem } from '@/hooks/usePlanningItems';
 import { useClientPlatformStatus, type SupportedPlatform } from '@/hooks/useClientPlatformStatus';
+import { EmptyState } from './EmptyState';
 
 interface CalendarViewProps {
   items: PlanningItem[];
@@ -105,119 +107,147 @@ function CalendarCard({
   const config = statusConfig[item.status] || statusConfig.idea;
   
   const scheduledTime = item.scheduled_at ? format(parseISO(item.scheduled_at), 'HH:mm') : null;
+  const scheduledDate = item.scheduled_at ? parseISO(item.scheduled_at) : null;
+  const daysUntil = scheduledDate ? differenceInDays(scheduledDate, new Date()) : null;
   
   return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <div
-            draggable={canEdit}
-            onDragStart={(e) => onDragStart?.(e, item)}
-            className={cn(
-              "group/card relative px-2 py-1 rounded-md border transition-all duration-200",
-              "hover:shadow-sm hover:scale-[1.01]",
-              config.bg, config.text, config.border,
-              isDragging && "opacity-50 scale-95",
-              canEdit && "cursor-grab active:cursor-grabbing"
+    <HoverCard openDelay={300} closeDelay={100}>
+      <HoverCardTrigger asChild>
+        <div
+          draggable={canEdit}
+          onDragStart={(e) => onDragStart?.(e, item)}
+          className={cn(
+            "group/card relative px-2 py-1 rounded-md border transition-all duration-200",
+            "hover:shadow-sm hover:scale-[1.02]",
+            config.bg, config.text, config.border,
+            isDragging && "opacity-50 scale-95",
+            canEdit && "cursor-grab active:cursor-grabbing"
+          )}
+          onClick={(e) => { e.stopPropagation(); if (canEdit) onEdit(); }}
+        >
+          <div className="flex items-center gap-1.5">
+            {/* Status dot */}
+            <span className={cn("w-1.5 h-1.5 rounded-full shrink-0", config.dot)} />
+            
+            {/* Platform icon */}
+            {item.platform && (
+              <span className="text-[10px] shrink-0">{platformIcons[item.platform] || '📱'}</span>
             )}
-            onClick={(e) => { e.stopPropagation(); if (canEdit) onEdit(); }}
-          >
-            <div className="flex items-center gap-1.5">
-              {/* Status dot */}
-              <span className={cn("w-1.5 h-1.5 rounded-full shrink-0", config.dot)} />
-              
-              {/* Platform icon */}
-              {item.platform && (
-                <span className="text-[10px] shrink-0">{platformIcons[item.platform] || '📱'}</span>
-              )}
-              
-              {/* Title */}
-              <span className="text-[10px] font-medium truncate flex-1 leading-tight">
-                {item.title}
+            
+            {/* Title */}
+            <span className="text-[10px] font-medium truncate flex-1 leading-tight">
+              {item.title}
+            </span>
+            
+            {/* Time badge */}
+            {scheduledTime && (
+              <span className="text-[8px] bg-black/5 dark:bg-white/10 px-1 py-0.5 rounded shrink-0 font-medium tabular-nums">
+                {scheduledTime}
               </span>
-              
-              {/* Time badge */}
-              {scheduledTime && (
-                <span className="text-[8px] bg-black/5 dark:bg-white/10 px-1 py-0.5 rounded shrink-0 font-medium tabular-nums">
-                  {scheduledTime}
-                </span>
-              )}
-              
-              {/* Status icons */}
-              {item.status === 'failed' && onRetry && (
-                <button 
-                  onClick={(e) => { e.stopPropagation(); onRetry(); }}
-                  className="shrink-0 hover:scale-110 transition-transform"
-                >
-                  <RefreshCw className="h-2.5 w-2.5 text-red-500" />
-                </button>
-              )}
-              {item.status === 'published' && <CheckCircle2 className="h-2.5 w-2.5 shrink-0 text-green-500" />}
-              
-              {/* Auto indicator */}
-              {isAutoPublish && item.status === 'scheduled' && (
-                <Bot className="h-2.5 w-2.5 shrink-0 text-primary/60" />
-              )}
-            </div>
+            )}
+            
+            {/* Status icons */}
+            {item.status === 'failed' && onRetry && (
+              <button 
+                onClick={(e) => { e.stopPropagation(); onRetry(); }}
+                className="shrink-0 hover:scale-110 transition-transform"
+              >
+                <RefreshCw className="h-2.5 w-2.5 text-red-500" />
+              </button>
+            )}
+            {item.status === 'published' && <CheckCircle2 className="h-2.5 w-2.5 shrink-0 text-green-500" />}
+            
+            {/* Auto indicator */}
+            {isAutoPublish && item.status === 'scheduled' && (
+              <Bot className="h-2.5 w-2.5 shrink-0 text-primary/60" />
+            )}
           </div>
-        </TooltipTrigger>
-        <TooltipContent side="right" className="max-w-xs p-3 space-y-2">
-          <div className="flex items-center gap-2">
-            <p className="font-semibold text-sm">{item.title}</p>
+        </div>
+      </HoverCardTrigger>
+      <HoverCardContent side="right" align="start" className="w-72 p-0 overflow-hidden">
+        {/* Header with platform gradient */}
+        <div className={cn(
+          "px-3 py-2 border-b",
+          config.bg, config.border
+        )}>
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[11px] font-semibold truncate flex-1">{item.title}</span>
             {isAutoPublish ? (
-              <Badge variant="outline" className="text-[10px] bg-green-100 text-green-700 border-green-300">
-                <Bot className="h-2.5 w-2.5 mr-1" />
+              <Badge variant="outline" className="text-[9px] h-4 bg-green-100 text-green-700 border-green-300 shrink-0">
+                <Bot className="h-2 w-2 mr-0.5" />
                 Auto
               </Badge>
             ) : (
-              <Badge variant="outline" className="text-[10px] bg-amber-100 text-amber-700 border-amber-300">
-                <FileEdit className="h-2.5 w-2.5 mr-1" />
+              <Badge variant="outline" className="text-[9px] h-4 bg-amber-100 text-amber-700 border-amber-300 shrink-0">
+                <FileEdit className="h-2 w-2 mr-0.5" />
                 Manual
               </Badge>
             )}
           </div>
-          
+        </div>
+        
+        {/* Content preview */}
+        <div className="px-3 py-2 space-y-2">
           {item.clients && (
-            <p className="text-xs text-muted-foreground">
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <div className="w-4 h-4 rounded-full bg-muted flex items-center justify-center text-[8px] font-semibold">
+                {item.clients.name.charAt(0)}
+              </div>
               {item.clients.name}
-            </p>
+            </div>
           )}
           
-          {item.platform && (
-            <p className="text-xs">
-              <span className="mr-1">{platformIcons[item.platform]}</span>
-              {item.platform.charAt(0).toUpperCase() + item.platform.slice(1)}
-            </p>
-          )}
+          <div className="flex items-center gap-3 text-xs">
+            {item.platform && (
+              <span className="flex items-center gap-1">
+                <span>{platformIcons[item.platform]}</span>
+                {item.platform.charAt(0).toUpperCase() + item.platform.slice(1)}
+              </span>
+            )}
+            {item.scheduled_at && (
+              <span className="flex items-center gap-1 text-orange-600">
+                <Clock className="h-3 w-3" />
+                {format(parseISO(item.scheduled_at), "dd/MM HH:mm")}
+              </span>
+            )}
+          </div>
           
-          {item.scheduled_at && (
-            <p className="text-xs flex items-center gap-1 text-orange-600">
-              <Clock className="h-3 w-3" />
-              Agendado: {format(parseISO(item.scheduled_at), "dd/MM 'às' HH:mm")}
-            </p>
+          {/* Countdown badge for scheduled items */}
+          {daysUntil !== null && item.status === 'scheduled' && (
+            <div className={cn(
+              "inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full",
+              daysUntil === 0 && "bg-orange-100 text-orange-700",
+              daysUntil === 1 && "bg-amber-100 text-amber-700",
+              daysUntil > 1 && "bg-muted text-muted-foreground"
+            )}>
+              <Sparkles className="h-2.5 w-2.5" />
+              {daysUntil === 0 ? 'Hoje' : daysUntil === 1 ? 'Amanhã' : `Em ${daysUntil} dias`}
+            </div>
           )}
           
           {item.status === 'failed' && item.error_message && (
-            <div className="text-xs text-red-600 bg-red-50 dark:bg-red-950/50 p-2 rounded border border-red-200 dark:border-red-800">
-              <AlertCircle className="h-3 w-3 inline mr-1" />
+            <div className="text-[10px] text-red-600 bg-red-50 dark:bg-red-950/50 p-1.5 rounded border border-red-200 dark:border-red-800">
+              <AlertCircle className="h-2.5 w-2.5 inline mr-1" />
               {item.error_message}
             </div>
           )}
           
           {item.content && (
-            <p className="text-xs text-muted-foreground line-clamp-2 border-t pt-2">
-              {item.content.substring(0, 100)}...
+            <p className="text-[11px] text-muted-foreground line-clamp-3 border-t pt-2 leading-relaxed">
+              {item.content.substring(0, 150)}{item.content.length > 150 ? '...' : ''}
             </p>
           )}
-          
-          {canEdit && (
-            <p className="text-[10px] text-muted-foreground italic border-t pt-2">
-              Clique para editar • Arraste para mover
-            </p>
-          )}
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
+        </div>
+        
+        {/* Footer */}
+        {canEdit && (
+          <div className="px-3 py-1.5 bg-muted/30 border-t text-[9px] text-muted-foreground flex items-center justify-between">
+            <span>Clique para editar</span>
+            <span>Arraste para mover</span>
+          </div>
+        )}
+      </HoverCardContent>
+    </HoverCard>
   );
 }
 
