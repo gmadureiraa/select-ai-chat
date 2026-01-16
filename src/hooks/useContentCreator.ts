@@ -4,6 +4,7 @@ import { useToast } from "@/hooks/use-toast";
 import { parseMentions } from "@/lib/mentionParser";
 import { usePlanningItems } from "@/hooks/usePlanningItems";
 import { useWorkspaceContext } from "@/contexts/WorkspaceContext";
+import { callKaiContentAgent, parseOpenAIStream } from "@/lib/parseOpenAIStream";
 
 export type ContentFormat = 
   | "newsletter" 
@@ -395,67 +396,20 @@ ${additionalContext ? `INSTRUÇÕES ADICIONAIS: ${additionalContext}` : ''}
 
 Siga as regras do formato e gere o conteúdo pronto para publicar.`;
 
-      // Call multi-agent pipeline
+      // Call kai-content-agent
       const { data: sessionData } = await supabase.auth.getSession();
       const accessToken = sessionData?.session?.access_token;
 
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat-multi-agent`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${accessToken}`,
-            "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-          },
-          body: JSON.stringify({
-            userMessage,
-            contentLibrary: contentLibrary || [],
-            referenceLibrary: referenceLibrary || [],
-            identityGuide: client?.identity_guide || "",
-            clientName: client?.name || "Cliente",
-            contentType,
-          }),
-        }
-      );
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Erro na API: ${response.status} - ${errorText}`);
+      if (!accessToken) {
+        throw new Error("Usuário não autenticado");
       }
 
-      // Process SSE stream
-      const reader = response.body?.getReader();
-      if (!reader) throw new Error("Não foi possível ler a resposta");
-
-      const decoder = new TextDecoder();
-      let buffer = "";
-      let finalContent = "";
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() || "";
-
-        for (const line of lines) {
-          if (line.startsWith("data: ")) {
-            const jsonStr = line.slice(6).trim();
-            if (jsonStr === "[DONE]") continue;
-
-            try {
-              const parsed = JSON.parse(jsonStr);
-              if (parsed.step === "complete" && parsed.status === "done" && parsed.content) {
-                finalContent = parsed.content;
-              }
-            } catch {
-              // Ignore parse errors
-            }
-          }
-        }
-      }
+      const finalContent = await callKaiContentAgent({
+        clientId,
+        request: userMessage,
+        format: contentType,
+        accessToken,
+      });
 
       // Parse cut moments if needed
       let cutMoments: CutMoment[] | undefined;

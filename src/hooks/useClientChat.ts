@@ -9,6 +9,7 @@ import { createChatError, getErrorMessage } from "@/lib/errors";
 import { validateMessage, validateModelId } from "@/lib/validation";
 import { withRetry, RetryError } from "@/lib/retry";
 import { parseSSEStream } from "@/lib/sse";
+import { parseOpenAIStream } from "@/lib/parseOpenAIStream";
 import { useRealtimeMessages } from "@/hooks/useRealtimeMessages";
 import { useTemplateReferences } from "@/hooks/useTemplateReferences";
 
@@ -1203,82 +1204,65 @@ Por favor, use este material como base para criar o conteúdo solicitado, adapta
           );
           const copywritingGuide = copywritingEntry ? copywritingEntry[1] : "";
 
-          const { data, error } = await supabase.functions.invoke("chat-multi-agent", {
-            body: {
-              userMessage: enrichedContent, // Usar conteúdo enriquecido com contexto
-              contentLibrary: contentLibrary.slice(0, 20).map(c => ({
-                id: c.id,
-                title: c.title,
-                content_type: c.content_type,
-                content: c.content
-              })),
-              referenceLibrary: referenceLibrary.slice(0, 10).map(r => ({
-                id: r.id,
-                title: r.title,
-                reference_type: r.reference_type,
-                content: r.content
-              })),
-              identityGuide: identityGuide || client.identity_guide || "",
-              copywritingGuide,
-              clientName: client.name,
-              contentType: contentTypeForPipeline,
-              userId: user?.id,
-              clientId,
-              pipeline // Enviar configuração do pipeline para o edge function
-            },
-          });
+          // Get access token for API call
+          const { data: sessionData } = await supabase.auth.getSession();
+          const accessToken = sessionData?.session?.access_token;
 
-          if (error) throw error;
+          if (!accessToken) {
+            throw new Error("Usuário não autenticado");
+          }
 
-          // Processar stream de progresso
-          const reader = data.body?.getReader();
-          const decoder = new TextDecoder();
-          let buffer = "";
+          // Use kai-content-agent instead of chat-multi-agent
+          const response = await fetch(
+            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/kai-content-agent`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${accessToken}`,
+                "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+              },
+              body: JSON.stringify({
+                clientId,
+                request: enrichedContent,
+                format: contentTypeForPipeline,
+              }),
+            }
+          );
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Erro na API: ${response.status} - ${errorText}`);
+          }
+
+          // Process SSE stream using OpenAI format parser
+          const reader = response.body?.getReader();
+          if (!reader) throw new Error("Não foi possível ler a resposta");
+
           let finalContent = "";
+          let chunkCount = 0;
 
-          if (reader) {
-            while (true) {
-              const { done, value } = await reader.read();
-              if (done) break;
-
-              buffer += decoder.decode(value, { stream: true });
-              const lines = buffer.split("\n");
-              buffer = lines.pop() || "";
-
-              for (const line of lines) {
-                const trimmed = line.trim();
-                if (!trimmed || !trimmed.startsWith("data: ")) continue;
-
-                const jsonStr = trimmed.slice(6);
-                if (jsonStr === "[DONE]") continue;
-
-                try {
-                  const parsed = JSON.parse(jsonStr);
-                  const { step, status, content: stepContent, agentName } = parsed;
-
-                  // Atualizar progresso visual
-                  if (step && status) {
-                    if (step === "complete" && status === "done") {
-                      finalContent = stepContent || "";
-                      setMultiAgentStep("complete");
-                    } else if (step === "error") {
-                      throw new Error(stepContent || "Erro no pipeline");
-                    } else {
-                      setMultiAgentStep(step as any);
-                      if (stepContent || agentName) {
-                        setMultiAgentDetails(prev => ({
-                          ...prev,
-                          [step]: stepContent || agentName || step
-                        }));
-                      }
-                    }
-                  }
-                } catch (e) {
-                  // Ignore parse errors
+          finalContent = await parseOpenAIStream(reader, {
+            onChunk: (count) => {
+              chunkCount = count;
+              // Update progress visual based on chunks
+              if (chunkCount % 15 === 0) {
+                const progress = Math.min(90, 20 + Math.floor(chunkCount / 10));
+                const agents = pipeline.agents;
+                const agentIndex = Math.min(Math.floor(progress / 25), agents.length - 1);
+                const currentAgent = agents[agentIndex];
+                if (currentAgent) {
+                  setMultiAgentStep(currentAgent.id as any);
+                  setMultiAgentDetails(prev => ({
+                    ...prev,
+                    [currentAgent.id]: `${currentAgent.description}...`
+                  }));
                 }
               }
             }
-          }
+          });
+
+          setMultiAgentStep("complete");
 
           // Salvar resposta final
           if (finalContent) {
@@ -1291,12 +1275,12 @@ Por favor, use este material como base para criar o conteúdo solicitado, adapta
             queryClient.invalidateQueries({ queryKey: ["messages", conversationId] });
           }
         } catch (multiAgentError: any) {
-          console.error("Multi-agent pipeline error:", multiAgentError);
+          console.error("kai-content-agent error:", multiAgentError);
           
           await supabase.from("messages").insert({
             conversation_id: conversationId,
             role: "assistant",
-            content: `Erro no pipeline multi-agente: ${multiAgentError.message || "Tente novamente."}`,
+            content: `Erro ao gerar conteúdo: ${multiAgentError.message || "Tente novamente."}`,
           });
           
           queryClient.invalidateQueries({ queryKey: ["messages", conversationId] });
