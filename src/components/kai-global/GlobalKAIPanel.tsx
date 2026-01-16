@@ -1,15 +1,8 @@
 import { useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Sparkles, Maximize2 } from "lucide-react";
+import { X, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { useNavigate } from "react-router-dom";
-import { useWorkspace } from "@/hooks/useWorkspace";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 
 interface GlobalKAIPanelProps {
   isOpen: boolean;
@@ -29,8 +22,6 @@ export function GlobalKAIPanel({
   selectedClientName,
 }: GlobalKAIPanelProps) {
   const panelRef = useRef<HTMLDivElement>(null);
-  const navigate = useNavigate();
-  const { workspace } = useWorkspace();
 
   // Close on Escape key
   useEffect(() => {
@@ -56,91 +47,65 @@ export function GlobalKAIPanel({
     };
   }, [isOpen]);
 
-  const handleExpandToFullPage = () => {
-    onClose();
-    if (workspace?.slug) {
-      const params = new URLSearchParams();
-      params.set("tab", "assistant");
-      if (selectedClientId) {
-        params.set("client", selectedClientId);
-      }
-      navigate(`/${workspace.slug}?${params.toString()}`);
-    }
-  };
-
   return (
     <AnimatePresence>
       {isOpen && (
         <>
-          {/* Backdrop overlay */}
+          {/* Backdrop overlay - minimal */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
+            transition={{ duration: 0.15 }}
+            className="fixed inset-0 z-40 bg-background/80 backdrop-blur-sm"
             onClick={onClose}
           />
 
-          {/* Panel */}
+          {/* Panel - Clean, minimal design */}
           <motion.div
             ref={panelRef}
-            initial={{ x: "100%" }}
-            animate={{ x: 0 }}
-            exit={{ x: "100%" }}
+            initial={{ x: "100%", opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            exit={{ x: "100%", opacity: 0 }}
             transition={{ 
               type: "spring", 
               damping: 30, 
-              stiffness: 300 
+              stiffness: 350,
+              mass: 0.8
             }}
             className={cn(
               "fixed right-0 top-0 z-50",
-              "w-full sm:w-96 lg:w-[28rem]",
+              "w-full sm:w-[400px] lg:w-[440px]",
               "h-screen max-h-screen",
               "bg-background border-l border-border",
-              "flex flex-col shadow-2xl overflow-hidden",
+              "flex flex-col overflow-hidden",
               className
             )}
           >
-            {/* Simplified Header */}
-            <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-card/50">
-              <div className="flex items-center gap-2">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
-                  <Sparkles className="h-4 w-4 text-primary" />
+            {/* Minimal Header */}
+            <div className="flex items-center justify-between h-14 px-4 border-b border-border">
+              <div className="flex items-center gap-3">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sidebar-accent">
+                  <Sparkles className="h-4 w-4 text-sidebar-accent-foreground" />
                 </div>
-                <div>
-                  <h2 className="text-sm font-semibold text-foreground">kAI</h2>
+                <div className="flex flex-col">
+                  <span className="text-sm font-medium text-foreground">kAI</span>
                   {selectedClientName && (
-                    <p className="text-[10px] text-muted-foreground truncate max-w-[140px]">
+                    <span className="text-xs text-muted-foreground truncate max-w-[200px]">
                       {selectedClientName}
-                    </p>
+                    </span>
                   )}
                 </div>
               </div>
               
-              <div className="flex items-center gap-1">
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                      onClick={handleExpandToFullPage}
-                    >
-                      <Maximize2 className="h-4 w-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom">Expandir</TooltipContent>
-                </Tooltip>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                  onClick={onClose}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted"
+                onClick={onClose}
+              >
+                <X className="h-4 w-4" />
+              </Button>
             </div>
 
             {/* Content */}
