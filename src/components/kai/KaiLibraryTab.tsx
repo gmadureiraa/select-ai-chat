@@ -223,7 +223,7 @@ export const KaiLibraryTab = ({ clientId, client }: KaiLibraryTabProps) => {
   };
 
   return (
-    <div className="flex flex-col h-full max-h-[calc(100vh-120px)] overflow-hidden">
+    <div className="flex flex-col h-full overflow-hidden">
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div className="flex items-center gap-2">

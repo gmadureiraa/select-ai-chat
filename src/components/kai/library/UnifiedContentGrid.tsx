@@ -6,14 +6,13 @@ import { ContentPreviewDialog } from "./ContentPreviewDialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
+
 import { cn } from "@/lib/utils";
 
 interface UnifiedContentGridProps {
   clientId: string;
   onSelectContent?: (item: UnifiedContentItem) => void;
   compact?: boolean;
-  maxHeight?: string;
   draggable?: boolean;
 }
 
@@ -28,7 +27,7 @@ const platformFilters: { value: PlatformFilter; label: string; icon: React.Eleme
   { value: 'content', label: 'Outros', icon: FileText },
 ];
 
-export function UnifiedContentGrid({ clientId, onSelectContent, compact, maxHeight = "calc(100vh - 300px)", draggable }: UnifiedContentGridProps) {
+export function UnifiedContentGrid({ clientId, onSelectContent, compact, draggable }: UnifiedContentGridProps) {
   const { data: content, isLoading } = useUnifiedContent(clientId);
   const toggleFavorite = useToggleFavorite(clientId);
   const [searchQuery, setSearchQuery] = useState("");
@@ -99,7 +98,7 @@ export function UnifiedContentGrid({ clientId, onSelectContent, compact, maxHeig
   }
 
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col h-full gap-4">
       {/* Search */}
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -144,7 +143,7 @@ export function UnifiedContentGrid({ clientId, onSelectContent, compact, maxHeig
       </div>
 
       {/* Content Grid */}
-      <ScrollArea style={{ maxHeight }} className="pr-4">
+      <div className="flex-1 overflow-y-auto pr-2">
         {compact ? (
           <div className="space-y-2">
             {filteredContent.map((item) => (
@@ -191,7 +190,7 @@ export function UnifiedContentGrid({ clientId, onSelectContent, compact, maxHeig
             <p className="text-sm">Nenhum resultado encontrado</p>
           </div>
         )}
-      </ScrollArea>
+      </div>
 
       {/* Preview Dialog */}
       <ContentPreviewDialog

@@ -12,7 +12,7 @@ import { ClientsManagementTool } from "@/components/kai/tools/ClientsManagementT
 import { ContentRepurposeTool } from "@/components/kai/tools/ContentRepurposeTool";
 import { ContentCanvas } from "@/components/kai/canvas/ContentCanvas";
 import { PlanningBoard } from "@/components/planning/PlanningBoard";
-import { FormatRulesTool } from "@/components/tools/FormatRulesTool";
+
 
 import { OnboardingFlow } from "@/components/onboarding";
 import { NotificationPermissionPrompt } from "@/components/notifications/NotificationPermissionPrompt";
@@ -203,7 +203,7 @@ export default function Kai() {
       
       case "library":
         return (
-          <div className={cn("overflow-auto h-full", isMobile ? "p-3" : "p-6")}>
+          <div className={cn("h-full flex flex-col", isMobile ? "p-3" : "p-6")}>
             <KaiLibraryTab clientId={selectedClient.id} client={selectedClient} />
           </div>
         );
