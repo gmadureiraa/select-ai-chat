@@ -167,12 +167,13 @@ export function usePerformanceReport(clientId: string) {
     try {
       const prompt = buildReportPrompt(data);
 
-      const { data: result, error } = await supabase.functions.invoke("execute-agent", {
+      // Use kai-content-agent for report generation (replaces execute-agent)
+      const { data: result, error } = await supabase.functions.invoke("kai-content-agent", {
         body: {
-          agentType: "metrics_analyst",
-          prompt,
           clientId,
-          includeContext: false
+          message: prompt,
+          model: "google/gemini-2.5-flash",
+          stream: false
         }
       });
 
