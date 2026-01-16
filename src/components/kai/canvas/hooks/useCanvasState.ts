@@ -957,9 +957,9 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
             generatedCount: i,
           } as Partial<GeneratorNodeData>);
 
-          // Use fetch with SSE stream processing
+          // Use fetch with SSE stream processing - using kai-content-agent
           const response = await fetch(
-            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat-multi-agent`,
+            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/kai-content-agent`,
             {
               method: "POST",
               headers: {
@@ -968,15 +968,10 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
                 "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
               },
               body: JSON.stringify({
-                userMessage,
-                contentType: genData.format,
-                platform: genData.platform,
-                clientName: clientData?.name || "Cliente",
-                identityGuide: clientData?.identity_guide || "",
-                libraryContext: "",
-                referenceContext: "",
-                userId: sessionData?.session?.user?.id,
                 clientId,
+                request: userMessage,
+                format: genData.format,
+                platform: genData.platform,
               }),
             }
           );
