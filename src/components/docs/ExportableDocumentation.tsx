@@ -1180,7 +1180,6 @@ CREATE POLICY "Members can access allowed clients content"
 | \`InstagramDashboard\` | \`performance/\` | Dashboard Instagram |
 | \`ClientList\` | \`clients/\` | Lista de clientes |
 | \`ClientEditDialog\` | \`clients/\` | Edição de cliente |
-| \`KnowledgeBaseTool\` | \`kai/tools/\` | Ferramenta knowledge base |
 
 ---
 
@@ -1200,11 +1199,10 @@ CREATE POLICY "Members can access allowed clients content"
 
 O kAI é uma plataforma robusta e modular para criação de conteúdo por IA. Os principais diferenciais são:
 
-1. **Pipeline Multi-Agente**: Qualidade superior via especialização
-2. **Contexto Rico**: IA com acesso completo à identidade do cliente
-3. **Transparência**: Usuário vê tudo que está acontecendo
-4. **Unificação**: Uma interface para tudo
-5. **Extensibilidade**: Agent Builder para workflows customizados
+1. **Contexto Rico**: IA com acesso completo à identidade do cliente
+2. **Transparência**: Usuário vê tudo que está acontecendo
+3. **Unificação**: Uma interface para tudo
+4. **Canvas Visual**: Fluxos de criação de conteúdo
 
 Para melhorias futuras, considerar:
 - Sistema de feedback para outputs
