@@ -17,8 +17,11 @@ interface CitationPopoverProps {
   onSelect: (item: CitationItem) => void;
   contentLibrary?: Array<{ id: string; title: string; content_type: string; content: string }>;
   referenceLibrary?: Array<{ id: string; title: string; reference_type: string; content: string }>;
+  assignees?: Array<{ id: string; name: string; email?: string }>;
+  clients?: Array<{ id: string; name: string }>;
   anchorRef: RefObject<HTMLElement>;
   searchQuery?: string;
+  showFormats?: boolean;
 }
 
 // Built-in format options
@@ -60,8 +63,11 @@ export function CitationPopover({
   onSelect,
   contentLibrary = [],
   referenceLibrary = [],
+  assignees = [],
+  clients = [],
   anchorRef,
   searchQuery = "",
+  showFormats = true,
 }: CitationPopoverProps) {
   const [internalSearch, setInternalSearch] = useState("");
   const effectiveSearch = searchQuery || internalSearch;
@@ -70,8 +76,10 @@ export function CitationPopover({
   const allItems = useMemo(() => {
     const items: CitationItem[] = [];
 
-    // Add format options first
-    items.push(...FORMAT_OPTIONS);
+    // Add format options first (if enabled)
+    if (showFormats) {
+      items.push(...FORMAT_OPTIONS);
+    }
 
     // Add content library items
     contentLibrary.forEach((item) => {
@@ -93,8 +101,28 @@ export function CitationPopover({
       });
     });
 
+    // Add assignees
+    assignees.forEach((item) => {
+      items.push({
+        id: item.id,
+        title: item.name,
+        type: "assignee",
+        category: "assignee",
+      });
+    });
+
+    // Add clients
+    clients.forEach((item) => {
+      items.push({
+        id: item.id,
+        title: item.name,
+        type: "client",
+        category: "client",
+      });
+    });
+
     return items;
-  }, [contentLibrary, referenceLibrary]);
+  }, [contentLibrary, referenceLibrary, assignees, clients, showFormats]);
 
   // Filter items based on search
   const filteredItems = useMemo(() => {
