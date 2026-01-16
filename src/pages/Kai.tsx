@@ -7,13 +7,13 @@ import { KaiPerformanceTab } from "@/components/kai/KaiPerformanceTab";
 import { KaiLibraryTab } from "@/components/kai/KaiLibraryTab";
 import { KaiDocsTab } from "@/components/kai/KaiDocsTab";
 
-import { TeamTool } from "@/components/kai/tools/TeamTool";
+
 import { ClientsManagementTool } from "@/components/kai/tools/ClientsManagementTool";
 import { ContentRepurposeTool } from "@/components/kai/tools/ContentRepurposeTool";
 import { ContentCanvas } from "@/components/kai/canvas/ContentCanvas";
 import { PlanningBoard } from "@/components/planning/PlanningBoard";
 import { FormatRulesTool } from "@/components/tools/FormatRulesTool";
-import { AccountSettingsSection } from "@/components/settings/AccountSettingsSection";
+
 import { OnboardingFlow } from "@/components/onboarding";
 import { NotificationPermissionPrompt } from "@/components/notifications/NotificationPermissionPrompt";
 import { UpgradePromptProvider } from "@/hooks/useUpgradePrompt";
@@ -47,7 +47,7 @@ export default function Kai() {
     let redirectTab = "performance"; // Default for viewers
     
     // Removed tabs - redirect if accessing them
-    const removedTabs = ["agent-builder", "research-lab", "assistant", "knowledge-base"];
+    const removedTabs = ["agent-builder", "research-lab", "assistant", "knowledge-base", "team", "account", "settings"];
     if (removedTabs.includes(tab)) {
       shouldRedirect = true;
     }
@@ -75,9 +75,6 @@ export default function Kai() {
     
     // Admin tabs require specific permissions
     if (tab === "clients" && !canViewClients) {
-      shouldRedirect = true;
-    }
-    if (tab === "team" && !canManageTeam) {
       shouldRedirect = true;
     }
     
@@ -134,7 +131,7 @@ export default function Kai() {
     }
 
     // Tools that don't need client
-    const toolTabs = ["repurpose", "canvas", "team", "clients", "account", "format-rules", "settings", "docs"];
+    const toolTabs = ["repurpose", "canvas", "clients", "format-rules", "docs"];
     
     if (toolTabs.includes(tab)) {
       switch (tab) {
@@ -150,19 +147,10 @@ export default function Kai() {
               <ContentCanvas clientId={clientId || ""} />
             </div>
           );
-        case "team":
-          return <TeamTool />;
         case "clients":
           return <ClientsManagementTool />;
         case "format-rules":
           return <FormatRulesTool />;
-        case "account":
-        case "settings":
-          return (
-            <div className="p-6 overflow-y-auto h-full">
-              <AccountSettingsSection />
-            </div>
-          );
         case "docs":
           return (
             <div className="p-6 overflow-y-auto h-full">
