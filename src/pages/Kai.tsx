@@ -9,7 +9,6 @@ import { KaiDocsTab } from "@/components/kai/KaiDocsTab";
 
 
 import { ClientsManagementTool } from "@/components/kai/tools/ClientsManagementTool";
-import { ContentRepurposeTool } from "@/components/kai/tools/ContentRepurposeTool";
 import { ContentCanvas } from "@/components/kai/canvas/ContentCanvas";
 import { PlanningBoard } from "@/components/planning/PlanningBoard";
 
@@ -47,7 +46,7 @@ export default function Kai() {
     let redirectTab = "performance"; // Default for viewers
     
     // Removed tabs - redirect if accessing them
-    const removedTabs = ["agent-builder", "research-lab", "assistant", "knowledge-base", "team", "account", "settings", "templates", "format-rules"];
+    const removedTabs = ["agent-builder", "research-lab", "assistant", "knowledge-base", "team", "account", "settings", "templates", "format-rules", "repurpose"];
     if (removedTabs.includes(tab)) {
       shouldRedirect = true;
       redirectTab = "library"; // Redirect to library instead
@@ -132,16 +131,10 @@ export default function Kai() {
     }
 
     // Tools that don't need client
-    const toolTabs = ["repurpose", "canvas", "clients", "docs"];
+    const toolTabs = ["canvas", "clients", "docs"];
     
     if (toolTabs.includes(tab)) {
       switch (tab) {
-        case "repurpose":
-          return (
-            <div className="overflow-auto h-full p-0">
-              <ContentRepurposeTool clientId={clientId || ""} />
-            </div>
-          );
         case "canvas":
           return (
             <div className="h-full overflow-hidden">

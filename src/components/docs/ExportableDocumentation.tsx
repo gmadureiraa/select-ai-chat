@@ -84,10 +84,10 @@ src/
 └── lib/                # Utilitários
 
 supabase/
-├── functions/          # 48 Edge Functions
-│   ├── chat-multi-agent/   # Pipeline principal
-│   ├── orchestrator/       # Orquestrador de agentes
+├── functions/          # Edge Functions
+│   ├── kai-content-agent/  # Agente de conteúdo com IA
 │   ├── generate-image/     # Geração de imagens
+│   ├── publish-content/    # Publicação de conteúdo
 │   └── ...
 └── migrations/         # Migrações SQL
 \`\`\`
