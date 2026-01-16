@@ -12,6 +12,7 @@ interface ContentRequest {
   format?: string;
   platform?: string;
   workspaceId?: string;
+  conversationHistory?: Array<{ role: string; content: string }>;
 }
 
 serve(async (req) => {
@@ -24,7 +25,7 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { clientId, request, format, platform, workspaceId } = await req.json() as ContentRequest;
+    const { clientId, request, format, platform, workspaceId, conversationHistory } = await req.json() as ContentRequest;
 
     if (!clientId) {
       return new Response(
@@ -33,10 +34,10 @@ serve(async (req) => {
       );
     }
 
-    // Fetch client context
+    // Fetch complete client context
     const { data: client } = await supabase
       .from("clients")
-      .select("name, description, identity_guide, context_notes")
+      .select("name, description, identity_guide, context_notes, social_media, tags")
       .eq("id", clientId)
       .single();
 
@@ -52,13 +53,28 @@ serve(async (req) => {
       formatRules = data;
     }
 
-    // Fetch recent successful content for reference
+    // Fetch recent successful content WITH FULL TEXT for style reference
     const { data: recentContent } = await supabase
       .from("client_content_library")
-      .select("title, content, content_type")
+      .select("title, content, content_type, metadata")
       .eq("client_id", clientId)
+      .eq("is_favorite", true) // Prioritize favorited content
       .order("created_at", { ascending: false })
-      .limit(5);
+      .limit(3);
+
+    // Also fetch more recent content if we don't have enough favorites
+    let additionalContent: typeof recentContent = [];
+    if (!recentContent || recentContent.length < 3) {
+      const { data: moreContent } = await supabase
+        .from("client_content_library")
+        .select("title, content, content_type, metadata")
+        .eq("client_id", clientId)
+        .order("created_at", { ascending: false })
+        .limit(5);
+      additionalContent = moreContent || [];
+    }
+
+    const allContent = [...(recentContent || []), ...additionalContent].slice(0, 5);
 
     // Fetch reference library
     const { data: references } = await supabase
@@ -67,67 +83,131 @@ serve(async (req) => {
       .eq("client_id", clientId)
       .limit(5);
 
-    // Build context
+    // Fetch global knowledge for extra context
+    let globalKnowledge = null;
+    if (workspaceId) {
+      const { data } = await supabase
+        .from("global_knowledge")
+        .select("title, summary, category")
+        .eq("workspace_id", workspaceId)
+        .limit(3);
+      globalKnowledge = data;
+    }
+
+    // Build rich context
     let contextPrompt = `## Cliente: ${client?.name || "Não especificado"}\n`;
     
     if (client?.description) {
-      contextPrompt += `Descrição: ${client.description}\n`;
+      contextPrompt += `**Descrição:** ${client.description}\n\n`;
     }
     
     if (client?.identity_guide) {
-      contextPrompt += `\n### Guia de Identidade\n${client.identity_guide}\n`;
+      contextPrompt += `### Guia de Identidade e Tom de Voz\n${client.identity_guide}\n\n`;
     }
     
     if (client?.context_notes) {
-      contextPrompt += `\n### Notas de Contexto\n${client.context_notes}\n`;
+      contextPrompt += `### Contexto Adicional\n${client.context_notes}\n\n`;
+    }
+
+    if (client?.social_media) {
+      const socialMedia = typeof client.social_media === 'string' 
+        ? JSON.parse(client.social_media) 
+        : client.social_media;
+      if (Object.keys(socialMedia).length > 0) {
+        contextPrompt += `### Redes Sociais\n`;
+        Object.entries(socialMedia).forEach(([key, value]) => {
+          if (value) contextPrompt += `- ${key}: ${value}\n`;
+        });
+        contextPrompt += `\n`;
+      }
     }
 
     if (formatRules) {
-      contextPrompt += `\n### Regras do Formato: ${formatRules.name}\n`;
+      contextPrompt += `### Regras do Formato: ${formatRules.name}\n`;
       contextPrompt += `${formatRules.description || ""}\n`;
       if (formatRules.rules) {
-        contextPrompt += `Estrutura: ${JSON.stringify(formatRules.rules, null, 2)}\n`;
+        contextPrompt += `**Estrutura:** ${JSON.stringify(formatRules.rules, null, 2)}\n`;
       }
       if (formatRules.prompt_template) {
-        contextPrompt += `Template: ${formatRules.prompt_template}\n`;
+        contextPrompt += `**Template:** ${formatRules.prompt_template}\n`;
       }
+      contextPrompt += `\n`;
     }
 
-    if (recentContent && recentContent.length > 0) {
-      contextPrompt += `\n### Exemplos de Conteúdo Anterior\n`;
-      recentContent.forEach((c, i) => {
-        contextPrompt += `${i + 1}. "${c.title}" (${c.content_type})\n`;
+    // Include FULL content samples for style matching
+    if (allContent && allContent.length > 0) {
+      contextPrompt += `### Exemplos de Conteúdo do Cliente (USE COMO REFERÊNCIA DE TOM E ESTILO)\n`;
+      contextPrompt += `*Analise esses exemplos e replique o tom de voz, estrutura e estilo:*\n\n`;
+      allContent.forEach((c, i) => {
+        const contentPreview = c.content?.substring(0, 800) || "";
+        contextPrompt += `**Exemplo ${i + 1}: "${c.title}"** (${c.content_type})\n`;
+        contextPrompt += `\`\`\`\n${contentPreview}${c.content && c.content.length > 800 ? "..." : ""}\n\`\`\`\n\n`;
       });
     }
 
     if (references && references.length > 0) {
-      contextPrompt += `\n### Referências do Cliente\n`;
+      contextPrompt += `### Referências do Cliente\n`;
       references.forEach((r, i) => {
-        contextPrompt += `${i + 1}. ${r.title} (${r.reference_type})\n`;
+        contextPrompt += `${i + 1}. **${r.title}** (${r.reference_type})\n`;
+        if (r.content) {
+          contextPrompt += `   ${r.content.substring(0, 200)}...\n`;
+        }
       });
+      contextPrompt += `\n`;
     }
 
-    const systemPrompt = `Você é um copywriter especialista em criação de conteúdo para redes sociais.
-Seu objetivo é criar conteúdo envolvente, relevante e alinhado com a identidade do cliente.
+    if (globalKnowledge && globalKnowledge.length > 0) {
+      contextPrompt += `### Base de Conhecimento\n`;
+      globalKnowledge.forEach((k) => {
+        contextPrompt += `- **${k.title}** (${k.category}): ${k.summary?.substring(0, 150) || ""}...\n`;
+      });
+      contextPrompt += `\n`;
+    }
+
+    const systemPrompt = `Você é um copywriter especialista em criação de conteúdo para redes sociais e marketing digital.
 
 ${contextPrompt}
 
-## Diretrizes de Criação:
-1. Mantenha o tom de voz consistente com o guia de identidade
-2. Use gatilhos mentais e técnicas de copywriting
-3. Seja conciso e impactante
-4. Inclua CTAs quando apropriado
-5. Formate o conteúdo para fácil leitura
-6. Se for newsletter, siga a estrutura específica do formato
-7. Forneça o conteúdo pronto para uso, não apenas sugestões
+## Suas Responsabilidades:
 
-Formato solicitado: ${format || "post"}
-Plataforma: ${platform || "Instagram"}`;
+1. **Manter a Identidade**: Siga rigorosamente o guia de identidade e tom de voz do cliente
+2. **Replicar o Estilo**: Use os exemplos de conteúdo como referência para estrutura e linguagem
+3. **Copywriting Estratégico**: Use gatilhos mentais, CTAs e técnicas de persuasão apropriadas
+4. **Formato Adequado**: Respeite as regras de formato quando especificadas
+5. **Conteúdo Completo**: Entregue o conteúdo PRONTO PARA USO, não apenas sugestões
+
+## Diretrizes de Criação:
+
+- Seja conciso e impactante
+- Use emojis com moderação e de forma estratégica
+- Inclua CTAs quando apropriado
+- Formate para fácil leitura (parágrafos curtos, bullet points quando necessário)
+- Mantenha autenticidade - evite parecer genérico ou "ChatGPT-like"
+- Se for newsletter, siga estrutura com assunto, preview text e corpo
+- Se for carrossel, divida em slides claros
+
+## Formato Solicitado: ${format || "post"}
+## Plataforma: ${platform || "Instagram"}
+
+Agora, crie o conteúdo solicitado mantendo 100% de fidelidade ao tom e estilo do cliente.`;
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
       throw new Error("LOVABLE_API_KEY não configurada");
     }
+
+    // Build messages array with conversation history
+    const messages: Array<{ role: string; content: string }> = [
+      { role: "system", content: systemPrompt },
+    ];
+
+    // Add conversation history if provided
+    if (conversationHistory && conversationHistory.length > 0) {
+      messages.push(...conversationHistory.slice(-10)); // Keep last 10 messages
+    }
+
+    // Add current request
+    messages.push({ role: "user", content: request });
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -137,10 +217,7 @@ Plataforma: ${platform || "Instagram"}`;
       },
       body: JSON.stringify({
         model: "google/gemini-2.5-flash",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: request },
-        ],
+        messages,
         stream: true,
       }),
     });
@@ -148,6 +225,21 @@ Plataforma: ${platform || "Instagram"}`;
     if (!response.ok) {
       const errorText = await response.text();
       console.error("AI error:", errorText);
+      
+      if (response.status === 429) {
+        return new Response(
+          JSON.stringify({ error: "Rate limit excedido. Tente novamente em alguns segundos." }),
+          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      
+      if (response.status === 402) {
+        return new Response(
+          JSON.stringify({ error: "Créditos insuficientes. Adicione créditos ao workspace." }),
+          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      
       throw new Error("Erro ao gerar conteúdo");
     }
 
