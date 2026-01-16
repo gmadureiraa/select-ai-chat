@@ -47,9 +47,10 @@ export default function Kai() {
     let redirectTab = "performance"; // Default for viewers
     
     // Removed tabs - redirect if accessing them
-    const removedTabs = ["agent-builder", "research-lab", "assistant", "knowledge-base", "team", "account", "settings"];
+    const removedTabs = ["agent-builder", "research-lab", "assistant", "knowledge-base", "team", "account", "settings", "templates", "format-rules"];
     if (removedTabs.includes(tab)) {
       shouldRedirect = true;
+      redirectTab = "library"; // Redirect to library instead
     }
     
     // Viewer-blocked tabs
@@ -131,7 +132,7 @@ export default function Kai() {
     }
 
     // Tools that don't need client
-    const toolTabs = ["repurpose", "canvas", "clients", "format-rules", "docs"];
+    const toolTabs = ["repurpose", "canvas", "clients", "docs"];
     
     if (toolTabs.includes(tab)) {
       switch (tab) {
@@ -149,8 +150,6 @@ export default function Kai() {
           );
         case "clients":
           return <ClientsManagementTool />;
-        case "format-rules":
-          return <FormatRulesTool />;
         case "docs":
           return (
             <div className="p-6 overflow-y-auto h-full">

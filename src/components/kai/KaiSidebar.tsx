@@ -4,17 +4,16 @@ import {
   Palette, 
   BarChart3, 
   CalendarDays,
-  Settings,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
   LogOut,
   Building2,
   Plus,
-  FileText,
   Moon,
   Sun,
   Library,
+  Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useClients } from "@/hooks/useClients";
@@ -303,14 +302,6 @@ export function KaiSidebar({
           collapsed={collapsed}
         />
 
-        {/* Templates */}
-        <NavItem
-          icon={<FileText className="h-4 w-4" strokeWidth={1.5} />}
-          label="Templates"
-          active={activeTab === "templates"}
-          onClick={() => onTabChange("templates")}
-          collapsed={collapsed}
-        />
 
         {/* Profiles */}
         {canViewClients && (

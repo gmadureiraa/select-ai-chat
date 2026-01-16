@@ -223,7 +223,7 @@ export const KaiLibraryTab = ({ clientId, client }: KaiLibraryTabProps) => {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col h-full max-h-[calc(100vh-120px)] overflow-hidden">
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div className="flex items-center gap-2">
@@ -261,7 +261,7 @@ export const KaiLibraryTab = ({ clientId, client }: KaiLibraryTabProps) => {
       </div>
 
       {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v); setSelectedItems(new Set()); }}>
+      <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v); setSelectedItems(new Set()); }} className="flex-1 flex flex-col overflow-hidden">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <TabsList>
             <TabsTrigger value="content" className="gap-2 data-[state=active]:bg-green-500/10 data-[state=active]:text-green-600">
@@ -318,7 +318,7 @@ export const KaiLibraryTab = ({ clientId, client }: KaiLibraryTabProps) => {
         </div>
 
         {/* Unified Content Library */}
-        <TabsContent value="content" className="mt-4">
+        <TabsContent value="content" className="mt-4 flex-1 overflow-y-auto">
           <UnifiedContentGrid
             clientId={clientId}
             onSelectContent={(item) => {
@@ -328,7 +328,7 @@ export const KaiLibraryTab = ({ clientId, client }: KaiLibraryTabProps) => {
         </TabsContent>
 
         {/* Reference Library */}
-        <TabsContent value="references" className="mt-4">
+        <TabsContent value="references" className="mt-4 flex-1 overflow-y-auto">
           {filteredReferences.length === 0 ? (
             <Card>
               <CardContent className="pt-6">
@@ -363,7 +363,7 @@ export const KaiLibraryTab = ({ clientId, client }: KaiLibraryTabProps) => {
         </TabsContent>
 
         {/* Visual References Library */}
-        <TabsContent value="visual-refs" className="mt-4">
+        <TabsContent value="visual-refs" className="mt-4 flex-1 overflow-y-auto">
           <VisualReferencesManager
             clientId={clientId}
             variant="expanded"
