@@ -51,16 +51,13 @@ export function PlanningBoard({ clientId, isEnterprise = false, onClientChange }
   
   // Effective filters - use localFilters.clientId if set, otherwise use prop clientId
   const effectiveFilters = useMemo(() => {
-    // If localFilters has a clientId set (including empty string for "all"), use that
     if (localFilters.clientId !== undefined) {
-      // For viewers with restricted client access, force filter
       if (isViewer && viewerClientIds.length > 0) {
         const allowedClientId = localFilters.clientId && viewerClientIds.includes(localFilters.clientId)
           ? localFilters.clientId
           : viewerClientIds[0];
         return { ...localFilters, clientId: allowedClientId };
       }
-      // Empty string means "all clients" - don't include clientId filter
       if (localFilters.clientId === '') {
         const { clientId: _, ...rest } = localFilters;
         return rest;
@@ -68,12 +65,10 @@ export function PlanningBoard({ clientId, isEnterprise = false, onClientChange }
       return localFilters;
     }
     
-    // Initial load: if prop clientId is provided, use it
     if (clientId) {
       return { ...localFilters, clientId };
     }
     
-    // For viewers with restricted client access, force filter
     if (isViewer && viewerClientIds.length > 0) {
       return { ...localFilters, clientId: viewerClientIds[0] };
     }
@@ -94,10 +89,8 @@ export function PlanningBoard({ clientId, isEnterprise = false, onClientChange }
     getItemsByColumn,
   } = usePlanningItems(effectiveFilters);
 
-  // Enable realtime updates
   usePlanningRealtime();
 
-  // Handle opening item from URL (e.g., from notification click)
   useEffect(() => {
     const openItemId = searchParams.get('openItem');
     if (openItemId && items.length > 0) {
@@ -105,7 +98,6 @@ export function PlanningBoard({ clientId, isEnterprise = false, onClientChange }
       if (itemToOpen) {
         setEditingItem(itemToOpen);
         setDialogOpen(true);
-        // Remove the openItem param from URL after opening
         const newParams = new URLSearchParams(searchParams);
         newParams.delete('openItem');
         setSearchParams(newParams, { replace: true });
@@ -114,15 +106,13 @@ export function PlanningBoard({ clientId, isEnterprise = false, onClientChange }
   }, [searchParams, items, setSearchParams]);
 
   const handleFiltersChange = (newFilters: PlanningFilters) => {
-    // For viewers, don't allow changing to clients outside their access
     if (isViewer && viewerClientIds.length > 0 && newFilters.clientId) {
       if (!viewerClientIds.includes(newFilters.clientId)) {
-        return; // Ignore invalid client selection
+        return;
       }
     }
     setLocalFilters(newFilters);
     
-    // Sync client selection with URL if callback provided
     if (onClientChange && newFilters.clientId !== undefined) {
       onClientChange(newFilters.clientId || null);
     }
@@ -159,12 +149,10 @@ export function PlanningBoard({ clientId, isEnterprise = false, onClientChange }
     });
   };
 
-  // Handle moving item to a new date (from calendar drag-and-drop)
   const handleMoveToDate = useCallback((itemId: string, newDate: Date) => {
     const item = items.find(i => i.id === itemId);
     if (!item) return;
 
-    // If item has scheduled_at, update that; otherwise update due_date
     const updateData = item.scheduled_at
       ? { scheduled_at: format(newDate, "yyyy-MM-dd'T'HH:mm:ss") }
       : { due_date: format(newDate, 'yyyy-MM-dd') };
@@ -172,58 +160,52 @@ export function PlanningBoard({ clientId, isEnterprise = false, onClientChange }
     updateItem.mutate({ id: itemId, ...updateData });
   }, [items, updateItem]);
   
-  // Determine if we should show the filters (hide for viewers with single client access)
   const showFilters = !(isViewer && viewerClientIds.length === 1);
 
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
       </div>
     );
   }
 
   return (
-    <div className="h-full flex flex-col gap-4">
+    <div className="h-full flex flex-col gap-3">
       {/* Viewer Mode Banner */}
       {isViewer && (
-        <div className="flex items-center gap-2 px-3 py-2 bg-muted/50 border border-border rounded-lg text-sm text-muted-foreground">
-          <Eye className="h-4 w-4" />
-          <span>Modo visualização — você pode criar e mover itens, mas não pode excluí-los</span>
+        <div className="flex items-center gap-2 px-3 py-2 bg-muted/30 border border-border/50 rounded-lg text-xs text-muted-foreground">
+          <Eye className="h-3.5 w-3.5" />
+          <span>Modo visualização — você pode criar e mover itens</span>
         </div>
       )}
 
       {/* Header */}
-      <div className={cn(
-        "flex items-center gap-3",
-        isMobile ? "flex-col items-stretch" : "flex-wrap justify-between gap-4"
-      )}>
-        <div className="flex items-center justify-between gap-3 w-full">
-          <div className="flex items-center gap-3">
-            <h2 className={cn("font-semibold", isMobile ? "text-lg" : "text-xl")}>Planejamento</h2>
-            <ViewToggle view={view} onChange={setView} />
-          </div>
-          {!isViewer && (
-            <div className="flex items-center gap-2">
-              <Button 
-                variant="outline" 
-                size="icon"
-                onClick={() => setShowAutomations(!showAutomations)}
-                className={cn("h-8 w-8", showAutomations && 'bg-primary/10')}
-              >
-                <Zap className="h-4 w-4" />
-              </Button>
-              <ViewSettingsPopover settings={settings} onChange={setSettings} />
-              <Button onClick={() => handleNewCard()} size="sm" className="h-8">
-                <Plus className="h-4 w-4" />
-                {!isMobile && <span className="ml-1">Novo Card</span>}
-              </Button>
-            </div>
-          )}
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <ViewToggle view={view} onChange={setView} />
         </div>
+        
+        {!isViewer && (
+          <div className="flex items-center gap-2">
+            <Button 
+              variant="ghost" 
+              size="icon"
+              onClick={() => setShowAutomations(!showAutomations)}
+              className={cn("h-8 w-8", showAutomations && 'bg-primary/10 text-primary')}
+            >
+              <Zap className="h-4 w-4" />
+            </Button>
+            <ViewSettingsPopover settings={settings} onChange={setSettings} />
+            <Button onClick={() => handleNewCard()} size="sm" className="h-8 gap-1.5">
+              <Plus className="h-4 w-4" />
+              {!isMobile && <span>Novo</span>}
+            </Button>
+          </div>
+        )}
       </div>
 
-      {/* Filters - Hidden for viewers with single client */}
+      {/* Filters */}
       {showFilters && (
         <FiltersComponent 
           filters={effectiveFilters} 
@@ -233,7 +215,7 @@ export function PlanningBoard({ clientId, isEnterprise = false, onClientChange }
 
       {/* Automations Panel */}
       {showAutomations && (
-        <div className="mb-4">
+        <div className="mb-2">
           <PlanningAutomations />
         </div>
       )}
@@ -269,7 +251,7 @@ export function PlanningBoard({ clientId, isEnterprise = false, onClientChange }
         )}
 
         {view === 'list' && (
-          <div className="flex-1 overflow-y-auto space-y-2 p-1">
+          <div className="h-full overflow-y-auto space-y-2 pr-2">
             {items.map(item => (
               <PlanningItemCard
                 key={item.id}
@@ -284,7 +266,7 @@ export function PlanningBoard({ clientId, isEnterprise = false, onClientChange }
               />
             ))}
             {items.length === 0 && (
-              <div className="text-center py-12 text-muted-foreground">
+              <div className="text-center py-12 text-muted-foreground text-sm">
                 Nenhum item encontrado
               </div>
             )}
