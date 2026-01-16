@@ -981,13 +981,14 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
             throw new Error(`Erro na API: ${response.status} - ${errorText}`);
           }
 
-          // Process SSE stream
+          // Process SSE stream - kai-content-agent uses OpenAI format
           const reader = response.body?.getReader();
           if (!reader) throw new Error("Não foi possível ler a resposta");
 
           const decoder = new TextDecoder();
           let buffer = "";
           let finalContent = "";
+          let chunkCount = 0;
 
           while (true) {
             const { done, value } = await reader.read();
@@ -1008,25 +1009,20 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
                 try {
                   const parsed = JSON.parse(jsonStr);
                   
-                  // Update progress in real-time based on agent (for single content)
-                  if (quantity === 1 && parsed.status === "running" && parsed.agentName) {
-                    const progressMap: Record<string, number> = {
-                      "researcher": 25,
-                      "writer": 50,
-                      "editor": 75,
-                      "reviewer": 90,
-                    };
-                    const progressPercent = progressMap[parsed.step] || 50;
+                  // OpenAI streaming format - extract content from delta
+                  const deltaContent = parsed.choices?.[0]?.delta?.content;
+                  if (deltaContent) {
+                    finalContent += deltaContent;
+                    chunkCount++;
                     
-                    updateNodeData(generatorNodeId, {
-                      currentStep: parsed.agentName,
-                      progress: progressPercent,
-                    } as Partial<GeneratorNodeData>);
-                  }
-                  
-                  // Capture final content
-                  if (parsed.step === "complete" && parsed.status === "done" && parsed.content) {
-                    finalContent = parsed.content;
+                    // Update progress based on content chunks
+                    if (quantity === 1 && chunkCount % 10 === 0) {
+                      const progress = Math.min(90, 20 + Math.floor(chunkCount / 5));
+                      updateNodeData(generatorNodeId, {
+                        currentStep: "Gerando conteúdo...",
+                        progress,
+                      } as Partial<GeneratorNodeData>);
+                    }
                   }
                 } catch {
                   // Ignore JSON parse errors for incomplete chunks
@@ -1035,6 +1031,8 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
             }
           }
 
+          // Trim final content
+          finalContent = finalContent.trim();
           if (!finalContent) continue; // Skip this variation if no content
 
           // Create output node with offset for batch
