@@ -63,8 +63,8 @@ export function GlobalKAIProvider({ children }: GlobalKAIProviderProps) {
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
   const [attachedFiles, setAttachedFiles] = useState<KAIFileAttachment[]>([]);
   
-  // Chat mode - default to "ideas" (mais comum)
-  const [chatMode, setChatMode] = useState<GlobalKAIChatMode>("ideas");
+  // Chat mode - default to "content" (único agente especializado)
+  const [chatMode, setChatMode] = useState<GlobalKAIChatMode>("content");
 
   // Workspace data
   const [assignees, setAssignees] = useState<AssigneeItem[]>([]);
@@ -535,92 +535,13 @@ export function GlobalKAIProvider({ children }: GlobalKAIProviderProps) {
       }
       
       // ============================================
-      // PERFORMANCE MODE: Call kai-metrics-agent directly
+      // SIMPLIFIED: Always use content mode - single agent
       // ============================================
-      if (chatMode === "performance") {
-        console.log("[GlobalKAI] Performance mode - calling kai-metrics-agent");
-        setActionStatus("executing");
-        
-        // Insert user message first
-        await insertMessage("user", text);
-        
-        try {
-          const response = await supabase.functions.invoke("kai-metrics-agent", {
-            body: {
-              clientId: selectedClientId,
-              question: text,
-            },
-          });
-          
-          if (response.error) {
-            throw new Error(response.error.message);
-          }
-          
-          // Stream response handling
-          const reader = response.data?.body?.getReader();
-          if (reader) {
-            const decoder = new TextDecoder();
-            let fullContent = "";
-            
-            while (true) {
-              const { done, value } = await reader.read();
-              if (done) break;
-              fullContent += decoder.decode(value, { stream: true });
-            }
-            
-            // Insert assistant response
-            await insertMessage("assistant", fullContent);
-          } else if (typeof response.data === "string") {
-            await insertMessage("assistant", response.data);
-          } else {
-            await insertMessage("assistant", response.data?.content || "Não foi possível analisar as métricas.");
-          }
-          
-          setActionStatus("idle");
-          clearTimeout(timeoutId);
-          setAttachedFiles([]);
-          return;
-        } catch (perfError) {
-          console.error("[GlobalKAI] Performance analysis error:", perfError);
-          await insertMessage("assistant", `❌ Erro ao analisar métricas: ${perfError instanceof Error ? perfError.message : "Erro desconhecido"}`);
-          setActionStatus("idle");
-          clearTimeout(timeoutId);
-          return;
-        }
-      }
-      
-      // Determine explicitMode - chatMode takes precedence over router
-      // If user explicitly selected "content" mode, always use content pipeline
-      let explicitMode: "content" | "ideas" | "free_chat" | "image" = 
+      const explicitMode: "content" | "ideas" | "free_chat" | "image" = 
         chatMode === "content" ? "content" : 
-        chatMode === "ideas" ? "ideas" : "free_chat";
+        chatMode === "ideas" ? "ideas" : "content"; // Default to content for all modes
       
-      // Only use router when in free_chat mode to potentially upgrade to content
-      if (chatMode === "free_chat") {
-        try {
-          const { data: routerDecision, error: routerError } = await supabase.functions.invoke("kai-router", {
-            body: {
-              message: text,
-              clientId: selectedClientId,
-              hasFiles: allAttachments.length > 0,
-              fileTypes: allAttachments.map(f => f.type),
-            },
-          });
-          
-          if (!routerError && routerDecision) {
-            console.log("[GlobalKAI] Router decision:", routerDecision);
-            
-            // Map pipeline to explicitMode
-            if (routerDecision.pipeline === "multi_agent_content") {
-              explicitMode = "content";
-            }
-          }
-        } catch (routerErr) {
-          console.warn("[GlobalKAI] Router error, using default chatMode:", routerErr);
-        }
-      }
-      
-      console.log("[GlobalKAI] Final explicitMode:", explicitMode, "chatMode:", chatMode);
+      console.log("[GlobalKAI] Using content agent, mode:", explicitMode);
       
       // Pass image URLs to chat - this enables multimodal AI analysis
       await clientChatSendMessage(text, imageUrls.length > 0 ? imageUrls : undefined, "fast", explicitMode, citations);

@@ -157,8 +157,8 @@ export function GlobalKAIInputMinimal({
   return (
     <div 
       className={cn(
-        "border-t border-border bg-card/50 p-3 transition-colors",
-        isDragOver && "bg-primary/5 border-primary/30"
+        "border-t border-border bg-background p-3 transition-colors",
+        isDragOver && "bg-muted/50"
       )}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
@@ -176,15 +176,11 @@ export function GlobalKAIInputMinimal({
             <div className="flex flex-wrap gap-1.5">
               {attachedFiles.map((file) => {
                 const Icon = getFileIcon(file.type, file.name);
-                const isCSV = file.name.endsWith(".csv");
                 return (
                   <Badge
                     key={file.id}
                     variant="secondary"
-                    className={cn(
-                      "gap-1.5 pr-1 max-w-[150px]",
-                      isCSV && "border-green-500/30 bg-green-500/10"
-                    )}
+                    className="gap-1.5 pr-1 max-w-[150px] bg-muted"
                   >
                     <Icon className="h-3 w-3 flex-shrink-0" />
                     <span className="truncate text-xs">{file.name}</span>
@@ -202,7 +198,7 @@ export function GlobalKAIInputMinimal({
         )}
       </AnimatePresence>
 
-      {/* Minimal input area: [📎] [____________] [→] */}
+      {/* Minimal input area */}
       <div className="flex items-end gap-2">
         {/* File upload */}
         <input
@@ -216,7 +212,7 @@ export function GlobalKAIInputMinimal({
         <Button
           variant="ghost"
           size="icon"
-          className="h-10 w-10 shrink-0 text-muted-foreground hover:text-foreground"
+          className="h-9 w-9 shrink-0 text-muted-foreground hover:text-foreground hover:bg-muted"
           onClick={() => fileInputRef.current?.click()}
           disabled={isProcessing || disabled || attachedFiles.length >= MAX_FILES}
         >
@@ -234,15 +230,17 @@ export function GlobalKAIInputMinimal({
           disabled={isProcessing || disabled}
           rows={1}
           className={cn(
-            "flex-1 min-h-[40px] max-h-[120px] resize-none py-2.5",
-            "bg-muted/50 border-0 focus-visible:ring-1 focus-visible:ring-primary/50"
+            "flex-1 min-h-[36px] max-h-[120px] resize-none py-2 px-3",
+            "bg-muted border-0 rounded-lg",
+            "focus-visible:ring-1 focus-visible:ring-ring",
+            "placeholder:text-muted-foreground/60"
           )}
         />
 
         {/* Send button */}
         <Button
           size="icon"
-          className="h-10 w-10 shrink-0"
+          className="h-9 w-9 shrink-0"
           onClick={handleSend}
           disabled={(!message.trim() && attachedFiles.length === 0) || isProcessing || disabled}
         >
@@ -255,8 +253,8 @@ export function GlobalKAIInputMinimal({
       </div>
 
       {/* Minimal hint */}
-      <p className="text-[10px] text-muted-foreground text-center mt-2">
-        Enter para enviar • Shift+Enter para nova linha
+      <p className="text-[10px] text-muted-foreground/60 text-center mt-2">
+        Enter para enviar · Shift+Enter para nova linha
       </p>
     </div>
   );
