@@ -14,6 +14,7 @@ import {
   FileText,
   Moon,
   Sun,
+  Library,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useClients } from "@/hooks/useClients";
@@ -292,6 +293,15 @@ export function KaiSidebar({
             collapsed={collapsed}
           />
         )}
+
+        {/* Library */}
+        <NavItem
+          icon={<Library className="h-4 w-4" strokeWidth={1.5} />}
+          label="Biblioteca"
+          active={activeTab === "library"}
+          onClick={() => onTabChange("library")}
+          collapsed={collapsed}
+        />
 
         {/* Templates */}
         <NavItem
