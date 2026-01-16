@@ -253,6 +253,7 @@ export function usePlanningItems(filters: PlanningFilters = {}) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['planning-items', workspaceId] });
+      toast.success('Salvo');
     },
     onError: (error) => {
       toast.error('Erro ao atualizar: ' + error.message);
@@ -303,8 +304,12 @@ export function usePlanningItems(filters: PlanningFilters = {}) {
 
       if (error) throw error;
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['planning-items', workspaceId] });
+      const column = columns.find(c => c.id === variables.columnId);
+      if (column) {
+        toast.success(`Movido para ${column.name}`);
+      }
     }
   });
 
