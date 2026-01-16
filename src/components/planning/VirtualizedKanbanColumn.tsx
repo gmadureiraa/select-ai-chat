@@ -1,7 +1,6 @@
 import { memo } from 'react';
 import { Plus, Lightbulb, FileEdit, Eye, ThumbsUp, CalendarClock, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { PlanningItemCard } from './PlanningItemCard';
 import type { PlanningItem, KanbanColumn } from '@/hooks/usePlanningItems';
@@ -9,51 +8,44 @@ import type { PlanningItem, KanbanColumn } from '@/hooks/usePlanningItems';
 const columnConfig: Record<string, { 
   color: string; 
   icon: React.ElementType; 
-  bgHover: string;
   dotColor: string;
   headerBg: string;
 }> = {
   idea: { 
     color: 'text-purple-600 dark:text-purple-400', 
     icon: Lightbulb, 
-    bgHover: 'hover:bg-purple-50/50 dark:hover:bg-purple-950/20',
     dotColor: 'bg-purple-500',
-    headerBg: 'bg-purple-50 dark:bg-purple-950/30 border-purple-200 dark:border-purple-800',
+    headerBg: 'bg-purple-50/80 dark:bg-purple-950/40',
   },
   draft: { 
     color: 'text-blue-600 dark:text-blue-400', 
     icon: FileEdit, 
-    bgHover: 'hover:bg-blue-50/50 dark:hover:bg-blue-950/20',
     dotColor: 'bg-blue-500',
-    headerBg: 'bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800',
+    headerBg: 'bg-blue-50/80 dark:bg-blue-950/40',
   },
   review: { 
     color: 'text-amber-600 dark:text-amber-400', 
     icon: Eye, 
-    bgHover: 'hover:bg-amber-50/50 dark:hover:bg-amber-950/20',
     dotColor: 'bg-amber-500',
-    headerBg: 'bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800',
+    headerBg: 'bg-amber-50/80 dark:bg-amber-950/40',
   },
   approved: { 
     color: 'text-emerald-600 dark:text-emerald-400', 
     icon: ThumbsUp, 
-    bgHover: 'hover:bg-emerald-50/50 dark:hover:bg-emerald-950/20',
     dotColor: 'bg-emerald-500',
-    headerBg: 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800',
+    headerBg: 'bg-emerald-50/80 dark:bg-emerald-950/40',
   },
   scheduled: { 
     color: 'text-orange-600 dark:text-orange-400', 
     icon: CalendarClock, 
-    bgHover: 'hover:bg-orange-50/50 dark:hover:bg-orange-950/20',
     dotColor: 'bg-orange-500',
-    headerBg: 'bg-orange-50 dark:bg-orange-950/30 border-orange-200 dark:border-orange-800',
+    headerBg: 'bg-orange-50/80 dark:bg-orange-950/40',
   },
   published: { 
     color: 'text-slate-600 dark:text-slate-400', 
     icon: CheckCircle2, 
-    bgHover: 'hover:bg-slate-50/50 dark:hover:bg-slate-950/20',
     dotColor: 'bg-slate-500',
-    headerBg: 'bg-slate-50 dark:bg-slate-950/30 border-slate-200 dark:border-slate-800',
+    headerBg: 'bg-slate-50/80 dark:bg-slate-950/40',
   },
 };
 
@@ -102,17 +94,17 @@ export const VirtualizedKanbanColumn = memo(function VirtualizedKanbanColumn({
   const ColumnIcon = config.icon;
   const failedCount = items.filter(i => i.status === 'failed').length;
 
-  const listHeight = Math.max(200, height - 92);
+  const listHeight = Math.max(200, height - 80);
 
   return (
     <div
       data-column-id={column.id}
       className={cn(
-        "flex-shrink-0 bg-card/50 rounded-xl border border-border/50 flex flex-col",
-        "transition-all duration-300 backdrop-blur-sm hover:shadow-lg",
-        !className && "w-80",
+        "flex-shrink-0 bg-card/40 backdrop-blur-sm rounded-xl border border-border/40 flex flex-col",
+        "transition-all duration-200",
+        !className && "w-72",
         className,
-        isDropTarget && "ring-2 ring-primary/50 ring-offset-2 ring-offset-background bg-primary/5 scale-[1.02] shadow-xl"
+        isDropTarget && "ring-2 ring-primary/40 bg-primary/5 scale-[1.01] shadow-lg"
       )}
       style={{ maxHeight: height }}
       onDragOver={(e) => onDragOver(e, column.id)}
@@ -121,23 +113,20 @@ export const VirtualizedKanbanColumn = memo(function VirtualizedKanbanColumn({
     >
       {/* Column Header */}
       <div className={cn(
-        "px-4 py-3 rounded-t-xl border-b flex-shrink-0",
+        "px-3 py-2.5 rounded-t-xl flex-shrink-0",
         config.headerBg
       )}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className={cn("w-2.5 h-2.5 rounded-full shadow-sm", config.dotColor)} />
-            <span className={cn("font-semibold text-sm", config.color)}>{column.name}</span>
-            <span className="text-xs text-muted-foreground bg-muted/80 px-2 py-0.5 rounded-full font-medium">
+            <div className={cn("w-2 h-2 rounded-full", config.dotColor)} />
+            <span className={cn("font-medium text-sm", config.color)}>{column.name}</span>
+            <span className="text-[10px] text-muted-foreground bg-background/60 px-1.5 py-0.5 rounded-md font-medium tabular-nums">
               {items.length}
             </span>
             {failedCount > 0 && (
-              <Badge 
-                variant="destructive" 
-                className="text-[10px] font-medium px-1.5 py-0 h-4"
-              >
-                {failedCount}
-              </Badge>
+              <span className="text-[10px] text-red-600 bg-red-100 dark:bg-red-900/40 px-1.5 py-0.5 rounded-md font-medium">
+                {failedCount} ⚠
+              </span>
             )}
           </div>
           <Button
@@ -155,17 +144,17 @@ export const VirtualizedKanbanColumn = memo(function VirtualizedKanbanColumn({
       <div className="flex-1 min-h-0">
         {items.length === 0 ? (
           <div className={cn(
-            "text-center py-8 mx-4 my-4 text-muted-foreground",
-            "border border-dashed rounded-lg",
-            isDropTarget && "border-primary bg-primary/5"
+            "text-center py-6 mx-3 my-3 text-muted-foreground",
+            "border border-dashed border-border/50 rounded-lg",
+            isDropTarget && "border-primary/50 bg-primary/5"
           )}>
-            <ColumnIcon className={cn("h-5 w-5 mx-auto mb-2 opacity-40", config.color)} />
-            <p className="text-xs font-medium">
+            <ColumnIcon className={cn("h-4 w-4 mx-auto mb-1.5 opacity-40", config.color)} />
+            <p className="text-[11px] font-medium">
               {isDropTarget ? 'Solte aqui' : 'Vazio'}
             </p>
           </div>
         ) : (
-          <div className="p-4 space-y-3 overflow-y-auto" style={{ maxHeight: listHeight }}>
+          <div className="p-2 space-y-2 overflow-y-auto" style={{ maxHeight: listHeight }}>
             {items.map(item => (
               <div
                 key={item.id}
@@ -174,8 +163,8 @@ export const VirtualizedKanbanColumn = memo(function VirtualizedKanbanColumn({
                 onDragEnd={onDragEnd}
                 className={cn(
                   "cursor-grab active:cursor-grabbing",
-                  "transition-all duration-200 hover:scale-[1.02] hover:-translate-y-0.5",
-                  draggedItemId === item.id && "scale-95 opacity-50 rotate-1"
+                  "transition-all duration-150 hover:scale-[1.01]",
+                  draggedItemId === item.id && "scale-95 opacity-40"
                 )}
               >
                 <PlanningItemCard
@@ -196,14 +185,11 @@ export const VirtualizedKanbanColumn = memo(function VirtualizedKanbanColumn({
       </div>
 
       {/* Quick Add Footer */}
-      <div className="p-1.5 border-t border-border/50 flex-shrink-0">
+      <div className="p-1.5 border-t border-border/30 flex-shrink-0">
         <Button
           variant="ghost"
           size="sm"
-          className={cn(
-            "w-full justify-center text-xs text-muted-foreground h-7",
-            config.bgHover
-          )}
+          className="w-full justify-center text-[11px] text-muted-foreground h-7 hover:text-foreground hover:bg-muted/50"
           onClick={() => onAddCard(column.id)}
         >
           <Plus className="h-3 w-3 mr-1" />
