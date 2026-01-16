@@ -1,14 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
-import { Skeleton } from "@/components/ui/skeleton";
-import { useSmartSuggestions } from "@/hooks/useSmartSuggestions";
-import { 
-  TrendingUp, 
-  Lightbulb, 
-  BarChart3, 
-  MessageSquare, 
-  Sparkles 
-} from "lucide-react";
+import { Sparkles, FileText, MessageCircle } from "lucide-react";
 
 interface QuickSuggestionsProps {
   onSelect: (suggestion: string) => void;
@@ -17,68 +8,27 @@ interface QuickSuggestionsProps {
   isContentTemplate?: boolean;
 }
 
-// Fallback suggestions when no client is selected
-const fallbackFreeChatSuggestions = [
-  { text: "Métricas da semana", icon: TrendingUp },
-  { text: "Análise de engajamento", icon: BarChart3 },
-  { text: "Ideias de conteúdo", icon: Lightbulb },
-  { text: "Resumo do cliente", icon: MessageSquare },
+const suggestions = [
+  { icon: Sparkles, label: "Gerar ideias", prompt: "Me dê 5 ideias de conteúdo para as próximas semanas" },
+  { icon: FileText, label: "Analisar performance", prompt: "Analise a performance recente do meu conteúdo" },
+  { icon: MessageCircle, label: "Brainstorm", prompt: "Vamos fazer um brainstorm de temas relevantes" },
 ];
 
-const fallbackContentSuggestions = [
-  { text: "Crie um conteúdo sobre tendências", icon: TrendingUp },
-  { text: "Gere ideias criativas", icon: Lightbulb },
-  { text: "Analise a concorrência", icon: BarChart3 },
-  { text: "Sugira melhorias de copy", icon: Sparkles },
-];
-
-export const QuickSuggestions = ({ 
-  onSelect, 
-  clientId,
-  clientName,
-  isContentTemplate = false 
-}: QuickSuggestionsProps) => {
-  // Use smart suggestions hook
-  const { suggestions: smartSuggestions, isLoading } = useSmartSuggestions(
-    clientId, 
-    isContentTemplate
-  );
-
-  // Show loading skeleton
-  if (isLoading && clientId) {
-    return (
-      <div className="flex flex-wrap gap-2 justify-center max-w-lg">
-        {[1, 2, 3, 4].map((i) => (
-          <Skeleton key={i} className="h-8 w-32 rounded-full" />
-        ))}
-      </div>
-    );
-  }
-
-  // Use smart suggestions if available, otherwise fall back to static ones
-  const suggestions = clientId && smartSuggestions.length > 0
-    ? smartSuggestions.map(s => ({ text: s.text, icon: s.icon }))
-    : isContentTemplate 
-      ? fallbackContentSuggestions 
-      : fallbackFreeChatSuggestions;
-
+export function QuickSuggestions({ onSelect, clientName }: QuickSuggestionsProps) {
   return (
-    <div className="flex flex-wrap gap-2 justify-center max-w-lg">
-      {suggestions.map((suggestion) => (
+    <div className="flex flex-wrap gap-2 justify-center">
+      {suggestions.map((s, i) => (
         <Button
-          key={suggestion.text}
+          key={i}
           variant="outline"
           size="sm"
-          className={cn(
-            "rounded-full border-border/60 hover:border-primary/40 hover:bg-primary/5",
-            "text-xs font-medium transition-all gap-1.5"
-          )}
-          onClick={() => onSelect(suggestion.text)}
+          className="gap-2 text-xs"
+          onClick={() => onSelect(clientName ? `${s.prompt} para ${clientName}` : s.prompt)}
         >
-          <suggestion.icon className="h-3 w-3 opacity-60" />
-          {suggestion.text}
+          <s.icon className="h-3.5 w-3.5" />
+          {s.label}
         </Button>
       ))}
     </div>
   );
-};
+}
