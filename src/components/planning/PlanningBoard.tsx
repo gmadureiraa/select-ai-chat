@@ -269,7 +269,7 @@ export function PlanningBoard({ clientId, isEnterprise = false, onClientChange }
         )}
 
         {view === 'list' && (
-          <div className="space-y-2 overflow-y-auto max-h-full p-1">
+          <div className="flex-1 overflow-y-auto space-y-2 p-1">
             {items.map(item => (
               <PlanningItemCard
                 key={item.id}
