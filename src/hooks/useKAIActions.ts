@@ -160,42 +160,22 @@ function detectFromPatterns(
 }
 
 /**
- * AI-based action detection (more accurate, slower)
+ * AI-based action detection - simplified fallback (pattern-based is primary)
+ * Removed dependency on analyze-kai-intention edge function
  */
 async function detectFromAI(
   message: string,
   files?: KAIFileAttachment[],
   context?: { clientId?: string; currentPage?: string }
 ): Promise<DetectedAction> {
-  try {
-    const { data, error } = await supabase.functions.invoke(
-      "analyze-kai-intention",
-      {
-        body: {
-          message,
-          files: files?.map((f) => ({ name: f.name, type: f.type })),
-          context,
-        },
-      }
-    );
-
-    if (error) throw error;
-
-    return {
-      type: data.actionType || "general_chat",
-      confidence: data.confidence || 0.5,
-      params: data.extractedParams || {},
-      requiresConfirmation: data.requiresConfirmation ?? false,
-    };
-  } catch (error) {
-    console.error("AI detection failed:", error);
-    return {
-      type: "general_chat",
-      confidence: 0.5,
-      params: {},
-      requiresConfirmation: false,
-    };
-  }
+  // Since we removed analyze-kai-intention, return a lower-confidence pattern result
+  // This lets the pattern-based detection be the primary method
+  return {
+    type: "general_chat",
+    confidence: 0.3,
+    params: {},
+    requiresConfirmation: false,
+  };
 }
 
 /**
