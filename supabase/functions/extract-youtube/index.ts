@@ -7,6 +7,12 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
+  // Keep some request-scoped variables for safe fallback responses in the catch block
+  let requestedUrl = "";
+  let videoId = "";
+  let title = "Vídeo do YouTube";
+  let duration: string | number | null = null;
+
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -36,7 +42,8 @@ serve(async (req) => {
     }
 
     const { url } = await req.json();
-    
+    requestedUrl = url;
+
     if (!url) {
       throw new Error("URL do YouTube é obrigatória");
     }
@@ -49,10 +56,8 @@ serve(async (req) => {
     console.log("🎬 Extraindo transcrição do YouTube:", url);
 
     // Extrai o videoId primeiro
-    const videoId = extractVideoId(url);
-    let title = "Vídeo do YouTube";
+    videoId = extractVideoId(url);
     let content = "";
-    let duration = null;
 
     // MÉTODO 1: Tentar API Supadata primeiro
     try {
@@ -154,8 +159,53 @@ serve(async (req) => {
   } catch (error) {
     console.error("❌ Erro em extract-youtube:", error);
     const errorMessage = error instanceof Error ? error.message : "Erro desconhecido";
+
+    // If transcript extraction fails (common case: no captions), return 200 with metadata instead of 500.
+    // This prevents the UI from breaking and still lets the user use title/thumbnail as reference.
+    const transcriptFailureSignals = [
+      "Não foi possível extrair a transcrição",
+      "Transcript Unavailable",
+      "transcript-unavailable",
+      "Legendas não disponíveis",
+    ];
+    const isTranscriptFailure = transcriptFailureSignals.some((s) => errorMessage.includes(s));
+
+    if (isTranscriptFailure) {
+      // Best effort: try to ensure we have a videoId to build a thumbnail
+      try {
+        if (!videoId && requestedUrl) videoId = extractVideoId(requestedUrl);
+      } catch {
+        // ignore
+      }
+
+      if (videoId) {
+        const thumbnail = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
+        return new Response(
+          JSON.stringify({
+            title: title || "Vídeo do YouTube",
+            content: "",
+            transcript: "",
+            thumbnail,
+            videoId,
+            hasTranscript: false,
+            metadata: {
+              duration,
+              language: null,
+              extractionMethod: "error_fallback_metadata_only",
+              contentLength: 0,
+              transcriptUnavailable: true,
+              originalError: errorMessage,
+            },
+          }),
+          {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          }
+        );
+      }
+    }
+
     return new Response(
-      JSON.stringify({ 
+      JSON.stringify({
         error: errorMessage,
         details: error instanceof Error ? error.stack : undefined,
       }),
