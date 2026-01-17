@@ -135,6 +135,20 @@ export interface SourceFile {
   isProcessing?: boolean;
 }
 
+// Extracted content metadata
+export interface ExtractedContentMetadata {
+  author?: string;
+  publishDate?: string;
+  duration?: string;
+  wordCount?: number;
+  channel?: string;
+  source?: string;
+  sourceUrl?: string;
+  libraryItemId?: string;
+  libraryItemType?: string;
+  views?: string;
+}
+
 export interface SourceNodeData {
   type: "source";
   sourceType: "url" | "text" | "file";
@@ -143,8 +157,9 @@ export interface SourceNodeData {
   isExtracting?: boolean;
   title?: string;
   thumbnail?: string;
-  urlType?: "youtube" | "article" | "newsletter";
+  urlType?: "youtube" | "article" | "newsletter" | "library";
   files?: SourceFile[];
+  contentMetadata?: ExtractedContentMetadata;
 }
 
 export interface LibraryNodeData {
@@ -429,12 +444,23 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
 
         if (error) throw error;
 
+        const transcript = data.content || data.transcript || "";
+        const wordCount = transcript.split(/\s+/).length;
+        
         updateNodeData(nodeId, {
-          extractedContent: data.content || data.transcript || "",
+          extractedContent: transcript,
           title: data.title || url,
           thumbnail: data.thumbnail || "",
           urlType: "youtube",
-          isExtracting: false
+          isExtracting: false,
+          contentMetadata: {
+            channel: data.channel || data.author,
+            duration: data.duration,
+            views: data.views,
+            wordCount,
+            sourceUrl: url,
+            source: "YouTube",
+          }
         } as Partial<SourceNodeData>);
 
         toast({
@@ -453,12 +479,29 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
           throw new Error(data.error || "Falha ao extrair conteúdo");
         }
 
+        const extractedText = data.content || data.markdown || "";
+        const wordCount = extractedText.split(/\s+/).length;
+        const urlType = data.type === "newsletter" ? "newsletter" : "article";
+        
+        // Try to extract domain from URL for source
+        let sourceDomain = "";
+        try {
+          sourceDomain = new URL(url).hostname.replace("www.", "");
+        } catch {}
+        
         updateNodeData(nodeId, {
-          extractedContent: data.content || data.markdown || "",
+          extractedContent: extractedText,
           title: data.title || url,
           thumbnail: data.thumbnail || "",
-          urlType: data.type === "newsletter" ? "newsletter" : "article",
-          isExtracting: false
+          urlType,
+          isExtracting: false,
+          contentMetadata: {
+            author: data.author,
+            publishDate: data.publishDate || data.date,
+            wordCount,
+            sourceUrl: url,
+            source: sourceDomain,
+          }
         } as Partial<SourceNodeData>);
 
         toast({

@@ -319,6 +319,9 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
       const centerY = (window.innerHeight / 2 - viewport.y) / viewport.zoom;
       const offset = nodes.length * 20;
 
+      // Use platform as content type label
+      const contentTypeLabel = item.platform || "conteúdo";
+
       addNode(
         "source",
         { x: centerX + offset, y: centerY + offset },
@@ -329,6 +332,12 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
           extractedContent: item.content,
           title: item.title,
           thumbnail: item.thumbnail_url,
+          urlType: "library",
+          contentMetadata: {
+            libraryItemId: item.id,
+            libraryItemType: contentTypeLabel,
+            wordCount: item.content?.split(/\s+/).length || 0,
+          },
         } as Partial<SourceNodeData>
       );
 
@@ -371,6 +380,9 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
         y: event.clientY - bounds.top,
       });
 
+      // Use platform as content type label
+      const contentTypeLabel = item.platform || "conteúdo";
+      
       addNode(
         "source",
         position,
@@ -381,6 +393,12 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
           extractedContent: item.content,
           title: item.title,
           thumbnail: item.thumbnail_url,
+          urlType: "library",
+          contentMetadata: {
+            libraryItemId: item.id,
+            libraryItemType: contentTypeLabel,
+            wordCount: item.content?.split(/\s+/).length || 0,
+          },
         } as Partial<SourceNodeData>
       );
 
