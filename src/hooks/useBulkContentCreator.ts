@@ -1,6 +1,7 @@
 import { useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useTokenError } from "@/hooks/useTokenError";
 import { parseMentions } from "@/lib/mentionParser";
 import { usePlanningItems } from "@/hooks/usePlanningItems";
 import { useWorkspaceContext } from "@/contexts/WorkspaceContext";

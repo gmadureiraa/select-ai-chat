@@ -112,6 +112,15 @@ export async function callKaiContentAgent(params: {
 
   if (!response.ok) {
     const errorText = await response.text();
+    
+    // Handle 402 Payment Required - insufficient tokens
+    if (response.status === 402) {
+      const error = new Error("Créditos insuficientes") as Error & { status: number; code: string };
+      error.status = 402;
+      error.code = "TOKENS_EXHAUSTED";
+      throw error;
+    }
+    
     throw new Error(`Erro na API: ${response.status} - ${errorText}`);
   }
 
