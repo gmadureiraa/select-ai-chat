@@ -69,7 +69,8 @@ export function UnifiedContentGrid({ clientId, onSelectContent, compact, draggab
     return counts;
   }, [content]);
 
-  const handleSelect = (item: UnifiedContentItem) => {
+  const handleCardClick = (item: UnifiedContentItem) => {
+    setPreviewItem(item); // Opens the preview dialog
     setSelectedId(item.id);
     onSelectContent?.(item);
   };
@@ -156,7 +157,7 @@ export function UnifiedContentGrid({ clientId, onSelectContent, compact, draggab
                   item={item}
                   compact
                   selected={selectedId === item.id}
-                  onSelect={() => handleSelect(item)}
+                  onSelect={() => handleCardClick(item)}
                   onPreview={() => setPreviewItem(item)}
                   onToggleFavorite={() => toggleFavorite.mutate({ item })}
                   draggable={draggable}
@@ -175,7 +176,7 @@ export function UnifiedContentGrid({ clientId, onSelectContent, compact, draggab
                 <ContentCard
                   item={item}
                   selected={selectedId === item.id}
-                  onSelect={() => handleSelect(item)}
+                  onSelect={() => handleCardClick(item)}
                   onPreview={() => setPreviewItem(item)}
                   onToggleFavorite={() => toggleFavorite.mutate({ item })}
                   draggable={draggable}
@@ -198,7 +199,7 @@ export function UnifiedContentGrid({ clientId, onSelectContent, compact, draggab
         open={!!previewItem}
         onOpenChange={(open) => !open && setPreviewItem(null)}
         onToggleFavorite={() => previewItem && toggleFavorite.mutate({ item: previewItem })}
-        onAddToCanvas={() => previewItem && handleSelect(previewItem)}
+        onAddToCanvas={() => previewItem && handleCardClick(previewItem)}
       />
     </div>
   );
