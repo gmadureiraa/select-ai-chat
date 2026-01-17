@@ -2,6 +2,7 @@ import { useState, useCallback } from "react";
 import { Node, Edge, Connection, addEdge, applyNodeChanges, applyEdgeChanges, NodeChange, EdgeChange } from "reactflow";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useTokenError } from "@/hooks/useTokenError";
 import { usePlanningItems } from "@/hooks/usePlanningItems";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
@@ -268,6 +269,7 @@ function isYoutubeUrl(url: string): boolean {
 
 export function useCanvasState(clientId: string, workspaceId?: string) {
   const { toast } = useToast();
+  const { handleTokenError } = useTokenError();
   const queryClient = useQueryClient();
   const [nodes, setNodes] = useState<Node<CanvasNodeData>[]>(defaultNodes);
   const [edges, setEdges] = useState<Edge[]>(defaultEdges);
@@ -1034,6 +1036,15 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
 
           if (!response.ok) {
             const errorText = await response.text();
+            
+            // Handle 402 Payment Required - insufficient tokens
+            if (response.status === 402) {
+              const error = new Error("Créditos insuficientes") as Error & { status: number; code: string };
+              error.status = 402;
+              error.code = "TOKENS_EXHAUSTED";
+              throw error;
+            }
+            
             throw new Error(`Erro na API: ${response.status} - ${errorText}`);
           }
 
@@ -1132,20 +1143,25 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
             : `${genData.format} criado com sucesso`,
         });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Generation error:", error);
       updateNodeData(generatorNodeId, { 
         isGenerating: false,
         currentStep: "Erro",
         generatedCount: 0,
       } as Partial<GeneratorNodeData>);
-      toast({
-        title: "Erro na geração",
-        description: "Não foi possível gerar o conteúdo",
-        variant: "destructive",
-      });
+      
+      // Check if it's a token error (402) and show upgrade dialog
+      const isTokenError = await handleTokenError(error, error?.status);
+      if (!isTokenError) {
+        toast({
+          title: "Erro na geração",
+          description: "Não foi possível gerar o conteúdo",
+          variant: "destructive",
+        });
+      }
     }
-  }, [nodes, getConnectedInputs, updateNodeData, addNode, clientId, clientData, toast]);
+  }, [nodes, getConnectedInputs, updateNodeData, addNode, clientId, clientData, toast, handleTokenError]);
 
   const sendToPlanning = useCallback(async (outputNodeId: string) => {
     const outputNode = nodes.find((n) => n.id === outputNodeId);
