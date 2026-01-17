@@ -162,6 +162,37 @@ export function ContentCard({
               </span>
             </div>
           </div>
+
+          {/* Actions on hover */}
+          <div className="flex gap-2 pt-2 opacity-0 group-hover:opacity-100 transition-opacity">
+            {onPreview && (
+              <Button 
+                size="sm" 
+                variant="secondary"
+                className="flex-1 h-7 text-xs gap-1"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onPreview();
+                }}
+              >
+                <Eye className="h-3 w-3" />
+                Ver completo
+              </Button>
+            )}
+            {onToggleFavorite && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 px-2"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onToggleFavorite();
+                }}
+              >
+                <Star className={cn("h-3 w-3", item.is_favorite && "fill-yellow-400 text-yellow-400")} />
+              </Button>
+            )}
+          </div>
         </div>
       </div>
     );
