@@ -155,6 +155,7 @@ export interface SourceNodeData {
   sourceType: "url" | "text" | "file";
   value: string;
   extractedContent?: string;
+  extractedImages?: string[];
   isExtracting?: boolean;
   title?: string;
   thumbnail?: string;
@@ -502,6 +503,7 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
         
         updateNodeData(nodeId, {
           extractedContent: extractedText,
+          extractedImages: data.images || [],
           title: data.title || url,
           thumbnail: data.thumbnail || "",
           urlType,

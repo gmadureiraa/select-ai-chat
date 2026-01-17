@@ -13,7 +13,8 @@ import {
   Maximize2,
   Copy,
   Check,
-  AlertCircle
+  AlertCircle,
+  Image as ImageIcon
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -42,6 +43,7 @@ interface ExtractedContentPreviewProps {
   thumbnail?: string;
   urlType?: "youtube" | "article" | "newsletter" | "library";
   metadata?: ContentMetadata;
+  images?: string[];
   isExpanded?: boolean;
   onToggleExpand?: () => void;
   onOpenFullView?: () => void;
@@ -112,6 +114,7 @@ function ExtractedContentPreviewComponent({
   thumbnail,
   urlType = "article",
   metadata,
+  images = [],
   isExpanded = false,
   onToggleExpand,
   onOpenFullView,
@@ -151,6 +154,10 @@ function ExtractedContentPreviewComponent({
 
   const structured = parseStructuredContent(content);
 
+  // Images to show (for articles/newsletters)
+  const displayImages = images.slice(0, 4);
+  const hasMoreImages = images.length > 4;
+
   return (
     <div className={cn(
       "rounded-lg border overflow-hidden transition-all",
@@ -169,6 +176,12 @@ function ExtractedContentPreviewComponent({
           <span className={cn("text-[10px] font-semibold uppercase tracking-wide", config.color)}>
             {config.label}
           </span>
+          {images.length > 0 && (
+            <Badge variant="secondary" className="text-[9px] h-4 px-1.5 gap-0.5">
+              <ImageIcon className="h-2.5 w-2.5" />
+              {images.length}
+            </Badge>
+          )}
         </div>
         
         <div className="flex items-center gap-1">
@@ -229,6 +242,37 @@ function ExtractedContentPreviewComponent({
               {formatDuration(metadata.duration)}
             </Badge>
           )}
+        </div>
+      )}
+
+      {/* Image Gallery for articles/newsletters */}
+      {urlType !== "youtube" && displayImages.length > 0 && (
+        <div className="p-2 border-b border-border/30">
+          <div className={cn(
+            "grid gap-1",
+            displayImages.length === 1 ? "grid-cols-1" : 
+            displayImages.length === 2 ? "grid-cols-2" : 
+            displayImages.length === 3 ? "grid-cols-3" : "grid-cols-4"
+          )}>
+            {displayImages.map((img, i) => (
+              <div key={i} className="relative aspect-video rounded overflow-hidden bg-muted">
+                <img 
+                  src={img} 
+                  alt={`Imagem ${i + 1}`}
+                  className="w-full h-full object-cover hover:scale-105 transition-transform cursor-pointer"
+                  onClick={onOpenFullView}
+                />
+                {hasMoreImages && i === displayImages.length - 1 && (
+                  <div 
+                    className="absolute inset-0 bg-black/60 flex items-center justify-center cursor-pointer"
+                    onClick={onOpenFullView}
+                  >
+                    <span className="text-white text-xs font-medium">+{images.length - 4}</span>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
@@ -337,9 +381,8 @@ function ExtractedContentPreviewComponent({
             </div>
 
             <ScrollArea className={cn(
-              "transition-all duration-300",
-              isExpanded ? "max-h-[300px]" : `max-h-[${maxCollapsedHeight}px]`
-            )} style={{ maxHeight: isExpanded ? 300 : maxCollapsedHeight }}>
+              "transition-all duration-300"
+            )} style={{ maxHeight: isExpanded ? 400 : maxCollapsedHeight }}>
               {structured.type !== "text" ? (
                 // Structured content (carousel/thread)
                 <div className="space-y-3">
@@ -372,18 +415,31 @@ function ExtractedContentPreviewComponent({
               )}
             </ScrollArea>
 
-            {/* Expand prompt */}
-            {!isExpanded && content.length > 500 && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="w-full mt-2 h-6 text-[10px]"
-                onClick={onToggleExpand}
-              >
-                <ChevronDown className="h-3 w-3 mr-1" />
-                Ver conteúdo completo ({formatWordCount(wordCount)})
-              </Button>
-            )}
+            {/* Expand/Full View buttons */}
+            <div className="flex items-center gap-2 mt-2">
+              {!isExpanded && content.length > 500 && onToggleExpand && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="flex-1 h-7 text-[10px]"
+                  onClick={onToggleExpand}
+                >
+                  <ChevronDown className="h-3 w-3 mr-1" />
+                  Expandir
+                </Button>
+              )}
+              {onOpenFullView && (
+                <Button
+                  variant="default"
+                  size="sm"
+                  className="flex-1 h-7 text-[10px] gap-1"
+                  onClick={onOpenFullView}
+                >
+                  <Maximize2 className="h-3 w-3" />
+                  Ver Completo
+                </Button>
+              )}
+            </div>
           </>
         )}
       </div>

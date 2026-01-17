@@ -1,6 +1,5 @@
 import { memo, useState } from "react";
 import { 
-  X, 
   Copy, 
   Check, 
   Download, 
@@ -11,7 +10,9 @@ import {
   Clock,
   User,
   Calendar,
-  Hash
+  Hash,
+  Image as ImageIcon,
+  FileImage
 } from "lucide-react";
 import {
   Dialog,
@@ -22,7 +23,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
@@ -37,6 +37,7 @@ interface ContentViewerModalProps {
   urlType?: "youtube" | "article" | "newsletter" | "library";
   metadata?: ContentMetadata;
   sourceUrl?: string;
+  images?: string[];
 }
 
 const TYPE_CONFIG = {
@@ -71,9 +72,11 @@ function ContentViewerModalComponent({
   urlType = "article",
   metadata,
   sourceUrl,
+  images = [],
 }: ContentViewerModalProps) {
   const [copied, setCopied] = useState(false);
-  const [activeTab, setActiveTab] = useState<"formatted" | "raw">("formatted");
+  const [activeTab, setActiveTab] = useState<"text" | "video" | "images">("text");
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
   const config = TYPE_CONFIG[urlType] || TYPE_CONFIG.article;
   const Icon = config.icon;
@@ -114,10 +117,25 @@ function ContentViewerModalComponent({
   };
 
   const youtubeEmbedUrl = urlType === "youtube" ? getYoutubeEmbedUrl(sourceUrl || metadata?.sourceUrl) : null;
+  const hasImages = images.length > 0;
+  const hasVideo = urlType === "youtube" && youtubeEmbedUrl;
+
+  // Determine available tabs
+  const tabs: Array<{ id: "text" | "video" | "images"; label: string; icon: React.ReactNode }> = [
+    { id: "text", label: urlType === "youtube" ? "Transcrição" : "Conteúdo", icon: <FileText className="h-4 w-4" /> },
+  ];
+  
+  if (hasVideo) {
+    tabs.push({ id: "video", label: "Vídeo", icon: <Youtube className="h-4 w-4" /> });
+  }
+  
+  if (hasImages) {
+    tabs.push({ id: "images", label: `Imagens (${images.length})`, icon: <ImageIcon className="h-4 w-4" /> });
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl h-[85vh] flex flex-col p-0 gap-0">
+      <DialogContent className="max-w-5xl h-[90vh] flex flex-col p-0 gap-0">
         {/* Header */}
         <DialogHeader className="px-6 py-4 border-b flex-shrink-0">
           <div className="flex items-start justify-between gap-4">
@@ -127,6 +145,12 @@ function ContentViewerModalComponent({
                 <span className={cn("text-sm font-medium", config.color)}>
                   {config.label}
                 </span>
+                {hasImages && (
+                  <Badge variant="secondary" className="text-xs gap-1">
+                    <FileImage className="h-3 w-3" />
+                    {images.length} imagens
+                  </Badge>
+                )}
               </div>
               <DialogTitle className="text-xl font-semibold line-clamp-2">
                 {title || "Conteúdo Extraído"}
@@ -211,50 +235,116 @@ function ContentViewerModalComponent({
           </div>
         </DialogHeader>
 
-        {/* Content Area */}
-        <div className="flex-1 overflow-hidden">
-          {/* YouTube embed option */}
-          {urlType === "youtube" && youtubeEmbedUrl && (
-            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)} className="h-full flex flex-col">
+        {/* Content Area with Tabs */}
+        <div className="flex-1 overflow-hidden flex flex-col">
+          {tabs.length > 1 ? (
+            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)} className="flex-1 flex flex-col overflow-hidden">
               <div className="px-6 pt-4 border-b flex-shrink-0">
-                <TabsList className="h-9">
-                  <TabsTrigger value="formatted" className="text-sm">
-                    📝 Transcrição
-                  </TabsTrigger>
-                  <TabsTrigger value="raw" className="text-sm">
-                    🎬 Vídeo
-                  </TabsTrigger>
+                <TabsList className="h-10">
+                  {tabs.map(tab => (
+                    <TabsTrigger key={tab.id} value={tab.id} className="text-sm gap-2">
+                      {tab.icon}
+                      {tab.label}
+                    </TabsTrigger>
+                  ))}
                 </TabsList>
               </div>
               
-              <TabsContent value="formatted" className="flex-1 m-0 overflow-hidden">
+              {/* Text/Transcript Tab */}
+              <TabsContent value="text" className="flex-1 m-0 overflow-hidden">
                 <ScrollArea className="h-full">
-                  <div className="p-6 prose prose-sm dark:prose-invert max-w-none">
+                  {/* Thumbnail for non-YouTube */}
+                  {thumbnail && urlType !== "youtube" && (
+                    <div className="relative aspect-video max-h-[250px] bg-muted overflow-hidden">
+                      <img 
+                        src={thumbnail} 
+                        alt={title || "Thumbnail"} 
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                  )}
+                  
+                  <div className="p-6 prose prose-sm dark:prose-invert max-w-none
+                    prose-headings:font-semibold prose-headings:mt-6 prose-headings:mb-3
+                    prose-h1:text-2xl prose-h2:text-xl prose-h3:text-lg
+                    prose-p:my-3 prose-ul:my-3 prose-ol:my-3 prose-li:my-1
+                    prose-blockquote:border-l-primary prose-blockquote:bg-muted/50 prose-blockquote:py-1 prose-blockquote:px-4
+                    prose-code:bg-muted prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded
+                    prose-pre:bg-muted prose-pre:p-4
+                    prose-img:rounded-lg prose-img:my-4">
                     <ReactMarkdown>{content}</ReactMarkdown>
                   </div>
                 </ScrollArea>
               </TabsContent>
               
-              <TabsContent value="raw" className="flex-1 m-0 p-6 overflow-hidden">
-                <div className="w-full h-full rounded-lg overflow-hidden bg-black">
-                  <iframe
-                    src={youtubeEmbedUrl}
-                    title={title || "YouTube Video"}
-                    className="w-full h-full"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                    allowFullScreen
-                  />
-                </div>
-              </TabsContent>
+              {/* Video Tab (YouTube only) */}
+              {hasVideo && (
+                <TabsContent value="video" className="flex-1 m-0 p-6 overflow-hidden">
+                  <div className="w-full h-full rounded-lg overflow-hidden bg-black">
+                    <iframe
+                      src={youtubeEmbedUrl!}
+                      title={title || "YouTube Video"}
+                      className="w-full h-full"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                    />
+                  </div>
+                </TabsContent>
+              )}
+              
+              {/* Images Tab */}
+              {hasImages && (
+                <TabsContent value="images" className="flex-1 m-0 overflow-hidden">
+                  <ScrollArea className="h-full">
+                    <div className="p-6">
+                      {/* Image grid */}
+                      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                        {images.map((img, i) => (
+                          <div 
+                            key={i} 
+                            className={cn(
+                              "relative aspect-video rounded-lg overflow-hidden bg-muted cursor-pointer group",
+                              "ring-2 ring-transparent hover:ring-primary transition-all"
+                            )}
+                            onClick={() => setSelectedImage(selectedImage === img ? null : img)}
+                          >
+                            <img 
+                              src={img} 
+                              alt={`Imagem ${i + 1}`}
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                            />
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                            <Badge 
+                              variant="secondary" 
+                              className="absolute bottom-2 left-2 text-[10px] opacity-0 group-hover:opacity-100 transition-opacity"
+                            >
+                              {i + 1} / {images.length}
+                            </Badge>
+                          </div>
+                        ))}
+                      </div>
+                      
+                      {/* Selected image preview */}
+                      {selectedImage && (
+                        <div className="mt-6 rounded-lg overflow-hidden border bg-muted">
+                          <img 
+                            src={selectedImage} 
+                            alt="Imagem selecionada"
+                            className="w-full max-h-[500px] object-contain"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </ScrollArea>
+                </TabsContent>
+              )}
             </Tabs>
-          )}
-
-          {/* Regular content */}
-          {(urlType !== "youtube" || !youtubeEmbedUrl) && (
-            <ScrollArea className="h-full">
+          ) : (
+            // Single tab view (just content)
+            <ScrollArea className="flex-1">
               {/* Thumbnail */}
               {thumbnail && (
-                <div className="relative aspect-video max-h-[200px] bg-muted overflow-hidden">
+                <div className="relative aspect-video max-h-[250px] bg-muted overflow-hidden">
                   <img 
                     src={thumbnail} 
                     alt={title || "Thumbnail"} 
@@ -269,7 +359,8 @@ function ContentViewerModalComponent({
                 prose-p:my-3 prose-ul:my-3 prose-ol:my-3 prose-li:my-1
                 prose-blockquote:border-l-primary prose-blockquote:bg-muted/50 prose-blockquote:py-1 prose-blockquote:px-4
                 prose-code:bg-muted prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded
-                prose-pre:bg-muted prose-pre:p-4">
+                prose-pre:bg-muted prose-pre:p-4
+                prose-img:rounded-lg prose-img:my-4">
                 <ReactMarkdown>{content}</ReactMarkdown>
               </div>
             </ScrollArea>

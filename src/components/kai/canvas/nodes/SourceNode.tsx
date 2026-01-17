@@ -512,6 +512,7 @@ function SourceNodeComponent({
                 thumbnail={data.thumbnail}
                 urlType={data.urlType}
                 metadata={contentMetadata}
+                images={data.extractedImages}
                 isExpanded={contentExpanded}
                 onToggleExpand={() => setContentExpanded(!contentExpanded)}
                 onOpenFullView={() => setContentViewerOpen(true)}
@@ -701,6 +702,7 @@ function SourceNodeComponent({
         urlType={data.urlType}
         metadata={contentMetadata}
         sourceUrl={data.value}
+        images={data.extractedImages}
       />
     </Card>
   );
