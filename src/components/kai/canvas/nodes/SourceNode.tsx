@@ -13,6 +13,8 @@ import { SourceNodeData, SourceFile, ImageMetadata } from "../hooks/useCanvasSta
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { ImageAnalysisModal } from "../ImageAnalysisModal";
+import { ExtractedContentPreview, ContentMetadata } from "../ExtractedContentPreview";
+import { ContentViewerModal } from "../ContentViewerModal";
 
 interface SourceNodeProps extends NodeProps<SourceNodeData> {
   onExtractUrl?: (nodeId: string, url: string) => void;
@@ -186,11 +188,21 @@ function SourceNodeComponent({
   const [localText, setLocalText] = useState(data.value || "");
   const [isUploading, setIsUploading] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
+  const [contentExpanded, setContentExpanded] = useState(false);
+  const [contentViewerOpen, setContentViewerOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   // State for image analysis modal
   const [analysisModalOpen, setAnalysisModalOpen] = useState(false);
   const [selectedFileForAnalysis, setSelectedFileForAnalysis] = useState<SourceFile | null>(null);
+  
+  // Use metadata from data if available, otherwise build basic metadata
+  const contentMetadata: ContentMetadata | undefined = data.extractedContent ? {
+    ...data.contentMetadata,
+    source: data.contentMetadata?.source || (data.urlType === "youtube" ? "YouTube" : undefined),
+    sourceUrl: data.contentMetadata?.sourceUrl || data.value,
+    wordCount: data.contentMetadata?.wordCount || data.extractedContent.split(/\s+/).length,
+  } : undefined;
   
   const handleViewJson = (file: SourceFile) => {
     setSelectedFileForAnalysis(file);
@@ -493,29 +505,33 @@ function SourceNodeComponent({
               </Button>
             </div>
             
-            {data.urlType && (
-              <Badge variant="secondary" className="text-[10px]">
-                {data.urlType === "youtube" ? "🎬 YouTube - Transcrição" : "📄 Artigo"}
-              </Badge>
-            )}
-
-            {data.thumbnail && (
-              <img 
-                src={data.thumbnail} 
-                alt="Thumbnail" 
-                className="w-full h-20 object-cover rounded-md"
+            {data.extractedContent ? (
+              <ExtractedContentPreview
+                content={data.extractedContent}
+                title={data.title}
+                thumbnail={data.thumbnail}
+                urlType={data.urlType}
+                metadata={contentMetadata}
+                isExpanded={contentExpanded}
+                onToggleExpand={() => setContentExpanded(!contentExpanded)}
+                onOpenFullView={() => setContentViewerOpen(true)}
+                maxCollapsedHeight={isExpanded ? 150 : 100}
               />
-            )}
-
-            {data.extractedContent && (
-              <div className="p-2 rounded-md bg-muted/50 max-h-[100px] overflow-y-auto">
-                <p className="text-[10px] text-muted-foreground font-medium mb-1">
-                  {data.title || "Conteúdo extraído"}
-                </p>
-                <p className="text-[10px] line-clamp-4">
-                  {data.extractedContent.substring(0, 300)}...
-                </p>
-              </div>
+            ) : (
+              <>
+                {data.urlType && (
+                  <Badge variant="secondary" className="text-[10px]">
+                    {data.urlType === "youtube" ? "🎬 YouTube - Transcrição" : "📄 Artigo"}
+                  </Badge>
+                )}
+                {data.thumbnail && (
+                  <img 
+                    src={data.thumbnail} 
+                    alt="Thumbnail" 
+                    className="w-full h-20 object-cover rounded-md"
+                  />
+                )}
+              </>
             )}
           </TabsContent>
 
@@ -673,6 +689,18 @@ function SourceNodeComponent({
         analysis={selectedFileForAnalysis?.metadata?.imageAnalysis || null}
         imageName={selectedFileForAnalysis?.name}
         imageUrl={selectedFileForAnalysis?.url}
+      />
+      
+      {/* Content Viewer Modal */}
+      <ContentViewerModal
+        open={contentViewerOpen}
+        onOpenChange={setContentViewerOpen}
+        content={data.extractedContent || ""}
+        title={data.title}
+        thumbnail={data.thumbnail}
+        urlType={data.urlType}
+        metadata={contentMetadata}
+        sourceUrl={data.value}
       />
     </Card>
   );
