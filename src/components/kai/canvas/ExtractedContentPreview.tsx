@@ -12,7 +12,8 @@ import {
   Hash,
   Maximize2,
   Copy,
-  Check
+  Check,
+  AlertCircle
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -32,6 +33,7 @@ export interface ContentMetadata {
   libraryItemId?: string;
   libraryItemType?: string;
   views?: string;
+  transcriptUnavailable?: boolean;
 }
 
 interface ExtractedContentPreviewProps {
@@ -292,67 +294,97 @@ function ExtractedContentPreviewComponent({
 
       {/* Content Preview */}
       <div className="px-3 py-2">
-        <div className="flex items-center gap-2 mb-2">
-          <span className="text-[10px] font-medium text-muted-foreground">
-            {urlType === "youtube" ? "📝 Transcrição" : "📄 Conteúdo"}
-          </span>
-          <Badge variant="secondary" className="text-[9px] h-4">
-            {formatWordCount(wordCount)}
-          </Badge>
-          {urlType !== "youtube" && (
-            <Badge variant="secondary" className="text-[9px] h-4">
-              {estimateReadingTime(wordCount)}
-            </Badge>
-          )}
-        </div>
+        {/* Check if transcript is unavailable for YouTube */}
+        {urlType === "youtube" && (metadata as ContentMetadata & { transcriptUnavailable?: boolean })?.transcriptUnavailable ? (
+          <div className="flex flex-col items-center justify-center py-4 text-center space-y-2">
+            <div className="h-10 w-10 rounded-full bg-amber-500/10 flex items-center justify-center">
+              <AlertCircle className="h-5 w-5 text-amber-500" />
+            </div>
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-muted-foreground">
+                Transcrição não disponível
+              </p>
+              <p className="text-[10px] text-muted-foreground/70 max-w-[200px]">
+                Este vídeo não possui legendas disponíveis. Você ainda pode usar o título e thumbnail como referência.
+              </p>
+            </div>
+            {metadata?.sourceUrl && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-[10px] gap-1.5"
+                onClick={() => window.open(metadata.sourceUrl, "_blank")}
+              >
+                <ExternalLink className="h-3 w-3" />
+                Assistir no YouTube
+              </Button>
+            )}
+          </div>
+        ) : (
+          <>
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-[10px] font-medium text-muted-foreground">
+                {urlType === "youtube" ? "📝 Transcrição" : "📄 Conteúdo"}
+              </span>
+              <Badge variant="secondary" className="text-[9px] h-4">
+                {formatWordCount(wordCount)}
+              </Badge>
+              {urlType !== "youtube" && (
+                <Badge variant="secondary" className="text-[9px] h-4">
+                  {estimateReadingTime(wordCount)}
+                </Badge>
+              )}
+            </div>
 
-        <ScrollArea className={cn(
-          "transition-all duration-300",
-          isExpanded ? "max-h-[300px]" : `max-h-[${maxCollapsedHeight}px]`
-        )} style={{ maxHeight: isExpanded ? 300 : maxCollapsedHeight }}>
-          {structured.type !== "text" ? (
-            // Structured content (carousel/thread)
-            <div className="space-y-3">
-              {structured.slides.map((slide, index) => (
-                <div 
-                  key={index}
-                  className="relative pl-4 border-l-2 border-primary/30"
-                >
-                  <Badge 
-                    variant="outline" 
-                    className="absolute -left-2.5 top-0 text-[8px] h-4 px-1.5 bg-background"
-                  >
-                    {structured.type === "carousel" ? `📷 ${index + 1}` : `🧵 ${index + 1}`}
-                  </Badge>
-                  <div className="pt-1 text-[11px] leading-relaxed prose prose-sm dark:prose-invert max-w-none">
-                    <ReactMarkdown>{slide.trim()}</ReactMarkdown>
-                  </div>
+            <ScrollArea className={cn(
+              "transition-all duration-300",
+              isExpanded ? "max-h-[300px]" : `max-h-[${maxCollapsedHeight}px]`
+            )} style={{ maxHeight: isExpanded ? 300 : maxCollapsedHeight }}>
+              {structured.type !== "text" ? (
+                // Structured content (carousel/thread)
+                <div className="space-y-3">
+                  {structured.slides.map((slide, index) => (
+                    <div 
+                      key={index}
+                      className="relative pl-4 border-l-2 border-primary/30"
+                    >
+                      <Badge 
+                        variant="outline" 
+                        className="absolute -left-2.5 top-0 text-[8px] h-4 px-1.5 bg-background"
+                      >
+                        {structured.type === "carousel" ? `📷 ${index + 1}` : `🧵 ${index + 1}`}
+                      </Badge>
+                      <div className="pt-1 text-[11px] leading-relaxed prose prose-sm dark:prose-invert max-w-none">
+                        <ReactMarkdown>{slide.trim()}</ReactMarkdown>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-          ) : (
-            // Regular text/markdown content
-            <div className="text-[11px] leading-relaxed prose prose-sm dark:prose-invert max-w-none 
-              prose-headings:text-xs prose-headings:font-semibold prose-headings:mt-3 prose-headings:mb-1
-              prose-p:my-1 prose-ul:my-1 prose-li:my-0.5">
-              <ReactMarkdown>
-                {isExpanded ? content : content.substring(0, 500) + (content.length > 500 ? "..." : "")}
-              </ReactMarkdown>
-            </div>
-          )}
-        </ScrollArea>
+              ) : (
+                // Regular text/markdown content
+                <div className="text-[11px] leading-relaxed prose prose-sm dark:prose-invert max-w-none 
+                  prose-headings:text-xs prose-headings:font-semibold prose-headings:mt-3 prose-headings:mb-1
+                  prose-p:my-1 prose-ul:my-1 prose-li:my-0.5">
+                  <ReactMarkdown>
+                    {isExpanded ? content : content.substring(0, 500) + (content.length > 500 ? "..." : "")}
+                  </ReactMarkdown>
+                </div>
+              )}
+            </ScrollArea>
 
-        {/* Expand prompt */}
-        {!isExpanded && content.length > 500 && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="w-full mt-2 h-6 text-[10px]"
-            onClick={onToggleExpand}
-          >
-            <ChevronDown className="h-3 w-3 mr-1" />
-            Ver conteúdo completo ({formatWordCount(wordCount)})
-          </Button>
+            {/* Expand prompt */}
+            {!isExpanded && content.length > 500 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full mt-2 h-6 text-[10px]"
+                onClick={onToggleExpand}
+              >
+                <ChevronDown className="h-3 w-3 mr-1" />
+                Ver conteúdo completo ({formatWordCount(wordCount)})
+              </Button>
+            )}
+          </>
         )}
       </div>
     </div>

@@ -147,6 +147,7 @@ export interface ExtractedContentMetadata {
   libraryItemId?: string;
   libraryItemType?: string;
   views?: string;
+  transcriptUnavailable?: boolean;
 }
 
 export interface SourceNodeData {
@@ -445,7 +446,8 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
         if (error) throw error;
 
         const transcript = data.content || data.transcript || "";
-        const wordCount = transcript.split(/\s+/).length;
+        const hasTranscript = data.hasTranscript !== false && transcript.length > 0;
+        const wordCount = transcript ? transcript.split(/\s+/).length : 0;
         
         updateNodeData(nodeId, {
           extractedContent: transcript,
@@ -454,19 +456,28 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
           urlType: "youtube",
           isExtracting: false,
           contentMetadata: {
-            channel: data.channel || data.author,
-            duration: data.duration,
+            channel: data.channel || data.author || data.metadata?.author,
+            duration: data.duration || data.metadata?.duration,
             views: data.views,
             wordCount,
             sourceUrl: url,
             source: "YouTube",
+            transcriptUnavailable: !hasTranscript,
           }
         } as Partial<SourceNodeData>);
 
-        toast({
-          title: "YouTube extraído",
-          description: `"${data.title || url}" transcrito com sucesso`,
-        });
+        if (hasTranscript) {
+          toast({
+            title: "YouTube extraído",
+            description: `"${data.title || url}" transcrito com sucesso`,
+          });
+        } else {
+          toast({
+            title: "Vídeo carregado",
+            description: `"${data.title || url}" carregado, mas a transcrição não está disponível para este vídeo.`,
+            variant: "default",
+          });
+        }
       } else {
         // Use fetch-reference-content for other URLs
         const { data, error } = await supabase.functions.invoke("fetch-reference-content", {
