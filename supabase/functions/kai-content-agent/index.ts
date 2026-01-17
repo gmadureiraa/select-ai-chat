@@ -234,9 +234,12 @@ Agora, crie o conteúdo solicitado mantendo 100% de fidelidade ao tom e estilo d
       }
       
       if (response.status === 402) {
+        // This is a Lovable AI Gateway credit limit - not workspace tokens
+        // Log the issue but return a user-friendly error that doesn't trigger upgrade dialog
+        console.error("Lovable AI Gateway returned 402 - this is an infrastructure limit, not user plan");
         return new Response(
-          JSON.stringify({ error: "Créditos insuficientes. Adicione créditos ao workspace." }),
-          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          JSON.stringify({ error: "Serviço de IA temporariamente indisponível. Tente novamente em alguns minutos." }),
+          { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
       
