@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useTokenError } from "@/hooks/useTokenError";
 import { parseMentions } from "@/lib/mentionParser";
 import { callKaiContentAgent } from "@/lib/parseOpenAIStream";
 
@@ -28,6 +29,7 @@ export function usePlanningContentGeneration() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isFetchingReference, setIsFetchingReference] = useState(false);
   const { toast } = useToast();
+  const { handleTokenError } = useTokenError();
 
   // Fetch content from a reference URL
   const fetchReferenceContent = async (url: string): Promise<ReferenceContent | null> => {
@@ -218,13 +220,18 @@ export function usePlanningContentGeneration() {
         variant: "destructive"
       });
       return null;
-    } catch (error) {
+    } catch (error: any) {
       console.error("[PlanningContent] Generation failed:", error);
-      toast({
-        title: "Erro ao gerar conteúdo",
-        description: error instanceof Error ? error.message : "Tente novamente em alguns instantes.",
-        variant: "destructive"
-      });
+      
+      // Check if it's a token error (402)
+      const isTokenError = await handleTokenError(error, error?.status);
+      if (!isTokenError) {
+        toast({
+          title: "Erro ao gerar conteúdo",
+          description: error instanceof Error ? error.message : "Tente novamente em alguns instantes.",
+          variant: "destructive"
+        });
+      }
       return null;
     } finally {
       setIsGenerating(false);
