@@ -209,22 +209,53 @@ Agora, crie o conteúdo solicitado mantendo 100% de fidelidade ao tom e estilo d
     // Add current request
     messages.push({ role: "user", content: request });
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages,
-        stream: true,
-      }),
-    });
+    // Use user's own Google AI Studio API key instead of Lovable AI Gateway
+    const GOOGLE_API_KEY = Deno.env.get("GOOGLE_AI_STUDIO_API_KEY");
+    
+    if (!GOOGLE_API_KEY) {
+      console.error("GOOGLE_AI_STUDIO_API_KEY not configured");
+      return new Response(
+        JSON.stringify({ error: "Chave da API do Google AI não configurada" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Convert messages to Gemini format
+    const geminiContents = messages.map(msg => ({
+      role: msg.role === "assistant" ? "model" : msg.role === "system" ? "user" : "user",
+      parts: [{ text: msg.content }]
+    }));
+
+    // Merge consecutive user messages (Gemini doesn't allow consecutive same-role messages)
+    const mergedContents: typeof geminiContents = [];
+    for (const content of geminiContents) {
+      if (mergedContents.length > 0 && mergedContents[mergedContents.length - 1].role === content.role) {
+        mergedContents[mergedContents.length - 1].parts[0].text += "\n\n" + content.parts[0].text;
+      } else {
+        mergedContents.push(content);
+      }
+    }
+
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:streamGenerateContent?alt=sse&key=${GOOGLE_API_KEY}`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          contents: mergedContents,
+          generationConfig: {
+            temperature: 0.7,
+            maxOutputTokens: 4096,
+          },
+        }),
+      }
+    );
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("AI error:", errorText);
+      console.error("Gemini API error:", errorText);
       
       if (response.status === 429) {
         return new Response(
@@ -233,20 +264,39 @@ Agora, crie o conteúdo solicitado mantendo 100% de fidelidade ao tom e estilo d
         );
       }
       
-      if (response.status === 402) {
-        // This is a Lovable AI Gateway credit limit - not workspace tokens
-        // Log the issue but return a user-friendly error that doesn't trigger upgrade dialog
-        console.error("Lovable AI Gateway returned 402 - this is an infrastructure limit, not user plan");
-        return new Response(
-          JSON.stringify({ error: "Serviço de IA temporariamente indisponível. Tente novamente em alguns minutos." }),
-          { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      
       throw new Error("Erro ao gerar conteúdo");
     }
 
-    return new Response(response.body, {
+    // Transform Gemini SSE format to OpenAI-compatible format for frontend
+    const transformStream = new TransformStream({
+      transform(chunk, controller) {
+        const text = new TextDecoder().decode(chunk);
+        const lines = text.split("\n");
+        
+        for (const line of lines) {
+          if (line.startsWith("data: ")) {
+            try {
+              const data = JSON.parse(line.slice(6));
+              const content = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+              if (content) {
+                // Convert to OpenAI format
+                const openAIFormat = {
+                  choices: [{ delta: { content } }]
+                };
+                controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(openAIFormat)}\n\n`));
+              }
+            } catch {
+              // Skip invalid JSON lines
+            }
+          }
+        }
+      },
+      flush(controller) {
+        controller.enqueue(new TextEncoder().encode("data: [DONE]\n\n"));
+      }
+    });
+
+    return new Response(response.body?.pipeThrough(transformStream), {
       headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
     });
   } catch (error) {
