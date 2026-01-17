@@ -230,6 +230,7 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
           onUpdateData={(id, data) => handlersRef.current?.updateNodeData(id, data)}
           onDelete={(id) => handlersRef.current?.deleteNode(id)}
           onGenerate={(id) => handlersRef.current?.generateContent(id)}
+          onGenerateMore={(id) => handlersRef.current?.generateContent(id)}
         />
       ),
       output: (props: NodeProps<OutputNodeData>) => (

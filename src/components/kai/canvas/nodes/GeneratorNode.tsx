@@ -1,14 +1,16 @@
 import { memo, useState } from "react";
-import { Handle, Position, NodeProps } from "reactflow";
-import { Sparkles, X, Loader2, Play, Plus } from "lucide-react";
+import { Handle, Position, NodeProps, useEdges } from "reactflow";
+import { Sparkles, X, Loader2, Play, Plus, Link2 } from "lucide-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import { GeneratorNodeData, ContentFormat } from "../hooks/useCanvasState";
+import { GeneratorNodeData, ContentFormat, Platform } from "../hooks/useCanvasState";
 import { contentFormats } from "@/components/chat/FormatItem";
 
 interface GeneratorNodeProps extends NodeProps<GeneratorNodeData> {
@@ -33,6 +35,15 @@ FORMAT_OPTIONS.push({
   label: "Imagem",
   description: "Gerar imagem com IA",
 });
+
+const PLATFORM_OPTIONS: { value: Platform; label: string }[] = [
+  { value: "instagram", label: "Instagram" },
+  { value: "linkedin", label: "LinkedIn" },
+  { value: "twitter", label: "Twitter/X" },
+  { value: "youtube", label: "YouTube" },
+  { value: "tiktok", label: "TikTok" },
+  { value: "other", label: "Outro" },
+];
 
 const IMAGE_STYLE_OPTIONS = [
   { value: "photographic", label: "Fotográfico" },
@@ -67,12 +78,21 @@ function GeneratorNodeComponent({
   onGenerateMore
 }: GeneratorNodeProps) {
   const [nodeSize, setNodeSize] = useState<"normal" | "expanded">("normal");
+  const edges = useEdges();
+  
+  // Count connections to this node
+  const connectionCount = edges.filter(e => e.target === id).length;
   
   const handleFormatChange = (format: ContentFormat) => {
     onUpdateData?.(id, { format });
   };
 
+  const handlePlatformChange = (platform: Platform) => {
+    onUpdateData?.(id, { platform });
+  };
+
   const selectedFormat = FORMAT_OPTIONS.find(f => f.value === data.format);
+  const selectedPlatform = PLATFORM_OPTIONS.find(p => p.value === data.platform);
 
   return (
     <Card className={cn(
@@ -88,6 +108,27 @@ function GeneratorNodeComponent({
             <Sparkles className="h-3.5 w-3.5 text-white" />
           </div>
           <span className="font-medium text-sm">Gerador</span>
+          {/* Connection indicator */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Badge 
+                variant={connectionCount > 0 ? "secondary" : "destructive"} 
+                className={cn(
+                  "h-5 text-[10px] gap-1",
+                  connectionCount === 0 && "animate-pulse"
+                )}
+              >
+                <Link2 className="h-3 w-3" />
+                {connectionCount}
+              </Badge>
+            </TooltipTrigger>
+            <TooltipContent side="top">
+              {connectionCount === 0 
+                ? "Conecte fontes para gerar conteúdo"
+                : `${connectionCount} fonte${connectionCount > 1 ? 's' : ''} conectada${connectionCount > 1 ? 's' : ''}`
+              }
+            </TooltipContent>
+          </Tooltip>
         </div>
         <Button
           variant="ghost"
@@ -125,6 +166,31 @@ function GeneratorNodeComponent({
                       <span className="text-[10px] text-muted-foreground">{option.description}</span>
                     )}
                   </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Platform Selection - Available for all formats */}
+        <div className="space-y-1.5">
+          <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+            Plataforma
+          </label>
+          <Select
+            value={data.platform}
+            onValueChange={handlePlatformChange}
+            disabled={data.isGenerating}
+          >
+            <SelectTrigger className="h-8 text-xs">
+              <SelectValue>
+                <span>{selectedPlatform?.label || "Selecione"}</span>
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {PLATFORM_OPTIONS.map((option) => (
+                <SelectItem key={option.value} value={option.value} className="text-xs">
+                  {option.label}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -257,59 +323,81 @@ function GeneratorNodeComponent({
 
         {/* Generate buttons */}
         <div className="flex gap-2">
-          <Button
-            onClick={() => onGenerate?.(id)}
-            disabled={data.isGenerating}
-            className="flex-1 h-9 gap-2"
-            variant={data.isGenerating ? "secondary" : "default"}
-          >
-            {data.isGenerating ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Gerando...
-              </>
-            ) : (
-              <>
-                <Play className="h-4 w-4" />
-                Gerar
-              </>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                onClick={() => onGenerate?.(id)}
+                disabled={data.isGenerating || connectionCount === 0}
+                className="flex-1 h-9 gap-2"
+                variant={data.isGenerating ? "secondary" : "default"}
+              >
+                {data.isGenerating ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Gerando...
+                  </>
+                ) : (
+                  <>
+                    <Play className="h-4 w-4" />
+                    Gerar
+                  </>
+                )}
+              </Button>
+            </TooltipTrigger>
+            {connectionCount === 0 && (
+              <TooltipContent>
+                Conecte pelo menos uma fonte para gerar
+              </TooltipContent>
             )}
-          </Button>
+          </Tooltip>
           
           {/* Generate More button */}
-          <Button
-            onClick={() => onGenerateMore?.(id)}
-            disabled={data.isGenerating}
-            variant="outline"
-            size="icon"
-            className="h-9 w-9"
-            title="Gerar mais um conteúdo"
-          >
-            <Plus className="h-4 w-4" />
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                onClick={() => onGenerateMore?.(id)}
+                disabled={data.isGenerating || connectionCount === 0}
+                variant="outline"
+                size="icon"
+                className="h-9 w-9"
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              Gerar mais uma variação
+            </TooltipContent>
+          </Tooltip>
         </div>
       </CardContent>
 
-      {/* Input handles */}
+      {/* Input handles - 4 handles for better template support */}
       <Handle
         type="target"
         position={Position.Left}
         id="input-1"
-        style={{ top: "30%" }}
+        style={{ top: "20%" }}
         className="!w-3 !h-3 !bg-green-500 !border-2 !border-white"
       />
       <Handle
         type="target"
         position={Position.Left}
         id="input-2"
-        style={{ top: "50%" }}
+        style={{ top: "40%" }}
         className="!w-3 !h-3 !bg-green-500 !border-2 !border-white"
       />
       <Handle
         type="target"
         position={Position.Left}
         id="input-3"
-        style={{ top: "70%" }}
+        style={{ top: "60%" }}
+        className="!w-3 !h-3 !bg-green-500 !border-2 !border-white"
+      />
+      <Handle
+        type="target"
+        position={Position.Left}
+        id="input-4"
+        style={{ top: "80%" }}
         className="!w-3 !h-3 !bg-green-500 !border-2 !border-white"
       />
 
