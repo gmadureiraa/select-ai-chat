@@ -1,7 +1,8 @@
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Instagram, Twitter, Linkedin, FileText, Heart, MessageCircle, Share2, Eye, Star, ExternalLink, Copy, X } from "lucide-react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Instagram, Twitter, Linkedin, FileText, Heart, MessageCircle, Share2, Eye, Star, ExternalLink, Copy } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import ReactMarkdown from "react-markdown";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -60,8 +61,8 @@ export function ContentPreviewDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col">
-        <DialogHeader className="flex-shrink-0">
+      <DialogContent className="max-w-2xl h-[85vh] flex flex-col">
+        <DialogHeader className="flex-shrink-0 pb-4 border-b">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className={cn("p-2 rounded-lg bg-muted/50")}>
@@ -69,7 +70,9 @@ export function ContentPreviewDialog({
               </div>
               <div>
                 <DialogTitle className="text-lg">{platformLabels[item.platform]}</DialogTitle>
-                <p className="text-sm text-muted-foreground">{formattedDate}</p>
+                <DialogDescription className="text-sm text-muted-foreground">
+                  {formattedDate}
+                </DialogDescription>
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -86,10 +89,10 @@ export function ContentPreviewDialog({
           </div>
         </DialogHeader>
 
-        <div className="flex-1 overflow-hidden flex flex-col gap-4">
+        <div className="flex-1 min-h-0 flex flex-col gap-4 py-4 overflow-hidden">
           {/* Thumbnail */}
           {item.thumbnail_url && (
-            <div className="rounded-lg overflow-hidden border bg-muted/30 max-h-[300px]">
+            <div className="rounded-lg overflow-hidden border bg-muted/30 max-h-[200px] flex-shrink-0">
               <img
                 src={item.thumbnail_url}
                 alt={item.title}
@@ -104,15 +107,15 @@ export function ContentPreviewDialog({
           {/* Content */}
           <ScrollArea className="flex-1 min-h-0">
             <div className="pr-4">
-              <h3 className="font-semibold mb-2">{item.title}</h3>
-              <div className="text-sm whitespace-pre-wrap text-muted-foreground leading-relaxed">
-                {item.content}
+              <h3 className="font-semibold text-lg mb-3">{item.title}</h3>
+              <div className="prose prose-sm dark:prose-invert max-w-none prose-headings:font-semibold prose-headings:mt-4 prose-headings:mb-2 prose-p:my-2 prose-ul:my-2 prose-ol:my-2 prose-img:rounded-lg prose-img:my-3 prose-img:max-w-full prose-blockquote:border-l-primary prose-blockquote:bg-muted/50 prose-blockquote:py-1 prose-blockquote:px-3">
+                <ReactMarkdown>{item.content}</ReactMarkdown>
               </div>
             </div>
           </ScrollArea>
 
           {/* Metrics */}
-          <div className="flex items-center gap-6 py-3 border-t text-sm">
+          <div className="flex items-center gap-6 py-3 border-t text-sm flex-shrink-0">
             <div className="flex items-center gap-2">
               <Heart className="h-4 w-4 text-red-500" />
               <span className="font-medium">{item.metrics.likes.toLocaleString()}</span>
@@ -131,7 +134,7 @@ export function ContentPreviewDialog({
           </div>
 
           {/* Actions */}
-          <div className="flex gap-2 pt-2 border-t">
+          <div className="flex gap-2 pt-2 border-t flex-shrink-0">
             <Button variant="outline" className="flex-1 gap-2" onClick={handleCopy}>
               <Copy className="h-4 w-4" />
               Copiar texto
