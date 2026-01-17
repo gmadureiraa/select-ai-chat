@@ -104,26 +104,47 @@ serve(async (req) => {
       }
     }
 
-    // Verificação final
-    if (!content || content.length === 0) {
-      console.error("💥 FALHA TOTAL: Nenhum método conseguiu extrair a transcrição!");
-      throw new Error("Não foi possível extrair a transcrição do vídeo. O vídeo pode não ter legendas disponíveis em português.");
+    const thumbnail = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
+    
+    // Tentar obter informações básicas do vídeo via oEmbed se não temos título
+    if (title === "Vídeo do YouTube") {
+      try {
+        const oEmbedResponse = await fetch(
+          `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`
+        );
+        if (oEmbedResponse.ok) {
+          const oEmbedData = await oEmbedResponse.json();
+          title = oEmbedData.title || title;
+          console.log("📺 Título via oEmbed:", title);
+        }
+      } catch (oEmbedErr) {
+        console.warn("⚠️ Não foi possível obter título via oEmbed:", oEmbedErr);
+      }
     }
 
-    const thumbnail = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
-    console.log("🎉 Sucesso! Retornando dados completos.");
+    // Determinar status da transcrição
+    const hasTranscript = content && content.length > 0;
+    
+    if (!hasTranscript) {
+      console.warn("⚠️ Transcrição não disponível, retornando apenas metadados do vídeo");
+    } else {
+      console.log("🎉 Sucesso! Retornando dados completos com transcrição.");
+    }
 
     return new Response(
       JSON.stringify({
         title,
-        content,
+        content: content || "",
+        transcript: content || "",
         thumbnail,
         videoId,
+        hasTranscript,
         metadata: {
           duration: duration,
-          language: "pt",
-          extractionMethod: "success",
-          contentLength: content.length,
+          language: hasTranscript ? "pt" : null,
+          extractionMethod: hasTranscript ? "success" : "metadata_only",
+          contentLength: content?.length || 0,
+          transcriptUnavailable: !hasTranscript,
         },
       }),
       {
