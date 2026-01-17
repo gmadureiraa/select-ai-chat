@@ -20,7 +20,7 @@ import { useWorkspace } from '@/hooks/useWorkspace';
 import { useMemberClientAccess } from '@/hooks/useMemberClientAccess';
 import { useTeamMembers } from '@/hooks/useTeamMembers';
 import { PlanningAutomations } from './PlanningAutomations';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { toast } from 'sonner';
 
 interface PlanningBoardProps {
@@ -157,9 +157,27 @@ export function PlanningBoard({ clientId, isEnterprise = false, onClientChange }
     const item = items.find(i => i.id === itemId);
     if (!item) return;
 
-    const updateData = item.scheduled_at
-      ? { scheduled_at: format(newDate, "yyyy-MM-dd'T'HH:mm:ss") }
-      : { due_date: format(newDate, 'yyyy-MM-dd') };
+    let updateData: { scheduled_at?: string; due_date?: string };
+    
+    if (item.scheduled_at) {
+      // Preserve the original time, only change the date
+      const originalDate = parseISO(item.scheduled_at);
+      const newDateTime = new Date(
+        newDate.getFullYear(),
+        newDate.getMonth(),
+        newDate.getDate(),
+        originalDate.getHours(),
+        originalDate.getMinutes(),
+        originalDate.getSeconds()
+      );
+      updateData = { scheduled_at: newDateTime.toISOString() };
+    } else {
+      // For due_date, use the date string directly to avoid timezone issues
+      const year = newDate.getFullYear();
+      const month = String(newDate.getMonth() + 1).padStart(2, '0');
+      const day = String(newDate.getDate()).padStart(2, '0');
+      updateData = { due_date: `${year}-${month}-${day}` };
+    }
 
     updateItem.mutate({ id: itemId, ...updateData });
     toast.success('Item movido para ' + format(newDate, 'dd/MM'));
