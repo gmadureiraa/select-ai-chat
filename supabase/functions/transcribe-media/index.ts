@@ -74,6 +74,26 @@ serve(async (req) => {
     console.log('Media size:', audioBlob.size, 'bytes');
     console.log('Media filename:', audioFileName);
 
+    // Validate file format - Whisper only accepts these formats
+    const validExtensions = ['flac', 'm4a', 'mp3', 'mp4', 'mpeg', 'mpga', 'oga', 'ogg', 'wav', 'webm'];
+    const fileExtension = audioFileName.split('.').pop()?.toLowerCase() || '';
+    
+    // Check if it's an image (not supported)
+    const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg'];
+    if (imageExtensions.includes(fileExtension)) {
+      console.log('Skipping transcription - file is an image:', audioFileName);
+      return new Response(JSON.stringify({
+        text: '',
+        duration: 0,
+        language: null,
+        segments: [],
+        skipped: true,
+        reason: 'Imagens não podem ser transcritas. Apenas arquivos de áudio/vídeo são suportados.'
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     // Check file size (max 25MB for Whisper)
     const MAX_SIZE = 25 * 1024 * 1024;
     if (audioBlob.size > MAX_SIZE) {
