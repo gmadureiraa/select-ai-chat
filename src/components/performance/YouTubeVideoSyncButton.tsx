@@ -122,7 +122,8 @@ export const YouTubeVideoSyncButton = ({
     }
   };
 
-  if (contentSyncedAt || contentLibraryId) {
+  // Only show "Na Biblioteca" if contentLibraryId is set (actual library entry exists)
+  if (contentLibraryId) {
     return (
       <Badge 
         variant="outline" 
@@ -132,6 +133,31 @@ export const YouTubeVideoSyncButton = ({
         <Check className="h-3 w-3" />
         Na Biblioteca
       </Badge>
+    );
+  }
+
+  // If contentSyncedAt exists but no library ID, show "Ressincronizar" button
+  if (contentSyncedAt && !contentLibraryId) {
+    return (
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={handleSync}
+        disabled={isSyncing}
+        className="h-7 px-2 text-xs gap-1 text-orange-600 hover:text-orange-700"
+      >
+        {isSyncing ? (
+          <>
+            <Loader2 className="h-3 w-3 animate-spin" />
+            {syncStatus || "Sincronizando..."}
+          </>
+        ) : (
+          <>
+            <Library className="h-3 w-3" />
+            Ressincronizar
+          </>
+        )}
+      </Button>
     );
   }
 
