@@ -41,7 +41,8 @@ export type NodeDataType =
   | "generator" 
   | "output"
   | "image-editor"
-  | "image-source";
+  | "image-source"
+  | "attachment";
 
 // Structured metadata for each image reference
 export interface ImageMetadata {
@@ -246,6 +247,35 @@ export interface ImageSourceNodeData {
   }>;
 }
 
+export interface AttachmentNodeData {
+  type: "attachment";
+  activeTab: "link" | "text" | "file" | "image";
+  // Link tab
+  url?: string;
+  urlType?: "youtube" | "article" | "instagram";
+  extractedContent?: string;
+  extractedImages?: string[];
+  isExtracting?: boolean;
+  title?: string;
+  thumbnail?: string;
+  contentMetadata?: ExtractedContentMetadata;
+  // Text tab
+  textContent?: string;
+  // File tab
+  files?: SourceFile[];
+  // Image tab
+  images?: Array<{
+    id: string;
+    name: string;
+    url: string;
+    storagePath?: string;
+    isProcessing?: boolean;
+    processingType?: "json" | "ocr" | null;
+    analyzed?: boolean;
+    metadata?: ImageMetadata;
+  }>;
+}
+
 export type CanvasNodeData = 
   | SourceNodeData 
   | LibraryNodeData 
@@ -253,7 +283,8 @@ export type CanvasNodeData =
   | GeneratorNodeData 
   | OutputNodeData
   | ImageEditorNodeData
-  | ImageSourceNodeData;
+  | ImageSourceNodeData
+  | AttachmentNodeData;
 
 export interface SavedCanvas {
   id: string;
@@ -404,6 +435,15 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
           images: [],
           ...data
         } as ImageSourceNodeData;
+        break;
+      case "attachment":
+        nodeData = {
+          type: "attachment",
+          activeTab: "link",
+          files: [],
+          images: [],
+          ...data
+        } as AttachmentNodeData;
         break;
       default:
         throw new Error(`Unknown node type: ${nodeType}`);
