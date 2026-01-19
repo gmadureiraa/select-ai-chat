@@ -2,7 +2,7 @@ import { memo, useCallback, KeyboardEvent } from "react";
 import { ContentItem } from "@/hooks/useContentLibrary";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Edit, Trash2, FileText, Instagram, Video, Globe, Smartphone, Image as ImageIcon, Play, Twitter, Linkedin } from "lucide-react";
+import { Edit, Trash2, FileText, Instagram, Video, Globe, Smartphone, Image as ImageIcon, Play, MessageSquare, Linkedin } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { getContentTypeLabel } from "@/types/contentTypes";
 import { cleanContentForPreview } from "@/lib/text-utils";
@@ -23,9 +23,9 @@ const contentTypeConfig: Record<string, { icon: typeof FileText; color: string }
   static_image: { icon: ImageIcon, color: "bg-indigo-500/10 text-indigo-500" },
   short_video: { icon: Play, color: "bg-red-500/10 text-red-500" },
   long_video: { icon: Video, color: "bg-purple-500/10 text-purple-500" },
-  tweet: { icon: Twitter, color: "bg-sky-500/10 text-sky-500" },
-  thread: { icon: Twitter, color: "bg-sky-500/10 text-sky-500" },
-  x_article: { icon: Twitter, color: "bg-sky-500/10 text-sky-500" },
+  tweet: { icon: MessageSquare, color: "bg-sky-500/10 text-sky-500" },
+  thread: { icon: MessageSquare, color: "bg-sky-500/10 text-sky-500" },
+  x_article: { icon: MessageSquare, color: "bg-sky-500/10 text-sky-500" },
   linkedin_post: { icon: Linkedin, color: "bg-blue-600/10 text-blue-600" },
   blog_post: { icon: Globe, color: "bg-green-500/10 text-green-500" },
   other: { icon: FileText, color: "bg-gray-500/10 text-gray-500" },
