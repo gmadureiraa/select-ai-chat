@@ -1,6 +1,6 @@
-import { memo, useState, useMemo, useDeferredValue } from "react";
+import { memo, useState, useMemo, useDeferredValue, useCallback } from "react";
 import { Handle, Position, NodeProps } from "reactflow";
-import { FileOutput, X, Copy, RefreshCw, Calendar, Check, Edit3, Save, Download, Image, ExternalLink, Maximize2, Minimize2, Lock, Sparkles } from "lucide-react";
+import { FileOutput, X, Copy, RefreshCw, Check, Edit3, Save, Download, Image, ExternalLink, Maximize2, Minimize2, Lock, Sparkles, GitBranch } from "lucide-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -8,11 +8,14 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import { OutputNodeData, ContentFormat, Platform } from "../hooks/useCanvasState";
+import { OutputNodeData, ContentFormat, Platform, ContentVersion, NodeComment as NodeCommentType, ApprovalStatus } from "../hooks/useCanvasState";
 import { useToast } from "@/hooks/use-toast";
 import { usePlanFeatures } from "@/hooks/usePlanFeatures";
 import { useUpgradePrompt } from "@/hooks/useUpgradePrompt";
-import ReactMarkdown from "react-markdown";
+import { VersionHistory } from "../components/VersionHistory";
+import { ApprovalStatus as ApprovalStatusComponent } from "../components/ApprovalStatus";
+import { NodeComment } from "../components/NodeComment";
+import { StreamingPreview } from "../components/StreamingPreview";
 
 // Platform character limits
 const PLATFORM_LIMITS: Record<Platform, number | null> = {
@@ -29,6 +32,7 @@ interface ContentOutputNodeProps extends NodeProps<OutputNodeData> {
   onDelete?: (nodeId: string) => void;
   onSendToPlanning?: (nodeId: string) => void;
   onRegenerate?: (nodeId: string) => void;
+  onCreateRemix?: (nodeId: string) => void;
 }
 
 const FORMAT_LABELS: Record<ContentFormat, string> = {
@@ -50,6 +54,8 @@ const PLATFORM_LABELS: Record<Platform, string> = {
   other: "Outro"
 };
 
+const MAX_VERSIONS = 5;
+
 function ContentOutputNodeComponent({ 
   id, 
   data, 
@@ -57,7 +63,8 @@ function ContentOutputNodeComponent({
   onUpdateData,
   onDelete,
   onSendToPlanning,
-  onRegenerate
+  onRegenerate,
+  onCreateRemix
 }: ContentOutputNodeProps) {
   const { toast } = useToast();
   const { hasPlanning } = usePlanFeatures();
@@ -70,6 +77,16 @@ function ContentOutputNodeComponent({
   const deferredContent = useDeferredValue(data.content);
 
   const handleSendToPlanning = () => {
+    // Only allow sending if approved or draft
+    if (data.approvalStatus === "rejected") {
+      toast({
+        title: "Conteúdo rejeitado",
+        description: "Aprove o conteúdo antes de enviar para planejamento",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     if (!hasPlanning) {
       showUpgradePrompt("planning_locked");
       return;
@@ -101,7 +118,21 @@ function ContentOutputNodeComponent({
   };
 
   const handleSave = () => {
-    onUpdateData?.(id, { content: editedContent, isEditing: false });
+    // Save current version to history before updating
+    const newVersion: ContentVersion = {
+      id: `v-${Date.now()}`,
+      content: data.content,
+      createdAt: new Date().toISOString(),
+      label: `Edição ${(data.versions?.length || 0) + 1}`,
+    };
+    
+    const updatedVersions = [newVersion, ...(data.versions || [])].slice(0, MAX_VERSIONS);
+    
+    onUpdateData?.(id, { 
+      content: editedContent, 
+      isEditing: false,
+      versions: updatedVersions,
+    });
     setIsEditing(false);
     toast({
       title: "Salvo!",
@@ -114,15 +145,105 @@ function ContentOutputNodeComponent({
     setEditedContent(data.content);
   };
 
+  // Version history handlers
+  const handleRestoreVersion = useCallback((version: ContentVersion) => {
+    // Save current as a version before restoring
+    const currentVersion: ContentVersion = {
+      id: `v-${Date.now()}`,
+      content: data.content,
+      createdAt: new Date().toISOString(),
+      label: "Antes da restauração",
+    };
+    
+    const updatedVersions = [currentVersion, ...(data.versions || [])].slice(0, MAX_VERSIONS);
+    
+    onUpdateData?.(id, { 
+      content: version.content,
+      versions: updatedVersions,
+    });
+    
+    toast({
+      title: "Versão restaurada",
+      description: "O conteúdo foi restaurado para a versão anterior",
+    });
+  }, [id, data.content, data.versions, onUpdateData, toast]);
+
+  const handleClearVersions = useCallback(() => {
+    onUpdateData?.(id, { versions: [] });
+    toast({
+      title: "Histórico limpo",
+      description: "Todas as versões anteriores foram removidas",
+    });
+  }, [id, onUpdateData, toast]);
+
+  // Comment handlers
+  const handleAddComment = useCallback((text: string) => {
+    const newComment: NodeCommentType = {
+      id: `c-${Date.now()}`,
+      text,
+      createdAt: new Date().toISOString(),
+      resolved: false,
+    };
+    
+    const updatedComments = [...(data.comments || []), newComment];
+    onUpdateData?.(id, { comments: updatedComments });
+  }, [id, data.comments, onUpdateData]);
+
+  const handleResolveComment = useCallback((commentId: string) => {
+    const updatedComments = (data.comments || []).map(c => 
+      c.id === commentId ? { ...c, resolved: true } : c
+    );
+    onUpdateData?.(id, { comments: updatedComments });
+  }, [id, data.comments, onUpdateData]);
+
+  const handleDeleteComment = useCallback((commentId: string) => {
+    const updatedComments = (data.comments || []).filter(c => c.id !== commentId);
+    onUpdateData?.(id, { comments: updatedComments });
+  }, [id, data.comments, onUpdateData]);
+
+  // Approval handler
+  const handleApprovalChange = useCallback((status: ApprovalStatus) => {
+    onUpdateData?.(id, { approvalStatus: status });
+    
+    const statusLabels: Record<ApprovalStatus, string> = {
+      draft: "Rascunho",
+      pending: "Aguardando revisão",
+      approved: "Aprovado",
+      rejected: "Rejeitado",
+    };
+    
+    toast({
+      title: `Status: ${statusLabels[status]}`,
+      description: status === "approved" 
+        ? "Conteúdo pronto para planejamento" 
+        : status === "rejected"
+          ? "Conteúdo marcado para revisão"
+          : "Status atualizado",
+    });
+  }, [id, onUpdateData, toast]);
+
+  // Remix handler - create new generator connected to this output
+  const handleRemix = useCallback(() => {
+    onCreateRemix?.(id);
+  }, [id, onCreateRemix]);
+
   const cardWidth = isExpanded ? "w-[500px]" : "w-[350px]";
   const scrollHeight = isExpanded ? "h-[320px]" : "h-[160px]";
+
+  // Border color based on approval status
+  const borderColor = data.addedToPlanning 
+    ? "border-green-500/50" 
+    : data.approvalStatus === "approved"
+      ? "border-green-500/30"
+      : data.approvalStatus === "rejected"
+        ? "border-red-500/30"
+        : "border-pink-500/50";
 
   return (
     <Card className={cn(
       cardWidth,
       "shadow-lg transition-all border-2",
-      selected ? "border-primary ring-2 ring-primary/20" : "border-pink-500/50",
-      data.addedToPlanning && "border-green-500/50",
+      selected ? "border-primary ring-2 ring-primary/20" : borderColor,
       "bg-gradient-to-br from-pink-50 to-white dark:from-pink-950/30 dark:to-background"
     )}>
       <CardHeader className="pb-2 pt-3 px-3 flex-row items-center justify-between">
@@ -148,6 +269,25 @@ function ContentOutputNodeComponent({
           </div>
         </div>
         <div className="flex items-center gap-1">
+          {/* Comments button */}
+          <NodeComment
+            comments={data.comments || []}
+            onAddComment={handleAddComment}
+            onResolve={handleResolveComment}
+            onDelete={handleDeleteComment}
+          />
+          
+          {/* Version history */}
+          {!data.isImage && (data.versions?.length || 0) > 0 && (
+            <VersionHistory
+              versions={data.versions || []}
+              currentContent={data.content}
+              onRestore={handleRestoreVersion}
+              onClear={handleClearVersions}
+              maxVersions={MAX_VERSIONS}
+            />
+          )}
+          
           <Button
             variant="ghost"
             size="icon"
@@ -173,6 +313,17 @@ function ContentOutputNodeComponent({
       </CardHeader>
 
       <CardContent className="px-3 pb-3 space-y-2">
+        {/* Approval status */}
+        {!data.isImage && data.content && (
+          <div className="flex items-center justify-between">
+            <ApprovalStatusComponent
+              status={data.approvalStatus || "draft"}
+              onStatusChange={handleApprovalChange}
+              compact
+            />
+          </div>
+        )}
+
         {/* Image output */}
         {data.isImage ? (
           <div className="space-y-2">
@@ -252,13 +403,11 @@ function ContentOutputNodeComponent({
         ) : (
           <>
             <ScrollArea className={cn(scrollHeight, "rounded-md border p-2 bg-muted/30")}>
-              <div className="text-xs prose prose-sm dark:prose-invert max-w-none prose-headings:text-xs prose-headings:font-semibold prose-p:my-1">
-                {deferredContent ? (
-                  <ReactMarkdown>{deferredContent}</ReactMarkdown>
-                ) : (
-                  <span className="text-muted-foreground italic">Aguardando geração...</span>
-                )}
-              </div>
+              <StreamingPreview
+                content={deferredContent}
+                isStreaming={data.isStreaming || false}
+                progress={data.streamProgress || 0}
+              />
             </ScrollArea>
 
             {/* Content stats */}
@@ -297,6 +446,23 @@ function ContentOutputNodeComponent({
                   <Copy className="h-3 w-3" />
                   Copiar
                 </Button>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button 
+                        size="sm" 
+                        variant="outline" 
+                        onClick={handleRemix}
+                        className="h-7 text-xs px-2"
+                      >
+                        <GitBranch className="h-3 w-3" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      Remix: criar novo gerador usando este conteúdo
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
                 <Button 
                   size="sm" 
                   variant="outline" 
@@ -316,20 +482,36 @@ function ContentOutputNodeComponent({
                       onClick={handleSendToPlanning}
                       className={cn(
                         "w-full h-8 gap-1.5 text-xs",
-                        !hasPlanning && "bg-muted hover:bg-muted/80"
+                        !hasPlanning && "bg-muted hover:bg-muted/80",
+                        data.approvalStatus === "rejected" && "opacity-50"
                       )}
                       variant={hasPlanning ? "default" : "outline"}
+                      disabled={data.approvalStatus === "rejected"}
                     >
                       {hasPlanning ? (
-                        <ExternalLink className="h-3.5 w-3.5" />
+                        data.approvalStatus === "approved" ? (
+                          <Check className="h-3.5 w-3.5 text-green-500" />
+                        ) : (
+                          <ExternalLink className="h-3.5 w-3.5" />
+                        )
                       ) : (
                         <Lock className="h-3.5 w-3.5 text-amber-500" />
                       )}
-                      Enviar para Planejamento
+                      {data.approvalStatus === "approved" 
+                        ? "Enviar (Aprovado)" 
+                        : "Enviar para Planejamento"
+                      }
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>
-                    <p>{hasPlanning ? "Abre o editor para revisar antes de salvar" : "Disponível no plano Pro"}</p>
+                    <p>
+                      {data.approvalStatus === "rejected"
+                        ? "Aprove o conteúdo antes de enviar"
+                        : hasPlanning 
+                          ? "Abre o editor para revisar antes de salvar" 
+                          : "Disponível no plano Pro"
+                      }
+                    </p>
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
@@ -358,7 +540,7 @@ function ContentOutputNodeComponent({
         position={Position.Right}
         id="output"
         className="!w-3 !h-3 !bg-pink-500 !border-2 !border-white hover:!bg-pink-400 hover:!scale-150 transition-all cursor-crosshair"
-        title="Arraste para conectar a outro Gerador"
+        title="Arraste para conectar a outro Gerador (Remix)"
       />
     </Card>
   );

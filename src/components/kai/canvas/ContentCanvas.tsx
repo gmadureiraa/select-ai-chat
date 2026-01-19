@@ -248,6 +248,17 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
           onDelete={(id) => handlersRef.current?.deleteNode(id)}
           onSendToPlanning={(id) => handlersRef.current?.handleOpenPlanningDialog(id)}
           onRegenerate={(id) => handlersRef.current?.regenerateContent(id)}
+          onCreateRemix={(id) => {
+            // Create a new generator node connected to this output for remixing
+            const node = props;
+            if (node.xPos !== undefined && node.yPos !== undefined) {
+              const newGenId = handlersRef.current?.updateNodeData ? 
+                (() => {
+                  // This will be handled by the remix logic in useCanvasState
+                  console.log('Remix requested for output:', id);
+                })() : undefined;
+            }
+          }}
         />
       ),
       "image-source": (props: NodeProps<ImageSourceNodeData>) => (

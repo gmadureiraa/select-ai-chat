@@ -213,6 +213,22 @@ export interface GeneratorNodeData {
   noTextInImage?: boolean;
 }
 
+export interface ContentVersion {
+  id: string;
+  content: string;
+  createdAt: string;
+  label?: string;
+}
+
+export interface NodeComment {
+  id: string;
+  text: string;
+  createdAt: string;
+  resolved?: boolean;
+}
+
+export type ApprovalStatus = "draft" | "pending" | "approved" | "rejected";
+
 export interface OutputNodeData {
   type: "output";
   content: string;
@@ -222,6 +238,12 @@ export interface OutputNodeData {
   addedToPlanning: boolean;
   isImage?: boolean;
   imageUrl?: string;
+  // Phase 3 & 4: Version history, comments, approval
+  versions?: ContentVersion[];
+  comments?: NodeComment[];
+  approvalStatus?: ApprovalStatus;
+  isStreaming?: boolean;
+  streamProgress?: number;
 }
 
 export interface ImageEditorNodeData {
@@ -417,6 +439,11 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
           isEditing: false,
           addedToPlanning: false,
           isImage: false,
+          versions: [],
+          comments: [],
+          approvalStatus: "draft",
+          isStreaming: false,
+          streamProgress: 0,
           ...data
         } as OutputNodeData;
         break;
