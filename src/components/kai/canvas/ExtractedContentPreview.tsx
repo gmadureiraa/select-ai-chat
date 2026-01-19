@@ -14,7 +14,8 @@ import {
   Copy,
   Check,
   AlertCircle,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Instagram
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -41,7 +42,7 @@ interface ExtractedContentPreviewProps {
   content: string;
   title?: string;
   thumbnail?: string;
-  urlType?: "youtube" | "article" | "newsletter" | "library";
+  urlType?: "youtube" | "article" | "newsletter" | "library" | "instagram";
   metadata?: ContentMetadata;
   images?: string[];
   isExpanded?: boolean;
@@ -78,6 +79,13 @@ const TYPE_CONFIG = {
     color: "text-amber-500",
     bgColor: "bg-amber-500/10",
     borderColor: "border-amber-500/30",
+  },
+  instagram: {
+    icon: Instagram,
+    label: "Instagram",
+    color: "text-pink-500",
+    bgColor: "bg-pink-500/10",
+    borderColor: "border-pink-500/30",
   },
 };
 

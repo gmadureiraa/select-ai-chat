@@ -12,7 +12,8 @@ import {
   Calendar,
   Hash,
   Image as ImageIcon,
-  FileImage
+  FileImage,
+  Instagram
 } from "lucide-react";
 import {
   Dialog,
@@ -34,7 +35,7 @@ interface ContentViewerModalProps {
   content: string;
   title?: string;
   thumbnail?: string;
-  urlType?: "youtube" | "article" | "newsletter" | "library";
+  urlType?: "youtube" | "article" | "newsletter" | "library" | "instagram";
   metadata?: ContentMetadata;
   sourceUrl?: string;
   images?: string[];
@@ -60,6 +61,11 @@ const TYPE_CONFIG = {
     icon: Library,
     label: "Conteúdo da Biblioteca",
     color: "text-amber-500",
+  },
+  instagram: {
+    icon: Instagram,
+    label: "Instagram",
+    color: "text-pink-500",
   },
 };
 

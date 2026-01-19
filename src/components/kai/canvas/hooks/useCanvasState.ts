@@ -161,7 +161,7 @@ export interface SourceNodeData {
   isExtracting?: boolean;
   title?: string;
   thumbnail?: string;
-  urlType?: "youtube" | "article" | "newsletter" | "library";
+  urlType?: "youtube" | "article" | "newsletter" | "library" | "instagram";
   files?: SourceFile[];
   contentMetadata?: ExtractedContentMetadata;
 }
@@ -437,12 +437,13 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
     return inputNodes;
   }, [edges, nodes]);
 
-  // Extract URL content (YouTube or article)
+  // Extract URL content (YouTube, Instagram, or article)
   const extractUrlContent = useCallback(async (nodeId: string, url: string) => {
     updateNodeData(nodeId, { isExtracting: true } as Partial<SourceNodeData>);
 
     try {
       const isYoutube = isYoutubeUrl(url);
+      const isInstagram = url.includes("instagram.com/p/") || url.includes("instagram.com/reel/") || url.includes("instagr.am");
       
       if (isYoutube) {
         // Use extract-youtube for YouTube URLs
@@ -485,6 +486,77 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
             variant: "default",
           });
         }
+      } else if (isInstagram) {
+        // Use extract-instagram for Instagram URLs
+        toast({
+          title: "Extraindo Instagram...",
+          description: "Buscando imagens e legenda do post",
+        });
+
+        const { data: extractData, error: extractError } = await supabase.functions.invoke(
+          "extract-instagram",
+          { body: { url } }
+        );
+
+        if (extractError) throw extractError;
+        if (extractData?.error) throw new Error(extractData.error);
+
+        const images: string[] = extractData.images || [];
+        const caption: string = extractData.caption || "";
+
+        if (images.length === 0) {
+          throw new Error("Nenhuma imagem encontrada no post");
+        }
+
+        toast({
+          title: "Transcrevendo imagens...",
+          description: `${images.length} imagem(ns) encontrada(s)`,
+        });
+
+        // Transcribe images using transcribe-images
+        let transcription = "";
+        try {
+          const { data: transcribeData, error: transcribeError } = await supabase.functions.invoke(
+            "transcribe-images",
+            { body: { imageUrls: images, startIndex: 1 } }
+          );
+
+          if (!transcribeError && transcribeData?.transcription) {
+            transcription = transcribeData.transcription;
+          }
+        } catch (transcribeErr) {
+          console.warn("Failed to transcribe Instagram images:", transcribeErr);
+        }
+
+        // Build full content
+        let fullContent = "";
+        if (transcription) {
+          fullContent += `📝 **Transcrição das Imagens:**\n\n${transcription}`;
+        }
+        if (caption) {
+          fullContent += `\n\n📷 **Legenda Original:**\n\n${caption}`;
+        }
+
+        const wordCount = fullContent.split(/\s+/).length;
+
+        updateNodeData(nodeId, {
+          extractedContent: fullContent || caption || "Conteúdo extraído do Instagram",
+          extractedImages: images,
+          title: caption ? caption.substring(0, 60) + (caption.length > 60 ? "..." : "") : "Post do Instagram",
+          thumbnail: images[0] || "",
+          urlType: "instagram",
+          isExtracting: false,
+          contentMetadata: {
+            wordCount,
+            sourceUrl: url,
+            source: "Instagram",
+          }
+        } as Partial<SourceNodeData>);
+
+        toast({
+          title: "Instagram importado ✓",
+          description: `${images.length} imagem(ns) extraída(s) e transcrita(s)`,
+        });
       } else {
         // Use fetch-reference-content for other URLs
         const { data, error } = await supabase.functions.invoke("fetch-reference-content", {
