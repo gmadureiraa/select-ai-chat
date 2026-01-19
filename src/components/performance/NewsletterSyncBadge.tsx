@@ -123,15 +123,20 @@ export function NewsletterSyncBadge({
         content = `Edição da newsletter do dia ${metricDate}`;
       }
 
-      // Create entry in content library
+      // Extract first image from content as thumbnail
+      const imageMatch = content.match(/!\[.*?\]\((.*?)\)/);
+      const thumbnailUrl = matchingItem?.imageUrl || (imageMatch ? imageMatch[1] : null);
+
+      // Create entry in content library with thumbnail
       const { data: libraryEntry, error: insertError } = await supabase
         .from("client_content_library")
         .insert({
           client_id: clientId,
-          title: subject || `Newsletter de ${metricDate}`,
+          title: subject || matchingItem?.title || `Newsletter de ${metricDate}`,
           content: content,
           content_type: "newsletter",
           content_url: contentUrl,
+          thumbnail_url: thumbnailUrl,
           metadata: {
             ...metadata,
             synced_from_metrics: true,
@@ -139,6 +144,7 @@ export function NewsletterSyncBadge({
             platform_metric_id: postId,
             rss_synced: !!matchingItem,
             rss_url: feedUrl,
+            all_images: matchingItem?.allImages || [],
           },
         })
         .select("id")

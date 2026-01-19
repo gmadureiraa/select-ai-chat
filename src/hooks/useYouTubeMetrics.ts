@@ -14,6 +14,9 @@ export interface YouTubeVideo {
   impressions: number;
   click_rate: number;
   thumbnail_url: string | null;
+  transcript: string | null;
+  content_synced_at: string | null;
+  content_library_id: string | null;
   metadata: Record<string, any>;
   created_at: string;
   updated_at: string;
