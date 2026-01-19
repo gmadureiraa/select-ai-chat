@@ -1,6 +1,6 @@
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Instagram, Twitter, Linkedin, FileText, Heart, MessageCircle, Share2, Eye, Star, ExternalLink, Copy } from "lucide-react";
+import { Instagram, Youtube, MessageSquare, Linkedin, FileText, Heart, MessageCircle, Share2, Eye, Star, ExternalLink, Copy } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import ReactMarkdown from "react-markdown";
 import { Button } from "@/components/ui/button";
@@ -20,7 +20,8 @@ interface ContentPreviewDialogProps {
 
 const platformIcons = {
   instagram: Instagram,
-  twitter: Twitter,
+  youtube: Youtube,
+  twitter: MessageSquare,
   linkedin: Linkedin,
   newsletter: FileText,
   content: FileText,
@@ -28,6 +29,7 @@ const platformIcons = {
 
 const platformColors = {
   instagram: "text-pink-500",
+  youtube: "text-red-500",
   twitter: "text-blue-400",
   linkedin: "text-blue-600",
   newsletter: "text-orange-500",
@@ -36,6 +38,7 @@ const platformColors = {
 
 const platformLabels = {
   instagram: "Instagram",
+  youtube: "YouTube",
   twitter: "Twitter/X",
   linkedin: "LinkedIn",
   newsletter: "Newsletter",
@@ -51,7 +54,7 @@ export function ContentPreviewDialog({
 }: ContentPreviewDialogProps) {
   if (!item) return null;
 
-  const Icon = platformIcons[item.platform];
+  const Icon = platformIcons[item.platform] ?? FileText;
   const formattedDate = format(new Date(item.posted_at), "dd 'de' MMMM 'de' yyyy", { locale: ptBR });
 
   const handleCopy = () => {

@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Instagram, Twitter, Linkedin, Youtube, FileText, Search, Filter, Loader2, Star, Mail } from "lucide-react";
+import { Instagram, MessageSquare, Linkedin, Youtube, FileText, Search, Filter, Loader2, Star, Mail } from "lucide-react";
 import { useUnifiedContent, useToggleFavorite, UnifiedContentItem } from "@/hooks/useUnifiedContent";
 import { ContentCard } from "./ContentCard";
 import { ContentPreviewDialog } from "./ContentPreviewDialog";
@@ -23,7 +23,7 @@ const platformFilters: { value: PlatformFilter; label: string; icon: React.Eleme
   { value: 'favorites', label: 'Favoritos', icon: Star },
   { value: 'instagram', label: 'Instagram', icon: Instagram },
   { value: 'youtube', label: 'YouTube', icon: Youtube },
-  { value: 'twitter', label: 'Twitter', icon: Twitter },
+  { value: 'twitter', label: 'Twitter', icon: MessageSquare },
   { value: 'linkedin', label: 'LinkedIn', icon: Linkedin },
   { value: 'newsletter', label: 'Newsletter', icon: Mail },
   { value: 'content', label: 'Outros', icon: FileText },

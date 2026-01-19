@@ -1,4 +1,4 @@
-import { Instagram, Twitter, Linkedin, FileText, Heart, MessageCircle, ExternalLink, Star, Eye, GripVertical } from "lucide-react";
+import { Instagram, Youtube, MessageSquare, Linkedin, FileText, Heart, MessageCircle, ExternalLink, Star, Eye, GripVertical } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -22,7 +22,8 @@ interface ContentCardProps {
 
 const platformIcons = {
   instagram: Instagram,
-  twitter: Twitter,
+  youtube: Youtube,
+  twitter: MessageSquare,
   linkedin: Linkedin,
   newsletter: FileText,
   content: FileText,
@@ -30,6 +31,7 @@ const platformIcons = {
 
 const platformColors = {
   instagram: "text-pink-500",
+  youtube: "text-red-500",
   twitter: "text-blue-400",
   linkedin: "text-blue-600",
   newsletter: "text-orange-500",
@@ -38,6 +40,7 @@ const platformColors = {
 
 const platformBgColors = {
   instagram: "bg-pink-500/10",
+  youtube: "bg-red-500/10",
   twitter: "bg-blue-400/10",
   linkedin: "bg-blue-600/10",
   newsletter: "bg-orange-500/10",
@@ -55,7 +58,7 @@ export function ContentCard({
   size = "medium",
   draggable 
 }: ContentCardProps) {
-  const Icon = platformIcons[item.platform];
+  const Icon = platformIcons[item.platform] ?? FileText;
   const formattedDate = format(new Date(item.posted_at), "dd MMM yyyy", { locale: ptBR });
 
   // Compact view
