@@ -302,7 +302,11 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
       const centerY = (window.innerHeight / 2 - viewport.y) / viewport.zoom;
       const offset = nodes.length * 20;
 
-      addNode("source", { x: centerX + offset, y: centerY + offset });
+      addNode("attachment", { x: centerX + offset, y: centerY + offset }, {
+        type: "attachment",
+        activeTab: "text",
+        textContent: ref.content,
+      } as Partial<AttachmentNodeData>);
 
       toast({
         title: "Referência adicionada",
@@ -320,7 +324,11 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
       const centerY = (window.innerHeight / 2 - viewport.y) / viewport.zoom;
       const offset = nodes.length * 20;
 
-      addNode("image-source", { x: centerX + offset, y: centerY + offset });
+      addNode("attachment", { x: centerX + offset, y: centerY + offset }, {
+        type: "attachment",
+        activeTab: "image",
+        images: [{ id: crypto.randomUUID(), url: ref.image_url, name: ref.title || "Imagem" }],
+      } as Partial<AttachmentNodeData>);
 
       toast({
         title: "Referência visual adicionada",
@@ -330,7 +338,7 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
     [addNode, getViewport, nodes.length, toast]
   );
 
-  // Add a library content item as a "source" node
+  // Add a library content item as an "attachment" node
   const handleSelectContentFromLibrary = useCallback(
     (item: UnifiedContentItem) => {
       const viewport = getViewport();
@@ -338,26 +346,16 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
       const centerY = (window.innerHeight / 2 - viewport.y) / viewport.zoom;
       const offset = nodes.length * 20;
 
-      // Use platform as content type label
-      const contentTypeLabel = item.platform || "conteúdo";
-
       addNode(
-        "source",
+        "attachment",
         { x: centerX + offset, y: centerY + offset },
         {
-          type: "source",
-          sourceType: "text",
-          value: item.content,
-          extractedContent: item.content,
+          type: "attachment",
+          activeTab: "text",
+          textContent: item.content,
           title: item.title,
           thumbnail: item.thumbnail_url,
-          urlType: "library",
-          contentMetadata: {
-            libraryItemId: item.id,
-            libraryItemType: contentTypeLabel,
-            wordCount: item.content?.split(/\s+/).length || 0,
-          },
-        } as Partial<SourceNodeData>
+        } as Partial<AttachmentNodeData>
       );
 
       toast({
@@ -475,6 +473,8 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
             switch (node.type) {
               case "source":
                 return "#3b82f6";
+              case "attachment":
+                return "#3b82f6";
               case "prompt":
                 return "#eab308";
               case "generator":
@@ -560,8 +560,8 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
               <p className="text-xs text-muted-foreground">
                 Ou use a toolbar acima para criar do zero •
                 <span className="ml-1 inline-flex items-center gap-1">
-                  <span className="h-2 w-2 rounded bg-blue-500" /> Fonte
-                  <span className="h-2 w-2 rounded bg-yellow-500 ml-2" /> Briefing
+                  <span className="h-2 w-2 rounded bg-blue-500" /> Anexo
+                  <span className="h-2 w-2 rounded bg-yellow-500 ml-2" /> Instruções
                   <span className="h-2 w-2 rounded bg-green-500 ml-2" /> Gerador
                 </span>
               </p>

@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback } from "react";
-import { Library, Link2, Image, Search, Layers, Instagram, Twitter, Linkedin, Maximize2, Star, LayoutGrid, Grid2X2, Square, Check } from "lucide-react";
+import { Library, Link2, Image, Search, Layers, Instagram, Linkedin, Maximize2, Star, LayoutGrid, Grid2X2, Square, Check, Youtube, Mail, MessageSquare, FileText } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
@@ -26,16 +26,20 @@ interface CanvasLibraryDrawerProps {
 
 type CardSize = "compact" | "medium" | "large";
 
-const platformIcons = {
+const platformIcons: Record<string, React.ComponentType<{ className?: string }>> = {
   instagram: Instagram,
-  twitter: Twitter,
+  twitter: MessageSquare,
   linkedin: Linkedin,
+  youtube: Youtube,
+  newsletter: Mail,
 };
 
-const platformColors = {
+const platformColors: Record<string, string> = {
   instagram: "text-pink-500",
   twitter: "text-blue-400",
   linkedin: "text-blue-600",
+  youtube: "text-red-500",
+  newsletter: "text-orange-500",
 };
 
 export function CanvasLibraryDrawer({
