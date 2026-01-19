@@ -341,13 +341,15 @@ function ContentOutputNodeComponent({
         position={Position.Left}
         id="input"
         className="!w-3 !h-3 !bg-pink-500 !border-2 !border-white"
+        title="Entrada de conteúdo"
       />
 
       <Handle
         type="source"
         position={Position.Right}
         id="output"
-        className="!w-3 !h-3 !bg-pink-500 !border-2 !border-white"
+        className="!w-3 !h-3 !bg-pink-500 !border-2 !border-white hover:!bg-pink-400 hover:!scale-150 transition-all cursor-crosshair"
+        title="Arraste para conectar a outro Gerador"
       />
     </Card>
   );
