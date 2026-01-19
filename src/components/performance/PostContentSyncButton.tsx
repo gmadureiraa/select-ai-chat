@@ -78,12 +78,20 @@ export const PostContentSyncButton = ({
       }
       const fullContent = parts.join("\n\n");
 
-      // 4. Update instagram_posts directly
+      // 4. Build thumbnail URL from first uploaded image
+      let thumbnailUrl: string | null = null;
+      if (uploadedPaths.length > 0) {
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+        thumbnailUrl = `${supabaseUrl}/storage/v1/object/public/client-files/${uploadedPaths[0]}`;
+      }
+
+      // 5. Update instagram_posts directly
       const { error: updateError } = await supabase
         .from("instagram_posts")
         .update({
           full_content: fullContent || null,
           images: uploadedPaths,
+          thumbnail_url: thumbnailUrl,
           content_synced_at: new Date().toISOString(),
         })
         .eq("id", postId);
