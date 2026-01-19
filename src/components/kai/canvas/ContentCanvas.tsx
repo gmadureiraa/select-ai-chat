@@ -94,6 +94,7 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
     transcribeFile,
     analyzeImageStyle,
     analyzeImageSourceImage,
+    transcribeImageSourceImage,
     generateContent,
     regenerateContent,
     editImage,
@@ -182,6 +183,7 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
     transcribeFile: typeof transcribeFile;
     analyzeImageStyle: typeof analyzeImageStyle;
     analyzeImageSourceImage: typeof analyzeImageSourceImage;
+    transcribeImageSourceImage: typeof transcribeImageSourceImage;
     updateNodeData: typeof updateNodeData;
     deleteNode: typeof deleteNode;
     generateContent: typeof generateContent;
@@ -197,6 +199,7 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
     transcribeFile,
     analyzeImageStyle,
     analyzeImageSourceImage,
+    transcribeImageSourceImage,
     updateNodeData,
     deleteNode,
     generateContent,
