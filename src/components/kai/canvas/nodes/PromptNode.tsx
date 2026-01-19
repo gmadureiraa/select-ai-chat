@@ -1,4 +1,4 @@
-import { memo, useState } from "react";
+import { memo, useState, useCallback } from "react";
 import { Handle, Position, NodeProps } from "reactflow";
 import { Lightbulb, X, ChevronDown, Maximize2, Minimize2 } from "lucide-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { PromptNodeData } from "../hooks/useCanvasState";
+import { useDebouncedCallback } from "@/hooks/useDebounce";
 
 interface PromptNodeProps extends NodeProps<PromptNodeData> {
   onUpdateData?: (nodeId: string, data: Partial<PromptNodeData>) => void;
@@ -50,9 +51,17 @@ function PromptNodeComponent({
   const [briefing, setBriefing] = useState(data.briefing || "");
   const [isExpanded, setIsExpanded] = useState(false);
 
+  // Debounced update to avoid excessive re-renders
+  const debouncedUpdate = useDebouncedCallback(
+    (value: string) => {
+      onUpdateData?.(id, { briefing: value });
+    },
+    500
+  );
+
   const handleBriefingChange = (value: string) => {
     setBriefing(value);
-    onUpdateData?.(id, { briefing: value });
+    debouncedUpdate(value);
   };
 
   const handleTemplateSelect = (template: string) => {

@@ -6,9 +6,11 @@ import ReactFlow, {
   ReactFlowProvider,
   useReactFlow,
   NodeProps,
+  EdgeTypes,
 } from "reactflow";
 import "reactflow/dist/style.css";
 import { Sparkles, LayoutGrid, MessageSquare, Briefcase, BookOpen, RefreshCw, Image } from "lucide-react";
+import { AnimatedEdge } from "./components/AnimatedEdge";
 import {
   useCanvasState,
   NodeDataType,
@@ -273,6 +275,14 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
     []
   );
 
+  // Edge types with animated edges for generation
+  const edgeTypes: EdgeTypes = useMemo(
+    () => ({
+      default: AnimatedEdge,
+    }),
+    []
+  );
+
   const handleAddNode = useCallback(
     (type: "attachment" | "prompt" | "generator") => {
       const viewport = getViewport();
@@ -455,12 +465,13 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
         nodeTypes={nodeTypes}
+        edgeTypes={edgeTypes}
         fitView
         snapToGrid
         snapGrid={[15, 15]}
         defaultEdgeOptions={{
-          animated: true,
-          style: { stroke: "hsl(var(--primary))", strokeWidth: 2 },
+          type: 'default',
+          animated: false,
         }}
         proOptions={{ hideAttribution: true }}
         className="bg-muted/30 pt-12"
