@@ -76,7 +76,7 @@ function PromptNodeComponent({
           <div className="h-6 w-6 rounded-md bg-yellow-500 flex items-center justify-center">
             <Lightbulb className="h-3.5 w-3.5 text-white" />
           </div>
-          <span className="font-medium text-sm">Briefing</span>
+          <span className="font-medium text-sm">Instruções</span>
         </div>
         <div className="flex items-center gap-1">
           <DropdownMenu>
@@ -124,9 +124,9 @@ function PromptNodeComponent({
 
       <CardContent className="px-3 pb-3">
         <Textarea
-          placeholder="Descreva o que você quer criar...
+          placeholder="Descreva as instruções para a geração...
 
-Ex: Crie um conteúdo sobre produtividade para empreendedores, focando em técnicas práticas do dia a dia."
+Ex: Tom descontraído, foco em dicas práticas, usar emojis com moderação, incluir CTA no final."
           value={briefing}
           onChange={(e) => handleBriefingChange(e.target.value)}
           className={cn(textareaHeight, "text-xs resize-none")}
