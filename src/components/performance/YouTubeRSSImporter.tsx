@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
@@ -24,6 +23,7 @@ interface RSSVideo {
 export function YouTubeRSSImporter({ clientId, onImportComplete }: YouTubeRSSImporterProps) {
   const [channelUrl, setChannelUrl] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isResolvingHandle, setIsResolvingHandle] = useState(false);
   const [importedCount, setImportedCount] = useState<number | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -47,8 +47,26 @@ export function YouTubeRSSImporter({ clientId, onImportComplete }: YouTubeRSSImp
     loadSavedChannel();
   }, [clientId]);
 
+  // Resolve @handle to channel ID via edge function
+  const resolveYouTubeHandle = async (handle: string): Promise<string | null> => {
+    try {
+      setIsResolvingHandle(true);
+      const { data, error } = await supabase.functions.invoke("resolve-youtube-channel", {
+        body: { handle }
+      });
+      
+      if (error) throw error;
+      return data?.channelId || null;
+    } catch (e) {
+      console.error("Failed to resolve handle:", e);
+      return null;
+    } finally {
+      setIsResolvingHandle(false);
+    }
+  };
+
   // Extract channel ID from various YouTube URL formats
-  const extractChannelId = (url: string): string | null => {
+  const extractChannelId = async (url: string): Promise<string | null> => {
     const trimmed = url.trim();
     
     // Already a channel ID (UCxxxxxxx format)
@@ -64,26 +82,37 @@ export function YouTubeRSSImporter({ clientId, onImportComplete }: YouTubeRSSImp
     const channelMatch = trimmed.match(/youtube\.com\/channel\/(UC[\w-]{22})/);
     if (channelMatch) return channelMatch[1];
 
-    // Handle URL: youtube.com/@handle (would need API call to resolve)
-    if (trimmed.includes("/@")) {
+    // Handle URL: youtube.com/@handle
+    const handleUrlMatch = trimmed.match(/youtube\.com\/@([\w.-]+)/i);
+    if (handleUrlMatch) {
+      const handle = handleUrlMatch[1];
       toast({
-        title: "Formato não suportado",
-        description: "Use a URL do canal no formato youtube.com/channel/UC... ou o ID do canal diretamente.",
-        variant: "destructive",
+        title: "Resolvendo canal...",
+        description: `Buscando ID do canal @${handle}`,
       });
-      return null;
+      return await resolveYouTubeHandle(handle);
+    }
+    
+    // Handle direto sem URL (começa com @)
+    if (trimmed.startsWith("@")) {
+      const handle = trimmed.slice(1);
+      toast({
+        title: "Resolvendo canal...",
+        description: `Buscando ID do canal @${handle}`,
+      });
+      return await resolveYouTubeHandle(handle);
     }
 
     return null;
   };
 
   const handleImport = async () => {
-    const channelId = extractChannelId(channelUrl);
+    const channelId = await extractChannelId(channelUrl);
     
     if (!channelId) {
       toast({
         title: "URL inválida",
-        description: "Insira uma URL de canal válida ou ID do canal (começa com UC).",
+        description: "Insira uma URL de canal válida, @handle ou ID do canal (começa com UC).",
         variant: "destructive",
       });
       return;
@@ -97,7 +126,7 @@ export function YouTubeRSSImporter({ clientId, onImportComplete }: YouTubeRSSImp
       const rssUrl = `https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`;
       
       const { data, error } = await supabase.functions.invoke("fetch-rss-feed", {
-        body: { url: rssUrl }
+        body: { rssUrl }
       });
 
       if (error) throw error;
@@ -114,10 +143,10 @@ export function YouTubeRSSImporter({ clientId, onImportComplete }: YouTubeRSSImp
 
       // Parse RSS items into video format
       const videos: RSSVideo[] = data.items.map((item: any) => ({
-        id: item.id?.replace("yt:video:", "") || item.link?.split("v=")[1] || "",
+        id: item.guid?.replace("yt:video:", "") || item.link?.split("v=")[1] || "",
         title: item.title || "",
-        published: item.published || item.pubDate || new Date().toISOString(),
-        thumbnail: `https://i.ytimg.com/vi/${item.id?.replace("yt:video:", "") || ""}/hqdefault.jpg`,
+        published: item.pubDate || new Date().toISOString(),
+        thumbnail: `https://i.ytimg.com/vi/${item.guid?.replace("yt:video:", "") || ""}/hqdefault.jpg`,
         description: item.description || item.content || "",
       })).filter((v: RSSVideo) => v.id && v.title);
 
@@ -202,26 +231,31 @@ export function YouTubeRSSImporter({ clientId, onImportComplete }: YouTubeRSSImp
       
       <div className="space-y-2">
         <Label htmlFor="channel-url" className="text-xs">
-          URL do Canal ou ID
+          URL do Canal, @handle ou ID
         </Label>
         <Input
           id="channel-url"
-          placeholder="youtube.com/channel/UC... ou UCxxxxxxx"
+          placeholder="youtube.com/@canal, @canal ou UCxxxxxxx"
           value={channelUrl}
           onChange={(e) => setChannelUrl(e.target.value)}
           className="text-sm"
         />
         <p className="text-[10px] text-muted-foreground">
-          Cole a URL do canal do YouTube ou o ID do canal (começa com UC)
+          Aceita: youtube.com/@canal, @canal, youtube.com/channel/UC... ou ID direto
         </p>
       </div>
 
       <Button
         onClick={handleImport}
-        disabled={isLoading || !channelUrl.trim()}
+        disabled={isLoading || isResolvingHandle || !channelUrl.trim()}
         className="w-full"
       >
-        {isLoading ? (
+        {isResolvingHandle ? (
+          <>
+            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            Resolvendo canal...
+          </>
+        ) : isLoading ? (
           <>
             <Loader2 className="h-4 w-4 mr-2 animate-spin" />
             Importando...

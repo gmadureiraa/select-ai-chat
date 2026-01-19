@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Eye, Clock, Users, TrendingUp, MousePointer, Upload, ThumbsUp, MessageCircle, ChevronDown, Calendar, FileText, Rss } from "lucide-react";
+import { Eye, Clock, Users, TrendingUp, MousePointer, Upload, ThumbsUp, MessageCircle, ChevronDown, Calendar, FileText, Rss, Youtube } from "lucide-react";
 import { StatCard } from "./StatCard";
 import { EnhancedAreaChart } from "./EnhancedAreaChart";
 import { GoalsPanel } from "./GoalsPanel";
@@ -196,6 +196,24 @@ export function YouTubeDashboard({ clientId, videos, isLoading }: YouTubeDashboa
             </p>
           </div>
         </div>
+        
+        {/* Option 1: Import from Channel (RSS) */}
+        <Card className="p-6">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="h-10 w-10 rounded-lg bg-red-500/10 flex items-center justify-center">
+              <Youtube className="h-5 w-5 text-red-500" />
+            </div>
+            <div>
+              <h3 className="font-medium">Importar do Canal</h3>
+              <p className="text-sm text-muted-foreground">
+                Cole a URL ou @handle do canal para importar os vídeos
+              </p>
+            </div>
+          </div>
+          <YouTubeRSSImporter clientId={clientId} />
+        </Card>
+        
+        {/* Option 2: CSV Import */}
         <SmartCSVUpload clientId={clientId} platform="youtube" />
       </div>
     );
