@@ -1,4 +1,4 @@
-import { memo, useState, useRef } from "react";
+import { memo, useState, useRef, useEffect, useCallback } from "react";
 import { Handle, Position, NodeProps } from "reactflow";
 import { 
   Paperclip, Link2, FileText, Upload, ImageIcon, 
@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useDebouncedCallback } from "@/hooks/useDebounce";
 import { ImageAnalysisModal } from "../ImageAnalysisModal";
 import { ExtractedContentPreview, ContentMetadata } from "../ExtractedContentPreview";
 import { ContentViewerModal } from "../ContentViewerModal";
@@ -126,10 +127,18 @@ function AttachmentNodeComponent({
     }
   };
 
+  // Debounced text update to avoid excessive re-renders
+  const debouncedTextUpdate = useDebouncedCallback(
+    (text: string) => {
+      onUpdateData?.(id, { textContent: text, extractedContent: text });
+    },
+    500
+  );
+
   // Text handlers
   const handleTextChange = (text: string) => {
     setLocalText(text);
-    onUpdateData?.(id, { textContent: text, extractedContent: text });
+    debouncedTextUpdate(text);
   };
 
   // Tab handlers

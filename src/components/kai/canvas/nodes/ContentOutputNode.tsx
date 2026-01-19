@@ -1,6 +1,6 @@
-import { memo, useState, useMemo } from "react";
+import { memo, useState, useMemo, useDeferredValue } from "react";
 import { Handle, Position, NodeProps } from "reactflow";
-import { FileOutput, X, Copy, RefreshCw, Calendar, Check, Edit3, Save, Download, Image, ExternalLink, Maximize2, Minimize2, Lock } from "lucide-react";
+import { FileOutput, X, Copy, RefreshCw, Calendar, Check, Edit3, Save, Download, Image, ExternalLink, Maximize2, Minimize2, Lock, Sparkles } from "lucide-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -12,6 +12,7 @@ import { OutputNodeData, ContentFormat, Platform } from "../hooks/useCanvasState
 import { useToast } from "@/hooks/use-toast";
 import { usePlanFeatures } from "@/hooks/usePlanFeatures";
 import { useUpgradePrompt } from "@/hooks/useUpgradePrompt";
+import ReactMarkdown from "react-markdown";
 
 // Platform character limits
 const PLATFORM_LIMITS: Record<Platform, number | null> = {
@@ -64,6 +65,9 @@ function ContentOutputNodeComponent({
   const [isEditing, setIsEditing] = useState(false);
   const [editedContent, setEditedContent] = useState(data.content);
   const [isExpanded, setIsExpanded] = useState(false);
+  
+  // Use deferred value for content to avoid blocking renders
+  const deferredContent = useDeferredValue(data.content);
 
   const handleSendToPlanning = () => {
     if (!hasPlanning) {
@@ -248,8 +252,12 @@ function ContentOutputNodeComponent({
         ) : (
           <>
             <ScrollArea className={cn(scrollHeight, "rounded-md border p-2 bg-muted/30")}>
-              <div className="text-xs whitespace-pre-wrap">
-                {data.content || "Aguardando geração..."}
+              <div className="text-xs prose prose-sm dark:prose-invert max-w-none prose-headings:text-xs prose-headings:font-semibold prose-p:my-1">
+                {deferredContent ? (
+                  <ReactMarkdown>{deferredContent}</ReactMarkdown>
+                ) : (
+                  <span className="text-muted-foreground italic">Aguardando geração...</span>
+                )}
               </div>
             </ScrollArea>
 
