@@ -69,7 +69,7 @@ export function RSSConfigDialog({ open, onOpenChange, clientId, platform, onSave
     setIsSyncing(true);
     try {
       const { data, error } = await supabase.functions.invoke("fetch-rss-feed", {
-        body: { url: feedUrl }
+        body: { rssUrl: feedUrl }
       });
 
       if (error) throw error;
