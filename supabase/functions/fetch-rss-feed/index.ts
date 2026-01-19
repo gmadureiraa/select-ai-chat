@@ -16,7 +16,59 @@ interface RSSItem {
   allImages?: string[];
 }
 
+function parseAtomFeed(xml: string): { title: string; items: RSSItem[] } {
+  const feedTitle = xml.match(/<feed[^>]*>[\s\S]*?<title[^>]*>([\s\S]*?)<\/title>/i)?.[1]?.trim() || 'YouTube Feed';
+  const items: RSSItem[] = [];
+  const entryMatches = xml.match(/<entry[\s\S]*?<\/entry>/gi) || [];
+  
+  console.log(`Parsing Atom feed, found ${entryMatches.length} entries`);
+  
+  for (const entryXml of entryMatches) {
+    // YouTube-specific tags
+    const videoId = entryXml.match(/<yt:videoId[^>]*>([\s\S]*?)<\/yt:videoId>/i)?.[1]?.trim() || '';
+    const title = entryXml.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1]?.trim() || '';
+    const published = entryXml.match(/<published[^>]*>([\s\S]*?)<\/published>/i)?.[1]?.trim() || '';
+    const updated = entryXml.match(/<updated[^>]*>([\s\S]*?)<\/updated>/i)?.[1]?.trim() || '';
+    const description = entryXml.match(/<media:description[^>]*>([\s\S]*?)<\/media:description>/i)?.[1]?.trim() || '';
+    const thumbnail = entryXml.match(/<media:thumbnail[^>]*url="([^"]+)"/i)?.[1] || '';
+    const link = entryXml.match(/<link[^>]*href="([^"]+)"/i)?.[1] || '';
+    
+    // Clean description
+    const cleanDescription = description
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .substring(0, 300);
+    
+    items.push({
+      guid: videoId ? `yt:video:${videoId}` : link,
+      title,
+      link: link || (videoId ? `https://www.youtube.com/watch?v=${videoId}` : ''),
+      description: cleanDescription,
+      pubDate: published || updated,
+      content: description,
+      imageUrl: thumbnail || (videoId ? `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg` : ''),
+      allImages: thumbnail ? [thumbnail] : (videoId ? [`https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`] : [])
+    });
+  }
+  
+  return { title: feedTitle, items };
+}
+
 function parseRSSFeed(xml: string): { title: string; items: RSSItem[] } {
+  // Detect if it's Atom format (YouTube uses this)
+  const isAtom = xml.includes('<feed') && xml.includes('<entry');
+  
+  if (isAtom) {
+    console.log('Detected Atom format (YouTube)');
+    return parseAtomFeed(xml);
+  }
+  
+  console.log('Detected RSS format');
+  
   // Extract channel title
   const channelTitle = xml.match(/<channel>[\s\S]*?<title[^>]*>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/title>/i)?.[1]?.trim() || 'RSS Feed';
   
