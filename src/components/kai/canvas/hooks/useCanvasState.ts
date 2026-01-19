@@ -5,6 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useTokenError } from "@/hooks/useTokenError";
 import { usePlanningItems } from "@/hooks/usePlanningItems";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { IMAGE_FORMAT_INSTRUCTIONS } from "@/types/template";
 
 // Helper to convert blob URL to base64 data URL
 async function blobUrlToBase64(blobUrl: string): Promise<string> {
@@ -880,6 +881,34 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
           }
           break;
         }
+        // NEW: Support image-source nodes for visual references
+        case "image-source": {
+          const imgSrcData = inputNode.data as any; // ImageSourceNodeData
+          const srcImages = imgSrcData.images || [];
+          
+          for (const img of srcImages) {
+            if (img.url) {
+              try {
+                const imageUrl = await blobUrlToBase64(img.url);
+                imageReferences.push(imageUrl);
+              } catch (e) {
+                console.warn('Failed to process image-source reference:', e);
+              }
+            }
+            
+            // Collect complete imageAnalysis if available
+            if (img.metadata?.imageAnalysis) {
+              styleContext.push(`Análise completa da referência visual: ${JSON.stringify(img.metadata.imageAnalysis)}`);
+              // Use generation_prompt if available
+              if (img.metadata.imageAnalysis.generation_prompt) {
+                styleContext.push(`Prompt de geração sugerido: ${img.metadata.imageAnalysis.generation_prompt}`);
+              }
+            } else if (img.metadata?.styleAnalysis?.promptDescription) {
+              styleContext.push(img.metadata.styleAnalysis.promptDescription);
+            }
+          }
+          break;
+        }
       }
     }
 
@@ -929,7 +958,7 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
           imagePrompt += "\n\nIMPORTANTE: A imagem não deve conter texto.";
         }
 
-        // Collect complete styleAnalysis from analyzed images
+        // Collect complete styleAnalysis from analyzed images (source nodes and image-source nodes)
         let collectedStyleAnalysis = null;
         for (const inputNode of inputNodes) {
           if (inputNode.data.type === "source") {
@@ -941,15 +970,60 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
               }
             }
             if (collectedStyleAnalysis) break;
+          } else if (inputNode.data.type === "image-source") {
+            const imgSrcData = inputNode.data as any;
+            for (const img of imgSrcData.images || []) {
+              if (img.metadata?.imageAnalysis) {
+                collectedStyleAnalysis = img.metadata.imageAnalysis;
+                break;
+              }
+            }
+            if (collectedStyleAnalysis) break;
           }
         }
+
+        // Map imageType to format instructions and aspect ratio
+        const imageTypeToFormatKey: Record<string, string> = {
+          "thumbnail": "thumbnail_youtube",
+          "social_post": "post_instagram",
+          "banner": "banner_linkedin",
+          "product": "post_instagram",
+          "general": "post_instagram",
+          "carousel": "carousel_slide",
+          "story": "story_reels",
+          "reels": "story_reels",
+        };
+
+        const imageType = (genData as any).imageType || "general";
+        const formatKey = imageTypeToFormatKey[imageType] || "arte_generica";
+        const formatSpec = IMAGE_FORMAT_INSTRUCTIONS[formatKey];
+        const formatInstructionsText = formatSpec?.instructions || "";
+        
+        // Override aspect ratio based on format if not explicitly set
+        const effectiveAspectRatio = genData.aspectRatio || formatSpec?.aspectRatio || "1:1";
+        
+        // Get preservePerson flag
+        const preservePerson = (genData as any).preservePerson || false;
+
+        console.log('[generateContent] Image generation params:', {
+          imageType,
+          formatKey,
+          effectiveAspectRatio,
+          preservePerson,
+          hasFormatInstructions: !!formatInstructionsText,
+          hasStyleAnalysis: !!collectedStyleAnalysis,
+          imageRefsCount: allImageRefs.length
+        });
 
         const { data, error } = await supabase.functions.invoke('generate-image', {
           body: {
             prompt: imagePrompt,
             clientId,
-            aspectRatio: genData.aspectRatio || "1:1",
+            aspectRatio: effectiveAspectRatio,
             imageFormat: genData.imageStyle || "photographic",
+            imageType,
+            preservePerson,
+            formatInstructions: formatInstructionsText,
             imageReferences: allImageRefs.slice(0, 2), // Limit to 2 for optimal style matching
             styleAnalysis: collectedStyleAnalysis, // Pass complete JSON analysis
           }

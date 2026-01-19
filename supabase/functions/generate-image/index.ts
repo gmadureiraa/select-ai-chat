@@ -210,10 +210,12 @@ serve(async (req) => {
       formatInstructions,
       aspectRatio,
       templateName,
+      imageType,
+      preservePerson,
       workspaceId: providedWorkspaceId
     } = await req.json();
     
-    console.log(`[generate-image] Request - format: ${imageFormat}, template: ${templateName}, aspectRatio: ${aspectRatio}`);
+    console.log(`[generate-image] Request - format: ${imageFormat}, template: ${templateName}, aspectRatio: ${aspectRatio}, imageType: ${imageType}, preservePerson: ${preservePerson}`);
 
     if (!prompt || typeof prompt !== 'string') {
       return new Response(
@@ -456,6 +458,35 @@ RESULTADO ESPERADO: Uma imagem que pareça ter sido criada pelo MESMO ARTISTA/DE
       
       enhancedPrompt = `${fullContext}\n\n=== PEDIDO ESPECÍFICO ===\n${prompt}\n\nGere uma imagem que siga as instruções do formato, respeite a identidade visual da marca e atenda ao pedido específico.`;
       console.log('[generate-image] Using style analysis + brand context + format instructions');
+    } else if (preservePerson && processedImageCount > 0) {
+      // PRESERVE PERSON MODE: Keep the same person/face but change context
+      const refDescriptions = allRefs.filter(r => r.description).map(r => r.description).join(", ");
+      
+      enhancedPrompt = `${formatContext}
+=== PRESERVAR IDENTIDADE DA PESSOA - INSTRUÇÃO CRÍTICA ===
+
+Você recebeu ${processedImageCount} imagens de referência contendo uma ou mais pessoas. Sua tarefa é criar uma NOVA imagem que:
+
+1. MANTENHA A MESMA PESSOA: Preserve exatamente as características faciais, estrutura do rosto, tom de pele, cabelo e aparência geral
+2. MANTENHA O ESTILO: Use a mesma paleta de cores, iluminação e estética visual das referências
+3. ALTERE APENAS O CONTEXTO: Mude o fundo, cenário, pose ou elementos ao redor conforme o prompt
+
+CARACTERÍSTICAS A PRESERVAR (OBRIGATÓRIO):
+- Feições faciais exatas (olhos, nariz, boca, formato do rosto)
+- Tom de pele e cor/estilo do cabelo
+- Idade aparente e características físicas distintivas
+- Expressão similar ou relacionada ao contexto
+- Proporções corporais
+
+${brandContext ? `=== IDENTIDADE DA MARCA ===\n${brandContext}\n` : ''}
+${refDescriptions ? `CONTEXTO DAS REFERÊNCIAS: ${refDescriptions}\n` : ''}
+
+=== O QUE CRIAR ===
+${prompt}
+
+RESULTADO: Uma imagem onde a MESMA PESSOA das referências aparece em um novo contexto/cenário. A identidade da pessoa deve ser imediatamente reconhecível.`;
+
+      console.log('[generate-image] Using PRESERVE PERSON mode with', processedImageCount, 'references');
     } else if (processedImageCount > 0) {
       // CRITICAL: When we have reference images, use style transfer prompt format
       // Per Gemini docs: "Transform the provided photograph into the artistic style of [reference]"
