@@ -107,6 +107,7 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
     currentCanvasName,
     setCanvasName,
     isSaving,
+    autoSaveStatus,
   } = useCanvasState(clientId);
 
   // Handler to open planning dialog with output data
@@ -488,6 +489,7 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
         setCanvasName={setCanvasName}
         isLoadingCanvases={isLoadingCanvases}
         isSaving={isSaving}
+        autoSaveStatus={autoSaveStatus}
       />
 
       {/* Library Drawer */}

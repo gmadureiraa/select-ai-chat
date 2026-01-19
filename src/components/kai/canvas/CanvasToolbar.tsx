@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link2, Lightbulb, Sparkles, Trash2, ZoomIn, ZoomOut, Maximize, Save, FolderOpen, ChevronDown, Loader2, X, Pencil, LayoutTemplate, ImageIcon, Smartphone, Briefcase, RefreshCw, Library } from "lucide-react";
+import { Link2, Lightbulb, Sparkles, Trash2, ZoomIn, ZoomOut, Maximize, Save, FolderOpen, ChevronDown, Loader2, X, Pencil, LayoutTemplate, ImageIcon, Smartphone, Briefcase, RefreshCw, Library, Check, Cloud, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -36,6 +36,7 @@ interface CanvasToolbarProps {
   savedCanvases?: SavedCanvas[];
   isLoadingCanvases?: boolean;
   isSaving?: boolean;
+  autoSaveStatus?: 'idle' | 'pending' | 'saving' | 'saved' | 'error';
 }
 
 interface TemplateCategory {
@@ -87,6 +88,7 @@ export function CanvasToolbar({
   savedCanvases = [],
   isLoadingCanvases = false,
   isSaving = false,
+  autoSaveStatus = 'idle',
 }: CanvasToolbarProps) {
   const [canvasName, setLocalCanvasName] = useState(currentCanvasName);
   const [isEditing, setIsEditing] = useState(false);
@@ -117,6 +119,47 @@ export function CanvasToolbar({
     e.stopPropagation();
     if (window.confirm("Tem certeza que deseja excluir este canvas?")) {
       await onDelete?.(canvasId);
+    }
+  };
+
+  // Auto-save status indicator
+  const renderAutoSaveIndicator = () => {
+    switch (autoSaveStatus) {
+      case 'pending':
+        return (
+          <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+            <div className="w-1.5 h-1.5 rounded-full bg-yellow-500 animate-pulse" />
+            <span>Alterações não salvas</span>
+          </div>
+        );
+      case 'saving':
+        return (
+          <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+            <Loader2 className="h-3 w-3 animate-spin text-primary" />
+            <span>Salvando...</span>
+          </div>
+        );
+      case 'saved':
+        return (
+          <div className="flex items-center gap-1.5 text-[10px] text-green-600">
+            <Check className="h-3 w-3" />
+            <span>Salvo</span>
+          </div>
+        );
+      case 'error':
+        return (
+          <div className="flex items-center gap-1.5 text-[10px] text-destructive">
+            <AlertCircle className="h-3 w-3" />
+            <span>Erro ao salvar</span>
+          </div>
+        );
+      default:
+        return (
+          <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground/50">
+            <Cloud className="h-3 w-3" />
+            <span>Auto-save ativo</span>
+          </div>
+        );
     }
   };
 
@@ -158,6 +201,11 @@ export function CanvasToolbar({
               </Tooltip>
             </div>
           )}
+        </div>
+
+        {/* Auto-save indicator */}
+        <div className="min-w-[100px]">
+          {renderAutoSaveIndicator()}
         </div>
 
         <Separator orientation="vertical" className="h-6 mx-1" />
