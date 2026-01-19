@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Instagram, Twitter, Linkedin, Youtube, FileText, Search, Filter, Loader2, Star } from "lucide-react";
+import { Instagram, Twitter, Linkedin, Youtube, FileText, Search, Filter, Loader2, Star, Mail } from "lucide-react";
 import { useUnifiedContent, useToggleFavorite, UnifiedContentItem } from "@/hooks/useUnifiedContent";
 import { ContentCard } from "./ContentCard";
 import { ContentPreviewDialog } from "./ContentPreviewDialog";
@@ -16,7 +16,7 @@ interface UnifiedContentGridProps {
   draggable?: boolean;
 }
 
-type PlatformFilter = 'all' | 'instagram' | 'twitter' | 'linkedin' | 'youtube' | 'content' | 'favorites';
+type PlatformFilter = 'all' | 'instagram' | 'twitter' | 'linkedin' | 'youtube' | 'newsletter' | 'content' | 'favorites';
 
 const platformFilters: { value: PlatformFilter; label: string; icon: React.ElementType }[] = [
   { value: 'all', label: 'Todos', icon: Filter },
@@ -25,6 +25,7 @@ const platformFilters: { value: PlatformFilter; label: string; icon: React.Eleme
   { value: 'youtube', label: 'YouTube', icon: Youtube },
   { value: 'twitter', label: 'Twitter', icon: Twitter },
   { value: 'linkedin', label: 'LinkedIn', icon: Linkedin },
+  { value: 'newsletter', label: 'Newsletter', icon: Mail },
   { value: 'content', label: 'Outros', icon: FileText },
 ];
 

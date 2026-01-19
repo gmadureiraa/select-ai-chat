@@ -64,52 +64,37 @@ export function RSSConfigDialog({ open, onOpenChange, clientId, platform, onSave
     }
   }, [open, clientId, config.fieldKey]);
 
-  // Import newsletter editions from RSS feed
-  const importFromRSS = async (feedUrl: string) => {
+  // Sync newsletter to library using the new edge function
+  const syncToLibrary = async (feedUrl: string) => {
     setIsSyncing(true);
     try {
-      const { data, error } = await supabase.functions.invoke("fetch-rss-feed", {
-        body: { rssUrl: feedUrl }
+      const { data, error } = await supabase.functions.invoke("sync-rss-to-library", {
+        body: { 
+          clientId,
+          platform: "newsletter",
+          rssUrl: feedUrl,
+          mode: "only_missing",
+          limit: 50
+        }
       });
 
       if (error) throw error;
 
-      if (data?.items && data.items.length > 0) {
-        let importedCount = 0;
-        
-        for (const item of data.items) {
-          // Upsert to platform_metrics for newsletter editions
-          const { error: upsertError } = await supabase
-            .from("platform_metrics")
-            .upsert({
-              client_id: clientId,
-              platform: "newsletter",
-              metric_type: "newsletter_post",
-              metric_date: item.pubDate ? new Date(item.pubDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
-              metadata: {
-                subject: item.title,
-                url: item.link,
-                post_id: item.guid || item.link,
-                description: item.description || item.contentSnippet,
-                source: "rss_import"
-              }
-            }, { 
-              onConflict: 'client_id,platform,metric_type,metric_date',
-              ignoreDuplicates: true
-            });
-
-          if (!upsertError) importedCount++;
-        }
-
-        toast.success(`${importedCount} edições importadas do RSS`);
+      if (data?.created > 0 || data?.updated > 0) {
+        toast.success(`${data.created} novas edições importadas, ${data.updated} atualizadas`);
         queryClient.invalidateQueries({ queryKey: ["newsletter-posts", clientId] });
         queryClient.invalidateQueries({ queryKey: ["platform-metrics", clientId] });
+        queryClient.invalidateQueries({ queryKey: ["unified-content", clientId] });
+        queryClient.invalidateQueries({ queryKey: ["content-library", clientId] });
+        queryClient.invalidateQueries({ queryKey: ["client-content-library", clientId] });
+      } else if (data?.total > 0) {
+        toast.info("Todas as edições já estão sincronizadas");
       } else {
         toast.info("Nenhuma edição encontrada no feed");
       }
     } catch (error) {
-      console.error("Error importing from RSS:", error);
-      toast.error("Erro ao importar do RSS");
+      console.error("Error syncing newsletter RSS:", error);
+      toast.error("Erro ao sincronizar newsletter");
     } finally {
       setIsSyncing(false);
     }
@@ -120,7 +105,7 @@ export function RSSConfigDialog({ open, onOpenChange, clientId, platform, onSave
       toast.error("Configure a URL do RSS primeiro");
       return;
     }
-    await importFromRSS(rssUrl.trim());
+    await syncToLibrary(rssUrl.trim());
   };
 
   const handleSave = async () => {
@@ -149,9 +134,9 @@ export function RSSConfigDialog({ open, onOpenChange, clientId, platform, onSave
 
       if (error) throw error;
 
-      // If auto-sync is enabled and we have a URL, import now
+      // If auto-sync is enabled and we have a URL, sync to library now
       if (autoSync && rssUrl.trim() && platform === "newsletter") {
-        await importFromRSS(rssUrl.trim());
+        await syncToLibrary(rssUrl.trim());
       }
 
       toast.success("Configuração RSS salva!");
