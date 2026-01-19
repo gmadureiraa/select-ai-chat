@@ -789,21 +789,32 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
 
   // Analyze image in ImageSourceNode with automatic analysis
   const analyzeImageSourceImage = useCallback(async (nodeId: string, imageId: string) => {
+    // Helper to update a specific image in the node using functional state update
+    const updateImageInNode = (updates: Partial<ImageSourceNodeData['images'][number]>) => {
+      setNodes(currentNodes => currentNodes.map(n => {
+        if (n.id !== nodeId || n.data.type !== "image-source") return n;
+        const sourceData = n.data as ImageSourceNodeData;
+        const images = sourceData.images || [];
+        const updatedImages = images.map(img => 
+          img.id === imageId ? { ...img, ...updates } : img
+        );
+        return { ...n, data: { ...n.data, images: updatedImages } };
+      }));
+    };
+
+    // Get current node state to find the image
     const node = nodes.find(n => n.id === nodeId);
     if (!node || node.data.type !== "image-source") return;
 
     const sourceData = node.data as ImageSourceNodeData;
     const images = sourceData.images || [];
-    const imageIndex = images.findIndex(img => img.id === imageId);
-    if (imageIndex === -1) return;
+    const image = images.find(img => img.id === imageId);
+    if (!image) return;
 
     // Mark image as processing
-    const updatedImages = [...images];
-    updatedImages[imageIndex] = { ...updatedImages[imageIndex], isProcessing: true };
-    updateNodeData(nodeId, { images: updatedImages } as Partial<ImageSourceNodeData>);
+    updateImageInNode({ isProcessing: true });
 
     try {
-      const image = images[imageIndex];
       const imageUrl = await blobUrlToBase64(image.url);
       
       const { data, error } = await supabase.functions.invoke("analyze-image-complete", {
@@ -838,13 +849,12 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
         }
       };
 
-      updatedImages[imageIndex] = { 
-        ...updatedImages[imageIndex], 
+      // Update with analysis results using functional update
+      updateImageInNode({ 
         analyzed: true,
         isProcessing: false,
         metadata
-      };
-      updateNodeData(nodeId, { images: updatedImages } as Partial<ImageSourceNodeData>);
+      });
 
       toast({
         title: "Análise completa ✓",
@@ -852,15 +862,15 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
       });
     } catch (error) {
       console.error("Error analyzing image:", error);
-      updatedImages[imageIndex] = { ...updatedImages[imageIndex], isProcessing: false };
-      updateNodeData(nodeId, { images: updatedImages } as Partial<ImageSourceNodeData>);
+      // Reset processing state on error
+      updateImageInNode({ isProcessing: false });
       toast({
         title: "Erro na análise",
         description: "Não foi possível analisar a imagem",
         variant: "destructive",
       });
     }
-  }, [nodes, updateNodeData, toast]);
+  }, [nodes, setNodes, toast]);
 
   // Generate content (text or image)
   const generateContent = useCallback(async (generatorNodeId: string) => {
