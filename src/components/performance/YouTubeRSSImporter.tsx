@@ -202,6 +202,43 @@ export function YouTubeRSSImporter({ clientId, onImportComplete }: YouTubeRSSImp
         description: `${insertedCount} vídeos do YouTube foram importados com sucesso.`,
       });
 
+      // Now sync to library with transcription
+      toast({
+        title: "Sincronizando para biblioteca...",
+        description: "Transcrições serão geradas automaticamente.",
+      });
+
+      try {
+        const { data: syncResult, error: syncError } = await supabase.functions.invoke("sync-rss-to-library", {
+          body: {
+            clientId,
+            platform: "youtube",
+            channelId,
+            mode: "only_missing",
+            limit: 20,
+          }
+        });
+
+        if (syncError) {
+          console.error("Sync error:", syncError);
+          toast({
+            title: "Aviso",
+            description: "Vídeos importados, mas houve erro ao transcrever. Tente sincronizar manualmente.",
+            variant: "destructive",
+          });
+        } else if (syncResult?.created > 0 || syncResult?.transcribed > 0) {
+          queryClient.invalidateQueries({ queryKey: ["unified-content", clientId] });
+          queryClient.invalidateQueries({ queryKey: ["content-library", clientId] });
+          queryClient.invalidateQueries({ queryKey: ["client-content-library", clientId] });
+          toast({
+            title: "Biblioteca atualizada!",
+            description: `${syncResult.transcribed} vídeos transcritos e adicionados à biblioteca.`,
+          });
+        }
+      } catch (libErr) {
+        console.warn("Library sync failed:", libErr);
+      }
+
       onImportComplete?.();
     } catch (error) {
       console.error("RSS import error:", error);
