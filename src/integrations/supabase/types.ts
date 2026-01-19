@@ -1057,6 +1057,8 @@ export type Database = {
           shares: number | null
           thumbnail_url: string | null
           updated_at: string
+          video_transcript: string | null
+          video_url: string | null
           website_taps: number | null
         }
         Insert: {
@@ -1088,6 +1090,8 @@ export type Database = {
           shares?: number | null
           thumbnail_url?: string | null
           updated_at?: string
+          video_transcript?: string | null
+          video_url?: string | null
           website_taps?: number | null
         }
         Update: {
@@ -1119,6 +1123,8 @@ export type Database = {
           shares?: number | null
           thumbnail_url?: string | null
           updated_at?: string
+          video_transcript?: string | null
+          video_url?: string | null
           website_taps?: number | null
         }
         Relationships: [
@@ -3578,6 +3584,7 @@ export type Database = {
           click_rate: number | null
           client_id: string
           content_library_id: string | null
+          content_synced_at: string | null
           created_at: string | null
           duration_seconds: number | null
           id: string
@@ -3588,6 +3595,7 @@ export type Database = {
           thumbnail_url: string | null
           title: string
           total_views: number | null
+          transcript: string | null
           updated_at: string | null
           video_id: string
           watch_hours: number | null
@@ -3596,6 +3604,7 @@ export type Database = {
           click_rate?: number | null
           client_id: string
           content_library_id?: string | null
+          content_synced_at?: string | null
           created_at?: string | null
           duration_seconds?: number | null
           id?: string
@@ -3606,6 +3615,7 @@ export type Database = {
           thumbnail_url?: string | null
           title: string
           total_views?: number | null
+          transcript?: string | null
           updated_at?: string | null
           video_id: string
           watch_hours?: number | null
@@ -3614,6 +3624,7 @@ export type Database = {
           click_rate?: number | null
           client_id?: string
           content_library_id?: string | null
+          content_synced_at?: string | null
           created_at?: string | null
           duration_seconds?: number | null
           id?: string
@@ -3624,6 +3635,7 @@ export type Database = {
           thumbnail_url?: string | null
           title?: string
           total_views?: number | null
+          transcript?: string | null
           updated_at?: string | null
           video_id?: string
           watch_hours?: number | null
