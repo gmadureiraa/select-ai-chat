@@ -206,6 +206,13 @@ export function useSmartNewsletterImport(clientId: string, onImportComplete?: (p
         const unsubscribedIdx = headers.findIndex(h => h.toLowerCase().includes("unsubscribed"));
         const spamIdx = headers.findIndex(h => h.toLowerCase().includes("spam reported"));
         const postIdIdx = headers.findIndex(h => h.toLowerCase().includes("post id"));
+        // NEW: Web URL column
+        const webUrlIdx = headers.findIndex(h => 
+          h.toLowerCase().includes("web url") || 
+          h.toLowerCase() === "url" ||
+          h.toLowerCase().includes("post url") ||
+          h.toLowerCase().includes("link")
+        );
 
         for (let i = 1; i < lines.length; i++) {
           const values = parseCSVLine(lines[i]);
@@ -224,6 +231,8 @@ export function useSmartNewsletterImport(clientId: string, onImportComplete?: (p
           const clickRate = parsePercentage(values[clickRateIdx]);
           const unsubscribes = parseNumber(values[unsubscribedIdx]);
           const spamReports = parseNumber(values[spamIdx]);
+          // NEW: Extract Web URL
+          const webUrl = webUrlIdx >= 0 ? values[webUrlIdx]?.replace(/['"]/g, "").trim() : "";
 
           // Skip posts with no data (likely drafts or failed sends)
           if (sent === 0 && delivered === 0) continue;
@@ -247,6 +256,7 @@ export function useSmartNewsletterImport(clientId: string, onImportComplete?: (p
               metadata: {
                 post_id: postId,
                 subject,
+                url: webUrl, // NEW: Include URL
                 sent,
                 delivered,
                 totalOpens,
@@ -268,6 +278,7 @@ export function useSmartNewsletterImport(clientId: string, onImportComplete?: (p
               metadata: {
                 post_id: postId,
                 subject,
+                url: webUrl, // NEW: Include URL
                 sent,
                 delivered,
                 totalOpens,

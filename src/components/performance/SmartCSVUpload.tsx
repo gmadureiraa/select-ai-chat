@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Upload, FileSpreadsheet, Sparkles, X, ArrowLeft, Bot, CheckCircle2, AlertTriangle, XCircle, RefreshCw } from "lucide-react";
 import { useSmartInstagramImport } from "@/hooks/useSmartInstagramImport";
 import { useImportYouTubeCSV } from "@/hooks/useYouTubeMetrics";
+import { useSmartNewsletterImport } from "@/hooks/useSmartNewsletterImport";
 import { useCSVValidation } from "@/hooks/useCSVValidation";
 import { useImportHistory } from "@/hooks/useImportHistory";
 import { CSVValidationAgent } from "@/components/performance/CSVValidationAgent";
@@ -61,9 +62,14 @@ export function SmartCSVUpload({ clientId, platform, onImportComplete }: SmartCS
   // Use appropriate import hook based on platform
   const instagramImport = useSmartInstagramImport(clientId, handleImportComplete);
   const youtubeImport = useImportYouTubeCSV();
+  const newsletterImport = useSmartNewsletterImport(clientId, handleImportComplete);
   
   // Unified import pending state
-  const isImporting = platform === 'youtube' ? youtubeImport.isPending : instagramImport.isPending;
+  const isImporting = platform === 'youtube' 
+    ? youtubeImport.isPending 
+    : platform === 'newsletter'
+    ? newsletterImport.isImporting
+    : instagramImport.isPending;
   
   const { 
     validationResults, 
@@ -267,6 +273,19 @@ export function SmartCSVUpload({ clientId, platform, onImportComplete }: SmartCS
           });
           totalCount = result.videosImported + result.daysImported;
           handleImportComplete('youtube', totalCount, selectedFiles.map(f => f.name).join(', '));
+        }
+      } else if (platform === 'newsletter') {
+        // Newsletter-specific import using smart newsletter import hook
+        await newsletterImport.importMultipleFiles(selectedFiles);
+        totalCount = newsletterImport.result?.count || 0;
+        
+        // If result is not immediately available, estimate from files
+        if (totalCount === 0) {
+          for (const file of selectedFiles) {
+            const text = await file.text();
+            const lines = text.trim().split('\n');
+            totalCount += Math.max(0, lines.length - 1); // Subtract header
+          }
         }
       } else {
         // Instagram import (default)
