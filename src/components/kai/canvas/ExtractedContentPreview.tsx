@@ -160,7 +160,7 @@ function ExtractedContentPreviewComponent({
 
   return (
     <div className={cn(
-      "rounded-lg border overflow-hidden transition-all",
+      "rounded-lg border overflow-hidden transition-all nodrag",
       config.borderColor,
       config.bgColor
     )}>
@@ -189,7 +189,7 @@ function ExtractedContentPreviewComponent({
             variant="ghost"
             size="icon"
             className="h-5 w-5"
-            onClick={handleCopy}
+            onClick={(e) => { e.stopPropagation(); handleCopy(); }}
             title="Copiar conteúdo"
           >
             {copied ? (
@@ -203,7 +203,7 @@ function ExtractedContentPreviewComponent({
               variant="ghost"
               size="icon"
               className="h-5 w-5"
-              onClick={onOpenFullView}
+              onClick={(e) => { e.stopPropagation(); onOpenFullView(); }}
               title="Ver conteúdo completo"
             >
               <Maximize2 className="h-3 w-3" />
@@ -214,7 +214,7 @@ function ExtractedContentPreviewComponent({
               variant="ghost"
               size="icon"
               className="h-5 w-5"
-              onClick={onToggleExpand}
+              onClick={(e) => { e.stopPropagation(); onToggleExpand(); }}
             >
               {isExpanded ? (
                 <ChevronUp className="h-3 w-3" />
@@ -260,12 +260,12 @@ function ExtractedContentPreviewComponent({
                   src={img} 
                   alt={`Imagem ${i + 1}`}
                   className="w-full h-full object-cover hover:scale-105 transition-transform cursor-pointer"
-                  onClick={onOpenFullView}
+                  onClick={(e) => { e.stopPropagation(); onOpenFullView?.(); }}
                 />
                 {hasMoreImages && i === displayImages.length - 1 && (
                   <div 
                     className="absolute inset-0 bg-black/60 flex items-center justify-center cursor-pointer"
-                    onClick={onOpenFullView}
+                    onClick={(e) => { e.stopPropagation(); onOpenFullView?.(); }}
                   >
                     <span className="text-white text-xs font-medium">+{images.length - 4}</span>
                   </div>
@@ -422,7 +422,7 @@ function ExtractedContentPreviewComponent({
                   variant="ghost"
                   size="sm"
                   className="flex-1 h-7 text-[10px]"
-                  onClick={onToggleExpand}
+                  onClick={(e) => { e.stopPropagation(); onToggleExpand(); }}
                 >
                   <ChevronDown className="h-3 w-3 mr-1" />
                   Expandir
@@ -433,7 +433,7 @@ function ExtractedContentPreviewComponent({
                   variant="default"
                   size="sm"
                   className="flex-1 h-7 text-[10px] gap-1"
-                  onClick={onOpenFullView}
+                  onClick={(e) => { e.stopPropagation(); onOpenFullView(); }}
                 >
                   <Maximize2 className="h-3 w-3" />
                   Ver Completo
