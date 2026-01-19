@@ -23,6 +23,7 @@ interface YouTubeVideo {
   duration_seconds: number | null;
   transcript?: string | null;
   content_synced_at?: string | null;
+  content_library_id?: string | null;
 }
 
 interface YouTubeVideosTableProps {
@@ -215,7 +216,10 @@ export function YouTubeVideosTable({ videos, clientId, isLoading }: YouTubeVideo
                     videoDbId={video.id}
                     clientId={effectiveClientId}
                     title={video.title}
+                    thumbnailUrl={video.thumbnail_url}
+                    publishedAt={video.published_at}
                     contentSyncedAt={video.content_synced_at || null}
+                    contentLibraryId={video.content_library_id}
                   />
                 </TableCell>
               </TableRow>
