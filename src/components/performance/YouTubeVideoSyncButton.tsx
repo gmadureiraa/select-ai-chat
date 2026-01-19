@@ -103,6 +103,7 @@ export const YouTubeVideoSyncButton = ({
 
       // Invalidate queries
       queryClient.invalidateQueries({ queryKey: ["youtube-videos", clientId] });
+      queryClient.invalidateQueries({ queryKey: ["unified-content", clientId] });
       queryClient.invalidateQueries({ queryKey: ["content-library", clientId] });
       queryClient.invalidateQueries({ queryKey: ["client-content-library", clientId] });
       
