@@ -6,9 +6,11 @@ import { Input } from "@/components/ui/input";
 import { ArrowUpDown, Search, ExternalLink, Youtube, Play } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { YouTubeVideoSyncButton } from "./YouTubeVideoSyncButton";
 
 interface YouTubeVideo {
   id: string;
+  client_id?: string;
   video_id: string;
   title: string;
   published_at: string | null;
@@ -19,10 +21,13 @@ interface YouTubeVideo {
   click_rate: number | null;
   thumbnail_url: string | null;
   duration_seconds: number | null;
+  transcript?: string | null;
+  content_synced_at?: string | null;
 }
 
 interface YouTubeVideosTableProps {
   videos: YouTubeVideo[];
+  clientId?: string;
   isLoading?: boolean;
 }
 
@@ -48,7 +53,7 @@ const formatDuration = (seconds: number | null) => {
   return `${minutes}:${secs.toString().padStart(2, "0")}`;
 };
 
-export function YouTubeVideosTable({ videos, isLoading }: YouTubeVideosTableProps) {
+export function YouTubeVideosTable({ videos, clientId, isLoading }: YouTubeVideosTableProps) {
   const [search, setSearch] = useState("");
   const [sortField, setSortField] = useState<SortField>("total_views");
   const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
@@ -94,6 +99,9 @@ export function YouTubeVideosTable({ videos, isLoading }: YouTubeVideosTableProp
     );
   }
 
+  // Get clientId from first video if not provided as prop
+  const effectiveClientId = clientId || videos[0]?.client_id || "";
+
   return (
     <div className="space-y-4">
       <div className="relative">
@@ -111,33 +119,29 @@ export function YouTubeVideosTable({ videos, isLoading }: YouTubeVideosTableProp
           <TableHeader>
             <TableRow className="bg-muted/50">
               <TableHead className="w-[100px]">Thumbnail</TableHead>
-              <TableHead className="min-w-[250px]">Título</TableHead>
+              <TableHead className="min-w-[200px]">Título</TableHead>
               <TableHead className="w-[100px]">
                 <Button variant="ghost" size="sm" className="h-8 px-2" onClick={() => handleSort("published_at")}>
                   Data <ArrowUpDown className="ml-1 h-3 w-3" />
                 </Button>
               </TableHead>
-              <TableHead className="w-[100px]">
+              <TableHead className="w-[90px]">
                 <Button variant="ghost" size="sm" className="h-8 px-2" onClick={() => handleSort("total_views")}>
                   Views <ArrowUpDown className="ml-1 h-3 w-3" />
                 </Button>
               </TableHead>
-              <TableHead className="w-[100px]">
+              <TableHead className="w-[80px]">
                 <Button variant="ghost" size="sm" className="h-8 px-2" onClick={() => handleSort("watch_hours")}>
                   Watch H. <ArrowUpDown className="ml-1 h-3 w-3" />
                 </Button>
               </TableHead>
-              <TableHead className="w-[80px]">
-                <Button variant="ghost" size="sm" className="h-8 px-2" onClick={() => handleSort("subscribers_gained")}>
-                  Subs+ <ArrowUpDown className="ml-1 h-3 w-3" />
-                </Button>
-              </TableHead>
-              <TableHead className="w-[80px]">
+              <TableHead className="w-[70px]">
                 <Button variant="ghost" size="sm" className="h-8 px-2" onClick={() => handleSort("click_rate")}>
                   CTR <ArrowUpDown className="ml-1 h-3 w-3" />
                 </Button>
               </TableHead>
-              <TableHead className="w-[100px]">Status</TableHead>
+              <TableHead className="w-[90px]">Status</TableHead>
+              <TableHead className="w-[120px]">Transcrição</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -199,14 +203,20 @@ export function YouTubeVideosTable({ videos, isLoading }: YouTubeVideosTableProp
                 <TableCell className="text-muted-foreground">
                   {video.watch_hours?.toLocaleString() || 0}
                 </TableCell>
-                <TableCell className="text-muted-foreground">
-                  {video.subscribers_gained?.toLocaleString() || 0}
-                </TableCell>
                 <TableCell className="font-medium">
                   {video.click_rate?.toFixed(1) || 0}%
                 </TableCell>
                 <TableCell>
                   {getPerformanceBadge(video.total_views)}
+                </TableCell>
+                <TableCell>
+                  <YouTubeVideoSyncButton
+                    videoId={video.video_id}
+                    videoDbId={video.id}
+                    clientId={effectiveClientId}
+                    title={video.title}
+                    contentSyncedAt={video.content_synced_at || null}
+                  />
                 </TableCell>
               </TableRow>
             ))}

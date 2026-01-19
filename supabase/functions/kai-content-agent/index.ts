@@ -13,6 +13,16 @@ interface ContentRequest {
   platform?: string;
   workspaceId?: string;
   conversationHistory?: Array<{ role: string; content: string }>;
+  includePerformanceContext?: boolean;
+}
+
+interface TopPerformer {
+  title: string;
+  type: string;
+  engagement?: number;
+  views?: number;
+  content: string;
+  transcript?: string;
 }
 
 serve(async (req) => {
@@ -25,7 +35,7 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { clientId, request, format, platform, workspaceId, conversationHistory } = await req.json() as ContentRequest;
+    const { clientId, request, format, platform, workspaceId, conversationHistory, includePerformanceContext = true } = await req.json() as ContentRequest;
 
     if (!clientId) {
       return new Response(
@@ -94,6 +104,56 @@ serve(async (req) => {
       globalKnowledge = data;
     }
 
+    // NEW: Fetch TOP PERFORMERS from Instagram and YouTube
+    const topPerformers: TopPerformer[] = [];
+    
+    if (includePerformanceContext) {
+      // Top Instagram posts by engagement rate (only synced content)
+      const { data: topInstaPosts } = await supabase
+        .from("instagram_posts")
+        .select("caption, post_type, engagement_rate, likes, full_content, video_transcript")
+        .eq("client_id", clientId)
+        .not("content_synced_at", "is", null) // Only synced posts
+        .order("engagement_rate", { ascending: false, nullsFirst: false })
+        .limit(5);
+
+      if (topInstaPosts) {
+        for (const post of topInstaPosts) {
+          if (post.full_content || post.video_transcript) {
+            topPerformers.push({
+              title: (post.caption || "").substring(0, 100) + "...",
+              type: post.post_type === "VIDEO" || post.post_type === "reel" ? "Reels" : post.post_type || "Post",
+              engagement: post.engagement_rate || 0,
+              content: post.full_content || "",
+              transcript: post.video_transcript || undefined,
+            });
+          }
+        }
+      }
+
+      // Top YouTube videos by views (only synced content)
+      const { data: topYTVideos } = await supabase
+        .from("youtube_videos")
+        .select("title, total_views, watch_hours, transcript")
+        .eq("client_id", clientId)
+        .not("content_synced_at", "is", null) // Only synced videos
+        .order("total_views", { ascending: false, nullsFirst: false })
+        .limit(5);
+
+      if (topYTVideos) {
+        for (const video of topYTVideos) {
+          if (video.transcript) {
+            topPerformers.push({
+              title: video.title,
+              type: "YouTube",
+              views: video.total_views || 0,
+              content: video.transcript || "",
+            });
+          }
+        }
+      }
+    }
+
     // Build rich context
     let contextPrompt = `## Cliente: ${client?.name || "Não especificado"}\n`;
     
@@ -134,6 +194,28 @@ serve(async (req) => {
       contextPrompt += `\n`;
     }
 
+    // NEW: Include TOP PERFORMERS section
+    if (topPerformers.length > 0) {
+      contextPrompt += `### 🏆 CONTEÚDOS DE MAIOR PERFORMANCE (USE COMO INSPIRAÇÃO)\n`;
+      contextPrompt += `*Estes são os conteúdos do cliente com melhor desempenho. Analise o estilo, estrutura, ganchos e tom de voz para criar conteúdos similares.*\n\n`;
+      
+      topPerformers.forEach((perf, i) => {
+        const metric = perf.engagement 
+          ? `${(perf.engagement * 100).toFixed(1)}% engagement` 
+          : `${(perf.views || 0).toLocaleString()} views`;
+        
+        contextPrompt += `**Top ${i + 1} [${perf.type}]** - ${metric}\n`;
+        contextPrompt += `*"${perf.title}"*\n`;
+        
+        if (perf.transcript) {
+          contextPrompt += `**Roteiro/Transcrição:**\n\`\`\`\n${perf.transcript.substring(0, 1500)}${perf.transcript.length > 1500 ? "..." : ""}\n\`\`\`\n`;
+        } else if (perf.content) {
+          contextPrompt += `**Conteúdo:**\n\`\`\`\n${perf.content.substring(0, 1500)}${perf.content.length > 1500 ? "..." : ""}\n\`\`\`\n`;
+        }
+        contextPrompt += `\n`;
+      });
+    }
+
     // Include FULL content samples for style matching
     if (allContent && allContent.length > 0) {
       contextPrompt += `### Exemplos de Conteúdo do Cliente (USE COMO REFERÊNCIA DE TOM E ESTILO)\n`;
@@ -172,9 +254,10 @@ ${contextPrompt}
 
 1. **Manter a Identidade**: Siga rigorosamente o guia de identidade e tom de voz do cliente
 2. **Replicar o Estilo**: Use os exemplos de conteúdo como referência para estrutura e linguagem
-3. **Copywriting Estratégico**: Use gatilhos mentais, CTAs e técnicas de persuasão apropriadas
-4. **Formato Adequado**: Respeite as regras de formato quando especificadas
-5. **Conteúdo Completo**: Entregue o conteúdo PRONTO PARA USO, não apenas sugestões
+3. **Aprender com Top Performers**: Analise os conteúdos de maior performance para entender O QUE FUNCIONA para este cliente
+4. **Copywriting Estratégico**: Use gatilhos mentais, CTAs e técnicas de persuasão apropriadas
+5. **Formato Adequado**: Respeite as regras de formato quando especificadas
+6. **Conteúdo Completo**: Entregue o conteúdo PRONTO PARA USO, não apenas sugestões
 
 ## Diretrizes de Criação:
 
@@ -185,6 +268,7 @@ ${contextPrompt}
 - Mantenha autenticidade - evite parecer genérico ou "ChatGPT-like"
 - Se for newsletter, siga estrutura com assunto, preview text e corpo
 - Se for carrossel, divida em slides claros
+- Se for Reels, crie um roteiro com gancho inicial forte (primeiros 3 segundos)
 
 ## Formato Solicitado: ${format || "post"}
 ## Plataforma: ${platform || "Instagram"}
