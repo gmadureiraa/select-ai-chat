@@ -7,7 +7,7 @@ import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Loader2, Rss, Save, ExternalLink } from "lucide-react";
+import { Loader2, Rss, Save, ExternalLink, RefreshCw } from "lucide-react";
 
 interface RSSConfigDialogProps {
   open: boolean;
@@ -22,6 +22,7 @@ export function RSSConfigDialog({ open, onOpenChange, clientId, platform, onSave
   const [autoSync, setAutoSync] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [isFetching, setIsFetching] = useState(true);
+  const [isSyncing, setIsSyncing] = useState(false);
   const queryClient = useQueryClient();
 
   const platformLabels = {
@@ -63,6 +64,65 @@ export function RSSConfigDialog({ open, onOpenChange, clientId, platform, onSave
     }
   }, [open, clientId, config.fieldKey]);
 
+  // Import newsletter editions from RSS feed
+  const importFromRSS = async (feedUrl: string) => {
+    setIsSyncing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("fetch-rss-feed", {
+        body: { url: feedUrl }
+      });
+
+      if (error) throw error;
+
+      if (data?.items && data.items.length > 0) {
+        let importedCount = 0;
+        
+        for (const item of data.items) {
+          // Upsert to platform_metrics for newsletter editions
+          const { error: upsertError } = await supabase
+            .from("platform_metrics")
+            .upsert({
+              client_id: clientId,
+              platform: "newsletter",
+              metric_type: "newsletter_post",
+              metric_date: item.pubDate ? new Date(item.pubDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+              metadata: {
+                subject: item.title,
+                url: item.link,
+                post_id: item.guid || item.link,
+                description: item.description || item.contentSnippet,
+                source: "rss_import"
+              }
+            }, { 
+              onConflict: 'client_id,platform,metric_type,metric_date',
+              ignoreDuplicates: true
+            });
+
+          if (!upsertError) importedCount++;
+        }
+
+        toast.success(`${importedCount} edições importadas do RSS`);
+        queryClient.invalidateQueries({ queryKey: ["newsletter-posts", clientId] });
+        queryClient.invalidateQueries({ queryKey: ["platform-metrics", clientId] });
+      } else {
+        toast.info("Nenhuma edição encontrada no feed");
+      }
+    } catch (error) {
+      console.error("Error importing from RSS:", error);
+      toast.error("Erro ao importar do RSS");
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const handleSyncNow = async () => {
+    if (!rssUrl.trim()) {
+      toast.error("Configure a URL do RSS primeiro");
+      return;
+    }
+    await importFromRSS(rssUrl.trim());
+  };
+
   const handleSave = async () => {
     setIsLoading(true);
     try {
@@ -88,6 +148,11 @@ export function RSSConfigDialog({ open, onOpenChange, clientId, platform, onSave
         .eq("id", clientId);
 
       if (error) throw error;
+
+      // If auto-sync is enabled and we have a URL, import now
+      if (autoSync && rssUrl.trim() && platform === "newsletter") {
+        await importFromRSS(rssUrl.trim());
+      }
 
       toast.success("Configuração RSS salva!");
       queryClient.invalidateQueries({ queryKey: ["client", clientId] });
@@ -162,12 +227,36 @@ export function RSSConfigDialog({ open, onOpenChange, clientId, platform, onSave
               </div>
 
               {rssUrl && (
-                <div className="p-3 rounded-lg bg-muted/50 text-xs">
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <ExternalLink className="h-3 w-3" />
-                    <span>Feed configurado:</span>
+                <div className="space-y-2">
+                  <div className="p-3 rounded-lg bg-muted/50 text-xs">
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <ExternalLink className="h-3 w-3" />
+                      <span>Feed configurado:</span>
+                    </div>
+                    <p className="mt-1 font-mono text-[10px] break-all">{rssUrl}</p>
                   </div>
-                  <p className="mt-1 font-mono text-[10px] break-all">{rssUrl}</p>
+                  
+                  {platform === "newsletter" && (
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="w-full"
+                      onClick={handleSyncNow}
+                      disabled={isSyncing}
+                    >
+                      {isSyncing ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Sincronizando...
+                        </>
+                      ) : (
+                        <>
+                          <RefreshCw className="h-4 w-4 mr-2" />
+                          Sincronizar Agora
+                        </>
+                      )}
+                    </Button>
+                  )}
                 </div>
               )}
             </>
