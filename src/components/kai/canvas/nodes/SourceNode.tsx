@@ -33,9 +33,16 @@ function isInstagramUrl(url: string): boolean {
 }
 
 function getFileType(file: File): "image" | "audio" | "video" | "document" {
-  if (file.type.startsWith("image/")) return "image";
-  if (file.type.startsWith("audio/")) return "audio";
-  if (file.type.startsWith("video/")) return "video";
+  const ext = file.name.split('.').pop()?.toLowerCase() || "";
+  
+  // Check by extension for more accurate detection
+  const audioExtensions = ['mp3', 'wav', 'ogg', 'm4a', 'aac', 'flac', 'wma', 'opus', 'webm'];
+  const videoExtensions = ['mp4', 'wmv', 'webm', 'mov', 'avi', 'mkv', 'm4v', 'flv', '3gp'];
+  const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic', 'heif', 'bmp', 'svg', 'tiff'];
+  
+  if (imageExtensions.includes(ext) || file.type.startsWith("image/")) return "image";
+  if (audioExtensions.includes(ext) || file.type.startsWith("audio/")) return "audio";
+  if (videoExtensions.includes(ext) || file.type.startsWith("video/")) return "video";
   return "document";
 }
 
@@ -346,11 +353,29 @@ function SourceNodeComponent({
       });
 
       const imageCount = newFiles.filter(f => f.type === "image").length;
+      const audioVideoCount = newFiles.filter(f => f.type === "audio" || f.type === "video").length;
+      
       if (imageCount > 0) {
         toast({
           title: `${imageCount} imagem(ns) adicionada(s)`,
           description: "Clique em 'Analisar' para extrair estilos",
         });
+      }
+      
+      // Auto-transcribe audio/video files
+      if (audioVideoCount > 0) {
+        toast({
+          title: `${audioVideoCount} arquivo(s) de mídia adicionado(s)`,
+          description: "Iniciando transcrição automática...",
+        });
+        
+        // Trigger transcription for each audio/video file
+        for (const file of newFiles.filter(f => f.type === "audio" || f.type === "video")) {
+          // Call transcription after a small delay to allow UI to update
+          setTimeout(() => {
+            onTranscribeFile?.(id, file.id);
+          }, 500);
+        }
       }
     }
 
@@ -565,7 +590,7 @@ function SourceNodeComponent({
               ref={fileInputRef}
               type="file"
               multiple
-              accept="image/*,video/*,audio/*,.pdf,.docx,.doc,.txt"
+              accept="image/*,video/*,audio/*,.pdf,.docx,.doc,.txt,.mp3,.mp4,.wmv,.webm,.wav,.ogg,.m4a,.aac,.flac,.wma,.mov,.avi,.mkv,.jpg,.jpeg,.png,.gif,.webp,.heic"
               onChange={handleFileSelect}
               className="hidden"
             />
@@ -586,7 +611,7 @@ function SourceNodeComponent({
                 {isUploading ? "Fazendo upload..." : "Arraste ou clique para upload"}
               </p>
               <p className="text-[10px] text-muted-foreground mt-1">
-                Imagens, áudio, vídeo, PDF, DOCX
+                Imagens, vídeos (MP4, WMV), áudios (MP3, WAV), PDF
               </p>
             </div>
 

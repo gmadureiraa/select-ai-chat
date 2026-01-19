@@ -493,10 +493,12 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
           });
         }
       } else if (isInstagram) {
-        // Use extract-instagram for Instagram URLs
+        // Detect if it's a Reel or a regular post/carousel
+        const isReels = url.includes("/reel/");
+        
         toast({
-          title: "Extraindo Instagram...",
-          description: "Buscando imagens e legenda do post",
+          title: isReels ? "Extraindo Reels..." : "Extraindo Instagram...",
+          description: isReels ? "Baixando vídeo para transcrição" : "Buscando imagens e legenda do post",
         });
 
         const { data: extractData, error: extractError } = await supabase.functions.invoke(
@@ -511,57 +513,91 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
         const caption: string = extractData.caption || "";
 
         if (images.length === 0) {
-          throw new Error("Nenhuma imagem encontrada no post");
+          throw new Error("Nenhuma mídia encontrada no post");
         }
 
-        toast({
-          title: "Transcrevendo imagens...",
-          description: `${images.length} imagem(ns) encontrada(s)`,
-        });
-
-        // Transcribe images using transcribe-images
         let transcription = "";
-        try {
-          const { data: transcribeData, error: transcribeError } = await supabase.functions.invoke(
-            "transcribe-images",
-            { body: { imageUrls: images, startIndex: 1 } }
-          );
+        
+        if (isReels) {
+          // For Reels: transcribe video audio using Whisper
+          toast({
+            title: "Transcrevendo áudio do Reels...",
+            description: "Isso pode levar alguns segundos",
+          });
 
-          if (!transcribeError && transcribeData?.transcription) {
-            transcription = transcribeData.transcription;
+          try {
+            const videoUrl = images[0]; // Instagram returns video URL in images array for Reels
+            const { data: transcribeData, error: transcribeError } = await supabase.functions.invoke(
+              "transcribe-media",
+              { body: { url: videoUrl, fileName: "reels.mp4" } }
+            );
+
+            if (!transcribeError && transcribeData?.text) {
+              transcription = transcribeData.text;
+            }
+          } catch (transcribeErr) {
+            console.warn("Failed to transcribe Reels audio:", transcribeErr);
+            // Fallback to image OCR if video transcription fails
+            toast({
+              title: "Falha na transcrição de áudio",
+              description: "Tentando OCR da thumbnail...",
+            });
           }
-        } catch (transcribeErr) {
-          console.warn("Failed to transcribe Instagram images:", transcribeErr);
+        }
+        
+        // For carousels/posts OR as fallback for Reels: OCR the images
+        if (!transcription && !isReels) {
+          toast({
+            title: "Transcrevendo imagens...",
+            description: `${images.length} imagem(ns) encontrada(s)`,
+          });
+
+          try {
+            const { data: transcribeData, error: transcribeError } = await supabase.functions.invoke(
+              "transcribe-images",
+              { body: { imageUrls: images, startIndex: 1 } }
+            );
+
+            if (!transcribeError && transcribeData?.transcription) {
+              transcription = transcribeData.transcription;
+            }
+          } catch (transcribeErr) {
+            console.warn("Failed to transcribe Instagram images:", transcribeErr);
+          }
         }
 
         // Build full content
         let fullContent = "";
         if (transcription) {
-          fullContent += `📝 **Transcrição das Imagens:**\n\n${transcription}`;
+          const transcriptionLabel = isReels ? "🎬 **Transcrição do Vídeo:**" : "📝 **Transcrição das Imagens:**";
+          fullContent += `${transcriptionLabel}\n\n${transcription}`;
         }
         if (caption) {
           fullContent += `\n\n📷 **Legenda Original:**\n\n${caption}`;
         }
 
         const wordCount = fullContent.split(/\s+/).length;
+        const contentType = isReels ? "Reels" : (images.length > 1 ? "Carrossel" : "Post");
 
         updateNodeData(nodeId, {
           extractedContent: fullContent || caption || "Conteúdo extraído do Instagram",
           extractedImages: images,
-          title: caption ? caption.substring(0, 60) + (caption.length > 60 ? "..." : "") : "Post do Instagram",
+          title: caption ? caption.substring(0, 60) + (caption.length > 60 ? "..." : "") : `${contentType} do Instagram`,
           thumbnail: images[0] || "",
           urlType: "instagram",
           isExtracting: false,
           contentMetadata: {
             wordCount,
             sourceUrl: url,
-            source: "Instagram",
+            source: `Instagram ${contentType}`,
           }
         } as Partial<SourceNodeData>);
 
         toast({
-          title: "Instagram importado ✓",
-          description: `${images.length} imagem(ns) extraída(s) e transcrita(s)`,
+          title: `${contentType} importado ✓`,
+          description: isReels 
+            ? "Áudio transcrito com sucesso" 
+            : `${images.length} imagem(ns) extraída(s) e transcrita(s)`,
         });
       } else {
         // Use fetch-reference-content for other URLs
