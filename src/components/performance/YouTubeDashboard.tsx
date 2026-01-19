@@ -3,13 +3,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Eye, Clock, Users, TrendingUp, MousePointer, Upload, ThumbsUp, MessageCircle, ChevronDown, Calendar, FileText } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Eye, Clock, Users, TrendingUp, MousePointer, Upload, ThumbsUp, MessageCircle, ChevronDown, Calendar, FileText, Rss } from "lucide-react";
 import { StatCard } from "./StatCard";
 import { EnhancedAreaChart } from "./EnhancedAreaChart";
 import { GoalsPanel } from "./GoalsPanel";
 
 import { SmartCSVUpload } from "./SmartCSVUpload";
 import { YouTubeVideosTable } from "./YouTubeVideosTable";
+import { YouTubeRSSImporter } from "./YouTubeRSSImporter";
 import { ImportHistoryPanel } from "./ImportHistoryPanel";
 import { DataCompletenessWarning } from "./DataCompletenessWarning";
 import { MetricMiniCard } from "./MetricMiniCard";
@@ -55,6 +57,7 @@ export function YouTubeDashboard({ clientId, videos, isLoading }: YouTubeDashboa
   const [showUpload, setShowUpload] = useState(false);
   const [selectedMetric, setSelectedMetric] = useState("views");
   const [showReportGenerator, setShowReportGenerator] = useState(false);
+  const [showRssImporter, setShowRssImporter] = useState(false);
   const { canImportData, canGenerateReports } = useWorkspace();
 
   const cutoffDate = useMemo(() => {
@@ -236,15 +239,25 @@ export function YouTubeDashboard({ clientId, videos, isLoading }: YouTubeDashboa
             </Button>
           )}
           {canImportData && (
-            <Collapsible open={showUpload} onOpenChange={setShowUpload}>
-              <CollapsibleTrigger asChild>
-                <Button variant="outline" className="border-border/50">
-                  <Upload className="h-4 w-4 mr-2" />
-                  Importar
-                  <ChevronDown className={`h-4 w-4 ml-2 transition-transform ${showUpload ? 'rotate-180' : ''}`} />
-                </Button>
-              </CollapsibleTrigger>
-            </Collapsible>
+            <>
+              <Button 
+                variant="outline" 
+                className="border-border/50"
+                onClick={() => setShowRssImporter(true)}
+              >
+                <Rss className="h-4 w-4 mr-2" />
+                Importar do Canal
+              </Button>
+              <Collapsible open={showUpload} onOpenChange={setShowUpload}>
+                <CollapsibleTrigger asChild>
+                  <Button variant="outline" className="border-border/50">
+                    <Upload className="h-4 w-4 mr-2" />
+                    CSV
+                    <ChevronDown className={`h-4 w-4 ml-2 transition-transform ${showUpload ? 'rotate-180' : ''}`} />
+                  </Button>
+                </CollapsibleTrigger>
+              </Collapsible>
+            </>
           )}
         </div>
       </div>
@@ -382,6 +395,19 @@ export function YouTubeDashboard({ clientId, videos, isLoading }: YouTubeDashboa
 
       {/* Import History */}
       <ImportHistoryPanel clientId={clientId} platform="youtube" />
+
+      {/* RSS Importer Dialog */}
+      <Dialog open={showRssImporter} onOpenChange={setShowRssImporter}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Importar Vídeos do Canal</DialogTitle>
+          </DialogHeader>
+          <YouTubeRSSImporter 
+            clientId={clientId} 
+            onImportComplete={() => setShowRssImporter(false)}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

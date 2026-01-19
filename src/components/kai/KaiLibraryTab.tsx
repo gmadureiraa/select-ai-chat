@@ -22,6 +22,7 @@ import { ReferenceDialog } from "@/components/references/ReferenceDialog";
 import { ReferenceViewDialog } from "@/components/references/ReferenceViewDialog";
 import { VisualReferencesManager, REFERENCE_TYPES } from "@/components/clients/VisualReferencesManager";
 import { UnifiedContentGrid } from "@/components/kai/library/UnifiedContentGrid";
+import { AddContentDialog } from "@/components/kai/library/AddContentDialog";
 import { LibraryFilters, ContentTypeFilter, SortOption, ViewMode } from "@/components/kai/LibraryFilters";
 import { Client } from "@/hooks/useClients";
 import { cn } from "@/lib/utils";
@@ -55,6 +56,9 @@ export const KaiLibraryTab = ({ clientId, client }: KaiLibraryTabProps) => {
   // Visual References
   const { references: visualReferences, deleteReference: deleteVisualRef } = useClientVisualReferences(clientId);
   const [showVisualUploadForm, setShowVisualUploadForm] = useState(false);
+
+  // Add Content Dialog (for content tab)
+  const [showAddContentDialog, setShowAddContentDialog] = useState(false);
 
   // Unified Content (Instagram, Twitter, LinkedIn posts)
   const { data: unifiedContent } = useUnifiedContent(clientId);
@@ -244,7 +248,9 @@ export const KaiLibraryTab = ({ clientId, client }: KaiLibraryTabProps) => {
           
           <Button
             onClick={() => {
-              if (activeTab === "references") {
+              if (activeTab === "content") {
+                setShowAddContentDialog(true);
+              } else if (activeTab === "references") {
                 setSelectedReference(null);
                 setReferenceDialogOpen(true);
               } else if (activeTab === "visual-refs") {
@@ -398,6 +404,13 @@ export const KaiLibraryTab = ({ clientId, client }: KaiLibraryTabProps) => {
           setSelectedReference(null);
         }}
         reference={selectedReference || undefined}
+      />
+
+      {/* Add Content Dialog */}
+      <AddContentDialog
+        open={showAddContentDialog}
+        onOpenChange={setShowAddContentDialog}
+        clientId={clientId}
       />
     </div>
   );
