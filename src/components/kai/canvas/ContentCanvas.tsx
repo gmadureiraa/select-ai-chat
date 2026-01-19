@@ -248,7 +248,8 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
           {...props}
           onUpdateData={(id, data) => handlersRef.current?.updateNodeData(id, data)}
           onDelete={(id) => handlersRef.current?.deleteNode(id)}
-          onAnalyzeImage={(id, imageId) => handlersRef.current?.analyzeImageSourceImage(id, imageId)}
+          onAnalyzeImage={(id, imageId, imageUrl) => handlersRef.current?.analyzeImageSourceImage(id, imageId, imageUrl)}
+          onTranscribeImage={(id, imageId, imageUrl) => handlersRef.current?.transcribeImageSourceImage(id, imageId, imageUrl)}
         />
       ),
     }),

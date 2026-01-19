@@ -50,6 +50,11 @@ export interface ImageMetadata {
   analyzed: boolean;
   analyzedAt?: string;
   
+  // OCR / Transcription results
+  ocrText?: string;
+  ocrAt?: string;
+  lastError?: string;
+  
   // Detailed style analysis (legacy format)
   styleAnalysis?: {
     dominantColors: string[];
@@ -102,6 +107,7 @@ export interface ImageMetadata {
       has_text?: boolean;
       text_style?: string;
       font_characteristics?: string;
+      text_content?: string;
     };
     mood_atmosphere?: {
       overall_mood?: string;
@@ -787,39 +793,112 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
     }
   }, [nodes, updateNodeData, toast]);
 
-  // Analyze image in ImageSourceNode with automatic analysis
-  const analyzeImageSourceImage = useCallback(async (nodeId: string, imageId: string) => {
-    // Helper to update a specific image in the node using functional state update
-    const updateImageInNode = (updates: Partial<ImageSourceNodeData['images'][number]>) => {
-      setNodes(currentNodes => currentNodes.map(n => {
-        if (n.id !== nodeId || n.data.type !== "image-source") return n;
-        const sourceData = n.data as ImageSourceNodeData;
-        const images = sourceData.images || [];
-        const updatedImages = images.map(img => 
-          img.id === imageId ? { ...img, ...updates } : img
-        );
-        return { ...n, data: { ...n.data, images: updatedImages } };
-      }));
-    };
+  // Helper to update a specific image in the ImageSourceNode
+  const updateImageInNode = useCallback((nodeId: string, imageId: string, updates: Partial<ImageSourceNodeData['images'][number]>) => {
+    setNodes(currentNodes => currentNodes.map(n => {
+      if (n.id !== nodeId || n.data.type !== "image-source") return n;
+      const sourceData = n.data as ImageSourceNodeData;
+      const images = sourceData.images || [];
+      const updatedImages = images.map(img => 
+        img.id === imageId ? { ...img, ...updates } : img
+      );
+      return { ...n, data: { ...n.data, images: updatedImages } };
+    }));
+  }, [setNodes]);
 
-    // Get current node state to find the image
-    const node = nodes.find(n => n.id === nodeId);
-    if (!node || node.data.type !== "image-source") return;
+  // Transcribe image text (OCR) in ImageSourceNode
+  const transcribeImageSourceImage = useCallback(async (nodeId: string, imageId: string, imageUrl: string) => {
+    // Mark image as processing OCR
+    updateImageInNode(nodeId, imageId, { isProcessing: true, processingType: "ocr" } as any);
 
-    const sourceData = node.data as ImageSourceNodeData;
-    const images = sourceData.images || [];
-    const image = images.find(img => img.id === imageId);
-    if (!image) return;
-
-    // Mark image as processing
-    updateImageInNode({ isProcessing: true });
+    // Timeout after 90 seconds
+    const timeoutPromise = new Promise<never>((_, reject) => 
+      setTimeout(() => reject(new Error("Timeout: OCR demorou demais")), 90000)
+    );
 
     try {
-      const imageUrl = await blobUrlToBase64(image.url);
+      const base64Url = await blobUrlToBase64(imageUrl);
       
-      const { data, error } = await supabase.functions.invoke("analyze-image-complete", {
-        body: { imageUrl }
+      const ocrPromise = supabase.functions.invoke("transcribe-images", {
+        body: { imageUrls: [base64Url], startIndex: 1 }
       });
+
+      const { data, error } = await Promise.race([ocrPromise, timeoutPromise]);
+
+      if (error) throw error;
+
+      const ocrText = data?.transcription || data?.transcriptions?.[0] || "";
+      
+      // Get current image metadata
+      const node = nodes.find(n => n.id === nodeId);
+      const sourceData = node?.data as ImageSourceNodeData | undefined;
+      const image = sourceData?.images?.find(img => img.id === imageId);
+
+      updateImageInNode(nodeId, imageId, { 
+        isProcessing: false,
+        processingType: null,
+        metadata: {
+          ...image?.metadata,
+          uploadedAt: image?.metadata?.uploadedAt || new Date().toISOString(),
+          dimensions: image?.metadata?.dimensions || null,
+          analyzed: image?.metadata?.analyzed || false,
+          isPrimary: image?.metadata?.isPrimary || false,
+          ocrText,
+          ocrAt: new Date().toISOString(),
+          lastError: undefined,
+        }
+      } as any);
+
+      toast({
+        title: "OCR completo ✓",
+        description: ocrText ? `Texto extraído com sucesso` : "Nenhum texto encontrado na imagem",
+      });
+    } catch (error) {
+      console.error("Error transcribing image:", error);
+      
+      const node = nodes.find(n => n.id === nodeId);
+      const sourceData = node?.data as ImageSourceNodeData | undefined;
+      const image = sourceData?.images?.find(img => img.id === imageId);
+      
+      updateImageInNode(nodeId, imageId, { 
+        isProcessing: false,
+        processingType: null,
+        metadata: {
+          ...image?.metadata,
+          uploadedAt: image?.metadata?.uploadedAt || new Date().toISOString(),
+          dimensions: image?.metadata?.dimensions || null,
+          analyzed: image?.metadata?.analyzed || false,
+          isPrimary: image?.metadata?.isPrimary || false,
+          lastError: error instanceof Error ? error.message : "Erro desconhecido",
+        }
+      } as any);
+      
+      toast({
+        title: "Erro no OCR",
+        description: error instanceof Error ? error.message : "Não foi possível extrair texto",
+        variant: "destructive",
+      });
+    }
+  }, [nodes, updateImageInNode, toast]);
+
+  // Analyze image style (JSON) in ImageSourceNode - receives imageUrl directly to avoid race condition
+  const analyzeImageSourceImage = useCallback(async (nodeId: string, imageId: string, imageUrl: string) => {
+    // Mark image as processing JSON
+    updateImageInNode(nodeId, imageId, { isProcessing: true, processingType: "json" } as any);
+
+    // Timeout after 90 seconds
+    const timeoutPromise = new Promise<never>((_, reject) => 
+      setTimeout(() => reject(new Error("Timeout: Análise demorou demais")), 90000)
+    );
+
+    try {
+      const base64Url = await blobUrlToBase64(imageUrl);
+      
+      const analyzePromise = supabase.functions.invoke("analyze-image-complete", {
+        body: { imageUrl: base64Url }
+      });
+
+      const { data, error } = await Promise.race([analyzePromise, timeoutPromise]);
 
       if (error) throw error;
 
@@ -828,12 +907,19 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
       
       const dominantColors = imageAnalysis.colors?.dominant || imageAnalysis.color_palette?.dominant_colors || [];
       
+      // Get current image metadata
+      const node = nodes.find(n => n.id === nodeId);
+      const sourceData = node?.data as ImageSourceNodeData | undefined;
+      const image = sourceData?.images?.find(img => img.id === imageId);
+      
       const metadata: ImageMetadata = {
-        uploadedAt: image.metadata?.uploadedAt || new Date().toISOString(),
-        dimensions: image.metadata?.dimensions || null,
+        ...image?.metadata,
+        uploadedAt: image?.metadata?.uploadedAt || new Date().toISOString(),
+        dimensions: image?.metadata?.dimensions || null,
         analyzed: true,
         analyzedAt: new Date().toISOString(),
-        isPrimary: image.metadata?.isPrimary || false,
+        isPrimary: image?.metadata?.isPrimary || false,
+        lastError: undefined,
         imageAnalysis: { ...imageAnalysis, generation_prompt: generationPrompt },
         styleAnalysis: {
           dominantColors,
@@ -849,28 +935,44 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
         }
       };
 
-      // Update with analysis results using functional update
-      updateImageInNode({ 
+      updateImageInNode(nodeId, imageId, { 
         analyzed: true,
         isProcessing: false,
+        processingType: null,
         metadata
-      });
+      } as any);
 
       toast({
         title: "Análise completa ✓",
-        description: `JSON de "${image.name}" gerado automaticamente.`,
+        description: `JSON gerado com sucesso`,
       });
     } catch (error) {
       console.error("Error analyzing image:", error);
-      // Reset processing state on error
-      updateImageInNode({ isProcessing: false });
+      
+      const node = nodes.find(n => n.id === nodeId);
+      const sourceData = node?.data as ImageSourceNodeData | undefined;
+      const image = sourceData?.images?.find(img => img.id === imageId);
+      
+      updateImageInNode(nodeId, imageId, { 
+        isProcessing: false,
+        processingType: null,
+        metadata: {
+          ...image?.metadata,
+          uploadedAt: image?.metadata?.uploadedAt || new Date().toISOString(),
+          dimensions: image?.metadata?.dimensions || null,
+          analyzed: image?.metadata?.analyzed || false,
+          isPrimary: image?.metadata?.isPrimary || false,
+          lastError: error instanceof Error ? error.message : "Erro desconhecido",
+        }
+      } as any);
+      
       toast({
         title: "Erro na análise",
-        description: "Não foi possível analisar a imagem",
+        description: error instanceof Error ? error.message : "Não foi possível analisar a imagem",
         variant: "destructive",
       });
     }
-  }, [nodes, setNodes, toast]);
+  }, [nodes, updateImageInNode, toast]);
 
   // Generate content (text or image)
   const generateContent = useCallback(async (generatorNodeId: string) => {
@@ -1908,6 +2010,7 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
     transcribeFile,
     analyzeImageStyle,
     analyzeImageSourceImage,
+    transcribeImageSourceImage,
     generateContent,
     regenerateContent,
     editImage,

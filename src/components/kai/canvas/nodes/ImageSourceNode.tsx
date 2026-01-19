@@ -1,6 +1,6 @@
-import { memo, useState, useRef, useEffect } from "react";
+import { memo, useState, useRef } from "react";
 import { Handle, Position, NodeProps } from "reactflow";
-import { ImageIcon, Upload, Loader2, X, Trash2, Star, Code2, Palette } from "lucide-react";
+import { ImageIcon, Upload, Loader2, X, Trash2, Star, Code2, Palette, FileText, RotateCcw } from "lucide-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -10,13 +10,14 @@ import { useToast } from "@/hooks/use-toast";
 import { ImageAnalysisModal } from "../ImageAnalysisModal";
 import { ImageMetadata } from "../hooks/useCanvasState";
 
-// Types for image source node - re-export from useCanvasState
+// Types for image source node
 export interface ImageSourceFile {
   id: string;
   name: string;
   url: string;
   storagePath?: string;
   isProcessing?: boolean;
+  processingType?: "json" | "ocr" | null;
   analyzed?: boolean;
   metadata?: ImageMetadata;
 }
@@ -26,15 +27,13 @@ export interface ImageSourceNodeData {
   images: ImageSourceFile[];
 }
 
-export interface ImageSourceNodeData {
-  type: "image-source";
-  images: ImageSourceFile[];
-}
+const MAX_IMAGES = 10;
 
 interface ImageSourceNodeProps extends NodeProps<ImageSourceNodeData> {
   onUpdateData?: (nodeId: string, data: Partial<ImageSourceNodeData>) => void;
   onDelete?: (nodeId: string) => void;
-  onAnalyzeImage?: (nodeId: string, imageId: string) => void;
+  onAnalyzeImage?: (nodeId: string, imageId: string, imageUrl: string) => void;
+  onTranscribeImage?: (nodeId: string, imageId: string, imageUrl: string) => void;
 }
 
 function ImageSourceNodeComponent({
@@ -43,7 +42,8 @@ function ImageSourceNodeComponent({
   selected,
   onUpdateData,
   onDelete,
-  onAnalyzeImage
+  onAnalyzeImage,
+  onTranscribeImage
 }: ImageSourceNodeProps) {
   const { toast } = useToast();
   const [isUploading, setIsUploading] = useState(false);
@@ -60,10 +60,32 @@ function ImageSourceNodeComponent({
   const handleFileSelect = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
     
+    const currentCount = images.length;
+    const availableSlots = MAX_IMAGES - currentCount;
+    
+    if (availableSlots <= 0) {
+      toast({
+        title: "Limite atingido",
+        description: `Máximo de ${MAX_IMAGES} imagens permitido`,
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    const filesToProcess = Array.from(files).slice(0, availableSlots);
+    
+    if (filesToProcess.length < files.length) {
+      toast({
+        title: "Limite de imagens",
+        description: `Apenas ${filesToProcess.length} de ${files.length} imagens serão adicionadas (limite: ${MAX_IMAGES})`,
+        variant: "default",
+      });
+    }
+    
     setIsUploading(true);
     const newImages: ImageSourceFile[] = [];
 
-    for (const file of Array.from(files)) {
+    for (const file of filesToProcess) {
       if (!file.type.startsWith("image/")) {
         toast({
           title: "Arquivo inválido",
@@ -99,7 +121,8 @@ function ImageSourceNodeComponent({
           name: file.name,
           url: imageUrl,
           storagePath: uploadError ? undefined : filePath,
-          isProcessing: true, // Start processing immediately
+          isProcessing: false, // NOT auto-processing
+          processingType: null,
           analyzed: false,
           metadata: {
             uploadedAt: new Date().toISOString(),
@@ -124,14 +147,9 @@ function ImageSourceNodeComponent({
       const updatedImages = [...images, ...newImages];
       onUpdateData?.(id, { images: updatedImages });
 
-      // Trigger automatic analysis for each new image
-      for (const img of newImages) {
-        onAnalyzeImage?.(id, img.id);
-      }
-
       toast({
         title: `${newImages.length} imagem(ns) adicionada(s)`,
-        description: "Analisando automaticamente...",
+        description: "Use os botões OCR ou JSON para processar",
       });
     }
 
@@ -176,21 +194,32 @@ function ImageSourceNodeComponent({
     });
   };
 
-  const handleViewJson = (image: ImageSourceFile) => {
+  const handleViewAnalysis = (image: ImageSourceFile) => {
     setSelectedImage(image);
     setAnalysisModalOpen(true);
+  };
+
+  const handleAnalyzeJson = (image: ImageSourceFile) => {
+    if (image.isProcessing) return;
+    onAnalyzeImage?.(id, image.id, image.url);
+  };
+
+  const handleTranscribeOcr = (image: ImageSourceFile) => {
+    if (image.isProcessing) return;
+    onTranscribeImage?.(id, image.id, image.url);
   };
 
   // Get first analyzed image's style summary for display
   const primaryImage = images.find(img => img.metadata?.isPrimary) || images[0];
   const styleAnalysis = primaryImage?.metadata?.styleAnalysis;
   const analyzedCount = images.filter(img => img.analyzed).length;
+  const ocrCount = images.filter(img => img.metadata?.ocrText).length;
   const processingCount = images.filter(img => img.isProcessing).length;
 
   return (
     <>
       <Card className={cn(
-        "w-[300px] shadow-lg transition-all border-2",
+        "w-[320px] shadow-lg transition-all border-2",
         selected ? "border-primary ring-2 ring-primary/20" : "border-cyan-500/50",
         isDragging && "border-cyan-400 bg-cyan-50/50 dark:bg-cyan-950/30",
         "bg-gradient-to-br from-cyan-50 to-white dark:from-cyan-950/30 dark:to-background"
@@ -203,7 +232,7 @@ function ImageSourceNodeComponent({
             <span className="font-medium text-sm">Imagem</span>
             {images.length > 0 && (
               <Badge variant="secondary" className="text-[10px] h-5">
-                {images.length} {images.length === 1 ? 'imagem' : 'imagens'}
+                {images.length}/{MAX_IMAGES}
               </Badge>
             )}
           </div>
@@ -221,7 +250,7 @@ function ImageSourceNodeComponent({
           {/* Drop zone */}
           <div
             className={cn(
-              "relative border-2 border-dashed rounded-lg p-4 text-center transition-colors cursor-pointer",
+              "relative border-2 border-dashed rounded-lg p-3 text-center transition-colors cursor-pointer",
               isDragging 
                 ? "border-cyan-400 bg-cyan-50 dark:bg-cyan-950/50" 
                 : "border-muted-foreground/30 hover:border-cyan-400"
@@ -242,14 +271,14 @@ function ImageSourceNodeComponent({
             
             {isUploading ? (
               <div className="flex flex-col items-center gap-2">
-                <Loader2 className="h-6 w-6 animate-spin text-cyan-500" />
+                <Loader2 className="h-5 w-5 animate-spin text-cyan-500" />
                 <span className="text-xs text-muted-foreground">Enviando...</span>
               </div>
             ) : (
               <div className="flex flex-col items-center gap-1">
-                <Upload className="h-5 w-5 text-muted-foreground" />
+                <Upload className="h-4 w-4 text-muted-foreground" />
                 <span className="text-xs text-muted-foreground">
-                  Arraste ou clique (max 2)
+                  Arraste ou clique (max {MAX_IMAGES})
                 </span>
               </div>
             )}
@@ -261,22 +290,32 @@ function ImageSourceNodeComponent({
               {processingCount > 0 && (
                 <Badge variant="outline" className="text-[10px] h-5 gap-1">
                   <Loader2 className="h-2.5 w-2.5 animate-spin" />
-                  Analisando {processingCount}...
+                  Processando {processingCount}...
                 </Badge>
               )}
               {analyzedCount > 0 && (
                 <Badge variant="secondary" className="text-[10px] h-5 gap-1 bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300">
-                  <Palette className="h-2.5 w-2.5" />
-                  {analyzedCount} analisada(s)
+                  <Code2 className="h-2.5 w-2.5" />
+                  {analyzedCount} JSON
+                </Badge>
+              )}
+              {ocrCount > 0 && (
+                <Badge variant="secondary" className="text-[10px] h-5 gap-1 bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300">
+                  <FileText className="h-2.5 w-2.5" />
+                  {ocrCount} OCR
                 </Badge>
               )}
             </div>
           )}
 
-          {/* Image grid */}
+          {/* Image grid - supports up to 10 images */}
           {images.length > 0 && (
-            <div className="grid grid-cols-2 gap-2">
-              {images.slice(0, 2).map((img) => (
+            <div className={cn(
+              "grid gap-2",
+              images.length <= 2 ? "grid-cols-2" : 
+              images.length <= 6 ? "grid-cols-3" : "grid-cols-4"
+            )}>
+              {images.map((img) => (
                 <div 
                   key={img.id}
                   className={cn(
@@ -293,53 +332,90 @@ function ImageSourceNodeComponent({
                     
                     {/* Primary badge */}
                     {img.metadata?.isPrimary && (
-                      <Badge className="absolute top-1 left-1 text-[8px] h-4 px-1 bg-primary">
+                      <Badge className="absolute top-0.5 left-0.5 text-[7px] h-3.5 px-1 bg-primary">
                         Principal
                       </Badge>
                     )}
                     
                     {/* Status badge */}
                     {img.isProcessing ? (
-                      <Badge variant="outline" className="absolute top-1 right-1 text-[8px] h-4 px-1 bg-background/80">
+                      <Badge variant="outline" className="absolute top-0.5 right-0.5 text-[7px] h-3.5 px-1 bg-background/90 gap-0.5">
                         <Loader2 className="h-2 w-2 animate-spin" />
+                        {img.processingType === "ocr" ? "OCR" : "JSON"}
                       </Badge>
-                    ) : img.analyzed ? (
-                      <Badge variant="secondary" className="absolute top-1 right-1 text-[8px] h-4 px-1">
-                        <Palette className="h-2 w-2" />
-                      </Badge>
-                    ) : null}
+                    ) : (
+                      <div className="absolute top-0.5 right-0.5 flex gap-0.5">
+                        {img.analyzed && (
+                          <Badge variant="secondary" className="text-[7px] h-3.5 px-1 bg-green-500/90 text-white">
+                            <Code2 className="h-2 w-2" />
+                          </Badge>
+                        )}
+                        {img.metadata?.ocrText && (
+                          <Badge variant="secondary" className="text-[7px] h-3.5 px-1 bg-blue-500/90 text-white">
+                            <FileText className="h-2 w-2" />
+                          </Badge>
+                        )}
+                      </div>
+                    )}
                     
                     {/* Hover overlay with actions */}
-                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1">
-                      {img.analyzed && (
+                    <div className="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1 p-1">
+                      {/* Action buttons row 1 */}
+                      <div className="flex gap-1">
                         <Button 
                           size="icon" 
                           variant="secondary" 
                           className="h-6 w-6" 
-                          onClick={() => handleViewJson(img)}
-                          title="Ver JSON"
+                          onClick={() => handleTranscribeOcr(img)}
+                          disabled={img.isProcessing}
+                          title="Transcrever texto (OCR)"
+                        >
+                          <FileText className="h-3 w-3" />
+                        </Button>
+                        <Button 
+                          size="icon" 
+                          variant="secondary" 
+                          className="h-6 w-6" 
+                          onClick={() => handleAnalyzeJson(img)}
+                          disabled={img.isProcessing}
+                          title="Analisar estilo (JSON)"
                         >
                           <Code2 className="h-3 w-3" />
                         </Button>
-                      )}
-                      <Button 
-                        size="icon" 
-                        variant={img.metadata?.isPrimary ? "default" : "secondary"} 
-                        className="h-6 w-6" 
-                        onClick={() => handleSetPrimary(img.id)}
-                        title="Definir como principal"
-                      >
-                        <Star className={cn("h-3 w-3", img.metadata?.isPrimary && "fill-current")} />
-                      </Button>
-                      <Button 
-                        size="icon" 
-                        variant="destructive" 
-                        className="h-6 w-6" 
-                        onClick={() => handleRemoveImage(img.id)}
-                        title="Remover"
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
+                      </div>
+                      
+                      {/* Action buttons row 2 */}
+                      <div className="flex gap-1">
+                        {(img.analyzed || img.metadata?.ocrText) && (
+                          <Button 
+                            size="icon" 
+                            variant="default" 
+                            className="h-6 w-6" 
+                            onClick={() => handleViewAnalysis(img)}
+                            title="Ver resultados"
+                          >
+                            <Palette className="h-3 w-3" />
+                          </Button>
+                        )}
+                        <Button 
+                          size="icon" 
+                          variant={img.metadata?.isPrimary ? "default" : "secondary"} 
+                          className="h-6 w-6" 
+                          onClick={() => handleSetPrimary(img.id)}
+                          title="Definir como principal"
+                        >
+                          <Star className={cn("h-3 w-3", img.metadata?.isPrimary && "fill-current")} />
+                        </Button>
+                        <Button 
+                          size="icon" 
+                          variant="destructive" 
+                          className="h-6 w-6" 
+                          onClick={() => handleRemoveImage(img.id)}
+                          title="Remover"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -403,6 +479,7 @@ function ImageSourceNodeComponent({
         open={analysisModalOpen}
         onOpenChange={setAnalysisModalOpen}
         analysis={selectedImage?.metadata?.imageAnalysis || null}
+        ocrText={selectedImage?.metadata?.ocrText}
         imageName={selectedImage?.name}
         imageUrl={selectedImage?.url}
       />
