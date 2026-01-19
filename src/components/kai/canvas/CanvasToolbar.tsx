@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link2, Lightbulb, Sparkles, Trash2, ZoomIn, ZoomOut, Maximize, Save, FolderOpen, ChevronDown, Loader2, X, Pencil, LayoutTemplate, ImageIcon, Smartphone, Briefcase, RefreshCw, Library, Check, Cloud, AlertCircle } from "lucide-react";
+import { Paperclip, Lightbulb, Sparkles, Trash2, ZoomIn, ZoomOut, Maximize, Save, FolderOpen, ChevronDown, Loader2, X, Pencil, LayoutTemplate, Smartphone, Briefcase, RefreshCw, Library, Check, Cloud, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -20,7 +20,7 @@ export type CanvasTemplate =
   | "weekly_summary";
 
 interface CanvasToolbarProps {
-  onAddNode: (type: "source" | "prompt" | "generator" | "image-source") => void;
+  onAddNode: (type: "attachment" | "prompt" | "generator") => void;
   onClear: () => void;
   onZoomIn: () => void;
   onZoomOut: () => void;
@@ -260,36 +260,17 @@ export function CanvasToolbar({
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => onAddNode("source")}
+              onClick={() => onAddNode("attachment")}
               className="h-8 gap-1.5 text-xs hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-950"
             >
               <div className="h-4 w-4 rounded bg-blue-500 flex items-center justify-center">
-                <Link2 className="h-2.5 w-2.5 text-white" />
+                <Paperclip className="h-2.5 w-2.5 text-white" />
               </div>
-              Fonte
+              Anexo
             </Button>
           </TooltipTrigger>
           <TooltipContent side="bottom">
-            <p>Adicionar URL, texto ou arquivo</p>
-          </TooltipContent>
-        </Tooltip>
-
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => onAddNode("image-source")}
-              className="h-8 gap-1.5 text-xs hover:bg-cyan-50 hover:text-cyan-600 dark:hover:bg-cyan-950"
-            >
-              <div className="h-4 w-4 rounded bg-cyan-500 flex items-center justify-center">
-                <ImageIcon className="h-2.5 w-2.5 text-white" />
-              </div>
-              Imagem
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="bottom">
-            <p>Adicionar imagens de referência (análise automática)</p>
+            <p>Adicionar link, texto, arquivo ou imagem</p>
           </TooltipContent>
         </Tooltip>
 
@@ -304,7 +285,7 @@ export function CanvasToolbar({
               <div className="h-4 w-4 rounded bg-yellow-500 flex items-center justify-center">
                 <Lightbulb className="h-2.5 w-2.5 text-white" />
               </div>
-              Briefing
+              Instruções
             </Button>
           </TooltipTrigger>
           <TooltipContent side="bottom">

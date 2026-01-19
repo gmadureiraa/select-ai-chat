@@ -18,6 +18,7 @@ import {
   OutputNodeData,
   ContentFormat,
   ImageSourceNodeData,
+  AttachmentNodeData,
 } from "./hooks/useCanvasState";
 import { CanvasToolbar } from "./CanvasToolbar";
 import { CanvasLibraryDrawer } from "./CanvasLibraryDrawer";
@@ -26,6 +27,7 @@ import { PromptNode } from "./nodes/PromptNode";
 import { GeneratorNode } from "./nodes/GeneratorNode";
 import { ContentOutputNode } from "./nodes/ContentOutputNode";
 import { ImageSourceNode } from "./nodes/ImageSourceNode";
+import { AttachmentNode } from "./nodes/AttachmentNode";
 import { PlanningItemDialog } from "@/components/planning/PlanningItemDialog";
 import { usePlanningItems } from "@/hooks/usePlanningItems";
 import { useQuery } from "@tanstack/react-query";
@@ -255,12 +257,24 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
           onTranscribeImage={(id, imageId, imageUrl) => handlersRef.current?.transcribeImageSourceImage(id, imageId, imageUrl)}
         />
       ),
+      attachment: (props: NodeProps<AttachmentNodeData>) => (
+        <AttachmentNode
+          {...props}
+          onExtractUrl={(id, url) => handlersRef.current?.extractUrlContent(id, url)}
+          onUpdateData={(id, data) => handlersRef.current?.updateNodeData(id, data)}
+          onDelete={(id) => handlersRef.current?.deleteNode(id)}
+          onTranscribeFile={(id, fileId) => handlersRef.current?.transcribeFile(id, fileId)}
+          onAnalyzeStyle={(id, fileId) => handlersRef.current?.analyzeImageStyle(id, fileId)}
+          onAnalyzeImage={(id, imageId, imageUrl) => handlersRef.current?.analyzeImageSourceImage(id, imageId, imageUrl)}
+          onTranscribeImage={(id, imageId, imageUrl) => handlersRef.current?.transcribeImageSourceImage(id, imageId, imageUrl)}
+        />
+      ),
     }),
     []
   );
 
   const handleAddNode = useCallback(
-    (type: NodeDataType) => {
+    (type: "attachment" | "prompt" | "generator") => {
       const viewport = getViewport();
       const centerX = (window.innerWidth / 2 - viewport.x) / viewport.zoom;
       const centerY = (window.innerHeight / 2 - viewport.y) / viewport.zoom;
