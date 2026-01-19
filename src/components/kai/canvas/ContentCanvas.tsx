@@ -8,7 +8,7 @@ import ReactFlow, {
   NodeProps,
 } from "reactflow";
 import "reactflow/dist/style.css";
-
+import { Sparkles, LayoutGrid, MessageSquare, Briefcase, BookOpen, RefreshCw, Image } from "lucide-react";
 import {
   useCanvasState,
   NodeDataType,
@@ -525,7 +525,9 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none pt-20">
           <div className="text-center space-y-6 max-w-2xl px-4 pointer-events-auto">
             <div className="space-y-2">
-              <div className="text-5xl">✨</div>
+              <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center mx-auto">
+                <Sparkles className="h-6 w-6 text-primary" />
+              </div>
               <h3 className="text-xl font-semibold">Canvas de Criação</h3>
               <p className="text-sm text-muted-foreground max-w-md mx-auto">
                 Escolha um template para começar rapidamente ou adicione nós manualmente
@@ -535,19 +537,21 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
             {/* Quick template cards */}
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-left">
               {[
-                { id: "carousel_from_url", icon: "🎠", label: "Carrossel", desc: "URL → Carrossel" },
-                { id: "thread_from_video", icon: "🧵", label: "Thread", desc: "Vídeo → Thread" },
-                { id: "linkedin_article", icon: "💼", label: "LinkedIn", desc: "URL → Artigo" },
-                { id: "story_sequence", icon: "📖", label: "Stories", desc: "Texto → Stories" },
-                { id: "repurpose_blog", icon: "🔄", label: "Repurpose", desc: "Blog → Multi" },
-                { id: "image_series", icon: "🖼️", label: "Imagens", desc: "Texto → 3 imgs" },
+                { id: "carousel_from_url", Icon: LayoutGrid, label: "Carrossel", desc: "URL → Carrossel" },
+                { id: "thread_from_video", Icon: MessageSquare, label: "Thread", desc: "Vídeo → Thread" },
+                { id: "linkedin_article", Icon: Briefcase, label: "LinkedIn", desc: "URL → Artigo" },
+                { id: "story_sequence", Icon: BookOpen, label: "Stories", desc: "Texto → Stories" },
+                { id: "repurpose_blog", Icon: RefreshCw, label: "Repurpose", desc: "Blog → Multi" },
+                { id: "image_series", Icon: Image, label: "Imagens", desc: "Texto → 3 imgs" },
               ].map((template) => (
                 <button
                   key={template.id}
                   onClick={() => loadTemplate(template.id)}
                   className="flex flex-col items-center gap-2 p-4 rounded-xl border bg-card hover:bg-accent hover:border-primary/50 transition-all group"
                 >
-                  <span className="text-2xl group-hover:scale-110 transition-transform">{template.icon}</span>
+                  <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center group-hover:bg-primary/10 transition-colors">
+                    <template.Icon className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors" />
+                  </div>
                   <div className="text-center">
                     <p className="font-medium text-sm">{template.label}</p>
                     <p className="text-xs text-muted-foreground">{template.desc}</p>
@@ -563,6 +567,7 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
                   <span className="h-2 w-2 rounded bg-blue-500" /> Anexo
                   <span className="h-2 w-2 rounded bg-yellow-500 ml-2" /> Instruções
                   <span className="h-2 w-2 rounded bg-green-500 ml-2" /> Gerador
+                  <span className="h-2 w-2 rounded bg-pink-500 ml-2" /> Resultado
                 </span>
               </p>
             </div>
