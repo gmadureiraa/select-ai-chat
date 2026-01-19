@@ -1,13 +1,12 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
-import { Rss, Loader2, Youtube, CheckCircle2, AlertCircle } from "lucide-react";
+import { Rss, Loader2, Youtube, CheckCircle2 } from "lucide-react";
 
 interface YouTubeRSSImporterProps {
   clientId: string;
@@ -28,6 +27,25 @@ export function YouTubeRSSImporter({ clientId, onImportComplete }: YouTubeRSSImp
   const [importedCount, setImportedCount] = useState<number | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  // Load saved channel ID on mount
+  useEffect(() => {
+    const loadSavedChannel = async () => {
+      const { data } = await supabase
+        .from("clients")
+        .select("social_media")
+        .eq("id", clientId)
+        .single();
+      
+      if (data?.social_media) {
+        const socialMedia = data.social_media as Record<string, any>;
+        if (socialMedia.youtube_channel_id) {
+          setChannelUrl(socialMedia.youtube_channel_id);
+        }
+      }
+    };
+    loadSavedChannel();
+  }, [clientId]);
 
   // Extract channel ID from various YouTube URL formats
   const extractChannelId = (url: string): string | null => {
@@ -127,9 +145,28 @@ export function YouTubeRSSImporter({ clientId, onImportComplete }: YouTubeRSSImp
 
       setImportedCount(insertedCount);
       
+      // Save channel ID to client
+      const { data: clientData } = await supabase
+        .from("clients")
+        .select("social_media")
+        .eq("id", clientId)
+        .single();
+
+      const currentSocialMedia = (clientData?.social_media as Record<string, any>) || {};
+      await supabase
+        .from("clients")
+        .update({
+          social_media: {
+            ...currentSocialMedia,
+            youtube_channel_id: channelId,
+          }
+        })
+        .eq("id", clientId);
+      
       // Invalidate queries
       queryClient.invalidateQueries({ queryKey: ["youtube-videos", clientId] });
       queryClient.invalidateQueries({ queryKey: ["performance-metrics", clientId] });
+      queryClient.invalidateQueries({ queryKey: ["client", clientId] });
 
       toast({
         title: "Vídeos importados!",
@@ -150,65 +187,61 @@ export function YouTubeRSSImporter({ clientId, onImportComplete }: YouTubeRSSImp
   };
 
   return (
-    <Card className="border-dashed">
-      <CardHeader className="pb-3">
-        <div className="flex items-center gap-2">
-          <div className="h-8 w-8 rounded-lg bg-red-500/10 flex items-center justify-center">
-            <Youtube className="h-4 w-4 text-red-500" />
-          </div>
-          <div>
-            <CardTitle className="text-sm font-medium">Importar via RSS</CardTitle>
-            <CardDescription className="text-xs">
-              Importe vídeos automaticamente do canal
-            </CardDescription>
-          </div>
+    <div className="space-y-4">
+      <div className="flex items-center gap-2 pb-2">
+        <div className="h-8 w-8 rounded-lg bg-red-500/10 flex items-center justify-center">
+          <Youtube className="h-4 w-4 text-red-500" />
         </div>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        <div className="space-y-2">
-          <Label htmlFor="channel-url" className="text-xs">
-            URL do Canal ou ID
-          </Label>
-          <Input
-            id="channel-url"
-            placeholder="youtube.com/channel/UC... ou UCxxxxxxx"
-            value={channelUrl}
-            onChange={(e) => setChannelUrl(e.target.value)}
-            className="text-sm h-9"
-          />
-          <p className="text-[10px] text-muted-foreground">
-            Cole a URL do canal do YouTube ou o ID do canal (começa com UC)
+        <div>
+          <p className="text-sm font-medium">Importar via RSS</p>
+          <p className="text-xs text-muted-foreground">
+            Importe vídeos automaticamente do canal
           </p>
         </div>
+      </div>
+      
+      <div className="space-y-2">
+        <Label htmlFor="channel-url" className="text-xs">
+          URL do Canal ou ID
+        </Label>
+        <Input
+          id="channel-url"
+          placeholder="youtube.com/channel/UC... ou UCxxxxxxx"
+          value={channelUrl}
+          onChange={(e) => setChannelUrl(e.target.value)}
+          className="text-sm"
+        />
+        <p className="text-[10px] text-muted-foreground">
+          Cole a URL do canal do YouTube ou o ID do canal (começa com UC)
+        </p>
+      </div>
 
-        <Button
-          onClick={handleImport}
-          disabled={isLoading || !channelUrl.trim()}
-          className="w-full h-9 text-sm"
-          size="sm"
-        >
-          {isLoading ? (
-            <>
-              <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />
-              Importando...
-            </>
-          ) : (
-            <>
-              <Rss className="h-3.5 w-3.5 mr-2" />
-              Importar Vídeos
-            </>
-          )}
-        </Button>
-
-        {importedCount !== null && (
-          <div className="flex items-center gap-2 p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
-            <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-            <span className="text-xs text-emerald-600">
-              {importedCount} vídeos importados
-            </span>
-          </div>
+      <Button
+        onClick={handleImport}
+        disabled={isLoading || !channelUrl.trim()}
+        className="w-full"
+      >
+        {isLoading ? (
+          <>
+            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            Importando...
+          </>
+        ) : (
+          <>
+            <Rss className="h-4 w-4 mr-2" />
+            Importar Vídeos
+          </>
         )}
-      </CardContent>
-    </Card>
+      </Button>
+
+      {importedCount !== null && (
+        <div className="flex items-center gap-2 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+          <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+          <span className="text-sm text-emerald-600">
+            {importedCount} vídeos importados com sucesso!
+          </span>
+        </div>
+      )}
+    </div>
   );
 }

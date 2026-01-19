@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Mail, Eye, MousePointer, Users, Upload, FileSpreadsheet, CheckCircle, AlertCircle, ChevronDown, UserPlus, UserMinus, Calendar } from "lucide-react";
+import { Mail, Eye, MousePointer, Users, Upload, FileSpreadsheet, CheckCircle, AlertCircle, ChevronDown, UserPlus, UserMinus, Calendar, Rss } from "lucide-react";
 import { StatCard } from "./StatCard";
 import { EnhancedAreaChart } from "./EnhancedAreaChart";
 import { GoalsPanel } from "./GoalsPanel";
@@ -14,6 +14,7 @@ import { NewsletterMetricsTable } from "./NewsletterMetricsTable";
 import { ImportHistoryPanel } from "./ImportHistoryPanel";
 import { DataCompletenessWarning } from "./DataCompletenessWarning";
 import { SmartCSVUpload } from "./SmartCSVUpload";
+import { RSSConfigDialog } from "./RSSConfigDialog";
 import { subDays, format, parseISO, isAfter, startOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useSmartNewsletterImport } from "@/hooks/useSmartNewsletterImport";
@@ -66,6 +67,7 @@ export function NewsletterDashboard({ clientId, metrics, isLoading }: Newsletter
   const [showUpload, setShowUpload] = useState(false);
   const [selectedMetric, setSelectedMetric] = useState("delivered");
   const [isDragging, setIsDragging] = useState(false);
+  const [showRssConfig, setShowRssConfig] = useState(false);
   
   const { importFile, importMultipleFiles, isImporting, result, reset } = useSmartNewsletterImport(clientId);
   
@@ -271,15 +273,25 @@ export function NewsletterDashboard({ clientId, metrics, isLoading }: Newsletter
             </SelectContent>
           </Select>
           {canImportData && (
-            <Collapsible open={showUpload} onOpenChange={setShowUpload}>
-              <CollapsibleTrigger asChild>
-                <Button variant="outline" className="border-border/50">
-                  <Upload className="h-4 w-4 mr-2" />
-                  Importar
-                  <ChevronDown className={`h-4 w-4 ml-2 transition-transform ${showUpload ? 'rotate-180' : ''}`} />
-                </Button>
-              </CollapsibleTrigger>
-            </Collapsible>
+            <>
+              <Button 
+                variant="outline" 
+                className="border-border/50"
+                onClick={() => setShowRssConfig(true)}
+              >
+                <Rss className="h-4 w-4 mr-2" />
+                RSS
+              </Button>
+              <Collapsible open={showUpload} onOpenChange={setShowUpload}>
+                <CollapsibleTrigger asChild>
+                  <Button variant="outline" className="border-border/50">
+                    <Upload className="h-4 w-4 mr-2" />
+                    Importar
+                    <ChevronDown className={`h-4 w-4 ml-2 transition-transform ${showUpload ? 'rotate-180' : ''}`} />
+                  </Button>
+                </CollapsibleTrigger>
+              </Collapsible>
+            </>
           )}
         </div>
       </div>
@@ -418,6 +430,14 @@ export function NewsletterDashboard({ clientId, metrics, isLoading }: Newsletter
 
       {/* Import History */}
       <ImportHistoryPanel clientId={clientId} platform="newsletter" />
+
+      {/* RSS Config Dialog */}
+      <RSSConfigDialog
+        open={showRssConfig}
+        onOpenChange={setShowRssConfig}
+        clientId={clientId}
+        platform="newsletter"
+      />
     </div>
   );
 }
