@@ -1,6 +1,6 @@
 import { memo, useState, useRef } from "react";
 import { Handle, Position, NodeProps } from "reactflow";
-import { Link2, FileText, Upload, Loader2, Check, X, Youtube, FileAudio, FileImage, Trash2, Eye, Wand2, Star, Palette, Code2, Maximize2, Minimize2 } from "lucide-react";
+import { Link2, FileText, Upload, Loader2, Check, X, Youtube, FileAudio, FileImage, Trash2, Eye, Wand2, Star, Palette, Code2, Maximize2, Minimize2, Instagram } from "lucide-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -26,6 +26,10 @@ interface SourceNodeProps extends NodeProps<SourceNodeData> {
 
 function isYoutubeUrl(url: string): boolean {
   return url.includes("youtube.com") || url.includes("youtu.be");
+}
+
+function isInstagramUrl(url: string): boolean {
+  return url.includes("instagram.com/p/") || url.includes("instagram.com/reel/") || url.includes("instagr.am");
 }
 
 function getFileType(file: File): "image" | "audio" | "video" | "document" {
@@ -211,7 +215,12 @@ function SourceNodeComponent({
 
   const handleExtract = () => {
     if (localUrl.trim() && onExtractUrl) {
-      const urlType = isYoutubeUrl(localUrl) ? "youtube" : "article";
+      let urlType: "youtube" | "article" | "instagram" = "article";
+      if (isYoutubeUrl(localUrl)) {
+        urlType = "youtube";
+      } else if (isInstagramUrl(localUrl)) {
+        urlType = "instagram";
+      }
       onUpdateData?.(id, { value: localUrl.trim(), sourceType: "url", urlType });
       onExtractUrl(id, localUrl.trim());
     }
@@ -404,6 +413,7 @@ function SourceNodeComponent({
   };
 
   const isYoutube = data.urlType === "youtube" || (localUrl && isYoutubeUrl(localUrl));
+  const isInstagram = data.urlType === "instagram" || (localUrl && isInstagramUrl(localUrl));
   
   // Separate image files from other files
   const imageFiles = (data.files || []).filter(f => f.type === "image");
@@ -483,12 +493,16 @@ function SourceNodeComponent({
                   onChange={(e) => setLocalUrl(e.target.value)}
                   className={cn(
                     "h-8 text-xs pr-8",
-                    isYoutube && "border-red-500/50"
+                    isYoutube && "border-red-500/50",
+                    isInstagram && "border-pink-500/50"
                   )}
                   disabled={data.isExtracting}
                 />
                 {isYoutube && (
                   <Youtube className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-red-500" />
+                )}
+                {isInstagram && !isYoutube && (
+                  <Instagram className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-pink-500" />
                 )}
               </div>
               <Button
