@@ -133,6 +133,7 @@ function ContentOutputNodeComponent({
               <FileOutput className="h-3.5 w-3.5 text-white" />
             )}
           </div>
+          <span className="font-medium text-sm">Resultado</span>
           <div className="flex items-center gap-1.5">
             <Badge variant="secondary" className="text-[10px] h-5">
               {FORMAT_LABELS[data.format]}
