@@ -4,13 +4,14 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Eye, MousePointer, Mail, TrendingUp, TrendingDown, Minus, Rss, Pencil, Image as ImageIcon } from "lucide-react";
+import { Eye, MousePointer, Mail, TrendingUp, TrendingDown, Minus, Rss, Pencil, Image as ImageIcon, ExternalLink } from "lucide-react";
 import { useNewsletterPosts } from "@/hooks/usePerformanceMetrics";
 import { useContentLibrary } from "@/hooks/useContentLibrary";
 import { NewsletterSyncBadge } from "./NewsletterSyncBadge";
 import { NewsletterContentDialog } from "./NewsletterContentDialog";
 import { NewsletterEditDialog } from "./NewsletterEditDialog";
 import { supabase } from "@/integrations/supabase/client";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface NewsletterMetricsTableProps {
   clientId: string;
@@ -145,6 +146,7 @@ export function NewsletterMetricsTable({ clientId, isLoading: externalLoading }:
               const delivered = post.metadata?.delivered || post.views || 0;
               const openRate = post.open_rate || 0;
               const clickRate = post.click_rate || 0;
+              const postUrl = post.metadata?.url || null; // NEW: Get URL from metadata
               
               const previousPost = sortedPosts[index + 1];
               const previousOpenRate = previousPost?.open_rate;
@@ -184,8 +186,29 @@ export function NewsletterMetricsTable({ clientId, isLoading: externalLoading }:
                     {format(parseISO(post.metric_date), "dd MMM", { locale: ptBR })}
                   </TableCell>
                   <TableCell className="text-xs max-w-[200px]">
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1.5">
                       <span className="truncate" title={subject}>{subject}</span>
+                      {/* NEW: Show external link icon if URL exists */}
+                      {postUrl && (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <a
+                                href={postUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={(e) => e.stopPropagation()}
+                                className="text-muted-foreground hover:text-primary transition-colors flex-shrink-0"
+                              >
+                                <ExternalLink className="h-3 w-3" />
+                              </a>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="text-xs">
+                              Ver edição online
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      )}
                       {hasContent && (Array.isArray(newsletterImages) && newsletterImages.length > 0) && (
                         <Badge variant="outline" className="text-[9px] h-4 px-1 gap-0.5">
                           <ImageIcon className="h-2.5 w-2.5" />
