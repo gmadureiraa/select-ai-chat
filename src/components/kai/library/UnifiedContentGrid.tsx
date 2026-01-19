@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Instagram, Twitter, Linkedin, FileText, Search, Filter, Loader2, Star } from "lucide-react";
+import { Instagram, Twitter, Linkedin, Youtube, FileText, Search, Filter, Loader2, Star } from "lucide-react";
 import { useUnifiedContent, useToggleFavorite, UnifiedContentItem } from "@/hooks/useUnifiedContent";
 import { ContentCard } from "./ContentCard";
 import { ContentPreviewDialog } from "./ContentPreviewDialog";
@@ -16,12 +16,13 @@ interface UnifiedContentGridProps {
   draggable?: boolean;
 }
 
-type PlatformFilter = 'all' | 'instagram' | 'twitter' | 'linkedin' | 'content' | 'favorites';
+type PlatformFilter = 'all' | 'instagram' | 'twitter' | 'linkedin' | 'youtube' | 'content' | 'favorites';
 
 const platformFilters: { value: PlatformFilter; label: string; icon: React.ElementType }[] = [
   { value: 'all', label: 'Todos', icon: Filter },
   { value: 'favorites', label: 'Favoritos', icon: Star },
   { value: 'instagram', label: 'Instagram', icon: Instagram },
+  { value: 'youtube', label: 'YouTube', icon: Youtube },
   { value: 'twitter', label: 'Twitter', icon: Twitter },
   { value: 'linkedin', label: 'LinkedIn', icon: Linkedin },
   { value: 'content', label: 'Outros', icon: FileText },
@@ -93,7 +94,7 @@ export function UnifiedContentGrid({ clientId, onSelectContent, compact, draggab
       <div className="text-center py-12 text-muted-foreground">
         <FileText className="h-12 w-12 mx-auto mb-4 opacity-30" />
         <p className="text-sm">Nenhum conteúdo sincronizado</p>
-        <p className="text-xs mt-1">Importe dados do Instagram, Twitter ou LinkedIn</p>
+        <p className="text-xs mt-1">Importe dados do Instagram, YouTube, Twitter ou LinkedIn</p>
       </div>
     );
   }

@@ -4,7 +4,7 @@ import { toast } from "sonner";
 
 export interface UnifiedContentItem {
   id: string;
-  platform: 'instagram' | 'twitter' | 'linkedin' | 'newsletter' | 'content';
+  platform: 'instagram' | 'twitter' | 'linkedin' | 'newsletter' | 'youtube' | 'content';
   title: string;
   content: string;
   thumbnail_url?: string;
@@ -124,10 +124,17 @@ export function useUnifiedContent(clientId: string) {
       // Normalize content library items
       if (libraryRes.data) {
         libraryRes.data.forEach(item => {
-          const isNewsletter = item.content_type === 'newsletter';
+          // Determine platform based on content_type
+          let platform: 'newsletter' | 'youtube' | 'content' = 'content';
+          if (item.content_type === 'newsletter') {
+            platform = 'newsletter';
+          } else if (item.content_type === 'video_script') {
+            platform = 'youtube';
+          }
+          
           items.push({
             id: item.id,
-            platform: isNewsletter ? 'newsletter' : 'content',
+            platform,
             title: item.title || 'Conteúdo',
             content: item.content || '',
             thumbnail_url: item.thumbnail_url || undefined,
