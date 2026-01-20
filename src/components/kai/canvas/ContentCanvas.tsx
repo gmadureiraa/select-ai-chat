@@ -23,8 +23,7 @@ import {
   ImageSourceNodeData,
   AttachmentNodeData,
 } from "./hooks/useCanvasState";
-import { CanvasToolbar } from "./CanvasToolbar";
-import { CanvasSideToolbar, ToolType, ShapeType } from "./CanvasSideToolbar";
+import { CanvasToolbar, ToolType, ShapeType } from "./CanvasToolbar";
 import { CanvasLibraryDrawer } from "./CanvasLibraryDrawer";
 import { SourceNode } from "./nodes/SourceNode";
 import { PromptNode } from "./nodes/PromptNode";
@@ -65,7 +64,7 @@ const FORMAT_TO_CONTENT_TYPE: Record<ContentFormat, ContentTypeKey> = {
   image: "static_image",
 };
 
-// Component version: 4 - Whiteboard features
+// Component version: 5 - Unified toolbar
 function ContentCanvasInner({ clientId }: ContentCanvasProps) {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const { zoomIn, zoomOut, fitView, getViewport, project } = useReactFlow();
@@ -179,7 +178,6 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
           description: "Conteúdo adicionado com sucesso",
         });
 
-        // PlanningItemDialog can use this for downstream actions (ex: agendamento)
         return created?.id ? { id: created.id } : undefined;
       } catch (err: any) {
         console.error("Failed to create planning item from canvas:", err);
@@ -207,7 +205,7 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [saveCanvas]);
 
-  // Use refs to maintain stable references for handlers - initialized once with null-safe defaults
+  // Use refs to maintain stable references for handlers
   const handlersRef = useRef<{
     clientId: string;
     extractUrlContent: typeof extractUrlContent;
@@ -227,9 +225,7 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
     handleQuickImageConvertToAttachment: (id: string, imageUrl: string) => void;
   } | null>(null);
 
-  // Handlers for QuickImageNode - using local state update pattern
-  const quickImageNodesRef = useRef<Map<string, QuickImageNodeData>>(new Map());
-
+  // Handlers for QuickImageNode
   const handleQuickImageAnalyzeJson = useCallback(async (id: string, imageUrl: string) => {
     try {
       const { data: sessionData } = await supabase.auth.getSession();
@@ -321,20 +317,17 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
     const node = nodes.find(n => n.id === id);
     if (!node) return;
     
-    // Add a new attachment node with this image
     addNode("attachment", { x: node.position.x + 250, y: node.position.y }, {
       type: "attachment",
       activeTab: "image",
       images: [{ id: crypto.randomUUID(), url: imageUrl, name: "Imagem" }],
     } as Partial<AttachmentNodeData>);
     
-    // Delete the quick-image node
     deleteNode(id);
-    
     toast({ title: "Convertido para Anexo" });
   }, [nodes, addNode, deleteNode, toast]);
 
-  // Update refs on each render so they always have latest values
+  // Update refs on each render
   handlersRef.current = {
     clientId,
     extractUrlContent,
@@ -447,14 +440,12 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
           if (!file) continue;
 
           try {
-            // Get user session for upload
             const { data: sessionData } = await supabase.auth.getSession();
             if (!sessionData?.session?.user?.id) {
               toast({ title: "Faça login para colar imagens", variant: "destructive" });
               return;
             }
 
-            // Upload to storage
             const fileName = `quick-image-${Date.now()}.${file.type.split('/')[1] || 'png'}`;
             const filePath = `${clientId}/${fileName}`;
             
@@ -464,12 +455,10 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
 
             if (uploadError) throw uploadError;
 
-            // Get public URL
             const { data: urlData } = supabase.storage
               .from("client-files")
               .getPublicUrl(filePath);
 
-            // Add quick-image node at center of viewport
             const viewport = getViewport();
             const position = {
               x: (window.innerWidth / 2 - viewport.x) / viewport.zoom,
@@ -480,7 +469,7 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
 
             toast({
               title: "Imagem colada",
-              description: "Use os botões para analisar ou converter em anexo",
+              description: "Clique na imagem para ver as ações",
             });
           } catch (err) {
             console.error("Error pasting image:", err);
@@ -495,13 +484,13 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
     return () => document.removeEventListener("paste", handlePaste);
   }, [clientId, getViewport, addWhiteboardNode, toast]);
 
-  // Track viewport for drawing layer - update in real-time
+  // Track viewport for drawing layer
   const handleMove = useCallback(() => {
     const vp = getViewport();
     setCanvasViewport({ x: vp.x, y: vp.y, zoom: vp.zoom });
   }, [getViewport]);
 
-  // Create nodeTypes only once - handlers are accessed via ref
+  // Create nodeTypes only once
   const nodeTypes = useMemo(
     () => ({
       source: (props: NodeProps<SourceNodeData>) => (
@@ -538,13 +527,7 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
           onSendToPlanning={(id) => handlersRef.current?.handleOpenPlanningDialog(id)}
           onRegenerate={(id) => handlersRef.current?.regenerateContent(id)}
           onCreateRemix={(id) => {
-            const node = props;
-            if (node.xPos !== undefined && node.yPos !== undefined) {
-              const newGenId = handlersRef.current?.updateNodeData ? 
-                (() => {
-                  console.log('Remix requested for output:', id);
-                })() : undefined;
-            }
+            console.log('Remix requested for output:', id);
           }}
         />
       ),
@@ -569,7 +552,6 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
           onTranscribeImage={(id, imageId, imageUrl) => handlersRef.current?.transcribeImageSourceImage(id, imageId, imageUrl)}
         />
       ),
-      // Whiteboard nodes
       text: (props: NodeProps<TextNodeData>) => (
         <TextNode
           {...props}
@@ -603,10 +585,10 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
         />
       ),
     }),
-    [] // Empty deps - all handlers accessed via ref
+    []
   );
 
-  // Edge types with animated edges for generation
+  // Edge types
   const edgeTypes: EdgeTypes = useMemo(
     () => ({
       default: AnimatedEdge,
@@ -619,10 +601,7 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
       const viewport = getViewport();
       const centerX = (window.innerWidth / 2 - viewport.x) / viewport.zoom;
       const centerY = (window.innerHeight / 2 - viewport.y) / viewport.zoom;
-
-      // Offset based on existing nodes to avoid overlap
       const offset = nodes.length * 20;
-
       addNode(type, { x: centerX + offset, y: centerY + offset });
     },
     [addNode, getViewport, nodes.length]
@@ -738,10 +717,8 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
         y: event.clientY - bounds.top,
       });
 
-      // Use platform as content type label
       const contentTypeLabel = item.platform || "conteúdo";
       
-      // Use the new unified "attachment" node instead of legacy "source"
       addNode(
         "attachment",
         position,
@@ -792,22 +769,6 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
         </div>
       </div>
 
-      {/* Side Toolbar */}
-      <CanvasSideToolbar
-        activeTool={activeTool}
-        onToolChange={setActiveTool}
-        brushColor={brushColor}
-        brushSize={brushSize}
-        onBrushColorChange={setBrushColor}
-        onBrushSizeChange={setBrushSize}
-        selectedShape={selectedShape}
-        onShapeChange={setSelectedShape}
-        selectedStickyColor={selectedStickyColor}
-        onStickyColorChange={setSelectedStickyColor}
-        onAddAINode={handleAddNode}
-        onClearDrawings={handleClearDrawings}
-      />
-
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -830,11 +791,9 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
         selectionOnDrag={activeTool === "cursor"}
         nodesDraggable={activeTool === "cursor"}
         onClick={(e) => {
-          // Close context menu on click
           if (contextMenuPosition) {
             setContextMenuPosition(null);
           }
-          // Add node based on active tool
           if (activeTool !== "cursor" && activeTool !== "pencil" && activeTool !== "eraser") {
             const bounds = reactFlowWrapper.current?.getBoundingClientRect();
             if (!bounds) return;
@@ -854,7 +813,6 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
               addWhiteboardNode("shape", position);
               setActiveTool("cursor");
             } else if (activeTool === "image") {
-              // Trigger file input for image
               const input = document.createElement("input");
               input.type = "file";
               input.accept = "image/*";
@@ -919,7 +877,7 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
         />
       </ReactFlow>
 
-      {/* Drawing Layer - OUTSIDE ReactFlow to avoid pan/zoom conflicts */}
+      {/* Drawing Layer - OUTSIDE ReactFlow */}
       <DrawingLayer
         strokes={drawingStrokes}
         isDrawing={activeTool === "pencil"}
@@ -942,6 +900,7 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
         />
       )}
 
+      {/* Unified Toolbar */}
       <CanvasToolbar
         onAddNode={handleAddNode}
         onClear={handleClear}
@@ -959,6 +918,17 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
         isLoadingCanvases={isLoadingCanvases}
         isSaving={isSaving}
         autoSaveStatus={autoSaveStatus}
+        activeTool={activeTool}
+        onToolChange={setActiveTool}
+        brushColor={brushColor}
+        brushSize={brushSize}
+        onBrushColorChange={setBrushColor}
+        onBrushSizeChange={setBrushSize}
+        selectedShape={selectedShape}
+        onShapeChange={setSelectedShape}
+        selectedStickyColor={selectedStickyColor}
+        onStickyColorChange={setSelectedStickyColor}
+        onClearDrawings={handleClearDrawings}
       />
 
       {/* Library Drawer */}
@@ -971,7 +941,7 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
         onSelectContent={handleSelectContentFromLibrary}
       />
 
-      {/* Empty state with template quick actions */}
+      {/* Empty state */}
       {nodes.length === 0 && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none pt-20">
           <div className="text-center space-y-6 max-w-2xl px-4 pointer-events-auto">
@@ -981,11 +951,10 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
               </div>
               <h3 className="text-xl font-semibold">Canvas de Criação</h3>
               <p className="text-sm text-muted-foreground max-w-md mx-auto">
-                Escolha um template para começar rapidamente ou adicione nós manualmente
+                Escolha um template para começar ou use a toolbar para criar
               </p>
             </div>
 
-            {/* Quick template cards */}
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-left">
               {[
                 { id: "carousel_from_url", Icon: LayoutGrid, label: "Carrossel", desc: "URL → Carrossel" },
@@ -1013,10 +982,9 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
 
             <div className="pt-2">
               <p className="text-xs text-muted-foreground">
-                Ou use a toolbar acima para criar do zero •
+                Use a toolbar para adicionar
                 <span className="ml-1 inline-flex items-center gap-1">
                   <span className="h-2 w-2 rounded bg-blue-500" /> Anexo
-                  <span className="h-2 w-2 rounded bg-yellow-500 ml-2" /> Instruções
                   <span className="h-2 w-2 rounded bg-green-500 ml-2" /> Gerador
                   <span className="h-2 w-2 rounded bg-pink-500 ml-2" /> Resultado
                 </span>

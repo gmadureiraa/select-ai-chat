@@ -1,5 +1,5 @@
 import { useEffect, useCallback } from "react";
-import { ToolType } from "../CanvasSideToolbar";
+import { ToolType } from "../CanvasToolbar";
 
 interface UseCanvasShortcutsProps {
   activeTool: ToolType;
