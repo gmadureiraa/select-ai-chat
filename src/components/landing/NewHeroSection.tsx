@@ -1,39 +1,9 @@
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Sparkles, LayoutDashboard, Zap, MousePointer2, Play } from "lucide-react";
+import { ArrowRight, Sparkles, Play, Paperclip, FileOutput, Instagram, Twitter, Linkedin, FileText, Headphones, Link2, Type, Image as ImageIcon } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
-
-// Simple animated text component
-const AnimatedWord = ({ words }: { words: string[] }) => {
-  const [index, setIndex] = useState(0);
-  
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setIndex((prev) => (prev + 1) % words.length);
-    }, 2500);
-    return () => clearInterval(timer);
-  }, [words.length]);
-
-  return (
-    <span className="relative inline-block min-w-[200px]">
-      {words.map((word, i) => (
-        <motion.span
-          key={word}
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ 
-            opacity: i === index ? 1 : 0, 
-            y: i === index ? 0 : -20 
-          }}
-          transition={{ duration: 0.3 }}
-          className={`${i === index ? "relative" : "absolute left-0"} text-primary`}
-        >
-          {word}
-        </motion.span>
-      ))}
-    </span>
-  );
-};
+import { Badge } from "@/components/ui/badge";
 
 // Floating particles - subtle background effect
 const FloatingParticles = () => {
@@ -63,15 +33,15 @@ const FloatingParticles = () => {
 
     const createParticles = () => {
       particles = [];
-      const count = Math.floor((canvas.width * canvas.height) / 20000);
+      const count = Math.floor((canvas.width * canvas.height) / 25000);
       for (let i = 0; i < count; i++) {
         particles.push({
           x: Math.random() * canvas.width,
           y: Math.random() * canvas.height,
           size: Math.random() * 1.5 + 0.5,
-          speedX: (Math.random() - 0.5) * 0.2,
-          speedY: (Math.random() - 0.5) * 0.2,
-          opacity: Math.random() * 0.4 + 0.1,
+          speedX: (Math.random() - 0.5) * 0.15,
+          speedY: (Math.random() - 0.5) * 0.15,
+          opacity: Math.random() * 0.3 + 0.1,
         });
       }
     };
@@ -115,8 +85,266 @@ const FloatingParticles = () => {
   return (
     <canvas
       ref={canvasRef}
-      className="absolute inset-0 pointer-events-none opacity-50"
+      className="absolute inset-0 pointer-events-none opacity-40"
     />
+  );
+};
+
+// Animated canvas demo in hero
+const HeroCanvasDemo = () => {
+  const [step, setStep] = useState(0);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [showResults, setShowResults] = useState(false);
+
+  useEffect(() => {
+    const sequence = async () => {
+      await new Promise(r => setTimeout(r, 1500));
+      setStep(1); // Show attachment
+      await new Promise(r => setTimeout(r, 800));
+      setStep(2); // Show generator
+      await new Promise(r => setTimeout(r, 800));
+      setStep(3); // Connect
+      await new Promise(r => setTimeout(r, 600));
+      setIsGenerating(true);
+      await new Promise(r => setTimeout(r, 1500));
+      setIsGenerating(false);
+      setShowResults(true);
+      await new Promise(r => setTimeout(r, 4000));
+      // Reset
+      setStep(0);
+      setShowResults(false);
+    };
+
+    sequence();
+    const interval = setInterval(sequence, 10000);
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <div className="relative w-full aspect-[16/9] bg-muted/30 rounded-xl overflow-hidden">
+      {/* Grid background */}
+      <div 
+        className="absolute inset-0 opacity-40"
+        style={{
+          backgroundImage: `radial-gradient(circle at 1px 1px, hsl(var(--border)) 1px, transparent 0)`,
+          backgroundSize: "20px 20px",
+        }}
+      />
+
+      {/* Toolbar simulation */}
+      <motion.div 
+        className="absolute top-3 left-1/2 -translate-x-1/2 flex items-center gap-1 px-2 py-1 bg-card/80 backdrop-blur-sm border border-border rounded-lg z-10"
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.5 }}
+      >
+        <div className="p-1 rounded bg-primary/10">
+          <Type className="w-3 h-3 text-primary" />
+        </div>
+        <div className="p-1 rounded hover:bg-muted">
+          <FileText className="w-3 h-3 text-muted-foreground" />
+        </div>
+        <div className="w-px h-3 bg-border mx-0.5" />
+        <div className="px-1.5 py-0.5 rounded bg-blue-500/10 text-[8px] font-medium text-blue-600">
+          Anexo
+        </div>
+        <div className="px-1.5 py-0.5 rounded bg-green-500/10 text-[8px] font-medium text-green-600">
+          Gerador
+        </div>
+      </motion.div>
+
+      {/* Attachment Node */}
+      <motion.div
+        className="absolute left-[8%] top-[30%] w-[120px] md:w-[140px]"
+        initial={{ opacity: 0, x: -30 }}
+        animate={{ opacity: step >= 1 ? 1 : 0, x: step >= 1 ? 0 : -30 }}
+        transition={{ duration: 0.5 }}
+      >
+        <div className="rounded-lg border-2 border-blue-500/50 bg-gradient-to-br from-blue-50 to-white dark:from-blue-950/30 dark:to-background shadow-lg p-2">
+          <div className="flex items-center gap-1.5 mb-2">
+            <div className="w-4 h-4 rounded bg-blue-500 flex items-center justify-center">
+              <Paperclip className="w-2.5 h-2.5 text-white" />
+            </div>
+            <span className="text-[10px] font-medium">Anexo</span>
+          </div>
+          <div className="flex gap-0.5 mb-1.5">
+            <div className="flex-1 py-0.5 bg-primary/10 rounded text-[7px] text-center text-primary">Link</div>
+            <div className="flex-1 py-0.5 bg-muted rounded text-[7px] text-center text-muted-foreground">Texto</div>
+          </div>
+          <div className="flex items-center gap-1 px-1.5 py-1 bg-muted rounded text-[8px] text-muted-foreground">
+            <Link2 className="w-2.5 h-2.5" />
+            <span className="truncate">youtube.com/watch...</span>
+          </div>
+        </div>
+      </motion.div>
+
+      {/* Generator Node */}
+      <motion.div
+        className="absolute left-[38%] top-[25%] w-[100px] md:w-[120px]"
+        initial={{ opacity: 0, y: 30 }}
+        animate={{ opacity: step >= 2 ? 1 : 0, y: step >= 2 ? 0 : 30 }}
+        transition={{ duration: 0.5 }}
+      >
+        <div className={`rounded-lg border-2 border-green-500/50 bg-gradient-to-br from-green-50 to-white dark:from-green-950/30 dark:to-background shadow-lg p-2 ${isGenerating ? 'animate-pulse' : ''}`}>
+          <div className="flex items-center gap-1.5 mb-2">
+            <div className="w-4 h-4 rounded bg-green-500 flex items-center justify-center">
+              <Sparkles className="w-2.5 h-2.5 text-white" />
+            </div>
+            <span className="text-[10px] font-medium">Gerador</span>
+            <Badge variant="secondary" className="h-3 text-[7px] px-1 ml-auto">1</Badge>
+          </div>
+          <div className="space-y-1">
+            <div className="px-1.5 py-0.5 bg-muted rounded text-[7px] flex justify-between">
+              <span className="text-muted-foreground">Formato</span>
+              <span>Carrossel</span>
+            </div>
+            <motion.div 
+              className="h-5 bg-green-600 rounded flex items-center justify-center text-white text-[8px] font-medium"
+              animate={isGenerating ? { scale: [1, 1.02, 1] } : {}}
+              transition={{ duration: 0.5, repeat: isGenerating ? Infinity : 0 }}
+            >
+              {isGenerating ? "Gerando..." : "▶ Gerar"}
+            </motion.div>
+          </div>
+        </div>
+      </motion.div>
+
+      {/* Result Nodes */}
+      <motion.div
+        className="absolute right-[8%] top-[15%] space-y-2"
+        initial={{ opacity: 0, x: 30 }}
+        animate={{ opacity: showResults ? 1 : 0, x: showResults ? 0 : 30 }}
+        transition={{ duration: 0.5, staggerChildren: 0.1 }}
+      >
+        {[
+          { icon: Instagram, label: "Carrossel", color: "pink" },
+          { icon: Twitter, label: "Thread", color: "sky" },
+          { icon: Linkedin, label: "Artigo", color: "blue" },
+        ].map((item, i) => (
+          <motion.div
+            key={item.label}
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: showResults ? 1 : 0, x: showResults ? 0 : 20 }}
+            transition={{ delay: i * 0.15 }}
+            className="w-[90px] md:w-[110px] rounded-lg border-2 border-pink-500/50 bg-gradient-to-br from-pink-50 to-white dark:from-pink-950/30 dark:to-background shadow-lg p-1.5"
+          >
+            <div className="flex items-center gap-1 mb-1">
+              <div className="w-3 h-3 rounded bg-pink-500 flex items-center justify-center">
+                <FileOutput className="w-2 h-2 text-white" />
+              </div>
+              <item.icon className="w-2.5 h-2.5 text-muted-foreground" />
+              <span className="text-[8px] font-medium truncate">{item.label}</span>
+            </div>
+            <div className="space-y-0.5">
+              <div className="h-1 bg-muted rounded w-full" />
+              <div className="h-1 bg-muted rounded w-3/4" />
+            </div>
+          </motion.div>
+        ))}
+      </motion.div>
+
+      {/* Connection lines */}
+      <svg className="absolute inset-0 w-full h-full pointer-events-none" preserveAspectRatio="xMidYMid meet">
+        {/* Attachment to Generator */}
+        <motion.path
+          d="M 28% 45% Q 33% 45% 38% 40%"
+          fill="none"
+          stroke="hsl(var(--primary))"
+          strokeWidth="2"
+          strokeDasharray="4 2"
+          initial={{ pathLength: 0, opacity: 0 }}
+          animate={{ 
+            pathLength: step >= 3 ? 1 : 0, 
+            opacity: step >= 3 ? 0.6 : 0 
+          }}
+          transition={{ duration: 0.5 }}
+        />
+        
+        {/* Generator to Results */}
+        <motion.path
+          d="M 52% 38% Q 60% 30% 72% 25%"
+          fill="none"
+          stroke="hsl(var(--primary))"
+          strokeWidth="2"
+          strokeDasharray="4 2"
+          initial={{ pathLength: 0, opacity: 0 }}
+          animate={{ 
+            pathLength: showResults ? 1 : 0, 
+            opacity: showResults ? 0.6 : 0 
+          }}
+          transition={{ duration: 0.4 }}
+        />
+        <motion.path
+          d="M 52% 42% Q 62% 42% 72% 42%"
+          fill="none"
+          stroke="hsl(var(--primary))"
+          strokeWidth="2"
+          strokeDasharray="4 2"
+          initial={{ pathLength: 0, opacity: 0 }}
+          animate={{ 
+            pathLength: showResults ? 1 : 0, 
+            opacity: showResults ? 0.6 : 0 
+          }}
+          transition={{ duration: 0.4, delay: 0.1 }}
+        />
+        <motion.path
+          d="M 52% 46% Q 60% 55% 72% 60%"
+          fill="none"
+          stroke="hsl(var(--primary))"
+          strokeWidth="2"
+          strokeDasharray="4 2"
+          initial={{ pathLength: 0, opacity: 0 }}
+          animate={{ 
+            pathLength: showResults ? 1 : 0, 
+            opacity: showResults ? 0.6 : 0 
+          }}
+          transition={{ duration: 0.4, delay: 0.2 }}
+        />
+
+        {/* Animated pulse during generation */}
+        {isGenerating && (
+          <motion.circle
+            r="4"
+            fill="hsl(var(--primary))"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: [0, 1, 0] }}
+            transition={{ duration: 0.8, repeat: Infinity }}
+          >
+            <animateMotion
+              dur="0.8s"
+              repeatCount="indefinite"
+              path="M 52% 38% Q 60% 30% 72% 25%"
+            />
+          </motion.circle>
+        )}
+      </svg>
+
+      {/* Input types floating badges */}
+      <motion.div
+        className="absolute bottom-3 left-3 flex gap-1"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 2 }}
+      >
+        {[
+          { icon: Link2, label: "URL" },
+          { icon: FileText, label: "PDF" },
+          { icon: ImageIcon, label: "Imagem" },
+          { icon: Headphones, label: "Áudio" },
+        ].map((item, i) => (
+          <motion.div
+            key={item.label}
+            className="flex items-center gap-1 px-1.5 py-0.5 bg-background/80 backdrop-blur-sm border border-border rounded text-[7px] text-muted-foreground"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 2 + i * 0.1 }}
+          >
+            <item.icon className="w-2.5 h-2.5" />
+            {item.label}
+          </motion.div>
+        ))}
+      </motion.div>
+    </div>
   );
 };
 
@@ -141,7 +369,7 @@ const NewHeroSection = () => {
           <span className="text-sm text-muted-foreground">Para criadores de conteúdo e pequenas agências</span>
         </motion.div>
 
-        {/* Main Headline - Simple and direct like isla.to */}
+        {/* Main Headline */}
         <motion.h1
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
@@ -153,7 +381,7 @@ const NewHeroSection = () => {
           em <span className="text-primary">10 minutos</span> com IA
         </motion.h1>
 
-        {/* Subtitle - Value proposition */}
+        {/* Subtitle */}
         <motion.p
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
@@ -164,7 +392,7 @@ const NewHeroSection = () => {
           gere conteúdo em batch. Simples assim.
         </motion.p>
 
-        {/* CTAs - Primary action clear */}
+        {/* CTAs */}
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
@@ -193,7 +421,7 @@ const NewHeroSection = () => {
           </a>
         </motion.div>
 
-        {/* Social proof - Simple */}
+        {/* Social proof */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -209,7 +437,7 @@ const NewHeroSection = () => {
         </motion.div>
       </div>
 
-      {/* Canvas Preview - Visual demonstration */}
+      {/* Canvas Preview - Animated Demo */}
       <motion.div
         initial={{ opacity: 0, y: 60 }}
         animate={{ opacity: 1, y: 0 }}
@@ -231,166 +459,8 @@ const NewHeroSection = () => {
             </div>
           </div>
 
-          {/* Canvas content preview */}
-          <div className="relative aspect-[16/9] bg-muted/50 rounded-xl overflow-hidden">
-            {/* Grid background */}
-            <div 
-              className="absolute inset-0 opacity-30"
-              style={{
-                backgroundImage: `radial-gradient(circle at 1px 1px, hsl(var(--border)) 1px, transparent 0)`,
-                backgroundSize: "24px 24px",
-              }}
-            />
-            
-            {/* Canvas nodes preview */}
-            <div className="absolute inset-0 p-6">
-              {/* Source node */}
-              <motion.div 
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.9 }}
-                className="absolute top-1/4 left-[10%] bg-card border border-border rounded-lg p-3 shadow-lg w-32"
-              >
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="w-6 h-6 rounded bg-blue-500/20 flex items-center justify-center">
-                    <LayoutDashboard className="w-3 h-3 text-blue-500" />
-                  </div>
-                  <span className="text-xs font-medium">Fonte</span>
-                </div>
-                <div className="h-2 bg-muted rounded w-full" />
-              </motion.div>
-
-              {/* AI node */}
-              <motion.div 
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 1.1 }}
-                className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-primary text-primary-foreground rounded-lg p-4 shadow-lg w-36"
-              >
-                <div className="flex items-center gap-2 mb-2">
-                  <Sparkles className="w-4 h-4" />
-                  <span className="text-xs font-medium">IA Multi-Agente</span>
-                </div>
-                <div className="flex gap-1">
-                  <div className="h-1.5 bg-primary-foreground/30 rounded flex-1" />
-                  <div className="h-1.5 bg-primary-foreground/30 rounded flex-1" />
-                </div>
-              </motion.div>
-
-              {/* Output nodes */}
-              <motion.div 
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 1.3 }}
-                className="absolute top-[20%] right-[10%] bg-card border border-border rounded-lg p-3 shadow-lg w-28"
-              >
-                <div className="flex items-center gap-2 mb-1">
-                  <div className="w-5 h-5 rounded bg-green-500/20 flex items-center justify-center">
-                    <Zap className="w-2.5 h-2.5 text-green-500" />
-                  </div>
-                  <span className="text-xs">Post 1</span>
-                </div>
-              </motion.div>
-
-              <motion.div 
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 1.4 }}
-                className="absolute top-[45%] right-[10%] bg-card border border-border rounded-lg p-3 shadow-lg w-28"
-              >
-                <div className="flex items-center gap-2 mb-1">
-                  <div className="w-5 h-5 rounded bg-green-500/20 flex items-center justify-center">
-                    <Zap className="w-2.5 h-2.5 text-green-500" />
-                  </div>
-                  <span className="text-xs">Post 2</span>
-                </div>
-              </motion.div>
-
-              <motion.div 
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 1.5 }}
-                className="absolute top-[70%] right-[10%] bg-card border border-border rounded-lg p-3 shadow-lg w-28"
-              >
-                <div className="flex items-center gap-2 mb-1">
-                  <div className="w-5 h-5 rounded bg-green-500/20 flex items-center justify-center">
-                    <Zap className="w-2.5 h-2.5 text-green-500" />
-                  </div>
-                  <span className="text-xs">Post 3</span>
-                </div>
-              </motion.div>
-
-              {/* Connection lines - using percentage-based positioning */}
-              <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 100 100" preserveAspectRatio="none">
-                {/* Source to AI */}
-                <motion.path
-                  initial={{ pathLength: 0, opacity: 0 }}
-                  animate={{ pathLength: 1, opacity: 0.4 }}
-                  transition={{ delay: 1, duration: 0.6 }}
-                  d="M 22 30 C 35 30 40 50 50 50"
-                  fill="none"
-                  stroke="hsl(var(--primary))"
-                  strokeWidth="0.5"
-                  strokeDasharray="2 1"
-                  vectorEffect="non-scaling-stroke"
-                />
-                {/* AI to Output 1 */}
-                <motion.path
-                  initial={{ pathLength: 0, opacity: 0 }}
-                  animate={{ pathLength: 1, opacity: 0.4 }}
-                  transition={{ delay: 1.2, duration: 0.4 }}
-                  d="M 60 50 C 70 50 75 25 85 25"
-                  fill="none"
-                  stroke="hsl(var(--primary))"
-                  strokeWidth="0.5"
-                  strokeDasharray="2 1"
-                  vectorEffect="non-scaling-stroke"
-                />
-                {/* AI to Output 2 */}
-                <motion.path
-                  initial={{ pathLength: 0, opacity: 0 }}
-                  animate={{ pathLength: 1, opacity: 0.4 }}
-                  transition={{ delay: 1.3, duration: 0.4 }}
-                  d="M 60 50 C 70 50 75 50 85 50"
-                  fill="none"
-                  stroke="hsl(var(--primary))"
-                  strokeWidth="0.5"
-                  strokeDasharray="2 1"
-                  vectorEffect="non-scaling-stroke"
-                />
-                {/* AI to Output 3 */}
-                <motion.path
-                  initial={{ pathLength: 0, opacity: 0 }}
-                  animate={{ pathLength: 1, opacity: 0.4 }}
-                  transition={{ delay: 1.4, duration: 0.4 }}
-                  d="M 60 50 C 70 50 75 75 85 75"
-                  fill="none"
-                  stroke="hsl(var(--primary))"
-                  strokeWidth="0.5"
-                  strokeDasharray="2 1"
-                  vectorEffect="non-scaling-stroke"
-                />
-              </svg>
-
-              {/* Floating cursor */}
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ 
-                  opacity: [0, 1, 1, 0],
-                  x: [100, 200, 400, 500],
-                  y: [150, 100, 180, 100]
-                }}
-                transition={{ 
-                  duration: 4, 
-                  repeat: Infinity, 
-                  repeatDelay: 1 
-                }}
-                className="absolute"
-              >
-                <MousePointer2 className="w-5 h-5 text-primary" />
-              </motion.div>
-            </div>
-          </div>
+          {/* Animated Canvas Demo */}
+          <HeroCanvasDemo />
         </div>
       </motion.div>
     </section>
