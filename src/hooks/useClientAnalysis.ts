@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useTokenError } from './useTokenError';
 
 export interface ClientAnalysis {
   generated_at: string;
@@ -62,6 +63,7 @@ export function useClientAnalysis() {
   const [progress, setProgress] = useState<AnalysisProgress>({ step: '', progress: 0 });
   const [error, setError] = useState<string | null>(null);
   const progressIntervalRef = useRef<number | null>(null);
+  const { handleTokenError } = useTokenError();
 
   // Cleanup on unmount
   useEffect(() => {
@@ -122,10 +124,21 @@ export function useClientAnalysis() {
       }
 
       if (fnError) {
+        // Check if it's a 402 token error
+        const errorData = data || {};
+        if (fnError.message?.includes('402') || errorData.error === 'insufficient_tokens') {
+          await handleTokenError(errorData, 402);
+          throw new Error('Créditos insuficientes');
+        }
         throw new Error(fnError.message);
       }
 
       if (!data?.success || !data?.analysis) {
+        // Also check for token error in data response
+        if (data?.error === 'insufficient_tokens') {
+          await handleTokenError(data, 402);
+          throw new Error('Créditos insuficientes');
+        }
         throw new Error(data?.error || 'Falha ao gerar análise');
       }
 

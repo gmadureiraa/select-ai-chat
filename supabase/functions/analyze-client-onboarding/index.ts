@@ -322,7 +322,12 @@ Gere uma análise estruturada usando a função generate_client_analysis.`;
         continue;
       }
 
-      // For 4xx errors or final attempt, throw immediately
+      // For 402 (payment required) errors, throw with special marker
+      if (response.status === 402) {
+        throw new Error(`PAYMENT_REQUIRED:${errorText}`);
+      }
+
+      // For other 4xx errors or final attempt, throw immediately
       throw new Error(`AI analysis failed: ${response.status}`);
     } catch (error) {
       lastError = error instanceof Error ? error : new Error(String(error));
@@ -474,9 +479,26 @@ serve(async (req) => {
     });
   } catch (error) {
     console.error("Error in analyze-client-onboarding:", error);
+    
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    
+    // Check if it's a payment required error from AI gateway
+    if (errorMessage.startsWith("PAYMENT_REQUIRED:")) {
+      return new Response(
+        JSON.stringify({
+          error: "insufficient_tokens",
+          message: "Créditos insuficientes para realizar a análise",
+        }),
+        {
+          status: 402,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
+    
     return new Response(
       JSON.stringify({
-        error: error instanceof Error ? error.message : "Unknown error",
+        error: errorMessage,
       }),
       {
         status: 500,
