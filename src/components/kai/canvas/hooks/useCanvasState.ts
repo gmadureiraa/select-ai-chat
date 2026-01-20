@@ -772,10 +772,11 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
   // Transcribe audio/video file using transcribe-media edge function
   const transcribeFile = useCallback(async (nodeId: string, fileId: string) => {
     const node = nodes.find(n => n.id === nodeId);
-    if (!node || node.data.type !== "source") return;
+    // Support both source and attachment node types
+    if (!node || (node.data.type !== "source" && node.data.type !== "attachment")) return;
 
-    const sourceData = node.data as SourceNodeData;
-    const files = sourceData.files || [];
+    const nodeData = node.data as SourceNodeData | AttachmentNodeData;
+    const files = nodeData.files || [];
     const fileIndex = files.findIndex(f => f.id === fileId);
     if (fileIndex === -1) return;
 
@@ -794,7 +795,7 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
     // Mark file as processing
     const updatedFiles = [...files];
     updatedFiles[fileIndex] = { ...updatedFiles[fileIndex], isProcessing: true };
-    updateNodeData(nodeId, { files: updatedFiles } as Partial<SourceNodeData>);
+    updateNodeData(nodeId, { files: updatedFiles } as Partial<SourceNodeData | AttachmentNodeData>);
 
     try {
       console.log("Transcribing file:", file.name, "URL:", file.url, "Type:", file.mimeType);
@@ -828,7 +829,7 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
         transcription,
         isProcessing: false 
       };
-      updateNodeData(nodeId, { files: finalFiles } as Partial<SourceNodeData>);
+      updateNodeData(nodeId, { files: finalFiles } as Partial<SourceNodeData | AttachmentNodeData>);
 
       toast({
         title: "Arquivo transcrito",
@@ -838,7 +839,7 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
       console.error("Error transcribing file:", error);
       const errorFiles = [...files];
       errorFiles[fileIndex] = { ...errorFiles[fileIndex], isProcessing: false };
-      updateNodeData(nodeId, { files: errorFiles } as Partial<SourceNodeData>);
+      updateNodeData(nodeId, { files: errorFiles } as Partial<SourceNodeData | AttachmentNodeData>);
       
       const errorMessage = error instanceof Error ? error.message : "Não foi possível transcrever o arquivo";
       toast({

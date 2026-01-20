@@ -12,6 +12,7 @@ export interface PlanFeatures {
   hasSocialPublishing: boolean;
   canAccessProfiles: boolean;
   canAccessPerformance: boolean;
+  canAccessLibrary: boolean;
   canCreateProfiles: boolean;
   planType: string | null;
   isLoading: boolean;
@@ -58,9 +59,10 @@ export function usePlanFeatures(): PlanFeatures {
   // Planning features are only available on Pro and Enterprise
   const hasPlanning = isPro;
 
-  // Profile and Performance access - only Pro and Enterprise
+  // Profile, Performance and Library access - only Pro and Enterprise
   const canAccessProfiles = isPro;
   const canAccessPerformance = isPro;
+  const canAccessLibrary = isPro;
   const canCreateProfiles = isPro;
 
   return {
@@ -73,6 +75,7 @@ export function usePlanFeatures(): PlanFeatures {
     hasSocialPublishing: isPro,
     canAccessProfiles,
     canAccessPerformance,
+    canAccessLibrary,
     canCreateProfiles,
     planType,
     isLoading,

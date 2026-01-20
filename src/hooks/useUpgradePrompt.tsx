@@ -14,6 +14,7 @@ type UpgradeReason =
   | "planning_locked"
   | "profiles_locked"
   | "performance_locked"
+  | "library_locked"
   | "custom";
 
 interface UpgradePromptContextType {
@@ -97,6 +98,19 @@ const UPGRADE_REASONS: Record<UpgradeReason, {
       "Relatórios exportáveis",
       "Comparativos de performance",
       "Insights por plataforma",
+    ],
+  },
+  library_locked: {
+    title: "Biblioteca Disponível no Pro",
+    description: "A biblioteca de referências e conteúdos está disponível no plano Pro. Faça upgrade para organizar suas referências e materiais.",
+    icon: <Building2 className="h-5 w-5" />,
+    targetPlan: "pro",
+    benefits: [
+      "Biblioteca de referências ilimitada",
+      "Importação de URLs e arquivos",
+      "Organização por cliente",
+      "Referências visuais e textuais",
+      "Favoritos e filtros avançados",
     ],
   },
   custom: {
