@@ -15,17 +15,17 @@ import { PlanningBoard } from "@/components/planning/PlanningBoard";
 
 import { OnboardingFlow } from "@/components/onboarding";
 import { NotificationPermissionPrompt } from "@/components/notifications/NotificationPermissionPrompt";
-import { UpgradePromptProvider } from "@/hooks/useUpgradePrompt";
+import { UpgradePromptProvider, useUpgradePrompt } from "@/hooks/useUpgradePrompt";
 import { useClients } from "@/hooks/useClients";
 import { useWorkspace } from "@/hooks/useWorkspace";
 import { usePlanFeatures } from "@/hooks/usePlanFeatures";
-import { useUpgradePrompt } from "@/hooks/useUpgradePrompt";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 import { Loader2 } from "lucide-react";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 
-export default function Kai() {
+// Inner component that uses the upgrade prompt hook
+function KaiContent() {
   const [searchParams, setSearchParams] = useSearchParams();
   const clientId = searchParams.get("client");
   const tab = searchParams.get("tab") || "home";
@@ -239,56 +239,63 @@ export default function Kai() {
   };
 
   return (
-    <UpgradePromptProvider>
-      <div className="flex h-screen bg-background w-full">
-        {/* Onboarding Flow */}
-        <OnboardingFlow />
-        
-        {/* Notification Permission Prompt */}
-        <NotificationPermissionPrompt />
-        
-        {/* Desktop: Fixed Sidebar */}
-        {!isMobile && (
-          <KaiSidebar
-            activeTab={tab}
-            onTabChange={handleTabChange}
-            selectedClientId={clientId}
-            onClientChange={handleClientChange}
-            collapsed={sidebarCollapsed}
-            onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
+    <div className="flex h-screen bg-background w-full">
+      {/* Onboarding Flow */}
+      <OnboardingFlow />
+      
+      {/* Notification Permission Prompt */}
+      <NotificationPermissionPrompt />
+      
+      {/* Desktop: Fixed Sidebar */}
+      {!isMobile && (
+        <KaiSidebar
+          activeTab={tab}
+          onTabChange={handleTabChange}
+          selectedClientId={clientId}
+          onClientChange={handleClientChange}
+          collapsed={sidebarCollapsed}
+          onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
+        />
+      )}
+
+      {/* Mobile: Header + Sheet Sidebar */}
+      {isMobile && (
+        <>
+          <MobileHeader 
+            onMenuClick={() => setMobileMenuOpen(true)}
+            clientName={selectedClient?.name}
           />
-        )}
+          <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+            <SheetContent side="left" className="p-0 w-72">
+              <KaiSidebar
+                activeTab={tab}
+                onTabChange={handleTabChange}
+                selectedClientId={clientId}
+                onClientChange={handleClientChange}
+                collapsed={false}
+                onToggleCollapse={() => {}}
+                isMobile={true}
+              />
+            </SheetContent>
+          </Sheet>
+        </>
+      )}
 
-        {/* Mobile: Header + Sheet Sidebar */}
-        {isMobile && (
-          <>
-            <MobileHeader 
-              onMenuClick={() => setMobileMenuOpen(true)}
-              clientName={selectedClient?.name}
-            />
-            <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
-              <SheetContent side="left" className="p-0 w-72">
-                <KaiSidebar
-                  activeTab={tab}
-                  onTabChange={handleTabChange}
-                  selectedClientId={clientId}
-                  onClientChange={handleClientChange}
-                  collapsed={false}
-                  onToggleCollapse={() => {}}
-                  isMobile={true}
-                />
-              </SheetContent>
-            </Sheet>
-          </>
-        )}
+      <main className={cn(
+        "flex-1 overflow-hidden",
+        isMobile && "pt-14" // Space for mobile header
+      )}>
+        {renderContent()}
+      </main>
+    </div>
+  );
+}
 
-        <main className={cn(
-          "flex-1 overflow-hidden",
-          isMobile && "pt-14" // Space for mobile header
-        )}>
-          {renderContent()}
-        </main>
-      </div>
+// Main export that wraps with UpgradePromptProvider
+export default function Kai() {
+  return (
+    <UpgradePromptProvider>
+      <KaiContent />
     </UpgradePromptProvider>
   );
 }
