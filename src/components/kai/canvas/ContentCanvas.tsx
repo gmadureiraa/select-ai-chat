@@ -11,6 +11,7 @@ import ReactFlow, {
 } from "reactflow";
 import "reactflow/dist/style.css";
 import { Sparkles, LayoutGrid, MessageSquare, Briefcase, BookOpen, RefreshCw, Image } from "lucide-react";
+import { CanvasFloatingChat } from "./CanvasFloatingChat";
 import { AnimatedEdge } from "./components/AnimatedEdge";
 import {
   useCanvasState,
@@ -415,6 +416,35 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
     
     setContextMenuPosition(null);
   }, [contextMenuPosition, getViewport, addWhiteboardNode, addNode, toast]);
+
+  // Handle adding chat response to canvas
+  const handleAddChatToCanvas = useCallback((content: string) => {
+    const viewport = getViewport();
+    const position = {
+      x: (window.innerWidth / 2 - viewport.x) / viewport.zoom,
+      y: (window.innerHeight / 2 - viewport.y) / viewport.zoom,
+    };
+    
+    const nodeId = `result-${Date.now()}`;
+    const newNode: RFNode = {
+      id: nodeId,
+      type: "output",
+      position,
+      data: {
+        type: "output",
+        label: "Resposta do kAI",
+        content: content,
+        format: "post",
+        platform: "instagram",
+        isImage: false,
+        isEditing: false,
+        addedToPlanning: false,
+      } as OutputNodeData,
+    };
+    
+    onNodesChange([{ type: "add", item: newNode }] as any);
+    toast({ title: "Adicionado ao Canvas", description: "Resposta do chat inserida" });
+  }, [getViewport, onNodesChange, toast]);
 
   // Handle right-click context menu
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
@@ -1046,6 +1076,12 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
           onSave={handlePlanningDialogSave}
         />
       )}
+
+      {/* Floating Chat */}
+      <CanvasFloatingChat 
+        clientId={clientId} 
+        onAddToCanvas={handleAddChatToCanvas}
+      />
     </div>
   );
 }
