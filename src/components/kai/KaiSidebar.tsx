@@ -22,6 +22,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { usePlanFeatures } from "@/hooks/usePlanFeatures";
 import { useUpgradePrompt } from "@/hooks/useUpgradePrompt";
 import { WorkspaceSwitcher } from "./WorkspaceSwitcher";
+import { Lock, MessageSquare } from "lucide-react";
 
 import {
   DropdownMenu,
@@ -117,7 +118,7 @@ export function KaiSidebar({
     canViewRepurpose,
     workspace 
   } = useWorkspace();
-  const { hasPlanning, isPro, isCanvas, canAccessProfiles, canAccessPerformance, canAccessLibrary } = usePlanFeatures();
+  const { hasPlanning, isPro, isCanvas, canAccessProfiles, canAccessPerformance, canAccessLibrary, canAccessKaiChat } = usePlanFeatures();
   const { showUpgradePrompt } = useUpgradePrompt();
   const { user, signOut } = useAuth();
   const { theme, setTheme } = useTheme();
@@ -275,6 +276,34 @@ export function KaiSidebar({
           collapsed={collapsed}
           disabled={!canViewRepurpose}
         />
+
+        {/* Kai Chat - requires Pro plan */}
+        {canAccessKaiChat && (
+          <NavItem
+            icon={<MessageSquare className="h-4 w-4" strokeWidth={1.5} />}
+            label="kAI Chat"
+            active={activeTab === "assistant"}
+            onClick={() => onTabChange("assistant")}
+            collapsed={collapsed}
+          />
+        )}
+        
+        {/* Kai Chat locked for Canvas */}
+        {!canAccessKaiChat && (
+          <NavItem
+            icon={
+              <div className="relative">
+                <MessageSquare className="h-4 w-4" strokeWidth={1.5} />
+                <Lock className="h-2.5 w-2.5 absolute -bottom-0.5 -right-0.5 text-muted-foreground" />
+              </div>
+            }
+            label="kAI Chat"
+            active={false}
+            onClick={() => showUpgradePrompt("kai_chat_locked")}
+            collapsed={collapsed}
+            disabled={true}
+          />
+        )}
 
         {/* Planning */}
         <NavItem

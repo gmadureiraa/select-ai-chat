@@ -18,6 +18,7 @@ interface GlobalKAIChatProps {
   multiAgentDetails?: Record<string, string>;
   onSendMessage?: (content: string, images?: string[], quality?: "fast" | "high") => void;
   chatMode?: "ideas" | "content" | "performance" | "free_chat";
+  onSuggestionClick?: (text: string) => void;
 }
 
 export function GlobalKAIChat({
@@ -30,6 +31,7 @@ export function GlobalKAIChat({
   multiAgentStep,
   onSendMessage,
   chatMode = "content",
+  onSuggestionClick,
 }: GlobalKAIChatProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -63,7 +65,13 @@ export function GlobalKAIChat({
 
           {/* Minimal prompts */}
           <div className="w-full space-y-2">
-            {selectedClientId ? (
+            {selectedClientId && onSuggestionClick ? (
+              <>
+                <PromptSuggestion text="Me dê ideias para o LinkedIn" onClick={() => onSuggestionClick("Me dê ideias para o LinkedIn")} />
+                <PromptSuggestion text="Crie um carrossel sobre produtividade" onClick={() => onSuggestionClick("Crie um carrossel sobre produtividade")} />
+                <PromptSuggestion text="Escreva uma newsletter" onClick={() => onSuggestionClick("Escreva uma newsletter")} />
+              </>
+            ) : selectedClientId ? (
               <>
                 <PromptSuggestion text="Me dê ideias para o LinkedIn" />
                 <PromptSuggestion text="Crie um carrossel sobre produtividade" />
@@ -135,11 +143,25 @@ export function GlobalKAIChat({
 }
 
 // Minimal prompt suggestion
-function PromptSuggestion({ text }: { text: string }) {
+function PromptSuggestion({ text, onClick }: { text: string; onClick?: () => void }) {
   return (
-    <div className="flex items-center gap-2 px-3 py-2.5 rounded-lg border border-border bg-card/50 text-sm text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors cursor-default">
+    <button
+      onClick={onClick}
+      disabled={!onClick}
+      className={cn(
+        "w-full flex items-center gap-2 px-3 py-2.5 rounded-lg border border-border bg-card/50 text-sm text-muted-foreground transition-colors text-left",
+        onClick 
+          ? "hover:bg-accent hover:text-foreground hover:border-primary/30 cursor-pointer" 
+          : "cursor-default hover:bg-muted/50 hover:text-foreground"
+      )}
+    >
       <MessageSquare className="h-3.5 w-3.5 flex-shrink-0" />
       <span className="truncate">{text}</span>
-    </div>
+    </button>
   );
+}
+
+// Helper for cn
+function cn(...classes: (string | boolean | undefined)[]) {
+  return classes.filter(Boolean).join(" ");
 }

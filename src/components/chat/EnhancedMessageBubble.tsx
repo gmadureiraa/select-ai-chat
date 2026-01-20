@@ -7,6 +7,7 @@ import { ArtifactCard, parseArtifacts, ArtifactType } from "./ArtifactCard";
 import { ImageActionButtons } from "./ImageActionButtons";
 import { AddToPlanningButton } from "./AddToPlanningButton";
 import { AdjustImageButton } from "./AdjustImageButton";
+import { SendToCanvasButton } from "./SendToCanvasButton";
 import { ResponseCard, hasResponseCardPayload, ResponseCardPayload } from "./ResponseCard";
 import { QuickActionsSuggestions, detectContentType } from "./QuickActionsSuggestions";
 import { useState, useMemo, memo } from "react";
@@ -343,16 +344,28 @@ export const EnhancedMessageBubble = memo(function EnhancedMessageBubble({
           )}
           
           {/* Ações */}
-          <MessageActions 
-            content={content}
-            role={role}
-            onRegenerate={onRegenerate}
-            isLastMessage={isLastMessage}
-            clientId={clientId}
-            clientName={clientName}
-            templateName={templateName}
-            messageId={payload?.messageId}
-          />
+          <div className="flex items-center gap-1 flex-wrap">
+            <MessageActions 
+              content={content}
+              role={role}
+              onRegenerate={onRegenerate}
+              isLastMessage={isLastMessage}
+              clientId={clientId}
+              clientName={clientName}
+              templateName={templateName}
+              messageId={payload?.messageId}
+            />
+            
+            {/* Send to Canvas button for substantial assistant content */}
+            {isSubstantialContent && clientId && (
+              <SendToCanvasButton
+                content={content}
+                clientId={clientId}
+                clientName={clientName}
+                format={contentType !== "general" ? contentType : "post"}
+              />
+            )}
+          </div>
         </div>
 
         {/* Avatar do usuário */}
