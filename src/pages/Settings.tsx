@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/hooks/useAuth";
@@ -22,7 +23,30 @@ export default function Settings() {
   const { canManageTeam } = useWorkspace();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [activeSection, setActiveSection] = useState<SettingsSection>("profile");
+  const [searchParams, setSearchParams] = useSearchParams();
+  
+  // Initialize section from URL tab parameter
+  const tabParam = searchParams.get("tab");
+  const validSections: SettingsSection[] = ["profile", "billing", "team", "appearance"];
+  const initialSection = validSections.includes(tabParam as SettingsSection) 
+    ? (tabParam as SettingsSection) 
+    : "profile";
+  
+  const [activeSection, setActiveSection] = useState<SettingsSection>(initialSection);
+  
+  // Sync URL changes to state (for back/forward navigation)
+  useEffect(() => {
+    const tab = searchParams.get("tab");
+    if (tab && validSections.includes(tab as SettingsSection)) {
+      setActiveSection(tab as SettingsSection);
+    }
+  }, [searchParams]);
+  
+  // Handle section change - update both state and URL
+  const handleSectionChange = (section: SettingsSection) => {
+    setActiveSection(section);
+    setSearchParams({ tab: section });
+  };
   
   // Fetch user profile
   const { data: profile } = useQuery({
@@ -160,7 +184,7 @@ export default function Settings() {
           {/* Navigation */}
           <SettingsNavigation
             activeSection={activeSection}
-            onSectionChange={setActiveSection}
+            onSectionChange={handleSectionChange}
             showTeam={canManageTeam}
           />
           
