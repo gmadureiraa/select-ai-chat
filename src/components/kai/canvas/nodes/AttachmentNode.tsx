@@ -550,23 +550,56 @@ function AttachmentNodeComponent({
               {files.length > 0 && (
                 <div className="space-y-1.5">
                   {files.map((file) => (
-                    <div key={file.id} className="flex items-center gap-2 p-2 rounded-md bg-muted/50 text-xs">
-                      {file.type === "audio" && <FileAudio className="h-4 w-4 text-purple-500" />}
-                      {file.type === "video" && <FileVideo className="h-4 w-4 text-red-500" />}
-                      {file.type === "document" && <FileText className="h-4 w-4 text-blue-500" />}
-                      <span className="flex-1 truncate">{file.name}</span>
-                      {file.isProcessing && <Loader2 className="h-3 w-3 animate-spin" />}
+                    <div key={file.id} className="flex flex-col gap-1 p-2 rounded-md bg-muted/50 text-xs">
+                      <div className="flex items-center gap-2">
+                        {file.type === "audio" && <FileAudio className="h-4 w-4 text-purple-500" />}
+                        {file.type === "video" && <FileVideo className="h-4 w-4 text-red-500" />}
+                        {file.type === "document" && <FileText className="h-4 w-4 text-blue-500" />}
+                        <span className="flex-1 truncate">{file.name}</span>
+                        {file.isProcessing && <Loader2 className="h-3 w-3 animate-spin" />}
+                        {file.transcription && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-5 w-5"
+                            onClick={() => {
+                              setContentViewerOpen(true);
+                              // Temporarily set extracted content to show transcription
+                              onUpdateData?.(id, { 
+                                extractedContent: file.transcription,
+                                title: `Transcrição: ${file.name}`
+                              });
+                            }}
+                            title="Ver transcrição"
+                          >
+                            <Eye className="h-3 w-3" />
+                          </Button>
+                        )}
+                        {(file.type === "audio" || file.type === "video") && !file.transcription && !file.isProcessing && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-5 text-[9px] px-2"
+                            onClick={() => onTranscribeFile?.(id, file.id)}
+                          >
+                            Transcrever
+                          </Button>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-5 w-5 hover:bg-destructive/10 hover:text-destructive"
+                          onClick={() => handleRemoveFile(file.id)}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
+                      {/* Show transcription preview */}
                       {file.transcription && (
-                        <Badge variant="secondary" className="text-[9px] h-4">Transcrito</Badge>
+                        <div className="text-[10px] text-muted-foreground pl-6 line-clamp-2 bg-muted/50 rounded p-1.5">
+                          {file.transcription.substring(0, 200)}...
+                        </div>
                       )}
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-5 w-5 hover:bg-destructive/10 hover:text-destructive"
-                        onClick={() => handleRemoveFile(file.id)}
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
                     </div>
                   ))}
                 </div>

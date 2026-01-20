@@ -117,7 +117,7 @@ export function KaiSidebar({
     canViewRepurpose,
     workspace 
   } = useWorkspace();
-  const { hasPlanning, isPro, isCanvas, canAccessProfiles, canAccessPerformance } = usePlanFeatures();
+  const { hasPlanning, isPro, isCanvas, canAccessProfiles, canAccessPerformance, canAccessLibrary } = usePlanFeatures();
   const { showUpgradePrompt } = useUpgradePrompt();
   const { user, signOut } = useAuth();
   const { theme, setTheme } = useTheme();
@@ -309,14 +309,28 @@ export function KaiSidebar({
           />
         )}
 
-        {/* Library */}
-        <NavItem
-          icon={<Library className="h-4 w-4" strokeWidth={1.5} />}
-          label="Biblioteca"
-          active={activeTab === "library"}
-          onClick={() => onTabChange("library")}
-          collapsed={collapsed}
-        />
+        {/* Library - requires Pro plan */}
+        {canAccessLibrary && (
+          <NavItem
+            icon={<Library className="h-4 w-4" strokeWidth={1.5} />}
+            label="Biblioteca"
+            active={activeTab === "library"}
+            onClick={() => onTabChange("library")}
+            collapsed={collapsed}
+          />
+        )}
+        
+        {/* Library locked for Canvas */}
+        {!canAccessLibrary && (
+          <NavItem
+            icon={<Library className="h-4 w-4" strokeWidth={1.5} />}
+            label="Biblioteca"
+            active={false}
+            onClick={() => showUpgradePrompt("library_locked")}
+            collapsed={collapsed}
+            disabled={true}
+          />
+        )}
 
 
         {/* Profiles - requires Pro plan */}
