@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, ReactNode, useCallback } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Sparkles, Building2, Users, Zap, Crown } from "lucide-react";
+import { Sparkles, Building2, Users, Zap, Crown, BarChart3 } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import { cn } from "@/lib/utils";
 
@@ -12,6 +12,8 @@ type UpgradeReason =
   | "automations"
   | "advanced_analytics"
   | "planning_locked"
+  | "profiles_locked"
+  | "performance_locked"
   | "custom";
 
 interface UpgradePromptContextType {
@@ -69,6 +71,32 @@ const UPGRADE_REASONS: Record<UpgradeReason, {
       "Agendamento de publicações",
       "Colaboração em equipe",
       "Histórico de publicações",
+    ],
+  },
+  profiles_locked: {
+    title: "Perfis Disponíveis no Pro",
+    description: "O gerenciamento de perfis de clientes está disponível no plano Pro. Faça upgrade para criar e gerenciar múltiplos perfis de clientes.",
+    icon: <Building2 className="h-5 w-5" />,
+    targetPlan: "pro",
+    benefits: [
+      "Até 10 perfis de clientes",
+      "Análise automática de marca",
+      "Performance por cliente",
+      "Base de conhecimento dedicada",
+      "Assistente IA personalizado",
+    ],
+  },
+  performance_locked: {
+    title: "Performance Disponível no Pro",
+    description: "O módulo de Analytics e Performance está disponível no plano Pro. Faça upgrade para acessar métricas e insights dos seus perfis.",
+    icon: <BarChart3 className="h-5 w-5" />,
+    targetPlan: "pro",
+    benefits: [
+      "Métricas de engajamento",
+      "Análise de conteúdo",
+      "Relatórios exportáveis",
+      "Comparativos de performance",
+      "Insights por plataforma",
     ],
   },
   custom: {

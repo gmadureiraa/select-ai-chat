@@ -10,6 +10,9 @@ export interface PlanFeatures {
   hasCalendar: boolean;
   hasKanban: boolean;
   hasSocialPublishing: boolean;
+  canAccessProfiles: boolean;
+  canAccessPerformance: boolean;
+  canCreateProfiles: boolean;
   planType: string | null;
   isLoading: boolean;
 }
@@ -55,6 +58,11 @@ export function usePlanFeatures(): PlanFeatures {
   // Planning features are only available on Pro and Enterprise
   const hasPlanning = isPro;
 
+  // Profile and Performance access - only Pro and Enterprise
+  const canAccessProfiles = isPro;
+  const canAccessPerformance = isPro;
+  const canCreateProfiles = isPro;
+
   return {
     isEnterprise,
     isPro,
@@ -63,6 +71,9 @@ export function usePlanFeatures(): PlanFeatures {
     hasCalendar: isPro,
     hasKanban: isPro,
     hasSocialPublishing: isPro,
+    canAccessProfiles,
+    canAccessPerformance,
+    canCreateProfiles,
     planType,
     isLoading,
   };
