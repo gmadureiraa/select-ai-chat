@@ -1,6 +1,6 @@
 import { memo, useState, useCallback } from "react";
 import { NodeProps, Handle, Position } from "reactflow";
-import { Trash2, FileJson, FileText, ScanText, Maximize2, Loader2, ArrowRight } from "lucide-react";
+import { Trash2, FileJson, FileText, ScanText, Maximize2, Loader2, ArrowRight, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
@@ -44,11 +44,12 @@ function QuickImageNodeComponent({
   onExtractOcr,
   onConvertToAttachment,
 }: QuickImageNodeProps) {
-  const [showControls, setShowControls] = useState(false);
+  const [showActionsPanel, setShowActionsPanel] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [showAnalysis, setShowAnalysis] = useState(false);
 
-  const handleAnalyzeJson = useCallback(async () => {
+  const handleAnalyzeJson = useCallback(async (e: React.MouseEvent) => {
+    e.stopPropagation();
     onUpdateData(id, { isProcessing: true, processingType: "json" });
     try {
       await onAnalyzeJson(id, data.imageUrl);
@@ -57,7 +58,8 @@ function QuickImageNodeComponent({
     }
   }, [id, data.imageUrl, onAnalyzeJson, onUpdateData]);
 
-  const handleGenerateDescription = useCallback(async () => {
+  const handleGenerateDescription = useCallback(async (e: React.MouseEvent) => {
+    e.stopPropagation();
     onUpdateData(id, { isProcessing: true, processingType: "description" });
     try {
       await onGenerateDescription(id, data.imageUrl);
@@ -66,7 +68,8 @@ function QuickImageNodeComponent({
     }
   }, [id, data.imageUrl, onGenerateDescription, onUpdateData]);
 
-  const handleExtractOcr = useCallback(async () => {
+  const handleExtractOcr = useCallback(async (e: React.MouseEvent) => {
+    e.stopPropagation();
     onUpdateData(id, { isProcessing: true, processingType: "ocr" });
     try {
       await onExtractOcr(id, data.imageUrl);
@@ -75,36 +78,82 @@ function QuickImageNodeComponent({
     }
   }, [id, data.imageUrl, onExtractOcr, onUpdateData]);
 
+  const handleConvertToAttachment = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    onConvertToAttachment(id, data.imageUrl);
+  }, [id, data.imageUrl, onConvertToAttachment]);
+
+  const handleImageClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!data.isProcessing) {
+      setShowActionsPanel(prev => !prev);
+    }
+  }, [data.isProcessing]);
+
+  const handleDelete = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    onDelete(id);
+  }, [id, onDelete]);
+
+  const handlePreview = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShowPreview(true);
+    setShowActionsPanel(false);
+  }, []);
+
+  const handleShowAnalysis = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShowAnalysis(true);
+    setShowActionsPanel(false);
+  }, []);
+
   const hasAnalysis = data.analysis?.description || data.analysis?.jsonAnalysis || data.analysis?.ocrText;
 
   return (
     <>
       <div
         className={cn(
-          "group relative rounded-lg overflow-hidden bg-background border shadow-md",
+          "group relative rounded-lg overflow-visible bg-background border shadow-md",
           selected && "ring-2 ring-primary ring-offset-2",
           data.isProcessing && "opacity-75"
         )}
-        style={{ width: 200, height: 200 }}
-        onMouseEnter={() => setShowControls(true)}
-        onMouseLeave={() => setShowControls(false)}
+        style={{ 
+          maxWidth: 400, 
+          minWidth: 150,
+        }}
       >
         <Handle type="target" position={Position.Left} className="!bg-primary" />
         <Handle type="source" position={Position.Right} className="!bg-primary" />
 
-        {/* Image */}
-        <img
-          src={data.imageUrl}
-          alt={data.caption || "Imagem"}
-          className="w-full h-full object-cover"
-          onError={(e) => {
-            (e.target as HTMLImageElement).src = "/placeholder.svg";
-          }}
-        />
+        {/* Delete button - always visible */}
+        <Button
+          variant="secondary"
+          size="icon"
+          className="nodrag absolute -top-2 -right-2 h-6 w-6 rounded-full bg-background border shadow-sm hover:bg-destructive hover:text-destructive-foreground z-10"
+          onClick={handleDelete}
+        >
+          <X size={12} />
+        </Button>
+
+        {/* Image - Full size, clickable */}
+        <div 
+          className="cursor-pointer"
+          onClick={handleImageClick}
+        >
+          <img
+            src={data.imageUrl}
+            alt={data.caption || "Imagem"}
+            className="w-full h-auto object-contain rounded-lg max-h-[400px]"
+            onError={(e) => {
+              (e.target as HTMLImageElement).src = "/placeholder.svg";
+            }}
+            draggable={false}
+          />
+        </div>
 
         {/* Processing overlay */}
         {data.isProcessing && (
-          <div className="absolute inset-0 bg-background/80 flex items-center justify-center">
+          <div className="absolute inset-0 bg-background/80 flex items-center justify-center rounded-lg">
             <div className="flex flex-col items-center gap-2">
               <Loader2 className="h-6 w-6 animate-spin text-primary" />
               <span className="text-xs text-muted-foreground">
@@ -116,81 +165,90 @@ function QuickImageNodeComponent({
           </div>
         )}
 
-        {/* Analysis indicator */}
+        {/* Analysis indicator badge */}
         {hasAnalysis && !data.isProcessing && (
           <div
-            className="absolute bottom-2 right-2 bg-primary text-primary-foreground rounded-full p-1.5 cursor-pointer hover:bg-primary/90 transition-colors"
-            onClick={() => setShowAnalysis(true)}
+            className="nodrag absolute bottom-2 right-2 bg-primary text-primary-foreground rounded-full p-1.5 cursor-pointer hover:bg-primary/90 transition-colors shadow-md"
+            onClick={handleShowAnalysis}
           >
             <FileJson size={14} />
           </div>
         )}
 
-        {/* Hover controls */}
-        {(showControls || selected) && !data.isProcessing && (
-          <>
-            {/* Top toolbar */}
-            <div className="absolute top-2 left-2 right-2 flex items-center justify-between nodrag">
-              <Button
-                variant="secondary"
-                size="icon"
-                className="h-7 w-7 bg-background/90 hover:bg-background"
-                onClick={() => setShowPreview(true)}
-              >
-                <Maximize2 size={14} />
-              </Button>
-              <Button
-                variant="secondary"
-                size="icon"
-                className="h-7 w-7 bg-background/90 hover:bg-destructive hover:text-destructive-foreground"
-                onClick={() => onDelete(id)}
-              >
-                <Trash2 size={14} />
-              </Button>
-            </div>
-
-            {/* Bottom action bar */}
-            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-2 pt-6 nodrag">
-              <div className="flex items-center justify-center gap-1">
+        {/* Actions Panel - appears on click */}
+        {showActionsPanel && !data.isProcessing && (
+          <div className="nodrag absolute top-full left-0 right-0 mt-2 bg-background border rounded-lg shadow-lg p-3 z-20">
+            <div className="flex flex-col gap-2">
+              <div className="text-xs font-medium text-muted-foreground mb-1">Ações de IA</div>
+              <div className="flex gap-2">
                 <Button
-                  variant="secondary"
+                  variant="outline"
                   size="sm"
-                  className="h-7 text-xs bg-background/90 hover:bg-background"
+                  className="flex-1 h-8 text-xs"
                   onClick={handleAnalyzeJson}
                 >
-                  <FileJson size={12} className="mr-1" />
+                  <FileJson size={14} className="mr-1" />
                   JSON
                 </Button>
                 <Button
-                  variant="secondary"
+                  variant="outline"
                   size="sm"
-                  className="h-7 text-xs bg-background/90 hover:bg-background"
+                  className="flex-1 h-8 text-xs"
                   onClick={handleGenerateDescription}
                 >
-                  <FileText size={12} className="mr-1" />
-                  Desc
+                  <FileText size={14} className="mr-1" />
+                  Descrição
                 </Button>
                 <Button
-                  variant="secondary"
+                  variant="outline"
                   size="sm"
-                  className="h-7 text-xs bg-background/90 hover:bg-background"
+                  className="flex-1 h-8 text-xs"
                   onClick={handleExtractOcr}
                 >
-                  <ScanText size={12} className="mr-1" />
+                  <ScanText size={14} className="mr-1" />
                   OCR
                 </Button>
               </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="w-full mt-1 h-6 text-xs text-white/80 hover:text-white hover:bg-white/10"
-                onClick={() => onConvertToAttachment(id, data.imageUrl)}
-              >
-                <ArrowRight size={12} className="mr-1" />
-                Usar como Anexo
-              </Button>
+              
+              <div className="h-px bg-border my-1" />
+              
+              <div className="flex gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="flex-1 h-8 text-xs"
+                  onClick={handlePreview}
+                >
+                  <Maximize2 size={14} className="mr-1" />
+                  Expandir
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="flex-1 h-8 text-xs text-primary hover:text-primary"
+                  onClick={handleConvertToAttachment}
+                >
+                  <ArrowRight size={14} className="mr-1" />
+                  Usar como Anexo
+                </Button>
+              </div>
+
+              {hasAnalysis && (
+                <>
+                  <div className="h-px bg-border my-1" />
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className="w-full h-8 text-xs"
+                    onClick={handleShowAnalysis}
+                  >
+                    <FileJson size={14} className="mr-1" />
+                    Ver Análises
+                  </Button>
+                </>
+              )}
             </div>
-          </>
+          </div>
         )}
       </div>
 
