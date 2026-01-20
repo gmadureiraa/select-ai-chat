@@ -56,6 +56,7 @@ const FORMAT_TO_CONTENT_TYPE: Record<ContentFormat, ContentTypeKey> = {
   image: "static_image",
 };
 
+// Component version: 3 - Updated architecture
 function ContentCanvasInner({ clientId }: ContentCanvasProps) {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const { zoomIn, zoomOut, fitView, getViewport, project } = useReactFlow();
