@@ -897,11 +897,13 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
   }, [nodes, updateNodeData, toast]);
 
   // Helper to update a specific image in the ImageSourceNode
+  // Helper to update a specific image in ImageSourceNode OR AttachmentNode
   const updateImageInNode = useCallback((nodeId: string, imageId: string, updates: Partial<ImageSourceNodeData['images'][number]>) => {
     setNodes(currentNodes => currentNodes.map(n => {
-      if (n.id !== nodeId || n.data.type !== "image-source") return n;
-      const sourceData = n.data as ImageSourceNodeData;
-      const images = sourceData.images || [];
+      // Support both "image-source" and "attachment" node types
+      if (n.id !== nodeId || (n.data.type !== "image-source" && n.data.type !== "attachment")) return n;
+      const nodeData = n.data as ImageSourceNodeData | AttachmentNodeData;
+      const images = nodeData.images || [];
       const updatedImages = images.map(img => 
         img.id === imageId ? { ...img, ...updates } : img
       );
@@ -934,8 +936,8 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
       
       // Get current image metadata
       const node = nodes.find(n => n.id === nodeId);
-      const sourceData = node?.data as ImageSourceNodeData | undefined;
-      const image = sourceData?.images?.find(img => img.id === imageId);
+      const nodeData = node?.data as (ImageSourceNodeData | AttachmentNodeData) | undefined;
+      const image = nodeData?.images?.find(img => img.id === imageId);
 
       updateImageInNode(nodeId, imageId, { 
         isProcessing: false,
@@ -960,8 +962,8 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
       console.error("Error transcribing image:", error);
       
       const node = nodes.find(n => n.id === nodeId);
-      const sourceData = node?.data as ImageSourceNodeData | undefined;
-      const image = sourceData?.images?.find(img => img.id === imageId);
+      const nodeData = node?.data as (ImageSourceNodeData | AttachmentNodeData) | undefined;
+      const image = nodeData?.images?.find(img => img.id === imageId);
       
       updateImageInNode(nodeId, imageId, { 
         isProcessing: false,
@@ -1012,8 +1014,8 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
       
       // Get current image metadata
       const node = nodes.find(n => n.id === nodeId);
-      const sourceData = node?.data as ImageSourceNodeData | undefined;
-      const image = sourceData?.images?.find(img => img.id === imageId);
+      const nodeData = node?.data as (ImageSourceNodeData | AttachmentNodeData) | undefined;
+      const image = nodeData?.images?.find(img => img.id === imageId);
       
       const metadata: ImageMetadata = {
         ...image?.metadata,
@@ -1053,8 +1055,8 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
       console.error("Error analyzing image:", error);
       
       const node = nodes.find(n => n.id === nodeId);
-      const sourceData = node?.data as ImageSourceNodeData | undefined;
-      const image = sourceData?.images?.find(img => img.id === imageId);
+      const nodeData = node?.data as (ImageSourceNodeData | AttachmentNodeData) | undefined;
+      const image = nodeData?.images?.find(img => img.id === imageId);
       
       updateImageInNode(nodeId, imageId, { 
         isProcessing: false,
