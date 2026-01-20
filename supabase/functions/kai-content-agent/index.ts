@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { getFormatRules } from "./format-rules.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -246,9 +247,14 @@ serve(async (req) => {
       contextPrompt += `\n`;
     }
 
+    // Get format-specific rules
+    const formatSpecificRules = getFormatRules(format || "post");
+
     const systemPrompt = `Você é um copywriter especialista em criação de conteúdo para redes sociais e marketing digital.
 
 ${contextPrompt}
+
+${formatSpecificRules}
 
 ## Suas Responsabilidades:
 
@@ -256,24 +262,13 @@ ${contextPrompt}
 2. **Replicar o Estilo**: Use os exemplos de conteúdo como referência para estrutura e linguagem
 3. **Aprender com Top Performers**: Analise os conteúdos de maior performance para entender O QUE FUNCIONA para este cliente
 4. **Copywriting Estratégico**: Use gatilhos mentais, CTAs e técnicas de persuasão apropriadas
-5. **Formato Adequado**: Respeite as regras de formato quando especificadas
+5. **Seguir Regras do Formato**: Respeite TODAS as regras específicas acima - limites de palavras, estrutura, proibições
 6. **Conteúdo Completo**: Entregue o conteúdo PRONTO PARA USO, não apenas sugestões
-
-## Diretrizes de Criação:
-
-- Seja conciso e impactante
-- Use emojis com moderação e de forma estratégica
-- Inclua CTAs quando apropriado
-- Formate para fácil leitura (parágrafos curtos, bullet points quando necessário)
-- Mantenha autenticidade - evite parecer genérico ou "ChatGPT-like"
-- Se for newsletter, siga estrutura com assunto, preview text e corpo
-- Se for carrossel, divida em slides claros
-- Se for Reels, crie um roteiro com gancho inicial forte (primeiros 3 segundos)
 
 ## Formato Solicitado: ${format || "post"}
 ## Plataforma: ${platform || "Instagram"}
 
-Agora, crie o conteúdo solicitado mantendo 100% de fidelidade ao tom e estilo do cliente.`;
+IMPORTANTE: Siga EXATAMENTE o formato de entrega especificado nas regras acima. Valide seu conteúdo contra o checklist antes de entregar.`;
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
