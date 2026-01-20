@@ -117,8 +117,7 @@ async function scrapeWebsite(url: string, apiKey: string): Promise<string | null
 async function generateAnalysisWithAI(
   clientData: ClientData,
   branding: any,
-  websiteContent: string | null,
-  lovableApiKey: string
+  websiteContent: string | null
 ): Promise<AnalysisResult> {
   const systemPrompt = `Você é um especialista em branding, marketing digital e estratégia de conteúdo.
 Sua tarefa é analisar profundamente todos os dados fornecidos sobre um cliente e gerar uma análise estruturada completa.
@@ -178,184 +177,206 @@ ${documentsInfo}
 
 Gere uma análise estruturada usando a função generate_client_analysis.`;
 
-  const tools = [
-    {
-      type: "function",
-      function: {
-        name: "generate_client_analysis",
-        description: "Gera uma análise estruturada completa do cliente",
-        parameters: {
+  // Prefer: Google Gemini via user's own API key (no Lovable AI Gateway)
+  const GOOGLE_API_KEY = Deno.env.get("GOOGLE_AI_STUDIO_API_KEY");
+  const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
+
+  const analysisTool = {
+    name: "generate_client_analysis",
+    description: "Gera uma análise estruturada completa do cliente",
+    parameters: {
+      type: "object",
+      properties: {
+        executive_summary: {
+          type: "string",
+          description: "Resumo executivo de 2-3 frases sobre a empresa/marca",
+        },
+        visual_identity: {
           type: "object",
           properties: {
-            executive_summary: {
+            colors: {
+              type: "array",
+              items: { type: "string" },
+              description: "Cores principais da marca em hexadecimal",
+            },
+            typography: {
+              type: "array",
+              items: { type: "string" },
+              description: "Fontes/tipografias identificadas",
+            },
+            style: {
               type: "string",
-              description: "Resumo executivo de 2-3 frases sobre a empresa/marca",
-            },
-            visual_identity: {
-              type: "object",
-              properties: {
-                colors: {
-                  type: "array",
-                  items: { type: "string" },
-                  description: "Cores principais da marca em hexadecimal",
-                },
-                typography: {
-                  type: "array",
-                  items: { type: "string" },
-                  description: "Fontes/tipografias identificadas",
-                },
-                style: {
-                  type: "string",
-                  description: "Estilo visual geral (ex: minimalista, vibrante, corporativo)",
-                },
-              },
-              required: ["colors", "typography", "style"],
-            },
-            tone_of_voice: {
-              type: "object",
-              properties: {
-                primary: {
-                  type: "string",
-                  description: "Tom de voz principal (ex: profissional, casual, técnico)",
-                },
-                secondary: {
-                  type: "array",
-                  items: { type: "string" },
-                  description: "Características secundárias do tom",
-                },
-                avoid: {
-                  type: "array",
-                  items: { type: "string" },
-                  description: "O que evitar na comunicação",
-                },
-              },
-              required: ["primary", "secondary", "avoid"],
-            },
-            target_audience: {
-              type: "object",
-              properties: {
-                demographics: {
-                  type: "object",
-                  properties: {
-                    age: { type: "string" },
-                    role: { type: "string" },
-                    location: { type: "string" },
-                  },
-                },
-                psychographics: {
-                  type: "array",
-                  items: { type: "string" },
-                  description: "Características psicográficas do público",
-                },
-              },
-              required: ["demographics", "psychographics"],
-            },
-            objectives: {
-              type: "array",
-              items: { type: "string" },
-              description: "Objetivos de marketing/conteúdo sugeridos",
-            },
-            content_themes: {
-              type: "array",
-              items: { type: "string" },
-              description: "Temas principais para produção de conteúdo",
-            },
-            recommendations: {
-              type: "array",
-              items: { type: "string" },
-              description: "3-5 recomendações estratégicas específicas",
+              description: "Estilo visual geral (ex: minimalista, vibrante, corporativo)",
             },
           },
-          required: [
-            "executive_summary",
-            "visual_identity",
-            "tone_of_voice",
-            "target_audience",
-            "objectives",
-            "content_themes",
-            "recommendations",
-          ],
+          required: ["colors", "typography", "style"],
+        },
+        tone_of_voice: {
+          type: "object",
+          properties: {
+            primary: {
+              type: "string",
+              description: "Tom de voz principal (ex: profissional, casual, técnico)",
+            },
+            secondary: {
+              type: "array",
+              items: { type: "string" },
+              description: "Características secundárias do tom",
+            },
+            avoid: {
+              type: "array",
+              items: { type: "string" },
+              description: "O que evitar na comunicação",
+            },
+          },
+          required: ["primary", "secondary", "avoid"],
+        },
+        target_audience: {
+          type: "object",
+          properties: {
+            demographics: {
+              type: "object",
+              properties: {
+                age: { type: "string" },
+                role: { type: "string" },
+                location: { type: "string" },
+              },
+            },
+            psychographics: {
+              type: "array",
+              items: { type: "string" },
+              description: "Características psicográficas do público",
+            },
+          },
+          required: ["demographics", "psychographics"],
+        },
+        objectives: {
+          type: "array",
+          items: { type: "string" },
+          description: "Objetivos de marketing/conteúdo sugeridos",
+        },
+        content_themes: {
+          type: "array",
+          items: { type: "string" },
+          description: "Temas principais para produção de conteúdo",
+        },
+        recommendations: {
+          type: "array",
+          items: { type: "string" },
+          description: "3-5 recomendações estratégicas específicas",
         },
       },
+      required: [
+        "executive_summary",
+        "visual_identity",
+        "tone_of_voice",
+        "target_audience",
+        "objectives",
+        "content_themes",
+        "recommendations",
+      ],
     },
-  ];
+  };
 
-  console.log("Calling Lovable AI for analysis...");
+  let analysisData: any = null;
 
-  const maxRetries = 3;
-  let lastError: Error | null = null;
-  let response: Response | null = null;
+  if (GOOGLE_API_KEY) {
+    const model = "gemini-2.5-flash";
+    console.log("Calling Google Gemini for analysis...", { model });
 
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    try {
-      console.log(`AI API attempt ${attempt}/${maxRetries}`);
-      
-      response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${lovableApiKey}`,
-          "Content-Type": "application/json",
+    const googleBody: any = {
+      systemInstruction: { parts: [{ text: systemPrompt }] },
+      contents: [{ role: "user", parts: [{ text: userPrompt }] }],
+      generationConfig: {
+        temperature: 0.7,
+        maxOutputTokens: 8192,
+      },
+      tools: [
+        {
+          functionDeclarations: [analysisTool],
         },
-        body: JSON.stringify({
-          model: "google/gemini-2.5-flash",
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: userPrompt },
-          ],
-          tools,
-          tool_choice: { type: "function", function: { name: "generate_client_analysis" } },
-        }),
-      });
+      ],
+      toolConfig: {
+        functionCallingConfig: {
+          mode: "ANY",
+          allowedFunctionNames: [analysisTool.name],
+        },
+      },
+    };
 
-      if (response.ok) {
-        break; // Success, exit retry loop
+    const googleResp = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GOOGLE_API_KEY}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(googleBody),
       }
+    );
 
-      const errorText = await response.text();
-      console.error(`AI Gateway error (attempt ${attempt}):`, response.status, errorText);
-
-      // Only retry on 5xx errors (server errors)
-      if (response.status >= 500 && attempt < maxRetries) {
-        const waitTime = Math.pow(2, attempt) * 1000; // Exponential backoff: 2s, 4s, 8s
-        console.log(`Retrying in ${waitTime}ms...`);
-        await new Promise(resolve => setTimeout(resolve, waitTime));
-        continue;
+    if (!googleResp.ok) {
+      const t = await googleResp.text();
+      console.error("[analyze-client-onboarding] Google API error:", googleResp.status, t);
+      if (googleResp.status === 429) {
+        throw new Error("Limite de requisições do Google atingido (429)");
       }
-
-      // For 402 (payment required) errors, throw with special marker
-      if (response.status === 402) {
-        throw new Error(`PAYMENT_REQUIRED:${errorText}`);
-      }
-
-      // For other 4xx errors or final attempt, throw immediately
-      throw new Error(`AI analysis failed: ${response.status}`);
-    } catch (error) {
-      lastError = error instanceof Error ? error : new Error(String(error));
-      
-      if (attempt < maxRetries && !lastError.message.includes("AI analysis failed: 4")) {
-        const waitTime = Math.pow(2, attempt) * 1000;
-        console.log(`Network error, retrying in ${waitTime}ms...`, lastError.message);
-        await new Promise(resolve => setTimeout(resolve, waitTime));
-        continue;
-      }
-      
-      throw lastError;
+      throw new Error(`Google API error: ${googleResp.status}`);
     }
+
+    const googleJson = await googleResp.json();
+    const parts = googleJson?.candidates?.[0]?.content?.parts || [];
+    const functionCall = parts.find((p: any) => p?.functionCall)?.functionCall;
+
+    if (!functionCall?.args) {
+      console.error("[analyze-client-onboarding] No functionCall in Gemini response:", googleJson);
+      throw new Error("IA não retornou a análise estruturada");
+    }
+
+    analysisData = functionCall.args;
+  } else if (OPENAI_API_KEY) {
+    // Fallback: OpenAI tool calling
+    console.log("Calling OpenAI for analysis...");
+
+    const openaiResp = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${OPENAI_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "gpt-4o-mini",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+        tools: [
+          {
+            type: "function",
+            function: analysisTool,
+          },
+        ],
+        tool_choice: { type: "function", function: { name: analysisTool.name } },
+      }),
+    });
+
+    if (!openaiResp.ok) {
+      const t = await openaiResp.text();
+      console.error("[analyze-client-onboarding] OpenAI error:", openaiResp.status, t);
+      if (openaiResp.status === 429) {
+        throw new Error("Limite de requisições da OpenAI atingido (429)");
+      }
+      throw new Error(`OpenAI error: ${openaiResp.status}`);
+    }
+
+    const openaiJson = await openaiResp.json();
+    const toolCall = openaiJson.choices?.[0]?.message?.tool_calls?.[0];
+    if (!toolCall?.function?.arguments) {
+      console.error("[analyze-client-onboarding] No tool call in OpenAI response:", openaiJson);
+      throw new Error("IA não retornou a análise estruturada");
+    }
+    analysisData = JSON.parse(toolCall.function.arguments);
+  } else {
+    throw new Error("Nenhuma chave de IA configurada (GOOGLE_AI_STUDIO_API_KEY/OPENAI_API_KEY)");
   }
-
-  if (!response || !response.ok) {
-    throw lastError || new Error("AI analysis failed after retries");
-  }
-
-  const data = await response.json();
-  const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
-
-  if (!toolCall?.function?.arguments) {
-    console.error("No tool call in response:", data);
-    throw new Error("AI did not return structured analysis");
-  }
-
-  const analysisData = JSON.parse(toolCall.function.arguments);
 
   // Build sources analyzed
   const sourcesAnalyzed = {
@@ -438,14 +459,6 @@ serve(async (req) => {
     }
 
     const firecrawlApiKey = Deno.env.get("FIRECRAWL_API_KEY");
-    const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
-
-    if (!lovableApiKey) {
-      return new Response(JSON.stringify({ error: "LOVABLE_API_KEY not configured" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
 
     console.log("Starting client analysis for:", clientData.name);
 
@@ -468,8 +481,7 @@ serve(async (req) => {
     const analysis = await generateAnalysisWithAI(
       clientData,
       branding,
-      websiteContent,
-      lovableApiKey
+      websiteContent
     );
 
     console.log("Analysis completed successfully");
@@ -481,20 +493,6 @@ serve(async (req) => {
     console.error("Error in analyze-client-onboarding:", error);
     
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
-    
-    // Check if it's a payment required error from AI gateway
-    if (errorMessage.startsWith("PAYMENT_REQUIRED:")) {
-      return new Response(
-        JSON.stringify({
-          error: "insufficient_tokens",
-          message: "Créditos insuficientes para realizar a análise",
-        }),
-        {
-          status: 402,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
-    }
     
     return new Response(
       JSON.stringify({
