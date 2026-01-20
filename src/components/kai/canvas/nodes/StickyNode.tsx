@@ -87,7 +87,7 @@ function StickyNodeComponent({ id, data, selected, onUpdateData, onDelete }: Sti
   return (
     <div
       className={cn(
-        "group relative rounded-sm transition-shadow nodrag",
+        "group relative rounded-sm transition-shadow",
         selected && "ring-2 ring-primary ring-offset-2"
       )}
       style={{
@@ -160,7 +160,7 @@ function StickyNodeComponent({ id, data, selected, onUpdateData, onDelete }: Sti
             onBlur={handleBlur}
             onKeyDown={handleKeyDown}
             placeholder="Escreva aqui..."
-            className="w-full h-full bg-transparent resize-none outline-none border-none text-sm"
+            className="w-full h-full bg-transparent resize-none outline-none border-none text-sm nodrag"
             style={{ color: textColor }}
           />
         ) : (

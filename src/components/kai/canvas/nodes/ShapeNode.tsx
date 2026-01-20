@@ -80,7 +80,7 @@ function ShapeNodeComponent({ id, data, selected, onUpdateData, onDelete }: Shap
   }, [id, data.stroke, onUpdateData]);
 
   const renderShape = () => {
-    const { width, height, fill, stroke, strokeWidth, shapeType } = data;
+    const { width = 100, height = 100, fill, stroke, strokeWidth, shapeType } = data;
 
     switch (shapeType) {
       case "circle":
@@ -151,10 +151,10 @@ function ShapeNodeComponent({ id, data, selected, onUpdateData, onDelete }: Shap
   return (
     <div
       className={cn(
-        "group relative nodrag",
+        "group relative",
         selected && "ring-2 ring-primary ring-offset-2 rounded"
       )}
-      style={{ width: data.width, height: data.height }}
+      style={{ width: data.width || 100, height: data.height || 100 }}
       onMouseEnter={() => setShowControls(true)}
       onMouseLeave={() => setShowControls(false)}
     >
