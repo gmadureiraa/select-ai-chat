@@ -1,9 +1,8 @@
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Sparkles, Play, Paperclip, FileOutput, Instagram, Twitter, Linkedin, FileText, Headphones, Link2, Type, Image as ImageIcon } from "lucide-react";
+import { ArrowRight, Sparkles, Play, Paperclip, Instagram, Twitter, Linkedin, FileText, Headphones, Link2, Type, Image as ImageIcon, MousePointer2, StickyNote, Loader2, Copy, Check, Youtube } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
-import { Badge } from "@/components/ui/badge";
 
 // Floating particles - subtle background effect
 const FloatingParticles = () => {
@@ -90,258 +89,456 @@ const FloatingParticles = () => {
   );
 };
 
-// Animated canvas demo in hero
+// Real Canvas Demo - Identical to the actual product
 const HeroCanvasDemo = () => {
   const [step, setStep] = useState(0);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [showResults, setShowResults] = useState(false);
+  const [showResult, setShowResult] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [urlTyped, setUrlTyped] = useState("");
+  const [showExtraction, setShowExtraction] = useState(false);
 
+  const fullUrl = "youtube.com/watch?v=dQw4w9W";
+
+  // Animation sequence
   useEffect(() => {
-    const sequence = async () => {
-      await new Promise(r => setTimeout(r, 1500));
-      setStep(1); // Show attachment
-      await new Promise(r => setTimeout(r, 800));
-      setStep(2); // Show generator
-      await new Promise(r => setTimeout(r, 800));
-      setStep(3); // Connect
-      await new Promise(r => setTimeout(r, 600));
-      setIsGenerating(true);
-      await new Promise(r => setTimeout(r, 1500));
-      setIsGenerating(false);
-      setShowResults(true);
-      await new Promise(r => setTimeout(r, 4000));
+    let isMounted = true;
+    
+    const runSequence = async () => {
+      if (!isMounted) return;
+      
       // Reset
       setStep(0);
-      setShowResults(false);
+      setIsGenerating(false);
+      setShowResult(false);
+      setCopied(false);
+      setUrlTyped("");
+      setShowExtraction(false);
+
+      // Step 1: Show attachment node
+      await new Promise(r => setTimeout(r, 800));
+      if (!isMounted) return;
+      setStep(1);
+
+      // Step 2: Type URL
+      await new Promise(r => setTimeout(r, 500));
+      if (!isMounted) return;
+      
+      for (let i = 0; i <= fullUrl.length; i++) {
+        if (!isMounted) return;
+        setUrlTyped(fullUrl.slice(0, i));
+        await new Promise(r => setTimeout(r, 50));
+      }
+
+      // Step 3: Show extraction (thumbnail + title)
+      await new Promise(r => setTimeout(r, 400));
+      if (!isMounted) return;
+      setShowExtraction(true);
+
+      // Step 4: Show generator node
+      await new Promise(r => setTimeout(r, 600));
+      if (!isMounted) return;
+      setStep(2);
+
+      // Step 5: Draw connection
+      await new Promise(r => setTimeout(r, 400));
+      if (!isMounted) return;
+      setStep(3);
+
+      // Step 6: Generate
+      await new Promise(r => setTimeout(r, 800));
+      if (!isMounted) return;
+      setIsGenerating(true);
+
+      // Step 7: Show result
+      await new Promise(r => setTimeout(r, 2200));
+      if (!isMounted) return;
+      setIsGenerating(false);
+      setShowResult(true);
+
+      // Step 8: Copy animation
+      await new Promise(r => setTimeout(r, 1800));
+      if (!isMounted) return;
+      setCopied(true);
+
+      // Wait and restart
+      await new Promise(r => setTimeout(r, 3500));
+      if (isMounted) runSequence();
     };
 
-    sequence();
-    const interval = setInterval(sequence, 10000);
-    return () => clearInterval(interval);
+    runSequence();
+    
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   return (
-    <div className="relative w-full aspect-[16/9] bg-muted/30 rounded-xl overflow-hidden">
+    <div className="relative w-full aspect-[16/9] bg-background rounded-lg overflow-hidden">
       {/* Grid background */}
       <div 
-        className="absolute inset-0 opacity-40"
+        className="absolute inset-0 opacity-30"
         style={{
-          backgroundImage: `radial-gradient(circle at 1px 1px, hsl(var(--border)) 1px, transparent 0)`,
-          backgroundSize: "20px 20px",
+          backgroundImage: `
+            linear-gradient(to right, hsl(var(--border)) 1px, transparent 1px),
+            linear-gradient(to bottom, hsl(var(--border)) 1px, transparent 1px)
+          `,
+          backgroundSize: '20px 20px'
         }}
       />
 
-      {/* Toolbar simulation */}
+      {/* Real Toolbar */}
       <motion.div 
-        className="absolute top-3 left-1/2 -translate-x-1/2 flex items-center gap-1 px-2 py-1 bg-card/80 backdrop-blur-sm border border-border rounded-lg z-10"
+        className="absolute top-3 left-1/2 -translate-x-1/2 z-20"
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.5 }}
+        transition={{ delay: 0.3 }}
       >
-        <div className="p-1 rounded bg-primary/10">
-          <Type className="w-3 h-3 text-primary" />
-        </div>
-        <div className="p-1 rounded hover:bg-muted">
-          <FileText className="w-3 h-3 text-muted-foreground" />
-        </div>
-        <div className="w-px h-3 bg-border mx-0.5" />
-        <div className="px-1.5 py-0.5 rounded bg-blue-500/10 text-[8px] font-medium text-blue-600">
-          Anexo
-        </div>
-        <div className="px-1.5 py-0.5 rounded bg-green-500/10 text-[8px] font-medium text-green-600">
-          Gerador
-        </div>
-      </motion.div>
-
-      {/* Attachment Node */}
-      <motion.div
-        className="absolute left-[8%] top-[30%] w-[120px] md:w-[140px]"
-        initial={{ opacity: 0, x: -30 }}
-        animate={{ opacity: step >= 1 ? 1 : 0, x: step >= 1 ? 0 : -30 }}
-        transition={{ duration: 0.5 }}
-      >
-        <div className="rounded-lg border-2 border-blue-500/50 bg-gradient-to-br from-blue-50 to-white dark:from-blue-950/30 dark:to-background shadow-lg p-2">
-          <div className="flex items-center gap-1.5 mb-2">
-            <div className="w-4 h-4 rounded bg-blue-500 flex items-center justify-center">
-              <Paperclip className="w-2.5 h-2.5 text-white" />
+        <div className="flex items-center gap-1 bg-background/95 backdrop-blur-sm border border-border rounded-lg p-1 shadow-lg">
+          {/* Left tools */}
+          <div className="flex items-center gap-0.5 px-1">
+            <div className="p-1.5 rounded bg-primary/10 text-primary">
+              <MousePointer2 className="h-3 w-3" />
             </div>
-            <span className="text-[10px] font-medium">Anexo</span>
+            <div className="p-1.5 rounded hover:bg-muted text-muted-foreground">
+              <Type className="h-3 w-3" />
+            </div>
+            <div className="p-1.5 rounded hover:bg-muted text-muted-foreground">
+              <StickyNote className="h-3 w-3" />
+            </div>
           </div>
-          <div className="flex gap-0.5 mb-1.5">
-            <div className="flex-1 py-0.5 bg-primary/10 rounded text-[7px] text-center text-primary">Link</div>
-            <div className="flex-1 py-0.5 bg-muted rounded text-[7px] text-center text-muted-foreground">Texto</div>
-          </div>
-          <div className="flex items-center gap-1 px-1.5 py-1 bg-muted rounded text-[8px] text-muted-foreground">
-            <Link2 className="w-2.5 h-2.5" />
-            <span className="truncate">youtube.com/watch...</span>
+
+          <div className="w-px h-4 bg-border mx-1" />
+
+          {/* AI Nodes */}
+          <div className="flex items-center gap-1 px-1">
+            <div className="flex items-center gap-1 px-2 py-1 rounded bg-blue-500/10 text-blue-500 text-[10px] font-medium">
+              <Paperclip className="h-2.5 w-2.5" />
+              <span>Anexo</span>
+            </div>
+            <div className="flex items-center gap-1 px-2 py-1 rounded bg-emerald-500/10 text-emerald-500 text-[10px] font-medium">
+              <Sparkles className="h-2.5 w-2.5" />
+              <span>Gerador</span>
+            </div>
           </div>
         </div>
       </motion.div>
 
-      {/* Generator Node */}
-      <motion.div
-        className="absolute left-[38%] top-[25%] w-[100px] md:w-[120px]"
-        initial={{ opacity: 0, y: 30 }}
-        animate={{ opacity: step >= 2 ? 1 : 0, y: step >= 2 ? 0 : 30 }}
-        transition={{ duration: 0.5 }}
-      >
-        <div className={`rounded-lg border-2 border-green-500/50 bg-gradient-to-br from-green-50 to-white dark:from-green-950/30 dark:to-background shadow-lg p-2 ${isGenerating ? 'animate-pulse' : ''}`}>
-          <div className="flex items-center gap-1.5 mb-2">
-            <div className="w-4 h-4 rounded bg-green-500 flex items-center justify-center">
-              <Sparkles className="w-2.5 h-2.5 text-white" />
-            </div>
-            <span className="text-[10px] font-medium">Gerador</span>
-            <Badge variant="secondary" className="h-3 text-[7px] px-1 ml-auto">1</Badge>
-          </div>
-          <div className="space-y-1">
-            <div className="px-1.5 py-0.5 bg-muted rounded text-[7px] flex justify-between">
-              <span className="text-muted-foreground">Formato</span>
-              <span>Carrossel</span>
-            </div>
-            <motion.div 
-              className="h-5 bg-green-600 rounded flex items-center justify-center text-white text-[8px] font-medium"
-              animate={isGenerating ? { scale: [1, 1.02, 1] } : {}}
-              transition={{ duration: 0.5, repeat: isGenerating ? Infinity : 0 }}
-            >
-              {isGenerating ? "Gerando..." : "▶ Gerar"}
-            </motion.div>
-          </div>
-        </div>
-      </motion.div>
+      {/* Connection SVG Layer */}
+      <svg className="absolute inset-0 w-full h-full pointer-events-none z-10">
+        <defs>
+          <linearGradient id="heroConnectionGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor="hsl(217, 91%, 60%)" />
+            <stop offset="100%" stopColor="hsl(142, 71%, 45%)" />
+          </linearGradient>
+          <linearGradient id="heroResultGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor="hsl(142, 71%, 45%)" />
+            <stop offset="100%" stopColor="hsl(330, 81%, 60%)" />
+          </linearGradient>
+        </defs>
 
-      {/* Result Nodes */}
-      <motion.div
-        className="absolute right-[8%] top-[15%] space-y-2"
-        initial={{ opacity: 0, x: 30 }}
-        animate={{ opacity: showResults ? 1 : 0, x: showResults ? 0 : 30 }}
-        transition={{ duration: 0.5, staggerChildren: 0.1 }}
-      >
-        {[
-          { icon: Instagram, label: "Carrossel", color: "pink" },
-          { icon: Twitter, label: "Thread", color: "sky" },
-          { icon: Linkedin, label: "Artigo", color: "blue" },
-        ].map((item, i) => (
-          <motion.div
-            key={item.label}
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: showResults ? 1 : 0, x: showResults ? 0 : 20 }}
-            transition={{ delay: i * 0.15 }}
-            className="w-[90px] md:w-[110px] rounded-lg border-2 border-pink-500/50 bg-gradient-to-br from-pink-50 to-white dark:from-pink-950/30 dark:to-background shadow-lg p-1.5"
-          >
-            <div className="flex items-center gap-1 mb-1">
-              <div className="w-3 h-3 rounded bg-pink-500 flex items-center justify-center">
-                <FileOutput className="w-2 h-2 text-white" />
-              </div>
-              <item.icon className="w-2.5 h-2.5 text-muted-foreground" />
-              <span className="text-[8px] font-medium truncate">{item.label}</span>
-            </div>
-            <div className="space-y-0.5">
-              <div className="h-1 bg-muted rounded w-full" />
-              <div className="h-1 bg-muted rounded w-3/4" />
-            </div>
-          </motion.div>
-        ))}
-      </motion.div>
+        {/* Attachment → Generator connection */}
+        {step >= 3 && (
+          <motion.path
+            d="M 205 130 C 230 130, 250 125, 275 125"
+            stroke="url(#heroConnectionGradient)"
+            strokeWidth="2"
+            fill="none"
+            initial={{ pathLength: 0 }}
+            animate={{ pathLength: 1 }}
+            transition={{ duration: 0.6, ease: "easeOut" }}
+          />
+        )}
 
-      {/* Connection lines */}
-      <svg className="absolute inset-0 w-full h-full pointer-events-none" preserveAspectRatio="xMidYMid meet">
-        {/* Attachment to Generator */}
-        <motion.path
-          d="M 28% 45% Q 33% 45% 38% 40%"
-          fill="none"
-          stroke="hsl(var(--primary))"
-          strokeWidth="2"
-          strokeDasharray="4 2"
-          initial={{ pathLength: 0, opacity: 0 }}
-          animate={{ 
-            pathLength: step >= 3 ? 1 : 0, 
-            opacity: step >= 3 ? 0.6 : 0 
-          }}
-          transition={{ duration: 0.5 }}
-        />
-        
-        {/* Generator to Results */}
-        <motion.path
-          d="M 52% 38% Q 60% 30% 72% 25%"
-          fill="none"
-          stroke="hsl(var(--primary))"
-          strokeWidth="2"
-          strokeDasharray="4 2"
-          initial={{ pathLength: 0, opacity: 0 }}
-          animate={{ 
-            pathLength: showResults ? 1 : 0, 
-            opacity: showResults ? 0.6 : 0 
-          }}
-          transition={{ duration: 0.4 }}
-        />
-        <motion.path
-          d="M 52% 42% Q 62% 42% 72% 42%"
-          fill="none"
-          stroke="hsl(var(--primary))"
-          strokeWidth="2"
-          strokeDasharray="4 2"
-          initial={{ pathLength: 0, opacity: 0 }}
-          animate={{ 
-            pathLength: showResults ? 1 : 0, 
-            opacity: showResults ? 0.6 : 0 
-          }}
-          transition={{ duration: 0.4, delay: 0.1 }}
-        />
-        <motion.path
-          d="M 52% 46% Q 60% 55% 72% 60%"
-          fill="none"
-          stroke="hsl(var(--primary))"
-          strokeWidth="2"
-          strokeDasharray="4 2"
-          initial={{ pathLength: 0, opacity: 0 }}
-          animate={{ 
-            pathLength: showResults ? 1 : 0, 
-            opacity: showResults ? 0.6 : 0 
-          }}
-          transition={{ duration: 0.4, delay: 0.2 }}
-        />
+        {/* Generator → Result connection */}
+        {showResult && (
+          <motion.path
+            d="M 410 125 C 440 125, 460 120, 490 120"
+            stroke="url(#heroResultGradient)"
+            strokeWidth="2"
+            fill="none"
+            initial={{ pathLength: 0 }}
+            animate={{ pathLength: 1 }}
+            transition={{ duration: 0.5, ease: "easeOut" }}
+          />
+        )}
 
-        {/* Animated pulse during generation */}
+        {/* Animated particle during generation */}
         {isGenerating && (
           <motion.circle
+            cx="0"
+            cy="0"
             r="4"
-            fill="hsl(var(--primary))"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: [0, 1, 0] }}
-            transition={{ duration: 0.8, repeat: Infinity }}
-          >
-            <animateMotion
-              dur="0.8s"
-              repeatCount="indefinite"
-              path="M 52% 38% Q 60% 30% 72% 25%"
-            />
-          </motion.circle>
+            fill="hsl(142, 71%, 45%)"
+            style={{ filter: "drop-shadow(0 0 6px hsl(142, 71%, 45%))" }}
+            animate={{
+              cx: [205, 230, 260, 290, 320, 350, 380, 410],
+              cy: [130, 128, 126, 125, 125, 124, 124, 125],
+            }}
+            transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
+          />
         )}
       </svg>
 
-      {/* Input types floating badges */}
+      {/* Attachment Node */}
+      <AnimatePresence>
+        {step >= 1 && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9, y: 15 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            transition={{ duration: 0.4, ease: "easeOut" }}
+            className="absolute left-[30px] top-[55px] z-20"
+          >
+            <div className="w-[175px] bg-background border border-border rounded-lg shadow-xl overflow-hidden">
+              {/* Header */}
+              <div className="flex items-center gap-2 px-3 py-2 border-b border-border bg-blue-500/5">
+                <div className="p-1 rounded bg-blue-500/10">
+                  <Paperclip className="h-3.5 w-3.5 text-blue-500" />
+                </div>
+                <span className="text-xs font-medium">Anexo</span>
+              </div>
+
+              {/* Tabs */}
+              <div className="flex border-b border-border">
+                <div className="flex-1 flex items-center justify-center gap-1 py-1.5 text-[10px] bg-primary/5 text-primary border-b-2 border-primary">
+                  <Link2 className="h-2.5 w-2.5" />
+                </div>
+                <div className="flex-1 flex items-center justify-center gap-1 py-1.5 text-[10px] text-muted-foreground">
+                  <Type className="h-2.5 w-2.5" />
+                </div>
+                <div className="flex-1 flex items-center justify-center gap-1 py-1.5 text-[10px] text-muted-foreground">
+                  <ImageIcon className="h-2.5 w-2.5" />
+                </div>
+              </div>
+
+              {/* Content */}
+              <div className="p-2.5 space-y-2">
+                {/* URL Input */}
+                <div className="flex items-center gap-1.5 px-2 py-1.5 bg-muted/50 rounded text-[10px]">
+                  <Youtube className="h-3 w-3 text-red-500 flex-shrink-0" />
+                  <span className="text-muted-foreground truncate">
+                    {urlTyped || "Cole uma URL..."}
+                    {urlTyped.length > 0 && urlTyped.length < fullUrl.length && (
+                      <span className="animate-pulse ml-0.5">|</span>
+                    )}
+                  </span>
+                </div>
+
+                {/* Extracted content preview */}
+                <AnimatePresence>
+                  {showExtraction && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.3 }}
+                      className="space-y-1.5"
+                    >
+                      <div className="relative rounded overflow-hidden">
+                        <div className="aspect-video bg-gradient-to-br from-red-500/20 to-orange-500/20 flex items-center justify-center">
+                          <div className="w-6 h-6 rounded-full bg-red-500/90 flex items-center justify-center shadow-lg">
+                            <Play className="h-3 w-3 text-white ml-0.5" fill="white" />
+                          </div>
+                        </div>
+                      </div>
+                      <motion.div 
+                        className="text-[9px] text-muted-foreground line-clamp-2"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ delay: 0.2 }}
+                      >
+                        Como criar conteúdo viral usando IA em 2024...
+                      </motion.div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+
+              {/* Connection handle */}
+              <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 w-2.5 h-2.5 rounded-full bg-blue-500 border-2 border-background shadow-sm" />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Generator Node */}
+      <AnimatePresence>
+        {step >= 2 && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9, y: 15 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            transition={{ duration: 0.4, ease: "easeOut" }}
+            className="absolute left-[275px] top-[50px] z-20"
+          >
+            <div className="w-[135px] bg-background border border-border rounded-lg shadow-xl overflow-hidden">
+              {/* Header */}
+              <div className="flex items-center justify-between px-2.5 py-1.5 border-b border-border bg-emerald-500/5">
+                <div className="flex items-center gap-1.5">
+                  <div className="p-1 rounded bg-emerald-500/10">
+                    <Sparkles className="h-3 w-3 text-emerald-500" />
+                  </div>
+                  <span className="text-xs font-medium">Gerador</span>
+                </div>
+                {step >= 3 && (
+                  <motion.div
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    className="flex items-center gap-0.5 px-1.5 py-0.5 bg-blue-500/10 rounded text-[8px] text-blue-500 font-medium"
+                  >
+                    <Link2 className="h-2 w-2" />
+                    <span>1</span>
+                  </motion.div>
+                )}
+              </div>
+
+              {/* Content */}
+              <div className="p-2 space-y-1.5">
+                {/* Format select */}
+                <div className="space-y-0.5">
+                  <span className="text-[8px] text-muted-foreground">Formato</span>
+                  <div className="flex items-center justify-between px-2 py-1 bg-muted/50 rounded text-[10px]">
+                    <span>Carrossel</span>
+                  </div>
+                </div>
+
+                {/* Platform */}
+                <div className="space-y-0.5">
+                  <span className="text-[8px] text-muted-foreground">Plataforma</span>
+                  <div className="flex items-center gap-1.5 px-2 py-1 bg-muted/50 rounded text-[10px]">
+                    <Instagram className="h-2.5 w-2.5 text-pink-500" />
+                    <span>Instagram</span>
+                  </div>
+                </div>
+
+                {/* Generate button */}
+                <motion.button
+                  className={`w-full flex items-center justify-center gap-1.5 py-1.5 rounded text-[10px] font-medium text-white transition-colors ${
+                    isGenerating ? 'bg-emerald-600' : 'bg-emerald-500'
+                  }`}
+                  animate={!isGenerating && step >= 3 ? { scale: [1, 1.03, 1] } : {}}
+                  transition={{ duration: 0.6, repeat: !isGenerating ? 2 : 0 }}
+                >
+                  {isGenerating ? (
+                    <>
+                      <Loader2 className="h-2.5 w-2.5 animate-spin" />
+                      <span>Gerando...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Play className="h-2.5 w-2.5" fill="white" />
+                      <span>Gerar</span>
+                    </>
+                  )}
+                </motion.button>
+              </div>
+
+              {/* Connection handles */}
+              <div className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1/2 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-background shadow-sm" />
+              <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-background shadow-sm" />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Result Node */}
+      <AnimatePresence>
+        {showResult && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9, y: 15 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            transition={{ duration: 0.4, ease: "easeOut" }}
+            className="absolute left-[490px] top-[40px] z-20"
+          >
+            <div className="w-[155px] bg-background border border-border rounded-lg shadow-xl overflow-hidden">
+              {/* Header */}
+              <div className="flex items-center justify-between px-2.5 py-1.5 border-b border-border bg-pink-500/5">
+                <div className="flex items-center gap-1.5">
+                  <div className="p-1 rounded bg-pink-500/10">
+                    <Sparkles className="h-3 w-3 text-pink-500" />
+                  </div>
+                  <span className="text-xs font-medium">Resultado</span>
+                </div>
+                <div className="flex items-center gap-0.5 px-1.5 py-0.5 bg-pink-500/10 rounded text-[8px] text-pink-500 font-medium">
+                  <ImageIcon className="h-2 w-2" />
+                  <span>6</span>
+                </div>
+              </div>
+
+              {/* Content preview */}
+              <div className="p-2 space-y-1.5">
+                <div className="space-y-1 text-[9px]">
+                  {[
+                    "O que você precisa saber...",
+                    "Como aplicar na prática...",
+                    "Resultados esperados..."
+                  ].map((text, i) => (
+                    <motion.div
+                      key={i}
+                      initial={{ opacity: 0, x: -5 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.1 + i * 0.1 }}
+                      className="flex items-start gap-1.5"
+                    >
+                      <span className="flex-shrink-0 w-3.5 h-3.5 rounded bg-primary/10 text-primary flex items-center justify-center text-[8px] font-bold">
+                        {i + 1}
+                      </span>
+                      <span className="text-muted-foreground line-clamp-1">{text}</span>
+                    </motion.div>
+                  ))}
+                </div>
+
+                {/* Copy button */}
+                <motion.button
+                  className={`w-full flex items-center justify-center gap-1.5 py-1.5 rounded text-[10px] font-medium transition-colors ${
+                    copied 
+                      ? 'bg-emerald-500/10 text-emerald-600' 
+                      : 'bg-muted hover:bg-muted/80 text-foreground'
+                  }`}
+                  animate={copied ? { scale: [1, 1.05, 1] } : {}}
+                  transition={{ duration: 0.3 }}
+                >
+                  {copied ? (
+                    <>
+                      <Check className="h-2.5 w-2.5" />
+                      <span>Copiado!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="h-2.5 w-2.5" />
+                      <span>Copiar</span>
+                    </>
+                  )}
+                </motion.button>
+              </div>
+
+              {/* Connection handle */}
+              <div className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1/2 w-2.5 h-2.5 rounded-full bg-pink-500 border-2 border-background shadow-sm" />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Bottom input types hint */}
       <motion.div
-        className="absolute bottom-3 left-3 flex gap-1"
+        className="absolute bottom-2.5 left-1/2 -translate-x-1/2 flex items-center gap-2 text-[9px] text-muted-foreground"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        transition={{ delay: 2 }}
+        transition={{ delay: 1 }}
       >
         {[
           { icon: Link2, label: "URL" },
+          { icon: Youtube, label: "YouTube", color: "text-red-500" },
           { icon: FileText, label: "PDF" },
           { icon: ImageIcon, label: "Imagem" },
           { icon: Headphones, label: "Áudio" },
-        ].map((item, i) => (
-          <motion.div
-            key={item.label}
-            className="flex items-center gap-1 px-1.5 py-0.5 bg-background/80 backdrop-blur-sm border border-border rounded text-[7px] text-muted-foreground"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 2 + i * 0.1 }}
-          >
-            <item.icon className="w-2.5 h-2.5" />
-            {item.label}
-          </motion.div>
+        ].map((item) => (
+          <div key={item.label} className="flex items-center gap-1 px-2 py-1 bg-muted/50 rounded">
+            <item.icon className={`h-2.5 w-2.5 ${item.color || ''}`} />
+            <span>{item.label}</span>
+          </div>
         ))}
       </motion.div>
     </div>
