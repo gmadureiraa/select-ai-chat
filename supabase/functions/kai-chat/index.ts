@@ -126,6 +126,41 @@ serve(async (req) => {
     console.log("Is metrics query:", isMetricsQuery(lastMessage));
     console.log("Citations:", citations?.length || 0);
 
+    // === PLAN VERIFICATION: Block Canvas/Starter users ===
+    if (workspaceId) {
+      const { data: subscription, error: subError } = await supabase
+        .from("workspace_subscriptions")
+        .select(`
+          status,
+          subscription_plans (type)
+        `)
+        .eq("workspace_id", workspaceId)
+        .eq("status", "active")
+        .maybeSingle();
+
+      if (subError) {
+        console.error("[kai-chat] Subscription check error:", subError);
+      }
+
+      // Handle subscription_plans as array (Supabase returns array for joins)
+      const plans = subscription?.subscription_plans as unknown as { type: string }[] | { type: string } | null;
+      const planType = Array.isArray(plans) ? plans[0]?.type : plans?.type;
+      console.log("[kai-chat] Plan type:", planType);
+
+      // Block if plan is starter/canvas or no active subscription
+      if (!subscription || planType === "starter" || planType === "canvas") {
+        console.log("[kai-chat] Access denied - requires Pro plan");
+        return new Response(
+          JSON.stringify({ 
+            error: "upgrade_required", 
+            feature: "kai_chat",
+            message: "O kAI Chat está disponível apenas no plano Pro. Faça upgrade para acessar." 
+          }),
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
+
     // Get client context if provided
     let clientContext = "";
     if (clientId) {

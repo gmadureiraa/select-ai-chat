@@ -13,6 +13,7 @@ export interface PlanFeatures {
   canAccessProfiles: boolean;
   canAccessPerformance: boolean;
   canAccessLibrary: boolean;
+  canAccessKaiChat: boolean;
   canCreateProfiles: boolean;
   planType: string | null;
   isLoading: boolean;
@@ -59,10 +60,11 @@ export function usePlanFeatures(): PlanFeatures {
   // Planning features are only available on Pro and Enterprise
   const hasPlanning = isPro;
 
-  // Profile, Performance and Library access - only Pro and Enterprise
+  // Profile, Performance, Library, and Kai Chat access - only Pro and Enterprise
   const canAccessProfiles = isPro;
   const canAccessPerformance = isPro;
   const canAccessLibrary = isPro;
+  const canAccessKaiChat = isPro;
   const canCreateProfiles = isPro;
 
   return {
@@ -76,6 +78,7 @@ export function usePlanFeatures(): PlanFeatures {
     canAccessProfiles,
     canAccessPerformance,
     canAccessLibrary,
+    canAccessKaiChat,
     canCreateProfiles,
     planType,
     isLoading,

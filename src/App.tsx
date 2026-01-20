@@ -27,6 +27,7 @@ import { WorkspaceRedirect } from "@/components/WorkspaceRedirect";
 import { TokenErrorProvider } from "@/hooks/useTokenError";
 import { GlobalKAIProvider } from "@/contexts/GlobalKAIContext";
 import { GlobalKAIAssistant } from "@/components/kai-global";
+import { UpgradePromptProvider } from "@/hooks/useUpgradePrompt";
 
 const queryClient = new QueryClient();
 
@@ -39,79 +40,81 @@ const App = () => (
         <BrowserRouter>
           <WorkspaceProvider>
             <TokenErrorProvider>
-              <GlobalKAIProvider>
-                <Routes>
-                  {/* Public routes */}
-                  <Route path="/login" element={<Login />} />
-                  <Route path="/register" element={<SimpleSignup />} />
-                  <Route path="/signup" element={<CreateFirstWorkspace />} />
-                  <Route path="/create-workspace" element={<CreateFirstWorkspace />} />
-                  <Route path="/help" element={<Help />} />
+              <UpgradePromptProvider>
+                <GlobalKAIProvider>
+                  <Routes>
+                    {/* Public routes */}
+                    <Route path="/login" element={<Login />} />
+                    <Route path="/register" element={<SimpleSignup />} />
+                    <Route path="/signup" element={<CreateFirstWorkspace />} />
+                    <Route path="/create-workspace" element={<CreateFirstWorkspace />} />
+                    <Route path="/help" element={<Help />} />
+                    
+                    {/* Protected route for users without workspace */}
+                    <Route
+                      path="/no-workspace"
+                      element={
+                        <AuthOnlyRoute>
+                          <NoWorkspacePage />
+                        </AuthOnlyRoute>
+                      }
+                    />
+                    
+                    {/* Public landing page */}
+                    <Route path="/" element={<LandingPage />} />
+                    
+                    {/* Super Admin route - uses AuthOnlyRoute instead of ProtectedRoute to skip workspace check */}
+                    <Route
+                      path="/admin"
+                      element={
+                        <AuthOnlyRoute>
+                          <SuperAdminRoute>
+                            <AdminDashboard />
+                          </SuperAdminRoute>
+                        </AuthOnlyRoute>
+                      }
+                    />
+                    
+                    {/* Redirect to workspace for authenticated users */}
+                    <Route
+                      path="/app"
+                      element={
+                        <ProtectedRoute>
+                          <WorkspaceRedirect />
+                        </ProtectedRoute>
+                      }
+                    />
+                    
+                    {/* Callback for creating new workspace after Stripe checkout */}
+                    <Route
+                      path="/create-workspace-callback"
+                      element={
+                        <ProtectedRoute>
+                          <CreateWorkspaceCallback />
+                        </ProtectedRoute>
+                      }
+                    />
+                    
+                    {/* Workspace auth routes */}
+                    <Route path="/:slug/join" element={<JoinWorkspace />} />
+                    <Route path="/:slug/login" element={<WorkspaceLogin />} />
+                    
+                    {/* Workspace routes with slug */}
+                    <Route path="/:slug" element={<WorkspaceRouter />}>
+                      <Route index element={<Kai />} />
+                      <Route path="docs" element={<Documentation />} />
+                      <Route path="settings" element={<Settings />} />
+                    </Route>
+                    
+                    {/* 404 */}
+                    <Route path="/404" element={<NotFound />} />
+                    <Route path="*" element={<NotFound />} />
+                  </Routes>
                   
-                  {/* Protected route for users without workspace */}
-                  <Route
-                    path="/no-workspace"
-                    element={
-                      <AuthOnlyRoute>
-                        <NoWorkspacePage />
-                      </AuthOnlyRoute>
-                    }
-                  />
-                  
-                  {/* Public landing page */}
-                  <Route path="/" element={<LandingPage />} />
-                  
-                  {/* Super Admin route - uses AuthOnlyRoute instead of ProtectedRoute to skip workspace check */}
-                  <Route
-                    path="/admin"
-                    element={
-                      <AuthOnlyRoute>
-                        <SuperAdminRoute>
-                          <AdminDashboard />
-                        </SuperAdminRoute>
-                      </AuthOnlyRoute>
-                    }
-                  />
-                  
-                  {/* Redirect to workspace for authenticated users */}
-                  <Route
-                    path="/app"
-                    element={
-                      <ProtectedRoute>
-                        <WorkspaceRedirect />
-                      </ProtectedRoute>
-                    }
-                  />
-                  
-                  {/* Callback for creating new workspace after Stripe checkout */}
-                  <Route
-                    path="/create-workspace-callback"
-                    element={
-                      <ProtectedRoute>
-                        <CreateWorkspaceCallback />
-                      </ProtectedRoute>
-                    }
-                  />
-                  
-                  {/* Workspace auth routes */}
-                  <Route path="/:slug/join" element={<JoinWorkspace />} />
-                  <Route path="/:slug/login" element={<WorkspaceLogin />} />
-                  
-                  {/* Workspace routes with slug */}
-                  <Route path="/:slug" element={<WorkspaceRouter />}>
-                    <Route index element={<Kai />} />
-                    <Route path="docs" element={<Documentation />} />
-                    <Route path="settings" element={<Settings />} />
-                  </Route>
-                  
-                  {/* 404 */}
-                  <Route path="/404" element={<NotFound />} />
-                  <Route path="*" element={<NotFound />} />
-                </Routes>
-                
-                {/* Global kAI Assistant - available on all authenticated pages */}
-                <GlobalKAIAssistant />
-              </GlobalKAIProvider>
+                  {/* Global kAI Assistant - available on all authenticated pages */}
+                  <GlobalKAIAssistant />
+                </GlobalKAIProvider>
+              </UpgradePromptProvider>
             </TokenErrorProvider>
           </WorkspaceProvider>
         </BrowserRouter>
