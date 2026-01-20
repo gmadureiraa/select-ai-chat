@@ -6,6 +6,7 @@ import { GradientHero } from "@/components/kai/GradientHero";
 import { KaiPerformanceTab } from "@/components/kai/KaiPerformanceTab";
 import { KaiLibraryTab } from "@/components/kai/KaiLibraryTab";
 import { KaiDocsTab } from "@/components/kai/KaiDocsTab";
+import { KaiAssistantTab } from "@/components/kai/KaiAssistantTab";
 
 import { ClientsManagementTool } from "@/components/kai/tools/ClientsManagementTool";
 import { ContentCanvas } from "@/components/kai/canvas/ContentCanvas";
@@ -46,7 +47,7 @@ export default function Kai() {
     let redirectTab = "canvas"; // Default for Canvas plan users
     
     // Removed tabs - redirect if accessing them
-    const removedTabs = ["agent-builder", "research-lab", "assistant", "knowledge-base", "team", "account", "settings", "templates", "format-rules", "repurpose"];
+    const removedTabs = ["agent-builder", "research-lab", "knowledge-base", "team", "account", "templates", "format-rules", "repurpose"];
     if (removedTabs.includes(tab)) {
       shouldRedirect = true;
       redirectTab = "canvas"; // Redirect to canvas instead
@@ -175,6 +176,21 @@ export default function Kai() {
           );
         case "settings":
           return <SettingsTab />;
+        case "assistant":
+          if (!selectedClient) {
+            return (
+              <div className="flex items-center justify-center h-full">
+                <div className="text-center text-muted-foreground">
+                  <p>Selecione um cliente para usar o chat</p>
+                </div>
+              </div>
+            );
+          }
+          return (
+            <div className="h-full overflow-hidden">
+              <KaiAssistantTab clientId={selectedClient.id} client={selectedClient} />
+            </div>
+          );
       }
     }
 
