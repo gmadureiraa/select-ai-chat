@@ -10,6 +10,7 @@ import { KaiDocsTab } from "@/components/kai/KaiDocsTab";
 import { ClientsManagementTool } from "@/components/kai/tools/ClientsManagementTool";
 import { ContentCanvas } from "@/components/kai/canvas/ContentCanvas";
 import { PlanningBoard } from "@/components/planning/PlanningBoard";
+import { SettingsTab } from "@/components/settings/SettingsTab";
 
 import { OnboardingFlow } from "@/components/onboarding";
 import { NotificationPermissionPrompt } from "@/components/notifications/NotificationPermissionPrompt";
@@ -154,7 +155,7 @@ export default function Kai() {
     }
 
     // Tools that don't need client
-    const toolTabs = ["canvas", "clients", "docs"];
+    const toolTabs = ["canvas", "clients", "docs", "settings"];
     
     if (toolTabs.includes(tab)) {
       switch (tab) {
@@ -172,6 +173,8 @@ export default function Kai() {
               <KaiDocsTab />
             </div>
           );
+        case "settings":
+          return <SettingsTab />;
       }
     }
 
