@@ -172,7 +172,7 @@ export function UpgradePromptProvider({ children }: { children: ReactNode }) {
     if (reasonInfo.targetPlan === "enterprise") {
       window.open("https://enterprise.lovable.dev/", "_blank");
     } else if (slug) {
-      navigate(`/${slug}/settings?tab=billing`);
+      navigate(`/${slug}?tab=settings&section=billing`);
     } else {
       // Fallback: redirect to app which will handle workspace routing
       navigate("/app");

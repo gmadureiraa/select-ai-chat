@@ -411,9 +411,10 @@ export function KaiSidebar({
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => navigate(`/${currentSlug}/settings`)}
+            onClick={() => onTabChange("settings")}
             className={cn(
               "w-full flex items-center gap-3 justify-start text-muted-foreground hover:text-foreground",
+              activeTab === "settings" && "bg-accent text-foreground",
               collapsed && "justify-center px-2"
             )}
           >
@@ -468,7 +469,7 @@ export function KaiSidebar({
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-52">
-            <DropdownMenuItem onClick={() => navigate(`/${currentSlug}/settings`)} className="cursor-pointer">
+            <DropdownMenuItem onClick={() => onTabChange("settings")} className="cursor-pointer">
               <Settings className="h-4 w-4 mr-2" strokeWidth={1.5} />
               Configurações
             </DropdownMenuItem>

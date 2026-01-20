@@ -12,7 +12,6 @@ import { ThemeProvider } from "next-themes";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AuthOnlyRoute } from "@/components/AuthOnlyRoute";
 import { SuperAdminRoute } from "@/components/SuperAdminRoute";
-import Settings from "./pages/Settings";
 import Login from "./pages/Login";
 import SimpleSignup from "./pages/SimpleSignup";
 import CreateFirstWorkspace from "./pages/CreateFirstWorkspace";
@@ -103,7 +102,6 @@ const App = () => (
                     <Route path="/:slug" element={<WorkspaceRouter />}>
                       <Route index element={<Kai />} />
                       <Route path="docs" element={<Documentation />} />
-                      <Route path="settings" element={<Settings />} />
                     </Route>
                     
                     {/* 404 */}
