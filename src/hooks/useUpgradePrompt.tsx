@@ -137,10 +137,23 @@ const UPGRADE_REASONS: Record<UpgradeReason, {
 
 export function UpgradePromptProvider({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
-  const { slug } = useParams<{ slug: string }>();
+  const { slug: paramSlug } = useParams<{ slug: string }>();
+  const location = useLocation();
   const [isOpen, setIsOpen] = useState(false);
   const [currentReason, setCurrentReason] = useState<UpgradeReason>("custom");
   const [customMessage, setCustomMessage] = useState<string | undefined>();
+
+  // Extract slug from pathname as fallback
+  const getSlugFromPath = useCallback(() => {
+    const pathParts = location.pathname.split('/').filter(Boolean);
+    const reservedPaths = ['login', 'register', 'signup', 'admin', 'app', 'no-workspace', '404', 'create-workspace', 'help', 'create-workspace-callback'];
+    if (pathParts.length > 0 && !reservedPaths.includes(pathParts[0])) {
+      return pathParts[0];
+    }
+    return null;
+  }, [location.pathname]);
+
+  const slug = paramSlug || getSlugFromPath();
 
   const showUpgradePrompt = useCallback((reason: UpgradeReason, message?: string) => {
     setCurrentReason(reason);
@@ -157,10 +170,12 @@ export function UpgradePromptProvider({ children }: { children: ReactNode }) {
   const handleUpgrade = () => {
     setIsOpen(false);
     if (reasonInfo.targetPlan === "enterprise") {
-      // For enterprise, could open a contact form or external link
       window.open("https://enterprise.lovable.dev/", "_blank");
-    } else {
+    } else if (slug) {
       navigate(`/${slug}/settings?tab=billing`);
+    } else {
+      // Fallback: redirect to app which will handle workspace routing
+      navigate("/app");
     }
   };
 
