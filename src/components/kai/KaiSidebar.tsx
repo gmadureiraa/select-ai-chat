@@ -117,7 +117,7 @@ export function KaiSidebar({
     canViewRepurpose,
     workspace 
   } = useWorkspace();
-  const { hasPlanning, isPro } = usePlanFeatures();
+  const { hasPlanning, isPro, isCanvas, canAccessProfiles, canAccessPerformance } = usePlanFeatures();
   const { showUpgradePrompt } = useUpgradePrompt();
   const { user, signOut } = useAuth();
   const { theme, setTheme } = useTheme();
@@ -161,10 +161,12 @@ export function KaiSidebar({
         {!hasClients ? (
           <button
             onClick={() => {
-              if (canAddClient) {
+              if (isCanvas) {
+                showUpgradePrompt("profiles_locked");
+              } else if (canAddClient) {
                 setShowClientDialog(true);
               } else {
-                showUpgradePrompt(isPro ? "max_clients" : "max_clients");
+                showUpgradePrompt("max_clients");
               }
             }}
             className={cn(
@@ -242,10 +244,12 @@ export function KaiSidebar({
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 onClick={() => {
-                  if (canAddClient) {
+                  if (isCanvas) {
+                    showUpgradePrompt("profiles_locked");
+                  } else if (canAddClient) {
                     setShowClientDialog(true);
                   } else {
-                    showUpgradePrompt(isPro ? "max_clients" : "max_clients");
+                    showUpgradePrompt("max_clients");
                   }
                 }}
                 className="flex items-center gap-2 cursor-pointer"
@@ -282,14 +286,26 @@ export function KaiSidebar({
           disabled={!hasPlanning}
         />
 
-        {/* Performance */}
-        {canViewPerformance && (
+        {/* Performance - requires Pro plan */}
+        {canViewPerformance && canAccessPerformance && (
           <NavItem
             icon={<BarChart3 className="h-4 w-4" strokeWidth={1.5} />}
             label="Performance"
             active={activeTab === "performance"}
             onClick={() => onTabChange("performance")}
             collapsed={collapsed}
+          />
+        )}
+        
+        {/* Performance locked for Canvas */}
+        {canViewPerformance && !canAccessPerformance && (
+          <NavItem
+            icon={<BarChart3 className="h-4 w-4" strokeWidth={1.5} />}
+            label="Performance"
+            active={false}
+            onClick={() => showUpgradePrompt("performance_locked")}
+            collapsed={collapsed}
+            disabled={true}
           />
         )}
 
@@ -303,14 +319,26 @@ export function KaiSidebar({
         />
 
 
-        {/* Profiles */}
-        {canViewClients && (
+        {/* Profiles - requires Pro plan */}
+        {canViewClients && canAccessProfiles && (
           <NavItem
             icon={<Building2 className="h-4 w-4" strokeWidth={1.5} />}
             label="Perfis"
             active={activeTab === "clients"}
             onClick={() => onTabChange("clients")}
             collapsed={collapsed}
+          />
+        )}
+        
+        {/* Profiles locked for Canvas */}
+        {canViewClients && !canAccessProfiles && (
+          <NavItem
+            icon={<Building2 className="h-4 w-4" strokeWidth={1.5} />}
+            label="Perfis"
+            active={false}
+            onClick={() => showUpgradePrompt("profiles_locked")}
+            collapsed={collapsed}
+            disabled={true}
           />
         )}
       </nav>

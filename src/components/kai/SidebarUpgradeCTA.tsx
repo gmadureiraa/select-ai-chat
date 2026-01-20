@@ -1,4 +1,4 @@
-import { Sparkles, LayoutDashboard, BarChart3 } from "lucide-react";
+import { Sparkles, Building2, BarChart3, CalendarDays } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useNavigate, useParams } from "react-router-dom";
@@ -51,16 +51,16 @@ export function SidebarUpgradeCTA({ collapsed, planName = "Basic" }: SidebarUpgr
           {/* Benefits */}
           <div className="space-y-1.5 mb-4">
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <LayoutDashboard className="h-3.5 w-3.5 text-primary" />
-              <span>+10 clientes</span>
+              <Building2 className="h-3.5 w-3.5 text-primary" />
+              <span>Até 10 perfis</span>
             </div>
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <BarChart3 className="h-3.5 w-3.5 text-secondary" />
               <span>Performance analytics</span>
             </div>
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <Sparkles className="h-3.5 w-3.5 text-accent" />
-              <span>Publicação agendada</span>
+              <CalendarDays className="h-3.5 w-3.5 text-accent" />
+              <span>Planejamento editorial</span>
             </div>
           </div>
 

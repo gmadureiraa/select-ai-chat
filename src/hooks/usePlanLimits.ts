@@ -16,15 +16,19 @@ interface PlanLimits {
   isLoading: boolean;
   isUnlimitedClients: boolean;
   isUnlimitedMembers: boolean;
+  isCanvas: boolean;
+  isPro: boolean;
 }
 
 export function usePlanLimits(): PlanLimits {
   const { workspace, subscription } = useWorkspaceContext();
   const { clients } = useClients();
 
-  // Check if enterprise plan (unlimited profiles and members)
+  // Check plan type for permissions
   const planType = subscription?.plan?.type;
   const isEnterprise = planType === 'enterprise';
+  const isPro = planType === 'pro' || isEnterprise;
+  const isCanvas = planType === 'starter';
 
   // Fetch member count
   const { data: memberCount, isLoading: isLoadingMembers } = useQuery({
@@ -67,18 +71,23 @@ export function usePlanLimits(): PlanLimits {
   // Members includes current members + pending invites
   const totalPotentialMembers = currentMembers + currentPendingInvites;
 
+  // Canvas plan CANNOT create profiles at all
+  const canAddClient = isCanvas ? false : (isEnterprise || currentClients < maxClients);
+
   return {
     maxClients,
     maxMembers,
     currentClients,
     currentMembers,
     pendingInvites: currentPendingInvites,
-    canAddClient: isEnterprise || currentClients < maxClients,
+    canAddClient,
     canAddMember: isEnterprise || totalPotentialMembers < maxMembers,
-    clientsRemaining: isEnterprise ? Infinity : Math.max(0, maxClients - currentClients),
+    clientsRemaining: isCanvas ? 0 : (isEnterprise ? Infinity : Math.max(0, maxClients - currentClients)),
     membersRemaining: isEnterprise ? Infinity : Math.max(0, maxMembers - totalPotentialMembers),
     isLoading: isLoadingMembers || isLoadingInvites,
     isUnlimitedClients: isEnterprise,
     isUnlimitedMembers: isEnterprise,
+    isCanvas,
+    isPro,
   };
 }
