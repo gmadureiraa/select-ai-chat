@@ -1,6 +1,8 @@
 import { useGlobalKAI } from "@/hooks/useGlobalKAI";
 import { useClients } from "@/hooks/useClients";
 import { useWorkspace } from "@/hooks/useWorkspace";
+import { usePlanFeatures } from "@/hooks/usePlanFeatures";
+import { useUpgradePrompt } from "@/hooks/useUpgradePrompt";
 import { FloatingKAIButton } from "./FloatingKAIButton";
 import { GlobalKAIPanel } from "./GlobalKAIPanel";
 import { GlobalKAIChat } from "./GlobalKAIChat";
@@ -32,6 +34,8 @@ export function GlobalKAIAssistant() {
 
   const { clients: clientsData } = useClients();
   const { canUseAssistant } = useWorkspace();
+  const { canAccessKaiChat, isCanvas } = usePlanFeatures();
+  const { showUpgradePrompt } = useUpgradePrompt();
 
   // Get selected client name
   const selectedClientName = useMemo(() => {
@@ -50,55 +54,72 @@ export function GlobalKAIAssistant() {
     await sendMessage(message, files);
   }, [sendMessage]);
 
+  // Handle button click - show upgrade prompt for Canvas users
+  const handleButtonClick = useCallback(() => {
+    if (!canAccessKaiChat && isCanvas) {
+      showUpgradePrompt("kai_chat_locked");
+      return;
+    }
+    togglePanel();
+  }, [canAccessKaiChat, isCanvas, showUpgradePrompt, togglePanel]);
+
+  // Don't render the floating button if user can't use assistant at all (viewer)
+  // But DO render it for Canvas users (locked state with upgrade prompt)
+  const shouldShowButton = canUseAssistant || isCanvas;
+
   return (
     <>
-      {/* Floating button */}
-      <FloatingKAIButton
-        isOpen={isOpen}
-        onClick={togglePanel}
-        hasNotifications={false}
-        notificationCount={0}
-      />
+      {/* Floating button - show for Pro users and Canvas users (locked) */}
+      {shouldShowButton && (
+        <FloatingKAIButton
+          isOpen={isOpen}
+          onClick={handleButtonClick}
+          hasNotifications={false}
+          notificationCount={0}
+        />
+      )}
 
-      {/* Simplified slide-in panel */}
-      <GlobalKAIPanel 
-        isOpen={isOpen} 
-        onClose={closePanel}
-        selectedClientId={selectedClientId}
-        selectedClientName={selectedClientName}
-      >
-        {canUseAssistant ? (
-          <>
-            {/* Chat messages */}
-            <GlobalKAIChat
-              messages={messages}
-              isProcessing={isProcessing}
-              selectedClientId={selectedClientId}
-              selectedClientName={selectedClientName}
-              actionStatus={actionStatus}
-              currentStep={currentStep}
-              multiAgentStep={multiAgentStep}
-              onSendMessage={handleSendFromChat}
-              chatMode={chatMode}
-            />
+      {/* Simplified slide-in panel - only for Pro users */}
+      {canAccessKaiChat && (
+        <GlobalKAIPanel 
+          isOpen={isOpen} 
+          onClose={closePanel}
+          selectedClientId={selectedClientId}
+          selectedClientName={selectedClientName}
+        >
+          {canUseAssistant ? (
+            <>
+              {/* Chat messages */}
+              <GlobalKAIChat
+                messages={messages}
+                isProcessing={isProcessing}
+                selectedClientId={selectedClientId}
+                selectedClientName={selectedClientName}
+                actionStatus={actionStatus}
+                currentStep={currentStep}
+                multiAgentStep={multiAgentStep}
+                onSendMessage={handleSendFromChat}
+                chatMode={chatMode}
+              />
 
-            {/* Minimal input: just attach + text + send */}
-            <GlobalKAIInputMinimal
-              onSend={handleSend}
-              isProcessing={isProcessing}
-              attachedFiles={attachedFiles}
-              onAttachFiles={attachFiles}
-              onRemoveFile={removeFile}
-              placeholder="Pergunte qualquer coisa..."
-            />
-          </>
-        ) : (
-          <ViewerBlockedPanel onClose={closePanel} />
-        )}
-      </GlobalKAIPanel>
+              {/* Minimal input: just attach + text + send */}
+              <GlobalKAIInputMinimal
+                onSend={handleSend}
+                isProcessing={isProcessing}
+                attachedFiles={attachedFiles}
+                onAttachFiles={attachFiles}
+                onRemoveFile={removeFile}
+                placeholder="Pergunte qualquer coisa..."
+              />
+            </>
+          ) : (
+            <ViewerBlockedPanel onClose={closePanel} />
+          )}
+        </GlobalKAIPanel>
+      )}
 
       {/* Action Confirmation Dialog */}
-      {canUseAssistant && (
+      {canUseAssistant && canAccessKaiChat && (
         <ActionConfirmationDialog
           pendingAction={pendingAction}
           onConfirm={confirmAction}

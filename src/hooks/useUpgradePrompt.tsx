@@ -1,8 +1,8 @@
 import { createContext, useContext, useState, ReactNode, useCallback } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Sparkles, Building2, Users, Zap, Crown, BarChart3 } from "lucide-react";
-import { useNavigate, useParams } from "react-router-dom";
+import { Sparkles, Building2, Users, Zap, Crown, BarChart3, MessageSquare } from "lucide-react";
+import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 
 type UpgradeReason = 
@@ -15,6 +15,7 @@ type UpgradeReason =
   | "profiles_locked"
   | "performance_locked"
   | "library_locked"
+  | "kai_chat_locked"
   | "custom";
 
 interface UpgradePromptContextType {
@@ -111,6 +112,19 @@ const UPGRADE_REASONS: Record<UpgradeReason, {
       "Organização por cliente",
       "Referências visuais e textuais",
       "Favoritos e filtros avançados",
+    ],
+  },
+  kai_chat_locked: {
+    title: "kAI Chat Disponível no Pro",
+    description: "O assistente de IA conversacional está disponível no plano Pro. Faça upgrade para acessar o kAI Chat e criar conteúdo de forma mais interativa.",
+    icon: <MessageSquare className="h-5 w-5" />,
+    targetPlan: "pro",
+    benefits: [
+      "Assistente IA conversacional",
+      "Criação de conteúdo interativa",
+      "Análise de métricas por chat",
+      "Referências e citações",
+      "Histórico de conversas",
     ],
   },
   custom: {

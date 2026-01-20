@@ -7,15 +7,13 @@ import { KaiPerformanceTab } from "@/components/kai/KaiPerformanceTab";
 import { KaiLibraryTab } from "@/components/kai/KaiLibraryTab";
 import { KaiDocsTab } from "@/components/kai/KaiDocsTab";
 
-
 import { ClientsManagementTool } from "@/components/kai/tools/ClientsManagementTool";
 import { ContentCanvas } from "@/components/kai/canvas/ContentCanvas";
 import { PlanningBoard } from "@/components/planning/PlanningBoard";
 
-
 import { OnboardingFlow } from "@/components/onboarding";
 import { NotificationPermissionPrompt } from "@/components/notifications/NotificationPermissionPrompt";
-import { UpgradePromptProvider, useUpgradePrompt } from "@/hooks/useUpgradePrompt";
+import { useUpgradePrompt } from "@/hooks/useUpgradePrompt";
 import { useClients } from "@/hooks/useClients";
 import { useWorkspace } from "@/hooks/useWorkspace";
 import { usePlanFeatures } from "@/hooks/usePlanFeatures";
@@ -24,8 +22,7 @@ import { cn } from "@/lib/utils";
 import { Loader2 } from "lucide-react";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 
-// Inner component that uses the upgrade prompt hook
-function KaiContent() {
+export default function Kai() {
   const [searchParams, setSearchParams] = useSearchParams();
   const clientId = searchParams.get("client");
   const tab = searchParams.get("tab") || "home";
@@ -33,7 +30,7 @@ function KaiContent() {
   
   const { clients, isLoading: isLoadingClients } = useClients();
   const { canManageTeam, canViewPerformance, canViewClients, canViewHome, canViewRepurpose, isViewer } = useWorkspace();
-  const { isEnterprise, canAccessLibrary, canAccessPerformance, canAccessProfiles, isCanvas } = usePlanFeatures();
+  const { isEnterprise, canAccessLibrary, canAccessPerformance, canAccessProfiles, isCanvas, canAccessKaiChat } = usePlanFeatures();
   const { showUpgradePrompt } = useUpgradePrompt();
   const selectedClient = clients?.find(c => c.id === clientId);
   
@@ -288,14 +285,5 @@ function KaiContent() {
         {renderContent()}
       </main>
     </div>
-  );
-}
-
-// Main export that wraps with UpgradePromptProvider
-export default function Kai() {
-  return (
-    <UpgradePromptProvider>
-      <KaiContent />
-    </UpgradePromptProvider>
   );
 }
