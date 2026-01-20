@@ -7,6 +7,7 @@ import ReactFlow, {
   useReactFlow,
   NodeProps,
   EdgeTypes,
+  Node as RFNode,
 } from "reactflow";
 import "reactflow/dist/style.css";
 import { Sparkles, LayoutGrid, MessageSquare, Briefcase, BookOpen, RefreshCw, Image } from "lucide-react";
@@ -238,6 +239,260 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
     handleOpenPlanningDialog,
   };
 
+  // Handlers for QuickImageNode - using local state update pattern
+  const quickImageNodesRef = useRef<Map<string, QuickImageNodeData>>(new Map());
+
+  const handleQuickImageAnalyzeJson = useCallback(async (id: string, imageUrl: string) => {
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const response = await supabase.functions.invoke("analyze-image-complete", {
+        body: { imageUrl, analysisType: "full" },
+        headers: { Authorization: `Bearer ${sessionData?.session?.access_token}` },
+      });
+      if (response.data) {
+        const currentNode = nodes.find(n => n.id === id);
+        const currentAnalysis = (currentNode?.data as any)?.analysis || {};
+        onNodesChange([{
+          type: "reset",
+          item: {
+            ...currentNode!,
+            data: {
+              ...currentNode!.data,
+              analysis: { ...currentAnalysis, jsonAnalysis: response.data },
+              isProcessing: false,
+              processingType: null,
+            },
+          },
+        }] as any);
+      }
+    } catch (err) {
+      console.error("Error analyzing image:", err);
+      toast({ title: "Erro ao analisar imagem", variant: "destructive" });
+    }
+  }, [nodes, onNodesChange, toast]);
+
+  const handleQuickImageGenerateDescription = useCallback(async (id: string, imageUrl: string) => {
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const response = await supabase.functions.invoke("analyze-image-complete", {
+        body: { imageUrl, analysisType: "description" },
+        headers: { Authorization: `Bearer ${sessionData?.session?.access_token}` },
+      });
+      if (response.data?.description) {
+        const currentNode = nodes.find(n => n.id === id);
+        const currentAnalysis = (currentNode?.data as any)?.analysis || {};
+        onNodesChange([{
+          type: "reset",
+          item: {
+            ...currentNode!,
+            data: {
+              ...currentNode!.data,
+              analysis: { ...currentAnalysis, description: response.data.description },
+              isProcessing: false,
+              processingType: null,
+            },
+          },
+        }] as any);
+      }
+    } catch (err) {
+      console.error("Error generating description:", err);
+      toast({ title: "Erro ao gerar descrição", variant: "destructive" });
+    }
+  }, [nodes, onNodesChange, toast]);
+
+  const handleQuickImageExtractOcr = useCallback(async (id: string, imageUrl: string) => {
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const response = await supabase.functions.invoke("transcribe-images", {
+        body: { imageUrls: [imageUrl] },
+        headers: { Authorization: `Bearer ${sessionData?.session?.access_token}` },
+      });
+      if (response.data?.transcription) {
+        const currentNode = nodes.find(n => n.id === id);
+        const currentAnalysis = (currentNode?.data as any)?.analysis || {};
+        onNodesChange([{
+          type: "reset",
+          item: {
+            ...currentNode!,
+            data: {
+              ...currentNode!.data,
+              analysis: { ...currentAnalysis, ocrText: response.data.transcription },
+              isProcessing: false,
+              processingType: null,
+            },
+          },
+        }] as any);
+      }
+    } catch (err) {
+      console.error("Error extracting OCR:", err);
+      toast({ title: "Erro ao extrair texto", variant: "destructive" });
+    }
+  }, [nodes, onNodesChange, toast]);
+
+  const handleQuickImageConvertToAttachment = useCallback((id: string, imageUrl: string) => {
+    const node = nodes.find(n => n.id === id);
+    if (!node) return;
+    
+    // Add a new attachment node with this image
+    addNode("attachment", { x: node.position.x + 250, y: node.position.y }, {
+      type: "attachment",
+      activeTab: "image",
+      images: [{ id: crypto.randomUUID(), url: imageUrl, name: "Imagem" }],
+    } as Partial<AttachmentNodeData>);
+    
+    // Delete the quick-image node
+    deleteNode(id);
+    
+    toast({ title: "Convertido para Anexo" });
+  }, [nodes, addNode, deleteNode, toast]);
+
+  // Handle drawing strokes
+  const handleAddStroke = useCallback((stroke: DrawingStroke) => {
+    setDrawingStrokes(prev => [...prev, stroke]);
+  }, []);
+
+  const handleDeleteStroke = useCallback((id: string) => {
+    setDrawingStrokes(prev => prev.filter(s => s.id !== id));
+  }, []);
+
+  const handleClearDrawings = useCallback(() => {
+    setDrawingStrokes([]);
+    toast({ title: "Desenhos limpos" });
+  }, [toast]);
+
+  // Add whiteboard node at position
+  const addWhiteboardNode = useCallback((type: "text" | "sticky" | "shape" | "quick-image", position: { x: number; y: number }, extraData?: any) => {
+    const nodeId = `${type}-${Date.now()}`;
+    const defaultData: Record<string, any> = {
+      text: { type: "text", content: "Clique para editar", fontSize: 16, fontWeight: "normal", textAlign: "left", color: "#1f2937" },
+      sticky: { type: "sticky", content: "Nova nota", color: selectedStickyColor, size: "medium" },
+      shape: { type: "shape", shapeType: selectedShape, fill: "#ffffff", stroke: "#3b82f6", strokeWidth: 2 },
+      "quick-image": { type: "quick-image", imageUrl: extraData?.imageUrl || "", caption: "" },
+    };
+    
+    const newNode: RFNode = {
+      id: nodeId,
+      type,
+      position,
+      data: { ...defaultData[type], ...extraData },
+    };
+    
+    onNodesChange([{ type: "add", item: newNode }] as any);
+  }, [selectedStickyColor, selectedShape, onNodesChange]);
+
+  // Handle context menu actions
+  const handleContextMenuAction = useCallback((action: string) => {
+    if (!contextMenuPosition) return;
+    
+    const viewport = getViewport();
+    const position = {
+      x: (contextMenuPosition.x - viewport.x) / viewport.zoom,
+      y: (contextMenuPosition.y - viewport.y) / viewport.zoom,
+    };
+    
+    switch (action) {
+      case "add-text":
+        addWhiteboardNode("text", position);
+        break;
+      case "add-sticky":
+        addWhiteboardNode("sticky", position);
+        break;
+      case "add-shape":
+        addWhiteboardNode("shape", position);
+        break;
+      case "add-attachment":
+        addNode("attachment", position);
+        break;
+      case "add-generator":
+        addNode("generator", position);
+        break;
+      case "clear-drawings":
+        setDrawingStrokes([]);
+        toast({ title: "Desenhos limpos" });
+        break;
+    }
+    
+    setContextMenuPosition(null);
+  }, [contextMenuPosition, getViewport, addWhiteboardNode, addNode, toast]);
+
+  // Handle right-click context menu
+  const handleContextMenu = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    const bounds = reactFlowWrapper.current?.getBoundingClientRect();
+    if (!bounds) return;
+    setContextMenuPosition({
+      x: e.clientX - bounds.left,
+      y: e.clientY - bounds.top,
+    });
+  }, []);
+
+  // Handle paste (Ctrl+V) for images
+  useEffect(() => {
+    const handlePaste = async (e: ClipboardEvent) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+
+      for (const item of items) {
+        if (item.type.startsWith("image/")) {
+          e.preventDefault();
+          const file = item.getAsFile();
+          if (!file) continue;
+
+          try {
+            // Get user session for upload
+            const { data: sessionData } = await supabase.auth.getSession();
+            if (!sessionData?.session?.user?.id) {
+              toast({ title: "Faça login para colar imagens", variant: "destructive" });
+              return;
+            }
+
+            // Upload to storage
+            const fileName = `quick-image-${Date.now()}.${file.type.split('/')[1] || 'png'}`;
+            const filePath = `${clientId}/${fileName}`;
+            
+            const { error: uploadError } = await supabase.storage
+              .from("client-files")
+              .upload(filePath, file);
+
+            if (uploadError) throw uploadError;
+
+            // Get public URL
+            const { data: urlData } = supabase.storage
+              .from("client-files")
+              .getPublicUrl(filePath);
+
+            // Add quick-image node at center of viewport
+            const viewport = getViewport();
+            const position = {
+              x: (window.innerWidth / 2 - viewport.x) / viewport.zoom,
+              y: (window.innerHeight / 2 - viewport.y) / viewport.zoom,
+            };
+
+            addWhiteboardNode("quick-image", position, { imageUrl: urlData.publicUrl });
+
+            toast({
+              title: "Imagem colada",
+              description: "Use os botões para analisar ou converter em anexo",
+            });
+          } catch (err) {
+            console.error("Error pasting image:", err);
+            toast({ title: "Erro ao colar imagem", variant: "destructive" });
+          }
+          break;
+        }
+      }
+    };
+
+    document.addEventListener("paste", handlePaste);
+    return () => document.removeEventListener("paste", handlePaste);
+  }, [clientId, getViewport, addWhiteboardNode, toast]);
+
+  // Track viewport for drawing layer
+  const handleMoveEnd = useCallback(() => {
+    const vp = getViewport();
+    setCanvasViewport({ x: vp.x, y: vp.y, zoom: vp.zoom });
+  }, [getViewport]);
+
   // Create nodeTypes only once - handlers are accessed via ref
   const nodeTypes = useMemo(
     () => ({
@@ -275,12 +530,10 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
           onSendToPlanning={(id) => handlersRef.current?.handleOpenPlanningDialog(id)}
           onRegenerate={(id) => handlersRef.current?.regenerateContent(id)}
           onCreateRemix={(id) => {
-            // Create a new generator node connected to this output for remixing
             const node = props;
             if (node.xPos !== undefined && node.yPos !== undefined) {
               const newGenId = handlersRef.current?.updateNodeData ? 
                 (() => {
-                  // This will be handled by the remix logic in useCanvasState
                   console.log('Remix requested for output:', id);
                 })() : undefined;
             }
@@ -308,8 +561,41 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
           onTranscribeImage={(id, imageId, imageUrl) => handlersRef.current?.transcribeImageSourceImage(id, imageId, imageUrl)}
         />
       ),
+      // Whiteboard nodes
+      text: (props: NodeProps<TextNodeData>) => (
+        <TextNode
+          {...props}
+          onUpdateData={(id, data) => handlersRef.current?.updateNodeData(id, data as any)}
+          onDelete={(id) => handlersRef.current?.deleteNode(id)}
+        />
+      ),
+      sticky: (props: NodeProps<StickyNodeData>) => (
+        <StickyNode
+          {...props}
+          onUpdateData={(id, data) => handlersRef.current?.updateNodeData(id, data as any)}
+          onDelete={(id) => handlersRef.current?.deleteNode(id)}
+        />
+      ),
+      shape: (props: NodeProps<ShapeNodeData>) => (
+        <ShapeNode
+          {...props}
+          onUpdateData={(id, data) => handlersRef.current?.updateNodeData(id, data as any)}
+          onDelete={(id) => handlersRef.current?.deleteNode(id)}
+        />
+      ),
+      "quick-image": (props: NodeProps<QuickImageNodeData>) => (
+        <QuickImageNode
+          {...props}
+          onUpdateData={(id, data) => handlersRef.current?.updateNodeData(id, data as any)}
+          onDelete={(id) => handlersRef.current?.deleteNode(id)}
+          onAnalyzeJson={handleQuickImageAnalyzeJson}
+          onGenerateDescription={handleQuickImageGenerateDescription}
+          onExtractOcr={handleQuickImageExtractOcr}
+          onConvertToAttachment={handleQuickImageConvertToAttachment}
+        />
+      ),
     }),
-    []
+    [handleQuickImageAnalyzeJson, handleQuickImageGenerateDescription, handleQuickImageExtractOcr, handleQuickImageConvertToAttachment]
   );
 
   // Edge types with animated edges for generation
@@ -482,6 +768,7 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
       className="w-full h-full relative"
       onDrop={handleDrop}
       onDragOver={handleDragOver}
+      onContextMenu={handleContextMenu}
     >
       {/* Client Header */}
       <div className="absolute top-0 left-0 right-0 z-10 bg-background/80 backdrop-blur-sm border-b px-4 py-2 flex items-center gap-3">
@@ -497,12 +784,29 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
         </div>
       </div>
 
+      {/* Side Toolbar */}
+      <CanvasSideToolbar
+        activeTool={activeTool}
+        onToolChange={setActiveTool}
+        brushColor={brushColor}
+        brushSize={brushSize}
+        onBrushColorChange={setBrushColor}
+        onBrushSizeChange={setBrushSize}
+        selectedShape={selectedShape}
+        onShapeChange={setSelectedShape}
+        selectedStickyColor={selectedStickyColor}
+        onStickyColorChange={setSelectedStickyColor}
+        onAddAINode={handleAddNode}
+        onClearDrawings={handleClearDrawings}
+      />
+
       <ReactFlow
         nodes={nodes}
         edges={edges}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
+        onMoveEnd={handleMoveEnd}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
         fitView
@@ -514,6 +818,66 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
         }}
         proOptions={{ hideAttribution: true }}
         className="bg-muted/30 pt-12"
+        panOnDrag={activeTool === "cursor"}
+        selectionOnDrag={activeTool === "cursor"}
+        nodesDraggable={activeTool === "cursor"}
+        onClick={(e) => {
+          // Close context menu on click
+          if (contextMenuPosition) {
+            setContextMenuPosition(null);
+          }
+          // Add node based on active tool
+          if (activeTool !== "cursor" && activeTool !== "pencil" && activeTool !== "eraser") {
+            const bounds = reactFlowWrapper.current?.getBoundingClientRect();
+            if (!bounds) return;
+            const viewport = getViewport();
+            const position = {
+              x: (e.clientX - bounds.left - viewport.x) / viewport.zoom,
+              y: (e.clientY - bounds.top - viewport.y) / viewport.zoom,
+            };
+            
+            if (activeTool === "text") {
+              addWhiteboardNode("text", position);
+              setActiveTool("cursor");
+            } else if (activeTool === "sticky") {
+              addWhiteboardNode("sticky", position);
+              setActiveTool("cursor");
+            } else if (activeTool === "shape") {
+              addWhiteboardNode("shape", position);
+              setActiveTool("cursor");
+            } else if (activeTool === "image") {
+              // Trigger file input for image
+              const input = document.createElement("input");
+              input.type = "file";
+              input.accept = "image/*";
+              input.onchange = async (ev) => {
+                const file = (ev.target as HTMLInputElement).files?.[0];
+                if (!file) return;
+                try {
+                  const fileName = `quick-image-${Date.now()}.${file.type.split('/')[1] || 'png'}`;
+                  const filePath = `${clientId}/${fileName}`;
+                  
+                  const { error: uploadError } = await supabase.storage
+                    .from("client-files")
+                    .upload(filePath, file);
+
+                  if (uploadError) throw uploadError;
+
+                  const { data: urlData } = supabase.storage
+                    .from("client-files")
+                    .getPublicUrl(filePath);
+
+                  addWhiteboardNode("quick-image", position, { imageUrl: urlData.publicUrl });
+                  setActiveTool("cursor");
+                } catch (err) {
+                  console.error("Error uploading image:", err);
+                  toast({ title: "Erro ao fazer upload", variant: "destructive" });
+                }
+              };
+              input.click();
+            }
+          }
+        }}
       >
         <Background gap={20} size={1} className="bg-muted/50" />
         <Controls className="bg-background border shadow-lg rounded-lg" showInteractive={false} />
@@ -522,7 +886,6 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
           nodeColor={(node) => {
             switch (node.type) {
               case "source":
-                return "#3b82f6";
               case "attachment":
                 return "#3b82f6";
               case "prompt":
@@ -532,14 +895,43 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
               case "output":
                 return "#ec4899";
               case "image-source":
+              case "quick-image":
                 return "#06b6d4";
+              case "sticky":
+                return "#fbbf24";
+              case "text":
+                return "#6b7280";
+              case "shape":
+                return "#8b5cf6";
               default:
                 return "#888";
             }
           }}
           maskColor="rgba(0, 0, 0, 0.1)"
         />
+
+        {/* Drawing Layer */}
+        <DrawingLayer
+          strokes={drawingStrokes}
+          isDrawing={activeTool === "pencil"}
+          isErasing={activeTool === "eraser"}
+          brushColor={brushColor}
+          brushSize={brushSize}
+          viewport={canvasViewport}
+          onAddStroke={handleAddStroke}
+          onDeleteStroke={handleDeleteStroke}
+        />
       </ReactFlow>
+
+      {/* Context Menu */}
+      {contextMenuPosition && (
+        <CanvasContextMenu
+          position={contextMenuPosition}
+          onAction={handleContextMenuAction}
+          onClose={() => setContextMenuPosition(null)}
+          hasDrawings={drawingStrokes.length > 0}
+        />
+      )}
 
       <CanvasToolbar
         onAddNode={handleAddNode}
