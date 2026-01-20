@@ -100,6 +100,7 @@ export function GlobalKAIAssistant() {
                 multiAgentStep={multiAgentStep}
                 onSendMessage={handleSendFromChat}
                 chatMode={chatMode}
+                onSuggestionClick={handleSendFromChat}
               />
 
               {/* Minimal input: just attach + text + send */}
