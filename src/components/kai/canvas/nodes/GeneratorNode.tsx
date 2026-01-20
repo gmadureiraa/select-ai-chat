@@ -9,6 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { GeneratorNodeData, ContentFormat, Platform } from "../hooks/useCanvasState";
 import { contentFormats } from "@/components/chat/FormatItem";
@@ -51,6 +52,7 @@ const IMAGE_STYLE_OPTIONS = [
   { value: "3d", label: "3D Render" },
   { value: "minimalist", label: "Minimalista" },
   { value: "artistic", label: "Artístico" },
+  { value: "match_reference", label: "Igual à Referência" },
 ];
 
 const IMAGE_TYPE_OPTIONS = [
@@ -200,51 +202,43 @@ function GeneratorNodeComponent({
         {/* Image-specific options */}
         {data.format === "image" && (
           <>
-            {/* Image Type (Thumbnail, Social, etc) */}
+            {/* IMAGE PROMPT - Critical field for describing what to generate */}
             <div className="space-y-1.5">
               <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
-                Tipo de Imagem
+                O que gerar
               </label>
-              <Select
-                value={(data as any).imageType || "general"}
-                onValueChange={(value) => {
-                  const updates: any = { imageType: value };
-                  // Auto-set aspect ratio for thumbnails
-                  if (value === "thumbnail") {
-                    updates.aspectRatio = "16:9";
-                  }
-                  onUpdateData?.(id, updates);
-                }}
+              <Textarea
+                value={(data as any).imagePrompt || ""}
+                onChange={(e) => onUpdateData?.(id, { imagePrompt: e.target.value } as any)}
+                placeholder="Descreva a imagem que você quer criar... Ex: Uma pessoa dando o primeiro passo em direção a um novo começo"
+                className="text-xs min-h-[60px] resize-none nodrag"
                 disabled={data.isGenerating}
-              >
-                <SelectTrigger className="h-8 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {IMAGE_TYPE_OPTIONS.map((option) => (
-                    <SelectItem key={option.value} value={option.value} className="text-xs">
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              />
+              <p className="text-[10px] text-muted-foreground">
+                A imagem será gerada no estilo da referência conectada
+              </p>
             </div>
-            
+
             <div className="grid grid-cols-2 gap-2">
+              {/* Image Type */}
               <div className="space-y-1.5">
                 <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
-                  Estilo Visual
+                  Tipo
                 </label>
                 <Select
-                  value={data.imageStyle || "photographic"}
-                  onValueChange={(value) => onUpdateData?.(id, { imageStyle: value })}
+                  value={(data as any).imageType || "general"}
+                  onValueChange={(value) => {
+                    const updates: any = { imageType: value };
+                    if (value === "thumbnail") updates.aspectRatio = "16:9";
+                    onUpdateData?.(id, updates);
+                  }}
                   disabled={data.isGenerating}
                 >
                   <SelectTrigger className="h-8 text-xs">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {IMAGE_STYLE_OPTIONS.map((option) => (
+                    {IMAGE_TYPE_OPTIONS.map((option) => (
                       <SelectItem key={option.value} value={option.value} className="text-xs">
                         {option.label}
                       </SelectItem>
@@ -253,6 +247,7 @@ function GeneratorNodeComponent({
                 </Select>
               </div>
 
+              {/* Aspect Ratio */}
               <div className="space-y-1.5">
                 <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
                   Proporção
@@ -274,6 +269,29 @@ function GeneratorNodeComponent({
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+            
+            {/* Visual Style */}
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+                Estilo Visual
+              </label>
+              <Select
+                value={data.imageStyle || "match_reference"}
+                onValueChange={(value) => onUpdateData?.(id, { imageStyle: value })}
+                disabled={data.isGenerating}
+              >
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {IMAGE_STYLE_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value} className="text-xs">
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="flex flex-col gap-1.5">

@@ -401,30 +401,44 @@ serve(async (req) => {
     }
     
     // CRITICAL: If we have a complete styleAnalysis with generation_prompt, use it directly
-    if (styleAnalysis && styleAnalysis.generation_prompt) {
-      enhancedPrompt = `=== INSTRUÇÃO CRÍTICA DE ESTILO ===
-Você DEVE recriar EXATAMENTE o estilo visual descrito abaixo. Este é o estilo que a imagem gerada DEVE seguir:
+    if (styleAnalysis && (styleAnalysis.generation_prompt || styleAnalysis.style)) {
+      // Extract structured data from styleAnalysis for maximum fidelity
+      const dominantColors = styleAnalysis.color_palette?.dominant_colors?.join(', ') || 'paleta similar à referência';
+      const artStyle = styleAnalysis.style?.art_style || styleAnalysis.style?.photography_style || '';
+      const visualTreatment = styleAnalysis.style?.visual_treatment || styleAnalysis.style?.illustration_technique || '';
+      const lightingType = styleAnalysis.lighting?.type || '';
+      const lightingQuality = styleAnalysis.lighting?.quality || styleAnalysis.lighting?.intensity || '';
+      const composition = styleAnalysis.composition?.layout || '';
+      const focalPoint = styleAnalysis.composition?.focal_point || 'sujeito principal';
+      const primaryMood = styleAnalysis.mood_atmosphere?.overall_mood || styleAnalysis.mood_atmosphere?.primary_mood || 'consistente com referência';
+      const emotionalTone = styleAnalysis.mood_atmosphere?.emotional_tone || '';
+      const generationPrompt = styleAnalysis.generation_prompt || '';
 
-${styleAnalysis.generation_prompt}
+      enhancedPrompt = `=== REPLICAÇÃO DE ESTILO - INSTRUÇÃO ABSOLUTA ===
 
-=== CORES OBRIGATÓRIAS ===
-${styleAnalysis.color_palette?.dominant_colors?.join(', ') || 'Manter paleta similar'}
+Você recebeu uma ou mais imagens de REFERÊNCIA VISUAL. Sua missão é criar uma imagem NOVA que pareça ter sido feita pelo EXATO MESMO artista/fotógrafo/designer.
 
-=== ESTILO VISUAL ===
-${styleAnalysis.style?.art_style || ''} ${styleAnalysis.style?.photography_style || ''} ${styleAnalysis.style?.illustration_technique || ''}
+=== ESTILO A COPIAR (OBRIGATÓRIO) ===
+• Tipo: ${artStyle} ${visualTreatment}
+• Iluminação: ${lightingType} ${lightingQuality}
+• Paleta de cores: ${dominantColors}
+• Composição: ${composition}, foco em: ${focalPoint}
+• Mood/Atmosfera: ${primaryMood}, ${emotionalTone}
 
-=== COMPOSIÇÃO ===
-${styleAnalysis.composition?.layout || ''}, foco em: ${styleAnalysis.composition?.focal_point || 'sujeito principal'}
-
-=== ATMOSFERA ===
-Mood: ${styleAnalysis.mood_atmosphere?.overall_mood || 'neutro'}, Tom: ${styleAnalysis.mood_atmosphere?.emotional_tone || 'balanceado'}
+=== PROMPT DA REFERÊNCIA ===
+${generationPrompt}
 
 === O QUE CRIAR (MANTENDO O ESTILO ACIMA) ===
 ${prompt}
 
-RESULTADO ESPERADO: Uma imagem que pareça ter sido criada pelo MESMO ARTISTA/DESIGNER da referência original.`;
+=== REGRA CRÍTICA ===
+A imagem gerada deve ser VISUALMENTE INDISTINGUÍVEL em estilo da referência fornecida.
+Mesmas cores. Mesma iluminação. Mesmo mood. Mesma técnica.
+A única diferença é o TEMA/CONTEÚDO que muda conforme o prompt acima.
+
+RESULTADO ESPERADO: Uma imagem sobre "${prompt}" que pareça ser da MESMA SÉRIE/COLEÇÃO da referência.`;
       
-      console.log('[generate-image] Using complete styleAnalysis with generation_prompt');
+      console.log('[generate-image] Using ENHANCED styleAnalysis with structured extraction');
     } else if (styleAnalysis) {
       const styleSummary = styleAnalysis.style_summary || '';
       const promptTemplate = styleAnalysis.generation_prompt_template || '';
@@ -488,22 +502,29 @@ RESULTADO: Uma imagem onde a MESMA PESSOA das referências aparece em um novo co
 
       console.log('[generate-image] Using PRESERVE PERSON mode with', processedImageCount, 'references');
     } else if (processedImageCount > 0) {
-      // CRITICAL: When we have reference images, use style transfer prompt format
-      // Per Gemini docs: "Transform the provided photograph into the artistic style of [reference]"
+      // CRITICAL: When we have reference images without structured analysis
+      // Use an aggressive style transfer prompt format
       const refDescriptions = allRefs.filter(r => r.description).map(r => r.description).join(", ");
       
       enhancedPrompt = `${formatContext}
-=== TRANSFERÊNCIA DE ESTILO - INSTRUÇÃO CRÍTICA ===
+=== REPLICAÇÃO DE ESTILO VISUAL - INSTRUÇÃO CRÍTICA ===
 
-Você recebeu ${processedImageCount} imagens de referência visual. Sua tarefa é criar uma NOVA imagem sobre o tema "${prompt}" que pareça ter sido feita pelo MESMO DESIGNER/ARTISTA das referências.
+Você recebeu ${processedImageCount} imagem(ns) de REFERÊNCIA VISUAL. Sua tarefa é criar uma imagem NOVA sobre o tema abaixo que pareça ter sido feita pelo MESMO DESIGNER/ARTISTA das referências.
 
-ANALISE AS REFERÊNCIAS E REPLIQUE EXATAMENTE:
-1. PALETA DE CORES: Use exatamente as mesmas cores dominantes (observe tons, saturação, contraste)
-2. ESTILO GRÁFICO: Copie o estilo de ilustração/fotografia (halftone, flat design, neon, etc.)
-3. TEXTURAS E EFEITOS: Reproduza efeitos visuais (gradientes, sombras, brilhos, ruído)
-4. TIPOGRAFIA: Se houver texto nas refs, use estilo similar (bold, serifada, etc.)
-5. COMPOSIÇÃO: Mantenha padrões de layout e hierarquia visual
-6. ATMOSFERA: Preserve o mood e a energia visual das referências
+=== ANÁLISE OBRIGATÓRIA DAS REFERÊNCIAS ===
+Antes de gerar, ANALISE cada referência e extraia:
+1. PALETA DE CORES: Identifique as cores exatas (tons, saturação, temperatura)
+2. ESTILO GRÁFICO: Identifique se é fotografia, ilustração, 3D, collage, etc.
+3. TEXTURAS/EFEITOS: Observe gradientes, sombras, brilhos, ruído, grain
+4. ILUMINAÇÃO: Tipo de luz, direção, intensidade, mood
+5. COMPOSIÇÃO: Layout, hierarquia visual, espaço negativo
+
+=== REGRAS DE REPLICAÇÃO ===
+• Use EXATAMENTE as mesmas cores dominantes das referências
+• Replique o MESMO estilo de tratamento visual
+• Mantenha a MESMA atmosfera e energia visual
+• Copie a técnica de iluminação e sombras
+• Siga padrões similares de composição
 
 ${brandContext ? `=== IDENTIDADE DA MARCA ===\n${brandContext}\n` : ''}
 ${refDescriptions ? `CONTEXTO DAS REFERÊNCIAS: ${refDescriptions}\n` : ''}
@@ -511,9 +532,11 @@ ${refDescriptions ? `CONTEXTO DAS REFERÊNCIAS: ${refDescriptions}\n` : ''}
 === CONTEÚDO A CRIAR ===
 ${prompt}
 
-RESULTADO: Uma imagem NOVA sobre "${prompt}" que seja VISUALMENTE CONSISTENTE com o estilo das referências. Quem vir a imagem deve acreditar que foi feita pelo mesmo designer.`;
+=== RESULTADO ESPERADO ===
+Uma imagem NOVA sobre "${prompt}" que seja VISUALMENTE INDISTINGUÍVEL em estilo das referências.
+Quem vir a imagem deve acreditar que foi feita pelo MESMO designer/artista das referências fornecidas.`;
 
-      console.log('[generate-image] Using style transfer prompt with', processedImageCount, 'references + format instructions');
+      console.log('[generate-image] Using ENHANCED style transfer prompt with', processedImageCount, 'references');
     } else if (formatContext || brandContext) {
       // Format and/or brand assets, no reference images
       const context = [formatContext, brandContext].filter(Boolean).join("\n\n");

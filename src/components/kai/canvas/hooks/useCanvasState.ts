@@ -211,6 +211,9 @@ export interface GeneratorNodeData {
   imageStyle?: string;
   aspectRatio?: string;
   noTextInImage?: boolean;
+  imagePrompt?: string; // What to generate - user describes the image they want
+  imageType?: string; // thumbnail, social_post, banner, etc.
+  preservePerson?: boolean; // Maintain person's appearance from reference
 }
 
 export interface ContentVersion {
@@ -1327,7 +1330,7 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
     updateNodeData(generatorNodeId, { 
       isGenerating: true, 
       progress: 0,
-      currentStep: genData.format === "image" ? "Gerando imagem..." : "Pesquisando..." 
+      currentStep: genData.format === "image" ? "Preparando..." : "Pesquisando..." 
     } as Partial<GeneratorNodeData>);
 
     try {
@@ -1339,6 +1342,63 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
 
       // Check if generating image
       if (genData.format === "image") {
+        // ========== AUTO-ANALYZE CONNECTED IMAGES ==========
+        // Find all images from connected attachment nodes that need analysis
+        const imagesToAnalyze: Array<{ nodeId: string; imageId: string; url: string }> = [];
+        
+        for (const inputNode of inputNodes) {
+          if (inputNode.data.type === "attachment") {
+            const attachData = inputNode.data as AttachmentNodeData;
+            if (attachData.images && attachData.images.length > 0) {
+              for (const img of attachData.images) {
+                // Check if this image lacks complete analysis
+                if (img.url && !img.metadata?.imageAnalysis) {
+                  imagesToAnalyze.push({
+                    nodeId: inputNode.id,
+                    imageId: img.id,
+                    url: img.url
+                  });
+                }
+              }
+            }
+          }
+        }
+
+        // Auto-analyze images that don't have analysis
+        if (imagesToAnalyze.length > 0) {
+          console.log(`[generateContent] Auto-analyzing ${imagesToAnalyze.length} images before generation`);
+          
+          updateNodeData(generatorNodeId, { 
+            currentStep: `Analisando ${imagesToAnalyze.length} referência(s)...`,
+            progress: 10
+          } as Partial<GeneratorNodeData>);
+
+          // Analyze each image (sequentially to avoid overwhelming the API)
+          for (let i = 0; i < imagesToAnalyze.length; i++) {
+            const { nodeId, imageId, url } = imagesToAnalyze[i];
+            
+            updateNodeData(generatorNodeId, { 
+              currentStep: `Analisando referência ${i + 1}/${imagesToAnalyze.length}...`,
+              progress: 10 + Math.round((i / imagesToAnalyze.length) * 30)
+            } as Partial<GeneratorNodeData>);
+
+            try {
+              await analyzeImageSourceImage(nodeId, imageId, url);
+            } catch (e) {
+              console.warn(`[generateContent] Failed to auto-analyze image ${imageId}:`, e);
+              // Continue with generation even if analysis fails
+            }
+          }
+        }
+
+        // Re-read nodes to get updated analysis data
+        const updatedInputNodes = getConnectedInputs(generatorNodeId);
+
+        updateNodeData(generatorNodeId, { 
+          currentStep: "Gerando imagem...",
+          progress: 50
+        } as Partial<GeneratorNodeData>);
+
         // Get visual references from client
         const { data: visualRefs } = await supabase
           .from('client_visual_references')
@@ -1350,10 +1410,13 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
         const visualRefUrls = (visualRefs || []).map(r => r.image_url);
         const allImageRefs = [...imageReferences, ...visualRefUrls];
 
-        // Build image generation prompt
-        let imagePrompt = briefing || `Crie uma imagem baseada em: ${combinedContext.substring(0, 500)}`;
+        // Build image generation prompt - USE imagePrompt from generator if available
+        const userImagePrompt = genData.imagePrompt?.trim();
+        let imagePrompt = userImagePrompt 
+          ? userImagePrompt 
+          : (briefing || `Crie uma imagem baseada em: ${combinedContext.substring(0, 500)}`);
         
-        if (styleContext.length > 0) {
+        if (styleContext.length > 0 && !userImagePrompt) {
           imagePrompt += `\n\nEstilo de referência: ${styleContext.join(", ")}`;
         }
         
@@ -1361,9 +1424,9 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
           imagePrompt += "\n\nIMPORTANTE: A imagem não deve conter texto.";
         }
 
-        // Collect complete styleAnalysis from analyzed images (source nodes, image-source nodes, AND attachment nodes)
+        // Collect complete styleAnalysis from analyzed images (use updated nodes)
         let collectedStyleAnalysis = null;
-        for (const inputNode of inputNodes) {
+        for (const inputNode of updatedInputNodes) {
           if (inputNode.data.type === "source") {
             const srcData = inputNode.data as SourceNodeData;
             for (const f of srcData.files || []) {
@@ -1383,7 +1446,7 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
             }
             if (collectedStyleAnalysis) break;
           } else if (inputNode.data.type === "attachment") {
-            // NEW: Also check attachment nodes for imageAnalysis
+            // Check attachment nodes for imageAnalysis
             const attachData = inputNode.data as AttachmentNodeData;
             for (const img of attachData.images || []) {
               if (img.metadata?.imageAnalysis) {
