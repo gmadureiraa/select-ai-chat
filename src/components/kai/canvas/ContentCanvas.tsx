@@ -23,6 +23,7 @@ import {
   AttachmentNodeData,
 } from "./hooks/useCanvasState";
 import { CanvasToolbar } from "./CanvasToolbar";
+import { CanvasSideToolbar, ToolType, ShapeType } from "./CanvasSideToolbar";
 import { CanvasLibraryDrawer } from "./CanvasLibraryDrawer";
 import { SourceNode } from "./nodes/SourceNode";
 import { PromptNode } from "./nodes/PromptNode";
@@ -30,6 +31,12 @@ import { GeneratorNode } from "./nodes/GeneratorNode";
 import { ContentOutputNode } from "./nodes/ContentOutputNode";
 import { ImageSourceNode } from "./nodes/ImageSourceNode";
 import { AttachmentNode } from "./nodes/AttachmentNode";
+import { TextNode, TextNodeData } from "./nodes/TextNode";
+import { StickyNode, StickyNodeData } from "./nodes/StickyNode";
+import { ShapeNode, ShapeNodeData } from "./nodes/ShapeNode";
+import { QuickImageNode, QuickImageNodeData } from "./nodes/QuickImageNode";
+import { DrawingLayer, DrawingStroke } from "./components/DrawingLayer";
+import { CanvasContextMenu } from "./components/CanvasContextMenu";
 import { PlanningItemDialog } from "@/components/planning/PlanningItemDialog";
 import { usePlanningItems } from "@/hooks/usePlanningItems";
 import { useQuery } from "@tanstack/react-query";
@@ -40,6 +47,7 @@ import { ContentTypeKey } from "@/types/contentTypes";
 import { ReferenceItem } from "@/hooks/useReferenceLibrary";
 import { ClientVisualReference } from "@/hooks/useClientVisualReferences";
 import type { UnifiedContentItem } from "@/hooks/useUnifiedContent";
+import { useCanvasShortcuts } from "./hooks/useCanvasShortcuts";
 
 interface ContentCanvasProps {
   clientId: string;
@@ -56,7 +64,7 @@ const FORMAT_TO_CONTENT_TYPE: Record<ContentFormat, ContentTypeKey> = {
   image: "static_image",
 };
 
-// Component version: 3 - Updated architecture
+// Component version: 4 - Whiteboard features
 function ContentCanvasInner({ clientId }: ContentCanvasProps) {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const { zoomIn, zoomOut, fitView, getViewport, project } = useReactFlow();
@@ -69,6 +77,23 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
 
   // Library drawer state
   const [libraryDrawerOpen, setLibraryDrawerOpen] = useState(false);
+
+  // Whiteboard state
+  const [activeTool, setActiveTool] = useState<ToolType>("cursor");
+  const [brushColor, setBrushColor] = useState("#ef4444");
+  const [brushSize, setBrushSize] = useState(4);
+  const [selectedShape, setSelectedShape] = useState<ShapeType>("rectangle");
+  const [selectedStickyColor, setSelectedStickyColor] = useState("#fef08a");
+  const [drawingStrokes, setDrawingStrokes] = useState<DrawingStroke[]>([]);
+  const [contextMenuPosition, setContextMenuPosition] = useState<{ x: number; y: number } | null>(null);
+  const [canvasViewport, setCanvasViewport] = useState({ x: 0, y: 0, zoom: 1 });
+
+  // Keyboard shortcuts
+  useCanvasShortcuts({
+    activeTool,
+    setActiveTool,
+    disabled: false,
+  });
 
   const { columns, createItem } = usePlanningItems({ clientId });
 
