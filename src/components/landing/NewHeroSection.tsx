@@ -1,8 +1,9 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Sparkles, Play, Paperclip, Instagram, Twitter, Linkedin, FileText, Headphones, Link2, Type, Image as ImageIcon, MousePointer2, StickyNote, Loader2, Copy, Check, Youtube } from "lucide-react";
+import { ArrowRight, Sparkles, Play, Paperclip, Instagram, Twitter, Linkedin, FileText, Headphones, Link2, Type, Image as ImageIcon, MousePointer2, StickyNote, Loader2, Copy, Check, Youtube, Mail } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
+import { cn } from "@/lib/utils";
 
 // Floating particles - subtle background effect
 const FloatingParticles = () => {
@@ -89,89 +90,137 @@ const FloatingParticles = () => {
   );
 };
 
-// Real Canvas Demo - Identical to the actual product
+// Scenario configurations
+const scenarios = [
+  {
+    id: 'youtube-carousel',
+    attachment: {
+      type: 'url',
+      icon: Youtube,
+      iconColor: 'text-red-500',
+      label: 'youtube.com/watch?v=...',
+      extraction: { title: 'Como criar conteúdo viral...', duration: '12:34', views: '45K' }
+    },
+    generator: { format: 'Carrossel', platform: 'instagram', platformIcon: Instagram, platformColor: 'text-pink-500' },
+    result: {
+      type: 'carousel',
+      badge: 'Carrossel',
+      badgeIcon: ImageIcon,
+      slides: ['O que é marketing de...', 'Como funciona na...', 'Estratégias para...', 'Resultados esperados']
+    }
+  },
+  {
+    id: 'image-generation',
+    attachment: {
+      type: 'image+text',
+      icon: ImageIcon,
+      iconColor: 'text-purple-500',
+      label: 'referencia_visual.jpg',
+      briefing: 'Crie uma imagem minimalista com tons pastéis...'
+    },
+    generator: { format: 'Imagem', platform: null, platformIcon: null, platformColor: '' },
+    result: {
+      type: 'image',
+      badge: 'Imagem',
+      badgeIcon: ImageIcon,
+      gradient: 'from-purple-500/30 via-pink-500/20 to-orange-500/30'
+    }
+  },
+  {
+    id: 'pdf-thread',
+    attachment: {
+      type: 'pdf',
+      icon: FileText,
+      iconColor: 'text-orange-500',
+      label: 'relatorio_2024.pdf',
+      extraction: { pages: '24 páginas', size: '2.4 MB' }
+    },
+    generator: { format: 'Thread', platform: 'twitter', platformIcon: Twitter, platformColor: 'text-sky-500' },
+    result: {
+      type: 'thread',
+      badge: 'Thread',
+      badgeIcon: Twitter,
+      tweets: ['1/5 Principais insights do...', '2/5 O mercado mostrou...', '3/5 Tendências para 2025...']
+    }
+  },
+  {
+    id: 'audio-newsletter',
+    attachment: {
+      type: 'audio',
+      icon: Headphones,
+      iconColor: 'text-cyan-500',
+      label: 'podcast_ep42.mp3',
+      extraction: { duration: '45:22', format: 'MP3' }
+    },
+    generator: { format: 'Newsletter', platform: 'email', platformIcon: Mail, platformColor: 'text-blue-500' },
+    result: {
+      type: 'newsletter',
+      badge: 'Newsletter',
+      badgeIcon: Mail,
+      content: { title: 'Weekly Insights #42', preview: 'Nesta edição, exploramos as principais tendências...' }
+    }
+  }
+];
+
+// Real Canvas Demo - Multiple scenarios with centralized layout
 const HeroCanvasDemo = () => {
-  const [step, setStep] = useState(0);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [showResult, setShowResult] = useState(false);
+  const [currentScenario, setCurrentScenario] = useState(0);
+  const [animationStep, setAnimationStep] = useState(0);
   const [copied, setCopied] = useState(false);
-  const [urlTyped, setUrlTyped] = useState("");
-  const [showExtraction, setShowExtraction] = useState(false);
 
-  const fullUrl = "youtube.com/watch?v=dQw4w9W";
+  const scenario = scenarios[currentScenario];
 
-  // Animation sequence
+  // Animation timeline for each scenario
   useEffect(() => {
     let isMounted = true;
-    
-    const runSequence = async () => {
+    const timeouts: NodeJS.Timeout[] = [];
+
+    const runScenario = () => {
       if (!isMounted) return;
-      
+
       // Reset
-      setStep(0);
-      setIsGenerating(false);
-      setShowResult(false);
+      setAnimationStep(0);
       setCopied(false);
-      setUrlTyped("");
-      setShowExtraction(false);
 
-      // Step 1: Show attachment node
-      await new Promise(r => setTimeout(r, 800));
-      if (!isMounted) return;
-      setStep(1);
+      const schedule = (step: number, delay: number) => {
+        const timeout = setTimeout(() => {
+          if (isMounted) {
+            if (step === 0) {
+              // Move to next scenario
+              setCurrentScenario((prev) => (prev + 1) % scenarios.length);
+              runScenario();
+            } else {
+              setAnimationStep(step);
+              if (step === 7) setCopied(true);
+            }
+          }
+        }, delay);
+        timeouts.push(timeout);
+      };
 
-      // Step 2: Type URL
-      await new Promise(r => setTimeout(r, 500));
-      if (!isMounted) return;
-      
-      for (let i = 0; i <= fullUrl.length; i++) {
-        if (!isMounted) return;
-        setUrlTyped(fullUrl.slice(0, i));
-        await new Promise(r => setTimeout(r, 50));
-      }
-
-      // Step 3: Show extraction (thumbnail + title)
-      await new Promise(r => setTimeout(r, 400));
-      if (!isMounted) return;
-      setShowExtraction(true);
-
-      // Step 4: Show generator node
-      await new Promise(r => setTimeout(r, 600));
-      if (!isMounted) return;
-      setStep(2);
-
-      // Step 5: Draw connection
-      await new Promise(r => setTimeout(r, 400));
-      if (!isMounted) return;
-      setStep(3);
-
-      // Step 6: Generate
-      await new Promise(r => setTimeout(r, 800));
-      if (!isMounted) return;
-      setIsGenerating(true);
-
-      // Step 7: Show result
-      await new Promise(r => setTimeout(r, 2200));
-      if (!isMounted) return;
-      setIsGenerating(false);
-      setShowResult(true);
-
-      // Step 8: Copy animation
-      await new Promise(r => setTimeout(r, 1800));
-      if (!isMounted) return;
-      setCopied(true);
-
-      // Wait and restart
-      await new Promise(r => setTimeout(r, 3500));
-      if (isMounted) runSequence();
+      schedule(1, 500);   // Attachment appears
+      schedule(2, 1200);  // Content fills in
+      schedule(3, 2000);  // Generator appears + edge
+      schedule(4, 3000);  // Generating...
+      schedule(5, 4500);  // Result edge
+      schedule(6, 5000);  // Result appears
+      schedule(7, 6500);  // Interaction (copy)
+      schedule(0, 8000);  // Next scenario
     };
 
-    runSequence();
-    
+    runScenario();
+
     return () => {
       isMounted = false;
+      timeouts.forEach(clearTimeout);
     };
-  }, []);
+  }, [currentScenario]);
+
+  // Create bezier path for connections
+  const createBezierPath = (from: { x: number; y: number }, to: { x: number; y: number }) => {
+    const controlOffset = Math.abs(to.x - from.x) * 0.4;
+    return `M ${from.x} ${from.y} C ${from.x + controlOffset} ${from.y}, ${to.x - controlOffset} ${to.y}, ${to.x} ${to.y}`;
+  };
 
   return (
     <div className="relative w-full aspect-[16/9] bg-background rounded-lg overflow-hidden">
@@ -238,9 +287,9 @@ const HeroCanvasDemo = () => {
         </defs>
 
         {/* Attachment → Generator connection */}
-        {step >= 3 && (
+        {animationStep >= 3 && (
           <motion.path
-            d="M 205 130 C 230 130, 250 125, 275 125"
+            d="M 270 130 C 310 130, 330 125, 370 125"
             stroke="url(#heroConnectionGradient)"
             strokeWidth="2"
             fill="none"
@@ -251,9 +300,9 @@ const HeroCanvasDemo = () => {
         )}
 
         {/* Generator → Result connection */}
-        {showResult && (
+        {animationStep >= 5 && (
           <motion.path
-            d="M 410 125 C 440 125, 460 120, 490 120"
+            d="M 505 125 C 545 125, 565 120, 605 120"
             stroke="url(#heroResultGradient)"
             strokeWidth="2"
             fill="none"
@@ -264,7 +313,7 @@ const HeroCanvasDemo = () => {
         )}
 
         {/* Animated particle during generation */}
-        {isGenerating && (
+        {animationStep >= 4 && animationStep < 5 && (
           <motion.circle
             cx="0"
             cy="0"
@@ -272,275 +321,371 @@ const HeroCanvasDemo = () => {
             fill="hsl(142, 71%, 45%)"
             style={{ filter: "drop-shadow(0 0 6px hsl(142, 71%, 45%))" }}
             animate={{
-              cx: [205, 230, 260, 290, 320, 350, 380, 410],
-              cy: [130, 128, 126, 125, 125, 124, 124, 125],
+              cx: [505, 535, 565, 595, 605],
+              cy: [125, 123, 122, 121, 120],
             }}
-            transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
+            transition={{ duration: 1.2, repeat: Infinity, ease: "linear" }}
           />
         )}
       </svg>
 
-      {/* Attachment Node */}
-      <AnimatePresence>
-        {step >= 1 && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9, y: 15 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.9 }}
-            transition={{ duration: 0.4, ease: "easeOut" }}
-            className="absolute left-[30px] top-[55px] z-20"
-          >
-            <div className="w-[175px] bg-background border border-border rounded-lg shadow-xl overflow-hidden">
-              {/* Header */}
-              <div className="flex items-center gap-2 px-3 py-2 border-b border-border bg-blue-500/5">
-                <div className="p-1 rounded bg-blue-500/10">
-                  <Paperclip className="h-3.5 w-3.5 text-blue-500" />
-                </div>
-                <span className="text-xs font-medium">Anexo</span>
-              </div>
+      {/* CENTERED Nodes Container */}
+      <div className="absolute inset-0 flex items-center justify-center pt-8">
+        <div className="flex items-start gap-[100px]">
+          {/* Attachment Node */}
+          <AnimatePresence mode="wait">
+            {animationStep >= 1 && (
+              <motion.div
+                key={`attachment-${scenario.id}`}
+                initial={{ opacity: 0, scale: 0.9, y: 15 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.9 }}
+                transition={{ duration: 0.4 }}
+                className="relative"
+              >
+                <div className="w-[175px] bg-background border border-border rounded-lg shadow-xl overflow-hidden">
+                  {/* Header */}
+                  <div className="flex items-center gap-2 px-3 py-2 border-b border-border bg-blue-500/5">
+                    <div className="p-1 rounded bg-blue-500/10">
+                      <Paperclip className="h-3.5 w-3.5 text-blue-500" />
+                    </div>
+                    <span className="text-xs font-medium">Anexo</span>
+                  </div>
 
-              {/* Tabs */}
-              <div className="flex border-b border-border">
-                <div className="flex-1 flex items-center justify-center gap-1 py-1.5 text-[10px] bg-primary/5 text-primary border-b-2 border-primary">
-                  <Link2 className="h-2.5 w-2.5" />
-                </div>
-                <div className="flex-1 flex items-center justify-center gap-1 py-1.5 text-[10px] text-muted-foreground">
-                  <Type className="h-2.5 w-2.5" />
-                </div>
-                <div className="flex-1 flex items-center justify-center gap-1 py-1.5 text-[10px] text-muted-foreground">
-                  <ImageIcon className="h-2.5 w-2.5" />
-                </div>
-              </div>
+                  {/* Tabs */}
+                  <div className="flex border-b border-border">
+                    <div className={cn(
+                      "flex-1 flex items-center justify-center gap-1 py-1.5 text-[10px]",
+                      scenario.attachment.type === 'url' ? "bg-primary/5 text-primary border-b-2 border-primary" : "text-muted-foreground"
+                    )}>
+                      <Link2 className="h-2.5 w-2.5" />
+                    </div>
+                    <div className={cn(
+                      "flex-1 flex items-center justify-center gap-1 py-1.5 text-[10px]",
+                      scenario.attachment.type === 'pdf' ? "bg-primary/5 text-primary border-b-2 border-primary" : "text-muted-foreground"
+                    )}>
+                      <FileText className="h-2.5 w-2.5" />
+                    </div>
+                    <div className={cn(
+                      "flex-1 flex items-center justify-center gap-1 py-1.5 text-[10px]",
+                      scenario.attachment.type === 'image+text' ? "bg-primary/5 text-primary border-b-2 border-primary" : "text-muted-foreground"
+                    )}>
+                      <ImageIcon className="h-2.5 w-2.5" />
+                    </div>
+                    <div className={cn(
+                      "flex-1 flex items-center justify-center gap-1 py-1.5 text-[10px]",
+                      scenario.attachment.type === 'audio' ? "bg-primary/5 text-primary border-b-2 border-primary" : "text-muted-foreground"
+                    )}>
+                      <Headphones className="h-2.5 w-2.5" />
+                    </div>
+                  </div>
 
-              {/* Content */}
-              <div className="p-2.5 space-y-2">
-                {/* URL Input */}
-                <div className="flex items-center gap-1.5 px-2 py-1.5 bg-muted/50 rounded text-[10px]">
-                  <Youtube className="h-3 w-3 text-red-500 flex-shrink-0" />
-                  <span className="text-muted-foreground truncate">
-                    {urlTyped || "Cole uma URL..."}
-                    {urlTyped.length > 0 && urlTyped.length < fullUrl.length && (
-                      <span className="animate-pulse ml-0.5">|</span>
-                    )}
-                  </span>
-                </div>
+                  {/* Content */}
+                  <div className="p-2.5 space-y-2">
+                    {/* Input display */}
+                    <div className="flex items-center gap-1.5 px-2 py-1.5 bg-muted/50 rounded text-[10px]">
+                      <scenario.attachment.icon className={cn("h-3 w-3 flex-shrink-0", scenario.attachment.iconColor)} />
+                      <span className="text-muted-foreground truncate">
+                        {animationStep >= 2 ? scenario.attachment.label : "Carregando..."}
+                        {animationStep === 1 && (
+                          <span className="animate-pulse ml-0.5">|</span>
+                        )}
+                      </span>
+                    </div>
 
-                {/* Extracted content preview */}
-                <AnimatePresence>
-                  {showExtraction && (
+                    {/* Extracted content preview */}
+                    <AnimatePresence>
+                      {animationStep >= 2 && (
+                        <motion.div
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: "auto" }}
+                          exit={{ opacity: 0, height: 0 }}
+                          transition={{ duration: 0.3 }}
+                          className="space-y-1.5"
+                        >
+                          {/* YouTube type */}
+                          {scenario.attachment.type === 'url' && scenario.attachment.extraction && (
+                            <>
+                              <div className="relative rounded overflow-hidden">
+                                <div className="aspect-video bg-gradient-to-br from-red-500/20 to-orange-500/20 flex items-center justify-center">
+                                  <div className="w-6 h-6 rounded-full bg-red-500/90 flex items-center justify-center shadow-lg">
+                                    <Play className="h-3 w-3 text-white ml-0.5" fill="white" />
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="text-[9px] text-muted-foreground line-clamp-2">
+                                {scenario.attachment.extraction.title}
+                              </div>
+                              <div className="text-[8px] text-muted-foreground/70">
+                                {scenario.attachment.extraction.duration} • {scenario.attachment.extraction.views} views
+                              </div>
+                            </>
+                          )}
+
+                          {/* Image + Briefing type */}
+                          {scenario.attachment.type === 'image+text' && (
+                            <>
+                              <div className="w-full h-12 bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded flex items-center justify-center">
+                                <ImageIcon className="w-5 h-5 text-purple-400" />
+                              </div>
+                              <div className="text-[9px] text-muted-foreground line-clamp-2">
+                                {scenario.attachment.briefing}
+                              </div>
+                            </>
+                          )}
+
+                          {/* PDF type */}
+                          {scenario.attachment.type === 'pdf' && scenario.attachment.extraction && (
+                            <div className="flex items-center gap-2 p-2 bg-orange-500/10 rounded">
+                              <FileText className="w-5 h-5 text-orange-500" />
+                              <div>
+                                <div className="text-[10px] font-medium">{scenario.attachment.extraction.pages}</div>
+                                <div className="text-[8px] text-muted-foreground">{scenario.attachment.extraction.size}</div>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Audio type */}
+                          {scenario.attachment.type === 'audio' && scenario.attachment.extraction && (
+                            <div className="flex items-center gap-2 p-2 bg-cyan-500/10 rounded">
+                              <div className="flex items-center gap-0.5">
+                                {[...Array(8)].map((_, i) => (
+                                  <motion.div
+                                    key={i}
+                                    className="w-1 bg-cyan-500 rounded-full"
+                                    animate={{ height: [4, 12, 6, 10, 4] }}
+                                    transition={{ duration: 1, repeat: Infinity, delay: i * 0.1 }}
+                                  />
+                                ))}
+                              </div>
+                              <div>
+                                <div className="text-[10px] font-medium">{scenario.attachment.extraction.duration}</div>
+                                <div className="text-[8px] text-muted-foreground">{scenario.attachment.extraction.format}</div>
+                              </div>
+                            </div>
+                          )}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+
+                  {/* Connection handle */}
+                  <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 w-2.5 h-2.5 rounded-full bg-blue-500 border-2 border-background shadow-sm" />
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Generator Node */}
+          <AnimatePresence mode="wait">
+            {animationStep >= 3 && (
+              <motion.div
+                key={`generator-${scenario.id}`}
+                initial={{ opacity: 0, scale: 0.9, y: 15 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.9 }}
+                transition={{ duration: 0.4 }}
+                className="relative"
+              >
+                <div className="w-[135px] bg-background border border-border rounded-lg shadow-xl overflow-hidden">
+                  {/* Header */}
+                  <div className="flex items-center justify-between px-2.5 py-1.5 border-b border-border bg-emerald-500/5">
+                    <div className="flex items-center gap-1.5">
+                      <div className="p-1 rounded bg-emerald-500/10">
+                        <Sparkles className="h-3 w-3 text-emerald-500" />
+                      </div>
+                      <span className="text-xs font-medium">Gerador</span>
+                    </div>
                     <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: "auto" }}
-                      exit={{ opacity: 0, height: 0 }}
-                      transition={{ duration: 0.3 }}
-                      className="space-y-1.5"
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      className="flex items-center gap-0.5 px-1.5 py-0.5 bg-blue-500/10 rounded text-[8px] text-blue-500 font-medium"
                     >
-                      <div className="relative rounded overflow-hidden">
-                        <div className="aspect-video bg-gradient-to-br from-red-500/20 to-orange-500/20 flex items-center justify-center">
-                          <div className="w-6 h-6 rounded-full bg-red-500/90 flex items-center justify-center shadow-lg">
-                            <Play className="h-3 w-3 text-white ml-0.5" fill="white" />
-                          </div>
+                      <Link2 className="h-2 w-2" />
+                      <span>1</span>
+                    </motion.div>
+                  </div>
+
+                  {/* Content */}
+                  <div className="p-2 space-y-1.5">
+                    {/* Format select */}
+                    <div className="space-y-0.5">
+                      <span className="text-[8px] text-muted-foreground">Formato</span>
+                      <div className="flex items-center justify-between px-2 py-1 bg-muted/50 rounded text-[10px]">
+                        <span>{scenario.generator.format}</span>
+                      </div>
+                    </div>
+
+                    {/* Platform */}
+                    {scenario.generator.platformIcon && (
+                      <div className="space-y-0.5">
+                        <span className="text-[8px] text-muted-foreground">Plataforma</span>
+                        <div className="flex items-center gap-1.5 px-2 py-1 bg-muted/50 rounded text-[10px]">
+                          <scenario.generator.platformIcon className={cn("h-2.5 w-2.5", scenario.generator.platformColor)} />
+                          <span className="capitalize">{scenario.generator.platform}</span>
                         </div>
                       </div>
-                      <motion.div 
-                        className="text-[9px] text-muted-foreground line-clamp-2"
+                    )}
+
+                    {/* Generate button */}
+                    <motion.button
+                      className={cn(
+                        "w-full flex items-center justify-center gap-1.5 py-1.5 rounded text-[10px] font-medium text-white transition-colors",
+                        animationStep === 4 ? 'bg-emerald-600' : 'bg-emerald-500'
+                      )}
+                      animate={animationStep === 3 ? { scale: [1, 1.03, 1] } : {}}
+                      transition={{ duration: 0.6, repeat: animationStep === 3 ? 2 : 0 }}
+                    >
+                      {animationStep === 4 ? (
+                        <>
+                          <Loader2 className="h-2.5 w-2.5 animate-spin" />
+                          <span>Gerando...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Play className="h-2.5 w-2.5" fill="white" />
+                          <span>Gerar</span>
+                        </>
+                      )}
+                    </motion.button>
+                  </div>
+
+                  {/* Connection handles */}
+                  <div className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1/2 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-background shadow-sm" />
+                  <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-background shadow-sm" />
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Result Node */}
+          <AnimatePresence mode="wait">
+            {animationStep >= 6 && (
+              <motion.div
+                key={`result-${scenario.id}`}
+                initial={{ opacity: 0, scale: 0.9, y: 15 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.9 }}
+                transition={{ duration: 0.4 }}
+                className="relative"
+              >
+                <div className="w-[165px] bg-background border border-border rounded-lg shadow-xl overflow-hidden">
+                  {/* Header */}
+                  <div className="flex items-center justify-between px-2.5 py-1.5 border-b border-border bg-pink-500/5">
+                    <div className="flex items-center gap-1.5">
+                      <div className="p-1 rounded bg-pink-500/10">
+                        <Sparkles className="h-3 w-3 text-pink-500" />
+                      </div>
+                      <span className="text-xs font-medium">Resultado</span>
+                    </div>
+                    <div className="flex items-center gap-0.5 px-1.5 py-0.5 bg-pink-500/10 rounded text-[8px] text-pink-500 font-medium">
+                      <scenario.result.badgeIcon className="h-2 w-2" />
+                      <span>{scenario.result.badge}</span>
+                    </div>
+                  </div>
+
+                  {/* Content preview */}
+                  <div className="p-2 space-y-1.5">
+                    {/* Carousel slides */}
+                    {scenario.result.type === 'carousel' && scenario.result.slides?.map((text, i) => (
+                      <motion.div
+                        key={i}
+                        initial={{ opacity: 0, x: -5 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.1 + i * 0.1 }}
+                        className="flex items-start gap-1.5 text-[9px]"
+                      >
+                        <span className="flex-shrink-0 w-3.5 h-3.5 rounded bg-primary/10 text-primary flex items-center justify-center text-[8px] font-bold">
+                          {i + 1}
+                        </span>
+                        <span className="text-muted-foreground line-clamp-1">{text}</span>
+                      </motion.div>
+                    ))}
+
+                    {/* Image result */}
+                    {scenario.result.type === 'image' && (
+                      <motion.div
+                        className={cn("w-full h-16 rounded bg-gradient-to-br", scenario.result.gradient)}
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
-                        transition={{ delay: 0.2 }}
                       >
-                        Como criar conteúdo viral usando IA em 2024...
+                        <div className="w-full h-full flex items-center justify-center">
+                          <ImageIcon className="w-5 h-5 text-white/50" />
+                        </div>
                       </motion.div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
+                    )}
 
-              {/* Connection handle */}
-              <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 w-2.5 h-2.5 rounded-full bg-blue-500 border-2 border-background shadow-sm" />
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+                    {/* Thread tweets */}
+                    {scenario.result.type === 'thread' && scenario.result.tweets?.map((tweet, i) => (
+                      <motion.div
+                        key={i}
+                        initial={{ opacity: 0, x: -5 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.1 + i * 0.1 }}
+                        className="p-1.5 bg-sky-500/10 rounded text-[9px] text-muted-foreground"
+                      >
+                        {tweet}
+                      </motion.div>
+                    ))}
 
-      {/* Generator Node */}
-      <AnimatePresence>
-        {step >= 2 && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9, y: 15 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.9 }}
-            transition={{ duration: 0.4, ease: "easeOut" }}
-            className="absolute left-[275px] top-[50px] z-20"
-          >
-            <div className="w-[135px] bg-background border border-border rounded-lg shadow-xl overflow-hidden">
-              {/* Header */}
-              <div className="flex items-center justify-between px-2.5 py-1.5 border-b border-border bg-emerald-500/5">
-                <div className="flex items-center gap-1.5">
-                  <div className="p-1 rounded bg-emerald-500/10">
-                    <Sparkles className="h-3 w-3 text-emerald-500" />
-                  </div>
-                  <span className="text-xs font-medium">Gerador</span>
-                </div>
-                {step >= 3 && (
-                  <motion.div
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    className="flex items-center gap-0.5 px-1.5 py-0.5 bg-blue-500/10 rounded text-[8px] text-blue-500 font-medium"
-                  >
-                    <Link2 className="h-2 w-2" />
-                    <span>1</span>
-                  </motion.div>
-                )}
-              </div>
+                    {/* Newsletter */}
+                    {scenario.result.type === 'newsletter' && scenario.result.content && (
+                      <motion.div
+                        className="p-2 bg-blue-500/10 rounded"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                      >
+                        <div className="text-[10px] font-medium mb-1">{scenario.result.content.title}</div>
+                        <div className="text-[8px] text-muted-foreground line-clamp-2">{scenario.result.content.preview}</div>
+                      </motion.div>
+                    )}
 
-              {/* Content */}
-              <div className="p-2 space-y-1.5">
-                {/* Format select */}
-                <div className="space-y-0.5">
-                  <span className="text-[8px] text-muted-foreground">Formato</span>
-                  <div className="flex items-center justify-between px-2 py-1 bg-muted/50 rounded text-[10px]">
-                    <span>Carrossel</span>
-                  </div>
-                </div>
-
-                {/* Platform */}
-                <div className="space-y-0.5">
-                  <span className="text-[8px] text-muted-foreground">Plataforma</span>
-                  <div className="flex items-center gap-1.5 px-2 py-1 bg-muted/50 rounded text-[10px]">
-                    <Instagram className="h-2.5 w-2.5 text-pink-500" />
-                    <span>Instagram</span>
-                  </div>
-                </div>
-
-                {/* Generate button */}
-                <motion.button
-                  className={`w-full flex items-center justify-center gap-1.5 py-1.5 rounded text-[10px] font-medium text-white transition-colors ${
-                    isGenerating ? 'bg-emerald-600' : 'bg-emerald-500'
-                  }`}
-                  animate={!isGenerating && step >= 3 ? { scale: [1, 1.03, 1] } : {}}
-                  transition={{ duration: 0.6, repeat: !isGenerating ? 2 : 0 }}
-                >
-                  {isGenerating ? (
-                    <>
-                      <Loader2 className="h-2.5 w-2.5 animate-spin" />
-                      <span>Gerando...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Play className="h-2.5 w-2.5" fill="white" />
-                      <span>Gerar</span>
-                    </>
-                  )}
-                </motion.button>
-              </div>
-
-              {/* Connection handles */}
-              <div className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1/2 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-background shadow-sm" />
-              <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-background shadow-sm" />
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Result Node */}
-      <AnimatePresence>
-        {showResult && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9, y: 15 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.9 }}
-            transition={{ duration: 0.4, ease: "easeOut" }}
-            className="absolute left-[490px] top-[40px] z-20"
-          >
-            <div className="w-[155px] bg-background border border-border rounded-lg shadow-xl overflow-hidden">
-              {/* Header */}
-              <div className="flex items-center justify-between px-2.5 py-1.5 border-b border-border bg-pink-500/5">
-                <div className="flex items-center gap-1.5">
-                  <div className="p-1 rounded bg-pink-500/10">
-                    <Sparkles className="h-3 w-3 text-pink-500" />
-                  </div>
-                  <span className="text-xs font-medium">Resultado</span>
-                </div>
-                <div className="flex items-center gap-0.5 px-1.5 py-0.5 bg-pink-500/10 rounded text-[8px] text-pink-500 font-medium">
-                  <ImageIcon className="h-2 w-2" />
-                  <span>6</span>
-                </div>
-              </div>
-
-              {/* Content preview */}
-              <div className="p-2 space-y-1.5">
-                <div className="space-y-1 text-[9px]">
-                  {[
-                    "O que você precisa saber...",
-                    "Como aplicar na prática...",
-                    "Resultados esperados..."
-                  ].map((text, i) => (
-                    <motion.div
-                      key={i}
-                      initial={{ opacity: 0, x: -5 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: 0.1 + i * 0.1 }}
-                      className="flex items-start gap-1.5"
+                    {/* Copy button */}
+                    <motion.button
+                      className={cn(
+                        "w-full flex items-center justify-center gap-1.5 py-1.5 rounded text-[10px] font-medium transition-colors",
+                        copied 
+                          ? 'bg-emerald-500/10 text-emerald-600' 
+                          : 'bg-muted hover:bg-muted/80 text-foreground'
+                      )}
+                      animate={copied ? { scale: [1, 1.05, 1] } : {}}
+                      transition={{ duration: 0.3 }}
                     >
-                      <span className="flex-shrink-0 w-3.5 h-3.5 rounded bg-primary/10 text-primary flex items-center justify-center text-[8px] font-bold">
-                        {i + 1}
-                      </span>
-                      <span className="text-muted-foreground line-clamp-1">{text}</span>
-                    </motion.div>
-                  ))}
+                      {copied ? (
+                        <>
+                          <Check className="h-2.5 w-2.5" />
+                          <span>Copiado!</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="h-2.5 w-2.5" />
+                          <span>Copiar</span>
+                        </>
+                      )}
+                    </motion.button>
+                  </div>
+
+                  {/* Connection handle */}
+                  <div className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1/2 w-2.5 h-2.5 rounded-full bg-pink-500 border-2 border-background shadow-sm" />
                 </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      </div>
 
-                {/* Copy button */}
-                <motion.button
-                  className={`w-full flex items-center justify-center gap-1.5 py-1.5 rounded text-[10px] font-medium transition-colors ${
-                    copied 
-                      ? 'bg-emerald-500/10 text-emerald-600' 
-                      : 'bg-muted hover:bg-muted/80 text-foreground'
-                  }`}
-                  animate={copied ? { scale: [1, 1.05, 1] } : {}}
-                  transition={{ duration: 0.3 }}
-                >
-                  {copied ? (
-                    <>
-                      <Check className="h-2.5 w-2.5" />
-                      <span>Copiado!</span>
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="h-2.5 w-2.5" />
-                      <span>Copiar</span>
-                    </>
-                  )}
-                </motion.button>
-              </div>
-
-              {/* Connection handle */}
-              <div className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1/2 w-2.5 h-2.5 rounded-full bg-pink-500 border-2 border-background shadow-sm" />
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Bottom input types hint */}
-      <motion.div
-        className="absolute bottom-2.5 left-1/2 -translate-x-1/2 flex items-center gap-2 text-[9px] text-muted-foreground"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 1 }}
-      >
-        {[
-          { icon: Link2, label: "URL" },
-          { icon: Youtube, label: "YouTube", color: "text-red-500" },
-          { icon: FileText, label: "PDF" },
-          { icon: ImageIcon, label: "Imagem" },
-          { icon: Headphones, label: "Áudio" },
-        ].map((item) => (
-          <div key={item.label} className="flex items-center gap-1 px-2 py-1 bg-muted/50 rounded">
-            <item.icon className={`h-2.5 w-2.5 ${item.color || ''}`} />
-            <span>{item.label}</span>
-          </div>
+      {/* Scenario indicators */}
+      <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-2 z-20">
+        {scenarios.map((s, index) => (
+          <motion.div
+            key={s.id}
+            className={cn(
+              "w-2 h-2 rounded-full transition-colors duration-300",
+              index === currentScenario ? "bg-primary" : "bg-muted-foreground/30"
+            )}
+          />
         ))}
-      </motion.div>
+      </div>
     </div>
   );
 };
