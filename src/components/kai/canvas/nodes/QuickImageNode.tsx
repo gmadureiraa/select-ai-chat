@@ -81,7 +81,7 @@ function QuickImageNodeComponent({
     <>
       <div
         className={cn(
-          "group relative rounded-lg overflow-hidden bg-background border shadow-md nodrag",
+          "group relative rounded-lg overflow-hidden bg-background border shadow-md",
           selected && "ring-2 ring-primary ring-offset-2",
           data.isProcessing && "opacity-75"
         )}
@@ -130,7 +130,7 @@ function QuickImageNodeComponent({
         {(showControls || selected) && !data.isProcessing && (
           <>
             {/* Top toolbar */}
-            <div className="absolute top-2 left-2 right-2 flex items-center justify-between">
+            <div className="absolute top-2 left-2 right-2 flex items-center justify-between nodrag">
               <Button
                 variant="secondary"
                 size="icon"
@@ -150,7 +150,7 @@ function QuickImageNodeComponent({
             </div>
 
             {/* Bottom action bar */}
-            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-2 pt-6">
+            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-2 pt-6 nodrag">
               <div className="flex items-center justify-center gap-1">
                 <Button
                   variant="secondary"

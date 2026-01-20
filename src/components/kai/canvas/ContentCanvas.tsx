@@ -221,23 +221,11 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
     regenerateContent: typeof regenerateContent;
     editImage: typeof editImage;
     handleOpenPlanningDialog: typeof handleOpenPlanningDialog;
+    handleQuickImageAnalyzeJson: (id: string, imageUrl: string) => Promise<void>;
+    handleQuickImageGenerateDescription: (id: string, imageUrl: string) => Promise<void>;
+    handleQuickImageExtractOcr: (id: string, imageUrl: string) => Promise<void>;
+    handleQuickImageConvertToAttachment: (id: string, imageUrl: string) => void;
   } | null>(null);
-
-  // Update refs on each render so they always have latest values
-  handlersRef.current = {
-    clientId,
-    extractUrlContent,
-    transcribeFile,
-    analyzeImageStyle,
-    analyzeImageSourceImage,
-    transcribeImageSourceImage,
-    updateNodeData,
-    deleteNode,
-    generateContent,
-    regenerateContent,
-    editImage,
-    handleOpenPlanningDialog,
-  };
 
   // Handlers for QuickImageNode - using local state update pattern
   const quickImageNodesRef = useRef<Map<string, QuickImageNodeData>>(new Map());
@@ -346,6 +334,26 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
     toast({ title: "Convertido para Anexo" });
   }, [nodes, addNode, deleteNode, toast]);
 
+  // Update refs on each render so they always have latest values
+  handlersRef.current = {
+    clientId,
+    extractUrlContent,
+    transcribeFile,
+    analyzeImageStyle,
+    analyzeImageSourceImage,
+    transcribeImageSourceImage,
+    updateNodeData,
+    deleteNode,
+    generateContent,
+    regenerateContent,
+    editImage,
+    handleOpenPlanningDialog,
+    handleQuickImageAnalyzeJson,
+    handleQuickImageGenerateDescription,
+    handleQuickImageExtractOcr,
+    handleQuickImageConvertToAttachment,
+  };
+
   // Handle drawing strokes
   const handleAddStroke = useCallback((stroke: DrawingStroke) => {
     setDrawingStrokes(prev => [...prev, stroke]);
@@ -364,9 +372,9 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
   const addWhiteboardNode = useCallback((type: "text" | "sticky" | "shape" | "quick-image", position: { x: number; y: number }, extraData?: any) => {
     const nodeId = `${type}-${Date.now()}`;
     const defaultData: Record<string, any> = {
-      text: { type: "text", content: "Clique para editar", fontSize: 16, fontWeight: "normal", textAlign: "left", color: "#1f2937" },
-      sticky: { type: "sticky", content: "Nova nota", color: selectedStickyColor, size: "medium" },
-      shape: { type: "shape", shapeType: selectedShape, fill: "#ffffff", stroke: "#3b82f6", strokeWidth: 2 },
+      text: { type: "text", content: "", fontSize: 16, fontWeight: "normal", textAlign: "left", color: "#1f2937" },
+      sticky: { type: "sticky", content: "", color: selectedStickyColor, size: "medium" },
+      shape: { type: "shape", shapeType: selectedShape, fill: "#ffffff", stroke: "#3b82f6", strokeWidth: 2, width: 100, height: 100 },
       "quick-image": { type: "quick-image", imageUrl: extraData?.imageUrl || "", caption: "" },
     };
     
@@ -487,8 +495,8 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
     return () => document.removeEventListener("paste", handlePaste);
   }, [clientId, getViewport, addWhiteboardNode, toast]);
 
-  // Track viewport for drawing layer
-  const handleMoveEnd = useCallback(() => {
+  // Track viewport for drawing layer - update in real-time
+  const handleMove = useCallback(() => {
     const vp = getViewport();
     setCanvasViewport({ x: vp.x, y: vp.y, zoom: vp.zoom });
   }, [getViewport]);
@@ -588,14 +596,14 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
           {...props}
           onUpdateData={(id, data) => handlersRef.current?.updateNodeData(id, data as any)}
           onDelete={(id) => handlersRef.current?.deleteNode(id)}
-          onAnalyzeJson={handleQuickImageAnalyzeJson}
-          onGenerateDescription={handleQuickImageGenerateDescription}
-          onExtractOcr={handleQuickImageExtractOcr}
-          onConvertToAttachment={handleQuickImageConvertToAttachment}
+          onAnalyzeJson={(id, imageUrl) => handlersRef.current?.handleQuickImageAnalyzeJson(id, imageUrl) || Promise.resolve()}
+          onGenerateDescription={(id, imageUrl) => handlersRef.current?.handleQuickImageGenerateDescription(id, imageUrl) || Promise.resolve()}
+          onExtractOcr={(id, imageUrl) => handlersRef.current?.handleQuickImageExtractOcr(id, imageUrl) || Promise.resolve()}
+          onConvertToAttachment={(id, imageUrl) => handlersRef.current?.handleQuickImageConvertToAttachment(id, imageUrl)}
         />
       ),
     }),
-    [handleQuickImageAnalyzeJson, handleQuickImageGenerateDescription, handleQuickImageExtractOcr, handleQuickImageConvertToAttachment]
+    [] // Empty deps - all handlers accessed via ref
   );
 
   // Edge types with animated edges for generation
@@ -806,7 +814,7 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
-        onMoveEnd={handleMoveEnd}
+        onMove={handleMove}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
         fitView
@@ -909,19 +917,20 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
           }}
           maskColor="rgba(0, 0, 0, 0.1)"
         />
-
-        {/* Drawing Layer */}
-        <DrawingLayer
-          strokes={drawingStrokes}
-          isDrawing={activeTool === "pencil"}
-          isErasing={activeTool === "eraser"}
-          brushColor={brushColor}
-          brushSize={brushSize}
-          viewport={canvasViewport}
-          onAddStroke={handleAddStroke}
-          onDeleteStroke={handleDeleteStroke}
-        />
       </ReactFlow>
+
+      {/* Drawing Layer - OUTSIDE ReactFlow to avoid pan/zoom conflicts */}
+      <DrawingLayer
+        strokes={drawingStrokes}
+        isDrawing={activeTool === "pencil"}
+        isErasing={activeTool === "eraser"}
+        brushColor={brushColor}
+        brushSize={brushSize}
+        viewport={canvasViewport}
+        onAddStroke={handleAddStroke}
+        onDeleteStroke={handleDeleteStroke}
+        containerRef={reactFlowWrapper}
+      />
 
       {/* Context Menu */}
       {contextMenuPosition && (

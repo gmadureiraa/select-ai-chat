@@ -78,7 +78,7 @@ function TextNodeComponent({ id, data, selected, onUpdateData, onDelete }: TextN
   return (
     <div
       className={cn(
-        "group relative min-w-[100px] min-h-[40px] nodrag",
+        "group relative min-w-[100px] min-h-[40px]",
         selected && "ring-2 ring-primary ring-offset-2 rounded"
       )}
       onMouseEnter={() => setShowToolbar(true)}
@@ -152,7 +152,7 @@ function TextNodeComponent({ id, data, selected, onUpdateData, onDelete }: TextN
           onKeyDown={handleKeyDown}
           placeholder="Digite seu texto..."
           className={cn(
-            "min-w-[150px] min-h-[40px] bg-transparent resize-none outline-none border-none p-1",
+            "min-w-[150px] min-h-[40px] bg-transparent resize-none outline-none border-none p-1 nodrag",
             data.fontWeight === "bold" && "font-bold"
           )}
           style={{
