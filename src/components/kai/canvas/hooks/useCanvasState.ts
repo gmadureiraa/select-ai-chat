@@ -373,6 +373,55 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
     enabled: !!clientId
   });
 
+  // Auto-load the last used canvas when entering the canvas tab
+  const autoLoadAttemptedRef = useRef(false);
+  
+  useEffect(() => {
+    // Only auto-load once, when savedCanvases first loads and canvas is empty
+    if (
+      !isLoadingCanvases && 
+      savedCanvases.length > 0 && 
+      nodes.length === 0 && 
+      edges.length === 0 && 
+      !currentCanvasId &&
+      !autoLoadAttemptedRef.current
+    ) {
+      autoLoadAttemptedRef.current = true;
+      
+      // Check localStorage for last used canvas for this client
+      const lastCanvasKey = `lastCanvas_${clientId}`;
+      const lastCanvasId = localStorage.getItem(lastCanvasKey);
+      
+      // Try to load the last used canvas, or fallback to most recent
+      const canvasToLoad = lastCanvasId 
+        ? savedCanvases.find(c => c.id === lastCanvasId) || savedCanvases[0]
+        : savedCanvases[0];
+      
+      if (canvasToLoad) {
+        console.log(`[useCanvasState] Auto-loading last canvas: ${canvasToLoad.name}`);
+        // Load directly without toast to avoid spam on initial load
+        setNodes((canvasToLoad.nodes as any) || []);
+        setEdges((canvasToLoad.edges as any) || []);
+        setCurrentCanvasId(canvasToLoad.id);
+        setCurrentCanvasName(canvasToLoad.name);
+        // Update last saved ref to prevent immediate auto-save
+        lastSavedRef.current = JSON.stringify({ 
+          nodes: canvasToLoad.nodes, 
+          edges: canvasToLoad.edges, 
+          currentCanvasName: canvasToLoad.name 
+        });
+      }
+    }
+  }, [isLoadingCanvases, savedCanvases, nodes.length, edges.length, currentCanvasId, clientId]);
+
+  // Save last used canvas to localStorage when loading a canvas
+  useEffect(() => {
+    if (currentCanvasId && clientId) {
+      const lastCanvasKey = `lastCanvas_${clientId}`;
+      localStorage.setItem(lastCanvasKey, currentCanvasId);
+    }
+  }, [currentCanvasId, clientId]);
+
   const onNodesChange = useCallback((changes: NodeChange[]) => {
     setNodes((nds) => applyNodeChanges(changes, nds) as Node<CanvasNodeData>[]);
   }, []);
@@ -1157,7 +1206,7 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
           briefing = promptData.briefing;
           break;
         }
-        // NEW: Support output nodes as input for derivation
+        // Support output nodes as input for derivation
         case "output": {
           const outputData = inputNode.data as OutputNodeData;
           if (outputData.isImage && outputData.content) {
@@ -1170,9 +1219,9 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
           }
           break;
         }
-        // NEW: Support image-source nodes for visual references
+        // Support image-source nodes for visual references
         case "image-source": {
-          const imgSrcData = inputNode.data as any; // ImageSourceNodeData
+          const imgSrcData = inputNode.data as ImageSourceNodeData;
           const srcImages = imgSrcData.images || [];
           
           for (const img of srcImages) {
@@ -1194,6 +1243,70 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
               }
             } else if (img.metadata?.styleAnalysis?.promptDescription) {
               styleContext.push(img.metadata.styleAnalysis.promptDescription);
+            }
+          }
+          break;
+        }
+        // NEW: Support unified "attachment" nodes
+        case "attachment": {
+          const attachData = inputNode.data as AttachmentNodeData;
+          
+          // Handle based on active tab
+          if (attachData.activeTab === "link" && attachData.extractedContent) {
+            combinedContext += `\n\n### Conteúdo de ${attachData.title || 'Link'}:\n${attachData.extractedContent}`;
+          }
+          
+          if (attachData.activeTab === "text" && attachData.textContent) {
+            combinedContext += `\n\n### Texto:\n${attachData.textContent}`;
+          }
+          
+          // Handle files (audio, video, documents)
+          if (attachData.files && attachData.files.length > 0) {
+            for (const file of attachData.files) {
+              if (file.transcription) {
+                combinedContext += `\n\n### Transcrição (${file.name}):\n${file.transcription}`;
+              }
+            }
+          }
+          
+          // Handle images - this is critical for image generation!
+          if (attachData.images && attachData.images.length > 0) {
+            console.log(`[generateContent] Processing ${attachData.images.length} images from attachment node`);
+            
+            // Sort to prioritize primary images first
+            const sortedImages = [...attachData.images].sort((a, b) => {
+              if (a.metadata?.isPrimary && !b.metadata?.isPrimary) return -1;
+              if (!a.metadata?.isPrimary && b.metadata?.isPrimary) return 1;
+              return 0;
+            });
+            
+            for (const img of sortedImages) {
+              if (img.url) {
+                try {
+                  const imageUrl = await blobUrlToBase64(img.url);
+                  imageReferences.push(imageUrl);
+                  console.log(`[generateContent] Added image reference from attachment: ${img.name || 'unnamed'}`);
+                } catch (e) {
+                  console.warn('Failed to process attachment image reference:', e);
+                }
+              }
+              
+              // Collect complete imageAnalysis if available (from JSON analysis)
+              if (img.metadata?.imageAnalysis) {
+                console.log(`[generateContent] Found imageAnalysis for ${img.name || 'image'}`);
+                styleContext.push(`Análise completa da referência visual: ${JSON.stringify(img.metadata.imageAnalysis)}`);
+                // Use generation_prompt if available
+                if (img.metadata.imageAnalysis.generation_prompt) {
+                  styleContext.push(`Prompt de geração sugerido: ${img.metadata.imageAnalysis.generation_prompt}`);
+                }
+              } else if (img.metadata?.styleAnalysis?.promptDescription) {
+                styleContext.push(img.metadata.styleAnalysis.promptDescription);
+              }
+              
+              // Also include OCR text if available
+              if (img.metadata?.ocrText) {
+                combinedContext += `\n\n### Texto da Imagem (${img.name || 'imagem'}):\n${img.metadata.ocrText}`;
+              }
             }
           }
           break;
@@ -1247,7 +1360,7 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
           imagePrompt += "\n\nIMPORTANTE: A imagem não deve conter texto.";
         }
 
-        // Collect complete styleAnalysis from analyzed images (source nodes and image-source nodes)
+        // Collect complete styleAnalysis from analyzed images (source nodes, image-source nodes, AND attachment nodes)
         let collectedStyleAnalysis = null;
         for (const inputNode of inputNodes) {
           if (inputNode.data.type === "source") {
@@ -1260,10 +1373,21 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
             }
             if (collectedStyleAnalysis) break;
           } else if (inputNode.data.type === "image-source") {
-            const imgSrcData = inputNode.data as any;
+            const imgSrcData = inputNode.data as ImageSourceNodeData;
             for (const img of imgSrcData.images || []) {
               if (img.metadata?.imageAnalysis) {
                 collectedStyleAnalysis = img.metadata.imageAnalysis;
+                break;
+              }
+            }
+            if (collectedStyleAnalysis) break;
+          } else if (inputNode.data.type === "attachment") {
+            // NEW: Also check attachment nodes for imageAnalysis
+            const attachData = inputNode.data as AttachmentNodeData;
+            for (const img of attachData.images || []) {
+              if (img.metadata?.imageAnalysis) {
+                collectedStyleAnalysis = img.metadata.imageAnalysis;
+                console.log('[generateContent] Found styleAnalysis from attachment node');
                 break;
               }
             }
@@ -1853,135 +1977,139 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
     setCurrentCanvasName(name);
   }, []);
 
-  // Load template - pre-configured canvas flows
+  // Load template - pre-configured canvas flows using NEW unified node architecture
   const loadTemplate = useCallback((templateId: string) => {
     clearCanvas();
     
+    // All templates now use the unified node architecture:
+    // - "attachment" replaces "source", "library", and "image-source"
+    // - "prompt" for instructions
+    // - "generator" for content generation
+    // - "output" for results
     const templates: Record<string, { nodes: any[]; edges: any[]; name: string }> = {
       carousel_from_url: {
         name: "Carrossel de URL",
         nodes: [
-          { id: "source-t1", type: "source", position: { x: 100, y: 150 }, data: { type: "source", sourceType: "url", value: "", files: [] } },
+          { id: "attachment-t1", type: "attachment", position: { x: 100, y: 150 }, data: { type: "attachment", activeTab: "link", url: "", files: [], images: [] } },
           { id: "prompt-t1", type: "prompt", position: { x: 100, y: 350 }, data: { type: "prompt", briefing: "Transforme este conteúdo em um carrossel de 7-10 slides para Instagram" } },
           { id: "generator-t1", type: "generator", position: { x: 450, y: 250 }, data: { type: "generator", format: "carousel", platform: "instagram", isGenerating: false, quantity: 1 } },
         ],
         edges: [
-          { id: "e1", source: "source-t1", target: "generator-t1", sourceHandle: "output", targetHandle: "input-1" },
+          { id: "e1", source: "attachment-t1", target: "generator-t1", sourceHandle: "output", targetHandle: "input-1" },
           { id: "e2", source: "prompt-t1", target: "generator-t1", sourceHandle: "output", targetHandle: "input-2" },
         ]
       },
       thread_from_video: {
         name: "Thread de Vídeo",
         nodes: [
-          { id: "source-t1", type: "source", position: { x: 100, y: 200 }, data: { type: "source", sourceType: "file", value: "", files: [] } },
+          { id: "attachment-t1", type: "attachment", position: { x: 100, y: 200 }, data: { type: "attachment", activeTab: "file", files: [], images: [] } },
           { id: "prompt-t1", type: "prompt", position: { x: 100, y: 400 }, data: { type: "prompt", briefing: "Crie uma thread viral com os principais insights deste vídeo" } },
           { id: "generator-t1", type: "generator", position: { x: 450, y: 300 }, data: { type: "generator", format: "thread", platform: "twitter", isGenerating: false, quantity: 1 } },
         ],
         edges: [
-          { id: "e1", source: "source-t1", target: "generator-t1", sourceHandle: "output", targetHandle: "input-1" },
+          { id: "e1", source: "attachment-t1", target: "generator-t1", sourceHandle: "output", targetHandle: "input-1" },
           { id: "e2", source: "prompt-t1", target: "generator-t1", sourceHandle: "output", targetHandle: "input-2" },
         ]
       },
       newsletter_curated: {
         name: "Newsletter Curada",
         nodes: [
-          { id: "source-t1", type: "source", position: { x: 100, y: 100 }, data: { type: "source", sourceType: "url", value: "", files: [] } },
-          { id: "source-t2", type: "source", position: { x: 100, y: 300 }, data: { type: "source", sourceType: "url", value: "", files: [] } },
+          { id: "attachment-t1", type: "attachment", position: { x: 100, y: 100 }, data: { type: "attachment", activeTab: "link", url: "", files: [], images: [] } },
+          { id: "attachment-t2", type: "attachment", position: { x: 100, y: 300 }, data: { type: "attachment", activeTab: "link", url: "", files: [], images: [] } },
           { id: "prompt-t1", type: "prompt", position: { x: 100, y: 500 }, data: { type: "prompt", briefing: "Compile estas fontes em uma newsletter com curadoria e análise" } },
           { id: "generator-t1", type: "generator", position: { x: 450, y: 300 }, data: { type: "generator", format: "newsletter", platform: "other", isGenerating: false, quantity: 1 } },
         ],
         edges: [
-          { id: "e1", source: "source-t1", target: "generator-t1", sourceHandle: "output", targetHandle: "input-1" },
-          { id: "e2", source: "source-t2", target: "generator-t1", sourceHandle: "output", targetHandle: "input-2" },
+          { id: "e1", source: "attachment-t1", target: "generator-t1", sourceHandle: "output", targetHandle: "input-1" },
+          { id: "e2", source: "attachment-t2", target: "generator-t1", sourceHandle: "output", targetHandle: "input-2" },
           { id: "e3", source: "prompt-t1", target: "generator-t1", sourceHandle: "output", targetHandle: "input-3" },
         ]
       },
       reel_script: {
         name: "Roteiro de Reel",
         nodes: [
-          { id: "source-t1", type: "source", position: { x: 100, y: 150 }, data: { type: "source", sourceType: "text", value: "", files: [] } },
-          { id: "library-t1", type: "library", position: { x: 100, y: 350 }, data: { type: "library" } },
+          { id: "attachment-t1", type: "attachment", position: { x: 100, y: 150 }, data: { type: "attachment", activeTab: "text", textContent: "", files: [], images: [] } },
+          { id: "attachment-t2", type: "attachment", position: { x: 100, y: 350 }, data: { type: "attachment", activeTab: "text", textContent: "", files: [], images: [] } },
           { id: "generator-t1", type: "generator", position: { x: 450, y: 250 }, data: { type: "generator", format: "reel_script", platform: "instagram", isGenerating: false, quantity: 1 } },
         ],
         edges: [
-          { id: "e1", source: "source-t1", target: "generator-t1", sourceHandle: "output", targetHandle: "input-1" },
-          { id: "e2", source: "library-t1", target: "generator-t1", sourceHandle: "output", targetHandle: "input-2" },
+          { id: "e1", source: "attachment-t1", target: "generator-t1", sourceHandle: "output", targetHandle: "input-1" },
+          { id: "e2", source: "attachment-t2", target: "generator-t1", sourceHandle: "output", targetHandle: "input-2" },
         ]
       },
       image_series: {
         name: "Série de Imagens",
         nodes: [
-          { id: "source-t1", type: "source", position: { x: 100, y: 150 }, data: { type: "source", sourceType: "text", value: "", files: [] } },
+          { id: "attachment-t1", type: "attachment", position: { x: 100, y: 150 }, data: { type: "attachment", activeTab: "image", files: [], images: [] } },
           { id: "prompt-t1", type: "prompt", position: { x: 100, y: 350 }, data: { type: "prompt", briefing: "Descreva o estilo visual desejado" } },
           { id: "generator-t1", type: "generator", position: { x: 450, y: 250 }, data: { type: "generator", format: "image", platform: "instagram", isGenerating: false, imageStyle: "photographic", aspectRatio: "1:1", quantity: 3 } },
         ],
         edges: [
-          { id: "e1", source: "source-t1", target: "generator-t1", sourceHandle: "output", targetHandle: "input-1" },
+          { id: "e1", source: "attachment-t1", target: "generator-t1", sourceHandle: "output", targetHandle: "input-1" },
           { id: "e2", source: "prompt-t1", target: "generator-t1", sourceHandle: "output", targetHandle: "input-2" },
         ]
       },
-      // New templates
       linkedin_article: {
         name: "Artigo LinkedIn",
         nodes: [
-          { id: "source-t1", type: "source", position: { x: 100, y: 150 }, data: { type: "source", sourceType: "url", value: "", files: [] } },
+          { id: "attachment-t1", type: "attachment", position: { x: 100, y: 150 }, data: { type: "attachment", activeTab: "link", url: "", files: [], images: [] } },
           { id: "prompt-t1", type: "prompt", position: { x: 100, y: 350 }, data: { type: "prompt", briefing: "Transforme em um artigo profissional para LinkedIn com insights acionáveis" } },
           { id: "generator-t1", type: "generator", position: { x: 450, y: 250 }, data: { type: "generator", format: "post", platform: "linkedin", isGenerating: false, quantity: 1 } },
         ],
         edges: [
-          { id: "e1", source: "source-t1", target: "generator-t1", sourceHandle: "output", targetHandle: "input-1" },
+          { id: "e1", source: "attachment-t1", target: "generator-t1", sourceHandle: "output", targetHandle: "input-1" },
           { id: "e2", source: "prompt-t1", target: "generator-t1", sourceHandle: "output", targetHandle: "input-2" },
         ]
       },
       podcast_highlights: {
         name: "Destaques de Podcast",
         nodes: [
-          { id: "source-t1", type: "source", position: { x: 100, y: 150 }, data: { type: "source", sourceType: "file", value: "", files: [] } },
+          { id: "attachment-t1", type: "attachment", position: { x: 100, y: 150 }, data: { type: "attachment", activeTab: "file", files: [], images: [] } },
           { id: "prompt-t1", type: "prompt", position: { x: 100, y: 350 }, data: { type: "prompt", briefing: "Extraia os 5 principais insights deste áudio para uma thread" } },
           { id: "generator-t1", type: "generator", position: { x: 450, y: 250 }, data: { type: "generator", format: "thread", platform: "twitter", isGenerating: false, quantity: 1 } },
         ],
         edges: [
-          { id: "e1", source: "source-t1", target: "generator-t1", sourceHandle: "output", targetHandle: "input-1" },
+          { id: "e1", source: "attachment-t1", target: "generator-t1", sourceHandle: "output", targetHandle: "input-1" },
           { id: "e2", source: "prompt-t1", target: "generator-t1", sourceHandle: "output", targetHandle: "input-2" },
         ]
       },
       story_sequence: {
         name: "Sequência de Stories",
         nodes: [
-          { id: "source-t1", type: "source", position: { x: 100, y: 150 }, data: { type: "source", sourceType: "text", value: "", files: [] } },
-          { id: "library-t1", type: "library", position: { x: 100, y: 350 }, data: { type: "library" } },
+          { id: "attachment-t1", type: "attachment", position: { x: 100, y: 150 }, data: { type: "attachment", activeTab: "text", textContent: "", files: [], images: [] } },
+          { id: "attachment-t2", type: "attachment", position: { x: 100, y: 350 }, data: { type: "attachment", activeTab: "text", textContent: "", files: [], images: [] } },
           { id: "generator-t1", type: "generator", position: { x: 450, y: 250 }, data: { type: "generator", format: "stories", platform: "instagram", isGenerating: false, quantity: 5 } },
         ],
         edges: [
-          { id: "e1", source: "source-t1", target: "generator-t1", sourceHandle: "output", targetHandle: "input-1" },
-          { id: "e2", source: "library-t1", target: "generator-t1", sourceHandle: "output", targetHandle: "input-2" },
+          { id: "e1", source: "attachment-t1", target: "generator-t1", sourceHandle: "output", targetHandle: "input-1" },
+          { id: "e2", source: "attachment-t2", target: "generator-t1", sourceHandle: "output", targetHandle: "input-2" },
         ]
       },
       repurpose_blog: {
         name: "Repurpose de Blog",
         nodes: [
-          { id: "source-t1", type: "source", position: { x: 100, y: 200 }, data: { type: "source", sourceType: "url", value: "", files: [] } },
+          { id: "attachment-t1", type: "attachment", position: { x: 100, y: 200 }, data: { type: "attachment", activeTab: "link", url: "", files: [], images: [] } },
           { id: "generator-t1", type: "generator", position: { x: 450, y: 100 }, data: { type: "generator", format: "carousel", platform: "instagram", isGenerating: false, quantity: 1 } },
           { id: "generator-t2", type: "generator", position: { x: 450, y: 300 }, data: { type: "generator", format: "thread", platform: "twitter", isGenerating: false, quantity: 1 } },
         ],
         edges: [
-          { id: "e1", source: "source-t1", target: "generator-t1", sourceHandle: "output", targetHandle: "input-1" },
-          { id: "e2", source: "source-t1", target: "generator-t2", sourceHandle: "output", targetHandle: "input-1" },
+          { id: "e1", source: "attachment-t1", target: "generator-t1", sourceHandle: "output", targetHandle: "input-1" },
+          { id: "e2", source: "attachment-t1", target: "generator-t2", sourceHandle: "output", targetHandle: "input-1" },
         ]
       },
       weekly_summary: {
         name: "Resumo Semanal",
         nodes: [
-          { id: "source-t1", type: "source", position: { x: 100, y: 50 }, data: { type: "source", sourceType: "url", value: "", files: [] } },
-          { id: "source-t2", type: "source", position: { x: 100, y: 200 }, data: { type: "source", sourceType: "url", value: "", files: [] } },
-          { id: "source-t3", type: "source", position: { x: 100, y: 350 }, data: { type: "source", sourceType: "url", value: "", files: [] } },
+          { id: "attachment-t1", type: "attachment", position: { x: 100, y: 50 }, data: { type: "attachment", activeTab: "link", url: "", files: [], images: [] } },
+          { id: "attachment-t2", type: "attachment", position: { x: 100, y: 200 }, data: { type: "attachment", activeTab: "link", url: "", files: [], images: [] } },
+          { id: "attachment-t3", type: "attachment", position: { x: 100, y: 350 }, data: { type: "attachment", activeTab: "link", url: "", files: [], images: [] } },
           { id: "prompt-t1", type: "prompt", position: { x: 100, y: 500 }, data: { type: "prompt", briefing: "Crie um resumo semanal compilando todas essas fontes em uma newsletter" } },
           { id: "generator-t1", type: "generator", position: { x: 500, y: 275 }, data: { type: "generator", format: "newsletter", platform: "other", isGenerating: false, quantity: 1 } },
         ],
         edges: [
-          { id: "e1", source: "source-t1", target: "generator-t1", sourceHandle: "output", targetHandle: "input-1" },
-          { id: "e2", source: "source-t2", target: "generator-t1", sourceHandle: "output", targetHandle: "input-2" },
-          { id: "e3", source: "source-t3", target: "generator-t1", sourceHandle: "output", targetHandle: "input-3" },
+          { id: "e1", source: "attachment-t1", target: "generator-t1", sourceHandle: "output", targetHandle: "input-1" },
+          { id: "e2", source: "attachment-t2", target: "generator-t1", sourceHandle: "output", targetHandle: "input-2" },
+          { id: "e3", source: "attachment-t3", target: "generator-t1", sourceHandle: "output", targetHandle: "input-3" },
           { id: "e4", source: "prompt-t1", target: "generator-t1", sourceHandle: "output", targetHandle: "input-4" },
         ]
       },

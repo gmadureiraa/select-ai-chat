@@ -421,23 +421,25 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
       // Use platform as content type label
       const contentTypeLabel = item.platform || "conteúdo";
       
+      // Use the new unified "attachment" node instead of legacy "source"
       addNode(
-        "source",
+        "attachment",
         position,
         {
-          type: "source",
-          sourceType: "text",
-          value: item.content,
+          type: "attachment",
+          activeTab: "text",
+          textContent: item.content,
           extractedContent: item.content,
           title: item.title,
           thumbnail: item.thumbnail_url,
-          urlType: "library",
+          files: [],
+          images: [],
           contentMetadata: {
             libraryItemId: item.id,
             libraryItemType: contentTypeLabel,
             wordCount: item.content?.split(/\s+/).length || 0,
           },
-        } as Partial<SourceNodeData>
+        } as Partial<AttachmentNodeData>
       );
 
       toast({
