@@ -1,6 +1,6 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Sparkles, Play, Paperclip, Instagram, Twitter, Linkedin, FileText, Headphones, Link2, Type, Image as ImageIcon, MousePointer2, StickyNote, Loader2, Copy, Check, Youtube, Mail } from "lucide-react";
+import { ArrowRight, Sparkles, Play, Paperclip, Instagram, Twitter, FileText, Headphones, Link2, Type, Image as ImageIcon, MousePointer2, StickyNote, Loader2, Copy, Check, Youtube, Mail } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
@@ -162,11 +162,21 @@ const scenarios = [
   }
 ];
 
+// Node widths for connection calculations
+const NODE_WIDTHS = {
+  attachment: 175,
+  generator: 135,
+  result: 165
+};
+
+const GAP = 60; // Gap between nodes
+
 // Real Canvas Demo - Multiple scenarios with centralized layout
 const HeroCanvasDemo = () => {
   const [currentScenario, setCurrentScenario] = useState(0);
   const [animationStep, setAnimationStep] = useState(0);
   const [copied, setCopied] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const scenario = scenarios[currentScenario];
 
@@ -216,14 +226,16 @@ const HeroCanvasDemo = () => {
     };
   }, [currentScenario]);
 
-  // Create bezier path for connections
-  const createBezierPath = (from: { x: number; y: number }, to: { x: number; y: number }) => {
-    const controlOffset = Math.abs(to.x - from.x) * 0.4;
-    return `M ${from.x} ${from.y} C ${from.x + controlOffset} ${from.y}, ${to.x - controlOffset} ${to.y}, ${to.x} ${to.y}`;
+  // Calculate total width of all visible nodes
+  const getTotalWidth = () => {
+    let width = NODE_WIDTHS.attachment;
+    if (animationStep >= 3) width += GAP + NODE_WIDTHS.generator;
+    if (animationStep >= 6) width += GAP + NODE_WIDTHS.result;
+    return width;
   };
 
   return (
-    <div className="relative w-full aspect-[16/9] bg-background rounded-lg overflow-hidden">
+    <div ref={containerRef} className="relative w-full aspect-[16/9] bg-background rounded-lg overflow-hidden">
       {/* Grid background */}
       <div 
         className="absolute inset-0 opacity-30"
@@ -273,65 +285,9 @@ const HeroCanvasDemo = () => {
         </div>
       </motion.div>
 
-      {/* Connection SVG Layer */}
-      <svg className="absolute inset-0 w-full h-full pointer-events-none z-10">
-        <defs>
-          <linearGradient id="heroConnectionGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="hsl(217, 91%, 60%)" />
-            <stop offset="100%" stopColor="hsl(142, 71%, 45%)" />
-          </linearGradient>
-          <linearGradient id="heroResultGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="hsl(142, 71%, 45%)" />
-            <stop offset="100%" stopColor="hsl(330, 81%, 60%)" />
-          </linearGradient>
-        </defs>
-
-        {/* Attachment → Generator connection */}
-        {animationStep >= 3 && (
-          <motion.path
-            d="M 270 130 C 310 130, 330 125, 370 125"
-            stroke="url(#heroConnectionGradient)"
-            strokeWidth="2"
-            fill="none"
-            initial={{ pathLength: 0 }}
-            animate={{ pathLength: 1 }}
-            transition={{ duration: 0.6, ease: "easeOut" }}
-          />
-        )}
-
-        {/* Generator → Result connection */}
-        {animationStep >= 5 && (
-          <motion.path
-            d="M 505 125 C 545 125, 565 120, 605 120"
-            stroke="url(#heroResultGradient)"
-            strokeWidth="2"
-            fill="none"
-            initial={{ pathLength: 0 }}
-            animate={{ pathLength: 1 }}
-            transition={{ duration: 0.5, ease: "easeOut" }}
-          />
-        )}
-
-        {/* Animated particle during generation */}
-        {animationStep >= 4 && animationStep < 5 && (
-          <motion.circle
-            cx="0"
-            cy="0"
-            r="4"
-            fill="hsl(142, 71%, 45%)"
-            style={{ filter: "drop-shadow(0 0 6px hsl(142, 71%, 45%))" }}
-            animate={{
-              cx: [505, 535, 565, 595, 605],
-              cy: [125, 123, 122, 121, 120],
-            }}
-            transition={{ duration: 1.2, repeat: Infinity, ease: "linear" }}
-          />
-        )}
-      </svg>
-
-      {/* CENTERED Nodes Container */}
+      {/* CENTERED Nodes Container with proper positioning */}
       <div className="absolute inset-0 flex items-center justify-center pt-8">
-        <div className="flex items-start gap-[100px]">
+        <div className="relative flex items-start" style={{ gap: `${GAP}px` }}>
           {/* Attachment Node */}
           <AnimatePresence mode="wait">
             {animationStep >= 1 && (
@@ -342,8 +298,9 @@ const HeroCanvasDemo = () => {
                 exit={{ opacity: 0, scale: 0.9 }}
                 transition={{ duration: 0.4 }}
                 className="relative"
+                style={{ width: NODE_WIDTHS.attachment }}
               >
-                <div className="w-[175px] bg-background border border-border rounded-lg shadow-xl overflow-hidden">
+                <div className="w-full bg-background border border-border rounded-lg shadow-xl overflow-hidden">
                   {/* Header */}
                   <div className="flex items-center gap-2 px-3 py-2 border-b border-border bg-blue-500/5">
                     <div className="p-1 rounded bg-blue-500/10">
@@ -470,9 +427,26 @@ const HeroCanvasDemo = () => {
                   </div>
 
                   {/* Connection handle */}
-                  <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 w-2.5 h-2.5 rounded-full bg-blue-500 border-2 border-background shadow-sm" />
+                  <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 w-2.5 h-2.5 rounded-full bg-blue-500 border-2 border-background shadow-sm z-10" />
                 </div>
               </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Connection Line 1: Attachment → Generator */}
+          <AnimatePresence>
+            {animationStep >= 3 && (
+              <motion.div
+                className="absolute top-1/2 -translate-y-1/2 h-0.5 bg-gradient-to-r from-blue-500 to-emerald-500 z-0"
+                style={{
+                  left: NODE_WIDTHS.attachment + 5,
+                  width: GAP - 10
+                }}
+                initial={{ scaleX: 0, opacity: 0 }}
+                animate={{ scaleX: 1, opacity: 1 }}
+                exit={{ scaleX: 0, opacity: 0 }}
+                transition={{ duration: 0.4 }}
+              />
             )}
           </AnimatePresence>
 
@@ -486,8 +460,9 @@ const HeroCanvasDemo = () => {
                 exit={{ opacity: 0, scale: 0.9 }}
                 transition={{ duration: 0.4 }}
                 className="relative"
+                style={{ width: NODE_WIDTHS.generator }}
               >
-                <div className="w-[135px] bg-background border border-border rounded-lg shadow-xl overflow-hidden">
+                <div className="w-full bg-background border border-border rounded-lg shadow-xl overflow-hidden">
                   {/* Header */}
                   <div className="flex items-center justify-between px-2.5 py-1.5 border-b border-border bg-emerald-500/5">
                     <div className="flex items-center gap-1.5">
@@ -551,10 +526,45 @@ const HeroCanvasDemo = () => {
                   </div>
 
                   {/* Connection handles */}
-                  <div className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1/2 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-background shadow-sm" />
-                  <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-background shadow-sm" />
+                  <div className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1/2 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-background shadow-sm z-10" />
+                  <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-background shadow-sm z-10" />
                 </div>
+
+                {/* Generating particle animation */}
+                {animationStep === 4 && (
+                  <motion.div
+                    className="absolute top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-emerald-400 z-20"
+                    style={{ right: -GAP/2 }}
+                    animate={{
+                      x: [0, GAP/2 + 20, GAP - 10],
+                      opacity: [1, 1, 0],
+                      scale: [1, 1.2, 0.8]
+                    }}
+                    transition={{ 
+                      duration: 1.2, 
+                      repeat: Infinity, 
+                      ease: "easeInOut" 
+                    }}
+                  />
+                )}
               </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Connection Line 2: Generator → Result */}
+          <AnimatePresence>
+            {animationStep >= 5 && (
+              <motion.div
+                className="absolute top-1/2 -translate-y-1/2 h-0.5 bg-gradient-to-r from-emerald-500 to-pink-500 z-0"
+                style={{
+                  left: NODE_WIDTHS.attachment + GAP + NODE_WIDTHS.generator + 5,
+                  width: GAP - 10
+                }}
+                initial={{ scaleX: 0, opacity: 0 }}
+                animate={{ scaleX: 1, opacity: 1 }}
+                exit={{ scaleX: 0, opacity: 0 }}
+                transition={{ duration: 0.4 }}
+              />
             )}
           </AnimatePresence>
 
@@ -568,8 +578,9 @@ const HeroCanvasDemo = () => {
                 exit={{ opacity: 0, scale: 0.9 }}
                 transition={{ duration: 0.4 }}
                 className="relative"
+                style={{ width: NODE_WIDTHS.result }}
               >
-                <div className="w-[165px] bg-background border border-border rounded-lg shadow-xl overflow-hidden">
+                <div className="w-full bg-background border border-border rounded-lg shadow-xl overflow-hidden">
                   {/* Header */}
                   <div className="flex items-center justify-between px-2.5 py-1.5 border-b border-border bg-pink-500/5">
                     <div className="flex items-center gap-1.5">
@@ -666,7 +677,7 @@ const HeroCanvasDemo = () => {
                   </div>
 
                   {/* Connection handle */}
-                  <div className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1/2 w-2.5 h-2.5 rounded-full bg-pink-500 border-2 border-background shadow-sm" />
+                  <div className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1/2 w-2.5 h-2.5 rounded-full bg-pink-500 border-2 border-background shadow-sm z-10" />
                 </div>
               </motion.div>
             )}
