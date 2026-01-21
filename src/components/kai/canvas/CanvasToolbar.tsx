@@ -29,6 +29,7 @@ import {
   Eraser,
   Image,
   Minus,
+  MessageSquare,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -58,7 +59,8 @@ export type ToolType =
   | "shape" 
   | "pencil" 
   | "image" 
-  | "eraser";
+  | "eraser"
+  | "chat";
 
 export type ShapeType = "rectangle" | "circle" | "diamond" | "arrow";
 
@@ -139,7 +141,7 @@ export const QUICK_TEMPLATES: QuickTemplate[] = [
 ];
 
 interface CanvasToolbarProps {
-  onAddNode: (type: "attachment" | "generator") => void;
+  onAddNode: (type: "attachment" | "generator" | "chat") => void;
   onClear: () => void;
   onZoomIn: () => void;
   onZoomOut: () => void;
@@ -597,6 +599,23 @@ function CanvasToolbarComponent({
             </Button>
           </TooltipTrigger>
           <TooltipContent side="bottom">Gerar texto ou imagem com IA</TooltipContent>
+        </Tooltip>
+
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => onAddNode("chat")}
+              className="h-8 gap-1.5 text-xs hover:bg-violet-50 hover:text-violet-600 dark:hover:bg-violet-950"
+            >
+              <div className="h-5 w-5 rounded bg-gradient-to-br from-violet-500 to-purple-500 flex items-center justify-center">
+                <MessageSquare className="h-3 w-3 text-white" />
+              </div>
+              <span className="hidden md:inline font-medium">Chat</span>
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">Conversar sobre um material conectado</TooltipContent>
         </Tooltip>
 
         <Separator orientation="vertical" className="h-6 mx-1" />
