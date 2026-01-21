@@ -2014,7 +2014,15 @@ IMPORTANTE: O novo conteúdo deve parecer escrito pelo mesmo autor.`;
       // FASE 4: Criar resposta contextualizada
       setCurrentStep("creating");
 
-      const systemMessage = contextParts.join("\n");
+      let systemMessage = contextParts.join("\n");
+      
+      // IMPORTANTE: Truncar contexto se exceder limite do backend (100k caracteres)
+      // Deixar margem para mensagens do usuário e histórico
+      const MAX_SYSTEM_MESSAGE_LENGTH = 85000;
+      if (systemMessage.length > MAX_SYSTEM_MESSAGE_LENGTH) {
+        console.warn(`[CHAT] System message too long (${systemMessage.length} chars), truncating to ${MAX_SYSTEM_MESSAGE_LENGTH}`);
+        systemMessage = systemMessage.substring(0, MAX_SYSTEM_MESSAGE_LENGTH) + "\n\n[... contexto truncado por limite de tamanho ...]";
+      }
 
       // IMPORTANTE: Sempre enviar histórico COMPLETO da conversa
       const messagesWithContext = [
