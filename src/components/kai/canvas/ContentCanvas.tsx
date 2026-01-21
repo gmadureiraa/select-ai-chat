@@ -695,9 +695,13 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
         position,
         data: {
           output: {
-            type: "text",
+            type: "library",
             content: item.content,
             fileName: item.title,
+            libraryTitle: item.title,
+            libraryImages: item.thumbnail_url ? [item.thumbnail_url] : [],
+            libraryId: item.id,
+            libraryPlatform: item.platform,
           }
         },
       };
@@ -977,41 +981,109 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
           columns={columns}
           defaultClientId={clientId}
           defaultColumnId={columns.find((c) => c.column_type === "draft")?.id || columns[0]?.id}
-          item={{
-            id: "",
-            title: `${
-              planningOutputNode.format === "carousel"
-                ? "Carrossel"
-                : planningOutputNode.format === "thread"
-                  ? "Thread"
-                  : planningOutputNode.format === "reel_script"
-                    ? "Roteiro Reel"
-                    : planningOutputNode.format === "post"
-                      ? "Post"
-                      : planningOutputNode.format === "stories"
-                        ? "Stories"
-                        : planningOutputNode.format === "newsletter"
-                          ? "Newsletter"
-                          : planningOutputNode.format === "image"
-                            ? "Imagem"
-                            : "Conteúdo"
-            } - ${new Date().toLocaleDateString("pt-BR")}`,
-            content: planningOutputNode.isImage ? "" : planningOutputNode.content,
-            client_id: clientId,
-            workspace_id: "",
-            created_by: "",
-            created_at: "",
-            updated_at: "",
-            status: "draft",
-            priority: "medium",
-            platform: planningOutputNode.platform as any,
-            content_type: FORMAT_TO_CONTENT_TYPE[planningOutputNode.format] || "post",
-            media_urls: planningOutputNode.isImage ? [planningOutputNode.content] : [],
-            metadata: {
+          item={(() => {
+            // Parse thread content into individual tweets
+            const parseThreadToTweets = (content: string) => {
+              const tweets: { id: string; text: string; media_urls: string[] }[] = [];
+              
+              // Format 1: Tweet X/Y: or Tweet X:
+              const tweetPattern = /Tweet\s*\d+(?:\/\d+)?:\s*/gi;
+              const parts = content.split(tweetPattern).filter(Boolean);
+              
+              if (parts.length > 1) {
+                parts.forEach((text, i) => {
+                  const cleanText = text.trim().replace(/^[\n\r]+|[\n\r]+$/g, '');
+                  if (cleanText) {
+                    tweets.push({
+                      id: `tweet-${i + 1}`,
+                      text: cleanText,
+                      media_urls: []
+                    });
+                  }
+                });
+                return tweets;
+              }
+              
+              // Format 2: Separator ---
+              if (content.includes('\n---\n') || content.includes('\n\n---\n\n')) {
+                const separated = content.split(/\n+---\n+/).filter(Boolean);
+                if (separated.length > 1) {
+                  separated.forEach((text, i) => {
+                    const cleanText = text.trim();
+                    if (cleanText) {
+                      tweets.push({
+                        id: `tweet-${i + 1}`,
+                        text: cleanText,
+                        media_urls: []
+                      });
+                    }
+                  });
+                  return tweets;
+                }
+              }
+              
+              // Format 3: Numbered list 1. 2. 3. (each on new paragraph)
+              const numberedPattern = /^\d+\.\s*/gm;
+              if (numberedPattern.test(content)) {
+                const lines = content.split(/\n\n+/);
+                lines.forEach((line, i) => {
+                  const cleanText = line.replace(/^\d+\.\s*/, '').trim();
+                  if (cleanText && cleanText.length > 10) {
+                    tweets.push({
+                      id: `tweet-${i + 1}`,
+                      text: cleanText,
+                      media_urls: []
+                    });
+                  }
+                });
+                if (tweets.length > 1) return tweets;
+              }
+              
+              // Fallback: single tweet
+              return [{ id: 'tweet-1', text: content.trim(), media_urls: [] }];
+            };
+
+            const threadTweets = planningOutputNode.format === 'thread'
+              ? parseThreadToTweets(planningOutputNode.content)
+              : undefined;
+
+            return {
+              id: "",
+              title: `${
+                planningOutputNode.format === "carousel"
+                  ? "Carrossel"
+                  : planningOutputNode.format === "thread"
+                    ? "Thread"
+                    : planningOutputNode.format === "reel_script"
+                      ? "Roteiro Reel"
+                      : planningOutputNode.format === "post"
+                        ? "Post"
+                        : planningOutputNode.format === "stories"
+                          ? "Stories"
+                          : planningOutputNode.format === "newsletter"
+                            ? "Newsletter"
+                            : planningOutputNode.format === "image"
+                              ? "Imagem"
+                              : "Conteúdo"
+              } - ${new Date().toLocaleDateString("pt-BR")}`,
+              content: planningOutputNode.isImage ? "" : planningOutputNode.content,
+              client_id: clientId,
+              workspace_id: "",
+              created_by: "",
+              created_at: "",
+              updated_at: "",
+              status: "draft",
+              priority: "medium",
+              platform: planningOutputNode.platform as any,
               content_type: FORMAT_TO_CONTENT_TYPE[planningOutputNode.format] || "post",
-              from_canvas: true,
-            },
-          } as any}
+              media_urls: planningOutputNode.isImage ? [planningOutputNode.content] : [],
+              metadata: {
+                content_type: FORMAT_TO_CONTENT_TYPE[planningOutputNode.format] || "post",
+                from_canvas: true,
+                thread_tweets: threadTweets,
+              },
+            } as any;
+          })()}
           onSave={handlePlanningDialogSave}
         />
       )}
