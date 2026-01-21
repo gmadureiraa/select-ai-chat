@@ -7,11 +7,15 @@ const corsHeaders = {
 };
 
 interface AttachmentInput {
-  type: "image" | "video" | "audio" | "text" | "url";
+  type: "image" | "video" | "audio" | "text" | "url" | "instagram" | "youtube";
   content: string;
   imageBase64?: string;
   analysis?: Record<string, unknown>;
   transcription?: string;
+  // Instagram-specific
+  extractedImages?: string[];
+  caption?: string;
+  imageCount?: number;
 }
 
 interface GenerateRequest {
@@ -155,12 +159,30 @@ serve(async (req) => {
     console.log("[generate-content-v2] Brand context:", brandContext?.name || "none");
 
     if (type === "text") {
-      // Build context from all inputs
+      // Build context from all inputs - PRIORITIZE REAL EXTRACTED DATA
       let context = "";
+      let hasInstagramReference = false;
       
       for (const input of inputs) {
-        if (input.type === "text") {
-          context += `\n\n### Texto/Briefing:\n${input.content}`;
+        if (input.type === "instagram") {
+          hasInstagramReference = true;
+          context += `\n\n### REFERÊNCIA INSTAGRAM (USE COMO BASE PRINCIPAL):`;
+          if (input.caption) {
+            context += `\n**Legenda original do post:**\n${input.caption}`;
+          }
+          if (input.imageCount) {
+            context += `\n**Número de slides/imagens:** ${input.imageCount}`;
+          }
+          if (input.transcription) {
+            context += `\n**Transcrição do vídeo/áudio:**\n${input.transcription}`;
+          }
+          context += `\n---`;
+        } else if (input.type === "youtube") {
+          context += `\n\n### REFERÊNCIA YOUTUBE:`;
+          context += `\n**Transcrição:**\n${input.transcription || input.content}`;
+          context += `\n---`;
+        } else if (input.type === "text") {
+          context += `\n\n### Texto/Briefing do usuário:\n${input.content}`;
         } else if (input.type === "url") {
           context += `\n\n### Conteúdo de URL:\n${input.transcription || input.content}`;
         } else if (input.type === "image" && input.analysis) {
@@ -185,7 +207,7 @@ serve(async (req) => {
         tiktok: "Tom jovem, trends, linguagem casual",
       };
 
-      // Build enriched prompt with brand context
+      // Build enriched prompt with brand context and STRICT rules for references
       let brandSection = "";
       if (brandContext) {
         brandSection = `
@@ -198,6 +220,17 @@ ${brandContext.keywords?.length ? `- Palavras-chave: ${brandContext.keywords.joi
 `;
       }
 
+      // STRICT rules when using references
+      const strictReferenceRules = hasInstagramReference ? `
+REGRAS ABSOLUTAS PARA REFERÊNCIA INSTAGRAM:
+1. Use EXCLUSIVAMENTE o conteúdo da referência Instagram fornecida
+2. NÃO invente dados, estatísticas, exemplos ou informações que não estejam nas referências
+3. Mantenha o TEMA e ASSUNTO exato da referência original
+4. Se for carrossel, use número similar de slides
+5. Adapte a linguagem para a plataforma, mas mantenha o conteúdo fiel
+6. Se a referência fala de um tema específico, NÃO mude para outro tema
+` : "";
+
       const prompt = `Você é um copywriter especialista em conteúdo para redes sociais.
 
 ${formatPrompts[config.format || "post"]}
@@ -205,14 +238,16 @@ ${formatPrompts[config.format || "post"]}
 Plataforma: ${config.platform || "instagram"}
 Tom: ${platformTone[config.platform || "instagram"]}
 
-${brandSection}CONTEXTO E REFERÊNCIAS:
+${brandSection}${strictReferenceRules}
+
+CONTEXTO E REFERÊNCIAS:
 ${context}
 
-REGRAS:
+REGRAS GERAIS:
 - Seja direto e impactante
 - Use a linguagem adequada para a plataforma
 - Mantenha autenticidade
-- Não invente informações, use apenas o contexto fornecido
+- NUNCA invente informações que não estejam no contexto
 ${brandContext?.brandVoice ? `- Mantenha o tom de voz: ${brandContext.brandVoice}` : ""}
 
 Gere o conteúdo agora:`;
