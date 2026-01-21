@@ -803,13 +803,40 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
     try {
       console.log("Transcribing file:", file.name, "URL:", file.url, "Type:", file.mimeType);
       
-      // Call transcribe-media edge function with the file URL
-      const { data, error } = await supabase.functions.invoke("transcribe-media", {
-        body: { 
+      let requestBody: { url?: string; base64?: string; fileName: string; mimeType?: string };
+      
+      // Check if it's a blob URL (only exists in browser, cannot be fetched by server)
+      if (file.url.startsWith('blob:')) {
+        console.log("Converting blob URL to base64...");
+        // Fetch the blob and convert to base64
+        const response = await fetch(file.url);
+        const blob = await response.blob();
+        
+        // Convert blob to base64
+        const base64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(blob);
+        });
+        
+        requestBody = {
+          base64,
+          fileName: file.name,
+          mimeType: file.mimeType || blob.type
+        };
+      } else {
+        // Use URL directly for public URLs (e.g., from Supabase storage)
+        requestBody = { 
           url: file.url,
           fileName: file.name,
           mimeType: file.mimeType
-        }
+        };
+      }
+      
+      // Call transcribe-media edge function
+      const { data, error } = await supabase.functions.invoke("transcribe-media", {
+        body: requestBody
       });
 
       if (error) {
