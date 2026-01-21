@@ -7,9 +7,9 @@ import { FloatingKAIButton } from "./FloatingKAIButton";
 import { GlobalKAIPanel } from "./GlobalKAIPanel";
 import { GlobalKAIChat } from "./GlobalKAIChat";
 import { GlobalKAIInputMinimal } from "./GlobalKAIInputMinimal";
-import { ActionConfirmationDialog } from "./ActionConfirmationDialog";
 import { ViewerBlockedPanel } from "./ViewerBlockedPanel";
 import { useMemo, useCallback } from "react";
+import type { SimpleCitation } from "@/hooks/useKAISimpleChat";
 
 export function GlobalKAIAssistant() {
   const {
@@ -21,15 +21,14 @@ export function GlobalKAIAssistant() {
     selectedClientId,
     actionStatus,
     attachedFiles,
-    pendingAction,
     currentStep,
     multiAgentStep,
     sendMessage,
     attachFiles,
     removeFile,
-    confirmAction,
-    cancelAction,
     chatMode,
+    contentLibrary,
+    referenceLibrary,
   } = useGlobalKAI();
 
   const { clients: clientsData } = useClients();
@@ -49,9 +48,13 @@ export function GlobalKAIAssistant() {
     sendMessage(content);
   }, [sendMessage]);
 
-  // Simple handler for minimal input
-  const handleSend = useCallback(async (message: string, files?: File[]) => {
-    await sendMessage(message, files);
+  // Handler for minimal input with citations
+  const handleSend = useCallback(async (
+    message: string, 
+    files?: File[], 
+    citations?: SimpleCitation[]
+  ) => {
+    await sendMessage(message, files, citations);
   }, [sendMessage]);
 
   // Handle button click - show upgrade prompt for Canvas users
@@ -103,29 +106,23 @@ export function GlobalKAIAssistant() {
                 onSuggestionClick={handleSendFromChat}
               />
 
-              {/* Minimal input: just attach + text + send */}
+              {/* Input with @ mentions */}
               <GlobalKAIInputMinimal
                 onSend={handleSend}
                 isProcessing={isProcessing}
                 attachedFiles={attachedFiles}
                 onAttachFiles={attachFiles}
                 onRemoveFile={removeFile}
-                placeholder="Pergunte qualquer coisa..."
+                placeholder="Pergunte qualquer coisa... Use @ para citar"
+                clientId={selectedClientId || undefined}
+                contentLibrary={contentLibrary}
+                referenceLibrary={referenceLibrary}
               />
             </>
           ) : (
             <ViewerBlockedPanel onClose={closePanel} />
           )}
         </GlobalKAIPanel>
-      )}
-
-      {/* Action Confirmation Dialog */}
-      {canUseAssistant && canAccessKaiChat && (
-        <ActionConfirmationDialog
-          pendingAction={pendingAction}
-          onConfirm={confirmAction}
-          onCancel={cancelAction}
-        />
       )}
     </>
   );

@@ -161,3 +161,6 @@ verify_jwt = true
 
 [functions.sync-rss-to-library]
 verify_jwt = true
+
+[functions.kai-simple-chat]
+verify_jwt = true
