@@ -17,10 +17,11 @@ import type { AttachmentOutput } from './AttachmentNode';
 
 const FORMAT_OPTIONS = [
   { value: 'post', label: 'Post' },
-  { value: 'carrossel', label: 'Carrossel' },
+  { value: 'carousel', label: 'Carrossel' },
   { value: 'thread', label: 'Thread' },
   { value: 'newsletter', label: 'Newsletter' },
-  { value: 'reels', label: 'Roteiro Reels' },
+  { value: 'reel_script', label: 'Roteiro Reels' },
+  { value: 'stories', label: 'Stories' },
 ];
 
 const PLATFORM_OPTIONS = [
@@ -162,11 +163,23 @@ const GeneratorNodeComponent: React.FC<NodeProps<GeneratorNodeData>> = ({
 
       // Create output node instead of showing inline
       if (data.onCreateOutput) {
+        const normalizeFormatForOutput = (format?: string): string => {
+          const f = (format || 'post').toLowerCase();
+          if (f === 'carrossel') return 'carousel';
+          if (f === 'carousel') return 'carousel';
+          if (f === 'reels') return 'reel_script';
+          if (f === 'reel_script') return 'reel_script';
+          if (f === 'stories' || f === 'story') return 'stories';
+          if (f === 'thread') return 'thread';
+          if (f === 'newsletter') return 'newsletter';
+          return 'post';
+        };
+
         if (generationType === 'text') {
           data.onCreateOutput({
             type: 'text',
             content: result.content || result.text || '',
-            format: data.format || 'post',
+            format: normalizeFormatForOutput(data.format),
             platform: data.platform || 'instagram',
           });
         } else {
