@@ -5,12 +5,14 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { 
   Sparkles, X, FileText, Image, Loader2, Link2, 
-  Download, Copy, CheckCircle2 
+  Download, Copy, CheckCircle2, Maximize2, ExternalLink 
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { downloadFile } from '@/lib/mediaDownload';
 import type { AttachmentOutput } from './AttachmentNode';
 
 const FORMAT_OPTIONS = [
@@ -60,6 +62,8 @@ const GeneratorNodeComponent: React.FC<NodeProps<GeneratorNodeData>> = ({
   const { getEdges, getNode } = useReactFlow();
   const { toast } = useToast();
   const [copied, setCopied] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [showImageModal, setShowImageModal] = useState(false);
 
   const generationType = data.type || 'text';
   const isGenerating = data.isGenerating || false;
@@ -160,12 +164,35 @@ const GeneratorNodeComponent: React.FC<NodeProps<GeneratorNodeData>> = ({
     }
   }, [data.result, toast]);
 
-  const handleDownload = useCallback(() => {
+  const handleDownload = useCallback(async () => {
+    if (!data.result?.imageUrl) return;
+    
+    setIsDownloading(true);
+    try {
+      const filename = `imagem-gerada-${Date.now()}.png`;
+      const success = await downloadFile(data.result.imageUrl, filename);
+      
+      if (success) {
+        toast({ title: 'Imagem baixada!' });
+      } else {
+        // Fallback: open in new tab
+        window.open(data.result.imageUrl, '_blank');
+        toast({ 
+          title: 'Download alternativo',
+          description: 'Clique com botão direito na imagem e selecione "Salvar como..."'
+        });
+      }
+    } catch (error) {
+      console.error('Download error:', error);
+      window.open(data.result.imageUrl, '_blank');
+    } finally {
+      setIsDownloading(false);
+    }
+  }, [data.result, toast]);
+
+  const handleOpenNewTab = useCallback(() => {
     if (data.result?.imageUrl) {
-      const link = document.createElement('a');
-      link.href = data.result.imageUrl;
-      link.download = `generated-${Date.now()}.png`;
-      link.click();
+      window.open(data.result.imageUrl, '_blank');
     }
   }, [data.result]);
 
@@ -358,21 +385,42 @@ const GeneratorNodeComponent: React.FC<NodeProps<GeneratorNodeData>> = ({
             ) : (
               <div className="space-y-2">
                 {data.result.imageUrl && (
-                  <img 
-                    src={data.result.imageUrl} 
-                    alt="Generated" 
-                    className="w-full h-auto"
-                  />
+                  <div 
+                    className="relative group cursor-pointer"
+                    onClick={() => setShowImageModal(true)}
+                  >
+                    <img 
+                      src={data.result.imageUrl} 
+                      alt="Generated" 
+                      className="w-full h-auto rounded-t-lg"
+                    />
+                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-t-lg">
+                      <Maximize2 className="h-8 w-8 text-white" />
+                    </div>
+                  </div>
                 )}
-                <div className="p-2">
+                <div className="p-2 flex gap-2">
                   <Button
                     variant="outline"
                     size="sm"
-                    className="w-full text-xs"
+                    className="flex-1 text-xs"
                     onClick={handleDownload}
+                    disabled={isDownloading}
                   >
-                    <Download className="h-3 w-3 mr-1" />
+                    {isDownloading ? (
+                      <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                    ) : (
+                      <Download className="h-3 w-3 mr-1" />
+                    )}
                     Baixar
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-xs"
+                    onClick={handleOpenNewTab}
+                  >
+                    <ExternalLink className="h-3 w-3" />
                   </Button>
                 </div>
               </div>
@@ -387,6 +435,45 @@ const GeneratorNodeComponent: React.FC<NodeProps<GeneratorNodeData>> = ({
         position={Position.Right}
         className="!w-3 !h-3 !bg-primary !border-2 !border-background"
       />
+
+      {/* Image Modal */}
+      <Dialog open={showImageModal} onOpenChange={setShowImageModal}>
+        <DialogContent className="max-w-4xl max-h-[90vh] p-0 overflow-hidden">
+          <DialogTitle className="sr-only">Imagem Gerada</DialogTitle>
+          {data.result?.imageUrl && (
+            <div className="relative">
+              <img 
+                src={data.result.imageUrl} 
+                alt="Generated" 
+                className="w-full h-auto max-h-[80vh] object-contain"
+              />
+              <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 to-transparent flex justify-center gap-3">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={handleDownload}
+                  disabled={isDownloading}
+                >
+                  {isDownloading ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Download className="h-4 w-4 mr-2" />
+                  )}
+                  Baixar Imagem
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={handleOpenNewTab}
+                >
+                  <ExternalLink className="h-4 w-4 mr-2" />
+                  Abrir em Nova Aba
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 };
