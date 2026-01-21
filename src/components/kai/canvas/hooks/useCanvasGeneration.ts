@@ -326,7 +326,7 @@ export function useCanvasGeneration({
         
         const imageTypeToFormatKey: Record<string, string> = {
           "feed": "post_feed",
-          "carousel": "carrossel",
+          "carousel": "carousel_slide",
           "thumbnail": "thumbnail",
           "stories": "story",
           "youtube_thumbnail": "thumbnail_youtube",
