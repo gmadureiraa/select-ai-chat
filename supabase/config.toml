@@ -15,6 +15,9 @@ verify_jwt = true
 [functions.generate-image-simple]
 verify_jwt = true
 
+[functions.generate-content-v2]
+verify_jwt = true
+
 [functions.fetch-beehiiv-metrics]
 verify_jwt = true
 

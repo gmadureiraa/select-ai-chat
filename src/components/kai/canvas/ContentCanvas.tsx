@@ -32,6 +32,8 @@ import { GeneratorNode } from "./nodes/GeneratorNode";
 import { ContentOutputNode } from "./nodes/ContentOutputNode";
 import { ImageSourceNode } from "./nodes/ImageSourceNode";
 import { AttachmentNode } from "./nodes/AttachmentNode";
+import { AttachmentNodeV2, AttachmentNodeV2Data } from "./nodes/AttachmentNodeV2";
+import { GeneratorNodeV2, GeneratorNodeV2Data } from "./nodes/GeneratorNodeV2";
 import { TextNode, TextNodeData } from "./nodes/TextNode";
 import { StickyNode, StickyNodeData } from "./nodes/StickyNode";
 import { ShapeNode, ShapeNodeData } from "./nodes/ShapeNode";
@@ -623,6 +625,27 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
           clientId={handlersRef.current?.clientId}
         />
       ),
+      // V2 Nodes - Simplified system
+      attachmentV2: (props: NodeProps<AttachmentNodeV2Data>) => (
+        <AttachmentNodeV2
+          {...props}
+          data={{
+            ...props.data,
+            onUpdateData: (data) => handlersRef.current?.updateNodeData(props.id, data as any),
+            onDelete: () => handlersRef.current?.deleteNode(props.id),
+          }}
+        />
+      ),
+      generatorV2: (props: NodeProps<GeneratorNodeV2Data>) => (
+        <GeneratorNodeV2
+          {...props}
+          data={{
+            ...props.data,
+            onUpdateData: (data) => handlersRef.current?.updateNodeData(props.id, data as any),
+            onDelete: () => handlersRef.current?.deleteNode(props.id),
+          }}
+        />
+      ),
     }),
     []
   );
@@ -636,14 +659,31 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
   );
 
   const handleAddNode = useCallback(
-    (type: "attachment" | "prompt" | "generator") => {
+    (type: "attachment" | "prompt" | "generator" | "attachmentV2" | "generatorV2") => {
       const viewport = getViewport();
       const centerX = (window.innerWidth / 2 - viewport.x) / viewport.zoom;
       const centerY = (window.innerHeight / 2 - viewport.y) / viewport.zoom;
       const offset = nodes.length * 20;
-      addNode(type, { x: centerX + offset, y: centerY + offset });
+      
+      // Handle V2 nodes directly
+      if (type === "attachmentV2" || type === "generatorV2") {
+        const nodeId = `${type}-${Date.now()}`;
+        const defaultData = type === "attachmentV2" 
+          ? { output: undefined } 
+          : { type: "text" as const, format: "post", platform: "instagram" };
+        
+        const newNode: RFNode = {
+          id: nodeId,
+          type,
+          position: { x: centerX + offset, y: centerY + offset },
+          data: defaultData,
+        };
+        onNodesChange([{ type: "add", item: newNode }] as any);
+      } else {
+        addNode(type, { x: centerX + offset, y: centerY + offset });
+      }
     },
-    [addNode, getViewport, nodes.length]
+    [addNode, getViewport, nodes.length, onNodesChange]
   );
 
   // Handler for adding the new simplified image generator node

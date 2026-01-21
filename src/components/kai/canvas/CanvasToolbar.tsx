@@ -65,7 +65,7 @@ export type ShapeType = "rectangle" | "circle" | "diamond" | "arrow";
 
 interface CanvasToolbarProps {
   onAddImageGenerator?: () => void;
-  onAddNode: (type: "attachment" | "prompt" | "generator") => void;
+  onAddNode: (type: "attachment" | "prompt" | "generator" | "attachmentV2" | "generatorV2") => void;
   onClear: () => void;
   onZoomIn: () => void;
   onZoomOut: () => void;
@@ -490,22 +490,56 @@ function CanvasToolbarComponent({
 
         <Separator orientation="vertical" className="h-6 mx-1" />
 
-        {/* AI Nodes - Separate buttons */}
+        {/* V2 Nodes - New simplified system */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => onAddNode("attachmentV2")}
+              className="h-8 gap-1 text-xs hover:bg-cyan-50 hover:text-cyan-600 dark:hover:bg-cyan-950"
+            >
+              <div className="h-4 w-4 rounded bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center">
+                <Paperclip className="h-2.5 w-2.5 text-white" />
+              </div>
+              <span className="hidden md:inline">Anexo</span>
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">Anexo universal (imagem, vídeo, áudio, texto, URL)</TooltipContent>
+        </Tooltip>
+
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => onAddNode("generatorV2")}
+              className="h-8 gap-1 text-xs hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-950"
+            >
+              <div className="h-4 w-4 rounded bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center">
+                <Sparkles className="h-2.5 w-2.5 text-white" />
+              </div>
+              <span className="hidden md:inline">Gerador</span>
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">Gerador de texto ou imagem com IA</TooltipContent>
+        </Tooltip>
+
+        {/* Legacy AI Nodes */}
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
               variant="ghost"
               size="sm"
               onClick={() => onAddNode("attachment")}
-              className="h-8 gap-1 text-xs hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-950"
+              className="h-8 gap-1 text-xs hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-950 opacity-50"
             >
               <div className="h-4 w-4 rounded bg-blue-500 flex items-center justify-center">
                 <Paperclip className="h-2.5 w-2.5 text-white" />
               </div>
-              <span className="hidden md:inline">Anexo</span>
             </Button>
           </TooltipTrigger>
-          <TooltipContent side="bottom">Adicionar link, texto, arquivo ou imagem</TooltipContent>
+          <TooltipContent side="bottom">Anexo (versão anterior)</TooltipContent>
         </Tooltip>
 
         <Tooltip>
