@@ -54,11 +54,21 @@ const AttachmentNodeComponent: React.FC<NodeProps<AttachmentNodeData>> = ({
   const { toast } = useToast();
 
   const output = data.output;
-
-  // Detect URL type
-  const detectUrlType = (url: string): 'youtube' | 'instagram' | 'generic' => {
+ 
+  // Detect URL type - with specific Instagram validation
+  const detectUrlType = (url: string): 'youtube' | 'instagram' | 'instagram-profile' | 'generic' => {
     if (url.includes('youtube.com') || url.includes('youtu.be')) return 'youtube';
-    if (url.includes('instagram.com/p/') || url.includes('instagram.com/reel/') || url.includes('instagr.am')) return 'instagram';
+    
+    // Instagram: only accept post (/p/) or reel (/reel/) URLs
+    if (url.includes('instagram.com/p/') || url.includes('instagram.com/reel/') || url.includes('instagr.am/p/')) {
+      return 'instagram';
+    }
+    
+    // Instagram profile URLs - we can't extract these
+    if (url.includes('instagram.com/') && !url.includes('/p/') && !url.includes('/reel/')) {
+      return 'instagram-profile';
+    }
+    
     return 'generic';
   };
 
@@ -69,6 +79,18 @@ const AttachmentNodeComponent: React.FC<NodeProps<AttachmentNodeData>> = ({
     const urlType = detectUrlType(urlInput);
     
     try {
+      // Handle Instagram profile URLs - NOT supported
+      if (urlType === 'instagram-profile') {
+        toast({ 
+          title: 'Link de perfil não suportado', 
+          description: 'Cole o link de um POST ou REEL específico do Instagram (ex: instagram.com/p/xxx ou instagram.com/reel/xxx)',
+          variant: 'destructive' 
+        });
+        setIsProcessing(false);
+        setProcessStatus('');
+        return;
+      }
+      
       if (urlType === 'youtube') {
         setProcessStatus('Extraindo YouTube...');
         console.log('[AttachmentNode] Extracting YouTube:', urlInput);
