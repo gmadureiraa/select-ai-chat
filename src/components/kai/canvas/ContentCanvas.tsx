@@ -11,6 +11,7 @@ import ReactFlow, {
 } from "reactflow";
 import "reactflow/dist/style.css";
 import { Sparkles, LayoutGrid, MessageSquare, Briefcase, BookOpen, RefreshCw, Image } from "lucide-react";
+import { MaterialChatNode } from "./nodes/MaterialChatNode";
 import { cn } from "@/lib/utils";
 import { CanvasFloatingChat } from "./CanvasFloatingChat";
 import { AnimatedEdge } from "./components/AnimatedEdge";
@@ -421,8 +422,38 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
           onDelete={(id) => handlersRef.current?.deleteNode(id)}
         />
       ),
+      chat: (props: NodeProps) => (
+        <MaterialChatNode
+          {...props}
+          data={{
+            ...props.data,
+            clientId: clientId,
+            onUpdateData: (data) => handlersRef.current?.updateNodeData(props.id, data as any),
+            onDelete: () => handlersRef.current?.deleteNode(props.id),
+            onCreateNode: (content, position) => {
+              const nodeId = `result-${Date.now()}`;
+              const newNode: RFNode = {
+                id: nodeId,
+                type: "output",
+                position,
+                data: {
+                  type: "output",
+                  label: "Resposta do Chat",
+                  content: content,
+                  format: "post",
+                  platform: "instagram",
+                  isImage: false,
+                  isEditing: false,
+                  addedToPlanning: false,
+                } as OutputNodeData,
+              };
+              onNodesChange([{ type: "add", item: newNode }] as any);
+            },
+          }}
+        />
+      ),
     }),
-    []
+    [clientId, onNodesChange]
   );
 
   // Edge types
@@ -434,16 +465,22 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
   );
 
   const handleAddNode = useCallback(
-    (type: "attachment" | "generator") => {
+    (type: "attachment" | "generator" | "chat") => {
       const viewport = getViewport();
       const centerX = (window.innerWidth / 2 - viewport.x) / viewport.zoom;
       const centerY = (window.innerHeight / 2 - viewport.y) / viewport.zoom;
       const offset = nodes.length * 20;
       
       const nodeId = `${type}-${Date.now()}`;
-      const defaultData = type === "attachment" 
-        ? { output: undefined } 
-        : { type: "text" as const, format: "post", platform: "instagram" };
+      let defaultData: Record<string, unknown> = {};
+      
+      if (type === "attachment") {
+        defaultData = { output: undefined };
+      } else if (type === "generator") {
+        defaultData = { type: "text" as const, format: "post", platform: "instagram" };
+      } else if (type === "chat") {
+        defaultData = { messages: [], clientId };
+      }
       
       const newNode: RFNode = {
         id: nodeId,
@@ -453,7 +490,7 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
       };
       onNodesChange([{ type: "add", item: newNode }] as any);
     },
-    [getViewport, nodes.length, onNodesChange]
+    [getViewport, nodes.length, onNodesChange, clientId]
   );
 
   const handleClear = useCallback(() => {
@@ -600,7 +637,7 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
             content: item.content,
             fileName: item.title,
             libraryTitle: item.title,
-            libraryImages: item.thumbnail_url ? [item.thumbnail_url] : [],
+            libraryImages: item.images || (item.thumbnail_url ? [item.thumbnail_url] : []),
             libraryId: item.id,
             libraryPlatform: item.platform,
           }
@@ -699,7 +736,7 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
             content: item.content,
             fileName: item.title,
             libraryTitle: item.title,
-            libraryImages: item.thumbnail_url ? [item.thumbnail_url] : [],
+            libraryImages: item.images || (item.thumbnail_url ? [item.thumbnail_url] : []),
             libraryId: item.id,
             libraryPlatform: item.platform,
           }

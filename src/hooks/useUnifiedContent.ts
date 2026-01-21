@@ -8,6 +8,7 @@ export interface UnifiedContentItem {
   title: string;
   content: string;
   thumbnail_url?: string;
+  images?: string[]; // All images from metadata + thumbnail
   posted_at: string;
   engagement_rate?: number;
   permalink?: string;
@@ -47,7 +48,7 @@ export function useUnifiedContent(clientId: string) {
           .order('posted_at', { ascending: false }),
         supabase
           .from('client_content_library')
-          .select('id, title, content, thumbnail_url, created_at, content_type, content_url, is_favorite')
+          .select('id, title, content, thumbnail_url, created_at, content_type, content_url, is_favorite, metadata')
           .eq('client_id', clientId)
           .order('created_at', { ascending: false }),
       ]);
@@ -132,12 +133,24 @@ export function useUnifiedContent(clientId: string) {
             platform = 'youtube';
           }
           
+          // Extract all images from metadata + thumbnail
+          const metadata = item.metadata as Record<string, unknown> | null;
+          const metadataImages = Array.isArray(metadata?.images) 
+            ? (metadata.images as string[]) 
+            : [];
+          const allImages: string[] = [];
+          if (item.thumbnail_url) allImages.push(item.thumbnail_url);
+          metadataImages.forEach(img => {
+            if (img && !allImages.includes(img)) allImages.push(img);
+          });
+          
           items.push({
             id: item.id,
             platform,
             title: item.title || 'Conteúdo',
             content: item.content || '',
-            thumbnail_url: item.thumbnail_url || undefined,
+            thumbnail_url: item.thumbnail_url || allImages[0] || undefined,
+            images: allImages.length > 0 ? allImages : undefined,
             posted_at: item.created_at || new Date().toISOString(),
             permalink: item.content_url || undefined,
             is_favorite: item.is_favorite || false,

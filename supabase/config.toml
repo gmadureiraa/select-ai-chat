@@ -173,3 +173,6 @@ verify_jwt = true
 
 [functions.transcribe-media]
 verify_jwt = true
+
+[functions.chat-about-material]
+verify_jwt = true
