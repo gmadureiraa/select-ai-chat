@@ -15,30 +15,17 @@ import { CanvasFloatingChat } from "./CanvasFloatingChat";
 import { AnimatedEdge } from "./components/AnimatedEdge";
 import {
   useCanvasState,
-  NodeDataType,
-  SourceNodeData,
-  PromptNodeData,
-  GeneratorNodeData,
   OutputNodeData,
   ContentFormat,
-  ImageSourceNodeData,
-  AttachmentNodeData,
 } from "./hooks/useCanvasState";
 import { CanvasToolbar, ToolType, ShapeType } from "./CanvasToolbar";
 import { CanvasLibraryDrawer } from "./CanvasLibraryDrawer";
-import { SourceNode } from "./nodes/SourceNode";
-import { PromptNode } from "./nodes/PromptNode";
-import { GeneratorNode } from "./nodes/GeneratorNode";
+import { AttachmentNode, AttachmentNodeData } from "./nodes/AttachmentNode";
+import { GeneratorNode, GeneratorNodeData } from "./nodes/GeneratorNode";
 import { ContentOutputNode } from "./nodes/ContentOutputNode";
-import { ImageSourceNode } from "./nodes/ImageSourceNode";
-import { AttachmentNode } from "./nodes/AttachmentNode";
-import { AttachmentNodeV2, AttachmentNodeV2Data } from "./nodes/AttachmentNodeV2";
-import { GeneratorNodeV2, GeneratorNodeV2Data } from "./nodes/GeneratorNodeV2";
 import { TextNode, TextNodeData } from "./nodes/TextNode";
 import { StickyNode, StickyNodeData } from "./nodes/StickyNode";
 import { ShapeNode, ShapeNodeData } from "./nodes/ShapeNode";
-import { QuickImageNode, QuickImageNodeData } from "./nodes/QuickImageNode";
-import { ImageGeneratorNode, ImageGeneratorNodeData } from "./nodes/ImageGeneratorNode";
 import { DrawingLayer, DrawingStroke } from "./components/DrawingLayer";
 import { CanvasContextMenu } from "./components/CanvasContextMenu";
 import { PlanningItemDialog } from "@/components/planning/PlanningItemDialog";
@@ -68,7 +55,7 @@ const FORMAT_TO_CONTENT_TYPE: Record<ContentFormat, ContentTypeKey> = {
   image: "static_image",
 };
 
-// Component version: 5 - Unified toolbar
+// Component version: 6 - Simplified (Attachment + Generator only)
 function ContentCanvasInner({ clientId }: ContentCanvasProps) {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const { zoomIn, zoomOut, fitView, getViewport, project } = useReactFlow();
@@ -124,14 +111,7 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
     addNode,
     updateNodeData,
     deleteNode,
-    extractUrlContent,
-    transcribeFile,
-    analyzeImageStyle,
-    analyzeImageSourceImage,
-    transcribeImageSourceImage,
-    generateContent,
     regenerateContent,
-    editImage,
     clearCanvas,
     saveCanvas,
     loadCanvas,
@@ -212,143 +192,19 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
   // Use refs to maintain stable references for handlers
   const handlersRef = useRef<{
     clientId: string;
-    extractUrlContent: typeof extractUrlContent;
-    transcribeFile: typeof transcribeFile;
-    analyzeImageStyle: typeof analyzeImageStyle;
-    analyzeImageSourceImage: typeof analyzeImageSourceImage;
-    transcribeImageSourceImage: typeof transcribeImageSourceImage;
     updateNodeData: typeof updateNodeData;
     deleteNode: typeof deleteNode;
-    generateContent: typeof generateContent;
     regenerateContent: typeof regenerateContent;
-    editImage: typeof editImage;
     handleOpenPlanningDialog: typeof handleOpenPlanningDialog;
-    handleQuickImageAnalyzeJson: (id: string, imageUrl: string) => Promise<void>;
-    handleQuickImageGenerateDescription: (id: string, imageUrl: string) => Promise<void>;
-    handleQuickImageExtractOcr: (id: string, imageUrl: string) => Promise<void>;
-    handleQuickImageConvertToAttachment: (id: string, imageUrl: string) => void;
   } | null>(null);
-
-  // Handlers for QuickImageNode
-  const handleQuickImageAnalyzeJson = useCallback(async (id: string, imageUrl: string) => {
-    try {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const response = await supabase.functions.invoke("analyze-image-complete", {
-        body: { imageUrl, analysisType: "full" },
-        headers: { Authorization: `Bearer ${sessionData?.session?.access_token}` },
-      });
-      if (response.data) {
-        const currentNode = nodes.find(n => n.id === id);
-        const currentAnalysis = (currentNode?.data as any)?.analysis || {};
-        onNodesChange([{
-          type: "reset",
-          item: {
-            ...currentNode!,
-            data: {
-              ...currentNode!.data,
-              analysis: { ...currentAnalysis, jsonAnalysis: response.data },
-              isProcessing: false,
-              processingType: null,
-            },
-          },
-        }] as any);
-      }
-    } catch (err) {
-      console.error("Error analyzing image:", err);
-      toast({ title: "Erro ao analisar imagem", variant: "destructive" });
-    }
-  }, [nodes, onNodesChange, toast]);
-
-  const handleQuickImageGenerateDescription = useCallback(async (id: string, imageUrl: string) => {
-    try {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const response = await supabase.functions.invoke("analyze-image-complete", {
-        body: { imageUrl, analysisType: "description" },
-        headers: { Authorization: `Bearer ${sessionData?.session?.access_token}` },
-      });
-      if (response.data?.description) {
-        const currentNode = nodes.find(n => n.id === id);
-        const currentAnalysis = (currentNode?.data as any)?.analysis || {};
-        onNodesChange([{
-          type: "reset",
-          item: {
-            ...currentNode!,
-            data: {
-              ...currentNode!.data,
-              analysis: { ...currentAnalysis, description: response.data.description },
-              isProcessing: false,
-              processingType: null,
-            },
-          },
-        }] as any);
-      }
-    } catch (err) {
-      console.error("Error generating description:", err);
-      toast({ title: "Erro ao gerar descrição", variant: "destructive" });
-    }
-  }, [nodes, onNodesChange, toast]);
-
-  const handleQuickImageExtractOcr = useCallback(async (id: string, imageUrl: string) => {
-    try {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const response = await supabase.functions.invoke("transcribe-images", {
-        body: { imageUrls: [imageUrl] },
-        headers: { Authorization: `Bearer ${sessionData?.session?.access_token}` },
-      });
-      if (response.data?.transcription) {
-        const currentNode = nodes.find(n => n.id === id);
-        const currentAnalysis = (currentNode?.data as any)?.analysis || {};
-        onNodesChange([{
-          type: "reset",
-          item: {
-            ...currentNode!,
-            data: {
-              ...currentNode!.data,
-              analysis: { ...currentAnalysis, ocrText: response.data.transcription },
-              isProcessing: false,
-              processingType: null,
-            },
-          },
-        }] as any);
-      }
-    } catch (err) {
-      console.error("Error extracting OCR:", err);
-      toast({ title: "Erro ao extrair texto", variant: "destructive" });
-    }
-  }, [nodes, onNodesChange, toast]);
-
-  const handleQuickImageConvertToAttachment = useCallback((id: string, imageUrl: string) => {
-    const node = nodes.find(n => n.id === id);
-    if (!node) return;
-    
-    addNode("attachment", { x: node.position.x + 250, y: node.position.y }, {
-      type: "attachment",
-      activeTab: "image",
-      images: [{ id: crypto.randomUUID(), url: imageUrl, name: "Imagem" }],
-    } as Partial<AttachmentNodeData>);
-    
-    deleteNode(id);
-    toast({ title: "Convertido para Anexo" });
-  }, [nodes, addNode, deleteNode, toast]);
 
   // Update refs on each render
   handlersRef.current = {
     clientId,
-    extractUrlContent,
-    transcribeFile,
-    analyzeImageStyle,
-    analyzeImageSourceImage,
-    transcribeImageSourceImage,
     updateNodeData,
     deleteNode,
-    generateContent,
     regenerateContent,
-    editImage,
     handleOpenPlanningDialog,
-    handleQuickImageAnalyzeJson,
-    handleQuickImageGenerateDescription,
-    handleQuickImageExtractOcr,
-    handleQuickImageConvertToAttachment,
   };
 
   // Handle drawing strokes
@@ -366,13 +222,12 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
   }, [toast]);
 
   // Add whiteboard node at position
-  const addWhiteboardNode = useCallback((type: "text" | "sticky" | "shape" | "quick-image", position: { x: number; y: number }, extraData?: any) => {
+  const addWhiteboardNode = useCallback((type: "text" | "sticky" | "shape", position: { x: number; y: number }, extraData?: any) => {
     const nodeId = `${type}-${Date.now()}`;
     const defaultData: Record<string, any> = {
       text: { type: "text", content: "", fontSize: 16, fontWeight: "normal", textAlign: "left", color: "#1f2937" },
       sticky: { type: "sticky", content: "", color: selectedStickyColor, size: "medium" },
       shape: { type: "shape", shapeType: selectedShape, fill: "#ffffff", stroke: "#3b82f6", strokeWidth: 2, width: 100, height: 100 },
-      "quick-image": { type: "quick-image", imageUrl: extraData?.imageUrl || "", caption: "" },
     };
     
     const newNode: RFNode = {
@@ -460,96 +315,33 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
     });
   }, []);
 
-  // Handle paste (Ctrl+V) for images
-  useEffect(() => {
-    const handlePaste = async (e: ClipboardEvent) => {
-      const items = e.clipboardData?.items;
-      if (!items) return;
-
-      for (const item of items) {
-        if (item.type.startsWith("image/")) {
-          e.preventDefault();
-          const file = item.getAsFile();
-          if (!file) continue;
-
-          try {
-            const { data: sessionData } = await supabase.auth.getSession();
-            if (!sessionData?.session?.user?.id) {
-              toast({ title: "Faça login para colar imagens", variant: "destructive" });
-              return;
-            }
-
-            const fileName = `quick-image-${Date.now()}.${file.type.split('/')[1] || 'png'}`;
-            const filePath = `${clientId}/${fileName}`;
-            
-            const { error: uploadError } = await supabase.storage
-              .from("client-files")
-              .upload(filePath, file);
-
-            if (uploadError) throw uploadError;
-
-            const { data: urlData } = supabase.storage
-              .from("client-files")
-              .getPublicUrl(filePath);
-
-            const viewport = getViewport();
-            const position = {
-              x: (window.innerWidth / 2 - viewport.x) / viewport.zoom,
-              y: (window.innerHeight / 2 - viewport.y) / viewport.zoom,
-            };
-
-            addWhiteboardNode("quick-image", position, { imageUrl: urlData.publicUrl });
-
-            toast({
-              title: "Imagem colada",
-              description: "Clique na imagem para ver as ações",
-            });
-          } catch (err) {
-            console.error("Error pasting image:", err);
-            toast({ title: "Erro ao colar imagem", variant: "destructive" });
-          }
-          break;
-        }
-      }
-    };
-
-    document.addEventListener("paste", handlePaste);
-    return () => document.removeEventListener("paste", handlePaste);
-  }, [clientId, getViewport, addWhiteboardNode, toast]);
-
   // Track viewport for drawing layer
   const handleMove = useCallback(() => {
     const vp = getViewport();
     setCanvasViewport({ x: vp.x, y: vp.y, zoom: vp.zoom });
   }, [getViewport]);
 
-  // Create nodeTypes only once
+  // Create nodeTypes only once - SIMPLIFIED
   const nodeTypes = useMemo(
     () => ({
-      source: (props: NodeProps<SourceNodeData>) => (
-        <SourceNode
+      attachment: (props: NodeProps<AttachmentNodeData>) => (
+        <AttachmentNode
           {...props}
-          onExtractUrl={(id, url) => handlersRef.current?.extractUrlContent(id, url)}
-          onUpdateData={(id, data) => handlersRef.current?.updateNodeData(id, data)}
-          onDelete={(id) => handlersRef.current?.deleteNode(id)}
-          onTranscribeFile={(id, fileId) => handlersRef.current?.transcribeFile(id, fileId)}
-          onAnalyzeStyle={(id, fileId) => handlersRef.current?.analyzeImageStyle(id, fileId)}
-        />
-      ),
-      prompt: (props: NodeProps<PromptNodeData>) => (
-        <PromptNode
-          {...props}
-          onUpdateData={(id, data) => handlersRef.current?.updateNodeData(id, data)}
-          onDelete={(id) => handlersRef.current?.deleteNode(id)}
+          data={{
+            ...props.data,
+            onUpdateData: (data) => handlersRef.current?.updateNodeData(props.id, data as any),
+            onDelete: () => handlersRef.current?.deleteNode(props.id),
+          }}
         />
       ),
       generator: (props: NodeProps<GeneratorNodeData>) => (
         <GeneratorNode
           {...props}
-          onUpdateData={(id, data) => handlersRef.current?.updateNodeData(id, data)}
-          onDelete={(id) => handlersRef.current?.deleteNode(id)}
-          onGenerate={(id) => handlersRef.current?.generateContent(id)}
-          onGenerateMore={(id) => handlersRef.current?.generateContent(id)}
+          data={{
+            ...props.data,
+            onUpdateData: (data) => handlersRef.current?.updateNodeData(props.id, data as any),
+            onDelete: () => handlersRef.current?.deleteNode(props.id),
+          }}
         />
       ),
       output: (props: NodeProps<OutputNodeData>) => (
@@ -562,27 +354,6 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
           onCreateRemix={(id) => {
             console.log('Remix requested for output:', id);
           }}
-        />
-      ),
-      "image-source": (props: NodeProps<ImageSourceNodeData>) => (
-        <ImageSourceNode
-          {...props}
-          onUpdateData={(id, data) => handlersRef.current?.updateNodeData(id, data)}
-          onDelete={(id) => handlersRef.current?.deleteNode(id)}
-          onAnalyzeImage={(id, imageId, imageUrl) => handlersRef.current?.analyzeImageSourceImage(id, imageId, imageUrl)}
-          onTranscribeImage={(id, imageId, imageUrl) => handlersRef.current?.transcribeImageSourceImage(id, imageId, imageUrl)}
-        />
-      ),
-      attachment: (props: NodeProps<AttachmentNodeData>) => (
-        <AttachmentNode
-          {...props}
-          onExtractUrl={(id, url) => handlersRef.current?.extractUrlContent(id, url)}
-          onUpdateData={(id, data) => handlersRef.current?.updateNodeData(id, data)}
-          onDelete={(id) => handlersRef.current?.deleteNode(id)}
-          onTranscribeFile={(id, fileId) => handlersRef.current?.transcribeFile(id, fileId)}
-          onAnalyzeStyle={(id, fileId) => handlersRef.current?.analyzeImageStyle(id, fileId)}
-          onAnalyzeImage={(id, imageId, imageUrl) => handlersRef.current?.analyzeImageSourceImage(id, imageId, imageUrl)}
-          onTranscribeImage={(id, imageId, imageUrl) => handlersRef.current?.transcribeImageSourceImage(id, imageId, imageUrl)}
         />
       ),
       text: (props: NodeProps<TextNodeData>) => (
@@ -606,46 +377,6 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
           onDelete={(id) => handlersRef.current?.deleteNode(id)}
         />
       ),
-      "quick-image": (props: NodeProps<QuickImageNodeData>) => (
-        <QuickImageNode
-          {...props}
-          onUpdateData={(id, data) => handlersRef.current?.updateNodeData(id, data as any)}
-          onDelete={(id) => handlersRef.current?.deleteNode(id)}
-          onAnalyzeJson={(id, imageUrl) => handlersRef.current?.handleQuickImageAnalyzeJson(id, imageUrl) || Promise.resolve()}
-          onGenerateDescription={(id, imageUrl) => handlersRef.current?.handleQuickImageGenerateDescription(id, imageUrl) || Promise.resolve()}
-          onExtractOcr={(id, imageUrl) => handlersRef.current?.handleQuickImageExtractOcr(id, imageUrl) || Promise.resolve()}
-          onConvertToAttachment={(id, imageUrl) => handlersRef.current?.handleQuickImageConvertToAttachment(id, imageUrl)}
-        />
-      ),
-      "image-generator": (props: NodeProps<ImageGeneratorNodeData>) => (
-        <ImageGeneratorNode
-          {...props}
-          onUpdateData={(id, data) => handlersRef.current?.updateNodeData(id, data as any)}
-          onDelete={(id) => handlersRef.current?.deleteNode(id)}
-          clientId={handlersRef.current?.clientId}
-        />
-      ),
-      // V2 Nodes - Simplified system
-      attachmentV2: (props: NodeProps<AttachmentNodeV2Data>) => (
-        <AttachmentNodeV2
-          {...props}
-          data={{
-            ...props.data,
-            onUpdateData: (data) => handlersRef.current?.updateNodeData(props.id, data as any),
-            onDelete: () => handlersRef.current?.deleteNode(props.id),
-          }}
-        />
-      ),
-      generatorV2: (props: NodeProps<GeneratorNodeV2Data>) => (
-        <GeneratorNodeV2
-          {...props}
-          data={{
-            ...props.data,
-            onUpdateData: (data) => handlersRef.current?.updateNodeData(props.id, data as any),
-            onDelete: () => handlersRef.current?.deleteNode(props.id),
-          }}
-        />
-      ),
     }),
     []
   );
@@ -659,56 +390,27 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
   );
 
   const handleAddNode = useCallback(
-    (type: "attachment" | "prompt" | "generator" | "attachmentV2" | "generatorV2") => {
+    (type: "attachment" | "generator") => {
       const viewport = getViewport();
       const centerX = (window.innerWidth / 2 - viewport.x) / viewport.zoom;
       const centerY = (window.innerHeight / 2 - viewport.y) / viewport.zoom;
       const offset = nodes.length * 20;
       
-      // Handle V2 nodes directly
-      if (type === "attachmentV2" || type === "generatorV2") {
-        const nodeId = `${type}-${Date.now()}`;
-        const defaultData = type === "attachmentV2" 
-          ? { output: undefined } 
-          : { type: "text" as const, format: "post", platform: "instagram" };
-        
-        const newNode: RFNode = {
-          id: nodeId,
-          type,
-          position: { x: centerX + offset, y: centerY + offset },
-          data: defaultData,
-        };
-        onNodesChange([{ type: "add", item: newNode }] as any);
-      } else {
-        addNode(type, { x: centerX + offset, y: centerY + offset });
-      }
+      const nodeId = `${type}-${Date.now()}`;
+      const defaultData = type === "attachment" 
+        ? { output: undefined } 
+        : { type: "text" as const, format: "post", platform: "instagram" };
+      
+      const newNode: RFNode = {
+        id: nodeId,
+        type,
+        position: { x: centerX + offset, y: centerY + offset },
+        data: defaultData,
+      };
+      onNodesChange([{ type: "add", item: newNode }] as any);
     },
-    [addNode, getViewport, nodes.length, onNodesChange]
+    [getViewport, nodes.length, onNodesChange]
   );
-
-  // Handler for adding the new simplified image generator node
-  const handleAddImageGenerator = useCallback(() => {
-    const viewport = getViewport();
-    const centerX = (window.innerWidth / 2 - viewport.x) / viewport.zoom;
-    const centerY = (window.innerHeight / 2 - viewport.y) / viewport.zoom;
-    const offset = nodes.length * 20;
-    
-    const nodeId = `image-generator-${Date.now()}`;
-    const newNode: RFNode = {
-      id: nodeId,
-      type: "image-generator",
-      position: { x: centerX + offset, y: centerY + offset },
-      data: {
-        type: "image-generator",
-        prompt: "",
-        aspectRatio: "1:1",
-        noText: false,
-        preserveFace: false,
-      } as ImageGeneratorNodeData,
-    };
-    
-    onNodesChange([{ type: "add", item: newNode }] as any);
-  }, [getViewport, nodes.length, onNodesChange]);
 
   const handleClear = useCallback(() => {
     if (nodes.length === 0) return;
@@ -725,18 +427,27 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
       const centerY = (window.innerHeight / 2 - viewport.y) / viewport.zoom;
       const offset = nodes.length * 20;
 
-      addNode("attachment", { x: centerX + offset, y: centerY + offset }, {
+      const nodeId = `attachment-${Date.now()}`;
+      const newNode: RFNode = {
+        id: nodeId,
         type: "attachment",
-        activeTab: "text",
-        textContent: ref.content,
-      } as Partial<AttachmentNodeData>);
+        position: { x: centerX + offset, y: centerY + offset },
+        data: {
+          output: {
+            type: "text",
+            content: ref.content,
+            fileName: ref.title,
+          }
+        },
+      };
+      onNodesChange([{ type: "add", item: newNode }] as any);
 
       toast({
         title: "Referência adicionada",
         description: `"${ref.title}" foi adicionada ao canvas`,
       });
     },
-    [addNode, getViewport, nodes.length, toast]
+    [getViewport, nodes.length, onNodesChange, toast]
   );
 
   // Handle adding visual reference from library
@@ -747,18 +458,28 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
       const centerY = (window.innerHeight / 2 - viewport.y) / viewport.zoom;
       const offset = nodes.length * 20;
 
-      addNode("attachment", { x: centerX + offset, y: centerY + offset }, {
+      const nodeId = `attachment-${Date.now()}`;
+      const newNode: RFNode = {
+        id: nodeId,
         type: "attachment",
-        activeTab: "image",
-        images: [{ id: crypto.randomUUID(), url: ref.image_url, name: ref.title || "Imagem" }],
-      } as Partial<AttachmentNodeData>);
+        position: { x: centerX + offset, y: centerY + offset },
+        data: {
+          output: {
+            type: "image",
+            content: ref.image_url,
+            imageBase64: ref.image_url,
+            fileName: ref.title || "Imagem",
+          }
+        },
+      };
+      onNodesChange([{ type: "add", item: newNode }] as any);
 
       toast({
         title: "Referência visual adicionada",
         description: `"${ref.title || "Imagem"}" foi adicionada ao canvas`,
       });
     },
-    [addNode, getViewport, nodes.length, toast]
+    [getViewport, nodes.length, onNodesChange, toast]
   );
 
   // Add a library content item as an "attachment" node
@@ -769,24 +490,27 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
       const centerY = (window.innerHeight / 2 - viewport.y) / viewport.zoom;
       const offset = nodes.length * 20;
 
-      addNode(
-        "attachment",
-        { x: centerX + offset, y: centerY + offset },
-        {
-          type: "attachment",
-          activeTab: "text",
-          textContent: item.content,
-          title: item.title,
-          thumbnail: item.thumbnail_url,
-        } as Partial<AttachmentNodeData>
-      );
+      const nodeId = `attachment-${Date.now()}`;
+      const newNode: RFNode = {
+        id: nodeId,
+        type: "attachment",
+        position: { x: centerX + offset, y: centerY + offset },
+        data: {
+          output: {
+            type: "text",
+            content: item.content,
+            fileName: item.title,
+          }
+        },
+      };
+      onNodesChange([{ type: "add", item: newNode }] as any);
 
       toast({
         title: "Adicionado ao canvas",
         description: item.title,
       });
     },
-    [addNode, getViewport, nodes.length, toast]
+    [getViewport, nodes.length, onNodesChange, toast]
   );
 
   // Drag & drop from library into canvas
@@ -820,34 +544,27 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
         y: event.clientY - bounds.top,
       });
 
-      const contentTypeLabel = item.platform || "conteúdo";
-      
-      addNode(
-        "attachment",
+      const nodeId = `attachment-${Date.now()}`;
+      const newNode: RFNode = {
+        id: nodeId,
+        type: "attachment",
         position,
-        {
-          type: "attachment",
-          activeTab: "text",
-          textContent: item.content,
-          extractedContent: item.content,
-          title: item.title,
-          thumbnail: item.thumbnail_url,
-          files: [],
-          images: [],
-          contentMetadata: {
-            libraryItemId: item.id,
-            libraryItemType: contentTypeLabel,
-            wordCount: item.content?.split(/\s+/).length || 0,
-          },
-        } as Partial<AttachmentNodeData>
-      );
+        data: {
+          output: {
+            type: "text",
+            content: item.content,
+            fileName: item.title,
+          }
+        },
+      };
+      onNodesChange([{ type: "add", item: newNode }] as any);
 
       toast({
         title: "Adicionado ao canvas",
         description: item.title,
       });
     },
-    [addNode, project, toast]
+    [project, onNodesChange, toast]
   );
 
   return (
@@ -916,34 +633,8 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
               addWhiteboardNode("shape", position);
               setActiveTool("cursor");
             } else if (activeTool === "image") {
-              const input = document.createElement("input");
-              input.type = "file";
-              input.accept = "image/*";
-              input.onchange = async (ev) => {
-                const file = (ev.target as HTMLInputElement).files?.[0];
-                if (!file) return;
-                try {
-                  const fileName = `quick-image-${Date.now()}.${file.type.split('/')[1] || 'png'}`;
-                  const filePath = `${clientId}/${fileName}`;
-                  
-                  const { error: uploadError } = await supabase.storage
-                    .from("client-files")
-                    .upload(filePath, file);
-
-                  if (uploadError) throw uploadError;
-
-                  const { data: urlData } = supabase.storage
-                    .from("client-files")
-                    .getPublicUrl(filePath);
-
-                  addWhiteboardNode("quick-image", position, { imageUrl: urlData.publicUrl });
-                  setActiveTool("cursor");
-                } catch (err) {
-                  console.error("Error uploading image:", err);
-                  toast({ title: "Erro ao fazer upload", variant: "destructive" });
-                }
-              };
-              input.click();
+              // For image tool, just switch to cursor - use Attachment node instead
+              setActiveTool("cursor");
             }
           }
         }}
@@ -954,20 +645,12 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
           className="bg-background border shadow-lg rounded-lg"
           nodeColor={(node) => {
             switch (node.type) {
-              case "source":
               case "attachment":
-                return "#3b82f6";
-              case "prompt":
-                return "#eab308";
+                return "#06b6d4";
               case "generator":
-                return "#22c55e";
+                return "#3b82f6";
               case "output":
                 return "#ec4899";
-              case "image-source":
-              case "quick-image":
-                return "#06b6d4";
-              case "image-generator":
-                return "#a855f7";
               case "sticky":
                 return "#fbbf24";
               case "text":
@@ -1008,7 +691,6 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
       {/* Unified Toolbar */}
       <CanvasToolbar
         onAddNode={handleAddNode}
-        onAddImageGenerator={handleAddImageGenerator}
         onClear={handleClear}
         onZoomIn={() => zoomIn()}
         onZoomOut={() => zoomOut()}
@@ -1057,7 +739,7 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
               </div>
               <h3 className="text-xl font-semibold">Canvas de Criação</h3>
               <p className="text-sm text-muted-foreground max-w-md mx-auto">
-                Escolha um template para começar ou use a toolbar para criar
+                Use a toolbar para adicionar Anexos e conectá-los ao Gerador
               </p>
             </div>
 
@@ -1068,7 +750,7 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
                 { id: "linkedin_article", Icon: Briefcase, label: "LinkedIn", desc: "URL → Artigo" },
                 { id: "story_sequence", Icon: BookOpen, label: "Stories", desc: "Texto → Stories" },
                 { id: "repurpose_blog", Icon: RefreshCw, label: "Repurpose", desc: "Blog → Multi" },
-                { id: "image_series", Icon: Image, label: "Imagens", desc: "Texto → 3 imgs" },
+                { id: "image_series", Icon: Image, label: "Imagens", desc: "Texto → Imagem" },
               ].map((template) => (
                 <button
                   key={template.id}
@@ -1088,11 +770,13 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
 
             <div className="pt-2">
               <p className="text-xs text-muted-foreground">
-                Use a toolbar para adicionar
+                Fluxo simples:
                 <span className="ml-1 inline-flex items-center gap-1">
-                  <span className="h-2 w-2 rounded bg-blue-500" /> Anexo
-                  <span className="h-2 w-2 rounded bg-green-500 ml-2" /> Gerador
-                  <span className="h-2 w-2 rounded bg-pink-500 ml-2" /> Resultado
+                  <span className="h-2 w-2 rounded bg-cyan-500" /> Anexo
+                  <span className="mx-1">→</span>
+                  <span className="h-2 w-2 rounded bg-blue-500" /> Gerador
+                  <span className="mx-1">→</span>
+                  <span className="h-2 w-2 rounded bg-pink-500" /> Resultado
                 </span>
               </p>
             </div>

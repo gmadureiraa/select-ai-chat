@@ -8,7 +8,6 @@ import {
   Maximize, 
   Save, 
   FolderOpen, 
-  ChevronDown, 
   Loader2, 
   X, 
   Pencil, 
@@ -64,8 +63,7 @@ export type ToolType =
 export type ShapeType = "rectangle" | "circle" | "diamond" | "arrow";
 
 interface CanvasToolbarProps {
-  onAddImageGenerator?: () => void;
-  onAddNode: (type: "attachment" | "prompt" | "generator" | "attachmentV2" | "generatorV2") => void;
+  onAddNode: (type: "attachment" | "generator") => void;
   onClear: () => void;
   onZoomIn: () => void;
   onZoomOut: () => void;
@@ -124,7 +122,7 @@ const TEMPLATE_CATEGORIES: TemplateCategory[] = [
     templates: [
       { id: "repurpose_blog", icon: "🔄", label: "Repurpose de Blog", description: "Blog → Carrossel + Thread" },
       { id: "podcast_highlights", icon: "🎙️", label: "Destaques de Podcast", description: "Áudio → Thread" },
-      { id: "image_series", icon: "🖼️", label: "Série de Imagens", description: "Gere 3 imagens de uma vez" },
+      { id: "image_series", icon: "🖼️", label: "Série de Imagens", description: "Gere imagem com IA" },
     ]
   },
 ];
@@ -147,7 +145,6 @@ const STICKY_COLORS = [
 
 function CanvasToolbarComponent({
   onAddNode,
-  onAddImageGenerator,
   onClear,
   onZoomIn,
   onZoomOut,
@@ -252,7 +249,6 @@ function CanvasToolbarComponent({
     { type: "shape" as ToolType, icon: Square, label: "Forma", shortcut: "R" },
     { type: "pencil" as ToolType, icon: Pencil, label: "Lápis", shortcut: "P" },
     { type: "eraser" as ToolType, icon: Eraser, label: "Borracha", shortcut: "E" },
-    { type: "image" as ToolType, icon: Image, label: "Imagem", shortcut: "I" },
   ];
 
   const shapes = [
@@ -490,56 +486,22 @@ function CanvasToolbarComponent({
 
         <Separator orientation="vertical" className="h-6 mx-1" />
 
-        {/* V2 Nodes - New simplified system */}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => onAddNode("attachmentV2")}
-              className="h-8 gap-1 text-xs hover:bg-cyan-50 hover:text-cyan-600 dark:hover:bg-cyan-950"
-            >
-              <div className="h-4 w-4 rounded bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center">
-                <Paperclip className="h-2.5 w-2.5 text-white" />
-              </div>
-              <span className="hidden md:inline">Anexo</span>
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="bottom">Anexo universal (imagem, vídeo, áudio, texto, URL)</TooltipContent>
-        </Tooltip>
-
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => onAddNode("generatorV2")}
-              className="h-8 gap-1 text-xs hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-950"
-            >
-              <div className="h-4 w-4 rounded bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center">
-                <Sparkles className="h-2.5 w-2.5 text-white" />
-              </div>
-              <span className="hidden md:inline">Gerador</span>
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="bottom">Gerador de texto ou imagem com IA</TooltipContent>
-        </Tooltip>
-
-        {/* Legacy AI Nodes */}
+        {/* Simplified AI Nodes - Only Attachment and Generator */}
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
               variant="ghost"
               size="sm"
               onClick={() => onAddNode("attachment")}
-              className="h-8 gap-1 text-xs hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-950 opacity-50"
+              className="h-8 gap-1.5 text-xs hover:bg-cyan-50 hover:text-cyan-600 dark:hover:bg-cyan-950"
             >
-              <div className="h-4 w-4 rounded bg-blue-500 flex items-center justify-center">
-                <Paperclip className="h-2.5 w-2.5 text-white" />
+              <div className="h-5 w-5 rounded bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center">
+                <Paperclip className="h-3 w-3 text-white" />
               </div>
+              <span className="hidden md:inline font-medium">Anexo</span>
             </Button>
           </TooltipTrigger>
-          <TooltipContent side="bottom">Anexo (versão anterior)</TooltipContent>
+          <TooltipContent side="bottom">Adicionar anexo (imagem, vídeo, áudio, texto, URL)</TooltipContent>
         </Tooltip>
 
         <Tooltip>
@@ -548,33 +510,15 @@ function CanvasToolbarComponent({
               variant="ghost"
               size="sm"
               onClick={() => onAddNode("generator")}
-              className="h-8 gap-1 text-xs hover:bg-green-50 hover:text-green-600 dark:hover:bg-green-950"
+              className="h-8 gap-1.5 text-xs hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-950"
             >
-              <div className="h-4 w-4 rounded bg-green-500 flex items-center justify-center">
-                <Sparkles className="h-2.5 w-2.5 text-white" />
+              <div className="h-5 w-5 rounded bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center">
+                <Sparkles className="h-3 w-3 text-white" />
               </div>
-              <span className="hidden md:inline">Gerador</span>
+              <span className="hidden md:inline font-medium">Gerador</span>
             </Button>
           </TooltipTrigger>
-          <TooltipContent side="bottom">Adicionar gerador de conteúdo IA</TooltipContent>
-        </Tooltip>
-
-        {/* AI Image Generator - NEW */}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onAddImageGenerator}
-              className="h-8 gap-1 text-xs hover:bg-purple-50 hover:text-purple-600 dark:hover:bg-purple-950"
-            >
-              <div className="h-4 w-4 rounded bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
-                <Image className="h-2.5 w-2.5 text-white" />
-              </div>
-              <span className="hidden md:inline">Imagem IA</span>
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="bottom">Gerar imagem com IA (simples e direto)</TooltipContent>
+          <TooltipContent side="bottom">Gerar texto ou imagem com IA</TooltipContent>
         </Tooltip>
 
         <Separator orientation="vertical" className="h-6 mx-1" />
