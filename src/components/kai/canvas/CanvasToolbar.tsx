@@ -62,6 +62,82 @@ export type ToolType =
 
 export type ShapeType = "rectangle" | "circle" | "diamond" | "arrow";
 
+// Quick template presets - pre-connected node configurations
+export interface QuickTemplate {
+  id: string;
+  icon: string;
+  label: string;
+  description: string;
+  nodes: Array<{
+    type: 'attachment' | 'generator';
+    data?: Record<string, unknown>;
+    offset: { x: number; y: number };
+  }>;
+}
+
+export const QUICK_TEMPLATES: QuickTemplate[] = [
+  {
+    id: 'post_feed',
+    icon: '📱',
+    label: 'Post Feed',
+    description: 'Anexo + Gerador de texto',
+    nodes: [
+      { type: 'attachment', offset: { x: 0, y: 0 } },
+      { type: 'generator', data: { type: 'text', format: 'post', platform: 'instagram' }, offset: { x: 350, y: 0 } },
+    ],
+  },
+  {
+    id: 'story_reels',
+    icon: '🎬',
+    label: 'Story/Reels',
+    description: 'Vídeo/Áudio + Gerador de imagem vertical',
+    nodes: [
+      { type: 'attachment', offset: { x: 0, y: 0 } },
+      { type: 'generator', data: { type: 'image', aspectRatio: '9:16', noText: true }, offset: { x: 350, y: 0 } },
+    ],
+  },
+  {
+    id: 'carrossel',
+    icon: '🎠',
+    label: 'Carrossel',
+    description: 'Texto + Gerador carrossel',
+    nodes: [
+      { type: 'attachment', offset: { x: 0, y: 0 } },
+      { type: 'generator', data: { type: 'text', format: 'carrossel', platform: 'instagram' }, offset: { x: 350, y: 0 } },
+    ],
+  },
+  {
+    id: 'thread_twitter',
+    icon: '🧵',
+    label: 'Thread',
+    description: 'URL/Texto + Thread Twitter',
+    nodes: [
+      { type: 'attachment', offset: { x: 0, y: 0 } },
+      { type: 'generator', data: { type: 'text', format: 'thread', platform: 'twitter' }, offset: { x: 350, y: 0 } },
+    ],
+  },
+  {
+    id: 'linkedin_post',
+    icon: '💼',
+    label: 'Post LinkedIn',
+    description: 'Anexo + Gerador LinkedIn',
+    nodes: [
+      { type: 'attachment', offset: { x: 0, y: 0 } },
+      { type: 'generator', data: { type: 'text', format: 'post', platform: 'linkedin' }, offset: { x: 350, y: 0 } },
+    ],
+  },
+  {
+    id: 'image_square',
+    icon: '🖼️',
+    label: 'Imagem 1:1',
+    description: 'Referência + Gerador imagem quadrada',
+    nodes: [
+      { type: 'attachment', offset: { x: 0, y: 0 } },
+      { type: 'generator', data: { type: 'image', aspectRatio: '1:1', noText: true }, offset: { x: 350, y: 0 } },
+    ],
+  },
+];
+
 interface CanvasToolbarProps {
   onAddNode: (type: "attachment" | "generator") => void;
   onClear: () => void;
@@ -70,6 +146,7 @@ interface CanvasToolbarProps {
   onFitView: () => void;
   onLoadTemplate?: (templateId: CanvasTemplate) => void;
   onOpenLibrary?: () => void;
+  onLoadQuickTemplate?: (template: QuickTemplate) => void;
   // Canvas persistence
   currentCanvasName?: string;
   setCanvasName?: (name: string) => void;
@@ -151,6 +228,7 @@ function CanvasToolbarComponent({
   onFitView,
   onLoadTemplate,
   onOpenLibrary,
+  onLoadQuickTemplate,
   currentCanvasName = "Novo Canvas",
   setCanvasName,
   onSave,
@@ -522,6 +600,45 @@ function CanvasToolbarComponent({
         </Tooltip>
 
         <Separator orientation="vertical" className="h-6 mx-1" />
+
+        {/* Quick Templates - pre-connected presets */}
+        <DropdownMenu>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <DropdownMenuTrigger asChild>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="h-8 gap-1.5 text-xs hover:bg-green-50 hover:text-green-600 dark:hover:bg-green-950"
+                >
+                  <div className="h-5 w-5 rounded bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center">
+                    <Sparkles className="h-3 w-3 text-white" />
+                  </div>
+                  <span className="hidden lg:inline font-medium">Rápido</span>
+                </Button>
+              </DropdownMenuTrigger>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">Templates rápidos pré-configurados</TooltipContent>
+          </Tooltip>
+          <DropdownMenuContent align="center" className="w-64">
+            <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
+              Criar estrutura pronta
+            </div>
+            {QUICK_TEMPLATES.map((template) => (
+              <DropdownMenuItem 
+                key={template.id}
+                onClick={() => onLoadQuickTemplate?.(template)}
+                className="flex items-start gap-3 py-2 cursor-pointer"
+              >
+                <span className="text-lg">{template.icon}</span>
+                <div className="flex flex-col">
+                  <span className="font-medium text-sm">{template.label}</span>
+                  <span className="text-xs text-muted-foreground">{template.description}</span>
+                </div>
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
 
         {/* Library, Templates, Save/Load */}
         <Tooltip>
