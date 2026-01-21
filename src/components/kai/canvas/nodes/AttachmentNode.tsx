@@ -17,7 +17,7 @@ import { transcribeImagesChunked } from '@/lib/transcribeImages';
 
 // Simplified interface - MVP focused
 export interface AttachmentOutput {
-  type: 'image' | 'video' | 'audio' | 'text' | 'youtube';
+  type: 'image' | 'video' | 'audio' | 'text' | 'youtube' | 'library';
   content: string;
   transcription?: string;
   imageBase64?: string;
@@ -27,6 +27,11 @@ export interface AttachmentOutput {
   // Multi-image support
   images?: string[];
   imageCount?: number;
+  // Library-specific
+  libraryTitle?: string;
+  libraryImages?: string[];
+  libraryId?: string;
+  libraryPlatform?: string;
 }
 
 export interface AttachmentNodeData {
@@ -365,6 +370,7 @@ const AttachmentNodeComponent: React.FC<NodeProps<AttachmentNodeData>> = ({
       case 'audio': return <Music className="h-4 w-4 text-blue-500" />;
       case 'youtube': return <Play className="h-4 w-4 text-red-500" />;
       case 'text': return <FileText className="h-4 w-4 text-muted-foreground" />;
+      case 'library': return <FileText className="h-4 w-4 text-primary" />;
       default: return <Paperclip className="h-4 w-4" />;
     }
   };
@@ -376,19 +382,21 @@ const AttachmentNodeComponent: React.FC<NodeProps<AttachmentNodeData>> = ({
     setCurrentImageIndex(0);
   }, [data]);
 
-  // Image gallery navigation
+  // Image gallery navigation - works for both images and libraryImages
+  const currentImages = output?.images || output?.libraryImages || [];
+  
   const nextImage = () => {
-    if (output?.images) {
+    if (currentImages.length > 0) {
       setCurrentImageIndex((prev) => 
-        prev < output.images!.length - 1 ? prev + 1 : 0
+        prev < currentImages.length - 1 ? prev + 1 : 0
       );
     }
   };
 
   const prevImage = () => {
-    if (output?.images) {
+    if (currentImages.length > 0) {
       setCurrentImageIndex((prev) => 
-        prev > 0 ? prev - 1 : output.images!.length - 1
+        prev > 0 ? prev - 1 : currentImages.length - 1
       );
     }
   };
@@ -547,6 +555,67 @@ const AttachmentNodeComponent: React.FC<NodeProps<AttachmentNodeData>> = ({
                 <p className="text-xs line-clamp-3">{output.content}</p>
               </div>
             )}
+
+            {/* LIBRARY content - with full view option */}
+            {output.type === 'library' && (
+              <div className="space-y-2">
+                {/* Title badge */}
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-medium truncate flex-1">{output.libraryTitle || output.fileName}</span>
+                  {output.libraryPlatform && (
+                    <span className="text-[10px] bg-primary/20 text-primary px-1.5 py-0.5 rounded capitalize">
+                      {output.libraryPlatform}
+                    </span>
+                  )}
+                </div>
+                
+                {/* Library images if any */}
+                {output.libraryImages && output.libraryImages.length > 0 && (
+                  <div className="relative rounded-lg overflow-hidden bg-black/5">
+                    <img 
+                      src={output.libraryImages[currentImageIndex] || output.libraryImages[0]} 
+                      alt="Preview"
+                      className="w-full h-32 object-cover"
+                    />
+                    {output.libraryImages.length > 1 && (
+                      <>
+                        <button 
+                          onClick={prevImage}
+                          className="absolute left-1 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white rounded-full p-1"
+                        >
+                          <ChevronLeft className="h-3 w-3" />
+                        </button>
+                        <button 
+                          onClick={nextImage}
+                          className="absolute right-1 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white rounded-full p-1"
+                        >
+                          <ChevronRight className="h-3 w-3" />
+                        </button>
+                        <div className="absolute top-1 right-1 bg-black/60 text-white text-[10px] px-1.5 py-0.5 rounded-full">
+                          {currentImageIndex + 1}/{output.libraryImages.length}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+                
+                {/* Content preview */}
+                <div className="bg-muted rounded-md p-2">
+                  <p className="text-xs line-clamp-3">{output.content}</p>
+                </div>
+                
+                {/* View full content button */}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-full h-7 text-[10px] gap-1 text-primary hover:text-primary/80 hover:bg-primary/10"
+                  onClick={() => setShowTranscription(true)}
+                >
+                  <Expand className="h-3 w-3" />
+                  Ver conteúdo completo
+                </Button>
+              </div>
+            )}
             
             {/* Transcription preview - for all types that have it */}
             {output.transcription && (
@@ -661,12 +730,12 @@ const AttachmentNodeComponent: React.FC<NodeProps<AttachmentNodeData>> = ({
         )}
       </CardContent>
       
-      {/* Transcription Modal */}
+      {/* Content/Transcription Modal - works for both transcription and library content */}
       <TranscriptionModal
         open={showTranscription}
         onOpenChange={setShowTranscription}
-        transcription={output?.transcription || ""}
-        fileName={output?.fileName}
+        transcription={output?.type === 'library' ? output.content : (output?.transcription || "")}
+        fileName={output?.type === 'library' ? output.libraryTitle : output?.fileName}
       />
       
       {/* Output handle */}

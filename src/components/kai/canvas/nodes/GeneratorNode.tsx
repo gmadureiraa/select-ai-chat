@@ -64,6 +64,7 @@ export interface GeneratorNodeData {
   preserveFace?: boolean;
   isGenerating?: boolean;
   generationStep?: GenerationStep;
+  clientId?: string;
   onUpdateData?: (data: Partial<GeneratorNodeData>) => void;
   onDelete?: () => void;
   onCreateOutput?: (data: { type: 'text' | 'image'; content: string; imageUrl?: string; format: string; platform: string }) => void;
@@ -136,6 +137,7 @@ const GeneratorNodeComponent: React.FC<NodeProps<GeneratorNodeData>> = ({
       const { data: result, error } = await supabase.functions.invoke('generate-content-v2', {
         body: {
           type: generationType,
+          clientId: data.clientId,
           inputs: attachments.map(att => ({
             type: att.type,
             content: att.content,

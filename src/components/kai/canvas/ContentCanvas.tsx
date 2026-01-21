@@ -381,6 +381,7 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
           {...props}
           data={{
             ...props.data,
+            clientId: clientId,
             onUpdateData: (data) => handlersRef.current?.updateNodeData(props.id, data as any),
             onDelete: () => handlersRef.current?.deleteNode(props.id),
             onCreateOutput: (data) => handlersRef.current?.handleCreateOutput(props.id, data),
@@ -595,9 +596,13 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
         position: { x: centerX + offset, y: centerY + offset },
         data: {
           output: {
-            type: "text",
+            type: "library",
             content: item.content,
             fileName: item.title,
+            libraryTitle: item.title,
+            libraryImages: item.thumbnail_url ? [item.thumbnail_url] : [],
+            libraryId: item.id,
+            libraryPlatform: item.platform,
           }
         },
       };
