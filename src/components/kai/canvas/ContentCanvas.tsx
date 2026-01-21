@@ -11,6 +11,7 @@ import ReactFlow, {
 } from "reactflow";
 import "reactflow/dist/style.css";
 import { Sparkles, LayoutGrid, MessageSquare, Briefcase, BookOpen, RefreshCw, Image } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { CanvasFloatingChat } from "./CanvasFloatingChat";
 import { AnimatedEdge } from "./components/AnimatedEdge";
 import {
@@ -196,7 +197,47 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
     deleteNode: typeof deleteNode;
     regenerateContent: typeof regenerateContent;
     handleOpenPlanningDialog: typeof handleOpenPlanningDialog;
+    handleCreateOutput: (generatorNodeId: string, data: { type: 'text' | 'image'; content: string; imageUrl?: string; format: string; platform: string }) => void;
   } | null>(null);
+
+  // Handler to create output node from generator
+  const handleCreateOutput = useCallback((generatorNodeId: string, outputData: { type: 'text' | 'image'; content: string; imageUrl?: string; format: string; platform: string }) => {
+    const generatorNode = nodes.find(n => n.id === generatorNodeId);
+    if (!generatorNode) return;
+
+    const nodeId = `output-${Date.now()}`;
+    const newNode: RFNode = {
+      id: nodeId,
+      type: "output",
+      position: { 
+        x: generatorNode.position.x + 400, 
+        y: generatorNode.position.y 
+      },
+      data: {
+        type: "output",
+        content: outputData.type === 'image' ? outputData.imageUrl || outputData.content : outputData.content,
+        format: outputData.format as any,
+        platform: outputData.platform as any,
+        isImage: outputData.type === 'image',
+        isEditing: false,
+        addedToPlanning: false,
+        versions: [],
+        comments: [],
+        approvalStatus: "draft",
+      } as OutputNodeData,
+    };
+    
+    onNodesChange([{ type: "add", item: newNode }] as any);
+    
+    // Create edge from generator to output
+    const newEdge = {
+      id: `edge-${generatorNodeId}-${nodeId}`,
+      source: generatorNodeId,
+      target: nodeId,
+      type: 'default',
+    };
+    onEdgesChange([{ type: "add", item: newEdge }] as any);
+  }, [nodes, onNodesChange, onEdgesChange]);
 
   // Update refs on each render
   handlersRef.current = {
@@ -205,6 +246,7 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
     deleteNode,
     regenerateContent,
     handleOpenPlanningDialog,
+    handleCreateOutput,
   };
 
   // Handle drawing strokes
@@ -341,6 +383,7 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
             ...props.data,
             onUpdateData: (data) => handlersRef.current?.updateNodeData(props.id, data as any),
             onDelete: () => handlersRef.current?.deleteNode(props.id),
+            onCreateOutput: (data) => handlersRef.current?.handleCreateOutput(props.id, data),
           }}
         />
       ),
@@ -523,6 +566,55 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
     (event: React.DragEvent) => {
       event.preventDefault();
 
+      const bounds = reactFlowWrapper.current?.getBoundingClientRect();
+      if (!bounds) return;
+
+      const position = project({
+        x: event.clientX - bounds.left,
+        y: event.clientY - bounds.top,
+      });
+
+      // Check for file drops first
+      if (event.dataTransfer.files && event.dataTransfer.files.length > 0) {
+        const files = Array.from(event.dataTransfer.files);
+        
+        files.forEach((file, index) => {
+          const nodeId = `attachment-${Date.now()}-${index}`;
+          const isImage = file.type.startsWith('image/');
+          const isAudio = file.type.startsWith('audio/');
+          const isVideo = file.type.startsWith('video/');
+          
+          // Create blob URL for preview
+          const blobUrl = URL.createObjectURL(file);
+          
+          const newNode: RFNode = {
+            id: nodeId,
+            type: "attachment",
+            position: { x: position.x + (index * 30), y: position.y + (index * 30) },
+            data: {
+              output: isImage ? {
+                type: "image" as const,
+                content: blobUrl,
+                imageBase64: blobUrl,
+                fileName: file.name,
+              } : {
+                type: (isAudio ? "audio" : isVideo ? "video" : "text") as any,
+                content: file.name,
+                fileName: file.name,
+              }
+            },
+          };
+          onNodesChange([{ type: "add", item: newNode }] as any);
+        });
+
+        toast({
+          title: `${files.length} arquivo(s) adicionado(s)`,
+          description: "Arraste para conectar ao gerador",
+        });
+        return;
+      }
+
+      // Handle library content drops
       const raw =
         event.dataTransfer.getData("application/x-kai-unified-content") ||
         event.dataTransfer.getData("application/json");
@@ -535,14 +627,6 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
         return;
       }
       if (!item?.content) return;
-
-      const bounds = reactFlowWrapper.current?.getBoundingClientRect();
-      if (!bounds) return;
-
-      const position = project({
-        x: event.clientX - bounds.left,
-        y: event.clientY - bounds.top,
-      });
 
       const nodeId = `attachment-${Date.now()}`;
       const newNode: RFNode = {
@@ -567,14 +651,48 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
     [project, onNodesChange, toast]
   );
 
+  // File drag state for visual feedback
+  const [isDraggingFile, setIsDraggingFile] = useState(false);
+
+  const handleDragEnter = useCallback((event: React.DragEvent) => {
+    event.preventDefault();
+    if (event.dataTransfer.types.includes('Files')) {
+      setIsDraggingFile(true);
+    }
+  }, []);
+
+  const handleDragLeave = useCallback((event: React.DragEvent) => {
+    event.preventDefault();
+    // Only reset if leaving the main container
+    if (event.currentTarget === event.target) {
+      setIsDraggingFile(false);
+    }
+  }, []);
+
   return (
     <div
       ref={reactFlowWrapper}
-      className="w-full h-full relative"
-      onDrop={handleDrop}
+      className={cn(
+        "w-full h-full relative transition-all",
+        isDraggingFile && "ring-4 ring-primary/50 ring-inset bg-primary/5"
+      )}
+      onDrop={(e) => { setIsDraggingFile(false); handleDrop(e); }}
       onDragOver={handleDragOver}
+      onDragEnter={handleDragEnter}
+      onDragLeave={handleDragLeave}
       onContextMenu={handleContextMenu}
     >
+      {/* Drag overlay */}
+      {isDraggingFile && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-primary/10 backdrop-blur-sm pointer-events-none">
+          <div className="bg-background border-2 border-dashed border-primary rounded-xl p-8 text-center">
+            <Image className="h-12 w-12 mx-auto mb-3 text-primary" />
+            <p className="text-lg font-medium">Solte arquivos aqui</p>
+            <p className="text-sm text-muted-foreground">Imagens, áudios ou vídeos</p>
+          </div>
+        </div>
+      )}
+      
       {/* Client Header */}
       <div className="absolute top-0 left-0 right-0 z-10 bg-background/80 backdrop-blur-sm border-b px-4 py-2 flex items-center gap-3">
         <Avatar className="h-8 w-8 rounded-lg">

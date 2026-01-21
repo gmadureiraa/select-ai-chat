@@ -5,14 +5,14 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
-import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { Progress } from '@/components/ui/progress';
 import { 
   Sparkles, X, FileText, Image, Loader2, Link2, 
-  Download, Copy, CheckCircle2, Maximize2, ExternalLink 
+  Eye, Wand2, Save, CheckCircle2
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { downloadFile } from '@/lib/mediaDownload';
+import { cn } from '@/lib/utils';
 import type { AttachmentOutput } from './AttachmentNode';
 
 const FORMAT_OPTIONS = [
@@ -37,6 +37,24 @@ const ASPECT_RATIOS = [
   { value: '16:9', label: '16:9 (YouTube)' },
 ];
 
+type GenerationStep = 'idle' | 'analyzing' | 'generating' | 'saving' | 'done';
+
+const STEP_LABELS: Record<GenerationStep, string> = {
+  idle: '',
+  analyzing: 'Analisando inputs...',
+  generating: 'Gerando conteúdo...',
+  saving: 'Salvando resultado...',
+  done: 'Concluído!',
+};
+
+const STEP_PROGRESS: Record<GenerationStep, number> = {
+  idle: 0,
+  analyzing: 25,
+  generating: 60,
+  saving: 90,
+  done: 100,
+};
+
 export interface GeneratorNodeData {
   type: 'text' | 'image';
   format?: string;
@@ -44,14 +62,11 @@ export interface GeneratorNodeData {
   aspectRatio?: string;
   noText?: boolean;
   preserveFace?: boolean;
-  result?: {
-    type: 'text' | 'image';
-    content: string;
-    imageUrl?: string;
-  };
   isGenerating?: boolean;
+  generationStep?: GenerationStep;
   onUpdateData?: (data: Partial<GeneratorNodeData>) => void;
   onDelete?: () => void;
+  onCreateOutput?: (data: { type: 'text' | 'image'; content: string; imageUrl?: string; format: string; platform: string }) => void;
 }
 
 const GeneratorNodeComponent: React.FC<NodeProps<GeneratorNodeData>> = ({ 
@@ -61,12 +76,10 @@ const GeneratorNodeComponent: React.FC<NodeProps<GeneratorNodeData>> = ({
 }) => {
   const { getEdges, getNode } = useReactFlow();
   const { toast } = useToast();
-  const [copied, setCopied] = useState(false);
-  const [isDownloading, setIsDownloading] = useState(false);
-  const [showImageModal, setShowImageModal] = useState(false);
 
   const generationType = data.type || 'text';
   const isGenerating = data.isGenerating || false;
+  const generationStep = data.generationStep || 'idle';
 
   // Count connected attachments
   const getConnectedAttachments = useCallback((): AttachmentOutput[] => {
@@ -79,6 +92,19 @@ const GeneratorNodeComponent: React.FC<NodeProps<GeneratorNodeData>> = ({
       const sourceNode = getNode(edge.source);
       if (sourceNode?.type === 'attachment' && sourceNode.data?.output) {
         attachments.push(sourceNode.data.output as AttachmentOutput);
+      }
+      // Also support sticky notes and text nodes as context
+      if (sourceNode?.type === 'sticky' && sourceNode.data?.content) {
+        attachments.push({
+          type: 'text',
+          content: sourceNode.data.content as string,
+        });
+      }
+      if (sourceNode?.type === 'text' && sourceNode.data?.content) {
+        attachments.push({
+          type: 'text',
+          content: sourceNode.data.content as string,
+        });
       }
     }
     
@@ -99,9 +125,14 @@ const GeneratorNodeComponent: React.FC<NodeProps<GeneratorNodeData>> = ({
       return;
     }
 
-    data.onUpdateData?.({ isGenerating: true, result: undefined });
+    // Start generation with step tracking
+    data.onUpdateData?.({ isGenerating: true, generationStep: 'analyzing' });
 
     try {
+      // Simulate analyzing step
+      await new Promise(resolve => setTimeout(resolve, 500));
+      data.onUpdateData?.({ generationStep: 'generating' });
+
       const { data: result, error } = await supabase.functions.invoke('generate-content-v2', {
         body: {
           type: generationType,
@@ -124,29 +155,40 @@ const GeneratorNodeComponent: React.FC<NodeProps<GeneratorNodeData>> = ({
 
       if (error) throw error;
 
-      if (generationType === 'text') {
-        data.onUpdateData?.({
-          isGenerating: false,
-          result: {
+      data.onUpdateData?.({ generationStep: 'saving' });
+      await new Promise(resolve => setTimeout(resolve, 300));
+
+      // Create output node instead of showing inline
+      if (data.onCreateOutput) {
+        if (generationType === 'text') {
+          data.onCreateOutput({
             type: 'text',
-            content: result.content || result.text || ''
-          }
-        });
-      } else {
-        data.onUpdateData?.({
-          isGenerating: false,
-          result: {
+            content: result.content || result.text || '',
+            format: data.format || 'post',
+            platform: data.platform || 'instagram',
+          });
+        } else {
+          data.onCreateOutput({
             type: 'image',
-            content: '',
-            imageUrl: result.imageUrl || result.image_url || ''
-          }
-        });
+            content: result.imageUrl || result.image_url || '',
+            imageUrl: result.imageUrl || result.image_url || '',
+            format: 'image',
+            platform: data.platform || 'instagram',
+          });
+        }
       }
 
-      toast({ title: 'Conteúdo gerado com sucesso!' });
+      data.onUpdateData?.({ generationStep: 'done' });
+      
+      // Reset after short delay
+      setTimeout(() => {
+        data.onUpdateData?.({ isGenerating: false, generationStep: 'idle' });
+      }, 1500);
+
+      toast({ title: 'Conteúdo gerado!', description: 'Resultado adicionado ao canvas.' });
     } catch (error) {
       console.error('Generation error:', error);
-      data.onUpdateData?.({ isGenerating: false });
+      data.onUpdateData?.({ isGenerating: false, generationStep: 'idle' });
       toast({
         title: 'Erro ao gerar',
         description: error instanceof Error ? error.message : 'Erro desconhecido',
@@ -155,49 +197,28 @@ const GeneratorNodeComponent: React.FC<NodeProps<GeneratorNodeData>> = ({
     }
   }, [generationType, data, getConnectedAttachments, toast]);
 
-  const handleCopy = useCallback(() => {
-    if (data.result?.content) {
-      navigator.clipboard.writeText(data.result.content);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-      toast({ title: 'Copiado!' });
+  // Get step icon
+  const StepIcon = useCallback(() => {
+    switch (generationStep) {
+      case 'analyzing':
+        return <Eye className="h-4 w-4 animate-pulse" />;
+      case 'generating':
+        return <Wand2 className="h-4 w-4 animate-bounce" />;
+      case 'saving':
+        return <Save className="h-4 w-4 animate-pulse" />;
+      case 'done':
+        return <CheckCircle2 className="h-4 w-4 text-green-500" />;
+      default:
+        return <Sparkles className="h-4 w-4" />;
     }
-  }, [data.result, toast]);
-
-  const handleDownload = useCallback(async () => {
-    if (!data.result?.imageUrl) return;
-    
-    setIsDownloading(true);
-    try {
-      const filename = `imagem-gerada-${Date.now()}.png`;
-      const success = await downloadFile(data.result.imageUrl, filename);
-      
-      if (success) {
-        toast({ title: 'Imagem baixada!' });
-      } else {
-        // Fallback: open in new tab
-        window.open(data.result.imageUrl, '_blank');
-        toast({ 
-          title: 'Download alternativo',
-          description: 'Clique com botão direito na imagem e selecione "Salvar como..."'
-        });
-      }
-    } catch (error) {
-      console.error('Download error:', error);
-      window.open(data.result.imageUrl, '_blank');
-    } finally {
-      setIsDownloading(false);
-    }
-  }, [data.result, toast]);
-
-  const handleOpenNewTab = useCallback(() => {
-    if (data.result?.imageUrl) {
-      window.open(data.result.imageUrl, '_blank');
-    }
-  }, [data.result]);
+  }, [generationStep]);
 
   return (
-    <Card className={`w-80 shadow-lg ${selected ? 'ring-2 ring-primary' : ''}`}>
+    <Card className={cn(
+      "w-80 shadow-lg transition-all",
+      selected ? 'ring-2 ring-primary' : '',
+      isGenerating && 'ring-2 ring-primary/50 animate-pulse'
+    )}>
       {/* Input handles - 4 slots for connections */}
       {[0, 1, 2, 3].map((i) => (
         <Handle
@@ -213,13 +234,18 @@ const GeneratorNodeComponent: React.FC<NodeProps<GeneratorNodeData>> = ({
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
           <CardTitle className="text-sm flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-primary" />
+            <div className={cn(
+              "h-6 w-6 rounded-md flex items-center justify-center transition-colors",
+              isGenerating ? "bg-primary animate-pulse" : "bg-gradient-to-br from-blue-500 to-indigo-600"
+            )}>
+              <StepIcon />
+            </div>
             <span>Gerador</span>
           </CardTitle>
           <div className="flex items-center gap-1">
             {connectedCount > 0 && (
-              <span className="text-xs bg-primary/20 text-primary px-1.5 py-0.5 rounded">
-                <Link2 className="h-3 w-3 inline mr-1" />
+              <span className="text-xs bg-primary/20 text-primary px-1.5 py-0.5 rounded flex items-center gap-1">
+                <Link2 className="h-3 w-3" />
                 {connectedCount}
               </span>
             )}
@@ -236,13 +262,25 @@ const GeneratorNodeComponent: React.FC<NodeProps<GeneratorNodeData>> = ({
       </CardHeader>
       
       <CardContent className="space-y-3">
+        {/* Generation progress */}
+        {isGenerating && (
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <StepIcon />
+              <span>{STEP_LABELS[generationStep]}</span>
+            </div>
+            <Progress value={STEP_PROGRESS[generationStep]} className="h-1.5" />
+          </div>
+        )}
+
         {/* Type selector */}
         <div className="flex gap-2">
           <Button
             variant={generationType === 'text' ? 'default' : 'outline'}
             size="sm"
             className="flex-1 text-xs"
-            onClick={() => data.onUpdateData?.({ type: 'text', result: undefined })}
+            onClick={() => data.onUpdateData?.({ type: 'text' })}
+            disabled={isGenerating}
           >
             <FileText className="h-3 w-3 mr-1" />
             Texto
@@ -251,7 +289,8 @@ const GeneratorNodeComponent: React.FC<NodeProps<GeneratorNodeData>> = ({
             variant={generationType === 'image' ? 'default' : 'outline'}
             size="sm"
             className="flex-1 text-xs"
-            onClick={() => data.onUpdateData?.({ type: 'image', result: undefined })}
+            onClick={() => data.onUpdateData?.({ type: 'image' })}
+            disabled={isGenerating}
           >
             <Image className="h-3 w-3 mr-1" />
             Imagem
@@ -264,6 +303,7 @@ const GeneratorNodeComponent: React.FC<NodeProps<GeneratorNodeData>> = ({
             <Select 
               value={data.format || 'post'} 
               onValueChange={(v) => data.onUpdateData?.({ format: v })}
+              disabled={isGenerating}
             >
               <SelectTrigger className="h-8 text-xs">
                 <SelectValue placeholder="Formato" />
@@ -280,6 +320,7 @@ const GeneratorNodeComponent: React.FC<NodeProps<GeneratorNodeData>> = ({
             <Select 
               value={data.platform || 'instagram'} 
               onValueChange={(v) => data.onUpdateData?.({ platform: v })}
+              disabled={isGenerating}
             >
               <SelectTrigger className="h-8 text-xs">
                 <SelectValue placeholder="Plataforma" />
@@ -301,6 +342,7 @@ const GeneratorNodeComponent: React.FC<NodeProps<GeneratorNodeData>> = ({
             <Select 
               value={data.aspectRatio || '1:1'} 
               onValueChange={(v) => data.onUpdateData?.({ aspectRatio: v })}
+              disabled={isGenerating}
             >
               <SelectTrigger className="h-8 text-xs">
                 <SelectValue placeholder="Proporção" />
@@ -320,6 +362,7 @@ const GeneratorNodeComponent: React.FC<NodeProps<GeneratorNodeData>> = ({
                   id="noText"
                   checked={data.noText || false}
                   onCheckedChange={(checked) => data.onUpdateData?.({ noText: !!checked })}
+                  disabled={isGenerating}
                 />
                 <Label htmlFor="noText" className="text-xs">Sem texto</Label>
               </div>
@@ -328,6 +371,7 @@ const GeneratorNodeComponent: React.FC<NodeProps<GeneratorNodeData>> = ({
                   id="preserveFace"
                   checked={data.preserveFace || false}
                   onCheckedChange={(checked) => data.onUpdateData?.({ preserveFace: !!checked })}
+                  disabled={isGenerating}
                 />
                 <Label htmlFor="preserveFace" className="text-xs">Manter rosto</Label>
               </div>
@@ -345,7 +389,7 @@ const GeneratorNodeComponent: React.FC<NodeProps<GeneratorNodeData>> = ({
           {isGenerating ? (
             <>
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              Gerando...
+              {STEP_LABELS[generationStep] || 'Gerando...'}
             </>
           ) : (
             <>
@@ -355,77 +399,11 @@ const GeneratorNodeComponent: React.FC<NodeProps<GeneratorNodeData>> = ({
           )}
         </Button>
 
-        {/* Result display */}
-        {data.result && (
-          <div className="border rounded-lg overflow-hidden">
-            {data.result.type === 'text' ? (
-              <div className="p-2 space-y-2">
-                <div className="max-h-40 overflow-y-auto">
-                  <p className="text-xs whitespace-pre-wrap">{data.result.content}</p>
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full text-xs"
-                  onClick={handleCopy}
-                >
-                  {copied ? (
-                    <>
-                      <CheckCircle2 className="h-3 w-3 mr-1 text-green-500" />
-                      Copiado!
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="h-3 w-3 mr-1" />
-                      Copiar
-                    </>
-                  )}
-                </Button>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {data.result.imageUrl && (
-                  <div 
-                    className="relative group cursor-pointer"
-                    onClick={() => setShowImageModal(true)}
-                  >
-                    <img 
-                      src={data.result.imageUrl} 
-                      alt="Generated" 
-                      className="w-full h-auto rounded-t-lg"
-                    />
-                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-t-lg">
-                      <Maximize2 className="h-8 w-8 text-white" />
-                    </div>
-                  </div>
-                )}
-                <div className="p-2 flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="flex-1 text-xs"
-                    onClick={handleDownload}
-                    disabled={isDownloading}
-                  >
-                    {isDownloading ? (
-                      <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                    ) : (
-                      <Download className="h-3 w-3 mr-1" />
-                    )}
-                    Baixar
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="text-xs"
-                    onClick={handleOpenNewTab}
-                  >
-                    <ExternalLink className="h-3 w-3" />
-                  </Button>
-                </div>
-              </div>
-            )}
-          </div>
+        {/* Helper text */}
+        {connectedCount === 0 && !isGenerating && (
+          <p className="text-[10px] text-muted-foreground text-center">
+            Conecte anexos, notas ou textos a este gerador
+          </p>
         )}
       </CardContent>
 
@@ -435,45 +413,6 @@ const GeneratorNodeComponent: React.FC<NodeProps<GeneratorNodeData>> = ({
         position={Position.Right}
         className="!w-3 !h-3 !bg-primary !border-2 !border-background"
       />
-
-      {/* Image Modal */}
-      <Dialog open={showImageModal} onOpenChange={setShowImageModal}>
-        <DialogContent className="max-w-4xl max-h-[90vh] p-0 overflow-hidden">
-          <DialogTitle className="sr-only">Imagem Gerada</DialogTitle>
-          {data.result?.imageUrl && (
-            <div className="relative">
-              <img 
-                src={data.result.imageUrl} 
-                alt="Generated" 
-                className="w-full h-auto max-h-[80vh] object-contain"
-              />
-              <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 to-transparent flex justify-center gap-3">
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={handleDownload}
-                  disabled={isDownloading}
-                >
-                  {isDownloading ? (
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  ) : (
-                    <Download className="h-4 w-4 mr-2" />
-                  )}
-                  Baixar Imagem
-                </Button>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={handleOpenNewTab}
-                >
-                  <ExternalLink className="h-4 w-4 mr-2" />
-                  Abrir em Nova Aba
-                </Button>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
     </Card>
   );
 };
