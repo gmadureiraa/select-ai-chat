@@ -12,6 +12,9 @@ verify_jwt = true
 [functions.generate-image]
 verify_jwt = true
 
+[functions.generate-image-simple]
+verify_jwt = true
+
 [functions.fetch-beehiiv-metrics]
 verify_jwt = true
 
@@ -163,4 +166,7 @@ verify_jwt = true
 verify_jwt = true
 
 [functions.kai-simple-chat]
+verify_jwt = true
+
+[functions.transcribe-media]
 verify_jwt = true

@@ -36,6 +36,7 @@ import { TextNode, TextNodeData } from "./nodes/TextNode";
 import { StickyNode, StickyNodeData } from "./nodes/StickyNode";
 import { ShapeNode, ShapeNodeData } from "./nodes/ShapeNode";
 import { QuickImageNode, QuickImageNodeData } from "./nodes/QuickImageNode";
+import { ImageGeneratorNode, ImageGeneratorNodeData } from "./nodes/ImageGeneratorNode";
 import { DrawingLayer, DrawingStroke } from "./components/DrawingLayer";
 import { CanvasContextMenu } from "./components/CanvasContextMenu";
 import { PlanningItemDialog } from "@/components/planning/PlanningItemDialog";
@@ -614,6 +615,14 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
           onConvertToAttachment={(id, imageUrl) => handlersRef.current?.handleQuickImageConvertToAttachment(id, imageUrl)}
         />
       ),
+      "image-generator": (props: NodeProps<ImageGeneratorNodeData>) => (
+        <ImageGeneratorNode
+          {...props}
+          onUpdateData={(id, data) => handlersRef.current?.updateNodeData(id, data as any)}
+          onDelete={(id) => handlersRef.current?.deleteNode(id)}
+          clientId={handlersRef.current?.clientId}
+        />
+      ),
     }),
     []
   );
@@ -636,6 +645,30 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
     },
     [addNode, getViewport, nodes.length]
   );
+
+  // Handler for adding the new simplified image generator node
+  const handleAddImageGenerator = useCallback(() => {
+    const viewport = getViewport();
+    const centerX = (window.innerWidth / 2 - viewport.x) / viewport.zoom;
+    const centerY = (window.innerHeight / 2 - viewport.y) / viewport.zoom;
+    const offset = nodes.length * 20;
+    
+    const nodeId = `image-generator-${Date.now()}`;
+    const newNode: RFNode = {
+      id: nodeId,
+      type: "image-generator",
+      position: { x: centerX + offset, y: centerY + offset },
+      data: {
+        type: "image-generator",
+        prompt: "",
+        aspectRatio: "1:1",
+        noText: false,
+        preserveFace: false,
+      } as ImageGeneratorNodeData,
+    };
+    
+    onNodesChange([{ type: "add", item: newNode }] as any);
+  }, [getViewport, nodes.length, onNodesChange]);
 
   const handleClear = useCallback(() => {
     if (nodes.length === 0) return;
@@ -893,6 +926,8 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
               case "image-source":
               case "quick-image":
                 return "#06b6d4";
+              case "image-generator":
+                return "#a855f7";
               case "sticky":
                 return "#fbbf24";
               case "text":
@@ -933,6 +968,7 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
       {/* Unified Toolbar */}
       <CanvasToolbar
         onAddNode={handleAddNode}
+        onAddImageGenerator={handleAddImageGenerator}
         onClear={handleClear}
         onZoomIn={() => zoomIn()}
         onZoomOut={() => zoomOut()}
