@@ -1,11 +1,13 @@
 import { memo } from 'react';
-import { EdgeProps, getBezierPath, EdgeLabelRenderer } from 'reactflow';
+import { EdgeProps, getBezierPath } from 'reactflow';
 import { cn } from '@/lib/utils';
 
 interface AnimatedEdgeProps extends EdgeProps {
   data?: {
     isGenerating?: boolean;
     isActive?: boolean;
+    hasData?: boolean;
+    status?: 'empty' | 'ready' | 'generating' | 'complete';
   };
 }
 
@@ -21,7 +23,7 @@ function AnimatedEdgeComponent({
   markerEnd,
   data,
 }: AnimatedEdgeProps) {
-  const [edgePath, labelX, labelY] = getBezierPath({
+  const [edgePath] = getBezierPath({
     sourceX,
     sourceY,
     sourcePosition,
@@ -32,6 +34,30 @@ function AnimatedEdgeComponent({
 
   const isGenerating = data?.isGenerating;
   const isActive = data?.isActive;
+  const hasData = data?.hasData;
+  const status = data?.status || (hasData ? 'ready' : 'empty');
+
+  // Determine edge color based on status
+  const getEdgeColor = () => {
+    if (isGenerating) return 'url(#gradient-generating)';
+    switch (status) {
+      case 'complete':
+        return 'hsl(142, 76%, 45%)'; // green-500
+      case 'ready':
+        return 'hsl(217, 91%, 60%)'; // blue-500
+      case 'generating':
+        return 'hsl(var(--primary))';
+      case 'empty':
+      default:
+        return 'hsl(var(--muted-foreground))';
+    }
+  };
+
+  // Determine stroke dash array for status
+  const getStrokeDash = () => {
+    if (status === 'empty') return '5,5';
+    return 'none';
+  };
 
   return (
     <>
@@ -40,7 +66,7 @@ function AnimatedEdgeComponent({
         id={`${id}-bg`}
         className="react-flow__edge-path"
         d={edgePath}
-        strokeWidth={4}
+        strokeWidth={6}
         stroke="transparent"
         fill="none"
       />
@@ -54,14 +80,9 @@ function AnimatedEdgeComponent({
         )}
         d={edgePath}
         strokeWidth={isActive || isGenerating ? 3 : 2}
-        stroke={
-          isGenerating 
-            ? "url(#gradient-generating)" 
-            : isActive 
-              ? "hsl(var(--primary))" 
-              : "hsl(var(--muted-foreground))"
-        }
-        strokeOpacity={isActive || isGenerating ? 1 : 0.5}
+        stroke={getEdgeColor()}
+        strokeOpacity={isActive || isGenerating || status === 'ready' || status === 'complete' ? 1 : 0.4}
+        strokeDasharray={getStrokeDash()}
         fill="none"
         markerEnd={markerEnd}
         style={style}
@@ -71,6 +92,15 @@ function AnimatedEdgeComponent({
       {isGenerating && (
         <circle r="4" fill="hsl(var(--primary))">
           <animateMotion dur="1.5s" repeatCount="indefinite">
+            <mpath href={`#${id}`} />
+          </animateMotion>
+        </circle>
+      )}
+
+      {/* Data flow indicator when has data */}
+      {(status === 'ready' || status === 'complete') && !isGenerating && (
+        <circle r="3" fill={status === 'complete' ? 'hsl(142, 76%, 45%)' : 'hsl(217, 91%, 60%)'} opacity="0.8">
+          <animateMotion dur="3s" repeatCount="indefinite">
             <mpath href={`#${id}`} />
           </animateMotion>
         </circle>

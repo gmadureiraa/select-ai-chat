@@ -24,6 +24,89 @@ interface GenerateRequest {
     noText?: boolean;
     preserveFace?: boolean;
   };
+  clientId?: string;
+}
+
+interface BrandContext {
+  name?: string;
+  brandVoice?: string;
+  values?: string;
+  keywords?: string[];
+  colorPalette?: {
+    primary?: string;
+    secondary?: string;
+    accent?: string;
+  };
+  photographyStyle?: string;
+}
+
+// Fetch client brand context for enriched prompts
+async function fetchClientBrandContext(
+  supabaseClient: any,
+  userId: string
+): Promise<BrandContext | null> {
+  try {
+    // Get the client associated with this user's workspace
+    const { data: clientData, error } = await supabaseClient
+      .from('clients')
+      .select('name, identity_guide, context_notes, brand_assets')
+      .limit(1)
+      .single();
+
+    if (error || !clientData) {
+      console.log("[generate-content-v2] No client data found");
+      return null;
+    }
+
+    const brandAssets = clientData.brand_assets || {};
+    
+    return {
+      name: clientData.name,
+      brandVoice: extractFromGuide(clientData.identity_guide, 'tom de voz') || 
+                  extractFromGuide(clientData.identity_guide, 'voice') || undefined,
+      values: extractFromGuide(clientData.identity_guide, 'valores') ||
+              extractFromGuide(clientData.identity_guide, 'values') || undefined,
+      keywords: extractKeywords(clientData.context_notes),
+      colorPalette: {
+        primary: brandAssets.color_palette?.primary || brandAssets.colors?.primary,
+        secondary: brandAssets.color_palette?.secondary || brandAssets.colors?.secondary,
+        accent: brandAssets.color_palette?.accent || brandAssets.colors?.accent,
+      },
+      photographyStyle: brandAssets.visual_style?.photography_style || brandAssets.photographyStyle,
+    };
+  } catch (err) {
+    console.error("[generate-content-v2] Error fetching brand context:", err);
+    return null;
+  }
+}
+
+function extractFromGuide(guide: string | null, keyword: string): string | null {
+  if (!guide) return null;
+  const lines = guide.split('\n');
+  for (const line of lines) {
+    if (line.toLowerCase().includes(keyword.toLowerCase())) {
+      const colonIndex = line.indexOf(':');
+      if (colonIndex > -1) {
+        return line.substring(colonIndex + 1).trim();
+      }
+    }
+  }
+  return null;
+}
+
+function extractKeywords(notes: string | null): string[] {
+  if (!notes) return [];
+  // Extract words that might be keywords (capitalized or repeated)
+  const words = notes.split(/\s+/).filter(w => w.length > 3);
+  const wordCounts: Record<string, number> = {};
+  words.forEach(w => {
+    const clean = w.replace(/[^a-zA-ZÀ-ÿ]/g, '').toLowerCase();
+    if (clean) wordCounts[clean] = (wordCounts[clean] || 0) + 1;
+  });
+  return Object.entries(wordCounts)
+    .filter(([_, count]) => count >= 2)
+    .map(([word]) => word)
+    .slice(0, 10);
 }
 
 serve(async (req) => {
@@ -67,6 +150,10 @@ serve(async (req) => {
       );
     }
 
+    // Fetch brand context for enriched prompts
+    const brandContext = await fetchClientBrandContext(supabaseClient, user.id);
+    console.log("[generate-content-v2] Brand context:", brandContext?.name || "none");
+
     if (type === "text") {
       // Build context from all inputs
       let context = "";
@@ -98,6 +185,19 @@ serve(async (req) => {
         tiktok: "Tom jovem, trends, linguagem casual",
       };
 
+      // Build enriched prompt with brand context
+      let brandSection = "";
+      if (brandContext) {
+        brandSection = `
+IDENTIDADE DA MARCA:
+- Nome: ${brandContext.name || "Não especificado"}
+${brandContext.brandVoice ? `- Tom de voz: ${brandContext.brandVoice}` : ""}
+${brandContext.values ? `- Valores: ${brandContext.values}` : ""}
+${brandContext.keywords?.length ? `- Palavras-chave: ${brandContext.keywords.join(", ")}` : ""}
+
+`;
+      }
+
       const prompt = `Você é um copywriter especialista em conteúdo para redes sociais.
 
 ${formatPrompts[config.format || "post"]}
@@ -105,7 +205,7 @@ ${formatPrompts[config.format || "post"]}
 Plataforma: ${config.platform || "instagram"}
 Tom: ${platformTone[config.platform || "instagram"]}
 
-CONTEXTO E REFERÊNCIAS:
+${brandSection}CONTEXTO E REFERÊNCIAS:
 ${context}
 
 REGRAS:
@@ -113,10 +213,11 @@ REGRAS:
 - Use a linguagem adequada para a plataforma
 - Mantenha autenticidade
 - Não invente informações, use apenas o contexto fornecido
+${brandContext?.brandVoice ? `- Mantenha o tom de voz: ${brandContext.brandVoice}` : ""}
 
 Gere o conteúdo agora:`;
 
-      console.log("[generate-content-v2] Generating text...");
+      console.log("[generate-content-v2] Generating text with brand context...");
 
       const response = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GOOGLE_API_KEY}`,
@@ -148,22 +249,55 @@ Gere o conteúdo agora:`;
       );
 
     } else {
-      // Image generation
+      // Image generation with style matching
       let imagePrompt = "Crie uma imagem profissional para redes sociais. ";
       let referenceImage: string | null = null;
+      let styleDescription = "";
 
       // Build prompt from inputs
       for (const input of inputs) {
         if (input.type === "image" && input.imageBase64) {
           referenceImage = input.imageBase64;
           if (input.analysis) {
-            imagePrompt += `\n\nReferência visual: ${JSON.stringify(input.analysis)}`;
+            // Extract style details from analysis
+            const analysis = input.analysis as Record<string, any>;
+            if (analysis.generation_prompt) {
+              styleDescription += `\n\nEstilo da referência: ${analysis.generation_prompt}`;
+            }
+            if (analysis.color_palette) {
+              const colors = analysis.color_palette.dominant_colors || [];
+              if (colors.length > 0) {
+                styleDescription += `\nPaleta de cores: ${colors.join(", ")}`;
+              }
+            }
+            if (analysis.mood_atmosphere) {
+              styleDescription += `\nMood: ${analysis.mood_atmosphere.overall_mood || ""}`;
+            }
           }
         } else if (input.type === "text") {
           imagePrompt += `\n\nBriefing: ${input.content}`;
         } else if (input.transcription) {
           imagePrompt += `\n\nContexto: ${input.transcription}`;
         }
+      }
+
+      // Add brand visual identity
+      if (brandContext) {
+        imagePrompt += `\n\nIDENTIDADE VISUAL DA MARCA:`;
+        if (brandContext.colorPalette?.primary) {
+          imagePrompt += `\n- Cor primária: ${brandContext.colorPalette.primary}`;
+        }
+        if (brandContext.colorPalette?.secondary) {
+          imagePrompt += `\n- Cor secundária: ${brandContext.colorPalette.secondary}`;
+        }
+        if (brandContext.photographyStyle) {
+          imagePrompt += `\n- Estilo fotográfico: ${brandContext.photographyStyle}`;
+        }
+      }
+
+      // Add style description from reference
+      if (styleDescription) {
+        imagePrompt += styleDescription;
       }
 
       // Add config instructions
@@ -177,7 +311,14 @@ Gere o conteúdo agora:`;
         imagePrompt += "\n\nPreserve as características faciais da pessoa na imagem de referência.";
       }
 
-      console.log("[generate-content-v2] Generating image...");
+      // Add strong consistency instructions
+      imagePrompt += `\n\nREGRAS DE GERAÇÃO:
+1. Mantenha fidelidade total ao estilo visual descrito
+2. Use APENAS as cores mencionadas quando especificadas
+3. Preserve a composição e enquadramento da referência se fornecida
+4. Imagem de alta qualidade, profissional`;
+
+      console.log("[generate-content-v2] Generating image with brand context...");
 
       // Build request parts
       const parts: any[] = [];
