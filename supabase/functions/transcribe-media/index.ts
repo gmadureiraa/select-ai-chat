@@ -97,7 +97,17 @@ serve(async (req) => {
     // Check file size (max 25MB for Whisper)
     const MAX_SIZE = 25 * 1024 * 1024;
     if (audioBlob.size > MAX_SIZE) {
-      throw new Error(`Arquivo muito grande. Máximo: 25MB. Tamanho: ${(audioBlob.size / 1024 / 1024).toFixed(2)}MB`);
+      const fileSizeMB = (audioBlob.size / 1024 / 1024).toFixed(2);
+      console.log(`File too large: ${fileSizeMB}MB (max 25MB)`);
+      return new Response(JSON.stringify({ 
+        error: `Arquivo muito grande para transcrição. Máximo: 25MB. Seu arquivo: ${fileSizeMB}MB. Tente comprimir o vídeo ou usar um arquivo menor.`,
+        fileTooLarge: true,
+        fileSize: audioBlob.size,
+        maxSize: MAX_SIZE
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     // Create FormData for OpenAI
