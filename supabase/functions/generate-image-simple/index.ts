@@ -101,40 +101,50 @@ serve(async (req) => {
     const finalPrompt = buildPrompt({ prompt, referenceImage, aspectRatio, noText, preserveFace, clientId });
     console.log("[generate-image-simple] Final prompt:", finalPrompt.substring(0, 200) + "...");
 
-    // Check for API key - use Lovable AI Gateway
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
+    // Check for Google API key (user's own key)
+    const GOOGLE_API_KEY = Deno.env.get("GOOGLE_AI_STUDIO_API_KEY");
+    if (!GOOGLE_API_KEY) {
       return new Response(
-        JSON.stringify({ error: "Image generation not configured" }),
+        JSON.stringify({ error: "Google AI API key not configured" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Build message content
-    const messageContent: any[] = [{ type: "text", text: finalPrompt }];
+    // Build request parts for Gemini
+    const parts: any[] = [];
 
     // Add reference image if provided
     if (referenceImage) {
-      messageContent.unshift({
-        type: "image_url",
-        image_url: { url: referenceImage },
-      });
+      // Extract base64 data from data URL
+      const match = referenceImage.match(/^data:([^;]+);base64,(.+)$/);
+      if (match) {
+        parts.push({
+          inlineData: {
+            mimeType: match[1],
+            data: match[2],
+          },
+        });
+      }
     }
 
-    // Call Lovable AI Gateway with Gemini image model
-    console.log("[generate-image-simple] Calling Lovable AI Gateway...");
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash-image-preview",
-        messages: [{ role: "user", content: messageContent }],
-        modalities: ["image", "text"],
-      }),
-    });
+    // Add the text prompt
+    parts.push({ text: finalPrompt });
+
+    // Call Google Gemini API directly
+    console.log("[generate-image-simple] Calling Google Gemini API...");
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp-image-generation:generateContent?key=${GOOGLE_API_KEY}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ parts }],
+          generationConfig: {
+            responseModalities: ["Text", "Image"],
+          },
+        }),
+      }
+    );
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -144,12 +154,6 @@ serve(async (req) => {
         return new Response(
           JSON.stringify({ error: "Rate limit exceeded. Try again in a moment." }),
           { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      if (response.status === 402) {
-        return new Response(
-          JSON.stringify({ error: "Credits exhausted. Add more credits to continue." }),
-          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
       
@@ -162,19 +166,20 @@ serve(async (req) => {
     const data = await response.json();
     console.log("[generate-image-simple] Response received");
 
-    // Extract image from response - Lovable AI Gateway format
-    const images = data.choices?.[0]?.message?.images;
+    // Extract image from Gemini response
     let imageBase64: string | null = null;
     let mimeType = "image/png";
 
-    if (images && images.length > 0) {
-      const imageUrl = images[0]?.image_url?.url;
-      if (imageUrl && imageUrl.startsWith("data:")) {
-        // Extract base64 from data URL
-        const match = imageUrl.match(/^data:([^;]+);base64,(.+)$/);
-        if (match) {
-          mimeType = match[1];
-          imageBase64 = match[2];
+    const candidates = data.candidates;
+    if (candidates && candidates.length > 0) {
+      const content = candidates[0].content;
+      if (content && content.parts) {
+        for (const part of content.parts) {
+          if (part.inlineData) {
+            imageBase64 = part.inlineData.data;
+            mimeType = part.inlineData.mimeType || "image/png";
+            break;
+          }
         }
       }
     }
