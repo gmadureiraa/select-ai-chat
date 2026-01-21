@@ -1,25 +1,45 @@
 import { useState, useRef, KeyboardEvent, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Send, Paperclip, X, FileText, Image, Loader2, File, FileSpreadsheet } from "lucide-react";
+import { Send, Paperclip, X, FileText, Image, Loader2, File, FileSpreadsheet, AtSign, BookOpen, Layers } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { KAIFileAttachment } from "@/types/kaiActions";
 import { toast } from "sonner";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { SimpleCitation } from "@/hooks/useKAISimpleChat";
 
 interface GlobalKAIInputMinimalProps {
-  onSend: (message: string, files?: File[]) => Promise<void>;
+  onSend: (message: string, files?: File[], citations?: SimpleCitation[]) => Promise<void>;
   isProcessing: boolean;
   attachedFiles: KAIFileAttachment[];
   onAttachFiles: (files: File[]) => void;
   onRemoveFile: (fileId: string) => void;
   placeholder?: string;
   disabled?: boolean;
+  clientId?: string;
+  contentLibrary?: { id: string; title: string; content_type: string }[];
+  referenceLibrary?: { id: string; title: string; reference_type: string }[];
 }
 
 const MAX_FILES = 10;
 const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
+
+// Predefined formats
+const FORMATS = [
+  { id: "carrossel", title: "Carrossel", type: "format" },
+  { id: "post", title: "Post", type: "format" },
+  { id: "newsletter", title: "Newsletter", type: "format" },
+  { id: "thread", title: "Thread", type: "format" },
+  { id: "reels", title: "Roteiro Reels", type: "format" },
+  { id: "stories", title: "Stories", type: "format" },
+];
 
 export function GlobalKAIInputMinimal({
   onSend,
@@ -27,10 +47,16 @@ export function GlobalKAIInputMinimal({
   attachedFiles,
   onAttachFiles,
   onRemoveFile,
-  placeholder = "Pergunte qualquer coisa...",
+  placeholder = "Pergunte qualquer coisa... Use @ para citar",
   disabled = false,
+  clientId,
+  contentLibrary = [],
+  referenceLibrary = [],
 }: GlobalKAIInputMinimalProps) {
   const [message, setMessage] = useState("");
+  const [citations, setCitations] = useState<SimpleCitation[]>([]);
+  const [showMentions, setShowMentions] = useState(false);
+  const [mentionSearch, setMentionSearch] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDragOver, setIsDragOver] = useState(false);
@@ -43,6 +69,71 @@ export function GlobalKAIInputMinimal({
     }
   }, [message]);
 
+  // Build mention items
+  const mentionItems = [
+    ...FORMATS.map(f => ({ id: f.id, title: f.title, type: "format" as const, category: "Formato" })),
+    ...contentLibrary.slice(0, 10).map(c => ({ 
+      id: c.id, 
+      title: c.title, 
+      type: "content" as const, 
+      category: c.content_type 
+    })),
+    ...referenceLibrary.slice(0, 10).map(r => ({ 
+      id: r.id, 
+      title: r.title, 
+      type: "reference" as const, 
+      category: r.reference_type 
+    })),
+  ];
+
+  // Filter mentions by search
+  const filteredMentions = mentionSearch 
+    ? mentionItems.filter(item => 
+        item.title.toLowerCase().includes(mentionSearch.toLowerCase())
+      )
+    : mentionItems;
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const value = e.target.value;
+    setMessage(value);
+
+    // Detect @ for mentions
+    const lastAtIndex = value.lastIndexOf("@");
+    if (lastAtIndex !== -1) {
+      const afterAt = value.slice(lastAtIndex + 1);
+      // Check if we're still typing a mention (no space after @)
+      if (!afterAt.includes(" ") && afterAt.length < 30) {
+        setMentionSearch(afterAt);
+        setShowMentions(true);
+      } else {
+        setShowMentions(false);
+      }
+    } else {
+      setShowMentions(false);
+    }
+  };
+
+  const handleSelectMention = (item: typeof mentionItems[0]) => {
+    // Add to citations if not already there
+    if (!citations.find(c => c.id === item.id && c.type === item.type)) {
+      setCitations(prev => [...prev, { id: item.id, type: item.type, title: item.title }]);
+    }
+
+    // Remove the @search from message
+    const lastAtIndex = message.lastIndexOf("@");
+    if (lastAtIndex !== -1) {
+      setMessage(message.slice(0, lastAtIndex));
+    }
+
+    setShowMentions(false);
+    setMentionSearch("");
+    textareaRef.current?.focus();
+  };
+
+  const removeCitation = (id: string) => {
+    setCitations(prev => prev.filter(c => c.id !== id));
+  };
+
   const handleSend = async () => {
     if (!message.trim() && attachedFiles.length === 0) return;
     if (isProcessing || disabled) return;
@@ -54,8 +145,9 @@ export function GlobalKAIInputMinimal({
     }
 
     const files = attachedFiles.map((f) => f.file);
-    await onSend(message.trim(), files.length > 0 ? files : undefined);
+    await onSend(message.trim(), files.length > 0 ? files : undefined, citations.length > 0 ? citations : undefined);
     setMessage("");
+    setCitations([]);
     
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
@@ -63,7 +155,21 @@ export function GlobalKAIInputMinimal({
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && !e.shiftKey) {
+    // Close mentions on Escape
+    if (e.key === "Escape" && showMentions) {
+      e.preventDefault();
+      setShowMentions(false);
+      return;
+    }
+
+    // Select first mention on Tab/Enter when popover is open
+    if ((e.key === "Tab" || e.key === "Enter") && showMentions && filteredMentions.length > 0) {
+      e.preventDefault();
+      handleSelectMention(filteredMentions[0]);
+      return;
+    }
+
+    if (e.key === "Enter" && !e.shiftKey && !showMentions) {
       e.preventDefault();
       handleSend();
     }
@@ -148,10 +254,10 @@ export function GlobalKAIInputMinimal({
     return File;
   };
 
-  const formatFileSize = (bytes: number) => {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  const getCitationIcon = (type: string) => {
+    if (type === "format") return Layers;
+    if (type === "content") return FileText;
+    return BookOpen;
   };
 
   return (
@@ -164,7 +270,41 @@ export function GlobalKAIInputMinimal({
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
-      {/* Attached files preview - compact */}
+      {/* Citations preview */}
+      <AnimatePresence>
+        {citations.length > 0 && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="mb-2 overflow-hidden"
+          >
+            <div className="flex flex-wrap gap-1.5">
+              {citations.map((citation) => {
+                const Icon = getCitationIcon(citation.type);
+                return (
+                  <Badge
+                    key={`${citation.type}-${citation.id}`}
+                    variant="outline"
+                    className="gap-1.5 pr-1 max-w-[150px] bg-primary/5 border-primary/20 text-primary"
+                  >
+                    <Icon className="h-3 w-3 flex-shrink-0" />
+                    <span className="truncate text-xs">{citation.title}</span>
+                    <button
+                      onClick={() => removeCitation(citation.id)}
+                      className="ml-0.5 p-0.5 rounded-full hover:bg-primary/20"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </Badge>
+                );
+              })}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Attached files preview */}
       <AnimatePresence>
         {attachedFiles.length > 0 && (
           <motion.div
@@ -198,7 +338,47 @@ export function GlobalKAIInputMinimal({
         )}
       </AnimatePresence>
 
-      {/* Minimal input area */}
+      {/* Mentions popover */}
+      <Popover open={showMentions} onOpenChange={setShowMentions}>
+        <PopoverTrigger asChild>
+          <div /> {/* Hidden trigger */}
+        </PopoverTrigger>
+        <PopoverContent 
+          className="w-64 p-0" 
+          align="start"
+          side="top"
+          sideOffset={8}
+        >
+          <ScrollArea className="max-h-60">
+            <div className="p-1">
+              {filteredMentions.length === 0 ? (
+                <div className="text-sm text-muted-foreground p-2 text-center">
+                  Nenhum resultado
+                </div>
+              ) : (
+                filteredMentions.map((item) => {
+                  const Icon = getCitationIcon(item.type);
+                  return (
+                    <button
+                      key={`${item.type}-${item.id}`}
+                      onClick={() => handleSelectMention(item)}
+                      className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-muted text-left text-sm"
+                    >
+                      <Icon className="h-4 w-4 text-muted-foreground" />
+                      <div className="flex-1 min-w-0">
+                        <div className="truncate font-medium">{item.title}</div>
+                        <div className="text-xs text-muted-foreground">{item.category}</div>
+                      </div>
+                    </button>
+                  );
+                })
+              )}
+            </div>
+          </ScrollArea>
+        </PopoverContent>
+      </Popover>
+
+      {/* Input area */}
       <div className="flex items-end gap-2">
         {/* File upload */}
         <input
@@ -219,11 +399,26 @@ export function GlobalKAIInputMinimal({
           <Paperclip className="h-4 w-4" />
         </Button>
 
+        {/* @ button for mentions */}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-9 w-9 shrink-0 text-muted-foreground hover:text-foreground hover:bg-muted"
+          onClick={() => {
+            setMessage(prev => prev + "@");
+            setShowMentions(true);
+            textareaRef.current?.focus();
+          }}
+          disabled={isProcessing || disabled}
+        >
+          <AtSign className="h-4 w-4" />
+        </Button>
+
         {/* Text input */}
         <Textarea
           ref={textareaRef}
           value={message}
-          onChange={(e) => setMessage(e.target.value)}
+          onChange={handleInputChange}
           onKeyDown={handleKeyDown}
           onPaste={handlePaste}
           placeholder={placeholder}
@@ -254,7 +449,7 @@ export function GlobalKAIInputMinimal({
 
       {/* Minimal hint */}
       <p className="text-[10px] text-muted-foreground/60 text-center mt-2">
-        Enter para enviar · Shift+Enter para nova linha
+        Enter para enviar · @ para citar · Shift+Enter para nova linha
       </p>
     </div>
   );
