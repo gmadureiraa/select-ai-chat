@@ -1,4 +1,4 @@
-import React, { useState, useCallback, memo } from 'react';
+import React, { useState, useCallback, memo, useRef } from 'react';
 import { Handle, Position, NodeProps } from 'reactflow';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -7,30 +7,26 @@ import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   Paperclip, X, Link2, FileText, Upload, Image as ImageIcon, Video, 
-  Music, FileJson, Eye, Loader2, CheckCircle2, Expand, ChevronLeft,
-  ChevronRight, Instagram, AlertCircle, RefreshCw, Play
+  Music, Eye, Loader2, CheckCircle2, Expand, ChevronLeft,
+  ChevronRight, Play
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { TranscriptionModal } from '../components/TranscriptionModal';
+import { transcribeImagesChunked } from '@/lib/transcribeImages';
 
-// Expanded interface with Instagram support
+// Simplified interface - MVP focused
 export interface AttachmentOutput {
-  type: 'image' | 'video' | 'audio' | 'text' | 'url' | 'instagram' | 'youtube';
+  type: 'image' | 'video' | 'audio' | 'text' | 'youtube';
   content: string;
-  analysis?: Record<string, unknown>;
   transcription?: string;
   imageBase64?: string;
   fileName?: string;
   mimeType?: string;
-  // Instagram-specific fields
-  extractedImages?: string[];
-  caption?: string;
+  analysis?: Record<string, unknown>;
+  // Multi-image support
+  images?: string[];
   imageCount?: number;
-  videoUrl?: string;
-  // Error state
-  extractionFailed?: boolean;
-  errorMessage?: string;
 }
 
 export interface AttachmentNodeData {
@@ -39,204 +35,70 @@ export interface AttachmentNodeData {
   onDelete?: () => void;
 }
 
+const MAX_IMAGES = 15;
+
 const AttachmentNodeComponent: React.FC<NodeProps<AttachmentNodeData>> = ({ 
   data, 
   selected 
 }) => {
-  const [activeTab, setActiveTab] = useState<'link' | 'text' | 'file'>('file');
+  const [activeTab, setActiveTab] = useState<'file' | 'link' | 'text'>('file');
   const [urlInput, setUrlInput] = useState('');
   const [textInput, setTextInput] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [processStatus, setProcessStatus] = useState<string>('');
   const [showTranscription, setShowTranscription] = useState(false);
-  const [showCaption, setShowCaption] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
   const output = data.output;
- 
-  // Detect URL type - with specific Instagram validation
-  const detectUrlType = (url: string): 'youtube' | 'instagram' | 'instagram-profile' | 'generic' => {
-    if (url.includes('youtube.com') || url.includes('youtu.be')) return 'youtube';
-    
-    // Instagram: only accept post (/p/) or reel (/reel/) URLs
-    if (url.includes('instagram.com/p/') || url.includes('instagram.com/reel/') || url.includes('instagr.am/p/')) {
-      return 'instagram';
-    }
-    
-    // Instagram profile URLs - we can't extract these
-    if (url.includes('instagram.com/') && !url.includes('/p/') && !url.includes('/reel/')) {
-      return 'instagram-profile';
-    }
-    
-    return 'generic';
+
+  // ONLY YouTube is accepted
+  const isYoutubeUrl = (url: string): boolean => {
+    return url.includes('youtube.com') || url.includes('youtu.be');
   };
 
   const handleUrlSubmit = useCallback(async () => {
     if (!urlInput.trim()) return;
     
     setIsProcessing(true);
-    const urlType = detectUrlType(urlInput);
     
     try {
-      // Handle Instagram profile URLs - NOT supported
-      if (urlType === 'instagram-profile') {
+      // ONLY YouTube accepted
+      if (!isYoutubeUrl(urlInput)) {
         toast({ 
-          title: 'Link de perfil não suportado', 
-          description: 'Cole o link de um POST ou REEL específico do Instagram (ex: instagram.com/p/xxx ou instagram.com/reel/xxx)',
+          title: 'Link não suportado', 
+          description: 'Apenas links do YouTube são aceitos. Use o upload para outros conteúdos.',
           variant: 'destructive' 
         });
         setIsProcessing(false);
         setProcessStatus('');
         return;
       }
+
+      setProcessStatus('Extraindo YouTube...');
+      console.log('[AttachmentNode] Extracting YouTube:', urlInput);
       
-      if (urlType === 'youtube') {
-        setProcessStatus('Extraindo YouTube...');
-        console.log('[AttachmentNode] Extracting YouTube:', urlInput);
-        
-        const { data: result, error } = await supabase.functions.invoke('extract-youtube', {
-          body: { url: urlInput }
-        });
-        
-        if (error) throw error;
-        
-        console.log('[AttachmentNode] YouTube result:', result);
-        
-        data.onUpdateData?.({
-          output: {
-            type: 'youtube',
-            content: urlInput,
-            transcription: result?.transcript || result?.description || '',
-            fileName: result?.title || 'YouTube Video'
-          }
-        });
-        
-        toast({ title: 'YouTube extraído!', description: result?.title });
-        
-      } else if (urlType === 'instagram') {
-        setProcessStatus('Verificando link...');
-        console.log('[AttachmentNode] Extracting Instagram:', urlInput);
-        
-        const isReel = urlInput.includes('/reel/');
-        
-        setProcessStatus(isReel ? 'Extraindo Reels...' : 'Extraindo imagens...');
-        
-        const { data: result, error } = await supabase.functions.invoke('extract-instagram', {
-          body: { url: urlInput }
-        });
-        
-        console.log('[AttachmentNode] Instagram result:', result, 'Error:', error);
-        
-        // Handle extraction failure CLEARLY
-        if (error || result?.error) {
-          const errorMsg = result?.error || error?.message || 'Erro desconhecido';
-          console.error('[AttachmentNode] Instagram extraction failed:', errorMsg);
-          
-          toast({ 
-            title: 'Não foi possível extrair', 
-            description: 'Este post pode ser privado ou indisponível. O link NÃO será aceito.',
-            variant: 'destructive' 
-          });
-          
-          // DO NOT accept the link - show error state
-          data.onUpdateData?.({
-            output: {
-              type: 'instagram',
-              content: urlInput,
-              extractionFailed: true,
-              errorMessage: errorMsg,
-              fileName: 'Falha na extração'
-            }
-          });
-          
-          return;
+      const { data: result, error } = await supabase.functions.invoke('extract-youtube', {
+        body: { url: urlInput }
+      });
+      
+      if (error) throw error;
+      
+      console.log('[AttachmentNode] YouTube result:', result);
+      
+      data.onUpdateData?.({
+        output: {
+          type: 'youtube',
+          content: urlInput,
+          transcription: result?.transcript || result?.description || '',
+          fileName: result?.title || 'YouTube Video'
         }
-        
-        const images = result.images || [];
-        const caption = result.caption || '';
-        
-        if (images.length === 0) {
-          toast({ 
-            title: 'Nenhuma imagem encontrada', 
-            description: 'O post pode estar vazio ou inacessível.',
-            variant: 'destructive' 
-          });
-          return;
-        }
-        
-        // For Reels, try to transcribe the video
-        let transcription = '';
-        if (isReel && images.length > 0) {
-          setProcessStatus('Transcrevendo Reels...');
-          try {
-            console.log('[AttachmentNode] Transcribing Reels video...');
-            const { data: transcribeData, error: transcribeError } = await supabase.functions.invoke('transcribe-media', {
-              body: { url: images[0], fileName: 'reels.mp4' }
-            });
-            
-            if (!transcribeError && transcribeData?.text) {
-              transcription = transcribeData.text;
-              console.log('[AttachmentNode] Reels transcription success:', transcription.substring(0, 100));
-            } else {
-              console.warn('[AttachmentNode] Reels transcription failed:', transcribeError);
-            }
-          } catch (e) {
-            console.warn('[AttachmentNode] Transcription error:', e);
-          }
-        }
-        
-        // SUCCESS - Update with extracted data
-        data.onUpdateData?.({
-          output: {
-            type: 'instagram',
-            content: caption,
-            extractedImages: images,
-            caption: caption,
-            transcription: transcription || undefined,
-            imageCount: images.length,
-            videoUrl: isReel ? images[0] : undefined,
-            fileName: isReel ? 'Reels' : `Carrossel (${images.length} ${images.length === 1 ? 'imagem' : 'imagens'})`
-          }
-        });
-        
-        toast({ 
-          title: `Instagram importado!`, 
-          description: `${images.length} mídia(s) extraída(s)${transcription ? ' + transcrição' : ''}`
-        });
-        
-      } else {
-        // Generic URL - warn that it might not work well
-        setProcessStatus('Extraindo conteúdo...');
-        console.log('[AttachmentNode] Generic URL scraping:', urlInput);
-        
-        const { data: result, error } = await supabase.functions.invoke('scrape-newsletter', {
-          body: { url: urlInput }
-        });
-        
-        if (error) throw error;
-        
-        const extractedContent = result?.content || result?.text || '';
-        
-        if (!extractedContent || extractedContent.length < 50) {
-          toast({ 
-            title: 'Pouco conteúdo extraído', 
-            description: 'Este site pode ter proteções contra scraping.',
-            variant: 'destructive' 
-          });
-        }
-        
-        data.onUpdateData?.({
-          output: {
-            type: 'url',
-            content: urlInput,
-            transcription: extractedContent,
-            fileName: result?.title || 'Web Content'
-          }
-        });
-        
-        toast({ title: 'Conteúdo extraído!' });
-      }
+      });
+      
+      toast({ title: 'YouTube extraído!', description: result?.title });
+      setUrlInput('');
+      
     } catch (error) {
       console.error('[AttachmentNode] Error extracting URL:', error);
       toast({ 
@@ -261,143 +123,221 @@ const AttachmentNodeComponent: React.FC<NodeProps<AttachmentNodeData>> = ({
     });
     
     toast({ title: 'Texto adicionado!' });
+    setTextInput('');
   }, [textInput, data, toast]);
 
   const handleFileUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
 
     setIsProcessing(true);
-    const fileType = file.type;
     
     try {
-      if (fileType.startsWith('image/')) {
-        setProcessStatus('Processando imagem...');
-        
-        const reader = new FileReader();
-        reader.onload = async (event) => {
-          const base64 = event.target?.result as string;
+      // Check if all files are images for multi-image support
+      const allImages = Array.from(files).every(f => f.type.startsWith('image/'));
+      
+      if (allImages && files.length > 1) {
+        // Multi-image upload with transcription
+        if (files.length > MAX_IMAGES) {
+          toast({ 
+            title: 'Limite de imagens', 
+            description: `Máximo de ${MAX_IMAGES} imagens por vez. Você selecionou ${files.length}.`,
+            variant: 'destructive' 
+          });
+          setIsProcessing(false);
+          return;
+        }
+
+        const imageUrls: string[] = [];
+        const totalFiles = files.length;
+
+        // Upload all images first
+        for (let i = 0; i < totalFiles; i++) {
+          const file = files[i];
+          setProcessStatus(`Enviando imagem ${i + 1}/${totalFiles}...`);
           
-          setProcessStatus('Analisando imagem...');
-          try {
-            const { data: analysis, error } = await supabase.functions.invoke('analyze-image-complete', {
-              body: { imageUrl: base64, analysisType: 'full' }
-            });
+          const fileName = `canvas/${Date.now()}-${i}-${file.name}`;
+          const { error: uploadError } = await supabase.storage
+            .from('content-media')
+            .upload(fileName, file);
+          
+          if (uploadError) {
+            console.error('[AttachmentNode] Upload error:', uploadError);
+            continue;
+          }
+          
+          const { data: { publicUrl } } = supabase.storage
+            .from('content-media')
+            .getPublicUrl(fileName);
+          
+          imageUrls.push(publicUrl);
+        }
+
+        if (imageUrls.length === 0) {
+          throw new Error('Nenhuma imagem foi enviada com sucesso');
+        }
+
+        // Transcribe all images
+        setProcessStatus(`Transcrevendo ${imageUrls.length} imagens...`);
+        
+        let transcription = '';
+        try {
+          const { data: userData } = await supabase.auth.getUser();
+          transcription = await transcribeImagesChunked(imageUrls, {
+            userId: userData?.user?.id,
+            chunkSize: 1
+          });
+        } catch (transcribeError) {
+          console.warn('[AttachmentNode] Transcription error:', transcribeError);
+        }
+
+        data.onUpdateData?.({
+          output: {
+            type: 'image',
+            content: imageUrls[0],
+            images: imageUrls,
+            imageCount: imageUrls.length,
+            transcription: transcription || undefined,
+            fileName: `${imageUrls.length} imagens`
+          }
+        });
+
+        toast({ 
+          title: `${imageUrls.length} imagens processadas!`,
+          description: transcription ? `${transcription.split(' ').length} palavras extraídas` : undefined
+        });
+
+      } else {
+        // Single file upload
+        const file = files[0];
+        const fileType = file.type;
+
+        if (fileType.startsWith('image/')) {
+          setProcessStatus('Processando imagem...');
+          
+          // Upload to storage
+          const fileName = `canvas/${Date.now()}-${file.name}`;
+          const { error: uploadError } = await supabase.storage
+            .from('content-media')
+            .upload(fileName, file);
+          
+          let imageUrl = '';
+          if (!uploadError) {
+            const { data: { publicUrl } } = supabase.storage
+              .from('content-media')
+              .getPublicUrl(fileName);
+            imageUrl = publicUrl;
+          }
+
+          // Also get base64 for preview
+          const reader = new FileReader();
+          reader.onload = async (event) => {
+            const base64 = event.target?.result as string;
+            
+            // Transcribe single image
+            setProcessStatus('Transcrevendo imagem...');
+            let transcription = '';
+            try {
+              const { data: userData } = await supabase.auth.getUser();
+              transcription = await transcribeImagesChunked([imageUrl || base64], {
+                userId: userData?.user?.id,
+                chunkSize: 1
+              });
+            } catch (e) {
+              console.warn('[AttachmentNode] Transcription error:', e);
+            }
             
             data.onUpdateData?.({
               output: {
                 type: 'image',
-                content: base64,
+                content: imageUrl || base64,
                 imageBase64: base64,
-                analysis: error ? undefined : analysis,
+                transcription: transcription || undefined,
                 fileName: file.name,
-                mimeType: fileType
+                mimeType: fileType,
+                images: [imageUrl || base64],
+                imageCount: 1
               }
             });
-          } catch {
-            data.onUpdateData?.({
-              output: {
-                type: 'image',
-                content: base64,
-                imageBase64: base64,
-                fileName: file.name,
-                mimeType: fileType
-              }
+            
+            setIsProcessing(false);
+            setProcessStatus('');
+            toast({ 
+              title: 'Imagem processada!',
+              description: transcription ? `${transcription.split(' ').length} palavras extraídas` : undefined
+            });
+          };
+          reader.readAsDataURL(file);
+          return; // Exit early, onload handles the rest
+          
+        } else if (fileType.startsWith('video/') || fileType.startsWith('audio/')) {
+          const type = fileType.startsWith('video/') ? 'video' : 'audio';
+          setProcessStatus(`Enviando ${type === 'video' ? 'vídeo' : 'áudio'}...`);
+          
+          console.log('[AttachmentNode] Uploading media file:', file.name, fileType);
+          
+          const fileName = `canvas/${Date.now()}-${file.name}`;
+          const { error: uploadError } = await supabase.storage
+            .from('content-media')
+            .upload(fileName, file);
+          
+          if (uploadError) {
+            console.error('[AttachmentNode] Upload error:', uploadError);
+            throw new Error(`Falha no upload: ${uploadError.message}`);
+          }
+          
+          console.log('[AttachmentNode] Upload successful:', fileName);
+          
+          const { data: { publicUrl } } = supabase.storage
+            .from('content-media')
+            .getPublicUrl(fileName);
+          
+          console.log('[AttachmentNode] Public URL:', publicUrl);
+          
+          setProcessStatus('Transcrevendo...');
+          
+          const { data: transcription, error: transcribeError } = await supabase.functions.invoke('transcribe-media', {
+            body: { 
+              url: publicUrl,
+              fileName: file.name,
+              mimeType: fileType 
+            }
+          });
+          
+          console.log('[AttachmentNode] Transcription result:', transcription, 'Error:', transcribeError);
+          
+          const transcribedText = transcription?.text || transcription?.transcript;
+          
+          data.onUpdateData?.({
+            output: {
+              type,
+              content: publicUrl,
+              transcription: transcribeError ? undefined : transcribedText,
+              fileName: file.name,
+              mimeType: fileType
+            }
+          });
+          
+          if (transcribedText) {
+            toast({ 
+              title: `${type === 'video' ? 'Vídeo' : 'Áudio'} transcrito!`,
+              description: `${transcribedText.split(' ').length} palavras extraídas`
+            });
+          } else {
+            toast({ 
+              title: `${type === 'video' ? 'Vídeo' : 'Áudio'} enviado`,
+              description: 'Sem transcrição disponível',
+              variant: 'destructive'
             });
           }
           
-          setIsProcessing(false);
-          setProcessStatus('');
-          toast({ title: 'Imagem adicionada!' });
-        };
-        reader.readAsDataURL(file);
-        
-      } else if (fileType.startsWith('video/') || fileType.startsWith('audio/')) {
-        const type = fileType.startsWith('video/') ? 'video' : 'audio';
-        setProcessStatus(`Fazendo upload de ${type === 'video' ? 'vídeo' : 'áudio'}...`);
-        
-        console.log('[AttachmentNode] Uploading media file:', file.name, fileType);
-        
-        // Upload to content-media bucket (has proper RLS)
-        const fileName = `canvas/${Date.now()}-${file.name}`;
-        const { error: uploadError } = await supabase.storage
-          .from('content-media')
-          .upload(fileName, file);
-        
-        if (uploadError) {
-          console.error('[AttachmentNode] Upload error:', uploadError);
-          throw new Error(`Falha no upload: ${uploadError.message}`);
-        }
-        
-        console.log('[AttachmentNode] Upload successful:', fileName);
-        
-        const { data: { publicUrl } } = supabase.storage
-          .from('content-media')
-          .getPublicUrl(fileName);
-        
-        console.log('[AttachmentNode] Public URL:', publicUrl);
-        
-        setProcessStatus('Transcrevendo...');
-        
-        const { data: transcription, error: transcribeError } = await supabase.functions.invoke('transcribe-media', {
-          body: { 
-            url: publicUrl,
-            fileName: file.name,
-            mimeType: fileType 
-          }
-        });
-        
-        console.log('[AttachmentNode] Transcription result:', transcription, 'Error:', transcribeError);
-        
-        const transcribedText = transcription?.text || transcription?.transcript;
-        
-        data.onUpdateData?.({
-          output: {
-            type,
-            content: publicUrl,
-            transcription: transcribeError ? undefined : transcribedText,
-            fileName: file.name,
-            mimeType: fileType
-          }
-        });
-        
-        if (transcribedText) {
-          toast({ 
-            title: `${type === 'video' ? 'Vídeo' : 'Áudio'} transcrito!`,
-            description: `${transcribedText.split(' ').length} palavras extraídas`
-          });
         } else {
           toast({ 
-            title: `${type === 'video' ? 'Vídeo' : 'Áudio'} enviado`,
-            description: 'Sem transcrição disponível',
+            title: 'Tipo de arquivo não suportado',
+            description: 'Use imagens, vídeos ou áudios.',
             variant: 'destructive'
           });
         }
-        
-      } else {
-        setProcessStatus('Fazendo upload...');
-        
-        const fileName = `canvas/${Date.now()}-${file.name}`;
-        const { error: uploadError } = await supabase.storage
-          .from('content-media')
-          .upload(fileName, file);
-        
-        if (uploadError) throw uploadError;
-        
-        const { data: { publicUrl } } = supabase.storage
-          .from('content-media')
-          .getPublicUrl(fileName);
-        
-        data.onUpdateData?.({
-          output: {
-            type: 'text',
-            content: `Arquivo: ${file.name}\nURL: ${publicUrl}`,
-            fileName: file.name,
-            mimeType: fileType
-          }
-        });
-        
-        toast({ title: 'Arquivo enviado!' });
       }
     } catch (error) {
       console.error('[AttachmentNode] Error processing file:', error);
@@ -409,26 +349,21 @@ const AttachmentNodeComponent: React.FC<NodeProps<AttachmentNodeData>> = ({
     } finally {
       setIsProcessing(false);
       setProcessStatus('');
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     }
   }, [data, toast]);
 
-  const retryExtraction = useCallback(() => {
-    setUrlInput(output?.content || '');
-    data.onUpdateData?.({ output: undefined });
-  }, [output, data]);
-
   const getOutputIcon = () => {
     if (!output) return <Paperclip className="h-4 w-4" />;
-    
-    if (output.extractionFailed) return <AlertCircle className="h-4 w-4 text-destructive" />;
     
     switch (output.type) {
       case 'image': return <ImageIcon className="h-4 w-4 text-green-500" />;
       case 'video': return <Video className="h-4 w-4 text-purple-500" />;
       case 'audio': return <Music className="h-4 w-4 text-blue-500" />;
-      case 'url': return <Link2 className="h-4 w-4 text-orange-500" />;
       case 'youtube': return <Play className="h-4 w-4 text-red-500" />;
-      case 'instagram': return <Instagram className="h-4 w-4 text-pink-500" />;
       case 'text': return <FileText className="h-4 w-4 text-muted-foreground" />;
       default: return <Paperclip className="h-4 w-4" />;
     }
@@ -441,19 +376,19 @@ const AttachmentNodeComponent: React.FC<NodeProps<AttachmentNodeData>> = ({
     setCurrentImageIndex(0);
   }, [data]);
 
-  // Instagram carousel navigation
+  // Image gallery navigation
   const nextImage = () => {
-    if (output?.extractedImages) {
+    if (output?.images) {
       setCurrentImageIndex((prev) => 
-        prev < output.extractedImages!.length - 1 ? prev + 1 : 0
+        prev < output.images!.length - 1 ? prev + 1 : 0
       );
     }
   };
 
   const prevImage = () => {
-    if (output?.extractedImages) {
+    if (output?.images) {
       setCurrentImageIndex((prev) => 
-        prev > 0 ? prev - 1 : output.extractedImages!.length - 1
+        prev > 0 ? prev - 1 : output.images!.length - 1
       );
     }
   };
@@ -491,41 +426,18 @@ const AttachmentNodeComponent: React.FC<NodeProps<AttachmentNodeData>> = ({
           </div>
         ) : output ? (
           <div className="space-y-3">
-            {/* EXTRACTION FAILED STATE */}
-            {output.extractionFailed && (
-              <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-3 space-y-2">
-                <div className="flex items-center gap-2 text-destructive">
-                  <AlertCircle className="h-4 w-4" />
-                  <span className="text-xs font-medium">Extração falhou</span>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {output.errorMessage || 'Não foi possível extrair conteúdo deste link.'}
-                </p>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="w-full text-xs"
-                  onClick={retryExtraction}
-                >
-                  <RefreshCw className="h-3 w-3 mr-1" />
-                  Tentar novamente
-                </Button>
-              </div>
-            )}
-
-            {/* INSTAGRAM SUCCESS STATE - Gallery */}
-            {output.type === 'instagram' && !output.extractionFailed && output.extractedImages && output.extractedImages.length > 0 && (
+            {/* IMAGE(S) preview with gallery */}
+            {output.type === 'image' && output.images && output.images.length > 0 && (
               <div className="space-y-2">
-                {/* Image gallery */}
                 <div className="relative rounded-lg overflow-hidden bg-black/5">
                   <img 
-                    src={output.extractedImages[currentImageIndex]} 
-                    alt={`Slide ${currentImageIndex + 1}`}
+                    src={output.images[currentImageIndex]} 
+                    alt={`Imagem ${currentImageIndex + 1}`}
                     className="w-full h-40 object-cover"
                   />
                   
                   {/* Navigation - only if multiple images */}
-                  {output.extractedImages.length > 1 && (
+                  {output.images.length > 1 && (
                     <>
                       <button 
                         onClick={prevImage}
@@ -542,12 +454,12 @@ const AttachmentNodeComponent: React.FC<NodeProps<AttachmentNodeData>> = ({
                       
                       {/* Counter */}
                       <div className="absolute top-2 right-2 bg-black/60 text-white text-xs px-2 py-0.5 rounded-full">
-                        {currentImageIndex + 1}/{output.extractedImages.length}
+                        {currentImageIndex + 1}/{output.images.length}
                       </div>
                       
                       {/* Dots */}
                       <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1">
-                        {output.extractedImages.map((_, idx) => (
+                        {output.images.slice(0, 10).map((_, idx) => (
                           <button
                             key={idx}
                             className={`w-1.5 h-1.5 rounded-full transition-colors ${
@@ -556,42 +468,36 @@ const AttachmentNodeComponent: React.FC<NodeProps<AttachmentNodeData>> = ({
                             onClick={() => setCurrentImageIndex(idx)}
                           />
                         ))}
+                        {output.images.length > 10 && (
+                          <span className="text-white text-[8px]">+{output.images.length - 10}</span>
+                        )}
                       </div>
                     </>
                   )}
                 </div>
                 
-                      {/* Caption preview with expand option */}
-                      {output.caption && (
-                        <div className="bg-pink-500/10 rounded-md p-2 space-y-1">
-                          <p className="text-xs line-clamp-2 text-foreground">{output.caption}</p>
-                          {output.caption.length > 80 && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="w-full h-6 text-[10px] gap-1 text-pink-600 hover:text-pink-700 hover:bg-pink-500/10"
-                              onClick={() => setShowCaption(true)}
-                            >
-                              <Expand className="h-3 w-3" />
-                              Ver legenda completa
-                            </Button>
-                          )}
-                        </div>
-                      )}
-                
-                {/* Badges */}
+                {/* Image count badge */}
                 <div className="flex flex-wrap gap-1">
-                  <span className="text-[10px] bg-pink-500/20 text-pink-600 px-1.5 py-0.5 rounded flex items-center gap-1">
-                    <Instagram className="h-3 w-3" />
+                  <span className="text-[10px] bg-green-500/20 text-green-600 px-1.5 py-0.5 rounded flex items-center gap-1">
+                    <ImageIcon className="h-3 w-3" />
                     {output.imageCount} {output.imageCount === 1 ? 'imagem' : 'imagens'}
                   </span>
                   {output.transcription && (
-                    <span className="text-[10px] bg-purple-500/20 text-purple-600 px-1.5 py-0.5 rounded flex items-center gap-1">
+                    <span className="text-[10px] bg-blue-500/20 text-blue-600 px-1.5 py-0.5 rounded flex items-center gap-1">
                       <FileText className="h-3 w-3" /> Transcrito
                     </span>
                   )}
                 </div>
               </div>
+            )}
+
+            {/* Fallback for single image without gallery */}
+            {output.type === 'image' && output.imageBase64 && (!output.images || output.images.length === 0) && (
+              <img 
+                src={output.imageBase64} 
+                alt="Preview" 
+                className="w-full h-32 object-cover rounded-md"
+              />
             )}
 
             {/* VIDEO with player */}
@@ -624,15 +530,6 @@ const AttachmentNodeComponent: React.FC<NodeProps<AttachmentNodeData>> = ({
               </div>
             )}
             
-            {/* IMAGE preview */}
-            {output.type === 'image' && output.imageBase64 && (
-              <img 
-                src={output.imageBase64} 
-                alt="Preview" 
-                className="w-full h-32 object-cover rounded-md"
-              />
-            )}
-            
             {/* YOUTUBE preview */}
             {output.type === 'youtube' && (
               <div className="bg-red-500/10 rounded-md p-3 flex items-center gap-2">
@@ -644,14 +541,6 @@ const AttachmentNodeComponent: React.FC<NodeProps<AttachmentNodeData>> = ({
               </div>
             )}
             
-            {/* GENERIC URL preview */}
-            {output.type === 'url' && (
-              <div className="bg-orange-500/10 rounded-md p-3 flex items-center gap-2">
-                <Link2 className="h-5 w-5 text-orange-500" />
-                <span className="text-xs truncate">{output.content}</span>
-              </div>
-            )}
-            
             {/* TEXT preview */}
             {output.type === 'text' && (
               <div className="bg-muted rounded-md p-2">
@@ -660,7 +549,7 @@ const AttachmentNodeComponent: React.FC<NodeProps<AttachmentNodeData>> = ({
             )}
             
             {/* Transcription preview - for all types that have it */}
-            {output.transcription && !output.extractionFailed && (
+            {output.transcription && (
               <div className="bg-blue-500/10 rounded-md p-2 space-y-1.5">
                 <div className="flex items-center gap-1 text-[10px] text-blue-600 font-medium">
                   <FileText className="h-3 w-3" />
@@ -684,18 +573,8 @@ const AttachmentNodeComponent: React.FC<NodeProps<AttachmentNodeData>> = ({
             {/* Analysis indicator */}
             {output.analysis && (
               <span className="text-[10px] bg-green-500/20 text-green-600 px-1.5 py-0.5 rounded inline-flex items-center gap-1">
-                <FileJson className="h-3 w-3" /> Análise de estilo
+                Análise de estilo
               </span>
-            )}
-
-            {/* Transcription modal */}
-            {output.transcription && (
-              <TranscriptionModal
-                open={showTranscription}
-                onOpenChange={setShowTranscription}
-                transcription={output.transcription}
-                fileName={output.fileName}
-              />
             )}
             
             <Button 
@@ -728,11 +607,13 @@ const AttachmentNodeComponent: React.FC<NodeProps<AttachmentNodeData>> = ({
               <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed rounded-lg cursor-pointer hover:bg-muted/50 transition-colors">
                 <Upload className="h-6 w-6 text-muted-foreground mb-1" />
                 <span className="text-xs text-muted-foreground">Clique ou arraste</span>
-                <span className="text-[10px] text-muted-foreground">Imagem, vídeo, áudio...</span>
+                <span className="text-[10px] text-muted-foreground">Até {MAX_IMAGES} imagens, vídeo ou áudio</span>
                 <input 
+                  ref={fileInputRef}
                   type="file" 
                   className="hidden" 
-                  accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.txt"
+                  accept="image/*,video/*,audio/*"
+                  multiple
                   onChange={handleFileUpload}
                 />
               </label>
@@ -740,15 +621,13 @@ const AttachmentNodeComponent: React.FC<NodeProps<AttachmentNodeData>> = ({
             
             <TabsContent value="link" className="mt-2 space-y-2">
               <Input
-                placeholder="YouTube, Instagram, ou URL..."
+                placeholder="Cole um link do YouTube..."
                 value={urlInput}
                 onChange={(e) => setUrlInput(e.target.value)}
                 className="text-xs h-8"
               />
               <div className="flex gap-1 text-[10px] text-muted-foreground">
                 <span className="bg-red-500/10 text-red-600 px-1.5 py-0.5 rounded">YouTube</span>
-                <span className="bg-pink-500/10 text-pink-600 px-1.5 py-0.5 rounded">Instagram</span>
-                <span className="bg-orange-500/10 text-orange-600 px-1.5 py-0.5 rounded">Web</span>
               </div>
               <Button 
                 size="sm" 
@@ -788,14 +667,6 @@ const AttachmentNodeComponent: React.FC<NodeProps<AttachmentNodeData>> = ({
         onOpenChange={setShowTranscription}
         transcription={output?.transcription || ""}
         fileName={output?.fileName}
-      />
-      
-      {/* Caption Modal for Instagram */}
-      <TranscriptionModal
-        open={showCaption}
-        onOpenChange={setShowCaption}
-        transcription={output?.caption || ""}
-        fileName="Legenda do Instagram"
       />
       
       {/* Output handle */}
