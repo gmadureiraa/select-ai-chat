@@ -249,10 +249,20 @@ Gere o conteúdo agora:`;
       );
 
     } else {
-      // Image generation with style matching
-      let imagePrompt = "Crie uma imagem profissional para redes sociais. ";
+      // Image generation with style matching - using English for better results
+      let imagePrompt = `Create a professional, high-quality social media image.
+
+QUALITY REQUIREMENTS:
+- Ultra high resolution, 8K quality
+- Professional photography or illustration style
+- Clean, polished composition
+- Vibrant, eye-catching colors
+- Modern aesthetic
+
+`;
       let referenceImage: string | null = null;
       let styleDescription = "";
+      let briefingText = "";
 
       // Build prompt from inputs
       for (const input of inputs) {
@@ -262,63 +272,91 @@ Gere o conteúdo agora:`;
             // Extract style details from analysis
             const analysis = input.analysis as Record<string, any>;
             if (analysis.generation_prompt) {
-              styleDescription += `\n\nEstilo da referência: ${analysis.generation_prompt}`;
+              styleDescription += `\nREFERENCE STYLE: ${analysis.generation_prompt}`;
             }
             if (analysis.color_palette) {
               const colors = analysis.color_palette.dominant_colors || [];
               if (colors.length > 0) {
-                styleDescription += `\nPaleta de cores: ${colors.join(", ")}`;
+                styleDescription += `\nCOLOR PALETTE: ${colors.join(", ")}`;
               }
             }
             if (analysis.mood_atmosphere) {
-              styleDescription += `\nMood: ${analysis.mood_atmosphere.overall_mood || ""}`;
+              styleDescription += `\nMOOD: ${analysis.mood_atmosphere.overall_mood || ""}`;
             }
           }
         } else if (input.type === "text") {
-          imagePrompt += `\n\nBriefing: ${input.content}`;
+          briefingText += input.content + " ";
         } else if (input.transcription) {
-          imagePrompt += `\n\nContexto: ${input.transcription}`;
+          briefingText += input.transcription + " ";
         }
+      }
+
+      if (briefingText.trim()) {
+        imagePrompt += `CONCEPT/BRIEFING:\n${briefingText.trim()}\n\n`;
       }
 
       // Add brand visual identity
       if (brandContext) {
-        imagePrompt += `\n\nIDENTIDADE VISUAL DA MARCA:`;
+        imagePrompt += `BRAND VISUAL IDENTITY:\n`;
         if (brandContext.colorPalette?.primary) {
-          imagePrompt += `\n- Cor primária: ${brandContext.colorPalette.primary}`;
+          imagePrompt += `- Primary color: ${brandContext.colorPalette.primary}\n`;
         }
         if (brandContext.colorPalette?.secondary) {
-          imagePrompt += `\n- Cor secundária: ${brandContext.colorPalette.secondary}`;
+          imagePrompt += `- Secondary color: ${brandContext.colorPalette.secondary}\n`;
         }
         if (brandContext.photographyStyle) {
-          imagePrompt += `\n- Estilo fotográfico: ${brandContext.photographyStyle}`;
+          imagePrompt += `- Photography style: ${brandContext.photographyStyle}\n`;
         }
+        imagePrompt += "\n";
       }
 
       // Add style description from reference
       if (styleDescription) {
-        imagePrompt += styleDescription;
+        imagePrompt += `STYLE MATCHING (replicate this exactly):\n${styleDescription}\n\n`;
       }
 
       // Add config instructions
       if (config.aspectRatio) {
-        imagePrompt += `\n\nProporção: ${config.aspectRatio}`;
+        const aspectRatioMap: Record<string, string> = {
+          "1:1": "Square format (1:1 ratio, 1024x1024px)",
+          "4:5": "Portrait format (4:5 ratio, 1024x1280px)",
+          "9:16": "Vertical/Stories format (9:16 ratio, 1080x1920px)",
+          "16:9": "Landscape format (16:9 ratio, 1920x1080px)",
+        };
+        imagePrompt += `ASPECT RATIO: ${aspectRatioMap[config.aspectRatio] || config.aspectRatio}\n\n`;
       }
+      
+      // Add negative prompt
+      imagePrompt += `AVOID (negative prompt):
+- Blurry or low resolution
+- Watermarks or logos
+- Artificial-looking elements
+- Overly saturated colors
+- Distorted proportions
+`;
+      
       if (config.noText) {
-        imagePrompt += "\n\nIMPORTANTE: NÃO inclua nenhum texto, letras ou números na imagem.";
+        imagePrompt += `- ANY text, letters, numbers, words, typography, or written content
+`;
       }
       if (config.preserveFace && referenceImage) {
-        imagePrompt += "\n\nPreserve as características faciais da pessoa na imagem de referência.";
+        imagePrompt += `\nIMPORTANT: Preserve the exact facial features and characteristics of the person in the reference image.\n`;
       }
 
       // Add strong consistency instructions
-      imagePrompt += `\n\nREGRAS DE GERAÇÃO:
-1. Mantenha fidelidade total ao estilo visual descrito
-2. Use APENAS as cores mencionadas quando especificadas
-3. Preserve a composição e enquadramento da referência se fornecida
-4. Imagem de alta qualidade, profissional`;
+      imagePrompt += `
+GENERATION RULES:
+1. Maintain total fidelity to the described visual style
+2. Use ONLY the colors mentioned when specified
+3. Preserve the composition and framing of the reference if provided
+4. High quality, professional result
+5. Clean, modern aesthetic`;
 
-      console.log("[generate-content-v2] Generating image with brand context...");
+      console.log("[generate-content-v2] Generating image with enhanced prompt:");
+      console.log("[generate-content-v2] Prompt length:", imagePrompt.length, "chars");
+      console.log("[generate-content-v2] Has reference image:", !!referenceImage);
+      console.log("[generate-content-v2] Aspect ratio:", config.aspectRatio || "default");
+      console.log("[generate-content-v2] No text:", config.noText);
 
       // Build request parts
       const parts: any[] = [];

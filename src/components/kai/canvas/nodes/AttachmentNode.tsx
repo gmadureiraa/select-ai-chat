@@ -179,9 +179,13 @@ const AttachmentNodeComponent: React.FC<NodeProps<AttachmentNodeData>> = ({
         
         setProcessStatus('Transcrevendo...');
         
-        // Transcribe
+        // Transcribe - using correct parameter names expected by edge function
         const { data: transcription, error: transcribeError } = await supabase.functions.invoke('transcribe-media', {
-          body: { mediaUrl: publicUrl }
+          body: { 
+            url: publicUrl,
+            fileName: file.name,
+            mimeType: fileType 
+          }
         });
         
         const type = fileType.startsWith('video/') ? 'video' : 'audio';
