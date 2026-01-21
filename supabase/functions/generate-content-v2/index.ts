@@ -47,18 +47,23 @@ interface BrandContext {
 // Fetch client brand context for enriched prompts
 async function fetchClientBrandContext(
   supabaseClient: any,
-  userId: string
+  clientId: string | null
 ): Promise<BrandContext | null> {
   try {
-    // Get the client associated with this user's workspace
+    if (!clientId) {
+      console.log("[generate-content-v2] No clientId provided");
+      return null;
+    }
+
+    // Get the specific client by ID
     const { data: clientData, error } = await supabaseClient
       .from('clients')
       .select('name, identity_guide, context_notes, brand_assets')
-      .limit(1)
+      .eq('id', clientId)
       .single();
 
     if (error || !clientData) {
-      console.log("[generate-content-v2] No client data found");
+      console.log("[generate-content-v2] No client data found for ID:", clientId);
       return null;
     }
 
@@ -142,9 +147,9 @@ serve(async (req) => {
     }
 
     const body: GenerateRequest = await req.json();
-    const { type, inputs, config } = body;
+    const { type, inputs, config, clientId } = body;
 
-    console.log("[generate-content-v2] Request:", { type, inputsCount: inputs.length, config });
+    console.log("[generate-content-v2] Request:", { type, inputsCount: inputs.length, config, clientId });
 
     const GOOGLE_API_KEY = Deno.env.get("GOOGLE_AI_STUDIO_API_KEY");
     if (!GOOGLE_API_KEY) {
@@ -154,9 +159,9 @@ serve(async (req) => {
       );
     }
 
-    // Fetch brand context for enriched prompts
-    const brandContext = await fetchClientBrandContext(supabaseClient, user.id);
-    console.log("[generate-content-v2] Brand context:", brandContext?.name || "none");
+    // Fetch brand context for the specific client
+    const brandContext = await fetchClientBrandContext(supabaseClient, clientId || null);
+    console.log("[generate-content-v2] Brand context:", brandContext?.name || "none", "for client:", clientId);
 
     if (type === "text") {
       // Build context from all inputs - PRIORITIZE REAL EXTRACTED DATA
