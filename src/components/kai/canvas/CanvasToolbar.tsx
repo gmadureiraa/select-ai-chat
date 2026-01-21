@@ -64,6 +64,7 @@ export type ToolType =
 export type ShapeType = "rectangle" | "circle" | "diamond" | "arrow";
 
 interface CanvasToolbarProps {
+  onAddImageGenerator?: () => void;
   onAddNode: (type: "attachment" | "prompt" | "generator") => void;
   onClear: () => void;
   onZoomIn: () => void;
@@ -146,6 +147,7 @@ const STICKY_COLORS = [
 
 function CanvasToolbarComponent({
   onAddNode,
+  onAddImageGenerator,
   onClear,
   onZoomIn,
   onZoomOut,
@@ -521,6 +523,24 @@ function CanvasToolbarComponent({
             </Button>
           </TooltipTrigger>
           <TooltipContent side="bottom">Adicionar gerador de conteúdo IA</TooltipContent>
+        </Tooltip>
+
+        {/* AI Image Generator - NEW */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onAddImageGenerator}
+              className="h-8 gap-1 text-xs hover:bg-purple-50 hover:text-purple-600 dark:hover:bg-purple-950"
+            >
+              <div className="h-4 w-4 rounded bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+                <Image className="h-2.5 w-2.5 text-white" />
+              </div>
+              <span className="hidden md:inline">Imagem IA</span>
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">Gerar imagem com IA (simples e direto)</TooltipContent>
         </Tooltip>
 
         <Separator orientation="vertical" className="h-6 mx-1" />
