@@ -49,6 +49,7 @@ const AttachmentNodeComponent: React.FC<NodeProps<AttachmentNodeData>> = ({
   const [isProcessing, setIsProcessing] = useState(false);
   const [processStatus, setProcessStatus] = useState<string>('');
   const [showTranscription, setShowTranscription] = useState(false);
+  const [showCaption, setShowCaption] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const { toast } = useToast();
 
@@ -538,12 +539,23 @@ const AttachmentNodeComponent: React.FC<NodeProps<AttachmentNodeData>> = ({
                   )}
                 </div>
                 
-                {/* Caption preview */}
-                {output.caption && (
-                  <div className="bg-pink-500/10 rounded-md p-2">
-                    <p className="text-xs line-clamp-2 text-foreground">{output.caption}</p>
-                  </div>
-                )}
+                      {/* Caption preview with expand option */}
+                      {output.caption && (
+                        <div className="bg-pink-500/10 rounded-md p-2 space-y-1">
+                          <p className="text-xs line-clamp-2 text-foreground">{output.caption}</p>
+                          {output.caption.length > 80 && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="w-full h-6 text-[10px] gap-1 text-pink-600 hover:text-pink-700 hover:bg-pink-500/10"
+                              onClick={() => setShowCaption(true)}
+                            >
+                              <Expand className="h-3 w-3" />
+                              Ver legenda completa
+                            </Button>
+                          )}
+                        </div>
+                      )}
                 
                 {/* Badges */}
                 <div className="flex flex-wrap gap-1">
@@ -747,6 +759,22 @@ const AttachmentNodeComponent: React.FC<NodeProps<AttachmentNodeData>> = ({
           </Tabs>
         )}
       </CardContent>
+      
+      {/* Transcription Modal */}
+      <TranscriptionModal
+        open={showTranscription}
+        onOpenChange={setShowTranscription}
+        transcription={output?.transcription || ""}
+        fileName={output?.fileName}
+      />
+      
+      {/* Caption Modal for Instagram */}
+      <TranscriptionModal
+        open={showCaption}
+        onOpenChange={setShowCaption}
+        transcription={output?.caption || ""}
+        fileName="Legenda do Instagram"
+      />
       
       {/* Output handle */}
       <Handle
