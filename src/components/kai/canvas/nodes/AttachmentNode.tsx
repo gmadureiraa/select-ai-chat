@@ -7,11 +7,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   Paperclip, X, Link2, FileText, Upload, Image, Video, 
-  Music, FileJson, Eye, Loader2, CheckCircle2 
+  Music, FileJson, Eye, Loader2, CheckCircle2, Expand 
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-
+import { TranscriptionModal } from '../components/TranscriptionModal';
 export interface AttachmentOutput {
   type: 'image' | 'video' | 'audio' | 'text' | 'url';
   content: string;
@@ -37,6 +37,7 @@ const AttachmentNodeComponent: React.FC<NodeProps<AttachmentNodeData>> = ({
   const [textInput, setTextInput] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [processStatus, setProcessStatus] = useState<string>('');
+  const [showTranscription, setShowTranscription] = useState(false);
   const { toast } = useToast();
 
   const output = data.output;
@@ -328,6 +329,24 @@ const AttachmentNodeComponent: React.FC<NodeProps<AttachmentNodeData>> = ({
               </div>
             )}
             
+            {/* Transcription preview */}
+            {output.transcription && (
+              <div className="bg-blue-500/10 rounded-md p-2 space-y-1.5">
+                <p className="text-xs line-clamp-2 text-muted-foreground">
+                  {output.transcription}
+                </p>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-full h-6 text-[10px] gap-1 text-blue-600 hover:text-blue-700 hover:bg-blue-500/20"
+                  onClick={() => setShowTranscription(true)}
+                >
+                  <Expand className="h-3 w-3" />
+                  Ver transcrição completa
+                </Button>
+              </div>
+            )}
+
             {/* Status indicators */}
             <div className="flex flex-wrap gap-1">
               {output.analysis && (
@@ -341,6 +360,16 @@ const AttachmentNodeComponent: React.FC<NodeProps<AttachmentNodeData>> = ({
                 </span>
               )}
             </div>
+
+            {/* Transcription modal */}
+            {output.transcription && (
+              <TranscriptionModal
+                open={showTranscription}
+                onOpenChange={setShowTranscription}
+                transcription={output.transcription}
+                fileName={output.fileName}
+              />
+            )}
             
             <Button 
               variant="outline" 

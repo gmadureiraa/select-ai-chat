@@ -19,7 +19,7 @@ import {
   OutputNodeData,
   ContentFormat,
 } from "./hooks/useCanvasState";
-import { CanvasToolbar, ToolType, ShapeType } from "./CanvasToolbar";
+import { CanvasToolbar, ToolType, ShapeType, QuickTemplate } from "./CanvasToolbar";
 import { CanvasLibraryDrawer } from "./CanvasLibraryDrawer";
 import { AttachmentNode, AttachmentNodeData } from "./nodes/AttachmentNode";
 import { GeneratorNode, GeneratorNodeData } from "./nodes/GeneratorNode";
@@ -462,6 +462,61 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
     }
   }, [nodes.length, clearCanvas]);
 
+  // Handle loading quick template (pre-connected nodes)
+  const handleLoadQuickTemplate = useCallback((template: QuickTemplate) => {
+    const viewport = getViewport();
+    const baseX = (window.innerWidth / 2 - viewport.x) / viewport.zoom - 200;
+    const baseY = (window.innerHeight / 2 - viewport.y) / viewport.zoom;
+    
+    const newNodes: RFNode[] = [];
+    const newEdges: { id: string; source: string; target: string; type: string }[] = [];
+    const timestamp = Date.now();
+    
+    // Create nodes from template
+    template.nodes.forEach((nodeConfig, index) => {
+      const nodeId = `${nodeConfig.type}-${timestamp}-${index}`;
+      const defaultData = nodeConfig.type === "attachment" 
+        ? { output: undefined, ...nodeConfig.data } 
+        : { type: "text" as const, format: "post", platform: "instagram", ...nodeConfig.data };
+      
+      newNodes.push({
+        id: nodeId,
+        type: nodeConfig.type,
+        position: { 
+          x: baseX + nodeConfig.offset.x, 
+          y: baseY + nodeConfig.offset.y 
+        },
+        data: defaultData,
+      });
+    });
+    
+    // Create edges between consecutive nodes
+    for (let i = 0; i < newNodes.length - 1; i++) {
+      const sourceNode = newNodes[i];
+      const targetNode = newNodes[i + 1];
+      
+      newEdges.push({
+        id: `edge-${sourceNode.id}-${targetNode.id}`,
+        source: sourceNode.id,
+        target: targetNode.id,
+        type: 'default',
+      });
+    }
+    
+    // Add all nodes and edges
+    onNodesChange(newNodes.map(n => ({ type: "add" as const, item: n })) as any);
+    
+    // Add edges after a short delay to ensure nodes exist
+    setTimeout(() => {
+      onEdgesChange(newEdges.map(e => ({ type: "add" as const, item: e })) as any);
+    }, 50);
+    
+    toast({
+      title: `Template "${template.label}" criado`,
+      description: "Nós já conectados e configurados",
+    });
+  }, [getViewport, onNodesChange, onEdgesChange, toast]);
+
   // Handle adding reference from library
   const handleSelectReference = useCallback(
     (ref: ReferenceItem) => {
@@ -817,6 +872,7 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
         onLoad={loadCanvas}
         onDelete={deleteCanvas}
         onLoadTemplate={loadTemplate}
+        onLoadQuickTemplate={handleLoadQuickTemplate}
         onOpenLibrary={() => setLibraryDrawerOpen(true)}
         savedCanvases={savedCanvases}
         currentCanvasName={currentCanvasName}
