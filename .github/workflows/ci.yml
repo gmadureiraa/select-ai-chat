@@ -29,6 +29,10 @@ jobs:
       - name: Typecheck
         run: npx --yes tsc -p tsconfig.app.json --noEmit
 
+      - name: Typecheck strictNullChecks (canvas scope, non-blocking)
+        continue-on-error: true
+        run: npx --yes tsc -p tsconfig.strictnull.canvas.json --noEmit
+
       - name: Build
         run: npm run build
 
