@@ -16,6 +16,7 @@ import {
   ImageEditorNodeData
 } from "./useCanvasState";
 import { blobUrlToBase64 } from "./useCanvasExtractions";
+import { generateCanvasText } from "../lib/canvasTextGeneration";
 
 interface UseCanvasGenerationProps {
   nodes: Node<CanvasNodeData>[];
@@ -326,7 +327,7 @@ export function useCanvasGeneration({
         
         const imageTypeToFormatKey: Record<string, string> = {
           "feed": "post_feed",
-          "carousel": "carrossel",
+          "carousel": "carousel_slide",
           "thumbnail": "thumbnail",
           "stories": "story",
           "youtube_thumbnail": "thumbnail_youtube",
@@ -415,84 +416,37 @@ export function useCanvasGeneration({
             generatedCount: i,
           } as Partial<GeneratorNodeData>);
 
-          const response = await fetch(
-            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/kai-content-agent`,
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${accessToken}`,
-                "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-              },
-              body: JSON.stringify({
-                clientId,
-                request: userMessage,
-                format: genData.format,
-                platform: genData.platform,
-              }),
-            }
-          );
+          const finalContent = await generateCanvasText({
 
-          if (!response.ok) {
-            const errorText = await response.text();
-            
-            if (response.status === 402) {
-              const error = new Error("Créditos insuficientes") as Error & { status: number; code: string };
-              error.status = 402;
-              error.code = "TOKENS_EXHAUSTED";
-              throw error;
-            }
-            
-            throw new Error(`Erro na API: ${response.status} - ${errorText}`);
-          }
+            clientId,
 
-          const reader = response.body?.getReader();
-          if (!reader) throw new Error("Não foi possível ler a resposta");
+            request: userMessage,
 
-          const decoder = new TextDecoder();
-          let buffer = "";
-          let finalContent = "";
-          let chunkCount = 0;
+            format: genData.format,
 
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
+            platform: genData.platform,
 
-            buffer += decoder.decode(value, { stream: true });
-            const lines = buffer.split("\n");
-            buffer = lines.pop() || "";
+            accessToken,
 
-            for (const line of lines) {
-              const trimmed = line.trim();
-              if (!trimmed || trimmed.startsWith(":")) continue;
+            onChunk: (chunkCount) => {
 
-              if (trimmed.startsWith("data: ")) {
-                const jsonStr = trimmed.slice(6).trim();
-                if (jsonStr === "[DONE]") continue;
+              if (quantity === 1 && chunkCount % 10 === 0) {
 
-                try {
-                  const parsed = JSON.parse(jsonStr);
-                  const deltaContent = parsed.choices?.[0]?.delta?.content;
-                  if (deltaContent) {
-                    finalContent += deltaContent;
-                    chunkCount++;
-                    
-                    if (quantity === 1 && chunkCount % 10 === 0) {
-                      const progress = Math.min(90, 20 + Math.floor(chunkCount / 5));
-                      updateNodeData(generatorNodeId, {
-                        currentStep: "Gerando conteúdo...",
-                        progress,
-                      } as Partial<GeneratorNodeData>);
-                    }
-                  }
-                } catch {
-                  // Ignore JSON parse errors
-                }
+                const progress = Math.min(90, 20 + Math.floor(chunkCount / 5));
+
+                updateNodeData(generatorNodeId, {
+
+                  currentStep: "Gerando conteúdo...",
+
+                  progress,
+
+                } as Partial<GeneratorNodeData>);
+
               }
-            }
-          }
 
-          finalContent = finalContent.trim();
+            },
+
+          });
           if (!finalContent) continue;
 
           const yOffset = i * 180;

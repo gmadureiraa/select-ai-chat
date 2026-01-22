@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getFormatRules } from "../kai-content-agent/format-rules.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -164,6 +165,19 @@ serve(async (req) => {
     console.log("[generate-content-v2] Brand context:", brandContext?.name || "none", "for client:", clientId);
 
     if (type === "text") {
+      const normalizeFormat = (format?: string): string => {
+        const f = (format || "post").toLowerCase().trim();
+        if (f === "carrossel" || f === "carousel") return "carousel";
+        if (f === "reels" || f === "reel" || f === "reel_script" || f === "reels_script") return "reels";
+        if (f === "thread") return "thread";
+        if (f === "newsletter") return "newsletter";
+        if (f === "stories" || f === "story") return "stories";
+        if (f === "linkedin" || f === "linkedin_post") return "linkedin";
+        return "post";
+      };
+
+      const normalizedFormat = normalizeFormat(config.format);
+
       // Build context from all inputs - PRIORITIZE REAL EXTRACTED DATA
       let context = "";
       let hasInstagramReference = false;
@@ -173,37 +187,33 @@ serve(async (req) => {
           hasInstagramReference = true;
           context += `\n\n### REFERÊNCIA INSTAGRAM (USE COMO BASE PRINCIPAL):`;
           if (input.caption) {
-            context += `\n**Legenda original do post:**\n${input.caption}`;
+            context += `\n**Legenda original do post:**\n${input.caption.substring(0, 2000)}`;
           }
           if (input.imageCount) {
             context += `\n**Número de slides/imagens:** ${input.imageCount}`;
           }
           if (input.transcription) {
-            context += `\n**Transcrição do vídeo/áudio:**\n${input.transcription}`;
+            context += `\n**Transcrição do vídeo/áudio:**\n${input.transcription.substring(0, 6000)}`;
           }
           context += `\n---`;
         } else if (input.type === "youtube") {
           context += `\n\n### REFERÊNCIA YOUTUBE:`;
-          context += `\n**Transcrição:**\n${input.transcription || input.content}`;
+          const ytText = (input.transcription || input.content || "").substring(0, 8000);
+          context += `\n**Transcrição:**\n${ytText}`;
           context += `\n---`;
         } else if (input.type === "text") {
-          context += `\n\n### Texto/Briefing do usuário:\n${input.content}`;
+          context += `\n\n### Texto/Briefing do usuário:\n${(input.content || "").substring(0, 4000)}`;
         } else if (input.type === "url") {
-          context += `\n\n### Conteúdo de URL:\n${input.transcription || input.content}`;
+          const urlText = (input.transcription || input.content || "").substring(0, 8000);
+          context += `\n\n### Conteúdo de URL:\n${urlText}`;
         } else if (input.type === "image" && input.analysis) {
-          context += `\n\n### Análise de Imagem:\n${JSON.stringify(input.analysis, null, 2)}`;
+          const analysisJson = JSON.stringify(input.analysis);
+          context += `\n\n### Análise de Imagem (resumo):\n${analysisJson.substring(0, 1500)}${analysisJson.length > 1500 ? "..." : ""}`;
         } else if ((input.type === "video" || input.type === "audio") && input.transcription) {
-          context += `\n\n### Transcrição de ${input.type === "video" ? "Vídeo" : "Áudio"}:\n${input.transcription}`;
+          const mediaText = (input.transcription || "").substring(0, 8000);
+          context += `\n\n### Transcrição de ${input.type === "video" ? "Vídeo" : "Áudio"}:\n${mediaText}`;
         }
       }
-
-      const formatPrompts: Record<string, string> = {
-        post: "Crie um post engajante para redes sociais.",
-        carrossel: "Crie um carrossel educativo com slides bem estruturados. Formato:\n\nSLIDE 1 (CAPA):\n[título impactante]\n\nSLIDE 2-N:\n[conteúdo do slide]\n\nSLIDE FINAL (CTA):\n[chamada para ação]",
-        thread: "Crie uma thread viral com tweets numerados. Formato:\n\n1/ [primeiro tweet - hook]\n\n2/ [desenvolvimento]\n\n[continuar até o final]",
-        newsletter: "Crie uma newsletter envolvente com introdução, corpo e conclusão.",
-        reels: "Crie um roteiro para Reels/TikTok com ganchos visuais e timing.",
-      };
 
       const platformTone: Record<string, string> = {
         instagram: "Tom visual, emojis moderados, hashtags relevantes",
@@ -236,9 +246,11 @@ REGRAS ABSOLUTAS PARA REFERÊNCIA INSTAGRAM:
 6. Se a referência fala de um tema específico, NÃO mude para outro tema
 ` : "";
 
+      const formatRules = getFormatRules(normalizedFormat);
+
       const prompt = `Você é um copywriter especialista em conteúdo para redes sociais.
 
-${formatPrompts[config.format || "post"]}
+${formatRules}
 
 Plataforma: ${config.platform || "instagram"}
 Tom: ${platformTone[config.platform || "instagram"]}

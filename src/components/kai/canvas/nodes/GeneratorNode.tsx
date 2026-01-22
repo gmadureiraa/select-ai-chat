@@ -14,13 +14,16 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import type { AttachmentOutput } from './AttachmentNode';
+import { normalizeCanvasFormat, toGenerateContentV2Format } from '../lib/canvasFormats';
+import { generateCanvasText } from '../lib/canvasTextGeneration';
 
 const FORMAT_OPTIONS = [
   { value: 'post', label: 'Post' },
-  { value: 'carrossel', label: 'Carrossel' },
+  { value: 'carousel', label: 'Carrossel' },
   { value: 'thread', label: 'Thread' },
   { value: 'newsletter', label: 'Newsletter' },
-  { value: 'reels', label: 'Roteiro Reels' },
+  { value: 'reel_script', label: 'Roteiro Reels' },
+  { value: 'stories', label: 'Stories' },
 ];
 
 const PLATFORM_OPTIONS = [
@@ -134,28 +137,62 @@ const GeneratorNodeComponent: React.FC<NodeProps<GeneratorNodeData>> = ({
       await new Promise(resolve => setTimeout(resolve, 500));
       data.onUpdateData?.({ generationStep: 'generating' });
 
-      const { data: result, error } = await supabase.functions.invoke('generate-content-v2', {
-        body: {
-          type: generationType,
-          clientId: data.clientId,
-          inputs: attachments.map(att => ({
-            type: att.type,
-            content: att.content,
-            imageBase64: att.imageBase64,
-            analysis: att.analysis,
-            transcription: att.transcription,
-          })),
-          config: {
-            format: data.format || 'post',
-            platform: data.platform || 'instagram',
-            aspectRatio: data.aspectRatio || '1:1',
-            noText: data.noText || false,
-            preserveFace: data.preserveFace || false,
-          }
-        }
-      });
+      let textResult: string | null = null;
+      let imageResultUrl: string | null = null;
 
-      if (error) throw error;
+      if (generationType === 'text') {
+        const { data: sessionData } = await supabase.auth.getSession();
+        const accessToken = sessionData?.session?.access_token;
+        if (!accessToken) throw new Error('Usuário não autenticado');
+
+        // GeneratorNode não tem o mesmo grafo rico do Canvas; aqui concatenamos inputs simples.
+        const request = attachments
+          .map((att) => {
+            if (att.type === 'text') return att.content || '';
+            if (att.type === 'image') return att.transcription || att.analysis || '';
+            return att.content || '';
+          })
+          .filter(Boolean)
+          .join('\n\n');
+        const platform = data.platform || 'instagram';
+
+        textResult = await generateCanvasText({
+          clientId: data.clientId || '',
+          request,
+          format: data.format,
+          platform,
+          accessToken,
+          onChunk: (chunkCount) => {
+            if (chunkCount % 10 === 0) {
+              data.onUpdateData?.({ generationStep: 'generating' });
+            }
+          },
+        });
+      } else {
+        // Imagem continua via generate-content-v2 (já usa regras unificadas no backend)
+        const { data: result, error } = await supabase.functions.invoke('generate-content-v2', {
+          body: {
+            type: generationType,
+            clientId: data.clientId,
+            inputs: attachments.map(att => ({
+              type: att.type,
+              content: att.content,
+              imageBase64: att.imageBase64,
+              analysis: att.analysis,
+              transcription: att.transcription,
+            })),
+            config: {
+              format: toGenerateContentV2Format(normalizeCanvasFormat(data.format)),
+              platform: data.platform || 'instagram',
+              aspectRatio: data.aspectRatio || '1:1',
+              noText: data.noText || false,
+              preserveFace: data.preserveFace || false,
+            }
+          }
+        });
+        if (error) throw error;
+        imageResultUrl = result.imageUrl || result.image_url || null;
+      }
 
       data.onUpdateData?.({ generationStep: 'saving' });
       await new Promise(resolve => setTimeout(resolve, 300));
@@ -165,15 +202,15 @@ const GeneratorNodeComponent: React.FC<NodeProps<GeneratorNodeData>> = ({
         if (generationType === 'text') {
           data.onCreateOutput({
             type: 'text',
-            content: result.content || result.text || '',
-            format: data.format || 'post',
+            content: textResult || '',
+            format: normalizeCanvasFormat(data.format),
             platform: data.platform || 'instagram',
           });
         } else {
           data.onCreateOutput({
             type: 'image',
-            content: result.imageUrl || result.image_url || '',
-            imageUrl: result.imageUrl || result.image_url || '',
+            content: imageResultUrl || '',
+            imageUrl: imageResultUrl || '',
             format: 'image',
             platform: data.platform || 'instagram',
           });

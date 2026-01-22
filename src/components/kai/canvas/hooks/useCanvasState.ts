@@ -4,8 +4,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useTokenError } from "@/hooks/useTokenError";
 import { usePlanningItems } from "@/hooks/usePlanningItems";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { IMAGE_FORMAT_INSTRUCTIONS } from "@/types/template";
+import { useCanvasPersistence } from "./useCanvasPersistence";
+import { generateCanvasText } from "../lib/canvasTextGeneration";
 
 // Helper to convert blob URL to base64 data URL
 async function blobUrlToBase64(blobUrl: string): Promise<string> {
@@ -333,15 +335,29 @@ function isYoutubeUrl(url: string): boolean {
 export function useCanvasState(clientId: string, workspaceId?: string) {
   const { toast } = useToast();
   const { handleTokenError } = useTokenError();
-  const queryClient = useQueryClient();
   const [nodes, setNodes] = useState<Node<CanvasNodeData>[]>(defaultNodes);
   const [edges, setEdges] = useState<Edge[]>(defaultEdges);
-  const [currentCanvasId, setCurrentCanvasId] = useState<string | null>(null);
-  const [currentCanvasName, setCurrentCanvasName] = useState<string>("Novo Canvas");
-  const [isSaving, setIsSaving] = useState(false);
-  const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'pending' | 'saving' | 'saved' | 'error'>('idle');
-  const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const lastSavedRef = useRef<string>('');
+
+  const {
+    savedCanvases,
+    isLoadingCanvases,
+    isSaving,
+    autoSaveStatus,
+    currentCanvasId,
+    currentCanvasName,
+    setCanvasName,
+    saveCanvas,
+    loadCanvas,
+    deleteCanvas,
+    clearCanvas,
+  } = useCanvasPersistence({
+    clientId,
+    nodes,
+    edges,
+    setNodes,
+    setEdges,
+  });
+
   const { columns, createItem } = usePlanningItems({ clientId });
 
   // Fetch client data for name
@@ -359,71 +375,6 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
     },
     enabled: !!clientId
   });
-
-  // Fetch saved canvases for this client
-  const { data: savedCanvases = [], isLoading: isLoadingCanvases } = useQuery({
-    queryKey: ['content-canvas', clientId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('content_canvas')
-        .select('*')
-        .eq('client_id', clientId)
-        .order('updated_at', { ascending: false });
-      
-      if (error) throw error;
-      return (data || []) as unknown as SavedCanvas[];
-    },
-    enabled: !!clientId
-  });
-
-  // Auto-load the last used canvas when entering the canvas tab
-  const autoLoadAttemptedRef = useRef(false);
-  
-  useEffect(() => {
-    // Only auto-load once, when savedCanvases first loads and canvas is empty
-    if (
-      !isLoadingCanvases && 
-      savedCanvases.length > 0 && 
-      nodes.length === 0 && 
-      edges.length === 0 && 
-      !currentCanvasId &&
-      !autoLoadAttemptedRef.current
-    ) {
-      autoLoadAttemptedRef.current = true;
-      
-      // Check localStorage for last used canvas for this client
-      const lastCanvasKey = `lastCanvas_${clientId}`;
-      const lastCanvasId = localStorage.getItem(lastCanvasKey);
-      
-      // Try to load the last used canvas, or fallback to most recent
-      const canvasToLoad = lastCanvasId 
-        ? savedCanvases.find(c => c.id === lastCanvasId) || savedCanvases[0]
-        : savedCanvases[0];
-      
-      if (canvasToLoad) {
-        console.log(`[useCanvasState] Auto-loading last canvas: ${canvasToLoad.name}`);
-        // Load directly without toast to avoid spam on initial load
-        setNodes((canvasToLoad.nodes as any) || []);
-        setEdges((canvasToLoad.edges as any) || []);
-        setCurrentCanvasId(canvasToLoad.id);
-        setCurrentCanvasName(canvasToLoad.name);
-        // Update last saved ref to prevent immediate auto-save
-        lastSavedRef.current = JSON.stringify({ 
-          nodes: canvasToLoad.nodes, 
-          edges: canvasToLoad.edges, 
-          currentCanvasName: canvasToLoad.name 
-        });
-      }
-    }
-  }, [isLoadingCanvases, savedCanvases, nodes.length, edges.length, currentCanvasId, clientId]);
-
-  // Save last used canvas to localStorage when loading a canvas
-  useEffect(() => {
-    if (currentCanvasId && clientId) {
-      const lastCanvasKey = `lastCanvas_${clientId}`;
-      localStorage.setItem(lastCanvasKey, currentCanvasId);
-    }
-  }, [currentCanvasId, clientId]);
 
   const onNodesChange = useCallback((changes: NodeChange[]) => {
     setNodes((nds) => applyNodeChanges(changes, nds) as Node<CanvasNodeData>[]);
@@ -1596,91 +1547,39 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
             generatedCount: i,
           } as Partial<GeneratorNodeData>);
 
-          // Use fetch with SSE stream processing - using kai-content-agent
-          const response = await fetch(
-            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/kai-content-agent`,
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${accessToken}`,
-                "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-              },
-              body: JSON.stringify({
-                clientId,
-                request: userMessage,
-                format: genData.format,
-                platform: genData.platform,
-              }),
-            }
-          );
+          const finalContent = await generateCanvasText({
 
-          if (!response.ok) {
-            const errorText = await response.text();
-            
-            // Handle 402 Payment Required - insufficient tokens
-            if (response.status === 402) {
-              const error = new Error("Créditos insuficientes") as Error & { status: number; code: string };
-              error.status = 402;
-              error.code = "TOKENS_EXHAUSTED";
-              throw error;
-            }
-            
-            throw new Error(`Erro na API: ${response.status} - ${errorText}`);
-          }
+            clientId,
 
-          // Process SSE stream - kai-content-agent uses OpenAI format
-          const reader = response.body?.getReader();
-          if (!reader) throw new Error("Não foi possível ler a resposta");
+            request: userMessage,
 
-          const decoder = new TextDecoder();
-          let buffer = "";
-          let finalContent = "";
-          let chunkCount = 0;
+            format: genData.format,
 
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
+            platform: genData.platform,
 
-            buffer += decoder.decode(value, { stream: true });
-            const lines = buffer.split("\n");
-            buffer = lines.pop() || "";
+            accessToken,
 
-            for (const line of lines) {
-              const trimmed = line.trim();
-              if (!trimmed || trimmed.startsWith(":")) continue;
+            onChunk: (chunkCount) => {
 
-              if (trimmed.startsWith("data: ")) {
-                const jsonStr = trimmed.slice(6).trim();
-                if (jsonStr === "[DONE]") continue;
+              // Update progress based on content chunks
 
-                try {
-                  const parsed = JSON.parse(jsonStr);
-                  
-                  // OpenAI streaming format - extract content from delta
-                  const deltaContent = parsed.choices?.[0]?.delta?.content;
-                  if (deltaContent) {
-                    finalContent += deltaContent;
-                    chunkCount++;
-                    
-                    // Update progress based on content chunks
-                    if (quantity === 1 && chunkCount % 10 === 0) {
-                      const progress = Math.min(90, 20 + Math.floor(chunkCount / 5));
-                      updateNodeData(generatorNodeId, {
-                        currentStep: "Gerando conteúdo...",
-                        progress,
-                      } as Partial<GeneratorNodeData>);
-                    }
-                  }
-                } catch {
-                  // Ignore JSON parse errors for incomplete chunks
-                }
+              if (quantity === 1 && chunkCount % 10 === 0) {
+
+                const progress = Math.min(90, 20 + Math.floor(chunkCount / 5));
+
+                updateNodeData(generatorNodeId, {
+
+                  currentStep: "Gerando conteúdo...",
+
+                  progress,
+
+                } as Partial<GeneratorNodeData>);
+
               }
-            }
-          }
 
-          // Trim final content
-          finalContent = finalContent.trim();
+            },
+
+          });
           if (!finalContent) continue; // Skip this variation if no content
 
           // Create output node with offset for batch
@@ -1934,140 +1833,6 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
     }
   }, [nodes, edges, updateNodeData, addNode, clientId, toast]);
 
-  // Save canvas
-  const saveCanvas = useCallback(async (name?: string) => {
-    setIsSaving(true);
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Usuário não autenticado");
-
-      const { data: client } = await supabase
-        .from("clients")
-        .select("workspace_id")
-        .eq("id", clientId)
-        .single();
-
-      if (!client) throw new Error("Cliente não encontrado");
-
-      const canvasData = {
-        id: currentCanvasId || undefined,
-        client_id: clientId,
-        workspace_id: client.workspace_id,
-        user_id: user.id,
-        name: name || currentCanvasName || `Canvas ${new Date().toLocaleDateString("pt-BR")}`,
-        nodes: nodes as any,
-        edges: edges as any,
-      };
-
-      const { data, error } = await supabase
-        .from('content_canvas')
-        .upsert(canvasData)
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      if (data) {
-        setCurrentCanvasId(data.id);
-        setCurrentCanvasName(data.name);
-        queryClient.invalidateQueries({ queryKey: ['content-canvas', clientId] });
-      }
-
-      toast({
-        title: "Canvas salvo",
-        description: `"${data?.name}" foi salvo com sucesso`,
-      });
-
-      return data as unknown as SavedCanvas;
-    } catch (error) {
-      console.error("Error saving canvas:", error);
-      toast({
-        title: "Erro ao salvar",
-        description: "Não foi possível salvar o canvas",
-        variant: "destructive",
-      });
-      return null;
-    } finally {
-      setIsSaving(false);
-    }
-  }, [nodes, edges, clientId, currentCanvasId, currentCanvasName, queryClient, toast]);
-
-  // Load canvas
-  const loadCanvas = useCallback(async (canvasId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('content_canvas')
-        .select('*')
-        .eq('id', canvasId)
-        .single();
-
-      if (error) throw error;
-
-      if (data) {
-        setNodes((data.nodes as any) || []);
-        setEdges((data.edges as any) || []);
-        setCurrentCanvasId(data.id);
-        setCurrentCanvasName(data.name);
-      }
-
-      toast({
-        title: "Canvas carregado",
-        description: `"${data?.name}" foi carregado`,
-      });
-    } catch (error) {
-      console.error("Error loading canvas:", error);
-      toast({
-        title: "Erro ao carregar",
-        description: "Não foi possível carregar o canvas",
-        variant: "destructive",
-      });
-    }
-  }, [toast]);
-
-  // Delete canvas
-  const deleteCanvas = useCallback(async (canvasId: string) => {
-    try {
-      const { error } = await supabase
-        .from('content_canvas')
-        .delete()
-        .eq('id', canvasId);
-
-      if (error) throw error;
-
-      if (currentCanvasId === canvasId) {
-        setCurrentCanvasId(null);
-        setCurrentCanvasName("Novo Canvas");
-        setNodes([]);
-        setEdges([]);
-      }
-
-      queryClient.invalidateQueries({ queryKey: ['content-canvas', clientId] });
-
-      toast({
-        title: "Canvas excluído",
-        description: "O canvas foi removido",
-      });
-    } catch (error) {
-      console.error("Error deleting canvas:", error);
-      toast({
-        title: "Erro ao excluir",
-        description: "Não foi possível excluir o canvas",
-        variant: "destructive",
-      });
-    }
-  }, [currentCanvasId, clientId, queryClient, toast]);
-
-  const clearCanvas = useCallback(() => {
-    setNodes([]);
-    setEdges([]);
-    setCurrentCanvasId(null);
-    setCurrentCanvasName("Novo Canvas");
-  }, []);
-
-  const setCanvasName = useCallback((name: string) => {
-    setCurrentCanvasName(name);
-  }, []);
-
   // Load template - pre-configured canvas flows using NEW unified node architecture
   const loadTemplate = useCallback((templateId: string) => {
     clearCanvas();
@@ -2213,113 +1978,6 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
       setCurrentCanvasName(template.name);
     }
   }, [clearCanvas]);
-
-  // Auto-save functionality with debounce
-  useEffect(() => {
-    // Skip auto-save if canvas is empty or no changes
-    if (nodes.length === 0 && edges.length === 0) {
-      setAutoSaveStatus('idle');
-      return;
-    }
-
-    // Create a hash of current state to detect changes
-    const currentState = JSON.stringify({ nodes, edges, currentCanvasName });
-    
-    // Skip if no changes since last save
-    if (currentState === lastSavedRef.current) {
-      return;
-    }
-
-    // Set status to pending (has unsaved changes)
-    setAutoSaveStatus('pending');
-
-    // Clear existing timeout
-    if (autoSaveTimeoutRef.current) {
-      clearTimeout(autoSaveTimeoutRef.current);
-    }
-
-    // Set new timeout for auto-save (3 seconds debounce)
-    autoSaveTimeoutRef.current = setTimeout(async () => {
-      try {
-        setAutoSaveStatus('saving');
-        
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) {
-          setAutoSaveStatus('error');
-          return;
-        }
-
-        const { data: client } = await supabase
-          .from("clients")
-          .select("workspace_id")
-          .eq("id", clientId)
-          .single();
-
-        if (!client) {
-          setAutoSaveStatus('error');
-          return;
-        }
-
-        const canvasData = {
-          id: currentCanvasId || undefined,
-          client_id: clientId,
-          workspace_id: client.workspace_id,
-          user_id: user.id,
-          name: currentCanvasName || `Canvas ${new Date().toLocaleDateString("pt-BR")}`,
-          nodes: nodes as any,
-          edges: edges as any,
-        };
-
-        const { data, error } = await supabase
-          .from('content_canvas')
-          .upsert(canvasData)
-          .select()
-          .single();
-
-        if (error) {
-          console.error("Auto-save error:", error);
-          setAutoSaveStatus('error');
-          return;
-        }
-
-        if (data) {
-          // Update refs and state without triggering another save
-          lastSavedRef.current = currentState;
-          if (!currentCanvasId) {
-            setCurrentCanvasId(data.id);
-          }
-          queryClient.invalidateQueries({ queryKey: ['content-canvas', clientId] });
-        }
-
-        setAutoSaveStatus('saved');
-        
-        // Reset to idle after showing "saved" for 2 seconds
-        setTimeout(() => {
-          setAutoSaveStatus((prev) => prev === 'saved' ? 'idle' : prev);
-        }, 2000);
-        
-      } catch (error) {
-        console.error("Auto-save error:", error);
-        setAutoSaveStatus('error');
-      }
-    }, 3000);
-
-    // Cleanup timeout on unmount or dependency change
-    return () => {
-      if (autoSaveTimeoutRef.current) {
-        clearTimeout(autoSaveTimeoutRef.current);
-      }
-    };
-  }, [nodes, edges, currentCanvasName, currentCanvasId, clientId, queryClient]);
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      if (autoSaveTimeoutRef.current) {
-        clearTimeout(autoSaveTimeoutRef.current);
-      }
-    };
-  }, []);
 
   return {
     nodes,

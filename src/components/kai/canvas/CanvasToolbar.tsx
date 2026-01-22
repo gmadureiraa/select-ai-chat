@@ -105,7 +105,7 @@ export const QUICK_TEMPLATES: QuickTemplate[] = [
     description: 'Texto + Gerador carrossel',
     nodes: [
       { type: 'attachment', offset: { x: 0, y: 0 } },
-      { type: 'generator', data: { type: 'text', format: 'carrossel', platform: 'instagram' }, offset: { x: 350, y: 0 } },
+      { type: 'generator', data: { type: 'text', format: 'carousel', platform: 'instagram' }, offset: { x: 350, y: 0 } },
     ],
   },
   {
