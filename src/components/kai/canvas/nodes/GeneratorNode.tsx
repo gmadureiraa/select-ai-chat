@@ -168,9 +168,6 @@ const GeneratorNodeComponent: React.FC<NodeProps<GeneratorNodeData>> = ({
             }
           },
         });
-            }
-          },
-        });
       } else {
         // Imagem continua via generate-content-v2 (já usa regras unificadas no backend)
         const { data: result, error } = await supabase.functions.invoke('generate-content-v2', {
