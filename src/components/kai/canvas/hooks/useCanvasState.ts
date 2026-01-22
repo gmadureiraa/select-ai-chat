@@ -8,6 +8,7 @@ import { useQuery } from "@tanstack/react-query";
 import { IMAGE_FORMAT_INSTRUCTIONS } from "@/types/template";
 import { useCanvasPersistence } from "./useCanvasPersistence";
 import { generateCanvasText } from "../lib/canvasTextGeneration";
+import { logger } from "@/lib/logger";
 
 // Helper to convert blob URL to base64 data URL
 async function blobUrlToBase64(blobUrl: string): Promise<string> {
@@ -752,13 +753,13 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
     updateNodeData(nodeId, { files: updatedFiles } as Partial<SourceNodeData | AttachmentNodeData>);
 
     try {
-      console.log("Transcribing file:", file.name, "URL:", file.url, "Type:", file.mimeType);
+      logger.debug("Transcribing file:", file.name, "URL:", file.url, "Type:", file.mimeType);
       
       let requestBody: { url?: string; base64?: string; fileName: string; mimeType?: string };
       
       // Check if it's a blob URL (only exists in browser, cannot be fetched by server)
       if (file.url.startsWith('blob:')) {
-        console.log("Converting blob URL to base64...");
+        logger.debug("Converting blob URL to base64...");
         // Fetch the blob and convert to base64
         const response = await fetch(file.url);
         const blob = await response.blob();
@@ -801,7 +802,7 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
       }
 
       const transcription = data?.text || "Transcrição não disponível";
-      console.log("Transcription result:", transcription.substring(0, 100) + "...");
+      logger.debug("Transcription result:", transcription.substring(0, 100) + "...");
 
       // Update file with transcription
       const finalFiles = [...files];
@@ -1253,7 +1254,7 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
           
           // Handle images - this is critical for image generation!
           if (attachData.images && attachData.images.length > 0) {
-            console.log(`[generateContent] Processing ${attachData.images.length} images from attachment node`);
+            logger.debug(`[generateContent] Processing ${attachData.images.length} images from attachment node`);
             
             // Sort to prioritize primary images first
             const sortedImages = [...attachData.images].sort((a, b) => {
@@ -1267,7 +1268,7 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
                 try {
                   const imageUrl = await blobUrlToBase64(img.url);
                   imageReferences.push(imageUrl);
-                  console.log(`[generateContent] Added image reference from attachment: ${img.name || 'unnamed'}`);
+                  logger.debug(`[generateContent] Added image reference from attachment: ${img.name || 'unnamed'}`);
                 } catch (e) {
                   console.warn('Failed to process attachment image reference:', e);
                 }
@@ -1275,7 +1276,7 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
               
               // Collect complete imageAnalysis if available (from JSON analysis)
               if (img.metadata?.imageAnalysis) {
-                console.log(`[generateContent] Found imageAnalysis for ${img.name || 'image'}`);
+                logger.debug(`[generateContent] Found imageAnalysis for ${img.name || 'image'}`);
                 styleContext.push(`Análise completa da referência visual: ${JSON.stringify(img.metadata.imageAnalysis)}`);
                 // Use generation_prompt if available
                 if (img.metadata.imageAnalysis.generation_prompt) {
@@ -1344,7 +1345,7 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
 
         // Auto-analyze images that don't have analysis
         if (imagesToAnalyze.length > 0) {
-          console.log(`[generateContent] Auto-analyzing ${imagesToAnalyze.length} images before generation`);
+          logger.debug(`[generateContent] Auto-analyzing ${imagesToAnalyze.length} images before generation`);
           
           updateNodeData(generatorNodeId, { 
             currentStep: `Analisando ${imagesToAnalyze.length} referência(s)...`,
@@ -1429,7 +1430,7 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
             for (const img of attachData.images || []) {
               if (img.metadata?.imageAnalysis) {
                 collectedStyleAnalysis = img.metadata.imageAnalysis;
-                console.log('[generateContent] Found styleAnalysis from attachment node');
+                logger.debug('[generateContent] Found styleAnalysis from attachment node');
                 break;
               }
             }
@@ -1460,7 +1461,7 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
         // Get preservePerson flag
         const preservePerson = (genData as any).preservePerson || false;
 
-        console.log('[generateContent] Image generation params:', {
+        logger.debug('[generateContent] Image generation params:', {
           imageType,
           formatKey,
           effectiveAspectRatio,

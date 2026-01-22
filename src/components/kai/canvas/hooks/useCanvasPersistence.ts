@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CanvasNodeData, SavedCanvas } from "./useCanvasState";
+import { logger } from "@/lib/logger";
 
 interface UseCanvasPersistenceProps {
   clientId: string;
@@ -68,7 +69,7 @@ export function useCanvasPersistence({
         : savedCanvases[0];
       
       if (canvasToLoad) {
-        console.log(`[useCanvasPersistence] Auto-loading last canvas: ${canvasToLoad.name}`);
+        logger.debug(`[useCanvasPersistence] Auto-loading last canvas: ${canvasToLoad.name}`);
         setNodes((canvasToLoad.nodes as any) || []);
         setEdges((canvasToLoad.edges as any) || []);
         setCurrentCanvasId(canvasToLoad.id);

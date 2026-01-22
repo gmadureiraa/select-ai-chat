@@ -2,6 +2,7 @@ import { useCallback } from "react";
 import { Node } from "reactflow";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { logger } from "@/lib/logger";
 import { 
   SourceNodeData, 
   AttachmentNodeData, 
@@ -128,7 +129,7 @@ export function useCanvasExtractions({
     const cacheKey = `url_${generateHash(url)}`;
     const cached = getCache(cacheKey);
     if (cached) {
-      console.log("[extractUrlContent] Using cached content for:", url);
+      logger.debug("[extractUrlContent] Using cached content for:", url);
       updateNodeData(nodeId, {
         ...cached,
         isExtracting: false
@@ -367,7 +368,7 @@ export function useCanvasExtractions({
     const cacheKey = `file_${file.name}_${file.size}`;
     const cached = getCache(cacheKey);
     if (cached?.transcription) {
-      console.log("[transcribeFile] Using cached transcription for:", file.name);
+      logger.debug("[transcribeFile] Using cached transcription for:", file.name);
       const finalFiles = [...files];
       finalFiles[fileIndex] = { ...finalFiles[fileIndex], transcription: cached.transcription };
       updateNodeData(nodeId, { files: finalFiles } as Partial<SourceNodeData | AttachmentNodeData>);
