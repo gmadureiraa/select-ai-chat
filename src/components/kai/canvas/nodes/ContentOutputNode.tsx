@@ -16,6 +16,7 @@ import { VersionHistory } from "../components/VersionHistory";
 import { ApprovalStatus as ApprovalStatusComponent } from "../components/ApprovalStatus";
 import { NodeComment } from "../components/NodeComment";
 import { StreamingPreview } from "../components/StreamingPreview";
+import { StructuredContentEditor } from "../components/StructuredContentEditor";
 
 // Platform character limits
 const PLATFORM_LIMITS: Record<Platform, number | null> = {
@@ -72,6 +73,7 @@ function ContentOutputNodeComponent({
   const [isEditing, setIsEditing] = useState(false);
   const [editedContent, setEditedContent] = useState(data.content);
   const [isExpanded, setIsExpanded] = useState(false);
+  const [editMode, setEditMode] = useState<"structured" | "raw">("structured");
   
   // Use deferred value for content to avoid blocking renders
   const deferredContent = useDeferredValue(data.content);
@@ -115,6 +117,15 @@ function ContentOutputNodeComponent({
   const handleEdit = () => {
     setIsEditing(true);
     setEditedContent(data.content);
+    // Default to structured editor for formats where it helps
+    const supportsStructured =
+      data.format === "carousel" ||
+      data.format === "thread" ||
+      data.format === "reel_script" ||
+      data.format === "newsletter" ||
+      data.platform === "twitter" ||
+      data.platform === "linkedin";
+    setEditMode(supportsStructured ? "structured" : "raw");
   };
 
   const handleSave = () => {
@@ -381,15 +392,51 @@ function ContentOutputNodeComponent({
           </div>
         ) : isEditing ? (
           <div className="space-y-2">
-            <Textarea
-              value={editedContent}
-              onChange={(e) => setEditedContent(e.target.value)}
-              className={cn(
-                "text-xs resize-none",
-                isExpanded ? "min-h-[300px]" : "min-h-[200px]"
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex gap-1">
+                <Button
+                  size="sm"
+                  variant={editMode === "structured" ? "default" : "outline"}
+                  className="h-7 text-xs"
+                  onClick={() => setEditMode("structured")}
+                >
+                  Estruturado
+                </Button>
+                <Button
+                  size="sm"
+                  variant={editMode === "raw" ? "default" : "outline"}
+                  className="h-7 text-xs"
+                  onClick={() => setEditMode("raw")}
+                >
+                  Texto
+                </Button>
+              </div>
+              {data.platform === "twitter" && (
+                <Badge variant="outline" className="text-[10px] h-5">
+                  280 por tweet
+                </Badge>
               )}
-              rows={isExpanded ? 15 : 10}
-            />
+            </div>
+
+            {editMode === "structured" ? (
+              <StructuredContentEditor
+                value={editedContent}
+                onChange={setEditedContent}
+                format={data.format}
+                platform={data.platform}
+                compact={!isExpanded}
+              />
+            ) : (
+              <Textarea
+                value={editedContent}
+                onChange={(e) => setEditedContent(e.target.value)}
+                className={cn(
+                  "text-xs resize-none",
+                  isExpanded ? "min-h-[300px]" : "min-h-[200px]"
+                )}
+                rows={isExpanded ? 15 : 10}
+              />
+            )}
             <div className="flex gap-2">
               <Button size="sm" onClick={handleSave} className="flex-1 gap-1">
                 <Save className="h-3 w-3" />
