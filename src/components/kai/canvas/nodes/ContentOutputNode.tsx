@@ -16,6 +16,7 @@ import { VersionHistory } from "../components/VersionHistory";
 import { ApprovalStatus as ApprovalStatusComponent } from "../components/ApprovalStatus";
 import { NodeComment } from "../components/NodeComment";
 import { StreamingPreview } from "../components/StreamingPreview";
+import { validateContent } from "../lib/formatValidation";
 
 // Platform character limits
 const PLATFORM_LIMITS: Record<Platform, number | null> = {
@@ -103,6 +104,11 @@ function ContentOutputNodeComponent({
     const isOverLimit = platformLimit ? charCount > platformLimit : false;
     return { charCount, wordCount, platformLimit, isOverLimit };
   }, [data.content, data.platform, data.isImage]);
+
+  const validationIssues = useMemo(() => {
+    if (data.isImage || !data.content) return [];
+    return validateContent({ format: data.format, platform: data.platform, content: data.content });
+  }, [data.content, data.format, data.platform, data.isImage]);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(data.content);
@@ -423,6 +429,33 @@ function ContentOutputNodeComponent({
                   )}
                   {contentStats.isOverLimit && " ⚠️"}
                 </span>
+              </div>
+            )}
+
+            {/* Validation issues */}
+            {!data.isImage && validationIssues.length > 0 && (
+              <div className="rounded-md border bg-muted/20 p-2 space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-medium text-muted-foreground">Checklist</span>
+                  <Badge variant="secondary" className="text-[10px] h-5">
+                    {validationIssues.length}
+                  </Badge>
+                </div>
+                <div className="space-y-1">
+                  {validationIssues.slice(0, isExpanded ? 8 : 4).map((it) => (
+                    <div
+                      key={it.code}
+                      className={cn(
+                        "text-[10px] leading-snug",
+                        it.severity === "error" && "text-destructive",
+                        it.severity === "warn" && "text-amber-600 dark:text-amber-400",
+                        it.severity === "info" && "text-muted-foreground"
+                      )}
+                    >
+                      {it.message}
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 
