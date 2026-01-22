@@ -10,6 +10,21 @@ export default defineConfig(({ mode }) => ({
     port: 8080,
   },
   plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          react: ["react", "react-dom", "react-router-dom"],
+          supabase: ["@supabase/supabase-js"],
+          reactflow: ["reactflow"],
+          charts: ["recharts"],
+          motion: ["framer-motion"],
+          pdf: ["jspdf", "html-to-image"],
+          xlsx: ["xlsx"],
+        },
+      },
+    },
+  },
   resolve: {
     dedupe: ["react", "react-dom"],
     alias: {
