@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.app.json",
+  "compilerOptions": {
+    "strictNullChecks": true
+  },
+  "include": [
+    "src/vite-env.d.ts",
+    "src/components/kai/canvas/**/*",
+    "src/lib/parseOpenAIStream.ts"
+  ]
+}
+
