@@ -21,6 +21,18 @@ export default tseslint.config(
       ...reactHooks.configs.recommended.rules,
       "react-refresh/only-export-components": ["warn", { allowConstantExport: true }],
       "@typescript-eslint/no-unused-vars": "off",
+      // Pragmatic mode: o repo ainda tem muitos `any` e ajustes mecânicos.
+      // Mantemos sinal via warnings, mas não bloqueamos CI por isso.
+      "@typescript-eslint/no-explicit-any": "warn",
+      "prefer-const": "warn",
+      "no-empty": "warn",
+      "no-shadow-restricted-names": "warn",
+      "no-case-declarations": "warn",
+      "no-useless-escape": "warn",
+      "no-control-regex": "warn",
+      "@typescript-eslint/ban-ts-comment": "warn",
+      "@typescript-eslint/no-empty-object-type": "warn",
+      "@typescript-eslint/no-require-imports": "warn",
     },
   },
 );

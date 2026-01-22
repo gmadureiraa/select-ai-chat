@@ -29,7 +29,7 @@ export const ProactiveSuggestions = memo(function ProactiveSuggestions({
   clientId,
   onUseSuggestion,
 }: ProactiveSuggestionsProps) {
-  const { suggestions, isLoading, dismissSuggestion, useSuggestion } =
+  const { suggestions, isLoading, dismissSuggestion, useSuggestion: markSuggestionUsed } =
     useProactiveSuggestions(clientId);
 
   if (isLoading || suggestions.length === 0) {
@@ -37,7 +37,7 @@ export const ProactiveSuggestions = memo(function ProactiveSuggestions({
   }
 
   const handleUseSuggestion = (suggestion: (typeof suggestions)[0]) => {
-    useSuggestion(suggestion.id);
+    markSuggestionUsed(suggestion.id);
     onUseSuggestion(suggestion.title);
   };
 

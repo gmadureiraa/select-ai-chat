@@ -36,11 +36,8 @@ export const useImportNewsletterCSV = (clientId: string) => {
         let clickRate = parseFloat(clickRateRaw.replace("%", ""));
         
         // If values are > 1, assume they're already percentages
-        if (openRate > 1) openRate = openRate;
-        else openRate = openRate * 100;
-        
-        if (clickRate > 1) clickRate = clickRate;
-        else clickRate = clickRate * 100;
+        if (openRate <= 1) openRate = openRate * 100;
+        if (clickRate <= 1) clickRate = clickRate * 100;
 
         const emailsSent = parseInt(row.emails_sent || row.emails_enviados || "0") || null;
         const opens = parseInt(row.opens || row.aberturas || "0") || null;
