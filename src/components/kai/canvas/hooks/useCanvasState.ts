@@ -6,6 +6,7 @@ import { useTokenError } from "@/hooks/useTokenError";
 import { usePlanningItems } from "@/hooks/usePlanningItems";
 import { useQuery } from "@tanstack/react-query";
 import { IMAGE_FORMAT_INSTRUCTIONS } from "@/types/template";
+import { callKaiContentAgent } from "@/lib/parseOpenAIStream";
 import { normalizeCanvasFormat, toKaiContentAgentFormat } from "../lib/canvasFormats";
 import { useCanvasPersistence } from "./useCanvasPersistence";
 
@@ -1547,91 +1548,39 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
             generatedCount: i,
           } as Partial<GeneratorNodeData>);
 
-          // Use fetch with SSE stream processing - using kai-content-agent
-          const response = await fetch(
-            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/kai-content-agent`,
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${accessToken}`,
-                "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-              },
-              body: JSON.stringify({
-                clientId,
-                request: userMessage,
-                format: toKaiContentAgentFormat(normalizeCanvasFormat(genData.format)),
-                platform: genData.platform,
-              }),
-            }
-          );
+          const finalContent = await callKaiContentAgent({
 
-          if (!response.ok) {
-            const errorText = await response.text();
-            
-            // Handle 402 Payment Required - insufficient tokens
-            if (response.status === 402) {
-              const error = new Error("Créditos insuficientes") as Error & { status: number; code: string };
-              error.status = 402;
-              error.code = "TOKENS_EXHAUSTED";
-              throw error;
-            }
-            
-            throw new Error(`Erro na API: ${response.status} - ${errorText}`);
-          }
+            clientId,
 
-          // Process SSE stream - kai-content-agent uses OpenAI format
-          const reader = response.body?.getReader();
-          if (!reader) throw new Error("Não foi possível ler a resposta");
+            request: userMessage,
 
-          const decoder = new TextDecoder();
-          let buffer = "";
-          let finalContent = "";
-          let chunkCount = 0;
+            format: toKaiContentAgentFormat(normalizeCanvasFormat(genData.format)),
 
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
+            platform: genData.platform,
 
-            buffer += decoder.decode(value, { stream: true });
-            const lines = buffer.split("\n");
-            buffer = lines.pop() || "";
+            accessToken,
 
-            for (const line of lines) {
-              const trimmed = line.trim();
-              if (!trimmed || trimmed.startsWith(":")) continue;
+            onChunk: (chunkCount) => {
 
-              if (trimmed.startsWith("data: ")) {
-                const jsonStr = trimmed.slice(6).trim();
-                if (jsonStr === "[DONE]") continue;
+              // Update progress based on content chunks
 
-                try {
-                  const parsed = JSON.parse(jsonStr);
-                  
-                  // OpenAI streaming format - extract content from delta
-                  const deltaContent = parsed.choices?.[0]?.delta?.content;
-                  if (deltaContent) {
-                    finalContent += deltaContent;
-                    chunkCount++;
-                    
-                    // Update progress based on content chunks
-                    if (quantity === 1 && chunkCount % 10 === 0) {
-                      const progress = Math.min(90, 20 + Math.floor(chunkCount / 5));
-                      updateNodeData(generatorNodeId, {
-                        currentStep: "Gerando conteúdo...",
-                        progress,
-                      } as Partial<GeneratorNodeData>);
-                    }
-                  }
-                } catch {
-                  // Ignore JSON parse errors for incomplete chunks
-                }
+              if (quantity === 1 && chunkCount % 10 === 0) {
+
+                const progress = Math.min(90, 20 + Math.floor(chunkCount / 5));
+
+                updateNodeData(generatorNodeId, {
+
+                  currentStep: "Gerando conteúdo...",
+
+                  progress,
+
+                } as Partial<GeneratorNodeData>);
+
               }
-            }
-          }
 
-          // Trim final content
-          finalContent = finalContent.trim();
+            },
+
+          });
           if (!finalContent) continue; // Skip this variation if no content
 
           // Create output node with offset for batch
