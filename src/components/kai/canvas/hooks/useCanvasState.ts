@@ -1975,9 +1975,9 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
     if (template) {
       setNodes(template.nodes);
       setEdges(template.edges);
-      setCurrentCanvasName(template.name);
+      setCanvasName(template.name);
     }
-  }, [clearCanvas]);
+  }, [clearCanvas, setCanvasName]);
 
   return {
     nodes,
