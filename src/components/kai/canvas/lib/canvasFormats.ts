@@ -37,3 +37,13 @@ export function toGenerateContentV2Format(format: CanvasFormat): string {
   return format;
 }
 
+
+/**
+ * Formato enviado ao kai-content-agent.
+ * IMPORTANTE: reel_script precisa virar reels, senão o agente cai em regras de post.
+ */
+export function toKaiContentAgentFormat(format: CanvasFormat): string {
+  if (format === "reel_script") return "reels";
+  if (format === "image") return "post";
+  return format;
+}

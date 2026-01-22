@@ -6,6 +6,7 @@ import { useTokenError } from "@/hooks/useTokenError";
 import { usePlanningItems } from "@/hooks/usePlanningItems";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { IMAGE_FORMAT_INSTRUCTIONS } from "@/types/template";
+import { normalizeCanvasFormat, toKaiContentAgentFormat } from "../lib/canvasFormats";
 
 // Helper to convert blob URL to base64 data URL
 async function blobUrlToBase64(blobUrl: string): Promise<string> {
@@ -1609,7 +1610,7 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
               body: JSON.stringify({
                 clientId,
                 request: userMessage,
-                format: genData.format,
+                format: toKaiContentAgentFormat(normalizeCanvasFormat(genData.format)),
                 platform: genData.platform,
               }),
             }
@@ -1693,7 +1694,7 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
           const outputId = addNode("output", outputPosition, {
             type: "output",
             content: finalContent,
-            format: genData.format,
+            format: toKaiContentAgentFormat(normalizeCanvasFormat(genData.format)),
             platform: genData.platform,
             isEditing: false,
             addedToPlanning: false,
