@@ -14,6 +14,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import type { AttachmentOutput } from './AttachmentNode';
+import { normalizeCanvasFormat, toGenerateContentV2Format } from '../lib/canvasFormats';
 
 const FORMAT_OPTIONS = [
   { value: 'post', label: 'Post' },
@@ -147,7 +148,7 @@ const GeneratorNodeComponent: React.FC<NodeProps<GeneratorNodeData>> = ({
             transcription: att.transcription,
           })),
           config: {
-            format: data.format || 'post',
+            format: toGenerateContentV2Format(normalizeCanvasFormat(data.format)),
             platform: data.platform || 'instagram',
             aspectRatio: data.aspectRatio || '1:1',
             noText: data.noText || false,
@@ -163,23 +164,11 @@ const GeneratorNodeComponent: React.FC<NodeProps<GeneratorNodeData>> = ({
 
       // Create output node instead of showing inline
       if (data.onCreateOutput) {
-        const normalizeFormatForOutput = (format?: string): string => {
-          const f = (format || 'post').toLowerCase();
-          if (f === 'carrossel') return 'carousel';
-          if (f === 'carousel') return 'carousel';
-          if (f === 'reels') return 'reel_script';
-          if (f === 'reel_script') return 'reel_script';
-          if (f === 'stories' || f === 'story') return 'stories';
-          if (f === 'thread') return 'thread';
-          if (f === 'newsletter') return 'newsletter';
-          return 'post';
-        };
-
         if (generationType === 'text') {
           data.onCreateOutput({
             type: 'text',
             content: result.content || result.text || '',
-            format: normalizeFormatForOutput(data.format),
+            format: normalizeCanvasFormat(data.format),
             platform: data.platform || 'instagram',
           });
         } else {
