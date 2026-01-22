@@ -14,8 +14,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import type { AttachmentOutput } from './AttachmentNode';
-import { callKaiContentAgent } from '@/lib/parseOpenAIStream';
-import { normalizeCanvasFormat, toGenerateContentV2Format, toKaiContentAgentFormat } from '../lib/canvasFormats';
+import { normalizeCanvasFormat, toGenerateContentV2Format } from '../lib/canvasFormats';
+import { generateCanvasText } from '../lib/canvasTextGeneration';
 
 const FORMAT_OPTIONS = [
   { value: 'post', label: 'Post' },
@@ -154,19 +154,20 @@ const GeneratorNodeComponent: React.FC<NodeProps<GeneratorNodeData>> = ({
           })
           .filter(Boolean)
           .join('\n\n');
-
-        const normalized = normalizeCanvasFormat(data.format);
         const platform = data.platform || 'instagram';
 
-        textResult = await callKaiContentAgent({
+        textResult = await generateCanvasText({
           clientId: data.clientId || '',
           request,
-          format: toKaiContentAgentFormat(normalized),
+          format: data.format,
           platform,
           accessToken,
           onChunk: (chunkCount) => {
             if (chunkCount % 10 === 0) {
               data.onUpdateData?.({ generationStep: 'generating' });
+            }
+          },
+        });
             }
           },
         });
