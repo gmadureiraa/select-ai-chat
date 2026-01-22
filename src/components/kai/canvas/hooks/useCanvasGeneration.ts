@@ -16,6 +16,7 @@ import {
   ImageEditorNodeData
 } from "./useCanvasState";
 import { blobUrlToBase64 } from "./useCanvasExtractions";
+import { normalizeCanvasFormat, toKaiContentAgentFormat } from "../lib/canvasFormats";
 
 interface UseCanvasGenerationProps {
   nodes: Node<CanvasNodeData>[];
@@ -427,7 +428,7 @@ export function useCanvasGeneration({
               body: JSON.stringify({
                 clientId,
                 request: userMessage,
-                format: genData.format,
+                format: toKaiContentAgentFormat(normalizeCanvasFormat(genData.format)),
                 platform: genData.platform,
               }),
             }
@@ -504,7 +505,7 @@ export function useCanvasGeneration({
           const outputId = addNode("output", outputPosition, {
             type: "output",
             content: finalContent,
-            format: genData.format,
+            format: toKaiContentAgentFormat(normalizeCanvasFormat(genData.format)),
             platform: genData.platform,
             isEditing: false,
             addedToPlanning: false,
