@@ -6,9 +6,8 @@ import { useTokenError } from "@/hooks/useTokenError";
 import { usePlanningItems } from "@/hooks/usePlanningItems";
 import { useQuery } from "@tanstack/react-query";
 import { IMAGE_FORMAT_INSTRUCTIONS } from "@/types/template";
-import { callKaiContentAgent } from "@/lib/parseOpenAIStream";
-import { normalizeCanvasFormat, toKaiContentAgentFormat } from "../lib/canvasFormats";
 import { useCanvasPersistence } from "./useCanvasPersistence";
+import { generateCanvasText } from "../lib/canvasTextGeneration";
 
 // Helper to convert blob URL to base64 data URL
 async function blobUrlToBase64(blobUrl: string): Promise<string> {
@@ -1548,13 +1547,13 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
             generatedCount: i,
           } as Partial<GeneratorNodeData>);
 
-          const finalContent = await callKaiContentAgent({
+          const finalContent = await generateCanvasText({
 
             clientId,
 
             request: userMessage,
 
-            format: toKaiContentAgentFormat(normalizeCanvasFormat(genData.format)),
+            format: genData.format,
 
             platform: genData.platform,
 
@@ -1593,7 +1592,7 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
           const outputId = addNode("output", outputPosition, {
             type: "output",
             content: finalContent,
-            format: toKaiContentAgentFormat(normalizeCanvasFormat(genData.format)),
+            format: genData.format,
             platform: genData.platform,
             isEditing: false,
             addedToPlanning: false,

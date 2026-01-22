@@ -4,7 +4,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useTokenError } from "@/hooks/useTokenError";
 import { IMAGE_FORMAT_INSTRUCTIONS } from "@/types/template";
-import { callKaiContentAgent } from "@/lib/parseOpenAIStream";
 import { 
   CanvasNodeData,
   SourceNodeData,
@@ -17,7 +16,7 @@ import {
   ImageEditorNodeData
 } from "./useCanvasState";
 import { blobUrlToBase64 } from "./useCanvasExtractions";
-import { normalizeCanvasFormat, toKaiContentAgentFormat } from "../lib/canvasFormats";
+import { generateCanvasText } from "../lib/canvasTextGeneration";
 
 interface UseCanvasGenerationProps {
   nodes: Node<CanvasNodeData>[];
@@ -417,13 +416,13 @@ export function useCanvasGeneration({
             generatedCount: i,
           } as Partial<GeneratorNodeData>);
 
-          const finalContent = await callKaiContentAgent({
+          const finalContent = await generateCanvasText({
 
             clientId,
 
             request: userMessage,
 
-            format: toKaiContentAgentFormat(normalizeCanvasFormat(genData.format)),
+            format: genData.format,
 
             platform: genData.platform,
 
@@ -459,7 +458,7 @@ export function useCanvasGeneration({
           const outputId = addNode("output", outputPosition, {
             type: "output",
             content: finalContent,
-            format: toKaiContentAgentFormat(normalizeCanvasFormat(genData.format)),
+            format: genData.format,
             platform: genData.platform,
             isEditing: false,
             addedToPlanning: false,
