@@ -1,10 +1,9 @@
+import { lazy, Suspense } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
-import Kai from "./pages/Kai";
-import Documentation from "./pages/Documentation";
 import LandingPage from "./pages/LandingPage";
 import Help from "./pages/Help";
-import AdminDashboard from "./pages/AdminDashboard";
+import { Card, CardContent } from "@/components/ui/card";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
@@ -30,6 +29,20 @@ import { UpgradePromptProvider } from "@/hooks/useUpgradePrompt";
 
 const queryClient = new QueryClient();
 
+const Kai = lazy(() => import("./pages/Kai"));
+const Documentation = lazy(() => import("./pages/Documentation"));
+const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
+
+const RouteFallback = () => (
+  <div className="p-6">
+    <Card>
+      <CardContent className="py-10 text-center text-sm text-muted-foreground">
+        Carregando…
+      </CardContent>
+    </Card>
+  </div>
+);
+
 const App = () => (
   <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
     <QueryClientProvider client={queryClient}>
@@ -41,6 +54,7 @@ const App = () => (
             <TokenErrorProvider>
               <UpgradePromptProvider>
                 <GlobalKAIProvider>
+                  <Suspense fallback={<RouteFallback />}>
                   <Routes>
                     {/* Public routes */}
                     <Route path="/login" element={<Login />} />
@@ -108,6 +122,7 @@ const App = () => (
                     <Route path="/404" element={<NotFound />} />
                     <Route path="*" element={<NotFound />} />
                   </Routes>
+                  </Suspense>
                   
                   {/* Global kAI Assistant - available on all authenticated pages */}
                   <GlobalKAIAssistant />
