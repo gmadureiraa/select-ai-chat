@@ -1,4 +1,4 @@
-import React, { useState, useCallback, memo, useRef } from 'react';
+import React, { useState, useCallback, memo, useRef, useMemo } from 'react';
 import { Handle, Position, NodeProps } from 'reactflow';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -14,6 +14,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { TranscriptionModal } from '../components/TranscriptionModal';
 import { transcribeImagesChunked } from '@/lib/transcribeImages';
+import { clampText, sanitizeReferenceText } from '../lib/referenceSanitizer';
 
 export interface AttachmentOutput {
   type: 'image' | 'video' | 'audio' | 'text' | 'youtube' | 'library';
@@ -62,11 +63,27 @@ const AttachmentNodeComponent: React.FC<NodeProps<AttachmentNodeData>> = ({
   const [isProcessing, setIsProcessing] = useState(false);
   const [processStatus, setProcessStatus] = useState<string>('');
   const [showTranscription, setShowTranscription] = useState(false);
+  const [modalContent, setModalContent] = useState("");
+  const [modalFileName, setModalFileName] = useState<string | undefined>(undefined);
+  const [modalLabel, setModalLabel] = useState("Transcrição");
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
   const output = data.output;
+
+  // This is the exact text we will send to the AI as context (sanitized + clamped).
+  const aiReadableExtracted = useMemo(() => {
+    const raw = data.extractedContent || "";
+    return clampText(sanitizeReferenceText(raw), 12000);
+  }, [data.extractedContent]);
+
+  const openModal = useCallback((opts: { label: string; content: string; fileName?: string }) => {
+    setModalLabel(opts.label);
+    setModalContent(opts.content);
+    setModalFileName(opts.fileName);
+    setShowTranscription(true);
+  }, []);
 
   const isYoutubeUrl = (url: string): boolean => url.includes('youtube.com') || url.includes('youtu.be');
   const isInstagramUrl = (url: string): boolean =>
@@ -645,8 +662,27 @@ const AttachmentNodeComponent: React.FC<NodeProps<AttachmentNodeData>> = ({
             
             {/* TEXT preview */}
             {output.type === 'text' && (
-              <div className="bg-muted rounded-md p-2">
-                <p className="text-xs line-clamp-3">{output.content}</p>
+              <div className="space-y-2">
+                <div className="bg-muted rounded-md p-2">
+                  <p className="text-xs line-clamp-3">{output.content}</p>
+                </div>
+                {(data.extractedContent || output.content) && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="w-full h-7 text-[10px] gap-1 text-primary hover:text-primary/80 hover:bg-primary/10"
+                    onClick={() =>
+                      openModal({
+                        label: "Conteúdo que a IA vai ler",
+                        content: data.extractedContent ? aiReadableExtracted : output.content,
+                        fileName: data.title || output.fileName,
+                      })
+                    }
+                  >
+                    <Expand className="h-3 w-3" />
+                    Ver texto completo (IA)
+                  </Button>
+                )}
               </div>
             )}
 
@@ -703,7 +739,13 @@ const AttachmentNodeComponent: React.FC<NodeProps<AttachmentNodeData>> = ({
                   variant="ghost"
                   size="sm"
                   className="w-full h-7 text-[10px] gap-1 text-primary hover:text-primary/80 hover:bg-primary/10"
-                  onClick={() => setShowTranscription(true)}
+                  onClick={() =>
+                    openModal({
+                      label: "Conteúdo",
+                      content: output.content,
+                      fileName: output.libraryTitle || output.fileName,
+                    })
+                  }
                 >
                   <Expand className="h-3 w-3" />
                   Ver conteúdo completo
@@ -725,7 +767,13 @@ const AttachmentNodeComponent: React.FC<NodeProps<AttachmentNodeData>> = ({
                   variant="ghost"
                   size="sm"
                   className="w-full h-6 text-[10px] gap-1 text-blue-600 hover:text-blue-700 hover:bg-blue-500/20"
-                  onClick={() => setShowTranscription(true)}
+                  onClick={() =>
+                    openModal({
+                      label: "Transcrição",
+                      content: output.transcription || "",
+                      fileName: output.fileName,
+                    })
+                  }
                 >
                   <Expand className="h-3 w-3" />
                   Ver transcrição completa
@@ -820,6 +868,24 @@ const AttachmentNodeComponent: React.FC<NodeProps<AttachmentNodeData>> = ({
                 <Eye className="h-3 w-3 mr-1" />
                 Extrair Conteúdo
               </Button>
+
+              {!!data.extractedContent?.trim() && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-full h-7 text-[10px] gap-1 text-primary hover:text-primary/80 hover:bg-primary/10"
+                  onClick={() =>
+                    openModal({
+                      label: "Conteúdo que a IA vai ler",
+                      content: aiReadableExtracted,
+                      fileName: data.title || data.url,
+                    })
+                  }
+                >
+                  <Expand className="h-3 w-3" />
+                  Ver texto extraído (IA)
+                </Button>
+              )}
             </TabsContent>
             
             <TabsContent value="text" className="mt-2 space-y-2">
@@ -847,8 +913,9 @@ const AttachmentNodeComponent: React.FC<NodeProps<AttachmentNodeData>> = ({
       <TranscriptionModal
         open={showTranscription}
         onOpenChange={setShowTranscription}
-        transcription={output?.type === 'library' ? output.content : (output?.transcription || "")}
-        fileName={output?.type === 'library' ? output.libraryTitle : output?.fileName}
+        transcription={modalContent}
+        fileName={modalFileName}
+        label={modalLabel}
       />
       
       {/* Output handle */}

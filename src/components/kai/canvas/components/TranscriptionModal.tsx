@@ -15,6 +15,7 @@ interface TranscriptionModalProps {
   onOpenChange: (open: boolean) => void;
   transcription: string;
   fileName?: string;
+  label?: string;
 }
 
 function TranscriptionModalComponent({
@@ -22,6 +23,7 @@ function TranscriptionModalComponent({
   onOpenChange,
   transcription,
   fileName,
+  label = "Transcrição",
 }: TranscriptionModalProps) {
   const [copied, setCopied] = useState(false);
 
@@ -38,7 +40,9 @@ function TranscriptionModalComponent({
       <DialogContent className="max-w-2xl max-h-[80vh]">
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between">
-            <span>Transcrição {fileName && `- ${fileName}`}</span>
+            <span>
+              {label} {fileName && `- ${fileName}`}
+            </span>
             <Button
               variant="outline"
               size="sm"
