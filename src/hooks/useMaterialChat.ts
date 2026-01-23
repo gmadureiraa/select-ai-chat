@@ -7,6 +7,7 @@ export interface MaterialChatMessage {
   role: 'user' | 'assistant';
   content: string;
   timestamp: string;
+  isError?: boolean;
 }
 
 interface UseMaterialChatOptions {
@@ -18,9 +19,12 @@ interface UseMaterialChatOptions {
 export function useMaterialChat({ clientId, materialContext, materialTitle }: UseMaterialChatOptions) {
   const [messages, setMessages] = useState<MaterialChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const sendMessage = useCallback(async (text: string) => {
     if (!text.trim() || isLoading) return;
+
+    setError(null);
 
     const userMessage: MaterialChatMessage = {
       id: `user-${Date.now()}`,
@@ -45,7 +49,7 @@ export function useMaterialChat({ clientId, materialContext, materialTitle }: Us
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) {
-        throw new Error('Não autenticado');
+        throw new Error('Você precisa estar logado para usar o chat');
       }
 
       const response = await fetch(
@@ -67,7 +71,8 @@ export function useMaterialChat({ clientId, materialContext, materialTitle }: Us
       );
 
       if (!response.ok) {
-        throw new Error('Erro ao processar mensagem');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Erro ao processar mensagem');
       }
 
       const reader = response.body?.getReader();
@@ -83,11 +88,13 @@ export function useMaterialChat({ clientId, materialContext, materialTitle }: Us
         },
       });
 
-    } catch (error) {
-      console.error('Chat error:', error);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Erro desconhecido';
+      console.error('Chat error:', err);
+      setError(errorMessage);
       setMessages(prev => prev.map(m => 
         m.id === assistantMessageId 
-          ? { ...m, content: 'Erro ao processar mensagem. Tente novamente.' } 
+          ? { ...m, content: errorMessage, isError: true } 
           : m
       ));
     } finally {
@@ -97,13 +104,20 @@ export function useMaterialChat({ clientId, materialContext, materialTitle }: Us
 
   const clearMessages = useCallback(() => {
     setMessages([]);
+    setError(null);
+  }, []);
+
+  const clearError = useCallback(() => {
+    setError(null);
   }, []);
 
   return {
     messages,
     isLoading,
+    error,
     sendMessage,
     clearMessages,
+    clearError,
     setMessages,
   };
 }

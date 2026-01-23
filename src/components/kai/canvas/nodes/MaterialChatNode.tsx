@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, memo, useCallback } from 'react';
 import { Handle, Position, useReactFlow, useNodes, useEdges } from 'reactflow';
-import { MessageSquare, Send, Plus, Trash2, FileText, Loader2 } from 'lucide-react';
+import { MessageSquare, Send, Plus, Trash2, FileText, Loader2, Link2, Link2Off, AlertCircle, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -41,7 +41,9 @@ function MaterialChatNodeComponent({ id, data, selected }: MaterialChatNodeProps
                         'Material';
   const materialPreview = materialContext.slice(0, 150) + (materialContext.length > 150 ? '...' : '');
 
-  const { messages, isLoading, sendMessage, setMessages } = useMaterialChat({
+  const isConnected = !!materialContext;
+
+  const { messages, isLoading, error, sendMessage, setMessages, clearError } = useMaterialChat({
     clientId: data.clientId,
     materialContext,
     materialTitle,
@@ -93,6 +95,13 @@ function MaterialChatNodeComponent({ id, data, selected }: MaterialChatNodeProps
     }
   };
 
+  const handleRetry = (messageContent: string) => {
+    clearError();
+    // Remove the error message and resend
+    setMessages(prev => prev.filter(m => !m.isError));
+    sendMessage(messageContent);
+  };
+
   return (
     <div 
       className={cn(
@@ -100,36 +109,65 @@ function MaterialChatNodeComponent({ id, data, selected }: MaterialChatNodeProps
         selected && "ring-2 ring-primary"
       )}
     >
-      {/* Header */}
+      {/* Header with connection status */}
       <div className="flex items-center justify-between px-3 py-2 bg-muted/50 border-b">
         <div className="flex items-center gap-2">
           <MessageSquare className="h-4 w-4 text-primary" />
           <span className="text-sm font-medium">Chat sobre Material</span>
         </div>
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          className="h-6 w-6"
-          onClick={data.onDelete}
-        >
-          <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
-        </Button>
+        <div className="flex items-center gap-1">
+          {/* Connection indicator */}
+          <div 
+            className={cn(
+              "flex items-center gap-1 px-2 py-0.5 rounded-full text-xs",
+              isConnected 
+                ? "bg-green-500/10 text-green-600 dark:text-green-400" 
+                : "bg-muted text-muted-foreground"
+            )}
+          >
+            {isConnected ? (
+              <>
+                <Link2 className="h-3 w-3" />
+                <span>Conectado</span>
+              </>
+            ) : (
+              <>
+                <Link2Off className="h-3 w-3" />
+                <span>Desconectado</span>
+              </>
+            )}
+          </div>
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="h-6 w-6"
+            onClick={data.onDelete}
+          >
+            <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
+          </Button>
+        </div>
       </div>
 
       {/* Connected Material Preview */}
-      <div className="px-3 py-2 bg-muted/30 border-b">
+      <div className={cn(
+        "px-3 py-2 border-b transition-colors",
+        isConnected ? "bg-green-500/5" : "bg-muted/30"
+      )}>
         {materialContext ? (
           <div className="flex items-start gap-2">
-            <FileText className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+            <FileText className="h-4 w-4 text-green-600 dark:text-green-400 mt-0.5 shrink-0" />
             <div className="min-w-0">
               <p className="text-xs font-medium text-foreground truncate">{materialTitle}</p>
               <p className="text-xs text-muted-foreground line-clamp-2">{materialPreview}</p>
             </div>
           </div>
         ) : (
-          <p className="text-xs text-muted-foreground text-center py-1">
-            Conecte um nó de Anexo para começar
-          </p>
+          <div className="flex items-center gap-2 justify-center py-1">
+            <Link2Off className="h-4 w-4 text-muted-foreground" />
+            <p className="text-xs text-muted-foreground">
+              Conecte um nó de Anexo para começar
+            </p>
+          </div>
         )}
       </div>
 
@@ -142,7 +180,7 @@ function MaterialChatNodeComponent({ id, data, selected }: MaterialChatNodeProps
             </p>
           )}
           
-          {messages.map((msg) => (
+          {messages.map((msg, index) => (
             <div 
               key={msg.id}
               className={cn(
@@ -155,16 +193,38 @@ function MaterialChatNodeComponent({ id, data, selected }: MaterialChatNodeProps
                   "rounded-lg px-3 py-2 max-w-[90%] text-sm",
                   msg.role === 'user' 
                     ? 'bg-primary text-primary-foreground' 
-                    : 'bg-muted'
+                    : msg.isError
+                      ? 'bg-destructive/10 text-destructive border border-destructive/20'
+                      : 'bg-muted'
                 )}
               >
-                {msg.content || (
+                {msg.isError ? (
+                  <div className="flex items-center gap-2">
+                    <AlertCircle className="h-4 w-4 shrink-0" />
+                    <span>{msg.content}</span>
+                  </div>
+                ) : msg.content ? (
+                  msg.content
+                ) : (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 )}
               </div>
               
+              {/* Error retry button */}
+              {msg.isError && index > 0 && messages[index - 1]?.role === 'user' && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 text-xs gap-1 text-muted-foreground hover:text-foreground"
+                  onClick={() => handleRetry(messages[index - 1].content)}
+                >
+                  <RotateCcw className="h-3 w-3" />
+                  Tentar novamente
+                </Button>
+              )}
+              
               {/* Add to canvas button for assistant messages */}
-              {msg.role === 'assistant' && msg.content && (
+              {msg.role === 'assistant' && msg.content && !msg.isError && (
                 <Button
                   variant="ghost"
                   size="sm"
