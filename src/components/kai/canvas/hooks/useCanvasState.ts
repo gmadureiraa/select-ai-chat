@@ -205,6 +205,8 @@ export interface GeneratorNodeData {
   format: ContentFormat;
   platform: Platform;
   isGenerating: boolean;
+  // Optional: force a theme/topic that must be respected (ex.: "ETH em 100k")
+  topic?: string;
   progress?: number;
   currentStep?: string;
   // Batch generation
@@ -242,6 +244,8 @@ export interface OutputNodeData {
   platform: Platform;
   isEditing: boolean;
   addedToPlanning: boolean;
+  // Propagate generator topic for validation/UX (ex.: highlight if output ignored it)
+  topic?: string;
   isImage?: boolean;
   imageUrl?: string;
   // Phase 3 & 4: Version history, comments, approval
@@ -1133,6 +1137,8 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
     let briefing = "";
     let imageReferences: string[] = [];
     let styleContext: string[] = [];
+    let hasUnextractedLink = false;
+    let unextractedLinkTitles: string[] = [];
 
     for (const inputNode of inputNodes) {
       switch (inputNode.data.type) {
@@ -1235,8 +1241,18 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
           const attachData = inputNode.data as AttachmentNodeData;
           
           // Handle based on active tab
-          if (attachData.activeTab === "link" && attachData.extractedContent) {
-            combinedContext += `\n\n### Conteúdo de ${attachData.title || 'Link'}:\n${attachData.extractedContent}`;
+          if (attachData.activeTab === "link") {
+            // If user provided a URL but extraction hasn't happened (and no text fallback), block generation.
+            const hasUrl = !!attachData.url?.trim();
+            const hasExtracted = !!attachData.extractedContent?.trim();
+            const hasTextFallback = !!attachData.textContent?.trim();
+            if (hasUrl && !hasExtracted && !hasTextFallback) {
+              hasUnextractedLink = true;
+              unextractedLinkTitles.push(attachData.title || attachData.url || "Link");
+            }
+            if (hasExtracted) {
+              combinedContext += `\n\n### Conteúdo de ${attachData.title || "Link"}:\n${attachData.extractedContent}`;
+            }
           }
           
           if (attachData.activeTab === "text" && attachData.textContent) {
@@ -1295,6 +1311,16 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
           break;
         }
       }
+    }
+
+    if (hasUnextractedLink) {
+      toast({
+        title: "Extração pendente",
+        description: `Extraia o link no anexo antes de gerar: ${unextractedLinkTitles.slice(0, 2).join(", ")}${unextractedLinkTitles.length > 2 ? "..." : ""}`,
+        variant: "destructive",
+      });
+      updateNodeData(generatorNodeId, { isGenerating: false, progress: 0, currentStep: "Aguardando extração" } as Partial<GeneratorNodeData>);
+      return;
     }
 
     if (!combinedContext && !briefing) {
@@ -1537,9 +1563,22 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
             ? `\n\nIMPORTANTE: Esta é a variação ${i + 1} de ${quantity}. Crie uma versão DIFERENTE e ÚNICA, com abordagem, estrutura ou ângulo distintos das outras variações.`
             : "";
           
-          const userMessage = briefing 
-            ? `${briefing}\n\nMaterial de referência:\n${combinedContext}${variationSuffix}`
-            : `Crie conteúdo baseado no seguinte material:\n${combinedContext}${variationSuffix}`;
+          const topic = genData.topic?.trim();
+          const requestParts: string[] = [];
+          if (topic) {
+            requestParts.push(
+              `Tema obrigatório:\n${topic}\n\nRegras de aderência:\n- O conteúdo precisa ser claramente sobre esse tema.\n- Se o material de referência não sustentar o tema, diga isso explicitamente e peça a fonte correta.\n- Não invente dados/números; se não constar, use linguagem condicional.`
+            );
+          }
+          if (briefing?.trim()) requestParts.push(`Briefing:\n${briefing.trim()}`);
+          requestParts.push(`Material de referência (use como fonte principal):\n${combinedContext}`);
+          if (genData.format === "carousel") {
+            requestParts.push("Estrutura: carrossel de 7–10 slides; 1 ideia por slide; gancho no slide 1; CTA no final.");
+          }
+          if (genData.platform === "twitter" && genData.format === "thread") {
+            requestParts.push("Regras: cada tweet deve respeitar 280 caracteres.");
+          }
+          const userMessage = `${requestParts.filter(Boolean).join("\n\n")}${variationSuffix}`;
 
           // Update progress for batch
           updateNodeData(generatorNodeId, {
@@ -1595,6 +1634,7 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
             content: finalContent,
             format: genData.format,
             platform: genData.platform,
+            topic: genData.topic?.trim() || undefined,
             isEditing: false,
             addedToPlanning: false,
             isImage: false,

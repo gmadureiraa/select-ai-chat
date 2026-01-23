@@ -202,7 +202,7 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
   } | null>(null);
 
   // Handler to create output node from generator
-  const handleCreateOutput = useCallback((generatorNodeId: string, outputData: { type: 'text' | 'image'; content: string; imageUrl?: string; format: string; platform: string }) => {
+  const handleCreateOutput = useCallback((generatorNodeId: string, outputData: { type: 'text' | 'image'; content: string; imageUrl?: string; format: string; platform: string; topic?: string }) => {
     const generatorNode = nodes.find(n => n.id === generatorNodeId);
     if (!generatorNode) return;
 
@@ -219,6 +219,7 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
         content: outputData.type === 'image' ? outputData.imageUrl || outputData.content : outputData.content,
         format: outputData.format as any,
         platform: outputData.platform as any,
+        topic: outputData.topic,
         isImage: outputData.type === 'image',
         isEditing: false,
         addedToPlanning: false,
