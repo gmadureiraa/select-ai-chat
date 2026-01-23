@@ -15,7 +15,6 @@ import { useToast } from '@/hooks/use-toast';
 import { TranscriptionModal } from '../components/TranscriptionModal';
 import { transcribeImagesChunked } from '@/lib/transcribeImages';
 
-// Simplified interface - MVP focused
 export interface AttachmentOutput {
   type: 'image' | 'video' | 'audio' | 'text' | 'youtube' | 'library';
   content: string;
@@ -35,6 +34,17 @@ export interface AttachmentOutput {
 }
 
 export interface AttachmentNodeData {
+  // Keep compatibility with the unified Canvas data model used in `useCanvasState`
+  type?: "attachment";
+  activeTab?: 'file' | 'link' | 'text' | 'image';
+  url?: string;
+  urlType?: "youtube" | "article" | "instagram" | "newsletter";
+  extractedContent?: string;
+  extractedImages?: string[];
+  title?: string;
+  thumbnail?: string;
+  isExtracting?: boolean;
+  textContent?: string;
   output?: AttachmentOutput;
   onUpdateData?: (data: Partial<AttachmentNodeData>) => void;
   onDelete?: () => void;
@@ -46,9 +56,9 @@ const AttachmentNodeComponent: React.FC<NodeProps<AttachmentNodeData>> = ({
   data, 
   selected 
 }) => {
-  const [activeTab, setActiveTab] = useState<'file' | 'link' | 'text'>('file');
-  const [urlInput, setUrlInput] = useState('');
-  const [textInput, setTextInput] = useState('');
+  const [activeTab, setActiveTab] = useState<'file' | 'link' | 'text'>((data.activeTab as any) || 'file');
+  const [urlInput, setUrlInput] = useState(data.url || '');
+  const [textInput, setTextInput] = useState(data.textContent || '');
   const [isProcessing, setIsProcessing] = useState(false);
   const [processStatus, setProcessStatus] = useState<string>('');
   const [showTranscription, setShowTranscription] = useState(false);
@@ -58,54 +68,125 @@ const AttachmentNodeComponent: React.FC<NodeProps<AttachmentNodeData>> = ({
 
   const output = data.output;
 
-  // ONLY YouTube is accepted
-  const isYoutubeUrl = (url: string): boolean => {
-    return url.includes('youtube.com') || url.includes('youtu.be');
-  };
+  const isYoutubeUrl = (url: string): boolean => url.includes('youtube.com') || url.includes('youtu.be');
+  const isInstagramUrl = (url: string): boolean =>
+    url.includes("instagram.com/p/") || url.includes("instagram.com/reel/") || url.includes("instagr.am");
 
   const handleUrlSubmit = useCallback(async () => {
     if (!urlInput.trim()) return;
     
     setIsProcessing(true);
+    data.onUpdateData?.({ type: "attachment", activeTab: "link", url: urlInput.trim(), isExtracting: true });
     
     try {
-      // ONLY YouTube accepted
-      if (!isYoutubeUrl(urlInput)) {
-        toast({ 
-          title: 'Link não suportado', 
-          description: 'Apenas links do YouTube são aceitos. Use o upload para outros conteúdos.',
-          variant: 'destructive' 
-        });
-        setIsProcessing(false);
-        setProcessStatus('');
-        return;
-      }
+      const url = urlInput.trim();
 
-      setProcessStatus('Extraindo YouTube...');
-      console.log('[AttachmentNode] Extracting YouTube:', urlInput);
-      
-      const { data: result, error } = await supabase.functions.invoke('extract-youtube', {
-        body: { url: urlInput }
-      });
-      
-      if (error) throw error;
-      
-      console.log('[AttachmentNode] YouTube result:', result);
-      
-      data.onUpdateData?.({
-        output: {
-          type: 'youtube',
-          content: urlInput,
-          transcription: result?.transcript || result?.description || '',
-          fileName: result?.title || 'YouTube Video'
-        }
-      });
-      
-      toast({ title: 'YouTube extraído!', description: result?.title });
-      setUrlInput('');
+      if (isYoutubeUrl(url)) {
+        setProcessStatus('Extraindo YouTube...');
+        const { data: result, error } = await supabase.functions.invoke('extract-youtube', {
+          body: { url }
+        });
+        if (error) throw error;
+
+        const transcript = result?.content || result?.transcript || result?.description || "";
+        const title = result?.title || "YouTube";
+        const thumbnail = result?.thumbnail || "";
+
+        data.onUpdateData?.({
+          type: "attachment",
+          activeTab: "link",
+          url,
+          urlType: "youtube",
+          title,
+          thumbnail,
+          extractedContent: transcript,
+          isExtracting: false,
+          output: {
+            type: 'youtube',
+            content: url,
+            transcription: transcript,
+            fileName: title,
+          }
+        });
+
+        toast({ title: 'YouTube extraído!', description: title });
+        setUrlInput('');
+      } else if (isInstagramUrl(url)) {
+        setProcessStatus('Extraindo Instagram...');
+        const { data: extractData, error: extractError } = await supabase.functions.invoke('extract-instagram', {
+          body: { url }
+        });
+        if (extractError) throw extractError;
+        if (extractData?.error) throw new Error(extractData.error);
+
+        const images: string[] = extractData.images || [];
+        const caption: string = extractData.caption || "";
+
+        const extractedContent = caption || "Conteúdo extraído do Instagram";
+        const title = caption ? caption.substring(0, 60) + (caption.length > 60 ? "..." : "") : "Instagram";
+        const thumbnail = images[0] || "";
+
+        data.onUpdateData?.({
+          type: "attachment",
+          activeTab: "link",
+          url,
+          urlType: "instagram",
+          title,
+          thumbnail,
+          extractedContent,
+          extractedImages: images,
+          isExtracting: false,
+          output: {
+            type: 'text',
+            content: extractedContent,
+            images,
+            imageCount: images.length,
+            fileName: title,
+          }
+        });
+
+        toast({ title: 'Instagram extraído!', description: title });
+        setUrlInput('');
+      } else {
+        setProcessStatus('Extraindo artigo/newsletter...');
+        const { data: res, error } = await supabase.functions.invoke('fetch-reference-content', {
+          body: { url }
+        });
+        if (error) throw error;
+        if (!res?.success) throw new Error(res?.error || 'Falha ao extrair conteúdo');
+
+        const extractedText: string = res.content || res.markdown || "";
+        const title: string = res.title || url;
+        const thumbnail: string = res.thumbnail || "";
+        const images: string[] = res.images || [];
+        const urlType: "article" | "newsletter" = res.type === "newsletter" ? "newsletter" : "article";
+
+        data.onUpdateData?.({
+          type: "attachment",
+          activeTab: "link",
+          url,
+          urlType,
+          title,
+          thumbnail,
+          extractedContent: extractedText,
+          extractedImages: images,
+          isExtracting: false,
+          output: {
+            type: 'text',
+            content: extractedText,
+            images,
+            imageCount: images.length,
+            fileName: title,
+          }
+        });
+
+        toast({ title: 'Conteúdo extraído!', description: title });
+        setUrlInput('');
+      }
       
     } catch (error) {
       console.error('[AttachmentNode] Error extracting URL:', error);
+      data.onUpdateData?.({ isExtracting: false });
       toast({ 
         title: 'Erro ao extrair conteúdo', 
         description: error instanceof Error ? error.message : 'Erro desconhecido',
@@ -121,6 +202,9 @@ const AttachmentNodeComponent: React.FC<NodeProps<AttachmentNodeData>> = ({
     if (!textInput.trim()) return;
     
     data.onUpdateData?.({
+      type: "attachment",
+      activeTab: "text",
+      textContent: textInput,
       output: {
         type: 'text',
         content: textInput,
@@ -376,7 +460,17 @@ const AttachmentNodeComponent: React.FC<NodeProps<AttachmentNodeData>> = ({
   };
 
   const clearOutput = useCallback(() => {
-    data.onUpdateData?.({ output: undefined });
+    data.onUpdateData?.({
+      output: undefined,
+      url: undefined,
+      urlType: undefined,
+      extractedContent: undefined,
+      extractedImages: undefined,
+      title: undefined,
+      thumbnail: undefined,
+      isExtracting: false,
+      textContent: undefined,
+    });
     setUrlInput('');
     setTextInput('');
     setCurrentImageIndex(0);
@@ -656,7 +750,14 @@ const AttachmentNodeComponent: React.FC<NodeProps<AttachmentNodeData>> = ({
             </Button>
           </div>
         ) : (
-          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)}>
+          <Tabs
+            value={activeTab}
+            onValueChange={(v) => {
+              const next = v as typeof activeTab;
+              setActiveTab(next);
+              data.onUpdateData?.({ type: "attachment", activeTab: next });
+            }}
+          >
             <TabsList className="grid grid-cols-3 h-8">
               <TabsTrigger value="file" className="text-xs">
                 <Upload className="h-3 w-3 mr-1" />
@@ -690,19 +791,31 @@ const AttachmentNodeComponent: React.FC<NodeProps<AttachmentNodeData>> = ({
             
             <TabsContent value="link" className="mt-2 space-y-2">
               <Input
-                placeholder="Cole um link do YouTube..."
+                placeholder="Cole um link (YouTube, Instagram, artigo/newsletter)..."
                 value={urlInput}
                 onChange={(e) => setUrlInput(e.target.value)}
                 className="text-xs h-8"
               />
               <div className="flex gap-1 text-[10px] text-muted-foreground">
                 <span className="bg-red-500/10 text-red-600 px-1.5 py-0.5 rounded">YouTube</span>
+                <span className="bg-pink-500/10 text-pink-600 px-1.5 py-0.5 rounded">Instagram</span>
+                <span className="bg-slate-500/10 text-slate-600 px-1.5 py-0.5 rounded">Artigo/Newsletter</span>
+                {!!data.url && !data.extractedContent && (
+                  <span className="bg-amber-500/10 text-amber-600 px-1.5 py-0.5 rounded">
+                    Não extraído
+                  </span>
+                )}
+                {!!data.extractedContent && (
+                  <span className="bg-green-500/10 text-green-600 px-1.5 py-0.5 rounded">
+                    Extraído
+                  </span>
+                )}
               </div>
               <Button 
                 size="sm" 
                 className="w-full text-xs h-7"
                 onClick={handleUrlSubmit}
-                disabled={!urlInput.trim()}
+                disabled={!urlInput.trim() || isProcessing}
               >
                 <Eye className="h-3 w-3 mr-1" />
                 Extrair Conteúdo

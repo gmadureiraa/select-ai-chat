@@ -2,6 +2,7 @@ import React, { useState, useCallback, memo } from 'react';
 import { Handle, Position, NodeProps, useReactFlow } from 'reactflow';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
@@ -62,6 +63,7 @@ export interface GeneratorNodeData {
   type: 'text' | 'image';
   format?: string;
   platform?: string;
+  topic?: string;
   aspectRatio?: string;
   noText?: boolean;
   preserveFace?: boolean;
@@ -70,7 +72,7 @@ export interface GeneratorNodeData {
   clientId?: string;
   onUpdateData?: (data: Partial<GeneratorNodeData>) => void;
   onDelete?: () => void;
-  onCreateOutput?: (data: { type: 'text' | 'image'; content: string; imageUrl?: string; format: string; platform: string }) => void;
+  onCreateOutput?: (data: { type: 'text' | 'image'; content: string; imageUrl?: string; format: string; platform: string; topic?: string }) => void;
 }
 
 const GeneratorNodeComponent: React.FC<NodeProps<GeneratorNodeData>> = ({ 
@@ -85,7 +87,7 @@ const GeneratorNodeComponent: React.FC<NodeProps<GeneratorNodeData>> = ({
   const isGenerating = data.isGenerating || false;
   const generationStep = data.generationStep || 'idle';
 
-  // Count connected attachments
+  // Read connected attachment nodes. Prefer unified fields (extractedContent/textContent/url) when available.
   const getConnectedAttachments = useCallback((): AttachmentOutput[] => {
     const edges = getEdges();
     const incomingEdges = edges.filter(e => e.target === id);
@@ -94,8 +96,44 @@ const GeneratorNodeComponent: React.FC<NodeProps<GeneratorNodeData>> = ({
     
     for (const edge of incomingEdges) {
       const sourceNode = getNode(edge.source);
-      if (sourceNode?.type === 'attachment' && sourceNode.data?.output) {
-        attachments.push(sourceNode.data.output as AttachmentOutput);
+      if (sourceNode?.type === 'attachment') {
+        const d: any = sourceNode.data || {};
+
+        // If user pasted a URL but didn't extract yet, keep a sentinel so we can block generation with a clear message.
+        if (d.activeTab === 'link' && d.url && !d.extractedContent && !d.output?.content) {
+          attachments.push({
+            type: 'text',
+            content: '',
+            fileName: d.title || d.url,
+            transcription: '',
+            analysis: { unextractedUrl: d.url },
+          });
+          continue;
+        }
+
+        if (typeof d.extractedContent === 'string' && d.extractedContent.trim()) {
+          attachments.push({
+            type: 'text',
+            content: d.extractedContent,
+            fileName: d.title,
+            images: d.extractedImages,
+            imageCount: Array.isArray(d.extractedImages) ? d.extractedImages.length : undefined,
+          });
+          continue;
+        }
+
+        if (typeof d.textContent === 'string' && d.textContent.trim()) {
+          attachments.push({
+            type: 'text',
+            content: d.textContent,
+          });
+          continue;
+        }
+
+        if (d.output) {
+          attachments.push(d.output as AttachmentOutput);
+          continue;
+        }
       }
       // Also support sticky notes and text nodes as context
       if (sourceNode?.type === 'sticky' && sourceNode.data?.content) {
@@ -129,6 +167,17 @@ const GeneratorNodeComponent: React.FC<NodeProps<GeneratorNodeData>> = ({
       return;
     }
 
+    // Block if there is a connected link without extraction (preferred behavior)
+    const hasUnextractedUrl = attachments.some((a) => (a as any)?.analysis?.unextractedUrl);
+    if (hasUnextractedUrl) {
+      toast({
+        title: 'Extração pendente',
+        description: 'Extraia o link no anexo antes de gerar (para evitar conteúdo genérico).',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     // Start generation with step tracking
     data.onUpdateData?.({ isGenerating: true, generationStep: 'analyzing' });
 
@@ -145,15 +194,43 @@ const GeneratorNodeComponent: React.FC<NodeProps<GeneratorNodeData>> = ({
         const accessToken = sessionData?.session?.access_token;
         if (!accessToken) throw new Error('Usuário não autenticado');
 
+        const topic = data.topic?.trim();
+
         // GeneratorNode não tem o mesmo grafo rico do Canvas; aqui concatenamos inputs simples.
-        const request = attachments
+        const material = attachments
           .map((att) => {
             if (att.type === 'text') return att.content || '';
             if (att.type === 'image') return att.transcription || att.analysis || '';
-            return att.content || '';
+            // youtube/video/audio: prefer transcription when available
+            return (att.transcription as any) || (att.analysis as any) || att.content || '';
           })
           .filter(Boolean)
           .join('\n\n');
+
+        if (!material.trim()) {
+          toast({
+            title: 'Conteúdo vazio',
+            description: 'O anexo não tem texto/transcrição. Extraia o link ou adicione texto antes de gerar.',
+            variant: 'destructive',
+          });
+          data.onUpdateData?.({ isGenerating: false, generationStep: 'idle' });
+          return;
+        }
+
+        const requestParts: string[] = [];
+        if (topic) {
+          requestParts.push(
+            `Tema obrigatório:\n${topic}\n\nRegras de aderência:\n- O conteúdo precisa ser claramente sobre esse tema.\n- Se o material não sustentar o tema, diga isso explicitamente e peça a fonte correta.\n- Não invente dados/números; se não constar, use linguagem condicional.`
+          );
+        }
+        requestParts.push(`Material de referência (use como fonte principal):\n${material}`);
+        if (normalizeCanvasFormat(data.format) === 'carousel') {
+          requestParts.push('Estrutura: carrossel de 7–10 slides; 1 ideia por slide; gancho no slide 1; CTA no final.');
+        }
+        if ((data.platform || 'instagram') === 'twitter' && normalizeCanvasFormat(data.format) === 'thread') {
+          requestParts.push('Regras: cada tweet deve respeitar 280 caracteres.');
+        }
+        const request = requestParts.join('\n\n');
         const platform = data.platform || 'instagram';
 
         textResult = await generateCanvasText({
@@ -205,6 +282,7 @@ const GeneratorNodeComponent: React.FC<NodeProps<GeneratorNodeData>> = ({
             content: textResult || '',
             format: normalizeCanvasFormat(data.format),
             platform: data.platform || 'instagram',
+            topic: data.topic?.trim() || undefined,
           });
         } else {
           data.onCreateOutput({
@@ -213,6 +291,7 @@ const GeneratorNodeComponent: React.FC<NodeProps<GeneratorNodeData>> = ({
             imageUrl: imageResultUrl || '',
             format: 'image',
             platform: data.platform || 'instagram',
+            topic: data.topic?.trim() || undefined,
           });
         }
       }
@@ -355,6 +434,17 @@ const GeneratorNodeComponent: React.FC<NodeProps<GeneratorNodeData>> = ({
                 ))}
               </SelectContent>
             </Select>
+
+            <div className="space-y-1">
+              <Label className="text-xs">Tema/Objetivo (opcional)</Label>
+              <Input
+                value={data.topic || ''}
+                onChange={(e) => data.onUpdateData?.({ topic: e.target.value })}
+                placeholder='Ex.: "ETH em 100k"'
+                className="h-8 text-xs"
+                disabled={isGenerating}
+              />
+            </div>
 
             <Select 
               value={data.platform || 'instagram'} 

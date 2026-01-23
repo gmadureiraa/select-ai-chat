@@ -109,7 +109,7 @@ function ContentOutputNodeComponent({
 
   const validationIssues = useMemo(() => {
     if (data.isImage || !data.content) return [];
-    return validateContent({ format: data.format, platform: data.platform, content: data.content });
+    return validateContent({ format: data.format, platform: data.platform, content: data.content, topic: data.topic });
   }, [data.content, data.format, data.platform, data.isImage]);
 
   const handleCopy = () => {
@@ -503,6 +503,18 @@ function ContentOutputNodeComponent({
                     </div>
                   ))}
                 </div>
+                {validationIssues.some((x) => x.severity === "error" && x.code === "topic_missing") && (
+                  <div className="pt-1">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="w-full h-7 text-xs"
+                      onClick={() => onRegenerate?.(id)}
+                    >
+                      Regenerar com foco no tema
+                    </Button>
+                  </div>
+                )}
               </div>
             )}
 

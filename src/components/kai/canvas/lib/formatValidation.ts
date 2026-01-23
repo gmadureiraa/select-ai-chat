@@ -42,18 +42,64 @@ function getBlocks(format: ContentFormat, platform: Platform, content: string): 
   return [content];
 }
 
+export function extractTopicKeywords(topic: string): string[] {
+  const t = (topic || "").toLowerCase().trim();
+  if (!t) return [];
+
+  const keywords: string[] = [];
+
+  // ETH/Ethereum common forms
+  if (t.includes("eth") || t.includes("ethereum")) {
+    keywords.push("eth", "ethereum");
+  }
+
+  // Detect "100k / 100 mil / 100.000" patterns
+  if (/\b100k\b|\b100\s*k\b|\b100\s*mil\b|\b100\.000\b|\b100000\b/.test(t)) {
+    keywords.push("100k", "100 k", "100 mil", "100.000", "100000");
+  }
+
+  // Also include significant words from topic (avoid very short tokens)
+  // Keep ASCII-friendly tokenization for transformer compatibility.
+  const tokens = t
+    .replace(/[^a-z0-9\s]/gi, " ")
+    .split(/\s+/)
+    .map((x) => x.trim())
+    .filter((x) => x.length >= 4);
+
+  for (const tok of tokens) keywords.push(tok);
+
+  return Array.from(new Set(keywords));
+}
+
 export function validateContent(params: {
   format: ContentFormat;
   platform: Platform;
   content: string;
+  topic?: string;
 }): ValidationIssue[] {
   const { format, platform } = params;
   const content = (params.content || "").trim();
+  const topic = (params.topic || "").trim();
+
   const issues: ValidationIssue[] = [];
 
   if (!content) {
     issues.push({ severity: "error", code: "empty", message: "Conteúdo vazio." });
     return issues;
+  }
+
+  // Topic lock validation (must appear)
+  if (topic) {
+    const normalized = content.toLowerCase();
+    const keywords = extractTopicKeywords(topic);
+    const matched = keywords.some((k) => normalized.includes(k));
+    if (!matched) {
+      issues.push({
+        severity: "error",
+        code: "topic_missing",
+        message: `O conteúdo não menciona o tema obrigatório (“${topic}”).`,
+      });
+    }
   }
 
   // Platform limit (simple)
@@ -71,9 +117,17 @@ export function validateContent(params: {
   if (format === "carousel") {
     const count = blocks.length;
     if (count < 7) {
-      issues.push({ severity: "warn", code: "carousel_few_slides", message: `Carrossel com poucos slides (${count}). Recomendado: 7–10.` });
+      issues.push({
+        severity: "warn",
+        code: "carousel_few_slides",
+        message: `Carrossel com poucos slides (${count}). Recomendado: 7–10.`,
+      });
     } else if (count > 10) {
-      issues.push({ severity: "warn", code: "carousel_many_slides", message: `Carrossel com muitos slides (${count}). Recomendado: 7–10.` });
+      issues.push({
+        severity: "warn",
+        code: "carousel_many_slides",
+        message: `Carrossel com muitos slides (${count}). Recomendado: 7–10.`,
+      });
     }
   }
 
@@ -93,21 +147,48 @@ export function validateContent(params: {
 
   if (format === "reel_script") {
     const hasHook = /(^|\n)\s*(hook|gancho)\s*[:\-]/i.test(content);
-    const hasCTA = /(^|\n)\s*(cta|call to action)\s*[:\-]/i.test(content) || /\bcomente\b|\bsiga\b|\bclique\b/i.test(content);
-    if (!hasHook) issues.push({ severity: "info", code: "reels_missing_hook", message: "Sugestão: adicionar um HOOK/GANCHO no início." });
-    if (!hasCTA) issues.push({ severity: "info", code: "reels_missing_cta", message: "Sugestão: adicionar CTA (comente/siga/salve/compartilhe)." });
+    const hasCTA =
+      /(^|\n)\s*(cta|call to action)\s*[:\-]/i.test(content) ||
+      /\bcomente\b|\bsiga\b|\bclique\b/i.test(content);
+    if (!hasHook)
+      issues.push({
+        severity: "info",
+        code: "reels_missing_hook",
+        message: "Sugestão: adicionar um HOOK/GANCHO no início.",
+      });
+    if (!hasCTA)
+      issues.push({
+        severity: "info",
+        code: "reels_missing_cta",
+        message: "Sugestão: adicionar CTA (comente/siga/salve/compartilhe).",
+      });
   }
 
   if (format === "newsletter") {
     const hasSubject = /\bassunto\b/i.test(content) || /^#\s+/m.test(content);
-    if (!hasSubject) issues.push({ severity: "info", code: "newsletter_subject", message: "Sugestão: incluir Assunto/Headline." });
-    if (content.split(/\s+/).length < 250) issues.push({ severity: "info", code: "newsletter_short", message: "Sugestão: newsletter está curta; considere adicionar mais seções/contexto." });
+    if (!hasSubject)
+      issues.push({
+        severity: "info",
+        code: "newsletter_subject",
+        message: "Sugestão: incluir Assunto/Headline.",
+      });
+    if (content.split(/\s+/).length < 250)
+      issues.push({
+        severity: "info",
+        code: "newsletter_short",
+        message: "Sugestão: newsletter está curta; considere adicionar mais seções/contexto.",
+      });
   }
 
   if (platform === "linkedin") {
-    if (content.length < 600) issues.push({ severity: "info", code: "linkedin_length", message: "Sugestão: LinkedIn performa melhor com texto mais completo (ex.: 600+ chars) ou estrutura de artigo." });
+    if (content.length < 600)
+      issues.push({
+        severity: "info",
+        code: "linkedin_length",
+        message:
+          "Sugestão: LinkedIn performa melhor com texto mais completo (ex.: 600+ chars) ou estrutura de artigo.",
+      });
   }
 
   return issues;
 }
-
