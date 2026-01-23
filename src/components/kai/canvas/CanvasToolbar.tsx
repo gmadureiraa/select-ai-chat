@@ -1,4 +1,4 @@
-import { useEffect, useState, memo } from "react";
+import { useEffect, useMemo, useState, memo } from "react";
 import { 
   Paperclip, 
   Sparkles, 
@@ -11,10 +11,6 @@ import {
   Loader2, 
   X, 
   Pencil, 
-  LayoutTemplate, 
-  Smartphone, 
-  Briefcase, 
-  RefreshCw, 
   Library, 
   Check, 
   Cloud, 
@@ -39,6 +35,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Input } from "@/components/ui/input";
 import { SavedCanvas } from "./hooks/useCanvasState";
 import { cn } from "@/lib/utils";
+import { CANVAS_TEMPLATES } from "./lib/canvasTemplates";
 
 export type CanvasTemplate = 
   | "carousel_from_url" 
@@ -67,103 +64,11 @@ export type ToolType =
 
 export type ShapeType = "rectangle" | "circle" | "diamond" | "arrow";
 
-// Quick template presets - pre-connected node configurations
-export interface QuickTemplate {
-  id: string;
-  icon: string;
-  label: string;
-  description: string;
-  nodes: Array<{
-    type: 'attachment' | 'generator';
-    data?: Record<string, unknown>;
-    offset: { x: number; y: number };
-  }>;
-}
-
-export const QUICK_TEMPLATES: QuickTemplate[] = [
-  {
-    id: 'post_feed',
-    icon: '📱',
-    label: 'Post Feed',
-    description: 'Anexo + Gerador de texto',
-    nodes: [
-      { type: 'attachment', offset: { x: 0, y: 0 } },
-      { type: 'generator', data: { type: 'text', format: 'post', platform: 'instagram' }, offset: { x: 350, y: 0 } },
-    ],
-  },
-  {
-    id: 'story_reels',
-    icon: '🎬',
-    label: 'Story/Reels',
-    description: 'Vídeo/Áudio + Gerador de imagem vertical',
-    nodes: [
-      { type: 'attachment', offset: { x: 0, y: 0 } },
-      { type: 'generator', data: { type: 'image', aspectRatio: '9:16', noText: true }, offset: { x: 350, y: 0 } },
-    ],
-  },
-  {
-    id: 'carrossel',
-    icon: '🎠',
-    label: 'Carrossel',
-    description: 'Texto + Gerador carrossel',
-    nodes: [
-      { type: 'attachment', offset: { x: 0, y: 0 } },
-      { type: 'generator', data: { type: 'text', format: 'carousel', platform: 'instagram' }, offset: { x: 350, y: 0 } },
-    ],
-  },
-  {
-    id: 'thread_twitter',
-    icon: '🧵',
-    label: 'Thread',
-    description: 'URL/Texto + Thread Twitter',
-    nodes: [
-      { type: 'attachment', offset: { x: 0, y: 0 } },
-      { type: 'generator', data: { type: 'text', format: 'thread', platform: 'twitter' }, offset: { x: 350, y: 0 } },
-    ],
-  },
-  {
-    id: 'tweet_single',
-    icon: '🐦',
-    label: 'Tweet',
-    description: 'URL/Texto + Tweet (1 post)',
-    nodes: [
-      { type: 'attachment', offset: { x: 0, y: 0 } },
-      { type: 'generator', data: { type: 'text', format: 'post', platform: 'twitter' }, offset: { x: 350, y: 0 } },
-    ],
-  },
-  {
-    id: 'reels_script',
-    icon: '🎬',
-    label: 'Roteiro Reels',
-    description: 'Texto + roteiro (gancho/cenas/CTA)',
-    nodes: [
-      { type: 'attachment', offset: { x: 0, y: 0 } },
-      { type: 'generator', data: { type: 'text', format: 'reel_script', platform: 'instagram' }, offset: { x: 350, y: 0 } },
-    ],
-  },
-  {
-    id: 'linkedin_post',
-    icon: '💼',
-    label: 'Post LinkedIn',
-    description: 'Anexo + Gerador LinkedIn',
-    nodes: [
-      { type: 'attachment', offset: { x: 0, y: 0 } },
-      { type: 'generator', data: { type: 'text', format: 'post', platform: 'linkedin' }, offset: { x: 350, y: 0 } },
-    ],
-  },
-  {
-    id: 'image_square',
-    icon: '🖼️',
-    label: 'Imagem 1:1',
-    description: 'Referência + Gerador imagem quadrada',
-    nodes: [
-      { type: 'attachment', offset: { x: 0, y: 0 } },
-      { type: 'generator', data: { type: 'image', aspectRatio: '1:1', noText: true }, offset: { x: 350, y: 0 } },
-    ],
-  },
-];
+export type CanvasMode = "basic" | "advanced";
 
 interface CanvasToolbarProps {
+  canvasMode?: CanvasMode;
+  onCanvasModeChange?: (mode: CanvasMode) => void;
   onAddNode: (type: "attachment" | "generator" | "chat") => void;
   onClear: () => void;
   onZoomIn: () => void;
@@ -171,7 +76,6 @@ interface CanvasToolbarProps {
   onFitView: () => void;
   onLoadTemplate?: (templateId: CanvasTemplate) => void;
   onOpenLibrary?: () => void;
-  onLoadQuickTemplate?: (template: QuickTemplate) => void;
   // Canvas persistence
   currentCanvasName?: string;
   setCanvasName?: (name: string) => void;
@@ -196,40 +100,14 @@ interface CanvasToolbarProps {
   onClearDrawings: () => void;
 }
 
-interface TemplateCategory {
-  category: string;
-  templates: { id: CanvasTemplate; icon: string; label: string; description: string }[];
-}
-
-const TEMPLATE_CATEGORIES: TemplateCategory[] = [
-  {
-    category: "Redes Sociais",
-    templates: [
-      { id: "carousel_from_url", icon: "🎠", label: "Carrossel de URL", description: "Transforme conteúdo em carrossel" },
-      { id: "tweet_single", icon: "🐦", label: "Tweet (1 post)", description: "Um tweet direto e forte" },
-      { id: "thread_from_url", icon: "🧵", label: "Thread de URL", description: "Thread a partir de artigo/link" },
-      { id: "thread_from_video", icon: "🧵", label: "Thread de Vídeo", description: "Crie thread viral de vídeo" },
-      { id: "story_sequence", icon: "📖", label: "Sequência de Stories", description: "5 stories em sequência" },
-      { id: "reel_script", icon: "🎬", label: "Roteiro de Reel", description: "Script para vídeo curto" },
-    ]
-  },
-  {
-    category: "Profissional",
-    templates: [
-      { id: "linkedin_article", icon: "💼", label: "Artigo LinkedIn", description: "Post profissional" },
-      { id: "newsletter_curated", icon: "📧", label: "Newsletter Curada", description: "Compile fontes em newsletter" },
-      { id: "weekly_summary", icon: "📋", label: "Resumo Semanal", description: "Curadoria de 3 fontes" },
-    ]
-  },
-  {
-    category: "Repurpose",
-    templates: [
-      { id: "creator_suite", icon: "✨", label: "Creator Suite", description: "1 fonte → Carrossel + Reels + Thread + LinkedIn + Newsletter" },
-      { id: "repurpose_blog", icon: "🔄", label: "Repurpose de Blog", description: "Blog → Carrossel + Thread" },
-      { id: "podcast_highlights", icon: "🎙️", label: "Destaques de Podcast", description: "Áudio → Thread" },
-      { id: "image_series", icon: "🖼️", label: "Série de Imagens", description: "Gere imagem com IA" },
-    ]
-  },
+const POLISHED_TEMPLATE_IDS: CanvasTemplate[] = [
+  "carousel_from_url",
+  "reel_script",
+  "thread_from_url",
+  "tweet_single",
+  "linkedin_article",
+  "newsletter_curated",
+  "creator_suite",
 ];
 
 const BRUSH_COLORS = [
@@ -249,6 +127,8 @@ const STICKY_COLORS = [
 ];
 
 function CanvasToolbarComponent({
+  canvasMode = "basic",
+  onCanvasModeChange,
   onAddNode,
   onClear,
   onZoomIn,
@@ -256,7 +136,6 @@ function CanvasToolbarComponent({
   onFitView,
   onLoadTemplate,
   onOpenLibrary,
-  onLoadQuickTemplate,
   currentCanvasName = "Novo Canvas",
   setCanvasName,
   onSave,
@@ -280,6 +159,11 @@ function CanvasToolbarComponent({
 }: CanvasToolbarProps) {
   const [canvasName, setLocalCanvasName] = useState(currentCanvasName);
   const [isEditing, setIsEditing] = useState(false);
+
+  const polishedTemplates = useMemo(() => {
+    const allowed = new Set(POLISHED_TEMPLATE_IDS);
+    return CANVAS_TEMPLATES.filter((t) => allowed.has(t.id));
+  }, []);
 
   useEffect(() => {
     setLocalCanvasName(currentCanvasName);
@@ -367,6 +251,28 @@ function CanvasToolbarComponent({
   return (
     <TooltipProvider delayDuration={300}>
       <div className="absolute top-14 left-1/2 -translate-x-1/2 z-10 flex items-center gap-0.5 px-2 py-1.5 rounded-lg bg-background/95 backdrop-blur border shadow-lg">
+        {/* Mode toggle */}
+        <div className="flex items-center gap-1 mr-1">
+          <Button
+            variant={canvasMode === "basic" ? "default" : "outline"}
+            size="sm"
+            className="h-7 text-[11px] px-2"
+            onClick={() => onCanvasModeChange?.("basic")}
+            title="Modo básico (recomendado)"
+          >
+            Básico
+          </Button>
+          <Button
+            variant={canvasMode === "advanced" ? "default" : "outline"}
+            size="sm"
+            className="h-7 text-[11px] px-2"
+            onClick={() => onCanvasModeChange?.("advanced")}
+            title="Modo avançado (whiteboard + chat)"
+          >
+            Avançado
+          </Button>
+        </div>
+
         {/* Canvas name */}
         <div className="flex items-center gap-1 mr-1">
           {isEditing ? (
@@ -392,9 +298,10 @@ function CanvasToolbarComponent({
 
         <Separator orientation="vertical" className="h-6 mx-1" />
 
-        {/* Whiteboard Tools */}
-        <div className="flex items-center gap-0.5">
-          {tools.map((tool) => {
+        {/* Whiteboard Tools (advanced only) */}
+        {canvasMode === "advanced" && (
+          <div className="flex items-center gap-0.5">
+            {tools.map((tool) => {
             const Icon = tool.icon;
             const isActive = activeTool === tool.type;
             
@@ -569,28 +476,29 @@ function CanvasToolbarComponent({
               );
             }
 
-            return (
-              <Tooltip key={tool.type}>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant={isActive ? "default" : "ghost"}
-                    size="icon"
-                    className={cn("h-8 w-8", isActive && "bg-primary text-primary-foreground")}
-                    onClick={() => onToolChange(tool.type)}
-                  >
-                    <Icon size={16} />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" className="flex items-center gap-2">
-                  {tool.label}
-                  <kbd className="text-[10px] bg-muted px-1 rounded">{tool.shortcut}</kbd>
-                </TooltipContent>
-              </Tooltip>
-            );
-          })}
-        </div>
+              return (
+                <Tooltip key={tool.type}>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant={isActive ? "default" : "ghost"}
+                      size="icon"
+                      className={cn("h-8 w-8", isActive && "bg-primary text-primary-foreground")}
+                      onClick={() => onToolChange(tool.type)}
+                    >
+                      <Icon size={16} />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="flex items-center gap-2">
+                    {tool.label}
+                    <kbd className="text-[10px] bg-muted px-1 rounded">{tool.shortcut}</kbd>
+                  </TooltipContent>
+                </Tooltip>
+              );
+            })}
+          </div>
+        )}
 
-        <Separator orientation="vertical" className="h-6 mx-1" />
+        {canvasMode === "advanced" && <Separator orientation="vertical" className="h-6 mx-1" />}
 
         {/* Simplified AI Nodes - Only Attachment and Generator */}
         <Tooltip>
@@ -627,26 +535,28 @@ function CanvasToolbarComponent({
           <TooltipContent side="bottom">Gerar texto ou imagem com IA</TooltipContent>
         </Tooltip>
 
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => onAddNode("chat")}
-              className="h-8 gap-1.5 text-xs hover:bg-violet-50 hover:text-violet-600 dark:hover:bg-violet-950"
-            >
-              <div className="h-5 w-5 rounded bg-gradient-to-br from-violet-500 to-purple-500 flex items-center justify-center">
-                <MessageSquare className="h-3 w-3 text-white" />
-              </div>
-              <span className="hidden md:inline font-medium">Chat</span>
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="bottom">Conversar sobre um material conectado</TooltipContent>
-        </Tooltip>
+        {canvasMode === "advanced" && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onAddNode("chat")}
+                className="h-8 gap-1.5 text-xs hover:bg-violet-50 hover:text-violet-600 dark:hover:bg-violet-950"
+              >
+                <div className="h-5 w-5 rounded bg-gradient-to-br from-violet-500 to-purple-500 flex items-center justify-center">
+                  <MessageSquare className="h-3 w-3 text-white" />
+                </div>
+                <span className="hidden md:inline font-medium">Chat</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">Conversar sobre um material conectado</TooltipContent>
+          </Tooltip>
+        )}
 
         <Separator orientation="vertical" className="h-6 mx-1" />
 
-        {/* Quick Templates - pre-connected presets */}
+        {/* Templates (single list) */}
         <DropdownMenu>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -659,20 +569,20 @@ function CanvasToolbarComponent({
                   <div className="h-5 w-5 rounded bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center">
                     <Sparkles className="h-3 w-3 text-white" />
                   </div>
-                  <span className="hidden lg:inline font-medium">Rápido</span>
+                  <span className="hidden lg:inline font-medium">Templates</span>
                 </Button>
               </DropdownMenuTrigger>
             </TooltipTrigger>
-            <TooltipContent side="bottom">Templates rápidos pré-configurados</TooltipContent>
+            <TooltipContent side="bottom">Templates essenciais</TooltipContent>
           </Tooltip>
           <DropdownMenuContent align="center" className="w-64">
             <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
               Criar estrutura pronta
             </div>
-            {QUICK_TEMPLATES.map((template) => (
+            {polishedTemplates.map((template) => (
               <DropdownMenuItem 
                 key={template.id}
-                onClick={() => onLoadQuickTemplate?.(template)}
+                onClick={() => onLoadTemplate?.(template.id)}
                 className="flex items-start gap-3 py-2 cursor-pointer"
               >
                 <span className="text-lg">{template.icon}</span>
@@ -686,59 +596,23 @@ function CanvasToolbarComponent({
         </DropdownMenu>
 
         {/* Library, Templates, Save/Load */}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={onOpenLibrary}
-              className="h-8 w-8 hover:bg-purple-50 hover:text-purple-600 dark:hover:bg-purple-950"
-            >
-              <Library size={16} />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="bottom">Biblioteca</TooltipContent>
-        </Tooltip>
-
-        {/* Templates dropdown */}
-        <DropdownMenu>
+        {canvasMode === "advanced" && (
           <Tooltip>
             <TooltipTrigger asChild>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8">
-                  <LayoutTemplate size={16} />
-                </Button>
-              </DropdownMenuTrigger>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onOpenLibrary}
+                className="h-8 w-8 hover:bg-purple-50 hover:text-purple-600 dark:hover:bg-purple-950"
+              >
+                <Library size={16} />
+              </Button>
             </TooltipTrigger>
-            <TooltipContent side="bottom">Templates</TooltipContent>
+            <TooltipContent side="bottom">Biblioteca</TooltipContent>
           </Tooltip>
-          <DropdownMenuContent align="center" className="w-72 max-h-[400px] overflow-y-auto">
-            {TEMPLATE_CATEGORIES.map((category, idx) => (
-              <div key={category.category}>
-                {idx > 0 && <DropdownMenuSeparator />}
-                <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground flex items-center gap-2">
-                  {category.category === "Redes Sociais" && <Smartphone className="h-3.5 w-3.5" />}
-                  {category.category === "Profissional" && <Briefcase className="h-3.5 w-3.5" />}
-                  {category.category === "Repurpose" && <RefreshCw className="h-3.5 w-3.5" />}
-                  {category.category}
-                </div>
-                {category.templates.map((template) => (
-                  <DropdownMenuItem 
-                    key={template.id}
-                    onClick={() => onLoadTemplate?.(template.id)}
-                    className="flex items-start gap-3 py-2 cursor-pointer"
-                  >
-                    <span className="text-lg">{template.icon}</span>
-                    <div className="flex flex-col">
-                      <span className="font-medium text-sm">{template.label}</span>
-                      <span className="text-xs text-muted-foreground">{template.description}</span>
-                    </div>
-                  </DropdownMenuItem>
-                ))}
-              </div>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
+        )}
+
+        {/* Templates dropdown removed (deduplicated) */}
 
         <Separator orientation="vertical" className="h-6 mx-1" />
 

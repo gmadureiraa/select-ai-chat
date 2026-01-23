@@ -10,6 +10,7 @@ import { useCanvasPersistence } from "./useCanvasPersistence";
 import { generateCanvasText } from "../lib/canvasTextGeneration";
 import { logger } from "@/lib/logger";
 import { clampText, sanitizeReferenceText } from "../lib/referenceSanitizer";
+import { getCanvasTemplate } from "../lib/canvasTemplates";
 
 // Helper to convert blob URL to base64 data URL
 async function blobUrlToBase64(blobUrl: string): Promise<string> {
@@ -283,6 +284,8 @@ export interface ImageSourceNodeData {
 export interface AttachmentNodeData {
   type: "attachment";
   activeTab: "link" | "text" | "file" | "image";
+  // Optional UI payload for the AttachmentNode component (kept for backwards compatibility)
+  output?: any;
   // Link tab
   url?: string;
   urlType?: "youtube" | "article" | "instagram";
@@ -1882,197 +1885,11 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
   // Load template - pre-configured canvas flows using NEW unified node architecture
   const loadTemplate = useCallback((templateId: string) => {
     clearCanvas();
-    
-    // All templates now use the unified node architecture:
-    // - "attachment" replaces "source", "library", and "image-source"
-    // - "prompt" for instructions
-    // - "generator" for content generation
-    // - "output" for results
-    const templates: Record<string, { nodes: any[]; edges: any[]; name: string }> = {
-      carousel_from_url: {
-        name: "Carrossel de URL",
-        nodes: [
-          { id: "attachment-t1", type: "attachment", position: { x: 100, y: 150 }, data: { type: "attachment", activeTab: "link", url: "", files: [], images: [] } },
-          { id: "prompt-t1", type: "prompt", position: { x: 100, y: 350 }, data: { type: "prompt", briefing: "Transforme este conteúdo em um carrossel de 7-10 slides para Instagram" } },
-          { id: "generator-t1", type: "generator", position: { x: 450, y: 250 }, data: { type: "generator", format: "carousel", platform: "instagram", isGenerating: false, quantity: 1 } },
-        ],
-        edges: [
-          { id: "e1", source: "attachment-t1", target: "generator-t1", sourceHandle: "output", targetHandle: "input-1" },
-          { id: "e2", source: "prompt-t1", target: "generator-t1", sourceHandle: "output", targetHandle: "input-2" },
-        ]
-      },
-      tweet_single: {
-        name: "Tweet (1 post)",
-        nodes: [
-          { id: "attachment-t1", type: "attachment", position: { x: 100, y: 150 }, data: { type: "attachment", activeTab: "link", url: "", files: [], images: [] } },
-          { id: "prompt-t1", type: "prompt", position: { x: 100, y: 350 }, data: { type: "prompt", briefing: "Escreva 1 tweet (máx. 280 caracteres) com gancho forte, clareza e CTA leve." } },
-          { id: "generator-t1", type: "generator", position: { x: 450, y: 250 }, data: { type: "generator", format: "post", platform: "twitter", isGenerating: false, quantity: 1 } },
-        ],
-        edges: [
-          { id: "e1", source: "attachment-t1", target: "generator-t1", sourceHandle: "output", targetHandle: "input-1" },
-          { id: "e2", source: "prompt-t1", target: "generator-t1", sourceHandle: "output", targetHandle: "input-2" },
-        ]
-      },
-      thread_from_url: {
-        name: "Thread de URL",
-        nodes: [
-          { id: "attachment-t1", type: "attachment", position: { x: 100, y: 150 }, data: { type: "attachment", activeTab: "link", url: "", files: [], images: [] } },
-          { id: "prompt-t1", type: "prompt", position: { x: 100, y: 350 }, data: { type: "prompt", briefing: "Crie uma thread com 7-12 tweets, cada um com até 280 caracteres, com progressão clara e CTA no final." } },
-          { id: "generator-t1", type: "generator", position: { x: 450, y: 250 }, data: { type: "generator", format: "thread", platform: "twitter", isGenerating: false, quantity: 1 } },
-        ],
-        edges: [
-          { id: "e1", source: "attachment-t1", target: "generator-t1", sourceHandle: "output", targetHandle: "input-1" },
-          { id: "e2", source: "prompt-t1", target: "generator-t1", sourceHandle: "output", targetHandle: "input-2" },
-        ]
-      },
-      thread_from_video: {
-        name: "Thread de Vídeo",
-        nodes: [
-          { id: "attachment-t1", type: "attachment", position: { x: 100, y: 200 }, data: { type: "attachment", activeTab: "file", files: [], images: [] } },
-          { id: "prompt-t1", type: "prompt", position: { x: 100, y: 400 }, data: { type: "prompt", briefing: "Crie uma thread viral com os principais insights deste vídeo" } },
-          { id: "generator-t1", type: "generator", position: { x: 450, y: 300 }, data: { type: "generator", format: "thread", platform: "twitter", isGenerating: false, quantity: 1 } },
-        ],
-        edges: [
-          { id: "e1", source: "attachment-t1", target: "generator-t1", sourceHandle: "output", targetHandle: "input-1" },
-          { id: "e2", source: "prompt-t1", target: "generator-t1", sourceHandle: "output", targetHandle: "input-2" },
-        ]
-      },
-      newsletter_curated: {
-        name: "Newsletter Curada",
-        nodes: [
-          { id: "attachment-t1", type: "attachment", position: { x: 100, y: 100 }, data: { type: "attachment", activeTab: "link", url: "", files: [], images: [] } },
-          { id: "attachment-t2", type: "attachment", position: { x: 100, y: 300 }, data: { type: "attachment", activeTab: "link", url: "", files: [], images: [] } },
-          { id: "prompt-t1", type: "prompt", position: { x: 100, y: 500 }, data: { type: "prompt", briefing: "Compile estas fontes em uma newsletter com curadoria e análise" } },
-          { id: "generator-t1", type: "generator", position: { x: 450, y: 300 }, data: { type: "generator", format: "newsletter", platform: "other", isGenerating: false, quantity: 1 } },
-        ],
-        edges: [
-          { id: "e1", source: "attachment-t1", target: "generator-t1", sourceHandle: "output", targetHandle: "input-1" },
-          { id: "e2", source: "attachment-t2", target: "generator-t1", sourceHandle: "output", targetHandle: "input-2" },
-          { id: "e3", source: "prompt-t1", target: "generator-t1", sourceHandle: "output", targetHandle: "input-3" },
-        ]
-      },
-      reel_script: {
-        name: "Roteiro de Reel",
-        nodes: [
-          { id: "attachment-t1", type: "attachment", position: { x: 100, y: 150 }, data: { type: "attachment", activeTab: "text", textContent: "", files: [], images: [] } },
-          { id: "attachment-t2", type: "attachment", position: { x: 100, y: 350 }, data: { type: "attachment", activeTab: "text", textContent: "", files: [], images: [] } },
-          { id: "generator-t1", type: "generator", position: { x: 450, y: 250 }, data: { type: "generator", format: "reel_script", platform: "instagram", isGenerating: false, quantity: 1 } },
-        ],
-        edges: [
-          { id: "e1", source: "attachment-t1", target: "generator-t1", sourceHandle: "output", targetHandle: "input-1" },
-          { id: "e2", source: "attachment-t2", target: "generator-t1", sourceHandle: "output", targetHandle: "input-2" },
-        ]
-      },
-      image_series: {
-        name: "Série de Imagens",
-        nodes: [
-          { id: "attachment-t1", type: "attachment", position: { x: 100, y: 150 }, data: { type: "attachment", activeTab: "image", files: [], images: [] } },
-          { id: "prompt-t1", type: "prompt", position: { x: 100, y: 350 }, data: { type: "prompt", briefing: "Descreva o estilo visual desejado" } },
-          { id: "generator-t1", type: "generator", position: { x: 450, y: 250 }, data: { type: "generator", format: "image", platform: "instagram", isGenerating: false, imageStyle: "photographic", aspectRatio: "1:1", quantity: 3 } },
-        ],
-        edges: [
-          { id: "e1", source: "attachment-t1", target: "generator-t1", sourceHandle: "output", targetHandle: "input-1" },
-          { id: "e2", source: "prompt-t1", target: "generator-t1", sourceHandle: "output", targetHandle: "input-2" },
-        ]
-      },
-      linkedin_article: {
-        name: "Artigo LinkedIn",
-        nodes: [
-          { id: "attachment-t1", type: "attachment", position: { x: 100, y: 150 }, data: { type: "attachment", activeTab: "link", url: "", files: [], images: [] } },
-          { id: "prompt-t1", type: "prompt", position: { x: 100, y: 350 }, data: { type: "prompt", briefing: "Transforme em um artigo profissional para LinkedIn com insights acionáveis" } },
-          { id: "generator-t1", type: "generator", position: { x: 450, y: 250 }, data: { type: "generator", format: "post", platform: "linkedin", isGenerating: false, quantity: 1 } },
-        ],
-        edges: [
-          { id: "e1", source: "attachment-t1", target: "generator-t1", sourceHandle: "output", targetHandle: "input-1" },
-          { id: "e2", source: "prompt-t1", target: "generator-t1", sourceHandle: "output", targetHandle: "input-2" },
-        ]
-      },
-      podcast_highlights: {
-        name: "Destaques de Podcast",
-        nodes: [
-          { id: "attachment-t1", type: "attachment", position: { x: 100, y: 150 }, data: { type: "attachment", activeTab: "file", files: [], images: [] } },
-          { id: "prompt-t1", type: "prompt", position: { x: 100, y: 350 }, data: { type: "prompt", briefing: "Extraia os 5 principais insights deste áudio para uma thread" } },
-          { id: "generator-t1", type: "generator", position: { x: 450, y: 250 }, data: { type: "generator", format: "thread", platform: "twitter", isGenerating: false, quantity: 1 } },
-        ],
-        edges: [
-          { id: "e1", source: "attachment-t1", target: "generator-t1", sourceHandle: "output", targetHandle: "input-1" },
-          { id: "e2", source: "prompt-t1", target: "generator-t1", sourceHandle: "output", targetHandle: "input-2" },
-        ]
-      },
-      story_sequence: {
-        name: "Sequência de Stories",
-        nodes: [
-          { id: "attachment-t1", type: "attachment", position: { x: 100, y: 150 }, data: { type: "attachment", activeTab: "text", textContent: "", files: [], images: [] } },
-          { id: "attachment-t2", type: "attachment", position: { x: 100, y: 350 }, data: { type: "attachment", activeTab: "text", textContent: "", files: [], images: [] } },
-          { id: "generator-t1", type: "generator", position: { x: 450, y: 250 }, data: { type: "generator", format: "stories", platform: "instagram", isGenerating: false, quantity: 5 } },
-        ],
-        edges: [
-          { id: "e1", source: "attachment-t1", target: "generator-t1", sourceHandle: "output", targetHandle: "input-1" },
-          { id: "e2", source: "attachment-t2", target: "generator-t1", sourceHandle: "output", targetHandle: "input-2" },
-        ]
-      },
-      repurpose_blog: {
-        name: "Repurpose de Blog",
-        nodes: [
-          { id: "attachment-t1", type: "attachment", position: { x: 100, y: 200 }, data: { type: "attachment", activeTab: "link", url: "", files: [], images: [] } },
-          { id: "generator-t1", type: "generator", position: { x: 450, y: 100 }, data: { type: "generator", format: "carousel", platform: "instagram", isGenerating: false, quantity: 1 } },
-          { id: "generator-t2", type: "generator", position: { x: 450, y: 300 }, data: { type: "generator", format: "thread", platform: "twitter", isGenerating: false, quantity: 1 } },
-        ],
-        edges: [
-          { id: "e1", source: "attachment-t1", target: "generator-t1", sourceHandle: "output", targetHandle: "input-1" },
-          { id: "e2", source: "attachment-t1", target: "generator-t2", sourceHandle: "output", targetHandle: "input-1" },
-        ]
-      },
-      weekly_summary: {
-        name: "Resumo Semanal",
-        nodes: [
-          { id: "attachment-t1", type: "attachment", position: { x: 100, y: 50 }, data: { type: "attachment", activeTab: "link", url: "", files: [], images: [] } },
-          { id: "attachment-t2", type: "attachment", position: { x: 100, y: 200 }, data: { type: "attachment", activeTab: "link", url: "", files: [], images: [] } },
-          { id: "attachment-t3", type: "attachment", position: { x: 100, y: 350 }, data: { type: "attachment", activeTab: "link", url: "", files: [], images: [] } },
-          { id: "prompt-t1", type: "prompt", position: { x: 100, y: 500 }, data: { type: "prompt", briefing: "Crie um resumo semanal compilando todas essas fontes em uma newsletter" } },
-          { id: "generator-t1", type: "generator", position: { x: 500, y: 275 }, data: { type: "generator", format: "newsletter", platform: "other", isGenerating: false, quantity: 1 } },
-        ],
-        edges: [
-          { id: "e1", source: "attachment-t1", target: "generator-t1", sourceHandle: "output", targetHandle: "input-1" },
-          { id: "e2", source: "attachment-t2", target: "generator-t1", sourceHandle: "output", targetHandle: "input-2" },
-          { id: "e3", source: "attachment-t3", target: "generator-t1", sourceHandle: "output", targetHandle: "input-3" },
-          { id: "e4", source: "prompt-t1", target: "generator-t1", sourceHandle: "output", targetHandle: "input-4" },
-        ]
-      },
-      creator_suite: {
-        name: "Creator Suite",
-        nodes: [
-          { id: "attachment-t1", type: "attachment", position: { x: 100, y: 220 }, data: { type: "attachment", activeTab: "link", url: "", files: [], images: [] } },
-          { id: "prompt-t1", type: "prompt", position: { x: 100, y: 420 }, data: { type: "prompt", briefing: "Use a fonte como base e gere peças consistentes entre si (mesma tese/ângulo), variando apenas linguagem por canal. Priorize clareza, estrutura e CTA." } },
-
-          { id: "generator-carousel", type: "generator", position: { x: 520, y: 60 }, data: { type: "generator", format: "carousel", platform: "instagram", isGenerating: false, quantity: 1 } },
-          { id: "generator-reels", type: "generator", position: { x: 520, y: 220 }, data: { type: "generator", format: "reel_script", platform: "instagram", isGenerating: false, quantity: 1 } },
-          { id: "generator-thread", type: "generator", position: { x: 520, y: 380 }, data: { type: "generator", format: "thread", platform: "twitter", isGenerating: false, quantity: 1 } },
-          { id: "generator-linkedin", type: "generator", position: { x: 520, y: 540 }, data: { type: "generator", format: "post", platform: "linkedin", isGenerating: false, quantity: 1 } },
-          { id: "generator-newsletter", type: "generator", position: { x: 520, y: 700 }, data: { type: "generator", format: "newsletter", platform: "other", isGenerating: false, quantity: 1 } },
-        ],
-        edges: [
-          { id: "e1", source: "attachment-t1", target: "generator-carousel", sourceHandle: "output", targetHandle: "input-1" },
-          { id: "e2", source: "attachment-t1", target: "generator-reels", sourceHandle: "output", targetHandle: "input-1" },
-          { id: "e3", source: "attachment-t1", target: "generator-thread", sourceHandle: "output", targetHandle: "input-1" },
-          { id: "e4", source: "attachment-t1", target: "generator-linkedin", sourceHandle: "output", targetHandle: "input-1" },
-          { id: "e5", source: "attachment-t1", target: "generator-newsletter", sourceHandle: "output", targetHandle: "input-1" },
-
-          { id: "e6", source: "prompt-t1", target: "generator-carousel", sourceHandle: "output", targetHandle: "input-2" },
-          { id: "e7", source: "prompt-t1", target: "generator-reels", sourceHandle: "output", targetHandle: "input-2" },
-          { id: "e8", source: "prompt-t1", target: "generator-thread", sourceHandle: "output", targetHandle: "input-2" },
-          { id: "e9", source: "prompt-t1", target: "generator-linkedin", sourceHandle: "output", targetHandle: "input-2" },
-          { id: "e10", source: "prompt-t1", target: "generator-newsletter", sourceHandle: "output", targetHandle: "input-2" },
-        ]
-      },
-    };
-
-    const template = templates[templateId];
-    if (template) {
+    const template = getCanvasTemplate(templateId as any);
+    if (!template) return;
       setNodes(template.nodes);
       setEdges(template.edges);
-      setCanvasName(template.name);
-    }
+    setCanvasName(template.name);
   }, [clearCanvas, setCanvasName]);
 
   return {

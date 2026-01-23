@@ -283,6 +283,11 @@ function ContentOutputNodeComponent({
             <Badge variant="outline" className="text-[10px] h-5">
               {PLATFORM_LABELS[data.platform]}
             </Badge>
+            {data.topic && (
+              <Badge variant="outline" className="text-[10px] h-5">
+                Tema: {data.topic}
+              </Badge>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-1">

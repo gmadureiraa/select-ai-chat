@@ -20,7 +20,7 @@ import {
   OutputNodeData,
   ContentFormat,
 } from "./hooks/useCanvasState";
-import { CanvasToolbar, ToolType, ShapeType, QuickTemplate } from "./CanvasToolbar";
+import { CanvasToolbar, ToolType, ShapeType, CanvasMode } from "./CanvasToolbar";
 import { CanvasLibraryDrawer } from "./CanvasLibraryDrawer";
 import { AttachmentNode, AttachmentNodeData } from "./nodes/AttachmentNode";
 import { GeneratorNode, GeneratorNodeData } from "./nodes/GeneratorNode";
@@ -80,6 +80,17 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
   const [drawingStrokes, setDrawingStrokes] = useState<DrawingStroke[]>([]);
   const [contextMenuPosition, setContextMenuPosition] = useState<{ x: number; y: number } | null>(null);
   const [canvasViewport, setCanvasViewport] = useState({ x: 0, y: 0, zoom: 1 });
+  const [canvasMode, setCanvasMode] = useState<CanvasMode>(() => {
+    const saved = localStorage.getItem("kai_canvas_mode");
+    return saved === "advanced" ? "advanced" : "basic";
+  });
+
+  useEffect(() => {
+    localStorage.setItem("kai_canvas_mode", canvasMode);
+    if (canvasMode === "basic") {
+      setActiveTool("cursor");
+    }
+  }, [canvasMode]);
 
   // Keyboard shortcuts
   useCanvasShortcuts({
@@ -113,6 +124,7 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
     addNode,
     updateNodeData,
     deleteNode,
+    generateContent,
     regenerateContent,
     clearCanvas,
     saveCanvas,
@@ -196,6 +208,7 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
     clientId: string;
     updateNodeData: typeof updateNodeData;
     deleteNode: typeof deleteNode;
+    generateContent: typeof generateContent;
     regenerateContent: typeof regenerateContent;
     handleOpenPlanningDialog: typeof handleOpenPlanningDialog;
     handleCreateOutput: (generatorNodeId: string, data: { type: 'text' | 'image'; content: string; imageUrl?: string; format: string; platform: string }) => void;
@@ -246,6 +259,7 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
     clientId,
     updateNodeData,
     deleteNode,
+    generateContent,
     regenerateContent,
     handleOpenPlanningDialog,
     handleCreateOutput,
@@ -471,27 +485,24 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
       const centerX = (window.innerWidth / 2 - viewport.x) / viewport.zoom;
       const centerY = (window.innerHeight / 2 - viewport.y) / viewport.zoom;
       const offset = nodes.length * 20;
-      
-      const nodeId = `${type}-${Date.now()}`;
-      let defaultData: Record<string, unknown> = {};
-      
-      if (type === "attachment") {
-        defaultData = { output: undefined };
-      } else if (type === "generator") {
-        defaultData = { type: "text" as const, format: "post", platform: "instagram" };
-      } else if (type === "chat") {
-        defaultData = { messages: [], clientId };
+
+      // Use the unified addNode for attachment/generator to ensure a single data contract.
+      if (type === "attachment" || type === "generator") {
+        addNode(type, { x: centerX + offset, y: centerY + offset });
+        return;
       }
-      
+
+      // Chat is still created locally (separate data model)
+      const nodeId = `${type}-${Date.now()}`;
       const newNode: RFNode = {
         id: nodeId,
         type,
         position: { x: centerX + offset, y: centerY + offset },
-        data: defaultData,
+        data: { messages: [], clientId },
       };
       onNodesChange([{ type: "add", item: newNode }] as any);
     },
-    [getViewport, nodes.length, onNodesChange, clientId]
+    [getViewport, nodes.length, onNodesChange, clientId, addNode]
   );
 
   const handleClear = useCallback(() => {
@@ -501,60 +512,7 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
     }
   }, [nodes.length, clearCanvas]);
 
-  // Handle loading quick template (pre-connected nodes)
-  const handleLoadQuickTemplate = useCallback((template: QuickTemplate) => {
-    const viewport = getViewport();
-    const baseX = (window.innerWidth / 2 - viewport.x) / viewport.zoom - 200;
-    const baseY = (window.innerHeight / 2 - viewport.y) / viewport.zoom;
-    
-    const newNodes: RFNode[] = [];
-    const newEdges: { id: string; source: string; target: string; type: string }[] = [];
-    const timestamp = Date.now();
-    
-    // Create nodes from template
-    template.nodes.forEach((nodeConfig, index) => {
-      const nodeId = `${nodeConfig.type}-${timestamp}-${index}`;
-      const defaultData = nodeConfig.type === "attachment" 
-        ? { output: undefined, ...nodeConfig.data } 
-        : { type: "text" as const, format: "post", platform: "instagram", ...nodeConfig.data };
-      
-      newNodes.push({
-        id: nodeId,
-        type: nodeConfig.type,
-        position: { 
-          x: baseX + nodeConfig.offset.x, 
-          y: baseY + nodeConfig.offset.y 
-        },
-        data: defaultData,
-      });
-    });
-    
-    // Create edges between consecutive nodes
-    for (let i = 0; i < newNodes.length - 1; i++) {
-      const sourceNode = newNodes[i];
-      const targetNode = newNodes[i + 1];
-      
-      newEdges.push({
-        id: `edge-${sourceNode.id}-${targetNode.id}`,
-        source: sourceNode.id,
-        target: targetNode.id,
-        type: 'default',
-      });
-    }
-    
-    // Add all nodes and edges
-    onNodesChange(newNodes.map(n => ({ type: "add" as const, item: n })) as any);
-    
-    // Add edges after a short delay to ensure nodes exist
-    setTimeout(() => {
-      onEdgesChange(newEdges.map(e => ({ type: "add" as const, item: e })) as any);
-    }, 50);
-    
-    toast({
-      title: `Template "${template.label}" criado`,
-      description: "Nós já conectados e configurados",
-    });
-  }, [getViewport, onNodesChange, onEdgesChange, toast]);
+  // Quick template handler removed (templates are now single-source via loadTemplate)
 
   // Handle adding reference from library
   const handleSelectReference = useCallback(
@@ -564,27 +522,24 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
       const centerY = (window.innerHeight / 2 - viewport.y) / viewport.zoom;
       const offset = nodes.length * 20;
 
-      const nodeId = `attachment-${Date.now()}`;
-      const newNode: RFNode = {
-        id: nodeId,
+      addNode("attachment", { x: centerX + offset, y: centerY + offset }, {
         type: "attachment",
-        position: { x: centerX + offset, y: centerY + offset },
-        data: {
-          output: {
-            type: "text",
-            content: ref.content,
-            fileName: ref.title,
-          }
-        },
-      };
-      onNodesChange([{ type: "add", item: newNode }] as any);
+        activeTab: "text",
+        textContent: ref.content,
+        title: ref.title,
+        output: {
+          type: "text",
+          content: ref.content,
+          fileName: ref.title,
+        }
+      } as any);
 
       toast({
         title: "Referência adicionada",
         description: `"${ref.title}" foi adicionada ao canvas`,
       });
     },
-    [getViewport, nodes.length, onNodesChange, toast]
+    [getViewport, nodes.length, addNode, toast]
   );
 
   // Handle adding visual reference from library
@@ -595,28 +550,27 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
       const centerY = (window.innerHeight / 2 - viewport.y) / viewport.zoom;
       const offset = nodes.length * 20;
 
-      const nodeId = `attachment-${Date.now()}`;
-      const newNode: RFNode = {
-        id: nodeId,
+      addNode("attachment", { x: centerX + offset, y: centerY + offset }, {
         type: "attachment",
-        position: { x: centerX + offset, y: centerY + offset },
-        data: {
-          output: {
-            type: "image",
-            content: ref.image_url,
-            imageBase64: ref.image_url,
-            fileName: ref.title || "Imagem",
-          }
-        },
-      };
-      onNodesChange([{ type: "add", item: newNode }] as any);
+        activeTab: "image",
+        title: ref.title || "Imagem",
+        images: [
+          { id: `img-${Date.now()}`, name: ref.title || "Imagem", url: ref.image_url }
+        ],
+        output: {
+          type: "image",
+          content: ref.image_url,
+          imageBase64: ref.image_url,
+          fileName: ref.title || "Imagem",
+        }
+      } as any);
 
       toast({
         title: "Referência visual adicionada",
         description: `"${ref.title || "Imagem"}" foi adicionada ao canvas`,
       });
     },
-    [getViewport, nodes.length, onNodesChange, toast]
+    [getViewport, nodes.length, addNode, toast]
   );
 
   // Add a library content item as an "attachment" node
@@ -627,31 +581,29 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
       const centerY = (window.innerHeight / 2 - viewport.y) / viewport.zoom;
       const offset = nodes.length * 20;
 
-      const nodeId = `attachment-${Date.now()}`;
-      const newNode: RFNode = {
-        id: nodeId,
+      addNode("attachment", { x: centerX + offset, y: centerY + offset }, {
         type: "attachment",
-        position: { x: centerX + offset, y: centerY + offset },
-        data: {
-          output: {
-            type: "library",
-            content: item.content,
-            fileName: item.title,
-            libraryTitle: item.title,
-            libraryImages: item.images || (item.thumbnail_url ? [item.thumbnail_url] : []),
-            libraryId: item.id,
-            libraryPlatform: item.platform,
-          }
-        },
-      };
-      onNodesChange([{ type: "add", item: newNode }] as any);
+        activeTab: "text",
+        textContent: item.content,
+        title: item.title,
+        extractedImages: item.images || (item.thumbnail_url ? [item.thumbnail_url] : []),
+        output: {
+          type: "library",
+          content: item.content,
+          fileName: item.title,
+          libraryTitle: item.title,
+          libraryImages: item.images || (item.thumbnail_url ? [item.thumbnail_url] : []),
+          libraryId: item.id,
+          libraryPlatform: item.platform,
+        }
+      } as any);
 
       toast({
         title: "Adicionado ao canvas",
         description: item.title,
       });
     },
-    [getViewport, nodes.length, onNodesChange, toast]
+    [getViewport, nodes.length, addNode, toast]
   );
 
   // Drag & drop from library into canvas
@@ -677,7 +629,6 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
         const files = Array.from(event.dataTransfer.files);
         
         files.forEach((file, index) => {
-          const nodeId = `attachment-${Date.now()}-${index}`;
           const isImage = file.type.startsWith('image/');
           const isAudio = file.type.startsWith('audio/');
           const isVideo = file.type.startsWith('video/');
@@ -685,24 +636,22 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
           // Create blob URL for preview
           const blobUrl = URL.createObjectURL(file);
           
-          const newNode: RFNode = {
-            id: nodeId,
+          addNode("attachment", { x: position.x + (index * 30), y: position.y + (index * 30) }, {
             type: "attachment",
-            position: { x: position.x + (index * 30), y: position.y + (index * 30) },
-            data: {
-              output: isImage ? {
-                type: "image" as const,
-                content: blobUrl,
-                imageBase64: blobUrl,
-                fileName: file.name,
-              } : {
-                type: (isAudio ? "audio" : isVideo ? "video" : "text") as any,
-                content: file.name,
-                fileName: file.name,
-              }
-            },
-          };
-          onNodesChange([{ type: "add", item: newNode }] as any);
+            activeTab: isImage ? "image" : "file",
+            files: [],
+            images: isImage ? [{ id: `img-${Date.now()}-${index}`, name: file.name, url: blobUrl }] : [],
+            output: isImage ? {
+              type: "image" as const,
+              content: blobUrl,
+              imageBase64: blobUrl,
+              fileName: file.name,
+            } : {
+              type: (isAudio ? "audio" : isVideo ? "video" : "text") as any,
+              content: file.name,
+              fileName: file.name,
+            }
+          } as any);
         });
 
         toast({
@@ -726,31 +675,29 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
       }
       if (!item?.content) return;
 
-      const nodeId = `attachment-${Date.now()}`;
-      const newNode: RFNode = {
-        id: nodeId,
+      addNode("attachment", position, {
         type: "attachment",
-        position,
-        data: {
-          output: {
-            type: "library",
-            content: item.content,
-            fileName: item.title,
-            libraryTitle: item.title,
-            libraryImages: item.images || (item.thumbnail_url ? [item.thumbnail_url] : []),
-            libraryId: item.id,
-            libraryPlatform: item.platform,
-          }
-        },
-      };
-      onNodesChange([{ type: "add", item: newNode }] as any);
+        activeTab: "text",
+        textContent: item.content,
+        title: item.title,
+        extractedImages: item.images || (item.thumbnail_url ? [item.thumbnail_url] : []),
+        output: {
+          type: "library",
+          content: item.content,
+          fileName: item.title,
+          libraryTitle: item.title,
+          libraryImages: item.images || (item.thumbnail_url ? [item.thumbnail_url] : []),
+          libraryId: item.id,
+          libraryPlatform: item.platform,
+        }
+      } as any);
 
       toast({
         title: "Adicionado ao canvas",
         description: item.title,
       });
     },
-    [project, onNodesChange, toast]
+    [project, addNode, toast]
   );
 
   // File drag state for visual feedback
@@ -886,17 +833,19 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
       </ReactFlow>
 
       {/* Drawing Layer - OUTSIDE ReactFlow */}
-      <DrawingLayer
-        strokes={drawingStrokes}
-        isDrawing={activeTool === "pencil"}
-        isErasing={activeTool === "eraser"}
-        brushColor={brushColor}
-        brushSize={brushSize}
-        viewport={canvasViewport}
-        onAddStroke={handleAddStroke}
-        onDeleteStroke={handleDeleteStroke}
-        containerRef={reactFlowWrapper}
-      />
+      {canvasMode === "advanced" && (
+        <DrawingLayer
+          strokes={drawingStrokes}
+          isDrawing={activeTool === "pencil"}
+          isErasing={activeTool === "eraser"}
+          brushColor={brushColor}
+          brushSize={brushSize}
+          viewport={canvasViewport}
+          onAddStroke={handleAddStroke}
+          onDeleteStroke={handleDeleteStroke}
+          containerRef={reactFlowWrapper}
+        />
+      )}
 
       {/* Context Menu */}
       {contextMenuPosition && (
@@ -905,11 +854,14 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
           onAction={handleContextMenuAction}
           onClose={() => setContextMenuPosition(null)}
           hasDrawings={drawingStrokes.length > 0}
+          canvasMode={canvasMode}
         />
       )}
 
       {/* Unified Toolbar */}
       <CanvasToolbar
+        canvasMode={canvasMode}
+        onCanvasModeChange={setCanvasMode}
         onAddNode={handleAddNode}
         onClear={handleClear}
         onZoomIn={() => zoomIn()}
@@ -919,7 +871,6 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
         onLoad={loadCanvas}
         onDelete={deleteCanvas}
         onLoadTemplate={loadTemplate}
-        onLoadQuickTemplate={handleLoadQuickTemplate}
         onOpenLibrary={() => setLibraryDrawerOpen(true)}
         savedCanvases={savedCanvases}
         currentCanvasName={currentCanvasName}

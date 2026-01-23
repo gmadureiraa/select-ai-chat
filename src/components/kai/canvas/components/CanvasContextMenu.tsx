@@ -16,6 +16,7 @@ export interface CanvasContextMenuProps {
   onAction: (action: string) => void;
   onClose: () => void;
   hasDrawings: boolean;
+  canvasMode?: "basic" | "advanced";
 }
 
 interface MenuItem {
@@ -32,6 +33,7 @@ function CanvasContextMenuComponent({
   onAction,
   onClose,
   hasDrawings,
+  canvasMode = "basic",
 }: CanvasContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -59,16 +61,20 @@ function CanvasContextMenuComponent({
   }, [onClose]);
 
   const menuItems: MenuItem[] = [
-    { label: "Texto", action: "add-text", icon: Type, shortcut: "T" },
-    { label: "Sticky Note", action: "add-sticky", icon: StickyNote, shortcut: "S" },
-    { label: "Forma", action: "add-shape", icon: Square, shortcut: "R" },
-    { type: "separator" },
+    ...(canvasMode === "advanced"
+      ? ([
+          { label: "Texto", action: "add-text", icon: Type, shortcut: "T" },
+          { label: "Sticky Note", action: "add-sticky", icon: StickyNote, shortcut: "S" },
+          { label: "Forma", action: "add-shape", icon: Square, shortcut: "R" },
+          { type: "separator" },
+        ] as MenuItem[])
+      : []),
     { label: "Anexo (IA)", action: "add-attachment", icon: Paperclip, color: "text-blue-500" },
     { label: "Instruções (IA)", action: "add-prompt", icon: MessageSquare, color: "text-yellow-500" },
     { label: "Gerador (IA)", action: "add-generator", icon: Sparkles, color: "text-green-500" },
   ];
 
-  if (hasDrawings) {
+  if (canvasMode === "advanced" && hasDrawings) {
     menuItems.push(
       { type: "separator" },
       { label: "Limpar desenhos", action: "clear-drawings", icon: Eraser, color: "text-destructive" }
