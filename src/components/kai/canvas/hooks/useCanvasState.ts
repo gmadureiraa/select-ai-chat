@@ -9,6 +9,7 @@ import { IMAGE_FORMAT_INSTRUCTIONS } from "@/types/template";
 import { useCanvasPersistence } from "./useCanvasPersistence";
 import { generateCanvasText } from "../lib/canvasTextGeneration";
 import { logger } from "@/lib/logger";
+import { clampText, sanitizeReferenceText } from "../lib/referenceSanitizer";
 
 // Helper to convert blob URL to base64 data URL
 async function blobUrlToBase64(blobUrl: string): Promise<string> {
@@ -1145,9 +1146,9 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
         case "source": {
           const sourceData = inputNode.data as SourceNodeData;
           if (sourceData.extractedContent) {
-            combinedContext += `\n\n### Conteúdo Extraído:\n${sourceData.extractedContent}`;
+            combinedContext += `\n\n### Conteúdo Extraído:\n${sanitizeReferenceText(sourceData.extractedContent)}`;
           } else if (sourceData.value && sourceData.sourceType === "text") {
-            combinedContext += `\n\n### Texto:\n${sourceData.value}`;
+            combinedContext += `\n\n### Texto:\n${sanitizeReferenceText(sourceData.value)}`;
           }
           
           // Collect image references and transcriptions from files
@@ -1177,7 +1178,7 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
                 }
               }
               if (file.transcription) {
-                combinedContext += `\n\n### Transcrição (${file.name}):\n${file.transcription}`;
+                combinedContext += `\n\n### Transcrição (${file.name}):\n${sanitizeReferenceText(file.transcription)}`;
               }
             }
           }
@@ -1186,7 +1187,7 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
         case "library": {
           const libData = inputNode.data as LibraryNodeData;
           if (libData.itemContent) {
-            combinedContext += `\n\n### Referência (${libData.itemTitle}):\n${libData.itemContent}`;
+            combinedContext += `\n\n### Referência (${libData.itemTitle}):\n${sanitizeReferenceText(libData.itemContent)}`;
           }
           break;
         }
@@ -1204,7 +1205,7 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
             styleContext.push("Usar estilo visual desta imagem como referência principal");
           } else if (outputData.content) {
             // If it's text output, use as context for new content
-            combinedContext += `\n\n### Conteúdo Gerado Anteriormente:\n${outputData.content}`;
+            combinedContext += `\n\n### Conteúdo Gerado Anteriormente:\n${sanitizeReferenceText(outputData.content)}`;
           }
           break;
         }
@@ -1251,19 +1252,19 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
               unextractedLinkTitles.push(attachData.title || attachData.url || "Link");
             }
             if (hasExtracted) {
-              combinedContext += `\n\n### Conteúdo de ${attachData.title || "Link"}:\n${attachData.extractedContent}`;
+              combinedContext += `\n\n### Conteúdo de ${attachData.title || "Link"}:\n${sanitizeReferenceText(attachData.extractedContent || "")}`;
             }
           }
           
           if (attachData.activeTab === "text" && attachData.textContent) {
-            combinedContext += `\n\n### Texto:\n${attachData.textContent}`;
+            combinedContext += `\n\n### Texto:\n${sanitizeReferenceText(attachData.textContent)}`;
           }
           
           // Handle files (audio, video, documents)
           if (attachData.files && attachData.files.length > 0) {
             for (const file of attachData.files) {
               if (file.transcription) {
-                combinedContext += `\n\n### Transcrição (${file.name}):\n${file.transcription}`;
+                combinedContext += `\n\n### Transcrição (${file.name}):\n${sanitizeReferenceText(file.transcription)}`;
               }
             }
           }
@@ -1304,7 +1305,7 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
               
               // Also include OCR text if available
               if (img.metadata?.ocrText) {
-                combinedContext += `\n\n### Texto da Imagem (${img.name || 'imagem'}):\n${img.metadata.ocrText}`;
+                combinedContext += `\n\n### Texto da Imagem (${img.name || 'imagem'}):\n${sanitizeReferenceText(img.metadata.ocrText)}`;
               }
             }
           }
@@ -1312,6 +1313,8 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
         }
       }
     }
+
+    combinedContext = clampText(combinedContext, 12000);
 
     if (hasUnextractedLink) {
       toast({
@@ -1573,7 +1576,9 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
           if (briefing?.trim()) requestParts.push(`Briefing:\n${briefing.trim()}`);
           requestParts.push(`Material de referência (use como fonte principal):\n${combinedContext}`);
           if (genData.format === "carousel") {
-            requestParts.push("Estrutura: carrossel de 7–10 slides; 1 ideia por slide; gancho no slide 1; CTA no final.");
+            requestParts.push(
+              "Estrutura: carrossel de 7–10 slides; 1 ideia por slide; gancho no slide 1; CTA no final.\nRequisito de tema: mencione explicitamente o tema no Slide 1 e conecte a tese no Slide 2."
+            );
           }
           if (genData.platform === "twitter" && genData.format === "thread") {
             requestParts.push("Regras: cada tweet deve respeitar 280 caracteres.");

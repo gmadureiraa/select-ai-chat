@@ -17,6 +17,7 @@ import { cn } from '@/lib/utils';
 import type { AttachmentOutput } from './AttachmentNode';
 import { normalizeCanvasFormat, toGenerateContentV2Format } from '../lib/canvasFormats';
 import { generateCanvasText } from '../lib/canvasTextGeneration';
+import { clampText, sanitizeReferenceText } from '../lib/referenceSanitizer';
 
 const FORMAT_OPTIONS = [
   { value: 'post', label: 'Post' },
@@ -197,7 +198,7 @@ const GeneratorNodeComponent: React.FC<NodeProps<GeneratorNodeData>> = ({
         const topic = data.topic?.trim();
 
         // GeneratorNode não tem o mesmo grafo rico do Canvas; aqui concatenamos inputs simples.
-        const material = attachments
+        const materialRaw = attachments
           .map((att) => {
             if (att.type === 'text') return att.content || '';
             if (att.type === 'image') return att.transcription || att.analysis || '';
@@ -206,6 +207,8 @@ const GeneratorNodeComponent: React.FC<NodeProps<GeneratorNodeData>> = ({
           })
           .filter(Boolean)
           .join('\n\n');
+
+        const material = clampText(sanitizeReferenceText(materialRaw), 12000);
 
         if (!material.trim()) {
           toast({
@@ -225,7 +228,7 @@ const GeneratorNodeComponent: React.FC<NodeProps<GeneratorNodeData>> = ({
         }
         requestParts.push(`Material de referência (use como fonte principal):\n${material}`);
         if (normalizeCanvasFormat(data.format) === 'carousel') {
-          requestParts.push('Estrutura: carrossel de 7–10 slides; 1 ideia por slide; gancho no slide 1; CTA no final.');
+          requestParts.push('Estrutura: carrossel de 7–10 slides; 1 ideia por slide; gancho no slide 1; CTA no final.\nRequisito de tema: mencione explicitamente o tema no Slide 1 e conecte a tese no Slide 2.');
         }
         if ((data.platform || 'instagram') === 'twitter' && normalizeCanvasFormat(data.format) === 'thread') {
           requestParts.push('Regras: cada tweet deve respeitar 280 caracteres.');
