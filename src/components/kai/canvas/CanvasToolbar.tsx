@@ -42,11 +42,14 @@ import { cn } from "@/lib/utils";
 
 export type CanvasTemplate = 
   | "carousel_from_url" 
+  | "tweet_single"
+  | "thread_from_url"
   | "thread_from_video" 
   | "newsletter_curated" 
   | "reel_script" 
   | "image_series"
   | "linkedin_article"
+  | "creator_suite"
   | "podcast_highlights"
   | "story_sequence"
   | "repurpose_blog"
@@ -119,6 +122,26 @@ export const QUICK_TEMPLATES: QuickTemplate[] = [
     ],
   },
   {
+    id: 'tweet_single',
+    icon: '🐦',
+    label: 'Tweet',
+    description: 'URL/Texto + Tweet (1 post)',
+    nodes: [
+      { type: 'attachment', offset: { x: 0, y: 0 } },
+      { type: 'generator', data: { type: 'text', format: 'post', platform: 'twitter' }, offset: { x: 350, y: 0 } },
+    ],
+  },
+  {
+    id: 'reels_script',
+    icon: '🎬',
+    label: 'Roteiro Reels',
+    description: 'Texto + roteiro (gancho/cenas/CTA)',
+    nodes: [
+      { type: 'attachment', offset: { x: 0, y: 0 } },
+      { type: 'generator', data: { type: 'text', format: 'reel_script', platform: 'instagram' }, offset: { x: 350, y: 0 } },
+    ],
+  },
+  {
     id: 'linkedin_post',
     icon: '💼',
     label: 'Post LinkedIn',
@@ -183,6 +206,8 @@ const TEMPLATE_CATEGORIES: TemplateCategory[] = [
     category: "Redes Sociais",
     templates: [
       { id: "carousel_from_url", icon: "🎠", label: "Carrossel de URL", description: "Transforme conteúdo em carrossel" },
+      { id: "tweet_single", icon: "🐦", label: "Tweet (1 post)", description: "Um tweet direto e forte" },
+      { id: "thread_from_url", icon: "🧵", label: "Thread de URL", description: "Thread a partir de artigo/link" },
       { id: "thread_from_video", icon: "🧵", label: "Thread de Vídeo", description: "Crie thread viral de vídeo" },
       { id: "story_sequence", icon: "📖", label: "Sequência de Stories", description: "5 stories em sequência" },
       { id: "reel_script", icon: "🎬", label: "Roteiro de Reel", description: "Script para vídeo curto" },
@@ -199,6 +224,7 @@ const TEMPLATE_CATEGORIES: TemplateCategory[] = [
   {
     category: "Repurpose",
     templates: [
+      { id: "creator_suite", icon: "✨", label: "Creator Suite", description: "1 fonte → Carrossel + Reels + Thread + LinkedIn + Newsletter" },
       { id: "repurpose_blog", icon: "🔄", label: "Repurpose de Blog", description: "Blog → Carrossel + Thread" },
       { id: "podcast_highlights", icon: "🎙️", label: "Destaques de Podcast", description: "Áudio → Thread" },
       { id: "image_series", icon: "🖼️", label: "Série de Imagens", description: "Gere imagem com IA" },
