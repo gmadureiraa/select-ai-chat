@@ -3732,104 +3732,6 @@ export type Database = {
       }
     }
     Views: {
-      client_social_credentials_decrypted: {
-        Row: {
-          access_token: string | null
-          access_token_secret: string | null
-          account_id: string | null
-          account_name: string | null
-          api_key: string | null
-          api_secret: string | null
-          client_id: string | null
-          created_at: string | null
-          expires_at: string | null
-          id: string | null
-          is_valid: boolean | null
-          last_validated_at: string | null
-          metadata: Json | null
-          oauth_access_token: string | null
-          oauth_refresh_token: string | null
-          platform: string | null
-          updated_at: string | null
-          validation_error: string | null
-        }
-        Insert: {
-          access_token?: never
-          access_token_secret?: never
-          account_id?: string | null
-          account_name?: string | null
-          api_key?: never
-          api_secret?: never
-          client_id?: string | null
-          created_at?: string | null
-          expires_at?: string | null
-          id?: string | null
-          is_valid?: boolean | null
-          last_validated_at?: string | null
-          metadata?: Json | null
-          oauth_access_token?: never
-          oauth_refresh_token?: never
-          platform?: string | null
-          updated_at?: string | null
-          validation_error?: string | null
-        }
-        Update: {
-          access_token?: never
-          access_token_secret?: never
-          account_id?: string | null
-          account_name?: string | null
-          api_key?: never
-          api_secret?: never
-          client_id?: string | null
-          created_at?: string | null
-          expires_at?: string | null
-          id?: string | null
-          is_valid?: boolean | null
-          last_validated_at?: string | null
-          metadata?: Json | null
-          oauth_access_token?: never
-          oauth_refresh_token?: never
-          platform?: string | null
-          updated_at?: string | null
-          validation_error?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "client_social_credentials_client_id_fkey"
-            columns: ["client_id"]
-            isOneToOne: false
-            referencedRelation: "clients"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      profiles_secure: {
-        Row: {
-          avatar_url: string | null
-          created_at: string | null
-          email: string | null
-          full_name: string | null
-          id: string | null
-          updated_at: string | null
-        }
-        Insert: {
-          avatar_url?: string | null
-          created_at?: string | null
-          email?: never
-          full_name?: string | null
-          id?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          avatar_url?: string | null
-          created_at?: string | null
-          email?: never
-          full_name?: string | null
-          id?: string | null
-          updated_at?: string | null
-        }
-        Relationships: []
-      }
       workspace_invites_secure: {
         Row: {
           accepted_at: string | null
@@ -3976,6 +3878,28 @@ export type Database = {
           slug: string
         }[]
       }
+      get_client_social_credentials_decrypted: {
+        Args: { p_client_id: string }
+        Returns: {
+          access_token: string
+          access_token_secret: string
+          account_id: string
+          account_name: string
+          api_key: string
+          api_secret: string
+          client_id: string
+          created_at: string
+          expires_at: string
+          id: string
+          is_valid: boolean
+          last_validated_at: string
+          oauth_access_token: string
+          oauth_refresh_token: string
+          platform: string
+          updated_at: string
+          validation_error: string
+        }[]
+      }
       get_my_pending_workspace_invites: {
         Args: never
         Returns: {
@@ -4017,6 +3941,15 @@ export type Database = {
           workspace_id: string
           workspace_name: string
           workspace_slug: string
+        }[]
+      }
+      get_workspace_member_profiles: {
+        Args: { p_workspace_id: string }
+        Returns: {
+          avatar_url: string
+          email: string
+          full_name: string
+          id: string
         }[]
       }
       get_workspace_member_tokens_admin: {
