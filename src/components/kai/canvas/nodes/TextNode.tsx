@@ -78,8 +78,10 @@ function TextNodeComponent({ id, data, selected, onUpdateData, onDelete }: TextN
   return (
     <div
       className={cn(
-        "group relative min-w-[100px] min-h-[40px]",
-        selected && "ring-2 ring-primary ring-offset-2 rounded"
+        "group relative min-w-[100px] min-h-[40px] rounded-md",
+        // Only show background when there's content, otherwise keep transparent
+        data.content && "bg-card/80 backdrop-blur-sm border border-border/50 shadow-sm",
+        selected && "ring-2 ring-primary ring-offset-2 ring-offset-background"
       )}
       onMouseEnter={() => setShowToolbar(true)}
       onMouseLeave={() => setShowToolbar(false)}
@@ -164,9 +166,9 @@ function TextNodeComponent({ id, data, selected, onUpdateData, onDelete }: TextN
       ) : (
         <div
           className={cn(
-            "min-w-[100px] min-h-[40px] p-1 cursor-text whitespace-pre-wrap",
+            "min-w-[100px] min-h-[40px] p-2 cursor-text whitespace-pre-wrap",
             data.fontWeight === "bold" && "font-bold",
-            !data.content && "text-muted-foreground italic"
+            !data.content && "text-muted-foreground/60 italic border border-dashed border-muted-foreground/30 rounded-md"
           )}
           style={{
             fontSize: data.fontSize,
@@ -174,7 +176,7 @@ function TextNodeComponent({ id, data, selected, onUpdateData, onDelete }: TextN
             color: data.content ? data.color : undefined,
           }}
         >
-          {data.content || "Clique duplo para editar"}
+          {data.content || "Clique para editar"}
         </div>
       )}
     </div>
