@@ -304,7 +304,7 @@ async function fetchMetricsContext(
       .limit(60),
     supabase
       .from("instagram_posts")
-      .select("id, caption, likes, comments, saves, shares, reach, impressions, engagement_rate, posted_at, post_type, permalink")
+      .select("id, caption, full_content, video_transcript, likes, comments, saves, shares, reach, impressions, engagement_rate, posted_at, post_type, permalink")
       .eq("client_id", clientId)
       .gte("posted_at", queryStart)
       .lte("posted_at", queryEnd + "T23:59:59Z")
@@ -395,10 +395,11 @@ async function fetchMetricsContext(
         const postDate = p.posted_at ? formatDateBR(p.posted_at.split('T')[0]) : 'Data desconhecida';
         const postType = p.post_type || 'post';
         
-        // For top 3, include full caption for analysis
+        // For top 3, include full content (with transcriptions) for analysis
+        const fullContent = p.full_content || p.caption || 'Sem legenda';
         const caption = i < 3 
-          ? (p.caption || 'Sem legenda')
-          : (p.caption?.substring(0, 100) || 'Sem legenda') + (p.caption?.length > 100 ? '...' : '');
+          ? fullContent
+          : (fullContent.substring(0, 100)) + (fullContent.length > 100 ? '...' : '');
         
         const likesVsAvg = p.likes && avgLikes > 0 
           ? ((p.likes / avgLikes - 1) * 100).toFixed(0)
@@ -408,7 +409,13 @@ async function fetchMetricsContext(
         context += `\n**#${i + 1} - ${metricValue} ${metricLabel}** (${postDate})\n`;
         context += `Tipo: ${postType} | Likes: ${(p.likes || 0).toLocaleString('pt-BR')} | Comments: ${p.comments || 0} | Shares: ${p.shares || 0} | Saves: ${p.saves || 0}\n`;
         context += `Engajamento: ${p.engagement_rate?.toFixed(2) || 0}% | Alcance: ${(p.reach || 0).toLocaleString('pt-BR')} ${likesIndicator}\n`;
-        context += `Legenda: ${caption}\n`;
+        context += `Conteúdo: ${caption}\n`;
+        
+        // Include video/audio transcription if available
+        if (p.video_transcript && i < 3) {
+          context += `Transcrição do Áudio: ${p.video_transcript.substring(0, 500)}${p.video_transcript.length > 500 ? '...' : ''}\n`;
+        }
+        
         if (p.permalink) {
           context += `Link: ${p.permalink}\n`;
         }

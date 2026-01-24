@@ -7,9 +7,7 @@ import { ArtifactCard, parseArtifacts, ArtifactType } from "./ArtifactCard";
 import { ImageActionButtons } from "./ImageActionButtons";
 import { AddToPlanningButton } from "./AddToPlanningButton";
 import { AdjustImageButton } from "./AdjustImageButton";
-import { SendToCanvasButton } from "./SendToCanvasButton";
 import { ResponseCard, hasResponseCardPayload, ResponseCardPayload } from "./ResponseCard";
-import { QuickActionsSuggestions, detectContentType } from "./QuickActionsSuggestions";
 import { useState, useMemo, memo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -101,17 +99,6 @@ export const EnhancedMessageBubble = memo(function EnhancedMessageBubble({
     return parseArtifacts(content);
   }, [content, isUser]);
 
-  // Detect content type for smart quick actions
-  const contentType = useMemo(() => {
-    if (isUser || content.length < 100) return "general";
-    return detectContentType(content);
-  }, [content, isUser]);
-
-  // Check if content is substantial (could be a post or content worth action)
-  const isSubstantialContent = !isUser && content.length > 100 && !hideContentActions;
-
-  // Show smart quick actions for substantial assistant responses
-  const showQuickActions = isSubstantialContent && onSendMessage && isLastMessage;
 
   // Check if this is a generated image message
   const isGeneratedImageMessage = !isUser && hasImages && (content.includes("Imagem gerada") || isGeneratedImage);
@@ -333,16 +320,6 @@ export const EnhancedMessageBubble = memo(function EnhancedMessageBubble({
             </div>
           )}
 
-          {/* Smart Quick Actions based on content type */}
-          {showQuickActions && (
-            <QuickActionsSuggestions
-              contentType={contentType}
-              content={content}
-              onAction={(prompt) => onSendMessage(prompt)}
-              className="animate-in fade-in slide-in-from-bottom-2 duration-300"
-            />
-          )}
-          
           {/* Ações */}
           <div className="flex items-center gap-1 flex-wrap">
             <MessageActions 
@@ -355,16 +332,6 @@ export const EnhancedMessageBubble = memo(function EnhancedMessageBubble({
               templateName={templateName}
               messageId={payload?.messageId}
             />
-            
-            {/* Send to Canvas button for substantial assistant content */}
-            {isSubstantialContent && clientId && (
-              <SendToCanvasButton
-                content={content}
-                clientId={clientId}
-                clientName={clientName}
-                format={contentType !== "general" ? contentType : "post"}
-              />
-            )}
           </div>
         </div>
 
