@@ -1,171 +1,134 @@
 
-# Plano: Continuar Correção da Experiência Completa do Usuário
+# Plano: Finalização da Auditoria Completa da Experiência do Usuário
 
-## Fase 1: Corrigir Banco de Dados (SQL Migration)
+## Resumo dos Problemas Identificados
 
-### Atualizar subscription_plans com preços e Price IDs corretos:
-```sql
-UPDATE subscription_plans 
-SET 
-  name = 'Canvas',
-  price_monthly = 19.90,
-  price_yearly = 199.00,
-  max_clients = 1,
-  max_members = 1,
-  stripe_price_id = 'price_1SpuAmPIJtcImSMvb7h2pxYa',
-  stripe_product_id = 'prod_TnVBYALwIy8qOm',
-  features = '["canvas_ilimitado", "ia_multi_agente", "geracao_imagens", "templates", "1_perfil"]'
-WHERE type = 'starter';
+### 🔴 CRÍTICO: Bypass de Pagamento Ainda Existe
+A rota `/signup` e `/create-workspace` ainda apontam para `CreateFirstWorkspace.tsx`, que:
+- Usa `create_workspace_with_subscription` RPC que cria workspace **SEM passar pelo Stripe**
+- Promete "1.000 tokens grátis" (linha 300) que não são implementados
+- Mostra "3 perfis" (linha 154) quando deveria ser "1 perfil" para Canvas
 
-UPDATE subscription_plans 
-SET 
-  name = 'Pro',
-  price_monthly = 99.90,
-  price_yearly = 999.00,
-  max_clients = 10,
-  max_members = 5,
-  stripe_price_id = 'price_1SpuAoPIJtcImSMvLMPO5XUo',
-  stripe_product_id = 'prod_TnVBIbisvWihL7',
-  features = '["tudo_canvas", "3_perfis_base", "3_membros_base", "planning_kanban", "calendario", "performance_analytics", "biblioteca", "publicacao_automatica", "integracoes", "api"]'
-WHERE type = 'pro';
-```
+### 🟡 Inconsistências nos Planos
+- `CreateFirstWorkspace.tsx` linha 154: mostra "3 perfis" para Canvas
+- Deveria usar `PLAN_CONFIG` centralizado que define 1 perfil para Canvas
+
+### ✅ Canvas - Verificação Completa
+O Canvas está bem estruturado com:
+- **Nodes funcionais**: AttachmentNode, GeneratorNode, ContentOutputNode, MaterialChatNode, TextNode, StickyNode, ShapeNode
+- **Templates quick**: 6 templates pré-configurados (Post Feed, Story/Reels, Carrossel, Thread, LinkedIn, Imagem 1:1)
+- **Persistência**: Auto-save com debounce de 3s, carregamento automático do último canvas
+- **Edge functions**: `generate-content-v2` e `chat-about-material` funcionando com Google AI Studio API Key configurada
+- **Aliases de legado**: `contentOutput` e `prompt` mapeados para evitar erros em canvas salvos antigos
 
 ---
 
-## Fase 2: Eliminar Bypass de Pagamento (CRÍTICO)
+## Fase 1: Eliminar Bypass de Pagamento
 
-### Opção escolhida: Redirecionar /signup para fluxo com pagamento
+### 1.1 Modificar App.tsx
+Redirecionar `/signup` para `SimpleSignup` em vez de `CreateFirstWorkspace`:
 
-**App.tsx** - Modificar rotas:
 ```typescript
-// ANTES:
+// DE:
 <Route path="/signup" element={<CreateFirstWorkspace />} />
 <Route path="/create-workspace" element={<CreateFirstWorkspace />} />
 
-// DEPOIS:
+// PARA:
 <Route path="/signup" element={<SimpleSignup />} />
-// Remover /create-workspace ou redirecionar para /signup
+<Route path="/create-workspace" element={<Navigate to="/signup" replace />} />
 ```
 
-**SimpleSignup.tsx** - Já faz o correto:
-- Cria conta
-- Redireciona para `/no-workspace`
-- Lá o usuário cria workspace via CreateWorkspaceDialog (que passa pelo Stripe)
-
-**Deletar ou deprecar**: `CreateFirstWorkspace.tsx`
+### 1.2 Deletar ou Deprecar CreateFirstWorkspace.tsx
+- Mover para `/src/pages/_deprecated/` ou deletar
+- Remover import do App.tsx
 
 ---
 
-## Fase 3: Implementar Trial de 14 Dias (ou remover menção)
+## Fase 2: Corrigir create-checkout para Trial Removal
 
-### Opção A: Implementar no Stripe
-**create-checkout/index.ts** - Adicionar trial:
+### 2.1 Verificar supabase/functions/create-checkout/index.ts
+Garantir que NÃO tem `trial_period_days`:
 ```typescript
-const session = await stripe.checkout.sessions.create({
-  // ... configs existentes
-  subscription_data: {
-    trial_period_days: 14, // NOVO
-    metadata: {
-      user_id: user.id,
-      plan_type: planType,
-    },
+subscription_data: {
+  // SEM trial_period_days - pagamento imediato obrigatório
+  metadata: {
+    user_id: user.id,
+    plan_type: planType,
   },
-  // ...
-});
-```
-
-### Opção B: Remover menção de trial
-**CreateWorkspaceDialog.tsx** - Remover texto:
-```typescript
-// REMOVER ou modificar:
-// "14 dias grátis! Você terá acesso completo durante o trial."
+},
 ```
 
 ---
 
-## Fase 4: Sincronizar Limites de Perfis em Todos os Lugares
-
-### UpgradePlanDialog.tsx - Corrigir features:
-```typescript
-const plans = [
-  {
-    id: "canvas",
-    name: "Canvas",
-    features: [
-      "1 perfil", // ERA "3 perfis"
-      "1 usuário",
-      // ...
-    ],
-  },
-  {
-    id: "pro",
-    name: "Pro",  
-    features: [
-      "3 perfis (+$7/extra)", // Manter consistente com landing
-      "3 membros (+$4/extra)",
-      // ...
-    ],
-  },
-];
-```
-
-### USAR PLAN_CONFIG em vez de hardcoded:
-```typescript
-import { PLAN_CONFIG } from "@/lib/plans";
-
-const plans = [
-  {
-    id: "canvas",
-    name: PLAN_CONFIG.canvas.name,
-    features: PLAN_CONFIG.canvas.features,
-    // ...
-  },
-  // ...
-];
-```
+## Fase 3: Atualizar UpgradePlanDialog (se existir)
+Buscar e corrigir qualquer componente que liste features dos planos para usar `PLAN_CONFIG`:
+- Canvas: 1 perfil, 1 membro
+- Pro: 10 perfis, 5 membros
 
 ---
 
-## Fase 5: Remover Promessa de "1.000 tokens grátis"
+## Fase 4: Validar Fluxo Completo
 
-**CreateFirstWorkspace.tsx** (se mantido):
-- Linha 300: Remover "🎁 Você receberá 1.000 tokens grátis"
-- Ou implementar lógica real de créditos iniciais
-
----
-
-## Fase 6: Corrigir Links da Landing Page
-
-Os links na landing page vão para `/signup?plan=basic` e `/signup?plan=agency`:
-
-**Opções:**
-1. Redirecionar esses links para criar conta e depois selecionar plano
-2. Modificar SimpleSignup para detectar `?plan=` e redirecionar apropriadamente após login
-
-**Implementação sugerida:**
-- `/signup?plan=basic` → SimpleSignup → NoWorkspacePage (auto-abre CreateWorkspaceDialog com plano básico selecionado)
+### Fluxo Esperado Após Correções:
+1. **Landing Page** → Clique em "Começar" → `/signup`
+2. **SimpleSignup** → Criar conta → `/no-workspace`
+3. **NoWorkspacePage** → Clique em "Criar Workspace" → Abre `CreateWorkspaceDialog`
+4. **CreateWorkspaceDialog** → Selecionar plano → Chama `create-checkout`
+5. **Stripe Checkout** → Pagar → Callback → Workspace criado
 
 ---
 
-## Resumo de Arquivos a Modificar
+## Fase 5: Canvas - Verificações Finais
 
-| Arquivo | Mudança |
-|---------|---------|
-| SQL Migration | Atualizar subscription_plans |
-| App.tsx | Redirecionar /signup para SimpleSignup |
-| CreateFirstWorkspace.tsx | Deletar ou mover para /legacy |
-| create-checkout/index.ts | Adicionar trial_period_days: 14 |
-| CreateWorkspaceDialog.tsx | Ajustar texto de trial (se não implementar) |
-| UpgradePlanDialog.tsx | Usar PLAN_CONFIG e corrigir features |
-| NoWorkspacePage.tsx | Aceitar ?plan= da URL para pré-selecionar plano |
+### 5.1 Templates Funcionando
+Os 6 quick templates já estão implementados corretamente:
+- Post Feed, Story/Reels, Carrossel, Thread, LinkedIn Post, Imagem 1:1
+
+### 5.2 Chat sobre Material (MaterialChatNode)
+- Integração com `chat-about-material` edge function
+- Usa `GOOGLE_AI_STUDIO_API_KEY` (já configurada)
+- Indicadores visuais de conexão (Conectado/Desconectado)
+
+### 5.3 Gerador de Conteúdo
+- `generate-content-v2` suporta texto e imagem
+- Busca contexto de marca do cliente (identity_guide, brand_assets)
+- Geração de imagem usa Gemini 2.0 Flash Image Generation
+
+### 5.4 Nodes Brancos - Já Corrigidos
+- `TextNode.tsx` agora usa borda tracejada quando vazio
+- Aliases de legado (`contentOutput`, `prompt`) mapeados
+
+---
+
+## Arquivos a Modificar
+
+| Arquivo | Ação |
+|---------|------|
+| `src/App.tsx` | Trocar `/signup` para SimpleSignup, redirect `/create-workspace` |
+| `src/pages/CreateFirstWorkspace.tsx` | Deletar ou mover para deprecated |
+| `src/components/workspace/UpgradePlanDialog.tsx` | Verificar se existe e corrigir features |
 
 ---
 
 ## Ordem de Execução
 
-1. SQL Migration para subscription_plans
-2. Modificar App.tsx - redirecionar /signup
-3. Deletar/mover CreateFirstWorkspace.tsx
-4. create-checkout - adicionar trial (se desejado)
-5. UpgradePlanDialog - usar PLAN_CONFIG
-6. Testar fluxo completo: Landing → Signup → NoWorkspace → CreateWorkspaceDialog → Stripe → Workspace
+1. **App.tsx** - Redirecionar rotas /signup e /create-workspace
+2. **CreateFirstWorkspace.tsx** - Deletar arquivo
+3. **Verificar UpgradePlanDialog** - Se existir, usar PLAN_CONFIG
+4. **Testar fluxo completo**: Landing → Signup → NoWorkspace → Stripe → Workspace
+5. **Testar Canvas**: Templates, Chat, Geração de texto/imagem
+
+---
+
+## Canvas - Status Final
+
+| Feature | Status | Notas |
+|---------|--------|-------|
+| Attachment Node | ✅ | YouTube, Instagram, upload, texto |
+| Generator Node | ✅ | Texto + Imagem com brand context |
+| Output Node | ✅ | Versões, comentários, planning |
+| Material Chat | ✅ | IA sobre material conectado |
+| Quick Templates | ✅ | 6 templates funcionais |
+| Auto-save | ✅ | Debounce 3s, indicador visual |
+| Legacy aliases | ✅ | contentOutput, prompt mapeados |
+| Whiteboard tools | ✅ | Texto, Sticky, Shape, Pencil, Eraser |
