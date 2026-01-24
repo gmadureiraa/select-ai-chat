@@ -401,8 +401,12 @@ const AttachmentNodeComponent: React.FC<NodeProps<AttachmentNodeData>> = ({
     }
   };
 
+  // Library content gets wider card for readability
+  const isLibraryContent = output?.type === 'library';
+  const cardWidth = isLibraryContent ? 'w-96' : 'w-80';
+
   return (
-    <Card className={`w-80 shadow-lg ${selected ? 'ring-2 ring-primary' : ''}`}>
+    <Card className={`${cardWidth} shadow-lg ${selected ? 'ring-2 ring-primary' : ''}`}>
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
           <CardTitle className="text-sm flex items-center gap-2">
@@ -575,33 +579,48 @@ const AttachmentNodeComponent: React.FC<NodeProps<AttachmentNodeData>> = ({
                     <img 
                       src={output.libraryImages[currentImageIndex] || output.libraryImages[0]} 
                       alt="Preview"
-                      className="w-full h-32 object-cover"
+                      className="w-full h-48 object-cover"
                     />
                     {output.libraryImages.length > 1 && (
                       <>
                         <button 
                           onClick={prevImage}
-                          className="absolute left-1 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white rounded-full p-1"
+                          className="absolute left-1 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white rounded-full p-1.5"
                         >
-                          <ChevronLeft className="h-3 w-3" />
+                          <ChevronLeft className="h-4 w-4" />
                         </button>
                         <button 
                           onClick={nextImage}
-                          className="absolute right-1 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white rounded-full p-1"
+                          className="absolute right-1 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white rounded-full p-1.5"
                         >
-                          <ChevronRight className="h-3 w-3" />
+                          <ChevronRight className="h-4 w-4" />
                         </button>
-                        <div className="absolute top-1 right-1 bg-black/60 text-white text-[10px] px-1.5 py-0.5 rounded-full">
+                        <div className="absolute top-2 right-2 bg-black/60 text-white text-xs px-2 py-0.5 rounded-full">
                           {currentImageIndex + 1}/{output.libraryImages.length}
+                        </div>
+                        {/* Dots indicator */}
+                        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1">
+                          {output.libraryImages.slice(0, 8).map((_, idx) => (
+                            <button
+                              key={idx}
+                              className={`w-1.5 h-1.5 rounded-full transition-colors ${
+                                idx === currentImageIndex ? 'bg-white' : 'bg-white/40'
+                              }`}
+                              onClick={() => setCurrentImageIndex(idx)}
+                            />
+                          ))}
+                          {output.libraryImages.length > 8 && (
+                            <span className="text-white text-[8px]">+{output.libraryImages.length - 8}</span>
+                          )}
                         </div>
                       </>
                     )}
                   </div>
                 )}
                 
-                {/* Content preview */}
-                <div className="bg-muted rounded-md p-2">
-                  <p className="text-xs line-clamp-3">{output.content}</p>
+                {/* Content preview - scrollable for full readability */}
+                <div className="bg-muted rounded-md p-3 max-h-64 overflow-y-auto">
+                  <p className="text-xs whitespace-pre-wrap leading-relaxed">{output.content}</p>
                 </div>
                 
                 {/* View full content button */}

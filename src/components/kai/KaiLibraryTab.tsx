@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Library, Link2, Plus, Search, Image, Layers, BookOpen, FileBarChart } from "lucide-react";
+import { Library, Link2, Plus, Search, Image as ImageIcon, Layers, BookOpen, FileBarChart, Trash2, Star } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useReferenceLibrary, ReferenceItem, CreateReferenceData } from "@/hooks/useReferenceLibrary";
-import { useClientVisualReferences } from "@/hooks/useClientVisualReferences";
+import { useClientVisualReferences, ClientVisualReference } from "@/hooks/useClientVisualReferences";
 import { useUnifiedContent } from "@/hooks/useUnifiedContent";
 import { useContentLibrary } from "@/hooks/useContentLibrary";
 import { useWorkspace } from "@/hooks/useWorkspace";
@@ -17,6 +17,7 @@ import { ReferenceViewDialog } from "@/components/references/ReferenceViewDialog
 import { UnifiedContentGrid } from "@/components/kai/library/UnifiedContentGrid";
 import { CaseStudyGrid } from "@/components/kai/library/CaseStudyGrid";
 import { AddContentDialog } from "@/components/kai/library/AddContentDialog";
+import { VisualReferenceUploader } from "@/components/kai/library/VisualReferenceUploader";
 import { Client } from "@/hooks/useClients";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -39,6 +40,10 @@ export const KaiLibraryTab = ({ clientId, client }: KaiLibraryTabProps) => {
   const [selectedReference, setSelectedReference] = useState<ReferenceItem | null>(null);
   const [referenceViewOpen, setReferenceViewOpen] = useState(false);
   const { references, createReference, updateReference, deleteReference } = useReferenceLibrary(clientId);
+
+  // Visual References
+  const [visualUploaderOpen, setVisualUploaderOpen] = useState(false);
+  const { references: visualReferences, deleteReference: deleteVisualReference } = useClientVisualReferences(clientId);
 
   // Add Content Dialog (for content tab and case studies/reports)
   const [showAddContentDialog, setShowAddContentDialog] = useState(false);
@@ -173,6 +178,8 @@ export const KaiLibraryTab = ({ clientId, client }: KaiLibraryTabProps) => {
     } else if (activeTab === "references") {
       setSelectedReference(null);
       setReferenceDialogOpen(true);
+    } else if (activeTab === "visuals") {
+      setVisualUploaderOpen(true);
     } else if (activeTab === "case-studies") {
       setAddContentType("case_study");
       setShowAddContentDialog(true);
@@ -181,6 +188,18 @@ export const KaiLibraryTab = ({ clientId, client }: KaiLibraryTabProps) => {
       setShowAddContentDialog(true);
     }
   };
+
+  // Filter visual references with search
+  const filteredVisualReferences = useMemo(() => {
+    if (!visualReferences) return [];
+    if (!searchQuery) return visualReferences;
+    const query = searchQuery.toLowerCase();
+    return visualReferences.filter(r =>
+      r.title?.toLowerCase().includes(query) ||
+      r.description?.toLowerCase().includes(query) ||
+      r.reference_type.toLowerCase().includes(query)
+    );
+  }, [visualReferences, searchQuery]);
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -192,12 +211,12 @@ export const KaiLibraryTab = ({ clientId, client }: KaiLibraryTabProps) => {
         </div>
         
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
-          {/* Search only for references tab */}
-          {activeTab === "references" && (
+          {/* Search for references and visuals tabs */}
+          {(activeTab === "references" || activeTab === "visuals") && (
             <div className="relative flex-1 sm:flex-initial">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Buscar referências..."
+                placeholder={activeTab === "visuals" ? "Buscar visuais..." : "Buscar referências..."}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-9 w-full sm:w-56 lg:w-64"
@@ -235,6 +254,11 @@ export const KaiLibraryTab = ({ clientId, client }: KaiLibraryTabProps) => {
             <FileBarChart className="h-4 w-4" />
             <span className="hidden sm:inline">Relatórios</span>
             <Badge variant="secondary" className="ml-1 bg-orange-500/20 text-orange-600 font-bold">{reportsCount}</Badge>
+          </TabsTrigger>
+          <TabsTrigger value="visuals" className="gap-2 data-[state=active]:bg-purple-500/10 data-[state=active]:text-purple-600">
+            <ImageIcon className="h-4 w-4" />
+            <span className="hidden sm:inline">Visuais</span>
+            <Badge variant="secondary" className="ml-1 bg-purple-500/20 text-purple-600 font-bold">{visualReferences?.length || 0}</Badge>
           </TabsTrigger>
         </TabsList>
 
@@ -303,6 +327,67 @@ export const KaiLibraryTab = ({ clientId, client }: KaiLibraryTabProps) => {
           />
         </TabsContent>
 
+        {/* Visual References */}
+        <TabsContent value="visuals" className="mt-4 flex-1 overflow-y-auto">
+          {filteredVisualReferences.length === 0 ? (
+            <Card>
+              <CardContent className="pt-6">
+                <div className="text-center py-8 text-muted-foreground">
+                  <ImageIcon className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>{searchQuery ? "Nenhuma referência visual encontrada" : "Nenhuma referência visual"}</p>
+                  {!searchQuery && (
+                    <Button
+                      variant="outline"
+                      className="mt-4"
+                      onClick={() => setVisualUploaderOpen(true)}
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Adicionar Visual
+                    </Button>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+              {filteredVisualReferences.map((ref) => (
+                <div key={ref.id} className="group relative rounded-lg border overflow-hidden hover:border-primary/50 hover:shadow-md transition-all bg-card">
+                  <div className="aspect-square bg-muted">
+                    <img 
+                      src={ref.image_url} 
+                      alt={ref.title || ""} 
+                      className="w-full h-full object-cover" 
+                    />
+                  </div>
+                  <div className="p-2">
+                    <p className="text-xs font-medium truncate">{ref.title || "Sem título"}</p>
+                    <div className="flex items-center justify-between mt-1">
+                      <Badge variant="outline" className="text-[10px] capitalize">{ref.reference_type.replace("_", " ")}</Badge>
+                      {ref.is_primary && (
+                        <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+                      )}
+                    </div>
+                  </div>
+                  {/* Delete button on hover */}
+                  {canDeleteFromLibrary && (
+                    <Button
+                      variant="destructive"
+                      size="icon"
+                      className="absolute top-2 right-2 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={() => {
+                        if (window.confirm("Excluir esta referência visual?")) {
+                          deleteVisualReference.mutate(ref.id);
+                        }
+                      }}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </TabsContent>
       </Tabs>
 
       {/* Dialogs */}
@@ -332,6 +417,13 @@ export const KaiLibraryTab = ({ clientId, client }: KaiLibraryTabProps) => {
         onOpenChange={setShowAddContentDialog}
         clientId={clientId}
         defaultContentType={addContentType}
+      />
+
+      {/* Visual Reference Uploader */}
+      <VisualReferenceUploader
+        clientId={clientId}
+        open={visualUploaderOpen}
+        onOpenChange={setVisualUploaderOpen}
       />
     </div>
   );

@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/useAuth";
 import { useWorkspace } from "@/hooks/useWorkspace";
-import { User, Sun, Moon, Palette, Key, Trash2, Loader2 } from "lucide-react";
+import { User, Sun, Moon, Palette, Key, Trash2, Loader2, MessageCircle, HelpCircle, Mail } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { useTheme } from "next-themes";
 import { TeamManagement } from "@/components/settings/TeamManagement";
@@ -20,6 +20,7 @@ import { useToast } from "@/hooks/use-toast";
 import { SettingsNavigation, SettingsSection } from "@/components/settings/SettingsNavigation";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { SALES_CONTACT } from "@/lib/plans";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -381,6 +382,40 @@ export function SettingsTab() {
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Support Card */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <HelpCircle className="h-5 w-5 text-muted-foreground" />
+            <CardTitle>Suporte</CardTitle>
+          </div>
+          <CardDescription>Precisa de ajuda? Fale com nossa equipe</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className={cn(
+            "flex gap-3",
+            isMobile ? "flex-col" : "flex-row"
+          )}>
+            <Button 
+              variant="outline" 
+              onClick={() => window.open(SALES_CONTACT.whatsapp, "_blank")}
+              className="gap-2"
+            >
+              <MessageCircle className="h-4 w-4" />
+              WhatsApp
+            </Button>
+            <Button 
+              variant="ghost" 
+              onClick={() => window.open("mailto:contato@kaleidos.ai", "_blank")}
+              className="gap-2"
+            >
+              <Mail className="h-4 w-4" />
+              Email
+            </Button>
           </div>
         </CardContent>
       </Card>
