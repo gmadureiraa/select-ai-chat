@@ -47,6 +47,12 @@ const platformBgColors = {
   content: "bg-muted/50",
 };
 
+// Extract first image from Markdown content (fallback when no thumbnail)
+function extractImageFromMarkdown(content: string): string | null {
+  const match = content?.match(/!\[.*?\]\((https?:\/\/[^\)]+)\)/);
+  return match?.[1] || null;
+}
+
 export function ContentCard({ 
   item, 
   onClick, 
@@ -60,6 +66,12 @@ export function ContentCard({
 }: ContentCardProps) {
   const Icon = platformIcons[item.platform] ?? FileText;
   const formattedDate = format(new Date(item.posted_at), "dd MMM yyyy", { locale: ptBR });
+  
+  // Fallback: extract image from Markdown content if no thumbnail_url
+  const displayThumbnail = item.thumbnail_url || extractImageFromMarkdown(item.content);
+  
+  // Clean content: remove Markdown image syntax for display
+  const displayContent = item.content?.replace(/!\[.*?\]\([^\)]+\)/g, '').trim();
 
   // Compact view
   if (compact || size === "compact") {
@@ -114,10 +126,10 @@ export function ContentCard({
         )}
       >
         {/* Thumbnail */}
-        {item.thumbnail_url ? (
+        {displayThumbnail ? (
           <div className="aspect-video bg-muted overflow-hidden">
             <img
-              src={item.thumbnail_url}
+              src={displayThumbnail}
               alt={item.title}
               className="w-full h-full object-cover transition-transform group-hover:scale-105"
               onError={(e) => {
@@ -150,7 +162,7 @@ export function ContentCard({
         {/* Content */}
         <div className="p-3 space-y-2">
           <p className="text-sm font-medium line-clamp-2">{item.title}</p>
-          <p className="text-xs text-muted-foreground line-clamp-2">{item.content.substring(0, 100)}</p>
+          <p className="text-xs text-muted-foreground line-clamp-2">{displayContent?.substring(0, 100)}</p>
           
           <div className="flex items-center justify-between text-xs text-muted-foreground">
             <span>{formattedDate}</span>
@@ -214,10 +226,10 @@ export function ContentCard({
       )}
     >
       {/* Thumbnail */}
-      {item.thumbnail_url ? (
+      {displayThumbnail ? (
         <div className="aspect-video bg-muted overflow-hidden">
           <img
-            src={item.thumbnail_url}
+            src={displayThumbnail}
             alt={item.title}
             className="w-full h-full object-cover transition-transform group-hover:scale-105"
             onError={(e) => {
@@ -260,8 +272,8 @@ export function ContentCard({
         
         {/* Full content preview */}
         <div className="text-sm text-muted-foreground line-clamp-5 whitespace-pre-wrap">
-          {item.content.substring(0, 400)}
-          {item.content.length > 400 && "..."}
+          {displayContent?.substring(0, 400)}
+          {(displayContent?.length || 0) > 400 && "..."}
         </div>
         
         <div className="flex items-center justify-between text-xs text-muted-foreground pt-2 border-t">
