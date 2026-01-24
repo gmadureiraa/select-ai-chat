@@ -1,173 +1,107 @@
 
-# Plano: Análise de Métricas Contextual e Inteligente
+# Plano: Limpeza de UI + Correção de Transcrição
 
-## Problema Identificado
+## Fase 1: Remover Botões do Chat
 
-O kAI Chat recebe apenas um **resumo genérico dos últimos 30 dias**, ignorando:
-- O período específico que o usuário perguntou (ex: "dezembro 2025")
-- Os posts individuais com todos os dados
-- A possibilidade de responder perguntas analíticas específicas
+### 1.1 Remover QuickActionsSuggestions (Recomendações)
+**Arquivo:** `src/components/chat/EnhancedMessageBubble.tsx`
 
-**Resultado**: A IA diz "não tenho acesso" porque o contexto passado não contém os dados necessários.
+Remover as linhas 336-344:
+```typescript
+// REMOVER ESTE BLOCO:
+{showQuickActions && (
+  <QuickActionsSuggestions
+    contentType={contentType}
+    content={content}
+    onAction={(prompt) => onSendMessage(prompt)}
+    className="animate-in fade-in slide-in-from-bottom-2 duration-300"
+  />
+)}
+```
+
+### 1.2 Remover SendToCanvasButton (Canvas)
+**Arquivo:** `src/components/chat/EnhancedMessageBubble.tsx`
+
+Remover as linhas 359-367:
+```typescript
+// REMOVER ESTE BLOCO:
+{isSubstantialContent && clientId && (
+  <SendToCanvasButton
+    content={content}
+    clientId={clientId}
+    clientName={clientName}
+    format={contentType !== "general" ? contentType : "post"}
+  />
+)}
+```
+
+### 1.3 Limpar Imports Não Utilizados
+Remover:
+- `import { SendToCanvasButton } from "./SendToCanvasButton";`
+- `import { QuickActionsSuggestions, detectContentType } from "./QuickActionsSuggestions";`
+
+E remover as variáveis não utilizadas:
+- `const contentType = ...` (se não for mais usada)
+- `const showQuickActions = ...`
 
 ---
 
-## Solução: Sistema de Análise Contextual em 3 Camadas
+## Fase 2: Incluir Transcrição no Contexto do kAI
 
-### Fase 1: Extração de Período da Mensagem
-
+### 2.1 Modificar Query de Posts
 **Arquivo:** `supabase/functions/kai-simple-chat/index.ts`
 
-Adicionar função `extractDateRange(message: string)` que detecta:
-- Meses específicos: "dezembro", "janeiro", etc.
-- Anos: "2025", "2026"
-- Períodos relativos: "mês passado", "últimas semanas"
-- Ranges: "de novembro a dezembro"
+Alterar a query na função `fetchMetricsContext` (linha ~307):
+
+**De:**
+```typescript
+.select("id, caption, likes, comments, saves, shares, reach, impressions, engagement_rate, posted_at, post_type, permalink")
+```
+
+**Para:**
+```typescript
+.select("id, caption, full_content, video_transcript, likes, comments, saves, shares, reach, impressions, engagement_rate, posted_at, post_type, permalink")
+```
+
+### 2.2 Usar Transcrição na Análise
+Quando montar o contexto do post para a IA, priorizar `full_content` (que inclui transcrição) sobre `caption`:
 
 ```typescript
-function extractDateRange(message: string): { start: string; end: string } | null {
-  // Detectar mês + ano: "dezembro de 2025"
-  const monthYearMatch = message.match(/(janeiro|fevereiro|março|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)\s*(de\s*)?(\d{4})/i);
-  // Calcular range de datas do mês específico
-  // Retornar { start: '2025-12-01', end: '2025-12-31' }
+// Usar full_content se disponível, senão caption
+const postContent = p.full_content || p.caption || 'Sem conteúdo';
+
+// Para análise de vídeo/reels, incluir transcrição de áudio
+if (p.video_transcript) {
+  context += `\n**Transcrição do Áudio:** ${p.video_transcript.substring(0, 500)}...\n`;
 }
 ```
 
-### Fase 2: Busca de Posts Direcionada
-
-**Modificar `fetchMetricsContext`:**
-
-1. Receber parâmetro `dateRange` opcional
-2. Se dateRange existir, filtrar posts por `posted_at` no range
-3. Incluir **dados completos** de cada post (não truncar caption)
-4. Ordenar por métrica relevante (detectar se pergunta é sobre likes, engajamento, reach, etc.)
+### 2.3 Atualizar Prompt de Análise
+Informar a IA que ela tem acesso ao conteúdo completo:
 
 ```typescript
-async function fetchMetricsContext(
-  supabase: any,
-  clientId: string,
-  dateRange?: { start: string; end: string },
-  metricFocus?: 'likes' | 'engagement' | 'reach' | 'comments'
-): Promise<string>
-```
-
-**Novo comportamento:**
-- Se pergunta sobre "melhor post" + "dezembro" → buscar posts de dezembro, ordenar pelo critério
-- Retornar os **5 melhores** com dados completos
-- Incluir a legenda completa do #1 para análise posterior
-
-### Fase 3: Detecção de Intenção de Análise
-
-Adicionar detecção de:
-- **Perguntas específicas**: "qual foi o melhor", "qual post teve mais"
-- **Pedidos de análise profunda**: "por que esse post foi bem", "analise o sucesso"
-
-**Novo padrão de detecção:**
-```typescript
-function isSpecificContentQuery(message: string): boolean {
-  const patterns = [
-    /qual\s+(foi\s+)?(o\s+)?(melhor|pior|maior|menor)/i,
-    /post\s+(com\s+)?(mais|menos)/i,
-    /top\s*\d+/i,
-    /ranking/i,
-    /conte[uú]do\s+que\s+(mais|menos)/i,
-  ];
-  return patterns.some(p => p.test(message));
-}
-```
-
-### Fase 4: Contexto Rico para Análise Profunda
-
-Quando o usuário perguntar "por que esse post foi bem", o sistema deve:
-
-1. Detectar que é um **follow-up de análise**
-2. Buscar o post específico mencionado (do histórico ou por referência)
-3. Incluir no contexto:
-   - Caption completo
-   - Todas as métricas (likes, comments, shares, saves, reach)
-   - Data e horário de postagem
-   - Tipo de post (reel, carousel, imagem)
-   - Média de desempenho do período para comparação
-
-**Prompt especializado para análise:**
-```
-## Análise Detalhada Solicitada
-Post: [caption completo]
-Performance: 1612 likes (2x acima da média), 44 comentários, 155 shares
-Engajamento: 4.57% (média do mês: 3.2%)
-Tipo: Carrossel educativo
-
-Analise:
-1. Tema e timing
-2. Estrutura do conteúdo
-3. Copywriting e gatilhos
-4. Formato visual
-5. Padrões de engajamento
+// No system prompt, adicionar:
+"Você tem acesso ao conteúdo COMPLETO dos posts, incluindo transcrições de imagens e áudio quando disponíveis. Use essas informações para análises mais profundas."
 ```
 
 ---
 
-## Mudanças Específicas no Código
+## Resumo das Mudanças
 
-### 1. Nova função `extractDateRange`
-- Detecta período mencionado na mensagem
-- Mapeia meses em português para números
-- Calcula primeiro e último dia do mês
-
-### 2. Modificar `fetchMetricsContext`
-- Aceitar dateRange opcional
-- Buscar posts no período específico quando fornecido
-- Aumentar limite de dados quando for query específica
-- Incluir dados completos do melhor post
-
-### 3. Nova função `detectMetricFocus`
-- Identifica se pergunta é sobre likes, engajamento, alcance, etc.
-- Ordena resultados pela métrica correta
-
-### 4. Modificar fluxo principal
-- Extrair dateRange antes de buscar métricas
-- Passar dateRange para fetchMetricsContext
-- Ajustar prompt baseado no tipo de análise
+| Arquivo | Ação |
+|---------|------|
+| `EnhancedMessageBubble.tsx` | Remover QuickActionsSuggestions e SendToCanvasButton |
+| `kai-simple-chat/index.ts` | Adicionar `full_content` e `video_transcript` na query |
+| `kai-simple-chat/index.ts` | Usar transcrição no contexto de análise |
 
 ---
 
-## Fluxo Exemplo
+## Próximos Passos Sugeridos
 
-**Usuário pergunta:** "Qual foi o melhor post do Instagram de dezembro de 2025 em likes?"
+Após essa implementação, podemos evoluir com:
 
-1. `extractDateRange` → `{ start: '2025-12-01', end: '2025-12-31' }`
-2. `detectMetricFocus` → `'likes'`
-3. `fetchMetricsContext(clientId, dateRange, 'likes')` → busca posts de dezembro ordenados por likes
-4. Contexto inclui:
-   ```
-   ## Melhor Post de Dezembro 2025 (por likes)
-   
-   **#1 - 1612 likes** (10/dez/2025)
-   Tipo: Carrossel
-   Engajamento: 4.57% | Comments: 44 | Shares: 155 | Saves: 91
-   Caption: "Sempre que o Bitcoin atinge novos topos, é chamado de bolha..."
-   
-   Outros top posts:
-   #2 - 1130 likes (28/dez) - Pack de memes
-   #3 - 1049 likes (18/dez) - Filmes para investidores
-   ```
-5. IA responde com dados precisos e oferece análise
-
----
-
-## Resultado Esperado
-
-Após implementação:
-- ✅ Responde "qual foi o melhor post de dezembro" com dados exatos
-- ✅ Permite follow-up "por que esse post foi tão bem?"
-- ✅ Compara performance entre períodos
-- ✅ Identifica padrões de conteúdo de sucesso
-- ✅ Gera relatórios focados no período solicitado
-
----
-
-## Arquivos a Modificar
-
-| Arquivo | Mudanças |
-|---------|----------|
-| `supabase/functions/kai-simple-chat/index.ts` | Adicionar extractDateRange, detectMetricFocus, modificar fetchMetricsContext |
+1. **Persistência de Conversas** - Salvar histórico do chat no banco para retomar depois
+2. **Geração de Imagens** - Integrar geração de imagens via prompt no chat
+3. **Comparativo entre Períodos** - "Compare dezembro com novembro"
+4. **Sugestões Inteligentes** - Após análise, sugerir melhorias baseadas nos dados
+5. **Export de Relatórios** - Botão para exportar análise completa em PDF
