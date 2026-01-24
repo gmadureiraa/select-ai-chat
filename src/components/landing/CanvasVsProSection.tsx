@@ -99,11 +99,9 @@ export function CanvasVsProSection() {
   const displayedFeatures = showAllFeatures ? features : basicFeatures;
 
   return (
-    <section id="pricing" className="py-28 bg-gradient-to-b from-muted/30 to-background relative overflow-hidden">
-      {/* Background effects */}
-      <div className="absolute top-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-border to-transparent" />
-      <div className="absolute bottom-0 right-0 w-[500px] h-[500px] bg-primary/5 blur-[120px] rounded-full pointer-events-none" />
-      <div className="absolute top-1/3 left-0 w-[400px] h-[400px] bg-purple-500/5 blur-[100px] rounded-full pointer-events-none" />
+    <section id="pricing" className="py-28 bg-muted/30 relative overflow-hidden">
+      {/* Subtle top border */}
+      <div className="absolute top-0 left-0 w-full h-px bg-border" />
       
       <div className="max-w-5xl mx-auto px-6 relative z-10">
         {/* Urgency Badge */}
@@ -126,7 +124,7 @@ export function CanvasVsProSection() {
           viewport={{ once: true }}
           className="text-center mb-16"
         >
-          <span className="inline-block px-4 py-1.5 rounded-full bg-gradient-to-r from-primary/20 to-primary/5 border border-primary/20 text-primary text-sm font-medium mb-5">
+          <span className="inline-block px-4 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-primary text-sm font-medium mb-5">
             Planos
           </span>
           <h2 className="text-4xl md:text-5xl font-bold text-foreground mb-5">
@@ -144,7 +142,7 @@ export function CanvasVsProSection() {
             initial={{ opacity: 0, x: -20 }}
             whileInView={{ opacity: 1, x: 0 }}
             viewport={{ once: true }}
-            className="bg-gradient-to-br from-card to-card/80 border border-border rounded-2xl p-7 hover:shadow-xl transition-all duration-300"
+            className="bg-card border border-border rounded-2xl p-7 hover:shadow-lg transition-all duration-300"
           >
             <div className="flex items-center gap-3 mb-5">
               <div className="w-12 h-12 rounded-xl bg-foreground flex items-center justify-center shadow-lg">
@@ -193,7 +191,7 @@ export function CanvasVsProSection() {
             initial={{ opacity: 0, x: 20 }}
             whileInView={{ opacity: 1, x: 0 }}
             viewport={{ once: true }}
-            className="bg-gradient-to-br from-card to-card/80 border-2 border-primary rounded-2xl p-7 relative hover:shadow-2xl hover:shadow-primary/10 transition-all duration-300"
+            className="bg-card border-2 border-primary rounded-2xl p-7 relative hover:shadow-xl transition-all duration-300"
           >
             {/* Popular badge - Animated */}
             <motion.div 
@@ -201,14 +199,14 @@ export function CanvasVsProSection() {
               animate={{ y: [0, -4, 0] }}
               transition={{ duration: 2, repeat: Infinity }}
             >
-              <span className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-gradient-to-r from-primary to-purple-500 text-primary-foreground text-xs font-semibold shadow-lg shadow-primary/30">
+              <span className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-primary text-primary-foreground text-xs font-semibold shadow-md">
                 <Sparkles className="w-3.5 h-3.5" />
                 Mais popular
               </span>
             </motion.div>
 
             <div className="flex items-center gap-3 mb-5">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center shadow-lg shadow-primary/20">
+              <div className="w-12 h-12 rounded-xl bg-primary flex items-center justify-center shadow-lg">
                 <Crown className="w-6 h-6 text-primary-foreground" />
               </div>
               <div>
@@ -236,7 +234,7 @@ export function CanvasVsProSection() {
             </div>
 
             <Link to="/signup?plan=agency" className="block">
-              <Button className="w-full h-12 text-base bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70" size="lg">
+              <Button className="w-full h-12 text-base" size="lg">
                 Começar grátis por 7 dias
                 <ArrowRight className="ml-2 w-4 h-4" />
               </Button>

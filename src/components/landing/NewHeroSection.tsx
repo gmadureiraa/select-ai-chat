@@ -722,18 +722,18 @@ const NewHeroSection = () => {
           {/* User avatars */}
           <div className="flex -space-x-2">
             {[
-              "bg-gradient-to-br from-pink-400 to-rose-500",
-              "bg-gradient-to-br from-blue-400 to-indigo-500",
-              "bg-gradient-to-br from-green-400 to-emerald-500",
-              "bg-gradient-to-br from-purple-400 to-violet-500",
-              "bg-gradient-to-br from-orange-400 to-amber-500",
-            ].map((gradient, i) => (
+              "bg-primary/80",
+              "bg-primary/70",
+              "bg-primary/60",
+              "bg-primary/50",
+              "bg-primary/40",
+            ].map((bg, i) => (
               <motion.div
                 key={i}
                 initial={{ opacity: 0, scale: 0 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ delay: 0.1 + i * 0.05 }}
-                className={`w-8 h-8 rounded-full ${gradient} border-2 border-background flex items-center justify-center text-white text-xs font-bold shadow-lg`}
+                className={`w-8 h-8 rounded-full ${bg} border-2 border-background flex items-center justify-center text-primary-foreground text-xs font-bold shadow-sm`}
               >
                 {String.fromCharCode(65 + i)}
               </motion.div>
@@ -753,7 +753,7 @@ const NewHeroSection = () => {
         >
           Transforme <span className="text-primary">1 vídeo</span>
           <br />
-          em <span className="bg-gradient-to-r from-primary to-purple-500 bg-clip-text text-transparent">10 conteúdos</span> prontos
+          em <span className="text-primary">10 conteúdos</span> prontos
         </motion.h1>
 
         {/* Subtitle with clear value */}

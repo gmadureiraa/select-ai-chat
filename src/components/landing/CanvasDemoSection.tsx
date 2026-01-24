@@ -22,16 +22,16 @@ import { Link } from "react-router-dom";
 
 // Output formats that the source transforms into
 const outputFormats = [
-  { icon: LayoutGrid, label: "Carrossel", color: "from-pink-500 to-rose-500", delay: 0 },
-  { icon: MessageSquare, label: "Thread", color: "from-blue-500 to-cyan-500", delay: 0.1 },
-  { icon: FileEdit, label: "Artigo", color: "from-purple-500 to-indigo-500", delay: 0.2 },
-  { icon: BookOpen, label: "Stories", color: "from-orange-500 to-amber-500", delay: 0.3 },
-  { icon: Mail, label: "Newsletter", color: "from-green-500 to-emerald-500", delay: 0.4 },
-  { icon: Video, label: "Roteiro", color: "from-red-500 to-pink-500", delay: 0.5 },
-  { icon: FileText, label: "Resumo", color: "from-teal-500 to-cyan-500", delay: 0.6 },
-  { icon: Instagram, label: "Caption", color: "from-fuchsia-500 to-pink-500", delay: 0.7 },
-  { icon: Twitter, label: "Tweet", color: "from-sky-500 to-blue-500", delay: 0.8 },
-  { icon: Linkedin, label: "LinkedIn", color: "from-blue-600 to-blue-500", delay: 0.9 },
+  { icon: LayoutGrid, label: "Carrossel", color: "bg-primary", delay: 0 },
+  { icon: MessageSquare, label: "Thread", color: "bg-primary/90", delay: 0.1 },
+  { icon: FileEdit, label: "Artigo", color: "bg-primary/80", delay: 0.2 },
+  { icon: BookOpen, label: "Stories", color: "bg-primary/70", delay: 0.3 },
+  { icon: Mail, label: "Newsletter", color: "bg-primary/90", delay: 0.4 },
+  { icon: Video, label: "Roteiro", color: "bg-primary/80", delay: 0.5 },
+  { icon: FileText, label: "Resumo", color: "bg-primary/70", delay: 0.6 },
+  { icon: Instagram, label: "Caption", color: "bg-primary", delay: 0.7 },
+  { icon: Twitter, label: "Tweet", color: "bg-primary/90", delay: 0.8 },
+  { icon: Linkedin, label: "LinkedIn", color: "bg-primary/80", delay: 0.9 },
 ];
 
 // Animated connection line component
@@ -89,7 +89,7 @@ const OutputNode = ({
       }}
     >
       <motion.div
-        className={`flex items-center gap-2 px-3 py-2 rounded-xl bg-gradient-to-br ${format.color} text-white shadow-lg cursor-default`}
+        className={`flex items-center gap-2 px-3 py-2 rounded-xl ${format.color} text-primary-foreground shadow-md cursor-default`}
         whileHover={{ scale: 1.1, y: -4 }}
         transition={{ type: "spring", stiffness: 400 }}
       >
@@ -148,7 +148,7 @@ const SourceToOutputsVisualization = () => {
         
         {/* Main source card */}
         <motion.div
-          className="relative w-24 h-24 md:w-28 md:h-28 rounded-2xl bg-gradient-to-br from-red-500 to-red-600 shadow-2xl shadow-red-500/30 flex flex-col items-center justify-center gap-2"
+          className="relative w-24 h-24 md:w-28 md:h-28 rounded-2xl bg-red-500 shadow-xl flex flex-col items-center justify-center gap-2"
           animate={{ y: [0, -5, 0] }}
           transition={{ duration: 3, repeat: Infinity }}
         >
