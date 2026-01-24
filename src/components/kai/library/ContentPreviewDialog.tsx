@@ -185,17 +185,17 @@ export function ContentPreviewDialog({
           <div className="pr-4">
             {/* Image Gallery - scrolls with content */}
             {images.length > 0 && (
-              <div className="relative rounded-lg overflow-hidden border bg-muted/30 mb-4">
-                <div className="aspect-square max-h-[400px] flex items-center justify-center">
-                  <img
-                    src={images[currentImageIndex]}
-                    alt={`${item.title} - Imagem ${currentImageIndex + 1}`}
-                    className="max-w-full max-h-full object-contain"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).style.display = 'none';
-                    }}
-                  />
-                </div>
+            <div className="relative rounded-lg overflow-hidden border bg-muted/30 mb-4">
+              <div className="max-h-[500px] w-full flex items-center justify-center p-2">
+                <img
+                  src={images[currentImageIndex]}
+                  alt={`${item.title} - Imagem ${currentImageIndex + 1}`}
+                  className="max-w-full max-h-[480px] object-contain mx-auto"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).style.display = 'none';
+                  }}
+                />
+              </div>
                 
                 {/* Navigation arrows */}
                 {images.length > 1 && (
