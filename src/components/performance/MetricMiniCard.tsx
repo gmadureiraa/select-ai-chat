@@ -11,31 +11,32 @@ interface MetricMiniCardProps {
   color?: "emerald" | "rose" | "blue" | "amber" | "violet";
 }
 
+// Simplified color config using theme variables
 const colorConfig = {
   emerald: {
-    bg: "bg-emerald-50 dark:bg-emerald-500/10",
-    icon: "text-emerald-600 dark:text-emerald-400",
-    stroke: "hsl(145, 75%, 45%)",
+    bg: "bg-primary/10",
+    icon: "text-primary",
+    stroke: "hsl(var(--primary))",
   },
   rose: {
-    bg: "bg-rose-50 dark:bg-rose-500/10",
-    icon: "text-rose-600 dark:text-rose-400",
-    stroke: "hsl(350, 80%, 55%)",
+    bg: "bg-primary/10",
+    icon: "text-primary",
+    stroke: "hsl(var(--primary))",
   },
   blue: {
-    bg: "bg-blue-50 dark:bg-blue-500/10",
-    icon: "text-blue-600 dark:text-blue-400",
-    stroke: "hsl(210, 80%, 55%)",
+    bg: "bg-primary/10",
+    icon: "text-primary",
+    stroke: "hsl(var(--primary))",
   },
   amber: {
-    bg: "bg-amber-50 dark:bg-amber-500/10",
-    icon: "text-amber-600 dark:text-amber-400",
-    stroke: "hsl(40, 95%, 50%)",
+    bg: "bg-primary/10",
+    icon: "text-primary",
+    stroke: "hsl(var(--primary))",
   },
   violet: {
-    bg: "bg-violet-50 dark:bg-violet-500/10",
-    icon: "text-violet-600 dark:text-violet-400",
-    stroke: "hsl(270, 70%, 55%)",
+    bg: "bg-primary/10",
+    icon: "text-primary",
+    stroke: "hsl(var(--primary))",
   },
 };
 

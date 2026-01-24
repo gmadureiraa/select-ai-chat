@@ -188,28 +188,24 @@ export function PerformanceOverview({ clientId, clientName }: PerformanceOvervie
       label: "Seguidores Ganhos",
       value: stats.instagram.followers,
       icon: Users,
-      color: "emerald",
       platform: "Instagram",
     },
     {
       label: "Contas alcançadas",
       value: stats.instagram.reach,
       icon: Eye,
-      color: "violet",
       platform: "Instagram",
     },
     {
       label: "Curtidas",
       value: stats.instagram.likes,
       icon: Heart,
-      color: "rose",
       platform: "Instagram",
     },
     {
       label: "Views YouTube",
       value: stats.youtube.views,
       icon: Youtube,
-      color: "red",
       platform: "YouTube",
     },
   ];
@@ -265,8 +261,8 @@ export function PerformanceOverview({ clientId, clientName }: PerformanceOvervie
                     </span>
                     <p className="text-2xl font-bold mt-1">{formatNumber(kpi.value)}</p>
                   </div>
-                  <div className={`p-2 rounded-lg bg-${kpi.color}-500/10`}>
-                    <kpi.icon className={`h-5 w-5 text-${kpi.color}-500`} />
+                  <div className="p-2 rounded-lg bg-primary/10">
+                    <kpi.icon className="h-5 w-5 text-primary" />
                   </div>
                 </div>
               </CardContent>
@@ -287,8 +283,8 @@ export function PerformanceOverview({ clientId, clientName }: PerformanceOvervie
               {chartData.length > 0 ? (
                 <ChartContainer
                   config={{
-                    followers: { label: "Seguidores", color: "hsl(145, 80%, 45%)" },
-                    views: { label: "Visualizações", color: "hsl(270, 70%, 55%)" },
+                    followers: { label: "Seguidores", color: "hsl(var(--primary))" },
+                    views: { label: "Visualizações", color: "hsl(var(--primary))" },
                   }}
                   className="h-[280px] w-full"
                 >
@@ -296,8 +292,8 @@ export function PerformanceOverview({ clientId, clientName }: PerformanceOvervie
                     <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                       <defs>
                         <linearGradient id="overviewGradient" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="hsl(145, 80%, 45%)" stopOpacity={0.3} />
-                          <stop offset="100%" stopColor="hsl(145, 80%, 45%)" stopOpacity={0} />
+                          <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
+                          <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0} />
                         </linearGradient>
                       </defs>
                       <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" strokeOpacity={0.3} vertical={false} />
@@ -331,7 +327,7 @@ export function PerformanceOverview({ clientId, clientName }: PerformanceOvervie
                       <Area
                         type="monotone"
                         dataKey="followers"
-                        stroke="hsl(145, 80%, 45%)"
+                        stroke="hsl(var(--primary))"
                         strokeWidth={2}
                         fill="url(#overviewGradient)"
                       />

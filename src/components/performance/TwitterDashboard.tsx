@@ -175,12 +175,13 @@ export function TwitterDashboard({ clientId, posts, isLoading }: TwitterDashboar
       }));
   }, [filteredPosts]);
 
+  // All metrics use theme primary color for unified visual
   const availableMetrics = [
-    { key: 'impressions', dataKey: 'impressions', label: 'Impressões', color: 'hsl(210, 80%, 55%)' },
-    { key: 'engagements', dataKey: 'engagements', label: 'Engajamentos', color: 'hsl(145, 75%, 45%)' },
-    { key: 'likes', dataKey: 'likes', label: 'Curtidas', color: 'hsl(350, 80%, 55%)' },
-    { key: 'retweets', dataKey: 'retweets', label: 'Retweets', color: 'hsl(170, 70%, 45%)' },
-    { key: 'replies', dataKey: 'replies', label: 'Respostas', color: 'hsl(40, 95%, 50%)' },
+    { key: 'impressions', dataKey: 'impressions', label: 'Impressões', color: 'hsl(var(--primary))' },
+    { key: 'engagements', dataKey: 'engagements', label: 'Engajamentos', color: 'hsl(var(--primary))' },
+    { key: 'likes', dataKey: 'likes', label: 'Curtidas', color: 'hsl(var(--primary))' },
+    { key: 'retweets', dataKey: 'retweets', label: 'Retweets', color: 'hsl(var(--primary))' },
+    { key: 'replies', dataKey: 'replies', label: 'Respostas', color: 'hsl(var(--primary))' },
   ];
 
   // Handle file import

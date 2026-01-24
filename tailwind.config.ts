@@ -72,9 +72,9 @@ extend: {
             fg: "hsl(var(--chat-ai-fg))",
           },
         },
-        // kAI brand colors
+        // kAI brand colors (Kaleidos)
         kai: {
-          pink: "hsl(330, 85%, 52%)",
+          pink: "hsl(320, 55%, 61%)",
           green: "hsl(150, 100%, 50%)",
         },
         // Chart colors
