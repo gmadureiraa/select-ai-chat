@@ -1,367 +1,332 @@
 
-# Plano Completo: Evolução do kAI Chat
+# Plano: Melhorias Completas na Biblioteca de Conteúdo
 
-## Visão Geral
+## Problemas Identificados
 
-Implementação de 4 funcionalidades para tornar o kAI Chat mais poderoso e visualmente alinhado com a marca kAI.
+1. **ContentPreviewDialog** mostra apenas thumbnail, não tem galeria de imagens
+2. **Botão "Adicionar ao Canvas"** está presente mas não é necessário
+3. **Sem opção de download** das imagens
+4. **Newsletters** - não há lógica para puxar capas automaticamente
+5. **Sem edição** de conteúdo da biblioteca
+6. **Filtros não funcionam** - o `UnifiedContentGrid` tem filtros próprios de plataforma, mas o `LibraryFilters` da aba "Conteúdo" não está conectado
+7. **Área de Estudo de Caso** - criar novo tipo de conteúdo com editor de texto rico
 
 ---
 
-## Parte 1: Geração de Imagens via IA no Chat
+## Fase 1: Galeria de Imagens no Preview
 
-### 1.1 Detecção de Pedido de Imagem
-**Arquivo:** `supabase/functions/kai-simple-chat/index.ts`
+### 1.1 Buscar Imagens do Post Original
+**Arquivo:** `src/hooks/useUnifiedContent.ts`
 
-Adicionar função de detecção (reutilizar padrão de `detectImageGenerationRequest`):
+Para posts Instagram, buscar também o campo `images`:
 ```typescript
-function isImageGenerationRequest(message: string): { 
-  isRequest: boolean; 
-  prompt: string;
-} {
-  const patterns = [
-    /gera(r)?\s*(uma?)?\s*imagem/i,
-    /cria(r)?\s*(uma?)?\s*imagem/i,
-    /@imagem/i,
-    /fazer?\s*(uma?)?\s*(arte|visual|imagem)/i,
-  ];
-  // Extrair prompt e retornar
+// Na query de instagram_posts:
+.select('id, caption, thumbnail_url, images, posted_at, ...')
+
+// Na normalização:
+const postImages = Array.isArray(post.images) ? post.images : [];
+const allImages = postImages.map(path => getStorageUrl(path));
+if (post.thumbnail_url && !allImages.includes(post.thumbnail_url)) {
+  allImages.unshift(post.thumbnail_url);
 }
+items.push({
+  ...
+  images: allImages.length > 0 ? allImages : undefined,
+  ...
+});
 ```
 
-### 1.2 Chamar API de Geração
-Quando detectar pedido de imagem, usar a API do Gemini com modalidades `Text` e `Image`:
+### 1.2 Atualizar ContentPreviewDialog
+**Arquivo:** `src/components/kai/library/ContentPreviewDialog.tsx`
+
+Adicionar galeria navegável igual ao `PostContentDialog`:
 ```typescript
-// Usar gemini-2.0-flash-exp-image-generation
-const response = await fetch(
-  `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp-image-generation:generateContent?key=${GOOGLE_API_KEY}`,
-  {
-    method: "POST",
-    body: JSON.stringify({
-      contents: [{ parts: [{ text: imagePrompt }] }],
-      generationConfig: { responseModalities: ["Text", "Image"] },
-    }),
-  }
-);
-```
+const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
-### 1.3 Retornar Imagem no Stream
-Modificar o formato de resposta para incluir imagem base64:
-```typescript
-// Quando for imagem, enviar formato especial:
-{
-  choices: [{ 
-    delta: { 
-      content: "Imagem gerada com sucesso!",
-      image: "data:image/png;base64,..." 
-    } 
-  }]
-}
-```
+// Usar item.images se disponível
+const images = item.images || (item.thumbnail_url ? [item.thumbnail_url] : []);
 
-### 1.4 Exibir Imagem no Chat
-**Arquivo:** `src/hooks/useKAISimpleChat.ts`
-
-Modificar processamento para detectar imagens na resposta:
-```typescript
-const delta = parsed.choices?.[0]?.delta;
-if (delta?.image) {
-  // Adicionar URL da imagem ao estado
-  setMessages(prev => prev.map(m => 
-    m.id === assistantId 
-      ? { ...m, content: delta.content, imageUrl: delta.image }
-      : m
-  ));
-}
-```
-
-### 1.5 Componente de Imagem
-**Arquivo:** `src/components/kai-global/GlobalKAIChat.tsx`
-
-Renderizar imagem quando presente:
-```tsx
-{message.imageUrl && (
-  <img 
-    src={message.imageUrl} 
-    alt="Imagem gerada" 
-    className="max-w-full rounded-lg mt-2"
-  />
+// Renderizar galeria com navegação (ChevronLeft/Right, dots)
+{images.length > 0 && (
+  <div className="relative aspect-square bg-muted rounded-lg overflow-hidden">
+    <img src={images[currentImageIndex]} />
+    {images.length > 1 && (
+      // Botões de navegação + contador
+    )}
+  </div>
 )}
 ```
 
 ---
 
-## Parte 2: Persistência de Conversas
+## Fase 2: Remover Botão "Adicionar ao Canvas"
 
-### 2.1 Criar Tabela `kai_chat_conversations`
-Não usar a tabela `conversations` existente (usada pelo chat antigo). Criar nova:
+### 2.1 Remover da Props e Renderização
+**Arquivo:** `src/components/kai/library/ContentPreviewDialog.tsx`
 
-```sql
-CREATE TABLE kai_chat_conversations (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  client_id UUID NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
-  title TEXT DEFAULT 'Nova conversa',
-  last_message_preview TEXT,
-  created_at TIMESTAMPTZ DEFAULT now(),
-  updated_at TIMESTAMPTZ DEFAULT now()
-);
+- Remover prop `onAddToCanvas`
+- Remover o botão do footer
 
-CREATE INDEX idx_kai_chat_conversations_user ON kai_chat_conversations(user_id);
-CREATE INDEX idx_kai_chat_conversations_client ON kai_chat_conversations(client_id);
+### 2.2 Atualizar Chamadas
+**Arquivo:** `src/components/kai/library/UnifiedContentGrid.tsx`
 
--- RLS
-ALTER TABLE kai_chat_conversations ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Users can manage own conversations" ON kai_chat_conversations
-  FOR ALL USING (auth.uid() = user_id);
-```
+- Remover `onAddToCanvas` do `ContentPreviewDialog`
 
-### 2.2 Criar Tabela `kai_chat_messages`
-```sql
-CREATE TABLE kai_chat_messages (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  conversation_id UUID NOT NULL REFERENCES kai_chat_conversations(id) ON DELETE CASCADE,
-  role TEXT NOT NULL CHECK (role IN ('user', 'assistant')),
-  content TEXT NOT NULL,
-  image_url TEXT,
-  created_at TIMESTAMPTZ DEFAULT now()
-);
+---
 
-CREATE INDEX idx_kai_chat_messages_conversation ON kai_chat_messages(conversation_id);
+## Fase 3: Download de Imagens
 
--- RLS
-ALTER TABLE kai_chat_messages ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Users can manage own messages" ON kai_chat_messages
-  FOR ALL USING (
-    EXISTS (
-      SELECT 1 FROM kai_chat_conversations c 
-      WHERE c.id = kai_chat_messages.conversation_id 
-      AND c.user_id = auth.uid()
-    )
-  );
-```
+### 3.1 Adicionar Botão de Download no Preview
+**Arquivo:** `src/components/kai/library/ContentPreviewDialog.tsx`
 
-### 2.3 Modificar Hook `useKAISimpleChat`
-**Arquivo:** `src/hooks/useKAISimpleChat.ts`
-
-Adicionar persistência:
 ```typescript
-interface UseKAISimpleChatOptions {
-  clientId: string;
-  conversationId?: string;
+import { Download, DownloadCloud } from "lucide-react";
+import JSZip from "jszip";
+
+// Função para baixar uma imagem
+const downloadImage = async (url: string, filename: string) => {
+  const response = await fetch(url);
+  const blob = await response.blob();
+  const blobUrl = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = blobUrl;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(blobUrl);
+};
+
+// Função para baixar todas como ZIP
+const downloadAllImages = async () => {
+  const zip = new JSZip();
+  for (let i = 0; i < images.length; i++) {
+    const response = await fetch(images[i]);
+    const blob = await response.blob();
+    zip.file(`imagem-${i + 1}.jpg`, blob);
+  }
+  const zipBlob = await zip.generateAsync({ type: "blob" });
+  // Download do ZIP
+};
+
+// Botões:
+<Button onClick={() => downloadImage(images[currentImageIndex], 'imagem.jpg')}>
+  <Download /> Baixar imagem
+</Button>
+{images.length > 1 && (
+  <Button onClick={downloadAllImages}>
+    <DownloadCloud /> Baixar todas ({images.length})
+  </Button>
+)}
+```
+
+---
+
+## Fase 4: Edição de Conteúdo da Biblioteca
+
+### 4.1 Criar Dialog de Edição
+**Novo arquivo:** `src/components/kai/library/ContentEditDialog.tsx`
+
+```typescript
+interface ContentEditDialogProps {
+  item: UnifiedContentItem | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSave: (data: Partial<CreateContentData>) => void;
 }
 
-// Carregar mensagens ao iniciar
-useEffect(() => {
-  if (conversationId) {
-    loadConversation(conversationId);
-  }
-}, [conversationId]);
-
-// Salvar mensagem após envio
-const saveMessage = async (message: SimpleMessage) => {
-  await supabase.from('kai_chat_messages').insert({
-    conversation_id: activeConversationId,
-    role: message.role,
-    content: message.content,
-    image_url: message.imageUrl,
+export function ContentEditDialog({ item, open, onOpenChange, onSave }: ContentEditDialogProps) {
+  const [formData, setFormData] = useState({
+    title: '',
+    content: '',
+    content_url: '',
   });
-};
+
+  // Formulário com:
+  // - Input para título
+  // - Textarea/Editor para conteúdo
+  // - Input para URL original
+  // - Seletor de tipo de conteúdo
+  // - Gerenciador de imagens (upload/remover)
+}
 ```
 
-### 2.4 Criar Hook `useKAIConversations`
-**Arquivo:** `src/hooks/useKAIConversations.ts`
+### 4.2 Adicionar Botão de Editar
+**Arquivo:** `src/components/kai/library/ContentPreviewDialog.tsx`
 
+- Adicionar botão "Editar" que abre o `ContentEditDialog`
+- Passar callback para salvar alterações via `useContentLibrary.updateContent`
+
+### 4.3 Hook de Atualização para Posts Originais
+**Arquivo:** `src/hooks/useUnifiedContent.ts`
+
+Criar mutation para atualizar posts na tabela original:
 ```typescript
-export function useKAIConversations(clientId: string) {
-  // Listar conversas do cliente
-  const { data: conversations } = useQuery({
-    queryKey: ['kai-conversations', clientId],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from('kai_chat_conversations')
-        .select('*')
-        .eq('client_id', clientId)
-        .order('updated_at', { ascending: false });
-      return data;
+export function useUpdateUnifiedContent(clientId: string) {
+  return useMutation({
+    mutationFn: async ({ item, data }: { item: UnifiedContentItem, data: any }) => {
+      // Atualizar na tabela correta baseado em item._source
+      if (item._source === 'instagram_posts') {
+        await supabase.from('instagram_posts').update(data).eq('id', item.id);
+      } else if (item._source === 'client_content_library') {
+        await supabase.from('client_content_library').update(data).eq('id', item.id);
+      }
+      // etc...
     },
   });
-
-  // Criar nova conversa
-  const createConversation = async () => {...};
-  
-  // Deletar conversa
-  const deleteConversation = async (id: string) => {...};
-}
-```
-
-### 2.5 UI de Histórico
-**Arquivo:** `src/components/kai-global/GlobalKAIPanel.tsx`
-
-Adicionar sidebar/dropdown com lista de conversas anteriores.
-
----
-
-## Parte 3: Comparação de Métricas entre Períodos
-
-### 3.1 Detecção de Comparação
-**Arquivo:** `supabase/functions/kai-simple-chat/index.ts`
-
-Adicionar função:
-```typescript
-function isComparisonQuery(message: string): {
-  isComparison: boolean;
-  period1: DateRange | null;
-  period2: DateRange | null;
-} {
-  const patterns = [
-    /compare?\s+(\w+)\s+(com|vs?|versus|e|contra)\s+(\w+)/i,
-    /diferen[cç]a\s+entre\s+(\w+)\s+e\s+(\w+)/i,
-    /(\w+)\s+vs?\s+(\w+)/i,
-  ];
-  // Extrair os dois períodos mencionados
-}
-```
-
-### 3.2 Buscar Métricas de Dois Períodos
-Modificar `fetchMetricsContext` para aceitar dois períodos:
-```typescript
-async function fetchComparisonContext(
-  supabase: any,
-  clientId: string,
-  period1: DateRange,
-  period2: DateRange
-): Promise<string> {
-  // Buscar métricas de ambos os períodos
-  const [metrics1, metrics2] = await Promise.all([
-    fetchPeriodMetrics(supabase, clientId, period1),
-    fetchPeriodMetrics(supabase, clientId, period2),
-  ]);
-  
-  // Calcular diferenças
-  const comparison = {
-    likes: { p1: metrics1.totalLikes, p2: metrics2.totalLikes, diff: ... },
-    engagement: { p1: metrics1.avgEngagement, p2: metrics2.avgEngagement, diff: ... },
-    reach: { p1: metrics1.totalReach, p2: metrics2.totalReach, diff: ... },
-    posts: { p1: metrics1.totalPosts, p2: metrics2.totalPosts, diff: ... },
-  };
-  
-  // Montar contexto formatado
-  return `
-## Comparativo: ${period1.label} vs ${period2.label}
-
-| Métrica | ${period1.label} | ${period2.label} | Variação |
-|---------|------------------|------------------|----------|
-| Likes | ${metrics1.totalLikes} | ${metrics2.totalLikes} | ${diff}% |
-...
-`;
-}
-```
-
-### 3.3 Prompt Especializado
-Adicionar instruções no system prompt quando for comparação:
-```typescript
-if (isComparison) {
-  systemPrompt += `
-ANÁLISE COMPARATIVA:
-Você está comparando dois períodos. Sua análise deve:
-1. Destacar as principais diferenças
-2. Identificar tendências (crescimento/queda)
-3. Apontar possíveis causas
-4. Sugerir ações baseadas nos dados
-`;
 }
 ```
 
 ---
 
-## Parte 4: Novo Sistema de Cores kAI
+## Fase 5: Corrigir Filtros da Biblioteca
 
-### 4.1 Definir Paleta
-- **Tema Claro**: Branco (`#FFFFFF`) + Rosa kAI (`#E91E8C` ou similar)
-- **Tema Escuro**: Preto (`#0A0A0A`) + Verde kAI (`#00FF7F` ou similar)
+### 5.1 Problema Atual
+O `KaiLibraryTab` passa os filtros para `LibraryFilters`, mas não repassa para `UnifiedContentGrid`. O `UnifiedContentGrid` tem seus próprios filtros internos.
 
-### 4.2 Atualizar CSS
-**Arquivo:** `src/index.css`
+### 5.2 Solução: Unificar Filtros
+**Arquivo:** `src/components/kai/library/UnifiedContentGrid.tsx`
 
-```css
-@layer base {
-  :root {
-    /* kAI Light - Branco e Rosa */
-    --background: 0 0% 100%;
-    --foreground: 0 0% 9%;
-    
-    --primary: 330 85% 52%;  /* Rosa kAI */
-    --primary-foreground: 0 0% 100%;
-    
-    --accent: 330 85% 95%;   /* Rosa claro */
-    --accent-foreground: 330 85% 25%;
-    
-    --card: 0 0% 100%;
-    --border: 330 20% 90%;
-    
-    /* Chat */
-    --chat-user-bg: 330 85% 95%;
-    --chat-user-fg: 330 85% 25%;
-    --chat-ai-bg: 0 0% 100%;
-    --chat-ai-fg: 0 0% 9%;
-    
-    /* Charts - Rosa gradiente */
-    --chart-1: 330 85% 52%;
-    --chart-2: 330 70% 60%;
-    --chart-3: 330 55% 70%;
-    --chart-4: 330 40% 80%;
-    --chart-5: 330 30% 85%;
-  }
-
-  .dark {
-    /* kAI Dark - Preto e Verde */
-    --background: 0 0% 4%;
-    --foreground: 0 0% 95%;
-    
-    --primary: 150 100% 50%;  /* Verde kAI */
-    --primary-foreground: 0 0% 0%;
-    
-    --accent: 150 100% 15%;   /* Verde escuro */
-    --accent-foreground: 150 100% 70%;
-    
-    --card: 0 0% 6%;
-    --border: 150 20% 15%;
-    
-    /* Chat */
-    --chat-user-bg: 150 100% 10%;
-    --chat-user-fg: 150 100% 70%;
-    --chat-ai-bg: 0 0% 6%;
-    --chat-ai-fg: 0 0% 95%;
-    
-    /* Charts - Verde gradiente */
-    --chart-1: 150 100% 50%;
-    --chart-2: 150 80% 45%;
-    --chart-3: 150 60% 40%;
-    --chart-4: 150 40% 35%;
-    --chart-5: 150 30% 30%;
-  }
-}
-```
-
-### 4.3 Atualizar Tailwind Config
-**Arquivo:** `tailwind.config.ts`
-
-Adicionar cores semânticas para kAI:
+Aceitar filtros externos como props:
 ```typescript
-colors: {
-  kai: {
-    pink: "hsl(330, 85%, 52%)",
-    green: "hsl(150, 100%, 50%)",
-  },
+interface UnifiedContentGridProps {
+  clientId: string;
+  typeFilter?: ContentTypeFilter;
+  sortOption?: SortOption;
+  viewMode?: ViewMode;
+  searchQuery?: string;
 }
 ```
 
-### 4.4 Revisar Componentes
-Verificar componentes que usam cores hardcoded:
-- `GlobalKAIPanel.tsx` - Sidebar e header
-- `GlobalKAIChat.tsx` - Bolhas de mensagem
-- `SimpleProgress.tsx` - Indicadores de loading
-- Gráficos e charts
+### 5.3 Conectar em KaiLibraryTab
+**Arquivo:** `src/components/kai/KaiLibraryTab.tsx`
+
+```typescript
+<UnifiedContentGrid
+  clientId={clientId}
+  typeFilter={typeFilter}
+  sortOption={sortOption}
+  viewMode={viewMode}
+  searchQuery={searchQuery}
+/>
+```
+
+---
+
+## Fase 6: Capas de Newsletters
+
+### 6.1 Newsletter já tem thumbnail_url
+As newsletters já armazenam capas em `thumbnail_url` ou `metadata.images`. O problema é que nem todas têm.
+
+### 6.2 Mostrar Capa no Card
+**Arquivo:** `src/components/kai/library/ContentCard.tsx`
+
+O card já usa `item.thumbnail_url`. Só precisamos garantir que newsletters tenham essa informação.
+
+### 6.3 Atualizar ao Criar Newsletter
+**Arquivo:** `src/components/kai/library/AddContentDialog.tsx`
+
+Ao adicionar newsletter, permitir upload de capa:
+```typescript
+{contentType === 'newsletter' && (
+  <div className="space-y-2">
+    <Label>Capa da Newsletter</Label>
+    <Input type="file" accept="image/*" onChange={handleCoverUpload} />
+    {coverPreview && <img src={coverPreview} className="max-h-32 rounded" />}
+  </div>
+)}
+```
+
+---
+
+## Fase 7: Área de Estudo de Caso (Editor de Texto)
+
+### 7.1 Novo Tipo de Conteúdo
+Adicionar `case_study` e `report` aos tipos de conteúdo:
+```typescript
+// src/types/contentTypes.ts
+export type ContentTypeKey = 
+  | 'carousel' 
+  | 'newsletter' 
+  | ... 
+  | 'case_study'   // Novo
+  | 'report'       // Novo
+  | 'document';    // Novo
+```
+
+### 7.2 Criar Editor Rico
+**Novo arquivo:** `src/components/kai/library/RichContentEditor.tsx`
+
+Usar um editor de texto rico (já temos ReactMarkdown para exibição):
+```typescript
+import { Textarea } from "@/components/ui/textarea";
+
+// Para MVP: usar Textarea com suporte a Markdown
+// Futuramente: integrar TipTap ou similar
+
+interface RichContentEditorProps {
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+}
+
+export function RichContentEditor({ value, onChange }: RichContentEditorProps) {
+  return (
+    <div className="space-y-4">
+      {/* Toolbar com formatação básica */}
+      <div className="flex gap-2">
+        <Button onClick={() => insertMarkdown('**', '**')}>Bold</Button>
+        <Button onClick={() => insertMarkdown('_', '_')}>Italic</Button>
+        <Button onClick={() => insertMarkdown('## ', '')}>Heading</Button>
+        <Button onClick={handleImageUpload}>Imagem</Button>
+      </div>
+      
+      <Textarea 
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="min-h-[400px] font-mono"
+      />
+      
+      {/* Preview em tempo real */}
+      <div className="prose dark:prose-invert">
+        <ReactMarkdown>{value}</ReactMarkdown>
+      </div>
+    </div>
+  );
+}
+```
+
+### 7.3 Dialog para Criar Estudo de Caso
+**Arquivo:** `src/components/kai/library/AddContentDialog.tsx`
+
+Quando tipo for `case_study` ou `document`, mostrar o editor rico:
+```typescript
+{(contentType === 'case_study' || contentType === 'document') && (
+  <RichContentEditor
+    value={content}
+    onChange={setContent}
+    placeholder="Escreva seu estudo de caso..."
+  />
+)}
+```
+
+### 7.4 Visualização Dedicada
+**Arquivo:** `src/components/kai/library/ContentPreviewDialog.tsx`
+
+Para estudos de caso, usar visualização expandida com suporte a imagens inline:
+```typescript
+{item.platform === 'content' && item._source === 'client_content_library' && (
+  <div className="prose prose-lg dark:prose-invert max-w-none">
+    <ReactMarkdown
+      components={{
+        img: ({ src, alt }) => (
+          <img src={src} alt={alt} className="rounded-lg max-w-full" />
+        ),
+      }}
+    >
+      {item.content}
+    </ReactMarkdown>
+  </div>
+)}
+```
 
 ---
 
@@ -369,19 +334,24 @@ Verificar componentes que usam cores hardcoded:
 
 | Arquivo | Mudanças |
 |---------|----------|
-| `kai-simple-chat/index.ts` | Geração de imagem, comparação de períodos |
-| `src/hooks/useKAISimpleChat.ts` | Persistência, suporte a imagens |
-| `src/hooks/useKAIConversations.ts` | Novo hook para histórico |
-| `src/components/kai-global/GlobalKAIChat.tsx` | Exibir imagens, histórico |
-| `src/index.css` | Nova paleta de cores |
-| `tailwind.config.ts` | Cores kAI |
-| **Migrations** | 2 novas tabelas |
+| `src/hooks/useUnifiedContent.ts` | Buscar campo `images`, criar mutation de update |
+| `src/components/kai/library/ContentPreviewDialog.tsx` | Galeria, download, remover Canvas, botão editar |
+| `src/components/kai/library/UnifiedContentGrid.tsx` | Aceitar filtros externos, remover onAddToCanvas |
+| `src/components/kai/library/ContentCard.tsx` | Exibir contador de imagens |
+| `src/components/kai/library/ContentEditDialog.tsx` | Novo - Dialog de edição |
+| `src/components/kai/library/RichContentEditor.tsx` | Novo - Editor de texto rico |
+| `src/components/kai/library/AddContentDialog.tsx` | Upload de capa, tipos novos |
+| `src/components/kai/KaiLibraryTab.tsx` | Conectar filtros ao grid |
+| `src/types/contentTypes.ts` | Adicionar case_study, report, document |
 
 ---
 
 ## Ordem de Implementação
 
-1. **Cores kAI** (rápido, impacto visual imediato)
-2. **Geração de Imagens** (alto valor, diferencial)
-3. **Comparação de Períodos** (complementa métricas existentes)
-4. **Persistência** (complexo, pode ser incremental)
+1. **Galeria de Imagens** (impacto visual imediato)
+2. **Remover botão Canvas** (simples)
+3. **Download de imagens** (funcionalidade pedida)
+4. **Corrigir filtros** (bug fix)
+5. **Edição de conteúdo** (funcionalidade core)
+6. **Capas de newsletters** (melhoria)
+7. **Estudo de Caso/Editor** (nova funcionalidade)
