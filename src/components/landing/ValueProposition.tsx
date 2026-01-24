@@ -8,7 +8,17 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
-const pillars = [
+interface Pillar {
+  step: string;
+  icon: React.ElementType;
+  title: string;
+  description: string;
+  color: string;
+  bgColor: string;
+  isPro?: boolean;
+}
+
+const pillars: Pillar[] = [
   {
     step: "1",
     icon: User,
@@ -40,6 +50,7 @@ const pillars = [
     description: "Planejamento visual e publicação agendada nas suas redes.",
     color: "from-accent to-orange-500",
     bgColor: "bg-accent/10",
+    isPro: true,
   },
 ];
 
@@ -96,8 +107,13 @@ const ValueProposition = () => {
                   Passo {pillar.step}
                 </span>
                 
-                <h3 className="text-lg font-semibold text-foreground mb-2">
+                <h3 className="text-lg font-semibold text-foreground mb-2 flex items-center justify-center gap-2">
                   {pillar.title}
+                  {pillar.isPro && (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary font-medium">
+                      PRO
+                    </span>
+                  )}
                 </h3>
                 <p className="text-sm text-muted-foreground">
                   {pillar.description}
@@ -125,7 +141,7 @@ const ValueProposition = () => {
           className="mt-16 p-8 rounded-3xl bg-gradient-to-r from-primary/5 via-secondary/5 to-accent/5 border border-border text-center"
         >
           <h3 className="text-2xl md:text-3xl font-bold text-foreground mb-3">
-            Resultado: <span className="text-primary">10x mais conteúdo</span> em <span className="text-secondary">menos tempo</span>
+            Resultado: <span className="text-primary">10x mais conteúdo em menos tempo</span>
           </h3>
           <p className="text-muted-foreground max-w-xl mx-auto">
             Enquanto você foca no que importa, KAI cuida da produção. Menos trabalho manual, mais presença online.
