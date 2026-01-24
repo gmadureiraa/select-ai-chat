@@ -325,17 +325,17 @@ export function CanvasVsProSection() {
           transition={{ delay: 0.5 }}
           className="text-center mt-10"
         >
-          <p className="text-muted-foreground text-sm">
-            Precisa de mais perfis ou recursos enterprise?{" "}
-            <a
-              href="https://wa.me/5511999999999?text=Olá! Gostaria de saber mais sobre o plano Enterprise do kAI"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-primary hover:underline font-medium"
-            >
-              Fale com vendas →
-            </a>
-          </p>
+        <p className="text-muted-foreground text-sm">
+          Precisa de mais perfis ou recursos enterprise?{" "}
+          <a
+            href="https://api.whatsapp.com/send/?phone=12936180547&text=Olá! Gostaria de saber mais sobre o plano Enterprise do kAI"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-primary hover:underline font-medium"
+          >
+            Fale com vendas →
+          </a>
+        </p>
         </motion.div>
       </div>
     </section>

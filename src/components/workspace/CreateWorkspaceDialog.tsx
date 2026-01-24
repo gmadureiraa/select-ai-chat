@@ -21,18 +21,20 @@ interface CreateWorkspaceDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
+import { PLAN_CONFIG } from "@/lib/plans";
+
 const PLANS = {
   basic: {
-    name: "Basic",
-    price: "$25",
-    description: "Canvas de criação focado",
-    features: ["1 cliente", "Canvas ilimitado", "10 templates"],
+    name: PLAN_CONFIG.canvas.name,
+    price: PLAN_CONFIG.canvas.priceFormatted,
+    description: PLAN_CONFIG.canvas.description,
+    features: PLAN_CONFIG.canvas.shortFeatures,
   },
   agency: {
-    name: "Agency",
-    price: "$100",
-    description: "Suite completa para agências",
-    features: ["10 clientes", "5 membros", "Analytics + Biblioteca"],
+    name: PLAN_CONFIG.pro.displayName,
+    price: PLAN_CONFIG.pro.priceFormatted,
+    description: PLAN_CONFIG.pro.description,
+    features: PLAN_CONFIG.pro.shortFeatures,
   },
 };
 

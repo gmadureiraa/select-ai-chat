@@ -20,6 +20,10 @@ serve(async (req) => {
   try {
     logStep("Function started");
 
+    // Parse body to get currentSlug
+    const { currentSlug } = await req.json().catch(() => ({}));
+    logStep("Request body parsed", { currentSlug });
+
     const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
     if (!stripeKey) throw new Error("STRIPE_SECRET_KEY is not set");
 
@@ -61,9 +65,17 @@ serve(async (req) => {
     }
 
     const origin = req.headers.get("origin") || "https://kai-kaleidos.lovable.app";
+    
+    // Build return URL based on currentSlug
+    const returnUrl = currentSlug 
+      ? `${origin}/${currentSlug}?tab=settings&section=billing`
+      : `${origin}/`;
+    
+    logStep("Building portal session", { returnUrl });
+    
     const portalSession = await stripe.billingPortal.sessions.create({
       customer: customerId,
-      return_url: `${origin}/settings`,
+      return_url: returnUrl,
     });
     logStep("Customer portal session created", { sessionId: portalSession.id });
 
