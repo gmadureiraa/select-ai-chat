@@ -380,9 +380,20 @@ DADOS DO PERÍODO: ${period}
       .sort((a: any, b: any) => (b.engagement_rate || 0) - (a.engagement_rate || 0))
       .slice(0, 3);
     
+    // Helper to extract post title from caption
+    const extractTitle = (caption: string | null, index: number): string => {
+      if (!caption) return `Post ${index + 1}`;
+      // Get first line or first 50 chars as title
+      const firstLine = caption.split('\n')[0].trim();
+      if (firstLine.length <= 60) return firstLine;
+      return firstLine.substring(0, 57) + '...';
+    };
+    
     prompt += `## TOP 3 POSTS DO PERÍODO (para análise detalhada)
-${topPosts.map((p: any, i: number) => 
-  `### Post ${i + 1}: [${p.post_type || 'post'}]
+${topPosts.map((p: any, i: number) => {
+  const postTitle = extractTitle(p.caption, i);
+  return `### Post ${i + 1}: "${postTitle}" [${p.post_type || 'post'}]
+- **Título/Gancho:** "${postTitle}"
 - **Legenda completa:** "${p.caption || 'Sem legenda'}"
 - **Métricas:**
   • Curtidas: ${p.likes || 0}
@@ -392,8 +403,8 @@ ${topPosts.map((p: any, i: number) =>
   • Alcance: ${(p.reach || 0).toLocaleString()}
   • Taxa de Engajamento: ${(p.engagement_rate || 0).toFixed(2)}%
 - **Data de publicação:** ${p.posted_at ? new Date(p.posted_at).toLocaleDateString('pt-BR') : 'Não informada'}
-`
-).join('\n')}
+`;
+}).join('\n')}
 
 `;
   }
@@ -414,7 +425,7 @@ ${videos.slice(0, 5).map((v: any, i: number) =>
 FORMATO OBRIGATÓRIO DO RELATÓRIO
 ═══════════════════════════════════════════════════════════════
 
-Gere o relatório EXATAMENTE neste formato:
+Gere o relatório EXATAMENTE neste formato. IMPORTANTE: As recomendações estratégicas devem vir LOGO APÓS o resumo executivo.
 
 # RELATÓRIO ESTRATÉGICO DE PERFORMANCE: ${platform.toUpperCase()}
 **Período:** ${period}
@@ -427,113 +438,132 @@ ${previousKpis ? '**Inclua obrigatoriamente:** Comparação explícita com perí
 
 ---
 
-## 2. PERFORMANCE MACRO (KPIs)
-Análise detalhada das métricas principais com interpretação:
+## 2. 🎯 RECOMENDAÇÕES ESTRATÉGICAS (AÇÃO IMEDIATA)
+**PRIORIDADE ALTA** - Ações que devem ser implementadas agora:
 
-| Métrica | Valor | ${previousKpis ? 'vs Anterior | ' : ''}Análise |
-|---------|-------|${previousKpis ? '------------|' : ''}---------|
-| Alcance | [valor] | ${previousKpis ? '[variação%] |' : ''} [breve interpretação] |
-| Engajamento | [valor]% | ${previousKpis ? '[variação%] |' : ''} [breve interpretação] |
-| Seguidores | [valor] | ${previousKpis ? '[variação%] |' : ''} [breve interpretação] |
+1. **[Ação Prioritária 1]:** [Justificativa clara baseada nos dados e impacto esperado]
+2. **[Ação Prioritária 2]:** [Justificativa e como implementar]
+3. **[Ação Prioritária 3]:** [Justificativa e timeline sugerido]
+${previousKpis ? '4. **[Ação de Recuperação]:** [Para reverter métricas que caíram vs período anterior]' : ''}
 
-**Análise Técnica:** [Parágrafo explicando o que os números significam para a estratégia${previousKpis ? ' e o que as variações indicam' : ''}]
+**📌 Próximos passos concretos:** [Resumo das 3 primeiras ações a tomar esta semana]
 
 ---
 
-## 3. ANÁLISE DE ENGAJAMENTO
+## 3. PERFORMANCE MACRO (KPIs)
+Análise detalhada das métricas principais:
+
+| Métrica | Valor | ${previousKpis ? 'vs Anterior | ' : ''}Status |
+|---------|-------|${previousKpis ? '------------|' : ''}--------|
+| Alcance | [valor] | ${previousKpis ? '[variação%] |' : ''} [🟢/🟡/🔴] |
+| Engajamento | [valor]% | ${previousKpis ? '[variação%] |' : ''} [🟢/🟡/🔴] |
+| Seguidores | [valor] | ${previousKpis ? '[variação%] |' : ''} [🟢/🟡/🔴] |
+| Salvamentos | [valor] | ${previousKpis ? '[variação%] |' : ''} [🟢/🟡/🔴] |
+| Compartilhamentos | [valor] | ${previousKpis ? '[variação%] |' : ''} [🟢/🟡/🔴] |
+
+**O que os números mostram:** [Parágrafo explicando o que os números significam estrategicamente${previousKpis ? ' e o impacto das variações' : ''}]
+
+---
+
+## 4. 🏆 TOP 3 POSTS DO PERÍODO
+**Análise detalhada dos conteúdos que mais performaram:**
+
+### 🥇 #1 - "[TÍTULO/GANCHO DO POST]"
+**Tipo:** [Reel/Carrossel/Imagem] | **Data:** [data de publicação]
+
+| Métrica | Valor |
+|---------|-------|
+| Curtidas | [valor] |
+| Comentários | [valor] |
+| Salvamentos | [valor] |
+| Compartilhamentos | [valor] |
+| Engajamento | [valor]% |
+
+**📝 O que funcionou na copy:**
+- **Gancho inicial:** [Análise do hook/primeira linha]
+- **Estrutura:** [Como o texto foi organizado]
+- **CTA:** [Chamada para ação utilizada e eficácia]
+
+**🎯 Por que performou:**
+1. [Razão 1 - formato/visual]
+2. [Razão 2 - tema/timing]
+3. [Razão 3 - elementos de engajamento]
+
+**💡 Padrão replicável:** [O que copiar deste post]
+
+---
+
+### 🥈 #2 - "[TÍTULO/GANCHO DO POST]"
+**Tipo:** [Tipo] | **Data:** [data]
+
+| Métrica | Valor |
+|---------|-------|
+| Curtidas | [valor] |
+| Comentários | [valor] |
+| Salvamentos | [valor] |
+| Engajamento | [valor]% |
+
+**Por que funcionou:** [Análise resumida mas específica]
+**Padrão replicável:** [Elemento principal a copiar]
+
+---
+
+### 🥉 #3 - "[TÍTULO/GANCHO DO POST]"
+**Tipo:** [Tipo] | **Data:** [data]
+
+| Métrica | Valor |
+|---------|-------|
+| Curtidas | [valor] |
+| Comentários | [valor] |
+| Salvamentos | [valor] |
+| Engajamento | [valor]% |
+
+**Por que funcionou:** [Análise resumida]
+**Padrão replicável:** [Elemento principal]
+
+---
+
+## 5. 📊 ANÁLISE DE ENGAJAMENTO
 - **Total de interações:** [número]${previousKpis ? ' ([variação]% vs anterior)' : ''}
 - **Curtidas:** [número] ([porcentagem do total])
-- **Comentários:** [número] ([porcentagem do total])
+- **Comentários:** [número] ([porcentagem do total]) 
 - **Compartilhamentos:** [número] ([porcentagem do total])
 - **Salvamentos:** [número] ([porcentagem do total])
 
-**Análise Técnica:** [Explicar qual tipo de engajamento está mais forte e o que isso indica]
+**Tipo de engajamento mais forte:** [Identificar e explicar o que isso significa para a estratégia]
 
 ---
 
-## 4. ANÁLISE DETALHADA: TOP 3 POSTS DO PERÍODO
-**IMPORTANTE:** Para cada post, faça uma análise PROFUNDA do motivo do sucesso.
-
-### 🥇 Post 1 - [Tipo: Reel/Carrossel/Imagem]
-**Métricas:** [curtidas] curtidas | [comentários] comentários | [salvamentos] salvamentos | [engajamento]% engajamento
-
-**📝 Análise da Legenda/Copy:**
-- [Identifique elementos específicos da copy que funcionaram: gancho inicial, CTAs, storytelling, perguntas, etc.]
-
-**🎯 Por que performou bem:**
-1. **Formato:** [Análise do formato escolhido e por que funcionou]
-2. **Tema/Assunto:** [Por que esse tema ressoou com a audiência]
-3. **Timing:** [Se relevante, comente sobre o momento da publicação]
-4. **Elementos de engajamento:** [O que incentivou interações: perguntas, polêmica, identificação, etc.]
-
-**💡 Padrão replicável:** [O que pode ser replicado deste post em futuras publicações]
-
-### 🥈 Post 2 - [Tipo]
-[Mesmo formato do Post 1]
-
-### 🥉 Post 3 - [Tipo]
-[Mesmo formato do Post 1]
-
----
-
-## 5. INSIGHTS E PADRÕES IDENTIFICADOS
-Liste 3-5 padrões observados nos dados:
+## 6. 💡 INSIGHTS E PADRÕES
 - 📊 [Insight 1 com dados específicos${previousKpis ? ' e comparação' : ''}]
 - 📈 [Insight 2 com dados específicos]
 - 💡 [Insight 3 com dados específicos]
 - 🎯 [Insight 4 - padrões de conteúdo que funcionam]
-${previousKpis ? '- 📉 [Insight 5 - pontos de atenção baseados na comparação]' : ''}
+${previousKpis ? '- 📉 [Insight 5 - pontos de atenção]' : ''}
 
 ---
 
-## 6. RECOMENDAÇÕES ESTRATÉGICAS
-Liste 3-5 ações concretas baseadas nos dados:
-1. **[Ação 1]:** [Justificativa baseada nos dados e análise dos top posts]
-2. **[Ação 2]:** [Justificativa baseada nos padrões identificados]
-3. **[Ação 3]:** [Justificativa baseada nas métricas${previousKpis ? ' e variações' : ''}]
-${previousKpis ? '4. **[Ação 4]:** [Ação para melhorar métricas que caíram vs período anterior]' : ''}
+## 7. 📝 IDEIAS DE CONTEÚDO
+Com base nos TOP POSTS analisados:
+
+| # | Ideia | Formato | Baseado em |
+|---|-------|---------|------------|
+| 1 | [Título da ideia] | [Reels/Carrossel/etc] | [Qual top post inspirou] |
+| 2 | [Título da ideia] | [Formato] | [Referência] |
+| 3 | [Título da ideia] | [Formato] | [Referência] |
+| 4 | [Título da ideia] | [Formato] | [Referência] |
+| 5 | [Título da ideia] | [Formato] | [Referência] |
 
 ---
 
-## 7. IDEIAS DE CONTEÚDO BASEADAS NO QUE PERFORMOU BEM
-Com base nos TOP POSTS analisados, sugira 5 ideias de novos conteúdos:
-
-1. **[Título da Ideia 1]**
-   - Formato: [Reels/Carrossel/Stories/Post estático]
-   - Descrição: [Breve descrição do conteúdo]
-   - Baseado em: [Qual elemento do top post inspirou essa ideia]
-
-2. **[Título da Ideia 2]**
-   - Formato: [Formato sugerido]
-   - Descrição: [Breve descrição]
-   - Baseado em: [Referência específica]
-
-3. **[Título da Ideia 3]**
-   - Formato: [Formato sugerido]
-   - Descrição: [Breve descrição]
-   - Baseado em: [Referência específica]
-
-4. **[Título da Ideia 4]**
-   - Formato: [Formato sugerido]
-   - Descrição: [Breve descrição]
-   - Baseado em: [Referência específica]
-
-5. **[Título da Ideia 5]**
-   - Formato: [Formato sugerido]
-   - Descrição: [Breve descrição]
-   - Baseado em: [Referência específica]
-
----
-
-REGRAS IMPORTANTES:
-- Use APENAS os dados fornecidos, nunca invente números
-- Cite valores específicos e porcentagens
-- Seja objetivo e prático
-- Na seção de TOP 3 POSTS, faça uma análise DETALHADA e específica de cada post - leia a legenda completa e identifique o que funcionou
-- As ideias de conteúdo devem ser ESPECÍFICAS e baseadas nos padrões dos posts que performaram bem
-- ${previousKpis ? 'Compare SEMPRE com o período anterior quando mencionar métricas' : 'Foque na análise do período atual'}
-- Use emojis para facilitar a leitura
-- Formate em Markdown válido`;
+REGRAS CRÍTICAS:
+- Use APENAS os dados fornecidos - NUNCA invente números
+- Cite valores específicos e porcentagens reais
+- Na seção TOP 3, cite o TÍTULO/GANCHO REAL de cada post (primeira linha da legenda)
+- Recomendações devem ser CONCRETAS e ACIONÁVEIS, não genéricas
+- ${previousKpis ? 'Compare SEMPRE com o período anterior' : 'Foque no período atual'}
+- Use emojis e formatação para facilitar leitura
+- Seja ESPECÍFICO - evite frases genéricas como "continue postando" ou "mantenha a consistência"`;
 
   return prompt;
 }

@@ -359,7 +359,7 @@ Estruture o documento com seções para: Visão Geral, Posicionamento, Tom de Vo
         </TabsContent>
 
         {/* Tab: Referências (merged docs + references + visuals) */}
-        <TabsContent value="references" className="space-y-4 mt-4 max-h-[60vh] overflow-y-auto pr-2">
+        <TabsContent value="references" className="space-y-4 mt-4">
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
