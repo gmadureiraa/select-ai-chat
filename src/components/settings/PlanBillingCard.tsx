@@ -9,6 +9,7 @@ import { useWorkspace } from "@/hooks/useWorkspace";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useParams } from "react-router-dom";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
 import {
@@ -34,13 +35,16 @@ export function PlanBillingCard() {
   } = useTokens();
   const { isAdminOrOwner } = useWorkspace();
   const isMobile = useIsMobile();
+  const { slug } = useParams();
   const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
   const [loadingPortal, setLoadingPortal] = useState(false);
 
   const handleManageSubscription = async () => {
     setLoadingPortal(true);
     try {
-      const { data, error } = await supabase.functions.invoke("customer-portal");
+      const { data, error } = await supabase.functions.invoke("customer-portal", {
+        body: { currentSlug: slug },
+      });
       if (error) throw error;
       if (data?.url) {
         window.open(data.url, "_blank");
