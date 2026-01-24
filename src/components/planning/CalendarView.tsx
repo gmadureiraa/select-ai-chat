@@ -446,13 +446,13 @@ export function CalendarView({
               <div
                 key={i}
                 className={cn(
-                  "relative p-1 transition-all duration-150 group",
+                  "relative p-1.5 transition-all duration-200 group",
                   col < 6 && "border-r border-border/30",
                   !isLastRow && "border-b border-border/30",
-                  !isCurrentMonth && "bg-muted/10",
-                  isToday && "bg-primary/5",
-                  isDragOver && "bg-primary/10 ring-1 ring-primary/50 ring-inset",
-                  canEdit && "hover:bg-muted/20 cursor-pointer"
+                  !isCurrentMonth && "bg-muted/5",
+                  isToday && "bg-primary/5 ring-1 ring-inset ring-primary/20",
+                  isDragOver && "bg-primary/10 ring-2 ring-primary/50 ring-inset scale-[1.02]",
+                  canEdit && "hover:bg-muted/30 cursor-pointer"
                 )}
                 onClick={() => canEdit && onAddItem(day)}
                 onDragOver={(e) => handleDragOver(e, day)}
@@ -460,11 +460,12 @@ export function CalendarView({
                 onDrop={(e) => handleDrop(e, day)}
               >
                 {/* Day Header */}
-                <div className="flex items-center justify-between mb-1 px-0.5">
+                <div className="flex items-center justify-between mb-1.5 px-0.5">
                   <span className={cn(
-                    "text-[11px] font-medium w-5 h-5 flex items-center justify-center rounded-full transition-colors",
-                    isToday && "bg-primary text-primary-foreground font-semibold",
-                    !isCurrentMonth && "text-muted-foreground/40"
+                    "text-[11px] font-medium w-6 h-6 flex items-center justify-center rounded-full transition-all duration-200",
+                    isToday && "bg-primary text-primary-foreground font-semibold shadow-sm shadow-primary/30",
+                    !isToday && !isCurrentMonth && "text-muted-foreground/50",
+                    !isToday && isCurrentMonth && "text-foreground"
                   )}>
                     {format(day, 'd')}
                   </span>

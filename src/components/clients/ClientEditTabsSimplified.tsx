@@ -166,37 +166,39 @@ Estruture o documento com seções para: Visão Geral, Posicionamento, Tom de Vo
 
   return (
     <div className="space-y-6">
-      {/* Header with avatar and name */}
-      <div className="flex items-center gap-4">
-        <AvatarUpload
-          currentUrl={avatarUrl}
-          onUpload={(url) => { setAvatarUrl(url); markChanged(); }}
-          fallback={name.charAt(0) || "C"}
-          size="md"
-          bucket="client-files"
-          folder="client-avatars"
-        />
-        <div className="flex-1">
+      {/* Header with avatar and name - Enhanced */}
+      <div className="flex items-start gap-6 pb-6 border-b border-border/50">
+        <div className="relative">
+          <AvatarUpload
+            currentUrl={avatarUrl}
+            onUpload={(url) => { setAvatarUrl(url); markChanged(); }}
+            fallback={name.charAt(0) || "C"}
+            size="lg"
+            bucket="client-files"
+            folder="client-avatars"
+          />
+          {/* Auto-save indicator on avatar */}
+          {autoSaveStatus === "saving" && (
+            <div className="absolute -bottom-1 -right-1 h-5 w-5 rounded-full bg-background border-2 border-border flex items-center justify-center">
+              <Loader2 className="h-3 w-3 animate-spin text-primary" />
+            </div>
+          )}
+          {autoSaveStatus === "saved" && (
+            <div className="absolute -bottom-1 -right-1 h-5 w-5 rounded-full bg-emerald-500 border-2 border-background flex items-center justify-center">
+              <Check className="h-3 w-3 text-white" />
+            </div>
+          )}
+        </div>
+        <div className="flex-1 space-y-1">
           <Input
             value={name}
             onChange={(e) => { setName(e.target.value); markChanged(); }}
-            className="text-lg font-semibold border-0 p-0 h-auto focus-visible:ring-0"
+            className="text-xl font-semibold border-0 p-0 h-auto focus-visible:ring-0 bg-transparent"
             placeholder="Nome do cliente"
           />
-          <div className="flex items-center gap-2 mt-1">
-            {autoSaveStatus === "saving" && (
-              <Badge variant="outline" className="gap-1 text-xs">
-                <Loader2 className="h-3 w-3 animate-spin" />
-                Salvando...
-              </Badge>
-            )}
-            {autoSaveStatus === "saved" && (
-              <Badge variant="outline" className="gap-1 text-xs text-green-600">
-                <Check className="h-3 w-3" />
-                Salvo
-              </Badge>
-            )}
-          </div>
+          <p className="text-sm text-muted-foreground line-clamp-2">
+            {description || "Adicione uma descrição para este cliente..."}
+          </p>
         </div>
       </div>
 

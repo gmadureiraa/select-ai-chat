@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { memo, useState, useRef, useEffect, useCallback } from 'react';
 import { Plus, Lightbulb, FileEdit, Eye, ThumbsUp, CalendarClock, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -95,6 +95,28 @@ export const VirtualizedKanbanColumn = memo(function VirtualizedKanbanColumn({
   const failedCount = items.filter(i => i.status === 'failed').length;
 
   const listHeight = Math.max(200, height - 80);
+  
+  // Scroll shadow state
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [scrollState, setScrollState] = useState({ top: false, bottom: false });
+  
+  const handleScroll = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    setScrollState({
+      top: el.scrollTop > 8,
+      bottom: el.scrollHeight - el.scrollTop - el.clientHeight > 8,
+    });
+  }, []);
+  
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (el) {
+      handleScroll();
+      el.addEventListener('scroll', handleScroll);
+      return () => el.removeEventListener('scroll', handleScroll);
+    }
+  }, [items.length, handleScroll]);
 
   return (
     <div
@@ -141,46 +163,68 @@ export const VirtualizedKanbanColumn = memo(function VirtualizedKanbanColumn({
       </div>
 
       {/* Cards */}
-      <div className="flex-1 min-h-0">
+      <div className="flex-1 min-h-0 relative">
         {items.length === 0 ? (
           <div className={cn(
-            "text-center py-6 mx-3 my-3 text-muted-foreground",
-            "border border-dashed border-border/50 rounded-lg",
-            isDropTarget && "border-primary/50 bg-primary/5"
+            "text-center py-8 mx-3 my-3 text-muted-foreground",
+            "border border-dashed border-border/50 rounded-xl",
+            "transition-all duration-200",
+            isDropTarget && "border-primary/50 bg-primary/5 scale-[1.02]"
           )}>
-            <ColumnIcon className={cn("h-4 w-4 mx-auto mb-1.5 opacity-40", config.color)} />
-            <p className="text-[11px] font-medium">
+            <ColumnIcon className={cn("h-5 w-5 mx-auto mb-2 opacity-40", config.color)} />
+            <p className="text-xs font-medium">
               {isDropTarget ? 'Solte aqui' : 'Vazio'}
+            </p>
+            <p className="text-[10px] text-muted-foreground/60 mt-1">
+              Arraste itens ou clique em +
             </p>
           </div>
         ) : (
-          <div className="p-2 space-y-2 overflow-y-auto" style={{ maxHeight: listHeight }}>
-            {items.map(item => (
-              <div
-                key={item.id}
-                draggable
-                onDragStart={(e) => onDragStart(e, item)}
-                onDragEnd={onDragEnd}
-                className={cn(
-                  "cursor-grab active:cursor-grabbing",
-                  "transition-all duration-150 hover:scale-[1.01]",
-                  draggedItemId === item.id && "scale-95 opacity-40"
-                )}
-              >
-                <PlanningItemCard
-                  item={item}
-                  onEdit={onEditItem}
-                  onDelete={onDeleteItem}
-                  onMoveToLibrary={onMoveToLibrary}
-                  onRetry={onRetry}
-                  onDuplicate={onDuplicate}
-                  isDragging={draggedItemId === item.id}
-                  compact
-                  canDelete={canDelete}
-                />
-              </div>
-            ))}
-          </div>
+          <>
+            {/* Top scroll shadow */}
+            <div className={cn(
+              "absolute top-0 left-0 right-0 h-6 bg-gradient-to-b from-card/90 to-transparent z-10 pointer-events-none transition-opacity duration-200",
+              scrollState.top ? "opacity-100" : "opacity-0"
+            )} />
+            
+            <div 
+              ref={scrollRef}
+              className="p-2 space-y-2 overflow-y-auto scrollbar-thin" 
+              style={{ maxHeight: listHeight }}
+            >
+              {items.map(item => (
+                <div
+                  key={item.id}
+                  draggable
+                  onDragStart={(e) => onDragStart(e, item)}
+                  onDragEnd={onDragEnd}
+                  className={cn(
+                    "cursor-grab active:cursor-grabbing",
+                    "transition-all duration-200",
+                    draggedItemId === item.id && "scale-95 opacity-40 rotate-1"
+                  )}
+                >
+                  <PlanningItemCard
+                    item={item}
+                    onEdit={onEditItem}
+                    onDelete={onDeleteItem}
+                    onMoveToLibrary={onMoveToLibrary}
+                    onRetry={onRetry}
+                    onDuplicate={onDuplicate}
+                    isDragging={draggedItemId === item.id}
+                    compact
+                    canDelete={canDelete}
+                  />
+                </div>
+              ))}
+            </div>
+            
+            {/* Bottom scroll shadow */}
+            <div className={cn(
+              "absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-card/90 to-transparent z-10 pointer-events-none transition-opacity duration-200",
+              scrollState.bottom ? "opacity-100" : "opacity-0"
+            )} />
+          </>
         )}
       </div>
 

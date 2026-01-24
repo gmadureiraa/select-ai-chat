@@ -340,7 +340,7 @@ function CanvasToolbarComponent({
 
   return (
     <TooltipProvider delayDuration={300}>
-      <div className="absolute top-14 left-1/2 -translate-x-1/2 z-10 flex items-center gap-0.5 px-2 py-1.5 rounded-lg bg-background/95 backdrop-blur border shadow-lg">
+      <div className="absolute top-14 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1 px-3 py-2 rounded-xl bg-background/85 backdrop-blur-xl saturate-150 border border-border/50 shadow-lg shadow-black/5">
         {/* Canvas name */}
         <div className="flex items-center gap-1 mr-1">
           {isEditing ? (
@@ -364,7 +364,7 @@ function CanvasToolbarComponent({
           {renderAutoSaveIndicator()}
         </div>
 
-        <Separator orientation="vertical" className="h-6 mx-1" />
+        <Separator orientation="vertical" className="h-5 mx-1.5 bg-border/60" />
 
         {/* Whiteboard Tools */}
         <div className="flex items-center gap-0.5">

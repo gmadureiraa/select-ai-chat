@@ -217,9 +217,9 @@ const GeneratorNodeComponent: React.FC<NodeProps<GeneratorNodeData>> = ({
 
   return (
     <Card className={cn(
-      "w-80 shadow-lg transition-all",
-      selected ? 'ring-2 ring-primary' : '',
-      isGenerating && 'ring-2 ring-primary/50 animate-pulse'
+      "w-80 shadow-lg rounded-xl transition-all duration-200",
+      selected ? 'ring-2 ring-primary shadow-primary/10' : 'hover:shadow-xl',
+      isGenerating && 'ring-2 ring-emerald-500/50'
     )}>
       {/* Input handles - 4 slots for connections */}
       {[0, 1, 2, 3].map((i) => (
@@ -233,12 +233,18 @@ const GeneratorNodeComponent: React.FC<NodeProps<GeneratorNodeData>> = ({
         />
       ))}
 
-      <CardHeader className="pb-2">
+      <CardHeader className={cn(
+        "pb-2 rounded-t-xl border-b",
+        "bg-gradient-to-r from-emerald-500/10 via-emerald-500/5 to-transparent",
+        "border-emerald-500/20"
+      )}>
         <div className="flex items-center justify-between">
           <CardTitle className="text-sm flex items-center gap-2">
             <div className={cn(
-              "h-6 w-6 rounded-md flex items-center justify-center transition-colors",
-              isGenerating ? "bg-primary animate-pulse" : "bg-gradient-to-br from-blue-500 to-indigo-600"
+              "h-6 w-6 rounded-md flex items-center justify-center transition-all duration-200",
+              isGenerating 
+                ? "bg-emerald-500 shadow-lg shadow-emerald-500/30" 
+                : "bg-gradient-to-br from-emerald-500 to-teal-600"
             )}>
               <StepIcon />
             </div>
@@ -246,7 +252,7 @@ const GeneratorNodeComponent: React.FC<NodeProps<GeneratorNodeData>> = ({
           </CardTitle>
           <div className="flex items-center gap-1">
             {connectedCount > 0 && (
-              <span className="text-xs bg-primary/20 text-primary px-1.5 py-0.5 rounded flex items-center gap-1">
+              <span className="text-xs bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 px-1.5 py-0.5 rounded-full flex items-center gap-1 font-medium">
                 <Link2 className="h-3 w-3" />
                 {connectedCount}
               </span>
@@ -254,7 +260,7 @@ const GeneratorNodeComponent: React.FC<NodeProps<GeneratorNodeData>> = ({
             <Button 
               variant="ghost" 
               size="icon" 
-              className="h-6 w-6"
+              className="h-6 w-6 hover:bg-destructive/10 hover:text-destructive"
               onClick={data.onDelete}
             >
               <X className="h-3 w-3" />

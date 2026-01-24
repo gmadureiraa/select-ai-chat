@@ -126,11 +126,12 @@ export const PlanningItemCard = memo(function PlanningItemCard({
   return (
     <div
       className={cn(
-        "group bg-card border border-border/50 rounded-lg overflow-hidden cursor-pointer transition-all duration-150",
-        "hover:shadow-md hover:border-border",
-        isDragging && "opacity-60 rotate-1 shadow-lg scale-105",
-        isFailed && "border-destructive/30 bg-destructive/5",
-        isPublished && "border-emerald-500/20 bg-emerald-500/5",
+        "group bg-card border border-border/40 rounded-xl overflow-hidden cursor-pointer",
+        "transition-all duration-200 ease-out",
+        "hover:shadow-lg hover:shadow-primary/5 hover:border-primary/20 hover:-translate-y-0.5",
+        isDragging && "opacity-50 rotate-2 shadow-xl scale-105 ring-2 ring-primary/30",
+        isFailed && "border-destructive/40 bg-destructive/5",
+        isPublished && "border-emerald-500/30 bg-emerald-500/5",
         compact && "p-2"
       )}
       onClick={() => {
@@ -142,7 +143,7 @@ export const PlanningItemCard = memo(function PlanningItemCard({
       {/* Media Preview - Only if not compact */}
       {hasMedia && firstMedia && !compact && (
         <div 
-          className="relative h-20 bg-muted overflow-hidden cursor-zoom-in"
+          className="relative h-24 bg-muted/50 overflow-hidden cursor-zoom-in"
           onClick={(e) => {
             e.preventDefault();
             e.stopPropagation();
@@ -152,10 +153,11 @@ export const PlanningItemCard = memo(function PlanningItemCard({
           <img 
             src={firstMedia} 
             alt="" 
-            className="w-full h-full object-cover hover:scale-105 transition-transform duration-200"
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
           />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
           {item.media_urls.length > 1 && (
-            <div className="absolute bottom-0.5 right-0.5 bg-black/60 text-white text-[9px] px-1 py-0.5 rounded flex items-center gap-0.5">
+            <div className="absolute bottom-1.5 right-1.5 bg-black/70 backdrop-blur-sm text-white text-[10px] px-1.5 py-0.5 rounded-full flex items-center gap-1 font-medium">
               <ImageIcon className="h-2.5 w-2.5" />
               {item.media_urls.length}
             </div>

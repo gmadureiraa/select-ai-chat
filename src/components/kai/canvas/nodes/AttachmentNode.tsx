@@ -14,6 +14,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { TranscriptionModal } from '../components/TranscriptionModal';
 import { transcribeImagesChunked } from '@/lib/transcribeImages';
+import { cn } from '@/lib/utils';
 
 // Simplified interface - MVP focused
 export interface AttachmentOutput {
@@ -406,11 +407,21 @@ const AttachmentNodeComponent: React.FC<NodeProps<AttachmentNodeData>> = ({
   const cardWidth = isLibraryContent ? 'w-96' : 'w-80';
 
   return (
-    <Card className={`${cardWidth} shadow-lg ${selected ? 'ring-2 ring-primary' : ''}`}>
-      <CardHeader className="pb-2">
+    <Card className={cn(
+      cardWidth, 
+      "shadow-lg rounded-xl transition-all duration-200",
+      selected ? 'ring-2 ring-primary shadow-primary/10' : 'hover:shadow-xl'
+    )}>
+      <CardHeader className={cn(
+        "pb-2 rounded-t-xl border-b",
+        "bg-gradient-to-r from-purple-500/10 via-purple-500/5 to-transparent",
+        "border-purple-500/20"
+      )}>
         <div className="flex items-center justify-between">
           <CardTitle className="text-sm flex items-center gap-2">
-            {getOutputIcon()}
+            <div className="h-6 w-6 rounded-md bg-purple-500/20 flex items-center justify-center">
+              {getOutputIcon()}
+            </div>
             <span>Anexo</span>
             {output && (
               <span className="text-xs text-muted-foreground truncate max-w-[120px]">
@@ -421,7 +432,7 @@ const AttachmentNodeComponent: React.FC<NodeProps<AttachmentNodeData>> = ({
           <Button 
             variant="ghost" 
             size="icon" 
-            className="h-6 w-6"
+            className="h-6 w-6 hover:bg-destructive/10 hover:text-destructive"
             onClick={data.onDelete}
           >
             <X className="h-3 w-3" />
