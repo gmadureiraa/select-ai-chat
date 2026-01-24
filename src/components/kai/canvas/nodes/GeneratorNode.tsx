@@ -235,8 +235,8 @@ const GeneratorNodeComponent: React.FC<NodeProps<GeneratorNodeData>> = ({
 
       <CardHeader className={cn(
         "pb-2 rounded-t-xl border-b",
-        "bg-gradient-to-r from-emerald-500/10 via-emerald-500/5 to-transparent",
-        "border-emerald-500/20"
+        "bg-emerald-500/5 dark:bg-emerald-500/10",
+        "border-emerald-500/15 dark:border-emerald-500/20"
       )}>
         <div className="flex items-center justify-between">
           <CardTitle className="text-sm flex items-center gap-2">
@@ -244,7 +244,7 @@ const GeneratorNodeComponent: React.FC<NodeProps<GeneratorNodeData>> = ({
               "h-6 w-6 rounded-md flex items-center justify-center transition-all duration-200",
               isGenerating 
                 ? "bg-emerald-500 shadow-lg shadow-emerald-500/30" 
-                : "bg-gradient-to-br from-emerald-500 to-teal-600"
+                : "bg-emerald-500/80 dark:bg-emerald-500"
             )}>
               <StepIcon />
             </div>

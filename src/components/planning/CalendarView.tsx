@@ -450,7 +450,7 @@ export function CalendarView({
                   col < 6 && "border-r border-border/30",
                   !isLastRow && "border-b border-border/30",
                   !isCurrentMonth && "bg-muted/5",
-                  isToday && "bg-primary/5 ring-1 ring-inset ring-primary/20",
+                  isToday && "bg-primary/8 ring-2 ring-inset ring-primary/30",
                   isDragOver && "bg-primary/10 ring-2 ring-primary/50 ring-inset scale-[1.02]",
                   canEdit && "hover:bg-muted/30 cursor-pointer"
                 )}
@@ -462,8 +462,8 @@ export function CalendarView({
                 {/* Day Header */}
                 <div className="flex items-center justify-between mb-1.5 px-0.5">
                   <span className={cn(
-                    "text-[11px] font-medium w-6 h-6 flex items-center justify-center rounded-full transition-all duration-200",
-                    isToday && "bg-primary text-primary-foreground font-semibold shadow-sm shadow-primary/30",
+                    "text-[11px] font-medium w-7 h-7 flex items-center justify-center rounded-full transition-all duration-200",
+                    isToday && "bg-primary text-primary-foreground font-bold shadow-md shadow-primary/40 scale-110",
                     !isToday && !isCurrentMonth && "text-muted-foreground/50",
                     !isToday && isCurrentMonth && "text-foreground"
                   )}>

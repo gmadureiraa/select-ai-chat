@@ -183,7 +183,7 @@ export const VirtualizedKanbanColumn = memo(function VirtualizedKanbanColumn({
           <>
             {/* Top scroll shadow */}
             <div className={cn(
-              "absolute top-0 left-0 right-0 h-6 bg-gradient-to-b from-card/90 to-transparent z-10 pointer-events-none transition-opacity duration-200",
+              "absolute top-0 left-0 right-0 h-8 bg-gradient-to-b from-card via-card/60 to-transparent z-10 pointer-events-none transition-opacity duration-300",
               scrollState.top ? "opacity-100" : "opacity-0"
             )} />
             
@@ -221,7 +221,7 @@ export const VirtualizedKanbanColumn = memo(function VirtualizedKanbanColumn({
             
             {/* Bottom scroll shadow */}
             <div className={cn(
-              "absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-card/90 to-transparent z-10 pointer-events-none transition-opacity duration-200",
+              "absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-card via-card/60 to-transparent z-10 pointer-events-none transition-opacity duration-300",
               scrollState.bottom ? "opacity-100" : "opacity-0"
             )} />
           </>
