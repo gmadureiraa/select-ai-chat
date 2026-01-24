@@ -13,9 +13,9 @@ import { ThemeProvider } from "next-themes";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AuthOnlyRoute } from "@/components/AuthOnlyRoute";
 import { SuperAdminRoute } from "@/components/SuperAdminRoute";
+import { Navigate } from "react-router-dom";
 import Login from "./pages/Login";
 import SimpleSignup from "./pages/SimpleSignup";
-import CreateFirstWorkspace from "./pages/CreateFirstWorkspace";
 import NoWorkspacePage from "./pages/NoWorkspacePage";
 import JoinWorkspace from "./pages/JoinWorkspace";
 import WorkspaceLogin from "./pages/WorkspaceLogin";
@@ -47,8 +47,8 @@ const App = () => (
                     {/* Public routes */}
                     <Route path="/login" element={<Login />} />
                     <Route path="/register" element={<SimpleSignup />} />
-                    <Route path="/signup" element={<CreateFirstWorkspace />} />
-                    <Route path="/create-workspace" element={<CreateFirstWorkspace />} />
+                    <Route path="/signup" element={<SimpleSignup />} />
+                    <Route path="/create-workspace" element={<Navigate to="/signup" replace />} />
                     <Route path="/help" element={<Help />} />
                     
                     {/* Protected route for users without workspace */}
