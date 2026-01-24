@@ -8,7 +8,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
-import { Users, Heart, MessageCircle, Eye, Bookmark, Upload, Calendar, Share2, Target, TrendingUp, Settings, FileText, MousePointer, Plus, Clock, RefreshCw } from "lucide-react";
+import { Users, Heart, MessageCircle, Eye, Bookmark, Upload, Calendar, Share2, Target, TrendingUp, Settings, MousePointer, Plus, Clock, RefreshCw, Sparkles } from "lucide-react";
 import { useImportHistory } from "@/hooks/useImportHistory";
 import { GoalsPanel } from "./GoalsPanel";
 import { InstagramPost } from "@/hooks/useInstagramPosts";
@@ -26,7 +26,6 @@ import { GoalProgressCard } from "./GoalProgressCard";
 import { PostAveragesSection } from "./PostAveragesSection";
 
 import { TopContentTable } from "./TopContentTable";
-import { ContentLearningsCard } from "./ContentLearningsCard";
 import { TopPostsGrid } from "./TopPostsGrid";
 import { ImportHistoryPanel } from "./ImportHistoryPanel";
 import { DataCompletenessWarning } from "./DataCompletenessWarning";
@@ -645,12 +644,11 @@ export function InstagramDashboard({
           </div>
           {canGenerateReports && (
             <Button 
-              variant="outline" 
-              className="border-border/50"
               onClick={() => setShowReportGenerator(true)}
+              className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
             >
-              <FileText className="h-4 w-4 mr-2" />
-              Relatório IA
+              <Sparkles className="h-4 w-4" />
+              Gerar Análise
             </Button>
           )}
           {canImportData && (
@@ -672,7 +670,22 @@ export function InstagramDashboard({
         platform="Instagram"
         period={selectedPeriodLabel}
         kpis={kpis}
+        previousKpis={{
+          followersGained: previousPeriodMetrics.reduce((sum, m) => sum + (m.subscribers || 0), 0),
+          totalReach: previousPeriodMetrics.reduce((sum, m) => sum + getMetadataValue(m, 'reach'), 0),
+          totalViews: previousPeriodMetrics.reduce((sum, m) => sum + (m.views || 0), 0),
+          totalInteractions: previousPeriodMetrics.reduce((sum, m) => sum + getMetadataValue(m, 'interactions'), 0),
+          totalLikes: previousPeriodPosts.reduce((sum, p) => sum + (p.likes || 0), 0),
+          totalComments: previousPeriodPosts.reduce((sum, p) => sum + (p.comments || 0), 0),
+          totalSaves: previousPeriodPosts.reduce((sum, p) => sum + (p.saves || 0), 0),
+          totalShares: previousPeriodPosts.reduce((sum, p) => sum + (p.shares || 0), 0),
+          totalPosts: previousPeriodPosts.length,
+          avgEngagement: previousPeriodPosts.length > 0
+            ? previousPeriodPosts.reduce((sum, p) => sum + (p.engagement_rate || 0), 0) / previousPeriodPosts.length
+            : 0,
+        }}
         posts={filteredPosts}
+        previousPosts={previousPeriodPosts}
         metrics={filteredMetrics}
         open={showReportGenerator}
         onOpenChange={setShowReportGenerator}
@@ -812,13 +825,6 @@ export function InstagramDashboard({
         periodLabel={selectedPeriodLabel}
       />
 
-      {/* Content Learnings Card */}
-      {filteredPosts.length >= 5 && (
-        <ContentLearningsCard
-          clientId={clientId}
-          posts={filteredPosts}
-        />
-      )}
 
       {/* Top 3 Posts Grid */}
       {filteredPosts.length > 0 && (

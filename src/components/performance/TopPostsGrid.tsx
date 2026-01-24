@@ -28,12 +28,6 @@ const metricOptions = [
   { value: "shares", label: "Compartilhamentos" },
 ];
 
-const rankingColors = [
-  { bg: "bg-amber-500", text: "text-amber-950", icon: "🥇" },
-  { bg: "bg-slate-400", text: "text-slate-950", icon: "🥈" },
-  { bg: "bg-amber-700", text: "text-amber-50", icon: "🥉" },
-];
-
 function formatNumber(num: number | null | undefined): string {
   if (num === null || num === undefined) return "0";
   if (num >= 1000000) return (num / 1000000).toFixed(1) + "M";
@@ -103,7 +97,7 @@ export function TopPostsGrid({
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Trophy className="h-5 w-5 text-amber-500" />
+            <Trophy className="h-5 w-5 text-primary" />
             <CardTitle className="text-lg">Top {maxItems} Posts</CardTitle>
           </div>
           {onMetricChange && (
@@ -129,7 +123,7 @@ export function TopPostsGrid({
               key={post.id}
               className="group relative bg-muted/30 rounded-xl overflow-hidden border border-border/50 hover:border-primary/30 transition-all hover:shadow-lg"
             >
-            {/* Image Container - 30% smaller height */}
+            {/* Image Container */}
               <div className="relative aspect-[4/3.5] overflow-hidden bg-muted">
                 {post.thumbnail_url ? (
                   <img
@@ -143,11 +137,9 @@ export function TopPostsGrid({
                   </div>
                 )}
                 
-                {/* Ranking Badge */}
-                <div
-                  className={`absolute top-2 right-2 w-8 h-8 rounded-full ${rankingColors[index]?.bg || "bg-muted"} flex items-center justify-center text-sm font-bold shadow-lg`}
-                >
-                  {rankingColors[index]?.icon || index + 1}
+                {/* Simple Ranking Number */}
+                <div className="absolute top-2 right-2 w-7 h-7 rounded-full bg-background/90 backdrop-blur-sm flex items-center justify-center text-sm font-bold shadow-md border border-border/50">
+                  {index + 1}
                 </div>
 
                 {/* Type Badge */}
