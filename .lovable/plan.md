@@ -1,192 +1,149 @@
 
-# Plano: Auditoria e Correção da Experiência Completa do Usuário
+# Plano: Continuar Correção da Experiência Completa do Usuário
 
-## 1. Corrigir Preços Inconsistentes (CRÍTICO)
+## Fase 1: Corrigir Banco de Dados (SQL Migration)
 
-### CreateWorkspaceDialog.tsx
-Atualizar os preços que estão errados:
-```typescript
-// DE:
-const PLANS = {
-  basic: { name: "Basic", price: "$25", ... },
-  agency: { name: "Agency", price: "$100", ... },
-};
-
-// PARA:
-const PLANS = {
-  basic: { 
-    name: "Canvas", 
-    price: "$19.90", 
-    description: "Para criadores solo",
-    features: ["1 perfil", "Canvas ilimitado", "IA multi-agente"] 
-  },
-  agency: { 
-    name: "Pro", 
-    price: "$99.90", 
-    description: "Suite completa para agências",
-    features: ["10 perfis", "5 membros", "Analytics + Biblioteca"] 
-  },
-};
-```
-
----
-
-## 2. Corrigir Rota /signup (CRÍTICO)
-
-O `/signup` atualmente vai para `CreateFirstWorkspace.tsx` que:
-- Cria workspace GRÁTIS sem passar pelo Stripe
-- Usa `create_workspace_with_subscription` que bypassa o pagamento
-
-### Solução: Redirecionar /signup para Fluxo com Pagamento
-
-**App.tsx** - Modificar rotas:
-```typescript
-// Remover CreateFirstWorkspace do /signup
-// Manter apenas SimpleSignup + NoWorkspacePage + CreateWorkspaceDialog
-
-<Route path="/signup" element={<SimpleSignup />} />
-```
-
-Ou modificar `CreateFirstWorkspace.tsx` para:
-1. Criar conta apenas
-2. Redirecionar para NoWorkspacePage
-3. Lá o usuário clica em "Criar Workspace" que abre CreateWorkspaceDialog (que faz checkout)
-
----
-
-## 3. Remover/Corrigir CreateFirstWorkspace.tsx (CRÍTICO)
-
-Atualmente essa página:
-- Mostra "Plano Canvas - $19.90/mês" mas NÃO COBRA
-- Usa RPC `create_workspace_with_subscription` que cria workspace grátis
-- Promete "1.000 tokens grátis" sem validar
-
-### Opção A: Converter para Fluxo com Checkout
-Modificar para chamar `create-checkout` edge function após criar conta, igual CreateWorkspaceDialog faz.
-
-### Opção B: Remover Página
-Remover `/signup` e `/create-workspace` e usar apenas:
-- `/register` -> SimpleSignup (cria conta)
-- `/no-workspace` -> NoWorkspacePage (mostra opção de criar workspace com checkout)
-
----
-
-## 4. Sincronizar Planos no Banco de Dados
-
-Atualizar `subscription_plans` para refletir o que prometemos:
-
+### Atualizar subscription_plans com preços e Price IDs corretos:
 ```sql
 UPDATE subscription_plans 
 SET 
   name = 'Canvas',
+  price_monthly = 19.90,
+  price_yearly = 199.00,
   max_clients = 1,
   max_members = 1,
-  features = '["canvas_ilimitado", "ia_multi_agente", "templates", "1_perfil"]'
+  stripe_price_id = 'price_1SpuAmPIJtcImSMvb7h2pxYa',
+  stripe_product_id = 'prod_TnVBYALwIy8qOm',
+  features = '["canvas_ilimitado", "ia_multi_agente", "geracao_imagens", "templates", "1_perfil"]'
 WHERE type = 'starter';
 
 UPDATE subscription_plans 
 SET 
   name = 'Pro',
+  price_monthly = 99.90,
+  price_yearly = 999.00,
   max_clients = 10,
   max_members = 5,
-  features = '["tudo_canvas", "planning_kanban", "performance_analytics", "biblioteca", "publicacao_automatica", "integrações"]'
+  stripe_price_id = 'price_1SpuAoPIJtcImSMvLMPO5XUo',
+  stripe_product_id = 'prod_TnVBIbisvWihL7',
+  features = '["tudo_canvas", "3_perfis_base", "3_membros_base", "planning_kanban", "calendario", "performance_analytics", "biblioteca", "publicacao_automatica", "integracoes", "api"]'
 WHERE type = 'pro';
 ```
 
 ---
 
-## 5. Corrigir customer-portal return_url
+## Fase 2: Eliminar Bypass de Pagamento (CRÍTICO)
 
-**supabase/functions/customer-portal/index.ts**
+### Opção escolhida: Redirecionar /signup para fluxo com pagamento
 
+**App.tsx** - Modificar rotas:
 ```typescript
-// Receber o slug do workspace no body
-const { currentSlug } = await req.json().catch(() => ({}));
+// ANTES:
+<Route path="/signup" element={<CreateFirstWorkspace />} />
+<Route path="/create-workspace" element={<CreateFirstWorkspace />} />
 
-const origin = req.headers.get("origin") || "https://kai-kaleidos.lovable.app";
-
-// Retornar para o workspace correto
-const returnUrl = currentSlug 
-  ? `${origin}/${currentSlug}?tab=settings&section=billing`
-  : `${origin}/`;
-
-const portalSession = await stripe.billingPortal.sessions.create({
-  customer: customerId,
-  return_url: returnUrl,
-});
+// DEPOIS:
+<Route path="/signup" element={<SimpleSignup />} />
+// Remover /create-workspace ou redirecionar para /signup
 ```
+
+**SimpleSignup.tsx** - Já faz o correto:
+- Cria conta
+- Redireciona para `/no-workspace`
+- Lá o usuário cria workspace via CreateWorkspaceDialog (que passa pelo Stripe)
+
+**Deletar ou deprecar**: `CreateFirstWorkspace.tsx`
 
 ---
 
-## 6. Adicionar Trial Period (Opcional)
+## Fase 3: Implementar Trial de 14 Dias (ou remover menção)
 
-Se quisermos manter a promessa de "14 dias grátis":
-
-**create-checkout/index.ts**
+### Opção A: Implementar no Stripe
+**create-checkout/index.ts** - Adicionar trial:
 ```typescript
 const session = await stripe.checkout.sessions.create({
-  // ... outras configs
+  // ... configs existentes
   subscription_data: {
-    trial_period_days: 14, // Adicionar trial
-    metadata: { ... }
+    trial_period_days: 14, // NOVO
+    metadata: {
+      user_id: user.id,
+      plan_type: planType,
+    },
   },
+  // ...
 });
 ```
 
-OU remover menção de trial do CreateWorkspaceDialog.
-
----
-
-## 7. Corrigir Textos da Landing Page
-
-### CreateFirstWorkspace.tsx (se mantido)
-- Remover "1.000 tokens grátis" (falso)
-- Ou implementar lógica real de trial tokens
-
-### CanvasVsProSection.tsx (linha 331)
-- Corrigir número de WhatsApp para o correto
-
----
-
-## 8. Mapear Planos Corretamente
-
-Criar constante centralizada para evitar inconsistências:
-
-**src/lib/plans.ts**
+### Opção B: Remover menção de trial
+**CreateWorkspaceDialog.tsx** - Remover texto:
 ```typescript
-export const PLANS = {
-  canvas: {
-    name: "Canvas",
-    price: 19.90,
-    priceId: "price_1SpuAmPIJtcImSMvb7h2pxYa",
-    productId: "prod_TnVBYALwIy8qOm",
-    dbType: "starter", // tipo no banco
-    maxClients: 1,
-    maxMembers: 1,
-    features: ["Canvas ilimitado", "IA multi-agente", "1 perfil"]
-  },
-  pro: {
-    name: "Pro",
-    price: 99.90,
-    priceId: "price_1SpuAoPIJtcImSMvLMPO5XUo",
-    productId: "prod_TnVBIbisvWihL7",
-    dbType: "pro",
-    maxClients: 10,
-    maxMembers: 5,
-    features: ["Tudo do Canvas", "3 perfis (+$7/extra)", "3 membros (+$4/extra)", ...]
-  }
-} as const;
+// REMOVER ou modificar:
+// "14 dias grátis! Você terá acesso completo durante o trial."
 ```
 
 ---
 
-## 9. Verificar Cancelamento de Plano
+## Fase 4: Sincronizar Limites de Perfis em Todos os Lugares
 
-O cancelamento funciona via customer-portal do Stripe, mas precisamos:
+### UpgradePlanDialog.tsx - Corrigir features:
+```typescript
+const plans = [
+  {
+    id: "canvas",
+    name: "Canvas",
+    features: [
+      "1 perfil", // ERA "3 perfis"
+      "1 usuário",
+      // ...
+    ],
+  },
+  {
+    id: "pro",
+    name: "Pro",  
+    features: [
+      "3 perfis (+$7/extra)", // Manter consistente com landing
+      "3 membros (+$4/extra)",
+      // ...
+    ],
+  },
+];
+```
 
-1. Atualizar `PlanBillingCard.tsx` para passar o slug correto
-2. Testar se o cancelamento atualiza `workspace_subscriptions.status`
-3. Implementar webhook se necessário (atualmente não parece ter)
+### USAR PLAN_CONFIG em vez de hardcoded:
+```typescript
+import { PLAN_CONFIG } from "@/lib/plans";
+
+const plans = [
+  {
+    id: "canvas",
+    name: PLAN_CONFIG.canvas.name,
+    features: PLAN_CONFIG.canvas.features,
+    // ...
+  },
+  // ...
+];
+```
+
+---
+
+## Fase 5: Remover Promessa de "1.000 tokens grátis"
+
+**CreateFirstWorkspace.tsx** (se mantido):
+- Linha 300: Remover "🎁 Você receberá 1.000 tokens grátis"
+- Ou implementar lógica real de créditos iniciais
+
+---
+
+## Fase 6: Corrigir Links da Landing Page
+
+Os links na landing page vão para `/signup?plan=basic` e `/signup?plan=agency`:
+
+**Opções:**
+1. Redirecionar esses links para criar conta e depois selecionar plano
+2. Modificar SimpleSignup para detectar `?plan=` e redirecionar apropriadamente após login
+
+**Implementação sugerida:**
+- `/signup?plan=basic` → SimpleSignup → NoWorkspacePage (auto-abre CreateWorkspaceDialog com plano básico selecionado)
 
 ---
 
@@ -194,23 +151,21 @@ O cancelamento funciona via customer-portal do Stripe, mas precisamos:
 
 | Arquivo | Mudança |
 |---------|---------|
-| `CreateWorkspaceDialog.tsx` | Corrigir preços $25->$19.90, $100->$99.90 |
-| `CreateFirstWorkspace.tsx` | Remover ou converter para checkout obrigatório |
-| `App.tsx` | Ajustar rotas /signup |
-| `customer-portal/index.ts` | Aceitar slug e retornar URL correta |
-| `PlanBillingCard.tsx` | Passar slug ao chamar customer-portal |
-| `CanvasVsProSection.tsx` | Corrigir WhatsApp |
-| **SQL Migration** | Atualizar subscription_plans com limites corretos |
-| `src/lib/plans.ts` | NOVO - Constantes centralizadas de planos |
+| SQL Migration | Atualizar subscription_plans |
+| App.tsx | Redirecionar /signup para SimpleSignup |
+| CreateFirstWorkspace.tsx | Deletar ou mover para /legacy |
+| create-checkout/index.ts | Adicionar trial_period_days: 14 |
+| CreateWorkspaceDialog.tsx | Ajustar texto de trial (se não implementar) |
+| UpgradePlanDialog.tsx | Usar PLAN_CONFIG e corrigir features |
+| NoWorkspacePage.tsx | Aceitar ?plan= da URL para pré-selecionar plano |
 
 ---
 
 ## Ordem de Execução
 
-1. **SQL**: Atualizar subscription_plans
-2. **CreateWorkspaceDialog**: Corrigir preços
-3. **CreateFirstWorkspace**: Decidir - remover ou integrar checkout
-4. **customer-portal**: Corrigir return_url
-5. **Criar plans.ts**: Centralizar constantes
-6. **Testar fluxo completo**: Landing -> Signup -> Checkout -> Workspace
-7. **Testar cancelamento**: Settings -> Manage Subscription -> Cancel
+1. SQL Migration para subscription_plans
+2. Modificar App.tsx - redirecionar /signup
+3. Deletar/mover CreateFirstWorkspace.tsx
+4. create-checkout - adicionar trial (se desejado)
+5. UpgradePlanDialog - usar PLAN_CONFIG
+6. Testar fluxo completo: Landing → Signup → NoWorkspace → CreateWorkspaceDialog → Stripe → Workspace
