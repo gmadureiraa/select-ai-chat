@@ -8,18 +8,12 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { ContentTypeFilter, SortOption, ViewMode } from "@/components/kai/LibraryFilters";
 
 interface UnifiedContentGridProps {
   clientId: string;
   onSelectContent?: (item: UnifiedContentItem) => void;
   compact?: boolean;
   draggable?: boolean;
-  // External filter props
-  typeFilter?: ContentTypeFilter;
-  sortOption?: SortOption;
-  viewMode?: ViewMode;
-  searchQuery?: string;
 }
 
 type PlatformFilter = 'all' | 'instagram' | 'twitter' | 'linkedin' | 'youtube' | 'newsletter' | 'content' | 'favorites';
@@ -35,75 +29,37 @@ const platformFilters: { value: PlatformFilter; label: string; icon: React.Eleme
   { value: 'content', label: 'Outros', icon: FileText },
 ];
 
-// Map content type filter to platform
-const typeFilterToPlatform: Record<ContentTypeFilter, PlatformFilter | null> = {
-  all: null,
-  carousel: 'instagram',
-  newsletter: 'newsletter',
-  tweet: 'twitter',
-  thread: 'twitter',
-  linkedin_post: 'linkedin',
-  stories: 'instagram',
-  short_video: 'youtube',
-  long_video: 'youtube',
-  static_image: 'instagram',
-  blog_post: 'content',
-  case_study: 'content',
-  report: 'content',
-  document: 'content',
-};
-
 export function UnifiedContentGrid({ 
   clientId, 
   onSelectContent, 
   compact, 
-  draggable,
-  typeFilter: externalTypeFilter,
-  sortOption: externalSortOption,
-  viewMode: externalViewMode,
-  searchQuery: externalSearchQuery
+  draggable
 }: UnifiedContentGridProps) {
   const { data: content, isLoading } = useUnifiedContent(clientId);
   const toggleFavorite = useToggleFavorite(clientId);
   const updateContent = useUpdateUnifiedContent(clientId);
   
-  // Local state (used when external filters not provided)
-  const [localSearchQuery, setLocalSearchQuery] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
   const [platformFilter, setPlatformFilter] = useState<PlatformFilter>('all');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [previewItem, setPreviewItem] = useState<UnifiedContentItem | null>(null);
   const [editItem, setEditItem] = useState<UnifiedContentItem | null>(null);
 
-  // Use external or local values
-  const searchQuery = externalSearchQuery !== undefined ? externalSearchQuery : localSearchQuery;
-  const useExternalFilters = externalTypeFilter !== undefined;
-  const viewMode = externalViewMode || 'grid';
-
+  // Filter content - exclude case_study and report (they have their own tabs)
   const filteredContent = useMemo(() => {
     if (!content) return [];
     
-    let filtered = content.filter((item) => {
-      // External type filter takes precedence
-      if (useExternalFilters && externalTypeFilter && externalTypeFilter !== 'all') {
-        const targetPlatform = typeFilterToPlatform[externalTypeFilter];
-        if (targetPlatform && item.platform !== targetPlatform) {
-          return false;
-        }
-        // Also filter by content_type if available
-        if (item.content_type && item.content_type !== externalTypeFilter) {
-          // For some types, we want to match platform instead
-          const platformTypes = ['carousel', 'stories', 'static_image', 'instagram_post'];
-          if (!platformTypes.includes(externalTypeFilter) || item.platform !== 'instagram') {
-            return false;
-          }
-        }
-      } else {
-        // Use local platform filter
-        if (platformFilter === 'favorites') {
-          if (!item.is_favorite) return false;
-        } else if (platformFilter !== 'all' && item.platform !== platformFilter) {
-          return false;
-        }
+    return content.filter((item) => {
+      // Exclude case studies and reports - they have their own tabs
+      if (item.content_type === 'case_study' || item.content_type === 'report') {
+        return false;
+      }
+      
+      // Platform filter
+      if (platformFilter === 'favorites') {
+        if (!item.is_favorite) return false;
+      } else if (platformFilter !== 'all' && item.platform !== platformFilter) {
+        return false;
       }
       
       // Search filter
@@ -117,35 +73,23 @@ export function UnifiedContentGrid({
       
       return true;
     });
-
-    // Apply external sort option
-    if (externalSortOption) {
-      filtered = [...filtered].sort((a, b) => {
-        switch (externalSortOption) {
-          case 'newest':
-            return new Date(b.posted_at).getTime() - new Date(a.posted_at).getTime();
-          case 'oldest':
-            return new Date(a.posted_at).getTime() - new Date(b.posted_at).getTime();
-          case 'a-z':
-            return a.title.localeCompare(b.title);
-          case 'z-a':
-            return b.title.localeCompare(a.title);
-          default:
-            return 0;
-        }
-      });
-    }
-
-    return filtered;
-  }, [content, platformFilter, searchQuery, externalTypeFilter, externalSortOption, useExternalFilters]);
+  }, [content, platformFilter, searchQuery]);
 
   const platformCounts = useMemo(() => {
     if (!content) return { favorites: 0 };
-    const counts = content.reduce((acc, item) => {
+    
+    // Count only items that are not case_study or report
+    const filteredForCount = content.filter(item => 
+      item.content_type !== 'case_study' && item.content_type !== 'report'
+    );
+    
+    const counts = filteredForCount.reduce((acc, item) => {
       acc[item.platform] = (acc[item.platform] || 0) + 1;
       if (item.is_favorite) acc.favorites = (acc.favorites || 0) + 1;
       return acc;
     }, { favorites: 0 } as Record<string, number>);
+    
+    counts.all = filteredForCount.length;
     return counts;
   }, [content]);
 
@@ -184,61 +128,52 @@ export function UnifiedContentGrid({
     );
   }
 
-  // Determine if we should use compact or grid based on viewMode
-  const useCompactView = compact || viewMode === 'list';
-
   return (
     <div className="flex flex-col h-full gap-4">
-      {/* Search - only show if no external search query */}
-      {externalSearchQuery === undefined && (
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Buscar conteúdo..."
-            value={localSearchQuery}
-            onChange={(e) => setLocalSearchQuery(e.target.value)}
-            className="pl-9"
-          />
-        </div>
-      )}
+      {/* Search */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder="Buscar conteúdo..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="pl-9"
+        />
+      </div>
 
-      {/* Platform filters - only show if no external type filter */}
-      {!useExternalFilters && (
-        <div className="flex flex-wrap gap-2">
-          {platformFilters.map((filter) => {
-            const Icon = filter.icon;
-            const count = filter.value === 'all' 
-              ? content.length 
-              : platformCounts[filter.value] || 0;
-            
-            return (
-              <Button
-                key={filter.value}
-                variant={platformFilter === filter.value ? "default" : "outline"}
-                size="sm"
-                onClick={() => setPlatformFilter(filter.value)}
-                className={cn("h-8 text-xs", filter.value === 'favorites' && "border-yellow-400/50")}
+      {/* Platform filters - always visible */}
+      <div className="flex flex-wrap gap-2">
+        {platformFilters.map((filter) => {
+          const Icon = filter.icon;
+          const count = platformCounts[filter.value] || 0;
+          
+          return (
+            <Button
+              key={filter.value}
+              variant={platformFilter === filter.value ? "default" : "outline"}
+              size="sm"
+              onClick={() => setPlatformFilter(filter.value)}
+              className={cn("h-8 text-xs", filter.value === 'favorites' && "border-yellow-400/50")}
+            >
+              <Icon className={cn("h-3 w-3 mr-1", filter.value === 'favorites' && platformFilter === filter.value && "fill-yellow-400")} />
+              {filter.label}
+              <Badge 
+                variant="secondary" 
+                className={cn(
+                  "ml-1.5 h-4 px-1 text-[10px]",
+                  platformFilter === filter.value && "bg-primary-foreground/20"
+                )}
               >
-                <Icon className={cn("h-3 w-3 mr-1", filter.value === 'favorites' && platformFilter === filter.value && "fill-yellow-400")} />
-                {filter.label}
-                <Badge 
-                  variant="secondary" 
-                  className={cn(
-                    "ml-1.5 h-4 px-1 text-[10px]",
-                    platformFilter === filter.value && "bg-primary-foreground/20"
-                  )}
-                >
-                  {count}
-                </Badge>
-              </Button>
-            );
-          })}
-        </div>
-      )}
+                {count}
+              </Badge>
+            </Button>
+          );
+        })}
+      </div>
 
       {/* Content Grid */}
       <div className="flex-1 overflow-y-auto pr-2">
-        {useCompactView ? (
+        {compact ? (
           <div className="space-y-2">
             {filteredContent.map((item) => (
               <div
