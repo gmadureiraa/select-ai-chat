@@ -5,42 +5,57 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import { Link } from "react-router-dom";
+import { ArrowRight } from "lucide-react";
 
-const faqs = [
+interface FAQ {
+  question: string;
+  answer: string;
+  category?: "pricing" | "usage" | "other";
+}
+
+const faqs: FAQ[] = [
+  {
+    question: "Quanto custa e como funciona o trial?",
+    answer:
+      "Oferecemos 7 dias grátis para testar todas as funcionalidades. Após o trial, o Canvas custa $19.90/mês e o PRO $99.90/mês. Você pode cancelar a qualquer momento, sem compromisso.",
+    category: "pricing",
+  },
+  {
+    question: "Posso cancelar a qualquer momento?",
+    answer:
+      "Sim! Não há contratos ou fidelidade. Você pode cancelar sua assinatura a qualquer momento e continuar usando até o fim do período pago. Oferecemos garantia de 14 dias para reembolso total.",
+    category: "pricing",
+  },
   {
     question: "O que o KAI pode fazer pela minha agência?",
     answer:
       "O KAI centraliza a gestão de clientes, permite criar conteúdo com IA que entende o contexto de cada marca, analisa performance de redes sociais e oferece um espaço colaborativo para pesquisa e organização de referências.",
+    category: "usage",
   },
   {
     question: "Em quais redes sociais posso publicar?",
     answer:
       "Com o plano Pro, você pode publicar diretamente no Instagram (posts, carrosséis e stories), Twitter/X (posts e threads), LinkedIn (posts e artigos), YouTube (descrições e thumbnails) e newsletters via Beehiiv. Novas integrações estão sendo adicionadas constantemente.",
+    category: "usage",
   },
   {
     question: "O que posso criar no Canvas?",
     answer:
       "O Canvas permite criar diversos formatos: Carrosséis para Instagram, Threads para Twitter/X, Artigos para LinkedIn e blog, Posts para todas as redes, Scripts para vídeos, Newsletters, Thumbnails e imagens com IA. Você pode transformar uma única fonte (vídeo, texto, URL) em múltiplos conteúdos de uma vez.",
+    category: "usage",
   },
   {
     question: "Preciso de habilidades técnicas para usar o KAI?",
     answer:
       "Não! O KAI foi desenhado para ser intuitivo. A interface é visual e amigável, sem necessidade de código. Nosso time também oferece onboarding completo para garantir que você aproveite ao máximo.",
+    category: "usage",
   },
   {
     question: "Como a IA aprende sobre meus clientes?",
     answer:
       "Você cadastra informações do cliente como descrição, tom de voz, brand guidelines e pode fazer upload de documentos. A IA usa esse contexto para gerar conteúdo personalizado.",
-  },
-  {
-    question: "Como funciona o adicional de clientes e membros?",
-    answer:
-      "No plano Pro, você tem 3 clientes e 3 membros inclusos. Precisa de mais? Adicione clientes extras por $7/mês cada e membros extras por $4/mês cada. Visualizadores são ilimitados e gratuitos.",
-  },
-  {
-    question: "Quantos clientes e membros posso ter?",
-    answer:
-      "Depende do plano escolhido. O plano Canvas permite 1 cliente. O Pro inclui 3 clientes e 3 membros, com possibilidade de adicionar mais. Para agências maiores, temos planos Enterprise personalizados com clientes e membros ilimitados.",
+    category: "other",
   },
 ];
 
@@ -90,6 +105,14 @@ const FAQSection = () => {
                 </AccordionTrigger>
                 <AccordionContent className="text-muted-foreground pb-6 text-base leading-relaxed">
                   {faq.answer}
+                  {faq.category === "pricing" && (
+                    <Link 
+                      to="/signup?plan=basic" 
+                      className="inline-flex items-center text-primary hover:underline mt-3 font-medium"
+                    >
+                      Ver planos <ArrowRight className="ml-1 h-3.5 w-3.5" />
+                    </Link>
+                  )}
                 </AccordionContent>
               </AccordionItem>
             ))}

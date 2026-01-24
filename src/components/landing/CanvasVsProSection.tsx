@@ -1,5 +1,6 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { 
   Check, 
   X, 
@@ -13,11 +14,14 @@ import {
   Share2,
   Palette,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Clock,
+  ShieldCheck
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
+import { addDays, format } from "date-fns";
 
 // Social network icons as SVG components
 const InstagramIcon = () => (
@@ -102,6 +106,19 @@ export function CanvasVsProSection() {
       <div className="absolute top-1/3 left-0 w-[400px] h-[400px] bg-purple-500/5 blur-[100px] rounded-full pointer-events-none" />
       
       <div className="max-w-5xl mx-auto px-6 relative z-10">
+        {/* Urgency Badge */}
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          className="text-center mb-8"
+        >
+          <Badge variant="destructive" className="animate-pulse px-4 py-2">
+            <Clock className="h-3.5 w-3.5 mr-1.5" />
+            Oferta válida até {format(addDays(new Date(), 3), "dd/MM")}
+          </Badge>
+        </motion.div>
+
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -140,6 +157,7 @@ export function CanvasVsProSection() {
             </div>
 
             <div className="mb-6">
+              <span className="text-lg text-muted-foreground line-through mr-2">$29.90</span>
               <span className="text-5xl font-bold text-foreground">$19.90</span>
               <span className="text-muted-foreground text-lg">/mês</span>
             </div>
@@ -158,10 +176,16 @@ export function CanvasVsProSection() {
 
             <Link to="/signup?plan=basic" className="block">
               <Button className="w-full h-12 text-base" size="lg">
-                Começar com Canvas
+                Começar grátis por 7 dias
                 <ArrowRight className="ml-2 w-4 h-4" />
               </Button>
             </Link>
+
+            {/* Guarantee */}
+            <div className="flex items-center justify-center gap-2 mt-4 text-sm text-muted-foreground">
+              <ShieldCheck className="h-4 w-4 text-green-500" />
+              <span>Garantia de 14 dias</span>
+            </div>
           </motion.div>
 
           {/* Pro Plan */}
@@ -171,13 +195,17 @@ export function CanvasVsProSection() {
             viewport={{ once: true }}
             className="bg-gradient-to-br from-card to-card/80 border-2 border-primary rounded-2xl p-7 relative hover:shadow-2xl hover:shadow-primary/10 transition-all duration-300"
           >
-            {/* Popular badge */}
-            <div className="absolute -top-3.5 left-1/2 -translate-x-1/2">
-              <span className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-gradient-to-r from-primary to-primary/80 text-primary-foreground text-xs font-semibold shadow-lg shadow-primary/30">
-                <Crown className="w-3.5 h-3.5" />
+            {/* Popular badge - Animated */}
+            <motion.div 
+              className="absolute -top-3.5 left-1/2 -translate-x-1/2"
+              animate={{ y: [0, -4, 0] }}
+              transition={{ duration: 2, repeat: Infinity }}
+            >
+              <span className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-gradient-to-r from-primary to-purple-500 text-primary-foreground text-xs font-semibold shadow-lg shadow-primary/30">
+                <Sparkles className="w-3.5 h-3.5" />
                 Mais popular
               </span>
-            </div>
+            </motion.div>
 
             <div className="flex items-center gap-3 mb-5">
               <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center shadow-lg shadow-primary/20">
@@ -190,6 +218,7 @@ export function CanvasVsProSection() {
             </div>
 
             <div className="mb-6">
+              <span className="text-lg text-muted-foreground line-through mr-2">$149.90</span>
               <span className="text-5xl font-bold text-foreground">$99.90</span>
               <span className="text-muted-foreground text-lg">/mês</span>
             </div>
@@ -208,10 +237,16 @@ export function CanvasVsProSection() {
 
             <Link to="/signup?plan=agency" className="block">
               <Button className="w-full h-12 text-base bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70" size="lg">
-                Upgrade para PRO
+                Começar grátis por 7 dias
                 <ArrowRight className="ml-2 w-4 h-4" />
               </Button>
             </Link>
+
+            {/* Guarantee */}
+            <div className="flex items-center justify-center gap-2 mt-4 text-sm text-muted-foreground">
+              <ShieldCheck className="h-4 w-4 text-green-500" />
+              <span>Garantia de 14 dias</span>
+            </div>
           </motion.div>
         </div>
 

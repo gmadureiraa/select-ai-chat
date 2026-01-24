@@ -291,22 +291,29 @@ const CanvasDemoSection = () => {
           ))}
         </div>
 
-        {/* CTA */}
+        {/* CTA with glow */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           className="text-center"
         >
-          <Link to="/signup?plan=basic">
-            <Button
-              size="lg"
-              className="h-14 px-8 text-lg rounded-full bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20 group"
-            >
-              Assinar Canvas - $19.90/mês
-              <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
-            </Button>
-          </Link>
+          <div className="relative inline-block">
+            {/* Glow effect */}
+            <div className="absolute -inset-4 bg-primary/20 blur-xl rounded-full" />
+            <Link to="/signup?plan=basic">
+              <Button
+                size="lg"
+                className="relative h-14 px-8 text-lg rounded-full bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20 group"
+              >
+                Começar grátis por 7 dias
+                <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
+              </Button>
+            </Link>
+          </div>
+          <p className="text-sm text-muted-foreground mt-4">
+            Depois $19.90/mês • Cancele quando quiser
+          </p>
         </motion.div>
       </div>
     </section>
