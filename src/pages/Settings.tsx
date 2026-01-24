@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/useAuth";
 import { useWorkspace } from "@/hooks/useWorkspace";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { User, Sun, Moon, Palette, Key, Trash2, Loader2 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { useTheme } from "next-themes";
@@ -19,6 +20,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { SettingsNavigation, SettingsSection } from "@/components/settings/SettingsNavigation";
+import { cn } from "@/lib/utils";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -35,6 +37,7 @@ export default function Settings() {
   const { user, signOut } = useAuth();
   const { theme, setTheme } = useTheme();
   const { canManageTeam } = useWorkspace();
+  const isMobile = useIsMobile();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -227,7 +230,10 @@ export default function Settings() {
           <CardDescription>Informações da sua conta</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          <div className="flex items-start gap-6">
+          <div className={cn(
+            "flex gap-6",
+            isMobile ? "flex-col items-center" : "items-start"
+          )}>
             <AvatarUpload
               currentUrl={profile?.avatar_url}
               onUpload={(url) => updateAvatar.mutate(url)}
@@ -236,11 +242,11 @@ export default function Settings() {
               bucket="client-files"
               folder="user-avatars"
             />
-            <div className="flex-1 space-y-4">
+            <div className={cn("flex-1 space-y-4", isMobile && "w-full")}>
               {/* Name Field */}
               <div className="space-y-2">
                 <Label htmlFor="name">Nome</Label>
-                <div className="flex gap-2">
+                <div className={cn("flex gap-2", isMobile && "flex-col")}>
                   <Input
                     id="name"
                     value={editedName ?? profile?.full_name ?? ""}
@@ -249,7 +255,7 @@ export default function Settings() {
                     className="flex-1"
                   />
                   {hasNameChanges && (
-                    <Button onClick={handleSaveName} disabled={isSavingName} size="sm">
+                    <Button onClick={handleSaveName} disabled={isSavingName} size="sm" className={cn(isMobile && "w-full")}>
                       {isSavingName ? <Loader2 className="h-4 w-4 animate-spin" /> : "Salvar"}
                     </Button>
                   )}
@@ -259,7 +265,7 @@ export default function Settings() {
               {/* Email Field */}
               <div className="space-y-2">
                 <Label>Email</Label>
-                <div className="text-sm text-muted-foreground bg-muted/50 px-3 py-2 rounded-md">
+                <div className="text-sm text-muted-foreground bg-muted/50 px-3 py-2 rounded-md break-all">
                   {user?.email || "Não disponível"}
                 </div>
               </div>
@@ -270,7 +276,7 @@ export default function Settings() {
           
           <div className="grid gap-2">
             <Label className="text-muted-foreground">ID do Usuário</Label>
-            <div className="text-xs font-mono bg-muted/50 p-2 rounded">{user?.id || "Não disponível"}</div>
+            <div className="text-xs font-mono bg-muted/50 p-2 rounded break-all">{user?.id || "Não disponível"}</div>
           </div>
         </CardContent>
       </Card>
@@ -285,7 +291,10 @@ export default function Settings() {
           <CardDescription>Gerencie a segurança da sua conta</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center justify-between">
+          <div className={cn(
+            "flex gap-4",
+            isMobile ? "flex-col" : "items-center justify-between"
+          )}>
             <div className="space-y-0.5">
               <Label className="text-base font-medium">Redefinir Senha</Label>
               <p className="text-sm text-muted-foreground">
@@ -296,6 +305,7 @@ export default function Settings() {
               variant="outline" 
               onClick={handlePasswordReset}
               disabled={isSendingReset}
+              className={cn(isMobile && "w-full")}
             >
               {isSendingReset ? (
                 <Loader2 className="h-4 w-4 animate-spin mr-2" />
@@ -318,7 +328,10 @@ export default function Settings() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center justify-between">
+          <div className={cn(
+            "flex gap-4",
+            isMobile ? "flex-col" : "items-center justify-between"
+          )}>
             <div className="space-y-0.5">
               <Label className="text-base font-medium">Excluir Conta</Label>
               <p className="text-sm text-muted-foreground">
@@ -327,9 +340,9 @@ export default function Settings() {
             </div>
             <AlertDialog>
               <AlertDialogTrigger asChild>
-                <Button variant="destructive">Excluir conta</Button>
+                <Button variant="destructive" className={cn(isMobile && "w-full")}>Excluir conta</Button>
               </AlertDialogTrigger>
-              <AlertDialogContent>
+              <AlertDialogContent className="max-w-[95vw] sm:max-w-lg">
                 <AlertDialogHeader>
                   <AlertDialogTitle>Tem certeza absoluta?</AlertDialogTitle>
                   <AlertDialogDescription className="space-y-3">
@@ -350,14 +363,14 @@ export default function Settings() {
                     </div>
                   </AlertDialogDescription>
                 </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel onClick={() => setDeleteConfirmation("")}>
+                <AlertDialogFooter className={cn(isMobile && "flex-col gap-2")}>
+                  <AlertDialogCancel onClick={() => setDeleteConfirmation("")} className={cn(isMobile && "w-full")}>
                     Cancelar
                   </AlertDialogCancel>
                   <AlertDialogAction
                     onClick={handleDeleteAccount}
                     disabled={deleteConfirmation !== "EXCLUIR" || isDeleting}
-                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    className={cn("bg-destructive text-destructive-foreground hover:bg-destructive/90", isMobile && "w-full")}
                   >
                     {isDeleting ? (
                       <Loader2 className="h-4 w-4 animate-spin mr-2" />
@@ -391,19 +404,19 @@ export default function Settings() {
         <CardDescription>Personalize a aparência do aplicativo</CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3 min-w-0">
             {theme === "dark" ? (
-              <Moon className="h-5 w-5 text-muted-foreground" />
+              <Moon className="h-5 w-5 text-muted-foreground shrink-0" />
             ) : (
-              <Sun className="h-5 w-5 text-muted-foreground" />
+              <Sun className="h-5 w-5 text-muted-foreground shrink-0" />
             )}
-            <div>
+            <div className="min-w-0">
               <Label htmlFor="theme-toggle" className="text-base font-medium">
                 Modo Escuro
               </Label>
               <p className="text-sm text-muted-foreground">
-                Alternar entre tema claro e escuro
+                {isMobile ? "Claro/Escuro" : "Alternar entre tema claro e escuro"}
               </p>
             </div>
           </div>
@@ -436,8 +449,8 @@ export default function Settings() {
 
   return (
     <SecondaryLayout title="Configurações">
-      <div className="max-w-6xl mx-auto px-6 py-8">
-        <div className="flex gap-8">
+      <div className={cn("max-w-6xl mx-auto", isMobile ? "px-4 py-4" : "px-6 py-8")}>
+        <div className={cn("flex", isMobile ? "flex-col gap-4" : "gap-8")}>
           {/* Navigation */}
           <SettingsNavigation
             activeSection={activeSection}

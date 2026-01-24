@@ -1,5 +1,6 @@
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
+import { SkipLink } from "@/components/ui/skip-link";
 import Kai from "./pages/Kai";
 import Documentation from "./pages/Documentation";
 import LandingPage from "./pages/LandingPage";
@@ -34,6 +35,7 @@ const App = () => (
   <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
+        <SkipLink />
         <Toaster />
         <Sonner />
         <BrowserRouter>
