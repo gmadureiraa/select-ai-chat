@@ -36,7 +36,11 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { clientId, request, format, platform, workspaceId, conversationHistory, includePerformanceContext = true } = await req.json() as ContentRequest;
+    const requestBody = await req.json() as ContentRequest & { stream?: boolean; message?: string };
+    const { clientId, request, format, platform, workspaceId, conversationHistory, includePerformanceContext = true, stream = true, message } = requestBody;
+    
+    // Support both 'request' and 'message' field names for flexibility
+    const userRequest = request || message;
 
     if (!clientId) {
       return new Response(
@@ -286,7 +290,7 @@ IMPORTANTE: Siga EXATAMENTE o formato de entrega especificado nas regras acima. 
     }
 
     // Add current request
-    messages.push({ role: "user", content: request });
+    messages.push({ role: "user", content: userRequest || request || "" });
 
     // Use user's own Google AI Studio API key instead of Lovable AI Gateway
     const GOOGLE_API_KEY = Deno.env.get("GOOGLE_AI_STUDIO_API_KEY");
@@ -299,10 +303,8 @@ IMPORTANTE: Siga EXATAMENTE o formato de entrega especificado nas regras acima. 
       );
     }
 
-    // Check if streaming is requested (default to true for backwards compatibility)
-    const { stream = true } = await req.json().catch(() => ({}));
-    const requestBody = await req.clone().json();
-    const useStreaming = requestBody.stream !== false;
+    // Use the stream value from the already-parsed requestBody
+    const useStreaming = stream !== false;
 
     // Convert messages to Gemini format
     const geminiContents = messages.map(msg => ({
