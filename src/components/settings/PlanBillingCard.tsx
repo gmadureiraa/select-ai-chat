@@ -136,6 +136,40 @@ export function PlanBillingCard() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
+          {/* Credits Display */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between text-sm">
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Coins className="h-4 w-4" />
+                Créditos disponíveis
+              </div>
+              <span className={`font-medium ${isCriticalBalance ? 'text-destructive' : isLowBalance ? 'text-amber-500' : ''}`}>
+                {isUnlimited ? (
+                  <span className="flex items-center gap-1">
+                    <Infinity className="h-4 w-4" /> Ilimitado
+                  </span>
+                ) : (
+                  `${creditsAvailable} créditos`
+                )}
+              </span>
+            </div>
+            
+            {!isUnlimited && (
+              <div className="space-y-2">
+                <Progress 
+                  value={remainingPercentage} 
+                  className={`h-2 ${isCriticalBalance ? '[&>div]:bg-destructive' : isLowBalance ? '[&>div]:bg-amber-500' : ''}`}
+                />
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>Usado: {creditsUsed} créditos</span>
+                  <span>Mensal: {creditsMonthly} créditos</span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <Separator />
+
           {/* Plan Limits */}
           <div className="grid gap-3">
             <div className="flex items-center justify-between text-sm">

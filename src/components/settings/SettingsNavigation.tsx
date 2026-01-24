@@ -1,7 +1,7 @@
 import { cn } from "@/lib/utils";
-import { User, CreditCard, Users, Palette } from "lucide-react";
+import { User, CreditCard, Users, Palette, Bell } from "lucide-react";
 
-export type SettingsSection = "profile" | "billing" | "team" | "appearance";
+export type SettingsSection = "profile" | "billing" | "team" | "notifications" | "appearance";
 
 interface SettingsNavigationProps {
   activeSection: SettingsSection;
@@ -13,6 +13,7 @@ const sections = [
   { id: "profile" as const, label: "Perfil", icon: User },
   { id: "billing" as const, label: "Plano", icon: CreditCard },
   { id: "team" as const, label: "Time", icon: Users, requiresPermission: "team" },
+  { id: "notifications" as const, label: "Notificações", icon: Bell },
   { id: "appearance" as const, label: "Aparência", icon: Palette },
 ];
 
