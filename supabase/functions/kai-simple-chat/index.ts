@@ -6,6 +6,14 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Constantes
+const MAX_IDENTITY_GUIDE_LENGTH = 8000;
+const MAX_CITED_CONTENT_LENGTH = 12000;
+const MAX_HISTORY_MESSAGES = 15;
+
+// Planos que têm acesso ao kAI Chat
+const ALLOWED_PLANS = ["pro", "enterprise", "agency"];
+
 interface Citation {
   id: string;
   type: "content" | "reference" | "format";
@@ -56,7 +64,13 @@ serve(async (req) => {
     const body = await req.json() as RequestBody;
     const { message, clientId, citations, history } = body;
 
-    console.log("[kai-simple-chat] Request:", { clientId, citationsCount: citations?.length });
+    console.log("[kai-simple-chat] Request:", { 
+      userId: user.id,
+      clientId, 
+      citationsCount: citations?.length,
+      historyCount: history?.length,
+      messageLength: message?.length 
+    });
 
     if (!clientId || !message) {
       return new Response(
@@ -65,46 +79,77 @@ serve(async (req) => {
       );
     }
 
-    // 1. Fetch client context (always)
-    const { data: client } = await supabase
+    // 1. Fetch client and verify workspace access
+    const { data: client, error: clientError } = await supabase
       .from("clients")
-      .select("name, description, identity_guide")
+      .select("name, description, identity_guide, workspace_id")
       .eq("id", clientId)
       .single();
 
-    if (!client) {
+    if (clientError || !client) {
+      console.error("[kai-simple-chat] Client not found:", clientError);
       return new Response(
         JSON.stringify({ error: "Cliente não encontrado" }),
         { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // 2. Fetch cited content (if any)
+    // 2. Verify subscription plan
+    const { data: workspace } = await supabase
+      .from("workspaces")
+      .select("subscription_plan")
+      .eq("id", client.workspace_id)
+      .single();
+
+    if (workspace) {
+      const plan = workspace.subscription_plan?.toLowerCase() || "starter";
+      if (!ALLOWED_PLANS.includes(plan)) {
+        console.log("[kai-simple-chat] Access denied for plan:", plan);
+        return new Response(
+          JSON.stringify({ error: "O kAI Chat requer o plano Pro ou superior" }),
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
+
+    // 3. Fetch cited content (if any) - with smart truncation
     let citedContent = "";
     if (citations && citations.length > 0) {
-      for (const citation of citations) {
+      // Process citations in parallel for better performance
+      const citationPromises = citations.map(async (citation) => {
         if (citation.type === "content") {
           const { data } = await supabase
             .from("client_content_library")
-            .select("title, content, content_type")
+            .select("title, content, content_type, created_at")
             .eq("id", citation.id)
             .single();
           
           if (data) {
-            citedContent += `\n### Referência: ${data.title} (${data.content_type})\n${data.content}\n`;
+            return {
+              type: "content",
+              title: data.title,
+              content: data.content,
+              contentType: data.content_type,
+              createdAt: data.created_at,
+            };
           }
         } else if (citation.type === "reference") {
           const { data } = await supabase
             .from("client_reference_library")
-            .select("title, content, reference_type")
+            .select("title, content, reference_type, created_at")
             .eq("id", citation.id)
             .single();
           
           if (data) {
-            citedContent += `\n### Referência externa: ${data.title} (${data.reference_type})\n${data.content}\n`;
+            return {
+              type: "reference",
+              title: data.title,
+              content: data.content,
+              contentType: data.reference_type,
+              createdAt: data.created_at,
+            };
           }
         } else if (citation.type === "format") {
-          // Get format rules from kai_documentation
           const { data } = await supabase
             .from("kai_documentation")
             .select("content, checklist")
@@ -113,51 +158,99 @@ serve(async (req) => {
             .single();
           
           if (data) {
-            citedContent += `\n### Regras do formato ${citation.title}:\n${data.content}\n`;
-            if (data.checklist) {
-              citedContent += `\nChecklist:\n${JSON.stringify(data.checklist)}\n`;
-            }
+            return {
+              type: "format",
+              title: citation.title,
+              content: data.content,
+              checklist: data.checklist,
+            };
           }
+        }
+        return null;
+      });
+
+      const citationResults = (await Promise.all(citationPromises)).filter(Boolean);
+      
+      // Sort by recency (most recent first) and build content
+      citationResults.sort((a, b) => {
+        if (a?.createdAt && b?.createdAt) {
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        }
+        return 0;
+      });
+
+      for (const cit of citationResults) {
+        if (!cit) continue;
+        
+        if (cit.type === "format") {
+          citedContent += `\n### Regras do formato ${cit.title}:\n${cit.content}\n`;
+          if (cit.checklist) {
+            citedContent += `\nChecklist:\n${JSON.stringify(cit.checklist)}\n`;
+          }
+        } else {
+          const label = cit.type === "content" ? "Referência" : "Referência externa";
+          citedContent += `\n### ${label}: ${cit.title} (${cit.contentType})\n${cit.content}\n`;
+        }
+        
+        // Stop if we've exceeded the limit
+        if (citedContent.length >= MAX_CITED_CONTENT_LENGTH) {
+          citedContent = citedContent.substring(0, MAX_CITED_CONTENT_LENGTH) + "\n[...conteúdo truncado]";
+          break;
         }
       }
     }
 
-    // 3. Build system prompt (lean and focused)
-    const systemPrompt = `Você é o kAI, um assistente especializado em criação de conteúdo.
+    // 4. Build system prompt (lean and focused)
+    const identityGuide = client.identity_guide 
+      ? client.identity_guide.substring(0, MAX_IDENTITY_GUIDE_LENGTH) 
+      : "";
+
+    const systemPrompt = `Você é o kAI, um assistente especializado em criação de conteúdo para marcas e criadores.
 
 ## Cliente: ${client.name}
 ${client.description ? `Descrição: ${client.description}` : ""}
 
-${client.identity_guide ? `## Guia de Identidade\n${client.identity_guide.substring(0, 5000)}` : ""}
+${identityGuide ? `## Guia de Identidade\n${identityGuide}` : ""}
 
-${citedContent ? `## Materiais Citados\n${citedContent.substring(0, 10000)}` : ""}
+${citedContent ? `## Materiais Citados\n${citedContent}` : ""}
 
 ## Instruções
-- Sempre siga o tom de voz e estilo do cliente
-- Crie conteúdo original e relevante
-- Seja direto, prático e objetivo
-- Se um formato foi citado, siga as regras específicas dele
-- Use as referências citadas como inspiração quando disponíveis`;
+- Sempre siga o tom de voz e estilo do cliente definidos no guia de identidade
+- Crie conteúdo original, autêntico e relevante para a audiência do cliente
+- Seja direto, prático e objetivo nas respostas
+- Se um formato foi citado, siga rigorosamente as regras específicas dele
+- Use as referências citadas como base e inspiração quando disponíveis
+- Mantenha consistência com a identidade da marca em todas as respostas`;
 
-    // 4. Build messages array
+    // 5. Build messages array - limit history to prevent context overflow
+    const limitedHistory = (history || []).slice(-MAX_HISTORY_MESSAGES);
     const apiMessages = [
       { role: "system", content: systemPrompt },
-      ...(history || []).map(h => ({ role: h.role, content: h.content })),
+      ...limitedHistory.map(h => ({ role: h.role, content: h.content })),
       { role: "user", content: message },
     ];
 
-    // 5. Call AI Gateway with streaming
+    console.log("[kai-simple-chat] Context built:", {
+      systemPromptLength: systemPrompt.length,
+      historyMessages: limitedHistory.length,
+      citedContentLength: citedContent.length,
+    });
+
+    // 6. Call AI Gateway with streaming
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
       // Fallback to Google API
       const GOOGLE_API_KEY = Deno.env.get("GOOGLE_AI_STUDIO_API_KEY");
       if (!GOOGLE_API_KEY) {
+        console.error("[kai-simple-chat] No API key configured");
         return new Response(
-          JSON.stringify({ error: "Chave de API não configurada" }),
+          JSON.stringify({ error: "Configuração de API incompleta. Contate o suporte." }),
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 
+      console.log("[kai-simple-chat] Using Gemini fallback");
+      
       // Use Gemini directly
       const geminiResponse = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:streamGenerateContent?key=${GOOGLE_API_KEY}&alt=sse`,
@@ -179,9 +272,24 @@ ${citedContent ? `## Materiais Citados\n${citedContent.substring(0, 10000)}` : "
 
       if (!geminiResponse.ok) {
         const errorText = await geminiResponse.text();
-        console.error("[kai-simple-chat] Gemini error:", errorText);
+        console.error("[kai-simple-chat] Gemini error:", geminiResponse.status, errorText);
+        
+        // Provide specific error messages
+        if (geminiResponse.status === 429) {
+          return new Response(
+            JSON.stringify({ error: "Muitas requisições. Aguarde um momento e tente novamente." }),
+            { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        if (geminiResponse.status === 400) {
+          return new Response(
+            JSON.stringify({ error: "Mensagem muito longa ou formato inválido." }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        
         return new Response(
-          JSON.stringify({ error: "Erro ao gerar resposta" }),
+          JSON.stringify({ error: "Erro ao gerar resposta. Tente novamente." }),
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
@@ -190,7 +298,7 @@ ${citedContent ? `## Materiais Citados\n${citedContent.substring(0, 10000)}` : "
       const reader = geminiResponse.body?.getReader();
       if (!reader) {
         return new Response(
-          JSON.stringify({ error: "Sem resposta do servidor" }),
+          JSON.stringify({ error: "Resposta vazia do servidor." }),
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
@@ -216,20 +324,20 @@ ${citedContent ? `## Materiais Citados\n${citedContent.substring(0, 10000)}` : "
                   const parsed = JSON.parse(data);
                   const text = parsed.candidates?.[0]?.content?.parts?.[0]?.text;
                   if (text) {
-                    // Convert to OpenAI format
                     const openAIFormat = {
                       choices: [{ delta: { content: text } }],
                     };
                     controller.enqueue(encoder.encode(`data: ${JSON.stringify(openAIFormat)}\n\n`));
                   }
                 } catch {
-                  // Ignore parse errors
+                  // Ignore parse errors for incomplete chunks
                 }
               }
             }
             controller.enqueue(encoder.encode("data: [DONE]\n\n"));
             controller.close();
           } catch (e) {
+            console.error("[kai-simple-chat] Stream error:", e);
             controller.error(e);
           }
         },
@@ -245,6 +353,8 @@ ${citedContent ? `## Materiais Citados\n${citedContent.substring(0, 10000)}` : "
     }
 
     // Use Lovable AI Gateway
+    console.log("[kai-simple-chat] Using Lovable AI Gateway");
+    
     const gatewayResponse = await fetch(
       "https://ai.gateway.lovable.dev/v1/chat/completions",
       {
@@ -264,27 +374,37 @@ ${citedContent ? `## Materiais Citados\n${citedContent.substring(0, 10000)}` : "
     );
 
     if (!gatewayResponse.ok) {
-      if (gatewayResponse.status === 429) {
+      const status = gatewayResponse.status;
+      const errorText = await gatewayResponse.text();
+      console.error("[kai-simple-chat] Gateway error:", status, errorText);
+
+      if (status === 429) {
         return new Response(
-          JSON.stringify({ error: "Rate limit atingido" }),
+          JSON.stringify({ error: "Limite de requisições atingido. Aguarde alguns segundos." }),
           { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      if (gatewayResponse.status === 402) {
+      if (status === 402) {
         return new Response(
-          JSON.stringify({ error: "Créditos insuficientes" }),
+          JSON.stringify({ error: "Créditos insuficientes. Adicione mais créditos para continuar." }),
           { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      const errorText = await gatewayResponse.text();
-      console.error("[kai-simple-chat] Gateway error:", errorText);
+      if (status === 408 || errorText.includes("timeout")) {
+        return new Response(
+          JSON.stringify({ error: "A requisição demorou demais. Tente uma mensagem mais curta." }),
+          { status: 408, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      
       return new Response(
-        JSON.stringify({ error: "Erro ao gerar resposta" }),
+        JSON.stringify({ error: "Erro ao processar sua solicitação. Tente novamente." }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     // Stream the response directly
+    console.log("[kai-simple-chat] Streaming response started");
     return new Response(gatewayResponse.body, {
       headers: {
         ...corsHeaders,
@@ -294,9 +414,18 @@ ${citedContent ? `## Materiais Citados\n${citedContent.substring(0, 10000)}` : "
     });
 
   } catch (error) {
-    console.error("[kai-simple-chat] Error:", error);
+    console.error("[kai-simple-chat] Unhandled error:", error);
+    
+    // Provide user-friendly error message
+    const errorMessage = error instanceof Error ? error.message : "Erro desconhecido";
+    const isTimeout = errorMessage.includes("timeout") || errorMessage.includes("TIMEOUT");
+    
     return new Response(
-      JSON.stringify({ error: "Erro interno do servidor" }),
+      JSON.stringify({ 
+        error: isTimeout 
+          ? "A requisição expirou. Tente novamente com uma mensagem mais curta."
+          : "Erro interno. Por favor, tente novamente."
+      }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }

@@ -1,12 +1,12 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { MessageSquare, X, Send, Loader2, ArrowDownToLine } from "lucide-react";
+import { X, Send, Loader2, ArrowDownToLine, Square, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { motion, AnimatePresence } from "framer-motion";
-import { useClientChat } from "@/hooks/useClientChat";
+import { useKAISimpleChat } from "@/hooks/useKAISimpleChat";
 import { EnhancedMessageBubble } from "@/components/chat/EnhancedMessageBubble";
-import { MinimalProgress } from "@/components/chat/MinimalProgress";
+import { SimpleProgress } from "@/components/kai-global/SimpleProgress";
 import { cn } from "@/lib/utils";
 import KaleidosLogo from "@/assets/kaleidos-logo.svg";
 
@@ -25,9 +25,9 @@ export function CanvasFloatingChat({ clientId, onAddToCanvas }: CanvasFloatingCh
     messages,
     isLoading,
     sendMessage,
-    currentStep,
-    multiAgentStep,
-  } = useClientChat(clientId, undefined, undefined);
+    cancelRequest,
+    clearHistory,
+  } = useKAISimpleChat({ clientId });
 
   // Scroll to bottom on new messages
   const scrollToBottom = useCallback(() => {
@@ -71,7 +71,7 @@ export function CanvasFloatingChat({ clientId, onAddToCanvas }: CanvasFloatingCh
     const message = input.trim();
     setInput("");
     
-    await sendMessage(message, [], "fast", "free_chat");
+    await sendMessage(message);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -85,6 +85,10 @@ export function CanvasFloatingChat({ clientId, onAddToCanvas }: CanvasFloatingCh
     if (onAddToCanvas) {
       onAddToCanvas(content);
     }
+  };
+
+  const handleStopGeneration = () => {
+    cancelRequest();
   };
 
   return (
@@ -135,14 +139,27 @@ export function CanvasFloatingChat({ clientId, onAddToCanvas }: CanvasFloatingCh
                 <span className="text-sm font-medium">kAI Chat</span>
                 <span className="text-xs text-muted-foreground">• Canvas</span>
               </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7"
-                onClick={() => setIsOpen(false)}
-              >
-                <X className="h-4 w-4" />
-              </Button>
+              <div className="flex items-center gap-1">
+                {messages.length > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                    onClick={clearHistory}
+                    title="Limpar conversa"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </Button>
+                )}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7"
+                  onClick={() => setIsOpen(false)}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
 
             {/* Messages */}
@@ -162,15 +179,14 @@ export function CanvasFloatingChat({ clientId, onAddToCanvas }: CanvasFloatingCh
                   {messages.map((message, index) => (
                     <div key={message.id} className="relative group">
                       <EnhancedMessageBubble
-                        role={message.role as "user" | "assistant"}
+                        role={message.role}
                         content={message.content}
-                        imageUrls={message.image_urls}
                         clientId={clientId}
                         isLastMessage={index === messages.length - 1}
                         disableAutoPostDetection={true}
                       />
                       {/* Add to Canvas button for assistant messages */}
-                      {message.role === "assistant" && onAddToCanvas && (
+                      {message.role === "assistant" && message.content && onAddToCanvas && (
                         <Button
                           variant="ghost"
                           size="sm"
@@ -185,10 +201,7 @@ export function CanvasFloatingChat({ clientId, onAddToCanvas }: CanvasFloatingCh
                   ))}
 
                   {isLoading && (
-                    <MinimalProgress
-                      currentStep={currentStep}
-                      multiAgentStep={multiAgentStep}
-                    />
+                    <SimpleProgress />
                   )}
 
                   <div ref={messagesEndRef} />
@@ -207,19 +220,28 @@ export function CanvasFloatingChat({ clientId, onAddToCanvas }: CanvasFloatingCh
                   placeholder="Pergunte algo..."
                   className="min-h-[40px] max-h-[100px] resize-none text-sm"
                   rows={1}
+                  disabled={isLoading}
                 />
-                <Button
-                  onClick={handleSend}
-                  disabled={!input.trim() || isLoading}
-                  size="icon"
-                  className="shrink-0"
-                >
-                  {isLoading ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
+                {isLoading ? (
+                  <Button
+                    onClick={handleStopGeneration}
+                    size="icon"
+                    variant="destructive"
+                    className="shrink-0"
+                    title="Parar geração"
+                  >
+                    <Square className="h-4 w-4" />
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={handleSend}
+                    disabled={!input.trim()}
+                    size="icon"
+                    className="shrink-0"
+                  >
                     <Send className="h-4 w-4" />
-                  )}
-                </Button>
+                  </Button>
+                )}
               </div>
               <p className="text-[10px] text-muted-foreground/50 mt-1.5 text-center">
                 Pressione Enter para enviar • Shift+Enter para nova linha
