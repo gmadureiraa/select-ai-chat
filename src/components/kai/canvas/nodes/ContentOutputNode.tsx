@@ -242,15 +242,21 @@ function ContentOutputNodeComponent({
   return (
     <Card className={cn(
       cardWidth,
-      "shadow-lg transition-all border-2",
-      selected ? "border-primary ring-2 ring-primary/20" : borderColor,
-"bg-gradient-to-br from-accent to-background"
+      "shadow-lg rounded-xl transition-all duration-200 border-2",
+      selected ? "border-primary ring-2 ring-primary/20 shadow-primary/10" : borderColor,
+      "hover:shadow-xl"
     )}>
-      <CardHeader className="pb-2 pt-3 px-3 flex-row items-center justify-between">
+      <CardHeader className={cn(
+        "pb-2 pt-3 px-3 flex-row items-center justify-between rounded-t-xl border-b",
+        "bg-gradient-to-r from-blue-500/10 via-blue-500/5 to-transparent",
+        "border-blue-500/20"
+      )}>
         <div className="flex items-center gap-2">
-<div className={cn(
-            "h-6 w-6 rounded-md flex items-center justify-center",
-            data.addedToPlanning ? "bg-primary" : "bg-primary/70"
+          <div className={cn(
+            "h-6 w-6 rounded-md flex items-center justify-center transition-all",
+            data.addedToPlanning 
+              ? "bg-primary shadow-sm shadow-primary/30" 
+              : "bg-gradient-to-br from-blue-500 to-indigo-600"
           )}>
             {data.addedToPlanning ? (
               <Check className="h-3.5 w-3.5 text-white" />

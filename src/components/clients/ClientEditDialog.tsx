@@ -19,8 +19,8 @@ export const ClientEditDialog = ({ open, onOpenChange, client }: ClientEditDialo
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto p-6">
+        <DialogHeader className="sr-only">
           <DialogTitle>Editar Cliente</DialogTitle>
           <DialogDescription>
             Atualize as informações do cliente
