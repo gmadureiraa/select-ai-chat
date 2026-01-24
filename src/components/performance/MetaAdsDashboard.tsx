@@ -433,7 +433,7 @@ export function MetaAdsDashboard({ clientId }: MetaAdsDashboardProps) {
               icon={DollarSign}
               formatter={formatCurrency}
               sparklineData={sparklines.spent}
-              color="orange"
+              color="primary"
             />
             <EnhancedKPICard
               title="Resultados"
@@ -441,14 +441,14 @@ export function MetaAdsDashboard({ clientId }: MetaAdsDashboardProps) {
               icon={Target}
               formatter={(v) => formatNumber(v)}
               sparklineData={sparklines.results}
-              color="green"
+              color="primary"
             />
             <EnhancedKPICard
               title="Custo por Resultado"
               value={kpis.avgCostPerResult}
               icon={TrendingUp}
               formatter={formatCurrency}
-              color="purple"
+              color="secondary"
             />
             <EnhancedKPICard
               title="Alcance Total"
@@ -456,7 +456,7 @@ export function MetaAdsDashboard({ clientId }: MetaAdsDashboardProps) {
               icon={Users}
               formatter={(v) => formatNumber(v)}
               sparklineData={sparklines.reach}
-              color="blue"
+              color="secondary"
             />
             <EnhancedKPICard
               title="Impressões"
@@ -464,7 +464,7 @@ export function MetaAdsDashboard({ clientId }: MetaAdsDashboardProps) {
               icon={Eye}
               formatter={(v) => formatNumber(v)}
               sparklineData={sparklines.impressions}
-              color="pink"
+              color="muted"
             />
           </div>
           

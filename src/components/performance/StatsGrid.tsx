@@ -106,8 +106,8 @@ export function StatsGrid({ stats }: StatsGridProps) {
                         isNeutral 
                           ? "text-muted-foreground bg-muted/50"
                           : isPositive 
-                            ? "text-emerald-600 bg-emerald-500/10 dark:text-emerald-400" 
-                            : "text-red-600 bg-red-500/10 dark:text-red-400"
+                            ? "text-primary bg-primary/10" 
+                            : "text-destructive bg-destructive/10"
                       )}>
                         {isNeutral ? (
                           <Minus className="h-3 w-3" />

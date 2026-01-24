@@ -44,17 +44,17 @@ export function NewsletterMetricsTable({ clientId, isLoading: externalLoading }:
   };
 
   const getOpenRateBadge = (rate: number) => {
-    if (rate >= 40) return <Badge className="bg-emerald-500/20 text-emerald-600 border-emerald-500/30 text-[10px]">Excelente</Badge>;
-    if (rate >= 30) return <Badge className="bg-blue-500/20 text-blue-600 border-blue-500/30 text-[10px]">Bom</Badge>;
-    if (rate >= 20) return <Badge className="bg-amber-500/20 text-amber-600 border-amber-500/30 text-[10px]">Médio</Badge>;
-    return <Badge className="bg-red-500/20 text-red-600 border-red-500/30 text-[10px]">Baixo</Badge>;
+    if (rate >= 40) return <Badge className="bg-primary/20 text-primary border-primary/30 text-[10px]">Excelente</Badge>;
+    if (rate >= 30) return <Badge className="bg-primary/15 text-primary/80 border-primary/20 text-[10px]">Bom</Badge>;
+    if (rate >= 20) return <Badge className="bg-muted text-muted-foreground border-border text-[10px]">Médio</Badge>;
+    return <Badge className="bg-destructive/20 text-destructive border-destructive/30 text-[10px]">Baixo</Badge>;
   };
 
   const getTrend = (current: number | null | undefined, previous: number | null | undefined) => {
     if (!current || !previous || previous === 0) return null;
     const change = ((current - previous) / previous) * 100;
-    if (change > 5) return <TrendingUp className="h-3 w-3 text-emerald-500" />;
-    if (change < -5) return <TrendingDown className="h-3 w-3 text-red-500" />;
+    if (change > 5) return <TrendingUp className="h-3 w-3 text-primary" />;
+    if (change < -5) return <TrendingDown className="h-3 w-3 text-destructive" />;
     return <Minus className="h-3 w-3 text-muted-foreground" />;
   };
 
@@ -177,8 +177,8 @@ export function NewsletterMetricsTable({ clientId, isLoading: externalLoading }:
                         />
                       </div>
                     ) : (
-                      <div className="w-10 h-10 rounded bg-gradient-to-br from-orange-500 to-amber-500 flex items-center justify-center">
-                        <Mail className="h-4 w-4 text-white" />
+                      <div className="w-10 h-10 rounded bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center">
+                        <Mail className="h-4 w-4 text-primary-foreground" />
                       </div>
                     )}
                   </TableCell>

@@ -21,14 +21,14 @@ interface EnhancedAreaChartProps {
   showMultipleLines?: boolean;
 }
 
-// Vibrant color palette for multiple lines
+// Simplified color palette - uses primary theme color
 const multiLineColors = [
-  "hsl(145, 75%, 45%)",  // Green
-  "hsl(330, 85%, 55%)",  // Pink
-  "hsl(220, 90%, 55%)",  // Blue
-  "hsl(25, 95%, 55%)",   // Orange
-  "hsl(270, 75%, 60%)",  // Purple
-  "hsl(185, 75%, 45%)",  // Cyan
+  "hsl(var(--primary))",
+  "hsl(var(--chart-2))",
+  "hsl(var(--chart-3))",
+  "hsl(var(--chart-4))",
+  "hsl(var(--chart-5))",
+  "hsl(var(--chart-6))",
 ];
 
 export function EnhancedAreaChart({
