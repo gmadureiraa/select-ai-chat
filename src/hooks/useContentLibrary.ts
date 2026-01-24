@@ -54,6 +54,7 @@ export const useContentLibrary = (clientId: string) => {
         .insert({
           client_id: clientId,
           ...contentData,
+          content_type: contentData.content_type as any, // Cast for DB enum compatibility
         })
         .select()
         .single();
@@ -91,9 +92,13 @@ export const useContentLibrary = (clientId: string) => {
 
   const updateContent = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<CreateContentData> }) => {
+      const updateData = { ...data };
+      if (updateData.content_type) {
+        (updateData as any).content_type = updateData.content_type; // Cast for DB enum
+      }
       const { error } = await supabase
         .from("client_content_library")
-        .update(data)
+        .update(updateData as any)
         .eq("id", id);
 
       if (error) throw error;

@@ -519,7 +519,7 @@ export function CanvasLibraryDrawer({
         open={!!previewItem}
         onOpenChange={(o) => !o && setPreviewItem(null)}
         onToggleFavorite={() => previewItem && toggleFavorite.mutate({ item: previewItem })}
-        onAddToCanvas={() => {
+        onEdit={() => {
           if (!previewItem) return;
           handleSelectContent(previewItem);
           setPreviewItem(null);
