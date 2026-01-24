@@ -2,14 +2,17 @@ import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/useAuth";
 import { useWorkspace } from "@/hooks/useWorkspace";
-import { User, Sun, Moon, Palette } from "lucide-react";
+import { User, Sun, Moon, Palette, Key, Trash2, Loader2 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
 import { useTheme } from "next-themes";
 import { TeamManagement } from "@/components/settings/TeamManagement";
 import { PlanBillingCard } from "@/components/settings/PlanBillingCard";
+import { NotificationSettings } from "@/components/settings/NotificationSettings";
 import { AvatarUpload } from "@/components/ui/avatar-upload";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -17,9 +20,20 @@ import { useToast } from "@/hooks/use-toast";
 import { SettingsNavigation, SettingsSection } from "@/components/settings/SettingsNavigation";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 export function SettingsTab() {
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const { theme, setTheme } = useTheme();
   const { canManageTeam } = useWorkspace();
   const { toast } = useToast();
@@ -27,9 +41,20 @@ export function SettingsTab() {
   const [searchParams, setSearchParams] = useSearchParams();
   const isMobile = useIsMobile();
   
+  // State for name editing
+  const [editedName, setEditedName] = useState<string | null>(null);
+  const [isSavingName, setIsSavingName] = useState(false);
+  
+  // State for password reset
+  const [isSendingReset, setIsSendingReset] = useState(false);
+  
+  // State for account deletion
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteConfirmation, setDeleteConfirmation] = useState("");
+  
   // Initialize section from URL section parameter
   const sectionParam = searchParams.get("section");
-  const validSections: SettingsSection[] = ["profile", "billing", "team", "appearance"];
+  const validSections: SettingsSection[] = ["profile", "billing", "team", "notifications", "appearance"];
   const initialSection = validSections.includes(sectionParam as SettingsSection) 
     ? (sectionParam as SettingsSection) 
     : "profile";
@@ -67,6 +92,28 @@ export function SettingsTab() {
     enabled: !!user?.id,
   });
 
+  // Reset editedName when profile loads
+  useEffect(() => {
+    if (profile?.full_name && editedName === null) {
+      setEditedName(profile.full_name);
+    }
+  }, [profile?.full_name]);
+
+  // Update profile mutation
+  const updateProfile = useMutation({
+    mutationFn: async (updates: { avatar_url?: string | null; full_name?: string }) => {
+      if (!user?.id) throw new Error("User not found");
+      const { error } = await supabase
+        .from("profiles")
+        .update(updates)
+        .eq("id", user.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["user-profile"] });
+    },
+  });
+
   // Update profile avatar
   const updateAvatar = useMutation({
     mutationFn: async (avatarUrl: string | null) => {
@@ -93,41 +140,249 @@ export function SettingsTab() {
     },
   });
 
+  // Handle name save
+  const handleSaveName = async () => {
+    if (!editedName?.trim()) return;
+    
+    setIsSavingName(true);
+    try {
+      await updateProfile.mutateAsync({ full_name: editedName.trim() });
+      toast({
+        title: "Nome atualizado",
+        description: "Seu nome foi atualizado com sucesso.",
+      });
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: "Não foi possível atualizar o nome.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSavingName(false);
+    }
+  };
+
+  // Handle password reset
+  const handlePasswordReset = async () => {
+    if (!user?.email) return;
+    
+    setIsSendingReset(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+      
+      if (error) throw error;
+      
+      toast({
+        title: "Email enviado",
+        description: "Verifique sua caixa de entrada para redefinir sua senha.",
+      });
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: "Não foi possível enviar o email de redefinição.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSendingReset(false);
+    }
+  };
+
+  // Handle account deletion
+  const handleDeleteAccount = async () => {
+    if (deleteConfirmation !== "EXCLUIR") return;
+    
+    setIsDeleting(true);
+    try {
+      const { error } = await supabase.functions.invoke("delete-account");
+      
+      if (error) throw error;
+      
+      toast({
+        title: "Conta excluída",
+        description: "Sua conta foi excluída com sucesso.",
+      });
+      
+      await signOut();
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: "Não foi possível excluir sua conta. Tente novamente.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeleting(false);
+      setDeleteConfirmation("");
+    }
+  };
+
+  const hasNameChanges = editedName !== null && editedName !== profile?.full_name;
+
   const renderProfileSection = () => (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center gap-2">
-          <User className="h-5 w-5 text-muted-foreground" />
-          <CardTitle>Perfil</CardTitle>
-        </div>
-        <CardDescription>Informações da sua conta</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        <div className="flex items-center gap-6">
-          <AvatarUpload
-            currentUrl={profile?.avatar_url}
-            onUpload={(url) => updateAvatar.mutate(url)}
-            fallback={user?.email?.slice(0, 2) || "U"}
-            size="lg"
-            bucket="client-files"
-            folder="user-avatars"
-          />
-          <div className="flex-1 space-y-2">
-            <div className="text-sm font-medium text-muted-foreground">Email</div>
-            <div className="text-base">{user?.email || "Não disponível"}</div>
+    <div className="space-y-4">
+      {/* Profile Card */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <User className="h-5 w-5 text-muted-foreground" />
+            <CardTitle>Perfil</CardTitle>
           </div>
-        </div>
-        <Separator />
-        <div className="grid gap-2">
-          <div className="text-sm font-medium text-muted-foreground">ID do Usuário</div>
-          <div className="text-xs font-mono bg-muted/50 p-2 rounded">{user?.id || "Não disponível"}</div>
-        </div>
-      </CardContent>
-    </Card>
+          <CardDescription>Informações da sua conta</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="flex items-start gap-6">
+            <AvatarUpload
+              currentUrl={profile?.avatar_url}
+              onUpload={(url) => updateAvatar.mutate(url)}
+              fallback={user?.email?.slice(0, 2) || "U"}
+              size="lg"
+              bucket="client-files"
+              folder="user-avatars"
+            />
+            <div className="flex-1 space-y-4">
+              {/* Name Field */}
+              <div className="space-y-2">
+                <Label htmlFor="name">Nome</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="name"
+                    value={editedName ?? profile?.full_name ?? ""}
+                    onChange={(e) => setEditedName(e.target.value)}
+                    placeholder="Seu nome completo"
+                    className="flex-1"
+                  />
+                  {hasNameChanges && (
+                    <Button onClick={handleSaveName} disabled={isSavingName} size="sm">
+                      {isSavingName ? <Loader2 className="h-4 w-4 animate-spin" /> : "Salvar"}
+                    </Button>
+                  )}
+                </div>
+              </div>
+              
+              {/* Email Field */}
+              <div className="space-y-2">
+                <Label>Email</Label>
+                <div className="text-sm text-muted-foreground bg-muted/50 px-3 py-2 rounded-md">
+                  {user?.email || "Não disponível"}
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <Separator />
+          
+          <div className="grid gap-2">
+            <Label className="text-muted-foreground">ID do Usuário</Label>
+            <div className="text-xs font-mono bg-muted/50 p-2 rounded">{user?.id || "Não disponível"}</div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Security Card */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <Key className="h-5 w-5 text-muted-foreground" />
+            <CardTitle>Segurança</CardTitle>
+          </div>
+          <CardDescription>Gerencie a segurança da sua conta</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label className="text-base font-medium">Redefinir Senha</Label>
+              <p className="text-sm text-muted-foreground">
+                Enviaremos um link para redefinir sua senha por email
+              </p>
+            </div>
+            <Button 
+              variant="outline" 
+              onClick={handlePasswordReset}
+              disabled={isSendingReset}
+            >
+              {isSendingReset ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : null}
+              Enviar link
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Danger Zone Card */}
+      <Card className="border-destructive/30">
+        <CardHeader>
+          <div className="flex items-center gap-2 text-destructive">
+            <Trash2 className="h-5 w-5" />
+            <CardTitle className="text-destructive">Zona de Perigo</CardTitle>
+          </div>
+          <CardDescription>
+            Ações irreversíveis da sua conta
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label className="text-base font-medium">Excluir Conta</Label>
+              <p className="text-sm text-muted-foreground">
+                Exclua permanentemente sua conta e todos os dados
+              </p>
+            </div>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="destructive">Excluir conta</Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Tem certeza absoluta?</AlertDialogTitle>
+                  <AlertDialogDescription className="space-y-3">
+                    <p>
+                      Esta ação não pode ser desfeita. Isso excluirá permanentemente sua conta
+                      e removerá seus dados dos nossos servidores.
+                    </p>
+                    <div className="space-y-2">
+                      <Label htmlFor="confirm-delete">
+                        Digite <span className="font-mono font-bold">EXCLUIR</span> para confirmar:
+                      </Label>
+                      <Input
+                        id="confirm-delete"
+                        value={deleteConfirmation}
+                        onChange={(e) => setDeleteConfirmation(e.target.value)}
+                        placeholder="EXCLUIR"
+                      />
+                    </div>
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel onClick={() => setDeleteConfirmation("")}>
+                    Cancelar
+                  </AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={handleDeleteAccount}
+                    disabled={deleteConfirmation !== "EXCLUIR" || isDeleting}
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  >
+                    {isDeleting ? (
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    ) : null}
+                    Excluir minha conta
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   );
 
   const renderBillingSection = () => (
     <PlanBillingCard />
+  );
+
+  const renderNotificationsSection = () => (
+    <NotificationSettings />
   );
 
   const renderAppearanceSection = () => (
@@ -174,6 +429,8 @@ export function SettingsTab() {
         return renderBillingSection();
       case "team":
         return <TeamManagement />;
+      case "notifications":
+        return renderNotificationsSection();
       case "appearance":
         return renderAppearanceSection();
       default:
