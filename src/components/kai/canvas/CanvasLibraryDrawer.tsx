@@ -307,25 +307,67 @@ export function CanvasLibraryDrawer({
                     <p className="text-sm">Nenhuma referência encontrada</p>
                   </div>
                 ) : (
-                  <div className={cn("grid gap-3", cardSize === "compact" ? "grid-cols-2" : "grid-cols-1")}>
-                    {filteredReferences.map((ref) => (
-                      <button
-                        key={ref.id}
-                        onClick={() => handleSelectReference(ref)}
-                        className="w-full text-left p-3 rounded-lg border hover:bg-muted/50 hover:border-primary/30"
-                      >
-                        <p className="font-medium text-sm truncate">{ref.title}</p>
-                        <p className={cn(
-                          "text-xs text-muted-foreground mt-1",
-                          cardSize === "large" ? "line-clamp-4" : "line-clamp-2"
-                        )}>
-                          {ref.content.slice(0, cardSize === "large" ? 300 : 120)}
-                        </p>
-                        <Badge variant="outline" className="text-[10px] mt-2">
-                          {ref.reference_type}
-                        </Badge>
-                      </button>
-                    ))}
+                  <div className={cn("grid gap-3", getGridClass(cardSize))}>
+                    {filteredReferences.map((ref) => {
+                      const thumbnailUrl = ref.thumbnail_url || (ref.metadata as any)?.image_urls?.[0] || (ref.metadata as any)?.images?.[0];
+                      const typeIcon = {
+                        link: Link2,
+                        pdf: FileText,
+                        video: Youtube,
+                        image: Image,
+                      }[ref.reference_type] || Link2;
+                      const TypeIcon = typeIcon;
+                      
+                      return (
+                        <button
+                          key={ref.id}
+                          onClick={() => handleSelectReference(ref)}
+                          className="w-full text-left rounded-lg border overflow-hidden hover:border-primary/30 hover:shadow-md transition-all group"
+                        >
+                          {/* Thumbnail/Cover */}
+                          <div className={cn(
+                            "bg-muted relative overflow-hidden",
+                            cardSize === "compact" ? "h-24" : cardSize === "medium" ? "h-32" : "h-40"
+                          )}>
+                            {thumbnailUrl ? (
+                              <img 
+                                src={thumbnailUrl} 
+                                alt={ref.title}
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).style.display = 'none';
+                                }}
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/10 to-primary/30">
+                                <TypeIcon className="h-8 w-8 text-primary/60" />
+                              </div>
+                            )}
+                            <Badge variant="outline" className="absolute top-2 left-2 text-[10px] bg-background/80 backdrop-blur-sm">
+                              {ref.reference_type}
+                            </Badge>
+                          </div>
+                          
+                          {/* Content */}
+                          <div className="p-3">
+                            <p className={cn(
+                              "font-medium",
+                              cardSize === "compact" ? "text-xs truncate" : "text-sm line-clamp-2"
+                            )}>
+                              {ref.title}
+                            </p>
+                            {cardSize !== "compact" && (
+                              <p className={cn(
+                                "text-xs text-muted-foreground mt-1",
+                                cardSize === "large" ? "line-clamp-3" : "line-clamp-2"
+                              )}>
+                                {ref.content.slice(0, cardSize === "large" ? 200 : 100)}
+                              </p>
+                            )}
+                          </div>
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
               </TabsContent>
