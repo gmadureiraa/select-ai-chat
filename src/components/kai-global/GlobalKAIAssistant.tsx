@@ -33,6 +33,12 @@ export function GlobalKAIAssistant() {
     contentLibrary,
     referenceLibrary,
     clients,
+    // Conversation management
+    conversations,
+    activeConversationId,
+    setActiveConversationId,
+    startNewConversation,
+    deleteConversation,
   } = useGlobalKAI();
 
   const { clients: clientsData } = useClients();
@@ -97,6 +103,16 @@ export function GlobalKAIAssistant() {
     setSelectedClientId(clientId);
   }, [setSelectedClientId]);
 
+  // Handle conversation selection
+  const handleSelectConversation = useCallback((conversationId: string) => {
+    setActiveConversationId(conversationId);
+  }, [setActiveConversationId]);
+
+  // Handle new conversation
+  const handleNewConversation = useCallback(() => {
+    startNewConversation();
+  }, [startNewConversation]);
+
   // Don't render the floating button if user can't use assistant at all (viewer)
   // But DO render it for Canvas users (locked state with upgrade prompt)
   const shouldShowButton = canUseAssistant || isCanvas;
@@ -124,6 +140,12 @@ export function GlobalKAIAssistant() {
           onClientChange={handleClientChange}
           onClearConversation={clearConversation}
           messages={messages}
+          // Conversation management props
+          conversations={conversations}
+          activeConversationId={activeConversationId}
+          onSelectConversation={handleSelectConversation}
+          onNewConversation={handleNewConversation}
+          onDeleteConversation={deleteConversation}
         >
           {canUseAssistant ? (
             <>

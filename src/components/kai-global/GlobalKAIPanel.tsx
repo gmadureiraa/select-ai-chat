@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Sparkles, Trash2, Download, ChevronDown, Check } from "lucide-react";
+import { X, Sparkles, Trash2, Download, ChevronDown, Check, Plus, History, MessageSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -10,6 +10,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
   DropdownMenuSeparator,
+  DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
 import {
   AlertDialog,
@@ -23,7 +24,10 @@ import {
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { exportToMarkdown, downloadFile } from "@/lib/exportConversation";
+import { formatDistanceToNow } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import type { Message } from "@/types/chat";
+import type { KAIConversation } from "@/hooks/useKAIConversations";
 
 interface ClientItem {
   id: string;
@@ -42,6 +46,12 @@ interface GlobalKAIPanelProps {
   onClientChange?: (clientId: string) => void;
   onClearConversation?: () => void;
   messages?: Message[];
+  // New conversation management props
+  conversations?: KAIConversation[];
+  activeConversationId?: string | null;
+  onSelectConversation?: (id: string) => void;
+  onNewConversation?: () => void;
+  onDeleteConversation?: () => Promise<void>;
 }
 
 export function GlobalKAIPanel({
@@ -55,9 +65,15 @@ export function GlobalKAIPanel({
   onClientChange,
   onClearConversation,
   messages = [],
+  // Conversation management
+  conversations = [],
+  activeConversationId,
+  onSelectConversation,
+  onNewConversation,
+  onDeleteConversation,
 }: GlobalKAIPanelProps) {
   const panelRef = useRef<HTMLDivElement>(null);
-  const [showClearDialog, setShowClearDialog] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   // Close on Escape key
   useEffect(() => {
@@ -83,10 +99,11 @@ export function GlobalKAIPanel({
     };
   }, [isOpen]);
 
-  const handleClearConversation = () => {
-    onClearConversation?.();
-    setShowClearDialog(false);
-    toast.success("Conversa limpa");
+  const handleDeleteConversation = async () => {
+    if (onDeleteConversation) {
+      await onDeleteConversation();
+    }
+    setShowDeleteDialog(false);
   };
 
   const handleExport = async () => {
@@ -106,6 +123,7 @@ export function GlobalKAIPanel({
   };
 
   const selectedClient = clients.find(c => c.id === selectedClientId);
+  const hasConversations = conversations.length > 0;
 
   return (
     <>
@@ -206,6 +224,70 @@ export function GlobalKAIPanel({
                 
                 {/* Actions */}
                 <div className="flex items-center gap-1">
+                  {/* New conversation button */}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted"
+                    onClick={onNewConversation}
+                    title="Nova conversa"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+
+                  {/* Conversation history dropdown */}
+                  {hasConversations && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted"
+                          title="Histórico de conversas"
+                        >
+                          <History className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-72 max-h-80 overflow-y-auto">
+                        <DropdownMenuLabel className="text-xs text-muted-foreground">
+                          Conversas anteriores
+                        </DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+                        {conversations.slice(0, 10).map((conv) => (
+                          <DropdownMenuItem
+                            key={conv.id}
+                            onClick={() => onSelectConversation?.(conv.id)}
+                            className={cn(
+                              "flex items-start gap-2 py-2 cursor-pointer",
+                              conv.id === activeConversationId && "bg-accent"
+                            )}
+                          >
+                            <MessageSquare className="h-4 w-4 mt-0.5 flex-shrink-0 text-muted-foreground" />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium truncate">
+                                {conv.title || "Nova conversa"}
+                              </p>
+                              {conv.last_message_preview && (
+                                <p className="text-xs text-muted-foreground truncate">
+                                  {conv.last_message_preview}
+                                </p>
+                              )}
+                              <p className="text-[10px] text-muted-foreground/60 mt-0.5">
+                                {formatDistanceToNow(new Date(conv.updated_at), { 
+                                  addSuffix: true, 
+                                  locale: ptBR 
+                                })}
+                              </p>
+                            </div>
+                            {conv.id === activeConversationId && (
+                              <Check className="h-4 w-4 text-primary flex-shrink-0" />
+                            )}
+                          </DropdownMenuItem>
+                        ))}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
+
                   {/* Export button */}
                   <Button
                     variant="ghost"
@@ -218,14 +300,14 @@ export function GlobalKAIPanel({
                     <Download className="h-4 w-4" />
                   </Button>
 
-                  {/* Clear button */}
+                  {/* Delete conversation button */}
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted"
-                    onClick={() => setShowClearDialog(true)}
+                    className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-muted"
+                    onClick={() => setShowDeleteDialog(true)}
                     disabled={messages.length === 0}
-                    title="Limpar conversa"
+                    title="Apagar conversa"
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
@@ -253,19 +335,22 @@ export function GlobalKAIPanel({
         )}
       </AnimatePresence>
 
-      {/* Clear confirmation dialog */}
-      <AlertDialog open={showClearDialog} onOpenChange={setShowClearDialog}>
+      {/* Delete confirmation dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Limpar conversa?</AlertDialogTitle>
+            <AlertDialogTitle>Apagar conversa?</AlertDialogTitle>
             <AlertDialogDescription>
-              Esta ação irá remover todas as mensagens desta conversa. Isso não pode ser desfeito.
+              Esta ação irá remover permanentemente esta conversa e todas as suas mensagens. Isso não pode ser desfeito.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleClearConversation}>
-              Limpar
+            <AlertDialogAction 
+              onClick={handleDeleteConversation}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Apagar
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
