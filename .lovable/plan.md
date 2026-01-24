@@ -1,423 +1,148 @@
 
+# Plano: Correções Finais da Landing Page
 
-# Plano: Melhorias de Design para Máxima Conversão
+## Resumo dos Problemas Identificados
 
-## Visão Estratégica
-
-A Landing Page atual é visualmente rica, mas pode ser **otimizada para conversão** com foco em:
-1. **Hierarquia visual mais clara** - guiar o olho para CTAs
-2. **Prova social mais proeminente** - credibilidade
-3. **Urgência e escassez** - motivar ação
-4. **Redução de atrito** - simplificar decisão
+Analisei todos os arquivos e identifiquei exatamente o que precisa ser corrigido conforme seu feedback:
 
 ---
 
-## 1. HERO SECTION - Impacto Imediato
+## 1. GRADIENTES RESTANTES A REMOVER
 
-### Arquivo: `NewHeroSection.tsx`
+### 1.1 `CanvasDemoSection.tsx`
+- **Linha 47**: `bg-gradient-to-r from-primary/40 via-primary/60 to-primary/20` nas ConnectionLines
+- **Linha 181**: `bg-gradient-to-r from-primary to-purple-500` no contador "10+"
 
-**Problemas Atuais:**
-- Demo animada é boa mas pode distrair do CTA principal
-- Falta prova social imediata (números, logos, depoimentos)
-- CTAs podem ser mais urgentes
+### 1.2 `InputTypesGrid.tsx`
+- **Linhas 30-31, 45-46, 59-60, etc.**: Cada `inputType` tem `gradientFrom` e `gradientTo`
+- **Linha 332**: `bg-gradient-to-b from-background to-muted/20` na seção
+- **Linha 354**: Badge com `bg-gradient-to-r from-primary/20 to-primary/5`
+- **Linha 362**: Título com `bg-gradient-to-r from-primary to-purple-500 bg-clip-text text-transparent`
+- **Linha 397**: Cards com `bg-gradient-to-br ${type.gradientFrom} ${type.gradientTo}`
+- **Linha 413**: Glow effect com gradientes
 
-**Melhorias:**
+### 1.3 `ProShowcase.tsx`
+- **Linha 131**: Barras de analytics com `bg-gradient-to-t from-primary/60 to-primary/20`
+- **Linha 244**: Seção com `bg-gradient-to-b from-background to-muted/20`
+- **Linha 246**: Linha com `bg-gradient-to-r from-transparent via-border to-transparent`
+- **Linha 262**: Badge com `bg-gradient-to-r from-primary/20 to-primary/5`
+- **Linha 271**: Título com `bg-gradient-to-r from-primary to-purple-500 bg-clip-text text-transparent`
+- **Linha 340**: Avatar do depoimento com `bg-gradient-to-br from-primary to-purple-500`
+- **Linha 361**: Botão com `bg-gradient-to-r from-primary to-primary/80`
 
-1. **Headline com benefício quantificável**
-```typescript
-// De:
-"Crie conteúdo 10x mais rápido"
-// Para:
-"Transforme 1 vídeo em 10 conteúdos prontos para publicar"
-```
+### 1.4 `ValueProposition.tsx`
+- **Linha 89**: Linha de conexão com `bg-gradient-to-r from-blue-500/20 via-primary/40 to-accent/20`
+- **Linha 102**: Ícones com `bg-gradient-to-br ${pillar.color}` (cada pilar tem gradiente como `from-blue-500 to-indigo-500`)
+- **Linha 141**: Destaque final com `bg-gradient-to-r from-primary/5 via-secondary/5 to-accent/5`
 
-2. **Adicionar Social Proof acima do fold**
-```typescript
-// Badge de credibilidade
-<div className="flex items-center gap-4 justify-center mb-6">
-  <div className="flex -space-x-2">
-    {/* Avatares de usuários */}
-    {[...Array(5)].map((_, i) => (
-      <div key={i} className="w-8 h-8 rounded-full bg-primary/20 border-2 border-background" />
-    ))}
-  </div>
-  <span className="text-sm text-muted-foreground">
-    <strong className="text-foreground">+2.400</strong> criadores usando
-  </span>
-</div>
-```
+### 1.5 `CTASection.tsx`
+- **Nenhum gradiente visual** - está ok ✓
 
-3. **CTAs com micro-copy de urgência**
-```typescript
-<Button size="lg" className="...">
-  Começar grátis por 7 dias
-  <ArrowRight className="ml-2" />
-</Button>
-<p className="text-xs text-muted-foreground mt-2">
-  Sem cartão de crédito • Cancele quando quiser
-</p>
-```
-
-4. **Indicador de scroll animado** no final da seção
+### 1.6 `NewHeroSection.tsx`
+- **Linha 440, 558**: Linhas de conexão com `bg-gradient-to-r from-blue-500 to-emerald-500` e `from-emerald-500 to-pink-500`
+- **Linha 367, 385, 619**: Backgrounds com gradientes para previews (YouTube, imagem) - estes são aceitáveis pois representam visualmente conteúdos diferentes
 
 ---
 
-## 2. INPUT TYPES GRID - Valor Claro
+## 2. ANIMAÇÕES A MELHORAR
 
-### Arquivo: `InputTypesGrid.tsx`
+### 2.1 Seção "De uma fonte para 10 conteúdos" (`CanvasDemoSection.tsx`)
 
-**Problemas Atuais:**
-- Cards são informativos mas não direcionam para ação
-- Falta conexão visual com o produto real
+**Problemas:**
+- Conexões são linhas retas simples
+- Ícone `Sparkles` no badge precisa ser removido
 
-**Melhorias:**
+**Solução:**
+- Criar conexões curvas estilo "bezier" com SVG path
+- Adicionar animação de "pulse" nas conexões
+- Remover `Sparkles` do badge, manter apenas texto
 
-1. **Adicionar mini-CTA em cada card**
+**Código de exemplo para conexões curvas:**
 ```typescript
-// No hover de cada card
-<div className="opacity-0 group-hover:opacity-100 transition-opacity mt-4">
-  <Button variant="ghost" size="sm" className="text-primary">
-    Experimente agora <ArrowRight className="ml-1 h-3 w-3" />
-  </Button>
-</div>
+// SVG path curved connection
+<svg className="absolute inset-0 pointer-events-none overflow-visible">
+  <motion.path
+    d={`M ${startX} ${startY} C ${controlX1} ${controlY1}, ${controlX2} ${controlY2}, ${endX} ${endY}`}
+    stroke="hsl(var(--primary) / 0.5)"
+    strokeWidth="2"
+    fill="none"
+    initial={{ pathLength: 0, opacity: 0 }}
+    whileInView={{ pathLength: 1, opacity: 1 }}
+    viewport={{ once: true }}
+    transition={{ delay: delay, duration: 0.6 }}
+  />
+</svg>
 ```
 
-2. **Reorganizar grid para destacar YouTube** (caso de uso principal)
-- YouTube como card maior (full width no topo)
-- Outros inputs em grid 2x2 abaixo
-
-3. **Contador animado de formatos gerados**
-```typescript
-// No header da seção
-<motion.span className="text-primary font-bold">
-  {/* Contador animado */}
-  <CountUp end={47832} duration={2} /> conteúdos gerados hoje
-</motion.span>
-```
+### 2.2 Aproveitar animações do Bento no Canvas
+- As animações de `InputTypesGrid` (waveform, PDF scan, URL loading) podem ser aplicadas nos nodes do Canvas quando análise de conteúdo está em andamento
 
 ---
 
-## 3. CANVAS DEMO SECTION - Demonstração de Valor
+## 3. TEXTOS E BOTÕES A CORRIGIR
 
-### Arquivo: `CanvasDemoSection.tsx`
+### 3.1 Remover botão "7 dias grátis" - CTASection.tsx
+- **Linha 130-133**: Mudar de `"Começar grátis por 7 dias"` para `"Começar agora"` ou `"Assinar Canvas"`
 
-**Problemas Atuais:**
-- Visualização radial é bonita mas estática
-- Falta interatividade que engaje o usuário
+### 3.2 Remover botão "7 dias grátis" - StickyMobileCTA.tsx
+- **Linha 29**: Mudar de `"Começar grátis por 7 dias"` para `"Assinar Canvas - $19.90/mês"`
 
-**Melhorias:**
+### 3.3 Remover botão "7 dias grátis" - ProShowcase.tsx
+- **Linha 364**: Mudar de `"Começar grátis por 7 dias"` para `"Assinar PRO - $99.90/mês"`
+- **Linha 368-369**: Remover texto `"Inclui 3 perfis + 3 membros. Adicione mais por $7 e $4/mês."`
 
-1. **Hover states nos output nodes**
+### 3.4 Corrigir texto do "Publica direto" - ValueProposition.tsx
+Adicionar badge PRO mais visível:
 ```typescript
-// Ao passar mouse, mostrar preview do formato
-<HoverCard>
-  <HoverCardTrigger asChild>
-    <motion.div className="...">
-      {/* Output node */}
-    </motion.div>
-  </HoverCardTrigger>
-  <HoverCardContent className="w-64 p-0">
-    <div className="p-4">
-      <h4 className="font-semibold mb-2">Exemplo de Carrossel</h4>
-      <div className="aspect-square bg-muted rounded-lg flex items-center justify-center">
-        {/* Preview do formato */}
-      </div>
-    </div>
-  </HoverCardContent>
-</HoverCard>
-```
-
-2. **CTA mais proeminente** com destaque visual
-```typescript
-<div className="relative">
-  {/* Glow effect atrás do botão */}
-  <div className="absolute -inset-4 bg-primary/20 blur-xl rounded-full" />
-  <Button size="lg" className="relative z-10 ...">
-    Assinar Canvas - $19.90/mês
-  </Button>
-</div>
-```
-
-3. **Adicionar "Tempo economizado"** como métrica visual
-```typescript
-<div className="flex items-center gap-2 text-muted-foreground text-sm">
-  <Clock className="h-4 w-4" />
-  <span>Economize <strong className="text-foreground">3h por dia</strong></span>
-</div>
-```
-
----
-
-## 4. PRO SHOWCASE - Upsell Claro
-
-### Arquivo: `ProShowcase.tsx`
-
-**Problemas Atuais:**
-- Visual previews são bons
-- Falta diferenciação clara do Canvas básico
-
-**Melhorias:**
-
-1. **Badge "MAIS POPULAR" animado**
-```typescript
-<motion.div 
-  className="absolute -top-4 left-1/2 -translate-x-1/2"
-  animate={{ y: [0, -4, 0] }}
-  transition={{ duration: 2, repeat: Infinity }}
->
-  <Badge className="bg-gradient-to-r from-primary to-purple-500 text-white shadow-lg">
-    <Sparkles className="h-3 w-3 mr-1" />
-    Mais Popular
+{pillar.isPro && (
+  <Badge className="ml-2 bg-primary/10 text-primary text-[9px] px-1.5 py-0.5">
+    PRO
   </Badge>
-</motion.div>
-```
-
-2. **Comparativo visual inline**
-```typescript
-// Dentro de cada pillar
-<div className="text-xs text-muted-foreground bg-yellow-500/10 px-2 py-1 rounded">
-  <span className="text-yellow-600 font-medium">Exclusivo PRO</span>
-</div>
-```
-
-3. **Testimonial de agência** no final da seção
-```typescript
-<blockquote className="text-center max-w-2xl mx-auto p-8 bg-card border rounded-2xl">
-  <p className="text-lg text-muted-foreground italic mb-4">
-    "Economizamos 20h por semana na produção de conteúdo para nossos 12 clientes."
-  </p>
-  <footer className="flex items-center justify-center gap-3">
-    <Avatar />
-    <div>
-      <p className="font-semibold">Nome da Pessoa</p>
-      <p className="text-sm text-muted-foreground">CEO, Agência XYZ</p>
-    </div>
-  </footer>
-</blockquote>
-```
-
----
-
-## 5. PRICING (CanvasVsProSection) - Decisão Clara
-
-### Arquivo: `CanvasVsProSection.tsx`
-
-**Problemas Atuais:**
-- Tabela comparativa é boa
-- Falta urgência e garantia
-
-**Melhorias:**
-
-1. **Adicionar "Oferta por tempo limitado"**
-```typescript
-<div className="text-center mb-8">
-  <Badge variant="destructive" className="animate-pulse">
-    <Clock className="h-3 w-3 mr-1" />
-    Oferta válida até {format(addDays(new Date(), 3), "dd/MM")}
-  </Badge>
-</div>
-```
-
-2. **Garantia de 14 dias** com destaque visual
-```typescript
-<div className="flex items-center justify-center gap-2 mt-4 text-sm text-muted-foreground">
-  <ShieldCheck className="h-4 w-4 text-green-500" />
-  <span>Garantia de 14 dias ou seu dinheiro de volta</span>
-</div>
-```
-
-3. **Preço riscado com desconto visual**
-```typescript
-<div className="mb-4">
-  <span className="text-lg text-muted-foreground line-through mr-2">$29.90</span>
-  <span className="text-5xl font-bold text-foreground">$19.90</span>
-  <span className="text-muted-foreground">/mês</span>
-</div>
-```
-
-4. **Sticky CTA** no mobile ao scrollar
-```typescript
-// Novo componente: StickyMobileCTA.tsx
-<motion.div 
-  className="fixed bottom-0 left-0 right-0 p-4 bg-background/95 backdrop-blur border-t md:hidden z-50"
-  initial={{ y: 100 }}
-  animate={{ y: showSticky ? 0 : 100 }}
->
-  <Button className="w-full" size="lg">
-    Começar agora - $19.90/mês
-  </Button>
-</motion.div>
-```
-
----
-
-## 6. CTA SECTION - Urgência Final
-
-### Arquivo: `CTASection.tsx`
-
-**Problemas Atuais:**
-- Bom mas pode ser mais urgente
-- Falta especificidade no benefício
-
-**Melhorias:**
-
-1. **Countdown timer** para oferta
-```typescript
-<div className="flex items-center justify-center gap-4 mb-6">
-  {[
-    { value: "02", label: "dias" },
-    { value: "14", label: "horas" },
-    { value: "32", label: "min" },
-  ].map((item) => (
-    <div key={item.label} className="text-center">
-      <div className="text-3xl font-bold text-background">{item.value}</div>
-      <div className="text-xs text-background/60">{item.label}</div>
-    </div>
-  ))}
-</div>
-```
-
-2. **Headline com FOMO**
-```typescript
-// De:
-"Pare de perder horas criando conteúdo"
-// Para:
-"Enquanto você lê isso, criadores estão publicando 10x mais"
-```
-
-3. **Micro-testimonials** em carrossel
-```typescript
-<div className="flex items-center gap-4 justify-center mb-8">
-  <motion.div
-    animate={{ opacity: [1, 0, 1] }}
-    transition={{ duration: 4, repeat: Infinity }}
-  >
-    <div className="flex items-center gap-2 text-background/80">
-      <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-      <span>"Mudou minha forma de criar conteúdo"</span>
-      <span className="text-background/60">— @usuario</span>
-    </div>
-  </motion.div>
-</div>
-```
-
----
-
-## 7. FAQ SECTION - Objeções Resolvidas
-
-### Arquivo: `FAQSection.tsx`
-
-**Melhorias:**
-
-1. **Reorganizar perguntas** por objeção comum:
-   - Preço (primeiro)
-   - Facilidade de uso
-   - Resultados esperados
-   - Cancelamento
-
-2. **Adicionar CTA após cada resposta** de preço
-```typescript
-{faq.category === 'pricing' && (
-  <Link to="/signup" className="inline-flex items-center text-primary hover:underline mt-2">
-    Ver planos <ArrowRight className="ml-1 h-3 w-3" />
-  </Link>
 )}
 ```
 
+### 3.5 Unificar cor do texto "Resultado: 10x mais..." - ValueProposition.tsx
+- **Linha 144**: Mudar de `<span className="text-primary">10x mais conteúdo em menos tempo</span>` para cor única `text-foreground`
+
 ---
 
-## 8. FOOTER - Credibilidade
+## 4. BENTO GRID - ESPAÇO VAZIO (`InputTypesGrid.tsx`)
 
-### Arquivo: `LandingFooter.tsx`
+**Problema:** Layout atual cria espaço vazio porque os tamanhos `large` e `medium` não preenchem corretamente
 
-**Melhorias:**
+**Solução:** Ajustar grid para:
+- YouTube: `md:col-span-2 lg:col-span-2` (destaque principal)
+- URL: `lg:col-span-2` 
+- PDF, Text, Image: `lg:col-span-1` cada
+- Audio: `lg:col-span-2`
 
-1. **Logos de clientes/parceiros**
-```typescript
-<div className="py-8 border-t">
-  <p className="text-center text-sm text-muted-foreground mb-4">
-    Usado por criadores de
-  </p>
-  <div className="flex items-center justify-center gap-8 opacity-50">
-    {/* Logos */}
-  </div>
-</div>
+Isso dará layout:
 ```
-
-2. **Certificações/Badges de segurança**
-```typescript
-<div className="flex items-center gap-4">
-  <ShieldCheck className="h-5 w-5" />
-  <span className="text-xs">Pagamento seguro</span>
-</div>
+Row 1: [YouTube large] [URL large]
+Row 2: [PDF] [Text] [Image] [Audio large]
 ```
 
 ---
 
-## 9. MELHORIAS GLOBAIS
+## 5. ARQUIVOS A MODIFICAR
 
-### Performance de Conversão
-
-1. **Exit-intent popup** (quando mouse sai da janela)
-```typescript
-// Novo: ExitIntentPopup.tsx
-const [showExitPopup, setShowExitPopup] = useState(false);
-
-useEffect(() => {
-  const handleMouseLeave = (e: MouseEvent) => {
-    if (e.clientY < 10 && !localStorage.getItem('exitPopupShown')) {
-      setShowExitPopup(true);
-      localStorage.setItem('exitPopupShown', 'true');
-    }
-  };
-  document.addEventListener('mouseleave', handleMouseLeave);
-  return () => document.removeEventListener('mouseleave', handleMouseLeave);
-}, []);
-```
-
-2. **Scroll progress indicator** no topo
-```typescript
-<motion.div 
-  className="fixed top-0 left-0 h-1 bg-primary z-50"
-  style={{ width: `${scrollProgress}%` }}
-/>
-```
-
-3. **Animações de entrada sincronizadas** para melhor narrativa
+| Arquivo | Mudanças |
+|---------|----------|
+| `CanvasDemoSection.tsx` | Remover gradientes das linhas e contador, melhorar conexões curvas, tirar Sparkles do badge |
+| `InputTypesGrid.tsx` | Remover todos os gradientes, ajustar grid layout |
+| `ValueProposition.tsx` | Remover gradientes, unificar cor do texto "10x", melhorar badge PRO |
+| `ProShowcase.tsx` | Remover gradientes, trocar texto do botão, remover texto abaixo |
+| `CTASection.tsx` | Trocar texto do botão para "Começar agora" |
+| `StickyMobileCTA.tsx` | Trocar texto do botão |
 
 ---
 
-## Arquivos a Criar/Modificar
+## 6. RESUMO DAS AÇÕES
 
-| Arquivo | Tipo | Prioridade |
-|---------|------|------------|
-| `NewHeroSection.tsx` | Modificar | Alta |
-| `InputTypesGrid.tsx` | Modificar | Média |
-| `CanvasDemoSection.tsx` | Modificar | Média |
-| `ProShowcase.tsx` | Modificar | Média |
-| `CanvasVsProSection.tsx` | Modificar | Alta |
-| `CTASection.tsx` | Modificar | Alta |
-| `FAQSection.tsx` | Modificar | Baixa |
-| `StickyMobileCTA.tsx` | Criar | Alta |
-| `ExitIntentPopup.tsx` | Criar (opcional) | Baixa |
-| `ScrollProgressBar.tsx` | Criar | Baixa |
-
----
-
-## Ordem de Implementação
-
-### Fase 1 - Alto Impacto (Imediato)
-1. Hero Section: Social proof + CTAs urgentes
-2. Pricing: Garantia + preço riscado + sticky mobile
-3. CTA Section: Countdown + FOMO
-
-### Fase 2 - Refinamentos
-4. Input Types Grid: CTAs em cards
-5. Canvas Demo: Hover previews
-6. Pro Showcase: Testimonial
-
-### Fase 3 - Polish
-7. FAQ: Reorganização + CTAs inline
-8. Footer: Logos + credibilidade
-9. Componentes globais (progress bar, exit popup)
-
+1. **Gradientes**: Substituir todos `bg-gradient-to-*` por cores sólidas (`bg-primary/10`, `bg-muted`, etc.)
+2. **Conexões**: Usar SVG paths curvos ao invés de divs retas
+3. **Sparkles**: Remover do badge "Multiplicação de Conteúdo"
+4. **CTAs**: Unificar para "Começar agora" ou "Assinar [Plano]" sem "7 dias grátis"
+5. **Texto PRO**: Destacar mais o badge PRO em "Publica direto"
+6. **Texto resultado**: Usar cor única `text-foreground` em vez de `text-primary`
+7. **Grid**: Reorganizar tamanhos para eliminar espaços vazios
