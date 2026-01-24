@@ -1,6 +1,6 @@
 import { useState, useRef, KeyboardEvent, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Send, Paperclip, X, FileText, Image, Loader2, File, FileSpreadsheet, AtSign, BookOpen, Layers } from "lucide-react";
+import { Send, Paperclip, X, FileText, Image, Loader2, File, FileSpreadsheet, AtSign, BookOpen, Layers, Square } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -21,6 +21,7 @@ interface GlobalKAIInputMinimalProps {
   attachedFiles: KAIFileAttachment[];
   onAttachFiles: (files: File[]) => void;
   onRemoveFile: (fileId: string) => void;
+  onCancel?: () => void;
   placeholder?: string;
   disabled?: boolean;
   clientId?: string;
@@ -30,6 +31,8 @@ interface GlobalKAIInputMinimalProps {
 
 const MAX_FILES = 10;
 const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
+const MAX_MESSAGE_LENGTH = 25000;
+const CHAR_WARNING_THRESHOLD = 20000;
 
 // Predefined formats
 const FORMATS = [
@@ -47,6 +50,7 @@ export function GlobalKAIInputMinimal({
   attachedFiles,
   onAttachFiles,
   onRemoveFile,
+  onCancel,
   placeholder = "Pergunte qualquer coisa... Use @ para citar",
   disabled = false,
   clientId,
@@ -138,7 +142,6 @@ export function GlobalKAIInputMinimal({
     if (!message.trim() && attachedFiles.length === 0) return;
     if (isProcessing || disabled) return;
 
-    const MAX_MESSAGE_LENGTH = 25000;
     if (message.trim().length > MAX_MESSAGE_LENGTH) {
       toast.error(`Mensagem muito longa. Máximo: ${MAX_MESSAGE_LENGTH.toLocaleString()} caracteres.`);
       return;
@@ -259,6 +262,13 @@ export function GlobalKAIInputMinimal({
     if (type === "content") return FileText;
     return BookOpen;
   };
+
+  // Character count state
+  const charCount = message.trim().length;
+  const showCharCount = charCount > 1000;
+  const charCountColor = charCount >= CHAR_WARNING_THRESHOLD 
+    ? "text-destructive" 
+    : "text-muted-foreground/60";
 
   return (
     <div 
@@ -432,25 +442,42 @@ export function GlobalKAIInputMinimal({
           )}
         />
 
-        {/* Send button */}
-        <Button
-          size="icon"
-          className="h-9 w-9 shrink-0"
-          onClick={handleSend}
-          disabled={(!message.trim() && attachedFiles.length === 0) || isProcessing || disabled}
-        >
-          {isProcessing ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
+        {/* Send/Stop button */}
+        {isProcessing ? (
+          <Button
+            size="icon"
+            variant="destructive"
+            className="h-9 w-9 shrink-0"
+            onClick={onCancel}
+            title="Parar geração"
+          >
+            <Square className="h-4 w-4 fill-current" />
+          </Button>
+        ) : (
+          <Button
+            size="icon"
+            className="h-9 w-9 shrink-0"
+            onClick={handleSend}
+            disabled={(!message.trim() && attachedFiles.length === 0) || disabled}
+          >
             <Send className="h-4 w-4" />
-          )}
-        </Button>
+          </Button>
+        )}
       </div>
 
-      {/* Minimal hint */}
-      <p className="text-[10px] text-muted-foreground/60 text-center mt-2">
-        Enter para enviar · @ para citar · Shift+Enter para nova linha
-      </p>
+      {/* Footer with hints and character counter */}
+      <div className="flex items-center justify-between mt-2">
+        <p className="text-[10px] text-muted-foreground/60">
+          Enter para enviar · @ para citar · Shift+Enter para nova linha
+        </p>
+        
+        {/* Character counter */}
+        {showCharCount && (
+          <p className={cn("text-[10px]", charCountColor)}>
+            {charCount.toLocaleString()} / {MAX_MESSAGE_LENGTH.toLocaleString()}
+          </p>
+        )}
+      </div>
     </div>
   );
 }

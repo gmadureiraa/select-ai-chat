@@ -19,16 +19,20 @@ export function GlobalKAIAssistant() {
     messages,
     isProcessing,
     selectedClientId,
+    setSelectedClientId,
     actionStatus,
     attachedFiles,
     currentStep,
     multiAgentStep,
     sendMessage,
+    clearConversation,
+    cancelRequest,
     attachFiles,
     removeFile,
     chatMode,
     contentLibrary,
     referenceLibrary,
+    clients,
   } = useGlobalKAI();
 
   const { clients: clientsData } = useClients();
@@ -43,8 +47,25 @@ export function GlobalKAIAssistant() {
     return client?.name;
   }, [selectedClientId, clientsData]);
 
+  // Merge clients from context and hook
+  const allClients = useMemo(() => {
+    if (clients && clients.length > 0) {
+      return clients;
+    }
+    return clientsData?.map(c => ({
+      id: c.id,
+      name: c.name,
+      avatar_url: c.avatar_url || undefined,
+    })) || [];
+  }, [clients, clientsData]);
+
   // Handler for sending messages from within chat
   const handleSendFromChat = useCallback((content: string) => {
+    sendMessage(content);
+  }, [sendMessage]);
+
+  // Handler for retry after error
+  const handleRetryMessage = useCallback((content: string) => {
     sendMessage(content);
   }, [sendMessage]);
 
@@ -57,6 +78,11 @@ export function GlobalKAIAssistant() {
     await sendMessage(message, files, citations);
   }, [sendMessage]);
 
+  // Handler for cancel/stop
+  const handleCancel = useCallback(() => {
+    cancelRequest?.();
+  }, [cancelRequest]);
+
   // Handle button click - show upgrade prompt for Canvas users
   const handleButtonClick = useCallback(() => {
     if (!canAccessKaiChat && isCanvas) {
@@ -65,6 +91,11 @@ export function GlobalKAIAssistant() {
     }
     togglePanel();
   }, [canAccessKaiChat, isCanvas, showUpgradePrompt, togglePanel]);
+
+  // Handle client change
+  const handleClientChange = useCallback((clientId: string) => {
+    setSelectedClientId(clientId);
+  }, [setSelectedClientId]);
 
   // Don't render the floating button if user can't use assistant at all (viewer)
   // But DO render it for Canvas users (locked state with upgrade prompt)
@@ -89,6 +120,10 @@ export function GlobalKAIAssistant() {
           onClose={closePanel}
           selectedClientId={selectedClientId}
           selectedClientName={selectedClientName}
+          clients={allClients}
+          onClientChange={handleClientChange}
+          onClearConversation={clearConversation}
+          messages={messages}
         >
           {canUseAssistant ? (
             <>
@@ -102,17 +137,19 @@ export function GlobalKAIAssistant() {
                 currentStep={currentStep}
                 multiAgentStep={multiAgentStep}
                 onSendMessage={handleSendFromChat}
+                onRetryMessage={handleRetryMessage}
                 chatMode={chatMode}
                 onSuggestionClick={handleSendFromChat}
               />
 
-              {/* Input with @ mentions */}
+              {/* Input with @ mentions and stop button */}
               <GlobalKAIInputMinimal
                 onSend={handleSend}
                 isProcessing={isProcessing}
                 attachedFiles={attachedFiles}
                 onAttachFiles={attachFiles}
                 onRemoveFile={removeFile}
+                onCancel={handleCancel}
                 placeholder="Pergunte qualquer coisa... Use @ para citar"
                 clientId={selectedClientId || undefined}
                 contentLibrary={contentLibrary}
