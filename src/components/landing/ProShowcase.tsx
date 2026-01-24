@@ -5,14 +5,11 @@ import {
   BarChart3, 
   Users, 
   ArrowRight, 
-  Calendar, 
   CheckCircle2,
   TrendingUp,
-  Bell,
   Zap,
   Share2,
-  Crown,
-  Sparkles
+  Crown
 } from "lucide-react";
 import { Link } from "react-router-dom";
 
@@ -116,7 +113,7 @@ const KanbanVisual = () => (
   </div>
 );
 
-// Analytics Visual Preview - More detailed
+// Analytics Visual Preview - More detailed - removed gradient
 const AnalyticsVisual = () => (
   <div className="absolute inset-3 flex flex-col">
     {/* Main chart */}
@@ -128,7 +125,7 @@ const AnalyticsVisual = () => (
           whileInView={{ height: `${height}%` }}
           viewport={{ once: true }}
           transition={{ delay: 0.1 + 0.04 * i, duration: 0.4, ease: "easeOut" }}
-          className="flex-1 bg-gradient-to-t from-primary/60 to-primary/20 rounded-t hover:from-primary/80 hover:to-primary/40 transition-colors cursor-pointer"
+          className="flex-1 bg-primary/60 hover:bg-primary/80 rounded-t transition-colors cursor-pointer"
         />
       ))}
     </div>
@@ -241,14 +238,14 @@ const CollabVisual = () => (
 
 export function ProShowcase() {
   return (
-    <section className="py-28 bg-gradient-to-b from-background to-muted/20 relative overflow-hidden">
-      {/* Background decorations */}
-      <div className="absolute top-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-border to-transparent" />
+    <section className="py-28 bg-background relative overflow-hidden">
+      {/* Background decorations - removed gradients */}
+      <div className="absolute top-0 left-0 w-full h-px bg-border/50" />
       <div className="absolute top-1/4 right-0 w-[600px] h-[600px] bg-primary/5 blur-[150px] rounded-full pointer-events-none" />
       <div className="absolute bottom-1/4 left-0 w-[400px] h-[400px] bg-purple-500/5 blur-[120px] rounded-full pointer-events-none" />
       
       <div className="max-w-6xl mx-auto px-6 relative z-10">
-        {/* Header */}
+        {/* Header - removed gradients */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -259,16 +256,15 @@ export function ProShowcase() {
             initial={{ opacity: 0, scale: 0.9 }}
             whileInView={{ opacity: 1, scale: 1 }}
             viewport={{ once: true }}
-            className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-gradient-to-r from-primary/20 to-primary/5 border border-primary/20 text-primary text-sm font-medium mb-6"
+            className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-primary text-sm font-medium mb-6"
           >
             <Crown className="w-4 h-4" />
             kAI PRO
-            <Sparkles className="w-3.5 h-3.5" />
           </motion.div>
           
           <h2 className="text-4xl md:text-5xl font-bold text-foreground mb-5">
             Para quem{" "}
-            <span className="bg-gradient-to-r from-primary to-purple-500 bg-clip-text text-transparent">
+            <span className="text-primary">
               vive da criação
             </span>
           </h2>
@@ -324,7 +320,7 @@ export function ProShowcase() {
           />
         </div>
 
-        {/* Testimonial */}
+        {/* Testimonial - removed gradient from avatar */}
         <motion.blockquote
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -337,7 +333,7 @@ export function ProShowcase() {
             O kAI PRO transformou completamente nossa operação."
           </p>
           <footer className="flex items-center justify-center gap-4">
-            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary to-purple-500 flex items-center justify-center text-white font-bold text-lg">
+            <div className="w-12 h-12 rounded-full bg-primary flex items-center justify-center text-white font-bold text-lg">
               M
             </div>
             <div className="text-left">
@@ -347,7 +343,7 @@ export function ProShowcase() {
           </footer>
         </motion.blockquote>
 
-        {/* CTA */}
+        {/* CTA - removed gradient from button and extra text */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -358,16 +354,13 @@ export function ProShowcase() {
           <Link to="/signup?plan=agency">
             <Button 
               size="lg" 
-              className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 px-10 py-7 text-lg rounded-full shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 transition-all duration-300"
+              className="bg-primary hover:bg-primary/90 px-10 py-7 text-lg rounded-full shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 transition-all duration-300"
             >
               <Crown className="mr-2 w-5 h-5" />
-              Começar grátis por 7 dias
+              Assinar PRO - $99.90/mês
               <ArrowRight className="ml-2 w-5 h-5" />
             </Button>
           </Link>
-          <p className="text-sm text-muted-foreground mt-5">
-            Inclui 3 perfis + 3 membros. Adicione mais por <span className="text-foreground font-medium">$7</span> e <span className="text-foreground font-medium">$4</span>/mês.
-          </p>
         </motion.div>
       </div>
     </section>

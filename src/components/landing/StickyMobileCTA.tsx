@@ -26,7 +26,7 @@ const StickyMobileCTA = () => {
       <Link to="/signup?plan=basic" className="block">
         <Button className="w-full h-12 text-base bg-primary hover:bg-primary/90 shadow-lg" size="lg">
           <Sparkles className="mr-2 w-4 h-4" />
-          Começar grátis por 7 dias
+          Assinar Canvas - $19.90/mês
           <ArrowRight className="ml-2 w-4 h-4" />
         </Button>
       </Link>

@@ -27,89 +27,75 @@ interface InputType {
   outputs: string[];
   color: string;
   bgColor: string;
-  gradientFrom: string;
-  gradientTo: string;
-  size: "large" | "medium" | "full";
+  size: "large" | "medium";
 }
 
 const inputTypes: InputType[] = [
   {
-    id: "url",
-    icon: Globe,
-    label: "URL / Link",
-    description: "Cole qualquer link de artigo, notícia ou blog e transforme em conteúdo",
-    example: "medium.com, substack, blogs",
-    outputs: ["Carrossel", "Thread", "Post"],
-    color: "text-blue-500",
-    bgColor: "bg-blue-500/10",
-    gradientFrom: "from-blue-500/20",
-    gradientTo: "to-blue-600/5",
-    size: "large",
-  },
-  {
     id: "youtube",
     icon: Youtube,
     label: "YouTube",
-    description: "Vídeos com transcrição automática",
+    description: "Vídeos com transcrição automática e extração de insights",
     example: "youtube.com/watch?v=...",
     outputs: ["Thread", "Roteiro", "Resumo"],
     color: "text-red-500",
     bgColor: "bg-red-500/10",
-    gradientFrom: "from-red-500/20",
-    gradientTo: "to-red-600/5",
-    size: "medium",
+    size: "large",
+  },
+  {
+    id: "url",
+    icon: Globe,
+    label: "URL / Link",
+    description: "Cole qualquer link de artigo, notícia ou blog",
+    example: "medium.com, substack, blogs",
+    outputs: ["Carrossel", "Thread", "Post"],
+    color: "text-blue-500",
+    bgColor: "bg-blue-500/10",
+    size: "large",
   },
   {
     id: "pdf",
     icon: FileText,
     label: "PDF / Docs",
-    description: "Documentos, apresentações e arquivos de qualquer tipo",
+    description: "Documentos e apresentações",
     example: ".pdf, .docx, .pptx",
     outputs: ["Resumo", "Posts", "Artigo"],
     color: "text-orange-500",
     bgColor: "bg-orange-500/10",
-    gradientFrom: "from-orange-500/20",
-    gradientTo: "to-orange-600/5",
     size: "medium",
   },
   {
     id: "text",
     icon: Type,
     label: "Texto Livre",
-    description: "Cole ou digite qualquer texto como base",
+    description: "Cole ou digite qualquer texto",
     example: "Notas, ideias, rascunhos",
     outputs: ["Multi-formato", "Série"],
     color: "text-purple-500",
     bgColor: "bg-purple-500/10",
-    gradientFrom: "from-purple-500/20",
-    gradientTo: "to-purple-600/5",
     size: "medium",
   },
   {
     id: "image",
     icon: Image,
     label: "Imagem",
-    description: "Screenshots, fotos, designs e referências visuais",
+    description: "Screenshots e referências visuais",
     example: ".jpg, .png, .webp",
     outputs: ["Descrição", "OCR", "Análise"],
     color: "text-cyan-500",
     bgColor: "bg-cyan-500/10",
-    gradientFrom: "from-cyan-500/20",
-    gradientTo: "to-cyan-600/5",
     size: "medium",
   },
   {
     id: "audio",
     icon: Mic,
     label: "Áudio",
-    description: "Podcasts, gravações de reuniões, notas de voz e entrevistas transformados em conteúdo escrito",
+    description: "Podcasts, gravações e notas de voz",
     example: ".mp3, .wav, .m4a",
     outputs: ["Transcrição", "Resumo", "Thread"],
     color: "text-green-500",
     bgColor: "bg-green-500/10",
-    gradientFrom: "from-green-500/20",
-    gradientTo: "to-green-600/5",
-    size: "large",
+    size: "medium",
   },
 ];
 
@@ -128,10 +114,7 @@ const AnimatedWaveform = () => (
     {[...Array(24)].map((_, i) => (
       <motion.div
         key={i}
-        className="w-1 rounded-full"
-        style={{
-          background: `linear-gradient(to top, rgba(34, 197, 94, 0.4), rgba(34, 197, 94, 0.8))`,
-        }}
+        className="w-1 rounded-full bg-green-500"
         animate={{
           height: [6, 24 + Math.random() * 16, 6],
           opacity: [0.5, 1, 0.5],
@@ -192,10 +175,10 @@ const YoutubePreview = () => (
     initial={{ opacity: 0, scale: 0.8 }}
     animate={{ opacity: 1, scale: 1 }}
     transition={{ delay: 0.2 }}
-    className="absolute top-3 right-3 w-20 h-14 bg-gradient-to-br from-gray-900 to-gray-800 rounded-xl border border-border/50 shadow-xl overflow-hidden"
+    className="absolute top-3 right-3 w-24 h-16 bg-gray-900 rounded-xl border border-border/50 shadow-xl overflow-hidden"
   >
     {/* Thumbnail effect */}
-    <div className="absolute inset-0 bg-gradient-to-br from-red-500/20 to-transparent" />
+    <div className="absolute inset-0 bg-red-500/20" />
     
     {/* Play button */}
     <motion.div 
@@ -203,8 +186,8 @@ const YoutubePreview = () => (
       animate={{ scale: [1, 1.1, 1] }}
       transition={{ duration: 2, repeat: Infinity }}
     >
-      <div className="w-6 h-6 rounded-full bg-red-500 flex items-center justify-center shadow-lg">
-        <Play className="w-3 h-3 text-white fill-white ml-0.5" />
+      <div className="w-8 h-8 rounded-full bg-red-500 flex items-center justify-center shadow-lg">
+        <Play className="w-4 h-4 text-white fill-white ml-0.5" />
       </div>
     </motion.div>
     
@@ -245,7 +228,7 @@ const PdfPreview = () => (
         
         {/* Scanning line effect */}
         <motion.div
-          className="absolute left-0 right-0 h-4 bg-gradient-to-b from-orange-500/20 to-transparent"
+          className="absolute left-0 right-0 h-4 bg-orange-500/20"
           animate={{ top: ["-16px", "100%"] }}
           transition={{ duration: 2, repeat: Infinity, repeatDelay: 0.5 }}
         />
@@ -286,7 +269,7 @@ const ImagePreview = () => (
   <motion.div 
     initial={{ opacity: 0, scale: 0.9 }}
     animate={{ opacity: 1, scale: 1 }}
-    className="absolute top-4 right-4 w-16 h-16 bg-gradient-to-br from-cyan-500/20 to-cyan-600/10 rounded-xl border border-border/50 shadow-xl overflow-hidden"
+    className="absolute top-4 right-4 w-16 h-16 bg-cyan-500/10 rounded-xl border border-border/50 shadow-xl overflow-hidden"
   >
     <div className="absolute inset-2 border-2 border-dashed border-cyan-500/30 rounded-lg flex items-center justify-center">
       <Image className="w-5 h-5 text-cyan-500/50" />
@@ -294,7 +277,7 @@ const ImagePreview = () => (
     
     {/* Scan effect */}
     <motion.div
-      className="absolute left-0 right-0 h-8 bg-gradient-to-b from-cyan-500/30 to-transparent"
+      className="absolute left-0 right-0 h-8 bg-cyan-500/20"
       animate={{ top: ["-32px", "64px"] }}
       transition={{ duration: 1.5, repeat: Infinity, repeatDelay: 0.5 }}
     />
@@ -329,9 +312,9 @@ const FloatingParticles = ({ color }: { color: string }) => (
 
 export function InputTypesGrid() {
   return (
-    <section className="py-28 bg-gradient-to-b from-background to-muted/20 relative overflow-hidden">
-      {/* Background effects */}
-      <div className="absolute top-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-border to-transparent" />
+    <section className="py-28 bg-background relative overflow-hidden">
+      {/* Background effects - removed gradient */}
+      <div className="absolute top-0 left-0 w-full h-px bg-border/50" />
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[400px] bg-primary/5 blur-[120px] rounded-full pointer-events-none" />
       
       {/* Animated background grid */}
@@ -343,7 +326,7 @@ export function InputTypesGrid() {
       </div>
       
       <div className="max-w-6xl mx-auto px-6 relative z-10">
-        {/* Header */}
+        {/* Header - removed gradients */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -351,15 +334,13 @@ export function InputTypesGrid() {
           className="text-center mb-16"
         >
           <motion.span 
-            className="inline-block px-4 py-1.5 rounded-full bg-gradient-to-r from-primary/20 to-primary/5 border border-primary/20 text-primary text-sm font-medium mb-5"
-            animate={{ boxShadow: ["0 0 20px 0 rgba(var(--primary-rgb), 0)", "0 0 20px 5px rgba(var(--primary-rgb), 0.1)", "0 0 20px 0 rgba(var(--primary-rgb), 0)"] }}
-            transition={{ duration: 3, repeat: Infinity }}
+            className="inline-block px-4 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-primary text-sm font-medium mb-5"
           >
             Flexibilidade total
           </motion.span>
           <h2 className="text-4xl md:text-5xl font-bold text-foreground mb-5">
             Cole qualquer fonte.{" "}
-            <span className="bg-gradient-to-r from-primary to-purple-500 bg-clip-text text-transparent">
+            <span className="text-primary">
               Gere 10+ formatos.
             </span>
           </h2>
@@ -369,13 +350,11 @@ export function InputTypesGrid() {
           </p>
         </motion.div>
 
-        {/* Bento Grid */}
+        {/* Bento Grid - Fixed layout */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-12">
           {inputTypes.map((type, index) => {
-            const gridClass = 
-              type.size === "full" ? "lg:col-span-4 md:col-span-2" :
-              type.size === "large" ? "lg:col-span-2" :
-              "lg:col-span-1";
+            // YouTube and URL are large (span 2), others are medium (span 1)
+            const gridClass = type.size === "large" ? "lg:col-span-2" : "lg:col-span-1";
             
             return (
               <motion.div
@@ -394,7 +373,7 @@ export function InputTypesGrid() {
                   scale: 1.02,
                   transition: { duration: 0.3 }
                 }}
-                className={`group relative bg-gradient-to-br ${type.gradientFrom} ${type.gradientTo} border border-border/50 rounded-2xl p-6 hover:border-primary/40 transition-all duration-500 overflow-hidden ${gridClass}`}
+                className={`group relative ${type.bgColor} border border-border/50 rounded-2xl p-6 hover:border-primary/40 transition-all duration-500 overflow-hidden ${gridClass}`}
               >
                 {/* Shimmer effect on hover */}
                 <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500">
@@ -408,9 +387,6 @@ export function InputTypesGrid() {
                 
                 {/* Floating particles */}
                 <FloatingParticles color={type.bgColor.replace('/10', '')} />
-                
-                {/* Glow effect */}
-                <div className={`absolute -inset-1 bg-gradient-to-br ${type.gradientFrom} ${type.gradientTo} opacity-0 group-hover:opacity-60 transition-opacity duration-500 blur-2xl`} />
                 
                 {/* Content */}
                 <div className="relative z-10">
@@ -482,27 +458,14 @@ export function InputTypesGrid() {
           })}
         </div>
 
-        {/* Output Formats Bar */}
+        {/* Output Formats Bar - removed gradients */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ delay: 0.5 }}
-          className="relative bg-gradient-to-br from-muted/50 to-muted/30 border border-border/50 rounded-2xl p-8 backdrop-blur overflow-hidden"
+          className="relative bg-muted/50 border border-border/50 rounded-2xl p-8 backdrop-blur overflow-hidden"
         >
-          {/* Animated border glow */}
-          <motion.div
-            className="absolute inset-0 rounded-2xl"
-            style={{
-              background: "linear-gradient(90deg, transparent, hsl(var(--primary) / 0.1), transparent)",
-              backgroundSize: "200% 100%",
-            }}
-            animate={{
-              backgroundPosition: ["200% 0", "-200% 0"],
-            }}
-            transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
-          />
-          
           <div className="relative z-10">
             <div className="text-center mb-6">
               <motion.span 
