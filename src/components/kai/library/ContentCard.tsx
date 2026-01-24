@@ -138,8 +138,12 @@ export function ContentCard({
             />
           </div>
         ) : (
-          <div className="aspect-video bg-gradient-to-br from-muted to-muted/50 flex items-center justify-center">
-            <Icon className={cn("h-10 w-10", platformColors[item.platform], "opacity-50")} />
+          <div className={cn(
+            "aspect-video flex items-center justify-center relative overflow-hidden",
+            platformBgColors[item.platform]
+          )}>
+            <div className="absolute inset-0 bg-gradient-to-br from-black/10 to-black/30" />
+            <Icon className={cn("h-12 w-12 relative z-10", platformColors[item.platform])} />
           </div>
         )}
 
@@ -238,8 +242,12 @@ export function ContentCard({
           />
         </div>
       ) : (
-        <div className="aspect-video bg-gradient-to-br from-muted to-muted/50 flex items-center justify-center">
-          <Icon className={cn("h-12 w-12", platformColors[item.platform], "opacity-50")} />
+        <div className={cn(
+          "aspect-video flex items-center justify-center relative overflow-hidden",
+          platformBgColors[item.platform]
+        )}>
+          <div className="absolute inset-0 bg-gradient-to-br from-black/10 to-black/30" />
+          <Icon className={cn("h-14 w-14 relative z-10", platformColors[item.platform])} />
         </div>
       )}
 
