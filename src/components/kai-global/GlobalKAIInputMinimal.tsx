@@ -348,10 +348,10 @@ export function GlobalKAIInputMinimal({
         )}
       </AnimatePresence>
 
-      {/* Mentions popover */}
+      {/* Mentions popover - positioned relative to input */}
       <Popover open={showMentions} onOpenChange={setShowMentions}>
         <PopoverTrigger asChild>
-          <div /> {/* Hidden trigger */}
+          <span className="sr-only">Menções</span>
         </PopoverTrigger>
         <PopoverContent 
           className="w-64 p-0" 
