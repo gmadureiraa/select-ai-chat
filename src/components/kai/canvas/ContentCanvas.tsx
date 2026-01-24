@@ -372,6 +372,27 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
           }}
         />
       ),
+      // Legacy alias - some saved canvases use "contentOutput" instead of "output"
+      contentOutput: (props: NodeProps<OutputNodeData>) => (
+        <ContentOutputNode
+          {...props}
+          onUpdateData={(id, data) => handlersRef.current?.updateNodeData(id, data)}
+          onDelete={(id) => handlersRef.current?.deleteNode(id)}
+          onSendToPlanning={(id) => handlersRef.current?.handleOpenPlanningDialog(id)}
+          onRegenerate={(id) => handlersRef.current?.regenerateContent(id)}
+          onCreateRemix={(id) => {
+            console.log('Remix requested for output:', id);
+          }}
+        />
+      ),
+      // Legacy alias - some saved canvases use "prompt" for text instructions
+      prompt: (props: NodeProps<TextNodeData>) => (
+        <TextNode
+          {...props}
+          onUpdateData={(id, data) => handlersRef.current?.updateNodeData(id, data as any)}
+          onDelete={(id) => handlersRef.current?.deleteNode(id)}
+        />
+      ),
       text: (props: NodeProps<TextNodeData>) => (
         <TextNode
           {...props}

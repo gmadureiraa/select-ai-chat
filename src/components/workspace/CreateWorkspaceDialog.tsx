@@ -138,7 +138,7 @@ export function CreateWorkspaceDialog({ open, onOpenChange }: CreateWorkspaceDia
             Criar Novo Workspace
           </DialogTitle>
           <DialogDescription>
-            Crie um novo workspace com trial de 14 dias. Você só será cobrado após o período de teste.
+            Escolha um nome e plano para começar a usar o kAI.
           </DialogDescription>
         </DialogHeader>
 
@@ -228,10 +228,9 @@ export function CreateWorkspaceDialog({ open, onOpenChange }: CreateWorkspaceDia
             </RadioGroup>
           </div>
 
-          {/* Trial Notice */}
-          <div className="bg-muted/50 rounded-lg p-3 text-sm text-muted-foreground">
-            <strong className="text-foreground">14 dias grátis!</strong> Você terá acesso completo durante o trial. 
-            O pagamento só será processado após esse período.
+          {/* Payment Notice */}
+          <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 text-sm text-muted-foreground">
+            <strong className="text-foreground">Pagamento seguro via Stripe.</strong> Sua assinatura começará imediatamente após a confirmação do pagamento.
           </div>
 
           {/* Submit Button */}
