@@ -31,10 +31,10 @@ const Pillar = ({ icon: Icon, title, description, features, visual, delay }: Pil
     whileInView={{ opacity: 1, y: 0 }}
     viewport={{ once: true }}
     transition={{ delay, duration: 0.5 }}
-    className="bg-gradient-to-br from-card to-card/80 border border-border rounded-2xl overflow-hidden hover:shadow-2xl hover:shadow-primary/5 transition-all duration-500 group"
+    className="bg-card border border-border rounded-2xl overflow-hidden hover:shadow-lg transition-all duration-500 group"
   >
     {/* Visual Preview */}
-    <div className="relative h-56 bg-gradient-to-br from-muted/30 to-muted/60 overflow-hidden">
+    <div className="relative h-56 bg-muted/50 overflow-hidden">
       {visual}
       <div className="absolute inset-0 bg-gradient-to-t from-card via-transparent to-transparent" />
       
@@ -45,7 +45,7 @@ const Pillar = ({ icon: Icon, title, description, features, visual, delay }: Pil
     {/* Content */}
     <div className="p-6">
       <div className="flex items-center gap-3 mb-3">
-        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center group-hover:from-primary/30 group-hover:to-primary/10 transition-all duration-300 shadow-lg shadow-primary/10">
+        <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center group-hover:bg-primary/15 transition-all duration-300 shadow-sm">
           <Icon className="w-6 h-6 text-primary" />
         </div>
         <h3 className="text-xl font-bold text-foreground">{title}</h3>
