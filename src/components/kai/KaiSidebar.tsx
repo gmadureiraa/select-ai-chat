@@ -47,9 +47,10 @@ interface NavItemProps {
   onClick?: () => void;
   collapsed?: boolean;
   disabled?: boolean;
+  showLock?: boolean;
 }
 
-function NavItem({ icon, label, active, onClick, collapsed, disabled }: NavItemProps) {
+function NavItem({ icon, label, active, onClick, collapsed, disabled, showLock }: NavItemProps) {
   const content = (
     <button
       onClick={disabled ? undefined : onClick}
@@ -67,7 +68,10 @@ function NavItem({ icon, label, active, onClick, collapsed, disabled }: NavItemP
         {icon}
       </span>
       {!collapsed && (
-        <span className="flex-1 text-left truncate">{label}</span>
+        <span className="flex-1 text-left truncate flex items-center gap-2">
+          {label}
+          {showLock && <Lock className="h-3 w-3 text-muted-foreground/60" />}
+        </span>
       )}
     </button>
   );
@@ -287,6 +291,7 @@ export function KaiSidebar({
           onClick={() => hasPlanning ? onTabChange("planning") : showUpgradePrompt("planning_locked")}
           collapsed={collapsed}
           disabled={!hasPlanning}
+          showLock={!hasPlanning}
         />
 
         {/* Performance - requires Pro plan */}
@@ -309,6 +314,7 @@ export function KaiSidebar({
             onClick={() => showUpgradePrompt("performance_locked")}
             collapsed={collapsed}
             disabled={true}
+            showLock={true}
           />
         )}
 
@@ -332,6 +338,7 @@ export function KaiSidebar({
             onClick={() => showUpgradePrompt("library_locked")}
             collapsed={collapsed}
             disabled={true}
+            showLock={true}
           />
         )}
 
@@ -356,6 +363,7 @@ export function KaiSidebar({
             onClick={() => showUpgradePrompt("profiles_locked")}
             collapsed={collapsed}
             disabled={true}
+            showLock={true}
           />
         )}
       </nav>
