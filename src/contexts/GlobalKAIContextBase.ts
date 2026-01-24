@@ -2,6 +2,7 @@ import { createContext } from "react";
 
 import type { Message, ProcessStep, MultiAgentStep } from "@/types/chat";
 import type { KAIActionStatus, KAIFileAttachment, PendingAction } from "@/types/kaiActions";
+import type { KAIConversation } from "@/hooks/useKAIConversations";
 
 export type GlobalKAIChatMode = "ideas" | "content" | "performance" | "free_chat";
 
@@ -55,6 +56,13 @@ export interface GlobalKAIContextValue {
   multiAgentStep?: MultiAgentStep;
   multiAgentDetails?: Record<string, string>;
   conversationId?: string | null;
+
+  // Conversation management
+  conversations: KAIConversation[];
+  activeConversationId: string | null;
+  setActiveConversationId: (id: string | null) => void;
+  startNewConversation: () => void;
+  deleteConversation: () => Promise<void>;
 
   // Libraries
   contentLibrary: ContentLibraryItem[];

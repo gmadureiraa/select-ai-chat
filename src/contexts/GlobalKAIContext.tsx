@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { useKAISimpleChat, SimpleCitation } from "@/hooks/useKAISimpleChat";
 import { useKAIActions } from "@/hooks/useKAIActions";
 import { useKAIExecuteAction } from "@/hooks/useKAIExecuteAction";
+import { useKAIConversations } from "@/hooks/useKAIConversations";
 import { supabase } from "@/integrations/supabase/client";
 import {
   GlobalKAIContext,
@@ -79,11 +80,42 @@ export function GlobalKAIProvider({ children }: GlobalKAIProviderProps) {
   const [referenceLibrary, setReferenceLibrary] = useState<ReferenceLibraryItem[]>([]);
 
   // ============================================
-  // USE THE NEW SIMPLE CHAT HOOK
+  // CONVERSATION PERSISTENCE
+  // ============================================
+  const {
+    conversations,
+    activeConversationId,
+    setActiveConversationId,
+    createConversation,
+    deleteConversation,
+    isLoading: isLoadingConversations,
+  } = useKAIConversations({ clientId: selectedClientId });
+
+  // ============================================
+  // USE THE SIMPLE CHAT HOOK WITH CONVERSATION ID
   // ============================================
   const simpleChat = useKAISimpleChat({
     clientId: selectedClientId || "",
+    conversationId: activeConversationId || undefined,
+    onConversationCreated: (newConvId) => {
+      setActiveConversationId(newConvId);
+    },
   });
+
+  // Auto-select most recent conversation when client changes
+  useEffect(() => {
+    if (selectedClientId && conversations.length > 0 && !activeConversationId) {
+      // Select the most recent conversation
+      setActiveConversationId(conversations[0].id);
+    }
+  }, [selectedClientId, conversations, activeConversationId, setActiveConversationId]);
+
+  // Load messages when conversation changes
+  useEffect(() => {
+    if (activeConversationId) {
+      simpleChat.loadMessages(activeConversationId);
+    }
+  }, [activeConversationId]);
 
   // Fetch user's workspace on mount
   useEffect(() => {
@@ -295,12 +327,33 @@ export function GlobalKAIProvider({ children }: GlobalKAIProviderProps) {
     }
   }, [selectedClientId, simpleChat, detectAction]);
 
-  // Clear conversation
-  const clearConversation = useCallback(() => {
+  // Start new conversation (clears local state, next message creates new conversation)
+  const startNewConversation = useCallback(() => {
     simpleChat.clearHistory();
+    setActiveConversationId(null);
     setActionStatus("idle");
     setPendingAction(null);
-  }, [simpleChat]);
+  }, [simpleChat, setActiveConversationId]);
+
+  // Delete current conversation from database
+  const handleDeleteConversation = useCallback(async () => {
+    if (!activeConversationId) return;
+    
+    try {
+      await deleteConversation(activeConversationId);
+      simpleChat.clearHistory();
+      setActiveConversationId(null);
+      toast.success("Conversa apagada");
+    } catch (error) {
+      console.error("Error deleting conversation:", error);
+      toast.error("Erro ao apagar conversa");
+    }
+  }, [activeConversationId, deleteConversation, simpleChat, setActiveConversationId]);
+
+  // Clear conversation (now starts new instead of deleting)
+  const clearConversation = useCallback(() => {
+    startNewConversation();
+  }, [startNewConversation]);
 
   // Cancel request
   const cancelRequest = useCallback(() => {
@@ -416,7 +469,14 @@ export function GlobalKAIProvider({ children }: GlobalKAIProviderProps) {
     currentStep: undefined,
     multiAgentStep: undefined,
     multiAgentDetails: undefined,
-    conversationId: undefined,
+    conversationId: activeConversationId || undefined,
+    
+    // Conversation management
+    conversations,
+    activeConversationId,
+    setActiveConversationId,
+    startNewConversation,
+    deleteConversation: handleDeleteConversation,
     
     // Libraries
     contentLibrary,
