@@ -1,244 +1,205 @@
 
-# Plano: Completar e Padronizar Configurações
+# Plano: Melhorar Dashboard de Performance
 
-## Problema
-O `SettingsTab` atual está incompleto. O componente `AccountSettingsSection.tsx` tem funcionalidades essenciais (editar nome, alterar senha, excluir conta) que **não estão sendo utilizadas**. Além disso, faltam preferências de notificação e exibição de créditos.
-
----
-
-## Fase 1: Integrar Funcionalidades Faltantes no Perfil
-
-### 1.1 Adicionar Edição de Nome
-**Arquivo:** `src/components/settings/SettingsTab.tsx`
-
-Na função `renderProfileSection()`, adicionar campo para editar nome:
-
-```typescript
-// Após o AvatarUpload, adicionar:
-<div className="space-y-2">
-  <Label htmlFor="name">Nome</Label>
-  <div className="flex gap-2">
-    <Input
-      id="name"
-      value={editedName ?? profile?.full_name ?? ""}
-      onChange={(e) => setEditedName(e.target.value)}
-      placeholder="Seu nome completo"
-    />
-    {hasNameChanges && (
-      <Button onClick={handleSaveName} disabled={isSaving}>
-        {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Salvar"}
-      </Button>
-    )}
-  </div>
-</div>
-```
-
-### 1.2 Adicionar Seção de Segurança
-No `renderProfileSection()`, adicionar card de segurança:
-
-```typescript
-// Card de Segurança (após o card de Perfil)
-<Card className="mt-4">
-  <CardHeader>
-    <div className="flex items-center gap-2">
-      <Key className="h-5 w-5 text-muted-foreground" />
-      <CardTitle>Segurança</CardTitle>
-    </div>
-  </CardHeader>
-  <CardContent>
-    <Button variant="outline" onClick={handlePasswordReset}>
-      Enviar link para redefinir senha
-    </Button>
-  </CardContent>
-</Card>
-```
-
-### 1.3 Adicionar Zona de Perigo
-No `renderProfileSection()`, adicionar card de exclusão de conta:
-
-```typescript
-// Card Zona de Perigo (último)
-<Card className="mt-4 border-destructive/30">
-  <CardHeader>
-    <CardTitle className="text-destructive flex items-center gap-2">
-      <Trash2 className="h-5 w-5" />
-      Zona de Perigo
-    </CardTitle>
-  </CardHeader>
-  <CardContent>
-    <AlertDialog>
-      <AlertDialogTrigger asChild>
-        <Button variant="destructive">Excluir minha conta</Button>
-      </AlertDialogTrigger>
-      {/* ... dialog de confirmação ... */}
-    </AlertDialog>
-  </CardContent>
-</Card>
-```
+## Visão Geral
+Você solicitou várias melhorias no dashboard de Performance do Instagram:
+1. **Remover ContentLearningsCard** - substituir pelo botão de "Gerar Análise" no topo
+2. **Melhorar o relatório AI** - comparar com período anterior, explicar por que os top 3 posts performaram bem
+3. **Simplificar "Métricas de Postagens"** - remover "melhor post de cada métrica", deixar só os dados comparados
+4. **Top 3 Posts** - remover medalhas e entender por que "ganho de seguidores" não aparece nos posts
 
 ---
 
-## Fase 2: Restaurar Exibição de Créditos no Billing
+## Fase 1: Reorganizar Header - Botão "Gerar Análise" no Topo
 
-### 2.1 Adicionar Card de Créditos
-**Arquivo:** `src/components/settings/PlanBillingCard.tsx`
+### 1.1 Remover ContentLearningsCard
+**Arquivo:** `src/components/performance/InstagramDashboard.tsx`
 
-Adicionar exibição de créditos/tokens disponíveis:
-
+Remover a seção que usa `ContentLearningsCard` (linhas 815-821):
 ```typescript
-// Após os limites de perfis/membros, adicionar:
-<div className="flex items-center justify-between text-sm">
-  <div className="flex items-center gap-2 text-muted-foreground">
-    <Coins className="h-4 w-4" />
-    Créditos disponíveis
-  </div>
-  <span className="font-medium">
-    {isUnlimited ? (
-      <span className="flex items-center gap-1">
-        <Infinity className="h-4 w-4" /> Ilimitado
-      </span>
-    ) : (
-      `${creditsAvailable} créditos`
-    )}
-  </span>
-</div>
-
-{/* Barra de uso */}
-{!isUnlimited && (
-  <div className="space-y-2">
-    <div className="flex justify-between text-xs text-muted-foreground">
-      <span>Usado: {creditsUsed}</span>
-      <span>Mensal: {creditsMonthly}</span>
-    </div>
-    <Progress value={usagePercentage} className="h-2" />
-  </div>
+// REMOVER:
+{filteredPosts.length >= 5 && (
+  <ContentLearningsCard
+    clientId={clientId}
+    posts={filteredPosts}
+  />
 )}
 ```
 
----
-
-## Fase 3: Adicionar Seção de Notificações
-
-### 3.1 Criar Componente NotificationSettings
-**Novo arquivo:** `src/components/settings/NotificationSettings.tsx`
+### 1.2 Mover Botão "Gerar Análise" para Header
+No header (linha ~646-655), substituir "Relatório IA" por "Gerar Análise" com destaque visual:
 
 ```typescript
-export function NotificationSettings() {
-  const { permission, requestPermission, isSupported } = usePushNotifications();
-  
-  return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center gap-2">
-          <Bell className="h-5 w-5 text-muted-foreground" />
-          <CardTitle>Notificações</CardTitle>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {/* Push notifications */}
-        <div className="flex items-center justify-between">
-          <div>
-            <Label>Notificações push</Label>
-            <p className="text-sm text-muted-foreground">
-              Receba alertas no navegador
-            </p>
-          </div>
-          {isSupported ? (
-            permission === "granted" ? (
-              <Badge className="bg-primary/10 text-primary">Ativado</Badge>
-            ) : (
-              <Button variant="outline" onClick={requestPermission}>
-                Ativar
-              </Button>
-            )
-          ) : (
-            <span className="text-xs text-muted-foreground">
-              Não suportado
-            </span>
-          )}
-        </div>
-      </CardContent>
-    </Card>
-  );
+// De:
+<Button 
+  variant="outline" 
+  className="border-border/50"
+  onClick={() => setShowReportGenerator(true)}
+>
+  <FileText className="h-4 w-4 mr-2" />
+  Relatório IA
+</Button>
+
+// Para:
+<Button 
+  onClick={() => setShowReportGenerator(true)}
+  className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
+>
+  <Sparkles className="h-4 w-4" />
+  Gerar Análise
+</Button>
+```
+
+---
+
+## Fase 2: Melhorar Relatório de Performance
+
+### 2.1 Atualizar Hook com Comparação de Período
+**Arquivo:** `src/hooks/usePerformanceReport.ts`
+
+Adicionar dados do período anterior ao prompt e melhorar a estrutura:
+
+```typescript
+interface ReportData {
+  platform: string;
+  period: string;
+  kpis: Record<string, any>;
+  previousKpis?: Record<string, any>; // NOVO
+  posts?: any[];
+  previousPosts?: any[]; // NOVO
+  videos?: any[];
+  metrics?: any[];
 }
 ```
 
-### 3.2 Atualizar SettingsNavigation
-**Arquivo:** `src/components/settings/SettingsNavigation.tsx`
-
-Adicionar item de Notificações:
+### 2.2 Atualizar buildReportPrompt para Incluir Comparação
+Modificar o prompt para:
+1. Incluir métricas do período anterior
+2. Calcular variações percentuais
+3. Pedir análise detalhada do motivo de cada top post performar bem
 
 ```typescript
-const sections = [
-  { id: "profile", label: "Perfil", icon: User },
-  { id: "billing", label: "Plano", icon: CreditCard },
-  { id: "team", label: "Time", icon: Users, requiresPermission: "team" },
-  { id: "notifications", label: "Notificações", icon: Bell },  // NOVO
-  { id: "appearance", label: "Aparência", icon: Palette },
+// Adicionar ao prompt:
+## COMPARAÇÃO COM PERÍODO ANTERIOR
+- Alcance: ${current} vs ${previous} (${change}%)
+- Engajamento: ${current}% vs ${previous}% (${change}%)
+- Seguidores ganhos: ${current} vs ${previous} (${change}%)
+...
+
+## ANÁLISE OBRIGATÓRIA DOS TOP 3 POSTS
+Para cada post, analise:
+1. O tipo/formato do conteúdo
+2. Elementos da legenda/copy que engajaram
+3. Possíveis motivos do sucesso (timing, tema, formato)
+4. Padrões que podem ser replicados
+```
+
+### 2.3 Passar Dados do Período Anterior ao Relatório
+**Arquivo:** `src/components/performance/InstagramDashboard.tsx`
+
+```typescript
+<PerformanceReportGenerator
+  clientId={clientId}
+  platform="Instagram"
+  period={selectedPeriodLabel}
+  kpis={kpis}
+  previousKpis={previousKpis} // NOVO
+  posts={filteredPosts}
+  previousPosts={previousPeriodPosts} // NOVO
+  metrics={filteredMetrics}
+  open={showReportGenerator}
+  onOpenChange={setShowReportGenerator}
+/>
+```
+
+---
+
+## Fase 3: Simplificar "Métricas de Postagens"
+
+### 3.1 Remover "Melhor Post" de Cada Card
+**Arquivo:** `src/components/performance/BestPostsByMetric.tsx`
+
+Modificar o componente `MetricCard` para não renderizar o "Melhor post":
+
+```typescript
+// REMOVER do MetricCard (linhas 79-95):
+{post && post.thumbnail_url && (
+  <div className="mt-3 pt-3 border-t border-border/30">
+    <p className="text-xs text-muted-foreground mb-2">Melhor post:</p>
+    ...
+  </div>
+)}
+
+// Também remover o prop `post` de todas as chamadas de MetricCard
+```
+
+### 3.2 Resultado Final do BestPostsByMetric
+Cada card terá apenas:
+- Nome da métrica
+- Valor atual
+- Comparação com período anterior (△ %)
+
+---
+
+## Fase 4: Remover Medalhas do Top 3 Posts
+
+### 4.1 Atualizar TopPostsGrid
+**Arquivo:** `src/components/performance/TopPostsGrid.tsx`
+
+Remover as medalhas (🥇🥈🥉) e usar um design mais limpo:
+
+```typescript
+// REMOVER (linhas 31-35):
+const rankingColors = [
+  { bg: "bg-amber-500", text: "text-amber-950", icon: "🥇" },
+  { bg: "bg-slate-400", text: "text-slate-950", icon: "🥈" },
+  { bg: "bg-amber-700", text: "text-amber-50", icon: "🥉" },
 ];
-```
 
-### 3.3 Atualizar SettingsTab
-**Arquivo:** `src/components/settings/SettingsTab.tsx`
-
-Adicionar case para notificações:
-
-```typescript
-const renderNotificationsSection = () => (
-  <NotificationSettings />
-);
-
-// No switch:
-case "notifications":
-  return renderNotificationsSection();
+// SUBSTITUIR (linhas 146-151) por número simples:
+<div className="absolute top-2 right-2 w-6 h-6 rounded-full bg-background/80 backdrop-blur-sm flex items-center justify-center text-xs font-bold">
+  {index + 1}
+</div>
 ```
 
 ---
 
-## Fase 4: Adicionar Configurações do Workspace (Opcional para Owners)
+## Fase 5: Entender a Métrica de "Ganho de Seguidores"
 
-### 4.1 Criar Componente WorkspaceSettings
-**Novo arquivo:** `src/components/settings/WorkspaceSettings.tsx`
+### Diagnóstico
+A métrica de **"Seguidores Ganhos"** (`followersGained`) é calculada a partir da tabela `performance_metrics` (campo `subscribers`), **NÃO dos posts individuais**. Isso é correto porque:
 
-Para owners/admins, permitir editar:
-- Nome do workspace
-- URL (slug) do workspace
+1. **Posts não têm a métrica de seguidores** - O Instagram não fornece "quantos seguidores um post específico gerou"
+2. **A métrica é diária/global** - Os seguidores ganhos são importados via CSV de métricas do perfil, não de posts
 
+### Solução
+Essa métrica já aparece corretamente nos **KPIs do topo** (linha 731-739):
 ```typescript
-export function WorkspaceSettings() {
-  const { workspace, isOwner } = useWorkspace();
-  
-  if (!isOwner) return null;
-  
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Workspace</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="space-y-2">
-          <Label>Nome do Workspace</Label>
-          <Input value={workspace?.name} onChange={...} />
-        </div>
-        <div className="space-y-2">
-          <Label>URL</Label>
-          <div className="flex items-center gap-2">
-            <span className="text-muted-foreground">kai.app/</span>
-            <Input value={workspace?.slug} disabled />
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
+<StatCard
+  icon={Users}
+  label="Novos Seguidores"
+  value={kpis.followersGained}
+  change={period !== "all" ? kpis.followersChange : undefined}
+  sparklineData={sparklineData.followers}
+  color="amber"
+/>
 ```
 
----
+Se você quer que apareça também no **BestPostsByMetric**, podemos adicionar um card extra:
 
-## Fase 5: Limpar e Remover Código Duplicado
+```typescript
+// Adicionar em BestPostsByMetric:
+<MetricCard
+  icon={Users}
+  label="Seguidores ganhos no período"
+  value={followersGained} // Do metrics, não posts
+  previousValue={prevFollowersGained}
+  color="text-primary"
+  helpText="Novos seguidores ganhos durante o período (métrica do perfil)"
+/>
+```
 
-### 5.1 Remover AccountSettingsSection.tsx
-Como todas as funcionalidades serão integradas no `SettingsTab`, podemos remover ou depreciar o `AccountSettingsSection.tsx`.
+**Nota:** Precisaremos passar essa métrica como prop adicional, já que hoje o componente só recebe `posts`.
 
 ---
 
@@ -246,40 +207,30 @@ Como todas as funcionalidades serão integradas no `SettingsTab`, podemos remove
 
 | Arquivo | Mudanças |
 |---------|----------|
-| `SettingsTab.tsx` | Adicionar edição de nome, segurança, zona de perigo |
-| `SettingsNavigation.tsx` | Adicionar item "Notificações" |
-| `PlanBillingCard.tsx` | Restaurar exibição de créditos/tokens |
-| `NotificationSettings.tsx` | **NOVO** - Preferências de notificação |
-| `WorkspaceSettings.tsx` | **NOVO** (opcional) - Config do workspace |
+| `InstagramDashboard.tsx` | Remover ContentLearningsCard, destacar botão "Gerar Análise", passar previousKpis e previousPosts |
+| `usePerformanceReport.ts` | Adicionar comparação com período anterior, melhorar prompt para análise dos top posts |
+| `PerformanceReportGenerator.tsx` | Receber props de período anterior |
+| `BestPostsByMetric.tsx` | Remover "melhor post" de cada card, adicionar card de seguidores |
+| `TopPostsGrid.tsx` | Remover medalhas, usar números simples |
 
 ---
 
 ## Resultado Esperado
 
-### Perfil (completo)
-- [x] Avatar editável
-- [x] Nome editável
-- [x] Email (somente leitura)
-- [x] ID do usuário
-- [x] Alterar senha
-- [x] Excluir conta
+### Header
+- ✅ Botão "Gerar Análise" destacado em verde/rosa (primary)
+- ✅ Sem o card "Aprendizados de Conteúdo"
 
-### Plano (completo)
-- [x] Plano atual
-- [x] Limites
-- [x] Créditos disponíveis
-- [x] Barra de uso
-- [x] Gerenciar assinatura
-- [x] Upgrade
+### Relatório AI (melhorado)
+- ✅ Comparação explícita com período anterior (△ %)
+- ✅ Top 3 posts com análise de **por que performou bem**
+- ✅ Insights acionáveis baseados em padrões
 
-### Time
-- [x] Convidar
-- [x] Gerenciar roles
-- [x] Controle de acesso
+### Métricas de Postagens
+- ✅ Dados totais + comparação com período anterior
+- ❌ Sem "melhor post" em cada métrica
+- ✅ Card adicional de "Seguidores ganhos no período"
 
-### Notificações (novo)
-- [x] Push notifications
-- [ ] Email preferences (futuro)
-
-### Aparência
-- [x] Tema claro/escuro
+### Top 3 Posts
+- ✅ Sem medalhas (🥇🥈🥉)
+- ✅ Número simples (1, 2, 3) mais discreto
