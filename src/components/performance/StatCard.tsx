@@ -13,46 +13,47 @@ interface StatCardProps {
   highlight?: boolean;
 }
 
+// Simplified color config using theme variables
 const colorConfig = {
   primary: {
-    bg: "bg-emerald-50 dark:bg-emerald-500/10",
-    icon: "text-emerald-600 dark:text-emerald-400",
-    stroke: "hsl(145, 75%, 45%)",
+    bg: "bg-primary/10",
+    icon: "text-primary",
+    stroke: "hsl(var(--primary))",
   },
   secondary: {
-    bg: "bg-pink-50 dark:bg-pink-500/10",
-    icon: "text-pink-600 dark:text-pink-400",
-    stroke: "hsl(330, 85%, 55%)",
+    bg: "bg-secondary",
+    icon: "text-secondary-foreground",
+    stroke: "hsl(var(--chart-2))",
   },
   accent: {
-    bg: "bg-orange-50 dark:bg-orange-500/10",
-    icon: "text-orange-600 dark:text-orange-400",
-    stroke: "hsl(25, 95%, 55%)",
+    bg: "bg-accent",
+    icon: "text-accent-foreground",
+    stroke: "hsl(var(--chart-3))",
   },
   emerald: {
-    bg: "bg-emerald-50 dark:bg-emerald-500/10",
-    icon: "text-emerald-600 dark:text-emerald-400",
-    stroke: "hsl(145, 75%, 45%)",
+    bg: "bg-primary/10",
+    icon: "text-primary",
+    stroke: "hsl(var(--primary))",
   },
   rose: {
-    bg: "bg-rose-50 dark:bg-rose-500/10",
-    icon: "text-rose-600 dark:text-rose-400",
-    stroke: "hsl(350, 80%, 55%)",
+    bg: "bg-primary/10",
+    icon: "text-primary",
+    stroke: "hsl(var(--primary))",
   },
   violet: {
-    bg: "bg-violet-50 dark:bg-violet-500/10",
-    icon: "text-violet-600 dark:text-violet-400",
-    stroke: "hsl(270, 70%, 55%)",
+    bg: "bg-primary/10",
+    icon: "text-primary",
+    stroke: "hsl(var(--primary))",
   },
   amber: {
-    bg: "bg-amber-50 dark:bg-amber-500/10",
-    icon: "text-amber-600 dark:text-amber-400",
-    stroke: "hsl(40, 95%, 50%)",
+    bg: "bg-primary/10",
+    icon: "text-primary",
+    stroke: "hsl(var(--primary))",
   },
   blue: {
-    bg: "bg-blue-50 dark:bg-blue-500/10",
-    icon: "text-blue-600 dark:text-blue-400",
-    stroke: "hsl(210, 80%, 55%)",
+    bg: "bg-primary/10",
+    icon: "text-primary",
+    stroke: "hsl(var(--primary))",
   },
 };
 

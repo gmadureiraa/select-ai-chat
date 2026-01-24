@@ -20,8 +20,8 @@
     --popover: 0 0% 100%;
     --popover-foreground: 0 0% 9%;
 
-    /* Primary - kAI Pink */
-    --primary: 330 85% 52%;
+    /* Primary - Kaleidos Pink #d262b2 */
+    --primary: 320 55% 61%;
     --primary-foreground: 0 0% 100%;
 
     /* Secondary - Neutral */
@@ -29,8 +29,8 @@
     --secondary-foreground: 0 0% 9%;
 
     /* Accent - Pink tint */
-    --accent: 330 30% 96%;
-    --accent-foreground: 330 85% 35%;
+    --accent: 320 30% 96%;
+    --accent-foreground: 320 55% 45%;
 
     /* Muted */
     --muted: 0 0% 96%;
@@ -40,23 +40,23 @@
     --destructive-foreground: 0 0% 100%;
 
     /* Borders - Pink tint */
-    --border: 330 10% 90%;
-    --input: 330 10% 90%;
-    --ring: 330 85% 52%;
+    --border: 320 10% 90%;
+    --input: 320 10% 90%;
+    --ring: 320 55% 61%;
 
     --radius: 0.5rem;
 
     /* Sidebar - Pink accent */
-    --sidebar: 330 20% 98%;
+    --sidebar: 320 20% 98%;
     --sidebar-foreground: 0 0% 20%;
-    --sidebar-accent: 330 60% 95%;
-    --sidebar-accent-foreground: 330 85% 40%;
-    --sidebar-border: 330 10% 92%;
+    --sidebar-accent: 320 40% 95%;
+    --sidebar-accent-foreground: 320 55% 50%;
+    --sidebar-border: 320 10% 92%;
     --sidebar-muted: 0 0% 60%;
 
     /* Chat - Pink theme */
-    --chat-user-bg: 330 50% 95%;
-    --chat-user-fg: 330 85% 30%;
+    --chat-user-bg: 320 40% 95%;
+    --chat-user-fg: 320 55% 35%;
     --chat-ai-bg: 0 0% 100%;
     --chat-ai-fg: 0 0% 9%;
 
@@ -65,13 +65,13 @@
     /* Smooth transitions */
     --transition-smooth: all 0.15s ease;
 
-    /* Chart colors - Pink gradient */
-    --chart-1: 330 85% 52%;
-    --chart-2: 330 70% 60%;
-    --chart-3: 330 55% 68%;
-    --chart-4: 330 40% 75%;
-    --chart-5: 330 30% 82%;
-    --chart-6: 330 20% 88%;
+    /* Chart colors - Pink gradient (Kaleidos #d262b2) */
+    --chart-1: 320 55% 61%;
+    --chart-2: 320 45% 68%;
+    --chart-3: 320 35% 75%;
+    --chart-4: 320 25% 82%;
+    --chart-5: 320 15% 88%;
+    --chart-6: 320 10% 92%;
   }
 
   .dark {

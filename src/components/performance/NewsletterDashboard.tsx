@@ -192,13 +192,14 @@ export function NewsletterDashboard({ clientId, metrics, isLoading }: Newsletter
   }, [filteredMetrics]);
 
   // Only show metrics that have data
+  // All metrics use theme primary color for unified visual
   const availableMetrics = useMemo(() => {
     const allMetrics = [
-      { key: "delivered", label: "Enviados", dataKey: "delivered", color: "hsl(270, 70%, 55%)" },
-      { key: "openRate", label: "Taxa de Abertura (%)", dataKey: "openRate", color: "hsl(200, 80%, 55%)" },
-      { key: "clickRate", label: "Taxa de Clique (%)", dataKey: "clickRate", color: "hsl(145, 80%, 45%)" },
-      { key: "subscribers", label: "Inscritos", dataKey: "subscribers", color: "hsl(45, 80%, 50%)" },
-      { key: "newSubscribers", label: "Novos Inscritos", dataKey: "newSubscribers", color: "hsl(350, 80%, 55%)" },
+      { key: "delivered", label: "Enviados", dataKey: "delivered", color: "hsl(var(--primary))" },
+      { key: "openRate", label: "Taxa de Abertura (%)", dataKey: "openRate", color: "hsl(var(--primary))" },
+      { key: "clickRate", label: "Taxa de Clique (%)", dataKey: "clickRate", color: "hsl(var(--primary))" },
+      { key: "subscribers", label: "Inscritos", dataKey: "subscribers", color: "hsl(var(--primary))" },
+      { key: "newSubscribers", label: "Novos Inscritos", dataKey: "newSubscribers", color: "hsl(var(--primary))" },
     ];
 
     return allMetrics.filter(metric => 

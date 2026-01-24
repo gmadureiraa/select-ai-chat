@@ -131,13 +131,13 @@ export function MultiLineChart({
             />
             <Tooltip content={<CustomTooltip />} />
             {showLegend && <Legend content={<CustomLegend />} />}
-            {series.map((s) => (
+            {series.map((s, index) => (
               <Line
                 key={s.key}
                 type="monotone"
                 dataKey={s.key}
                 name={s.label}
-                stroke={s.color}
+                stroke={s.color || `hsl(var(--chart-${index + 1}))`}
                 strokeWidth={2}
                 dot={false}
                 activeDot={{ r: 4, strokeWidth: 0 }}

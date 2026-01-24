@@ -57,13 +57,14 @@ const periodOptions = [
   { value: "custom", label: "Personalizado" },
 ];
 
+// All metrics use the primary theme color for unified visual
 const metricOptions = [
-  { key: "views", label: "Visualizações", dataKey: "views", color: "hsl(270, 70%, 55%)" },
-  { key: "reach", label: "Contas alcançadas", dataKey: "reach", color: "hsl(290, 70%, 55%)" },
-  { key: "interactions", label: "Interações", dataKey: "interactions", color: "hsl(45, 80%, 50%)" },
-  { key: "linkClicks", label: "Clique no Link", dataKey: "linkClicks", color: "hsl(200, 80%, 55%)" },
-  { key: "subscribers", label: "Novos Seguidores", dataKey: "subscribers", color: "hsl(145, 80%, 45%)" },
-  { key: "profileVisits", label: "Visitas", dataKey: "profileVisits", color: "hsl(350, 80%, 55%)" },
+  { key: "views", label: "Visualizações", dataKey: "views", color: "hsl(var(--primary))" },
+  { key: "reach", label: "Contas alcançadas", dataKey: "reach", color: "hsl(var(--primary))" },
+  { key: "interactions", label: "Interações", dataKey: "interactions", color: "hsl(var(--primary))" },
+  { key: "linkClicks", label: "Clique no Link", dataKey: "linkClicks", color: "hsl(var(--primary))" },
+  { key: "subscribers", label: "Novos Seguidores", dataKey: "subscribers", color: "hsl(var(--primary))" },
+  { key: "profileVisits", label: "Visitas", dataKey: "profileVisits", color: "hsl(var(--primary))" },
 ];
 
 import { useWorkspace } from "@/hooks/useWorkspace";

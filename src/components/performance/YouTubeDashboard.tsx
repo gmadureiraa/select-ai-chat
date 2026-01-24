@@ -163,11 +163,12 @@ export function YouTubeDashboard({ clientId, videos, isLoading }: YouTubeDashboa
       }));
   }, [filteredVideos]);
 
+  // All metrics use theme primary color for unified visual
   const chartMetrics = [
-    { key: "views", label: "Views", dataKey: "views", color: "hsl(0, 80%, 55%)" },
-    { key: "watchHours", label: "Watch Hours", dataKey: "watchHours", color: "hsl(200, 80%, 55%)" },
-    { key: "subscribers", label: "Inscritos", dataKey: "subscribers", color: "hsl(145, 80%, 45%)" },
-    { key: "likes", label: "Likes", dataKey: "likes", color: "hsl(45, 80%, 50%)" },
+    { key: "views", label: "Views", dataKey: "views", color: "hsl(var(--primary))" },
+    { key: "watchHours", label: "Watch Hours", dataKey: "watchHours", color: "hsl(var(--primary))" },
+    { key: "subscribers", label: "Inscritos", dataKey: "subscribers", color: "hsl(var(--primary))" },
+    { key: "likes", label: "Likes", dataKey: "likes", color: "hsl(var(--primary))" },
   ];
 
   const currentMetrics = {

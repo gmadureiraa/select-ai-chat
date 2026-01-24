@@ -149,9 +149,10 @@ export function LinkedInDashboard({ clientId, posts, isLoading }: LinkedInDashbo
       }));
   }, [filteredPosts]);
 
+  // All metrics use theme primary color for unified visual
   const availableMetrics = [
-    { key: 'impressions', dataKey: 'impressions', label: 'Impressões', color: 'hsl(210, 80%, 55%)' },
-    { key: 'engagements', dataKey: 'engagements', label: 'Engajamentos', color: 'hsl(145, 75%, 45%)' },
+    { key: 'impressions', dataKey: 'impressions', label: 'Impressões', color: 'hsl(var(--primary))' },
+    { key: 'engagements', dataKey: 'engagements', label: 'Engajamentos', color: 'hsl(var(--primary))' },
   ];
 
   // Handle file import
