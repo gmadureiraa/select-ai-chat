@@ -125,6 +125,140 @@ function isSpecificContentQuery(message: string): boolean {
 }
 
 // ============================================
+// IMAGE GENERATION DETECTION
+// ============================================
+
+interface ImageGenerationResult {
+  isRequest: boolean;
+  prompt: string;
+}
+
+function isImageGenerationRequest(message: string): ImageGenerationResult {
+  const patterns = [
+    /gera(r|ndo)?\s*(uma?)?\s*imagem/i,
+    /cria(r|ndo)?\s*(uma?)?\s*imagem/i,
+    /@imagem\s*/i,
+    /fazer?\s*(uma?)?\s*(arte|visual|imagem)/i,
+    /crie?\s*(uma?)?\s*foto/i,
+    /desenhar?\s*(uma?)?/i,
+    /ilustra[cç][aã]o/i,
+  ];
+  
+  for (const pattern of patterns) {
+    if (pattern.test(message)) {
+      // Extract prompt after the pattern match
+      const prompt = message
+        .replace(pattern, "")
+        .replace(/^[\s:,]+/, "")
+        .trim() || message;
+      
+      return { isRequest: true, prompt };
+    }
+  }
+  
+  return { isRequest: false, prompt: "" };
+}
+
+// ============================================
+// PERIOD COMPARISON DETECTION
+// ============================================
+
+interface ComparisonResult {
+  isComparison: boolean;
+  period1: DateRange | null;
+  period2: DateRange | null;
+  period1Label: string;
+  period2Label: string;
+}
+
+function isComparisonQuery(message: string): ComparisonResult {
+  const lowerMessage = message.toLowerCase();
+  
+  const comparisonPatterns = [
+    /compare?\s+(.+?)\s+(com|vs?|versus|e|contra)\s+(.+)/i,
+    /diferen[cç]a\s+entre\s+(.+?)\s+e\s+(.+)/i,
+    /(.+?)\s+vs\.?\s+(.+)/i,
+    /compara[cç][aã]o\s+(.+?)\s+(com|e)\s+(.+)/i,
+  ];
+  
+  for (const pattern of comparisonPatterns) {
+    const match = lowerMessage.match(pattern);
+    if (match) {
+      let period1Str = "";
+      let period2Str = "";
+      
+      // Handle different pattern groups
+      if (pattern.source.includes("entre")) {
+        period1Str = match[1];
+        period2Str = match[2];
+      } else if (pattern.source.includes("compare")) {
+        period1Str = match[1];
+        period2Str = match[3];
+      } else if (pattern.source.includes("compara")) {
+        period1Str = match[1];
+        period2Str = match[3];
+      } else {
+        period1Str = match[1];
+        period2Str = match[2];
+      }
+      
+      const period1 = extractDateRangeFromText(period1Str);
+      const period2 = extractDateRangeFromText(period2Str);
+      
+      if (period1 && period2) {
+        return {
+          isComparison: true,
+          period1,
+          period2,
+          period1Label: period1Str.trim(),
+          period2Label: period2Str.trim(),
+        };
+      }
+    }
+  }
+  
+  return { isComparison: false, period1: null, period2: null, period1Label: "", period2Label: "" };
+}
+
+// Helper to extract date range from text fragment
+function extractDateRangeFromText(text: string): DateRange | null {
+  const currentDate = new Date();
+  const currentYear = currentDate.getFullYear();
+  const currentMonth = currentDate.getMonth();
+  
+  // Check for month names
+  for (const [monthName, monthNum] of Object.entries(MONTH_MAP)) {
+    if (text.toLowerCase().includes(monthName)) {
+      // Check for year in the text
+      const yearMatch = text.match(/20(2[4-9]|3[0-9])/);
+      const year = yearMatch ? parseInt(yearMatch[0]) : (monthNum > currentMonth ? currentYear - 1 : currentYear);
+      
+      const start = new Date(year, monthNum, 1);
+      const end = new Date(year, monthNum + 1, 0);
+      return {
+        start: start.toISOString().split('T')[0],
+        end: end.toISOString().split('T')[0],
+      };
+    }
+  }
+  
+  // Check for relative terms
+  if (/mês\s+passado|último\s+mês/i.test(text)) {
+    const start = new Date(currentYear, currentMonth - 1, 1);
+    const end = new Date(currentYear, currentMonth, 0);
+    return { start: start.toISOString().split('T')[0], end: end.toISOString().split('T')[0] };
+  }
+  
+  if (/este\s+mês|mês\s+atual/i.test(text)) {
+    const start = new Date(currentYear, currentMonth, 1);
+    const end = new Date(currentYear, currentMonth + 1, 0);
+    return { start: start.toISOString().split('T')[0], end: end.toISOString().split('T')[0] };
+  }
+  
+  return null;
+}
+
+// ============================================
 // DATE EXTRACTION
 // ============================================
 
@@ -502,6 +636,167 @@ async function performWebSearch(
 }
 
 // ============================================
+// IMAGE GENERATION
+// ============================================
+
+interface ImageGenerationOutput {
+  imageData?: string;
+  text?: string;
+  error?: string;
+}
+
+async function generateImage(
+  prompt: string,
+  clientName: string
+): Promise<ImageGenerationOutput> {
+  const GOOGLE_API_KEY = Deno.env.get("GOOGLE_AI_STUDIO_API_KEY");
+  if (!GOOGLE_API_KEY) {
+    return { error: "Chave de API do Google não configurada" };
+  }
+
+  try {
+    console.log("[kai-simple-chat] Generating image for:", prompt);
+    
+    // Enhance prompt with client context
+    const enhancedPrompt = `Create a professional, high-quality image for ${clientName}. 
+The image should be: ${prompt}
+Style: Modern, clean, professional. No text or watermarks.`;
+
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp-image-generation:generateContent?key=${GOOGLE_API_KEY}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: enhancedPrompt }] }],
+          generationConfig: {
+            responseModalities: ["Text", "Image"],
+          },
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("[kai-simple-chat] Image generation error:", response.status, errorText);
+      return { error: "Erro ao gerar imagem. Tente novamente." };
+    }
+
+    const data = await response.json();
+    const parts = data.candidates?.[0]?.content?.parts || [];
+    
+    let imageData: string | undefined;
+    let text = "Imagem gerada! 🎨";
+    
+    for (const part of parts) {
+      if (part.inlineData?.mimeType?.startsWith("image/")) {
+        imageData = `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+      }
+      if (part.text) {
+        text = part.text;
+      }
+    }
+    
+    if (!imageData) {
+      return { error: "Não foi possível gerar a imagem. Tente reformular o pedido." };
+    }
+
+    console.log("[kai-simple-chat] Image generated successfully");
+    return { imageData, text };
+    
+  } catch (error) {
+    console.error("[kai-simple-chat] Image generation failed:", error);
+    return { error: "Erro ao gerar imagem. Tente novamente." };
+  }
+}
+
+// ============================================
+// PERIOD COMPARISON
+// ============================================
+
+async function fetchComparisonContext(
+  supabase: any,
+  clientId: string,
+  period1: DateRange,
+  period2: DateRange,
+  period1Label: string,
+  period2Label: string
+): Promise<string> {
+  console.log("[kai-simple-chat] Fetching comparison context:", { period1, period2 });
+
+  // Fetch metrics for both periods in parallel
+  const [posts1Result, posts2Result] = await Promise.all([
+    supabase
+      .from("instagram_posts")
+      .select("likes, comments, saves, shares, reach, impressions, engagement_rate")
+      .eq("client_id", clientId)
+      .gte("posted_at", period1.start)
+      .lte("posted_at", period1.end + "T23:59:59Z"),
+    supabase
+      .from("instagram_posts")
+      .select("likes, comments, saves, shares, reach, impressions, engagement_rate")
+      .eq("client_id", clientId)
+      .gte("posted_at", period2.start)
+      .lte("posted_at", period2.end + "T23:59:59Z"),
+  ]);
+
+  const posts1: any[] = posts1Result.data || [];
+  const posts2: any[] = posts2Result.data || [];
+
+  // Calculate aggregates
+  const calcAggregates = (posts: any[]) => {
+    if (posts.length === 0) {
+      return { posts: 0, likes: 0, comments: 0, saves: 0, shares: 0, reach: 0, engagement: 0 };
+    }
+    return {
+      posts: posts.length,
+      likes: posts.reduce((sum, p) => sum + (p.likes || 0), 0),
+      comments: posts.reduce((sum, p) => sum + (p.comments || 0), 0),
+      saves: posts.reduce((sum, p) => sum + (p.saves || 0), 0),
+      shares: posts.reduce((sum, p) => sum + (p.shares || 0), 0),
+      reach: posts.reduce((sum, p) => sum + (p.reach || 0), 0),
+      engagement: posts.reduce((sum, p) => sum + (p.engagement_rate || 0), 0) / posts.length,
+    };
+  };
+
+  const agg1 = calcAggregates(posts1);
+  const agg2 = calcAggregates(posts2);
+
+  // Calculate percentage changes
+  const calcChange = (val1: number, val2: number): string => {
+    if (val2 === 0) return val1 > 0 ? "+100%" : "0%";
+    const change = ((val1 - val2) / val2) * 100;
+    return `${change >= 0 ? "+" : ""}${change.toFixed(1)}%`;
+  };
+
+  const changeEmoji = (val1: number, val2: number): string => {
+    if (val1 > val2) return "📈";
+    if (val1 < val2) return "📉";
+    return "➡️";
+  };
+
+  let context = `
+## Comparativo: ${period1Label} vs ${period2Label}
+
+| Métrica | ${period1Label} | ${period2Label} | Variação |
+|---------|-----------------|-----------------|----------|
+| Posts | ${agg1.posts} | ${agg2.posts} | ${calcChange(agg1.posts, agg2.posts)} ${changeEmoji(agg1.posts, agg2.posts)} |
+| Likes | ${agg1.likes.toLocaleString('pt-BR')} | ${agg2.likes.toLocaleString('pt-BR')} | ${calcChange(agg1.likes, agg2.likes)} ${changeEmoji(agg1.likes, agg2.likes)} |
+| Comentários | ${agg1.comments.toLocaleString('pt-BR')} | ${agg2.comments.toLocaleString('pt-BR')} | ${calcChange(agg1.comments, agg2.comments)} ${changeEmoji(agg1.comments, agg2.comments)} |
+| Saves | ${agg1.saves.toLocaleString('pt-BR')} | ${agg2.saves.toLocaleString('pt-BR')} | ${calcChange(agg1.saves, agg2.saves)} ${changeEmoji(agg1.saves, agg2.saves)} |
+| Shares | ${agg1.shares.toLocaleString('pt-BR')} | ${agg2.shares.toLocaleString('pt-BR')} | ${calcChange(agg1.shares, agg2.shares)} ${changeEmoji(agg1.shares, agg2.shares)} |
+| Alcance Total | ${agg1.reach.toLocaleString('pt-BR')} | ${agg2.reach.toLocaleString('pt-BR')} | ${calcChange(agg1.reach, agg2.reach)} ${changeEmoji(agg1.reach, agg2.reach)} |
+| Engajamento Médio | ${agg1.engagement.toFixed(2)}% | ${agg2.engagement.toFixed(2)}% | ${calcChange(agg1.engagement, agg2.engagement)} ${changeEmoji(agg1.engagement, agg2.engagement)} |
+
+### Resumo
+- **${period1Label}**: ${agg1.posts} posts, ${agg1.likes.toLocaleString('pt-BR')} likes totais
+- **${period2Label}**: ${agg2.posts} posts, ${agg2.likes.toLocaleString('pt-BR')} likes totais
+`;
+
+  return context;
+}
+
+// ============================================
 // MAIN HANDLER
 // ============================================
 
@@ -590,6 +885,8 @@ serve(async (req) => {
     const isReport = isReportRequest(message);
     const needsWebSearch = isWebSearchQuery(message);
     const isSpecificQuery = isSpecificContentQuery(message);
+    const imageGenRequest = isImageGenerationRequest(message);
+    const comparisonQuery = isComparisonQuery(message);
 
     // 4. Extract date range and metric focus from message
     const dateRange = extractDateRange(message);
@@ -600,23 +897,72 @@ serve(async (req) => {
       isReport, 
       needsWebSearch, 
       isSpecificQuery,
+      isImageGeneration: imageGenRequest.isRequest,
+      isComparison: comparisonQuery.isComparison,
       dateRange,
       metricFocus 
     });
 
-    // 5. Fetch additional context based on intent
-    const [metricsContext, webSearchResult, citedContent] = await Promise.all([
-      // Fetch metrics with proper date range and focus
-      (needsMetrics || isReport || isSpecificQuery) 
-        ? fetchMetricsContext(supabase, clientId, dateRange, metricFocus, isSpecificQuery) 
-        : Promise.resolve(""),
-      // Perform web search if needed
+    // 5. Handle Image Generation Request
+    if (imageGenRequest.isRequest) {
+      console.log("[kai-simple-chat] Processing image generation request");
+      
+      const imageResult = await generateImage(imageGenRequest.prompt, client.name);
+      
+      if (imageResult.error) {
+        return new Response(
+          JSON.stringify({ error: imageResult.error }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      
+      // Return image with SSE format
+      const encoder = new TextEncoder();
+      const stream = new ReadableStream({
+        start(controller) {
+          const imageResponse = {
+            choices: [{
+              delta: {
+                content: imageResult.text || "Imagem gerada com sucesso! 🎨",
+                image: imageResult.imageData,
+              }
+            }],
+          };
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify(imageResponse)}\n\n`));
+          controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+          controller.close();
+        },
+      });
+      
+      return new Response(stream, {
+        headers: { ...corsHeaders, "Content-Type": "text/event-stream", "Cache-Control": "no-cache" },
+      });
+    }
+
+    // 6. Fetch additional context based on intent
+    let metricsContext = "";
+    let comparisonContext = "";
+    
+    if (comparisonQuery.isComparison && comparisonQuery.period1 && comparisonQuery.period2) {
+      // Fetch comparison context
+      comparisonContext = await fetchComparisonContext(
+        supabase, 
+        clientId, 
+        comparisonQuery.period1, 
+        comparisonQuery.period2,
+        comparisonQuery.period1Label,
+        comparisonQuery.period2Label
+      );
+    } else if (needsMetrics || isReport || isSpecificQuery) {
+      metricsContext = await fetchMetricsContext(supabase, clientId, dateRange, metricFocus, isSpecificQuery);
+    }
+    
+    const [webSearchResult, citedContent] = await Promise.all([
       needsWebSearch ? performWebSearch(message, authHeader) : Promise.resolve(null),
-      // Fetch cited content
       fetchCitedContent(supabase, citations),
     ]);
 
-    // 6. Build system prompt (lean and focused)
+    // 7. Build system prompt (lean and focused)
     const identityGuide = client.identity_guide 
       ? client.identity_guide.substring(0, MAX_IDENTITY_GUIDE_LENGTH) 
       : "";
@@ -628,6 +974,11 @@ ${client.description ? `Descrição: ${client.description}` : ""}
 
 ${identityGuide ? `## Guia de Identidade\n${identityGuide}` : ""}`;
 
+    // Add comparison context if available
+    if (comparisonContext) {
+      systemPrompt += `\n${comparisonContext}`;
+    }
+    
     // Add metrics context if available
     if (metricsContext) {
       systemPrompt += `\n${metricsContext}`;
@@ -644,7 +995,18 @@ ${identityGuide ? `## Guia de Identidade\n${identityGuide}` : ""}`;
     }
 
     // Add specific instructions based on intent
-    if (isReport) {
+    if (comparisonQuery.isComparison) {
+      systemPrompt += `
+
+## Instruções para Análise Comparativa
+O usuário quer comparar dois períodos. Sua análise deve:
+1. **Destacar as principais diferenças** entre os períodos
+2. **Identificar tendências** (crescimento/queda) com percentuais
+3. **Apontar possíveis causas** das variações observadas
+4. **Sugerir ações** baseadas nos insights
+
+Use tabelas markdown para organizar a comparação. Use emojis: 📈 para crescimento, 📉 para queda, ➡️ para estável.`;
+    } else if (isReport) {
       systemPrompt += `
 
 ## Instruções Especiais para Relatório

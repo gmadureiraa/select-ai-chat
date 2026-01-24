@@ -9,7 +9,7 @@
 
 @layer base {
   :root {
-    /* Light mode - Clean minimal */
+    /* kAI Light Theme - White + Pink */
     --background: 0 0% 100%;
     --foreground: 0 0% 9%;
 
@@ -20,17 +20,17 @@
     --popover: 0 0% 100%;
     --popover-foreground: 0 0% 9%;
 
-    /* Primary - Subtle blue */
-    --primary: 221 83% 53%;
+    /* Primary - kAI Pink */
+    --primary: 330 85% 52%;
     --primary-foreground: 0 0% 100%;
 
     /* Secondary - Neutral */
     --secondary: 0 0% 96%;
     --secondary-foreground: 0 0% 9%;
 
-    /* Accent - Soft */
-    --accent: 0 0% 96%;
-    --accent-foreground: 0 0% 9%;
+    /* Accent - Pink tint */
+    --accent: 330 30% 96%;
+    --accent-foreground: 330 85% 35%;
 
     /* Muted */
     --muted: 0 0% 96%;
@@ -39,24 +39,24 @@
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    /* Borders - Very subtle */
-    --border: 0 0% 90%;
-    --input: 0 0% 90%;
-    --ring: 221 83% 53%;
+    /* Borders - Pink tint */
+    --border: 330 10% 90%;
+    --input: 330 10% 90%;
+    --ring: 330 85% 52%;
 
     --radius: 0.5rem;
 
-    /* Sidebar */
-    --sidebar: 0 0% 98%;
+    /* Sidebar - Pink accent */
+    --sidebar: 330 20% 98%;
     --sidebar-foreground: 0 0% 20%;
-    --sidebar-accent: 0 0% 94%;
-    --sidebar-accent-foreground: 0 0% 9%;
-    --sidebar-border: 0 0% 92%;
+    --sidebar-accent: 330 60% 95%;
+    --sidebar-accent-foreground: 330 85% 40%;
+    --sidebar-border: 330 10% 92%;
     --sidebar-muted: 0 0% 60%;
 
-    /* Chat */
-    --chat-user-bg: 0 0% 96%;
-    --chat-user-fg: 0 0% 9%;
+    /* Chat - Pink theme */
+    --chat-user-bg: 330 50% 95%;
+    --chat-user-fg: 330 85% 30%;
     --chat-ai-bg: 0 0% 100%;
     --chat-ai-fg: 0 0% 9%;
 
@@ -65,66 +65,71 @@
     /* Smooth transitions */
     --transition-smooth: all 0.15s ease;
 
-    /* Chart colors */
-    --chart-1: 221 83% 53%;
-    --chart-2: 142 71% 45%;
-    --chart-3: 262 83% 58%;
-    --chart-4: 24 95% 53%;
-    --chart-5: 339 90% 51%;
-    --chart-6: 173 80% 40%;
+    /* Chart colors - Pink gradient */
+    --chart-1: 330 85% 52%;
+    --chart-2: 330 70% 60%;
+    --chart-3: 330 55% 68%;
+    --chart-4: 330 40% 75%;
+    --chart-5: 330 30% 82%;
+    --chart-6: 330 20% 88%;
   }
 
   .dark {
-    /* Dark mode - Deep neutral */
-    --background: 0 0% 7%;
+    /* kAI Dark Theme - Black + Green */
+    --background: 0 0% 4%;
     --foreground: 0 0% 95%;
 
-    --card: 0 0% 9%;
+    --card: 0 0% 6%;
     --card-foreground: 0 0% 95%;
 
-    --popover: 0 0% 9%;
+    --popover: 0 0% 6%;
     --popover-foreground: 0 0% 95%;
 
-    --primary: 221 83% 53%;
-    --primary-foreground: 0 0% 100%;
+    /* Primary - kAI Green */
+    --primary: 150 100% 50%;
+    --primary-foreground: 0 0% 0%;
 
-    --secondary: 0 0% 15%;
+    /* Secondary */
+    --secondary: 0 0% 12%;
     --secondary-foreground: 0 0% 95%;
 
-    --accent: 0 0% 15%;
-    --accent-foreground: 0 0% 95%;
+    /* Accent - Green tint */
+    --accent: 150 30% 12%;
+    --accent-foreground: 150 80% 65%;
 
-    --muted: 0 0% 15%;
+    /* Muted */
+    --muted: 0 0% 12%;
     --muted-foreground: 0 0% 55%;
 
     --destructive: 0 62% 50%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 0 0% 15%;
-    --input: 0 0% 15%;
-    --ring: 221 83% 53%;
+    /* Borders - Green tint */
+    --border: 150 10% 15%;
+    --input: 150 10% 15%;
+    --ring: 150 100% 50%;
 
-    /* Sidebar dark */
-    --sidebar: 0 0% 9%;
+    /* Sidebar dark - Green accent */
+    --sidebar: 0 0% 6%;
     --sidebar-foreground: 0 0% 80%;
-    --sidebar-accent: 0 0% 13%;
-    --sidebar-accent-foreground: 0 0% 95%;
-    --sidebar-border: 0 0% 13%;
+    --sidebar-accent: 150 30% 12%;
+    --sidebar-accent-foreground: 150 80% 65%;
+    --sidebar-border: 150 10% 12%;
     --sidebar-muted: 0 0% 50%;
 
-    /* Chat dark */
-    --chat-user-bg: 0 0% 12%;
-    --chat-user-fg: 0 0% 95%;
-    --chat-ai-bg: 0 0% 9%;
+    /* Chat dark - Green theme */
+    --chat-user-bg: 150 40% 10%;
+    --chat-user-fg: 150 80% 70%;
+    --chat-ai-bg: 0 0% 6%;
     --chat-ai-fg: 0 0% 95%;
 
-    /* Chart colors dark */
-    --chart-1: 221 83% 60%;
-    --chart-2: 142 71% 50%;
-    --chart-3: 262 83% 65%;
-    --chart-4: 24 95% 60%;
-    --chart-5: 339 90% 58%;
-    --chart-6: 173 80% 45%;
+    /* Chart colors dark - Green gradient */
+    --chart-1: 150 100% 50%;
+    --chart-2: 150 80% 45%;
+    --chart-3: 150 60% 40%;
+    --chart-4: 150 45% 35%;
+    --chart-5: 150 35% 30%;
+    --chart-6: 150 25% 25%;
   }
 }
 

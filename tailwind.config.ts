@@ -53,7 +53,7 @@ extend: {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
-        // Sidebar colors - dark theme
+        // Sidebar colors
         sidebar: {
           DEFAULT: "hsl(var(--sidebar))",
           foreground: "hsl(var(--sidebar-foreground))",
@@ -72,7 +72,12 @@ extend: {
             fg: "hsl(var(--chat-ai-fg))",
           },
         },
-        // Vibrant chart colors
+        // kAI brand colors
+        kai: {
+          pink: "hsl(330, 85%, 52%)",
+          green: "hsl(150, 100%, 50%)",
+        },
+        // Chart colors
         chart: {
           1: "hsl(var(--chart-1))",
           2: "hsl(var(--chart-2))",
