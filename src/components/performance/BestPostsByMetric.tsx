@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Heart, MessageCircle, Bookmark, Share2, Eye, MousePointer, HelpCircle, TrendingUp } from "lucide-react";
+import { Heart, MessageCircle, Bookmark, Share2, Eye, HelpCircle, TrendingUp, Users } from "lucide-react";
 import { InstagramPost } from "@/hooks/useInstagramPosts";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
@@ -8,6 +8,8 @@ interface BestPostsByMetricProps {
   posts: InstagramPost[];
   previousPeriodPosts?: InstagramPost[];
   periodLabel?: string;
+  followersGained?: number;
+  prevFollowersGained?: number;
 }
 
 interface MetricCardProps {
@@ -15,7 +17,6 @@ interface MetricCardProps {
   label: string;
   value: number;
   previousValue?: number;
-  post: InstagramPost | null;
   color: string;
   helpText?: string;
   isPercent?: boolean;
@@ -32,10 +33,11 @@ const calcChange = (current: number, previous: number) => {
   return ((current - previous) / previous) * 100;
 };
 
-function MetricCard({ icon: Icon, label, value, previousValue, post, color, helpText, isPercent }: MetricCardProps) {
+function MetricCard({ icon: Icon, label, value, previousValue, color, helpText, isPercent }: MetricCardProps) {
   const change = previousValue !== undefined ? calcChange(value, previousValue) : undefined;
   const displayValue = isPercent ? `${value.toFixed(2)}%` : formatNumber(value);
   const displayPrevValue = isPercent && previousValue !== undefined ? `${previousValue.toFixed(2)}%` : previousValue !== undefined ? formatNumber(previousValue) : undefined;
+  
   return (
     <Card className="border-border/30 shadow-sm hover:shadow-md transition-shadow">
       <CardContent className="p-4">
@@ -75,30 +77,12 @@ function MetricCard({ icon: Icon, label, value, previousValue, post, color, help
             {displayPrevValue} no período anterior
           </p>
         )}
-        
-        {post && post.thumbnail_url && (
-          <div className="mt-3 pt-3 border-t border-border/30">
-            <p className="text-xs text-muted-foreground mb-2">Melhor post:</p>
-            <div className="flex items-center gap-2">
-              <img 
-                src={post.thumbnail_url} 
-                alt="Melhor post"
-                className="w-10 h-10 rounded object-cover flex-shrink-0"
-                onError={(e) => e.currentTarget.style.display = 'none'}
-              />
-              <p className="text-xs line-clamp-2 flex-1">
-                {post.caption?.slice(0, 60) || "Sem legenda"}
-                {post.caption && post.caption.length > 60 ? "..." : ""}
-              </p>
-            </div>
-          </div>
-        )}
       </CardContent>
     </Card>
   );
 }
 
-export function BestPostsByMetric({ posts, previousPeriodPosts = [], periodLabel }: BestPostsByMetricProps) {
+export function BestPostsByMetric({ posts, previousPeriodPosts = [], periodLabel, followersGained, prevFollowersGained }: BestPostsByMetricProps) {
   if (!posts || posts.length === 0) return null;
 
   // Current period totals
@@ -129,14 +113,6 @@ export function BestPostsByMetric({ posts, previousPeriodPosts = [], periodLabel
     ? previousPeriodPosts.reduce((sum, p) => sum + (p.engagement_rate || 0), 0) / previousPeriodPosts.length
     : 0;
 
-  // Best posts
-  const bestBySaves = [...posts].sort((a, b) => (b.saves || 0) - (a.saves || 0))[0];
-  const bestByLikes = [...posts].sort((a, b) => (b.likes || 0) - (a.likes || 0))[0];
-  const bestByComments = [...posts].sort((a, b) => (b.comments || 0) - (a.comments || 0))[0];
-  const bestByShares = [...posts].sort((a, b) => (b.shares || 0) - (a.shares || 0))[0];
-  const bestByReach = [...posts].sort((a, b) => (b.reach || 0) - (a.reach || 0))[0];
-  const bestByEngagement = [...posts].sort((a, b) => (b.engagement_rate || 0) - (a.engagement_rate || 0))[0];
-
   const hasPreviousData = previousPeriodPosts.length > 0;
 
   return (
@@ -151,13 +127,12 @@ export function BestPostsByMetric({ posts, previousPeriodPosts = [], periodLabel
       </div>
       
       {/* First row: Posts count + Reach + Interactions + Avg Engagement */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <MetricCard
           icon={Eye}
-          label="Número de postagens do feed"
+          label="Número de postagens"
           value={postCount}
           previousValue={hasPreviousData ? prevPostCount : undefined}
-          post={null}
           color="text-blue-500"
           helpText="Total de posts publicados no período selecionado"
         />
@@ -166,16 +141,14 @@ export function BestPostsByMetric({ posts, previousPeriodPosts = [], periodLabel
           label="Alcance das postagens"
           value={totalReach}
           previousValue={hasPreviousData ? prevReach : undefined}
-          post={bestByReach}
           color="text-purple-500"
           helpText="Número de contas únicas que viram suas postagens"
         />
         <MetricCard
           icon={Heart}
-          label="Interações nas postagens"
+          label="Interações totais"
           value={totalInteractions}
           previousValue={hasPreviousData ? prevInteractions : undefined}
-          post={null}
           color="text-rose-500"
           helpText="Soma de curtidas, comentários, salvamentos e compartilhamentos"
         />
@@ -184,7 +157,6 @@ export function BestPostsByMetric({ posts, previousPeriodPosts = [], periodLabel
           label="Engajamento médio"
           value={avgEngagement}
           previousValue={hasPreviousData ? prevAvgEngagement : undefined}
-          post={bestByEngagement}
           color="text-primary"
           helpText="Taxa média de engajamento dos posts (interações/alcance)"
           isPercent={true}
@@ -195,41 +167,51 @@ export function BestPostsByMetric({ posts, previousPeriodPosts = [], periodLabel
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <MetricCard
           icon={Heart}
-          label="Curtidas em postagens"
+          label="Curtidas"
           value={totalLikes}
           previousValue={hasPreviousData ? prevLikes : undefined}
-          post={bestByLikes}
           color="text-rose-500"
           helpText="Total de curtidas recebidas nas postagens"
         />
         <MetricCard
           icon={Bookmark}
-          label="Salvamento das postagens"
+          label="Salvamentos"
           value={totalSaves}
           previousValue={hasPreviousData ? prevSaves : undefined}
-          post={bestBySaves}
           color="text-amber-500"
           helpText="Total de vezes que suas postagens foram salvas"
         />
         <MetricCard
           icon={MessageCircle}
-          label="Comentários em postagens"
+          label="Comentários"
           value={totalComments}
           previousValue={hasPreviousData ? prevComments : undefined}
-          post={bestByComments}
           color="text-blue-500"
           helpText="Total de comentários recebidos nas postagens"
         />
         <MetricCard
           icon={Share2}
-          label="Compartilhamento das postagens"
+          label="Compartilhamentos"
           value={totalShares}
           previousValue={hasPreviousData ? prevShares : undefined}
-          post={bestByShares}
           color="text-emerald-500"
           helpText="Total de vezes que suas postagens foram compartilhadas"
         />
       </div>
+
+      {/* Followers Gained Card (if provided) */}
+      {followersGained !== undefined && (
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <MetricCard
+            icon={Users}
+            label="Seguidores ganhos no período"
+            value={followersGained}
+            previousValue={prevFollowersGained}
+            color="text-primary"
+            helpText="Novos seguidores ganhos durante o período (métrica do perfil, não por post)"
+          />
+        </div>
+      )}
     </div>
   );
 }

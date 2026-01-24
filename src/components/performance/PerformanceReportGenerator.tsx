@@ -16,7 +16,9 @@ interface PerformanceReportGeneratorProps {
   platform: string;
   period: string;
   kpis: Record<string, any>;
+  previousKpis?: Record<string, any>;
   posts?: any[];
+  previousPosts?: any[];
   videos?: any[];
   metrics?: any[];
   open: boolean;
@@ -28,7 +30,9 @@ export function PerformanceReportGenerator({
   platform,
   period,
   kpis,
+  previousKpis,
   posts,
+  previousPosts,
   videos,
   metrics,
   open,
@@ -53,7 +57,9 @@ export function PerformanceReportGenerator({
       platform,
       period,
       kpis,
+      previousKpis,
       posts,
+      previousPosts,
       videos,
       metrics
     });
@@ -67,7 +73,7 @@ export function PerformanceReportGenerator({
     ];
 
     const blob = await exportToPDF(content, platform);
-    downloadFile(blob, `relatorio-${platform.toLowerCase()}-${period.replace(/\s/g, '-')}.pdf`, "application/pdf");
+    downloadFile(blob, `analise-${platform.toLowerCase()}-${period.replace(/\s/g, '-')}.pdf`, "application/pdf");
   };
 
   const handleClose = () => {
@@ -82,8 +88,8 @@ export function PerformanceReportGenerator({
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <FileText className="h-5 w-5" />
-              {showHistory ? "Histórico de Relatórios" : `Relatório Estratégico - ${platform}`}
+              <Sparkles className="h-5 w-5 text-primary" />
+              {showHistory ? "Histórico de Análises" : `Análise Estratégica - ${platform}`}
             </div>
             <Button
               variant="ghost"
@@ -97,7 +103,7 @@ export function PerformanceReportGenerator({
               {showHistory ? (
                 <>
                   <Sparkles className="h-4 w-4 mr-1" />
-                  Novo Relatório
+                  Nova Análise
                 </>
               ) : (
                 <>
@@ -119,7 +125,7 @@ export function PerformanceReportGenerator({
               ) : savedReports.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
                   <History className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                  <p>Nenhum relatório salvo ainda.</p>
+                  <p>Nenhuma análise salva ainda.</p>
                 </div>
               ) : (
                 savedReports.map((savedReport) => (
@@ -171,20 +177,25 @@ export function PerformanceReportGenerator({
               <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
                 <Sparkles className="h-8 w-8 text-primary" />
               </div>
-              <h3 className="text-lg font-semibold mb-2">Gerar Relatório Estratégico</h3>
+              <h3 className="text-lg font-semibold mb-2">Gerar Análise Estratégica</h3>
               <p className="text-sm text-muted-foreground max-w-sm mb-6">
-                Análise completa com KPIs, insights, top posts, recomendações estratégicas e ideias de conteúdo baseadas no que performou bem.
+                Análise completa com KPIs, comparação com período anterior, análise detalhada dos top posts, insights e recomendações estratégicas.
               </p>
+              {previousKpis && previousPosts && previousPosts.length > 0 && (
+                <Badge variant="secondary" className="mb-4">
+                  ✓ Comparação com período anterior disponível
+                </Badge>
+              )}
               <Button onClick={handleGenerate} disabled={isGenerating} size="lg">
                 {isGenerating ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Gerando relatório...
+                    Gerando análise...
                   </>
                 ) : (
                   <>
                     <Sparkles className="mr-2 h-4 w-4" />
-                    Gerar Relatório
+                    Gerar Análise
                   </>
                 )}
               </Button>
