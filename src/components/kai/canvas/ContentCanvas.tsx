@@ -562,9 +562,13 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
         position: { x: centerX + offset, y: centerY + offset },
         data: {
           output: {
-            type: "text",
+            type: "library",
             content: ref.content,
             fileName: ref.title,
+            libraryTitle: ref.title,
+            libraryImages: ref.thumbnail_url ? [ref.thumbnail_url] : [],
+            libraryId: ref.id,
+            libraryPlatform: ref.reference_type,
           }
         },
       };
@@ -593,10 +597,13 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
         position: { x: centerX + offset, y: centerY + offset },
         data: {
           output: {
-            type: "image",
-            content: ref.image_url,
-            imageBase64: ref.image_url,
-            fileName: ref.title || "Imagem",
+            type: "library",
+            content: ref.description || "",
+            fileName: ref.title || "Referência Visual",
+            libraryTitle: ref.title || "Referência Visual",
+            libraryImages: [ref.image_url],
+            libraryId: ref.id,
+            libraryPlatform: ref.reference_type,
           }
         },
       };
