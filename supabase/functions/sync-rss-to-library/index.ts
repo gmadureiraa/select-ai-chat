@@ -519,20 +519,34 @@ function parseRSSFeed(xml: string): Array<{
     const guid = itemXml.match(/<guid[^>]*>([\s\S]*?)<\/guid>/i)?.[1]?.trim() || link;
     const contentEncoded = itemXml.match(/<content:encoded[^>]*>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/content:encoded>/i)?.[1]?.trim() || "";
 
-    // Extract images
+    // Extract images - prioritize RSS enclosure and media tags (Beehiiv newsletters)
     const allImages: string[] = [];
+    
+    // Check <enclosure> tag first (common in Beehiiv RSS)
+    const enclosure = itemXml.match(/<enclosure[^>]*url="([^"]+)"[^>]*type="image/i)?.[1];
+    if (enclosure) {
+      allImages.push(enclosure);
+    }
+    
+    // Check <media:thumbnail> (common in Beehiiv)
+    const mediaThumbnail = itemXml.match(/<media:thumbnail[^>]*url="([^"]+)"/i)?.[1];
+    if (mediaThumbnail && !allImages.includes(mediaThumbnail)) {
+      allImages.push(mediaThumbnail);
+    }
+    
+    // Check media:content
+    const mediaContent = itemXml.match(/<media:content[^>]*url="([^"]+)"[^>]*>/i)?.[1];
+    if (mediaContent && !allImages.includes(mediaContent)) {
+      allImages.push(mediaContent);
+    }
+    
+    // Then extract from HTML content
     const rawContent = contentEncoded || description;
     const imgMatches = rawContent.matchAll(/<img[^>]*src=["']([^"']+)["'][^>]*>/gi);
     for (const match of imgMatches) {
       if (match[1] && !allImages.includes(match[1])) {
         allImages.push(match[1]);
       }
-    }
-
-    // Also check media:content
-    const mediaContent = itemXml.match(/<media:content[^>]*url="([^"]+)"[^>]*>/i)?.[1];
-    if (mediaContent && !allImages.includes(mediaContent)) {
-      allImages.unshift(mediaContent);
     }
 
     // Convert content to clean text/markdown
