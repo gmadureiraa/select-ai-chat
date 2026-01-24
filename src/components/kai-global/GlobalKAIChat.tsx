@@ -3,10 +3,10 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Message, ProcessStep, MultiAgentStep } from "@/types/chat";
-import { KAIActionStatus } from "@/types/kaiActions";
+import { KAIActionStatus, PendingAction } from "@/types/kaiActions";
 import { EnhancedMessageBubble } from "@/components/chat/EnhancedMessageBubble";
 import { SimpleProgress } from "./SimpleProgress";
-import { Sparkles, MessageSquare, AlertCircle, RotateCcw, UserCircle } from "lucide-react";
+import { Sparkles, MessageSquare, AlertCircle, RotateCcw, UserCircle, Check, X, Loader2, FileText, Link, CalendarPlus, Upload } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface GlobalKAIChatProps {
@@ -15,11 +15,14 @@ interface GlobalKAIChatProps {
   selectedClientId: string | null;
   selectedClientName?: string;
   actionStatus?: KAIActionStatus;
+  pendingAction?: PendingAction | null;
   currentStep?: ProcessStep;
   multiAgentStep?: MultiAgentStep;
   multiAgentDetails?: Record<string, string>;
   onSendMessage?: (content: string, images?: string[], quality?: "fast" | "high") => void;
   onRetryMessage?: (content: string) => void;
+  onConfirmAction?: () => void;
+  onCancelAction?: () => void;
   chatMode?: "ideas" | "content" | "performance" | "free_chat";
   onSuggestionClick?: (text: string) => void;
 }
@@ -58,10 +61,13 @@ export function GlobalKAIChat({
   selectedClientId,
   selectedClientName,
   actionStatus = "idle",
+  pendingAction,
   currentStep,
   multiAgentStep,
   onSendMessage,
   onRetryMessage,
+  onConfirmAction,
+  onCancelAction,
   chatMode = "content",
   onSuggestionClick,
 }: GlobalKAIChatProps) {
@@ -73,7 +79,32 @@ export function GlobalKAIChat({
     if (bottomRef.current) {
       bottomRef.current.scrollIntoView({ behavior: "smooth" });
     }
-  }, [messages, isProcessing]);
+  }, [messages, isProcessing, pendingAction]);
+
+  // Get icon for action type
+  const getActionIcon = (type: string) => {
+    switch (type) {
+      case "create_planning_card": return CalendarPlus;
+      case "upload_to_library": return FileText;
+      case "upload_to_references": return Link;
+      case "upload_metrics": return Upload;
+      default: return Sparkles;
+    }
+  };
+
+  // Get human-readable action title
+  const getActionTitle = (type: string) => {
+    const titles: Record<string, string> = {
+      create_content: "Criar conteúdo",
+      ask_about_metrics: "Análise de métricas",
+      upload_metrics: "Importar métricas",
+      create_planning_card: "Criar card no planejamento",
+      upload_to_library: "Adicionar à biblioteca",
+      upload_to_references: "Salvar referência",
+      analyze_url: "Analisar URL",
+    };
+    return titles[type] || type;
+  };
 
   // Empty state - minimal design
   if (messages.length === 0 && !isProcessing) {
