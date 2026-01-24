@@ -1,29 +1,22 @@
 import { useState, useMemo } from "react";
-import { Library, Link2, Plus, Search, Image, Layers } from "lucide-react";
+import { Library, Link2, Plus, Search, Image, Layers, BookOpen, FileBarChart } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { 
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from "@/components/ui/select";
 import { useReferenceLibrary, ReferenceItem, CreateReferenceData } from "@/hooks/useReferenceLibrary";
 import { useClientVisualReferences } from "@/hooks/useClientVisualReferences";
 import { useUnifiedContent } from "@/hooks/useUnifiedContent";
+import { useContentLibrary } from "@/hooks/useContentLibrary";
 import { useWorkspace } from "@/hooks/useWorkspace";
 import { ReferenceCard } from "@/components/references/ReferenceCard";
 import { ReferenceDialog } from "@/components/references/ReferenceDialog";
 import { ReferenceViewDialog } from "@/components/references/ReferenceViewDialog";
-import { VisualReferencesManager, REFERENCE_TYPES } from "@/components/clients/VisualReferencesManager";
 import { UnifiedContentGrid } from "@/components/kai/library/UnifiedContentGrid";
+import { CaseStudyGrid } from "@/components/kai/library/CaseStudyGrid";
 import { AddContentDialog } from "@/components/kai/library/AddContentDialog";
-import { LibraryFilters, ContentTypeFilter, SortOption, ViewMode } from "@/components/kai/LibraryFilters";
 import { Client } from "@/hooks/useClients";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -36,12 +29,6 @@ interface KaiLibraryTabProps {
 export const KaiLibraryTab = ({ clientId, client }: KaiLibraryTabProps) => {
   const [activeTab, setActiveTab] = useState("content");
   const [searchQuery, setSearchQuery] = useState("");
-  
-  // Filters state
-  const [typeFilter, setTypeFilter] = useState<ContentTypeFilter>("all");
-  const [visualRefTypeFilter, setVisualRefTypeFilter] = useState<string>("all");
-  const [sortOption, setSortOption] = useState<SortOption>("newest");
-  const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   
   // Workspace permissions
@@ -53,15 +40,32 @@ export const KaiLibraryTab = ({ clientId, client }: KaiLibraryTabProps) => {
   const [referenceViewOpen, setReferenceViewOpen] = useState(false);
   const { references, createReference, updateReference, deleteReference } = useReferenceLibrary(clientId);
 
-  // Visual References
-  const { references: visualReferences, deleteReference: deleteVisualRef } = useClientVisualReferences(clientId);
-  const [showVisualUploadForm, setShowVisualUploadForm] = useState(false);
-
-  // Add Content Dialog (for content tab)
+  // Add Content Dialog (for content tab and case studies/reports)
   const [showAddContentDialog, setShowAddContentDialog] = useState(false);
+  const [addContentType, setAddContentType] = useState<string | undefined>(undefined);
 
-  // Unified Content (Instagram, Twitter, LinkedIn posts)
+  // Unified Content (Instagram, Twitter, LinkedIn posts) - excludes case_study and report
   const { data: unifiedContent } = useUnifiedContent(clientId);
+  
+  // Content library for counting case studies and reports
+  const { contents: libraryContent } = useContentLibrary(clientId);
+
+  // Count case studies and reports
+  const caseStudiesCount = useMemo(() => 
+    libraryContent?.filter(item => item.content_type === 'case_study').length || 0
+  , [libraryContent]);
+
+  const reportsCount = useMemo(() => 
+    libraryContent?.filter(item => item.content_type === 'report').length || 0
+  , [libraryContent]);
+
+  // Filter unified content to exclude case_study and report (they have their own tabs)
+  const filteredUnifiedCount = useMemo(() => {
+    if (!unifiedContent) return 0;
+    return unifiedContent.filter(item => 
+      item.content_type !== 'case_study' && item.content_type !== 'report'
+    ).length;
+  }, [unifiedContent]);
 
   const filteredReferences = useMemo(() => {
     let result = references || [];
@@ -75,29 +79,13 @@ export const KaiLibraryTab = ({ clientId, client }: KaiLibraryTabProps) => {
       );
     }
     
-    // Type filter - reference_type uses same values as content_type
-    if (typeFilter !== "all") {
-      result = result.filter(r => r.reference_type === typeFilter);
-    }
-    
-    // Sort
-    result = [...result].sort((a, b) => {
-      switch (sortOption) {
-        case "newest":
-          return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
-        case "oldest":
-          return new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime();
-        case "a-z":
-          return a.title.localeCompare(b.title);
-        case "z-a":
-          return b.title.localeCompare(a.title);
-        default:
-          return 0;
-      }
-    });
+    // Sort by newest
+    result = [...result].sort((a, b) => 
+      new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+    );
     
     return result;
-  }, [references, searchQuery, typeFilter, sortOption]);
+  }, [references, searchQuery]);
 
   const handleSaveReference = (data: CreateReferenceData) => {
     if (selectedReference) {
@@ -133,8 +121,6 @@ export const KaiLibraryTab = ({ clientId, client }: KaiLibraryTabProps) => {
       const deletePromises = Array.from(selectedItems).map(id => {
         if (activeTab === "references") {
           return deleteReference.mutateAsync(id);
-        } else if (activeTab === "visual-refs") {
-          return deleteVisualRef.mutateAsync(id);
         }
         return Promise.resolve();
       });
@@ -150,52 +136,6 @@ export const KaiLibraryTab = ({ clientId, client }: KaiLibraryTabProps) => {
   const renderReferenceItem = (reference: ReferenceItem) => {
     const isSelected = selectedItems.has(reference.id);
     
-    if (viewMode === "list") {
-      return (
-        <div
-          key={reference.id}
-          className={cn(
-            "flex items-center gap-3 p-3 rounded-lg border transition-colors",
-            isSelected ? "bg-primary/5 border-primary/30" : "bg-card hover:bg-muted/50"
-          )}
-        >
-          <Checkbox
-            checked={isSelected}
-            onCheckedChange={() => toggleSelection(reference.id)}
-          />
-          <div className="flex-1 min-w-0">
-            <p className="font-medium text-sm truncate">{reference.title}</p>
-            <p className="text-xs text-muted-foreground truncate">{reference.content.slice(0, 100)}...</p>
-          </div>
-          <Badge variant="outline" className="text-[10px] shrink-0">
-            {reference.reference_type}
-          </Badge>
-          <div className="flex items-center gap-1 shrink-0">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                setSelectedReference(reference);
-                setReferenceViewOpen(true);
-              }}
-            >
-              Ver
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                setSelectedReference(reference);
-                setReferenceDialogOpen(true);
-              }}
-            >
-              Editar
-            </Button>
-          </div>
-        </div>
-      );
-    }
-
     return (
       <div key={reference.id} className="relative group">
         <div className={cn(
@@ -226,6 +166,22 @@ export const KaiLibraryTab = ({ clientId, client }: KaiLibraryTabProps) => {
     );
   };
 
+  const handleAddButtonClick = () => {
+    if (activeTab === "content") {
+      setAddContentType(undefined);
+      setShowAddContentDialog(true);
+    } else if (activeTab === "references") {
+      setSelectedReference(null);
+      setReferenceDialogOpen(true);
+    } else if (activeTab === "case-studies") {
+      setAddContentType("case_study");
+      setShowAddContentDialog(true);
+    } else if (activeTab === "reports") {
+      setAddContentType("report");
+      setShowAddContentDialog(true);
+    }
+  };
+
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* Header */}
@@ -236,29 +192,20 @@ export const KaiLibraryTab = ({ clientId, client }: KaiLibraryTabProps) => {
         </div>
         
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
-          <div className="relative flex-1 sm:flex-initial">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Buscar..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 w-full sm:w-56 lg:w-64"
-            />
-          </div>
+          {/* Search only for references tab */}
+          {activeTab === "references" && (
+            <div className="relative flex-1 sm:flex-initial">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar referências..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 w-full sm:w-56 lg:w-64"
+              />
+            </div>
+          )}
           
-          <Button
-            onClick={() => {
-              if (activeTab === "content") {
-                setShowAddContentDialog(true);
-              } else if (activeTab === "references") {
-                setSelectedReference(null);
-                setReferenceDialogOpen(true);
-              } else if (activeTab === "visual-refs") {
-                setShowVisualUploadForm(true);
-              }
-            }}
-            className="shrink-0"
-          >
+          <Button onClick={handleAddButtonClick} className="shrink-0">
             <Plus className="h-4 w-4 mr-2" />
             <span className="hidden sm:inline">Adicionar</span>
             <span className="sm:hidden">Novo</span>
@@ -267,70 +214,34 @@ export const KaiLibraryTab = ({ clientId, client }: KaiLibraryTabProps) => {
       </div>
 
       {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v); setSelectedItems(new Set()); }} className="flex-1 flex flex-col overflow-hidden">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <TabsList>
-            <TabsTrigger value="content" className="gap-2 data-[state=active]:bg-green-500/10 data-[state=active]:text-green-600">
-              <Layers className="h-4 w-4" />
-              <span className="hidden sm:inline">Conteúdo</span>
-              <Badge variant="secondary" className="ml-1 bg-green-500/20 text-green-600 font-bold">{unifiedContent?.length || 0}</Badge>
-            </TabsTrigger>
-            <TabsTrigger value="references" className="gap-2 data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
-              <Link2 className="h-4 w-4" />
-              <span className="hidden sm:inline">Referências</span>
-              <Badge variant="secondary" className="ml-1 bg-primary/20 text-primary font-bold">{references?.length || 0}</Badge>
-            </TabsTrigger>
-            <TabsTrigger value="visual-refs" className="gap-2 data-[state=active]:bg-accent/10 data-[state=active]:text-accent">
-              <Image className="h-4 w-4" />
-              <span className="hidden sm:inline">Refs Visuais</span>
-              <Badge variant="secondary" className="ml-1 bg-accent/20 text-accent font-bold">{visualReferences?.length || 0}</Badge>
-            </TabsTrigger>
-          </TabsList>
-          
-          <div className="flex items-center gap-2">
-            {/* Visual Refs Type Filter */}
-            {activeTab === "visual-refs" && (
-              <Select value={visualRefTypeFilter} onValueChange={setVisualRefTypeFilter}>
-                <SelectTrigger className="w-40">
-                  <SelectValue placeholder="Tipo" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos os tipos</SelectItem>
-                  {REFERENCE_TYPES.map(type => (
-                    <SelectItem key={type.value} value={type.value}>
-                      <div className="flex items-center gap-2">
-                        <type.icon className="h-4 w-4" />
-                        {type.label}
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-            
-            <LibraryFilters
-              typeFilter={typeFilter}
-              onTypeFilterChange={setTypeFilter}
-              sortOption={sortOption}
-              onSortChange={setSortOption}
-              viewMode={viewMode}
-              onViewModeChange={setViewMode}
-              selectedCount={selectedItems.size}
-              onClearSelection={handleClearSelection}
-              onDeleteSelected={handleDeleteSelected}
-              canDelete={canDeleteFromLibrary}
-            />
-          </div>
-        </div>
+      <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v); setSelectedItems(new Set()); }} className="flex-1 flex flex-col overflow-hidden mt-4">
+        <TabsList className="w-full justify-start flex-wrap h-auto gap-1 p-1">
+          <TabsTrigger value="content" className="gap-2 data-[state=active]:bg-green-500/10 data-[state=active]:text-green-600">
+            <Layers className="h-4 w-4" />
+            <span className="hidden sm:inline">Conteúdo</span>
+            <Badge variant="secondary" className="ml-1 bg-green-500/20 text-green-600 font-bold">{filteredUnifiedCount}</Badge>
+          </TabsTrigger>
+          <TabsTrigger value="references" className="gap-2 data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
+            <Link2 className="h-4 w-4" />
+            <span className="hidden sm:inline">Refs</span>
+            <Badge variant="secondary" className="ml-1 bg-primary/20 text-primary font-bold">{references?.length || 0}</Badge>
+          </TabsTrigger>
+          <TabsTrigger value="case-studies" className="gap-2 data-[state=active]:bg-blue-500/10 data-[state=active]:text-blue-600">
+            <BookOpen className="h-4 w-4" />
+            <span className="hidden sm:inline">Estudos de Caso</span>
+            <Badge variant="secondary" className="ml-1 bg-blue-500/20 text-blue-600 font-bold">{caseStudiesCount}</Badge>
+          </TabsTrigger>
+          <TabsTrigger value="reports" className="gap-2 data-[state=active]:bg-orange-500/10 data-[state=active]:text-orange-600">
+            <FileBarChart className="h-4 w-4" />
+            <span className="hidden sm:inline">Relatórios</span>
+            <Badge variant="secondary" className="ml-1 bg-orange-500/20 text-orange-600 font-bold">{reportsCount}</Badge>
+          </TabsTrigger>
+        </TabsList>
 
-        {/* Unified Content Library */}
+        {/* Unified Content Library - with internal platform filters */}
         <TabsContent value="content" className="mt-4 flex-1 overflow-y-auto">
           <UnifiedContentGrid
             clientId={clientId}
-            typeFilter={typeFilter}
-            sortOption={sortOption}
-            viewMode={viewMode}
-            searchQuery={searchQuery}
             onSelectContent={(item) => {
               toast.success(`Conteúdo selecionado: ${item.title}`);
             }}
@@ -362,28 +273,33 @@ export const KaiLibraryTab = ({ clientId, client }: KaiLibraryTabProps) => {
               </CardContent>
             </Card>
           ) : (
-            <div className={cn(
-              viewMode === "grid" 
-                ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3"
-                : "space-y-2"
-            )}>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
               {filteredReferences.map(renderReferenceItem)}
             </div>
           )}
         </TabsContent>
 
-        {/* Visual References Library */}
-        <TabsContent value="visual-refs" className="mt-4 flex-1 overflow-y-auto">
-          <VisualReferencesManager
+        {/* Case Studies */}
+        <TabsContent value="case-studies" className="mt-4 flex-1 overflow-y-auto">
+          <CaseStudyGrid
             clientId={clientId}
-            variant="expanded"
-            searchQuery={searchQuery}
-            typeFilter={visualRefTypeFilter}
-            viewMode={viewMode}
-            selectedItems={selectedItems}
-            onToggleSelection={toggleSelection}
-            showUploadForm={showVisualUploadForm}
-            onShowUploadFormChange={setShowVisualUploadForm}
+            type="case_study"
+            onAddNew={() => {
+              setAddContentType("case_study");
+              setShowAddContentDialog(true);
+            }}
+          />
+        </TabsContent>
+
+        {/* Reports */}
+        <TabsContent value="reports" className="mt-4 flex-1 overflow-y-auto">
+          <CaseStudyGrid
+            clientId={clientId}
+            type="report"
+            onAddNew={() => {
+              setAddContentType("report");
+              setShowAddContentDialog(true);
+            }}
           />
         </TabsContent>
 
@@ -415,6 +331,7 @@ export const KaiLibraryTab = ({ clientId, client }: KaiLibraryTabProps) => {
         open={showAddContentDialog}
         onOpenChange={setShowAddContentDialog}
         clientId={clientId}
+        defaultContentType={addContentType}
       />
     </div>
   );
