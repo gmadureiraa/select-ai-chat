@@ -13,7 +13,6 @@ interface Pillar {
   icon: React.ElementType;
   title: string;
   description: string;
-  color: string;
   bgColor: string;
   isPro?: boolean;
 }
@@ -24,32 +23,28 @@ const pillars: Pillar[] = [
     icon: User,
     title: "Entende seu perfil",
     description: "Tom de voz, objetivos e audiência. KAI aprende com cada interação.",
-    color: "from-blue-500 to-indigo-500",
-    bgColor: "bg-blue-500/10",
+    bgColor: "bg-blue-500",
   },
   {
     step: "2",
     icon: PenTool,
     title: "Desenvolve conteúdo",
     description: "Textos otimizados para cada plataforma. Posts, threads, artigos.",
-    color: "from-primary to-emerald-500",
-    bgColor: "bg-primary/10",
+    bgColor: "bg-primary",
   },
   {
     step: "3",
     icon: Image,
     title: "Cria as imagens",
     description: "Geração de imagens com IA. Carrosséis, thumbnails, stories.",
-    color: "from-secondary to-pink-500",
-    bgColor: "bg-secondary/10",
+    bgColor: "bg-secondary",
   },
   {
     step: "4",
     icon: Send,
     title: "Publica direto",
     description: "Planejamento visual e publicação agendada nas suas redes.",
-    color: "from-accent to-orange-500",
-    bgColor: "bg-accent/10",
+    bgColor: "bg-accent",
     isPro: true,
   },
 ];
@@ -85,8 +80,8 @@ const ValueProposition = () => {
 
         {/* Pillars Grid */}
         <div className="grid md:grid-cols-4 gap-6 relative">
-          {/* Connection line - Desktop */}
-          <div className="hidden md:block absolute top-1/2 left-0 right-0 h-0.5 bg-gradient-to-r from-blue-500/20 via-primary/40 to-accent/20 -translate-y-1/2 z-0" />
+          {/* Connection line - Desktop - solid color */}
+          <div className="hidden md:block absolute top-1/2 left-0 right-0 h-0.5 bg-primary/20 -translate-y-1/2 z-0" />
           
           {pillars.map((pillar, index) => (
             <motion.div
@@ -98,8 +93,8 @@ const ValueProposition = () => {
               className="relative z-10"
             >
               <div className="p-6 rounded-2xl bg-card border border-border hover:border-primary/30 transition-all h-full text-center group">
-                {/* Step indicator */}
-                <div className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${pillar.color} flex items-center justify-center mx-auto mb-4 shadow-lg group-hover:scale-110 transition-transform`}>
+                {/* Step indicator - solid color instead of gradient */}
+                <div className={`w-16 h-16 rounded-2xl ${pillar.bgColor} flex items-center justify-center mx-auto mb-4 shadow-lg group-hover:scale-110 transition-transform`}>
                   <pillar.icon className="w-8 h-8 text-white" />
                 </div>
                 
@@ -110,7 +105,7 @@ const ValueProposition = () => {
                 <h3 className="text-lg font-semibold text-foreground mb-2 flex items-center justify-center gap-2">
                   {pillar.title}
                   {pillar.isPro && (
-                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary font-medium">
+                    <span className="text-[10px] px-2 py-0.5 rounded bg-primary text-primary-foreground font-bold">
                       PRO
                     </span>
                   )}
@@ -132,16 +127,16 @@ const ValueProposition = () => {
           ))}
         </div>
 
-        {/* Bottom highlight */}
+        {/* Bottom highlight - removed gradient, unified text color */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ delay: 0.4 }}
-          className="mt-16 p-8 rounded-3xl bg-gradient-to-r from-primary/5 via-secondary/5 to-accent/5 border border-border text-center"
+          className="mt-16 p-8 rounded-3xl bg-primary/5 border border-border text-center"
         >
           <h3 className="text-2xl md:text-3xl font-bold text-foreground mb-3">
-            Resultado: <span className="text-primary">10x mais conteúdo em menos tempo</span>
+            Resultado: 10x mais conteúdo em menos tempo
           </h3>
           <p className="text-muted-foreground max-w-xl mx-auto">
             Enquanto você foca no que importa, KAI cuida da produção. Menos trabalho manual, mais presença online.

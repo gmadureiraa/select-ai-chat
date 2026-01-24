@@ -1,7 +1,6 @@
 import { motion } from "framer-motion";
 import { 
   ArrowRight, 
-  Sparkles,
   Layers,
   Image,
   Youtube,
@@ -22,31 +21,59 @@ import { Link } from "react-router-dom";
 
 // Output formats that the source transforms into
 const outputFormats = [
-  { icon: LayoutGrid, label: "Carrossel", color: "bg-primary", delay: 0 },
-  { icon: MessageSquare, label: "Thread", color: "bg-primary/90", delay: 0.1 },
-  { icon: FileEdit, label: "Artigo", color: "bg-primary/80", delay: 0.2 },
-  { icon: BookOpen, label: "Stories", color: "bg-primary/70", delay: 0.3 },
-  { icon: Mail, label: "Newsletter", color: "bg-primary/90", delay: 0.4 },
-  { icon: Video, label: "Roteiro", color: "bg-primary/80", delay: 0.5 },
-  { icon: FileText, label: "Resumo", color: "bg-primary/70", delay: 0.6 },
-  { icon: Instagram, label: "Caption", color: "bg-primary", delay: 0.7 },
-  { icon: Twitter, label: "Tweet", color: "bg-primary/90", delay: 0.8 },
-  { icon: Linkedin, label: "LinkedIn", color: "bg-primary/80", delay: 0.9 },
+  { icon: LayoutGrid, label: "Carrossel", delay: 0 },
+  { icon: MessageSquare, label: "Thread", delay: 0.1 },
+  { icon: FileEdit, label: "Artigo", delay: 0.2 },
+  { icon: BookOpen, label: "Stories", delay: 0.3 },
+  { icon: Mail, label: "Newsletter", delay: 0.4 },
+  { icon: Video, label: "Roteiro", delay: 0.5 },
+  { icon: FileText, label: "Resumo", delay: 0.6 },
+  { icon: Instagram, label: "Caption", delay: 0.7 },
+  { icon: Twitter, label: "Tweet", delay: 0.8 },
+  { icon: Linkedin, label: "LinkedIn", delay: 0.9 },
 ];
 
-// Animated connection line component with smooth curved path
-const ConnectionLine = ({ delay, angle }: { delay: number; angle: number }) => (
-  <motion.div
-    className="absolute left-1/2 top-1/2 origin-left"
-    style={{ transform: `rotate(${angle}deg)` }}
-    initial={{ scaleX: 0, opacity: 0 }}
-    whileInView={{ scaleX: 1, opacity: 1 }}
-    viewport={{ once: true }}
-    transition={{ delay: delay + 0.3, duration: 0.5, ease: "easeOut" }}
-  >
-    <div className="h-[1px] w-[100px] md:w-[140px] bg-gradient-to-r from-primary/40 via-primary/60 to-primary/20" />
-  </motion.div>
-);
+// SVG Curved Connection component with animated path
+const CurvedConnection = ({ 
+  index, 
+  total, 
+  delay 
+}: { 
+  index: number; 
+  total: number; 
+  delay: number;
+}) => {
+  const angle = (index / total) * 360 - 90;
+  const radius = typeof window !== 'undefined' && window.innerWidth < 768 ? 120 : 180;
+  const innerRadius = 60;
+  
+  // Calculate start and end points
+  const startX = Math.cos((angle * Math.PI) / 180) * innerRadius;
+  const startY = Math.sin((angle * Math.PI) / 180) * innerRadius;
+  const endX = Math.cos((angle * Math.PI) / 180) * radius;
+  const endY = Math.sin((angle * Math.PI) / 180) * radius;
+  
+  // Control points for bezier curve (create a slight curve)
+  const midRadius = (innerRadius + radius) / 2;
+  const curveOffset = 15;
+  const perpAngle = angle + 90;
+  const controlX = Math.cos((angle * Math.PI) / 180) * midRadius + Math.cos((perpAngle * Math.PI) / 180) * curveOffset;
+  const controlY = Math.sin((angle * Math.PI) / 180) * midRadius + Math.sin((perpAngle * Math.PI) / 180) * curveOffset;
+  
+  return (
+    <motion.path
+      d={`M ${startX} ${startY} Q ${controlX} ${controlY} ${endX} ${endY}`}
+      stroke="hsl(var(--primary) / 0.4)"
+      strokeWidth="2"
+      fill="none"
+      strokeLinecap="round"
+      initial={{ pathLength: 0, opacity: 0 }}
+      whileInView={{ pathLength: 1, opacity: 1 }}
+      viewport={{ once: true }}
+      transition={{ delay: delay + 0.3, duration: 0.6, ease: "easeOut" }}
+    />
+  );
+};
 
 // Output format node component
 const OutputNode = ({ 
@@ -82,7 +109,7 @@ const OutputNode = ({
       }}
     >
       <motion.div
-        className={`flex items-center gap-2 px-3 py-2 rounded-xl ${format.color} text-primary-foreground shadow-md cursor-default`}
+        className="flex items-center gap-2 px-3 py-2 rounded-xl bg-primary text-primary-foreground shadow-md cursor-default"
         whileHover={{ scale: 1.1, y: -4 }}
         transition={{ type: "spring", stiffness: 400 }}
       >
@@ -106,13 +133,27 @@ const SourceToOutputsVisualization = () => {
         />
       </div>
       
-      {/* Connection lines */}
-      {outputFormats.map((format, index) => {
-        const angle = (index / outputFormats.length) * 360 - 90;
-        return (
-          <ConnectionLine key={format.label} delay={format.delay} angle={angle} />
-        );
-      })}
+      {/* SVG Container for curved connections */}
+      <svg 
+        className="absolute inset-0 w-full h-full pointer-events-none" 
+        style={{ 
+          overflow: 'visible',
+          left: '50%',
+          top: '50%',
+          transform: 'translate(-50%, -50%)',
+          width: '1px',
+          height: '1px'
+        }}
+      >
+        {outputFormats.map((format, index) => (
+          <CurvedConnection 
+            key={format.label} 
+            index={index} 
+            total={outputFormats.length}
+            delay={format.delay}
+          />
+        ))}
+      </svg>
       
       {/* Center source node */}
       <motion.div
@@ -160,7 +201,7 @@ const SourceToOutputsVisualization = () => {
         />
       ))}
       
-      {/* Counter badge */}
+      {/* Counter badge - removed gradient */}
       <motion.div
         className="absolute bottom-8 left-1/2 -translate-x-1/2"
         initial={{ opacity: 0, y: 20 }}
@@ -178,7 +219,7 @@ const SourceToOutputsVisualization = () => {
           </motion.span>
           <ArrowRight className="w-5 h-5 text-muted-foreground" />
           <motion.span 
-            className="text-2xl font-bold bg-gradient-to-r from-primary to-purple-500 bg-clip-text text-transparent"
+            className="text-2xl font-bold text-primary"
             initial={{ opacity: 0 }}
             whileInView={{ opacity: 1 }}
             viewport={{ once: true }}
@@ -203,7 +244,7 @@ const CanvasDemoSection = () => {
       </div>
 
       <div className="max-w-6xl mx-auto px-6 relative z-10">
-        {/* Header */}
+        {/* Header - removed Sparkles icon */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -212,7 +253,6 @@ const CanvasDemoSection = () => {
           className="text-center mb-8"
         >
           <Badge className="mb-6 bg-primary/10 text-primary border-primary/20">
-            <Sparkles className="w-3.5 h-3.5 mr-1.5" />
             Multiplicação de Conteúdo
           </Badge>
           <h2 className="text-3xl md:text-5xl font-bold text-foreground mb-4">
@@ -249,7 +289,7 @@ const CanvasDemoSection = () => {
               description: "Crie imagens personalizadas com IA integrada.",
             },
             {
-              icon: Sparkles,
+              icon: LayoutGrid,
               title: "IA Multi-Agente",
               description: "4 agentes especializados refinam cada conteúdo.",
             },

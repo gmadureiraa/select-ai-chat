@@ -128,7 +128,7 @@ const CTASection = () => {
                 size="lg"
                 className="h-14 px-10 text-lg rounded-full bg-background text-foreground hover:bg-background/90 dark:bg-primary dark:text-primary-foreground shadow-xl group"
               >
-                Começar grátis por 7 dias
+                Começar agora
                 <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
               </Button>
             </Link>
