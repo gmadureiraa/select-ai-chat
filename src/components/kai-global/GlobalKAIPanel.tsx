@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Sparkles, Trash2, Download, ChevronDown, Check, Plus, History, MessageSquare } from "lucide-react";
+import { X, Trash2, Download, ChevronDown, Check, Plus, History, MessageSquare } from "lucide-react";
+import { useTheme } from "next-themes";
+import kaleidosLogoVerde from "@/assets/kaleidos-logo-verde.svg";
+import kaleidosLogoRosa from "@/assets/kaleidos-logo-rosa.svg";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -72,6 +75,7 @@ export function GlobalKAIPanel({
   onNewConversation,
   onDeleteConversation,
 }: GlobalKAIPanelProps) {
+  const { resolvedTheme } = useTheme();
   const panelRef = useRef<HTMLDivElement>(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
@@ -164,8 +168,12 @@ export function GlobalKAIPanel({
               {/* Minimal Header */}
               <div className="flex items-center justify-between h-14 px-4 border-b border-border">
                 <div className="flex items-center gap-3 flex-1 min-w-0">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sidebar-accent flex-shrink-0">
-                    <Sparkles className="h-4 w-4 text-sidebar-accent-foreground" />
+<div className="flex h-8 w-8 items-center justify-center flex-shrink-0">
+                    <img 
+                      src={resolvedTheme === "dark" ? kaleidosLogoVerde : kaleidosLogoRosa} 
+                      alt="kAI" 
+                      className="h-6 w-6 object-contain" 
+                    />
                   </div>
                   
                   {/* Client selector dropdown */}
