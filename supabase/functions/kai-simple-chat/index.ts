@@ -10,7 +10,7 @@ const corsHeaders = {
 const MAX_IDENTITY_GUIDE_LENGTH = 8000;
 const MAX_CITED_CONTENT_LENGTH = 12000;
 const MAX_HISTORY_MESSAGES = 15;
-const MAX_METRICS_CONTEXT_LENGTH = 4000;
+const MAX_METRICS_CONTEXT_LENGTH = 8000; // Increased for detailed analysis
 
 // Planos que têm acesso ao kAI Chat
 const ALLOWED_PLANS = ["pro", "enterprise", "agency"];
@@ -32,6 +32,13 @@ interface RequestBody {
   citations?: Citation[];
   history?: HistoryMessage[];
 }
+
+interface DateRange {
+  start: string;
+  end: string;
+}
+
+type MetricFocus = 'likes' | 'engagement' | 'reach' | 'comments' | 'saves' | 'shares';
 
 // ============================================
 // INTENT DETECTION HELPERS
@@ -60,6 +67,9 @@ function isMetricsQuery(message: string): boolean {
     /dados\s+(do|da|de)/i,
     /como\s+(est[aá]|foi|anda)/i,
     /resultado/i,
+    /melhor\s+post/i,
+    /top\s*\d*/i,
+    /ranking/i,
   ];
   return patterns.some(p => p.test(message));
 }
@@ -95,44 +105,234 @@ function isWebSearchQuery(message: string): boolean {
   return patterns.some(p => p.test(message));
 }
 
+function isSpecificContentQuery(message: string): boolean {
+  const patterns = [
+    /qual\s+(foi\s+)?(o\s+)?(melhor|pior|maior|menor)/i,
+    /post\s+(com\s+)?(mais|menos)/i,
+    /top\s*\d*/i,
+    /ranking/i,
+    /conte[uú]do\s+que\s+(mais|menos)/i,
+    /melhor(es)?\s+post/i,
+    /pior(es)?\s+post/i,
+    /post\s+mais\s+curtido/i,
+    /maior\s+engajamento/i,
+    /mais\s+(likes|coment[aá]rios|compartilhamentos|saves|alcance)/i,
+    /quantos?\s+(likes|posts|coment[aá]rios)/i,
+    /por\s*que\s+(esse|este|aquele)\s+post/i,
+    /analise?\s+(esse|este|o)\s+post/i,
+  ];
+  return patterns.some(p => p.test(message));
+}
+
 // ============================================
-// METRICS CONTEXT BUILDER
+// DATE EXTRACTION
+// ============================================
+
+const MONTH_MAP: Record<string, number> = {
+  janeiro: 0, jan: 0,
+  fevereiro: 1, fev: 1,
+  março: 2, marco: 2, mar: 2,
+  abril: 3, abr: 3,
+  maio: 4, mai: 4,
+  junho: 5, jun: 5,
+  julho: 6, jul: 6,
+  agosto: 7, ago: 7,
+  setembro: 8, set: 8,
+  outubro: 9, out: 9,
+  novembro: 10, nov: 10,
+  dezembro: 11, dez: 11,
+};
+
+function extractDateRange(message: string): DateRange | null {
+  const lowerMessage = message.toLowerCase();
+  const currentDate = new Date();
+  const currentYear = currentDate.getFullYear();
+  const currentMonth = currentDate.getMonth();
+
+  // Pattern 1: Month + Year (e.g., "dezembro de 2025", "dezembro 2025", "dez/2025")
+  const monthYearPattern = /(janeiro|fevereiro|março|marco|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro|jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez)\s*(de\s*|\/)?(\d{4})/i;
+  const monthYearMatch = lowerMessage.match(monthYearPattern);
+  
+  if (monthYearMatch) {
+    const monthName = monthYearMatch[1].toLowerCase();
+    const year = parseInt(monthYearMatch[3]);
+    const month = MONTH_MAP[monthName];
+    
+    if (month !== undefined) {
+      const start = new Date(year, month, 1);
+      const end = new Date(year, month + 1, 0); // Last day of month
+      return {
+        start: start.toISOString().split('T')[0],
+        end: end.toISOString().split('T')[0],
+      };
+    }
+  }
+
+  // Pattern 2: Just month name (assume current year or last occurrence)
+  const monthOnlyPattern = /\b(janeiro|fevereiro|março|marco|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro|jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez)\b/i;
+  const monthOnlyMatch = lowerMessage.match(monthOnlyPattern);
+  
+  if (monthOnlyMatch && !monthYearMatch) {
+    const monthName = monthOnlyMatch[1].toLowerCase();
+    const month = MONTH_MAP[monthName];
+    
+    if (month !== undefined) {
+      // If the month is in the future for this year, use last year
+      const year = month > currentMonth ? currentYear - 1 : currentYear;
+      const start = new Date(year, month, 1);
+      const end = new Date(year, month + 1, 0);
+      return {
+        start: start.toISOString().split('T')[0],
+        end: end.toISOString().split('T')[0],
+      };
+    }
+  }
+
+  // Pattern 3: Relative periods
+  if (/mês\s+passado|último\s+mês|mes\s+passado/i.test(lowerMessage)) {
+    const start = new Date(currentYear, currentMonth - 1, 1);
+    const end = new Date(currentYear, currentMonth, 0);
+    return {
+      start: start.toISOString().split('T')[0],
+      end: end.toISOString().split('T')[0],
+    };
+  }
+
+  if (/este\s+mês|esse\s+mês|mês\s+atual/i.test(lowerMessage)) {
+    const start = new Date(currentYear, currentMonth, 1);
+    const end = new Date(currentYear, currentMonth + 1, 0);
+    return {
+      start: start.toISOString().split('T')[0],
+      end: end.toISOString().split('T')[0],
+    };
+  }
+
+  if (/últim(os|as)\s+(\d+)\s*(dias|semanas)/i.test(lowerMessage)) {
+    const match = lowerMessage.match(/últim(os|as)\s+(\d+)\s*(dias|semanas)/i);
+    if (match) {
+      const num = parseInt(match[2]);
+      const unit = match[3].toLowerCase();
+      const daysBack = unit === 'semanas' ? num * 7 : num;
+      const start = new Date();
+      start.setDate(start.getDate() - daysBack);
+      return {
+        start: start.toISOString().split('T')[0],
+        end: currentDate.toISOString().split('T')[0],
+      };
+    }
+  }
+
+  // Pattern 4: Year only (e.g., "em 2025")
+  const yearPattern = /\b(em\s+)?20(2[4-9]|3[0-9])\b/;
+  const yearMatch = lowerMessage.match(yearPattern);
+  if (yearMatch && !monthYearMatch) {
+    const year = parseInt(yearMatch[0].replace(/em\s+/, ''));
+    return {
+      start: `${year}-01-01`,
+      end: `${year}-12-31`,
+    };
+  }
+
+  return null;
+}
+
+// ============================================
+// METRIC FOCUS DETECTION
+// ============================================
+
+function detectMetricFocus(message: string): MetricFocus {
+  const lowerMessage = message.toLowerCase();
+  
+  if (/engajamento|engagement|taxa\s+de\s+engajamento/i.test(lowerMessage)) {
+    return 'engagement';
+  }
+  if (/alcance|reach/i.test(lowerMessage)) {
+    return 'reach';
+  }
+  if (/coment[aá]rios?|comments?/i.test(lowerMessage)) {
+    return 'comments';
+  }
+  if (/saves?|salvos?|salvamentos?/i.test(lowerMessage)) {
+    return 'saves';
+  }
+  if (/compartilhamentos?|shares?/i.test(lowerMessage)) {
+    return 'shares';
+  }
+  
+  // Default to likes as most common metric
+  return 'likes';
+}
+
+// ============================================
+// METRICS CONTEXT BUILDER (ENHANCED)
 // ============================================
 
 async function fetchMetricsContext(
   supabase: any,
-  clientId: string
+  clientId: string,
+  dateRange?: DateRange | null,
+  metricFocus?: MetricFocus,
+  isSpecificQuery?: boolean
 ): Promise<string> {
-  // Fetch last 30 days of metrics
-  const thirtyDaysAgo = new Date();
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-  
+  console.log("[kai-simple-chat] fetchMetricsContext:", { clientId, dateRange, metricFocus, isSpecificQuery });
+
+  // Determine date range to use
+  const queryStart = dateRange?.start || (() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 30);
+    return d.toISOString().split("T")[0];
+  })();
+  const queryEnd = dateRange?.end || new Date().toISOString().split("T")[0];
+
+  // Determine order column based on metric focus
+  const orderColumn = metricFocus === 'engagement' ? 'engagement_rate' :
+                      metricFocus === 'reach' ? 'reach' :
+                      metricFocus === 'comments' ? 'comments' :
+                      metricFocus === 'saves' ? 'saves' :
+                      metricFocus === 'shares' ? 'shares' : 'likes';
+
+  const postsLimit = isSpecificQuery ? 10 : 20;
+
   const [metricsResult, postsResult] = await Promise.all([
     supabase
       .from("platform_metrics")
       .select("*")
       .eq("client_id", clientId)
-      .gte("metric_date", thirtyDaysAgo.toISOString().split("T")[0])
+      .gte("metric_date", queryStart)
+      .lte("metric_date", queryEnd)
       .order("metric_date", { ascending: false })
       .limit(60),
     supabase
       .from("instagram_posts")
-      .select("caption, likes, comments, saves, shares, reach, engagement_rate, posted_at, post_type")
+      .select("id, caption, likes, comments, saves, shares, reach, impressions, engagement_rate, posted_at, post_type, permalink")
       .eq("client_id", clientId)
-      .order("posted_at", { ascending: false })
-      .limit(20),
+      .gte("posted_at", queryStart)
+      .lte("posted_at", queryEnd + "T23:59:59Z")
+      .order(orderColumn, { ascending: false, nullsFirst: false })
+      .limit(postsLimit),
   ]);
 
   const metrics: any[] = metricsResult.data || [];
   const posts: any[] = postsResult.data || [];
 
+  console.log("[kai-simple-chat] Fetched data:", { 
+    metricsCount: metrics.length, 
+    postsCount: posts.length,
+    dateRange: { start: queryStart, end: queryEnd }
+  });
+
   if (metrics.length === 0 && posts.length === 0) {
-    return "";
+    return `\n## Dados de Performance\nNenhum dado encontrado para o período de ${queryStart} a ${queryEnd}.\n`;
   }
 
-  let context = "\n## Dados de Performance do Cliente\n";
+  // Build period label
+  const periodLabel = dateRange 
+    ? `${formatDateBR(queryStart)} a ${formatDateBR(queryEnd)}`
+    : "Últimos 30 dias";
 
-  // Group metrics by platform
+  let context = `\n## Dados de Performance do Cliente (${periodLabel})\n`;
+
+  // Add platform metrics summary
   const byPlatform: Record<string, any[]> = {};
   for (const m of metrics) {
     if (!byPlatform[m.platform]) byPlatform[m.platform] = [];
@@ -145,54 +345,94 @@ async function fetchMetricsContext(
     
     context += `\n### ${platform.charAt(0).toUpperCase() + platform.slice(1)}\n`;
     
-    if (latest.followers || latest.subscribers) {
-      const current = latest.followers || latest.subscribers || 0;
-      const previous = oldest.followers || oldest.subscribers || 0;
+    if (latest.subscribers !== null && latest.subscribers !== undefined) {
+      const current = latest.subscribers || 0;
+      const previous = oldest.subscribers || 0;
       const growth = current - previous;
-      const growthPct = previous > 0 ? ((growth / previous) * 100).toFixed(1) : "N/A";
-      context += `- Seguidores/Inscritos: ${current.toLocaleString()} (${growth >= 0 ? "+" : ""}${growth.toLocaleString()} nos últimos 30 dias, ${growthPct}%)\n`;
+      context += `- Inscritos: ${current.toLocaleString('pt-BR')} (${growth >= 0 ? "+" : ""}${growth.toLocaleString('pt-BR')} no período)\n`;
     }
     
-    if (latest.engagement_rate) {
+    if (latest.engagement_rate !== null) {
       const avgEngagement = platformMetrics.reduce((sum: number, m: any) => sum + (m.engagement_rate || 0), 0) / platformMetrics.length;
-      context += `- Taxa de Engajamento: ${avgEngagement.toFixed(2)}%\n`;
+      context += `- Taxa de Engajamento Média: ${avgEngagement.toFixed(2)}%\n`;
     }
     
-    if (latest.views) {
+    if (latest.views !== null) {
       const totalViews = platformMetrics.reduce((sum: number, m: any) => sum + (m.views || 0), 0);
-      context += `- Total de Views (30d): ${totalViews.toLocaleString()}\n`;
-    }
-    
-    if (latest.reach) {
-      const totalReach = platformMetrics.reduce((sum: number, m: any) => sum + (m.reach || 0), 0);
-      context += `- Alcance Total (30d): ${totalReach.toLocaleString()}\n`;
+      context += `- Total de Views: ${totalViews.toLocaleString('pt-BR')}\n`;
     }
   }
 
-  // Add recent posts summary
+  // Add detailed posts data
   if (posts.length > 0) {
-    context += `\n### Últimos Posts do Instagram\n`;
-    const avgEngagement = posts.reduce((sum: number, p: any) => sum + (p.engagement_rate || 0), 0) / posts.length;
+    const metricLabel = metricFocus === 'engagement' ? 'Engajamento' :
+                       metricFocus === 'reach' ? 'Alcance' :
+                       metricFocus === 'comments' ? 'Comentários' :
+                       metricFocus === 'saves' ? 'Salvamentos' :
+                       metricFocus === 'shares' ? 'Compartilhamentos' : 'Likes';
+
+    // Calculate averages for comparison
     const avgLikes = posts.reduce((sum: number, p: any) => sum + (p.likes || 0), 0) / posts.length;
+    const avgEngagement = posts.reduce((sum: number, p: any) => sum + (p.engagement_rate || 0), 0) / posts.length;
     const avgComments = posts.reduce((sum: number, p: any) => sum + (p.comments || 0), 0) / posts.length;
-    
-    context += `- Posts analisados: ${posts.length}\n`;
-    context += `- Engajamento médio: ${avgEngagement.toFixed(2)}%\n`;
-    context += `- Média de likes: ${Math.round(avgLikes).toLocaleString()}\n`;
-    context += `- Média de comentários: ${Math.round(avgComments).toLocaleString()}\n`;
-    
-    // Top 3 posts
-    const topPosts = [...posts].sort((a: any, b: any) => (b.engagement_rate || 0) - (a.engagement_rate || 0)).slice(0, 3);
-    if (topPosts.length > 0) {
-      context += `\n**Top 3 Posts por Engajamento:**\n`;
+    const avgReach = posts.reduce((sum: number, p: any) => sum + (p.reach || 0), 0) / posts.length;
+
+    context += `\n### Posts do Instagram (${posts.length} posts encontrados)\n`;
+    context += `**Médias do período:** ${Math.round(avgLikes).toLocaleString('pt-BR')} likes | ${avgEngagement.toFixed(2)}% eng | ${Math.round(avgComments)} comments | ${Math.round(avgReach).toLocaleString('pt-BR')} reach\n`;
+
+    // If specific query, provide detailed ranking
+    if (isSpecificQuery) {
+      context += `\n**Ranking por ${metricLabel}:**\n`;
+      
+      posts.forEach((p: any, i: number) => {
+        const metricValue = metricFocus === 'engagement' ? p.engagement_rate?.toFixed(2) + '%' :
+                           metricFocus === 'reach' ? (p.reach || 0).toLocaleString('pt-BR') :
+                           metricFocus === 'comments' ? (p.comments || 0).toString() :
+                           metricFocus === 'saves' ? (p.saves || 0).toString() :
+                           metricFocus === 'shares' ? (p.shares || 0).toString() :
+                           (p.likes || 0).toLocaleString('pt-BR');
+        
+        const postDate = p.posted_at ? formatDateBR(p.posted_at.split('T')[0]) : 'Data desconhecida';
+        const postType = p.post_type || 'post';
+        
+        // For top 3, include full caption for analysis
+        const caption = i < 3 
+          ? (p.caption || 'Sem legenda')
+          : (p.caption?.substring(0, 100) || 'Sem legenda') + (p.caption?.length > 100 ? '...' : '');
+        
+        const likesVsAvg = p.likes && avgLikes > 0 
+          ? ((p.likes / avgLikes - 1) * 100).toFixed(0)
+          : '0';
+        const likesIndicator = parseInt(likesVsAvg) > 0 ? `📈 +${likesVsAvg}% vs média` : '';
+
+        context += `\n**#${i + 1} - ${metricValue} ${metricLabel}** (${postDate})\n`;
+        context += `Tipo: ${postType} | Likes: ${(p.likes || 0).toLocaleString('pt-BR')} | Comments: ${p.comments || 0} | Shares: ${p.shares || 0} | Saves: ${p.saves || 0}\n`;
+        context += `Engajamento: ${p.engagement_rate?.toFixed(2) || 0}% | Alcance: ${(p.reach || 0).toLocaleString('pt-BR')} ${likesIndicator}\n`;
+        context += `Legenda: ${caption}\n`;
+        if (p.permalink) {
+          context += `Link: ${p.permalink}\n`;
+        }
+      });
+    } else {
+      // Regular summary - top 5 by chosen metric
+      context += `\n**Top 5 por ${metricLabel}:**\n`;
+      const topPosts = posts.slice(0, 5);
+      
       topPosts.forEach((p: any, i: number) => {
         const caption = p.caption?.substring(0, 80) || "Sem legenda";
-        context += `${i + 1}. ${caption}... (${p.engagement_rate?.toFixed(2) || 0}% eng, ${p.likes || 0} likes)\n`;
+        const postDate = p.posted_at ? formatDateBR(p.posted_at.split('T')[0]) : '';
+        context += `${i + 1}. ${caption}${p.caption?.length > 80 ? '...' : ''}\n`;
+        context += `   📊 ${(p.likes || 0).toLocaleString('pt-BR')} likes | ${p.engagement_rate?.toFixed(2) || 0}% eng | ${postDate}\n`;
       });
     }
   }
 
   return context.substring(0, MAX_METRICS_CONTEXT_LENGTH);
+}
+
+function formatDateBR(dateStr: string): string {
+  const [year, month, day] = dateStr.split('-');
+  return `${day}/${month}/${year}`;
 }
 
 // ============================================
@@ -342,25 +582,39 @@ serve(async (req) => {
     const needsMetrics = isMetricsQuery(message);
     const isReport = isReportRequest(message);
     const needsWebSearch = isWebSearchQuery(message);
+    const isSpecificQuery = isSpecificContentQuery(message);
 
-    console.log("[kai-simple-chat] Intent detection:", { needsMetrics, isReport, needsWebSearch });
+    // 4. Extract date range and metric focus from message
+    const dateRange = extractDateRange(message);
+    const metricFocus = detectMetricFocus(message);
 
-    // 4. Fetch additional context based on intent
+    console.log("[kai-simple-chat] Intent detection:", { 
+      needsMetrics, 
+      isReport, 
+      needsWebSearch, 
+      isSpecificQuery,
+      dateRange,
+      metricFocus 
+    });
+
+    // 5. Fetch additional context based on intent
     const [metricsContext, webSearchResult, citedContent] = await Promise.all([
-      // Always fetch metrics if it's a metrics query or report request
-      (needsMetrics || isReport) ? fetchMetricsContext(supabase, clientId) : Promise.resolve(""),
+      // Fetch metrics with proper date range and focus
+      (needsMetrics || isReport || isSpecificQuery) 
+        ? fetchMetricsContext(supabase, clientId, dateRange, metricFocus, isSpecificQuery) 
+        : Promise.resolve(""),
       // Perform web search if needed
       needsWebSearch ? performWebSearch(message, authHeader) : Promise.resolve(null),
       // Fetch cited content
       fetchCitedContent(supabase, citations),
     ]);
 
-    // 5. Build system prompt (lean and focused)
+    // 6. Build system prompt (lean and focused)
     const identityGuide = client.identity_guide 
       ? client.identity_guide.substring(0, MAX_IDENTITY_GUIDE_LENGTH) 
       : "";
 
-    let systemPrompt = `Você é o kAI, um assistente especializado em criação de conteúdo para marcas e criadores.
+    let systemPrompt = `Você é o kAI, um assistente especializado em criação de conteúdo e análise de performance para marcas e criadores.
 
 ## Cliente: ${client.name}
 ${client.description ? `Descrição: ${client.description}` : ""}
@@ -395,6 +649,20 @@ O usuário solicitou um relatório de performance. Gere um relatório estruturad
 5. **Recomendações de Conteúdo** (3-5 ideias específicas)
 
 Use emojis para destacar pontos positivos (📈) e áreas de atenção (⚠️).`;
+    } else if (isSpecificQuery) {
+      systemPrompt += `
+
+## Instruções para Análise de Conteúdo Específico
+O usuário quer informações específicas sobre posts ou conteúdos.
+- Use os dados detalhados fornecidos acima para responder com precisão
+- Cite números exatos (likes, engajamento, datas)
+- Se perguntarem "por que" um post foi bem, analise:
+  1. Tema e timing do conteúdo
+  2. Estrutura e formato (carrossel, reels, imagem)
+  3. Copywriting e gatilhos usados na legenda
+  4. Comparação com a média do período
+  5. Padrões de engajamento (comments vs likes ratio)
+- Ofereça insights acionáveis para replicar o sucesso`;
     } else if (needsMetrics) {
       systemPrompt += `
 
@@ -415,7 +683,7 @@ Use emojis para destacar pontos positivos (📈) e áreas de atenção (⚠️).
 - Mantenha consistência com a identidade da marca em todas as respostas`;
     }
 
-    // 6. Build messages array - limit history to prevent context overflow
+    // 7. Build messages array - limit history to prevent context overflow
     const limitedHistory = (history || []).slice(-MAX_HISTORY_MESSAGES);
     const apiMessages = [
       { role: "system", content: systemPrompt },
@@ -431,7 +699,7 @@ Use emojis para destacar pontos positivos (📈) e áreas de atenção (⚠️).
       hasCitedContent: !!citedContent,
     });
 
-    // 7. Call Google Gemini API directly (prioritize user's API key)
+    // 8. Call Google Gemini API directly
     const GOOGLE_API_KEY = Deno.env.get("GOOGLE_AI_STUDIO_API_KEY");
     if (!GOOGLE_API_KEY) {
       console.error("[kai-simple-chat] GOOGLE_AI_STUDIO_API_KEY not configured");
