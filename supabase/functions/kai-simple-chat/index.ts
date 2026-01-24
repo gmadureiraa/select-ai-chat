@@ -431,176 +431,133 @@ Use emojis para destacar pontos positivos (📈) e áreas de atenção (⚠️).
       hasCitedContent: !!citedContent,
     });
 
-    // 7. Call AI Gateway with streaming
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      // Fallback to Google API
-      const GOOGLE_API_KEY = Deno.env.get("GOOGLE_AI_STUDIO_API_KEY");
-      if (!GOOGLE_API_KEY) {
-        console.error("[kai-simple-chat] No API key configured");
-        return new Response(
-          JSON.stringify({ error: "Configuração de API incompleta. Contate o suporte." }),
-          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-
-      console.log("[kai-simple-chat] Using Gemini fallback");
-      
-      // Use Gemini directly
-      const geminiResponse = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:streamGenerateContent?key=${GOOGLE_API_KEY}&alt=sse`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: apiMessages.map(m => ({
-              role: m.role === "assistant" ? "model" : m.role === "system" ? "user" : "user",
-              parts: [{ text: m.content }],
-            })),
-            generationConfig: {
-              temperature: 0.7,
-              maxOutputTokens: 4096,
-            },
-          }),
-        }
-      );
-
-      if (!geminiResponse.ok) {
-        const errorText = await geminiResponse.text();
-        console.error("[kai-simple-chat] Gemini error:", geminiResponse.status, errorText);
-        
-        // Provide specific error messages
-        if (geminiResponse.status === 429) {
-          return new Response(
-            JSON.stringify({ error: "Muitas requisições. Aguarde um momento e tente novamente." }),
-            { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-          );
-        }
-        if (geminiResponse.status === 400) {
-          return new Response(
-            JSON.stringify({ error: "Mensagem muito longa ou formato inválido." }),
-            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-          );
-        }
-        
-        return new Response(
-          JSON.stringify({ error: "Erro ao gerar resposta. Tente novamente." }),
-          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-
-      // Transform Gemini SSE to OpenAI format
-      const reader = geminiResponse.body?.getReader();
-      if (!reader) {
-        return new Response(
-          JSON.stringify({ error: "Resposta vazia do servidor." }),
-          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-
-      const encoder = new TextEncoder();
-      const stream = new ReadableStream({
-        async start(controller) {
-          const decoder = new TextDecoder();
-          try {
-            while (true) {
-              const { done, value } = await reader.read();
-              if (done) break;
-
-              const chunk = decoder.decode(value, { stream: true });
-              const lines = chunk.split("\n");
-
-              for (const line of lines) {
-                if (!line.startsWith("data: ")) continue;
-                const data = line.slice(6).trim();
-                if (!data) continue;
-
-                try {
-                  const parsed = JSON.parse(data);
-                  const text = parsed.candidates?.[0]?.content?.parts?.[0]?.text;
-                  if (text) {
-                    const openAIFormat = {
-                      choices: [{ delta: { content: text } }],
-                    };
-                    controller.enqueue(encoder.encode(`data: ${JSON.stringify(openAIFormat)}\n\n`));
-                  }
-                } catch {
-                  // Ignore parse errors for incomplete chunks
-                }
-              }
-            }
-            controller.enqueue(encoder.encode("data: [DONE]\n\n"));
-            controller.close();
-          } catch (e) {
-            console.error("[kai-simple-chat] Stream error:", e);
-            controller.error(e);
-          }
-        },
-      });
-
-      return new Response(stream, {
-        headers: {
-          ...corsHeaders,
-          "Content-Type": "text/event-stream",
-          "Cache-Control": "no-cache",
-        },
-      });
-    }
-
-    // Use Lovable AI Gateway
-    console.log("[kai-simple-chat] Using Lovable AI Gateway");
-    
-    const gatewayResponse = await fetch(
-      "https://ai.gateway.lovable.dev/v1/chat/completions",
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "google/gemini-3-flash-preview",
-          messages: apiMessages,
-          stream: true,
-          temperature: 0.7,
-          max_tokens: isReport ? 6000 : 4096, // More tokens for reports
-        }),
-      }
-    );
-
-    if (!gatewayResponse.ok) {
-      const status = gatewayResponse.status;
-      const errorText = await gatewayResponse.text();
-      console.error("[kai-simple-chat] Gateway error:", status, errorText);
-
-      if (status === 429) {
-        return new Response(
-          JSON.stringify({ error: "Limite de requisições atingido. Aguarde alguns segundos." }),
-          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      if (status === 402) {
-        return new Response(
-          JSON.stringify({ error: "Créditos insuficientes. Adicione mais créditos para continuar." }),
-          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      if (status === 408 || errorText.includes("timeout")) {
-        return new Response(
-          JSON.stringify({ error: "A requisição demorou demais. Tente uma mensagem mais curta." }),
-          { status: 408, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      
+    // 7. Call Google Gemini API directly (prioritize user's API key)
+    const GOOGLE_API_KEY = Deno.env.get("GOOGLE_AI_STUDIO_API_KEY");
+    if (!GOOGLE_API_KEY) {
+      console.error("[kai-simple-chat] GOOGLE_AI_STUDIO_API_KEY not configured");
       return new Response(
-        JSON.stringify({ error: "Erro ao processar sua solicitação. Tente novamente." }),
+        JSON.stringify({ error: "Chave de API do Google não configurada. Configure GOOGLE_AI_STUDIO_API_KEY." }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Stream the response directly
+    console.log("[kai-simple-chat] Using Google Gemini API directly");
+
+    // Build Gemini-compatible messages (merge system prompt into first user message)
+    const geminiContents = [];
+    let systemContent = "";
+    
+    for (const msg of apiMessages) {
+      if (msg.role === "system") {
+        systemContent = msg.content;
+      } else if (msg.role === "user") {
+        // If there's a system prompt, prepend it to first user message
+        const userContent = systemContent 
+          ? `${systemContent}\n\n---\n\n${msg.content}`
+          : msg.content;
+        geminiContents.push({
+          role: "user",
+          parts: [{ text: userContent }],
+        });
+        systemContent = ""; // Clear after first use
+      } else if (msg.role === "assistant") {
+        geminiContents.push({
+          role: "model",
+          parts: [{ text: msg.content }],
+        });
+      }
+    }
+
+    // Call Gemini with streaming
+    const geminiResponse = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:streamGenerateContent?key=${GOOGLE_API_KEY}&alt=sse`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: geminiContents,
+          generationConfig: {
+            temperature: 0.7,
+            maxOutputTokens: 4096,
+          },
+        }),
+      }
+    );
+
+    if (!geminiResponse.ok) {
+      const errorText = await geminiResponse.text();
+      console.error("[kai-simple-chat] Gemini error:", geminiResponse.status, errorText);
+      
+      if (geminiResponse.status === 429) {
+        return new Response(
+          JSON.stringify({ error: "Muitas requisições. Aguarde um momento e tente novamente." }),
+          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      if (geminiResponse.status === 400) {
+        return new Response(
+          JSON.stringify({ error: "Mensagem muito longa ou formato inválido." }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      
+      return new Response(
+        JSON.stringify({ error: "Erro ao gerar resposta. Tente novamente." }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Transform Gemini SSE to OpenAI format
+    const reader = geminiResponse.body?.getReader();
+    if (!reader) {
+      return new Response(
+        JSON.stringify({ error: "Resposta vazia do servidor." }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream({
+      async start(controller) {
+        const decoder = new TextDecoder();
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            const chunk = decoder.decode(value, { stream: true });
+            const lines = chunk.split("\n");
+
+            for (const line of lines) {
+              if (!line.startsWith("data: ")) continue;
+              const data = line.slice(6).trim();
+              if (!data) continue;
+
+              try {
+                const parsed = JSON.parse(data);
+                const text = parsed.candidates?.[0]?.content?.parts?.[0]?.text;
+                if (text) {
+                  const openAIFormat = {
+                    choices: [{ delta: { content: text } }],
+                  };
+                  controller.enqueue(encoder.encode(`data: ${JSON.stringify(openAIFormat)}\n\n`));
+                }
+              } catch {
+                // Ignore parse errors for incomplete chunks
+              }
+            }
+          }
+          controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+          controller.close();
+        } catch (e) {
+          console.error("[kai-simple-chat] Stream error:", e);
+          controller.error(e);
+        }
+      },
+    });
+
     console.log("[kai-simple-chat] Streaming response started");
-    return new Response(gatewayResponse.body, {
+    return new Response(stream, {
       headers: {
         ...corsHeaders,
         "Content-Type": "text/event-stream",
