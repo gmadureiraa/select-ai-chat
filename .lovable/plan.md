@@ -1,161 +1,173 @@
 
-# Plano de Expansão de Capacidades do kAI Chat
+# Plano: Análise de Métricas Contextual e Inteligente
 
-## Diagnóstico Atual
+## Problema Identificado
 
-O kAI Chat Global (`kai-simple-chat`) atualmente:
-- Conversa sobre o cliente usando contexto do identity_guide
-- Cita materiais das bibliotecas via @menções
-- Mantém histórico em memória (15 mensagens)
+O kAI Chat recebe apenas um **resumo genérico dos últimos 30 dias**, ignorando:
+- O período específico que o usuário perguntou (ex: "dezembro 2025")
+- Os posts individuais com todos os dados
+- A possibilidade de responder perguntas analíticas específicas
 
-**NÃO consegue** (mas as funções existem):
-- Ver/analisar métricas do cliente
-- Gerar relatórios de performance
-- Criar cards no planejamento
-- Importar métricas de CSV
-- Salvar URLs nas referências
-- Pesquisar na web
-- Gerar imagens
+**Resultado**: A IA diz "não tenho acesso" porque o contexto passado não contém os dados necessários.
 
 ---
 
-## Fase 1: Conectar Análise de Métricas (Prioridade Alta)
+## Solução: Sistema de Análise Contextual em 3 Camadas
 
-### 1.1 Adicionar Detecção de Intenção ao kAI Chat
+### Fase 1: Extração de Período da Mensagem
+
 **Arquivo:** `supabase/functions/kai-simple-chat/index.ts`
 
-- Antes de chamar a IA, verificar se a mensagem é sobre métricas
-- Usar regex patterns existentes em `ACTION_PATTERNS.ask_about_metrics`
-- Se detectar métricas → redirecionar para `kai-metrics-agent` internamente
+Adicionar função `extractDateRange(message: string)` que detecta:
+- Meses específicos: "dezembro", "janeiro", etc.
+- Anos: "2025", "2026"
+- Períodos relativos: "mês passado", "últimas semanas"
+- Ranges: "de novembro a dezembro"
 
 ```typescript
-// Exemplo de lógica
-if (isMetricsQuery(message)) {
-  // Buscar métricas e incluir no contexto
-  const metrics = await fetchClientMetrics(clientId);
-  systemPrompt += buildMetricsContext(metrics);
+function extractDateRange(message: string): { start: string; end: string } | null {
+  // Detectar mês + ano: "dezembro de 2025"
+  const monthYearMatch = message.match(/(janeiro|fevereiro|março|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)\s*(de\s*)?(\d{4})/i);
+  // Calcular range de datas do mês específico
+  // Retornar { start: '2025-12-01', end: '2025-12-31' }
 }
 ```
 
-### 1.2 Enriquecer Contexto com Métricas Resumidas
-- Buscar últimos 30 dias de `platform_metrics`
-- Incluir resumo no system prompt automaticamente
-- Isso permite que o kAI responda sobre métricas mesmo sem detecção explícita
+### Fase 2: Busca de Posts Direcionada
 
----
+**Modificar `fetchMetricsContext`:**
 
-## Fase 2: Adicionar Execução de Ações (Prioridade Alta)
+1. Receber parâmetro `dateRange` opcional
+2. Se dateRange existir, filtrar posts por `posted_at` no range
+3. Incluir **dados completos** de cada post (não truncar caption)
+4. Ordenar por métrica relevante (detectar se pergunta é sobre likes, engajamento, reach, etc.)
 
-### 2.1 Integrar `useKAIActions` no GlobalKAIContext
-**Arquivo:** `src/contexts/GlobalKAIContext.tsx`
-
-- Importar `useKAIActions` e `useKAIExecuteAction`
-- Detectar intenção antes de enviar mensagem
-- Se ação requer confirmação → mostrar preview
-- Se ação é automática → executar e reportar
-
-### 2.2 Ações a Conectar
-| Ação | Trigger | Comportamento |
-|------|---------|---------------|
-| Criar card | "Criar card no planejamento para X" | Mostra preview → confirma → cria |
-| Salvar referência | "Adicionar esta URL às referências: [url]" | Extrai conteúdo → confirma → salva |
-| Importar métricas | Anexar arquivo CSV | Analisa → preview → confirma → importa |
-
-### 2.3 Adicionar UI de Confirmação
-**Arquivo:** `src/components/kai-global/GlobalKAIChat.tsx`
-
-- Quando `pendingAction` existe, mostrar card de preview
-- Botões "Confirmar" e "Cancelar"
-- Indicador de progresso durante execução
-
----
-
-## Fase 3: Relatórios de Performance (Prioridade Média)
-
-### 3.1 Adicionar Comando de Relatório
-**Arquivo:** `supabase/functions/kai-simple-chat/index.ts`
-
-- Detectar padrões como "gerar relatório", "análise completa", "report"
-- Chamar `generate-performance-insights` internamente
-- Retornar resposta formatada em Markdown
-
-### 3.2 UI de Relatório no Chat
-**Arquivo:** `src/components/chat/EnhancedMessageBubble.tsx`
-
-- Detectar quando resposta é um relatório (por estrutura/headers)
-- Mostrar botão "Exportar PDF" inline
-- Styling diferenciado para relatórios
-
----
-
-## Fase 4: Pesquisa Web (Prioridade Média)
-
-### 4.1 Integrar Grok Search
-**Arquivo:** `supabase/functions/kai-simple-chat/index.ts`
-
-- Detectar perguntas que precisam de dados externos
-- Patterns: "pesquise sobre", "o que é", "notícias sobre"
-- Chamar `grok-search` e incluir resultado no contexto
-
-### 4.2 Citação de Fontes
-- Quando usar pesquisa web, incluir links das fontes
-- Mostrar chips de citação no chat
-
----
-
-## Fase 5: Persistência de Conversas (Prioridade Baixa)
-
-### 5.1 Criar Tabela `kai_conversations`
-```sql
-CREATE TABLE kai_conversations (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID REFERENCES auth.users,
-  client_id UUID REFERENCES clients,
-  workspace_id UUID REFERENCES workspaces,
-  title TEXT,
-  messages JSONB,
-  created_at TIMESTAMPTZ DEFAULT now(),
-  updated_at TIMESTAMPTZ DEFAULT now()
-);
+```typescript
+async function fetchMetricsContext(
+  supabase: any,
+  clientId: string,
+  dateRange?: { start: string; end: string },
+  metricFocus?: 'likes' | 'engagement' | 'reach' | 'comments'
+): Promise<string>
 ```
 
-### 5.2 Modificar useKAISimpleChat
-- Ao iniciar, verificar se existe conversa ativa
-- Ao receber mensagem, salvar no banco
-- Botão "Nova conversa" reseta
+**Novo comportamento:**
+- Se pergunta sobre "melhor post" + "dezembro" → buscar posts de dezembro, ordenar pelo critério
+- Retornar os **5 melhores** com dados completos
+- Incluir a legenda completa do #1 para análise posterior
+
+### Fase 3: Detecção de Intenção de Análise
+
+Adicionar detecção de:
+- **Perguntas específicas**: "qual foi o melhor", "qual post teve mais"
+- **Pedidos de análise profunda**: "por que esse post foi bem", "analise o sucesso"
+
+**Novo padrão de detecção:**
+```typescript
+function isSpecificContentQuery(message: string): boolean {
+  const patterns = [
+    /qual\s+(foi\s+)?(o\s+)?(melhor|pior|maior|menor)/i,
+    /post\s+(com\s+)?(mais|menos)/i,
+    /top\s*\d+/i,
+    /ranking/i,
+    /conte[uú]do\s+que\s+(mais|menos)/i,
+  ];
+  return patterns.some(p => p.test(message));
+}
+```
+
+### Fase 4: Contexto Rico para Análise Profunda
+
+Quando o usuário perguntar "por que esse post foi bem", o sistema deve:
+
+1. Detectar que é um **follow-up de análise**
+2. Buscar o post específico mencionado (do histórico ou por referência)
+3. Incluir no contexto:
+   - Caption completo
+   - Todas as métricas (likes, comments, shares, saves, reach)
+   - Data e horário de postagem
+   - Tipo de post (reel, carousel, imagem)
+   - Média de desempenho do período para comparação
+
+**Prompt especializado para análise:**
+```
+## Análise Detalhada Solicitada
+Post: [caption completo]
+Performance: 1612 likes (2x acima da média), 44 comentários, 155 shares
+Engajamento: 4.57% (média do mês: 3.2%)
+Tipo: Carrossel educativo
+
+Analise:
+1. Tema e timing
+2. Estrutura do conteúdo
+3. Copywriting e gatilhos
+4. Formato visual
+5. Padrões de engajamento
+```
 
 ---
 
-## Resumo de Arquivos a Modificar
+## Mudanças Específicas no Código
 
-| Arquivo | Mudanças |
-|---------|----------|
-| `kai-simple-chat/index.ts` | Detecção de métricas, integração com metrics-agent |
-| `GlobalKAIContext.tsx` | Integrar useKAIActions, gerenciar pendingAction |
-| `GlobalKAIChat.tsx` | UI de confirmação de ações, preview de relatórios |
-| `GlobalKAIInputMinimal.tsx` | Suporte a anexos de arquivo (CSV) |
-| `useKAISimpleChat.ts` | Persistência opcional, detectar ações |
+### 1. Nova função `extractDateRange`
+- Detecta período mencionado na mensagem
+- Mapeia meses em português para números
+- Calcula primeiro e último dia do mês
+
+### 2. Modificar `fetchMetricsContext`
+- Aceitar dateRange opcional
+- Buscar posts no período específico quando fornecido
+- Aumentar limite de dados quando for query específica
+- Incluir dados completos do melhor post
+
+### 3. Nova função `detectMetricFocus`
+- Identifica se pergunta é sobre likes, engajamento, alcance, etc.
+- Ordena resultados pela métrica correta
+
+### 4. Modificar fluxo principal
+- Extrair dateRange antes de buscar métricas
+- Passar dateRange para fetchMetricsContext
+- Ajustar prompt baseado no tipo de análise
+
+---
+
+## Fluxo Exemplo
+
+**Usuário pergunta:** "Qual foi o melhor post do Instagram de dezembro de 2025 em likes?"
+
+1. `extractDateRange` → `{ start: '2025-12-01', end: '2025-12-31' }`
+2. `detectMetricFocus` → `'likes'`
+3. `fetchMetricsContext(clientId, dateRange, 'likes')` → busca posts de dezembro ordenados por likes
+4. Contexto inclui:
+   ```
+   ## Melhor Post de Dezembro 2025 (por likes)
+   
+   **#1 - 1612 likes** (10/dez/2025)
+   Tipo: Carrossel
+   Engajamento: 4.57% | Comments: 44 | Shares: 155 | Saves: 91
+   Caption: "Sempre que o Bitcoin atinge novos topos, é chamado de bolha..."
+   
+   Outros top posts:
+   #2 - 1130 likes (28/dez) - Pack de memes
+   #3 - 1049 likes (18/dez) - Filmes para investidores
+   ```
+5. IA responde com dados precisos e oferece análise
 
 ---
 
 ## Resultado Esperado
 
-Após implementação, o kAI Chat conseguirá:
-
-1. ✅ Responder perguntas sobre métricas do cliente
-2. ✅ Gerar relatórios de performance completos
-3. ✅ Criar cards no planejamento via chat
-4. ✅ Salvar URLs como referências
-5. ✅ Importar métricas de arquivos CSV
-6. ✅ Pesquisar informações na web
-7. ✅ Manter histórico persistente entre sessões
+Após implementação:
+- ✅ Responde "qual foi o melhor post de dezembro" com dados exatos
+- ✅ Permite follow-up "por que esse post foi tão bem?"
+- ✅ Compara performance entre períodos
+- ✅ Identifica padrões de conteúdo de sucesso
+- ✅ Gera relatórios focados no período solicitado
 
 ---
 
-## Ordem de Implementação Sugerida
+## Arquivos a Modificar
 
-1. **Fase 1** (essencial) - Métricas no contexto
-2. **Fase 2** (alto valor) - Ações executáveis
-3. **Fase 3** (diferencial) - Relatórios inline
-4. **Fase 4** (nice-to-have) - Pesquisa web
-5. **Fase 5** (futuro) - Persistência
+| Arquivo | Mudanças |
+|---------|----------|
+| `supabase/functions/kai-simple-chat/index.ts` | Adicionar extractDateRange, detectMetricFocus, modificar fetchMetricsContext |
