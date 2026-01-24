@@ -12,6 +12,7 @@ import { Check, MessageCircle, LayoutDashboard, BarChart3, Crown, Loader2 } from
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { PLAN_CONFIG, SALES_CONTACT } from "@/lib/plans";
 
 interface UpgradePlanDialogProps {
   open: boolean;
@@ -19,18 +20,17 @@ interface UpgradePlanDialogProps {
   currentPlan?: string;
 }
 
-const WHATSAPP_LINK = "https://api.whatsapp.com/send/?phone=12936180547&text=Ol%C3%A1%21+Tenho+interesse+no+plano+Enterprise+do+KAI.&type=phone_number&app_absent=0";
-
+// Build plans from centralized PLAN_CONFIG
 const plans = [
   {
     id: "canvas",
-    name: "Canvas",
-    price: "$19.90",
+    name: PLAN_CONFIG.canvas.displayName,
+    price: PLAN_CONFIG.canvas.priceFormatted,
     period: "/mês",
-    description: "O essencial para criar conteúdo com IA",
+    description: PLAN_CONFIG.canvas.description,
     features: [
-      "3 perfis",
-      "1 usuário",
+      `${PLAN_CONFIG.canvas.maxClients} perfil`,
+      `${PLAN_CONFIG.canvas.maxMembers} usuário`,
       "Canvas ilimitado",
       "IA multi-agente",
       "Todos os formatos",
@@ -38,17 +38,17 @@ const plans = [
     ],
     icon: LayoutDashboard,
     highlighted: false,
-    planType: "canvas",
+    planType: PLAN_CONFIG.canvas.checkoutType,
   },
   {
     id: "pro",
-    name: "Pro",
-    price: "$99.90",
+    name: PLAN_CONFIG.pro.displayName,
+    price: PLAN_CONFIG.pro.priceFormatted,
     period: "/mês",
-    description: "Suite completa para criadores e agências",
+    description: PLAN_CONFIG.pro.description,
     features: [
-      "Até 10 perfis",
-      "Até 5 membros",
+      `Até ${PLAN_CONFIG.pro.maxClients} perfis`,
+      `Até ${PLAN_CONFIG.pro.maxMembers} membros`,
       "Tudo do Canvas",
       "Biblioteca de conteúdos",
       "Publicação agendada",
@@ -57,14 +57,14 @@ const plans = [
     ],
     icon: BarChart3,
     highlighted: true,
-    planType: "pro",
+    planType: PLAN_CONFIG.pro.checkoutType,
   },
   {
     id: "enterprise",
-    name: "Enterprise",
-    price: "Sob consulta",
+    name: PLAN_CONFIG.enterprise.displayName,
+    price: PLAN_CONFIG.enterprise.priceFormatted,
     period: "",
-    description: "Soluções sob medida",
+    description: PLAN_CONFIG.enterprise.description,
     features: [
       "Perfis ilimitados",
       "Membros ilimitados",
@@ -75,7 +75,7 @@ const plans = [
     ],
     icon: Crown,
     highlighted: false,
-    planType: "enterprise",
+    planType: PLAN_CONFIG.enterprise.checkoutType,
   },
 ];
 
@@ -83,7 +83,7 @@ export function UpgradePlanDialog({ open, onOpenChange, currentPlan }: UpgradePl
   const [loading, setLoading] = useState<string | null>(null);
 
   const handleContactSales = () => {
-    window.open(WHATSAPP_LINK, "_blank");
+    window.open(SALES_CONTACT.whatsapp, "_blank");
   };
 
   const handleSelectPlan = async (planType: string) => {
