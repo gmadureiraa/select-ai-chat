@@ -2,6 +2,8 @@ import { useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 interface ReportData {
   platform: string;
@@ -169,21 +171,32 @@ export function usePerformanceReport(clientId: string) {
     try {
       const prompt = buildReportPrompt(data);
 
-      // Use kai-content-agent for report generation (replaces execute-agent)
+      console.log("[PerformanceReport] Generating report with prompt length:", prompt.length);
+
+      // Use kai-content-agent for report generation with stream: false
       const { data: result, error } = await supabase.functions.invoke("kai-content-agent", {
         body: {
           clientId,
-          message: prompt,
-          model: "google/gemini-2.5-flash",
+          request: prompt,
           stream: false
         }
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error("[PerformanceReport] Edge function error:", error);
+        throw error;
+      }
+
+      console.log("[PerformanceReport] AI Response received, content length:", result?.content?.length || 0);
 
       const fullContent = result?.content || "";
       
-      // Parse the response into structured report
+      if (!fullContent || fullContent.length < 100) {
+        console.error("[PerformanceReport] Response too short or empty:", fullContent);
+        throw new Error("A IA retornou uma resposta vazia. Tente novamente.");
+      }
+      
+      // Parse the response into structured report with period in title
       const parsedReport = parseReportResponse(fullContent, data);
       
       // Save to database
@@ -201,6 +214,35 @@ export function usePerformanceReport(clientId: string) {
         kpis: data.kpis
       });
 
+      // Also save to content library for easy access
+      try {
+        // Use 'other' as content_type since 'report' is not in the DB enum yet
+        const { error: libraryError } = await supabase
+          .from("client_content_library")
+          .insert({
+            client_id: clientId,
+            title: parsedReport.title,
+            content_type: 'other',
+            content: fullContent,
+            metadata: {
+              platform: data.platform,
+              period: data.period,
+              type: 'performance_report',
+              kpis: data.kpis,
+              performance_report_id: savedReport.id,
+              generated_at: new Date().toISOString()
+            }
+          });
+
+        if (libraryError) {
+          console.error("[PerformanceReport] Library save error:", libraryError);
+        } else {
+          console.log("[PerformanceReport] Report saved to content library");
+        }
+      } catch (libError) {
+        console.error("[PerformanceReport] Library save exception:", libError);
+      }
+
       const reportWithId = {
         ...parsedReport,
         id: savedReport.id,
@@ -210,9 +252,12 @@ export function usePerformanceReport(clientId: string) {
 
       setReport(reportWithId);
 
+      // Invalidate content library query to show new report
+      queryClient.invalidateQueries({ queryKey: ["content-library", clientId] });
+
       toast({
         title: "Análise gerada!",
-        description: "Relatório estratégico completo com insights de IA."
+        description: "Relatório salvo na Biblioteca de Conteúdo."
       });
 
       return reportWithId;
@@ -220,7 +265,7 @@ export function usePerformanceReport(clientId: string) {
       console.error("[PerformanceReport] Error:", error);
       toast({
         title: "Erro ao gerar análise",
-        description: "Tente novamente em alguns instantes.",
+        description: error instanceof Error ? error.message : "Tente novamente em alguns instantes.",
         variant: "destructive"
       });
       return null;
@@ -494,6 +539,10 @@ REGRAS IMPORTANTES:
 }
 
 function parseReportResponse(content: string, data: ReportData): GeneratedReport {
+  // Generate title with period and date
+  const today = format(new Date(), "dd/MM/yyyy", { locale: ptBR });
+  const title = `Análise de Performance - ${data.platform} | ${data.period} | ${today}`;
+
   // Extract sections
   const extractItems = (text: string): string[] => {
     const items = text.match(/[-•]\s*(.+?)(?=\n[-•]|\n\n|$)/gs) || [];
@@ -530,7 +579,7 @@ function parseReportResponse(content: string, data: ReportData): GeneratedReport
   const recommendations = extractItems(recommendationsSection);
 
   return {
-    title: `Análise de Performance - ${data.platform}`,
+    title,
     summary: summarySection.replace(/resumo executivo/i, '').trim().slice(0, 500) || "Análise do período concluída.",
     highlights: highlights.length > 0 ? highlights : ["Dados coletados com sucesso", "Métricas analisadas", "Tendências identificadas"],
     insights: insights.length > 0 ? insights : ["Continue monitorando as métricas", "Foco em engajamento", "Acompanhe a evolução"],

@@ -299,6 +299,11 @@ IMPORTANTE: Siga EXATAMENTE o formato de entrega especificado nas regras acima. 
       );
     }
 
+    // Check if streaming is requested (default to true for backwards compatibility)
+    const { stream = true } = await req.json().catch(() => ({}));
+    const requestBody = await req.clone().json();
+    const useStreaming = requestBody.stream !== false;
+
     // Convert messages to Gemini format
     const geminiContents = messages.map(msg => ({
       role: msg.role === "assistant" ? "model" : msg.role === "system" ? "user" : "user",
@@ -315,6 +320,50 @@ IMPORTANTE: Siga EXATAMENTE o formato de entrega especificado nas regras acima. 
       }
     }
 
+    // Non-streaming request
+    if (!useStreaming) {
+      console.log("[kai-content-agent] Non-streaming request");
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GOOGLE_API_KEY}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: mergedContents,
+            generationConfig: {
+              temperature: 0.7,
+              maxOutputTokens: 8192,
+            },
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Gemini API error (non-streaming):", errorText);
+        
+        if (response.status === 429) {
+          return new Response(
+            JSON.stringify({ error: "Rate limit excedido. Tente novamente em alguns segundos." }),
+            { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        
+        throw new Error("Erro ao gerar conteúdo");
+      }
+
+      const result = await response.json();
+      const content = result?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+      
+      console.log("[kai-content-agent] Non-streaming response length:", content.length);
+
+      return new Response(
+        JSON.stringify({ content }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Streaming request
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:streamGenerateContent?alt=sse&key=${GOOGLE_API_KEY}`,
       {
