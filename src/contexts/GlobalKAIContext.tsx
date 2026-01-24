@@ -3,9 +3,13 @@ import { useSearchParams } from "react-router-dom";
 import { 
   KAIActionStatus,
   KAIFileAttachment,
+  DetectedAction,
+  PendingAction,
 } from "@/types/kaiActions";
 import { toast } from "sonner";
 import { useKAISimpleChat, SimpleCitation } from "@/hooks/useKAISimpleChat";
+import { useKAIActions } from "@/hooks/useKAIActions";
+import { useKAIExecuteAction } from "@/hooks/useKAIExecuteAction";
 import { supabase } from "@/integrations/supabase/client";
 import {
   GlobalKAIContext,
@@ -20,6 +24,21 @@ import {
 import type { Message } from "@/types/chat";
 
 const LOCAL_STORAGE_KEY = "kai-selected-client";
+
+// Helper to get human-readable action titles
+function getActionTitle(type: string): string {
+  const titles: Record<string, string> = {
+    create_content: "Criar conteúdo",
+    ask_about_metrics: "Análise de métricas",
+    upload_metrics: "Importar métricas",
+    create_planning_card: "Criar card no planejamento",
+    upload_to_library: "Adicionar à biblioteca",
+    upload_to_references: "Salvar referência",
+    analyze_url: "Analisar URL",
+    general_chat: "Conversa geral",
+  };
+  return titles[type] || type;
+}
 
 interface GlobalKAIProviderProps {
   children: ReactNode;
@@ -39,12 +58,17 @@ export function GlobalKAIProvider({ children }: GlobalKAIProviderProps) {
   });
   const [workspaceId, setWorkspaceId] = useState<string | null>(null);
   
-  // Action state (simplified - just for file attachments)
+  // Action state
   const [actionStatus, setActionStatus] = useState<KAIActionStatus>("idle");
   const [attachedFiles, setAttachedFiles] = useState<KAIFileAttachment[]>([]);
+  const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
   
   // Chat mode (simplified - just one mode)
   const [chatMode, setChatMode] = useState<GlobalKAIChatMode>("content");
+
+  // Action hooks
+  const { detectAction } = useKAIActions();
+  const { executeAction, isExecuting, progress: actionProgress } = useKAIExecuteAction();
 
   // Workspace data
   const [assignees, setAssignees] = useState<AssigneeItem[]>([]);
@@ -207,7 +231,7 @@ export function GlobalKAIProvider({ children }: GlobalKAIProviderProps) {
   }, [simpleChat]);
 
   // ============================================
-  // SIMPLIFIED SEND MESSAGE
+  // SEND MESSAGE WITH ACTION DETECTION
   // ============================================
   const sendMessage = useCallback(async (
     text: string, 
@@ -221,6 +245,43 @@ export function GlobalKAIProvider({ children }: GlobalKAIProviderProps) {
       return;
     }
 
+    // Convert files to KAIFileAttachment format for detection
+    const fileAttachments: KAIFileAttachment[] = (files || []).map(f => ({
+      id: crypto.randomUUID(),
+      file: f,
+      name: f.name,
+      type: f.type,
+      size: f.size,
+    }));
+
+    // Detect action intent
+    const detectedAction = await detectAction(text, fileAttachments, {
+      clientId: selectedClientId,
+    });
+
+    console.log("[GlobalKAI] Detected action:", detectedAction);
+
+    // If action requires confirmation, show preview
+    if (detectedAction.requiresConfirmation && detectedAction.confidence >= 0.7) {
+      // Build PendingAction from DetectedAction
+      const newPendingAction: PendingAction = {
+        id: crypto.randomUUID(),
+        type: detectedAction.type,
+        status: "confirming",
+        params: detectedAction.params,
+        files: fileAttachments.length > 0 ? fileAttachments : undefined,
+        createdAt: new Date(),
+        preview: {
+          title: getActionTitle(detectedAction.type),
+          description: text,
+        },
+      };
+      setPendingAction(newPendingAction);
+      setActionStatus("confirming");
+      return;
+    }
+
+    // For general chat or low-confidence actions, proceed with chat
     setActionStatus("executing");
     setAttachedFiles([]);
 
@@ -232,12 +293,13 @@ export function GlobalKAIProvider({ children }: GlobalKAIProviderProps) {
     } finally {
       setActionStatus("idle");
     }
-  }, [selectedClientId, simpleChat]);
+  }, [selectedClientId, simpleChat, detectAction]);
 
   // Clear conversation
   const clearConversation = useCallback(() => {
     simpleChat.clearHistory();
     setActionStatus("idle");
+    setPendingAction(null);
   }, [simpleChat]);
 
   // Cancel request
@@ -257,12 +319,45 @@ export function GlobalKAIProvider({ children }: GlobalKAIProviderProps) {
     }
   }, [simpleChat]);
 
-  // Action handlers (simplified - no longer used)
+  // ============================================
+  // ACTION CONFIRMATION HANDLERS
+  // ============================================
   const confirmAction = useCallback(async () => {
-    toast.info("Ações não suportadas nesta versão");
-  }, []);
+    if (!pendingAction || !selectedClientId || !workspaceId) {
+      toast.error("Erro: ação não encontrada");
+      return;
+    }
+
+    setActionStatus("executing");
+    
+    try {
+      const result = await executeAction({
+        action: pendingAction,
+        clientId: selectedClientId,
+        workspaceId,
+      });
+
+      if (result.success) {
+        toast.success(result.message || "Ação executada com sucesso!");
+        
+        // Add confirmation message to chat
+        simpleChat.sendMessage(
+          `✅ Ação executada: ${getActionTitle(pendingAction.type)}\n${result.message || ""}`
+        );
+      } else {
+        toast.error(result.message || "Erro ao executar ação");
+      }
+    } catch (error) {
+      console.error("[GlobalKAI] Action execution error:", error);
+      toast.error("Erro ao executar ação");
+    } finally {
+      setPendingAction(null);
+      setActionStatus("idle");
+    }
+  }, [pendingAction, selectedClientId, workspaceId, executeAction, simpleChat]);
 
   const cancelAction = useCallback(() => {
+    setPendingAction(null);
     setActionStatus("idle");
   }, []);
 
