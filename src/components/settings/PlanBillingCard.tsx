@@ -6,9 +6,11 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { useTokens } from "@/hooks/useTokens";
 import { useWorkspace } from "@/hooks/useWorkspace";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { cn } from "@/lib/utils";
 import {
   CreditCard, 
   Coins, 
@@ -31,6 +33,7 @@ export function PlanBillingCard() {
     isUnlimited 
   } = useTokens();
   const { isAdminOrOwner } = useWorkspace();
+  const isMobile = useIsMobile();
   const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
   const [loadingPortal, setLoadingPortal] = useState(false);
 

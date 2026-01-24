@@ -4,9 +4,12 @@ import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Bell, CheckCircle2 } from "lucide-react";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { cn } from "@/lib/utils";
 
 export function NotificationSettings() {
   const { permission, requestPermission, isSupported } = usePushNotifications();
+  const isMobile = useIsMobile();
 
   const handleRequestPermission = async () => {
     await requestPermission();
@@ -25,8 +28,11 @@ export function NotificationSettings() {
       </CardHeader>
       <CardContent className="space-y-6">
         {/* Push Notifications */}
-        <div className="flex items-center justify-between">
-          <div className="space-y-0.5">
+        <div className={cn(
+          "flex gap-4",
+          isMobile ? "flex-col" : "items-center justify-between"
+        )}>
+          <div className="space-y-0.5 min-w-0">
             <Label className="text-base font-medium">
               Notificações Push
             </Label>
@@ -34,7 +40,7 @@ export function NotificationSettings() {
               Receba alertas no navegador quando houver atualizações
             </p>
           </div>
-          <div>
+          <div className={cn(isMobile && "self-start")}>
             {!isSupported ? (
               <Badge variant="outline" className="text-muted-foreground">
                 Não suportado
@@ -63,8 +69,11 @@ export function NotificationSettings() {
         )}
 
         {/* Future: Email Notifications */}
-        <div className="flex items-center justify-between opacity-50">
-          <div className="space-y-0.5">
+        <div className={cn(
+          "flex gap-4 opacity-50",
+          isMobile ? "flex-col" : "items-center justify-between"
+        )}>
+          <div className="space-y-0.5 min-w-0">
             <Label className="text-base font-medium">
               Notificações por Email
             </Label>
@@ -72,9 +81,11 @@ export function NotificationSettings() {
               Receba resumos e alertas importantes por email
             </p>
           </div>
-          <Badge variant="outline" className="text-muted-foreground">
-            Em breve
-          </Badge>
+          <div className={cn(isMobile && "self-start")}>
+            <Badge variant="outline" className="text-muted-foreground">
+              Em breve
+            </Badge>
+          </div>
         </div>
       </CardContent>
     </Card>
