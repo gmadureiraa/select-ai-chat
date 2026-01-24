@@ -1,9 +1,10 @@
-import { FileText, Download, X, Loader2, Sparkles, History, Trash2, ChevronRight, Lightbulb } from "lucide-react";
+import { Download, X, Loader2, Sparkles, History, Trash2, ChevronRight, Lightbulb, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { usePerformanceReport } from "@/hooks/usePerformanceReport";
-import { exportToPDF, downloadFile } from "@/lib/exportConversation";
+import { exportReportToPDF } from "@/lib/exportReport";
+import { downloadFile } from "@/lib/exportConversation";
 import ReactMarkdown from "react-markdown";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -68,11 +69,18 @@ export function PerformanceReportGenerator({
   const handleExportPDF = async () => {
     if (!report) return;
 
-    const content = [
-      { role: "assistant", content: report.fullContent, id: "1" }
-    ];
+    const generatedAt = report.createdAt 
+      ? format(new Date(report.createdAt), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })
+      : format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR });
 
-    const blob = await exportToPDF(content, platform);
+    const blob = await exportReportToPDF({
+      title: report.title,
+      platform,
+      period,
+      content: report.fullContent,
+      generatedAt
+    });
+    
     downloadFile(blob, `analise-${platform.toLowerCase()}-${period.replace(/\s/g, '-')}.pdf`, "application/pdf");
   };
 
@@ -87,9 +95,17 @@ export function PerformanceReportGenerator({
       <DialogContent className="max-w-4xl max-h-[90vh]">
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-primary" />
-              {showHistory ? "Histórico de Análises" : `Análise Estratégica - ${platform}`}
+            <div className="flex flex-col gap-1">
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-5 w-5 text-primary" />
+                <span>{showHistory ? "Histórico de Análises" : `Análise Estratégica - ${platform}`}</span>
+              </div>
+              {!showHistory && (
+                <div className="flex items-center gap-2 text-xs font-normal text-muted-foreground">
+                  <Calendar className="h-3 w-3" />
+                  <span>Período: {period}</span>
+                </div>
+              )}
             </div>
             <Button
               variant="ghost"
@@ -186,22 +202,41 @@ export function PerformanceReportGenerator({
                   ✓ Comparação com período anterior disponível
                 </Badge>
               )}
-              <Button onClick={handleGenerate} disabled={isGenerating} size="lg">
-                {isGenerating ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Gerando análise...
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="mr-2 h-4 w-4" />
-                    Gerar Análise
-                  </>
-                )}
-              </Button>
+              {isGenerating ? (
+                <div className="flex flex-col items-center gap-3">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  <p className="text-sm text-muted-foreground">Gerando análise estratégica...</p>
+                  <p className="text-xs text-muted-foreground">Isso pode levar até 30 segundos</p>
+                </div>
+              ) : (
+                <Button onClick={handleGenerate} size="lg">
+                  <Sparkles className="mr-2 h-4 w-4" />
+                  Gerar Análise
+                </Button>
+              )}
             </div>
           ) : (
             <div className="py-4 px-2 space-y-6">
+              {/* Report Header with Period */}
+              <div className="p-4 bg-muted/30 rounded-lg border">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <h2 className="font-semibold text-base">{report.title}</h2>
+                    <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground">
+                      <Calendar className="h-3.5 w-3.5" />
+                      <span>Período: {period}</span>
+                      <span className="text-muted-foreground/50">•</span>
+                      <span>Gerado em: {report.createdAt 
+                        ? format(new Date(report.createdAt), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })
+                        : format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}</span>
+                    </div>
+                  </div>
+                  <Badge variant="secondary" className="shrink-0">
+                    {platform}
+                  </Badge>
+                </div>
+              </div>
+
               {/* Content Recommendations Card */}
               {report.contentRecommendations && report.contentRecommendations.length > 0 && (
                 <Card className="border-primary/20 bg-primary/5">
