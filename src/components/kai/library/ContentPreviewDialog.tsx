@@ -181,154 +181,152 @@ export function ContentPreviewDialog({
           </div>
         </DialogHeader>
 
-        <div className="flex-1 min-h-0 flex flex-col gap-3 py-3 overflow-hidden">
-          {/* Compact Image Gallery - only if images exist */}
-          {images.length > 0 && (
-            <div className="relative rounded-lg overflow-hidden border bg-muted/30 flex-shrink-0">
-              <div className="max-h-[150px] flex items-center justify-center">
-                <img
-                  src={images[currentImageIndex]}
-                  alt={`${item.title} - Imagem ${currentImageIndex + 1}`}
-                  className="max-w-full max-h-full object-contain"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).style.display = 'none';
-                  }}
-                />
+        <ScrollArea className="flex-1 min-h-0 py-3">
+          <div className="pr-4">
+            {/* Image Gallery - scrolls with content */}
+            {images.length > 0 && (
+              <div className="relative rounded-lg overflow-hidden border bg-muted/30 mb-4">
+                <div className="aspect-square max-h-[400px] flex items-center justify-center">
+                  <img
+                    src={images[currentImageIndex]}
+                    alt={`${item.title} - Imagem ${currentImageIndex + 1}`}
+                    className="max-w-full max-h-full object-contain"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).style.display = 'none';
+                    }}
+                  />
+                </div>
+                
+                {/* Navigation arrows */}
+                {images.length > 1 && (
+                  <>
+                    <Button
+                      variant="secondary"
+                      size="icon"
+                      className="absolute left-2 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full bg-background/80 hover:bg-background"
+                      onClick={handlePrevImage}
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      size="icon"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full bg-background/80 hover:bg-background"
+                      onClick={handleNextImage}
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                    
+                    {/* Image counter */}
+                    <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-background/80 rounded-full px-3 py-1">
+                      <Images className="h-3 w-3" />
+                      <span className="text-xs font-medium">{currentImageIndex + 1} / {images.length}</span>
+                    </div>
+                  </>
+                )}
               </div>
-              
-              {/* Navigation arrows */}
-              {images.length > 1 && (
-                <>
-                  <Button
-                    variant="secondary"
-                    size="icon"
-                    className="absolute left-2 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full bg-background/80 hover:bg-background"
-                    onClick={handlePrevImage}
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    size="icon"
-                    className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full bg-background/80 hover:bg-background"
-                    onClick={handleNextImage}
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
-                  
-                  {/* Image counter */}
-                  <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-background/80 rounded-full px-3 py-1">
-                    <Images className="h-3 w-3" />
-                    <span className="text-xs font-medium">{currentImageIndex + 1} / {images.length}</span>
-                  </div>
-                </>
-              )}
-            </div>
-          )}
+            )}
 
-          {/* Content */}
-          <ScrollArea className="flex-1 min-h-0">
-            <div className="pr-4">
-              <h3 className="font-semibold text-lg mb-3">{item.title}</h3>
-              <div className="prose prose-sm dark:prose-invert max-w-none prose-headings:font-semibold prose-headings:mt-4 prose-headings:mb-2 prose-p:my-2 prose-ul:my-2 prose-ol:my-2 prose-img:rounded-lg prose-img:my-3 prose-img:max-w-full prose-blockquote:border-l-primary prose-blockquote:bg-muted/50 prose-blockquote:py-1 prose-blockquote:px-3">
-                <ReactMarkdown>{item.content}</ReactMarkdown>
-              </div>
-            </div>
-          </ScrollArea>
-
-          {/* Metrics */}
-          <div className="flex items-center gap-6 py-3 border-t text-sm flex-shrink-0">
-            <div className="flex items-center gap-2">
-              <Heart className="h-4 w-4 text-red-500" />
-              <span className="font-medium">{item.metrics.likes.toLocaleString()}</span>
-              <span className="text-muted-foreground">curtidas</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <MessageCircle className="h-4 w-4 text-blue-500" />
-              <span className="font-medium">{item.metrics.comments.toLocaleString()}</span>
-              <span className="text-muted-foreground">comentários</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Share2 className="h-4 w-4 text-green-500" />
-              <span className="font-medium">{item.metrics.shares.toLocaleString()}</span>
-              <span className="text-muted-foreground">compartilhamentos</span>
+            {/* Content */}
+            <h3 className="font-semibold text-lg mb-3">{item.title}</h3>
+            <div className="prose prose-sm dark:prose-invert max-w-none prose-headings:font-semibold prose-headings:mt-4 prose-headings:mb-2 prose-p:my-2 prose-ul:my-2 prose-ol:my-2 prose-img:rounded-lg prose-img:my-3 prose-img:max-w-full prose-blockquote:border-l-primary prose-blockquote:bg-muted/50 prose-blockquote:py-1 prose-blockquote:px-3">
+              <ReactMarkdown>{item.content}</ReactMarkdown>
             </div>
           </div>
+        </ScrollArea>
 
-          {/* Actions */}
-          <div className="flex flex-wrap gap-2 pt-2 border-t flex-shrink-0">
-            <Button variant="outline" className="gap-2" onClick={handleCopy}>
-              <Copy className="h-4 w-4" />
-              Copiar texto
-            </Button>
-            
-            {/* Download buttons */}
-            {images.length > 0 && (
-              <>
+        {/* Metrics */}
+        <div className="flex items-center gap-6 py-3 border-t text-sm flex-shrink-0">
+          <div className="flex items-center gap-2">
+            <Heart className="h-4 w-4 text-red-500" />
+            <span className="font-medium">{item.metrics.likes.toLocaleString()}</span>
+            <span className="text-muted-foreground">curtidas</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <MessageCircle className="h-4 w-4 text-blue-500" />
+            <span className="font-medium">{item.metrics.comments.toLocaleString()}</span>
+            <span className="text-muted-foreground">comentários</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Share2 className="h-4 w-4 text-green-500" />
+            <span className="font-medium">{item.metrics.shares.toLocaleString()}</span>
+            <span className="text-muted-foreground">compartilhamentos</span>
+          </div>
+        </div>
+
+        {/* Actions */}
+        <div className="flex flex-wrap gap-2 pt-2 border-t flex-shrink-0">
+          <Button variant="outline" className="gap-2" onClick={handleCopy}>
+            <Copy className="h-4 w-4" />
+            Copiar texto
+          </Button>
+          
+          {/* Download buttons */}
+          {images.length > 0 && (
+            <>
+              <Button 
+                variant="outline" 
+                className="gap-2"
+                onClick={() => downloadImage(images[currentImageIndex], `imagem-${currentImageIndex + 1}.jpg`)}
+                disabled={isDownloading}
+              >
+                {isDownloading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Download className="h-4 w-4" />
+                )}
+                Baixar imagem
+              </Button>
+              
+              {images.length > 1 && (
                 <Button 
                   variant="outline" 
                   className="gap-2"
-                  onClick={() => downloadImage(images[currentImageIndex], `imagem-${currentImageIndex + 1}.jpg`)}
-                  disabled={isDownloading}
+                  onClick={downloadAllImages}
+                  disabled={isDownloadingAll}
                 >
-                  {isDownloading ? (
+                  {isDownloadingAll ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
-                    <Download className="h-4 w-4" />
+                    <Images className="h-4 w-4" />
                   )}
-                  Baixar imagem
+                  Baixar todas ({images.length})
                 </Button>
-                
-                {images.length > 1 && (
-                  <Button 
-                    variant="outline" 
-                    className="gap-2"
-                    onClick={downloadAllImages}
-                    disabled={isDownloadingAll}
-                  >
-                    {isDownloadingAll ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Images className="h-4 w-4" />
-                    )}
-                    Baixar todas ({images.length})
-                  </Button>
-                )}
-              </>
-            )}
-            
-            {onToggleFavorite && (
-              <Button 
-                variant="outline" 
-                className="gap-2"
-                onClick={onToggleFavorite}
-              >
-                <Star className={cn("h-4 w-4", item.is_favorite && "fill-yellow-400 text-yellow-400")} />
-                {item.is_favorite ? 'Remover favorito' : 'Favoritar'}
-              </Button>
-            )}
-            
-            {item.permalink && (
-              <Button 
-                variant="outline" 
-                className="gap-2"
-                onClick={() => window.open(item.permalink, '_blank')}
-              >
-                <ExternalLink className="h-4 w-4" />
-                Ver original
-              </Button>
-            )}
-            
-            {onEdit && (
-              <Button 
-                className="gap-2 ml-auto"
-                onClick={onEdit}
-              >
-                <Edit className="h-4 w-4" />
-                Editar
-              </Button>
-            )}
-          </div>
+              )}
+            </>
+          )}
+          
+          {onToggleFavorite && (
+            <Button 
+              variant="outline" 
+              className="gap-2"
+              onClick={onToggleFavorite}
+            >
+              <Star className={cn("h-4 w-4", item.is_favorite && "fill-yellow-400 text-yellow-400")} />
+              {item.is_favorite ? 'Remover favorito' : 'Favoritar'}
+            </Button>
+          )}
+          
+          {item.permalink && (
+            <Button 
+              variant="outline" 
+              className="gap-2"
+              onClick={() => window.open(item.permalink, '_blank')}
+            >
+              <ExternalLink className="h-4 w-4" />
+              Ver original
+            </Button>
+          )}
+          
+          {onEdit && (
+            <Button 
+              className="gap-2 ml-auto"
+              onClick={onEdit}
+            >
+              <Edit className="h-4 w-4" />
+              Editar
+            </Button>
+          )}
         </div>
       </DialogContent>
     </Dialog>
