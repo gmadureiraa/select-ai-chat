@@ -128,7 +128,8 @@ export const PlanningItemCard = memo(function PlanningItemCard({
       className={cn(
         "group bg-card border border-border/40 rounded-xl overflow-hidden cursor-pointer",
         "transition-all duration-200 ease-out",
-        "hover:shadow-lg hover:shadow-primary/5 hover:border-primary/20 hover:-translate-y-0.5",
+        "hover:shadow-xl hover:shadow-primary/8 hover:border-primary/30 hover:-translate-y-1",
+        "active:scale-[0.98] active:shadow-md",
         isDragging && "opacity-50 rotate-2 shadow-xl scale-105 ring-2 ring-primary/30",
         isFailed && "border-destructive/40 bg-destructive/5",
         isPublished && "border-emerald-500/30 bg-emerald-500/5",

@@ -248,15 +248,15 @@ function ContentOutputNodeComponent({
     )}>
       <CardHeader className={cn(
         "pb-2 pt-3 px-3 flex-row items-center justify-between rounded-t-xl border-b",
-        "bg-gradient-to-r from-blue-500/10 via-blue-500/5 to-transparent",
-        "border-blue-500/20"
+        "bg-blue-500/5 dark:bg-blue-500/10",
+        "border-blue-500/15 dark:border-blue-500/20"
       )}>
         <div className="flex items-center gap-2">
           <div className={cn(
             "h-6 w-6 rounded-md flex items-center justify-center transition-all",
             data.addedToPlanning 
               ? "bg-primary shadow-sm shadow-primary/30" 
-              : "bg-gradient-to-br from-blue-500 to-indigo-600"
+              : "bg-blue-500/80 dark:bg-blue-500"
           )}>
             {data.addedToPlanning ? (
               <Check className="h-3.5 w-3.5 text-white" />

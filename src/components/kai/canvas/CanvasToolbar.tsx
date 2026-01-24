@@ -340,7 +340,7 @@ function CanvasToolbarComponent({
 
   return (
     <TooltipProvider delayDuration={300}>
-      <div className="absolute top-14 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1 px-3 py-2 rounded-xl bg-background/85 backdrop-blur-xl saturate-150 border border-border/50 shadow-lg shadow-black/5">
+      <div className="absolute top-14 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1.5 px-4 py-2.5 rounded-2xl bg-background/90 backdrop-blur-2xl saturate-200 border border-border/60 shadow-xl shadow-black/10 dark:shadow-black/30">
         {/* Canvas name */}
         <div className="flex items-center gap-1 mr-1">
           {isEditing ? (
@@ -364,7 +364,7 @@ function CanvasToolbarComponent({
           {renderAutoSaveIndicator()}
         </div>
 
-        <Separator orientation="vertical" className="h-5 mx-1.5 bg-border/60" />
+        <Separator orientation="vertical" className="h-6 mx-2 bg-border" />
 
         {/* Whiteboard Tools */}
         <div className="flex items-center gap-0.5">
@@ -382,7 +382,11 @@ function CanvasToolbarComponent({
                         <Button
                           variant={isActive ? "default" : "ghost"}
                           size="icon"
-                          className={cn("h-8 w-8", isActive && "bg-primary text-primary-foreground")}
+                          className={cn(
+                            "h-8 w-8 transition-all duration-150",
+                            isActive && "bg-primary text-primary-foreground shadow-md shadow-primary/20 scale-105",
+                            !isActive && "hover:bg-muted/80"
+                          )}
                           onClick={() => onToolChange(tool.type)}
                         >
                           <Icon size={16} />

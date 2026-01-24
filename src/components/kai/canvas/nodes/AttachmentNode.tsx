@@ -414,8 +414,8 @@ const AttachmentNodeComponent: React.FC<NodeProps<AttachmentNodeData>> = ({
     )}>
       <CardHeader className={cn(
         "pb-2 rounded-t-xl border-b",
-        "bg-gradient-to-r from-purple-500/10 via-purple-500/5 to-transparent",
-        "border-purple-500/20"
+        "bg-purple-500/5 dark:bg-purple-500/10",
+        "border-purple-500/15 dark:border-purple-500/20"
       )}>
         <div className="flex items-center justify-between">
           <CardTitle className="text-sm flex items-center gap-2">
