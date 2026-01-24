@@ -780,7 +780,7 @@ const NewHeroSection = () => {
               className="bg-primary text-primary-foreground hover:bg-primary/90 px-8 py-6 text-base font-semibold rounded-full group min-w-[280px] shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30 transition-all"
             >
               <Sparkles className="mr-2 w-4 h-4" />
-              Começar grátis por 7 dias
+              Começar agora
               <ArrowRight className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" />
             </Button>
           </Link>

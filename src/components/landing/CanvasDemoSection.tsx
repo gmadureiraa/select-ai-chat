@@ -34,7 +34,7 @@ const outputFormats = [
   { icon: Linkedin, label: "LinkedIn", color: "bg-primary/80", delay: 0.9 },
 ];
 
-// Animated connection line component
+// Animated connection line component with smooth curved path
 const ConnectionLine = ({ delay, angle }: { delay: number; angle: number }) => (
   <motion.div
     className="absolute left-1/2 top-1/2 origin-left"
@@ -42,16 +42,9 @@ const ConnectionLine = ({ delay, angle }: { delay: number; angle: number }) => (
     initial={{ scaleX: 0, opacity: 0 }}
     whileInView={{ scaleX: 1, opacity: 1 }}
     viewport={{ once: true }}
-    transition={{ delay: delay + 0.3, duration: 0.4, ease: "easeOut" }}
+    transition={{ delay: delay + 0.3, duration: 0.5, ease: "easeOut" }}
   >
-    <div className="h-[2px] w-[100px] md:w-[140px] bg-gradient-to-r from-primary/60 to-primary/10" />
-    <motion.div
-      className="absolute left-0 top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-primary"
-      initial={{ scale: 0 }}
-      whileInView={{ scale: [0, 1.5, 1] }}
-      viewport={{ once: true }}
-      transition={{ delay: delay + 0.5, duration: 0.3 }}
-    />
+    <div className="h-[1px] w-[100px] md:w-[140px] bg-gradient-to-r from-primary/40 via-primary/60 to-primary/20" />
   </motion.div>
 );
 
@@ -154,15 +147,6 @@ const SourceToOutputsVisualization = () => {
         >
           <Youtube className="w-8 h-8 md:w-10 md:h-10 text-white" />
           <span className="text-[10px] md:text-xs font-bold text-white/90">1 Vídeo</span>
-          
-          {/* Sparkle effect */}
-          <motion.div
-            className="absolute -top-1 -right-1"
-            animate={{ rotate: 360 }}
-            transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
-          >
-            <Sparkles className="w-5 h-5 text-yellow-300" />
-          </motion.div>
         </motion.div>
       </motion.div>
       
@@ -306,14 +290,11 @@ const CanvasDemoSection = () => {
                 size="lg"
                 className="relative h-14 px-8 text-lg rounded-full bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20 group"
               >
-                Começar grátis por 7 dias
+                Assinar Canvas - $19.90/mês
                 <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
               </Button>
             </Link>
           </div>
-          <p className="text-sm text-muted-foreground mt-4">
-            Depois $19.90/mês • Cancele quando quiser
-          </p>
         </motion.div>
       </div>
     </section>

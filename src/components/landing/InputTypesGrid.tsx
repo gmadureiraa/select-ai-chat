@@ -70,7 +70,7 @@ const inputTypes: InputType[] = [
     bgColor: "bg-orange-500/10",
     gradientFrom: "from-orange-500/20",
     gradientTo: "to-orange-600/5",
-    size: "large",
+    size: "medium",
   },
   {
     id: "text",
@@ -109,7 +109,7 @@ const inputTypes: InputType[] = [
     bgColor: "bg-green-500/10",
     gradientFrom: "from-green-500/20",
     gradientTo: "to-green-600/5",
-    size: "full",
+    size: "large",
   },
 ];
 

@@ -15,13 +15,11 @@ import {
   Palette,
   ChevronDown,
   ChevronUp,
-  Clock,
   ShieldCheck
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
-import { addDays, format } from "date-fns";
 
 // Social network icons as SVG components
 const InstagramIcon = () => (
@@ -104,18 +102,6 @@ export function CanvasVsProSection() {
       <div className="absolute top-0 left-0 w-full h-px bg-border" />
       
       <div className="max-w-5xl mx-auto px-6 relative z-10">
-        {/* Urgency Badge */}
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          className="text-center mb-8"
-        >
-          <Badge variant="destructive" className="animate-pulse px-4 py-2">
-            <Clock className="h-3.5 w-3.5 mr-1.5" />
-            Oferta válida até {format(addDays(new Date(), 3), "dd/MM")}
-          </Badge>
-        </motion.div>
 
         {/* Header */}
         <motion.div
@@ -174,7 +160,7 @@ export function CanvasVsProSection() {
 
             <Link to="/signup?plan=basic" className="block">
               <Button className="w-full h-12 text-base" size="lg">
-                Começar grátis por 7 dias
+                Assinar Canvas
                 <ArrowRight className="ml-2 w-4 h-4" />
               </Button>
             </Link>
@@ -235,7 +221,7 @@ export function CanvasVsProSection() {
 
             <Link to="/signup?plan=agency" className="block">
               <Button className="w-full h-12 text-base" size="lg">
-                Começar grátis por 7 dias
+                Assinar PRO
                 <ArrowRight className="ml-2 w-4 h-4" />
               </Button>
             </Link>
