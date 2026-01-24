@@ -712,53 +712,75 @@ const NewHeroSection = () => {
       <div className="absolute bottom-20 left-1/4 w-[300px] h-[300px] rounded-full bg-secondary/8 blur-[80px] pointer-events-none" />
 
       <div className="relative z-10 max-w-4xl mx-auto px-6 text-center">
-        {/* Target audience badge */}
+        {/* Social Proof - Above the fold */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-muted border border-border mb-8"
+          className="flex items-center justify-center gap-4 mb-8"
         >
-          <span className="text-sm text-muted-foreground">Para criadores de conteúdo e pequenas agências</span>
+          {/* User avatars */}
+          <div className="flex -space-x-2">
+            {[
+              "bg-gradient-to-br from-pink-400 to-rose-500",
+              "bg-gradient-to-br from-blue-400 to-indigo-500",
+              "bg-gradient-to-br from-green-400 to-emerald-500",
+              "bg-gradient-to-br from-purple-400 to-violet-500",
+              "bg-gradient-to-br from-orange-400 to-amber-500",
+            ].map((gradient, i) => (
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, scale: 0 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.1 + i * 0.05 }}
+                className={`w-8 h-8 rounded-full ${gradient} border-2 border-background flex items-center justify-center text-white text-xs font-bold shadow-lg`}
+              >
+                {String.fromCharCode(65 + i)}
+              </motion.div>
+            ))}
+          </div>
+          <div className="text-sm text-muted-foreground">
+            <span className="text-foreground font-semibold">+2.400</span> criadores usando
+          </div>
         </motion.div>
 
-        {/* Main Headline */}
+        {/* Main Headline - Quantified benefit */}
         <motion.h1
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.1 }}
           className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold text-foreground leading-[1.1] mb-6 tracking-tight"
         >
-          Crie conteúdo visual
+          Transforme <span className="text-primary">1 vídeo</span>
           <br />
-          em <span className="text-primary">10 minutos</span> com IA
+          em <span className="bg-gradient-to-r from-primary to-purple-500 bg-clip-text text-transparent">10 conteúdos</span> prontos
         </motion.h1>
 
-        {/* Subtitle */}
+        {/* Subtitle with clear value */}
         <motion.p
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.2 }}
           className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-10 leading-relaxed"
         >
-          Canvas visual de criação. Conecte fontes, arraste nós, 
-          gere conteúdo em batch. Simples assim.
+          Canvas visual de criação com IA. Cole um vídeo do YouTube, PDF ou texto
+          e gere carrosséis, threads, artigos e mais em minutos.
         </motion.p>
 
-        {/* CTAs */}
+        {/* CTAs with urgency */}
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.3 }}
-          className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-12"
+          className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-6"
         >
           <Link to="/signup?plan=basic">
             <Button
               size="lg"
-              className="bg-foreground text-background hover:bg-foreground/90 px-8 py-6 text-base font-semibold rounded-full group min-w-[260px]"
+              className="bg-primary text-primary-foreground hover:bg-primary/90 px-8 py-6 text-base font-semibold rounded-full group min-w-[280px] shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30 transition-all"
             >
               <Sparkles className="mr-2 w-4 h-4" />
-              Assinar Canvas - $19.90/mês
+              Começar grátis por 7 dias
               <ArrowRight className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" />
             </Button>
           </Link>
@@ -774,19 +796,23 @@ const NewHeroSection = () => {
           </a>
         </motion.div>
 
-        {/* Social proof */}
+        {/* Trust signals */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ duration: 0.5, delay: 0.5 }}
-          className="flex items-center justify-center gap-6 text-sm text-muted-foreground"
+          transition={{ duration: 0.5, delay: 0.4 }}
+          className="flex flex-wrap items-center justify-center gap-4 text-xs text-muted-foreground"
         >
-          <span className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-green-500" />
+          <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-muted/50">
+            <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+            Sem cartão de crédito
+          </span>
+          <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-muted/50">
             Setup em 2 minutos
           </span>
-          <span className="hidden sm:block">•</span>
-          <span className="hidden sm:block">Cancele quando quiser</span>
+          <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-muted/50">
+            Cancele quando quiser
+          </span>
         </motion.div>
       </div>
 
@@ -815,6 +841,22 @@ const NewHeroSection = () => {
           {/* Animated Canvas Demo */}
           <HeroCanvasDemo />
         </div>
+      </motion.div>
+
+      {/* Scroll indicator */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 1.5 }}
+        className="absolute bottom-8 left-1/2 -translate-x-1/2"
+      >
+        <motion.div
+          animate={{ y: [0, 8, 0] }}
+          transition={{ duration: 1.5, repeat: Infinity }}
+          className="w-6 h-10 rounded-full border-2 border-border flex items-start justify-center p-2"
+        >
+          <motion.div className="w-1 h-2 rounded-full bg-muted-foreground" />
+        </motion.div>
       </motion.div>
     </section>
   );

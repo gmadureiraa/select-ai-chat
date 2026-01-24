@@ -1,9 +1,61 @@
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Clock, Sparkles, Zap } from "lucide-react";
+import { ArrowRight, Clock, Sparkles, Zap, Star, ShieldCheck } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useState, useEffect } from "react";
+
+// Micro testimonials for carousel
+const testimonials = [
+  { text: "Economizo 3h todo dia com o kAI", author: "@joaosilva" },
+  { text: "Mudou completamente minha rotina de criação", author: "@mariaprod" },
+  { text: "Minha agência dobrou a produção", author: "@agenciadigital" },
+  { text: "Finalmente consigo postar todos os dias", author: "@carloscriador" },
+];
+
+// Countdown hook
+const useCountdown = () => {
+  const [timeLeft, setTimeLeft] = useState({ days: 2, hours: 14, minutes: 32 });
+  
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setTimeLeft(prev => {
+        let { days, hours, minutes } = prev;
+        minutes--;
+        if (minutes < 0) {
+          minutes = 59;
+          hours--;
+        }
+        if (hours < 0) {
+          hours = 23;
+          days--;
+        }
+        if (days < 0) {
+          days = 2;
+          hours = 14;
+          minutes = 32;
+        }
+        return { days, hours, minutes };
+      });
+    }, 60000); // Update every minute
+    
+    return () => clearInterval(timer);
+  }, []);
+  
+  return timeLeft;
+};
 
 const CTASection = () => {
+  const [currentTestimonial, setCurrentTestimonial] = useState(0);
+  const countdown = useCountdown();
+
+  // Rotate testimonials
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTestimonial(prev => (prev + 1) % testimonials.length);
+    }, 4000);
+    return () => clearInterval(timer);
+  }, []);
+
   return (
     <section className="py-24 md:py-32 bg-foreground dark:bg-card relative overflow-hidden">
       {/* Animated wave background */}
@@ -43,28 +95,65 @@ const CTASection = () => {
           viewport={{ once: true }}
           transition={{ duration: 0.6 }}
         >
-          {/* Time saving message */}
-          <div className="flex items-center justify-center gap-2 mb-6">
-            <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-background/10 border border-background/20">
-              <Clock className="w-4 h-4 text-accent" />
-              <span className="text-sm font-medium text-background dark:text-foreground">3h economizadas por dia</span>
-            </div>
+          {/* Countdown Timer */}
+          <div className="flex items-center justify-center gap-3 mb-8">
+            {[
+              { value: countdown.days.toString().padStart(2, '0'), label: "dias" },
+              { value: countdown.hours.toString().padStart(2, '0'), label: "horas" },
+              { value: countdown.minutes.toString().padStart(2, '0'), label: "min" },
+            ].map((item, i) => (
+              <div key={item.label} className="text-center">
+                <motion.div 
+                  className="text-3xl md:text-4xl font-bold text-background dark:text-foreground bg-background/10 dark:bg-foreground/10 px-4 py-2 rounded-xl"
+                  animate={{ scale: [1, 1.02, 1] }}
+                  transition={{ duration: 1, repeat: Infinity, delay: i * 0.2 }}
+                >
+                  {item.value}
+                </motion.div>
+                <div className="text-xs text-background/60 dark:text-muted-foreground mt-1">{item.label}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Rotating testimonials */}
+          <div className="h-8 mb-8 overflow-hidden">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={currentTestimonial}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.3 }}
+                className="flex items-center justify-center gap-2 text-background/80 dark:text-muted-foreground"
+              >
+                <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                <span className="text-sm">"{testimonials[currentTestimonial].text}"</span>
+                <span className="text-background/60 dark:text-muted-foreground/60 text-sm">
+                  — {testimonials[currentTestimonial].author}
+                </span>
+              </motion.div>
+            </AnimatePresence>
           </div>
 
           <h2 className="text-3xl md:text-5xl lg:text-6xl font-bold text-background dark:text-foreground mb-4 leading-tight">
-            Pare de perder horas{" "}
+            Enquanto você lê isso,
+            <br />
             <span className="bg-gradient-to-r from-secondary to-accent bg-clip-text text-transparent">
-              criando conteúdo
+              criadores estão publicando 10x mais
             </span>
           </h2>
 
           <p className="text-xl md:text-2xl text-background/80 dark:text-muted-foreground mb-8 font-light max-w-2xl mx-auto">
-            Comece a produzir <span className="text-background dark:text-foreground font-semibold">10x mais</span> em menos tempo. 
             Seu próximo mês de conteúdo pode começar agora.
+            <span className="text-background dark:text-foreground font-semibold"> 7 dias grátis</span> para testar.
           </p>
 
           {/* Benefits */}
           <div className="flex flex-wrap items-center justify-center gap-4 mb-10">
+            <div className="flex items-center gap-2 text-background/70 dark:text-muted-foreground">
+              <Clock className="w-4 h-4" />
+              <span className="text-sm">3h economizadas por dia</span>
+            </div>
             <div className="flex items-center gap-2 text-background/70 dark:text-muted-foreground">
               <Sparkles className="w-4 h-4" />
               <span className="text-sm">IA que entende você</span>
@@ -80,18 +169,25 @@ const CTASection = () => {
             <Link to="/signup?plan=basic">
               <Button
                 size="lg"
-                className="h-14 px-10 text-lg rounded-full bg-background text-foreground hover:bg-background/90 dark:bg-primary dark:text-primary-foreground shadow-xl group"
+                className="h-14 px-10 text-lg rounded-full bg-background text-foreground hover:bg-background/90 dark:bg-primary dark:text-primary-foreground shadow-xl group relative overflow-hidden"
               >
-                Começar agora por $19.90/mês
-                <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                {/* Shimmer effect */}
+                <motion.div
+                  className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -skew-x-12"
+                  animate={{ x: ["-100%", "200%"] }}
+                  transition={{ duration: 2, repeat: Infinity, repeatDelay: 3 }}
+                />
+                <span className="relative">Começar grátis por 7 dias</span>
+                <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform relative" />
               </Button>
             </Link>
           </div>
 
-          {/* Trust message */}
-          <p className="mt-6 text-sm text-background/60 dark:text-muted-foreground">
-            Setup em 2 minutos • Cancele quando quiser
-          </p>
+          {/* Guarantee */}
+          <div className="flex items-center justify-center gap-2 mt-6 text-sm text-background/60 dark:text-muted-foreground">
+            <ShieldCheck className="h-4 w-4 text-green-400" />
+            <span>Garantia de 14 dias ou seu dinheiro de volta</span>
+          </div>
         </motion.div>
       </div>
     </section>

@@ -8,6 +8,7 @@ import CanvasVsProSection from "@/components/landing/CanvasVsProSection";
 import FAQSection from "@/components/landing/FAQSection";
 import CTASection from "@/components/landing/CTASection";
 import LandingFooter from "@/components/landing/LandingFooter";
+import StickyMobileCTA from "@/components/landing/StickyMobileCTA";
 
 const LandingPage = () => {
   return (
@@ -22,6 +23,7 @@ const LandingPage = () => {
       <FAQSection />
       <CTASection />
       <LandingFooter />
+      <StickyMobileCTA />
     </div>
   );
 };

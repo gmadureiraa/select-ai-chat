@@ -324,12 +324,35 @@ export function ProShowcase() {
           />
         </div>
 
+        {/* Testimonial */}
+        <motion.blockquote
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ delay: 0.4 }}
+          className="text-center max-w-3xl mx-auto p-8 bg-card border border-border rounded-2xl mb-12"
+        >
+          <p className="text-lg md:text-xl text-muted-foreground italic mb-6">
+            "Economizamos 20h por semana na produção de conteúdo para nossos 12 clientes. 
+            O kAI PRO transformou completamente nossa operação."
+          </p>
+          <footer className="flex items-center justify-center gap-4">
+            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary to-purple-500 flex items-center justify-center text-white font-bold text-lg">
+              M
+            </div>
+            <div className="text-left">
+              <p className="font-semibold text-foreground">Marina Costa</p>
+              <p className="text-sm text-muted-foreground">CEO, Agência Pulso Digital</p>
+            </div>
+          </footer>
+        </motion.blockquote>
+
         {/* CTA */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          transition={{ delay: 0.4 }}
+          transition={{ delay: 0.5 }}
           className="text-center"
         >
           <Link to="/signup?plan=agency">
@@ -338,7 +361,7 @@ export function ProShowcase() {
               className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 px-10 py-7 text-lg rounded-full shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 transition-all duration-300"
             >
               <Crown className="mr-2 w-5 h-5" />
-              Começar com kAI PRO - $99.90/mês
+              Começar grátis por 7 dias
               <ArrowRight className="ml-2 w-5 h-5" />
             </Button>
           </Link>
