@@ -16,12 +16,6 @@ interface FAQ {
 
 const faqs: FAQ[] = [
   {
-    question: "Quanto custa e como funciona o trial?",
-    answer:
-      "Oferecemos 7 dias grátis para testar todas as funcionalidades. Após o trial, o Canvas custa $19.90/mês e o PRO $99.90/mês. Você pode cancelar a qualquer momento, sem compromisso.",
-    category: "pricing",
-  },
-  {
     question: "Posso cancelar a qualquer momento?",
     answer:
       "Sim! Não há contratos ou fidelidade. Você pode cancelar sua assinatura a qualquer momento e continuar usando até o fim do período pago. Oferecemos garantia de 14 dias para reembolso total.",

@@ -360,13 +360,29 @@ const HeroCanvasDemo = () => {
                           transition={{ duration: 0.3 }}
                           className="space-y-1.5"
                         >
-                          {/* YouTube type */}
+                          {/* YouTube type - Enhanced with progress bar */}
                           {scenario.attachment.type === 'url' && scenario.attachment.extraction && (
                             <>
                               <div className="relative rounded overflow-hidden">
-                                <div className="aspect-video bg-gradient-to-br from-red-500/20 to-orange-500/20 flex items-center justify-center">
-                                  <div className="w-6 h-6 rounded-full bg-red-500/90 flex items-center justify-center shadow-lg">
+                                <div className="aspect-video bg-gray-900 flex items-center justify-center relative">
+                                  {/* Thumbnail effect */}
+                                  <div className="absolute inset-0 bg-red-500/10" />
+                                  {/* Play button with pulse */}
+                                  <motion.div 
+                                    className="w-6 h-6 rounded-full bg-red-500 flex items-center justify-center shadow-lg z-10"
+                                    animate={{ scale: [1, 1.1, 1] }}
+                                    transition={{ duration: 2, repeat: Infinity }}
+                                  >
                                     <Play className="h-3 w-3 text-white ml-0.5" fill="white" />
+                                  </motion.div>
+                                  {/* Progress bar */}
+                                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gray-700">
+                                    <motion.div
+                                      className="h-full bg-red-500"
+                                      initial={{ width: "0%" }}
+                                      animate={{ width: "100%" }}
+                                      transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
+                                    />
                                   </div>
                                 </div>
                               </div>
@@ -379,11 +395,19 @@ const HeroCanvasDemo = () => {
                             </>
                           )}
 
-                          {/* Image + Briefing type */}
+                          {/* Image + Briefing type - Enhanced with scan effect */}
                           {scenario.attachment.type === 'image+text' && (
                             <>
-                              <div className="w-full h-12 bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded flex items-center justify-center">
-                                <ImageIcon className="w-5 h-5 text-purple-400" />
+                              <div className="w-full h-12 bg-purple-500/10 rounded relative overflow-hidden flex items-center justify-center">
+                                <div className="absolute inset-1 border-2 border-dashed border-purple-500/30 rounded flex items-center justify-center">
+                                  <ImageIcon className="w-4 h-4 text-purple-400/50" />
+                                </div>
+                                {/* Scan effect */}
+                                <motion.div
+                                  className="absolute left-0 right-0 h-4 bg-purple-500/20"
+                                  animate={{ top: ["-16px", "48px"] }}
+                                  transition={{ duration: 1.5, repeat: Infinity, repeatDelay: 0.5 }}
+                                />
                               </div>
                               <div className="text-[9px] text-muted-foreground line-clamp-2">
                                 {scenario.attachment.briefing}
@@ -391,32 +415,48 @@ const HeroCanvasDemo = () => {
                             </>
                           )}
 
-                          {/* PDF type */}
+                          {/* PDF type - Enhanced with page scan */}
                           {scenario.attachment.type === 'pdf' && scenario.attachment.extraction && (
-                            <div className="flex items-center gap-2 p-2 bg-orange-500/10 rounded">
-                              <FileText className="w-5 h-5 text-orange-500" />
-                              <div>
-                                <div className="text-[10px] font-medium">{scenario.attachment.extraction.pages}</div>
-                                <div className="text-[8px] text-muted-foreground">{scenario.attachment.extraction.size}</div>
+                            <div className="relative p-2 bg-orange-500/10 rounded overflow-hidden">
+                              <div className="flex items-center gap-2 relative z-10">
+                                <FileText className="w-5 h-5 text-orange-500" />
+                                <div>
+                                  <div className="text-[10px] font-medium">{scenario.attachment.extraction.pages}</div>
+                                  <div className="text-[8px] text-muted-foreground">{scenario.attachment.extraction.size}</div>
+                                </div>
                               </div>
+                              {/* Scanning line effect */}
+                              <motion.div
+                                className="absolute left-0 right-0 h-3 bg-orange-500/20"
+                                animate={{ top: ["-12px", "100%"] }}
+                                transition={{ duration: 2, repeat: Infinity, repeatDelay: 0.5 }}
+                              />
                             </div>
                           )}
 
-                          {/* Audio type */}
+                          {/* Audio type - Enhanced waveform */}
                           {scenario.attachment.type === 'audio' && scenario.attachment.extraction && (
-                            <div className="flex items-center gap-2 p-2 bg-cyan-500/10 rounded">
-                              <div className="flex items-center gap-0.5">
-                                {[...Array(8)].map((_, i) => (
+                            <div className="p-2 bg-cyan-500/10 rounded">
+                              <div className="flex items-center gap-0.5 h-8 mb-1.5">
+                                {[...Array(16)].map((_, i) => (
                                   <motion.div
                                     key={i}
-                                    className="w-1 bg-cyan-500 rounded-full"
-                                    animate={{ height: [4, 12, 6, 10, 4] }}
-                                    transition={{ duration: 1, repeat: Infinity, delay: i * 0.1 }}
+                                    className="w-0.5 rounded-full bg-cyan-500"
+                                    animate={{
+                                      height: [4, 16 + Math.random() * 12, 4],
+                                      opacity: [0.5, 1, 0.5],
+                                    }}
+                                    transition={{
+                                      duration: 0.6 + Math.random() * 0.4,
+                                      repeat: Infinity,
+                                      delay: i * 0.03,
+                                      ease: "easeInOut",
+                                    }}
                                   />
                                 ))}
                               </div>
-                              <div>
-                                <div className="text-[10px] font-medium">{scenario.attachment.extraction.duration}</div>
+                              <div className="flex items-center justify-between">
+                                <div className="text-[10px] font-medium text-cyan-600">{scenario.attachment.extraction.duration}</div>
                                 <div className="text-[8px] text-muted-foreground">{scenario.attachment.extraction.format}</div>
                               </div>
                             </div>
@@ -437,7 +477,7 @@ const HeroCanvasDemo = () => {
           <AnimatePresence>
             {animationStep >= 3 && (
               <motion.div
-                className="absolute top-1/2 -translate-y-1/2 h-0.5 bg-gradient-to-r from-blue-500 to-emerald-500 z-0"
+                className="absolute top-1/2 -translate-y-1/2 h-0.5 bg-primary/60 z-0"
                 style={{
                   left: NODE_WIDTHS.attachment + 5,
                   width: GAP - 10
@@ -555,7 +595,7 @@ const HeroCanvasDemo = () => {
           <AnimatePresence>
             {animationStep >= 5 && (
               <motion.div
-                className="absolute top-1/2 -translate-y-1/2 h-0.5 bg-gradient-to-r from-emerald-500 to-pink-500 z-0"
+                className="absolute top-1/2 -translate-y-1/2 h-0.5 bg-primary/60 z-0"
                 style={{
                   left: NODE_WIDTHS.attachment + GAP + NODE_WIDTHS.generator + 5,
                   width: GAP - 10
