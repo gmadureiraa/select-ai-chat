@@ -153,8 +153,8 @@ export function ContentPreviewDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl h-[85vh] flex flex-col">
-        <DialogHeader className="flex-shrink-0 pb-4 border-b">
+      <DialogContent className="max-w-4xl h-[90vh] flex flex-col">
+        <DialogHeader className="flex-shrink-0 pb-3 border-b">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className={cn("p-2 rounded-lg bg-muted/50")}>
@@ -181,11 +181,11 @@ export function ContentPreviewDialog({
           </div>
         </DialogHeader>
 
-        <div className="flex-1 min-h-0 flex flex-col gap-4 py-4 overflow-hidden">
-          {/* Image Gallery */}
+        <div className="flex-1 min-h-0 flex flex-col gap-3 py-3 overflow-hidden">
+          {/* Compact Image Gallery - only if images exist */}
           {images.length > 0 && (
             <div className="relative rounded-lg overflow-hidden border bg-muted/30 flex-shrink-0">
-              <div className="aspect-square max-h-[300px] flex items-center justify-center">
+              <div className="max-h-[150px] flex items-center justify-center">
                 <img
                   src={images[currentImageIndex]}
                   alt={`${item.title} - Imagem ${currentImageIndex + 1}`}
