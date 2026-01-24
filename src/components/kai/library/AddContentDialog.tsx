@@ -16,14 +16,16 @@ interface AddContentDialogProps {
   clientId: string;
 }
 
-const CONTENT_TYPES = [
-  { value: "instagram_post", label: "Post Instagram", icon: Instagram },
-  { value: "instagram_reel", label: "Reel Instagram", icon: Instagram },
-  { value: "youtube_video", label: "Vídeo YouTube", icon: Youtube },
-  { value: "newsletter", label: "Newsletter", icon: Mail },
-  { value: "linkedin_post", label: "Post LinkedIn", icon: Linkedin },
-  { value: "other", label: "Outro", icon: Plus },
-];
+import { CONTENT_TYPE_OPTIONS } from "@/types/contentTypes";
+
+const CONTENT_TYPES = CONTENT_TYPE_OPTIONS.map(opt => ({
+  value: opt.value,
+  label: opt.label,
+  icon: opt.category === 'Instagram' ? Instagram : 
+        opt.category === 'Vídeo' ? Youtube : 
+        opt.category === 'Escrita' ? Mail :
+        opt.category === 'LinkedIn' ? Linkedin : Plus
+}));
 
 export function AddContentDialog({ open, onOpenChange, clientId }: AddContentDialogProps) {
   const [title, setTitle] = useState("");

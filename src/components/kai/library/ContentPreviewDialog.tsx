@@ -1,6 +1,11 @@
+import { useState } from "react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Instagram, Youtube, MessageSquare, Linkedin, FileText, Heart, MessageCircle, Share2, Eye, Star, ExternalLink, Copy } from "lucide-react";
+import { 
+  Instagram, Youtube, MessageSquare, Linkedin, FileText, Heart, MessageCircle, 
+  Share2, Eye, Star, ExternalLink, Copy, Download, ChevronLeft, ChevronRight, 
+  Edit, Loader2, Images
+} from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import ReactMarkdown from "react-markdown";
 import { Button } from "@/components/ui/button";
@@ -9,13 +14,14 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { UnifiedContentItem } from "@/hooks/useUnifiedContent";
 import { toast } from "sonner";
+import JSZip from "jszip";
 
 interface ContentPreviewDialogProps {
   item: UnifiedContentItem | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onToggleFavorite?: () => void;
-  onAddToCanvas?: () => void;
+  onEdit?: () => void;
 }
 
 const platformIcons = {
@@ -50,16 +56,99 @@ export function ContentPreviewDialog({
   open, 
   onOpenChange,
   onToggleFavorite,
-  onAddToCanvas 
+  onEdit
 }: ContentPreviewDialogProps) {
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [isDownloadingAll, setIsDownloadingAll] = useState(false);
+
   if (!item) return null;
 
   const Icon = platformIcons[item.platform] ?? FileText;
   const formattedDate = format(new Date(item.posted_at), "dd 'de' MMMM 'de' yyyy", { locale: ptBR });
+  
+  // Get all images - use images array if available, otherwise use thumbnail
+  const images = item.images || (item.thumbnail_url ? [item.thumbnail_url] : []);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(item.content);
     toast.success("Conteúdo copiado!");
+  };
+
+  const handlePrevImage = () => {
+    setCurrentImageIndex(prev => prev > 0 ? prev - 1 : images.length - 1);
+  };
+
+  const handleNextImage = () => {
+    setCurrentImageIndex(prev => prev < images.length - 1 ? prev + 1 : 0);
+  };
+
+  // Download single image
+  const downloadImage = async (url: string, filename: string) => {
+    setIsDownloading(true);
+    try {
+      const response = await fetch(url);
+      if (!response.ok) throw new Error('Failed to fetch image');
+      
+      const blob = await response.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(blobUrl);
+      
+      toast.success('Imagem baixada!');
+    } catch (error) {
+      console.error('Download error:', error);
+      toast.error('Erro ao baixar imagem');
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
+  // Download all images as ZIP
+  const downloadAllImages = async () => {
+    if (images.length === 0) return;
+    
+    setIsDownloadingAll(true);
+    try {
+      const zip = new JSZip();
+      
+      for (let i = 0; i < images.length; i++) {
+        try {
+          const response = await fetch(images[i]);
+          if (!response.ok) continue;
+          
+          const blob = await response.blob();
+          const ext = blob.type.includes('png') ? 'png' : 'jpg';
+          zip.file(`imagem-${i + 1}.${ext}`, blob);
+        } catch (err) {
+          console.error(`Error fetching image ${i}:`, err);
+        }
+      }
+      
+      const zipBlob = await zip.generateAsync({ type: "blob" });
+      const blobUrl = URL.createObjectURL(zipBlob);
+      
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = `${item.title.substring(0, 30)}-imagens.zip`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(blobUrl);
+      
+      toast.success(`${images.length} imagens baixadas!`);
+    } catch (error) {
+      console.error('Download all error:', error);
+      toast.error('Erro ao baixar imagens');
+    } finally {
+      setIsDownloadingAll(false);
+    }
   };
 
   return (
@@ -93,17 +182,47 @@ export function ContentPreviewDialog({
         </DialogHeader>
 
         <div className="flex-1 min-h-0 flex flex-col gap-4 py-4 overflow-hidden">
-          {/* Thumbnail */}
-          {item.thumbnail_url && (
-            <div className="rounded-lg overflow-hidden border bg-muted/30 max-h-[200px] flex-shrink-0">
-              <img
-                src={item.thumbnail_url}
-                alt={item.title}
-                className="w-full h-full object-contain"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).style.display = 'none';
-                }}
-              />
+          {/* Image Gallery */}
+          {images.length > 0 && (
+            <div className="relative rounded-lg overflow-hidden border bg-muted/30 flex-shrink-0">
+              <div className="aspect-square max-h-[300px] flex items-center justify-center">
+                <img
+                  src={images[currentImageIndex]}
+                  alt={`${item.title} - Imagem ${currentImageIndex + 1}`}
+                  className="max-w-full max-h-full object-contain"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).style.display = 'none';
+                  }}
+                />
+              </div>
+              
+              {/* Navigation arrows */}
+              {images.length > 1 && (
+                <>
+                  <Button
+                    variant="secondary"
+                    size="icon"
+                    className="absolute left-2 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full bg-background/80 hover:bg-background"
+                    onClick={handlePrevImage}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="icon"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full bg-background/80 hover:bg-background"
+                    onClick={handleNextImage}
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                  
+                  {/* Image counter */}
+                  <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-background/80 rounded-full px-3 py-1">
+                    <Images className="h-3 w-3" />
+                    <span className="text-xs font-medium">{currentImageIndex + 1} / {images.length}</span>
+                  </div>
+                </>
+              )}
             </div>
           )}
 
@@ -137,11 +256,47 @@ export function ContentPreviewDialog({
           </div>
 
           {/* Actions */}
-          <div className="flex gap-2 pt-2 border-t flex-shrink-0">
-            <Button variant="outline" className="flex-1 gap-2" onClick={handleCopy}>
+          <div className="flex flex-wrap gap-2 pt-2 border-t flex-shrink-0">
+            <Button variant="outline" className="gap-2" onClick={handleCopy}>
               <Copy className="h-4 w-4" />
               Copiar texto
             </Button>
+            
+            {/* Download buttons */}
+            {images.length > 0 && (
+              <>
+                <Button 
+                  variant="outline" 
+                  className="gap-2"
+                  onClick={() => downloadImage(images[currentImageIndex], `imagem-${currentImageIndex + 1}.jpg`)}
+                  disabled={isDownloading}
+                >
+                  {isDownloading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Download className="h-4 w-4" />
+                  )}
+                  Baixar imagem
+                </Button>
+                
+                {images.length > 1 && (
+                  <Button 
+                    variant="outline" 
+                    className="gap-2"
+                    onClick={downloadAllImages}
+                    disabled={isDownloadingAll}
+                  >
+                    {isDownloadingAll ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Images className="h-4 w-4" />
+                    )}
+                    Baixar todas ({images.length})
+                  </Button>
+                )}
+              </>
+            )}
+            
             {onToggleFavorite && (
               <Button 
                 variant="outline" 
@@ -152,6 +307,7 @@ export function ContentPreviewDialog({
                 {item.is_favorite ? 'Remover favorito' : 'Favoritar'}
               </Button>
             )}
+            
             {item.permalink && (
               <Button 
                 variant="outline" 
@@ -162,15 +318,14 @@ export function ContentPreviewDialog({
                 Ver original
               </Button>
             )}
-            {onAddToCanvas && (
+            
+            {onEdit && (
               <Button 
-                className="gap-2"
-                onClick={() => {
-                  onAddToCanvas();
-                  onOpenChange(false);
-                }}
+                className="gap-2 ml-auto"
+                onClick={onEdit}
               >
-                Adicionar ao Canvas
+                <Edit className="h-4 w-4" />
+                Editar
               </Button>
             )}
           </div>

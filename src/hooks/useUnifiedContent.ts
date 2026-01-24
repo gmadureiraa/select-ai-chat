@@ -2,6 +2,14 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
+// Helper to get storage URL
+function getStorageUrl(path: string): string {
+  if (!path) return '';
+  if (path.startsWith('http://') || path.startsWith('https://')) return path;
+  const { data } = supabase.storage.from('client-files').getPublicUrl(path);
+  return data?.publicUrl || path;
+}
+
 export interface UnifiedContentItem {
   id: string;
   platform: 'instagram' | 'twitter' | 'linkedin' | 'newsletter' | 'youtube' | 'content';
@@ -13,6 +21,7 @@ export interface UnifiedContentItem {
   engagement_rate?: number;
   permalink?: string;
   is_favorite?: boolean;
+  content_type?: string; // Original content type for filtering
   metrics: {
     likes: number;
     comments: number;
@@ -29,11 +38,11 @@ export function useUnifiedContent(clientId: string) {
     queryFn: async () => {
       if (!clientId) return [];
 
-      // Fetch from all sources in parallel
+      // Fetch from all sources in parallel - include images field for Instagram
       const [instagramRes, twitterRes, linkedinRes, libraryRes] = await Promise.all([
         supabase
           .from('instagram_posts')
-          .select('id, caption, thumbnail_url, posted_at, engagement_rate, likes, comments, shares, permalink, is_favorite')
+          .select('id, caption, thumbnail_url, images, posted_at, engagement_rate, likes, comments, shares, permalink, is_favorite, post_type')
           .eq('client_id', clientId)
           .order('posted_at', { ascending: false }),
         supabase
@@ -43,7 +52,7 @@ export function useUnifiedContent(clientId: string) {
           .order('posted_at', { ascending: false }),
         supabase
           .from('linkedin_posts')
-          .select('id, content, posted_at, engagement_rate, likes, comments, shares, post_url, is_favorite')
+          .select('id, content, images, posted_at, engagement_rate, likes, comments, shares, post_url, is_favorite')
           .eq('client_id', clientId)
           .order('posted_at', { ascending: false }),
         supabase
@@ -55,19 +64,38 @@ export function useUnifiedContent(clientId: string) {
 
       const items: UnifiedContentItem[] = [];
 
-      // Normalize Instagram posts
+      // Normalize Instagram posts with all images
       if (instagramRes.data) {
         instagramRes.data.forEach(post => {
+          // Collect all images from the images field
+          const postImages = Array.isArray(post.images) ? (post.images as string[]) : [];
+          const allImages: string[] = [];
+          
+          // Add thumbnail first if exists
+          if (post.thumbnail_url) {
+            allImages.push(getStorageUrl(post.thumbnail_url));
+          }
+          
+          // Add other images from the images array
+          postImages.forEach(img => {
+            const imgUrl = getStorageUrl(img);
+            if (imgUrl && !allImages.includes(imgUrl)) {
+              allImages.push(imgUrl);
+            }
+          });
+
           items.push({
             id: post.id,
             platform: 'instagram',
             title: post.caption?.substring(0, 100) || 'Post Instagram',
             content: post.caption || '',
-            thumbnail_url: post.thumbnail_url || undefined,
+            thumbnail_url: allImages[0] || undefined,
+            images: allImages.length > 0 ? allImages : undefined,
             posted_at: post.posted_at || new Date().toISOString(),
             engagement_rate: post.engagement_rate || undefined,
             permalink: post.permalink || undefined,
             is_favorite: post.is_favorite || false,
+            content_type: post.post_type || 'instagram_post',
             metrics: {
               likes: post.likes || 0,
               comments: post.comments || 0,
@@ -90,6 +118,7 @@ export function useUnifiedContent(clientId: string) {
             engagement_rate: post.engagement_rate || undefined,
             permalink: post.tweet_id ? `https://twitter.com/i/web/status/${post.tweet_id}` : undefined,
             is_favorite: post.is_favorite || false,
+            content_type: 'tweet',
             metrics: {
               likes: post.likes || 0,
               comments: post.replies || 0,
@@ -100,18 +129,24 @@ export function useUnifiedContent(clientId: string) {
         });
       }
 
-      // Normalize LinkedIn posts
+      // Normalize LinkedIn posts with images
       if (linkedinRes.data) {
         linkedinRes.data.forEach(post => {
+          const postImages = Array.isArray(post.images) ? (post.images as string[]) : [];
+          const allImages = postImages.map(img => getStorageUrl(img)).filter(Boolean);
+          
           items.push({
             id: post.id,
             platform: 'linkedin',
             title: post.content?.substring(0, 100) || 'Post LinkedIn',
             content: post.content || '',
+            thumbnail_url: allImages[0] || undefined,
+            images: allImages.length > 0 ? allImages : undefined,
             posted_at: post.posted_at || new Date().toISOString(),
             engagement_rate: post.engagement_rate || undefined,
             permalink: post.post_url || undefined,
             is_favorite: post.is_favorite || false,
+            content_type: 'linkedin_post',
             metrics: {
               likes: post.likes || 0,
               comments: post.comments || 0,
@@ -129,7 +164,7 @@ export function useUnifiedContent(clientId: string) {
           let platform: 'newsletter' | 'youtube' | 'content' = 'content';
           if (item.content_type === 'newsletter') {
             platform = 'newsletter';
-          } else if (item.content_type === 'video_script') {
+          } else if (item.content_type === 'long_video' || item.content_type === 'short_video') {
             platform = 'youtube';
           }
           
@@ -139,9 +174,10 @@ export function useUnifiedContent(clientId: string) {
             ? (metadata.images as string[]) 
             : [];
           const allImages: string[] = [];
-          if (item.thumbnail_url) allImages.push(item.thumbnail_url);
+          if (item.thumbnail_url) allImages.push(getStorageUrl(item.thumbnail_url));
           metadataImages.forEach(img => {
-            if (img && !allImages.includes(img)) allImages.push(img);
+            const imgUrl = getStorageUrl(img);
+            if (imgUrl && !allImages.includes(imgUrl)) allImages.push(imgUrl);
           });
           
           items.push({
@@ -149,11 +185,12 @@ export function useUnifiedContent(clientId: string) {
             platform,
             title: item.title || 'Conteúdo',
             content: item.content || '',
-            thumbnail_url: item.thumbnail_url || allImages[0] || undefined,
+            thumbnail_url: allImages[0] || undefined,
             images: allImages.length > 0 ? allImages : undefined,
             posted_at: item.created_at || new Date().toISOString(),
             permalink: item.content_url || undefined,
             is_favorite: item.is_favorite || false,
+            content_type: item.content_type,
             metrics: {
               likes: 0,
               comments: 0,
@@ -182,7 +219,7 @@ export function useTopPerformingContent(clientId: string, limit: number = 5) {
       const [instagramRes, twitterRes, linkedinRes] = await Promise.all([
         supabase
           .from('instagram_posts')
-          .select('id, caption, thumbnail_url, posted_at, engagement_rate, likes, comments, shares, permalink')
+          .select('id, caption, thumbnail_url, images, posted_at, engagement_rate, likes, comments, shares, permalink')
           .eq('client_id', clientId)
           .not('engagement_rate', 'is', null)
           .order('engagement_rate', { ascending: false })
@@ -196,7 +233,7 @@ export function useTopPerformingContent(clientId: string, limit: number = 5) {
           .limit(limit),
         supabase
           .from('linkedin_posts')
-          .select('id, content, posted_at, engagement_rate, likes, comments, shares, post_url')
+          .select('id, content, images, posted_at, engagement_rate, likes, comments, shares, post_url')
           .eq('client_id', clientId)
           .not('engagement_rate', 'is', null)
           .order('engagement_rate', { ascending: false })
@@ -207,12 +244,21 @@ export function useTopPerformingContent(clientId: string, limit: number = 5) {
 
       if (instagramRes.data) {
         instagramRes.data.forEach(post => {
+          const postImages = Array.isArray(post.images) ? (post.images as string[]) : [];
+          const allImages: string[] = [];
+          if (post.thumbnail_url) allImages.push(getStorageUrl(post.thumbnail_url));
+          postImages.forEach(img => {
+            const imgUrl = getStorageUrl(img);
+            if (imgUrl && !allImages.includes(imgUrl)) allImages.push(imgUrl);
+          });
+
           items.push({
             id: post.id,
             platform: 'instagram',
             title: post.caption?.substring(0, 100) || 'Post Instagram',
             content: post.caption || '',
-            thumbnail_url: post.thumbnail_url || undefined,
+            thumbnail_url: allImages[0] || undefined,
+            images: allImages.length > 0 ? allImages : undefined,
             posted_at: post.posted_at || new Date().toISOString(),
             engagement_rate: post.engagement_rate || undefined,
             permalink: post.permalink || undefined,
@@ -248,11 +294,16 @@ export function useTopPerformingContent(clientId: string, limit: number = 5) {
 
       if (linkedinRes.data) {
         linkedinRes.data.forEach(post => {
+          const postImages = Array.isArray(post.images) ? (post.images as string[]) : [];
+          const allImages = postImages.map(img => getStorageUrl(img)).filter(Boolean);
+          
           items.push({
             id: post.id,
             platform: 'linkedin',
             title: post.content?.substring(0, 100) || 'Post LinkedIn',
             content: post.content || '',
+            thumbnail_url: allImages[0] || undefined,
+            images: allImages.length > 0 ? allImages : undefined,
             posted_at: post.posted_at || new Date().toISOString(),
             engagement_rate: post.engagement_rate || undefined,
             permalink: post.post_url || undefined,
@@ -295,6 +346,60 @@ export function useToggleFavorite(clientId: string) {
     },
     onError: () => {
       toast.error('Erro ao atualizar favorito');
+    },
+  });
+}
+
+// New mutation to update unified content items
+export function useUpdateUnifiedContent(clientId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ 
+      item, 
+      data 
+    }: { 
+      item: UnifiedContentItem; 
+      data: {
+        title?: string;
+        content?: string;
+        content_url?: string;
+        thumbnail_url?: string;
+      };
+    }) => {
+      // Map fields based on source table
+      let updateData: Record<string, unknown> = {};
+      
+      if (item._source === 'instagram_posts') {
+        if (data.content !== undefined) updateData.caption = data.content;
+        if (data.thumbnail_url !== undefined) updateData.thumbnail_url = data.thumbnail_url;
+      } else if (item._source === 'twitter_posts') {
+        if (data.content !== undefined) updateData.content = data.content;
+      } else if (item._source === 'linkedin_posts') {
+        if (data.content !== undefined) updateData.content = data.content;
+        if (data.content_url !== undefined) updateData.post_url = data.content_url;
+      } else if (item._source === 'client_content_library') {
+        if (data.title !== undefined) updateData.title = data.title;
+        if (data.content !== undefined) updateData.content = data.content;
+        if (data.content_url !== undefined) updateData.content_url = data.content_url;
+        if (data.thumbnail_url !== undefined) updateData.thumbnail_url = data.thumbnail_url;
+      }
+
+      const { error } = await supabase
+        .from(item._source)
+        .update(updateData)
+        .eq('id', item.id);
+
+      if (error) throw error;
+      return { ...item, ...data };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['unified-content', clientId] });
+      queryClient.invalidateQueries({ queryKey: ['client-content-library', clientId] });
+      toast.success('Conteúdo atualizado com sucesso');
+    },
+    onError: () => {
+      toast.error('Erro ao atualizar conteúdo');
     },
   });
 }

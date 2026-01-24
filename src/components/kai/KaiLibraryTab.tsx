@@ -327,6 +327,10 @@ export const KaiLibraryTab = ({ clientId, client }: KaiLibraryTabProps) => {
         <TabsContent value="content" className="mt-4 flex-1 overflow-y-auto">
           <UnifiedContentGrid
             clientId={clientId}
+            typeFilter={typeFilter}
+            sortOption={sortOption}
+            viewMode={viewMode}
+            searchQuery={searchQuery}
             onSelectContent={(item) => {
               toast.success(`Conteúdo selecionado: ${item.title}`);
             }}

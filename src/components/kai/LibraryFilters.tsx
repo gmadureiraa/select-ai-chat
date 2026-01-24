@@ -24,7 +24,10 @@ export type ContentTypeFilter =
   | "short_video"
   | "long_video"
   | "static_image"
-  | "blog_post";
+  | "blog_post"
+  | "case_study"
+  | "report"
+  | "document";
 
 export type SortOption = "newest" | "oldest" | "a-z" | "z-a";
 export type ViewMode = "grid" | "list";
@@ -54,6 +57,9 @@ const contentTypeLabels: Record<ContentTypeFilter, string> = {
   long_video: "Vídeo Longo",
   static_image: "Imagem",
   blog_post: "Blog Post",
+  case_study: "Estudo de Caso",
+  report: "Relatório",
+  document: "Documento",
 };
 
 const sortLabels: Record<SortOption, string> = {
