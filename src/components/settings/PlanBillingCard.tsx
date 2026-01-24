@@ -94,12 +94,12 @@ export function PlanBillingCard() {
 
   const planTypeLabels: Record<string, { label: string; color: string }> = {
     free: { label: "Gratuito", color: "bg-muted text-muted-foreground" },
-    basic: { label: "Canvas", color: "bg-blue-500/10 text-blue-600 dark:text-blue-400" },
-    starter: { label: "Canvas", color: "bg-blue-500/10 text-blue-600 dark:text-blue-400" },
-    canvas: { label: "Canvas", color: "bg-blue-500/10 text-blue-600 dark:text-blue-400" },
-    agency: { label: "Pro", color: "bg-purple-500/10 text-purple-600 dark:text-purple-400" },
-    pro: { label: "Pro", color: "bg-purple-500/10 text-purple-600 dark:text-purple-400" },
-    enterprise: { label: "Enterprise", color: "bg-gradient-to-r from-amber-500/10 to-orange-500/10 text-amber-600 dark:text-amber-400" },
+    basic: { label: "Canvas", color: "bg-accent text-accent-foreground" },
+    starter: { label: "Canvas", color: "bg-accent text-accent-foreground" },
+    canvas: { label: "Canvas", color: "bg-accent text-accent-foreground" },
+    agency: { label: "Pro", color: "bg-primary/10 text-primary" },
+    pro: { label: "Pro", color: "bg-primary/10 text-primary" },
+    enterprise: { label: "Enterprise", color: "bg-primary/20 text-primary" },
   };
 
   const planInfo = planTypeLabels[plan?.type || "free"] || planTypeLabels.free;
@@ -191,8 +191,8 @@ export function PlanBillingCard() {
           {plan?.type === "enterprise" && (
             <>
               <Separator />
-              <div className="p-3 rounded-lg bg-amber-500/5 border border-amber-500/20">
-                <p className="text-sm text-center text-amber-600 dark:text-amber-400">
+              <div className="p-3 rounded-lg bg-primary/5 border border-primary/20">
+                <p className="text-sm text-center text-primary">
                   ✨ Você tem acesso total ao plano Enterprise
                 </p>
               </div>

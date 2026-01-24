@@ -13,34 +13,25 @@ interface EnhancedKPICardProps {
   icon: LucideIcon;
   formatter?: (v: number) => string;
   sparklineData?: number[];
-  color?: "green" | "pink" | "blue" | "orange" | "purple";
+  color?: "primary" | "secondary" | "muted";
 }
 
+// Simplified color map - uses theme colors
 const colorMap = {
-  green: {
-    bg: "bg-emerald-50 dark:bg-emerald-500/10",
-    icon: "text-emerald-600 dark:text-emerald-400",
-    stroke: "hsl(145, 75%, 45%)",
+  primary: {
+    bg: "bg-accent",
+    icon: "text-primary",
+    stroke: "hsl(var(--primary))",
   },
-  pink: {
-    bg: "bg-pink-50 dark:bg-pink-500/10",
-    icon: "text-pink-600 dark:text-pink-400",
-    stroke: "hsl(330, 85%, 55%)",
+  secondary: {
+    bg: "bg-accent/50",
+    icon: "text-accent-foreground",
+    stroke: "hsl(var(--chart-2))",
   },
-  blue: {
-    bg: "bg-blue-50 dark:bg-blue-500/10",
-    icon: "text-blue-600 dark:text-blue-400",
-    stroke: "hsl(220, 90%, 55%)",
-  },
-  orange: {
-    bg: "bg-orange-50 dark:bg-orange-500/10",
-    icon: "text-orange-600 dark:text-orange-400",
-    stroke: "hsl(25, 95%, 55%)",
-  },
-  purple: {
-    bg: "bg-violet-50 dark:bg-violet-500/10",
-    icon: "text-violet-600 dark:text-violet-400",
-    stroke: "hsl(270, 75%, 60%)",
+  muted: {
+    bg: "bg-muted",
+    icon: "text-muted-foreground",
+    stroke: "hsl(var(--chart-3))",
   },
 };
 
@@ -52,9 +43,9 @@ export function EnhancedKPICard({
   icon: Icon,
   formatter = (v: number) => v.toLocaleString("pt-BR"),
   sparklineData = [],
-  color = "green",
+  color = "primary",
 }: EnhancedKPICardProps) {
-  const colors = colorMap[color] || colorMap.green;
+  const colors = colorMap[color] || colorMap.primary;
 
   const chartData = useMemo(() => {
     return sparklineData.map((value, index) => ({ value, index }));
@@ -84,7 +75,7 @@ export function EnhancedKPICard({
             {change !== null && change !== undefined && (
               <div className={cn(
                 "text-xs flex items-center gap-1",
-                isNeutral ? "text-muted-foreground" : isPositive ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"
+                isNeutral ? "text-muted-foreground" : isPositive ? "text-primary" : "text-destructive"
               )}>
                 {isNeutral ? (
                   <Minus className="h-3 w-3" />

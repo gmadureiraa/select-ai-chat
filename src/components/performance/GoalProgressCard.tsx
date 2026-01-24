@@ -83,9 +83,8 @@ export function GoalProgressCard({ goal, currentValue, onDelete }: GoalProgressC
           </span>
           <span className={cn(
             "text-sm font-semibold ml-auto",
-            progress >= 100 ? "text-emerald-500" :
-            progress >= 75 ? "text-amber-500" : 
-            progress >= 50 ? "text-blue-500" : "text-muted-foreground"
+            progress >= 100 ? "text-primary" :
+            progress >= 50 ? "text-primary/70" : "text-muted-foreground"
           )}>
             {progress.toFixed(0)}%
           </span>
@@ -95,9 +94,9 @@ export function GoalProgressCard({ goal, currentValue, onDelete }: GoalProgressC
           value={progress} 
           className={cn(
             "h-2",
-            progress >= 100 && "[&>div]:bg-emerald-500",
-            progress >= 75 && progress < 100 && "[&>div]:bg-amber-500",
-            progress >= 50 && progress < 75 && "[&>div]:bg-blue-500"
+            progress >= 100 && "[&>div]:bg-primary",
+            progress >= 50 && progress < 100 && "[&>div]:bg-primary/70",
+            progress < 50 && "[&>div]:bg-primary/40"
           )}
         />
         
