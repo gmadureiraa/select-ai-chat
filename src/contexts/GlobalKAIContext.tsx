@@ -240,6 +240,12 @@ export function GlobalKAIProvider({ children }: GlobalKAIProviderProps) {
     setActionStatus("idle");
   }, [simpleChat]);
 
+  // Cancel request
+  const cancelRequest = useCallback(() => {
+    simpleChat.cancelRequest();
+    setActionStatus("idle");
+  }, [simpleChat]);
+
   // Regenerate - just resend last message
   const regenerateLastMessage = useCallback(async () => {
     const lastUserMessage = [...simpleChat.messages]
@@ -333,6 +339,7 @@ export function GlobalKAIProvider({ children }: GlobalKAIProviderProps) {
     sendMessage,
     clearConversation,
     regenerateLastMessage,
+    cancelRequest,
     
     // Action handling
     actionStatus,

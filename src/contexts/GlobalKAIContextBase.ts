@@ -72,6 +72,7 @@ export interface GlobalKAIContextValue {
   sendMessage: (text: string, files?: File[], citations?: SimpleCitationType[]) => Promise<void>;
   clearConversation: () => void;
   regenerateLastMessage: () => Promise<void>;
+  cancelRequest?: () => void;
 
   // Action handling
   actionStatus: KAIActionStatus;

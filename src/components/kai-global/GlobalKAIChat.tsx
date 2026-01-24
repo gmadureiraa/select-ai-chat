@@ -1,11 +1,13 @@
 import { useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Button } from "@/components/ui/button";
 import { Message, ProcessStep, MultiAgentStep } from "@/types/chat";
 import { KAIActionStatus } from "@/types/kaiActions";
 import { EnhancedMessageBubble } from "@/components/chat/EnhancedMessageBubble";
 import { SimpleProgress } from "./SimpleProgress";
-import { Sparkles, MessageSquare } from "lucide-react";
+import { Sparkles, MessageSquare, AlertCircle, RotateCcw, UserCircle } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface GlobalKAIChatProps {
   messages: Message[];
@@ -17,8 +19,37 @@ interface GlobalKAIChatProps {
   multiAgentStep?: MultiAgentStep;
   multiAgentDetails?: Record<string, string>;
   onSendMessage?: (content: string, images?: string[], quality?: "fast" | "high") => void;
+  onRetryMessage?: (content: string) => void;
   chatMode?: "ideas" | "content" | "performance" | "free_chat";
   onSuggestionClick?: (text: string) => void;
+}
+
+// Error detection patterns
+const ERROR_PATTERNS = [
+  "erro",
+  "error",
+  "créditos insuficientes",
+  "insufficient credits",
+  "desculpe, ocorreu",
+  "não consegui",
+  "falha ao",
+  "upgrade_required",
+  "rate_limited",
+];
+
+function isErrorMessage(content: string): boolean {
+  const lowerContent = content.toLowerCase();
+  return ERROR_PATTERNS.some(pattern => lowerContent.includes(pattern));
+}
+
+// Get the last user message before a given message index
+function getLastUserMessageBefore(messages: Message[], index: number): string | null {
+  for (let i = index - 1; i >= 0; i--) {
+    if (messages[i].role === "user") {
+      return messages[i].content;
+    }
+  }
+  return null;
 }
 
 export function GlobalKAIChat({
@@ -30,6 +61,7 @@ export function GlobalKAIChat({
   currentStep,
   multiAgentStep,
   onSendMessage,
+  onRetryMessage,
   chatMode = "content",
   onSuggestionClick,
 }: GlobalKAIChatProps) {
@@ -59,9 +91,28 @@ export function GlobalKAIChat({
           <h3 className="text-base font-medium text-foreground mb-1">
             Olá! Sou o kAI
           </h3>
-          <p className="text-sm text-muted-foreground mb-8">
+          <p className="text-sm text-muted-foreground mb-6">
             Seu assistente para criar conteúdo.
           </p>
+
+          {/* Client context or selection CTA */}
+          {selectedClientId ? (
+            selectedClientName && (
+              <div className="flex items-center gap-2 mb-6 px-3 py-2 rounded-lg bg-muted/50 border border-border">
+                <UserCircle className="h-4 w-4 text-primary" />
+                <span className="text-sm text-muted-foreground">
+                  Criando para <span className="font-medium text-foreground">{selectedClientName}</span>
+                </span>
+              </div>
+            )
+          ) : (
+            <div className="flex items-center gap-2 mb-6 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/20">
+              <AlertCircle className="h-4 w-4 text-amber-500" />
+              <span className="text-sm text-amber-700 dark:text-amber-400">
+                Selecione um perfil para começar
+              </span>
+            </div>
+          )}
 
           {/* Minimal prompts */}
           <div className="w-full space-y-2">
@@ -92,29 +143,59 @@ export function GlobalKAIChat({
     <ScrollArea className="flex-1" ref={scrollRef}>
       <div className="flex flex-col gap-3 p-4">
         <AnimatePresence mode="popLayout">
-          {messages.map((message, index) => (
-            <motion.div
-              key={message.id || index}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.15 }}
-            >
-              <EnhancedMessageBubble
-                role={message.role}
-                content={message.content}
-                imageUrls={message.image_urls}
-                isGeneratedImage={message.isGeneratedImage}
-                payload={message.payload}
-                clientId={selectedClientId || undefined}
-                clientName={selectedClientName}
-                isLastMessage={index === messages.length - 1}
-                onSendMessage={onSendMessage}
-                disableAutoPostDetection={true}
-                hideContentActions={false}
-              />
-            </motion.div>
-          ))}
+          {messages.map((message, index) => {
+            const isError = message.role === "assistant" && isErrorMessage(message.content);
+            const lastUserMessage = isError ? getLastUserMessageBefore(messages, index) : null;
+
+            return (
+              <motion.div
+                key={message.id || index}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.15 }}
+              >
+                {isError ? (
+                  // Error message with retry button
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-start gap-3">
+                      <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-destructive/10 flex items-center justify-center">
+                        <AlertCircle className="h-4 w-4 text-destructive" />
+                      </div>
+                      <div className="flex-1 bg-destructive/5 border border-destructive/20 rounded-lg p-3">
+                        <p className="text-sm text-foreground">{message.content}</p>
+                        {lastUserMessage && onRetryMessage && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="mt-2 h-7 text-xs text-muted-foreground hover:text-foreground"
+                            onClick={() => onRetryMessage(lastUserMessage)}
+                          >
+                            <RotateCcw className="h-3 w-3 mr-1.5" />
+                            Tentar novamente
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <EnhancedMessageBubble
+                    role={message.role}
+                    content={message.content}
+                    imageUrls={message.image_urls}
+                    isGeneratedImage={message.isGeneratedImage}
+                    payload={message.payload}
+                    clientId={selectedClientId || undefined}
+                    clientName={selectedClientName}
+                    isLastMessage={index === messages.length - 1}
+                    onSendMessage={onSendMessage}
+                    disableAutoPostDetection={true}
+                    hideContentActions={false}
+                  />
+                )}
+              </motion.div>
+            );
+          })}
         </AnimatePresence>
 
         {/* Minimal processing indicator */}
@@ -159,9 +240,4 @@ function PromptSuggestion({ text, onClick }: { text: string; onClick?: () => voi
       <span className="truncate">{text}</span>
     </button>
   );
-}
-
-// Helper for cn
-function cn(...classes: (string | boolean | undefined)[]) {
-  return classes.filter(Boolean).join(" ");
 }
