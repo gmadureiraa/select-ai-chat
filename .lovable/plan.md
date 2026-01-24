@@ -1,148 +1,196 @@
 
-# Plano: Correções Finais da Landing Page
 
-## Resumo dos Problemas Identificados
+# Plano: Melhorias de UX para Plano Canvas + Animações Landing Page
 
-Analisei todos os arquivos e identifiquei exatamente o que precisa ser corrigido conforme seu feedback:
+## Resumo do que precisa ser feito
 
----
-
-## 1. GRADIENTES RESTANTES A REMOVER
-
-### 1.1 `CanvasDemoSection.tsx`
-- **Linha 47**: `bg-gradient-to-r from-primary/40 via-primary/60 to-primary/20` nas ConnectionLines
-- **Linha 181**: `bg-gradient-to-r from-primary to-purple-500` no contador "10+"
-
-### 1.2 `InputTypesGrid.tsx`
-- **Linhas 30-31, 45-46, 59-60, etc.**: Cada `inputType` tem `gradientFrom` e `gradientTo`
-- **Linha 332**: `bg-gradient-to-b from-background to-muted/20` na seção
-- **Linha 354**: Badge com `bg-gradient-to-r from-primary/20 to-primary/5`
-- **Linha 362**: Título com `bg-gradient-to-r from-primary to-purple-500 bg-clip-text text-transparent`
-- **Linha 397**: Cards com `bg-gradient-to-br ${type.gradientFrom} ${type.gradientTo}`
-- **Linha 413**: Glow effect com gradientes
-
-### 1.3 `ProShowcase.tsx`
-- **Linha 131**: Barras de analytics com `bg-gradient-to-t from-primary/60 to-primary/20`
-- **Linha 244**: Seção com `bg-gradient-to-b from-background to-muted/20`
-- **Linha 246**: Linha com `bg-gradient-to-r from-transparent via-border to-transparent`
-- **Linha 262**: Badge com `bg-gradient-to-r from-primary/20 to-primary/5`
-- **Linha 271**: Título com `bg-gradient-to-r from-primary to-purple-500 bg-clip-text text-transparent`
-- **Linha 340**: Avatar do depoimento com `bg-gradient-to-br from-primary to-purple-500`
-- **Linha 361**: Botão com `bg-gradient-to-r from-primary to-primary/80`
-
-### 1.4 `ValueProposition.tsx`
-- **Linha 89**: Linha de conexão com `bg-gradient-to-r from-blue-500/20 via-primary/40 to-accent/20`
-- **Linha 102**: Ícones com `bg-gradient-to-br ${pillar.color}` (cada pilar tem gradiente como `from-blue-500 to-indigo-500`)
-- **Linha 141**: Destaque final com `bg-gradient-to-r from-primary/5 via-secondary/5 to-accent/5`
-
-### 1.5 `CTASection.tsx`
-- **Nenhum gradiente visual** - está ok ✓
-
-### 1.6 `NewHeroSection.tsx`
-- **Linha 440, 558**: Linhas de conexão com `bg-gradient-to-r from-blue-500 to-emerald-500` e `from-emerald-500 to-pink-500`
-- **Linha 367, 385, 619**: Backgrounds com gradientes para previews (YouTube, imagem) - estes são aceitáveis pois representam visualmente conteúdos diferentes
+Baseado no seu feedback, identifiquei 4 áreas principais:
 
 ---
 
-## 2. ANIMAÇÕES A MELHORAR
+## 1. ÍCONES DE CADEADO PARA PLANO CANVAS
 
-### 2.1 Seção "De uma fonte para 10 conteúdos" (`CanvasDemoSection.tsx`)
+### 1.1 Sidebar - Funcionalidades bloqueadas
 
-**Problemas:**
-- Conexões são linhas retas simples
-- Ícone `Sparkles` no badge precisa ser removido
+**Arquivo:** `src/components/kai/KaiSidebar.tsx`
 
-**Solução:**
-- Criar conexões curvas estilo "bezier" com SVG path
-- Adicionar animação de "pulse" nas conexões
-- Remover `Sparkles` do badge, manter apenas texto
+**Problema atual:** Os itens bloqueados mostram apenas `disabled={true}` com opacidade reduzida, mas sem ícone de cadeado visual.
 
-**Código de exemplo para conexões curvas:**
+**Solução:** Adicionar ícone `Lock` ao lado do label quando `disabled={true}`:
+
 ```typescript
-// SVG path curved connection
-<svg className="absolute inset-0 pointer-events-none overflow-visible">
-  <motion.path
-    d={`M ${startX} ${startY} C ${controlX1} ${controlY1}, ${controlX2} ${controlY2}, ${endX} ${endY}`}
-    stroke="hsl(var(--primary) / 0.5)"
-    strokeWidth="2"
-    fill="none"
-    initial={{ pathLength: 0, opacity: 0 }}
-    whileInView={{ pathLength: 1, opacity: 1 }}
-    viewport={{ once: true }}
-    transition={{ delay: delay, duration: 0.6 }}
-  />
-</svg>
+// Modificar NavItem para aceitar prop showLock
+interface NavItemProps {
+  icon: React.ReactNode;
+  label: string;
+  active?: boolean;
+  onClick?: () => void;
+  collapsed?: boolean;
+  disabled?: boolean;
+  showLock?: boolean; // NOVO
+}
+
+function NavItem({ icon, label, active, onClick, collapsed, disabled, showLock }: NavItemProps) {
+  // ...
+  {!collapsed && (
+    <span className="flex-1 text-left truncate flex items-center gap-2">
+      {label}
+      {showLock && <Lock className="h-3 w-3 text-muted-foreground/60" />}
+    </span>
+  )}
+}
 ```
 
-### 2.2 Aproveitar animações do Bento no Canvas
-- As animações de `InputTypesGrid` (waveform, PDF scan, URL loading) podem ser aplicadas nos nodes do Canvas quando análise de conteúdo está em andamento
+**Itens que precisam de cadeado:**
+- Planejamento (linha 283-290) - quando `!hasPlanning`
+- Performance (linha 304-313) - quando `!canAccessPerformance`
+- Biblioteca (linha 327-336) - quando `!canAccessLibrary`
+- Perfis (linha 351-360) - quando `!canAccessProfiles`
 
 ---
 
-## 3. TEXTOS E BOTÕES A CORRIGIR
+### 1.2 Integrações no Editar Perfil
 
-### 3.1 Remover botão "7 dias grátis" - CTASection.tsx
-- **Linha 130-133**: Mudar de `"Começar grátis por 7 dias"` para `"Começar agora"` ou `"Assinar Canvas"`
+**Arquivo:** `src/components/clients/ClientEditTabsSimplified.tsx`
 
-### 3.2 Remover botão "7 dias grátis" - StickyMobileCTA.tsx
-- **Linha 29**: Mudar de `"Começar grátis por 7 dias"` para `"Assinar Canvas - $19.90/mês"`
+**Problema:** A aba "Integrações" aparece para todos os planos, mas deveria mostrar cadeado para Canvas.
 
-### 3.3 Remover botão "7 dias grátis" - ProShowcase.tsx
-- **Linha 364**: Mudar de `"Começar grátis por 7 dias"` para `"Assinar PRO - $99.90/mês"`
-- **Linha 368-369**: Remover texto `"Inclui 3 perfis + 3 membros. Adicione mais por $7 e $4/mês."`
+**Solução:** 
+1. Importar `usePlanFeatures` hook
+2. Verificar se `isPro` é false
+3. Mostrar cadeado na aba e bloquear conteúdo
 
-### 3.4 Corrigir texto do "Publica direto" - ValueProposition.tsx
-Adicionar badge PRO mais visível:
 ```typescript
-{pillar.isPro && (
-  <Badge className="ml-2 bg-primary/10 text-primary text-[9px] px-1.5 py-0.5">
-    PRO
-  </Badge>
+import { usePlanFeatures } from "@/hooks/usePlanFeatures";
+import { Lock } from "lucide-react";
+
+// Dentro do componente
+const { isPro } = usePlanFeatures();
+
+// Na TabsTrigger de integrations (linha 220-223)
+<TabsTrigger 
+  value="integrations" 
+  className={cn("text-xs gap-1", !isPro && "opacity-50")}
+  disabled={!isPro}
+>
+  <Plug className="h-3.5 w-3.5" />
+  Integrações
+  {!isPro && <Lock className="h-3 w-3 ml-1 text-muted-foreground" />}
+</TabsTrigger>
+
+// No TabsContent (linha 406-408)
+<TabsContent value="integrations" className="mt-4">
+  {isPro ? (
+    <SocialIntegrationsTab clientId={client.id} />
+  ) : (
+    <div className="flex flex-col items-center justify-center py-12 text-center">
+      <Lock className="h-12 w-12 text-muted-foreground/40 mb-4" />
+      <h3 className="font-semibold mb-2">Integrações PRO</h3>
+      <p className="text-sm text-muted-foreground mb-4 max-w-sm">
+        Conecte redes sociais e publique diretamente com o plano PRO.
+      </p>
+      <Button onClick={() => navigate('/settings?section=billing')}>
+        Fazer upgrade
+      </Button>
+    </div>
+  )}
+</TabsContent>
+```
+
+---
+
+## 2. REMOVER QUESTÃO DO FAQ
+
+**Arquivo:** `src/components/landing/FAQSection.tsx`
+
+**Problema:** A primeira pergunta menciona "7 dias grátis" no trial.
+
+**Ação:** Remover a pergunta "Quanto custa e como funciona o trial?" (linhas 18-22) do array `faqs`, já que não oferecemos mais trial gratuito.
+
+```typescript
+// REMOVER este item do array faqs:
+{
+  question: "Quanto custa e como funciona o trial?",
+  answer: "Oferecemos 7 dias grátis...",
+  category: "pricing",
+}
+```
+
+---
+
+## 3. MELHORAR ANIMAÇÕES DA HERO SECTION (Cards "Na Prática")
+
+**Arquivo:** `src/components/landing/NewHeroSection.tsx`
+
+**Objetivo:** Aproveitar as animações incríveis do `InputTypesGrid.tsx` (waveform de áudio, scan de PDF, URL loading, etc.) nos cards da Hero.
+
+### Animações a importar/adaptar:
+
+1. **AnimatedWaveform** (audio) - linhas 112-131 do InputTypesGrid
+2. **UrlPreview** (browser loading) - linhas 134-170 do InputTypesGrid  
+3. **YoutubePreview** (play + progress bar) - linhas 173-204 do InputTypesGrid
+4. **PdfPreview** (scan effect) - linhas 207-238 do InputTypesGrid
+5. **TextPreview** (typing cursor) - linhas 241-265 do InputTypesGrid
+6. **ImagePreview** (scan effect) - linhas 268-285 do InputTypesGrid
+7. **FloatingParticles** - linhas 288-311 do InputTypesGrid
+
+### Onde aplicar:
+
+No `HeroCanvasDemo` (linhas 175-600+), dentro dos nodes de Attachment:
+
+```typescript
+// No Attachment Node, quando animationStep >= 2:
+// - Para scenario tipo 'url': usar UrlPreview
+// - Para scenario tipo 'audio': usar AnimatedWaveform  
+// - Para scenario tipo 'pdf': usar PdfPreview com scan
+// - Para scenario tipo 'image+text': usar ImagePreview com scan
+
+// Exemplo para áudio:
+{scenario.attachment.type === 'audio' && animationStep >= 2 && (
+  <motion.div
+    initial={{ opacity: 0 }}
+    animate={{ opacity: 1 }}
+    className="px-2"
+  >
+    <AnimatedWaveform />
+    <div className="text-[8px] text-muted-foreground mt-1">
+      {scenario.attachment.extraction?.duration}
+    </div>
+  </motion.div>
 )}
 ```
 
-### 3.5 Unificar cor do texto "Resultado: 10x mais..." - ValueProposition.tsx
-- **Linha 144**: Mudar de `<span className="text-primary">10x mais conteúdo em menos tempo</span>` para cor única `text-foreground`
-
----
-
-## 4. BENTO GRID - ESPAÇO VAZIO (`InputTypesGrid.tsx`)
-
-**Problema:** Layout atual cria espaço vazio porque os tamanhos `large` e `medium` não preenchem corretamente
-
-**Solução:** Ajustar grid para:
-- YouTube: `md:col-span-2 lg:col-span-2` (destaque principal)
-- URL: `lg:col-span-2` 
-- PDF, Text, Image: `lg:col-span-1` cada
-- Audio: `lg:col-span-2`
-
-Isso dará layout:
-```
-Row 1: [YouTube large] [URL large]
-Row 2: [PDF] [Text] [Image] [Audio large]
+### Adicionar FloatingParticles ao container:
+```typescript
+<div className="relative w-full aspect-[16/9] bg-background rounded-lg overflow-hidden">
+  <FloatingParticles color="bg-primary" />
+  {/* ... resto do conteúdo */}
+</div>
 ```
 
 ---
 
-## 5. ARQUIVOS A MODIFICAR
+## 4. ARQUIVOS A MODIFICAR
 
 | Arquivo | Mudanças |
 |---------|----------|
-| `CanvasDemoSection.tsx` | Remover gradientes das linhas e contador, melhorar conexões curvas, tirar Sparkles do badge |
-| `InputTypesGrid.tsx` | Remover todos os gradientes, ajustar grid layout |
-| `ValueProposition.tsx` | Remover gradientes, unificar cor do texto "10x", melhorar badge PRO |
-| `ProShowcase.tsx` | Remover gradientes, trocar texto do botão, remover texto abaixo |
-| `CTASection.tsx` | Trocar texto do botão para "Começar agora" |
-| `StickyMobileCTA.tsx` | Trocar texto do botão |
+| `src/components/kai/KaiSidebar.tsx` | Adicionar prop `showLock` ao NavItem e ícones Lock nos itens bloqueados |
+| `src/components/clients/ClientEditTabsSimplified.tsx` | Bloquear aba Integrações com cadeado para Canvas |
+| `src/components/landing/FAQSection.tsx` | Remover pergunta sobre trial de 7 dias |
+| `src/components/landing/NewHeroSection.tsx` | Importar/adaptar animações do InputTypesGrid (waveform, scan, etc.) |
 
 ---
 
-## 6. RESUMO DAS AÇÕES
+## 5. ORDEM DE IMPLEMENTAÇÃO
 
-1. **Gradientes**: Substituir todos `bg-gradient-to-*` por cores sólidas (`bg-primary/10`, `bg-muted`, etc.)
-2. **Conexões**: Usar SVG paths curvos ao invés de divs retas
-3. **Sparkles**: Remover do badge "Multiplicação de Conteúdo"
-4. **CTAs**: Unificar para "Começar agora" ou "Assinar [Plano]" sem "7 dias grátis"
-5. **Texto PRO**: Destacar mais o badge PRO em "Publica direto"
-6. **Texto resultado**: Usar cor única `text-foreground` em vez de `text-primary`
-7. **Grid**: Reorganizar tamanhos para eliminar espaços vazios
+### Fase 1 - Cadeados (Prioridade Alta)
+1. Modificar NavItem na KaiSidebar para mostrar Lock
+2. Adicionar cadeado e bloqueio na aba Integrações
+
+### Fase 2 - FAQ
+3. Remover pergunta sobre trial
+
+### Fase 3 - Animações Hero
+4. Extrair componentes de animação do InputTypesGrid para arquivo compartilhado
+5. Aplicar animações nos nodes da HeroCanvasDemo
+
