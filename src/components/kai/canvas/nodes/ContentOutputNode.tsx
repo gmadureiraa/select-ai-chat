@@ -230,27 +230,27 @@ function ContentOutputNodeComponent({
   const cardWidth = isExpanded ? "w-[500px]" : "w-[350px]";
   const scrollHeight = isExpanded ? "h-[320px]" : "h-[160px]";
 
-  // Border color based on approval status
+// Border color based on approval status
   const borderColor = data.addedToPlanning 
-    ? "border-green-500/50" 
+    ? "border-primary/50" 
     : data.approvalStatus === "approved"
-      ? "border-green-500/30"
+      ? "border-primary/30"
       : data.approvalStatus === "rejected"
-        ? "border-red-500/30"
-        : "border-pink-500/50";
+        ? "border-destructive/30"
+        : "border-primary/30";
 
   return (
     <Card className={cn(
       cardWidth,
       "shadow-lg transition-all border-2",
       selected ? "border-primary ring-2 ring-primary/20" : borderColor,
-      "bg-gradient-to-br from-pink-50 to-white dark:from-pink-950/30 dark:to-background"
+"bg-gradient-to-br from-accent to-background"
     )}>
       <CardHeader className="pb-2 pt-3 px-3 flex-row items-center justify-between">
         <div className="flex items-center gap-2">
-          <div className={cn(
+<div className={cn(
             "h-6 w-6 rounded-md flex items-center justify-center",
-            data.addedToPlanning ? "bg-green-500" : "bg-pink-500"
+            data.addedToPlanning ? "bg-primary" : "bg-primary/70"
           )}>
             {data.addedToPlanning ? (
               <Check className="h-3.5 w-3.5 text-white" />

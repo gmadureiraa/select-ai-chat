@@ -301,7 +301,7 @@ function CanvasToolbarComponent({
         );
       case 'saved':
         return (
-          <div className="flex items-center gap-1 text-[10px] text-green-600">
+          <div className="flex items-center gap-1 text-[10px] text-primary">
             <Check className="h-3 w-3" />
             <span className="hidden sm:inline">Salvo</span>
           </div>
@@ -573,10 +573,10 @@ function CanvasToolbarComponent({
               variant="ghost"
               size="sm"
               onClick={() => onAddNode("attachment")}
-              className="h-8 gap-1.5 text-xs hover:bg-cyan-50 hover:text-cyan-600 dark:hover:bg-cyan-950"
+              className="h-8 gap-1.5 text-xs hover:bg-accent hover:text-accent-foreground"
             >
-              <div className="h-5 w-5 rounded bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center">
-                <Paperclip className="h-3 w-3 text-white" />
+              <div className="h-5 w-5 rounded bg-primary/80 flex items-center justify-center">
+                <Paperclip className="h-3 w-3 text-primary-foreground" />
               </div>
               <span className="hidden md:inline font-medium">Anexo</span>
             </Button>
@@ -590,10 +590,10 @@ function CanvasToolbarComponent({
               variant="ghost"
               size="sm"
               onClick={() => onAddNode("generator")}
-              className="h-8 gap-1.5 text-xs hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-950"
+              className="h-8 gap-1.5 text-xs hover:bg-accent hover:text-accent-foreground"
             >
-              <div className="h-5 w-5 rounded bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center">
-                <Sparkles className="h-3 w-3 text-white" />
+              <div className="h-5 w-5 rounded bg-primary flex items-center justify-center">
+                <Sparkles className="h-3 w-3 text-primary-foreground" />
               </div>
               <span className="hidden md:inline font-medium">Gerador</span>
             </Button>
@@ -607,10 +607,10 @@ function CanvasToolbarComponent({
               variant="ghost"
               size="sm"
               onClick={() => onAddNode("chat")}
-              className="h-8 gap-1.5 text-xs hover:bg-violet-50 hover:text-violet-600 dark:hover:bg-violet-950"
+              className="h-8 gap-1.5 text-xs hover:bg-accent hover:text-accent-foreground"
             >
-              <div className="h-5 w-5 rounded bg-gradient-to-br from-violet-500 to-purple-500 flex items-center justify-center">
-                <MessageSquare className="h-3 w-3 text-white" />
+              <div className="h-5 w-5 rounded bg-primary/60 flex items-center justify-center">
+                <MessageSquare className="h-3 w-3 text-primary-foreground" />
               </div>
               <span className="hidden md:inline font-medium">Chat</span>
             </Button>
@@ -628,10 +628,10 @@ function CanvasToolbarComponent({
                 <Button 
                   variant="ghost" 
                   size="sm" 
-                  className="h-8 gap-1.5 text-xs hover:bg-green-50 hover:text-green-600 dark:hover:bg-green-950"
+                  className="h-8 gap-1.5 text-xs hover:bg-accent hover:text-accent-foreground"
                 >
-                  <div className="h-5 w-5 rounded bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center">
-                    <Sparkles className="h-3 w-3 text-white" />
+                  <div className="h-5 w-5 rounded bg-primary flex items-center justify-center">
+                    <Sparkles className="h-3 w-3 text-primary-foreground" />
                   </div>
                   <span className="hidden lg:inline font-medium">Rápido</span>
                 </Button>
@@ -666,7 +666,7 @@ function CanvasToolbarComponent({
               variant="ghost"
               size="icon"
               onClick={onOpenLibrary}
-              className="h-8 w-8 hover:bg-purple-50 hover:text-purple-600 dark:hover:bg-purple-950"
+              className="h-8 w-8 hover:bg-accent hover:text-accent-foreground"
             >
               <Library size={16} />
             </Button>

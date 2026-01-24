@@ -65,7 +65,7 @@ function CanvasContextMenuComponent({
     { type: "separator" },
     { label: "Anexo (IA)", action: "add-attachment", icon: Paperclip, color: "text-blue-500" },
     { label: "Instruções (IA)", action: "add-prompt", icon: MessageSquare, color: "text-yellow-500" },
-    { label: "Gerador (IA)", action: "add-generator", icon: Sparkles, color: "text-green-500" },
+    { label: "Gerador (IA)", action: "add-generator", icon: Sparkles, color: "text-primary" },
   ];
 
   if (hasDrawings) {

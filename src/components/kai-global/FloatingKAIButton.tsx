@@ -37,11 +37,11 @@ export function FloatingKAIButton({
       <Button
         onClick={onClick}
         size="icon"
-        className={cn(
+className={cn(
           "relative h-14 w-14 min-h-14 min-w-14 p-0 rounded-full shadow-lg transition-all duration-300",
-          "bg-[#d262b2] hover:bg-[#c050a0]",
+          "bg-primary hover:bg-primary/90",
           "hover:shadow-xl hover:scale-105",
-          "focus:ring-2 focus:ring-[#d262b2]/50 focus:ring-offset-2",
+          "focus:ring-2 focus:ring-primary/50 focus:ring-offset-2",
           isOpen && "rotate-180"
         )}
       >
