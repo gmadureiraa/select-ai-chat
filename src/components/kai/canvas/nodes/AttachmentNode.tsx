@@ -498,14 +498,14 @@ const AttachmentNodeComponent: React.FC<NodeProps<AttachmentNodeData>> = ({
     if (!output) return <Paperclip className="h-4 w-4" />;
     
     switch (output.type) {
-      case 'image': return <ImageIcon className="h-4 w-4 text-cyan-500" />;
-      case 'video': return <Video className="h-4 w-4 text-purple-500" />;
-      case 'audio': return <Mic className="h-4 w-4 text-green-500" />;
-      case 'youtube': return <Play className="h-4 w-4 text-red-500" />;
-      case 'url': return <Globe className="h-4 w-4 text-blue-500" />;
-      case 'pdf': return <FileText className="h-4 w-4 text-orange-500" />;
-      case 'text': return <Type className="h-4 w-4 text-purple-500" />;
-      case 'library': return <FileText className="h-4 w-4 text-primary" />;
+      case 'image': return <ImageIcon className="h-4 w-4 text-muted-foreground" />;
+      case 'video': return <Video className="h-4 w-4 text-muted-foreground" />;
+      case 'audio': return <Mic className="h-4 w-4 text-muted-foreground" />;
+      case 'youtube': return <Play className="h-4 w-4 text-muted-foreground" />;
+      case 'url': return <Globe className="h-4 w-4 text-muted-foreground" />;
+      case 'pdf': return <FileText className="h-4 w-4 text-muted-foreground" />;
+      case 'text': return <Type className="h-4 w-4 text-muted-foreground" />;
+      case 'library': return <FileText className="h-4 w-4 text-muted-foreground" />;
       default: return <Paperclip className="h-4 w-4" />;
     }
   };
@@ -548,16 +548,16 @@ const AttachmentNodeComponent: React.FC<NodeProps<AttachmentNodeData>> = ({
     )}>
       <CardHeader className={cn(
         "pb-2 rounded-t-xl border-b",
-        "bg-purple-500/5 dark:bg-purple-500/10",
-        "border-purple-500/10 dark:border-purple-500/20"
+        "bg-muted/50",
+        "border-border"
       )}>
         <div className="flex items-center justify-between">
           <CardTitle className="text-sm flex items-center gap-2">
             <div className={cn(
               "h-6 w-6 rounded-md flex items-center justify-center",
-              "bg-purple-500/80 dark:bg-purple-500"
+              "bg-muted-foreground/20"
             )}>
-              <Paperclip className="h-3.5 w-3.5 text-white" />
+              <Paperclip className="h-3.5 w-3.5 text-muted-foreground" />
             </div>
             <span>Anexo</span>
             {output && (
@@ -661,12 +661,12 @@ const AttachmentNodeComponent: React.FC<NodeProps<AttachmentNodeData>> = ({
                 
                 {/* Image count badge */}
                 <div className="flex flex-wrap gap-1">
-                  <span className="text-[10px] bg-green-500/20 text-green-600 px-1.5 py-0.5 rounded flex items-center gap-1">
+                  <span className="text-[10px] bg-muted text-muted-foreground px-1.5 py-0.5 rounded flex items-center gap-1">
                     <ImageIcon className="h-3 w-3" />
                     {output.imageCount} {output.imageCount === 1 ? 'imagem' : 'imagens'}
                   </span>
                   {output.transcription && (
-                    <span className="text-[10px] bg-blue-500/20 text-blue-600 px-1.5 py-0.5 rounded flex items-center gap-1">
+                    <span className="text-[10px] bg-muted text-muted-foreground px-1.5 py-0.5 rounded flex items-center gap-1">
                       <FileText className="h-3 w-3" /> Transcrito
                     </span>
                   )}

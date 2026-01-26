@@ -267,15 +267,15 @@ function ContentOutputNodeComponent({
 
       <CardHeader className={cn(
         "pb-2 pt-3 px-3 flex-row items-center justify-between rounded-t-xl border-b",
-        "bg-blue-500/5 dark:bg-blue-500/10",
-        "border-blue-500/15 dark:border-blue-500/20"
+        "bg-muted/50",
+        "border-border"
       )}>
         <div className="flex items-center gap-2">
           <div className={cn(
             "h-6 w-6 rounded-md flex items-center justify-center transition-all",
             data.addedToPlanning 
               ? "bg-primary shadow-sm shadow-primary/30" 
-              : "bg-blue-500/80 dark:bg-blue-500"
+              : "bg-muted-foreground/20"
           )}>
             {data.addedToPlanning ? (
               <Check className="h-3.5 w-3.5 text-white" />
@@ -558,8 +558,8 @@ function ContentOutputNodeComponent({
         id="input"
         className={cn(
           "!w-3 !h-3 transition-all duration-200",
-          "!bg-blue-500 !border-2 !border-background",
-          "hover:!scale-125 hover:!shadow-md hover:!shadow-blue-500/30"
+          "!bg-primary !border-2 !border-background",
+          "hover:!scale-125 hover:!shadow-md hover:!shadow-primary/30"
         )}
         title="Entrada de conteúdo"
       />

@@ -252,7 +252,7 @@ const GeneratorNodeComponent: React.FC<NodeProps<GeneratorNodeData>> = ({
               repeat: Infinity,
               ease: "easeInOut"
             }}
-            className="absolute -inset-3 rounded-2xl bg-gradient-to-r from-emerald-500/20 via-primary/20 to-emerald-500/20 blur-md"
+            className="absolute -inset-3 rounded-2xl bg-gradient-to-r from-primary/20 via-primary/30 to-primary/20 blur-md"
           />
         )}
       </AnimatePresence>
@@ -260,7 +260,7 @@ const GeneratorNodeComponent: React.FC<NodeProps<GeneratorNodeData>> = ({
       <Card className={cn(
         "w-80 shadow-lg rounded-xl transition-all duration-200 relative",
         selected ? 'ring-2 ring-primary shadow-primary/10' : 'hover:shadow-xl',
-        isGenerating && 'ring-2 ring-emerald-500/50 shadow-emerald-500/20'
+        isGenerating && 'ring-2 ring-primary/50 shadow-primary/20'
       )}>
         {/* Input handles - 4 slots for connections */}
         {[0, 1, 2, 3].map((i) => (
@@ -272,24 +272,24 @@ const GeneratorNodeComponent: React.FC<NodeProps<GeneratorNodeData>> = ({
             style={{ top: `${25 + i * 20}%` }}
             className={cn(
               "!w-3 !h-3 transition-all duration-200",
-              "!bg-emerald-500 !border-2 !border-background",
-              "hover:!scale-125 hover:!shadow-md hover:!shadow-emerald-500/30"
+              "!bg-primary !border-2 !border-background",
+              "hover:!scale-125 hover:!shadow-md hover:!shadow-primary/30"
             )}
           />
         ))}
 
       <CardHeader className={cn(
         "pb-2 rounded-t-xl border-b",
-        "bg-emerald-500/5 dark:bg-emerald-500/10",
-        "border-emerald-500/15 dark:border-emerald-500/20"
+        "bg-muted/50",
+        "border-border"
       )}>
         <div className="flex items-center justify-between">
           <CardTitle className="text-sm flex items-center gap-2">
             <div className={cn(
               "h-6 w-6 rounded-md flex items-center justify-center transition-all duration-200",
               isGenerating 
-                ? "bg-emerald-500 shadow-lg shadow-emerald-500/30" 
-                : "bg-emerald-500/80 dark:bg-emerald-500"
+                ? "bg-primary shadow-lg shadow-primary/30" 
+                : "bg-muted-foreground/20"
             )}>
               <StepIconAnimated step={generationStep} />
             </div>
@@ -297,7 +297,7 @@ const GeneratorNodeComponent: React.FC<NodeProps<GeneratorNodeData>> = ({
           </CardTitle>
           <div className="flex items-center gap-1">
             {connectedCount > 0 && (
-              <span className="text-xs bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 px-1.5 py-0.5 rounded-full flex items-center gap-1 font-medium">
+              <span className="text-xs bg-primary/20 text-primary px-1.5 py-0.5 rounded-full flex items-center gap-1 font-medium">
                 <Link2 className="h-3 w-3" />
                 {connectedCount}
               </span>

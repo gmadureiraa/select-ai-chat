@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils';
 // Waveform animation for audio content
 export const AnimatedWaveform = memo(({ 
   bars = 16, 
-  color = 'bg-green-500',
+  color = 'bg-primary',
   className 
 }: { 
   bars?: number; 
@@ -261,25 +261,25 @@ export const AudioPreview = memo(({
   fileName?: string;
   isProcessing?: boolean;
 }) => (
-  <div className="relative bg-green-500/10 rounded-lg p-3 overflow-hidden">
+  <div className="relative bg-primary/10 rounded-lg p-3 overflow-hidden">
     <div className="flex items-center gap-2 mb-2">
       <motion.div
         animate={isProcessing ? { scale: [1, 1.2, 1] } : {}}
         transition={{ duration: 1, repeat: Infinity }}
       >
-        <Mic className="w-4 h-4 text-green-500" />
+        <Mic className="w-4 h-4 text-primary" />
       </motion.div>
-      <span className="text-xs text-green-600 font-medium truncate flex-1">
+      <span className="text-xs text-primary font-medium truncate flex-1">
         {fileName || 'Áudio'}
       </span>
     </div>
     
-    <AnimatedWaveform bars={20} color="bg-green-500" />
+    <AnimatedWaveform bars={20} color="bg-primary" />
     
     {/* Progress indicator */}
     {isProcessing && (
       <motion.div
-        className="absolute bottom-0 left-0 h-0.5 bg-green-500"
+        className="absolute bottom-0 left-0 h-0.5 bg-primary"
         initial={{ width: "0%" }}
         animate={{ width: "100%" }}
         transition={{ duration: 3, repeat: Infinity }}
@@ -298,13 +298,13 @@ export const ProcessingBadge = memo(({
   type?: 'youtube' | 'url' | 'pdf' | 'image' | 'audio' | 'text' | 'default';
 }) => {
   const colors = {
-    youtube: 'bg-red-500/20 text-red-600',
-    url: 'bg-blue-500/20 text-blue-600',
-    pdf: 'bg-orange-500/20 text-orange-600',
-    image: 'bg-cyan-500/20 text-cyan-600',
-    audio: 'bg-green-500/20 text-green-600',
-    text: 'bg-purple-500/20 text-purple-600',
-    default: 'bg-primary/20 text-primary'
+    youtube: 'bg-muted text-muted-foreground',
+    url: 'bg-muted text-muted-foreground',
+    pdf: 'bg-muted text-muted-foreground',
+    image: 'bg-muted text-muted-foreground',
+    audio: 'bg-muted text-muted-foreground',
+    text: 'bg-muted text-muted-foreground',
+    default: 'bg-muted text-muted-foreground'
   };
   
   return (
@@ -331,13 +331,13 @@ export const TypeBadge = memo(({
   type: 'youtube' | 'url' | 'pdf' | 'image' | 'audio' | 'text' | 'instagram';
 }) => {
   const config = {
-    youtube: { color: 'bg-red-500/20 text-red-600', icon: Play, label: 'YouTube' },
-    url: { color: 'bg-blue-500/20 text-blue-600', icon: Globe, label: 'URL' },
-    pdf: { color: 'bg-orange-500/20 text-orange-600', icon: FileText, label: 'PDF' },
-    image: { color: 'bg-cyan-500/20 text-cyan-600', icon: ImageIcon, label: 'Imagem' },
-    audio: { color: 'bg-green-500/20 text-green-600', icon: Mic, label: 'Áudio' },
-    text: { color: 'bg-purple-500/20 text-purple-600', icon: Type, label: 'Texto' },
-    instagram: { color: 'bg-pink-500/20 text-pink-600', icon: ImageIcon, label: 'Instagram' },
+    youtube: { color: 'bg-muted text-muted-foreground', icon: Play, label: 'YouTube' },
+    url: { color: 'bg-muted text-muted-foreground', icon: Globe, label: 'URL' },
+    pdf: { color: 'bg-muted text-muted-foreground', icon: FileText, label: 'PDF' },
+    image: { color: 'bg-muted text-muted-foreground', icon: ImageIcon, label: 'Imagem' },
+    audio: { color: 'bg-muted text-muted-foreground', icon: Mic, label: 'Áudio' },
+    text: { color: 'bg-muted text-muted-foreground', icon: Type, label: 'Texto' },
+    instagram: { color: 'bg-muted text-muted-foreground', icon: ImageIcon, label: 'Instagram' },
   };
   
   const { color, icon: Icon, label } = config[type] || config.text;

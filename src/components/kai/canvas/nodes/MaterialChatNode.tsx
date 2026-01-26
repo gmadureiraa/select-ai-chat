@@ -121,7 +121,7 @@ function MaterialChatNodeComponent({ id, data, selected }: MaterialChatNodeProps
             className={cn(
               "flex items-center gap-1 px-2 py-0.5 rounded-full text-xs",
               isConnected 
-                ? "bg-green-500/10 text-green-600 dark:text-green-400" 
+                ? "bg-primary/10 text-primary" 
                 : "bg-muted text-muted-foreground"
             )}
           >
@@ -151,11 +151,11 @@ function MaterialChatNodeComponent({ id, data, selected }: MaterialChatNodeProps
       {/* Connected Material Preview */}
       <div className={cn(
         "px-3 py-2 border-b transition-colors",
-        isConnected ? "bg-green-500/5" : "bg-muted/30"
+        isConnected ? "bg-primary/5" : "bg-muted/30"
       )}>
         {materialContext ? (
           <div className="flex items-start gap-2">
-            <FileText className="h-4 w-4 text-green-600 dark:text-green-400 mt-0.5 shrink-0" />
+            <FileText className="h-4 w-4 text-primary mt-0.5 shrink-0" />
             <div className="min-w-0">
               <p className="text-xs font-medium text-foreground truncate">{materialTitle}</p>
               <p className="text-xs text-muted-foreground line-clamp-2">{materialPreview}</p>
