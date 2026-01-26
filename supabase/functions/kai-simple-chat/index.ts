@@ -125,6 +125,68 @@ function isSpecificContentQuery(message: string): boolean {
 }
 
 // ============================================
+// CONTENT CREATION DETECTION
+// ============================================
+
+interface ContentCreationResult {
+  isContentCreation: boolean;
+  detectedFormat: string | null;
+}
+
+function detectContentCreation(message: string): ContentCreationResult {
+  const lowerMessage = message.toLowerCase();
+  
+  // Content format keywords
+  const contentFormats: Record<string, string[]> = {
+    carrossel: ["carrossel", "carousel", "carrosel"],
+    newsletter: ["newsletter", "news letter"],
+    post_instagram: ["post", "postagem"],
+    reels: ["reels", "reel", "vídeo curto"],
+    thread: ["thread", "fio"],
+    linkedin: ["linkedin", "linked in"],
+    stories: ["stories", "story"],
+    tweet: ["tweet", "tuíte"],
+    artigo: ["artigo", "article", "artigo x"],
+    blog: ["blog", "blog post"],
+    email: ["email marketing", "email", "e-mail marketing"],
+  };
+  
+  // Creation intent keywords
+  const creationPatterns = [
+    /cri(e|ar|a|ando)/i,
+    /fa(ça|zer|z|zendo)/i,
+    /gere?(ar)?/i,
+    /escrev(a|er|endo)/i,
+    /elabor(e|ar|ando)/i,
+    /mont(e|ar|ando)/i,
+    /produz(a|ir|indo)/i,
+    /desenvolv(a|er|endo)/i,
+    /prepara?(r)?/i,
+  ];
+  
+  // Check if there's a creation intent
+  const hasCreationIntent = creationPatterns.some(p => p.test(lowerMessage));
+  
+  if (!hasCreationIntent) {
+    return { isContentCreation: false, detectedFormat: null };
+  }
+  
+  // Check for content format
+  for (const [format, keywords] of Object.entries(contentFormats)) {
+    if (keywords.some(k => lowerMessage.includes(k))) {
+      return { isContentCreation: true, detectedFormat: format };
+    }
+  }
+  
+  // Generic content creation without specific format
+  if (/conte[uú]do|conteudo|texto|copy/i.test(lowerMessage)) {
+    return { isContentCreation: true, detectedFormat: null };
+  }
+  
+  return { isContentCreation: false, detectedFormat: null };
+}
+
+// ============================================
 // IMAGE GENERATION DETECTION
 // ============================================
 
@@ -892,6 +954,7 @@ serve(async (req) => {
     const isSpecificQuery = isSpecificContentQuery(message);
     const imageGenRequest = isImageGenerationRequest(message);
     const comparisonQuery = isComparisonQuery(message);
+    const contentCreation = detectContentCreation(message);
 
     // 4. Extract date range and metric focus from message
     const dateRange = extractDateRange(message);
@@ -904,6 +967,8 @@ serve(async (req) => {
       isSpecificQuery,
       isImageGeneration: imageGenRequest.isRequest,
       isComparison: comparisonQuery.isComparison,
+      isContentCreation: contentCreation.isContentCreation,
+      detectedFormat: contentCreation.detectedFormat,
       dateRange,
       metricFocus 
     });
@@ -947,6 +1012,8 @@ serve(async (req) => {
     // 6. Fetch additional context based on intent
     let metricsContext = "";
     let comparisonContext = "";
+    let topPerformersContext = "";
+    let formatRulesContext = "";
     
     if (comparisonQuery.isComparison && comparisonQuery.period1 && comparisonQuery.period2) {
       // Fetch comparison context
@@ -960,6 +1027,43 @@ serve(async (req) => {
       );
     } else if (needsMetrics || isReport || isSpecificQuery) {
       metricsContext = await fetchMetricsContext(supabase, clientId, dateRange, metricFocus, isSpecificQuery);
+    }
+    
+    // Fetch top performers for content creation context
+    if (contentCreation.isContentCreation) {
+      const { data: topPosts } = await supabase
+        .from("instagram_posts")
+        .select("caption, post_type, engagement_rate, likes, full_content")
+        .eq("client_id", clientId)
+        .not("content_synced_at", "is", null)
+        .order("engagement_rate", { ascending: false })
+        .limit(5);
+      
+      if (topPosts && topPosts.length > 0) {
+        topPerformersContext = `\n## Top Performers do Cliente (use como referência de estilo e tom)\n`;
+        topPosts.forEach((post: any, i: number) => {
+          const content = post.full_content || post.caption || "";
+          topPerformersContext += `\n### Post #${i + 1} (${post.post_type || 'post'}) - ${(post.engagement_rate || 0).toFixed(2)}% engajamento\n`;
+          topPerformersContext += `${content.substring(0, 500)}${content.length > 500 ? '...' : ''}\n`;
+        });
+      }
+      
+      // Fetch format rules if a specific format was detected
+      if (contentCreation.detectedFormat) {
+        const { data: formatDoc } = await supabase
+          .from("kai_documentation")
+          .select("content, checklist")
+          .eq("doc_type", "format")
+          .eq("doc_key", contentCreation.detectedFormat)
+          .single();
+        
+        if (formatDoc) {
+          formatRulesContext = `\n## Regras do Formato: ${contentCreation.detectedFormat.toUpperCase()}\n${formatDoc.content}\n`;
+          if (formatDoc.checklist) {
+            formatRulesContext += `\n### Checklist Obrigatório:\n${JSON.stringify(formatDoc.checklist)}\n`;
+          }
+        }
+      }
     }
     
     const [webSearchResult, citedContent] = await Promise.all([
@@ -999,8 +1103,33 @@ ${identityGuide ? `## Guia de Identidade\n${identityGuide}` : ""}`;
       systemPrompt += `\n## Materiais Citados\n${citedContent}`;
     }
 
+    // Add top performers context for content creation
+    if (topPerformersContext) {
+      systemPrompt += `\n${topPerformersContext}`;
+    }
+
+    // Add format rules context for content creation
+    if (formatRulesContext) {
+      systemPrompt += `\n${formatRulesContext}`;
+    }
+
     // Add specific instructions based on intent
-    if (comparisonQuery.isComparison) {
+    if (contentCreation.isContentCreation) {
+      systemPrompt += `
+
+## Instruções para Criação de Conteúdo
+Você está criando conteúdo para o cliente. SIGA RIGOROSAMENTE:
+
+1. **Tom de voz**: Use EXATAMENTE o tom de voz definido no Guia de Identidade acima
+2. **Estilo dos Top Performers**: Analise os Top Performers acima e REPLIQUE o estilo, estrutura e abordagem que já funcionam
+3. **Regras do formato**: Se há regras de formato acima, siga-as OBRIGATORIAMENTE (limites de caracteres, estrutura, etc.)
+4. **Emojis**: Quase ZERO emojis no corpo do texto (apenas no CTA final, se necessário)
+5. **Linguagem**: Verbos de ação, números específicos, evite generalidades
+6. **Proibido**: "Entenda", "Aprenda", "Descubra como", "Você sabia que", frases genéricas
+7. **Use**: "Você está perdendo", "O segredo é", "Faça isso agora", linguagem direta
+
+ENTREGUE o conteúdo completo no formato adequado, pronto para uso.`;
+    } else if (comparisonQuery.isComparison) {
       systemPrompt += `
 
 ## Instruções para Análise Comparativa
@@ -1071,6 +1200,10 @@ O usuário quer informações específicas sobre posts ou conteúdos.
       hasMetricsContext: !!metricsContext,
       hasWebSearch: !!webSearchResult,
       hasCitedContent: !!citedContent,
+      hasTopPerformers: !!topPerformersContext,
+      hasFormatRules: !!formatRulesContext,
+      isContentCreation: contentCreation.isContentCreation,
+      detectedFormat: contentCreation.detectedFormat,
     });
 
     // 8. Call Google Gemini API directly
