@@ -43,7 +43,7 @@ export async function parseOpenAIStream(
         if (deltaContent) {
           finalContent += deltaContent;
           chunkCount++;
-          options?.onProgress?.(deltaContent);
+          options?.onProgress?.(finalContent);
           options?.onChunk?.(chunkCount);
         }
       } catch {
@@ -67,7 +67,8 @@ export async function parseOpenAIStream(
         const deltaContent = parsed.choices?.[0]?.delta?.content;
         if (deltaContent) {
           finalContent += deltaContent;
-          options?.onProgress?.(deltaContent);
+          options?.onProgress?.(finalContent);
+          
         }
       } catch {
         // Ignore parse errors
