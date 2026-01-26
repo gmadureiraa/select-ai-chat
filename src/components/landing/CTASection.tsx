@@ -102,7 +102,7 @@ const CTASection = () => {
 
           <p className="text-xl md:text-2xl text-background/80 dark:text-muted-foreground mb-8 font-light max-w-2xl mx-auto">
             Seu próximo mês de conteúdo pode começar agora.
-            <span className="text-background dark:text-foreground font-semibold"> 7 dias grátis</span> para testar.
+            <span className="text-background dark:text-foreground font-semibold"> Sem compromisso</span> para começar.
           </p>
 
           {/* Benefits */}
