@@ -277,21 +277,21 @@ export function KaiSidebar({
 
       {/* Navigation */}
       <nav className="flex-1 px-2 space-y-1 overflow-y-auto scrollbar-hide">
-        {/* Canvas - Hidden for Viewers */}
-        {!isViewer && (
-          <NavItem
-            icon={<Palette className="h-4 w-4" strokeWidth={1.5} />}
-            label="Canvas"
-            active={activeTab === "canvas"}
-            onClick={() => onTabChange("canvas")}
-            collapsed={collapsed}
-          />
-        )}
+        {/* Canvas - Bloqueado para Viewers */}
+        <NavItem
+          icon={<Palette className="h-4 w-4" strokeWidth={1.5} />}
+          label="Canvas"
+          active={activeTab === "canvas"}
+          onClick={() => isViewer ? undefined : onTabChange("canvas")}
+          collapsed={collapsed}
+          disabled={isViewer}
+          showLock={isViewer}
+        />
 
         {/* kAI Chat removed from sidebar - now accessed via floating button */}
 
-        {/* Planning - Viewers can see on Pro plan */}
-        {(canSeePlanning || (isPro && isViewer)) && (
+        {/* Planning - Viewers podem ver, Canvas plan vê bloqueado */}
+        {(hasPlanning || isViewer) ? (
           <NavItem
             icon={<CalendarDays className="h-4 w-4" strokeWidth={1.5} />}
             label="Planejamento"
@@ -299,10 +299,7 @@ export function KaiSidebar({
             onClick={() => onTabChange("planning")}
             collapsed={collapsed}
           />
-        )}
-        
-        {/* Planning locked for Canvas plan */}
-        {!canSeePlanning && !(isPro && isViewer) && (
+        ) : (
           <NavItem
             icon={<CalendarDays className="h-4 w-4" strokeWidth={1.5} />}
             label="Planejamento"
@@ -314,8 +311,8 @@ export function KaiSidebar({
           />
         )}
 
-        {/* Performance - Viewers can see on Pro plan */}
-        {(canAccessPerformance || (isPro && isViewer)) && (
+        {/* Performance - Viewers podem ver, Canvas plan vê bloqueado */}
+        {(canAccessPerformance || isViewer) ? (
           <NavItem
             icon={<BarChart3 className="h-4 w-4" strokeWidth={1.5} />}
             label="Performance"
@@ -323,10 +320,7 @@ export function KaiSidebar({
             onClick={() => onTabChange("performance")}
             collapsed={collapsed}
           />
-        )}
-        
-        {/* Performance locked for Canvas plan */}
-        {!canAccessPerformance && !(isPro && isViewer) && (
+        ) : (
           <NavItem
             icon={<BarChart3 className="h-4 w-4" strokeWidth={1.5} />}
             label="Performance"
@@ -338,8 +332,8 @@ export function KaiSidebar({
           />
         )}
 
-        {/* Library - Viewers can see on Pro plan */}
-        {(canAccessLibrary || (isPro && isViewer)) && (
+        {/* Library - Viewers podem ver, Canvas plan vê bloqueado */}
+        {(canAccessLibrary || isViewer) ? (
           <NavItem
             icon={<Library className="h-4 w-4" strokeWidth={1.5} />}
             label="Biblioteca"
@@ -347,10 +341,7 @@ export function KaiSidebar({
             onClick={() => onTabChange("library")}
             collapsed={collapsed}
           />
-        )}
-        
-        {/* Library locked for Canvas plan */}
-        {!canAccessLibrary && !(isPro && isViewer) && (
+        ) : (
           <NavItem
             icon={<Library className="h-4 w-4" strokeWidth={1.5} />}
             label="Biblioteca"
