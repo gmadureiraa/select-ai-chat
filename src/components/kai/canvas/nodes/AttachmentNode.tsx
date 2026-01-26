@@ -549,17 +549,20 @@ const AttachmentNodeComponent: React.FC<NodeProps<AttachmentNodeData>> = ({
       <CardHeader className={cn(
         "pb-2 rounded-t-xl border-b",
         "bg-purple-500/5 dark:bg-purple-500/10",
-        "border-purple-500/15 dark:border-purple-500/20"
+        "border-purple-500/10 dark:border-purple-500/20"
       )}>
         <div className="flex items-center justify-between">
           <CardTitle className="text-sm flex items-center gap-2">
-            <div className="h-6 w-6 rounded-md bg-purple-500/20 flex items-center justify-center">
-              {getOutputIcon()}
+            <div className={cn(
+              "h-6 w-6 rounded-md flex items-center justify-center",
+              "bg-purple-500/80 dark:bg-purple-500"
+            )}>
+              <Paperclip className="h-3.5 w-3.5 text-white" />
             </div>
             <span>Anexo</span>
             {output && (
-              <span className="text-xs text-muted-foreground truncate max-w-[120px]">
-                ({output.fileName || output.type})
+              <span className="text-xs text-muted-foreground truncate max-w-[100px]">
+                {output.fileName || output.type}
               </span>
             )}
           </CardTitle>
@@ -938,21 +941,21 @@ const AttachmentNodeComponent: React.FC<NodeProps<AttachmentNodeData>> = ({
           </div>
         ) : (
           <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)}>
-            <TabsList className="grid grid-cols-4 h-8">
-              <TabsTrigger value="youtube" className="text-xs px-1">
-                <Play className="h-3 w-3 mr-0.5 text-red-500" />
-                YouTube
+            <TabsList className="grid grid-cols-4 h-8 bg-muted/40 p-0.5">
+              <TabsTrigger value="youtube" className="text-[10px] px-1 gap-0.5 data-[state=active]:bg-background">
+                <Play className="h-3 w-3 text-red-500" />
+                YT
               </TabsTrigger>
-              <TabsTrigger value="url" className="text-xs px-1">
-                <Globe className="h-3 w-3 mr-0.5 text-blue-500" />
+              <TabsTrigger value="url" className="text-[10px] px-1 gap-0.5 data-[state=active]:bg-background">
+                <Globe className="h-3 w-3 text-blue-500" />
                 URL
               </TabsTrigger>
-              <TabsTrigger value="file" className="text-xs px-1">
-                <Upload className="h-3 w-3 mr-0.5" />
+              <TabsTrigger value="file" className="text-[10px] px-1 gap-0.5 data-[state=active]:bg-background">
+                <Upload className="h-3 w-3" />
                 Arquivo
               </TabsTrigger>
-              <TabsTrigger value="text" className="text-xs px-1">
-                <Type className="h-3 w-3 mr-0.5 text-purple-500" />
+              <TabsTrigger value="text" className="text-[10px] px-1 gap-0.5 data-[state=active]:bg-background">
+                <Type className="h-3 w-3 text-purple-500" />
                 Texto
               </TabsTrigger>
             </TabsList>
@@ -1014,10 +1017,15 @@ const AttachmentNodeComponent: React.FC<NodeProps<AttachmentNodeData>> = ({
             
             {/* FILE Tab */}
             <TabsContent value="file" className="mt-2 space-y-2">
-              <label className="flex flex-col items-center justify-center w-full h-20 border-2 border-dashed rounded-lg cursor-pointer hover:bg-muted/50 transition-colors">
-                <Upload className="h-5 w-5 text-muted-foreground mb-1" />
+              <label className={cn(
+                "flex flex-col items-center justify-center w-full h-20 rounded-lg cursor-pointer transition-all",
+                "border-2 border-dashed",
+                "border-muted-foreground/20 bg-muted/20",
+                "hover:border-primary/40 hover:bg-primary/5"
+              )}>
+                <Upload className="h-5 w-5 text-muted-foreground/60 mb-1" />
                 <span className="text-xs text-muted-foreground">Clique ou arraste</span>
-                <span className="text-[10px] text-muted-foreground">Imagens, PDFs, vídeos ou áudios</span>
+                <span className="text-[10px] text-muted-foreground/70">Imagens, PDFs, vídeos ou áudios</span>
                 <input 
                   ref={fileInputRef}
                   type="file" 
@@ -1080,7 +1088,11 @@ const AttachmentNodeComponent: React.FC<NodeProps<AttachmentNodeData>> = ({
       <Handle
         type="source"
         position={Position.Right}
-        className="!w-3 !h-3 !bg-primary !border-2 !border-background"
+        className={cn(
+          "!w-3 !h-3 transition-all duration-200",
+          "!bg-primary !border-2 !border-background",
+          "hover:!scale-125 hover:!shadow-md hover:!shadow-primary/30"
+        )}
       />
     </Card>
   );
