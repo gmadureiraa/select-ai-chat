@@ -5,20 +5,31 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  Paperclip, X, Link2, FileText, Upload, Image as ImageIcon, Video, 
-  Music, Eye, Loader2, CheckCircle2, Expand, ChevronLeft,
-  ChevronRight, Play
+  Paperclip, X, FileText, Upload, Image as ImageIcon, Video, 
+  Eye, Loader2, CheckCircle2, Expand, ChevronLeft,
+  ChevronRight, Play, Globe, Mic, Type
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { TranscriptionModal } from '../components/TranscriptionModal';
 import { transcribeImagesChunked } from '@/lib/transcribeImages';
 import { cn } from '@/lib/utils';
+import { 
+  AnimatedWaveform, 
+  ScanEffect, 
+  YouTubePreview, 
+  UrlPreview, 
+  PdfPreview,
+  AudioPreview,
+  ProcessingBadge,
+  TypeBadge
+} from '../components/InputPreviews';
 
 // Simplified interface - MVP focused
 export interface AttachmentOutput {
-  type: 'image' | 'video' | 'audio' | 'text' | 'youtube' | 'library';
+  type: 'image' | 'video' | 'audio' | 'text' | 'youtube' | 'library' | 'url' | 'pdf';
   content: string;
   transcription?: string;
   imageBase64?: string;
@@ -33,6 +44,10 @@ export interface AttachmentOutput {
   libraryImages?: string[];
   libraryId?: string;
   libraryPlatform?: string;
+  // URL metadata
+  urlTitle?: string;
+  urlDescription?: string;
+  urlThumbnail?: string;
 }
 
 export interface AttachmentNodeData {
@@ -43,46 +58,51 @@ export interface AttachmentNodeData {
 
 const MAX_IMAGES = 15;
 
+// URL type detection
+const detectUrlType = (url: string): 'youtube' | 'instagram' | 'article' => {
+  const lowerUrl = url.toLowerCase();
+  if (lowerUrl.includes('youtube.com') || lowerUrl.includes('youtu.be')) return 'youtube';
+  if (lowerUrl.includes('instagram.com')) return 'instagram';
+  return 'article';
+};
+
 const AttachmentNodeComponent: React.FC<NodeProps<AttachmentNodeData>> = ({ 
   data, 
   selected 
 }) => {
-  const [activeTab, setActiveTab] = useState<'file' | 'link' | 'text'>('file');
+  const [activeTab, setActiveTab] = useState<'youtube' | 'url' | 'file' | 'text'>('file');
   const [urlInput, setUrlInput] = useState('');
   const [textInput, setTextInput] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [processStatus, setProcessStatus] = useState<string>('');
+  const [processingType, setProcessingType] = useState<'youtube' | 'url' | 'pdf' | 'image' | 'audio' | 'text' | 'default'>('default');
   const [showTranscription, setShowTranscription] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const audioInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
   const output = data.output;
 
-  // ONLY YouTube is accepted
-  const isYoutubeUrl = (url: string): boolean => {
-    return url.includes('youtube.com') || url.includes('youtu.be');
-  };
-
-  const handleUrlSubmit = useCallback(async () => {
+  // YouTube URL submit
+  const handleYoutubeSubmit = useCallback(async () => {
     if (!urlInput.trim()) return;
     
+    const urlType = detectUrlType(urlInput);
+    if (urlType !== 'youtube') {
+      toast({ 
+        title: 'Link inválido', 
+        description: 'Cole um link do YouTube aqui. Para outros links, use a aba URL.',
+        variant: 'destructive' 
+      });
+      return;
+    }
+
     setIsProcessing(true);
+    setProcessingType('youtube');
+    setProcessStatus('Extraindo vídeo...');
     
     try {
-      // ONLY YouTube accepted
-      if (!isYoutubeUrl(urlInput)) {
-        toast({ 
-          title: 'Link não suportado', 
-          description: 'Apenas links do YouTube são aceitos. Use o upload para outros conteúdos.',
-          variant: 'destructive' 
-        });
-        setIsProcessing(false);
-        setProcessStatus('');
-        return;
-      }
-
-      setProcessStatus('Extraindo YouTube...');
       console.log('[AttachmentNode] Extracting YouTube:', urlInput);
       
       const { data: result, error } = await supabase.functions.invoke('extract-youtube', {
@@ -91,14 +111,13 @@ const AttachmentNodeComponent: React.FC<NodeProps<AttachmentNodeData>> = ({
       
       if (error) throw error;
       
-      console.log('[AttachmentNode] YouTube result:', result);
-      
       data.onUpdateData?.({
         output: {
           type: 'youtube',
           content: urlInput,
           transcription: result?.transcript || result?.description || '',
-          fileName: result?.title || 'YouTube Video'
+          fileName: result?.title || 'YouTube Video',
+          urlThumbnail: result?.thumbnailUrl
         }
       });
       
@@ -106,7 +125,65 @@ const AttachmentNodeComponent: React.FC<NodeProps<AttachmentNodeData>> = ({
       setUrlInput('');
       
     } catch (error) {
-      console.error('[AttachmentNode] Error extracting URL:', error);
+      console.error('[AttachmentNode] Error extracting YouTube:', error);
+      toast({ 
+        title: 'Erro ao extrair YouTube', 
+        description: error instanceof Error ? error.message : 'Erro desconhecido',
+        variant: 'destructive' 
+      });
+    } finally {
+      setIsProcessing(false);
+      setProcessStatus('');
+      setProcessingType('default');
+    }
+  }, [urlInput, data, toast]);
+
+  // Generic URL submit (articles, blogs, etc)
+  const handleUrlSubmit = useCallback(async () => {
+    if (!urlInput.trim()) return;
+    
+    const urlType = detectUrlType(urlInput);
+    
+    // Redirect to YouTube handler if needed
+    if (urlType === 'youtube') {
+      setActiveTab('youtube');
+      toast({ 
+        title: 'Link do YouTube detectado', 
+        description: 'Use a aba YouTube para vídeos.',
+      });
+      return;
+    }
+
+    setIsProcessing(true);
+    setProcessingType('url');
+    setProcessStatus('Analisando página...');
+    
+    try {
+      console.log('[AttachmentNode] Scraping URL:', urlInput);
+      
+      const { data: result, error } = await supabase.functions.invoke('scrape-research-link', {
+        body: { url: urlInput }
+      });
+      
+      if (error) throw error;
+      
+      data.onUpdateData?.({
+        output: {
+          type: 'url',
+          content: urlInput,
+          transcription: result?.content || result?.markdown || '',
+          fileName: result?.title || new URL(urlInput).hostname,
+          urlTitle: result?.title,
+          urlDescription: result?.description,
+          urlThumbnail: result?.thumbnailUrl || result?.imageUrl
+        }
+      });
+      
+      toast({ title: 'Página extraída!', description: result?.title });
+      setUrlInput('');
+      
+    } catch (error) {
+      console.error('[AttachmentNode] Error scraping URL:', error);
       toast({ 
         title: 'Erro ao extrair conteúdo', 
         description: error instanceof Error ? error.message : 'Erro desconhecido',
@@ -115,6 +192,7 @@ const AttachmentNodeComponent: React.FC<NodeProps<AttachmentNodeData>> = ({
     } finally {
       setIsProcessing(false);
       setProcessStatus('');
+      setProcessingType('default');
     }
   }, [urlInput, data, toast]);
 
@@ -144,6 +222,7 @@ const AttachmentNodeComponent: React.FC<NodeProps<AttachmentNodeData>> = ({
       
       if (allImages && files.length > 1) {
         // Multi-image upload with transcription
+        setProcessingType('image');
         if (files.length > MAX_IMAGES) {
           toast({ 
             title: 'Limite de imagens', 
@@ -151,6 +230,7 @@ const AttachmentNodeComponent: React.FC<NodeProps<AttachmentNodeData>> = ({
             variant: 'destructive' 
           });
           setIsProcessing(false);
+          setProcessingType('default');
           return;
         }
 
@@ -219,6 +299,7 @@ const AttachmentNodeComponent: React.FC<NodeProps<AttachmentNodeData>> = ({
         const fileType = file.type;
 
         if (fileType.startsWith('image/')) {
+          setProcessingType('image');
           setProcessStatus('Processando imagem...');
           
           // Upload to storage
@@ -268,6 +349,7 @@ const AttachmentNodeComponent: React.FC<NodeProps<AttachmentNodeData>> = ({
             
             setIsProcessing(false);
             setProcessStatus('');
+            setProcessingType('default');
             toast({ 
               title: 'Imagem processada!',
               description: transcription ? `${transcription.split(' ').length} palavras extraídas` : undefined
@@ -276,8 +358,57 @@ const AttachmentNodeComponent: React.FC<NodeProps<AttachmentNodeData>> = ({
           reader.readAsDataURL(file);
           return; // Exit early, onload handles the rest
           
+        } else if (fileType === 'application/pdf') {
+          // PDF processing
+          setProcessingType('pdf');
+          setProcessStatus('Enviando PDF...');
+          
+          const fileName = `canvas/${Date.now()}-${file.name}`;
+          const { error: uploadError } = await supabase.storage
+            .from('content-media')
+            .upload(fileName, file);
+          
+          if (uploadError) {
+            throw new Error(`Falha no upload: ${uploadError.message}`);
+          }
+          
+          const { data: { publicUrl } } = supabase.storage
+            .from('content-media')
+            .getPublicUrl(fileName);
+          
+          setProcessStatus('Extraindo texto do PDF...');
+          
+          const { data: pdfResult, error: pdfError } = await supabase.functions.invoke('extract-pdf', {
+            body: { url: publicUrl, fileName: file.name }
+          });
+          
+          data.onUpdateData?.({
+            output: {
+              type: 'pdf',
+              content: publicUrl,
+              transcription: pdfError ? undefined : (pdfResult?.text || pdfResult?.content || ''),
+              fileName: file.name,
+              mimeType: fileType
+            }
+          });
+          
+          if (pdfResult?.text || pdfResult?.content) {
+            const textContent = pdfResult?.text || pdfResult?.content;
+            toast({ 
+              title: 'PDF extraído!',
+              description: `${textContent.split(' ').length} palavras extraídas`
+            });
+          } else {
+            toast({ 
+              title: 'PDF enviado',
+              description: 'Sem texto extraído',
+              variant: 'destructive'
+            });
+          }
+          
         } else if (fileType.startsWith('video/') || fileType.startsWith('audio/')) {
           const type = fileType.startsWith('video/') ? 'video' : 'audio';
+          setProcessingType(type === 'audio' ? 'audio' : 'default');
           setProcessStatus(`Enviando ${type === 'video' ? 'vídeo' : 'áudio'}...`);
           
           console.log('[AttachmentNode] Uploading media file:', file.name, fileType);
@@ -340,7 +471,7 @@ const AttachmentNodeComponent: React.FC<NodeProps<AttachmentNodeData>> = ({
         } else {
           toast({ 
             title: 'Tipo de arquivo não suportado',
-            description: 'Use imagens, vídeos ou áudios.',
+            description: 'Use imagens, PDFs, vídeos ou áudios.',
             variant: 'destructive'
           });
         }
@@ -355,6 +486,7 @@ const AttachmentNodeComponent: React.FC<NodeProps<AttachmentNodeData>> = ({
     } finally {
       setIsProcessing(false);
       setProcessStatus('');
+      setProcessingType('default');
       // Reset file input
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
@@ -366,11 +498,13 @@ const AttachmentNodeComponent: React.FC<NodeProps<AttachmentNodeData>> = ({
     if (!output) return <Paperclip className="h-4 w-4" />;
     
     switch (output.type) {
-      case 'image': return <ImageIcon className="h-4 w-4 text-green-500" />;
+      case 'image': return <ImageIcon className="h-4 w-4 text-cyan-500" />;
       case 'video': return <Video className="h-4 w-4 text-purple-500" />;
-      case 'audio': return <Music className="h-4 w-4 text-blue-500" />;
+      case 'audio': return <Mic className="h-4 w-4 text-green-500" />;
       case 'youtube': return <Play className="h-4 w-4 text-red-500" />;
-      case 'text': return <FileText className="h-4 w-4 text-muted-foreground" />;
+      case 'url': return <Globe className="h-4 w-4 text-blue-500" />;
+      case 'pdf': return <FileText className="h-4 w-4 text-orange-500" />;
+      case 'text': return <Type className="h-4 w-4 text-purple-500" />;
       case 'library': return <FileText className="h-4 w-4 text-primary" />;
       default: return <Paperclip className="h-4 w-4" />;
     }
@@ -442,10 +576,33 @@ const AttachmentNodeComponent: React.FC<NodeProps<AttachmentNodeData>> = ({
       
       <CardContent className="space-y-3">
         {isProcessing ? (
-          <div className="flex flex-col items-center justify-center py-8 gap-2">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            <span className="text-sm font-medium">{processStatus}</span>
-            <span className="text-xs text-muted-foreground">Aguarde...</span>
+          <div className="flex flex-col items-center justify-center py-6 gap-3">
+            {/* Animated preview based on processing type */}
+            {processingType === 'youtube' && (
+              <YouTubePreview isProcessing />
+            )}
+            {processingType === 'url' && (
+              <UrlPreview isProcessing />
+            )}
+            {processingType === 'audio' && (
+              <AudioPreview isProcessing />
+            )}
+            {processingType === 'pdf' && (
+              <PdfPreview isProcessing />
+            )}
+            {processingType === 'image' && (
+              <div className="relative w-full h-24 rounded-lg overflow-hidden bg-cyan-500/10">
+                <ScanEffect color="bg-cyan-500/30" />
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <ImageIcon className="h-8 w-8 text-cyan-500/50" />
+                </div>
+              </div>
+            )}
+            {(processingType === 'default' || !['youtube', 'url', 'audio', 'pdf', 'image'].includes(processingType)) && (
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            )}
+            
+            <ProcessingBadge status={processStatus} type={processingType} />
           </div>
         ) : output ? (
           <div className="space-y-3">
@@ -538,36 +695,130 @@ const AttachmentNodeComponent: React.FC<NodeProps<AttachmentNodeData>> = ({
               </div>
             )}
 
-            {/* AUDIO with player */}
+            {/* AUDIO with animated waveform and player */}
             {output.type === 'audio' && output.content && (
               <div className="space-y-2">
+                <div className="relative bg-green-500/10 rounded-lg p-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Mic className="w-4 h-4 text-green-500" />
+                    <span className="text-xs text-green-600 font-medium truncate flex-1">
+                      {output.fileName}
+                    </span>
+                  </div>
+                  <AnimatedWaveform bars={16} color="bg-green-500" />
+                </div>
                 <audio 
                   src={output.content} 
                   controls 
-                  className="w-full"
+                  className="w-full h-8"
                 />
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <Music className="h-4 w-4 text-blue-500" />
-                  <span className="truncate">{output.fileName}</span>
+                <TypeBadge type="audio" />
+              </div>
+            )}
+            
+            {/* PDF preview with document styling */}
+            {output.type === 'pdf' && output.content && (
+              <div className="space-y-2">
+                <div className="relative bg-background/90 backdrop-blur-sm rounded-lg border border-orange-500/30 p-3 overflow-hidden">
+                  {/* PDF badge */}
+                  <div className="absolute -top-1 -right-1 w-6 h-6 bg-orange-500 rounded-bl-lg flex items-center justify-center">
+                    <FileText className="w-3 h-3 text-white" />
+                  </div>
+                  
+                  {/* Document preview lines */}
+                  <div className="space-y-1.5 pt-1">
+                    <div className="w-2/3 h-2 bg-orange-500/30 rounded" />
+                    <div className="w-full h-1 bg-muted rounded" />
+                    <div className="w-full h-1 bg-muted rounded" />
+                    <div className="w-3/4 h-1 bg-muted rounded" />
+                  </div>
+                  
+                  <p className="text-[10px] text-muted-foreground truncate mt-2">{output.fileName}</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <TypeBadge type="pdf" />
+                  <span className="text-xs truncate flex-1">{output.fileName}</span>
                 </div>
               </div>
             )}
             
-            {/* YOUTUBE preview */}
+            {/* YOUTUBE preview - enhanced with thumbnail */}
             {output.type === 'youtube' && (
-              <div className="bg-red-500/10 rounded-md p-3 flex items-center gap-2">
-                <Play className="h-5 w-5 text-red-500" />
-                <div className="flex-1 min-w-0">
-                  <span className="text-xs font-medium truncate block">{output.fileName}</span>
-                  <span className="text-[10px] text-muted-foreground">YouTube</span>
+              <div className="space-y-2">
+                <div className="relative bg-gray-900 rounded-lg overflow-hidden">
+                  {output.urlThumbnail ? (
+                    <img 
+                      src={output.urlThumbnail} 
+                      alt="YouTube thumbnail"
+                      className="w-full h-32 object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-32 flex items-center justify-center bg-gradient-to-br from-red-500/20 to-red-900/20">
+                      <Play className="h-10 w-10 text-red-500 fill-red-500" />
+                    </div>
+                  )}
+                  <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
+                    <div className="w-12 h-12 rounded-full bg-red-600 flex items-center justify-center shadow-lg">
+                      <Play className="h-5 w-5 text-white fill-white ml-0.5" />
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <TypeBadge type="youtube" />
+                  <span className="text-xs font-medium truncate flex-1">{output.fileName}</span>
                 </div>
               </div>
             )}
             
-            {/* TEXT preview */}
+            {/* URL preview - with browser chrome style */}
+            {output.type === 'url' && (
+              <div className="space-y-2">
+                <div className="relative bg-background/90 backdrop-blur-sm rounded-lg border border-border/50 p-3 overflow-hidden">
+                  {/* Browser bar */}
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <div className="flex gap-1">
+                      <div className="w-1.5 h-1.5 rounded-full bg-red-400" />
+                      <div className="w-1.5 h-1.5 rounded-full bg-yellow-400" />
+                      <div className="w-1.5 h-1.5 rounded-full bg-green-400" />
+                    </div>
+                    <div className="flex-1 h-5 bg-muted rounded-full overflow-hidden flex items-center px-2">
+                      <Globe className="w-3 h-3 text-blue-500 mr-1" />
+                      <span className="text-[10px] text-muted-foreground truncate">
+                        {new URL(output.content).hostname}
+                      </span>
+                    </div>
+                  </div>
+                  
+                  {/* Content preview */}
+                  {output.urlThumbnail && (
+                    <img 
+                      src={output.urlThumbnail} 
+                      alt="URL thumbnail"
+                      className="w-full h-20 object-cover rounded mb-2"
+                    />
+                  )}
+                  <p className="text-xs font-medium line-clamp-2">{output.urlTitle || output.fileName}</p>
+                  {output.urlDescription && (
+                    <p className="text-[10px] text-muted-foreground line-clamp-2 mt-1">{output.urlDescription}</p>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <TypeBadge type="url" />
+                  <span className="text-xs truncate flex-1">{output.fileName}</span>
+                </div>
+              </div>
+            )}
+            
+            {/* TEXT preview - with typing style */}
             {output.type === 'text' && (
-              <div className="bg-muted rounded-md p-2">
-                <p className="text-xs line-clamp-3">{output.content}</p>
+              <div className="space-y-2">
+                <div className="relative bg-muted/50 rounded-lg p-3">
+                  <div className="flex items-start gap-2">
+                    <Type className="w-4 h-4 text-purple-500 mt-0.5 flex-shrink-0" />
+                    <p className="text-xs line-clamp-4">{output.content}</p>
+                  </div>
+                </div>
+                <TypeBadge type="text" />
               </div>
             )}
 
@@ -687,46 +938,68 @@ const AttachmentNodeComponent: React.FC<NodeProps<AttachmentNodeData>> = ({
           </div>
         ) : (
           <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)}>
-            <TabsList className="grid grid-cols-3 h-8">
-              <TabsTrigger value="file" className="text-xs">
-                <Upload className="h-3 w-3 mr-1" />
+            <TabsList className="grid grid-cols-4 h-8">
+              <TabsTrigger value="youtube" className="text-xs px-1">
+                <Play className="h-3 w-3 mr-0.5 text-red-500" />
+                YouTube
+              </TabsTrigger>
+              <TabsTrigger value="url" className="text-xs px-1">
+                <Globe className="h-3 w-3 mr-0.5 text-blue-500" />
+                URL
+              </TabsTrigger>
+              <TabsTrigger value="file" className="text-xs px-1">
+                <Upload className="h-3 w-3 mr-0.5" />
                 Arquivo
               </TabsTrigger>
-              <TabsTrigger value="link" className="text-xs">
-                <Link2 className="h-3 w-3 mr-1" />
-                Link
-              </TabsTrigger>
-              <TabsTrigger value="text" className="text-xs">
-                <FileText className="h-3 w-3 mr-1" />
+              <TabsTrigger value="text" className="text-xs px-1">
+                <Type className="h-3 w-3 mr-0.5 text-purple-500" />
                 Texto
               </TabsTrigger>
             </TabsList>
             
-            <TabsContent value="file" className="mt-2">
-              <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed rounded-lg cursor-pointer hover:bg-muted/50 transition-colors">
-                <Upload className="h-6 w-6 text-muted-foreground mb-1" />
-                <span className="text-xs text-muted-foreground">Clique ou arraste</span>
-                <span className="text-[10px] text-muted-foreground">Até {MAX_IMAGES} imagens, vídeo ou áudio</span>
-                <input 
-                  ref={fileInputRef}
-                  type="file" 
-                  className="hidden" 
-                  accept="image/*,video/*,audio/*"
-                  multiple
-                  onChange={handleFileUpload}
+            {/* YOUTUBE Tab */}
+            <TabsContent value="youtube" className="mt-2 space-y-2">
+              <div className="relative">
+                <Input
+                  placeholder="Cole um link do YouTube..."
+                  value={urlInput}
+                  onChange={(e) => setUrlInput(e.target.value)}
+                  className="text-xs h-8 pl-8"
                 />
-              </label>
+                <Play className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-red-500" />
+              </div>
+              <div className="flex gap-1 text-[10px] text-muted-foreground">
+                <span className="bg-red-500/10 text-red-600 px-1.5 py-0.5 rounded flex items-center gap-1">
+                  <Play className="h-2.5 w-2.5" /> Vídeos
+                </span>
+              </div>
+              <Button 
+                size="sm" 
+                className="w-full text-xs h-7 bg-red-600 hover:bg-red-700"
+                onClick={handleYoutubeSubmit}
+                disabled={!urlInput.trim()}
+              >
+                <Play className="h-3 w-3 mr-1" />
+                Extrair YouTube
+              </Button>
             </TabsContent>
             
-            <TabsContent value="link" className="mt-2 space-y-2">
-              <Input
-                placeholder="Cole um link do YouTube..."
-                value={urlInput}
-                onChange={(e) => setUrlInput(e.target.value)}
-                className="text-xs h-8"
-              />
-              <div className="flex gap-1 text-[10px] text-muted-foreground">
-                <span className="bg-red-500/10 text-red-600 px-1.5 py-0.5 rounded">YouTube</span>
+            {/* URL Tab - Generic URLs */}
+            <TabsContent value="url" className="mt-2 space-y-2">
+              <div className="relative">
+                <Input
+                  placeholder="Cole um link de artigo, blog..."
+                  value={urlInput}
+                  onChange={(e) => setUrlInput(e.target.value)}
+                  className="text-xs h-8 pl-8"
+                />
+                <Globe className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-blue-500" />
+              </div>
+              <div className="flex gap-1 flex-wrap text-[10px] text-muted-foreground">
+                <span className="bg-blue-500/10 text-blue-600 px-1.5 py-0.5 rounded">Artigos</span>
+                <span className="bg-blue-500/10 text-blue-600 px-1.5 py-0.5 rounded">Blogs</span>
+                <span className="bg-blue-500/10 text-blue-600 px-1.5 py-0.5 rounded">Substack</span>
+                <span className="bg-blue-500/10 text-blue-600 px-1.5 py-0.5 rounded">Medium</span>
               </div>
               <Button 
                 size="sm" 
@@ -739,13 +1012,48 @@ const AttachmentNodeComponent: React.FC<NodeProps<AttachmentNodeData>> = ({
               </Button>
             </TabsContent>
             
+            {/* FILE Tab */}
+            <TabsContent value="file" className="mt-2 space-y-2">
+              <label className="flex flex-col items-center justify-center w-full h-20 border-2 border-dashed rounded-lg cursor-pointer hover:bg-muted/50 transition-colors">
+                <Upload className="h-5 w-5 text-muted-foreground mb-1" />
+                <span className="text-xs text-muted-foreground">Clique ou arraste</span>
+                <span className="text-[10px] text-muted-foreground">Imagens, PDFs, vídeos ou áudios</span>
+                <input 
+                  ref={fileInputRef}
+                  type="file" 
+                  className="hidden" 
+                  accept="image/*,video/*,audio/*,application/pdf"
+                  multiple
+                  onChange={handleFileUpload}
+                />
+              </label>
+              <div className="flex gap-1 flex-wrap text-[10px] text-muted-foreground">
+                <span className="bg-cyan-500/10 text-cyan-600 px-1.5 py-0.5 rounded flex items-center gap-0.5">
+                  <ImageIcon className="h-2.5 w-2.5" /> Imagens
+                </span>
+                <span className="bg-green-500/10 text-green-600 px-1.5 py-0.5 rounded flex items-center gap-0.5">
+                  <Mic className="h-2.5 w-2.5" /> Áudio
+                </span>
+                <span className="bg-purple-500/10 text-purple-600 px-1.5 py-0.5 rounded flex items-center gap-0.5">
+                  <Video className="h-2.5 w-2.5" /> Vídeo
+                </span>
+                <span className="bg-orange-500/10 text-orange-600 px-1.5 py-0.5 rounded flex items-center gap-0.5">
+                  <FileText className="h-2.5 w-2.5" /> PDF
+                </span>
+              </div>
+            </TabsContent>
+            
+            {/* TEXT Tab */}
             <TabsContent value="text" className="mt-2 space-y-2">
-              <Textarea
-                placeholder="Digite seu texto, briefing, instruções..."
-                value={textInput}
-                onChange={(e) => setTextInput(e.target.value)}
-                className="text-xs min-h-[60px] resize-none"
-              />
+              <div className="relative">
+                <Textarea
+                  placeholder="Digite seu texto, briefing, instruções..."
+                  value={textInput}
+                  onChange={(e) => setTextInput(e.target.value)}
+                  className="text-xs min-h-[60px] resize-none pl-7"
+                />
+                <Type className="absolute left-2.5 top-3 h-3.5 w-3.5 text-purple-500" />
+              </div>
               <Button 
                 size="sm" 
                 className="w-full text-xs h-7"
