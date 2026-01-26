@@ -97,11 +97,14 @@ export const useWorkspace = () => {
   
   // More granular permissions for specific features
   const canEditInLibrary = !isViewer && userRole !== undefined;
-  const canEditInPlanning = userRole !== undefined;
+  const canEditInPlanning = !isViewer && userRole !== undefined;
   const canEditClients = !isViewer && userRole !== undefined;
   const canEditKnowledgeBase = !isViewer && userRole !== undefined;
   const canManageAutomations = isAdminOrOwner;
   const canEditClientSettings = !isViewer && userRole !== undefined;
+  
+  // Viewers can VIEW planning (read-only) - any role can view
+  const canViewPlanning = userRole !== undefined;
 
   return {
     workspace,
@@ -135,5 +138,6 @@ export const useWorkspace = () => {
     canEditKnowledgeBase,
     canManageAutomations,
     canEditClientSettings,
+    canViewPlanning,
   };
 };
