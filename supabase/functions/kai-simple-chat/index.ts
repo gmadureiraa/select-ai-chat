@@ -146,12 +146,127 @@ interface PlanningIntent {
   sourceUrl: string | null;
   topic: string | null;
   missingInfo: string[];
+  isFollowUp?: boolean;
+}
+
+/**
+ * Get platform emoji
+ */
+function getPlatformEmoji(platform: string): string {
+  const emojis: Record<string, string> = {
+    instagram: "📸",
+    twitter: "🐦",
+    linkedin: "💼",
+    youtube: "🎬",
+    newsletter: "📧",
+    tiktok: "🎵",
+  };
+  return emojis[platform?.toLowerCase()] || "📱";
+}
+
+/**
+ * Detect planning intent from conversation context (follow-up answers)
+ */
+function detectPlanningIntentFromContext(
+  message: string,
+  history?: HistoryMessage[]
+): PlanningIntent | null {
+  if (!history || history.length === 0) return null;
+  
+  // Find the last assistant message
+  const lastAssistant = history.filter(h => h.role === "assistant").pop();
+  if (!lastAssistant) return null;
+  
+  // Check if the last message was asking for planning info
+  const wasPlanningQuestion = 
+    lastAssistant.content.includes("Para qual plataforma") ||
+    lastAssistant.content.includes("Para qual data") ||
+    lastAssistant.content.includes("Sobre qual tema") ||
+    lastAssistant.content.includes("qual rede social") ||
+    lastAssistant.content.includes("quando você gostaria");
+  
+  if (!wasPlanningQuestion) return null;
+  
+  console.log("[kai-simple-chat] Detected follow-up to planning question");
+  
+  const lowerMessage = message.toLowerCase().trim();
+  const result: PlanningIntent = {
+    isPlanning: true,
+    action: "create",
+    quantity: 1,
+    platform: null,
+    specificDate: null,
+    sourceUrl: null,
+    topic: null,
+    missingInfo: [],
+    isFollowUp: true,
+  };
+  
+  // Extract platform from answer
+  const platforms: Record<string, string> = {
+    'instagram': 'instagram',
+    'insta': 'instagram',
+    'twitter': 'twitter',
+    'x': 'twitter',
+    'linkedin': 'linkedin',
+    'youtube': 'youtube',
+    'newsletter': 'newsletter',
+    'tiktok': 'tiktok',
+  };
+  
+  for (const [keyword, platform] of Object.entries(platforms)) {
+    if (lowerMessage.includes(keyword)) {
+      result.platform = platform;
+      break;
+    }
+  }
+  
+  // Extract date patterns
+  const dateMatch = lowerMessage.match(/(\d{1,2})[\/\-](\d{1,2})(?:[\/\-](\d{4}))?/);
+  if (dateMatch) {
+    const day = dateMatch[1].padStart(2, '0');
+    const month = dateMatch[2].padStart(2, '0');
+    const year = dateMatch[3] || new Date().getFullYear().toString();
+    result.specificDate = `${year}-${month}-${day}`;
+  } else if (/amanh[ãa]/i.test(lowerMessage)) {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    result.specificDate = tomorrow.toISOString().split('T')[0];
+  } else if (/hoje/i.test(lowerMessage)) {
+    result.specificDate = new Date().toISOString().split('T')[0];
+  }
+  
+  // Extract topic from what's left
+  let topic = message
+    .replace(/instagram|twitter|linkedin|youtube|tiktok|newsletter/gi, '')
+    .replace(/\d{1,2}[\/\-]\d{1,2}(?:[\/\-]\d{4})?/g, '')
+    .replace(/amanh[ãa]|hoje/gi, '')
+    .replace(/sobre|para|no|na/gi, '')
+    .trim();
+  
+  if (topic.length > 3) {
+    result.topic = topic;
+  }
+  
+  // Only return if we extracted something meaningful
+  if (result.platform || result.specificDate || result.topic) {
+    return result;
+  }
+  
+  return null;
 }
 
 /**
  * Detect if user wants to create planning cards
  */
-function detectPlanningIntent(message: string): PlanningIntent {
+function detectPlanningIntent(message: string, history?: HistoryMessage[]): PlanningIntent {
+  // First check if this is a follow-up to a previous planning question
+  const contextIntent = detectPlanningIntentFromContext(message, history);
+  if (contextIntent) {
+    console.log("[kai-simple-chat] Using context-based planning intent:", contextIntent);
+    return contextIntent;
+  }
+  
   const lowerMessage = message.toLowerCase();
   
   const result: PlanningIntent = {
@@ -1084,7 +1199,25 @@ async function generatePlanningCards(
   intent: PlanningIntent,
   authHeader: string
 ): Promise<any[]> {
+  console.log("[kai-simple-chat] generatePlanningCards called:", {
+    clientId,
+    workspaceId,
+    userId,
+    quantity: intent.quantity,
+    platform: intent.platform,
+    specificDate: intent.specificDate,
+    hasSourceUrl: !!intent.sourceUrl,
+    hasTopic: !!intent.topic,
+    action: intent.action,
+  });
+  
   const GOOGLE_API_KEY = Deno.env.get("GOOGLE_AI_STUDIO_API_KEY");
+  
+  // Validate workspace_id
+  if (!workspaceId) {
+    console.error("[kai-simple-chat] Missing workspace_id for planning cards");
+    throw new Error("Cliente não está associado a um workspace");
+  }
   
   // Get first column (Ideias) for the workspace
   const { data: columns, error: columnsError } = await supabase
@@ -1095,29 +1228,36 @@ async function generatePlanningCards(
     .limit(1);
 
   if (columnsError || !columns || columns.length === 0) {
-    throw new Error("Nenhuma coluna encontrada no planejamento");
+    console.error("[kai-simple-chat] No columns found:", columnsError);
+    throw new Error("Nenhuma coluna de planejamento configurada. Configure o Kanban primeiro.");
   }
 
   const columnId = columns[0].id;
+  console.log("[kai-simple-chat] Using column:", columnId);
+  
   const cards: any[] = [];
   
   // Generate dates if distributing across week
   let dates: string[] = [];
   if (intent.action === "distribute") {
     dates = distributeAcrossWeek(intent.quantity);
+    console.log("[kai-simple-chat] Distributed dates:", dates);
   } else if (intent.specificDate) {
     dates = Array(intent.quantity).fill(intent.specificDate);
+    console.log("[kai-simple-chat] Using specific date:", intent.specificDate);
   }
   
   // Get URL content if available
   let urlContext = "";
   if (intent.sourceUrl) {
+    console.log("[kai-simple-chat] Extracting content from URL:", intent.sourceUrl);
     if (intent.sourceUrl.includes("youtube.com") || intent.sourceUrl.includes("youtu.be")) {
       const { data: ytData } = await supabase.functions.invoke("extract-youtube", {
         body: { url: intent.sourceUrl },
       });
       if (ytData?.transcript) {
         urlContext = `Título do vídeo: ${ytData.title || 'N/A'}\nTranscrição: ${ytData.transcript.substring(0, 3000)}`;
+        console.log("[kai-simple-chat] YouTube content extracted, length:", urlContext.length);
       }
     } else {
       const { data: scrapeData } = await supabase.functions.invoke("firecrawl-scrape", {
@@ -1125,6 +1265,7 @@ async function generatePlanningCards(
       });
       if (scrapeData?.data?.markdown) {
         urlContext = scrapeData.data.markdown.substring(0, 3000);
+        console.log("[kai-simple-chat] URL content extracted, length:", urlContext.length);
       }
     }
   }
@@ -1177,13 +1318,19 @@ Responda APENAS com JSON no formato:
           const parsed = JSON.parse(jsonMatch[0]);
           const generatedCards = parsed.cards || [];
           
+          console.log("[kai-simple-chat] Generated cards from AI:", {
+            count: generatedCards.length,
+            requestedQuantity: intent.quantity,
+          });
+          
           for (let i = 0; i < Math.min(generatedCards.length, intent.quantity); i++) {
             const genCard = generatedCards[i];
             const { data: newCard, error } = await supabase
               .from("planning_items")
               .insert({
                 title: genCard.title,
-                description: genCard.description,
+                description: genCard.title, // Short summary
+                content: genCard.description, // Full content here
                 client_id: clientId,
                 workspace_id: workspaceId,
                 column_id: columnId,
@@ -1195,7 +1342,10 @@ Responda APENAS com JSON no formato:
               .select()
               .single();
             
-            if (!error && newCard) {
+            if (error) {
+              console.error("[kai-simple-chat] Error inserting card:", error);
+            } else if (newCard) {
+              console.log("[kai-simple-chat] Card created:", { id: newCard.id, title: newCard.title });
               cards.push(newCard);
             }
           }
@@ -1208,12 +1358,17 @@ Responda APENAS com JSON no formato:
   
   // Fallback: create cards with basic info if AI didn't generate
   if (cards.length === 0) {
+    console.log("[kai-simple-chat] Fallback: Creating cards with basic info");
     for (let i = 0; i < intent.quantity; i++) {
+      const fallbackTitle = intent.topic || `Card ${i + 1}`;
+      const fallbackContent = intent.sourceUrl ? `Referência: ${intent.sourceUrl}` : "";
+      
       const { data: newCard, error } = await supabase
         .from("planning_items")
         .insert({
-          title: intent.topic || `Card ${i + 1}`,
-          description: intent.sourceUrl ? `Referência: ${intent.sourceUrl}` : "",
+          title: fallbackTitle,
+          description: fallbackTitle,
+          content: fallbackContent,
           client_id: clientId,
           workspace_id: workspaceId,
           column_id: columnId,
@@ -1225,7 +1380,10 @@ Responda APENAS com JSON no formato:
         .select()
         .single();
       
-      if (!error && newCard) {
+      if (error) {
+        console.error("[kai-simple-chat] Fallback card error:", error);
+      } else if (newCard) {
+        console.log("[kai-simple-chat] Fallback card created:", { id: newCard.id });
         cards.push(newCard);
       }
     }
@@ -1272,25 +1430,36 @@ function distributeAcrossWeek(count: number): string[] {
  */
 function buildPlanningSuccessMessage(cards: any[], intent: PlanningIntent): string {
   const count = cards.length;
-  const platformLabel = intent.platform ? ` para **${intent.platform}**` : "";
+  const platformEmoji = intent.platform ? getPlatformEmoji(intent.platform) : "📋";
+  const platformLabel = intent.platform 
+    ? ` para **${intent.platform.charAt(0).toUpperCase() + intent.platform.slice(1)}**` 
+    : "";
   
   let message = `✅ **${count} ${count === 1 ? "card criado" : "cards criados"}${platformLabel}!**\n\n`;
+  
+  if (intent.sourceUrl) {
+    message += `📎 Baseado em: ${intent.sourceUrl}\n\n`;
+  }
   
   message += "📋 **Cards adicionados ao planejamento:**\n\n";
   
   for (let i = 0; i < Math.min(cards.length, 5); i++) {
     const card = cards[i];
     const dateStr = card.scheduled_at 
-      ? ` - 📅 ${formatDateBR(card.scheduled_at.split('T')[0])}`
+      ? ` | 📅 ${formatDateBR(card.scheduled_at.split('T')[0])}`
       : "";
-    message += `${i + 1}. **${card.title}**${dateStr}\n`;
+    const platformIcon = card.platform ? ` | ${getPlatformEmoji(card.platform)}` : "";
+    message += `${i + 1}. **${card.title}**${platformIcon}${dateStr}\n`;
   }
   
   if (cards.length > 5) {
     message += `\n*...e mais ${cards.length - 5} cards*\n`;
   }
   
-  message += "\n✨ Acesse a aba **Planejamento** para editar ou reagendar os cards.";
+  message += "\n---\n";
+  message += "💡 **Próximos passos:**\n";
+  message += "• Acesse **Planejamento** para editar ou reagendar\n";
+  message += "• Use drag & drop para reorganizar no calendário\n";
   
   return message;
 }
@@ -1392,7 +1561,7 @@ serve(async (req) => {
     const imageGenRequest = isImageGenerationRequest(message);
     const comparisonQuery = isComparisonQuery(message);
     const contentCreation = detectContentCreation(message);
-    const planningIntent = detectPlanningIntent(message);
+    const planningIntent = detectPlanningIntent(message, history);
 
     // 4. Extract date range and metric focus from message
     const dateRange = extractDateRange(message);
