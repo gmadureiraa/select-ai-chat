@@ -128,6 +128,22 @@ function isSpecificContentQuery(message: string): boolean {
 // CONTENT CREATION DETECTION
 // ============================================
 
+// Map from detected PT format to database doc_key (EN)
+const FORMAT_KEY_MAP: Record<string, string> = {
+  "carrossel": "carousel",
+  "post_instagram": "instagram_post",
+  "linkedin": "linkedin_post",
+  "artigo": "x_article",
+  "blog": "blog_post",
+  "email": "email_marketing",
+  // These are already the same
+  "newsletter": "newsletter",
+  "thread": "thread",
+  "stories": "stories",
+  "reels": "reels",
+  "tweet": "tweet",
+};
+
 interface ContentCreationResult {
   isContentCreation: boolean;
   detectedFormat: string | null;
@@ -1031,11 +1047,11 @@ serve(async (req) => {
     
     // Fetch top performers for content creation context
     if (contentCreation.isContentCreation) {
+      // Remove content_synced_at filter to include all posts
       const { data: topPosts } = await supabase
         .from("instagram_posts")
         .select("caption, post_type, engagement_rate, likes, full_content")
         .eq("client_id", clientId)
-        .not("content_synced_at", "is", null)
         .order("engagement_rate", { ascending: false })
         .limit(5);
       
@@ -1050,11 +1066,14 @@ serve(async (req) => {
       
       // Fetch format rules if a specific format was detected
       if (contentCreation.detectedFormat) {
+        // Map PT format name to EN doc_key for database lookup
+        const docKey = FORMAT_KEY_MAP[contentCreation.detectedFormat] || contentCreation.detectedFormat;
+        
         const { data: formatDoc } = await supabase
           .from("kai_documentation")
           .select("content, checklist")
           .eq("doc_type", "format")
-          .eq("doc_key", contentCreation.detectedFormat)
+          .eq("doc_key", docKey)
           .single();
         
         if (formatDoc) {
