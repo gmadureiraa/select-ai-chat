@@ -56,6 +56,7 @@ function isMetricsQuery(message: string): boolean {
     /impress[oõ]es/i,
     /visualiza[cç][oõ]es/i,
     /likes/i,
+    /curtidas?/i,            // ADDED: Portuguese for likes
     /coment[aá]rios/i,
     /compartilhamentos/i,
     /views/i,
@@ -70,6 +71,12 @@ function isMetricsQuery(message: string): boolean {
     /melhor\s+post/i,
     /top\s*\d*/i,
     /ranking/i,
+    /m[eé]dia\s+(de|do|da)/i, // ADDED: Average queries
+    /total\s+(de|do|da)/i,    // ADDED: Total queries
+    /quantos?/i,              // ADDED: "How many" queries
+    /instagram/i,             // ADDED: Platform-specific queries
+    /youtube/i,
+    /linkedin/i,
   ];
   return patterns.some(p => p.test(message));
 }
@@ -108,6 +115,7 @@ function isWebSearchQuery(message: string): boolean {
 function isSpecificContentQuery(message: string): boolean {
   const patterns = [
     /qual\s+(foi\s+)?(o\s+)?(melhor|pior|maior|menor)/i,
+    /qual\s+([eé]|a)\s+m[eé]dia/i,   // ADDED: "qual a média"
     /post\s+(com\s+)?(mais|menos)/i,
     /top\s*\d*/i,
     /ranking/i,
@@ -116,8 +124,9 @@ function isSpecificContentQuery(message: string): boolean {
     /pior(es)?\s+post/i,
     /post\s+mais\s+curtido/i,
     /maior\s+engajamento/i,
-    /mais\s+(likes|coment[aá]rios|compartilhamentos|saves|alcance)/i,
-    /quantos?\s+(likes|posts|coment[aá]rios)/i,
+    /mais\s+(likes|curtidas?|coment[aá]rios|compartilhamentos|saves|alcance)/i,
+    /quantos?\s+(likes|curtidas?|posts|coment[aá]rios)/i,
+    /m[eé]dia\s+(de|do|da)\s+(likes|curtidas?|coment[aá]rios|engajamento)/i, // ADDED
     /por\s*que\s+(esse|este|aquele)\s+post/i,
     /analise?\s+(esse|este|o)\s+post/i,
   ];
