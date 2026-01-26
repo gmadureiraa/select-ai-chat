@@ -134,6 +134,166 @@ function isSpecificContentQuery(message: string): boolean {
 }
 
 // ============================================
+// PLANNING CARD CREATION DETECTION
+// ============================================
+
+interface PlanningIntent {
+  isPlanning: boolean;
+  action: "create" | "schedule" | "distribute" | null;
+  quantity: number;
+  platform: string | null;
+  specificDate: string | null;
+  sourceUrl: string | null;
+  topic: string | null;
+  missingInfo: string[];
+}
+
+/**
+ * Detect if user wants to create planning cards
+ */
+function detectPlanningIntent(message: string): PlanningIntent {
+  const lowerMessage = message.toLowerCase();
+  
+  const result: PlanningIntent = {
+    isPlanning: false,
+    action: null,
+    quantity: 1,
+    platform: null,
+    specificDate: null,
+    sourceUrl: null,
+    topic: null,
+    missingInfo: [],
+  };
+  
+  // Patterns for planning card creation
+  const planningPatterns = [
+    /cri(e|ar|a)\s+(\d+\s+)?cards?\s+(no\s+)?planejamento/i,
+    /adicionar?\s+(ao\s+)?planejamento/i,
+    /agendar?\s+(um\s+|uma\s+)?(post|conte[uú]do|card|publica[cç][aã]o)/i,
+    /programa(r|e)\s+(um\s+|uma\s+)?(post|conte[uú]do|card|publica[cç][aã]o)/i,
+    /coloca(r)?\s+(isso\s+)?(no\s+)?planejamento/i,
+    /criar?\s+(\d+\s+)?(posts?|tweets?|carross[eé]is?|reels?|conte[uú]dos?)\s+(para|e)\s+(agendar|programar|planejamento)/i,
+    /gerar?\s+(\d+\s+)?(posts?|tweets?|carross[eé]is?|reels?)\s+(para|e)?\s*(a\s+)?semana/i,
+    /planeje?\s+(\d+\s+)?(posts?|conte[uú]dos?)/i,
+    /montar?\s+(um\s+)?cronograma/i,
+    /distribu(ir|a)\s+ao\s+longo\s+da\s+semana/i,
+  ];
+  
+  for (const pattern of planningPatterns) {
+    if (pattern.test(lowerMessage)) {
+      result.isPlanning = true;
+      break;
+    }
+  }
+  
+  if (!result.isPlanning) return result;
+  
+  // Detect action type
+  if (/distribu(ir|a)|ao\s+longo|semana/i.test(lowerMessage)) {
+    result.action = "distribute";
+  } else if (/agendar|programar|para\s+(o\s+)?(dia|data)/i.test(lowerMessage)) {
+    result.action = "schedule";
+  } else {
+    result.action = "create";
+  }
+  
+  // Extract quantity
+  const quantityMatch = lowerMessage.match(/(\d+)\s*(cards?|posts?|tweets?|conte[uú]dos?|carross[eé]is?|reels?)/i);
+  if (quantityMatch) {
+    result.quantity = parseInt(quantityMatch[1]);
+  }
+  
+  // Extract platform
+  const platforms: Record<string, string> = {
+    'instagram': 'instagram',
+    'insta': 'instagram',
+    'twitter': 'twitter',
+    'x': 'twitter',
+    'tweet': 'twitter',
+    'linkedin': 'linkedin',
+    'youtube': 'youtube',
+    'newsletter': 'newsletter',
+    'tiktok': 'tiktok',
+  };
+  
+  for (const [keyword, platform] of Object.entries(platforms)) {
+    if (lowerMessage.includes(keyword)) {
+      result.platform = platform;
+      break;
+    }
+  }
+  
+  // Extract URL
+  const urlMatch = message.match(/https?:\/\/[^\s]+/);
+  if (urlMatch) {
+    result.sourceUrl = urlMatch[0];
+  }
+  
+  // Extract specific date patterns
+  // DD/MM/YYYY or DD-MM-YYYY
+  const dateMatch = lowerMessage.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+  if (dateMatch) {
+    const [, day, month, year] = dateMatch;
+    result.specificDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+  }
+  
+  // Relative dates
+  if (/amanh[ãa]/i.test(lowerMessage)) {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    result.specificDate = tomorrow.toISOString().split('T')[0];
+  } else if (/hoje/i.test(lowerMessage)) {
+    result.specificDate = new Date().toISOString().split('T')[0];
+  }
+  
+  // Day of week
+  const weekdays: Record<string, number> = {
+    'domingo': 0, 'segunda': 1, 'terça': 2, 'terca': 2,
+    'quarta': 3, 'quinta': 4, 'sexta': 5, 'sábado': 6, 'sabado': 6
+  };
+  
+  for (const [day, num] of Object.entries(weekdays)) {
+    if (lowerMessage.includes(day)) {
+      const now = new Date();
+      const currentDay = now.getDay();
+      let daysToAdd = num - currentDay;
+      if (daysToAdd <= 0) daysToAdd += 7;
+      const targetDate = new Date(now);
+      targetDate.setDate(targetDate.getDate() + daysToAdd);
+      result.specificDate = targetDate.toISOString().split('T')[0];
+      break;
+    }
+  }
+  
+  // Extract topic (remove patterns and extract what's left)
+  let topic = message
+    .replace(/https?:\/\/[^\s]+/g, '')
+    .replace(/cri(e|ar|a)\s+(\d+\s+)?cards?\s+(no\s+)?planejamento/gi, '')
+    .replace(/adicionar?\s+(ao\s+)?planejamento/gi, '')
+    .replace(/agendar?\s+(um\s+|uma\s+)?(post|conte[uú]do|card|publica[cç][aã]o)/gi, '')
+    .replace(/programa(r|e)\s+(um\s+|uma\s+)?(post|conte[uú]do|card|publica[cç][aã]o)/gi, '')
+    .replace(/coloca(r)?\s+(isso\s+)?(no\s+)?planejamento/gi, '')
+    .replace(/para\s+(o\s+)?(dia|data)\s+\d+[\/\-]\d+[\/\-]?\d*/gi, '')
+    .replace(/para\s+(instagram|twitter|linkedin|youtube|tiktok)/gi, '')
+    .replace(/(sobre|baseado\s+em|a\s+partir\s+de)/gi, '')
+    .trim();
+  
+  if (topic.length > 10) {
+    result.topic = topic;
+  }
+  
+  // Determine missing info
+  if (!result.platform) {
+    result.missingInfo.push("plataforma");
+  }
+  if (!result.specificDate && result.action === "schedule") {
+    result.missingInfo.push("data");
+  }
+  
+  return result;
+}
+
+// ============================================
 // CONTENT CREATION DETECTION
 // ============================================
 
@@ -884,6 +1044,258 @@ async function fetchComparisonContext(
 }
 
 // ============================================
+// PLANNING HELPERS
+// ============================================
+
+/**
+ * Build a question prompt when info is missing
+ */
+function buildPlanningQuestionPrompt(intent: PlanningIntent, clientName: string): string {
+  const questions: string[] = [];
+  
+  if (!intent.platform) {
+    questions.push("📱 **Para qual plataforma?** (Instagram, Twitter, LinkedIn, YouTube, Newsletter, TikTok)");
+  }
+  
+  if (!intent.specificDate && intent.action === "schedule") {
+    questions.push("📅 **Para qual data?** (ex: 28/01/2026, amanhã, próxima segunda)");
+  }
+  
+  if (!intent.topic && !intent.sourceUrl) {
+    questions.push("📝 **Sobre qual tema ou assunto?** (pode enviar um link de referência também)");
+  }
+  
+  let response = `Vou criar ${intent.quantity > 1 ? `${intent.quantity} cards` : "o card"} no planejamento para **${clientName}**! ✨\n\nPreciso de algumas informações:\n\n`;
+  response += questions.join("\n\n");
+  response += "\n\n*Responda com as informações que faltam para eu criar os cards.*";
+  
+  return response;
+}
+
+/**
+ * Generate planning cards using AI for content
+ */
+async function generatePlanningCards(
+  supabase: any,
+  client: any,
+  clientId: string,
+  workspaceId: string,
+  userId: string,
+  intent: PlanningIntent,
+  authHeader: string
+): Promise<any[]> {
+  const GOOGLE_API_KEY = Deno.env.get("GOOGLE_AI_STUDIO_API_KEY");
+  
+  // Get first column (Ideias) for the workspace
+  const { data: columns, error: columnsError } = await supabase
+    .from("kanban_columns")
+    .select("id")
+    .eq("workspace_id", workspaceId)
+    .order("position", { ascending: true })
+    .limit(1);
+
+  if (columnsError || !columns || columns.length === 0) {
+    throw new Error("Nenhuma coluna encontrada no planejamento");
+  }
+
+  const columnId = columns[0].id;
+  const cards: any[] = [];
+  
+  // Generate dates if distributing across week
+  let dates: string[] = [];
+  if (intent.action === "distribute") {
+    dates = distributeAcrossWeek(intent.quantity);
+  } else if (intent.specificDate) {
+    dates = Array(intent.quantity).fill(intent.specificDate);
+  }
+  
+  // Get URL content if available
+  let urlContext = "";
+  if (intent.sourceUrl) {
+    if (intent.sourceUrl.includes("youtube.com") || intent.sourceUrl.includes("youtu.be")) {
+      const { data: ytData } = await supabase.functions.invoke("extract-youtube", {
+        body: { url: intent.sourceUrl },
+      });
+      if (ytData?.transcript) {
+        urlContext = `Título do vídeo: ${ytData.title || 'N/A'}\nTranscrição: ${ytData.transcript.substring(0, 3000)}`;
+      }
+    } else {
+      const { data: scrapeData } = await supabase.functions.invoke("firecrawl-scrape", {
+        body: { url: intent.sourceUrl },
+      });
+      if (scrapeData?.data?.markdown) {
+        urlContext = scrapeData.data.markdown.substring(0, 3000);
+      }
+    }
+  }
+  
+  // Generate content for cards
+  if (GOOGLE_API_KEY && (intent.topic || urlContext)) {
+    const platformInstructions: Record<string, string> = {
+      instagram: "Posts para Instagram: hook forte, máximo 2200 chars, poucos emojis",
+      twitter: "Tweets: diretos, máximo 280 chars, impactantes",
+      linkedin: "Posts LinkedIn: profissionais, storytelling, insights",
+      youtube: "Títulos/descrições para YouTube: SEO otimizado",
+      newsletter: "Títulos para newsletter: valor claro, CTA forte",
+      tiktok: "Ideias para TikTok: trends, ganchos virais",
+    };
+    
+    const prompt = `Você é um estrategista de conteúdo para ${client.name}.
+${client.identity_guide ? `\nGuia de Identidade:\n${client.identity_guide.substring(0, 1500)}` : ""}
+${urlContext ? `\n## Conteúdo de Referência:\n${urlContext}` : ""}
+
+TAREFA: Gere ${intent.quantity} ideias de conteúdo para ${intent.platform || "redes sociais"}.
+${intent.topic ? `Tema: ${intent.topic}` : ""}
+${platformInstructions[intent.platform || "instagram"] || ""}
+
+Responda APENAS com JSON no formato:
+{
+  "cards": [
+    { "title": "título descritivo curto", "description": "conteúdo completo pronto para publicar" }
+  ]
+}`;
+
+    try {
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GOOGLE_API_KEY}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: { temperature: 0.8, maxOutputTokens: 4096 },
+          }),
+        }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+        const jsonMatch = text.match(/\{[\s\S]*"cards"[\s\S]*\}/);
+        
+        if (jsonMatch) {
+          const parsed = JSON.parse(jsonMatch[0]);
+          const generatedCards = parsed.cards || [];
+          
+          for (let i = 0; i < Math.min(generatedCards.length, intent.quantity); i++) {
+            const genCard = generatedCards[i];
+            const { data: newCard, error } = await supabase
+              .from("planning_items")
+              .insert({
+                title: genCard.title,
+                description: genCard.description,
+                client_id: clientId,
+                workspace_id: workspaceId,
+                column_id: columnId,
+                scheduled_at: dates[i] || null,
+                platform: intent.platform,
+                status: "todo",
+                created_by: userId,
+              })
+              .select()
+              .single();
+            
+            if (!error && newCard) {
+              cards.push(newCard);
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error("[kai-simple-chat] AI generation error:", error);
+    }
+  }
+  
+  // Fallback: create cards with basic info if AI didn't generate
+  if (cards.length === 0) {
+    for (let i = 0; i < intent.quantity; i++) {
+      const { data: newCard, error } = await supabase
+        .from("planning_items")
+        .insert({
+          title: intent.topic || `Card ${i + 1}`,
+          description: intent.sourceUrl ? `Referência: ${intent.sourceUrl}` : "",
+          client_id: clientId,
+          workspace_id: workspaceId,
+          column_id: columnId,
+          scheduled_at: dates[i] || intent.specificDate || null,
+          platform: intent.platform,
+          status: "todo",
+          created_by: userId,
+        })
+        .select()
+        .single();
+      
+      if (!error && newCard) {
+        cards.push(newCard);
+      }
+    }
+  }
+  
+  if (cards.length === 0) {
+    throw new Error("Não foi possível criar nenhum card");
+  }
+  
+  return cards;
+}
+
+/**
+ * Distribute dates across the week
+ */
+function distributeAcrossWeek(count: number): string[] {
+  const dates: string[] = [];
+  const start = new Date();
+  const currentDay = start.getDay();
+  
+  // Prefer weekdays (Mon-Fri)
+  const preferredDays = [1, 2, 3, 4, 5];
+  let dayIndex = 0;
+  
+  for (let i = 0; i < count; i++) {
+    const targetDate = new Date(start);
+    const targetDay = preferredDays[dayIndex % preferredDays.length];
+    
+    let daysToAdd = targetDay - currentDay;
+    if (daysToAdd <= 0) daysToAdd += 7;
+    daysToAdd += Math.floor(dayIndex / 5) * 7;
+    
+    targetDate.setDate(start.getDate() + daysToAdd);
+    dates.push(targetDate.toISOString().split('T')[0]);
+    
+    dayIndex++;
+  }
+  
+  return dates.sort();
+}
+
+/**
+ * Build success message after creating cards
+ */
+function buildPlanningSuccessMessage(cards: any[], intent: PlanningIntent): string {
+  const count = cards.length;
+  const platformLabel = intent.platform ? ` para **${intent.platform}**` : "";
+  
+  let message = `✅ **${count} ${count === 1 ? "card criado" : "cards criados"}${platformLabel}!**\n\n`;
+  
+  message += "📋 **Cards adicionados ao planejamento:**\n\n";
+  
+  for (let i = 0; i < Math.min(cards.length, 5); i++) {
+    const card = cards[i];
+    const dateStr = card.scheduled_at 
+      ? ` - 📅 ${formatDateBR(card.scheduled_at.split('T')[0])}`
+      : "";
+    message += `${i + 1}. **${card.title}**${dateStr}\n`;
+  }
+  
+  if (cards.length > 5) {
+    message += `\n*...e mais ${cards.length - 5} cards*\n`;
+  }
+  
+  message += "\n✨ Acesse a aba **Planejamento** para editar ou reagendar os cards.";
+  
+  return message;
+}
+
+// ============================================
 // MAIN HANDLER
 // ============================================
 
@@ -980,6 +1392,7 @@ serve(async (req) => {
     const imageGenRequest = isImageGenerationRequest(message);
     const comparisonQuery = isComparisonQuery(message);
     const contentCreation = detectContentCreation(message);
+    const planningIntent = detectPlanningIntent(message);
 
     // 4. Extract date range and metric focus from message
     const dateRange = extractDateRange(message);
@@ -994,6 +1407,11 @@ serve(async (req) => {
       isComparison: comparisonQuery.isComparison,
       isContentCreation: contentCreation.isContentCreation,
       detectedFormat: contentCreation.detectedFormat,
+      isPlanningRequest: planningIntent.isPlanning,
+      planningAction: planningIntent.action,
+      planningQuantity: planningIntent.quantity,
+      planningPlatform: planningIntent.platform,
+      planningMissingInfo: planningIntent.missingInfo,
       dateRange,
       metricFocus 
     });
@@ -1032,6 +1450,84 @@ serve(async (req) => {
       return new Response(stream, {
         headers: { ...corsHeaders, "Content-Type": "text/event-stream", "Cache-Control": "no-cache" },
       });
+    }
+
+    // 5.5 Handle Planning Card Creation Request
+    if (planningIntent.isPlanning) {
+      console.log("[kai-simple-chat] Processing planning request:", planningIntent);
+      
+      // If missing required info, ask for it via AI response
+      if (planningIntent.missingInfo.length > 0 && !planningIntent.sourceUrl && !planningIntent.topic) {
+        // Generate a response asking for missing info
+        const missingInfoPrompt = buildPlanningQuestionPrompt(planningIntent, client.name);
+        
+        const encoder = new TextEncoder();
+        const stream = new ReadableStream({
+          start(controller) {
+            const response = {
+              choices: [{ delta: { content: missingInfoPrompt } }],
+            };
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify(response)}\n\n`));
+            controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+            controller.close();
+          },
+        });
+        
+        return new Response(stream, {
+          headers: { ...corsHeaders, "Content-Type": "text/event-stream", "Cache-Control": "no-cache" },
+        });
+      }
+      
+      // All required info available - execute planning
+      try {
+        const cards = await generatePlanningCards(
+          supabase,
+          client,
+          clientId,
+          client.workspace_id,
+          user.id,
+          planningIntent,
+          authHeader
+        );
+        
+        // Build success message
+        const successMessage = buildPlanningSuccessMessage(cards, planningIntent);
+        
+        const encoder = new TextEncoder();
+        const stream = new ReadableStream({
+          start(controller) {
+            const response = {
+              choices: [{ delta: { content: successMessage } }],
+            };
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify(response)}\n\n`));
+            controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+            controller.close();
+          },
+        });
+        
+        return new Response(stream, {
+          headers: { ...corsHeaders, "Content-Type": "text/event-stream", "Cache-Control": "no-cache" },
+        });
+      } catch (planningError) {
+        console.error("[kai-simple-chat] Planning error:", planningError);
+        const errorMessage = planningError instanceof Error ? planningError.message : "Erro ao criar cards";
+        
+        const encoder = new TextEncoder();
+        const stream = new ReadableStream({
+          start(controller) {
+            const response = {
+              choices: [{ delta: { content: `❌ **Erro ao criar cards:** ${errorMessage}\n\nPor favor, tente novamente.` } }],
+            };
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify(response)}\n\n`));
+            controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+            controller.close();
+          },
+        });
+        
+        return new Response(stream, {
+          headers: { ...corsHeaders, "Content-Type": "text/event-stream", "Cache-Control": "no-cache" },
+        });
+      }
     }
 
     // 6. Fetch additional context based on intent

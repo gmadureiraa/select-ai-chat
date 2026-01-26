@@ -171,6 +171,9 @@ verify_jwt = true
 [functions.kai-simple-chat]
 verify_jwt = true
 
+[functions.kai-planning-executor]
+verify_jwt = true
+
 [functions.transcribe-media]
 verify_jwt = true
 
