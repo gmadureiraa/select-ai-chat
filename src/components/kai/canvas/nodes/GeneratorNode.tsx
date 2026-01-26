@@ -1,5 +1,6 @@
 import React, { useState, useCallback, memo } from 'react';
 import { Handle, Position, NodeProps, useReactFlow } from 'reactflow';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -8,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 import { 
   Sparkles, X, FileText, Image, Loader2, Link2, 
-  Eye, Wand2, Save, CheckCircle2
+  Eye, Wand2, Save, CheckCircle2, Zap, Brain
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -37,22 +38,39 @@ const ASPECT_RATIOS = [
   { value: '16:9', label: '16:9 (YouTube)' },
 ];
 
-type GenerationStep = 'idle' | 'analyzing' | 'generating' | 'saving' | 'done';
+type GenerationStep = 'idle' | 'extracting' | 'analyzing' | 'loading_rules' | 'generating' | 'streaming' | 'saving' | 'done';
 
 const STEP_LABELS: Record<GenerationStep, string> = {
   idle: '',
-  analyzing: 'Analisando inputs...',
-  generating: 'Gerando conteúdo...',
-  saving: 'Salvando resultado...',
+  extracting: 'Extraindo conteúdo...',
+  analyzing: 'Analisando contexto...',
+  loading_rules: 'Carregando regras...',
+  generating: 'Gerando com IA...',
+  streaming: 'Recebendo resposta...',
+  saving: 'Finalizando...',
   done: 'Concluído!',
 };
 
 const STEP_PROGRESS: Record<GenerationStep, number> = {
   idle: 0,
-  analyzing: 25,
+  extracting: 15,
+  analyzing: 30,
+  loading_rules: 45,
   generating: 60,
-  saving: 90,
+  streaming: 80,
+  saving: 95,
   done: 100,
+};
+
+const STEP_ICONS: Record<GenerationStep, React.ElementType> = {
+  idle: Sparkles,
+  extracting: Eye,
+  analyzing: Brain,
+  loading_rules: FileText,
+  generating: Wand2,
+  streaming: Zap,
+  saving: Save,
+  done: CheckCircle2,
 };
 
 export interface GeneratorNodeData {
@@ -69,6 +87,24 @@ export interface GeneratorNodeData {
   onDelete?: () => void;
   onCreateOutput?: (data: { type: 'text' | 'image'; content: string; imageUrl?: string; format: string; platform: string }) => void;
 }
+
+// Step icon component with animation
+const StepIconAnimated = ({ step }: { step: GenerationStep }) => {
+  const Icon = STEP_ICONS[step];
+  const isActive = step !== 'idle' && step !== 'done';
+  
+  return (
+    <motion.div
+      animate={isActive ? { scale: [1, 1.1, 1] } : {}}
+      transition={{ duration: 0.8, repeat: isActive ? Infinity : 0 }}
+    >
+      <Icon className={cn(
+        "h-4 w-4",
+        step === 'done' && "text-green-500"
+      )} />
+    </motion.div>
+  );
+};
 
 const GeneratorNodeComponent: React.FC<NodeProps<GeneratorNodeData>> = ({ 
   id,
@@ -199,39 +235,44 @@ const GeneratorNodeComponent: React.FC<NodeProps<GeneratorNodeData>> = ({
     }
   }, [generationType, data, getConnectedAttachments, toast]);
 
-  // Get step icon
-  const StepIcon = useCallback(() => {
-    switch (generationStep) {
-      case 'analyzing':
-        return <Eye className="h-4 w-4 animate-pulse" />;
-      case 'generating':
-        return <Wand2 className="h-4 w-4 animate-bounce" />;
-      case 'saving':
-        return <Save className="h-4 w-4 animate-pulse" />;
-      case 'done':
-        return <CheckCircle2 className="h-4 w-4 text-green-500" />;
-      default:
-        return <Sparkles className="h-4 w-4" />;
-    }
-  }, [generationStep]);
-
   return (
-    <Card className={cn(
-      "w-80 shadow-lg rounded-xl transition-all duration-200",
-      selected ? 'ring-2 ring-primary shadow-primary/10' : 'hover:shadow-xl',
-      isGenerating && 'ring-2 ring-emerald-500/50'
-    )}>
-      {/* Input handles - 4 slots for connections */}
-      {[0, 1, 2, 3].map((i) => (
-        <Handle
-          key={i}
-          type="target"
-          position={Position.Left}
-          id={`input-${i}`}
-          style={{ top: `${25 + i * 20}%` }}
-          className="!w-3 !h-3 !bg-primary !border-2 !border-background"
-        />
-      ))}
+    <div className="relative">
+      {/* Glow ring when generating */}
+      <AnimatePresence>
+        {isGenerating && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ 
+              opacity: [0.3, 0.6, 0.3], 
+              scale: [1, 1.02, 1] 
+            }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            transition={{ 
+              duration: 1.5, 
+              repeat: Infinity,
+              ease: "easeInOut"
+            }}
+            className="absolute -inset-3 rounded-2xl bg-gradient-to-r from-emerald-500/20 via-primary/20 to-emerald-500/20 blur-md"
+          />
+        )}
+      </AnimatePresence>
+      
+      <Card className={cn(
+        "w-80 shadow-lg rounded-xl transition-all duration-200 relative",
+        selected ? 'ring-2 ring-primary shadow-primary/10' : 'hover:shadow-xl',
+        isGenerating && 'ring-2 ring-emerald-500/50 shadow-emerald-500/20'
+      )}>
+        {/* Input handles - 4 slots for connections */}
+        {[0, 1, 2, 3].map((i) => (
+          <Handle
+            key={i}
+            type="target"
+            position={Position.Left}
+            id={`input-${i}`}
+            style={{ top: `${25 + i * 20}%` }}
+            className="!w-3 !h-3 !bg-primary !border-2 !border-background"
+          />
+        ))}
 
       <CardHeader className={cn(
         "pb-2 rounded-t-xl border-b",
@@ -246,7 +287,7 @@ const GeneratorNodeComponent: React.FC<NodeProps<GeneratorNodeData>> = ({
                 ? "bg-emerald-500 shadow-lg shadow-emerald-500/30" 
                 : "bg-emerald-500/80 dark:bg-emerald-500"
             )}>
-              <StepIcon />
+              <StepIconAnimated step={generationStep} />
             </div>
             <span>Gerador</span>
           </CardTitle>
@@ -274,7 +315,7 @@ const GeneratorNodeComponent: React.FC<NodeProps<GeneratorNodeData>> = ({
         {isGenerating && (
           <div className="space-y-2">
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <StepIcon />
+              <StepIconAnimated step={generationStep} />
               <span>{STEP_LABELS[generationStep]}</span>
             </div>
             <Progress value={STEP_PROGRESS[generationStep]} className="h-1.5" />
@@ -422,6 +463,7 @@ const GeneratorNodeComponent: React.FC<NodeProps<GeneratorNodeData>> = ({
         className="!w-3 !h-3 !bg-primary !border-2 !border-background"
       />
     </Card>
+    </div>
   );
 };
 
