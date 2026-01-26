@@ -76,7 +76,20 @@ serve(async (req) => {
 
     // Validate file format - Whisper only accepts these formats
     const validExtensions = ['flac', 'm4a', 'mp3', 'mp4', 'mpeg', 'mpga', 'oga', 'ogg', 'wav', 'webm'];
-    const fileExtension = audioFileName.split('.').pop()?.toLowerCase() || '';
+    // Decode URL-encoded filename first
+    let decodedFileName = decodeURIComponent(audioFileName);
+    let fileExtension = decodedFileName.split('.').pop()?.toLowerCase() || '';
+    
+    // Handle opus files - Whisper accepts ogg but not opus directly
+    // Opus is typically in an ogg container, so we rename the extension
+    if (fileExtension === 'opus') {
+      console.log('Converting opus extension to ogg for Whisper compatibility');
+      decodedFileName = decodedFileName.replace(/\.opus$/i, '.ogg');
+      fileExtension = 'ogg';
+    }
+    
+    // Update the filename to use decoded version
+    audioFileName = decodedFileName;
     
     // Check if it's an image (not supported)
     const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg'];
