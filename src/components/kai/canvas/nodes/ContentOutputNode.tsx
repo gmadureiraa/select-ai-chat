@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { OutputNodeData, ContentFormat, Platform, ContentVersion, NodeComment as NodeCommentType, ApprovalStatus } from "../hooks/useCanvasState";
 import { useToast } from "@/hooks/use-toast";
@@ -242,10 +243,28 @@ function ContentOutputNodeComponent({
   return (
     <Card className={cn(
       cardWidth,
-      "shadow-lg rounded-xl transition-all duration-200 border-2",
+      "shadow-lg rounded-xl transition-all duration-200 border-2 relative overflow-hidden",
       selected ? "border-primary ring-2 ring-primary/20 shadow-primary/10" : borderColor,
       "hover:shadow-xl"
     )}>
+      {/* Shimmer effect during streaming */}
+      <AnimatePresence>
+        {data.isStreaming && (
+          <motion.div
+            className="absolute inset-0 z-10 pointer-events-none"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <motion.div
+              className="absolute inset-0 bg-gradient-to-r from-transparent via-primary/10 to-transparent"
+              animate={{ x: ['-100%', '200%'] }}
+              transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <CardHeader className={cn(
         "pb-2 pt-3 px-3 flex-row items-center justify-between rounded-t-xl border-b",
         "bg-blue-500/5 dark:bg-blue-500/10",
