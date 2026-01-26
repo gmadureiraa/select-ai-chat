@@ -31,6 +31,24 @@ export function useCanvasPersistence({
   const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastSavedRef = useRef<string>('');
   const autoLoadAttemptedRef = useRef(false);
+  const previousClientIdRef = useRef<string | null>(null);
+
+  // Detect client change and reset canvas
+  useEffect(() => {
+    if (previousClientIdRef.current && previousClientIdRef.current !== clientId) {
+      console.log(`[useCanvasPersistence] Client changed: ${previousClientIdRef.current} -> ${clientId}`);
+      
+      // Reset canvas state
+      setNodes([]);
+      setEdges([]);
+      setCurrentCanvasId(null);
+      setCurrentCanvasName("Novo Canvas");
+      lastSavedRef.current = '';
+      autoLoadAttemptedRef.current = false;
+    }
+    
+    previousClientIdRef.current = clientId;
+  }, [clientId, setNodes, setEdges]);
 
   // Fetch saved canvases for this client
   const { data: savedCanvases = [], isLoading: isLoadingCanvases } = useQuery({

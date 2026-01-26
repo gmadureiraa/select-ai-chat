@@ -270,7 +270,11 @@ const GeneratorNodeComponent: React.FC<NodeProps<GeneratorNodeData>> = ({
             position={Position.Left}
             id={`input-${i}`}
             style={{ top: `${25 + i * 20}%` }}
-            className="!w-3 !h-3 !bg-primary !border-2 !border-background"
+            className={cn(
+              "!w-3 !h-3 transition-all duration-200",
+              "!bg-emerald-500 !border-2 !border-background",
+              "hover:!scale-125 hover:!shadow-md hover:!shadow-emerald-500/30"
+            )}
           />
         ))}
 
@@ -460,7 +464,11 @@ const GeneratorNodeComponent: React.FC<NodeProps<GeneratorNodeData>> = ({
       <Handle
         type="source"
         position={Position.Right}
-        className="!w-3 !h-3 !bg-primary !border-2 !border-background"
+        className={cn(
+          "!w-3 !h-3 transition-all duration-200",
+          "!bg-primary !border-2 !border-background",
+          "hover:!scale-125 hover:!shadow-md hover:!shadow-primary/30"
+        )}
       />
     </Card>
     </div>

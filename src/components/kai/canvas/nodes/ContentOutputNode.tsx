@@ -556,7 +556,11 @@ function ContentOutputNodeComponent({
         type="target"
         position={Position.Left}
         id="input"
-        className="!w-3 !h-3 !bg-pink-500 !border-2 !border-white"
+        className={cn(
+          "!w-3 !h-3 transition-all duration-200",
+          "!bg-blue-500 !border-2 !border-background",
+          "hover:!scale-125 hover:!shadow-md hover:!shadow-blue-500/30"
+        )}
         title="Entrada de conteúdo"
       />
 
@@ -564,7 +568,11 @@ function ContentOutputNodeComponent({
         type="source"
         position={Position.Right}
         id="output"
-        className="!w-3 !h-3 !bg-pink-500 !border-2 !border-white hover:!bg-pink-400 hover:!scale-150 transition-all cursor-crosshair"
+        className={cn(
+          "!w-3 !h-3 transition-all duration-200 cursor-crosshair",
+          "!bg-primary !border-2 !border-background",
+          "hover:!scale-125 hover:!shadow-md hover:!shadow-primary/30"
+        )}
         title="Arraste para conectar a outro Gerador (Remix)"
       />
     </Card>
