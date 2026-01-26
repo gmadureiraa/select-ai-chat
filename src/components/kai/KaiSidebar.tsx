@@ -120,9 +120,15 @@ export function KaiSidebar({
     canViewClients, 
     canViewSettings, 
     canViewRepurpose,
+    canViewPlanning,
+    isViewer,
     workspace 
   } = useWorkspace();
   const { hasPlanning, isPro, isCanvas, canAccessProfiles, canAccessPerformance, canAccessLibrary, canAccessKaiChat } = usePlanFeatures();
+  
+  // Planning is visible if: plan has access (hasPlanning) AND user has role permission
+  // Viewers can see planning (read-only) if on Pro plan
+  const canSeePlanning = hasPlanning && canViewPlanning;
   const { showUpgradePrompt } = useUpgradePrompt();
   const { user, signOut } = useAuth();
   const { theme, setTheme } = useTheme();
@@ -288,10 +294,10 @@ export function KaiSidebar({
           icon={<CalendarDays className="h-4 w-4" strokeWidth={1.5} />}
           label="Planejamento"
           active={activeTab === "planning"}
-          onClick={() => hasPlanning ? onTabChange("planning") : showUpgradePrompt("planning_locked")}
+          onClick={() => canSeePlanning ? onTabChange("planning") : showUpgradePrompt("planning_locked")}
           collapsed={collapsed}
-          disabled={!hasPlanning}
-          showLock={!hasPlanning}
+          disabled={!canSeePlanning}
+          showLock={!canSeePlanning}
         />
 
         {/* Performance - requires Pro plan */}

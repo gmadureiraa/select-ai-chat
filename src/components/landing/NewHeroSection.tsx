@@ -752,39 +752,7 @@ const NewHeroSection = () => {
       <div className="absolute bottom-20 left-1/4 w-[300px] h-[300px] rounded-full bg-secondary/8 blur-[80px] pointer-events-none" />
 
       <div className="relative z-10 max-w-4xl mx-auto px-6 text-center">
-        {/* Social Proof - Above the fold */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4 }}
-          className="flex items-center justify-center gap-4 mb-8"
-        >
-          {/* User avatars */}
-          <div className="flex -space-x-2">
-            {[
-              "bg-primary/80",
-              "bg-primary/70",
-              "bg-primary/60",
-              "bg-primary/50",
-              "bg-primary/40",
-            ].map((bg, i) => (
-              <motion.div
-                key={i}
-                initial={{ opacity: 0, scale: 0 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: 0.1 + i * 0.05 }}
-                className={`w-8 h-8 rounded-full ${bg} border-2 border-background flex items-center justify-center text-primary-foreground text-xs font-bold shadow-sm`}
-              >
-                {String.fromCharCode(65 + i)}
-              </motion.div>
-            ))}
-          </div>
-          <div className="text-sm text-muted-foreground">
-            <span className="text-foreground font-semibold">+2.400</span> criadores usando
-          </div>
-        </motion.div>
-
-        {/* Main Headline - Quantified benefit */}
+      {/* Main Headline - Quantified benefit */}
         <motion.h1
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}

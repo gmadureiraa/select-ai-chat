@@ -1,7 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useWorkspaceContext } from "@/contexts/WorkspaceContext";
+import { useWorkspace } from "@/hooks/useWorkspace";
 
 export interface Client {
   id: string;
@@ -31,8 +33,45 @@ export const useClients = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { workspace } = useWorkspaceContext();
+  const { isAdminOrOwner } = useWorkspace();
 
-  const { data: clients = [], isLoading } = useQuery({
+  // Fetch current workspace member id
+  const { data: currentMember } = useQuery({
+    queryKey: ["current-workspace-member", workspace?.id],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user?.id || !workspace?.id) return null;
+      
+      const { data } = await supabase
+        .from("workspace_members")
+        .select("id")
+        .eq("workspace_id", workspace.id)
+        .eq("user_id", user.id)
+        .maybeSingle();
+      
+      return data;
+    },
+    enabled: !!workspace?.id,
+  });
+
+  // Fetch member client access restrictions (only for non-admin/owner)
+  const { data: memberClientAccess = [] } = useQuery({
+    queryKey: ["member-client-access", currentMember?.id],
+    queryFn: async () => {
+      if (!currentMember?.id) return [];
+      
+      const { data } = await supabase
+        .from("workspace_member_clients")
+        .select("client_id")
+        .eq("workspace_member_id", currentMember.id);
+      
+      return data || [];
+    },
+    enabled: !!currentMember?.id && !isAdminOrOwner,
+  });
+
+  // Fetch all clients from workspace
+  const { data: allClients = [], isLoading } = useQuery({
     queryKey: ["clients", workspace?.id],
     queryFn: async () => {
       if (!workspace?.id) return [];
@@ -49,9 +88,21 @@ export const useClients = () => {
     enabled: !!workspace?.id,
   });
 
+  // Filter clients based on member access
+  const clients = useMemo(() => {
+    // Admins/Owners see all clients
+    if (isAdminOrOwner) return allClients;
+    
+    // If no restrictions defined, member sees all clients (default behavior)
+    if (memberClientAccess.length === 0) return allClients;
+    
+    // Filter to only show clients the member has access to
+    const allowedIds = new Set(memberClientAccess.map(m => m.client_id));
+    return allClients.filter(c => allowedIds.has(c.id));
+  }, [allClients, memberClientAccess, isAdminOrOwner]);
+
   const createClient = useMutation({
     mutationFn: async (clientData: CreateClientData) => {
-      // === DIAGNÓSTICO 1: Verificar workspace ===
       console.log("[createClient] workspace context:", { 
         workspaceId: workspace?.id,
         workspaceName: workspace?.name 
@@ -63,7 +114,6 @@ export const useClients = () => {
         throw err;
       }
 
-      // === DIAGNÓSTICO 2: Verificar sessão/autenticação ===
       const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
       console.log("[createClient] session check:", { 
         hasSession: !!sessionData?.session,
@@ -86,7 +136,6 @@ export const useClients = () => {
 
       const { websites, ...client } = clientData;
       
-      // === DIAGNÓSTICO 3: Log do payload completo ===
       const insertPayload = {
         name: client.name,
         description: client.description,
@@ -105,7 +154,6 @@ export const useClients = () => {
         .select()
         .single();
 
-      // === DIAGNÓSTICO 4: Log detalhado do erro ===
       if (error) {
         console.error("[createClient] SUPABASE ERROR:", {
           code: error.code,
@@ -114,7 +162,6 @@ export const useClients = () => {
           hint: error.hint,
           fullError: error
         });
-        // Enriquecer o erro com detalhes
         const enrichedError = new Error(
           `${error.message} (code: ${error.code})${error.hint ? ` - Hint: ${error.hint}` : ""}`
         );
