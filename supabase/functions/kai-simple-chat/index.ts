@@ -862,22 +862,27 @@ serve(async (req) => {
       );
     }
 
-    // 2. Verify subscription plan
-    const { data: workspace } = await supabase
-      .from("workspaces")
-      .select("subscription_plan")
-      .eq("id", client.workspace_id)
+    // 2. Verify subscription plan via workspace_subscriptions
+    const { data: subscription } = await supabase
+      .from("workspace_subscriptions")
+      .select(`
+        status,
+        subscription_plans (
+          type
+        )
+      `)
+      .eq("workspace_id", client.workspace_id)
       .single();
 
-    if (workspace) {
-      const plan = workspace.subscription_plan?.toLowerCase() || "starter";
-      if (!ALLOWED_PLANS.includes(plan)) {
-        console.log("[kai-simple-chat] Access denied for plan:", plan);
-        return new Response(
-          JSON.stringify({ error: "O kAI Chat requer o plano Pro ou superior" }),
-          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
+    const planType = (subscription?.subscription_plans as any)?.type?.toLowerCase() || "starter";
+    console.log("[kai-simple-chat] Plan type:", planType);
+
+    if (!ALLOWED_PLANS.includes(planType)) {
+      console.log("[kai-simple-chat] Access denied for plan:", planType);
+      return new Response(
+        JSON.stringify({ error: "O kAI Chat requer o plano Pro ou superior" }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     // 3. Detect intents
