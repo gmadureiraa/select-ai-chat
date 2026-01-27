@@ -1,205 +1,188 @@
 
-# Plano: Finalizar e Melhorar Integração kAI Chat + Planejamento
+# Plano: Implementar Busca Automática de Contexto na Criação de Conteúdo
 
-## Análise do Estado Atual
-
-### ✅ O que já está implementado:
-
-1. **Edge Function `kai-simple-chat`** (principal):
-   - Detecção de intenção de planejamento (`detectPlanningIntent`)
-   - Extração de quantidade, plataforma, datas e URLs
-   - Função `generatePlanningCards` que cria cards diretamente no banco
-   - Prompts para pedir informações faltantes
-   - Mensagem de sucesso após criação
-
-2. **Edge Function `kai-planning-executor`**:
-   - Função separada para criação de cards (porém NÃO está sendo usada)
-   - Duplica lógica que já existe em `kai-simple-chat`
-
-3. **Secrets configurados**:
-   - `GOOGLE_AI_STUDIO_API_KEY` ✅
-   - `FIRECRAWL_API_KEY` ✅ (para scrape de URLs)
-   - Todas as dependências necessárias estão presentes
+## Objetivo
+Fazer o kAI Chat buscar automaticamente exemplos da biblioteca de conteúdo e referências do cliente ao criar qualquer tipo de conteúdo, eliminando a dependência de @mentions manuais.
 
 ---
 
-## Problemas Identificados
+## Mudanças Necessárias
 
-| Problema | Impacto | Solução |
-|----------|---------|---------|
-| Edge function `kai-planning-executor` não é usada | Código morto, confusão | Remover ou integrar |
-| Falta validação de workspace_id no insert | Pode falhar RLS | Adicionar workspace_id do cliente |
-| Campo `content` não é preenchido | Perde conteúdo | Usar `content` além de `description` |
-| Não há tratamento para continuar conversa | Usuário precisa repetir tudo | Detectar contexto de conversa anterior |
-| Falta log das operações | Difícil debugar | Adicionar logging detalhado |
+### Arquivo: `supabase/functions/kai-simple-chat/index.ts`
+
+#### 1. Adicionar função para buscar exemplos da biblioteca de conteúdo
+
+```typescript
+async function fetchLibraryExamples(
+  supabase: any,
+  clientId: string,
+  contentType: string | null,
+  limit: number = 5
+): Promise<string> {
+  // Buscar exemplos do mesmo formato na biblioteca de conteúdo
+  let query = supabase
+    .from("client_content_library")
+    .select("title, content, content_type, created_at")
+    .eq("client_id", clientId)
+    .order("created_at", { ascending: false });
+  
+  // Filtrar por tipo de conteúdo se detectado
+  if (contentType) {
+    query = query.eq("content_type", contentType);
+  }
+  
+  const { data: examples } = await query.limit(limit);
+  
+  if (!examples || examples.length === 0) return "";
+  
+  let context = `\n## Exemplos da Biblioteca de Conteúdo (siga este estilo)\n`;
+  examples.forEach((ex: any, i: number) => {
+    context += `\n### Exemplo ${i + 1}: ${ex.title} (${ex.content_type})\n`;
+    context += `${ex.content?.substring(0, 1500) || ""}${ex.content?.length > 1500 ? '...' : ''}\n`;
+  });
+  
+  return context;
+}
+```
+
+#### 2. Adicionar função para buscar referências relevantes
+
+```typescript
+async function fetchReferenceExamples(
+  supabase: any,
+  clientId: string,
+  referenceType: string | null,
+  limit: number = 3
+): Promise<string> {
+  let query = supabase
+    .from("client_reference_library")
+    .select("title, content, reference_type")
+    .eq("client_id", clientId)
+    .order("created_at", { ascending: false });
+  
+  if (referenceType) {
+    query = query.eq("reference_type", referenceType);
+  }
+  
+  const { data: refs } = await query.limit(limit);
+  
+  if (!refs || refs.length === 0) return "";
+  
+  let context = `\n## Referências do Cliente (inspiração e benchmarks)\n`;
+  refs.forEach((ref: any, i: number) => {
+    context += `\n### Referência ${i + 1}: ${ref.title}\n`;
+    context += `${ref.content?.substring(0, 1000) || ""}${ref.content?.length > 1000 ? '...' : ''}\n`;
+  });
+  
+  return context;
+}
+```
+
+#### 3. Chamar as novas funções quando detectar criação de conteúdo
+
+Modificar a seção de preparação de contexto (~linha 1726):
+
+```typescript
+let libraryExamplesContext = "";
+let referenceExamplesContext = "";
+
+if (contentCreation.isContentCreation) {
+  // Buscar exemplos da biblioteca de conteúdo (mesmo formato)
+  libraryExamplesContext = await fetchLibraryExamples(
+    supabase,
+    clientId,
+    contentCreation.detectedFormat,
+    5
+  );
+  
+  // Buscar referências do cliente (mesmo tipo ou genéricas)
+  referenceExamplesContext = await fetchReferenceExamples(
+    supabase,
+    clientId,
+    contentCreation.detectedFormat,
+    3
+  );
+  
+  // Buscar top performers do Instagram (manter para métricas)
+  // ... código existente ...
+}
+```
+
+#### 4. Adicionar ao system prompt
+
+```typescript
+// Adicionar exemplos da biblioteca ANTES das instruções
+if (libraryExamplesContext) {
+  systemPrompt += `\n${libraryExamplesContext}`;
+}
+
+if (referenceExamplesContext) {
+  systemPrompt += `\n${referenceExamplesContext}`;
+}
+```
+
+#### 5. Melhorar as instruções de criação de conteúdo
+
+Atualizar as instruções para enfatizar o uso dos exemplos:
+
+```typescript
+systemPrompt += `
+## Instruções para Criação de Conteúdo
+Você está criando conteúdo para o cliente. SIGA RIGOROSAMENTE:
+
+1. **Exemplos da Biblioteca**: REPLIQUE o estilo, estrutura e tom dos exemplos acima
+2. **Referências**: Use as referências como inspiração, mas adapte ao estilo do cliente
+3. **Tom de voz**: EXATAMENTE como definido no Guia de Identidade
+4. **Regras do formato**: Siga as regras obrigatórias (limites, estrutura)
+5. **Zero emojis** no corpo do texto (apenas CTA final se necessário)
+6. **Linguagem direta**: Verbos de ação, números específicos
+7. **PROIBIDO**: "Entenda", "Aprenda", "Descubra", frases genéricas
+
+PRIORIDADE: Exemplos da Biblioteca > Referências > Top Performers Instagram
+`;
+```
 
 ---
 
-## Correções Necessárias
+## Mapeamento de Tipos de Conteúdo
 
-### 1. Limpar Código Duplicado
+Garantir que o mapeamento de formatos funcione para buscar na biblioteca:
 
-A função `kai-planning-executor` duplica lógica que já existe em `kai-simple-chat`. 
-
-**Opção A (Recomendada)**: Remover `kai-planning-executor` pois `kai-simple-chat` já faz tudo internamente.
-
-**Opção B**: Manter como API separada para uso futuro do frontend.
-
-**Decisão**: Manter `kai-planning-executor` mas não usar atualmente (pode ser útil para ações do frontend).
-
-### 2. Corrigir Campo `content` no Insert
-
-O schema de `planning_items` tem campos separados:
-- `description` (texto curto)
-- `content` (conteúdo completo)
-
-Atualmente só preenche `description`. Corrigir para:
-
-```typescript
-// Em generatePlanningCards (linha ~1182-1196)
-const { data: newCard, error } = await supabase
-  .from("planning_items")
-  .insert({
-    title: genCard.title,
-    description: genCard.title, // Título como resumo
-    content: genCard.description, // Conteúdo completo
-    client_id: clientId,
-    workspace_id: workspaceId,
-    column_id: columnId,
-    scheduled_at: dates[i] || null,
-    platform: intent.platform,
-    status: "todo",
-    created_by: userId,
-  })
-```
-
-### 3. Melhorar Detecção de Contexto de Conversa
-
-Quando o usuário responde com informações que faltavam (ex: "Instagram" ou "28/01"), o sistema precisa detectar que é uma continuação.
-
-**Adicionar verificação de histórico**:
-
-```typescript
-// Em detectPlanningIntent
-function detectPlanningIntentFromContext(
-  message: string, 
-  history?: HistoryMessage[]
-): PlanningIntent {
-  // Primeiro verifica se é uma nova intenção de planejamento
-  const directIntent = detectPlanningIntent(message);
-  if (directIntent.isPlanning) return directIntent;
-  
-  // Verifica se a última resposta do assistente pediu informações de planejamento
-  if (history && history.length > 0) {
-    const lastAssistant = history.filter(h => h.role === "assistant").pop();
-    if (lastAssistant?.content.includes("Para qual plataforma") ||
-        lastAssistant?.content.includes("Para qual data") ||
-        lastAssistant?.content.includes("Sobre qual tema")) {
-      // Tenta extrair info da resposta do usuário
-      return extractPlanningInfoFromAnswer(message, lastAssistant.content);
-    }
-  }
-  
-  return { isPlanning: false, /* ... */ };
-}
-```
-
-### 4. Adicionar Validações de Erro
-
-```typescript
-// Validar que workspace_id existe antes de inserir
-if (!client.workspace_id) {
-  throw new Error("Cliente não está associado a um workspace");
-}
-
-// Validar que coluna existe
-if (!columnId) {
-  throw new Error("Nenhuma coluna de planejamento configurada");
-}
-```
+| Formato Detectado | content_type na Biblioteca |
+|-------------------|---------------------------|
+| carrossel | carousel |
+| newsletter | newsletter |
+| post_instagram | instagram_post |
+| linkedin | linkedin_post |
+| tweet | tweet |
+| thread | thread |
+| reels | reels |
+| stories | stories |
+| artigo | x_article |
+| blog | blog_post |
 
 ---
 
-## Melhorias Propostas
+## Resultado Esperado
 
-### 1. Suporte a Continuação de Conversa
-
-Quando o usuário responde apenas "Instagram" ou "28/01", o sistema deve:
-1. Reconhecer que é resposta a uma pergunta anterior
-2. Combinar com informações já coletadas
-3. Executar a criação
-
-### 2. Melhor Formatação da Resposta de Sucesso
-
-```typescript
-function buildPlanningSuccessMessage(cards: any[], intent: PlanningIntent): string {
-  const count = cards.length;
-  const platformLabel = intent.platform 
-    ? ` para **${intent.platform.charAt(0).toUpperCase() + intent.platform.slice(1)}**` 
-    : "";
-  
-  let message = `✅ **${count} ${count === 1 ? "card criado" : "cards criados"}${platformLabel}!**\n\n`;
-  
-  if (intent.sourceUrl) {
-    message += `📎 Baseado em: ${intent.sourceUrl}\n\n`;
-  }
-  
-  message += "📋 **Cards adicionados:**\n\n";
-  
-  for (let i = 0; i < Math.min(cards.length, 5); i++) {
-    const card = cards[i];
-    const dateStr = card.scheduled_at 
-      ? ` | 📅 ${formatDateBR(card.scheduled_at.split('T')[0])}`
-      : "";
-    const platform = card.platform 
-      ? ` | ${getPlatformEmoji(card.platform)} ${card.platform}`
-      : "";
-    message += `${i + 1}. **${card.title}**${platform}${dateStr}\n`;
-  }
-  
-  if (cards.length > 5) {
-    message += `\n*...e mais ${cards.length - 5} cards*\n`;
-  }
-  
-  message += "\n---\n";
-  message += "💡 **Próximos passos:**\n";
-  message += "• Acesse **Planejamento** para editar ou reagendar\n";
-  message += "• Use drag & drop para reorganizar no calendário\n";
-  
-  return message;
-}
-
-function getPlatformEmoji(platform: string): string {
-  const emojis: Record<string, string> = {
-    instagram: "📸",
-    twitter: "🐦",
-    linkedin: "💼",
-    youtube: "🎬",
-    newsletter: "📧",
-    tiktok: "🎵",
-  };
-  return emojis[platform.toLowerCase()] || "📱";
-}
+### Antes:
+```
+Usuário: "Crie uma newsletter sobre produtividade"
+IA: [conteúdo genérico sem seguir padrão do cliente]
 ```
 
-### 3. Logging Melhorado
+### Depois:
+```
+Usuário: "Crie uma newsletter sobre produtividade"
 
-```typescript
-console.log("[kai-simple-chat] Creating planning cards:", {
-  clientId,
-  workspaceId,
-  quantity: intent.quantity,
-  platform: intent.platform,
-  dates,
-  hasSourceUrl: !!intent.sourceUrl,
-  hasTopic: !!intent.topic,
-});
+Sistema carrega automaticamente:
+1. ✅ identity_guide do cliente
+2. ✅ 5 newsletters existentes da biblioteca
+3. ✅ 3 referências de newsletters salvas
+4. ✅ Regras de formato de newsletter
+5. ✅ Top performers do Instagram (como métrica)
 
-// Após criação
-console.log("[kai-simple-chat] Cards created successfully:", {
-  count: cards.length,
-  cardIds: cards.map(c => c.id),
-});
+IA: [conteúdo seguindo exatamente o estilo das newsletters anteriores]
 ```
 
 ---
@@ -208,33 +191,37 @@ console.log("[kai-simple-chat] Cards created successfully:", {
 
 | Arquivo | Mudanças |
 |---------|----------|
-| `supabase/functions/kai-simple-chat/index.ts` | Corrigir campo content vs description, melhorar logging, adicionar detecção de contexto |
+| `supabase/functions/kai-simple-chat/index.ts` | Adicionar funções de busca + integrar no fluxo |
 
 ---
 
 ## Ordem de Implementação
 
-1. **Corrigir campo `content` vs `description`** - Bug crítico
-2. **Melhorar logging** - Para debug
-3. **Adicionar emojis de plataforma** - UX
-4. **Implementar detecção de contexto de conversa** - Funcionalidade avançada
+1. Criar `fetchLibraryExamples()` - Buscar exemplos da biblioteca de conteúdo
+2. Criar `fetchReferenceExamples()` - Buscar referências do cliente
+3. Integrar chamadas no fluxo de criação de conteúdo
+4. Adicionar contextos ao system prompt
+5. Atualizar instruções de criação para priorizar exemplos
+6. Deploy e testar com diferentes formatos
 
 ---
 
-## Resultado Esperado
+## Seção Técnica
 
-Após as correções:
+### Limites de Contexto
+- Exemplos da biblioteca: max 5 itens, 1500 chars cada = ~7500 chars
+- Referências: max 3 itens, 1000 chars cada = ~3000 chars
+- Total adicional: ~10500 chars (dentro do limite seguro)
 
-1. ✅ Usuário pede: "Crie 5 tweets para a semana baseado nesse link: [URL]"
-2. ✅ kAI Chat extrai conteúdo do link
-3. ✅ Gera 5 tweets com IA
-4. ✅ Cria 5 cards no planejamento com datas distribuídas (seg-sex)
-5. ✅ Mostra resumo formatado com todos os cards criados
-6. ✅ Conteúdo salvo no campo `content` (não apenas `description`)
+### Query Otimizada
+Buscar em paralelo para melhor performance:
+```typescript
+const [libraryExamples, referenceExamples, topPosts] = await Promise.all([
+  fetchLibraryExamples(supabase, clientId, contentCreation.detectedFormat, 5),
+  fetchReferenceExamples(supabase, clientId, contentCreation.detectedFormat, 3),
+  fetchTopPerformers(supabase, clientId),
+]);
+```
 
-Ou fluxo interativo:
-
-1. ✅ Usuário: "Adiciona um post no planejamento para o Defiverso"
-2. ✅ kAI: "Para qual plataforma? Para qual data? Sobre qual tema?"
-3. ✅ Usuário: "Instagram, 28/01, sobre produtividade"
-4. ✅ kAI: Cria o card e confirma
+### Fallback
+Se não houver exemplos do formato específico, buscar exemplos genéricos do cliente para manter consistência de tom.
