@@ -30,6 +30,7 @@ import { StickyNode, StickyNodeData } from "./nodes/StickyNode";
 import { ShapeNode, ShapeNodeData } from "./nodes/ShapeNode";
 import { DrawingLayer, DrawingStroke } from "./components/DrawingLayer";
 import { CanvasContextMenu } from "./components/CanvasContextMenu";
+import { CanvasEmptyState } from "./components/CanvasEmptyState";
 import { PlanningItemDialog } from "@/components/planning/PlanningItemDialog";
 import { usePlanningItems } from "@/hooks/usePlanningItems";
 import { useQuery } from "@tanstack/react-query";
@@ -199,6 +200,7 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
     regenerateContent: typeof regenerateContent;
     handleOpenPlanningDialog: typeof handleOpenPlanningDialog;
     handleCreateOutput: (generatorNodeId: string, data: { type: 'text' | 'image'; content: string; imageUrl?: string; format: string; platform: string }) => void;
+    handleCreateRemix: (outputNodeId: string) => void;
   } | null>(null);
 
   // Handler to create output node from generator
@@ -240,6 +242,53 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
     onEdgesChange([{ type: "add", item: newEdge }] as any);
   }, [nodes, onNodesChange, onEdgesChange]);
 
+  // Handler to create a remix (new generator connected to an output for variations)
+  const handleCreateRemix = useCallback((outputNodeId: string) => {
+    const outputNode = nodes.find(n => n.id === outputNodeId);
+    if (!outputNode) return;
+
+    const outputData = outputNode.data as OutputNodeData;
+    const generatorId = `generator-${Date.now()}`;
+    
+    // Create a new generator node positioned to the right of the output
+    const newGenerator: RFNode = {
+      id: generatorId,
+      type: "generator",
+      position: { 
+        x: outputNode.position.x + 420, 
+        y: outputNode.position.y 
+      },
+      data: {
+        type: "text",
+        format: outputData.format || "post",
+        platform: outputData.platform || "instagram",
+        // Pre-fill with remix instructions
+        isGenerating: false,
+        output: undefined,
+        connectedInputs: [outputNodeId],
+      } as GeneratorNodeData,
+    };
+    
+    onNodesChange([{ type: "add", item: newGenerator }] as any);
+    
+    // Create edge from output to new generator
+    const newEdge = {
+      id: `edge-${outputNodeId}-${generatorId}`,
+      source: outputNodeId,
+      target: generatorId,
+      type: 'default',
+    };
+    
+    setTimeout(() => {
+      onEdgesChange([{ type: "add", item: newEdge }] as any);
+    }, 50);
+
+    toast({
+      title: "Remix criado",
+      description: "Novo gerador conectado ao conteúdo. Ajuste e gere uma variação!",
+    });
+  }, [nodes, onNodesChange, onEdgesChange, toast]);
+
   // Update refs on each render
   handlersRef.current = {
     clientId,
@@ -248,6 +297,7 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
     regenerateContent,
     handleOpenPlanningDialog,
     handleCreateOutput,
+    handleCreateRemix,
   };
 
   // Handle drawing strokes
@@ -367,9 +417,7 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
           onDelete={(id) => handlersRef.current?.deleteNode(id)}
           onSendToPlanning={(id) => handlersRef.current?.handleOpenPlanningDialog(id)}
           onRegenerate={(id) => handlersRef.current?.regenerateContent(id)}
-          onCreateRemix={(id) => {
-            console.log('Remix requested for output:', id);
-          }}
+          onCreateRemix={(id) => handlersRef.current?.handleCreateRemix(id)}
         />
       ),
       // Legacy alias - some saved canvases use "contentOutput" instead of "output"
@@ -380,9 +428,7 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
           onDelete={(id) => handlersRef.current?.deleteNode(id)}
           onSendToPlanning={(id) => handlersRef.current?.handleOpenPlanningDialog(id)}
           onRegenerate={(id) => handlersRef.current?.regenerateContent(id)}
-          onCreateRemix={(id) => {
-            console.log('Remix requested for output:', id);
-          }}
+          onCreateRemix={(id) => handlersRef.current?.handleCreateRemix(id)}
         />
       ),
       // Legacy alias - some saved canvases use "prompt" for text instructions
@@ -882,6 +928,16 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
           maskColor="rgba(0, 0, 0, 0.1)"
         />
       </ReactFlow>
+
+      {/* Empty State Overlay */}
+      {nodes.length === 0 && (
+        <CanvasEmptyState
+          clientName={client?.name}
+          onAddAttachment={() => handleAddNode("attachment")}
+          onAddGenerator={() => handleAddNode("generator")}
+          onOpenLibrary={() => setLibraryDrawerOpen(true)}
+        />
+      )}
 
       {/* Drawing Layer - OUTSIDE ReactFlow */}
       <DrawingLayer
