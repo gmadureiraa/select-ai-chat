@@ -414,7 +414,7 @@ function detectPlanningIntent(message: string, history?: HistoryMessage[]): Plan
 // CONTENT CREATION DETECTION
 // ============================================
 
-// Map from detected PT format to database doc_key (EN)
+// Map from detected PT format to database doc_key (EN) - used for kai_documentation
 const FORMAT_KEY_MAP: Record<string, string> = {
   "carrossel": "carousel",
   "post_instagram": "instagram_post",
@@ -427,6 +427,21 @@ const FORMAT_KEY_MAP: Record<string, string> = {
   "thread": "thread",
   "stories": "stories",
   "reels": "reels",
+  "tweet": "tweet",
+};
+
+// Map from detected PT format to database content_type - used for client_content_library
+const CONTENT_TYPE_MAP: Record<string, string> = {
+  "carrossel": "carousel",
+  "post_instagram": "instagram_post",
+  "linkedin": "linkedin_post",
+  "artigo": "x_article",
+  "blog": "blog_post",
+  "email": "newsletter", // email maps to newsletter type
+  "newsletter": "newsletter",
+  "thread": "thread",
+  "stories": "stories",
+  "reels": "short_video",
   "tweet": "tweet",
 };
 
@@ -486,6 +501,160 @@ function detectContentCreation(message: string): ContentCreationResult {
   }
   
   return { isContentCreation: false, detectedFormat: null };
+}
+
+// ============================================
+// AUTOMATIC CONTEXT FETCHING FOR CONTENT CREATION
+// ============================================
+
+const MAX_LIBRARY_EXAMPLE_LENGTH = 1500;
+const MAX_REFERENCE_LENGTH = 1000;
+
+/**
+ * Fetch examples from client's content library (same format)
+ * These serve as style/structure reference for new content
+ */
+async function fetchLibraryExamples(
+  supabase: any,
+  clientId: string,
+  contentType: string | null,
+  limit: number = 5
+): Promise<string> {
+  // Map detected format to database content_type
+  const dbContentType = contentType ? CONTENT_TYPE_MAP[contentType] : null;
+  
+  let query = supabase
+    .from("client_content_library")
+    .select("title, content, content_type, created_at")
+    .eq("client_id", clientId)
+    .order("created_at", { ascending: false });
+  
+  // Filter by content type if detected
+  if (dbContentType) {
+    query = query.eq("content_type", dbContentType);
+  }
+  
+  const { data: examples, error } = await query.limit(limit);
+  
+  if (error) {
+    console.log("[kai-simple-chat] Error fetching library examples:", error.message);
+    return "";
+  }
+  
+  if (!examples || examples.length === 0) {
+    // Fallback: if no examples of specific format, get any recent examples for tone consistency
+    if (dbContentType) {
+      console.log("[kai-simple-chat] No examples of type", dbContentType, "- fetching generic examples");
+      const { data: fallbackExamples } = await supabase
+        .from("client_content_library")
+        .select("title, content, content_type, created_at")
+        .eq("client_id", clientId)
+        .order("created_at", { ascending: false })
+        .limit(3);
+      
+      if (fallbackExamples && fallbackExamples.length > 0) {
+        let context = `\n## Exemplos Recentes do Cliente (referência de tom e estilo)\n`;
+        fallbackExamples.forEach((ex: any, i: number) => {
+          const truncatedContent = ex.content?.substring(0, MAX_LIBRARY_EXAMPLE_LENGTH) || "";
+          const ellipsis = ex.content?.length > MAX_LIBRARY_EXAMPLE_LENGTH ? "..." : "";
+          context += `\n### Exemplo ${i + 1}: ${ex.title} (${ex.content_type})\n`;
+          context += `${truncatedContent}${ellipsis}\n`;
+        });
+        console.log("[kai-simple-chat] Loaded", fallbackExamples.length, "fallback library examples");
+        return context;
+      }
+    }
+    return "";
+  }
+  
+  let context = `\n## 📚 Exemplos da Biblioteca de Conteúdo (SIGA ESTE ESTILO E ESTRUTURA)\n`;
+  context += `*Estes são conteúdos reais do cliente. REPLIQUE o tom, estrutura e abordagem.*\n`;
+  
+  examples.forEach((ex: any, i: number) => {
+    const truncatedContent = ex.content?.substring(0, MAX_LIBRARY_EXAMPLE_LENGTH) || "";
+    const ellipsis = ex.content?.length > MAX_LIBRARY_EXAMPLE_LENGTH ? "..." : "";
+    context += `\n### Exemplo ${i + 1}: ${ex.title} (${ex.content_type})\n`;
+    context += `${truncatedContent}${ellipsis}\n`;
+  });
+  
+  console.log("[kai-simple-chat] Loaded", examples.length, "library examples of type:", dbContentType || "mixed");
+  return context;
+}
+
+/**
+ * Fetch references from client's reference library
+ * These serve as inspiration/benchmarks
+ */
+async function fetchReferenceExamples(
+  supabase: any,
+  clientId: string,
+  referenceType: string | null,
+  limit: number = 3
+): Promise<string> {
+  // Map detected format to reference type (similar mapping)
+  const dbReferenceType = referenceType ? CONTENT_TYPE_MAP[referenceType] : null;
+  
+  let query = supabase
+    .from("client_reference_library")
+    .select("title, content, reference_type, source_url")
+    .eq("client_id", clientId)
+    .order("created_at", { ascending: false });
+  
+  // Filter by reference type if we have a mapping
+  if (dbReferenceType) {
+    query = query.eq("reference_type", dbReferenceType);
+  }
+  
+  const { data: refs, error } = await query.limit(limit);
+  
+  if (error) {
+    console.log("[kai-simple-chat] Error fetching reference examples:", error.message);
+    return "";
+  }
+  
+  // If no refs of specific type, try to get any refs
+  if (!refs || refs.length === 0) {
+    if (dbReferenceType) {
+      const { data: fallbackRefs } = await supabase
+        .from("client_reference_library")
+        .select("title, content, reference_type, source_url")
+        .eq("client_id", clientId)
+        .order("created_at", { ascending: false })
+        .limit(2);
+      
+      if (fallbackRefs && fallbackRefs.length > 0) {
+        let context = `\n## 🎯 Referências Salvas (inspiração e benchmarks)\n`;
+        fallbackRefs.forEach((ref: any, i: number) => {
+          const truncatedContent = ref.content?.substring(0, MAX_REFERENCE_LENGTH) || "";
+          const ellipsis = ref.content?.length > MAX_REFERENCE_LENGTH ? "..." : "";
+          context += `\n### Referência ${i + 1}: ${ref.title}\n`;
+          context += `${truncatedContent}${ellipsis}\n`;
+          if (ref.source_url) {
+            context += `Fonte: ${ref.source_url}\n`;
+          }
+        });
+        console.log("[kai-simple-chat] Loaded", fallbackRefs.length, "fallback references");
+        return context;
+      }
+    }
+    return "";
+  }
+  
+  let context = `\n## 🎯 Referências do Cliente (inspiração e benchmarks)\n`;
+  context += `*Use como inspiração, mas adapte ao estilo próprio do cliente.*\n`;
+  
+  refs.forEach((ref: any, i: number) => {
+    const truncatedContent = ref.content?.substring(0, MAX_REFERENCE_LENGTH) || "";
+    const ellipsis = ref.content?.length > MAX_REFERENCE_LENGTH ? "..." : "";
+    context += `\n### Referência ${i + 1}: ${ref.title} (${ref.reference_type})\n`;
+    context += `${truncatedContent}${ellipsis}\n`;
+    if (ref.source_url) {
+      context += `Fonte: ${ref.source_url}\n`;
+    }
+  });
+  
+  console.log("[kai-simple-chat] Loaded", refs.length, "reference examples of type:", dbReferenceType || "mixed");
+  return context;
 }
 
 // ============================================
@@ -1707,6 +1876,8 @@ serve(async (req) => {
     let comparisonContext = "";
     let topPerformersContext = "";
     let formatRulesContext = "";
+    let libraryExamplesContext = "";
+    let referenceExamplesContext = "";
     
     if (comparisonQuery.isComparison && comparisonQuery.period1 && comparisonQuery.period2) {
       // Fetch comparison context
@@ -1722,44 +1893,68 @@ serve(async (req) => {
       metricsContext = await fetchMetricsContext(supabase, clientId, dateRange, metricFocus, isSpecificQuery);
     }
     
-    // Fetch top performers for content creation context
+    // Fetch content creation context (library examples, references, top performers, format rules)
     if (contentCreation.isContentCreation) {
-      // Remove content_synced_at filter to include all posts
-      const { data: topPosts } = await supabase
-        .from("instagram_posts")
-        .select("caption, post_type, engagement_rate, likes, full_content")
-        .eq("client_id", clientId)
-        .order("engagement_rate", { ascending: false })
-        .limit(5);
+      console.log("[kai-simple-chat] Content creation detected, fetching context for format:", contentCreation.detectedFormat);
       
-      if (topPosts && topPosts.length > 0) {
-        topPerformersContext = `\n## Top Performers do Cliente (use como referência de estilo e tom)\n`;
+      // Fetch all context in parallel for better performance
+      const [libraryResult, referenceResult, topPostsResult, formatDocResult] = await Promise.all([
+        // 1. Library examples (same format as requested)
+        fetchLibraryExamples(supabase, clientId, contentCreation.detectedFormat, 5),
+        
+        // 2. Reference examples (inspiration)
+        fetchReferenceExamples(supabase, clientId, contentCreation.detectedFormat, 3),
+        
+        // 3. Top performers from Instagram (metrics reference)
+        supabase
+          .from("instagram_posts")
+          .select("caption, post_type, engagement_rate, likes, full_content")
+          .eq("client_id", clientId)
+          .order("engagement_rate", { ascending: false })
+          .limit(5),
+        
+        // 4. Format rules if specific format detected
+        contentCreation.detectedFormat
+          ? supabase
+              .from("kai_documentation")
+              .select("content, checklist")
+              .eq("doc_type", "format")
+              .eq("doc_key", FORMAT_KEY_MAP[contentCreation.detectedFormat] || contentCreation.detectedFormat)
+              .maybeSingle()
+          : Promise.resolve({ data: null }),
+      ]);
+      
+      // Assign results
+      libraryExamplesContext = libraryResult;
+      referenceExamplesContext = referenceResult;
+      
+      // Build top performers context
+      const topPosts = topPostsResult.data || [];
+      if (topPosts.length > 0) {
+        topPerformersContext = `\n## 📊 Top Performers Instagram (métricas de referência)\n`;
         topPosts.forEach((post: any, i: number) => {
           const content = post.full_content || post.caption || "";
           topPerformersContext += `\n### Post #${i + 1} (${post.post_type || 'post'}) - ${(post.engagement_rate || 0).toFixed(2)}% engajamento\n`;
-          topPerformersContext += `${content.substring(0, 500)}${content.length > 500 ? '...' : ''}\n`;
+          topPerformersContext += `${content.substring(0, 400)}${content.length > 400 ? '...' : ''}\n`;
         });
       }
       
-      // Fetch format rules if a specific format was detected
-      if (contentCreation.detectedFormat) {
-        // Map PT format name to EN doc_key for database lookup
-        const docKey = FORMAT_KEY_MAP[contentCreation.detectedFormat] || contentCreation.detectedFormat;
-        
-        const { data: formatDoc } = await supabase
-          .from("kai_documentation")
-          .select("content, checklist")
-          .eq("doc_type", "format")
-          .eq("doc_key", docKey)
-          .single();
-        
-        if (formatDoc) {
-          formatRulesContext = `\n## Regras do Formato: ${contentCreation.detectedFormat.toUpperCase()}\n${formatDoc.content}\n`;
-          if (formatDoc.checklist) {
-            formatRulesContext += `\n### Checklist Obrigatório:\n${JSON.stringify(formatDoc.checklist)}\n`;
-          }
+      // Build format rules context
+      if (formatDocResult.data) {
+        formatRulesContext = `\n## 📋 Regras do Formato: ${contentCreation.detectedFormat?.toUpperCase()}\n${formatDocResult.data.content}\n`;
+        if (formatDocResult.data.checklist) {
+          formatRulesContext += `\n### Checklist Obrigatório:\n${JSON.stringify(formatDocResult.data.checklist)}\n`;
         }
       }
+      
+      console.log("[kai-simple-chat] Content creation context loaded:", {
+        hasLibraryExamples: !!libraryExamplesContext,
+        libraryLength: libraryExamplesContext.length,
+        hasReferenceExamples: !!referenceExamplesContext,
+        referenceLength: referenceExamplesContext.length,
+        topPostsCount: topPosts.length,
+        hasFormatRules: !!formatRulesContext,
+      });
     }
     
     const [webSearchResult, citedContent] = await Promise.all([
@@ -1794,9 +1989,19 @@ ${identityGuide ? `## Guia de Identidade\n${identityGuide}` : ""}`;
       systemPrompt += `\n${webSearchResult}`;
     }
 
-    // Add cited content
+    // Add cited content (manual @mentions - highest priority)
     if (citedContent) {
-      systemPrompt += `\n## Materiais Citados\n${citedContent}`;
+      systemPrompt += `\n## Materiais Citados pelo Usuário (PRIORIDADE MÁXIMA)\n${citedContent}`;
+    }
+
+    // Add library examples context for content creation (auto-fetched)
+    if (libraryExamplesContext) {
+      systemPrompt += `\n${libraryExamplesContext}`;
+    }
+
+    // Add reference examples context for content creation (auto-fetched)
+    if (referenceExamplesContext) {
+      systemPrompt += `\n${referenceExamplesContext}`;
     }
 
     // Add top performers context for content creation
@@ -1813,16 +2018,30 @@ ${identityGuide ? `## Guia de Identidade\n${identityGuide}` : ""}`;
     if (contentCreation.isContentCreation) {
       systemPrompt += `
 
-## Instruções para Criação de Conteúdo
-Você está criando conteúdo para o cliente. SIGA RIGOROSAMENTE:
+## 🎯 INSTRUÇÕES PARA CRIAÇÃO DE CONTEÚDO
+Você está criando conteúdo para o cliente. SIGA RIGOROSAMENTE a ordem de prioridade:
 
-1. **Tom de voz**: Use EXATAMENTE o tom de voz definido no Guia de Identidade acima
-2. **Estilo dos Top Performers**: Analise os Top Performers acima e REPLIQUE o estilo, estrutura e abordagem que já funcionam
-3. **Regras do formato**: Se há regras de formato acima, siga-as OBRIGATORIAMENTE (limites de caracteres, estrutura, etc.)
-4. **Emojis**: Quase ZERO emojis no corpo do texto (apenas no CTA final, se necessário)
-5. **Linguagem**: Verbos de ação, números específicos, evite generalidades
-6. **Proibido**: "Entenda", "Aprenda", "Descubra como", "Você sabia que", frases genéricas
-7. **Use**: "Você está perdendo", "O segredo é", "Faça isso agora", linguagem direta
+### PRIORIDADE 1: Materiais Citados
+Se o usuário citou materiais específicos (@mentions), USE-OS como base principal.
+
+### PRIORIDADE 2: Exemplos da Biblioteca de Conteúdo
+REPLIQUE exatamente a estrutura, tom e estilo dos exemplos da biblioteca acima. 
+Eles representam o padrão aprovado do cliente.
+
+### PRIORIDADE 3: Referências Salvas
+Use as referências como inspiração, mas ADAPTE ao estilo próprio do cliente.
+
+### PRIORIDADE 4: Top Performers Instagram
+Use como referência de métricas e abordagens que funcionam.
+
+### REGRAS OBRIGATÓRIAS:
+1. **Tom de voz**: EXATAMENTE como definido no Guia de Identidade
+2. **Estrutura**: IGUAL aos exemplos da biblioteca (se disponíveis)
+3. **Regras do formato**: Siga o checklist obrigatório do formato
+4. **Emojis**: ZERO emojis no corpo do texto (apenas CTA final se necessário)
+5. **Linguagem**: Verbos de ação, números específicos, fatos concretos
+6. **PROIBIDO**: "Entenda", "Aprenda", "Descubra como", "Você sabia que", frases genéricas
+7. **USE**: "Você está perdendo", "O segredo é", "Faça isso agora", linguagem direta
 
 ENTREGUE o conteúdo completo no formato adequado, pronto para uso.`;
     } else if (comparisonQuery.isComparison) {
@@ -1896,6 +2115,10 @@ O usuário quer informações específicas sobre posts ou conteúdos.
       hasMetricsContext: !!metricsContext,
       hasWebSearch: !!webSearchResult,
       hasCitedContent: !!citedContent,
+      hasLibraryExamples: !!libraryExamplesContext,
+      libraryExamplesLength: libraryExamplesContext.length,
+      hasReferenceExamples: !!referenceExamplesContext,
+      referenceExamplesLength: referenceExamplesContext.length,
       hasTopPerformers: !!topPerformersContext,
       hasFormatRules: !!formatRulesContext,
       isContentCreation: contentCreation.isContentCreation,
