@@ -450,23 +450,49 @@ interface ContentCreationResult {
   detectedFormat: string | null;
 }
 
-function detectContentCreation(message: string): ContentCreationResult {
-  const lowerMessage = message.toLowerCase();
+// Content format keywords - exported for use in implicit detection
+const contentFormats: Record<string, string[]> = {
+  carrossel: ["carrossel", "carousel", "carrosel"],
+  newsletter: ["newsletter", "news letter"],
+  post_instagram: ["post", "postagem"],
+  reels: ["reels", "reel", "vídeo curto"],
+  thread: ["thread", "fio"],
+  linkedin: ["linkedin", "linked in"],
+  stories: ["stories", "story"],
+  tweet: ["tweet", "tuíte"],
+  artigo: ["artigo", "article", "artigo x"],
+  blog: ["blog", "blog post"],
+  email: ["email marketing", "email", "e-mail marketing"],
+};
+
+/**
+ * Detect implicit format from conversation history when explicit detection fails
+ * This allows natural follow-ups like "create another one" to work
+ */
+function detectImplicitFormat(
+  message: string,
+  history?: HistoryMessage[]
+): string | null {
+  if (!history || history.length === 0) return null;
   
-  // Content format keywords
-  const contentFormats: Record<string, string[]> = {
-    carrossel: ["carrossel", "carousel", "carrosel"],
-    newsletter: ["newsletter", "news letter"],
-    post_instagram: ["post", "postagem"],
-    reels: ["reels", "reel", "vídeo curto"],
-    thread: ["thread", "fio"],
-    linkedin: ["linkedin", "linked in"],
-    stories: ["stories", "story"],
-    tweet: ["tweet", "tuíte"],
-    artigo: ["artigo", "article", "artigo x"],
-    blog: ["blog", "blog post"],
-    email: ["email marketing", "email", "e-mail marketing"],
-  };
+  // Check recent history (last 5 messages) for format mentions
+  const recentHistory = history.slice(-5);
+  
+  for (const msg of recentHistory.reverse()) {
+    const content = msg.content.toLowerCase();
+    for (const [format, keywords] of Object.entries(contentFormats)) {
+      if (keywords.some(k => content.includes(k))) {
+        console.log("[kai-simple-chat] Implicit format detected from history:", format);
+        return format;
+      }
+    }
+  }
+  
+  return null;
+}
+
+function detectContentCreation(message: string, history?: HistoryMessage[]): ContentCreationResult {
+  const lowerMessage = message.toLowerCase();
   
   // Creation intent keywords
   const creationPatterns = [
@@ -488,16 +514,18 @@ function detectContentCreation(message: string): ContentCreationResult {
     return { isContentCreation: false, detectedFormat: null };
   }
   
-  // Check for content format
+  // Check for explicit content format in current message
   for (const [format, keywords] of Object.entries(contentFormats)) {
     if (keywords.some(k => lowerMessage.includes(k))) {
       return { isContentCreation: true, detectedFormat: format };
     }
   }
   
-  // Generic content creation without specific format
+  // Generic content creation without specific format - try implicit detection
   if (/conte[uú]do|conteudo|texto|copy/i.test(lowerMessage)) {
-    return { isContentCreation: true, detectedFormat: null };
+    // Try to infer from history
+    const implicitFormat = detectImplicitFormat(message, history);
+    return { isContentCreation: true, detectedFormat: implicitFormat };
   }
   
   return { isContentCreation: false, detectedFormat: null };
@@ -514,6 +542,14 @@ const MAX_REFERENCE_LENGTH = 1000;
  * Fetch examples from client's content library (same format)
  * These serve as style/structure reference for new content
  */
+/**
+ * Fetch examples from client's content library
+ * PRIORITY ORDER:
+ * 1. Favorites of specific format
+ * 2. General favorites
+ * 3. Recent of specific format
+ * 4. Any recent content
+ */
 async function fetchLibraryExamples(
   supabase: any,
   clientId: string,
@@ -522,63 +558,177 @@ async function fetchLibraryExamples(
 ): Promise<string> {
   // Map detected format to database content_type
   const dbContentType = contentType ? CONTENT_TYPE_MAP[contentType] : null;
+  let examples: any[] = [];
   
-  let query = supabase
-    .from("client_content_library")
-    .select("title, content, content_type, created_at")
-    .eq("client_id", clientId)
-    .order("created_at", { ascending: false });
-  
-  // Filter by content type if detected
+  // PHASE 1: Fetch favorites of specific format first
   if (dbContentType) {
-    query = query.eq("content_type", dbContentType);
-  }
-  
-  const { data: examples, error } = await query.limit(limit);
-  
-  if (error) {
-    console.log("[kai-simple-chat] Error fetching library examples:", error.message);
-    return "";
-  }
-  
-  if (!examples || examples.length === 0) {
-    // Fallback: if no examples of specific format, get any recent examples for tone consistency
-    if (dbContentType) {
-      console.log("[kai-simple-chat] No examples of type", dbContentType, "- fetching generic examples");
-      const { data: fallbackExamples } = await supabase
-        .from("client_content_library")
-        .select("title, content, content_type, created_at")
-        .eq("client_id", clientId)
-        .order("created_at", { ascending: false })
-        .limit(3);
-      
-      if (fallbackExamples && fallbackExamples.length > 0) {
-        let context = `\n## Exemplos Recentes do Cliente (referência de tom e estilo)\n`;
-        fallbackExamples.forEach((ex: any, i: number) => {
-          const truncatedContent = ex.content?.substring(0, MAX_LIBRARY_EXAMPLE_LENGTH) || "";
-          const ellipsis = ex.content?.length > MAX_LIBRARY_EXAMPLE_LENGTH ? "..." : "";
-          context += `\n### Exemplo ${i + 1}: ${ex.title} (${ex.content_type})\n`;
-          context += `${truncatedContent}${ellipsis}\n`;
-        });
-        console.log("[kai-simple-chat] Loaded", fallbackExamples.length, "fallback library examples");
-        return context;
-      }
+    const { data: favoriteExamples } = await supabase
+      .from("client_content_library")
+      .select("id, title, content, content_type, is_favorite, metadata, created_at")
+      .eq("client_id", clientId)
+      .eq("content_type", dbContentType)
+      .eq("is_favorite", true)
+      .order("created_at", { ascending: false })
+      .limit(3);
+    
+    if (favoriteExamples && favoriteExamples.length > 0) {
+      examples = favoriteExamples;
+      console.log("[kai-simple-chat] Found", favoriteExamples.length, "favorite examples of type:", dbContentType);
     }
+  }
+  
+  // PHASE 2: If not enough favorites, fetch general favorites
+  if (examples.length < 3) {
+    const existingIds = examples.map(e => e.id);
+    let query = supabase
+      .from("client_content_library")
+      .select("id, title, content, content_type, is_favorite, metadata, created_at")
+      .eq("client_id", clientId)
+      .eq("is_favorite", true)
+      .order("created_at", { ascending: false })
+      .limit(3 - examples.length);
+    
+    if (existingIds.length > 0) {
+      query = query.not("id", "in", `(${existingIds.join(",")})`);
+    }
+    
+    const { data: moreFavorites } = await query;
+    if (moreFavorites && moreFavorites.length > 0) {
+      examples = [...examples, ...moreFavorites];
+      console.log("[kai-simple-chat] Added", moreFavorites.length, "general favorites");
+    }
+  }
+  
+  // PHASE 3: Fill remaining slots with recent content of same format
+  if (examples.length < limit && dbContentType) {
+    const existingIds = examples.map(e => e.id);
+    let query = supabase
+      .from("client_content_library")
+      .select("id, title, content, content_type, is_favorite, metadata, created_at")
+      .eq("client_id", clientId)
+      .eq("content_type", dbContentType)
+      .order("created_at", { ascending: false })
+      .limit(limit - examples.length);
+    
+    if (existingIds.length > 0) {
+      query = query.not("id", "in", `(${existingIds.join(",")})`);
+    }
+    
+    const { data: recentExamples } = await query;
+    if (recentExamples && recentExamples.length > 0) {
+      examples = [...examples, ...recentExamples];
+      console.log("[kai-simple-chat] Added", recentExamples.length, "recent examples of type:", dbContentType);
+    }
+  }
+  
+  // PHASE 4: Fallback - any recent content
+  if (examples.length < 2) {
+    const existingIds = examples.map(e => e.id);
+    let query = supabase
+      .from("client_content_library")
+      .select("id, title, content, content_type, is_favorite, metadata, created_at")
+      .eq("client_id", clientId)
+      .order("created_at", { ascending: false })
+      .limit(3);
+    
+    if (existingIds.length > 0) {
+      query = query.not("id", "in", `(${existingIds.join(",")})`);
+    }
+    
+    const { data: fallbackExamples } = await query;
+    if (fallbackExamples && fallbackExamples.length > 0) {
+      examples = [...examples, ...fallbackExamples];
+      console.log("[kai-simple-chat] Added", fallbackExamples.length, "fallback examples");
+    }
+  }
+  
+  if (examples.length === 0) {
     return "";
   }
   
+  // Enrich with metrics (cross-reference with instagram_posts)
+  examples = await enrichWithMetrics(supabase, clientId, examples);
+  
+  // Build context with favorite indicators and metrics
   let context = `\n## 📚 Exemplos da Biblioteca de Conteúdo (SIGA ESTE ESTILO E ESTRUTURA)\n`;
   context += `*Estes são conteúdos reais do cliente. REPLIQUE o tom, estrutura e abordagem.*\n`;
   
   examples.forEach((ex: any, i: number) => {
+    const favIcon = ex.is_favorite ? "⭐ " : "";
+    const metricsLabel = ex.engagement_rate 
+      ? ` [📈 ${ex.engagement_rate.toFixed(2)}% engajamento]`
+      : ex.likes 
+        ? ` [${ex.likes} likes]`
+        : "";
+    
     const truncatedContent = ex.content?.substring(0, MAX_LIBRARY_EXAMPLE_LENGTH) || "";
     const ellipsis = ex.content?.length > MAX_LIBRARY_EXAMPLE_LENGTH ? "..." : "";
-    context += `\n### Exemplo ${i + 1}: ${ex.title} (${ex.content_type})\n`;
+    
+    context += `\n### ${favIcon}Exemplo ${i + 1}: ${ex.title} (${ex.content_type})${metricsLabel}\n`;
     context += `${truncatedContent}${ellipsis}\n`;
   });
   
-  console.log("[kai-simple-chat] Loaded", examples.length, "library examples of type:", dbContentType || "mixed");
+  console.log("[kai-simple-chat] Loaded", examples.length, "library examples with priority order");
   return context;
+}
+
+/**
+ * Enrich examples with performance metrics from Instagram posts
+ * This helps the AI understand which content performs best
+ */
+async function enrichWithMetrics(
+  supabase: any,
+  clientId: string,
+  examples: any[]
+): Promise<any[]> {
+  if (examples.length === 0) return examples;
+  
+  // Fetch top Instagram posts for cross-referencing
+  const { data: instaPosts } = await supabase
+    .from("instagram_posts")
+    .select("caption, full_content, engagement_rate, likes, posted_at")
+    .eq("client_id", clientId)
+    .order("engagement_rate", { ascending: false, nullsFirst: false })
+    .limit(30);
+  
+  if (!instaPosts || instaPosts.length === 0) return examples;
+  
+  // Match examples with Instagram posts by content similarity
+  return examples.map(ex => {
+    const exTitle = (ex.title || "").toLowerCase().substring(0, 40);
+    const exContent = (ex.content || "").toLowerCase().substring(0, 100);
+    
+    const matchingPost = instaPosts.find((p: any) => {
+      const caption = (p.caption || "").toLowerCase();
+      const fullContent = (p.full_content || "").toLowerCase();
+      
+      // Check if title appears in caption or full content
+      if (exTitle.length > 10 && (caption.includes(exTitle) || fullContent.includes(exTitle))) {
+        return true;
+      }
+      
+      // Check if significant part of content matches
+      if (exContent.length > 30) {
+        const contentSample = exContent.substring(0, 50);
+        if (caption.includes(contentSample) || fullContent.includes(contentSample)) {
+          return true;
+        }
+      }
+      
+      return false;
+    });
+    
+    if (matchingPost) {
+      console.log("[kai-simple-chat] Enriched example with metrics:", ex.title);
+      return {
+        ...ex,
+        engagement_rate: matchingPost.engagement_rate,
+        likes: matchingPost.likes,
+      };
+    }
+    
+    return ex;
+  });
 }
 
 /**
@@ -1732,7 +1882,7 @@ serve(async (req) => {
     const isSpecificQuery = isSpecificContentQuery(message);
     const imageGenRequest = isImageGenerationRequest(message);
     const comparisonQuery = isComparisonQuery(message);
-    const contentCreation = detectContentCreation(message);
+    const contentCreation = detectContentCreation(message, history);
     const planningIntent = detectPlanningIntent(message, history);
 
     // 4. Extract date range and metric focus from message
