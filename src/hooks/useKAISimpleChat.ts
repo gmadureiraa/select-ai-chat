@@ -151,9 +151,10 @@ export function useKAISimpleChat({
   // Send message and stream response
   const sendMessage = useCallback(async (
     content: string,
-    citations?: SimpleCitation[]
+    citations?: SimpleCitation[],
+    imageUrls?: string[]
   ) => {
-    if (!content.trim()) return;
+    if (!content.trim() && (!imageUrls || imageUrls.length === 0)) return;
     if (!clientId) {
       toast.error("Selecione um cliente primeiro");
       return;
@@ -181,6 +182,7 @@ export function useKAISimpleChat({
       role: "user",
       content,
       timestamp: new Date(),
+      imageUrl: imageUrls?.[0], // Store first image for display
     };
     setMessages(prev => [...prev, userMessage]);
     setIsLoading(true);
@@ -217,6 +219,7 @@ export function useKAISimpleChat({
           body: JSON.stringify({
             message: content,
             clientId,
+            imageUrls: imageUrls?.length ? imageUrls : undefined,
             citations: citations?.map(c => ({
               id: c.id,
               type: c.type,
@@ -225,6 +228,7 @@ export function useKAISimpleChat({
             history: messages.slice(-10).map(m => ({
               role: m.role,
               content: m.content,
+              imageUrl: m.imageUrl,
             })),
           }),
           signal: abortControllerRef.current.signal,
