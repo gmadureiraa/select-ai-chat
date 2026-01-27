@@ -5,6 +5,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { usePlanningItems } from "@/hooks/usePlanningItems";
 import { useToast } from "@/hooks/use-toast";
 
+// Import node data types from node components
+import type { TextNodeData } from "../nodes/TextNode";
+import type { StickyNodeData } from "../nodes/StickyNode";
+import type { ShapeNodeData } from "../nodes/ShapeNode";
+
+// Re-export for use in other hooks
+export type { TextNodeData, StickyNodeData, ShapeNodeData };
+
 // Import specialized hooks
 import { useCanvasExtractions } from "./useCanvasExtractions";
 import { useCanvasGeneration } from "./useCanvasGeneration";
@@ -17,12 +25,14 @@ import { useCanvasPersistence } from "./useCanvasPersistence";
 export type NodeDataType = 
   | "source" 
   | "library" 
-  | "prompt" 
   | "generator" 
   | "output"
   | "image-editor"
   | "image-source"
-  | "attachment";
+  | "attachment"
+  | "text"
+  | "sticky"
+  | "shape";
 
 // Structured metadata for each image reference
 export interface ImageMetadata {
@@ -161,10 +171,8 @@ export interface LibraryNodeData {
   itemType?: string;
 }
 
-export interface PromptNodeData {
-  type: "prompt";
-  briefing: string;
-}
+// NOTE: PromptNodeData removed - legacy type replaced by TextNode
+// Legacy "prompt" nodes in saved canvases are rendered as TextNodes via alias in nodeTypes
 
 export type ContentFormat = 
   | "carousel" 
@@ -284,12 +292,14 @@ export interface AttachmentNodeData {
 export type CanvasNodeData = 
   | SourceNodeData 
   | LibraryNodeData 
-  | PromptNodeData 
   | GeneratorNodeData 
   | OutputNodeData
   | ImageEditorNodeData
   | ImageSourceNodeData
-  | AttachmentNodeData;
+  | AttachmentNodeData
+  | TextNodeData
+  | StickyNodeData
+  | ShapeNodeData;
 
 export interface SavedCanvas {
   id: string;
@@ -373,12 +383,13 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
           ...data
         } as LibraryNodeData;
         break;
-      case "prompt":
+      case "text":
         nodeData = {
-          type: "prompt",
-          briefing: "",
+          type: "text",
+          content: "",
+          fontSize: 16,
           ...data
-        } as PromptNodeData;
+        } as TextNodeData;
         break;
       case "generator":
         nodeData = {
@@ -434,6 +445,27 @@ export function useCanvasState(clientId: string, workspaceId?: string) {
           images: [],
           ...data
         } as AttachmentNodeData;
+        break;
+      case "sticky":
+        nodeData = {
+          type: "sticky",
+          content: "",
+          color: "#fef08a",
+          size: "medium",
+          ...data
+        } as StickyNodeData;
+        break;
+      case "shape":
+        nodeData = {
+          type: "shape",
+          shapeType: "rectangle",
+          fill: "#3b82f6",
+          stroke: "#1d4ed8",
+          strokeWidth: 2,
+          width: 100,
+          height: 100,
+          ...data
+        } as ShapeNodeData;
         break;
       default:
         throw new Error(`Unknown node type: ${nodeType}`);

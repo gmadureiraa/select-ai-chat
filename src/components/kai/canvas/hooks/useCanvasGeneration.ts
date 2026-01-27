@@ -8,12 +8,12 @@ import {
   CanvasNodeData,
   SourceNodeData,
   LibraryNodeData,
-  PromptNodeData,
   OutputNodeData,
   GeneratorNodeData,
   ImageSourceNodeData,
   AttachmentNodeData,
-  ImageEditorNodeData
+  ImageEditorNodeData,
+  TextNodeData,
 } from "./useCanvasState";
 import { blobUrlToBase64 } from "./useCanvasExtractions";
 
@@ -125,9 +125,11 @@ export function useCanvasGeneration({
             }
             break;
           }
-          case "prompt": {
-            const promptData = inputNode.data as PromptNodeData;
-            briefing = promptData.briefing;
+          case "text": {
+            const textData = inputNode.data as TextNodeData;
+            if (textData.content) {
+              briefing = textData.content;
+            }
             break;
           }
           case "output": {
