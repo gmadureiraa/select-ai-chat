@@ -24,11 +24,13 @@ interface Citation {
 interface HistoryMessage {
   role: "user" | "assistant";
   content: string;
+  imageUrl?: string;
 }
 
 interface RequestBody {
   message: string;
   clientId: string;
+  imageUrls?: string[];
   citations?: Citation[];
   history?: HistoryMessage[];
 }
@@ -1498,11 +1500,12 @@ serve(async (req) => {
     }
 
     const body = await req.json() as RequestBody;
-    const { message, clientId, citations, history } = body;
+    const { message, clientId, imageUrls, citations, history } = body;
 
     console.log("[kai-simple-chat] Request:", { 
       userId: user.id,
       clientId, 
+      imageUrlsCount: imageUrls?.length,
       citationsCount: citations?.length,
       historyCount: history?.length,
       messageLength: message?.length 
@@ -1912,8 +1915,10 @@ O usuário quer informações específicas sobre posts ou conteúdos.
     console.log("[kai-simple-chat] Using Google Gemini API directly");
 
     // Build Gemini-compatible messages (merge system prompt into first user message)
+    // Support for multimodal (images) via inline_data
     const geminiContents = [];
     let systemContent = "";
+    let isFirstUserMessage = true;
     
     for (const msg of apiMessages) {
       if (msg.role === "system") {
@@ -1923,11 +1928,41 @@ O usuário quer informações específicas sobre posts ou conteúdos.
         const userContent = systemContent 
           ? `${systemContent}\n\n---\n\n${msg.content}`
           : msg.content;
+        
+        // Build parts array with text and optional images
+        const parts: any[] = [{ text: userContent }];
+        
+        // Add images to the first user message if provided
+        if (isFirstUserMessage && imageUrls && imageUrls.length > 0) {
+          for (const imageUrl of imageUrls) {
+            try {
+              // Fetch image and convert to base64
+              const imageResponse = await fetch(imageUrl);
+              if (imageResponse.ok) {
+                const imageBuffer = await imageResponse.arrayBuffer();
+                const base64Image = btoa(String.fromCharCode(...new Uint8Array(imageBuffer)));
+                const mimeType = imageResponse.headers.get("content-type") || "image/jpeg";
+                
+                parts.push({
+                  inline_data: {
+                    mime_type: mimeType,
+                    data: base64Image,
+                  }
+                });
+                console.log("[kai-simple-chat] Added image to request:", { mimeType, size: imageBuffer.byteLength });
+              }
+            } catch (imgErr) {
+              console.error("[kai-simple-chat] Error fetching image:", imgErr);
+            }
+          }
+        }
+        
         geminiContents.push({
           role: "user",
-          parts: [{ text: userContent }],
+          parts,
         });
         systemContent = ""; // Clear after first use
+        isFirstUserMessage = false;
       } else if (msg.role === "assistant") {
         geminiContents.push({
           role: "model",

@@ -12,6 +12,7 @@ import { useKAIActions } from "@/hooks/useKAIActions";
 import { useKAIExecuteAction } from "@/hooks/useKAIExecuteAction";
 import { useKAIConversations } from "@/hooks/useKAIConversations";
 import { supabase } from "@/integrations/supabase/client";
+import { uploadAndGetSignedUrl } from "@/lib/storage";
 import {
   GlobalKAIContext,
   type GlobalKAIChatMode,
@@ -318,7 +319,24 @@ export function GlobalKAIProvider({ children }: GlobalKAIProviderProps) {
     setAttachedFiles([]);
 
     try {
-      await simpleChat.sendMessage(text, citations);
+      // Upload images and get URLs if files are provided
+      let imageUrls: string[] = [];
+      if (files && files.length > 0) {
+        const imageFiles = files.filter(f => f.type.startsWith("image/"));
+        if (imageFiles.length > 0) {
+          const uploadPromises = imageFiles.map(async (file) => {
+            const { signedUrl, error } = await uploadAndGetSignedUrl(file, "chat-images");
+            if (error) {
+              console.error("[GlobalKAI] Upload error:", error);
+              return null;
+            }
+            return signedUrl;
+          });
+          imageUrls = (await Promise.all(uploadPromises)).filter((url): url is string => url !== null);
+        }
+      }
+
+      await simpleChat.sendMessage(text, citations, imageUrls.length > 0 ? imageUrls : undefined);
     } catch (error) {
       console.error("kAI chat error:", error);
       toast.error("Erro ao processar mensagem");
