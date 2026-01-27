@@ -79,19 +79,19 @@ export function SendToCanvasButton({
         ? { x: (lastNode.position?.x || 0) + 50, y: (lastNode.position?.y || 0) + 50 }
         : { x: 400, y: 200 };
 
-      // Create the new output node
+      // Create the new output node (using modern "output" type, legacy "contentOutput" is deprecated)
       const newNode = {
         id: nodeId,
-        type: "contentOutput",
+        type: "output",
         position: newPosition,
         data: {
+          type: "output",
           content,
           format: format || "post",
           platform: "instagram",
-          isExpanded: true,
-          approvalStatus: "pending",
-          fromChat: true,
-          createdAt: new Date().toISOString(),
+          isEditing: false,
+          addedToPlanning: false,
+          approvalStatus: "pending" as const,
         },
       };
 
