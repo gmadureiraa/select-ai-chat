@@ -1,16 +1,128 @@
 
-# Plano: Implementar Busca Automática de Contexto na Criação de Conteúdo
+# Plano: Melhorias Avançadas para o kAI
 
-## Objetivo
-Fazer o kAI Chat buscar automaticamente exemplos da biblioteca de conteúdo e referências do cliente ao criar qualquer tipo de conteúdo, eliminando a dependência de @mentions manuais.
+## Visão Geral
+
+Após análise detalhada do código e dados, identifiquei **6 áreas de melhoria** que elevarão significativamente a qualidade do conteúdo gerado e a experiência do usuário.
 
 ---
 
-## Mudanças Necessárias
+## 1. 📊 Enriquecimento de Contexto com Favoritos
+
+### Problema Atual
+O sistema busca exemplos apenas por ordem cronológica (`ORDER BY created_at DESC`). Conteúdos marcados como **favoritos** (campo `is_favorite`) não são priorizados, mesmo sendo os melhores exemplos.
+
+### Solução
+Modificar `fetchLibraryExamples` para priorizar favoritos:
+
+```text
+PRIORIDADE:
+1. Favoritos do mesmo formato (is_favorite = true + content_type match)
+2. Favoritos gerais do cliente
+3. Mais recentes do formato
+4. Fallback genérico
+```
+
+### Impacto
+Alta qualidade garantida usando os melhores exemplos aprovados pelo usuário.
+
+---
+
+## 2. 🔍 Análise Semântica do Pedido
+
+### Problema Atual
+A detecção de formato usa apenas keywords simples. Se o usuário pedir "faça um conteúdo sobre produtividade", o sistema não detecta formato e não carrega exemplos específicos.
+
+### Solução
+Adicionar detecção de **intenção implícita**:
+- Analisar histórico da conversa para inferir formato
+- Perguntar ao usuário quando formato não for claro
+- Usar o formato mais usado pelo cliente como default inteligente
+
+```typescript
+// Dados atuais mostram que newsletter é o tipo mais comum
+// "newsletter": 50, "carousel": 15, "video_script": 15
+// Usar como fallback quando não detectar formato
+```
+
+---
+
+## 3. 📈 Métricas de Performance nos Exemplos
+
+### Problema Atual
+Os exemplos da biblioteca são carregados sem indicação de performance. O sistema não sabe quais exemplos tiveram melhor resultado.
+
+### Solução
+Enriquecer exemplos com métricas quando disponíveis:
+- Cross-reference com `instagram_posts` para engagement
+- Adicionar indicador de performance ao contexto
+- Priorizar exemplos com métricas comprovadas
+
+```typescript
+// Exemplo de enriquecimento:
+"### Exemplo 1: Newsletter Produtividade [⭐ 42% open rate]"
+"### Exemplo 2: Carrossel Mindset [📈 8.5% engagement]"
+```
+
+---
+
+## 4. 🎯 Sistema de Regras Dinâmicas por Cliente
+
+### Problema Atual
+As regras de formato vêm da tabela `kai_documentation` (global). Não existe customização por cliente.
+
+### Solução
+Criar sistema de **regras personalizadas**:
+1. Manter regras globais como base
+2. Permitir override por cliente via novo campo `custom_format_rules` em `clients`
+3. Merge inteligente: `global_rules + client_overrides`
+
+---
+
+## 5. 🔄 Feedback Loop para Aprendizado
+
+### Problema Atual
+Não há mecanismo para o sistema aprender com feedback. Se o usuário não gosta do conteúdo, essa informação se perde.
+
+### Solução
+Implementar **rating de mensagens**:
+1. Botões 👍/👎 nas respostas do kAI
+2. Salvar feedback na tabela `kai_chat_messages` (novo campo `rating`)
+3. Usar mensagens bem avaliadas como exemplos prioritários
+4. Evitar padrões de mensagens mal avaliadas
+
+---
+
+## 6. 📝 Completude do Guia de Identidade
+
+### Problema Atual
+Dados mostram que apenas 2 de 6 clientes têm `identity_guide` preenchido. Sem isso, a IA cria conteúdo genérico.
+
+### Solução
+- Adicionar **prompt de onboarding** quando identity_guide estiver vazio
+- Criar template interativo para preenchimento
+- Gerar identity_guide automaticamente a partir de exemplos existentes
+
+---
+
+## Ordem de Implementação
+
+| Prioridade | Melhoria | Esforço | Impacto |
+|------------|----------|---------|---------|
+| 1 | Favoritos primeiro | Baixo | Alto |
+| 2 | Métricas nos exemplos | Médio | Alto |
+| 3 | Detecção implícita de formato | Médio | Médio |
+| 4 | Feedback loop (rating) | Médio | Alto |
+| 5 | Regras por cliente | Alto | Médio |
+| 6 | Geração de identity guide | Alto | Alto |
+
+---
+
+## Mudanças Técnicas Detalhadas
 
 ### Arquivo: `supabase/functions/kai-simple-chat/index.ts`
 
-#### 1. Adicionar função para buscar exemplos da biblioteca de conteúdo
+#### 1. Modificar `fetchLibraryExamples` (Priorizar Favoritos)
 
 ```typescript
 async function fetchLibraryExamples(
@@ -19,170 +131,195 @@ async function fetchLibraryExamples(
   contentType: string | null,
   limit: number = 5
 ): Promise<string> {
-  // Buscar exemplos do mesmo formato na biblioteca de conteúdo
-  let query = supabase
-    .from("client_content_library")
-    .select("title, content, content_type, created_at")
-    .eq("client_id", clientId)
-    .order("created_at", { ascending: false });
+  const dbContentType = contentType ? CONTENT_TYPE_MAP[contentType] : null;
   
-  // Filtrar por tipo de conteúdo se detectado
-  if (contentType) {
-    query = query.eq("content_type", contentType);
+  // FASE 1: Buscar favoritos do formato específico
+  let examples: any[] = [];
+  
+  if (dbContentType) {
+    const { data: favoriteExamples } = await supabase
+      .from("client_content_library")
+      .select("title, content, content_type, is_favorite, metadata")
+      .eq("client_id", clientId)
+      .eq("content_type", dbContentType)
+      .eq("is_favorite", true)
+      .order("created_at", { ascending: false })
+      .limit(3);
+    
+    if (favoriteExamples) examples = favoriteExamples;
   }
   
-  const { data: examples } = await query.limit(limit);
+  // FASE 2: Completar com não-favoritos se necessário
+  if (examples.length < limit) {
+    const remaining = limit - examples.length;
+    const existingIds = examples.map(e => e.id);
+    
+    let query = supabase
+      .from("client_content_library")
+      .select("title, content, content_type, is_favorite, metadata")
+      .eq("client_id", clientId)
+      .order("created_at", { ascending: false })
+      .limit(remaining);
+    
+    if (dbContentType) {
+      query = query.eq("content_type", dbContentType);
+    }
+    if (existingIds.length > 0) {
+      query = query.not("id", "in", `(${existingIds.join(",")})`);
+    }
+    
+    const { data: moreExamples } = await query;
+    if (moreExamples) examples = [...examples, ...moreExamples];
+  }
   
-  if (!examples || examples.length === 0) return "";
-  
-  let context = `\n## Exemplos da Biblioteca de Conteúdo (siga este estilo)\n`;
-  examples.forEach((ex: any, i: number) => {
-    context += `\n### Exemplo ${i + 1}: ${ex.title} (${ex.content_type})\n`;
-    context += `${ex.content?.substring(0, 1500) || ""}${ex.content?.length > 1500 ? '...' : ''}\n`;
+  // Formatação com indicador de favorito
+  let context = `\n## 📚 Exemplos da Biblioteca de Conteúdo\n`;
+  examples.forEach((ex, i) => {
+    const favIcon = ex.is_favorite ? "⭐ " : "";
+    context += `\n### ${favIcon}Exemplo ${i + 1}: ${ex.title}\n`;
+    context += `${ex.content?.substring(0, MAX_LIBRARY_EXAMPLE_LENGTH)}...\n`;
   });
   
   return context;
 }
 ```
 
-#### 2. Adicionar função para buscar referências relevantes
+#### 2. Adicionar Cross-Reference com Métricas
 
 ```typescript
-async function fetchReferenceExamples(
+// Após buscar exemplos, enriquecer com métricas do Instagram
+async function enrichWithMetrics(
   supabase: any,
   clientId: string,
-  referenceType: string | null,
-  limit: number = 3
-): Promise<string> {
-  let query = supabase
-    .from("client_reference_library")
-    .select("title, content, reference_type")
+  examples: any[]
+): Promise<any[]> {
+  // Buscar posts do Instagram com engagement
+  const { data: instaPosts } = await supabase
+    .from("instagram_posts")
+    .select("caption, engagement_rate, likes")
     .eq("client_id", clientId)
-    .order("created_at", { ascending: false });
+    .order("engagement_rate", { ascending: false })
+    .limit(20);
   
-  if (referenceType) {
-    query = query.eq("reference_type", referenceType);
+  // Match por similaridade de título/conteúdo
+  return examples.map(ex => {
+    const matchingPost = instaPosts?.find(p => 
+      p.caption?.includes(ex.title?.substring(0, 30)) ||
+      ex.content?.includes(p.caption?.substring(0, 50))
+    );
+    
+    if (matchingPost) {
+      return { 
+        ...ex, 
+        engagement_rate: matchingPost.engagement_rate,
+        likes: matchingPost.likes,
+      };
+    }
+    return ex;
+  });
+}
+```
+
+#### 3. Detecção de Formato Implícito
+
+```typescript
+function detectImplicitFormat(
+  message: string,
+  history: HistoryMessage[]
+): string | null {
+  // Verificar se formato foi mencionado em mensagens anteriores
+  const recentHistory = history?.slice(-5) || [];
+  
+  for (const msg of recentHistory.reverse()) {
+    const content = msg.content.toLowerCase();
+    for (const [format, keywords] of Object.entries(contentFormats)) {
+      if (keywords.some(k => content.includes(k))) {
+        console.log("[kai-simple-chat] Implicit format from history:", format);
+        return format;
+      }
+    }
   }
   
-  const { data: refs } = await query.limit(limit);
+  return null;
+}
+
+// Usar na detecção principal:
+function detectContentCreation(message: string, history?: HistoryMessage[]) {
+  // ... detecção atual ...
   
-  if (!refs || refs.length === 0) return "";
+  // Se não detectou formato explícito, tentar implícito
+  if (result.isContentCreation && !result.detectedFormat && history) {
+    result.detectedFormat = detectImplicitFormat(message, history);
+  }
   
-  let context = `\n## Referências do Cliente (inspiração e benchmarks)\n`;
-  refs.forEach((ref: any, i: number) => {
-    context += `\n### Referência ${i + 1}: ${ref.title}\n`;
-    context += `${ref.content?.substring(0, 1000) || ""}${ref.content?.length > 1000 ? '...' : ''}\n`;
-  });
-  
-  return context;
+  return result;
 }
 ```
 
-#### 3. Chamar as novas funções quando detectar criação de conteúdo
+### Arquivo: `src/components/chat/MessageActions.tsx` (ou similar)
 
-Modificar a seção de preparação de contexto (~linha 1726):
+#### 4. Adicionar Feedback Rating
 
-```typescript
-let libraryExamplesContext = "";
-let referenceExamplesContext = "";
-
-if (contentCreation.isContentCreation) {
-  // Buscar exemplos da biblioteca de conteúdo (mesmo formato)
-  libraryExamplesContext = await fetchLibraryExamples(
-    supabase,
-    clientId,
-    contentCreation.detectedFormat,
-    5
+```tsx
+// Novo componente de rating para mensagens
+function MessageRating({ messageId }: { messageId: string }) {
+  const [rating, setRating] = useState<number | null>(null);
+  
+  const handleRating = async (value: number) => {
+    await supabase
+      .from("kai_chat_messages")
+      .update({ rating: value })
+      .eq("id", messageId);
+    setRating(value);
+  };
+  
+  return (
+    <div className="flex gap-1">
+      <Button variant="ghost" size="xs" onClick={() => handleRating(1)}>
+        👍
+      </Button>
+      <Button variant="ghost" size="xs" onClick={() => handleRating(-1)}>
+        👎
+      </Button>
+    </div>
   );
-  
-  // Buscar referências do cliente (mesmo tipo ou genéricas)
-  referenceExamplesContext = await fetchReferenceExamples(
-    supabase,
-    clientId,
-    contentCreation.detectedFormat,
-    3
-  );
-  
-  // Buscar top performers do Instagram (manter para métricas)
-  // ... código existente ...
 }
 ```
 
-#### 4. Adicionar ao system prompt
+### Migration SQL (para rating)
 
-```typescript
-// Adicionar exemplos da biblioteca ANTES das instruções
-if (libraryExamplesContext) {
-  systemPrompt += `\n${libraryExamplesContext}`;
-}
+```sql
+ALTER TABLE kai_chat_messages 
+ADD COLUMN IF NOT EXISTS rating smallint;
 
-if (referenceExamplesContext) {
-  systemPrompt += `\n${referenceExamplesContext}`;
-}
+CREATE INDEX idx_kai_messages_rating 
+ON kai_chat_messages(conversation_id, rating) 
+WHERE rating IS NOT NULL;
 ```
-
-#### 5. Melhorar as instruções de criação de conteúdo
-
-Atualizar as instruções para enfatizar o uso dos exemplos:
-
-```typescript
-systemPrompt += `
-## Instruções para Criação de Conteúdo
-Você está criando conteúdo para o cliente. SIGA RIGOROSAMENTE:
-
-1. **Exemplos da Biblioteca**: REPLIQUE o estilo, estrutura e tom dos exemplos acima
-2. **Referências**: Use as referências como inspiração, mas adapte ao estilo do cliente
-3. **Tom de voz**: EXATAMENTE como definido no Guia de Identidade
-4. **Regras do formato**: Siga as regras obrigatórias (limites, estrutura)
-5. **Zero emojis** no corpo do texto (apenas CTA final se necessário)
-6. **Linguagem direta**: Verbos de ação, números específicos
-7. **PROIBIDO**: "Entenda", "Aprenda", "Descubra", frases genéricas
-
-PRIORIDADE: Exemplos da Biblioteca > Referências > Top Performers Instagram
-`;
-```
-
----
-
-## Mapeamento de Tipos de Conteúdo
-
-Garantir que o mapeamento de formatos funcione para buscar na biblioteca:
-
-| Formato Detectado | content_type na Biblioteca |
-|-------------------|---------------------------|
-| carrossel | carousel |
-| newsletter | newsletter |
-| post_instagram | instagram_post |
-| linkedin | linkedin_post |
-| tweet | tweet |
-| thread | thread |
-| reels | reels |
-| stories | stories |
-| artigo | x_article |
-| blog | blog_post |
 
 ---
 
 ## Resultado Esperado
 
-### Antes:
+### Antes
 ```
-Usuário: "Crie uma newsletter sobre produtividade"
-IA: [conteúdo genérico sem seguir padrão do cliente]
+Usuário: "Crie um conteúdo sobre produtividade"
+Sistema: [não detecta formato, busca exemplos aleatórios, gera conteúdo genérico]
 ```
 
-### Depois:
+### Depois
 ```
-Usuário: "Crie uma newsletter sobre produtividade"
+Usuário: "Crie um conteúdo sobre produtividade"
 
-Sistema carrega automaticamente:
-1. ✅ identity_guide do cliente
-2. ✅ 5 newsletters existentes da biblioteca
-3. ✅ 3 referências de newsletters salvas
-4. ✅ Regras de formato de newsletter
-5. ✅ Top performers do Instagram (como métrica)
+Sistema detecta:
+1. Histórico mostra que usuário trabalha com newsletters
+2. Busca 3 newsletters ⭐ favoritas + 2 recentes
+3. Enriquece com métricas (open rate, engagement)
+4. Aplica regras customizadas do cliente
+5. Gera conteúdo no estilo aprovado
 
-IA: [conteúdo seguindo exatamente o estilo das newsletters anteriores]
+Usuário avalia: 👍
+→ Sistema aprende que esse padrão funciona
 ```
 
 ---
@@ -191,37 +328,18 @@ IA: [conteúdo seguindo exatamente o estilo das newsletters anteriores]
 
 | Arquivo | Mudanças |
 |---------|----------|
-| `supabase/functions/kai-simple-chat/index.ts` | Adicionar funções de busca + integrar no fluxo |
+| `supabase/functions/kai-simple-chat/index.ts` | Priorizar favoritos, métricas, detecção implícita |
+| `src/components/chat/MessageItem.tsx` ou similar | Adicionar botões de rating |
+| Migration SQL | Adicionar coluna `rating` |
 
 ---
 
-## Ordem de Implementação
+## Próximos Passos
 
-1. Criar `fetchLibraryExamples()` - Buscar exemplos da biblioteca de conteúdo
-2. Criar `fetchReferenceExamples()` - Buscar referências do cliente
-3. Integrar chamadas no fluxo de criação de conteúdo
-4. Adicionar contextos ao system prompt
-5. Atualizar instruções de criação para priorizar exemplos
-6. Deploy e testar com diferentes formatos
+Qual melhoria você gostaria de implementar primeiro?
 
----
-
-## Seção Técnica
-
-### Limites de Contexto
-- Exemplos da biblioteca: max 5 itens, 1500 chars cada = ~7500 chars
-- Referências: max 3 itens, 1000 chars cada = ~3000 chars
-- Total adicional: ~10500 chars (dentro do limite seguro)
-
-### Query Otimizada
-Buscar em paralelo para melhor performance:
-```typescript
-const [libraryExamples, referenceExamples, topPosts] = await Promise.all([
-  fetchLibraryExamples(supabase, clientId, contentCreation.detectedFormat, 5),
-  fetchReferenceExamples(supabase, clientId, contentCreation.detectedFormat, 3),
-  fetchTopPerformers(supabase, clientId),
-]);
-```
-
-### Fallback
-Se não houver exemplos do formato específico, buscar exemplos genéricos do cliente para manter consistência de tom.
+1. **Favoritos primeiro** - Rápido e alto impacto
+2. **Métricas nos exemplos** - Prioriza conteúdo comprovado
+3. **Sistema de rating** - Aprendizado contínuo
+4. **Detecção implícita** - Experiência mais fluida
+5. **Todas** - Implementar sequencialmente
