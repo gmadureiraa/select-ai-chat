@@ -44,6 +44,49 @@ interface BrandContext {
   photographyStyle?: string;
 }
 
+// Visual reference from client
+interface VisualReference {
+  imageUrl: string;
+  type: string;
+  styleAnalysis?: {
+    style_summary?: string;
+    visual_elements?: {
+      photography_style?: string;
+      color_palette?: string[];
+    };
+  };
+  isPrimary: boolean;
+}
+
+// Fetch client visual references for image generation
+async function fetchClientVisualReferences(
+  supabaseClient: any,
+  clientId: string | null
+): Promise<VisualReference[]> {
+  if (!clientId) return [];
+
+  try {
+    const { data, error } = await supabaseClient
+      .from('client_visual_references')
+      .select('image_url, reference_type, is_primary, metadata')
+      .eq('client_id', clientId)
+      .order('is_primary', { ascending: false })
+      .limit(5);
+
+    if (error || !data) return [];
+
+    return data.map((ref: any) => ({
+      imageUrl: ref.image_url,
+      type: ref.reference_type,
+      styleAnalysis: ref.metadata?.styleAnalysis,
+      isPrimary: ref.is_primary,
+    }));
+  } catch (err) {
+    console.error("[generate-content-v2] Error fetching visual references:", err);
+    return [];
+  }
+}
+
 // Fetch client brand context for enriched prompts
 async function fetchClientBrandContext(
   supabaseClient: any,
@@ -447,7 +490,20 @@ Gere o conteúdo agora:`;
 
     } else {
       // Image generation with style matching - using English for better results
-      let imagePrompt = `Create a professional, high-quality social media image.
+      
+      // EMPHATIC NO-TEXT instruction if enabled
+      let noTextPrefix = "";
+      if (config.noText) {
+        noTextPrefix = `CRITICAL REQUIREMENT - ABSOLUTELY NO TEXT IN THIS IMAGE:
+⚠️ This image MUST NOT contain ANY text, letters, numbers, symbols, words, typography, captions, 
+watermarks, logos with text, or ANY written content in ANY language (English, Portuguese, or any other).
+⚠️ If ANY text appears, the image will be REJECTED.
+⚠️ Do NOT add decorative text, titles, watermarks, or ANY written elements.
+
+`;
+      }
+      
+      let imagePrompt = `${noTextPrefix}Create a professional, high-quality social media image.
 
 QUALITY REQUIREMENTS:
 - Ultra high resolution, 8K quality
@@ -488,8 +544,39 @@ QUALITY REQUIREMENTS:
         }
       }
 
+      // Improved briefing extraction - create visual theme from text
       if (briefingText.trim()) {
-        imagePrompt += `CONCEPT/BRIEFING:\n${briefingText.trim()}\n\n`;
+        const themeSummary = briefingText.trim().substring(0, 500);
+        imagePrompt += `VISUAL CONCEPT/THEME:
+Based on this content, create a compelling visual representation:
+"${themeSummary}"
+
+Create an image that captures the essence, mood, and topic of this content.
+The image should evoke the main theme visually without being overly literal.
+
+`;
+      }
+
+      // Fetch visual references from client profile
+      const visualRefs = await fetchClientVisualReferences(supabaseClient, clientId || null);
+      
+      if (visualRefs.length > 0) {
+        imagePrompt += `CLIENT VISUAL REFERENCES (match this style):\n`;
+        
+        for (const ref of visualRefs) {
+          if (ref.styleAnalysis) {
+            if (ref.styleAnalysis.style_summary) {
+              imagePrompt += `- ${ref.type.toUpperCase()} STYLE: ${ref.styleAnalysis.style_summary}\n`;
+            }
+            if (ref.styleAnalysis.visual_elements?.photography_style) {
+              imagePrompt += `  Photography: ${ref.styleAnalysis.visual_elements.photography_style}\n`;
+            }
+            if (ref.styleAnalysis.visual_elements?.color_palette && ref.styleAnalysis.visual_elements.color_palette.length > 0) {
+              imagePrompt += `  Colors: ${ref.styleAnalysis.visual_elements.color_palette.join(', ')}\n`;
+            }
+          }
+        }
+        imagePrompt += "\n";
       }
 
       // Add brand visual identity
@@ -503,6 +590,9 @@ QUALITY REQUIREMENTS:
         }
         if (brandContext.photographyStyle) {
           imagePrompt += `- Photography style: ${brandContext.photographyStyle}\n`;
+        }
+        if (brandContext.name) {
+          imagePrompt += `- Brand: ${brandContext.name}\n`;
         }
         imagePrompt += "\n";
       }
@@ -523,8 +613,8 @@ QUALITY REQUIREMENTS:
         imagePrompt += `ASPECT RATIO: ${aspectRatioMap[config.aspectRatio] || config.aspectRatio}\n\n`;
       }
       
-      // Add negative prompt
-      imagePrompt += `AVOID (negative prompt):
+      // Add negative prompt with EMPHATIC no-text rules if enabled
+      imagePrompt += `AVOID (negative prompt - STRICTLY FORBIDDEN):
 - Blurry or low resolution
 - Watermarks or logos
 - Artificial-looking elements
@@ -533,7 +623,15 @@ QUALITY REQUIREMENTS:
 `;
       
       if (config.noText) {
-        imagePrompt += `- ANY text, letters, numbers, words, typography, or written content
+        imagePrompt += `
+⚠️ CRITICAL - NO TEXT ALLOWED (image will be rejected if present):
+- ANY text, letters, or numbers in any language
+- Typography, fonts, or written words of any kind
+- Watermarks with text
+- Logos that contain text or letters
+- Decorative text or titles
+- Captions, labels, or annotations
+- Numbers, symbols, or characters
 `;
       }
       if (config.preserveFace && referenceImage) {
@@ -547,7 +645,8 @@ GENERATION RULES:
 2. Use ONLY the colors mentioned when specified
 3. Preserve the composition and framing of the reference if provided
 4. High quality, professional result
-5. Clean, modern aesthetic`;
+5. Clean, modern aesthetic
+${config.noText ? '6. ABSOLUTELY NO TEXT, LETTERS, OR WRITTEN CONTENT' : ''}`;
 
       console.log("[generate-content-v2] Generating image with enhanced prompt:");
       console.log("[generate-content-v2] Prompt length:", imagePrompt.length, "chars");
