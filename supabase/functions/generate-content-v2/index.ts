@@ -205,24 +205,36 @@ serve(async (req) => {
         
         // Twitter/X
         tweet: "Crie um tweet impactante e conciso (máximo 280 caracteres).",
-        thread: `Crie uma thread viral para Twitter. FORMATO OBRIGATÓRIO:
-Retorne APENAS um JSON válido no seguinte formato:
-{
-  "thread_tweets": [
-    { "text": "1/ [hook inicial - máx 270 chars]" },
-    { "text": "2/ [desenvolvimento - máx 270 chars]" },
-    { "text": "3/ [continuação - máx 270 chars]" },
-    { "text": "[último tweet com CTA - máx 270 chars]" }
-  ]
-}
+        thread: `Crie uma thread viral para Twitter/X.
 
-REGRAS:
-- Cada tweet deve ter no MÁXIMO 270 caracteres (deixando espaço para emojis)
+FORMATO OBRIGATÓRIO - Cada tweet separado por "---":
+
+Tweet 1:
+[Hook poderoso - máximo 270 caracteres]
+
+---
+
+Tweet 2:
+[Desenvolvimento - máximo 270 caracteres]
+
+---
+
+Tweet 3:
+[Continuação - máximo 270 caracteres]
+
+---
+
+Tweet 4:
+[CTA ou conclusão - máximo 270 caracteres]
+
+REGRAS IMPORTANTES:
+- Separe cada tweet com "---" em linha própria
+- Cada tweet deve ter no MÁXIMO 270 caracteres
 - Mínimo 3 tweets, máximo 10 tweets
-- Primeiro tweet deve ser um hook poderoso
-- Último tweet deve ter CTA ou conclusão
-- Use numeração 1/, 2/, 3/ no início de cada tweet
-- NÃO inclua explicações, apenas o JSON`,
+- Primeiro tweet: hook poderoso que gera curiosidade
+- Último tweet: CTA claro ou conclusão memorável
+- NÃO use numeração (1/, 2/, etc) no início
+- NÃO retorne JSON, retorne texto puro separado por ---`,
         x_article: "Crie um artigo para X (Twitter) com formato longo e estruturado.",
         
         // LinkedIn
@@ -320,48 +332,111 @@ Gere o conteúdo agora:`;
       // Special handling for thread format - parse structured response
       if (config.format === 'thread') {
         try {
-          // Try to extract JSON from the response
-          const jsonMatch = generatedText.match(/\{[\s\S]*"thread_tweets"[\s\S]*\}/);
-          if (jsonMatch) {
-            const threadData = JSON.parse(jsonMatch[0]);
-            if (threadData.thread_tweets && Array.isArray(threadData.thread_tweets)) {
-              // Return structured thread with individual tweets
-              return new Response(
-                JSON.stringify({ 
-                  content: generatedText, // Keep raw for backward compatibility
-                  thread_tweets: threadData.thread_tweets.map((t: any, i: number) => ({
-                    id: `tweet-${i + 1}`,
-                    text: t.text || t.content || '',
-                    media_urls: t.media_urls || []
-                  }))
-                }),
-                { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-              );
+          const parsedTweets: Array<{ id: string; text: string; media_urls: string[] }> = [];
+          
+          // Method 1: Split by --- separator (preferred format)
+          if (generatedText.includes('---')) {
+            const parts = generatedText.split(/\n*---\n*/g).filter((p: string) => p.trim());
+            parts.forEach((part: string, i: number) => {
+              // Clean up "Tweet X:" prefixes if present
+              let cleanText = part
+                .replace(/^Tweet\s*\d+:?\s*/i, '')
+                .replace(/^\[\w+[^\]]*\]:?\s*/i, '') // Remove [Hook], [CTA] etc
+                .trim();
+              
+              if (cleanText && cleanText.length > 5) {
+                parsedTweets.push({
+                  id: `tweet-${i + 1}`,
+                  text: cleanText.substring(0, 280),
+                  media_urls: []
+                });
+              }
+            });
+          }
+          
+          // Method 2: Try numbered format (1/, 2/, etc) or (1., 2., etc)
+          if (parsedTweets.length < 2) {
+            const numberedPattern = /(?:^|\n\n?)(\d+)[\/\.\)]\s*([^]*?)(?=\n\n?\d+[\/\.\)]|$)/g;
+            let match;
+            let tempTweets: Array<{ id: string; text: string; media_urls: string[] }> = [];
+            while ((match = numberedPattern.exec(generatedText)) !== null) {
+              const text = match[2].trim();
+              if (text && text.length > 5) {
+                tempTweets.push({
+                  id: `tweet-${tempTweets.length + 1}`,
+                  text: text.substring(0, 280),
+                  media_urls: []
+                });
+              }
+            }
+            if (tempTweets.length >= 2) {
+              parsedTweets.length = 0;
+              parsedTweets.push(...tempTweets);
             }
           }
           
-          // Fallback: parse numbered tweets from text
-          const tweetMatches = generatedText.match(/(\d+)[\/\.\)]\s*([^]*?)(?=\n\n\d+[\/\.\)]|\n*$)/g);
-          if (tweetMatches && tweetMatches.length > 1) {
-            const parsedTweets = tweetMatches.map((match: string, i: number) => {
-              const text = match.replace(/^\d+[\/\.\)]\s*/, '').trim();
-              return {
-                id: `tweet-${i + 1}`,
-                text: text.substring(0, 280),
-                media_urls: []
-              };
-            });
+          // Method 3: Try "Tweet X:" format
+          if (parsedTweets.length < 2) {
+            const tweetPattern = /Tweet\s*\d+:?\s*([^]*?)(?=Tweet\s*\d+:|$)/gi;
+            let match;
+            let tempTweets: Array<{ id: string; text: string; media_urls: string[] }> = [];
+            while ((match = tweetPattern.exec(generatedText)) !== null) {
+              const text = match[1].trim();
+              if (text && text.length > 5) {
+                tempTweets.push({
+                  id: `tweet-${tempTweets.length + 1}`,
+                  text: text.substring(0, 280),
+                  media_urls: []
+                });
+              }
+            }
+            if (tempTweets.length >= 2) {
+              parsedTweets.length = 0;
+              parsedTweets.push(...tempTweets);
+            }
+          }
+          
+          // Method 4: Try JSON if AI returned it anyway
+          if (parsedTweets.length < 2) {
+            const jsonMatch = generatedText.match(/\{[\s\S]*"thread_tweets"[\s\S]*\}/);
+            if (jsonMatch) {
+              try {
+                const threadData = JSON.parse(jsonMatch[0]);
+                if (threadData.thread_tweets && Array.isArray(threadData.thread_tweets)) {
+                  threadData.thread_tweets.forEach((t: any, i: number) => {
+                    const text = (t.text || t.content || '').trim();
+                    if (text) {
+                      parsedTweets.push({
+                        id: `tweet-${i + 1}`,
+                        text: text.substring(0, 280),
+                        media_urls: []
+                      });
+                    }
+                  });
+                }
+              } catch (e) {
+                console.log("[generate-content-v2] JSON parse failed");
+              }
+            }
+          }
+          
+          if (parsedTweets.length >= 2) {
+            // Build clean content from parsed tweets
+            const cleanContent = parsedTweets.map((t, i) => `Tweet ${i + 1}:\n${t.text}`).join('\n\n---\n\n');
             
+            console.log(`[generate-content-v2] Parsed ${parsedTweets.length} tweets for thread`);
             return new Response(
               JSON.stringify({ 
-                content: generatedText,
+                content: cleanContent,
                 thread_tweets: parsedTweets
               }),
               { headers: { ...corsHeaders, "Content-Type": "application/json" } }
             );
           }
+          
+          console.log("[generate-content-v2] Could not parse thread, returning single tweet fallback");
         } catch (parseErr) {
-          console.log("[generate-content-v2] Thread parsing failed, returning raw text:", parseErr);
+          console.log("[generate-content-v2] Thread parsing failed:", parseErr);
         }
       }
 

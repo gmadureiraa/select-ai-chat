@@ -235,6 +235,8 @@ export interface OutputNodeData {
   approvalStatus?: ApprovalStatus;
   isStreaming?: boolean;
   streamProgress?: number;
+  // Thread support: parsed tweets for thread format
+  thread_tweets?: Array<{ id: string; text: string; media_urls: string[] }>;
 }
 
 export interface ImageEditorNodeData {

@@ -199,12 +199,12 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
     deleteNode: typeof deleteNode;
     regenerateContent: typeof regenerateContent;
     handleOpenPlanningDialog: typeof handleOpenPlanningDialog;
-    handleCreateOutput: (generatorNodeId: string, data: { type: 'text' | 'image'; content: string; imageUrl?: string; format: string; platform: string }) => void;
+    handleCreateOutput: (generatorNodeId: string, data: { type: 'text' | 'image'; content: string; imageUrl?: string; format: string; platform: string; thread_tweets?: Array<{ id: string; text: string; media_urls: string[] }> }) => void;
     handleCreateRemix: (outputNodeId: string) => void;
   } | null>(null);
 
   // Handler to create output node from generator
-  const handleCreateOutput = useCallback((generatorNodeId: string, outputData: { type: 'text' | 'image'; content: string; imageUrl?: string; format: string; platform: string }) => {
+  const handleCreateOutput = useCallback((generatorNodeId: string, outputData: { type: 'text' | 'image'; content: string; imageUrl?: string; format: string; platform: string; thread_tweets?: Array<{ id: string; text: string; media_urls: string[] }> }) => {
     const generatorNode = nodes.find(n => n.id === generatorNodeId);
     if (!generatorNode) return;
 
@@ -227,6 +227,8 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
         versions: [],
         comments: [],
         approvalStatus: "draft",
+        // Include thread_tweets if present
+        thread_tweets: outputData.thread_tweets,
       } as OutputNodeData,
     };
     
@@ -1074,56 +1076,70 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
           defaultClientId={clientId}
           defaultColumnId={columns.find((c) => c.column_type === "draft")?.id || columns[0]?.id}
           item={(() => {
-            // Parse thread content into individual tweets
-            const parseThreadToTweets = (content: string) => {
-              const tweets: { id: string; text: string; media_urls: string[] }[] = [];
-              
-              // Format 1: Tweet X/Y: or Tweet X:
-              const tweetPattern = /Tweet\s*\d+(?:\/\d+)?:\s*/gi;
-              const parts = content.split(tweetPattern).filter(Boolean);
-              
-              if (parts.length > 1) {
-                parts.forEach((text, i) => {
-                  const cleanText = text.trim().replace(/^[\n\r]+|[\n\r]+$/g, '');
-                  if (cleanText) {
-                    tweets.push({
-                      id: `tweet-${i + 1}`,
-                      text: cleanText,
-                      media_urls: []
-                    });
-                  }
-                });
-                return tweets;
+            // Use pre-parsed thread_tweets if available, otherwise parse from content
+            const getThreadTweets = () => {
+              // If we have pre-parsed tweets from the generator, use them directly
+              if (planningOutputNode.thread_tweets && planningOutputNode.thread_tweets.length > 0) {
+                return planningOutputNode.thread_tweets;
               }
               
-              // Format 2: Separator ---
-              if (content.includes('\n---\n') || content.includes('\n\n---\n\n')) {
-                const separated = content.split(/\n+---\n+/).filter(Boolean);
+              // Otherwise, parse from content text
+              const content = planningOutputNode.content;
+              const tweets: { id: string; text: string; media_urls: string[] }[] = [];
+              
+              // Format 1: Separator ---
+              if (content.includes('---')) {
+                const separated = content.split(/\n*---\n*/g).filter(Boolean);
                 if (separated.length > 1) {
                   separated.forEach((text, i) => {
-                    const cleanText = text.trim();
-                    if (cleanText) {
+                    // Clean up "Tweet X:" prefixes
+                    let cleanText = text
+                      .replace(/^Tweet\s*\d+:?\s*/i, '')
+                      .trim();
+                    if (cleanText && cleanText.length > 5) {
                       tweets.push({
                         id: `tweet-${i + 1}`,
-                        text: cleanText,
+                        text: cleanText.substring(0, 280),
                         media_urls: []
                       });
                     }
                   });
-                  return tweets;
+                  if (tweets.length > 1) return tweets;
                 }
               }
               
-              // Format 3: Numbered list 1. 2. 3. (each on new paragraph)
-              const numberedPattern = /^\d+\.\s*/gm;
-              if (numberedPattern.test(content)) {
-                const lines = content.split(/\n\n+/);
-                lines.forEach((line, i) => {
-                  const cleanText = line.replace(/^\d+\.\s*/, '').trim();
-                  if (cleanText && cleanText.length > 10) {
+              // Format 2: Tweet X/Y: or Tweet X:
+              const tweetPattern = /Tweet\s*\d+(?:\/\d+)?:?\s*/gi;
+              if (tweetPattern.test(content)) {
+                const parts = content.split(tweetPattern).filter(Boolean);
+                if (parts.length > 1) {
+                  parts.forEach((text, i) => {
+                    const cleanText = text.trim().replace(/^[\n\r]+|[\n\r]+$/g, '');
+                    if (cleanText && cleanText.length > 5) {
+                      tweets.length = 0; // Reset
+                      tweets.push({
+                        id: `tweet-${i + 1}`,
+                        text: cleanText.substring(0, 280),
+                        media_urls: []
+                      });
+                    }
+                  });
+                  if (tweets.length > 1) return tweets;
+                }
+              }
+              
+              // Format 3: Numbered list 1/, 2/, or 1., 2.
+              const numberedPattern = /(?:^|\n\n?)(\d+)[\/\.\)]\s*/g;
+              const matches = [...content.matchAll(numberedPattern)];
+              if (matches.length >= 2) {
+                matches.forEach((match, idx) => {
+                  const start = match.index! + match[0].length;
+                  const end = matches[idx + 1]?.index || content.length;
+                  const text = content.substring(start, end).trim();
+                  if (text && text.length > 5) {
                     tweets.push({
-                      id: `tweet-${i + 1}`,
-                      text: cleanText,
+                      id: `tweet-${idx + 1}`,
+                      text: text.substring(0, 280),
                       media_urls: []
                     });
                   }
@@ -1132,11 +1148,11 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
               }
               
               // Fallback: single tweet
-              return [{ id: 'tweet-1', text: content.trim(), media_urls: [] }];
+              return [{ id: 'tweet-1', text: content.trim().substring(0, 280), media_urls: [] }];
             };
 
             const threadTweets = planningOutputNode.format === 'thread'
-              ? parseThreadToTweets(planningOutputNode.content)
+              ? getThreadTweets()
               : undefined;
 
             return {
