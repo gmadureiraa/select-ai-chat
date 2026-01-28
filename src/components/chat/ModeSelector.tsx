@@ -3,7 +3,6 @@ import { cn } from "@/lib/utils";
 import {
   Tooltip,
   TooltipContent,
-  TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
@@ -49,32 +48,30 @@ const contentModes = [
 
 export const ModeSelector = ({ mode, onChange, disabled }: ModeSelectorProps) => {
   return (
-    <TooltipProvider delayDuration={300}>
-      <div className="flex items-center gap-1 p-1 bg-muted/50 rounded-lg">
-        {contentModes.map((m) => (
-          <Tooltip key={m.id}>
-            <TooltipTrigger asChild>
-              <button
-                onClick={() => onChange(m.id)}
-                disabled={disabled}
-                className={cn(
-                  "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all",
-                  mode === m.id
-                    ? m.activeClass
-                    : "text-muted-foreground hover:text-foreground",
-                  disabled && "opacity-50 cursor-not-allowed"
-                )}
-              >
-                <m.icon className="h-3 w-3" />
-                {m.label}
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom" className="max-w-[200px]">
-              <p className="text-xs">{m.description}</p>
-            </TooltipContent>
-          </Tooltip>
-        ))}
-      </div>
-    </TooltipProvider>
+    <div className="flex items-center gap-1 p-1 bg-muted/50 rounded-lg">
+      {contentModes.map((m) => (
+        <Tooltip key={m.id} delayDuration={300}>
+          <TooltipTrigger asChild>
+            <button
+              onClick={() => onChange(m.id)}
+              disabled={disabled}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all",
+                mode === m.id
+                  ? m.activeClass
+                  : "text-muted-foreground hover:text-foreground",
+                disabled && "opacity-50 cursor-not-allowed"
+              )}
+            >
+              <m.icon className="h-3 w-3" />
+              {m.label}
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom" className="max-w-[200px]">
+            <p className="text-xs">{m.description}</p>
+          </TooltipContent>
+        </Tooltip>
+      ))}
+    </div>
   );
 };
