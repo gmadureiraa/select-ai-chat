@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Bell, Check, CheckCheck, Calendar, UserPlus, Clock, MessageSquare } from 'lucide-react';
+import { Bell, Check, CheckCheck, Calendar, UserPlus, Clock, MessageSquare, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Popover,
@@ -15,13 +15,14 @@ import { cn } from '@/lib/utils';
 import { useNavigate } from 'react-router-dom';
 import { useWorkspace } from '@/hooks/useWorkspace';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { PushNotificationToggle } from './PushNotificationToggle';
 
 const typeIcons: Record<Notification['type'], React.ElementType> = {
   assignment: UserPlus,
   due_date: Calendar,
   mention: MessageSquare,
   publish_reminder: Clock,
-  publish_failed: Clock,
+  publish_failed: AlertTriangle,
   publish_success: Check,
 };
 
@@ -52,7 +53,10 @@ function NotificationList({
   return (
     <>
       <div className="flex items-center justify-between p-3 border-b">
-        <h4 className="font-semibold text-sm">Notificações</h4>
+        <div className="flex items-center gap-2">
+          <h4 className="font-semibold text-sm">Notificações</h4>
+          <PushNotificationToggle />
+        </div>
         {unreadCount > 0 && (
           <Button
             variant="ghost"
