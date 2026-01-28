@@ -21,6 +21,8 @@ const typeIcons: Record<Notification['type'], React.ElementType> = {
   due_date: Calendar,
   mention: MessageSquare,
   publish_reminder: Clock,
+  publish_failed: Clock,
+  publish_success: Check,
 };
 
 const typeColors: Record<Notification['type'], string> = {
@@ -28,6 +30,8 @@ const typeColors: Record<Notification['type'], string> = {
   due_date: 'text-orange-500 bg-orange-500/10',
   mention: 'text-purple-500 bg-purple-500/10',
   publish_reminder: 'text-green-500 bg-green-500/10',
+  publish_failed: 'text-red-500 bg-red-500/10',
+  publish_success: 'text-green-500 bg-green-500/10',
 };
 
 function NotificationList({ 

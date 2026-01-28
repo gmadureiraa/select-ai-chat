@@ -5,11 +5,19 @@ import { useAuth } from '@/hooks/useAuth';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { useEffect } from 'react';
 
+export type NotificationType = 
+  | 'assignment' 
+  | 'due_date' 
+  | 'mention' 
+  | 'publish_reminder' 
+  | 'publish_failed'
+  | 'publish_success';
+
 export interface Notification {
   id: string;
   user_id: string;
   workspace_id: string;
-  type: 'assignment' | 'due_date' | 'mention' | 'publish_reminder';
+  type: NotificationType;
   title: string;
   message: string | null;
   entity_type: string | null;
