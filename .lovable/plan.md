@@ -1,122 +1,113 @@
 
-# Plano de Implementação
 
-## Visão Geral
+# Plano de Correção: Geração de Imagem no Canvas + Output como Referência
 
-Este plano aborda as três questões pendentes:
-1. **Erro de React** (`Cannot read properties of null (reading 'useRef')`) - Causado por múltiplas instâncias de `TooltipProvider`
-2. **Login com Google** - Adicionar autenticação OAuth com Google via Lovable Cloud
-3. **Bug no mobile** - Elementos não clicáveis após entrar no app
+## Diagnóstico
+
+Foram identificados **dois problemas** que impedem o funcionamento correto do Canvas:
+
+### Problema 1: GeneratorNode não aceita nodes de "Resultado" como entrada
+
+O `GeneratorNode.tsx` possui uma função `getConnectedAttachments()` (linhas 135-162) que só reconhece estes tipos de nodes:
+- `attachment` (Anexos)
+- `sticky` (Notas adesivas)
+- `text` (Caixas de texto)
+
+**Não reconhece nodes do tipo `output` ou `contentOutput`** (Resultado), então quando você conecta um Resultado gerado anteriormente ao Gerador, essa conexão é simplesmente ignorada.
+
+### Problema 2: Geração de imagem não está funcionando
+
+O GeneratorNode faz chamada correta para `generate-content-v2` com `type: "image"`, porém:
+1. Os inputs não estão sendo formatados corretamente para geração de imagem
+2. O conteúdo de texto do Resultado não está sendo passado como briefing/contexto
 
 ---
 
-## 1. Correção do Erro de React (TooltipProvider)
+## Solução
 
-### Diagnóstico
-O erro ocorre porque existem múltiplas instâncias de `<TooltipProvider>` aninhadas que conflitam com o provider global em `App.tsx`. Isso cria múltiplas instâncias do contexto React, causando o erro "null dispatcher".
+### Arquivo a Modificar
 
-### Arquivos a Modificar
-Remover `<TooltipProvider>` dos seguintes arquivos (já existe um global em `App.tsx`):
+`src/components/kai/canvas/nodes/GeneratorNode.tsx`
 
-| Arquivo | Ação |
-|---------|------|
-| `src/components/performance/NewsletterMetricsTable.tsx` | Remover TooltipProvider wrapper |
-| `src/components/performance/PostAveragesSection.tsx` | Remover TooltipProvider wrapper |
-| `src/components/kai/tools/BriefingTemplates.tsx` | Remover TooltipProvider wrapper |
-| `src/components/chat/AddToPlanningButton.tsx` | Remover TooltipProvider wrapper |
-| `src/components/kai/canvas/nodes/ContentOutputNode.tsx` | Remover 2 TooltipProvider wrappers |
-| `src/components/planning/PlanningBoard.tsx` | Remover 2 TooltipProvider wrappers |
-| `src/components/ui/sidebar.tsx` | Remover TooltipProvider wrapper (linha 110) |
+### Mudanças Necessárias
 
-### Padrão de Mudança
+#### 1. Adicionar suporte para nodes `output` e `contentOutput` na detecção de conexões
+
 ```text
-Antes:
-<TooltipProvider>
-  <Tooltip>
-    <TooltipTrigger>...</TooltipTrigger>
-    <TooltipContent>...</TooltipContent>
-  </Tooltip>
-</TooltipProvider>
+Linha ~141-159: Expandir getConnectedAttachments() para incluir:
 
-Depois:
-<Tooltip>
-  <TooltipTrigger>...</TooltipTrigger>
-  <TooltipContent>...</TooltipContent>
-</Tooltip>
+// Suporte para nodes de resultado (output) como referência
+if ((sourceNode?.type === 'output' || sourceNode?.type === 'contentOutput') && sourceNode.data?.content) {
+  const isImage = sourceNode.data?.isImage;
+  attachments.push({
+    type: isImage ? 'image' : 'text',
+    content: sourceNode.data.content,
+    imageBase64: isImage ? sourceNode.data.content : undefined,
+    // Se for texto, usar como briefing
+    transcription: !isImage ? sourceNode.data.content : undefined,
+  });
+}
 ```
 
----
+#### 2. Melhorar a formatação de inputs para geração de imagem
 
-## 2. Login com Google
+Na chamada `handleGenerate`, quando `type === 'image'`:
+- Garantir que texto de resultados conectados seja usado como briefing
+- Garantir que imagens de resultados conectados sejam usadas como referência visual
 
-### Abordagem
-Utilizarei o sistema gerenciado do Lovable Cloud que já possui Google OAuth configurado automaticamente. Não é necessário configurar credenciais próprias.
-
-### Passos Técnicos
-
-1. **Configurar Google OAuth** usando a ferramenta `supabase--configure-social-auth`
-   - Isso gerará automaticamente o módulo em `src/integrations/lovable/`
-   - Instalará o pacote `@lovable.dev/cloud-auth-js`
-
-2. **Atualizar `Login.tsx`**:
-   - Adicionar botão "Entrar com Google"
-   - Importar `lovable` de `@/integrations/lovable/index`
-   - Implementar handler:
-   ```typescript
-   const handleGoogleLogin = async () => {
-     const { error } = await lovable.auth.signInWithOAuth("google", {
-       redirect_uri: window.location.origin,
-     });
-     if (error) toast.error(error.message);
-   };
-   ```
-
-3. **Atualizar `SimpleSignup.tsx`**:
-   - Adicionar mesmo botão de Google
-   - Permitir criar conta via Google
-
-### UI do Botão
 ```text
-[ícone Google] Entrar com Google
+Linha ~186-205: Formatar inputs corretamente para tipo image:
+
+// Para geração de imagem, organizar inputs
+const formattedInputs = attachments.map(att => ({
+  type: att.type,
+  content: att.content,
+  imageBase64: att.imageBase64,
+  analysis: att.analysis,
+  transcription: att.transcription,
+}));
 ```
-- Estilo: outline, full-width
-- Separador visual "ou" entre o botão Google e o formulário email/senha
 
 ---
 
-## 3. Bug no Mobile (Elementos Não Clicáveis)
+## Fluxo Corrigido
 
-### Diagnóstico
-O problema está relacionado a conflitos de z-index e overlays que bloqueiam interações:
-
-1. **MobileHeader** (`z-50`) pode conflitar com outros elementos
-2. **GlobalKAIPanel backdrop** (`z-40`) quando aberto bloqueia tudo
-3. **FloatingKAIButton** (`z-50`) pode sobrepor áreas clicáveis
-4. **Possible touch-action issues** em elementos com animações
-
-### Correções
-
-| Componente | Problema | Solução |
-|------------|----------|---------|
-| `FloatingKAIButton.tsx` | Posição fixa no canto inferior direito pode conflitar | Adicionar `safe-area-inset-bottom` para iOS |
-| `GlobalKAIPanel.tsx` | Backdrop impede cliques mesmo quando fechado | Garantir que backdrop só renderiza quando `isOpen=true` |
-| `Kai.tsx` | Mobile header usa `pt-14` mas pode haver overflow | Verificar e ajustar container overflow |
-| Service Worker | Cache antigo pode estar servindo versões inconsistentes | Já tratado anteriormente |
-
-### Mudanças Específicas
-
-**FloatingKAIButton.tsx**:
-```typescript
-// Adicionar safe area para iOS
-className="fixed bottom-6 right-6 z-50 pb-safe"
+```text
+┌───────────────────┐
+│  Resultado (texto)│ ──────┐
+│  Thread gerada    │       │
+└───────────────────┘       │
+                            ▼
+                    ┌───────────────┐
+                    │   Gerador     │ ──► Gera imagem baseada
+                    │   (Imagem)    │     no texto da thread
+                    └───────────────┘
 ```
 
-**MobileHeader.tsx**:
-- Garantir que não há elementos invisíveis bloqueando toques
-- Verificar se todos os botões têm área de toque adequada (mínimo 44x44px)
+---
 
-**ContentCanvas.tsx** (se aplicável):
-- Verificar se overlays de drag/empty state têm `pointer-events-none` correto
+## Mudanças Detalhadas
+
+| Linha | Antes | Depois |
+|-------|-------|--------|
+| 141-158 | Só aceita `attachment`, `sticky`, `text` | Adiciona suporte para `output` e `contentOutput` |
+| N/A | Resultado conectado é ignorado | Resultado conectado é usado como briefing/referência |
+
+---
+
+## Resultado Esperado
+
+1. **Conectar Resultado → Gerador funciona**
+   - Texto do resultado vira briefing para nova geração
+   - Imagem do resultado vira referência visual
+
+2. **Geração de imagem funciona**
+   - Conteúdo de texto conectado é usado como contexto
+   - Identidade visual do cliente é aplicada
+
+3. **Contagem de conexões correta**
+   - O badge "1 conexão" aparece quando um Resultado está conectado
+   - Botão "Gerar Imagem" fica habilitado
 
 ---
 
@@ -124,23 +115,15 @@ className="fixed bottom-6 right-6 z-50 pb-safe"
 
 ```text
 ┌─────────────────────────────────────────────────────────────┐
-│ 1. Remover TooltipProviders duplicados (7 arquivos)        │
+│ 1. Modificar GeneratorNode.tsx:                             │
+│    - Adicionar detecção de nodes 'output' e 'contentOutput' │
+│    - Extrair content como texto ou imagem conforme isImage  │
 ├─────────────────────────────────────────────────────────────┤
-│ 2. Configurar Google OAuth via supabase--configure-social  │
+│ 2. Testar fluxos:                                           │
+│    - Gerar texto → Conectar ao Gerador → Gerar imagem       │
+│    - Gerar imagem → Conectar ao Gerador → Gerar variação    │
 ├─────────────────────────────────────────────────────────────┤
-│ 3. Atualizar Login.tsx e SimpleSignup.tsx com botão Google │
-├─────────────────────────────────────────────────────────────┤
-│ 4. Ajustar z-index e touch areas no mobile                 │
-├─────────────────────────────────────────────────────────────┤
-│ 5. Testar fluxo completo em mobile e desktop               │
+│ 3. Verificar logs da edge function                          │
 └─────────────────────────────────────────────────────────────┘
 ```
 
----
-
-## Resultado Esperado
-
-1. **App carrega sem erros** - Sem mais crashes de "null useRef"
-2. **Login com Google funcional** - Botão visível em Login e Signup
-3. **Mobile responsivo** - Todos os elementos clicáveis e funcionais
-4. **Hard refresh necessário** após deploy para limpar cache do navegador
