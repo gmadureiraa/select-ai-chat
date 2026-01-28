@@ -447,6 +447,23 @@ const GeneratorNodeComponent: React.FC<NodeProps<GeneratorNodeData>> = ({
                 <Label htmlFor="preserveFace" className="text-xs">Manter rosto</Label>
               </div>
             </div>
+
+            {/* Context preview for image generation */}
+            {connectedCount > 0 && !isGenerating && (
+              <div className="bg-muted/50 rounded-lg p-2 text-[10px] space-y-1 border border-border/50">
+                <div className="flex items-center gap-1 text-muted-foreground">
+                  <Brain className="h-3 w-3" />
+                  <span className="font-medium">Contexto detectado:</span>
+                </div>
+                <div className="text-muted-foreground pl-4 space-y-0.5">
+                  <p>• {connectedCount} input(s) conectado(s)</p>
+                  {data.noText && <p>• Sem texto na imagem ✓</p>}
+                  <p className="text-[9px] opacity-70">
+                    + Identidade visual e referências do perfil
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
