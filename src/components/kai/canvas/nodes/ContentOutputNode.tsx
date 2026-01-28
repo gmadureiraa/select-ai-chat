@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { OutputNodeData, ContentFormat, Platform, ContentVersion, NodeComment as NodeCommentType, ApprovalStatus } from "../hooks/useCanvasState";
@@ -471,23 +471,21 @@ function ContentOutputNodeComponent({
                   <Copy className="h-3 w-3" />
                   Copiar
                 </Button>
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button 
-                        size="sm" 
-                        variant="outline" 
-                        onClick={handleRemix}
-                        className="h-7 text-xs px-2"
-                      >
-                        <GitBranch className="h-3 w-3" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      Remix: criar novo gerador usando este conteúdo
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      size="sm" 
+                      variant="outline" 
+                      onClick={handleRemix}
+                      className="h-7 text-xs px-2"
+                    >
+                      <GitBranch className="h-3 w-3" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    Remix: criar novo gerador usando este conteúdo
+                  </TooltipContent>
+                </Tooltip>
                 <Button 
                   size="sm" 
                   variant="outline" 
@@ -500,46 +498,44 @@ function ContentOutputNodeComponent({
             )}
 
             {data.content && !data.addedToPlanning && (
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button 
-                      onClick={handleSendToPlanning}
-                      className={cn(
-                        "w-full h-8 gap-1.5 text-xs",
-                        !hasPlanning && "bg-muted hover:bg-muted/80",
-                        data.approvalStatus === "rejected" && "opacity-50"
-                      )}
-                      variant={hasPlanning ? "default" : "outline"}
-                      disabled={data.approvalStatus === "rejected"}
-                    >
-                      {hasPlanning ? (
-                        data.approvalStatus === "approved" ? (
-                          <Check className="h-3.5 w-3.5 text-green-500" />
-                        ) : (
-                          <ExternalLink className="h-3.5 w-3.5" />
-                        )
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button 
+                    onClick={handleSendToPlanning}
+                    className={cn(
+                      "w-full h-8 gap-1.5 text-xs",
+                      !hasPlanning && "bg-muted hover:bg-muted/80",
+                      data.approvalStatus === "rejected" && "opacity-50"
+                    )}
+                    variant={hasPlanning ? "default" : "outline"}
+                    disabled={data.approvalStatus === "rejected"}
+                  >
+                    {hasPlanning ? (
+                      data.approvalStatus === "approved" ? (
+                        <Check className="h-3.5 w-3.5 text-green-500" />
                       ) : (
-                        <Lock className="h-3.5 w-3.5 text-amber-500" />
-                      )}
-                      {data.approvalStatus === "approved" 
-                        ? "Enviar (Aprovado)" 
-                        : "Enviar para Planejamento"
-                      }
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>
-                      {data.approvalStatus === "rejected"
-                        ? "Aprove o conteúdo antes de enviar"
-                        : hasPlanning 
-                          ? "Abre o editor para revisar antes de salvar" 
-                          : "Disponível no plano Pro"
-                      }
-                    </p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+                        <ExternalLink className="h-3.5 w-3.5" />
+                      )
+                    ) : (
+                      <Lock className="h-3.5 w-3.5 text-amber-500" />
+                    )}
+                    {data.approvalStatus === "approved" 
+                      ? "Enviar (Aprovado)" 
+                      : "Enviar para Planejamento"
+                    }
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>
+                    {data.approvalStatus === "rejected"
+                      ? "Aprove o conteúdo antes de enviar"
+                      : hasPlanning 
+                        ? "Abre o editor para revisar antes de salvar" 
+                        : "Disponível no plano Pro"
+                    }
+                  </p>
+                </TooltipContent>
+              </Tooltip>
             )}
 
             {data.addedToPlanning && (

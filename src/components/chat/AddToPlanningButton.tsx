@@ -8,7 +8,7 @@ import { useWorkspaceContext } from "@/contexts/WorkspaceContext";
 import { usePlanFeatures } from "@/hooks/usePlanFeatures";
 import { useUpgradePrompt } from "@/hooks/useUpgradePrompt";
 import { toast } from "sonner";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface AddToPlanningButtonProps {
   content: string;
@@ -86,27 +86,25 @@ export const AddToPlanningButton = ({
   // If planning is locked, show a locked button
   if (!hasPlanning) {
     return (
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleOpenDialog}
-              className={cn(
-                "h-7 text-xs gap-1.5 bg-muted/50 border-border/50",
-                "hover:bg-muted hover:border-border"
-              )}
-            >
-              <Lock className="h-3 w-3 text-amber-500" />
-              Enviar para Planejamento
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>Disponível no plano Pro</p>
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleOpenDialog}
+            className={cn(
+              "h-7 text-xs gap-1.5 bg-muted/50 border-border/50",
+              "hover:bg-muted hover:border-border"
+            )}
+          >
+            <Lock className="h-3 w-3 text-amber-500" />
+            Enviar para Planejamento
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>Disponível no plano Pro</p>
+        </TooltipContent>
+      </Tooltip>
     );
   }
 
