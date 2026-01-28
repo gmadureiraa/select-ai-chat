@@ -98,7 +98,7 @@ export interface GeneratorNodeData {
   clientId?: string;
   onUpdateData?: (data: Partial<GeneratorNodeData>) => void;
   onDelete?: () => void;
-  onCreateOutput?: (data: { type: 'text' | 'image'; content: string; imageUrl?: string; format: string; platform: string }) => void;
+  onCreateOutput?: (data: { type: 'text' | 'image'; content: string; imageUrl?: string; format: string; platform: string; thread_tweets?: Array<{ id: string; text: string; media_urls: string[] }> }) => void;
 }
 
 // Step icon component with animation
@@ -212,19 +212,27 @@ const GeneratorNodeComponent: React.FC<NodeProps<GeneratorNodeData>> = ({
       // Create output node instead of showing inline
       if (data.onCreateOutput) {
         if (generationType === 'text') {
-          data.onCreateOutput({
+          // For threads, include thread_tweets in the output
+          const outputData: any = {
             type: 'text',
             content: result.content || result.text || '',
             format: data.format || 'post',
-            platform: data.platform || 'instagram',
-          });
+            platform: getPlatformFromFormat(data.format || 'post'),
+          };
+          
+          // If this is a thread and we have parsed tweets, include them
+          if (data.format === 'thread' && result.thread_tweets && Array.isArray(result.thread_tweets)) {
+            outputData.thread_tweets = result.thread_tweets;
+          }
+          
+          data.onCreateOutput(outputData);
         } else {
           data.onCreateOutput({
             type: 'image',
             content: result.imageUrl || result.image_url || '',
             imageUrl: result.imageUrl || result.image_url || '',
             format: 'image',
-            platform: data.platform || 'instagram',
+            platform: getPlatformFromFormat(data.format || 'post'),
           });
         }
       }
