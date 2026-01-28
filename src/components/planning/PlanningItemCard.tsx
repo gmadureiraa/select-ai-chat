@@ -22,7 +22,6 @@ import {
 import {
   Tooltip,
   TooltipContent,
-  TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
@@ -213,14 +212,12 @@ export const PlanningItemCard = memo(function PlanningItemCard({
         {item.labels && item.labels.length > 0 && !compact && (
           <div className="flex items-center gap-1 mb-1.5 ml-4">
             {item.labels.slice(0, 4).map((label, i) => (
-              <TooltipProvider key={i}>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div className="w-1.5 h-1.5 rounded-full bg-primary/60" />
-                  </TooltipTrigger>
-                  <TooltipContent side="top" className="text-xs">{label}</TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+              <Tooltip key={i}>
+                <TooltipTrigger asChild>
+                  <div className="w-1.5 h-1.5 rounded-full bg-primary/60" />
+                </TooltipTrigger>
+                <TooltipContent side="top" className="text-xs">{label}</TooltipContent>
+              </Tooltip>
             ))}
             {item.labels.length > 4 && (
               <span className="text-[9px] text-muted-foreground">+{item.labels.length - 4}</span>
@@ -239,18 +236,16 @@ export const PlanningItemCard = memo(function PlanningItemCard({
             )}
             {/* Assignee Avatar */}
             {item.assigned_to && (
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Avatar className="h-4 w-4 border border-border/50">
-                      <AvatarFallback className="text-[8px] bg-primary/10">
-                        👤
-                      </AvatarFallback>
-                    </Avatar>
-                  </TooltipTrigger>
-                  <TooltipContent side="top" className="text-xs">Responsável atribuído</TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Avatar className="h-4 w-4 border border-border/50">
+                    <AvatarFallback className="text-[8px] bg-primary/10">
+                      👤
+                    </AvatarFallback>
+                  </Avatar>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="text-xs">Responsável atribuído</TooltipContent>
+              </Tooltip>
             )}
           </div>
           <DropdownMenu open={isMenuOpen} onOpenChange={setIsMenuOpen}>

@@ -7,7 +7,6 @@ import { MessageRating } from "@/components/chat/MessageRating";
 import {
   Tooltip,
   TooltipContent,
-  TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
@@ -59,70 +58,68 @@ export const MessageActions = ({
 
   return (
     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-      <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7"
+            onClick={handleCopy}
+          >
+            {isCopied ? (
+              <Check className="h-3.5 w-3.5 text-green-500" />
+            ) : (
+              <Copy className="h-3.5 w-3.5" />
+            )}
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>{isCopied ? "Copiado!" : "Copiar mensagem"}</p>
+        </TooltipContent>
+      </Tooltip>
+
+      {/* Favorite button - only for assistant messages with messageId */}
+      {role === "assistant" && messageId && clientId && (
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
               variant="ghost"
               size="icon"
               className="h-7 w-7"
-              onClick={handleCopy}
+              onClick={handleFavorite}
+              disabled={isToggling}
             >
-              {isCopied ? (
-                <Check className="h-3.5 w-3.5 text-green-500" />
-              ) : (
-                <Copy className="h-3.5 w-3.5" />
-              )}
+              <Star className={`h-3.5 w-3.5 ${isMessageFavorite ? "fill-yellow-400 text-yellow-400" : ""}`} />
             </Button>
           </TooltipTrigger>
           <TooltipContent>
-            <p>{isCopied ? "Copiado!" : "Copiar mensagem"}</p>
+            <p>{isMessageFavorite ? "Remover dos favoritos" : "Adicionar aos favoritos"}</p>
           </TooltipContent>
         </Tooltip>
+      )}
 
-        {/* Favorite button - only for assistant messages with messageId */}
-        {role === "assistant" && messageId && clientId && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7"
-                onClick={handleFavorite}
-                disabled={isToggling}
-              >
-                <Star className={`h-3.5 w-3.5 ${isMessageFavorite ? "fill-yellow-400 text-yellow-400" : ""}`} />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>{isMessageFavorite ? "Remover dos favoritos" : "Adicionar aos favoritos"}</p>
-            </TooltipContent>
-          </Tooltip>
-        )}
+      {role === "assistant" && isLastMessage && onRegenerate && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={onRegenerate}
+            >
+              <RotateCcw className="h-3.5 w-3.5" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>Regenerar resposta</p>
+          </TooltipContent>
+        </Tooltip>
+      )}
 
-        {role === "assistant" && isLastMessage && onRegenerate && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7"
-                onClick={onRegenerate}
-              >
-                <RotateCcw className="h-3.5 w-3.5" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Regenerar resposta</p>
-            </TooltipContent>
-          </Tooltip>
-        )}
-
-        {/* Rating buttons for assistant messages */}
-        {role === "assistant" && messageId && (
-          <MessageRating messageId={messageId} />
-        )}
-      </TooltipProvider>
+      {/* Rating buttons for assistant messages */}
+      {role === "assistant" && messageId && (
+        <MessageRating messageId={messageId} />
+      )}
     </div>
   );
 };
