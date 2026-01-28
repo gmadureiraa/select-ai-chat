@@ -198,11 +198,45 @@ serve(async (req) => {
       }
 
       const formatPrompts: Record<string, string> = {
+        // Instagram
+        carousel: "Crie um carrossel educativo com slides bem estruturados. Formato:\n\nSLIDE 1 (CAPA):\n[título impactante]\n\nSLIDE 2-N:\n[conteúdo do slide]\n\nSLIDE FINAL (CTA):\n[chamada para ação]",
+        static_post: "Crie um post estático para Instagram com legenda engajante.",
+        reels: "Crie um roteiro para Reels com ganchos visuais e timing.",
+        
+        // Twitter/X
+        tweet: "Crie um tweet impactante e conciso (máximo 280 caracteres).",
+        thread: `Crie uma thread viral para Twitter. FORMATO OBRIGATÓRIO:
+Retorne APENAS um JSON válido no seguinte formato:
+{
+  "thread_tweets": [
+    { "text": "1/ [hook inicial - máx 270 chars]" },
+    { "text": "2/ [desenvolvimento - máx 270 chars]" },
+    { "text": "3/ [continuação - máx 270 chars]" },
+    { "text": "[último tweet com CTA - máx 270 chars]" }
+  ]
+}
+
+REGRAS:
+- Cada tweet deve ter no MÁXIMO 270 caracteres (deixando espaço para emojis)
+- Mínimo 3 tweets, máximo 10 tweets
+- Primeiro tweet deve ser um hook poderoso
+- Último tweet deve ter CTA ou conclusão
+- Use numeração 1/, 2/, 3/ no início de cada tweet
+- NÃO inclua explicações, apenas o JSON`,
+        x_article: "Crie um artigo para X (Twitter) com formato longo e estruturado.",
+        
+        // LinkedIn
+        linkedin_post: "Crie um post profissional para LinkedIn com storytelling e insights.",
+        
+        // Newsletter
+        newsletter: "Crie uma newsletter envolvente com introdução, corpo e conclusão.",
+        
+        // YouTube
+        youtube_script: "Crie um roteiro completo para YouTube com hook, desenvolvimento e CTA.",
+        
+        // Legacy support
         post: "Crie um post engajante para redes sociais.",
         carrossel: "Crie um carrossel educativo com slides bem estruturados. Formato:\n\nSLIDE 1 (CAPA):\n[título impactante]\n\nSLIDE 2-N:\n[conteúdo do slide]\n\nSLIDE FINAL (CTA):\n[chamada para ação]",
-        thread: "Crie uma thread viral com tweets numerados. Formato:\n\n1/ [primeiro tweet - hook]\n\n2/ [desenvolvimento]\n\n[continuar até o final]",
-        newsletter: "Crie uma newsletter envolvente com introdução, corpo e conclusão.",
-        reels: "Crie um roteiro para Reels/TikTok com ganchos visuais e timing.",
       };
 
       const platformTone: Record<string, string> = {
@@ -280,8 +314,56 @@ Gere o conteúdo agora:`;
         throw new Error("Failed to generate text");
       }
 
-      const data = await response.json();
-      const generatedText = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+      const aiData = await response.json();
+      const generatedText = aiData.candidates?.[0]?.content?.parts?.[0]?.text || "";
+
+      // Special handling for thread format - parse structured response
+      if (config.format === 'thread') {
+        try {
+          // Try to extract JSON from the response
+          const jsonMatch = generatedText.match(/\{[\s\S]*"thread_tweets"[\s\S]*\}/);
+          if (jsonMatch) {
+            const threadData = JSON.parse(jsonMatch[0]);
+            if (threadData.thread_tweets && Array.isArray(threadData.thread_tweets)) {
+              // Return structured thread with individual tweets
+              return new Response(
+                JSON.stringify({ 
+                  content: generatedText, // Keep raw for backward compatibility
+                  thread_tweets: threadData.thread_tweets.map((t: any, i: number) => ({
+                    id: `tweet-${i + 1}`,
+                    text: t.text || t.content || '',
+                    media_urls: t.media_urls || []
+                  }))
+                }),
+                { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+              );
+            }
+          }
+          
+          // Fallback: parse numbered tweets from text
+          const tweetMatches = generatedText.match(/(\d+)[\/\.\)]\s*([^]*?)(?=\n\n\d+[\/\.\)]|\n*$)/g);
+          if (tweetMatches && tweetMatches.length > 1) {
+            const parsedTweets = tweetMatches.map((match: string, i: number) => {
+              const text = match.replace(/^\d+[\/\.\)]\s*/, '').trim();
+              return {
+                id: `tweet-${i + 1}`,
+                text: text.substring(0, 280),
+                media_urls: []
+              };
+            });
+            
+            return new Response(
+              JSON.stringify({ 
+                content: generatedText,
+                thread_tweets: parsedTweets
+              }),
+              { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+          }
+        } catch (parseErr) {
+          console.log("[generate-content-v2] Thread parsing failed, returning raw text:", parseErr);
+        }
+      }
 
       return new Response(
         JSON.stringify({ content: generatedText }),

@@ -1,9 +1,16 @@
 
 # Plano de Melhorias: Notificações, Canvas Threads e Late API
 
-## Visão Geral
+## ✅ Status: IMPLEMENTADO
 
-Após análise completa do código, identifiquei **4 áreas principais** que precisam de ajustes:
+Todas as tarefas do plano foram implementadas com sucesso:
+
+- ✅ **Formatos do Canvas**: Seletor único com 9 formatos, plataforma derivada automaticamente
+- ✅ **Thread como array estruturado**: `generate-content-v2` retorna `thread_tweets[]` 
+- ✅ **Trigger de atribuição**: Notificações automáticas quando alguém é atribuído
+- ✅ **Cron de due dates**: Edge function + cron às 9h para lembretes diários
+- ✅ **Preferências de notificação**: Toggles granulares em NotificationSettings.tsx
+- 🔄 **Late API**: Diagnóstico de desconexão (pendente melhoria de refresh)
 
 ---
 

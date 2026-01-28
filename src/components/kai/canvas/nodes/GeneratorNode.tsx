@@ -16,20 +16,33 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import type { AttachmentOutput } from './AttachmentNode';
 
+// Unified format options - platform derived automatically
 const FORMAT_OPTIONS = [
-  { value: 'post', label: 'Post' },
-  { value: 'carrossel', label: 'Carrossel' },
-  { value: 'thread', label: 'Thread' },
-  { value: 'newsletter', label: 'Newsletter' },
-  { value: 'reels', label: 'Roteiro Reels' },
+  // Instagram
+  { value: 'carousel', label: 'Carrossel Instagram', platform: 'instagram' },
+  { value: 'static_post', label: 'Post Estático Instagram', platform: 'instagram' },
+  { value: 'reels', label: 'Roteiro Reels', platform: 'instagram' },
+  
+  // Twitter/X
+  { value: 'tweet', label: 'Tweet', platform: 'twitter' },
+  { value: 'thread', label: 'Thread Twitter', platform: 'twitter' },
+  { value: 'x_article', label: 'Artigo X', platform: 'twitter' },
+  
+  // LinkedIn
+  { value: 'linkedin_post', label: 'Post LinkedIn', platform: 'linkedin' },
+  
+  // Newsletter
+  { value: 'newsletter', label: 'Newsletter', platform: 'other' },
+  
+  // YouTube
+  { value: 'youtube_script', label: 'Roteiro YouTube', platform: 'youtube' },
 ];
 
-const PLATFORM_OPTIONS = [
-  { value: 'instagram', label: 'Instagram' },
-  { value: 'linkedin', label: 'LinkedIn' },
-  { value: 'twitter', label: 'Twitter/X' },
-  { value: 'tiktok', label: 'TikTok' },
-];
+// Helper to get platform from format
+const getPlatformFromFormat = (format: string): string => {
+  const option = FORMAT_OPTIONS.find(opt => opt.value === format);
+  return option?.platform || 'instagram';
+};
 
 const ASPECT_RATIOS = [
   { value: '1:1', label: '1:1 (Quadrado)' },
@@ -350,12 +363,15 @@ const GeneratorNodeComponent: React.FC<NodeProps<GeneratorNodeData>> = ({
           </Button>
         </div>
 
-        {/* Text options */}
+        {/* Text options - unified format selector (platform derived automatically) */}
         {generationType === 'text' && (
           <div className="space-y-2">
             <Select 
-              value={data.format || 'post'} 
-              onValueChange={(v) => data.onUpdateData?.({ format: v })}
+              value={data.format || 'carousel'} 
+              onValueChange={(v) => {
+                const platform = getPlatformFromFormat(v);
+                data.onUpdateData?.({ format: v, platform });
+              }}
               disabled={isGenerating}
             >
               <SelectTrigger className="h-8 text-xs">
@@ -363,23 +379,6 @@ const GeneratorNodeComponent: React.FC<NodeProps<GeneratorNodeData>> = ({
               </SelectTrigger>
               <SelectContent>
                 {FORMAT_OPTIONS.map(opt => (
-                  <SelectItem key={opt.value} value={opt.value} className="text-xs">
-                    {opt.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <Select 
-              value={data.platform || 'instagram'} 
-              onValueChange={(v) => data.onUpdateData?.({ platform: v })}
-              disabled={isGenerating}
-            >
-              <SelectTrigger className="h-8 text-xs">
-                <SelectValue placeholder="Plataforma" />
-              </SelectTrigger>
-              <SelectContent>
-                {PLATFORM_OPTIONS.map(opt => (
                   <SelectItem key={opt.value} value={opt.value} className="text-xs">
                     {opt.label}
                   </SelectItem>

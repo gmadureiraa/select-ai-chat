@@ -2517,6 +2517,7 @@ export type Database = {
           email: string | null
           full_name: string | null
           id: string
+          notification_preferences: Json | null
           updated_at: string | null
         }
         Insert: {
@@ -2525,6 +2526,7 @@ export type Database = {
           email?: string | null
           full_name?: string | null
           id: string
+          notification_preferences?: Json | null
           updated_at?: string | null
         }
         Update: {
@@ -2533,6 +2535,7 @@ export type Database = {
           email?: string | null
           full_name?: string | null
           id?: string
+          notification_preferences?: Json | null
           updated_at?: string | null
         }
         Relationships: []
@@ -3891,6 +3894,7 @@ export type Database = {
         Args: { p_conversation_id: string; p_user_id: string }
         Returns: boolean
       }
+      create_due_date_notifications: { Args: never; Returns: undefined }
       create_publish_reminders: { Args: never; Returns: undefined }
       create_workspace_with_paid_subscription: {
         Args: {
