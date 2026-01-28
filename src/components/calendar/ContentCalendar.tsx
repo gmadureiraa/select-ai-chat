@@ -5,7 +5,7 @@ import { ChevronLeft, ChevronRight, Plus, Twitter, Linkedin, AlertCircle, Check,
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useScheduledPosts, ScheduledPost } from "@/hooks/useScheduledPosts";
 import { SchedulePostDialog } from "./SchedulePostDialog";
 import { cn } from "@/lib/utils";
@@ -144,48 +144,46 @@ export function ContentCalendar({ clientId }: ContentCalendarProps) {
                   </div>
                   
                   <div className="space-y-1">
-                    <TooltipProvider>
-                      {dayPosts.slice(0, 3).map(post => (
-                        <Tooltip key={post.id}>
-                          <TooltipTrigger asChild>
-                            <div
-                              onClick={(e) => handlePostClick(post, e)}
-                              className={cn(
-                                "flex items-center gap-1 p-1 rounded text-xs truncate cursor-pointer transition-colors",
-                                post.platform === 'twitter' && "bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-900",
-                                post.platform === 'linkedin' && "bg-sky-100 dark:bg-sky-950 text-sky-700 dark:text-sky-300 hover:bg-sky-200 dark:hover:bg-sky-900",
-                                post.status === 'failed' && "bg-red-100 dark:bg-red-950 border border-destructive"
-                              )}
-                            >
-                              {getPlatformIcon(post.platform)}
-                              {getStatusIcon(post.status)}
-                              <span className="truncate flex-1">{post.title}</span>
-                              {post.status === 'failed' && (
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-4 w-4 p-0"
-                                  onClick={(e) => handleRetry(post, e)}
-                                >
-                                  <RotateCcw className="h-3 w-3" />
-                                </Button>
-                              )}
-                            </div>
-                          </TooltipTrigger>
-                          <TooltipContent side="right" className="max-w-xs">
-                            <div className="space-y-1">
-                              <p className="font-medium">{post.title}</p>
-                              <p className="text-xs text-muted-foreground">
-                                {format(parseISO(post.scheduled_at), "HH:mm", { locale: ptBR })}
-                              </p>
-                              {post.error_message && (
-                                <p className="text-xs text-destructive">{post.error_message}</p>
-                              )}
-                            </div>
-                          </TooltipContent>
-                        </Tooltip>
-                      ))}
-                    </TooltipProvider>
+                    {dayPosts.slice(0, 3).map(post => (
+                      <Tooltip key={post.id}>
+                        <TooltipTrigger asChild>
+                          <div
+                            onClick={(e) => handlePostClick(post, e)}
+                            className={cn(
+                              "flex items-center gap-1 p-1 rounded text-xs truncate cursor-pointer transition-colors",
+                              post.platform === 'twitter' && "bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-900",
+                              post.platform === 'linkedin' && "bg-sky-100 dark:bg-sky-950 text-sky-700 dark:text-sky-300 hover:bg-sky-200 dark:hover:bg-sky-900",
+                              post.status === 'failed' && "bg-red-100 dark:bg-red-950 border border-destructive"
+                            )}
+                          >
+                            {getPlatformIcon(post.platform)}
+                            {getStatusIcon(post.status)}
+                            <span className="truncate flex-1">{post.title}</span>
+                            {post.status === 'failed' && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-4 w-4 p-0"
+                                onClick={(e) => handleRetry(post, e)}
+                              >
+                                <RotateCcw className="h-3 w-3" />
+                              </Button>
+                            )}
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent side="right" className="max-w-xs">
+                          <div className="space-y-1">
+                            <p className="font-medium">{post.title}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {format(parseISO(post.scheduled_at), "HH:mm", { locale: ptBR })}
+                            </p>
+                            {post.error_message && (
+                              <p className="text-xs text-destructive">{post.error_message}</p>
+                            )}
+                          </div>
+                        </TooltipContent>
+                      </Tooltip>
+                    ))}
                     {dayPosts.length > 3 && (
                       <p className="text-xs text-muted-foreground text-center">
                         +{dayPosts.length - 3} mais

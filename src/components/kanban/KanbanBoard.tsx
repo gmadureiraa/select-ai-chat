@@ -12,7 +12,6 @@ import { ptBR } from "date-fns/locale";
 import {
   Tooltip,
   TooltipContent,
-  TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import {
@@ -152,73 +151,71 @@ export function KanbanBoard({ clientId }: KanbanBoardProps) {
 
                 {/* Cards */}
                 <div className="p-2 space-y-2 min-h-[200px]">
-                  <TooltipProvider>
-                    {columnCards.map(card => (
-                      <ContextMenu key={card.id}>
-                        <ContextMenuTrigger>
-                          <Card
-                            draggable
-                            onDragStart={(e) => handleDragStart(e, card)}
-                            className={cn(
-                              "p-3 cursor-grab active:cursor-grabbing transition-all hover:shadow-md",
-                              draggedCard?.id === card.id && "opacity-50"
-                            )}
-                          >
-                            <div className="flex items-start gap-2">
-                              <GripVertical className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
-                              <div className="flex-1 min-w-0">
-                                <p className="font-medium text-sm truncate">{card.title}</p>
-                                {card.description && (
-                                  <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
-                                    {card.description}
-                                  </p>
+                  {columnCards.map(card => (
+                    <ContextMenu key={card.id}>
+                      <ContextMenuTrigger>
+                        <Card
+                          draggable
+                          onDragStart={(e) => handleDragStart(e, card)}
+                          className={cn(
+                            "p-3 cursor-grab active:cursor-grabbing transition-all hover:shadow-md",
+                            draggedCard?.id === card.id && "opacity-50"
+                          )}
+                        >
+                          <div className="flex items-start gap-2">
+                            <GripVertical className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium text-sm truncate">{card.title}</p>
+                              {card.description && (
+                                <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                                  {card.description}
+                                </p>
+                              )}
+                              <div className="flex items-center gap-2 mt-2 flex-wrap">
+                                {card.platform && (
+                                  <Badge variant="outline" className="text-xs">
+                                    {card.platform}
+                                  </Badge>
                                 )}
-                                <div className="flex items-center gap-2 mt-2 flex-wrap">
-                                  {card.platform && (
-                                    <Badge variant="outline" className="text-xs">
-                                      {card.platform}
-                                    </Badge>
-                                  )}
-                                  {card.due_date && (
-                                    <Tooltip>
-                                      <TooltipTrigger>
-                                        <Badge variant="secondary" className="text-xs">
-                                          {format(new Date(card.due_date), "dd/MM", { locale: ptBR })}
-                                        </Badge>
-                                      </TooltipTrigger>
-                                      <TooltipContent>
-                                        Data limite: {format(new Date(card.due_date), "dd 'de' MMMM", { locale: ptBR })}
-                                      </TooltipContent>
-                                    </Tooltip>
-                                  )}
-                                  {card.clients && (
-                                    <Badge variant="outline" className="text-xs bg-primary/10">
-                                      {card.clients.name}
-                                    </Badge>
-                                  )}
-                                </div>
+                                {card.due_date && (
+                                  <Tooltip>
+                                    <TooltipTrigger>
+                                      <Badge variant="secondary" className="text-xs">
+                                        {format(new Date(card.due_date), "dd/MM", { locale: ptBR })}
+                                      </Badge>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      Data limite: {format(new Date(card.due_date), "dd 'de' MMMM", { locale: ptBR })}
+                                    </TooltipContent>
+                                  </Tooltip>
+                                )}
+                                {card.clients && (
+                                  <Badge variant="outline" className="text-xs bg-primary/10">
+                                    {card.clients.name}
+                                  </Badge>
+                                )}
                               </div>
                             </div>
-                          </Card>
-                        </ContextMenuTrigger>
-                        <ContextMenuContent>
-                          <ContextMenuItem 
-                            onClick={() => handleMoveToLibrary(card)}
-                            disabled={!card.client_id}
-                          >
-                            <Library className="h-4 w-4 mr-2" />
-                            Adicionar à Biblioteca
-                          </ContextMenuItem>
-                          <ContextMenuItem
-                            onClick={() => handleDeleteCard(card)}
-                            className="text-destructive focus:text-destructive"
-                          >
-                            Excluir Card
-                          </ContextMenuItem>
-                        </ContextMenuContent>
-                      </ContextMenu>
-                    ))}
-                  </TooltipProvider>
+                          </div>
+                        </Card>
+                      </ContextMenuTrigger>
+                      <ContextMenuContent>
+                        <ContextMenuItem 
+                          onClick={() => handleMoveToLibrary(card)}
+                          disabled={!card.client_id}
+                        >
+                          <Library className="h-4 w-4 mr-2" />
+                          Adicionar à Biblioteca
+                        </ContextMenuItem>
+                        <ContextMenuItem
+                          onClick={() => handleDeleteCard(card)}
+                          className="text-destructive focus:text-destructive"
+                        >
+                          Excluir Card
+                        </ContextMenuItem>
+                      </ContextMenuContent>
+                    </ContextMenu>
+                  ))}
 
                   {columnCards.length === 0 && (
                     <div className="text-center py-8 text-muted-foreground text-sm">
