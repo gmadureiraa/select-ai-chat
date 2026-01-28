@@ -156,6 +156,17 @@ const GeneratorNodeComponent: React.FC<NodeProps<GeneratorNodeData>> = ({
           content: sourceNode.data.content as string,
         });
       }
+      // Support for output/result nodes as references
+      if ((sourceNode?.type === 'output' || sourceNode?.type === 'contentOutput') && sourceNode.data?.content) {
+        const isImage = sourceNode.data?.isImage;
+        attachments.push({
+          type: isImage ? 'image' : 'text',
+          content: sourceNode.data.content as string,
+          imageBase64: isImage ? (sourceNode.data.content as string) : undefined,
+          // If text, use as briefing/transcription for image generation
+          transcription: !isImage ? (sourceNode.data.content as string) : undefined,
+        });
+      }
     }
     
     return attachments;
