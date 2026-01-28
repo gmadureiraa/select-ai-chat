@@ -35,8 +35,8 @@ export function MobileHeader({ onMenuClick, clientName }: MobileHeaderProps) {
   const showNotificationWarning = isSupported && permission !== 'granted';
 
   return (
-    <header className="fixed top-0 left-0 right-0 h-14 bg-background border-b border-border z-50 flex items-center px-3 gap-2">
-      <Button variant="ghost" size="icon" onClick={onMenuClick} className="shrink-0">
+    <header className="fixed top-0 left-0 right-0 h-14 bg-background border-b border-border z-40 flex items-center px-3 gap-2">
+      <Button variant="ghost" size="icon" onClick={onMenuClick} className="shrink-0 min-h-[44px] min-w-[44px]">
         <Menu className="h-5 w-5" />
       </Button>
       
@@ -52,7 +52,7 @@ export function MobileHeader({ onMenuClick, clientName }: MobileHeaderProps) {
           variant="ghost" 
           size="icon"
           onClick={requestPermission}
-          className="shrink-0 text-amber-500 hover:text-amber-600"
+          className="shrink-0 text-amber-500 hover:text-amber-600 min-h-[44px] min-w-[44px]"
         >
           <BellOff className="h-5 w-5" />
         </Button>

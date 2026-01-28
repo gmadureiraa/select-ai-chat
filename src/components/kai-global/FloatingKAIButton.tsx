@@ -22,9 +22,12 @@ export function FloatingKAIButton({
   return (
     <motion.div
       className={cn(
-        "fixed bottom-6 right-6 z-50 pb-[env(safe-area-inset-bottom)]",
+        "fixed z-[55] pb-[env(safe-area-inset-bottom)]",
+        "bottom-6 right-6",
+        "pointer-events-auto",
         className
       )}
+      style={{ touchAction: "manipulation" }}
       initial={{ scale: 0, opacity: 0 }}
       animate={{ scale: 1, opacity: 1 }}
       transition={{ 
@@ -38,10 +41,11 @@ export function FloatingKAIButton({
         onClick={onClick}
         size="icon"
 className={cn(
-          "relative h-14 w-14 min-h-14 min-w-14 p-0 rounded-full shadow-lg transition-all duration-300",
+          "relative h-14 w-14 min-h-[56px] min-w-[56px] p-0 rounded-full shadow-lg transition-all duration-300",
           "bg-primary hover:bg-primary/90",
           "hover:shadow-xl hover:scale-105",
           "focus:ring-2 focus:ring-primary/50 focus:ring-offset-2",
+          "touch-manipulation",
           isOpen && "rotate-180"
         )}
       >
