@@ -3,7 +3,7 @@ import { AlertTriangle, CheckCircle, Info } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface DataCompletenessWarningProps {
   platform: string;
@@ -72,43 +72,41 @@ export function DataCompletenessWarning({ platform, data }: DataCompletenessWarn
   }
 
   return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <div className="flex items-center gap-2 cursor-help">
-            {status === "warning" ? (
-              <Info className="h-3.5 w-3.5 text-yellow-500" />
-            ) : (
-              <AlertTriangle className="h-3.5 w-3.5 text-orange-500" />
-            )}
-            <div className="flex items-center gap-2">
-              <Progress value={completeness} className="w-16 h-1.5" />
-              <span className="text-xs text-muted-foreground">{completeness}%</span>
-            </div>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <div className="flex items-center gap-2 cursor-help">
+          {status === "warning" ? (
+            <Info className="h-3.5 w-3.5 text-yellow-500" />
+          ) : (
+            <AlertTriangle className="h-3.5 w-3.5 text-orange-500" />
+          )}
+          <div className="flex items-center gap-2">
+            <Progress value={completeness} className="w-16 h-1.5" />
+            <span className="text-xs text-muted-foreground">{completeness}%</span>
           </div>
-        </TooltipTrigger>
-        <TooltipContent side="bottom" className="max-w-xs">
-          <div className="space-y-2">
-            <p className="font-medium">Completude dos Dados</p>
-            <div className="space-y-1 text-xs">
-              {issues.map((issue) => (
-                <div key={issue.name} className="flex items-center justify-between gap-4">
-                  <span>{issue.name}:</span>
-                  <span className={issue.percentage < 50 ? "text-orange-500" : "text-yellow-500"}>
-                    {issue.percentage}% ({issue.missing} sem dados)
-                  </span>
-                </div>
-              ))}
-            </div>
-            {status === "incomplete" && (
-              <p className="text-xs text-muted-foreground pt-1 border-t">
-                Importe CSVs atualizados para completar os dados faltantes.
-              </p>
-            )}
+        </div>
+      </TooltipTrigger>
+      <TooltipContent side="bottom" className="max-w-xs">
+        <div className="space-y-2">
+          <p className="font-medium">Completude dos Dados</p>
+          <div className="space-y-1 text-xs">
+            {issues.map((issue) => (
+              <div key={issue.name} className="flex items-center justify-between gap-4">
+                <span>{issue.name}:</span>
+                <span className={issue.percentage < 50 ? "text-orange-500" : "text-yellow-500"}>
+                  {issue.percentage}% ({issue.missing} sem dados)
+                </span>
+              </div>
+            ))}
           </div>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
+          {status === "incomplete" && (
+            <p className="text-xs text-muted-foreground pt-1 border-t">
+              Importe CSVs atualizados para completar os dados faltantes.
+            </p>
+          )}
+        </div>
+      </TooltipContent>
+    </Tooltip>
   );
 }
 

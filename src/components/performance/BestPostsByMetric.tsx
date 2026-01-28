@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Heart, MessageCircle, Bookmark, Share2, Eye, HelpCircle, TrendingUp, Users } from "lucide-react";
 import { InstagramPost } from "@/hooks/useInstagramPosts";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
 interface BestPostsByMetricProps {
@@ -45,16 +45,14 @@ function MetricCard({ icon: Icon, label, value, previousValue, color, helpText, 
           <div className="flex items-center gap-2">
             <span className="text-sm font-medium text-muted-foreground">{label}</span>
             {helpText && (
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger>
-                    <HelpCircle className="h-3.5 w-3.5 text-muted-foreground/50" />
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p className="text-xs max-w-[200px]">{helpText}</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger>
+                  <HelpCircle className="h-3.5 w-3.5 text-muted-foreground/50" />
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p className="text-xs max-w-[200px]">{helpText}</p>
+                </TooltipContent>
+              </Tooltip>
             )}
           </div>
           <Icon className={cn("h-4 w-4", color)} />

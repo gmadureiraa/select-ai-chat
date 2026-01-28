@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { BookOpen, Plus, Loader2, Check } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
@@ -102,52 +102,48 @@ export function LibraryStatusBadge({
 
   if (isLinked || justSynced) {
     return (
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Badge 
-              variant="secondary" 
-              className="gap-1 cursor-default bg-green-500/10 text-green-600 hover:bg-green-500/20"
-            >
-              {justSynced ? (
-                <Check className="h-3 w-3" />
-              ) : (
-                <BookOpen className="h-3 w-3" />
-              )}
-              <span className="text-[10px]">Biblioteca</span>
-            </Badge>
-          </TooltipTrigger>
-          <TooltipContent>
-            <p className="text-xs">Conteúdo completo na biblioteca</p>
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Badge 
+            variant="secondary" 
+            className="gap-1 cursor-default bg-green-500/10 text-green-600 hover:bg-green-500/20"
+          >
+            {justSynced ? (
+              <Check className="h-3 w-3" />
+            ) : (
+              <BookOpen className="h-3 w-3" />
+            )}
+            <span className="text-[10px]">Biblioteca</span>
+          </Badge>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p className="text-xs">Conteúdo completo na biblioteca</p>
+        </TooltipContent>
+      </Tooltip>
     );
   }
 
   return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-6 px-2 text-muted-foreground hover:text-foreground"
-            onClick={handleSync}
-            disabled={isSyncing}
-          >
-            {isSyncing ? (
-              <Loader2 className="h-3 w-3 animate-spin" />
-            ) : (
-              <Plus className="h-3 w-3" />
-            )}
-            <span className="text-[10px] ml-1">Adicionar</span>
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>
-          <p className="text-xs">Adicionar à biblioteca de conteúdo</p>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-6 px-2 text-muted-foreground hover:text-foreground"
+          onClick={handleSync}
+          disabled={isSyncing}
+        >
+          {isSyncing ? (
+            <Loader2 className="h-3 w-3 animate-spin" />
+          ) : (
+            <Plus className="h-3 w-3" />
+          )}
+          <span className="text-[10px] ml-1">Adicionar</span>
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent>
+        <p className="text-xs">Adicionar à biblioteca de conteúdo</p>
+      </TooltipContent>
+    </Tooltip>
   );
 }
