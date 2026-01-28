@@ -1,5 +1,7 @@
 // KAI - Service Worker for Push Notifications & PWA Caching
-const CACHE_NAME = 'kai-v1';
+// IMPORTANT: cache version bump is required to prevent clients from mixing old/new JS chunks
+// (which can cause invalid hook calls like: "Cannot read properties of null (reading 'useRef')").
+const CACHE_NAME = 'kai-v2-20260128';
 const OFFLINE_URL = '/';
 
 // Assets to cache for offline use
@@ -43,7 +45,7 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// Fetch event - serve from cache, fallback to network
+// Fetch event - safe caching strategy
 self.addEventListener('fetch', (event) => {
   // Skip non-GET requests
   if (event.request.method !== 'GET') return;
@@ -53,6 +55,38 @@ self.addEventListener('fetch', (event) => {
   if (url.origin !== self.location.origin) return;
   if (url.pathname.startsWith('/api/')) return;
   if (url.pathname.startsWith('/supabase/')) return;
+
+  // Never cache Vite/dev module graph or JS/CSS bundles.
+  // These must always come from the network to avoid serving mismatched module versions.
+  const isDevOrBundledAsset =
+    url.pathname.startsWith('/@') ||
+    url.pathname.startsWith('/src/') ||
+    url.pathname.startsWith('/node_modules/') ||
+    url.pathname.includes('/.vite/') ||
+    url.pathname.endsWith('.js') ||
+    url.pathname.endsWith('.mjs') ||
+    url.pathname.endsWith('.css') ||
+    url.pathname.endsWith('.map');
+
+  if (isDevOrBundledAsset) {
+    event.respondWith(fetch(event.request));
+    return;
+  }
+
+  // Navigation requests: network-first, fallback to cached offline shell.
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          // Cache the offline shell for future offline navigation
+          const responseToCache = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(OFFLINE_URL, responseToCache));
+          return response;
+        })
+        .catch(() => caches.match(OFFLINE_URL))
+    );
+    return;
+  }
   
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
@@ -64,11 +98,28 @@ self.addEventListener('fetch', (event) => {
         if (!response || response.status !== 200 || response.type !== 'basic') {
           return response;
         }
-        // Cache successful responses
-        const responseToCache = response.clone();
-        caches.open(CACHE_NAME).then((cache) => {
-          cache.put(event.request, responseToCache);
-        });
+        // Cache only safe asset types (icons/images/fonts/json), never JS/CSS.
+        const destination = event.request.destination;
+        const isCacheableDestination = destination === 'image' || destination === 'font';
+        const isCacheablePath =
+          url.pathname.endsWith('.png') ||
+          url.pathname.endsWith('.jpg') ||
+          url.pathname.endsWith('.jpeg') ||
+          url.pathname.endsWith('.webp') ||
+          url.pathname.endsWith('.svg') ||
+          url.pathname.endsWith('.ico') ||
+          url.pathname.endsWith('.woff') ||
+          url.pathname.endsWith('.woff2') ||
+          url.pathname.endsWith('.ttf') ||
+          url.pathname.endsWith('.otf') ||
+          url.pathname.endsWith('.json');
+
+        if (isCacheableDestination || isCacheablePath) {
+          const responseToCache = response.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(event.request, responseToCache);
+          });
+        }
         return response;
       }).catch(() => {
         // Return offline page for navigation requests
