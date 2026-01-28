@@ -1,311 +1,193 @@
 import { useState } from "react";
 import { 
-  Rocket, 
-  GraduationCap, 
-  Star, 
-  MessageCircle,
-  TrendingUp,
-  Heart,
-  Flame,
+  Target,
+  Award,
+  Zap,
   BookOpen,
-  Users,
-  Lightbulb,
-  BarChart3,
+  ArrowRight,
   Sparkles,
   ChevronDown,
-  ChevronUp,
-  Plus
+  ChevronUp
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Card, CardContent } from "@/components/ui/card";
 
-interface BriefingTemplate {
-  id: string;
-  name: string;
+interface BriefingQuestion {
+  id: number;
+  question: string;
+  placeholder: string;
   icon: React.ComponentType<any>;
   color: string;
-  briefing: string;
-  category: 'conversion' | 'engagement' | 'branding' | 'content';
-  isCustom?: boolean;
 }
 
-const BRIEFING_TEMPLATES: BriefingTemplate[] = [
-  // Conversion focused
+// As 4 perguntas estratégicas (de trás para frente)
+const BRIEFING_QUESTIONS: BriefingQuestion[] = [
   {
-    id: "lancamento",
-    name: "Lançamento",
-    icon: Rocket,
-    color: "text-orange-500",
-    category: 'conversion',
-    briefing: "Criar conteúdos para lançamento de produto/serviço. Destacar benefícios principais, criar urgência e incluir CTA forte para conversão.",
+    id: 1,
+    question: "Qual resultado eu quero alcançar?",
+    placeholder: "Ex: Ser referência em marketing digital para pequenas empresas",
+    icon: Target,
+    color: "bg-red-500/10 text-red-600 border-red-200",
   },
   {
-    id: "cases",
-    name: "Cases",
-    icon: Star,
-    color: "text-yellow-500",
-    category: 'conversion',
-    briefing: "Criar conteúdos destacando resultados e depoimentos de clientes. Foco em transformação, números concretos e prova social.",
-  },
-  // Engagement focused
-  {
-    id: "engajamento",
-    name: "Engajamento",
-    icon: MessageCircle,
-    color: "text-green-500",
-    category: 'engagement',
-    briefing: "Criar conteúdos para gerar engajamento e interação: enquetes, perguntas provocativas, debates e conexão com a audiência.",
+    id: 2,
+    question: "Pelo que eu precisaria ser conhecido para isso acontecer?",
+    placeholder: "Ex: Especialista em estratégias práticas e acessíveis de marketing",
+    icon: Award,
+    color: "bg-amber-500/10 text-amber-600 border-amber-200",
   },
   {
-    id: "viral",
-    name: "Viral/Trend",
-    icon: Flame,
-    color: "text-red-500",
-    category: 'engagement',
-    briefing: "Criar conteúdos com potencial viral. Usar trends atuais, formatos populares, hooks irresistíveis e elementos compartilháveis.",
+    id: 3,
+    question: "O que eu precisaria fazer para ser conhecido por isso?",
+    placeholder: "Ex: Compartilhar cases reais, tutoriais práticos, bastidores do meu trabalho",
+    icon: Zap,
+    color: "bg-emerald-500/10 text-emerald-600 border-emerald-200",
   },
   {
-    id: "comunidade",
-    name: "Comunidade",
-    icon: Users,
-    color: "text-cyan-500",
-    category: 'engagement',
-    briefing: "Criar conteúdos para fortalecer a comunidade. Destacar membros, promover discussões, celebrar conquistas coletivas.",
-  },
-  // Content/Educational
-  {
-    id: "educacional",
-    name: "Educativo",
-    icon: GraduationCap,
-    color: "text-blue-500",
-    category: 'content',
-    briefing: "Criar conteúdos educativos com dicas práticas e valor real para a audiência. Foco em resolver problemas e ensinar conceitos de forma simples.",
-  },
-  {
-    id: "tutorial",
-    name: "Tutorial",
+    id: 4,
+    question: "O que eu preciso aprender para conseguir fazer essas coisas?",
+    placeholder: "Ex: Técnicas de storytelling, edição de vídeo, análise de métricas",
     icon: BookOpen,
-    color: "text-indigo-500",
-    category: 'content',
-    briefing: "Criar conteúdos no formato passo a passo. Guias práticos, how-to, demonstrações e instruções claras e acionáveis.",
-  },
-  {
-    id: "insights",
-    name: "Insights",
-    icon: Lightbulb,
-    color: "text-amber-500",
-    category: 'content',
-    briefing: "Compartilhar insights únicos e perspectivas originais. Análises profundas, previsões de tendências e reflexões provocativas.",
-  },
-  // Branding focused
-  {
-    id: "autoridade",
-    name: "Autoridade",
-    icon: TrendingUp,
-    color: "text-purple-500",
-    category: 'branding',
-    briefing: "Criar conteúdos que posicionem como autoridade no mercado. Compartilhar insights exclusivos, tendências e análises profundas.",
-  },
-  {
-    id: "conexao",
-    name: "Conexão",
-    icon: Heart,
-    color: "text-pink-500",
-    category: 'branding',
-    briefing: "Criar conteúdos para humanizar a marca e criar conexão emocional. Bastidores, histórias pessoais e valores da marca.",
-  },
-  {
-    id: "dados",
-    name: "Dados",
-    icon: BarChart3,
-    color: "text-teal-500",
-    category: 'branding',
-    briefing: "Criar conteúdos baseados em dados e estatísticas. Infográficos, pesquisas, benchmarks e análises quantitativas.",
-  },
-  {
-    id: "storytelling",
-    name: "Storytelling",
-    icon: Sparkles,
-    color: "text-violet-500",
-    category: 'branding',
-    briefing: "Criar conteúdos narrativos envolventes. Histórias de origem, jornada do herói, cases emocionais e arcos narrativos completos.",
+    color: "bg-blue-500/10 text-blue-600 border-blue-200",
   },
 ];
-
-const CATEGORY_LABELS: Record<string, string> = {
-  conversion: '💰 Conversão',
-  engagement: '💬 Engajamento', 
-  content: '📚 Conteúdo',
-  branding: '✨ Marca',
-};
 
 interface BriefingTemplatesProps {
   onSelect: (briefing: string) => void;
   disabled?: boolean;
+  clientName?: string;
 }
 
-export function BriefingTemplates({ onSelect, disabled }: BriefingTemplatesProps) {
-  const [showAll, setShowAll] = useState(false);
-  const [customTemplates, setCustomTemplates] = useState<BriefingTemplate[]>(() => {
-    const saved = localStorage.getItem('custom-briefing-templates');
-    return saved ? JSON.parse(saved) : [];
+export function BriefingTemplates({ onSelect, disabled, clientName }: BriefingTemplatesProps) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [answers, setAnswers] = useState<Record<number, string>>({
+    1: "",
+    2: "",
+    3: "",
+    4: "",
   });
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [newTemplate, setNewTemplate] = useState({ name: '', briefing: '' });
 
-  const allTemplates = [...BRIEFING_TEMPLATES, ...customTemplates];
-  const visibleTemplates = showAll ? allTemplates : allTemplates.slice(0, 6);
-
-  const handleSaveCustomTemplate = () => {
-    if (!newTemplate.name.trim() || !newTemplate.briefing.trim()) return;
-    
-    const template: BriefingTemplate = {
-      id: `custom-${Date.now()}`,
-      name: newTemplate.name,
-      icon: Sparkles,
-      color: 'text-primary',
-      category: 'content',
-      briefing: newTemplate.briefing,
-      isCustom: true,
-    };
-    
-    const updated = [...customTemplates, template];
-    setCustomTemplates(updated);
-    localStorage.setItem('custom-briefing-templates', JSON.stringify(updated));
-    setNewTemplate({ name: '', briefing: '' });
-    setDialogOpen(false);
+  const handleAnswerChange = (questionId: number, value: string) => {
+    setAnswers(prev => ({ ...prev, [questionId]: value }));
   };
 
-  const handleDeleteCustomTemplate = (id: string) => {
-    const updated = customTemplates.filter(t => t.id !== id);
-    setCustomTemplates(updated);
-    localStorage.setItem('custom-briefing-templates', JSON.stringify(updated));
+  const handleGenerateBriefing = () => {
+    // Montar o briefing com base nas respostas
+    const briefingParts: string[] = [];
+    
+    if (answers[1]) {
+      briefingParts.push(`🎯 RESULTADO DESEJADO: ${answers[1]}`);
+    }
+    if (answers[2]) {
+      briefingParts.push(`🏆 POSICIONAMENTO: Ser conhecido como ${answers[2]}`);
+    }
+    if (answers[3]) {
+      briefingParts.push(`⚡ AÇÕES DE CONTEÚDO: ${answers[3]}`);
+    }
+    if (answers[4]) {
+      briefingParts.push(`📚 TEMAS A EXPLORAR: ${answers[4]}`);
+    }
+
+    if (briefingParts.length === 0) {
+      return;
+    }
+
+    const fullBriefing = `Com base no perfil ${clientName ? `de ${clientName}` : 'do cliente'}, criar conteúdos estratégicos seguindo este framework:\n\n${briefingParts.join('\n\n')}\n\nOs conteúdos devem filtrar temas que realmente constroem audiência qualificada e evitam dispersão de foco.`;
+    
+    onSelect(fullBriefing);
   };
+
+  const hasAnyAnswer = Object.values(answers).some(a => a.trim() !== "");
+  const allAnswersFilled = Object.values(answers).every(a => a.trim() !== "");
 
   return (
-    <div className="space-y-2">
-      <div className="flex items-center justify-between">
-        <p className="text-sm font-medium text-muted-foreground">💡 Templates rápidos</p>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" disabled={disabled}>
-              <Plus className="h-3 w-3" />
-              Criar template
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Criar template personalizado</DialogTitle>
-              <DialogDescription>
-                Salve um briefing personalizado para reutilizar depois.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label htmlFor="template-name">Nome</Label>
-                <Input
-                  id="template-name"
-                  value={newTemplate.name}
-                  onChange={(e) => setNewTemplate(prev => ({ ...prev, name: e.target.value }))}
-                  placeholder="Ex: Promoção Black Friday"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="template-briefing">Briefing</Label>
-                <Textarea
-                  id="template-briefing"
-                  value={newTemplate.briefing}
-                  onChange={(e) => setNewTemplate(prev => ({ ...prev, briefing: e.target.value }))}
-                  placeholder="Descreva o tipo de conteúdo, tom, objetivo..."
-                  rows={4}
-                />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setDialogOpen(false)}>
-                Cancelar
-              </Button>
-              <Button onClick={handleSaveCustomTemplate}>
-                Salvar template
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      </div>
-      
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2">
-        {visibleTemplates.map((template) => {
-          const Icon = template.icon;
-          return (
-            <Tooltip key={template.id}>
-              <TooltipTrigger asChild>
-                <button
-                  onClick={() => onSelect(template.briefing)}
-                  disabled={disabled}
-                  className={cn(
-                    "relative flex flex-col items-center gap-1.5 p-3 rounded-lg border border-border",
-                    "hover:border-primary/50 hover:bg-muted/50 transition-all",
-                    "text-center group",
-                    template.isCustom && "border-dashed",
-                    disabled && "opacity-50 cursor-not-allowed"
-                  )}
-                >
-                  {template.isCustom && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeleteCustomTemplate(template.id);
-                      }}
-                      className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-destructive text-destructive-foreground text-[10px] opacity-0 group-hover:opacity-100 transition-opacity"
-                    >
-                      ×
-                    </button>
-                  )}
-                  <Icon className={cn("h-5 w-5", template.color, "group-hover:scale-110 transition-transform")} />
-                  <span className="text-xs font-medium truncate w-full">{template.name}</span>
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" className="max-w-xs">
-                <p className="text-xs">{template.briefing}</p>
-              </TooltipContent>
-            </Tooltip>
-          );
-        })}
-      </div>
+    <div className="space-y-3">
+      <button
+        onClick={() => setIsExpanded(!isExpanded)}
+        disabled={disabled}
+        className={cn(
+          "w-full flex items-center justify-between p-3 rounded-lg border border-border",
+          "hover:border-primary/50 hover:bg-muted/30 transition-all",
+          disabled && "opacity-50 cursor-not-allowed"
+        )}
+      >
+        <div className="flex items-center gap-2">
+          <div className="h-8 w-8 rounded-md bg-primary/10 flex items-center justify-center">
+            <Sparkles className="h-4 w-4 text-primary" />
+          </div>
+          <div className="text-left">
+            <p className="text-sm font-medium">Framework de Conteúdo</p>
+            <p className="text-xs text-muted-foreground">4 perguntas para filtrar seus temas</p>
+          </div>
+        </div>
+        {isExpanded ? (
+          <ChevronUp className="h-4 w-4 text-muted-foreground" />
+        ) : (
+          <ChevronDown className="h-4 w-4 text-muted-foreground" />
+        )}
+      </button>
 
-      {allTemplates.length > 6 && (
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => setShowAll(!showAll)}
-          className="w-full h-7 text-xs gap-1"
-          disabled={disabled}
-        >
-          {showAll ? (
-            <>
-              <ChevronUp className="h-3 w-3" />
-              Ver menos
-            </>
-          ) : (
-            <>
-              <ChevronDown className="h-3 w-3" />
-              Ver todos ({allTemplates.length} templates)
-            </>
-          )}
-        </Button>
+      {isExpanded && (
+        <Card className="border-dashed">
+          <CardContent className="pt-4 space-y-4">
+            <div className="text-center pb-2">
+              <p className="text-sm font-medium text-foreground">
+                São 4 perguntas, de trás para frente:
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Isso filtra os temas que você vai abordar e <strong>evita que você construa uma audiência que não leva a lugar nenhum.</strong>
+              </p>
+            </div>
+
+            <div className="space-y-3">
+              {BRIEFING_QUESTIONS.map((q) => {
+                const Icon = q.icon;
+                return (
+                  <div key={q.id} className="space-y-2">
+                    <div className="flex items-start gap-2">
+                      <div className={cn(
+                        "h-6 w-6 rounded-md flex items-center justify-center shrink-0 text-xs font-bold border",
+                        q.color
+                      )}>
+                        {q.id}
+                      </div>
+                      <Label className="text-sm font-medium leading-tight">
+                        {q.question}
+                      </Label>
+                    </div>
+                    <Textarea
+                      value={answers[q.id]}
+                      onChange={(e) => handleAnswerChange(q.id, e.target.value)}
+                      placeholder={q.placeholder}
+                      rows={2}
+                      disabled={disabled}
+                      className="text-sm resize-none"
+                    />
+                  </div>
+                );
+              })}
+            </div>
+
+            <Button
+              onClick={handleGenerateBriefing}
+              disabled={disabled || !hasAnyAnswer}
+              className="w-full gap-2"
+            >
+              <Sparkles className="h-4 w-4" />
+              Gerar Briefing Estratégico
+              <ArrowRight className="h-4 w-4" />
+            </Button>
+
+            {!allAnswersFilled && hasAnyAnswer && (
+              <p className="text-xs text-muted-foreground text-center">
+                💡 Quanto mais perguntas responder, mais focado será o conteúdo
+              </p>
+            )}
+          </CardContent>
+        </Card>
       )}
     </div>
   );
