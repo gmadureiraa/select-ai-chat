@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Plus, Loader2, Zap, Eye, Keyboard } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
 import { usePlanningItems, type PlanningFilters, type PlanningItem } from '@/hooks/usePlanningItems';
@@ -219,36 +219,32 @@ export function PlanningBoard({ clientId, isEnterprise = false, onClientChange }
         
         {!isViewer && (
           <div className="flex items-center gap-2">
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button 
-                    variant="ghost" 
-                    size="icon"
-                    onClick={() => setShowAutomations(!showAutomations)}
-                    className={cn("h-8 w-8", showAutomations && 'bg-primary/10 text-primary')}
-                  >
-                    <Zap className="h-4 w-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Automações</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button 
+                  variant="ghost" 
+                  size="icon"
+                  onClick={() => setShowAutomations(!showAutomations)}
+                  className={cn("h-8 w-8", showAutomations && 'bg-primary/10 text-primary')}
+                >
+                  <Zap className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Automações</TooltipContent>
+            </Tooltip>
             <ViewSettingsPopover settings={settings} onChange={setSettings} />
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button onClick={() => handleNewCard()} size="sm" className="h-8 gap-1.5">
-                    <Plus className="h-4 w-4" />
-                    {!isMobile && <span>Novo</span>}
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <span>Novo item</span>
-                  <span className="ml-2 text-muted-foreground text-[10px]">{getShortcutHint('N')}</span>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button onClick={() => handleNewCard()} size="sm" className="h-8 gap-1.5">
+                  <Plus className="h-4 w-4" />
+                  {!isMobile && <span>Novo</span>}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <span>Novo item</span>
+                <span className="ml-2 text-muted-foreground text-[10px]">{getShortcutHint('N')}</span>
+              </TooltipContent>
+            </Tooltip>
           </div>
         )}
       </div>

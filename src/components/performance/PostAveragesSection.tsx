@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Heart, MessageCircle, Share2, Bookmark, Target, Eye, TrendingUp } from "lucide-react";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface PostAveragesSectionProps {
   totalPosts: number;
@@ -23,22 +23,20 @@ interface AverageCardProps {
 
 function AverageCard({ icon: Icon, label, value, tooltip, color = "text-muted-foreground" }: AverageCardProps) {
   return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <div className="flex flex-col items-center p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors cursor-default">
-            <Icon className={`h-4 w-4 ${color} mb-1.5`} />
-            <span className="text-lg font-semibold">{value}</span>
-            <span className="text-[10px] text-muted-foreground text-center leading-tight">{label}</span>
-          </div>
-        </TooltipTrigger>
-        {tooltip && (
-          <TooltipContent>
-            <p className="text-xs">{tooltip}</p>
-          </TooltipContent>
-        )}
-      </Tooltip>
-    </TooltipProvider>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <div className="flex flex-col items-center p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors cursor-default">
+          <Icon className={`h-4 w-4 ${color} mb-1.5`} />
+          <span className="text-lg font-semibold">{value}</span>
+          <span className="text-[10px] text-muted-foreground text-center leading-tight">{label}</span>
+        </div>
+      </TooltipTrigger>
+      {tooltip && (
+        <TooltipContent>
+          <p className="text-xs">{tooltip}</p>
+        </TooltipContent>
+      )}
+    </Tooltip>
   );
 }
 

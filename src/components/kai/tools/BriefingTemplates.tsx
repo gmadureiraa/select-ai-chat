@@ -30,7 +30,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface BriefingTemplate {
   id: string;
@@ -196,119 +196,117 @@ export function BriefingTemplates({ onSelect, disabled }: BriefingTemplatesProps
   };
 
   return (
-    <TooltipProvider>
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <p className="text-sm font-medium text-muted-foreground">💡 Templates rápidos</p>
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogTrigger asChild>
-              <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" disabled={disabled}>
-                <Plus className="h-3 w-3" />
-                Criar template
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Criar template personalizado</DialogTitle>
-                <DialogDescription>
-                  Salve um briefing personalizado para reutilizar depois.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4 py-4">
-                <div className="space-y-2">
-                  <Label htmlFor="template-name">Nome</Label>
-                  <Input
-                    id="template-name"
-                    value={newTemplate.name}
-                    onChange={(e) => setNewTemplate(prev => ({ ...prev, name: e.target.value }))}
-                    placeholder="Ex: Promoção Black Friday"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="template-briefing">Briefing</Label>
-                  <Textarea
-                    id="template-briefing"
-                    value={newTemplate.briefing}
-                    onChange={(e) => setNewTemplate(prev => ({ ...prev, briefing: e.target.value }))}
-                    placeholder="Descreva o tipo de conteúdo, tom, objetivo..."
-                    rows={4}
-                  />
-                </div>
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <p className="text-sm font-medium text-muted-foreground">💡 Templates rápidos</p>
+        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <DialogTrigger asChild>
+            <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" disabled={disabled}>
+              <Plus className="h-3 w-3" />
+              Criar template
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Criar template personalizado</DialogTitle>
+              <DialogDescription>
+                Salve um briefing personalizado para reutilizar depois.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="template-name">Nome</Label>
+                <Input
+                  id="template-name"
+                  value={newTemplate.name}
+                  onChange={(e) => setNewTemplate(prev => ({ ...prev, name: e.target.value }))}
+                  placeholder="Ex: Promoção Black Friday"
+                />
               </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setDialogOpen(false)}>
-                  Cancelar
-                </Button>
-                <Button onClick={handleSaveCustomTemplate}>
-                  Salvar template
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        </div>
-        
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2">
-          {visibleTemplates.map((template) => {
-            const Icon = template.icon;
-            return (
-              <Tooltip key={template.id}>
-                <TooltipTrigger asChild>
-                  <button
-                    onClick={() => onSelect(template.briefing)}
-                    disabled={disabled}
-                    className={cn(
-                      "relative flex flex-col items-center gap-1.5 p-3 rounded-lg border border-border",
-                      "hover:border-primary/50 hover:bg-muted/50 transition-all",
-                      "text-center group",
-                      template.isCustom && "border-dashed",
-                      disabled && "opacity-50 cursor-not-allowed"
-                    )}
-                  >
-                    {template.isCustom && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDeleteCustomTemplate(template.id);
-                        }}
-                        className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-destructive text-destructive-foreground text-[10px] opacity-0 group-hover:opacity-100 transition-opacity"
-                      >
-                        ×
-                      </button>
-                    )}
-                    <Icon className={cn("h-5 w-5", template.color, "group-hover:scale-110 transition-transform")} />
-                    <span className="text-xs font-medium truncate w-full">{template.name}</span>
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" className="max-w-xs">
-                  <p className="text-xs">{template.briefing}</p>
-                </TooltipContent>
-              </Tooltip>
-            );
-          })}
-        </div>
-
-        {allTemplates.length > 6 && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setShowAll(!showAll)}
-            className="w-full h-7 text-xs gap-1"
-            disabled={disabled}
-          >
-            {showAll ? (
-              <>
-                <ChevronUp className="h-3 w-3" />
-                Ver menos
-              </>
-            ) : (
-              <>
-                <ChevronDown className="h-3 w-3" />
-                Ver todos ({allTemplates.length} templates)
-              </>
-            )}
-          </Button>
-        )}
+              <div className="space-y-2">
+                <Label htmlFor="template-briefing">Briefing</Label>
+                <Textarea
+                  id="template-briefing"
+                  value={newTemplate.briefing}
+                  onChange={(e) => setNewTemplate(prev => ({ ...prev, briefing: e.target.value }))}
+                  placeholder="Descreva o tipo de conteúdo, tom, objetivo..."
+                  rows={4}
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setDialogOpen(false)}>
+                Cancelar
+              </Button>
+              <Button onClick={handleSaveCustomTemplate}>
+                Salvar template
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
-    </TooltipProvider>
+      
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2">
+        {visibleTemplates.map((template) => {
+          const Icon = template.icon;
+          return (
+            <Tooltip key={template.id}>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={() => onSelect(template.briefing)}
+                  disabled={disabled}
+                  className={cn(
+                    "relative flex flex-col items-center gap-1.5 p-3 rounded-lg border border-border",
+                    "hover:border-primary/50 hover:bg-muted/50 transition-all",
+                    "text-center group",
+                    template.isCustom && "border-dashed",
+                    disabled && "opacity-50 cursor-not-allowed"
+                  )}
+                >
+                  {template.isCustom && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteCustomTemplate(template.id);
+                      }}
+                      className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-destructive text-destructive-foreground text-[10px] opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      ×
+                    </button>
+                  )}
+                  <Icon className={cn("h-5 w-5", template.color, "group-hover:scale-110 transition-transform")} />
+                  <span className="text-xs font-medium truncate w-full">{template.name}</span>
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="max-w-xs">
+                <p className="text-xs">{template.briefing}</p>
+              </TooltipContent>
+            </Tooltip>
+          );
+        })}
+      </div>
+
+      {allTemplates.length > 6 && (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setShowAll(!showAll)}
+          className="w-full h-7 text-xs gap-1"
+          disabled={disabled}
+        >
+          {showAll ? (
+            <>
+              <ChevronUp className="h-3 w-3" />
+              Ver menos
+            </>
+          ) : (
+            <>
+              <ChevronDown className="h-3 w-3" />
+              Ver todos ({allTemplates.length} templates)
+            </>
+          )}
+        </Button>
+      )}
+    </div>
   );
 }

@@ -22,7 +22,7 @@ export function FloatingKAIButton({
   return (
     <motion.div
       className={cn(
-        "fixed bottom-6 right-6 z-50",
+        "fixed bottom-6 right-6 z-50 pb-[env(safe-area-inset-bottom)]",
         className
       )}
       initial={{ scale: 0, opacity: 0 }}

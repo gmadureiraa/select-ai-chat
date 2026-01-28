@@ -11,7 +11,7 @@ import { NewsletterSyncBadge } from "./NewsletterSyncBadge";
 import { NewsletterContentDialog } from "./NewsletterContentDialog";
 import { NewsletterEditDialog } from "./NewsletterEditDialog";
 import { supabase } from "@/integrations/supabase/client";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface NewsletterMetricsTableProps {
   clientId: string;
@@ -190,24 +190,22 @@ export function NewsletterMetricsTable({ clientId, isLoading: externalLoading }:
                       <span className="truncate" title={subject}>{subject}</span>
                       {/* NEW: Show external link icon if URL exists */}
                       {postUrl && (
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <a
-                                href={postUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                onClick={(e) => e.stopPropagation()}
-                                className="text-muted-foreground hover:text-primary transition-colors flex-shrink-0"
-                              >
-                                <ExternalLink className="h-3 w-3" />
-                              </a>
-                            </TooltipTrigger>
-                            <TooltipContent side="top" className="text-xs">
-                              Ver edição online
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <a
+                              href={postUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              className="text-muted-foreground hover:text-primary transition-colors flex-shrink-0"
+                            >
+                              <ExternalLink className="h-3 w-3" />
+                            </a>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="text-xs">
+                            Ver edição online
+                          </TooltipContent>
+                        </Tooltip>
                       )}
                       {hasContent && (Array.isArray(newsletterImages) && newsletterImages.length > 0) && (
                         <Badge variant="outline" className="text-[9px] h-4 px-1 gap-0.5">
