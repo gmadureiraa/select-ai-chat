@@ -140,7 +140,7 @@ export function GlobalKAIPanel({
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.15 }}
-              className="fixed inset-0 z-40 bg-background/80 backdrop-blur-sm"
+              className="fixed inset-0 z-[60] bg-background/80 backdrop-blur-sm"
               onClick={onClose}
             />
 
@@ -157,7 +157,7 @@ export function GlobalKAIPanel({
                 mass: 0.8
               }}
               className={cn(
-                "fixed right-0 top-0 z-50",
+                "fixed right-0 top-0 z-[70]",
                 "w-full sm:w-[400px] lg:w-[440px]",
                 "h-screen max-h-screen",
                 "bg-background border-l border-border",
