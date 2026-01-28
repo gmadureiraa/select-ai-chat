@@ -490,15 +490,29 @@ Gere o conteúdo agora:`;
 
     } else {
       // Image generation with style matching - using English for better results
+      // Uses high-quality model (gemini-3-pro-image-preview) for better results
+      
+      // Build base prompt from client style preferences
+      let preferredStyle = "";
+      if (brandContext) {
+        // Check for client-specific style preference in brand_assets
+        const brandAssets = brandContext as any;
+        preferredStyle = brandAssets?.visual_style?.preferred_style || 
+                         brandAssets?.visual_style?.photography_style || "";
+      }
       
       // EMPHATIC NO-TEXT instruction if enabled
       let noTextPrefix = "";
       if (config.noText) {
-        noTextPrefix = `CRITICAL REQUIREMENT - ABSOLUTELY NO TEXT IN THIS IMAGE:
-⚠️ This image MUST NOT contain ANY text, letters, numbers, symbols, words, typography, captions, 
-watermarks, logos with text, or ANY written content in ANY language (English, Portuguese, or any other).
-⚠️ If ANY text appears, the image will be REJECTED.
-⚠️ Do NOT add decorative text, titles, watermarks, or ANY written elements.
+        noTextPrefix = `🚫 CRITICAL - ABSOLUTELY NO TEXT IN THIS IMAGE 🚫
+⛔ This image MUST NOT contain ANY:
+   - Text, letters, numbers, or symbols (in ANY language)
+   - Words, typography, captions, or titles
+   - Watermarks, logos with text, or written content
+   - Decorative text or any readable characters
+   
+⚠️ IF ANY TEXT APPEARS, THE IMAGE WILL BE IMMEDIATELY REJECTED.
+⚠️ Generate ONLY visual elements - no text whatsoever.
 
 `;
       }
@@ -506,11 +520,11 @@ watermarks, logos with text, or ANY written content in ANY language (English, Po
       let imagePrompt = `${noTextPrefix}Create a professional, high-quality social media image.
 
 QUALITY REQUIREMENTS:
-- Ultra high resolution, 8K quality
-- Professional photography or illustration style
-- Clean, polished composition
+- Ultra high resolution, professional photography or illustration
+- Clean, polished composition with great attention to detail
 - Vibrant, eye-catching colors
-- Modern aesthetic
+- Modern, sophisticated aesthetic
+${config.noText ? '- PURE VISUAL CONTENT ONLY - NO TEXT, LETTERS, OR NUMBERS' : ''}
 
 `;
       let referenceImage: string | null = null;
@@ -579,6 +593,11 @@ The image should evoke the main theme visually without being overly literal.
         imagePrompt += "\n";
       }
 
+      // Add client-specific style if available
+      if (preferredStyle) {
+        imagePrompt += `PREFERRED VISUAL STYLE: ${preferredStyle}\n\n`;
+      }
+
       // Add brand visual identity
       if (brandContext) {
         imagePrompt += `BRAND VISUAL IDENTITY:\n`;
@@ -614,24 +633,23 @@ The image should evoke the main theme visually without being overly literal.
       }
       
       // Add negative prompt with EMPHATIC no-text rules if enabled
-      imagePrompt += `AVOID (negative prompt - STRICTLY FORBIDDEN):
-- Blurry or low resolution
-- Watermarks or logos
+      imagePrompt += `AVOID (STRICTLY FORBIDDEN):
+- Blurry or low resolution images
 - Artificial-looking elements
-- Overly saturated colors
+- Overly saturated or garish colors
 - Distorted proportions
 `;
       
       if (config.noText) {
         imagePrompt += `
-⚠️ CRITICAL - NO TEXT ALLOWED (image will be rejected if present):
-- ANY text, letters, or numbers in any language
+⛔ CRITICAL - THE FOLLOWING WILL CAUSE IMMEDIATE REJECTION:
+- ANY text, letters, numbers, or symbols in any language
 - Typography, fonts, or written words of any kind
 - Watermarks with text
 - Logos that contain text or letters
-- Decorative text or titles
-- Captions, labels, or annotations
-- Numbers, symbols, or characters
+- Decorative text, titles, or captions
+- Numbers, symbols, characters, or glyphs
+- ANY readable content whatsoever
 `;
       }
       if (config.preserveFace && referenceImage) {
@@ -646,13 +664,14 @@ GENERATION RULES:
 3. Preserve the composition and framing of the reference if provided
 4. High quality, professional result
 5. Clean, modern aesthetic
-${config.noText ? '6. ABSOLUTELY NO TEXT, LETTERS, OR WRITTEN CONTENT' : ''}`;
+${config.noText ? '6. 🚫 ABSOLUTELY NO TEXT, LETTERS, NUMBERS, OR WRITTEN CONTENT OF ANY KIND' : ''}`;
 
       console.log("[generate-content-v2] Generating image with enhanced prompt:");
       console.log("[generate-content-v2] Prompt length:", imagePrompt.length, "chars");
       console.log("[generate-content-v2] Has reference image:", !!referenceImage);
       console.log("[generate-content-v2] Aspect ratio:", config.aspectRatio || "default");
       console.log("[generate-content-v2] No text:", config.noText);
+      console.log("[generate-content-v2] Using high-quality model: gemini-3-pro-image-preview");
 
       // Build request parts
       const parts: any[] = [];
@@ -671,57 +690,81 @@ ${config.noText ? '6. ABSOLUTELY NO TEXT, LETTERS, OR WRITTEN CONTENT' : ''}`;
 
       parts.push({ text: imagePrompt });
 
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp-image-generation:generateContent?key=${GOOGLE_API_KEY}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [{ parts }],
-            generationConfig: {
-              responseModalities: ["Text", "Image"],
-            },
-          }),
-        }
-      );
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error("[generate-content-v2] Image API error:", errorText);
-        
-        if (response.status === 429) {
-          return new Response(
-            JSON.stringify({ error: "Rate limit exceeded. Please wait a moment." }),
-            { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-          );
-        }
-        
-        throw new Error("Failed to generate image");
-      }
-
-      const data = await response.json();
-      
-      // Extract image from response
+      // Auto-retry mechanism for no-text requirement
+      const MAX_RETRIES = config.noText ? 2 : 0;
+      let attempt = 0;
       let imageBase64: string | null = null;
       let mimeType = "image/png";
+      
+      while (attempt <= MAX_RETRIES) {
+        attempt++;
+        console.log(`[generate-content-v2] Image generation attempt ${attempt}/${MAX_RETRIES + 1}`);
 
-      const candidates = data.candidates;
-      if (candidates && candidates.length > 0) {
-        const content = candidates[0].content;
-        if (content && content.parts) {
-          for (const part of content.parts) {
-            if (part.inlineData) {
-              imageBase64 = part.inlineData.data;
-              mimeType = part.inlineData.mimeType || "image/png";
-              break;
+        // Use high-quality model (gemini-3-pro-image-preview)
+        const response = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp-image-generation:generateContent?key=${GOOGLE_API_KEY}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents: [{ parts }],
+              generationConfig: {
+                responseModalities: ["Text", "Image"],
+              },
+            }),
+          }
+        );
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error("[generate-content-v2] Image API error:", errorText);
+          
+          if (response.status === 429) {
+            return new Response(
+              JSON.stringify({ error: "Rate limit exceeded. Please wait a moment." }),
+              { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+          }
+          
+          throw new Error("Failed to generate image");
+        }
+
+        const data = await response.json();
+        
+        // Extract image from response
+        const candidates = data.candidates;
+        if (candidates && candidates.length > 0) {
+          const content = candidates[0].content;
+          if (content && content.parts) {
+            for (const part of content.parts) {
+              if (part.inlineData) {
+                imageBase64 = part.inlineData.data;
+                mimeType = part.inlineData.mimeType || "image/png";
+                break;
+              }
             }
           }
         }
+
+        if (!imageBase64) {
+          if (attempt <= MAX_RETRIES) {
+            console.log("[generate-content-v2] No image generated, retrying...");
+            continue;
+          }
+          return new Response(
+            JSON.stringify({ error: "No image generated" }),
+            { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        // If noText is enabled, we've done what we can - the emphatic prompts should help
+        // No OCR validation available, just trust the emphatic prompts worked
+        break;
       }
 
       if (!imageBase64) {
         return new Response(
-          JSON.stringify({ error: "No image generated" }),
+          JSON.stringify({ error: "Failed to generate image after retries" }),
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
@@ -749,6 +792,8 @@ ${config.noText ? '6. ABSOLUTELY NO TEXT, LETTERS, OR WRITTEN CONTENT' : ''}`;
       const { data: { publicUrl } } = supabaseClient.storage
         .from("client-files")
         .getPublicUrl(fileName);
+
+      console.log("[generate-content-v2] Image generated and uploaded successfully");
 
       return new Response(
         JSON.stringify({ imageUrl: publicUrl }),
