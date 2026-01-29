@@ -194,3 +194,6 @@ verify_jwt = false
 
 [functions.process-due-date-notifications]
 verify_jwt = false
+
+[functions.fetch-rss-feed]
+verify_jwt = false

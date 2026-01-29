@@ -2092,6 +2092,66 @@ export type Database = {
           },
         ]
       }
+      planning_automation_runs: {
+        Row: {
+          automation_id: string | null
+          completed_at: string | null
+          created_at: string
+          duration_ms: number | null
+          error: string | null
+          id: string
+          items_created: number | null
+          result: string | null
+          started_at: string
+          status: string
+          trigger_data: Json | null
+          workspace_id: string
+        }
+        Insert: {
+          automation_id?: string | null
+          completed_at?: string | null
+          created_at?: string
+          duration_ms?: number | null
+          error?: string | null
+          id?: string
+          items_created?: number | null
+          result?: string | null
+          started_at?: string
+          status?: string
+          trigger_data?: Json | null
+          workspace_id: string
+        }
+        Update: {
+          automation_id?: string | null
+          completed_at?: string | null
+          created_at?: string
+          duration_ms?: number | null
+          error?: string | null
+          id?: string
+          items_created?: number | null
+          result?: string | null
+          started_at?: string
+          status?: string
+          trigger_data?: Json | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "planning_automation_runs_automation_id_fkey"
+            columns: ["automation_id"]
+            isOneToOne: false
+            referencedRelation: "planning_automations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "planning_automation_runs_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       planning_automations: {
         Row: {
           auto_generate_content: boolean | null
