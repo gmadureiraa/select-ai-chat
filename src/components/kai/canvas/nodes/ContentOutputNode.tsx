@@ -243,7 +243,7 @@ function ContentOutputNodeComponent({
   return (
     <Card className={cn(
       cardWidth,
-      "shadow-lg rounded-xl transition-all duration-200 border-2 relative overflow-hidden",
+      "shadow-lg rounded-xl transition-all duration-200 border-2 relative overflow-hidden bg-card",
       selected ? "border-primary ring-2 ring-primary/20 shadow-primary/10" : borderColor,
       "hover:shadow-xl"
     )}>
