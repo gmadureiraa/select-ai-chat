@@ -1,365 +1,201 @@
 
-# Plano: Sistema de Automações Completamente Funcional e Robusto
+# Plano: Corrigir Mobile e Notificações Push
 
-## Estado Atual do Sistema
+## Diagnóstico Completo
 
-Após análise detalhada, o sistema de automações está **quase completo**, mas precisa de alguns ajustes importantes:
+### Problema 1: Notificações Push Não Chegam
 
-### O que Já Funciona
+Após investigar os logs da edge function `process-push-queue`, encontrei o erro crítico:
 
-| Componente | Status | Descrição |
-|------------|--------|-----------|
-| AutomationDialog | Funcional | 16 tipos de conteúdo, preview rico de RSS |
-| process-automations | Funcional | Teste manual, registro de runs, geração de conteúdo |
-| kai-content-agent | Funcional | Format rules, contexto do cliente, streaming |
-| format-rules.ts | Funcional | Regras para todos os formatos (tweet, thread, etc.) |
-| fetch-rss-feed | Funcional | Extração de imagens e conteúdo completo |
+```
+TypeError: Object prototype may only be an Object or null: undefined
+    at Function.create (<anonymous>)
+    at Object.b [as inherits] (https://esm.sh/node/util.mjs:1:274)
+    at https://esm.sh/jws@4.0.1/es2022/jws.mjs:4:1272
+```
 
-### Melhorias Necessárias
+**Causa**: A biblioteca `web-push` (via esm.sh) usa internamente `jws` que não é compatível com Deno. O módulo `util.inherits` do Node.js não funciona corretamente no ambiente Deno.
 
-| Problema | Impacto | Solução |
-|----------|---------|---------|
-| Prompt padrão muito simples | Conteúdo genérico | Enriquecer prompt com contexto e exemplos |
-| Falta botão "Testar" na listagem | UX ruim | Adicionar ação rápida de teste na lista |
-| Falta Firecrawl para scraping | Links genéricos sem imagens | Usar Firecrawl para extrair conteúdo completo |
-| Logs detalhados não visíveis | Difícil debugar | Mostrar progresso no dialog de histórico |
-| Carousel parsing incompleto | Slides não estruturados | Adicionar parseCarouselFromContent |
+**Evidência**: A fila de notificações tem itens pendentes (`processed: false`) que nunca são processados porque a edge function crasha imediatamente ao iniciar.
+
+### Problema 2: Mobile Travando ao Clicar
+
+Analisando o código do `GlobalKAIPanel.tsx`:
+
+```typescript
+{/* Backdrop overlay - minimal */}
+<motion.div
+  initial={{ opacity: 0 }}
+  animate={{ opacity: 1 }}
+  exit={{ opacity: 0 }}
+  className="fixed inset-0 z-[60] bg-background/80 backdrop-blur-sm"
+  onClick={onClose}
+/>
+```
+
+Quando o painel está fechado, o `AnimatePresence` pode não remover completamente o backdrop do DOM em alguns casos, ou há re-renders que recriam o elemento. Isso bloqueia todos os cliques na tela.
+
+**Evidência adicional**: O `SheetOverlay` em `sheet.tsx` já tem `data-[state=closed]:pointer-events-none` mas o `GlobalKAIPanel` não tem essa proteção.
 
 ---
 
-## Arquitetura do Fluxo
+## Soluções
+
+### Solução 1: Substituir web-push por Implementação Nativa
+
+A biblioteca `web-push` não funciona em Deno. Preciso implementar Web Push usando Web Crypto API nativa do Deno.
+
+**Opção A (Recomendada)**: Usar a biblioteca `@negrel/webpush` que é compatível com Deno
+**Opção B**: Implementar manualmente usando `jose` (JOSE/JWT para Deno) + Web Crypto
+
+Vou usar a Opção B porque é mais confiável e não depende de bibliotecas externas que podem ter problemas similares.
+
+### Solução 2: Garantir que Backdrop do kAI Não Bloqueie Interações
+
+Adicionar `pointer-events-none` quando o painel estiver fechado e garantir que o backdrop seja completamente removido do DOM.
+
+---
+
+## Mudanças Técnicas
+
+### Arquivo 1: `supabase/functions/process-push-queue/index.ts`
+
+Reescrever completamente usando Web Crypto API nativa:
+
+```typescript
+// ANTES (não funciona em Deno):
+import webPush from "https://esm.sh/web-push@3.6.7";
+
+// DEPOIS (funciona em Deno):
+import * as jose from "https://deno.land/x/jose@v5.2.2/index.ts";
+```
+
+A implementação usará:
+- `jose` para criar tokens JWT/VAPID
+- `crypto.subtle` nativo do Deno para assinaturas ECDSA
+- `fetch` nativo para enviar as notificações
+
+### Arquivo 2: `supabase/functions/send-push-notification/index.ts`
+
+Aplicar a mesma correção (usa a mesma biblioteca problemática).
+
+### Arquivo 3: `src/components/kai-global/GlobalKAIPanel.tsx`
+
+Adicionar proteção de pointer-events:
+
+```typescript
+{/* Backdrop overlay */}
+<motion.div
+  initial={{ opacity: 0 }}
+  animate={{ opacity: 1 }}
+  exit={{ opacity: 0 }}
+  transition={{ duration: 0.15 }}
+  className={cn(
+    "fixed inset-0 z-[60] bg-background/80 backdrop-blur-sm",
+    !isOpen && "pointer-events-none"  // <-- NOVO
+  )}
+  onClick={onClose}
+  style={{ pointerEvents: isOpen ? 'auto' : 'none' }} // <-- Garantia extra
+/>
+```
+
+Também vou garantir que o `AnimatePresence` tenha `mode="wait"` para evitar estados intermediários.
+
+### Arquivo 4: `src/components/ui/sheet.tsx`
+
+Já tem a proteção correta, mas vou revisar para garantir consistência.
+
+---
+
+## Implementação Web Push Nativa
+
+A nova implementação seguirá este fluxo:
 
 ```text
-┌─────────────────────────────────────────────────────────────────────────┐
-│                        FLUXO DE AUTOMAÇÃO                               │
-├─────────────────────────────────────────────────────────────────────────┤
-│                                                                         │
-│  1. GATILHO DETECTADO (RSS/Agenda/Webhook)                              │
-│     │                                                                   │
-│     ▼                                                                   │
-│  2. EXTRAÇÃO DE DADOS                                                   │
-│     ├── RSS: parseRSSFeed() → título, descrição, conteúdo, imagens     │
-│     ├── Link genérico: Firecrawl → markdown, imagens                   │
-│     └── YouTube: Atom feed → videoId, thumbnail, descrição             │
-│     │                                                                   │
-│     ▼                                                                   │
-│  3. SUBSTITUIÇÃO DE VARIÁVEIS                                           │
-│     {{title}} → "Como criar newsletters"                                │
-│     {{content}} → "O guia completo para..."                             │
-│     {{link}} → "https://newsletter.com/..."                             │
-│     {{images}} → "4 imagens disponíveis"                                │
-│     │                                                                   │
-│     ▼                                                                   │
-│  4. GERAÇÃO DE CONTEÚDO (kai-content-agent)                             │
-│     ├── Format rules aplicadas (thread, tweet, carousel)               │
-│     ├── Contexto do cliente (tom de voz, exemplos)                     │
-│     ├── Top performers como referência                                 │
-│     └── Validação contra checklist                                     │
-│     │                                                                   │
-│     ▼                                                                   │
-│  5. PARSING E ESTRUTURAÇÃO                                              │
-│     ├── Thread: parseThreadFromContent → tweets com imagens            │
-│     ├── Carousel: parseCarouselFromContent → slides com imagens        │
-│     └── Tweet: validação de 280 chars                                  │
-│     │                                                                   │
-│     ▼                                                                   │
-│  6. CRIAÇÃO DO CARD                                                     │
-│     ├── planning_items (título, conteúdo, metadata)                    │
-│     ├── media_urls (imagens do RSS)                                    │
-│     └── metadata.thread_tweets / carousel_slides                       │
-│     │                                                                   │
-│     ▼                                                                   │
-│  7. PUBLICAÇÃO AUTOMÁTICA (se habilitada)                               │
-│     └── late-post → Twitter/Instagram/LinkedIn                         │
-│                                                                         │
-└─────────────────────────────────────────────────────────────────────────┘
+1. Receber payload + subscription do banco
+         ↓
+2. Construir JWT VAPID (aud: origin, sub: mailto:...)
+         ↓
+3. Assinar com ECDSA P-256 (chave privada VAPID)
+         ↓
+4. Encriptar payload com subscription keys (p256dh + auth)
+         ↓
+5. Enviar POST para subscription.endpoint com headers:
+   - Authorization: vapid t=<jwt>, k=<publicKey>
+   - Content-Encoding: aes128gcm
+   - TTL: 86400
+```
+
+### Código de Referência
+
+```typescript
+async function sendWebPushNative(
+  subscription: { endpoint: string; p256dh: string; auth: string },
+  payload: string,
+  vapidPublicKey: string,
+  vapidPrivateKey: string
+): Promise<{ success: boolean; statusCode?: number }> {
+  // 1. Parse subscription endpoint to get origin
+  const url = new URL(subscription.endpoint);
+  
+  // 2. Create VAPID JWT
+  const jwt = await createVapidJwt(
+    url.origin,
+    "mailto:contato@kaleidos.cc",
+    vapidPrivateKey
+  );
+  
+  // 3. Encrypt payload
+  const encryptedPayload = await encryptPayload(
+    payload,
+    subscription.p256dh,
+    subscription.auth
+  );
+  
+  // 4. Send push
+  const response = await fetch(subscription.endpoint, {
+    method: "POST",
+    headers: {
+      "Authorization": `vapid t=${jwt}, k=${vapidPublicKey}`,
+      "Content-Type": "application/octet-stream",
+      "Content-Encoding": "aes128gcm",
+      "TTL": "86400",
+    },
+    body: encryptedPayload,
+  });
+  
+  return {
+    success: response.status >= 200 && response.status < 300,
+    statusCode: response.status,
+  };
+}
 ```
 
 ---
 
-## Mudanças a Implementar
+## Arquivos a Modificar
 
-### 1. Enriquecer Prompt Padrão com Contexto
-
-**Arquivo:** `supabase/functions/process-automations/index.ts`
-
-O prompt atual é muito simples. Precisa incluir:
-- Tipo de conteúdo específico
-- Estrutura esperada
-- Contexto sobre imagens
-- Tom de voz do cliente
-
-```typescript
-function buildEnrichedPrompt(
-  template: string, 
-  data: RSSItem | null, 
-  automation: PlanningAutomation,
-  contentType: string
-): string {
-  // Substituir variáveis básicas
-  let prompt = replaceTemplateVariables(template, data, automation.name);
-  
-  // Se template vazio, criar prompt padrão robusto
-  if (!template || template.trim().length < 20) {
-    const formatLabel = CONTENT_TYPE_LABELS[contentType] || contentType;
-    prompt = `TAREFA: Criar ${formatLabel} profissional
-
-CONTEÚDO BASE:
-Título: ${data?.title || automation.name}
-${data?.description ? `Resumo: ${data.description.substring(0, 500)}` : ''}
-${data?.link ? `Link original: ${data.link}` : ''}
-
-${data?.content ? `CONTEÚDO COMPLETO:\n${data.content.substring(0, 2000)}` : ''}
-
-INSTRUÇÕES:
-1. Siga RIGOROSAMENTE as regras do formato ${formatLabel}
-2. Mantenha o tom de voz e estilo do cliente
-3. Crie conteúdo PRONTO PARA PUBLICAR
-4. ${data?.allImages?.length ? `Use as ${data.allImages.length} imagens disponíveis nos pontos apropriados` : 'Não há imagens disponíveis'}`;
-  }
-  
-  // Adicionar contexto sobre imagens para formatos visuais
-  if (data?.allImages?.length && ['thread', 'carousel', 'instagram_post'].includes(contentType)) {
-    prompt += `\n\n📸 IMAGENS DISPONÍVEIS (${data.allImages.length}): As imagens do conteúdo original serão anexadas automaticamente. Faça referência a elas nos pontos relevantes.`;
-  }
-  
-  return prompt;
-}
-```
-
-### 2. Adicionar Parsing de Carrossel
-
-**Arquivo:** `supabase/functions/process-automations/index.ts`
-
-```typescript
-function parseCarouselFromContent(content: string): Array<{ 
-  id: string; 
-  text: string; 
-  media_urls: string[] 
-}> | null {
-  const slides: Array<{ id: string; text: string; media_urls: string[] }> = [];
-  
-  // Pattern 1: "Página 1:", "Página 2:", etc.
-  const pagePattern = /(?:^|\n)(?:Página|Slide)\s*(\d+)[:.]?\s*([\s\S]*?)(?=(?:\n(?:Página|Slide)\s*\d)|---|\n\nLEGENDA:|$)/gi;
-  let match;
-  
-  while ((match = pagePattern.exec(content)) !== null) {
-    slides.push({
-      id: `slide-${match[1]}`,
-      text: match[2].trim(),
-      media_urls: [],
-    });
-  }
-  
-  if (slides.length > 0) return slides;
-  
-  // Pattern 2: "---" separator
-  const parts = content.split(/\n---\n/);
-  if (parts.length > 1) {
-    parts.forEach((part, idx) => {
-      const text = part.trim();
-      if (text && !text.toLowerCase().startsWith('legenda')) {
-        slides.push({
-          id: `slide-${idx + 1}`,
-          text,
-          media_urls: [],
-        });
-      }
-    });
-    if (slides.length > 0) return slides;
-  }
-  
-  return null;
-}
-```
-
-### 3. Usar Firecrawl para Links Genéricos
-
-**Arquivo:** `supabase/functions/process-automations/index.ts`
-
-Quando o usuário passa um link que não é RSS (ex: artigo do Medium), usar Firecrawl:
-
-```typescript
-async function scrapeContentFromUrl(url: string, supabaseUrl: string, supabaseKey: string): Promise<{
-  title: string;
-  content: string;
-  images: string[];
-} | null> {
-  try {
-    const response = await fetch(`${supabaseUrl}/functions/v1/firecrawl-scrape`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${supabaseKey}`,
-      },
-      body: JSON.stringify({ 
-        url,
-        options: { 
-          formats: ['markdown', 'links'],
-          onlyMainContent: true 
-        }
-      }),
-    });
-    
-    if (!response.ok) return null;
-    
-    const result = await response.json();
-    if (!result.success) return null;
-    
-    return {
-      title: result.data.metadata?.title || '',
-      content: result.data.markdown || '',
-      images: result.data.images || [],
-    };
-  } catch (error) {
-    console.error('Firecrawl error:', error);
-    return null;
-  }
-}
-```
-
-### 4. Labels de Tipo de Conteúdo
-
-**Arquivo:** `supabase/functions/process-automations/index.ts`
-
-```typescript
-const CONTENT_TYPE_LABELS: Record<string, string> = {
-  'tweet': 'Tweet (máx 280 chars)',
-  'thread': 'Thread Twitter (5-10 tweets)',
-  'x_article': 'Artigo no X (longo, profundo)',
-  'linkedin_post': 'Post LinkedIn (profissional)',
-  'carousel': 'Carrossel Instagram (8-10 slides)',
-  'stories': 'Stories (5-7 stories)',
-  'instagram_post': 'Post Instagram (legenda + visual)',
-  'static_image': 'Post Estático (visual único)',
-  'short_video': 'Roteiro Reels/TikTok (30-60s)',
-  'long_video': 'Roteiro Vídeo Longo (5-15 min)',
-  'newsletter': 'Newsletter (estruturada)',
-  'blog_post': 'Blog Post (SEO-otimizado)',
-  'case_study': 'Estudo de Caso',
-  'report': 'Relatório',
-};
-```
-
-### 5. Melhorar AutomationsTab com Ação Rápida de Teste
-
-**Arquivo:** `src/components/automations/AutomationsTab.tsx`
-
-Adicionar botão de "Testar Agora" diretamente na listagem:
-
-```typescript
-<DropdownMenuItem onClick={() => handleTestAutomation(automation.id)}>
-  <Play className="h-4 w-4 mr-2" />
-  Testar Agora
-</DropdownMenuItem>
-```
-
-Com feedback visual:
-
-```typescript
-const [testingId, setTestingId] = useState<string | null>(null);
-
-const handleTestAutomation = async (automationId: string) => {
-  setTestingId(automationId);
-  toast.info('Executando automação...');
-  
-  try {
-    const { data, error } = await supabase.functions.invoke('process-automations', {
-      body: { automationId }
-    });
-    
-    if (error) throw error;
-    
-    if (data.triggered > 0) {
-      toast.success('Automação executada! Card criado no planejamento.');
-    } else {
-      toast.info('Automação executada, mas nenhum card foi criado.');
-    }
-  } catch (err) {
-    toast.error('Erro ao executar automação');
-  } finally {
-    setTestingId(null);
-  }
-};
-```
-
-### 6. Dialog de Histórico com Detalhes
-
-**Arquivo:** `src/components/automations/AutomationHistoryDialog.tsx`
-
-Mostrar mais detalhes de cada execução:
-
-```typescript
-<DialogContent className="max-w-2xl">
-  {/* ... */}
-  {runs.map((run) => (
-    <div key={run.id} className="p-3 border rounded-lg space-y-2">
-      <div className="flex items-center justify-between">
-        <Badge variant={getStatusVariant(run.status)}>
-          {getStatusLabel(run.status)}
-        </Badge>
-        <span className="text-xs text-muted-foreground">
-          {formatDate(run.started_at)}
-        </span>
-      </div>
-      
-      {run.result && (
-        <p className="text-sm">{run.result}</p>
-      )}
-      
-      {run.error && (
-        <p className="text-sm text-red-500">{run.error}</p>
-      )}
-      
-      {run.trigger_data && (
-        <div className="text-xs text-muted-foreground">
-          <p>Fonte: {run.trigger_data.title}</p>
-          {run.trigger_data.images_count > 0 && (
-            <p>{run.trigger_data.images_count} imagens extraídas</p>
-          )}
-        </div>
-      )}
-      
-      {run.duration_ms && (
-        <p className="text-xs text-muted-foreground">
-          Duração: {(run.duration_ms / 1000).toFixed(1)}s
-        </p>
-      )}
-    </div>
-  ))}
-</DialogContent>
-```
-
----
-
-## Resumo das Mudanças
-
-| Arquivo | Mudança |
-|---------|---------|
-| `supabase/functions/process-automations/index.ts` | Prompt enriquecido, parsing de carousel, labels de tipo |
-| `src/components/automations/AutomationsTab.tsx` | Botão de teste rápido na listagem |
-| `src/components/automations/AutomationHistoryDialog.tsx` | Exibir detalhes completos das execuções |
-| `supabase/functions/kai-content-agent/format-rules.ts` | Ajustes nos mapeamentos (se necessário) |
+| Arquivo | Ação | Descrição |
+|---------|------|-----------|
+| `supabase/functions/process-push-queue/index.ts` | Reescrever | Usar jose + Web Crypto nativo |
+| `supabase/functions/send-push-notification/index.ts` | Reescrever | Mesma correção |
+| `src/components/kai-global/GlobalKAIPanel.tsx` | Modificar | Adicionar pointer-events protection |
+| `src/components/kai-global/GlobalKAIAssistant.tsx` | Modificar | Garantir unmount correto do backdrop |
 
 ---
 
 ## Resultado Esperado
 
-1. **Prompt inteligente**: Quando o template está vazio ou simples, sistema cria prompt completo automaticamente
-2. **Parsing de carousel**: Slides estruturados com imagens distribuídas
-3. **Teste rápido**: Um clique para testar qualquer automação
-4. **Histórico detalhado**: Ver exatamente o que aconteceu em cada execução
-5. **Conteúdo de qualidade**: Format rules aplicadas corretamente com contexto do cliente
-6. **Imagens automáticas**: Threads e carrosséis com imagens do RSS já distribuídas
+1. **Notificações Push funcionam**: Edge function não crasha mais, notificações são enviadas corretamente
+2. **Mobile responsivo**: Nenhum elemento invisível bloqueia cliques
+3. **Fila processada**: Os itens pendentes na `push_notification_queue` serão processados
+4. **PWA funcional**: Notificações chegam mesmo com app em background
 
 ---
 
-## Testes Recomendados
+## Testes Após Implementação
 
-Após implementação, testar:
-
-1. **Thread com RSS**: Criar automação RSS → Thread → Verificar se tweets têm imagens
-2. **Carousel com imagens**: Criar automação → Carousel → Verificar slides estruturados
-3. **Tweet simples**: Verificar limite de 280 chars respeitado
-4. **Template vazio**: Testar com prompt template vazio → deve gerar prompt inteligente
-5. **Histórico**: Executar e verificar detalhes no dialog de histórico
+1. Criar uma nova tarefa com você atribuído → verificar se notificação chega
+2. Testar todos os cliques no mobile (filtros, botões, cards)
+3. Abrir/fechar o painel kAI várias vezes → verificar se backdrop some completamente
+4. Verificar logs da edge function `process-push-queue` → não deve ter mais erros
