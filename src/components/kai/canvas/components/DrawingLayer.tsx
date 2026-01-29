@@ -191,24 +191,31 @@ function DrawingLayerComponent({
     return null;
   }
 
+  // CRITICAL: Only render interactive layer when actively drawing/erasing
+  // Otherwise, this overlay blocks all touch events on mobile
+  const isInteractive = isDrawing || isErasing;
+
   return (
     <svg
       ref={svgRef}
       className={cn(
-        "absolute inset-0 pointer-events-none",
-        (isDrawing || isErasing) && "pointer-events-auto z-50",
+        "absolute inset-0",
+        // ALWAYS pointer-events-none unless actively drawing/erasing
+        isInteractive ? "pointer-events-auto z-40" : "pointer-events-none z-0",
         isDrawing && "cursor-crosshair",
         isErasing && "cursor-cell"
       )}
       style={{
         width: "100%",
         height: "100%",
-        touchAction: "none",
+        touchAction: isInteractive ? "none" : "auto",
+        // Extra safety: explicit pointer-events style
+        pointerEvents: isInteractive ? "auto" : "none",
       }}
-      onPointerDown={handlePointerDown}
-      onPointerMove={handlePointerMove}
-      onPointerUp={handlePointerUp}
-      onPointerLeave={handlePointerLeave}
+      onPointerDown={isInteractive ? handlePointerDown : undefined}
+      onPointerMove={isInteractive ? handlePointerMove : undefined}
+      onPointerUp={isInteractive ? handlePointerUp : undefined}
+      onPointerLeave={isInteractive ? handlePointerLeave : undefined}
     >
       <g
         transform={`translate(${viewport.x}, ${viewport.y}) scale(${viewport.zoom})`}

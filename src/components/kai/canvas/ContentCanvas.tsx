@@ -841,8 +841,8 @@ function ContentCanvasInner({ clientId }: ContentCanvasProps) {
         </div>
       )}
       
-      {/* Client Header */}
-      <div className="absolute top-0 left-0 right-0 z-10 bg-background/80 backdrop-blur-sm border-b px-4 py-2 flex items-center gap-3">
+      {/* Client Header - z-index must be above DrawingLayer (z-40) */}
+      <div className="absolute top-0 left-0 right-0 z-[55] bg-background/80 backdrop-blur-sm border-b px-4 py-2 flex items-center gap-3">
         <Avatar className="h-8 w-8 rounded-lg">
           <AvatarImage src={client?.avatar_url || ""} alt={client?.name} className="object-cover" />
           <AvatarFallback className="rounded-lg bg-primary/20 text-primary text-sm font-semibold">
