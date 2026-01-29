@@ -123,7 +123,7 @@ export function KanbanView({
                 onDragLeave={handleDragLeave}
                 onDrop={handleDrop}
                 height={containerHeight}
-                className={isMobile ? "w-[85vw] min-w-[85vw] snap-center" : undefined}
+                className={isMobile ? "w-[90vw] min-w-[90vw] snap-center" : undefined}
               />
             );
           })}

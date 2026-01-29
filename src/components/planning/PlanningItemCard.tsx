@@ -143,7 +143,7 @@ export const PlanningItemCard = memo(function PlanningItemCard({
       {/* Media Preview - Only if not compact */}
       {hasMedia && firstMedia && !compact && (
         <div 
-          className="relative h-24 bg-muted/50 overflow-hidden cursor-zoom-in"
+          className="relative h-32 bg-muted/50 overflow-hidden cursor-zoom-in"
           onClick={(e) => {
             e.preventDefault();
             e.stopPropagation();
@@ -165,18 +165,18 @@ export const PlanningItemCard = memo(function PlanningItemCard({
         </div>
       )}
 
-      <div className={cn(compact ? "" : "p-2.5")}>
+      <div className={cn(compact ? "p-2" : "p-3.5")}>
         {/* Top Row: Platform dot + Title */}
-        <div className="flex items-start gap-2 mb-1.5">
+        <div className="flex items-start gap-2 mb-2">
           {/* Platform Dot */}
           <div className={cn(
-            "w-2 h-2 rounded-full mt-1.5 shrink-0",
+            "w-2.5 h-2.5 rounded-full mt-1.5 shrink-0",
             platformColors[platform]?.text?.replace('text-', 'bg-') || 'bg-muted-foreground'
           )} />
           
           {/* Title */}
           <div className="flex-1 min-w-0">
-            <h4 className="font-medium text-sm line-clamp-2 group-hover:text-primary transition-colors">
+            <h4 className="font-medium text-[15px] leading-snug line-clamp-3 group-hover:text-primary transition-colors">
               {item.title}
             </h4>
             {/* Client name - subtle */}
@@ -201,9 +201,12 @@ export const PlanningItemCard = memo(function PlanningItemCard({
           />
         </div>
 
-        {/* Description - Only if not compact */}
-        {!compact && (item.description || item.content) && (
-          <p className="text-[11px] text-muted-foreground line-clamp-1 mb-1.5 ml-4">
+        {/* Description - Show more content */}
+        {(item.description || item.content) && (
+          <p className={cn(
+            "text-muted-foreground ml-5 leading-relaxed",
+            compact ? "text-xs line-clamp-1 mb-1.5" : "text-[13px] line-clamp-2 mb-2"
+          )}>
             {item.description || item.content}
           </p>
         )}
