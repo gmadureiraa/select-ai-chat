@@ -160,7 +160,7 @@ export function ThreadEditor({
                     value={tweet.text}
                     onChange={(e) => updateTweet(tweet.id, e.target.value)}
                     placeholder={index === 0 ? "Primeiro tweet da thread..." : "Continuar thread..."}
-                    className="resize-none min-h-[80px] pr-16 rounded-lg border-border/50"
+                    className="resize-none min-h-[120px] pr-16 rounded-lg border-border/50 text-sm"
                     maxLength={MAX_TWEET_LENGTH}
                   />
                   <span className={cn(
