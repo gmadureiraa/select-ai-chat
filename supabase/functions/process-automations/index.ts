@@ -41,11 +41,76 @@ interface RSSItem {
   title: string;
   link: string;
   description?: string;
+  content?: string;
   pubDate?: string;
   guid?: string;
+  imageUrl?: string;
+  allImages?: string[];
 }
 
-// Parse RSS feed
+// Content type to format mapping for AI generation
+const FORMAT_MAP: Record<string, string> = {
+  'tweet': 'tweet',
+  'thread': 'thread',
+  'x_article': 'linkedin',
+  'linkedin_post': 'linkedin',
+  'carousel': 'carousel',
+  'stories': 'stories',
+  'instagram_post': 'post',
+  'static_image': 'post',
+  'short_video': 'reels',
+  'long_video': 'reels',
+  'newsletter': 'newsletter',
+  'blog_post': 'newsletter',
+  'case_study': 'newsletter',
+  'report': 'newsletter',
+  'document': 'post',
+  'social_post': 'post', // Legacy
+  'other': 'post',
+};
+
+// Content type to platform mapping
+const PLATFORM_MAP: Record<string, string> = {
+  'tweet': 'twitter',
+  'thread': 'twitter',
+  'x_article': 'twitter',
+  'linkedin_post': 'linkedin',
+  'carousel': 'instagram',
+  'stories': 'instagram',
+  'instagram_post': 'instagram',
+  'static_image': 'instagram',
+  'short_video': 'tiktok',
+  'long_video': 'youtube',
+  'newsletter': 'newsletter',
+  'blog_post': 'blog',
+};
+
+// Extract images from HTML content
+function extractImagesFromHTML(html: string): string[] {
+  const images: string[] = [];
+  const imgRegex = /<img[^>]+src=["']([^"']+)["'][^>]*>/gi;
+  let match;
+  
+  while ((match = imgRegex.exec(html)) !== null) {
+    const src = match[1];
+    // Filter out tracking pixels and icons
+    if (src && !src.includes('pixel') && !src.includes('tracking') && !src.includes('icon')) {
+      images.push(src);
+    }
+  }
+  
+  // Also look for og:image or twitter:image meta patterns if present
+  const metaImageRegex = /content=["']([^"']+\.(jpg|jpeg|png|gif|webp)[^"']*)["']/gi;
+  while ((match = metaImageRegex.exec(html)) !== null) {
+    if (!images.includes(match[1])) {
+      images.push(match[1]);
+    }
+  }
+  
+  return images.slice(0, 10); // Limit to 10 images
+}
+
+// Parse RSS feed with full content and images
 async function parseRSSFeed(url: string): Promise<RSSItem[]> {
   try {
     const response = await fetch(url);
@@ -58,10 +123,52 @@ async function parseRSSFeed(url: string): Promise<RSSItem[]> {
       const title = itemXml.match(/<title[^>]*>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/title>/i)?.[1]?.trim() || '';
       const link = itemXml.match(/<link[^>]*>([\s\S]*?)<\/link>/i)?.[1]?.trim() || '';
       const description = itemXml.match(/<description[^>]*>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/description>/i)?.[1]?.trim();
+      const content = itemXml.match(/<content:encoded[^>]*>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/content:encoded>/i)?.[1]?.trim() 
+                   || itemXml.match(/<content[^>]*>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/content>/i)?.[1]?.trim();
       const pubDate = itemXml.match(/<pubDate[^>]*>([\s\S]*?)<\/pubDate>/i)?.[1]?.trim();
       const guid = itemXml.match(/<guid[^>]*>([\s\S]*?)<\/guid>/i)?.[1]?.trim() || link;
       
-      items.push({ title, link, description, pubDate, guid });
+      // Extract images from content and description
+      const allImages: string[] = [];
+      
+      // Media content
+      const mediaUrl = itemXml.match(/<media:content[^>]+url=["']([^"']+)["']/i)?.[1];
+      if (mediaUrl) allImages.push(mediaUrl);
+      
+      // Media thumbnail
+      const thumbnailUrl = itemXml.match(/<media:thumbnail[^>]+url=["']([^"']+)["']/i)?.[1];
+      if (thumbnailUrl && !allImages.includes(thumbnailUrl)) allImages.push(thumbnailUrl);
+      
+      // Enclosure
+      const enclosureUrl = itemXml.match(/<enclosure[^>]+url=["']([^"']+)["'][^>]+type=["']image/i)?.[1];
+      if (enclosureUrl && !allImages.includes(enclosureUrl)) allImages.push(enclosureUrl);
+      
+      // Extract from content HTML
+      if (content) {
+        const contentImages = extractImagesFromHTML(content);
+        for (const img of contentImages) {
+          if (!allImages.includes(img)) allImages.push(img);
+        }
+      }
+      
+      // Extract from description HTML
+      if (description) {
+        const descImages = extractImagesFromHTML(description);
+        for (const img of descImages) {
+          if (!allImages.includes(img)) allImages.push(img);
+        }
+      }
+      
+      items.push({ 
+        title, 
+        link, 
+        description, 
+        content,
+        pubDate, 
+        guid,
+        imageUrl: allImages[0],
+        allImages: allImages.slice(0, 8), // Limit to 8 images
+      });
     }
     
     return items;
@@ -74,30 +181,25 @@ async function parseRSSFeed(url: string): Promise<RSSItem[]> {
 // Check if schedule trigger should fire
 function shouldTriggerSchedule(config: ScheduleConfig, lastTriggered: string | null): boolean {
   const now = new Date();
-  const today = now.getDay(); // 0 = Sunday, 1 = Monday, etc.
+  const today = now.getDay();
   const currentTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
   
-  // Check if already triggered today
   if (lastTriggered) {
     const lastDate = new Date(lastTriggered);
     if (lastDate.toDateString() === now.toDateString()) {
-      return false; // Already triggered today
+      return false;
     }
   }
   
-  // Check schedule type
   switch (config.type) {
     case 'daily':
-      // Check if current time is past the scheduled time
       return config.time ? currentTime >= config.time : true;
       
     case 'weekly':
-      // Check if today is one of the scheduled days
       if (!config.days?.includes(today)) return false;
       return config.time ? currentTime >= config.time : true;
       
     case 'monthly':
-      // Check if today's date matches scheduled days
       const dayOfMonth = now.getDate();
       if (!config.days?.includes(dayOfMonth)) return false;
       return config.time ? currentTime >= config.time : true;
@@ -118,7 +220,6 @@ async function checkRSSTrigger(
   
   const latestItem = items[0];
   
-  // Check if this is a new item
   if (config.last_guid && latestItem.guid === config.last_guid) {
     return { shouldTrigger: false };
   }
@@ -128,6 +229,83 @@ async function checkRSSTrigger(
     data: latestItem,
     newGuid: latestItem.guid 
   };
+}
+
+// Replace template variables in prompt
+function replaceTemplateVariables(template: string, data: RSSItem | null, automationName: string): string {
+  if (!template) return `Crie conteúdo para: ${automationName}`;
+  
+  let prompt = template;
+  
+  const variables: Record<string, string> = {
+    '{{title}}': data?.title || automationName,
+    '{{description}}': data?.description?.replace(/<[^>]*>/g, '').substring(0, 500) || '',
+    '{{link}}': data?.link || '',
+    '{{content}}': data?.content?.replace(/<[^>]*>/g, '').substring(0, 3000) || data?.description?.replace(/<[^>]*>/g, '').substring(0, 3000) || '',
+    '{{images}}': (data?.allImages?.length || 0) > 0 
+      ? `${data!.allImages!.length} imagens disponíveis do conteúdo original`
+      : 'Sem imagens disponíveis',
+  };
+  
+  for (const [key, value] of Object.entries(variables)) {
+    const regex = new RegExp(key.replace(/[{}]/g, '\\$&'), 'g');
+    prompt = prompt.replace(regex, value);
+  }
+  
+  return prompt;
+}
+
+// Parse thread from generated content
+function parseThreadFromContent(content: string): Array<{ id: string; text: string; media_urls: string[] }> | null {
+  const tweets: Array<{ id: string; text: string; media_urls: string[] }> = [];
+  
+  // Try to detect thread structure
+  // Pattern 1: "1/", "2/", etc.
+  const numberedPattern = /(?:^|\n)(\d+)\/[\s\n]*([\s\S]*?)(?=(?:\n\d+\/)|$)/g;
+  let match;
+  let foundNumbered = false;
+  
+  while ((match = numberedPattern.exec(content)) !== null) {
+    foundNumbered = true;
+    tweets.push({
+      id: `tweet-${match[1]}`,
+      text: match[2].trim(),
+      media_urls: [],
+    });
+  }
+  
+  if (foundNumbered && tweets.length > 0) return tweets;
+  
+  // Pattern 2: "Tweet 1:", "Tweet 2:", etc.
+  const tweetPattern = /(?:^|\n)Tweet\s*(\d+)[:.]?\s*([\s\S]*?)(?=(?:\nTweet\s*\d)|$)/gi;
+  
+  while ((match = tweetPattern.exec(content)) !== null) {
+    tweets.push({
+      id: `tweet-${match[1]}`,
+      text: match[2].trim(),
+      media_urls: [],
+    });
+  }
+  
+  if (tweets.length > 0) return tweets;
+  
+  // Pattern 3: Split by "---" separator
+  const parts = content.split(/\n---\n/);
+  if (parts.length > 1) {
+    parts.forEach((part, idx) => {
+      const text = part.trim();
+      if (text && text.length <= 280) {
+        tweets.push({
+          id: `tweet-${idx + 1}`,
+          text,
+          media_urls: [],
+        });
+      }
+    });
+    if (tweets.length > 0) return tweets;
+  }
+  
+  return null;
 }
 
 serve(async (req) => {
@@ -140,7 +318,6 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Parse request body to check for specific automationId (manual test)
     let automationId: string | null = null;
     let isManualTest = false;
     try {
@@ -148,21 +325,18 @@ serve(async (req) => {
       automationId = body.automationId || null;
       isManualTest = !!automationId;
     } catch {
-      // No body or invalid JSON, that's fine for cron jobs
+      // No body or invalid JSON
     }
 
     console.log(`Starting automation processing... ${isManualTest ? `(Manual test: ${automationId})` : '(Scheduled)'}`);
 
-    // Fetch automations based on whether it's a manual test or scheduled run
     let query = supabase
       .from('planning_automations')
       .select('*');
     
     if (automationId) {
-      // Manual test: fetch specific automation regardless of active status
       query = query.eq('id', automationId);
     } else {
-      // Scheduled run: fetch only active automations
       query = query.eq('is_active', true);
     }
 
@@ -182,7 +356,7 @@ serve(async (req) => {
       let runId: string | null = null;
       
       try {
-        // Create run record at the start
+        // Create run record
         const { data: run, error: runError } = await supabase
           .from('planning_automation_runs')
           .insert({
@@ -204,21 +378,19 @@ serve(async (req) => {
         let triggerData: RSSItem | null = null;
         let newGuid: string | undefined;
 
-        // For manual tests, skip trigger checks and force execution
         if (isManualTest) {
           console.log(`Manual test for ${automation.name} - forcing trigger`);
           shouldTrigger = true;
           
-          // For RSS, still try to get the latest item data
           if (automation.trigger_type === 'rss' && automation.trigger_config.url) {
             const items = await parseRSSFeed(automation.trigger_config.url);
             if (items.length > 0) {
               triggerData = items[0];
               newGuid = items[0].guid;
+              console.log(`RSS data loaded: "${triggerData.title}" with ${triggerData.allImages?.length || 0} images`);
             }
           }
         } else {
-          // Normal scheduled check
           switch (automation.trigger_type) {
             case 'schedule':
               shouldTrigger = shouldTriggerSchedule(automation.trigger_config, automation.last_triggered_at);
@@ -232,14 +404,12 @@ serve(async (req) => {
               break;
               
             case 'webhook':
-              // Webhooks are triggered externally, skip in cron
               shouldTrigger = false;
               break;
           }
         }
 
         if (!shouldTrigger) {
-          // Update run record as skipped
           if (runId) {
             await supabase
               .from('planning_automation_runs')
@@ -258,11 +428,18 @@ serve(async (req) => {
 
         console.log(`Triggering automation: ${automation.name}`);
 
-        // Create planning item
         const itemTitle = triggerData?.title || automation.name;
-        const itemDescription = triggerData?.description || '';
+        const itemDescription = triggerData?.description?.replace(/<[^>]*>/g, '').substring(0, 500) || '';
         
-        // Get default column if not specified
+        // Get images from RSS
+        const mediaUrls = triggerData?.allImages?.slice(0, 4) || [];
+        console.log(`Extracted ${mediaUrls.length} images from RSS`);
+        
+        // Derive platform from content_type if not set
+        const derivedPlatform = automation.platform || PLATFORM_MAP[automation.content_type] || null;
+        const format = FORMAT_MAP[automation.content_type] || 'post';
+        
+        // Get default column
         let columnId = automation.target_column_id;
         if (!columnId) {
           const { data: defaultColumn } = await supabase
@@ -274,7 +451,6 @@ serve(async (req) => {
           columnId = defaultColumn?.id;
         }
 
-        // Get next position
         const { count } = await supabase
           .from('planning_items')
           .select('*', { count: 'exact', head: true })
@@ -282,7 +458,16 @@ serve(async (req) => {
 
         const position = (count || 0) + 1;
 
-        // Create the planning item
+        // Prepare metadata with images
+        const metadata: Record<string, unknown> = {
+          automation_id: automation.id,
+          automation_name: automation.name,
+          trigger_type: automation.trigger_type,
+          source_url: triggerData?.link,
+          rss_images: mediaUrls,
+        };
+
+        // Create planning item
         const { data: newItem, error: createError } = await supabase
           .from('planning_items')
           .insert({
@@ -291,17 +476,13 @@ serve(async (req) => {
             column_id: columnId,
             title: itemTitle,
             description: itemDescription,
-            platform: automation.platform,
+            platform: derivedPlatform,
             content_type: automation.content_type,
             position,
             status: 'idea',
+            media_urls: mediaUrls,
             created_by: automation.created_by || '00000000-0000-0000-0000-000000000000',
-            metadata: {
-              automation_id: automation.id,
-              automation_name: automation.name,
-              trigger_type: automation.trigger_type,
-              source_url: triggerData?.link,
-            }
+            metadata,
           })
           .select()
           .single();
@@ -309,7 +490,6 @@ serve(async (req) => {
         if (createError) {
           console.error(`Error creating item for ${automation.name}:`, createError);
           
-          // Update run as failed
           if (runId) {
             await supabase
               .from('planning_automation_runs')
@@ -333,13 +513,23 @@ serve(async (req) => {
         // Generate content if enabled
         if (automation.auto_generate_content && automation.client_id) {
           try {
-            console.log(`Generating content for item ${newItem.id}...`);
+            console.log(`Generating content for item ${newItem.id} with format: ${format}...`);
             
-            const prompt = automation.prompt_template 
-              ? automation.prompt_template.replace('{{title}}', itemTitle).replace('{{description}}', itemDescription)
-              : `Crie conteúdo para: ${itemTitle}\n\n${itemDescription}`;
+            // Replace template variables
+            const prompt = replaceTemplateVariables(
+              automation.prompt_template || '',
+              triggerData,
+              automation.name
+            );
+            
+            // Add context about images for threads/carousels
+            let enrichedPrompt = prompt;
+            if (mediaUrls.length > 0 && (automation.content_type === 'thread' || automation.content_type === 'carousel')) {
+              enrichedPrompt += `\n\n📸 IMAGENS DISPONÍVEIS: O conteúdo original possui ${mediaUrls.length} imagens que serão anexadas automaticamente. Faça referência a elas nos pontos apropriados do conteúdo.`;
+            }
 
-            // Call content generation function
+            console.log(`Prompt for AI: ${enrichedPrompt.substring(0, 200)}...`);
+
             const response = await fetch(`${supabaseUrl}/functions/v1/kai-content-agent`, {
               method: 'POST',
               headers: {
@@ -347,46 +537,82 @@ serve(async (req) => {
                 'Authorization': `Bearer ${supabaseKey}`,
               },
               body: JSON.stringify({
-                message: prompt,
+                message: enrichedPrompt,
                 clientId: automation.client_id,
                 workspaceId: automation.workspace_id,
+                format: format,
+                platform: derivedPlatform,
+                stream: false,
               }),
             });
 
             if (response.ok) {
               const contentResult = await response.json();
-              if (contentResult.content) {
+            if (contentResult.content) {
                 generatedContent = contentResult.content;
+                console.log(`Content generated (${generatedContent!.length} chars)`);
+                
+                // Update metadata based on content type
+                const updatedMetadata = { ...metadata };
+                
+                // For threads, parse and structure the tweets with images
+                if (automation.content_type === 'thread' && generatedContent) {
+                  const threadTweets = parseThreadFromContent(generatedContent);
+                  if (threadTweets && threadTweets.length > 0) {
+                    // Distribute images across tweets
+                    if (mediaUrls.length > 0) {
+                      const imagesPerTweet = Math.ceil(mediaUrls.length / Math.min(threadTweets.length, 4));
+                      let imageIndex = 0;
+                      
+                      for (let i = 0; i < threadTweets.length && imageIndex < mediaUrls.length; i++) {
+                        const tweetImages: string[] = [];
+                        for (let j = 0; j < imagesPerTweet && imageIndex < mediaUrls.length; j++) {
+                          tweetImages.push(mediaUrls[imageIndex]);
+                          imageIndex++;
+                        }
+                        threadTweets[i].media_urls = tweetImages;
+                      }
+                    }
+                    
+                    updatedMetadata.thread_tweets = threadTweets;
+                    console.log(`Parsed ${threadTweets.length} tweets with distributed images`);
+                  }
+                }
+                
                 await supabase
                   .from('planning_items')
-                  .update({ content: generatedContent })
+                  .update({ 
+                    content: generatedContent,
+                    metadata: updatedMetadata,
+                  })
                   .eq('id', newItem.id);
-                console.log(`Content generated for item ${newItem.id}`);
+                  
+                console.log(`Content saved to item ${newItem.id}`);
               }
+            } else {
+              const errorText = await response.text();
+              console.error(`Content generation failed: ${errorText}`);
             }
           } catch (genError) {
             console.error(`Error generating content for ${automation.name}:`, genError);
-            // Continue even if content generation fails
           }
         }
 
         // Auto publish if enabled
-        if (automation.auto_publish && automation.client_id && automation.platform && generatedContent) {
+        if (automation.auto_publish && automation.client_id && derivedPlatform && generatedContent) {
           try {
-            console.log(`Auto-publishing item ${newItem.id} to ${automation.platform}...`);
+            console.log(`Auto-publishing item ${newItem.id} to ${derivedPlatform}...`);
             
-            // Get client credentials for Late API
             const { data: credentials } = await supabase
               .from('client_social_credentials')
               .select('metadata')
               .eq('client_id', automation.client_id)
-              .eq('platform', automation.platform === 'twitter' ? 'twitter' : automation.platform)
+              .eq('platform', derivedPlatform === 'twitter' ? 'twitter' : derivedPlatform)
               .maybeSingle();
 
             const lateProfileId = (credentials?.metadata as any)?.late_profile_id;
 
             if (lateProfileId) {
-              // Call late-post function
               const publishResponse = await fetch(`${supabaseUrl}/functions/v1/late-post`, {
                 method: 'POST',
                 headers: {
@@ -395,9 +621,9 @@ serve(async (req) => {
                 },
                 body: JSON.stringify({
                   clientId: automation.client_id,
-                  platform: automation.platform,
+                  platform: derivedPlatform,
                   content: generatedContent,
-                  mediaUrls: [],
+                  mediaUrls: mediaUrls,
                 }),
               });
 
@@ -405,13 +631,12 @@ serve(async (req) => {
                 const publishResult = await publishResponse.json();
                 console.log(`Successfully published item ${newItem.id}:`, publishResult);
                 
-                // Update item status to published
                 await supabase
                   .from('planning_items')
                   .update({ 
                     status: 'published',
                     metadata: {
-                      ...newItem.metadata,
+                      ...(newItem.metadata as any || {}),
                       auto_published: true,
                       published_at: new Date().toISOString(),
                     }
@@ -421,11 +646,10 @@ serve(async (req) => {
                 console.error(`Failed to publish item ${newItem.id}:`, await publishResponse.text());
               }
             } else {
-              console.log(`No Late API credentials found for ${automation.platform}`);
+              console.log(`No Late API credentials found for ${derivedPlatform}`);
             }
           } catch (publishError) {
             console.error(`Error auto-publishing for ${automation.name}:`, publishError);
-            // Continue even if publish fails
           }
         }
 
@@ -435,7 +659,6 @@ serve(async (req) => {
           items_created: (automation.items_created || 0) + 1,
         };
 
-        // Update RSS last_guid if applicable
         if (automation.trigger_type === 'rss' && newGuid) {
           updateData.trigger_config = {
             ...automation.trigger_config,
@@ -455,11 +678,17 @@ serve(async (req) => {
             .from('planning_automation_runs')
             .update({
               status: 'completed',
-              result: `Criado: ${itemTitle}`,
+              result: generatedContent 
+                ? `Criado e gerado: ${itemTitle}` 
+                : `Criado: ${itemTitle}`,
               items_created: 1,
               completed_at: new Date().toISOString(),
               duration_ms: Date.now() - startTime,
-              trigger_data: triggerData ? { title: triggerData.title, link: triggerData.link } : null,
+              trigger_data: triggerData ? { 
+                title: triggerData.title, 
+                link: triggerData.link,
+                images_count: triggerData.allImages?.length || 0,
+              } : null,
             })
             .eq('id', runId);
         }
@@ -469,7 +698,6 @@ serve(async (req) => {
       } catch (automationError) {
         console.error(`Error processing automation ${automation.name}:`, automationError);
         
-        // Update run as failed
         if (runId) {
           await supabase
             .from('planning_automation_runs')

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Calendar, Rss, Webhook, Sparkles, Send, AlertCircle, Loader2, CheckCircle2, XCircle } from 'lucide-react';
+import { Calendar, Rss, Webhook, Sparkles, Send, AlertCircle, Loader2, CheckCircle2, XCircle, Image, ExternalLink, Copy, ChevronDown, ChevronUp } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -16,12 +16,16 @@ import { Switch } from '@/components/ui/switch';
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Badge } from '@/components/ui/badge';
 import { 
   usePlanningAutomations, 
   PlanningAutomation, 
@@ -32,6 +36,8 @@ import {
 import { useClients } from '@/hooks/useClients';
 import { usePlanningItems } from '@/hooks/usePlanningItems';
 import { supabase } from '@/integrations/supabase/client';
+import { CONTENT_TYPE_OPTIONS, CONTENT_TO_PLATFORM } from '@/types/contentTypes';
+import { toast } from 'sonner';
 
 interface AutomationDialogProps {
   open: boolean;
@@ -56,23 +62,34 @@ const PLATFORMS = [
   { value: 'youtube', label: 'YouTube' },
   { value: 'tiktok', label: 'TikTok' },
   { value: 'newsletter', label: 'Newsletter' },
+  { value: 'blog', label: 'Blog' },
 ];
 
-const CONTENT_TYPES = [
-  { value: 'social_post', label: 'Post Social' },
-  { value: 'carousel', label: 'Carrossel' },
-  { value: 'reels', label: 'Reels/Vídeo Curto' },
-  { value: 'stories', label: 'Stories' },
-  { value: 'thread', label: 'Thread' },
-  { value: 'newsletter', label: 'Newsletter' },
-  { value: 'blog', label: 'Blog Post' },
+// Template variables that can be used in prompts
+const TEMPLATE_VARIABLES = [
+  { key: '{{title}}', description: 'Título do item do RSS' },
+  { key: '{{description}}', description: 'Descrição/resumo do item' },
+  { key: '{{link}}', description: 'URL do conteúdo original' },
+  { key: '{{content}}', description: 'Conteúdo completo (até 3000 chars)' },
+  { key: '{{images}}', description: 'Quantidade de imagens detectadas' },
 ];
+
+interface RSSItemPreview {
+  title: string;
+  description?: string;
+  link?: string;
+  pubDate?: string;
+  imageUrl?: string;
+  allImages?: string[];
+  content?: string;
+}
 
 interface FeedTestResult {
   success: boolean;
   feedTitle?: string;
   itemCount?: number;
-  latestItem?: { title: string; pubDate?: string };
+  latestItems?: RSSItemPreview[];
+  availableFields?: string[];
   error?: string;
 }
 
@@ -89,7 +106,7 @@ export function AutomationDialog({ open, onOpenChange, automation }: AutomationD
   const [clientId, setClientId] = useState<string>('');
   const [columnId, setColumnId] = useState<string>('');
   const [platform, setPlatform] = useState<string>('');
-  const [contentType, setContentType] = useState('social_post');
+  const [contentType, setContentType] = useState('tweet');
   const [autoGenerate, setAutoGenerate] = useState(false);
   const [promptTemplate, setPromptTemplate] = useState('');
 
@@ -102,9 +119,31 @@ export function AutomationDialog({ open, onOpenChange, automation }: AutomationD
   const [rssUrl, setRssUrl] = useState('');
   const [testingFeed, setTestingFeed] = useState(false);
   const [feedTestResult, setFeedTestResult] = useState<FeedTestResult | null>(null);
+  const [expandedPreview, setExpandedPreview] = useState(false);
 
   // Auto publish
   const [autoPublish, setAutoPublish] = useState(false);
+
+  // Auto-derive platform from content type
+  useEffect(() => {
+    const derivedPlatform = CONTENT_TO_PLATFORM[contentType as keyof typeof CONTENT_TO_PLATFORM];
+    if (derivedPlatform && derivedPlatform !== 'other' && derivedPlatform !== 'document') {
+      // Map content platform to our PLATFORMS values
+      const platformMap: Record<string, string> = {
+        'twitter': 'twitter',
+        'instagram': 'instagram',
+        'linkedin': 'linkedin',
+        'youtube': 'youtube',
+        'tiktok': 'tiktok',
+        'newsletter': 'newsletter',
+        'blog': 'blog',
+      };
+      const mappedPlatform = platformMap[derivedPlatform];
+      if (mappedPlatform) {
+        setPlatform(mappedPlatform);
+      }
+    }
+  }, [contentType]);
 
   // Reset form when dialog opens/closes or automation changes
   useEffect(() => {
@@ -114,7 +153,7 @@ export function AutomationDialog({ open, onOpenChange, automation }: AutomationD
       setClientId(automation.client_id || '');
       setColumnId(automation.target_column_id || '');
       setPlatform(automation.platform || '');
-      setContentType(automation.content_type || 'social_post');
+      setContentType(automation.content_type || 'tweet');
       setAutoGenerate(automation.auto_generate_content);
       setPromptTemplate(automation.prompt_template || '');
 
@@ -132,6 +171,7 @@ export function AutomationDialog({ open, onOpenChange, automation }: AutomationD
       
       // Reset test result when editing
       setFeedTestResult(null);
+      setExpandedPreview(false);
     } else if (open) {
       // Reset to defaults for new automation
       setName('');
@@ -139,7 +179,7 @@ export function AutomationDialog({ open, onOpenChange, automation }: AutomationD
       setClientId('');
       setColumnId('');
       setPlatform('');
-      setContentType('social_post');
+      setContentType('tweet');
       setAutoGenerate(false);
       setPromptTemplate('');
       setScheduleType('weekly');
@@ -148,6 +188,7 @@ export function AutomationDialog({ open, onOpenChange, automation }: AutomationD
       setRssUrl('');
       setAutoPublish(false);
       setFeedTestResult(null);
+      setExpandedPreview(false);
     }
   }, [open, automation]);
 
@@ -167,21 +208,37 @@ export function AutomationDialog({ open, onOpenChange, automation }: AutomationD
     
     try {
       const { data, error } = await supabase.functions.invoke('fetch-rss-feed', {
-        body: { rssUrl, limit: 5 }
+        body: { rssUrl, limit: 3, includeContent: true }
       });
       
       if (error) throw error;
       
       if (data.success && data.items?.length > 0) {
+        const items: RSSItemPreview[] = data.items.map((item: any) => ({
+          title: item.title,
+          description: item.description,
+          link: item.link,
+          pubDate: item.pubDate,
+          imageUrl: item.imageUrl,
+          allImages: item.allImages || [],
+          content: item.content,
+        }));
+
+        // Determine available fields
+        const availableFields: string[] = ['title'];
+        if (items[0].description) availableFields.push('description');
+        if (items[0].link) availableFields.push('link');
+        if (items[0].content) availableFields.push('content');
+        if (items.some(i => i.allImages && i.allImages.length > 0)) availableFields.push('images');
+
         setFeedTestResult({
           success: true,
           feedTitle: data.feedTitle || 'Feed RSS',
           itemCount: data.totalItems || data.items.length,
-          latestItem: {
-            title: data.items[0].title,
-            pubDate: data.items[0].pubDate,
-          },
+          latestItems: items,
+          availableFields,
         });
+        setExpandedPreview(true);
       } else {
         setFeedTestResult({
           success: false,
@@ -196,6 +253,11 @@ export function AutomationDialog({ open, onOpenChange, automation }: AutomationD
     } finally {
       setTestingFeed(false);
     }
+  };
+
+  const copyVariable = (variable: string) => {
+    navigator.clipboard.writeText(variable);
+    toast.success(`${variable} copiado!`);
   };
 
   const handleSubmit = () => {
@@ -267,6 +329,15 @@ export function AutomationDialog({ open, onOpenChange, automation }: AutomationD
     }
   };
 
+  // Group content types by category
+  const contentTypesByCategory = CONTENT_TYPE_OPTIONS.reduce((acc, type) => {
+    if (!acc[type.category]) {
+      acc[type.category] = [];
+    }
+    acc[type.category].push(type);
+    return acc;
+  }, {} as Record<string, typeof CONTENT_TYPE_OPTIONS>);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -287,7 +358,7 @@ export function AutomationDialog({ open, onOpenChange, automation }: AutomationD
               id="name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Ex: Dica semanal de produtividade"
+              placeholder="Ex: Thread semanal sobre newsletters"
             />
           </div>
 
@@ -402,32 +473,119 @@ export function AutomationDialog({ open, onOpenChange, automation }: AutomationD
                     Um novo card será criado quando um item aparecer no feed
                   </p>
                   
-                  {/* Feed test result */}
+                  {/* Rich Feed test result */}
                   {feedTestResult && (
-                    <div className={`p-3 rounded-lg text-sm ${
+                    <div className={`rounded-lg text-sm ${
                       feedTestResult.success 
                         ? 'bg-green-500/10 border border-green-500/30' 
                         : 'bg-red-500/10 border border-red-500/30'
                     }`}>
                       {feedTestResult.success ? (
-                        <div className="flex items-start gap-2">
-                          <CheckCircle2 className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
-                          <div>
-                            <p className="font-medium text-green-700 dark:text-green-400">
-                              Feed válido: {feedTestResult.itemCount} itens encontrados
-                            </p>
-                            {feedTestResult.latestItem && (
-                              <p className="text-green-600 dark:text-green-500 mt-1">
-                                Último: "{feedTestResult.latestItem.title}" 
-                                {feedTestResult.latestItem.pubDate && (
-                                  <span className="text-muted-foreground"> ({formatRelativeTime(feedTestResult.latestItem.pubDate)})</span>
-                                )}
+                        <div className="p-3 space-y-3">
+                          <div className="flex items-start gap-2">
+                            <CheckCircle2 className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
+                            <div className="flex-1">
+                              <p className="font-medium text-green-700 dark:text-green-400">
+                                Feed válido: {feedTestResult.itemCount} itens encontrados
                               </p>
-                            )}
+                              <p className="text-sm text-muted-foreground">
+                                {feedTestResult.feedTitle}
+                              </p>
+                            </div>
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              onClick={() => setExpandedPreview(!expandedPreview)}
+                              className="h-8 w-8 p-0"
+                            >
+                              {expandedPreview ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                            </Button>
                           </div>
+
+                          {expandedPreview && feedTestResult.latestItems && (
+                            <>
+                              {/* Available fields */}
+                              <div className="border-t pt-3">
+                                <p className="text-xs font-medium mb-2">Variáveis disponíveis no prompt:</p>
+                                <div className="flex flex-wrap gap-1">
+                                  {TEMPLATE_VARIABLES.filter(v => 
+                                    feedTestResult.availableFields?.includes(v.key.replace(/[{}]/g, ''))
+                                  ).map(variable => (
+                                    <Button
+                                      key={variable.key}
+                                      variant="outline"
+                                      size="sm"
+                                      className="h-6 text-xs gap-1"
+                                      onClick={() => copyVariable(variable.key)}
+                                    >
+                                      <Copy className="h-3 w-3" />
+                                      {variable.key}
+                                    </Button>
+                                  ))}
+                                </div>
+                              </div>
+
+                              {/* Latest items preview */}
+                              <div className="border-t pt-3 space-y-2">
+                                <p className="text-xs font-medium">Últimos itens do feed:</p>
+                                <ScrollArea className="max-h-48">
+                                  <div className="space-y-2">
+                                    {feedTestResult.latestItems.map((item, idx) => (
+                                      <div key={idx} className="p-2 bg-background/50 rounded border">
+                                        <div className="flex gap-2">
+                                          {item.allImages && item.allImages.length > 0 && (
+                                            <div className="flex-shrink-0">
+                                              <img 
+                                                src={item.allImages[0]} 
+                                                alt="" 
+                                                className="w-16 h-16 object-cover rounded"
+                                                onError={(e) => e.currentTarget.style.display = 'none'}
+                                              />
+                                            </div>
+                                          )}
+                                          <div className="flex-1 min-w-0">
+                                            <p className="font-medium text-sm truncate">{item.title}</p>
+                                            {item.description && (
+                                              <p className="text-xs text-muted-foreground line-clamp-2">
+                                                {item.description.replace(/<[^>]*>/g, '').substring(0, 100)}...
+                                              </p>
+                                            )}
+                                            <div className="flex items-center gap-2 mt-1">
+                                              {item.pubDate && (
+                                                <span className="text-xs text-muted-foreground">
+                                                  {formatRelativeTime(item.pubDate)}
+                                                </span>
+                                              )}
+                                              {item.allImages && item.allImages.length > 0 && (
+                                                <Badge variant="outline" className="text-xs h-5">
+                                                  <Image className="h-3 w-3 mr-1" />
+                                                  {item.allImages.length} imagens
+                                                </Badge>
+                                              )}
+                                              {item.link && (
+                                                <a 
+                                                  href={item.link} 
+                                                  target="_blank" 
+                                                  rel="noopener noreferrer"
+                                                  className="text-xs text-primary hover:underline flex items-center gap-1"
+                                                >
+                                                  <ExternalLink className="h-3 w-3" />
+                                                  Ver original
+                                                </a>
+                                              )}
+                                            </div>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </ScrollArea>
+                              </div>
+                            </>
+                          )}
                         </div>
                       ) : (
-                        <div className="flex items-start gap-2">
+                        <div className="p-3 flex items-start gap-2">
                           <XCircle className="h-4 w-4 text-red-500 mt-0.5 flex-shrink-0" />
                           <p className="text-red-700 dark:text-red-400">
                             {feedTestResult.error}
@@ -487,8 +645,29 @@ export function AutomationDialog({ open, onOpenChange, automation }: AutomationD
             </div>
           </div>
 
-          {/* Plataforma e Tipo */}
+          {/* Tipo de conteúdo com todos os tipos do sistema */}
           <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Tipo de conteúdo</Label>
+              <Select value={contentType} onValueChange={setContentType}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(contentTypesByCategory).map(([category, types]) => (
+                    <SelectGroup key={category}>
+                      <SelectLabel>{category}</SelectLabel>
+                      {types.map((t) => (
+                        <SelectItem key={t.value} value={t.value}>
+                          {t.label}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
             <div className="space-y-2">
               <Label>Plataforma</Label>
               <Select value={platform || "none"} onValueChange={(v) => setPlatform(v === "none" ? "" : v)}>
@@ -504,22 +683,9 @@ export function AutomationDialog({ open, onOpenChange, automation }: AutomationD
                   ))}
                 </SelectContent>
               </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Tipo de conteúdo</Label>
-              <Select value={contentType} onValueChange={setContentType}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {CONTENT_TYPES.map((t) => (
-                    <SelectItem key={t.value} value={t.value}>
-                      {t.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <p className="text-xs text-muted-foreground">
+                Derivada automaticamente do tipo de conteúdo
+              </p>
             </div>
           </div>
 
@@ -544,12 +710,34 @@ export function AutomationDialog({ open, onOpenChange, automation }: AutomationD
                 <Textarea
                   value={promptTemplate}
                   onChange={(e) => setPromptTemplate(e.target.value)}
-                  placeholder="Ex: Crie uma dica sobre {{title}} focando em produtividade..."
-                  rows={3}
+                  placeholder={`Ex: Com base no conteúdo "{{title}}", crie uma thread para Twitter analisando os principais pontos. Use as {{images}} imagens do artigo original para ilustrar cada tweet.`}
+                  rows={4}
+                  className="min-h-[100px]"
                 />
-                <p className="text-xs text-muted-foreground">
-                  Use {"{{title}}"} e {"{{description}}"} para incluir dados do gatilho
-                </p>
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground">
+                    Variáveis disponíveis (clique para copiar):
+                  </p>
+                  <div className="flex flex-wrap gap-1">
+                    {TEMPLATE_VARIABLES.map(variable => (
+                      <Button
+                        key={variable.key}
+                        variant="outline"
+                        size="sm"
+                        className="h-6 text-xs gap-1"
+                        onClick={() => copyVariable(variable.key)}
+                        title={variable.description}
+                      >
+                        <Copy className="h-3 w-3" />
+                        {variable.key}
+                      </Button>
+                    ))}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    💡 Para threads com imagens: as imagens extraídas do RSS serão automaticamente 
+                    anexadas aos tweets após a geração do texto.
+                  </p>
+                </div>
               </div>
             )}
           </div>

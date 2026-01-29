@@ -2,6 +2,35 @@
 // These rules are injected into the agent's system prompt based on the content format
 
 export const FORMAT_RULES: Record<string, string> = {
+  tweet: `
+## REGRAS OBRIGATÓRIAS PARA TWEET
+
+### ESTRUTURA
+- **Máximo 280 caracteres** (incluindo espaços e hashtags)
+- Uma mensagem clara, impactante e direta
+- Hashtags no final (máximo 2)
+
+### FORMATO DE ENTREGA
+\`\`\`
+[Texto do tweet - máx 280 chars]
+
+#hashtag1 #hashtag2
+\`\`\`
+
+### PROIBIÇÕES ABSOLUTAS
+- ❌ Exceder 280 caracteres (CRÍTICO)
+- ❌ Mais de 2 hashtags
+- ❌ Linguagem corporativa ou genérica
+- ❌ Começar com "Você sabia que..." ou similares
+
+### TÉCNICAS QUE FUNCIONAM
+- ✅ Gancho forte na primeira frase
+- ✅ Números específicos ("3 erros" em vez de "alguns erros")
+- ✅ Call to action claro (RT, Curtir, Responda)
+- ✅ Opinião ou take polêmico
+- ✅ Perguntas diretas
+`,
+
   carousel: `
 ## REGRAS OBRIGATÓRIAS PARA CARROSSEL
 
