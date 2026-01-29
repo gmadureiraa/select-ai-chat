@@ -1,344 +1,365 @@
 
+# Plano: Sistema de Automações Completamente Funcional e Robusto
 
-# Plano: Sistema de Automações Completo e Robusto
+## Estado Atual do Sistema
 
-## Visão Geral dos Problemas Identificados
+Após análise detalhada, o sistema de automações está **quase completo**, mas precisa de alguns ajustes importantes:
 
-Após análise detalhada do código, identifiquei os seguintes problemas:
+### O que Já Funciona
 
-### 1. Tipos de Conteúdo Incompletos no Dialog de Automação
-**Problema:** O `AutomationDialog.tsx` usa uma lista estática `CONTENT_TYPES` com apenas 7 tipos:
-```typescript
-const CONTENT_TYPES = [
-  { value: 'social_post', label: 'Post Social' },
-  { value: 'carousel', label: 'Carrossel' },
-  { value: 'reels', label: 'Reels/Vídeo Curto' },
-  { value: 'stories', label: 'Stories' },
-  { value: 'thread', label: 'Thread' },
-  { value: 'newsletter', label: 'Newsletter' },
-  { value: 'blog', label: 'Blog Post' },
-];
-```
+| Componente | Status | Descrição |
+|------------|--------|-----------|
+| AutomationDialog | Funcional | 16 tipos de conteúdo, preview rico de RSS |
+| process-automations | Funcional | Teste manual, registro de runs, geração de conteúdo |
+| kai-content-agent | Funcional | Format rules, contexto do cliente, streaming |
+| format-rules.ts | Funcional | Regras para todos os formatos (tweet, thread, etc.) |
+| fetch-rss-feed | Funcional | Extração de imagens e conteúdo completo |
 
-**Faltam:** Tweet, Artigo no X, Post LinkedIn, Post Instagram, Vídeo Longo, etc.
+### Melhorias Necessárias
 
-O sistema já possui uma lista completa em `src/types/contentTypes.ts` com 16 tipos!
-
-### 2. Feedback Incompleto ao Testar Feed
-**Problema:** Quando o usuário testa o feed, só vê o título do último item. Deveria ver:
-- Lista de campos disponíveis (título, descrição, link, imagens)
-- Preview de 2-3 itens para escolher o que usar no prompt
-- URLs de imagens extraídas do conteúdo
-
-### 3. Geração de Conteúdo Não Segue Formato
-**Problema:** A edge function `process-automations` chama `kai-content-agent` mas:
-- Não passa o `format` correto (passa genérico)
-- Não informa a plataforma derivada do content_type
-- Não extrai imagens do RSS para usar no thread/carrossel
-
-### 4. Thread Sem Imagens do RSS
-**Problema:** Para threads/carrosséis, o RSS já traz `allImages` mas isso não é passado para:
-- O gerador de conteúdo (para saber quais imagens usar)
-- O card de planejamento (para já ter as imagens prontas)
+| Problema | Impacto | Solução |
+|----------|---------|---------|
+| Prompt padrão muito simples | Conteúdo genérico | Enriquecer prompt com contexto e exemplos |
+| Falta botão "Testar" na listagem | UX ruim | Adicionar ação rápida de teste na lista |
+| Falta Firecrawl para scraping | Links genéricos sem imagens | Usar Firecrawl para extrair conteúdo completo |
+| Logs detalhados não visíveis | Difícil debugar | Mostrar progresso no dialog de histórico |
+| Carousel parsing incompleto | Slides não estruturados | Adicionar parseCarouselFromContent |
 
 ---
 
-## Solução Técnica
+## Arquitetura do Fluxo
 
-### Mudança 1: Usar CONTENT_TYPE_OPTIONS do Sistema
-
-**Arquivo:** `src/components/planning/AutomationDialog.tsx`
-
-Substituir a lista estática `CONTENT_TYPES` pela importação do sistema:
-
-```typescript
-import { CONTENT_TYPE_OPTIONS, ContentTypeKey, CONTENT_TO_PLATFORM } from '@/types/contentTypes';
+```text
+┌─────────────────────────────────────────────────────────────────────────┐
+│                        FLUXO DE AUTOMAÇÃO                               │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│  1. GATILHO DETECTADO (RSS/Agenda/Webhook)                              │
+│     │                                                                   │
+│     ▼                                                                   │
+│  2. EXTRAÇÃO DE DADOS                                                   │
+│     ├── RSS: parseRSSFeed() → título, descrição, conteúdo, imagens     │
+│     ├── Link genérico: Firecrawl → markdown, imagens                   │
+│     └── YouTube: Atom feed → videoId, thumbnail, descrição             │
+│     │                                                                   │
+│     ▼                                                                   │
+│  3. SUBSTITUIÇÃO DE VARIÁVEIS                                           │
+│     {{title}} → "Como criar newsletters"                                │
+│     {{content}} → "O guia completo para..."                             │
+│     {{link}} → "https://newsletter.com/..."                             │
+│     {{images}} → "4 imagens disponíveis"                                │
+│     │                                                                   │
+│     ▼                                                                   │
+│  4. GERAÇÃO DE CONTEÚDO (kai-content-agent)                             │
+│     ├── Format rules aplicadas (thread, tweet, carousel)               │
+│     ├── Contexto do cliente (tom de voz, exemplos)                     │
+│     ├── Top performers como referência                                 │
+│     └── Validação contra checklist                                     │
+│     │                                                                   │
+│     ▼                                                                   │
+│  5. PARSING E ESTRUTURAÇÃO                                              │
+│     ├── Thread: parseThreadFromContent → tweets com imagens            │
+│     ├── Carousel: parseCarouselFromContent → slides com imagens        │
+│     └── Tweet: validação de 280 chars                                  │
+│     │                                                                   │
+│     ▼                                                                   │
+│  6. CRIAÇÃO DO CARD                                                     │
+│     ├── planning_items (título, conteúdo, metadata)                    │
+│     ├── media_urls (imagens do RSS)                                    │
+│     └── metadata.thread_tweets / carousel_slides                       │
+│     │                                                                   │
+│     ▼                                                                   │
+│  7. PUBLICAÇÃO AUTOMÁTICA (se habilitada)                               │
+│     └── late-post → Twitter/Instagram/LinkedIn                         │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
 ```
 
-E usar no Select com agrupamento por categoria:
+---
 
-```typescript
-<SelectContent>
-  {/* Twitter/X */}
-  <SelectGroup>
-    <SelectLabel>Twitter/X</SelectLabel>
-    <SelectItem value="tweet">Tweet</SelectItem>
-    <SelectItem value="thread">Thread</SelectItem>
-    <SelectItem value="x_article">Artigo no X</SelectItem>
-  </SelectGroup>
-  {/* LinkedIn */}
-  <SelectGroup>
-    <SelectLabel>LinkedIn</SelectLabel>
-    <SelectItem value="linkedin_post">Post LinkedIn</SelectItem>
-  </SelectGroup>
-  {/* Instagram */}
-  <SelectGroup>
-    <SelectLabel>Instagram</SelectLabel>
-    <SelectItem value="carousel">Carrossel</SelectItem>
-    <SelectItem value="stories">Stories</SelectItem>
-    <SelectItem value="instagram_post">Post Instagram</SelectItem>
-  </SelectGroup>
-  {/* E assim por diante... */}
-</SelectContent>
-```
+## Mudanças a Implementar
 
-### Mudança 2: Preview Rico ao Testar Feed
-
-**Arquivo:** `src/components/planning/AutomationDialog.tsx`
-
-Expandir a interface `FeedTestResult` e o componente de resultado:
-
-```typescript
-interface FeedTestResult {
-  success: boolean;
-  feedTitle?: string;
-  itemCount?: number;
-  latestItems?: Array<{
-    title: string;
-    description?: string;
-    link?: string;
-    pubDate?: string;
-    imageUrl?: string;
-    allImages?: string[];
-    content?: string;
-  }>;
-  availableFields?: string[];
-  error?: string;
-}
-```
-
-UI que mostra:
-- **Campos disponíveis:** `{{title}}`, `{{description}}`, `{{link}}`, `{{content}}`, `{{images}}`
-- **Preview dos últimos 3 itens** com expandir/colapsar
-- **Imagens detectadas** com contador e preview
-
-Texto de ajuda melhorado no prompt template:
-```
-Use {{title}}, {{description}}, {{link}}, {{content}} e {{images}} para incluir dados do RSS.
-Para threads com imagens: as imagens do RSS serão anexadas automaticamente aos tweets.
-```
-
-### Mudança 3: Edge Function com Geração de Qualidade
+### 1. Enriquecer Prompt Padrão com Contexto
 
 **Arquivo:** `supabase/functions/process-automations/index.ts`
 
-#### 3a. Mapear content_type para format correto
+O prompt atual é muito simples. Precisa incluir:
+- Tipo de conteúdo específico
+- Estrutura esperada
+- Contexto sobre imagens
+- Tom de voz do cliente
 
 ```typescript
-const FORMAT_MAP: Record<string, string> = {
-  'tweet': 'tweet',
-  'thread': 'thread',
-  'x_article': 'linkedin', // Similar a post longo
-  'linkedin_post': 'linkedin',
-  'carousel': 'carousel',
-  'stories': 'stories',
-  'instagram_post': 'post',
-  'static_image': 'post',
-  'short_video': 'reels',
-  'long_video': 'reels',
-  'newsletter': 'newsletter',
-  'blog_post': 'newsletter',
-  'social_post': 'post', // Legacy
-};
-```
-
-#### 3b. Chamar kai-content-agent com parâmetros completos
-
-```typescript
-const response = await fetch(`${supabaseUrl}/functions/v1/kai-content-agent`, {
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json',
-    'Authorization': `Bearer ${supabaseKey}`,
-  },
-  body: JSON.stringify({
-    clientId: automation.client_id,
-    workspaceId: automation.workspace_id,
-    request: prompt,
-    format: FORMAT_MAP[automation.content_type] || 'post',
-    platform: derivedPlatform,
-    stream: false, // Não precisamos de stream para processamento em background
-  }),
-});
-```
-
-#### 3c. Buscar RSS com conteúdo completo e imagens
-
-Quando o trigger for RSS, buscar os dados completos:
-
-```typescript
-if (automation.trigger_type === 'rss') {
-  const rssResult = await parseRSSFeed(automation.trigger_config.url);
-  const latestItem = rssResult[0];
+function buildEnrichedPrompt(
+  template: string, 
+  data: RSSItem | null, 
+  automation: PlanningAutomation,
+  contentType: string
+): string {
+  // Substituir variáveis básicas
+  let prompt = replaceTemplateVariables(template, data, automation.name);
   
-  triggerData = {
-    ...latestItem,
-    allImages: latestItem.allImages || [],
-  };
+  // Se template vazio, criar prompt padrão robusto
+  if (!template || template.trim().length < 20) {
+    const formatLabel = CONTENT_TYPE_LABELS[contentType] || contentType;
+    prompt = `TAREFA: Criar ${formatLabel} profissional
+
+CONTEÚDO BASE:
+Título: ${data?.title || automation.name}
+${data?.description ? `Resumo: ${data.description.substring(0, 500)}` : ''}
+${data?.link ? `Link original: ${data.link}` : ''}
+
+${data?.content ? `CONTEÚDO COMPLETO:\n${data.content.substring(0, 2000)}` : ''}
+
+INSTRUÇÕES:
+1. Siga RIGOROSAMENTE as regras do formato ${formatLabel}
+2. Mantenha o tom de voz e estilo do cliente
+3. Crie conteúdo PRONTO PARA PUBLICAR
+4. ${data?.allImages?.length ? `Use as ${data.allImages.length} imagens disponíveis nos pontos apropriados` : 'Não há imagens disponíveis'}`;
+  }
+  
+  // Adicionar contexto sobre imagens para formatos visuais
+  if (data?.allImages?.length && ['thread', 'carousel', 'instagram_post'].includes(contentType)) {
+    prompt += `\n\n📸 IMAGENS DISPONÍVEIS (${data.allImages.length}): As imagens do conteúdo original serão anexadas automaticamente. Faça referência a elas nos pontos relevantes.`;
+  }
+  
+  return prompt;
 }
 ```
 
-#### 3d. Incluir imagens do RSS no planning_item
-
-```typescript
-const mediaUrls = triggerData?.allImages?.slice(0, 4) || [];
-
-// Para threads, incluir as imagens nos tweets
-let initialThreadTweets = null;
-if (automation.content_type === 'thread' && mediaUrls.length > 0) {
-  // Preparar estrutura inicial de thread com imagens distribuídas
-  initialThreadTweets = mediaUrls.slice(0, 4).map((url, i) => ({
-    id: `tweet-${i + 1}`,
-    text: '',
-    media_urls: [url]
-  }));
-}
-
-const { data: newItem } = await supabase
-  .from('planning_items')
-  .insert({
-    // ... outros campos ...
-    media_urls: mediaUrls,
-    metadata: {
-      automation_id: automation.id,
-      source_url: triggerData?.link,
-      rss_images: mediaUrls,
-      thread_tweets: initialThreadTweets,
-    }
-  });
-```
-
-### Mudança 4: Atualizar kai-content-agent para RSS com Imagens
-
-**Arquivo:** `supabase/functions/kai-content-agent/format-rules.ts`
-
-Adicionar regras para Tweet individual:
-
-```typescript
-tweet: `
-## REGRAS OBRIGATÓRIAS PARA TWEET
-
-### ESTRUTURA
-- Máximo 280 caracteres
-- Uma mensagem clara e impactante
-- Hashtags no final (máx 2)
-
-### FORMATO DE ENTREGA
-\`\`\`
-[Texto do tweet - máx 280 chars]
-
-#hashtag1 #hashtag2
-\`\`\`
-
-### PROIBIÇÕES ABSOLUTAS
-- ❌ Exceder 280 caracteres
-- ❌ Mais de 2 hashtags
-- ❌ Linguagem corporativa
-
-### TÉCNICAS QUE FUNCIONAM
-- ✅ Gancho forte no início
-- ✅ Números específicos
-- ✅ Call to action no final
-`,
-```
-
-### Mudança 5: Prompt Template Melhorado
+### 2. Adicionar Parsing de Carrossel
 
 **Arquivo:** `supabase/functions/process-automations/index.ts`
 
-Melhorar a construção do prompt com variáveis extras:
+```typescript
+function parseCarouselFromContent(content: string): Array<{ 
+  id: string; 
+  text: string; 
+  media_urls: string[] 
+}> | null {
+  const slides: Array<{ id: string; text: string; media_urls: string[] }> = [];
+  
+  // Pattern 1: "Página 1:", "Página 2:", etc.
+  const pagePattern = /(?:^|\n)(?:Página|Slide)\s*(\d+)[:.]?\s*([\s\S]*?)(?=(?:\n(?:Página|Slide)\s*\d)|---|\n\nLEGENDA:|$)/gi;
+  let match;
+  
+  while ((match = pagePattern.exec(content)) !== null) {
+    slides.push({
+      id: `slide-${match[1]}`,
+      text: match[2].trim(),
+      media_urls: [],
+    });
+  }
+  
+  if (slides.length > 0) return slides;
+  
+  // Pattern 2: "---" separator
+  const parts = content.split(/\n---\n/);
+  if (parts.length > 1) {
+    parts.forEach((part, idx) => {
+      const text = part.trim();
+      if (text && !text.toLowerCase().startsWith('legenda')) {
+        slides.push({
+          id: `slide-${idx + 1}`,
+          text,
+          media_urls: [],
+        });
+      }
+    });
+    if (slides.length > 0) return slides;
+  }
+  
+  return null;
+}
+```
+
+### 3. Usar Firecrawl para Links Genéricos
+
+**Arquivo:** `supabase/functions/process-automations/index.ts`
+
+Quando o usuário passa um link que não é RSS (ex: artigo do Medium), usar Firecrawl:
 
 ```typescript
-let prompt = automation.prompt_template || '';
+async function scrapeContentFromUrl(url: string, supabaseUrl: string, supabaseKey: string): Promise<{
+  title: string;
+  content: string;
+  images: string[];
+} | null> {
+  try {
+    const response = await fetch(`${supabaseUrl}/functions/v1/firecrawl-scrape`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${supabaseKey}`,
+      },
+      body: JSON.stringify({ 
+        url,
+        options: { 
+          formats: ['markdown', 'links'],
+          onlyMainContent: true 
+        }
+      }),
+    });
+    
+    if (!response.ok) return null;
+    
+    const result = await response.json();
+    if (!result.success) return null;
+    
+    return {
+      title: result.data.metadata?.title || '',
+      content: result.data.markdown || '',
+      images: result.data.images || [],
+    };
+  } catch (error) {
+    console.error('Firecrawl error:', error);
+    return null;
+  }
+}
+```
 
-// Substituir variáveis de template
-const variables: Record<string, string> = {
-  '{{title}}': triggerData?.title || automation.name,
-  '{{description}}': triggerData?.description || '',
-  '{{link}}': triggerData?.link || '',
-  '{{content}}': triggerData?.content?.substring(0, 3000) || '',
-  '{{images}}': (triggerData?.allImages || []).length > 0 
-    ? `${triggerData.allImages.length} imagens disponíveis do conteúdo original`
-    : 'Sem imagens',
+### 4. Labels de Tipo de Conteúdo
+
+**Arquivo:** `supabase/functions/process-automations/index.ts`
+
+```typescript
+const CONTENT_TYPE_LABELS: Record<string, string> = {
+  'tweet': 'Tweet (máx 280 chars)',
+  'thread': 'Thread Twitter (5-10 tweets)',
+  'x_article': 'Artigo no X (longo, profundo)',
+  'linkedin_post': 'Post LinkedIn (profissional)',
+  'carousel': 'Carrossel Instagram (8-10 slides)',
+  'stories': 'Stories (5-7 stories)',
+  'instagram_post': 'Post Instagram (legenda + visual)',
+  'static_image': 'Post Estático (visual único)',
+  'short_video': 'Roteiro Reels/TikTok (30-60s)',
+  'long_video': 'Roteiro Vídeo Longo (5-15 min)',
+  'newsletter': 'Newsletter (estruturada)',
+  'blog_post': 'Blog Post (SEO-otimizado)',
+  'case_study': 'Estudo de Caso',
+  'report': 'Relatório',
 };
+```
 
-for (const [key, value] of Object.entries(variables)) {
-  prompt = prompt.replace(new RegExp(key.replace(/[{}]/g, '\\$&'), 'g'), value);
-}
+### 5. Melhorar AutomationsTab com Ação Rápida de Teste
 
-// Adicionar contexto sobre imagens se disponíveis
-if (triggerData?.allImages?.length > 0 && automation.content_type === 'thread') {
-  prompt += `\n\nIMPORTANTE: O conteúdo original possui ${triggerData.allImages.length} imagens. 
-Para a thread, referencie as imagens nos tweets apropriados. 
-As imagens serão anexadas automaticamente após a geração do texto.`;
-}
+**Arquivo:** `src/components/automations/AutomationsTab.tsx`
+
+Adicionar botão de "Testar Agora" diretamente na listagem:
+
+```typescript
+<DropdownMenuItem onClick={() => handleTestAutomation(automation.id)}>
+  <Play className="h-4 w-4 mr-2" />
+  Testar Agora
+</DropdownMenuItem>
+```
+
+Com feedback visual:
+
+```typescript
+const [testingId, setTestingId] = useState<string | null>(null);
+
+const handleTestAutomation = async (automationId: string) => {
+  setTestingId(automationId);
+  toast.info('Executando automação...');
+  
+  try {
+    const { data, error } = await supabase.functions.invoke('process-automations', {
+      body: { automationId }
+    });
+    
+    if (error) throw error;
+    
+    if (data.triggered > 0) {
+      toast.success('Automação executada! Card criado no planejamento.');
+    } else {
+      toast.info('Automação executada, mas nenhum card foi criado.');
+    }
+  } catch (err) {
+    toast.error('Erro ao executar automação');
+  } finally {
+    setTestingId(null);
+  }
+};
+```
+
+### 6. Dialog de Histórico com Detalhes
+
+**Arquivo:** `src/components/automations/AutomationHistoryDialog.tsx`
+
+Mostrar mais detalhes de cada execução:
+
+```typescript
+<DialogContent className="max-w-2xl">
+  {/* ... */}
+  {runs.map((run) => (
+    <div key={run.id} className="p-3 border rounded-lg space-y-2">
+      <div className="flex items-center justify-between">
+        <Badge variant={getStatusVariant(run.status)}>
+          {getStatusLabel(run.status)}
+        </Badge>
+        <span className="text-xs text-muted-foreground">
+          {formatDate(run.started_at)}
+        </span>
+      </div>
+      
+      {run.result && (
+        <p className="text-sm">{run.result}</p>
+      )}
+      
+      {run.error && (
+        <p className="text-sm text-red-500">{run.error}</p>
+      )}
+      
+      {run.trigger_data && (
+        <div className="text-xs text-muted-foreground">
+          <p>Fonte: {run.trigger_data.title}</p>
+          {run.trigger_data.images_count > 0 && (
+            <p>{run.trigger_data.images_count} imagens extraídas</p>
+          )}
+        </div>
+      )}
+      
+      {run.duration_ms && (
+        <p className="text-xs text-muted-foreground">
+          Duração: {(run.duration_ms / 1000).toFixed(1)}s
+        </p>
+      )}
+    </div>
+  ))}
+</DialogContent>
 ```
 
 ---
 
-## Fluxo Completo Atualizado
-
-```
-1. Usuário cria automação:
-   - Seleciona tipo de conteúdo (lista completa: tweet, thread, carousel, etc.)
-   - Testa RSS Feed → Vê preview rico com campos disponíveis
-   - Escreve prompt usando {{title}}, {{content}}, {{images}}, etc.
-   - Ativa auto-publish se desejar
-
-2. Trigger RSS detecta novo item:
-   - Extrai título, descrição, conteúdo completo
-   - Extrai TODAS as imagens do HTML
-   - Guarda tudo no trigger_data
-
-3. Process-automations executa:
-   - Cria run em planning_automation_runs
-   - Substitui variáveis no prompt template
-   - Chama kai-content-agent com format correto
-   
-4. kai-content-agent gera:
-   - Aplica regras específicas do formato
-   - Usa contexto do cliente (tom de voz, exemplos)
-   - Retorna conteúdo formatado
-   
-5. Para threads especificamente:
-   - Parseia tweets individuais
-   - Distribui imagens do RSS entre os tweets
-   - Salva thread_tweets no metadata
-   
-6. Planning item criado:
-   - Título, conteúdo gerado
-   - media_urls com imagens do RSS
-   - metadata.thread_tweets se for thread
-   
-7. Se auto_publish ativo:
-   - Chama late-post com content + media
-   - Atualiza status para published
-
-8. Card aparece no Kanban:
-   - Com conteúdo pronto
-   - Com imagens já anexadas
-   - Pronto para revisão ou já publicado
-```
-
----
-
-## Arquivos a Modificar
+## Resumo das Mudanças
 
 | Arquivo | Mudança |
 |---------|---------|
-| `src/components/planning/AutomationDialog.tsx` | Importar CONTENT_TYPE_OPTIONS, preview rico de RSS, variáveis de template |
-| `supabase/functions/process-automations/index.ts` | Format mapping, extração de imagens, substituição de variáveis, thread com imagens |
-| `supabase/functions/kai-content-agent/format-rules.ts` | Adicionar regras para Tweet individual |
+| `supabase/functions/process-automations/index.ts` | Prompt enriquecido, parsing de carousel, labels de tipo |
+| `src/components/automations/AutomationsTab.tsx` | Botão de teste rápido na listagem |
+| `src/components/automations/AutomationHistoryDialog.tsx` | Exibir detalhes completos das execuções |
+| `supabase/functions/kai-content-agent/format-rules.ts` | Ajustes nos mapeamentos (se necessário) |
 
 ---
 
 ## Resultado Esperado
 
-1. **16 tipos de conteúdo** disponíveis na automação (incluindo Tweet)
-2. **Preview rico do RSS** mostrando campos disponíveis e imagens detectadas
-3. **Variáveis de template** completas: `{{title}}`, `{{description}}`, `{{link}}`, `{{content}}`, `{{images}}`
-4. **Geração de qualidade** com format rules aplicados corretamente
-5. **Threads com imagens** do RSS já distribuídas entre os tweets
-6. **Carrosséis com imagens** prontas para uso
-7. **Conteúdo pronto para publicar** sem necessidade de edição manual
+1. **Prompt inteligente**: Quando o template está vazio ou simples, sistema cria prompt completo automaticamente
+2. **Parsing de carousel**: Slides estruturados com imagens distribuídas
+3. **Teste rápido**: Um clique para testar qualquer automação
+4. **Histórico detalhado**: Ver exatamente o que aconteceu em cada execução
+5. **Conteúdo de qualidade**: Format rules aplicadas corretamente com contexto do cliente
+6. **Imagens automáticas**: Threads e carrosséis com imagens do RSS já distribuídas
 
+---
+
+## Testes Recomendados
+
+Após implementação, testar:
+
+1. **Thread com RSS**: Criar automação RSS → Thread → Verificar se tweets têm imagens
+2. **Carousel com imagens**: Criar automação → Carousel → Verificar slides estruturados
+3. **Tweet simples**: Verificar limite de 280 chars respeitado
+4. **Template vazio**: Testar com prompt template vazio → deve gerar prompt inteligente
+5. **Histórico**: Executar e verificar detalhes no dialog de histórico
