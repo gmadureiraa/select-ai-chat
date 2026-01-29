@@ -124,7 +124,7 @@ export const VirtualizedKanbanColumn = memo(function VirtualizedKanbanColumn({
       className={cn(
         "flex-shrink-0 bg-card/40 backdrop-blur-sm rounded-xl border border-border/40 flex flex-col",
         "transition-all duration-200",
-        !className && "w-72",
+        !className && "w-80",
         className,
         isDropTarget && "ring-2 ring-primary/40 bg-primary/5 scale-[1.01] shadow-lg"
       )}
@@ -212,7 +212,7 @@ export const VirtualizedKanbanColumn = memo(function VirtualizedKanbanColumn({
                     onRetry={onRetry}
                     onDuplicate={onDuplicate}
                     isDragging={draggedItemId === item.id}
-                    compact
+                    compact={false}
                     canDelete={canDelete}
                   />
                 </div>

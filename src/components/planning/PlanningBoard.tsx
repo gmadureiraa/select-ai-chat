@@ -314,7 +314,7 @@ export function PlanningBoard({ clientId, isEnterprise = false, onClientChange }
                   onMoveToLibrary={(id) => moveToLibrary.mutate(id)}
                   onRetry={(id) => retryPublication.mutate(id)}
                   onDuplicate={handleDuplicate}
-                  compact
+                  compact={false}
                   canDelete={!isViewer}
                 />
               ))
