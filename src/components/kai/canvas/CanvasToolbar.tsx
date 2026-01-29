@@ -340,7 +340,7 @@ function CanvasToolbarComponent({
 
   return (
     <TooltipProvider delayDuration={300}>
-      <div className="absolute top-14 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1.5 px-4 py-2.5 rounded-2xl bg-background/90 backdrop-blur-2xl saturate-200 border border-border/60 shadow-xl shadow-black/10 dark:shadow-black/30">
+      <div className="absolute top-14 left-1/2 -translate-x-1/2 z-[55] flex items-center gap-1.5 px-4 py-2.5 rounded-2xl bg-background/90 backdrop-blur-2xl saturate-200 border border-border/60 shadow-xl shadow-black/10 dark:shadow-black/30">
         {/* Canvas name */}
         <div className="flex items-center gap-1 mr-1">
           {isEditing ? (
