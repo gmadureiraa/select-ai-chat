@@ -85,6 +85,25 @@ const PLATFORM_MAP: Record<string, string> = {
   'blog_post': 'blog',
 };
 
+// Content type labels for enriched prompts
+const CONTENT_TYPE_LABELS: Record<string, string> = {
+  'tweet': 'Tweet (máx 280 caracteres)',
+  'thread': 'Thread Twitter (5-10 tweets conectados)',
+  'x_article': 'Artigo no X (conteúdo longo e profundo)',
+  'linkedin_post': 'Post LinkedIn (profissional e informativo)',
+  'carousel': 'Carrossel Instagram (8-10 slides visuais)',
+  'stories': 'Stories (5-7 stories sequenciais)',
+  'instagram_post': 'Post Instagram (legenda + visual impactante)',
+  'static_image': 'Post Estático (visual único com legenda)',
+  'short_video': 'Roteiro Reels/TikTok (30-60 segundos)',
+  'long_video': 'Roteiro Vídeo Longo (5-15 minutos)',
+  'newsletter': 'Newsletter (estruturada com seções)',
+  'blog_post': 'Blog Post (SEO-otimizado)',
+  'case_study': 'Estudo de Caso (análise detalhada)',
+  'report': 'Relatório (dados e insights)',
+  'social_post': 'Post Social (genérico)',
+};
+
 // Extract images from HTML content
 function extractImagesFromHTML(html: string): string[] {
   const images: string[] = [];
@@ -233,7 +252,7 @@ async function checkRSSTrigger(
 
 // Replace template variables in prompt
 function replaceTemplateVariables(template: string, data: RSSItem | null, automationName: string): string {
-  if (!template) return `Crie conteúdo para: ${automationName}`;
+  if (!template) return '';
   
   let prompt = template;
   
@@ -250,6 +269,65 @@ function replaceTemplateVariables(template: string, data: RSSItem | null, automa
   for (const [key, value] of Object.entries(variables)) {
     const regex = new RegExp(key.replace(/[{}]/g, '\\$&'), 'g');
     prompt = prompt.replace(regex, value);
+  }
+  
+  return prompt;
+}
+
+// Build enriched prompt with context when template is empty or simple
+function buildEnrichedPrompt(
+  template: string | null,
+  data: RSSItem | null,
+  automation: PlanningAutomation,
+  contentType: string,
+  mediaUrls: string[]
+): string {
+  // First, replace template variables if we have a template
+  let prompt = replaceTemplateVariables(template || '', data, automation.name);
+  
+  const formatLabel = CONTENT_TYPE_LABELS[contentType] || contentType;
+  
+  // If template is empty or too simple, create a robust default prompt
+  if (!template || template.trim().length < 20) {
+    const cleanDescription = data?.description?.replace(/<[^>]*>/g, '').substring(0, 500) || '';
+    const cleanContent = data?.content?.replace(/<[^>]*>/g, '').substring(0, 2500) || '';
+    
+    prompt = `TAREFA: Criar ${formatLabel} profissional e pronto para publicar.
+
+📌 CONTEÚDO BASE:
+Título: ${data?.title || automation.name}
+${cleanDescription ? `Resumo: ${cleanDescription}` : ''}
+${data?.link ? `Link original: ${data.link}` : ''}
+
+${cleanContent ? `📄 CONTEÚDO COMPLETO:\n${cleanContent}` : ''}
+
+📋 INSTRUÇÕES:
+1. Siga RIGOROSAMENTE as regras do formato "${formatLabel}"
+2. Mantenha o tom de voz e estilo do cliente
+3. Crie conteúdo PRONTO PARA PUBLICAR - sem placeholders ou instruções
+4. Use linguagem natural e envolvente
+5. ${mediaUrls.length > 0 ? `Há ${mediaUrls.length} imagens disponíveis - faça referência a elas onde apropriado` : 'Não há imagens disponíveis'}
+
+🎯 RESULTADO ESPERADO:
+Conteúdo final completo, formatado e pronto para publicar como ${formatLabel}.`;
+  }
+  
+  // Add image context for visual formats
+  if (mediaUrls.length > 0 && ['thread', 'carousel', 'instagram_post', 'stories'].includes(contentType)) {
+    prompt += `\n\n📸 IMAGENS DISPONÍVEIS (${mediaUrls.length}): As imagens do conteúdo original serão anexadas automaticamente. Faça referência a elas nos pontos relevantes do conteúdo.`;
+  }
+  
+  // Add format-specific tips
+  switch (contentType) {
+    case 'tweet':
+      prompt += `\n\n⚠️ LIMITE ABSOLUTO: máximo 280 caracteres. Use gancho forte no início.`;
+      break;
+    case 'thread':
+      prompt += `\n\n⚠️ FORMATO: Numere cada tweet (1/, 2/, etc). Máximo 280 chars por tweet. Gancho forte no primeiro.`;
+      break;
+    case 'carousel':
+      prompt += `\n\n⚠️ FORMATO: Use "Página 1:", "Página 2:", etc. Máximo 30 palavras por slide. 8-10 slides idealmente.`;
+      break;
   }
   
   return prompt;
@@ -306,6 +384,111 @@ function parseThreadFromContent(content: string): Array<{ id: string; text: stri
   }
   
   return null;
+}
+
+// Parse carousel from generated content
+function parseCarouselFromContent(content: string): Array<{ id: string; text: string; media_urls: string[] }> | null {
+  const slides: Array<{ id: string; text: string; media_urls: string[] }> = [];
+  
+  // Pattern 1: "Página 1:", "Slide 1:", etc.
+  const pagePattern = /(?:^|\n)(?:Página|Slide|Capa)\s*(\d+)?[:.]?\s*([\s\S]*?)(?=(?:\n(?:Página|Slide|Capa)\s*\d?[:.])|\n---|\n\nLEGENDA:|$)/gi;
+  let match;
+  let slideIndex = 0;
+  
+  while ((match = pagePattern.exec(content)) !== null) {
+    slideIndex++;
+    const text = match[2].trim();
+    if (text && !text.toLowerCase().startsWith('legenda')) {
+      slides.push({
+        id: `slide-${match[1] || slideIndex}`,
+        text,
+        media_urls: [],
+      });
+    }
+  }
+  
+  if (slides.length > 0) return slides;
+  
+  // Pattern 2: "---" separator
+  const parts = content.split(/\n---\n/);
+  if (parts.length > 1) {
+    parts.forEach((part, idx) => {
+      const text = part.trim();
+      // Skip if it looks like a caption/legenda section
+      if (text && !text.toLowerCase().startsWith('legenda') && !text.toLowerCase().includes('legenda para')) {
+        slides.push({
+          id: `slide-${idx + 1}`,
+          text,
+          media_urls: [],
+        });
+      }
+    });
+    if (slides.length > 0) return slides;
+  }
+  
+  // Pattern 3: Numbered lines (1. , 2. , etc)
+  const numberedPattern = /(?:^|\n)(\d+)\.\s+([\s\S]*?)(?=(?:\n\d+\.)|$)/g;
+  
+  while ((match = numberedPattern.exec(content)) !== null) {
+    const text = match[2].trim();
+    if (text) {
+      slides.push({
+        id: `slide-${match[1]}`,
+        text,
+        media_urls: [],
+      });
+    }
+  }
+  
+  if (slides.length >= 3) return slides; // Only return if we have at least 3 slides
+  
+  return null;
+}
+
+// Scrape content from URL using Firecrawl (for non-RSS links)
+async function scrapeContentFromUrl(
+  url: string, 
+  supabaseUrl: string, 
+  supabaseKey: string
+): Promise<{ title: string; content: string; images: string[] } | null> {
+  try {
+    const response = await fetch(`${supabaseUrl}/functions/v1/firecrawl-scrape`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${supabaseKey}`,
+      },
+      body: JSON.stringify({ 
+        url,
+        options: { 
+          formats: ['markdown', 'links'],
+          onlyMainContent: true 
+        }
+      }),
+    });
+    
+    if (!response.ok) {
+      console.log(`Firecrawl returned ${response.status} for ${url}`);
+      return null;
+    }
+    
+    const result = await response.json();
+    if (!result.success) {
+      console.log(`Firecrawl failed for ${url}:`, result.error);
+      return null;
+    }
+    
+    const data = result.data || result;
+    
+    return {
+      title: data.metadata?.title || '',
+      content: data.markdown || '',
+      images: data.images || [],
+    };
+  } catch (error) {
+    console.error('Firecrawl error:', error);
+    return null;
+  }
 }
 
 serve(async (req) => {
@@ -515,20 +698,16 @@ serve(async (req) => {
           try {
             console.log(`Generating content for item ${newItem.id} with format: ${format}...`);
             
-            // Replace template variables
-            const prompt = replaceTemplateVariables(
-              automation.prompt_template || '',
+            // Build enriched prompt with full context
+            const enrichedPrompt = buildEnrichedPrompt(
+              automation.prompt_template,
               triggerData,
-              automation.name
+              automation,
+              automation.content_type,
+              mediaUrls
             );
-            
-            // Add context about images for threads/carousels
-            let enrichedPrompt = prompt;
-            if (mediaUrls.length > 0 && (automation.content_type === 'thread' || automation.content_type === 'carousel')) {
-              enrichedPrompt += `\n\n📸 IMAGENS DISPONÍVEIS: O conteúdo original possui ${mediaUrls.length} imagens que serão anexadas automaticamente. Faça referência a elas nos pontos apropriados do conteúdo.`;
-            }
 
-            console.log(`Prompt for AI: ${enrichedPrompt.substring(0, 200)}...`);
+            console.log(`Enriched prompt (${enrichedPrompt.length} chars): ${enrichedPrompt.substring(0, 300)}...`);
 
             const response = await fetch(`${supabaseUrl}/functions/v1/kai-content-agent`, {
               method: 'POST',
@@ -548,7 +727,7 @@ serve(async (req) => {
 
             if (response.ok) {
               const contentResult = await response.json();
-            if (contentResult.content) {
+              if (contentResult.content) {
                 generatedContent = contentResult.content;
                 console.log(`Content generated (${generatedContent!.length} chars)`);
                 
@@ -576,6 +755,30 @@ serve(async (req) => {
                     
                     updatedMetadata.thread_tweets = threadTweets;
                     console.log(`Parsed ${threadTweets.length} tweets with distributed images`);
+                  }
+                }
+                
+                // For carousels, parse and structure the slides with images
+                if (automation.content_type === 'carousel' && generatedContent) {
+                  const carouselSlides = parseCarouselFromContent(generatedContent);
+                  if (carouselSlides && carouselSlides.length > 0) {
+                    // Distribute images across slides
+                    if (mediaUrls.length > 0) {
+                      const imagesPerSlide = Math.ceil(mediaUrls.length / Math.min(carouselSlides.length, mediaUrls.length));
+                      let imageIndex = 0;
+                      
+                      for (let i = 0; i < carouselSlides.length && imageIndex < mediaUrls.length; i++) {
+                        const slideImages: string[] = [];
+                        for (let j = 0; j < imagesPerSlide && imageIndex < mediaUrls.length; j++) {
+                          slideImages.push(mediaUrls[imageIndex]);
+                          imageIndex++;
+                        }
+                        carouselSlides[i].media_urls = slideImages;
+                      }
+                    }
+                    
+                    updatedMetadata.carousel_slides = carouselSlides;
+                    console.log(`Parsed ${carouselSlides.length} carousel slides with distributed images`);
                   }
                 }
                 
