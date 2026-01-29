@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Zap, Calendar, Rss, Webhook, MoreVertical, Pause, Play, Trash2, Pencil, TestTube2, History, AlertCircle } from 'lucide-react';
+import { Plus, Zap, Calendar, Rss, Webhook, MoreVertical, Pause, Play, Trash2, Pencil, TestTube2, History, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -8,6 +8,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
@@ -28,6 +29,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { supabase } from '@/integrations/supabase/client';
 
 const triggerIcons = {
   schedule: Calendar,
@@ -41,6 +43,22 @@ const triggerLabels = {
   webhook: 'Webhook',
 };
 
+const contentTypeLabels: Record<string, string> = {
+  'tweet': 'Tweet',
+  'thread': 'Thread',
+  'x_article': 'Artigo X',
+  'linkedin_post': 'LinkedIn',
+  'carousel': 'Carrossel',
+  'stories': 'Stories',
+  'instagram_post': 'Instagram',
+  'static_image': 'Imagem',
+  'short_video': 'Reels',
+  'long_video': 'Vídeo',
+  'newsletter': 'Newsletter',
+  'blog_post': 'Blog',
+  'social_post': 'Post',
+};
+
 export function AutomationsTab() {
   const { automations, isLoading, toggleAutomation, deleteAutomation, triggerAutomation } = usePlanningAutomations();
   const { clients } = useClients();
@@ -48,6 +66,7 @@ export function AutomationsTab() {
   const [editingAutomation, setEditingAutomation] = useState<PlanningAutomation | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [testingId, setTestingId] = useState<string | null>(null);
 
   const handleEdit = (automation: PlanningAutomation) => {
     setEditingAutomation(automation);
@@ -72,8 +91,29 @@ export function AutomationsTab() {
   };
 
   const handleTest = async (automation: PlanningAutomation) => {
-    toast.info(`Testando automação "${automation.name}"...`);
-    triggerAutomation.mutate(automation.id);
+    if (testingId) return; // Already testing
+    
+    setTestingId(automation.id);
+    toast.info(`Executando "${automation.name}"...`, { duration: 3000 });
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('process-automations', {
+        body: { automationId: automation.id }
+      });
+
+      if (error) throw error;
+
+      if (data.triggered > 0) {
+        toast.success(`Automação executada! Card criado no planejamento.`, { duration: 5000 });
+      } else {
+        toast.info(`Automação executada, mas nenhum card foi criado.`, { duration: 4000 });
+      }
+    } catch (err) {
+      console.error('Error testing automation:', err);
+      toast.error('Erro ao executar automação. Verifique os logs.');
+    } finally {
+      setTestingId(null);
+    }
   };
 
   const getClientName = (clientId: string | null) => {
@@ -201,6 +241,7 @@ export function AutomationsTab() {
                 onTest={handleTest}
                 getClientName={getClientName}
                 getTriggerDescription={getTriggerDescription}
+                isTesting={testingId === automation.id}
               />
             ))}
           </CardContent>
@@ -227,6 +268,7 @@ export function AutomationsTab() {
                 onTest={handleTest}
                 getClientName={getClientName}
                 getTriggerDescription={getTriggerDescription}
+                isTesting={testingId === automation.id}
               />
             ))}
           </CardContent>
@@ -290,6 +332,7 @@ interface AutomationCardProps {
   onTest: (automation: PlanningAutomation) => void;
   getClientName: (clientId: string | null) => string;
   getTriggerDescription: (automation: PlanningAutomation) => string;
+  isTesting?: boolean;
 }
 
 function AutomationCard({
@@ -300,8 +343,10 @@ function AutomationCard({
   onTest,
   getClientName,
   getTriggerDescription,
+  isTesting,
 }: AutomationCardProps) {
   const TriggerIcon = triggerIcons[automation.trigger_type];
+  const contentLabel = contentTypeLabels[automation.content_type] || automation.content_type;
   
   return (
     <div
@@ -327,8 +372,11 @@ function AutomationCard({
             <Badge variant={automation.is_active ? 'default' : 'secondary'}>
               {automation.is_active ? 'Ativa' : 'Pausada'}
             </Badge>
+            <Badge variant="outline" className="text-xs">
+              {contentLabel}
+            </Badge>
             {automation.auto_generate_content && (
-              <Badge variant="outline" className="text-xs">IA</Badge>
+              <Badge variant="outline" className="text-xs bg-purple-500/10 text-purple-600 border-purple-500/30">IA</Badge>
             )}
             {(automation as any).auto_publish && (
               <Badge variant="outline" className="text-xs bg-green-500/10 text-green-600 border-green-500/30">
@@ -372,10 +420,15 @@ function AutomationCard({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => onTest(automation)}>
-              <TestTube2 className="h-4 w-4 mr-2" />
-              Testar Agora
+            <DropdownMenuItem onClick={() => onTest(automation)} disabled={isTesting}>
+              {isTesting ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <TestTube2 className="h-4 w-4 mr-2" />
+              )}
+              {isTesting ? 'Executando...' : 'Testar Agora'}
             </DropdownMenuItem>
+            <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => onEdit(automation)}>
               <Pencil className="h-4 w-4 mr-2" />
               Editar
