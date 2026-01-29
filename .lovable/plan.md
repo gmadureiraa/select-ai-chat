@@ -1,247 +1,344 @@
 
-# Plano: Sistema de Automações 100% Funcional
 
-## Diagnóstico Atual
+# Plano: Sistema de Automações Completo e Robusto
 
-Analisando o código existente, identifiquei os seguintes pontos que precisam ser ajustados:
+## Visão Geral dos Problemas Identificados
 
-### O que Funciona
+Após análise detalhada do código, identifiquei os seguintes problemas:
 
-| Componente | Status |
-|------------|--------|
-| AutomationsTab (UI) | Funcional |
-| AutomationDialog | Funcional |
-| usePlanningAutomations hook | Funcional |
-| Edge function process-automations | Parcialmente funcional |
-| Tabela planning_automations | Funcional |
+### 1. Tipos de Conteúdo Incompletos no Dialog de Automação
+**Problema:** O `AutomationDialog.tsx` usa uma lista estática `CONTENT_TYPES` com apenas 7 tipos:
+```typescript
+const CONTENT_TYPES = [
+  { value: 'social_post', label: 'Post Social' },
+  { value: 'carousel', label: 'Carrossel' },
+  { value: 'reels', label: 'Reels/Vídeo Curto' },
+  { value: 'stories', label: 'Stories' },
+  { value: 'thread', label: 'Thread' },
+  { value: 'newsletter', label: 'Newsletter' },
+  { value: 'blog', label: 'Blog Post' },
+];
+```
 
-### O que Precisa Ser Corrigido
+**Faltam:** Tweet, Artigo no X, Post LinkedIn, Post Instagram, Vídeo Longo, etc.
 
-| Problema | Impacto |
-|----------|---------|
-| `process-automations` não suporta `automationId` para teste manual | Botão "Testar Agora" não funciona |
-| `AutomationHistoryDialog` consulta tabela errada | Histórico mostra dados de outra tabela |
-| Não há registro de runs das automações de planejamento | Sem histórico de execuções |
-| Falta tabela `planning_automation_runs` | Não há onde armazenar o histórico |
+O sistema já possui uma lista completa em `src/types/contentTypes.ts` com 16 tipos!
+
+### 2. Feedback Incompleto ao Testar Feed
+**Problema:** Quando o usuário testa o feed, só vê o título do último item. Deveria ver:
+- Lista de campos disponíveis (título, descrição, link, imagens)
+- Preview de 2-3 itens para escolher o que usar no prompt
+- URLs de imagens extraídas do conteúdo
+
+### 3. Geração de Conteúdo Não Segue Formato
+**Problema:** A edge function `process-automations` chama `kai-content-agent` mas:
+- Não passa o `format` correto (passa genérico)
+- Não informa a plataforma derivada do content_type
+- Não extrai imagens do RSS para usar no thread/carrossel
+
+### 4. Thread Sem Imagens do RSS
+**Problema:** Para threads/carrosséis, o RSS já traz `allImages` mas isso não é passado para:
+- O gerador de conteúdo (para saber quais imagens usar)
+- O card de planejamento (para já ter as imagens prontas)
 
 ---
 
-## Solução
+## Solução Técnica
 
-### 1. Criar Tabela de Histórico de Execuções
+### Mudança 1: Usar CONTENT_TYPE_OPTIONS do Sistema
 
-```sql
-CREATE TABLE planning_automation_runs (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  automation_id UUID REFERENCES planning_automations(id) ON DELETE CASCADE,
-  workspace_id UUID NOT NULL REFERENCES workspaces(id),
-  status TEXT NOT NULL DEFAULT 'running',
-  result TEXT,
-  error TEXT,
-  items_created INTEGER DEFAULT 0,
-  started_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  completed_at TIMESTAMPTZ,
-  duration_ms INTEGER,
-  trigger_data JSONB
-);
+**Arquivo:** `src/components/planning/AutomationDialog.tsx`
 
-ALTER TABLE planning_automation_runs ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "Users can view runs from their workspace"
-  ON planning_automation_runs FOR SELECT
-  USING (is_member_of_workspace(auth.uid(), workspace_id));
-```
-
-### 2. Atualizar Edge Function `process-automations`
-
-**Mudanças:**
-
-1. Suportar parâmetro `automationId` para executar uma automação específica (teste manual)
-2. Registrar cada execução na nova tabela `planning_automation_runs`
-3. Melhorar logging e tratamento de erros
-
-```text
-// Fluxo atualizado:
-
-1. Recebe request (com ou sem automationId)
-         ↓
-2. Se automationId: busca só essa automação
-   Senão: busca todas as ativas
-         ↓
-3. Para cada automação:
-   a. Cria registro em planning_automation_runs (status: running)
-   b. Executa a lógica do gatilho
-   c. Cria card no planejamento
-   d. Gera conteúdo (se configurado)
-   e. Publica automaticamente (se configurado)
-   f. Atualiza planning_automation_runs (status: completed/failed)
-```
-
-### 3. Atualizar AutomationHistoryDialog
-
-**Mudança:** Consultar `planning_automation_runs` em vez de `automation_runs`
+Substituir a lista estática `CONTENT_TYPES` pela importação do sistema:
 
 ```typescript
-// ANTES (errado):
-.from('automation_runs')
-.select(`*, automations!automation_runs_automation_id_fkey (name)`)
-
-// DEPOIS (correto):
-.from('planning_automation_runs')
-.select(`*, planning_automations!planning_automation_runs_automation_id_fkey (name)`)
+import { CONTENT_TYPE_OPTIONS, ContentTypeKey, CONTENT_TO_PLATFORM } from '@/types/contentTypes';
 ```
 
-### 4. Adicionar Botão para Testar RSS Feed
-
-Permitir que o usuário teste a URL do RSS antes de salvar a automação.
-
-```text
-┌───────────────────────────────────────────────────────────────┐
-│  URL do RSS Feed:                                             │
-│  ┌─────────────────────────────────────────────────────────┐  │
-│  │ https://www.youtube.com/feeds/videos.xml?channel_id=... │  │
-│  └─────────────────────────────────────────────────────────┘  │
-│  [Testar Feed] ← Novo botão                                   │
-│                                                               │
-│  ✓ Feed válido: 15 itens encontrados                          │
-│  Último: "Como criar conteúdo em escala" (há 2 dias)          │
-└───────────────────────────────────────────────────────────────┘
-```
-
----
-
-## Arquivos a Criar/Modificar
-
-| Arquivo | Ação | Descrição |
-|---------|------|-----------|
-| `supabase/migrations/...` | Criar | Tabela `planning_automation_runs` |
-| `supabase/functions/process-automations/index.ts` | Modificar | Suporte a teste manual + registro de runs |
-| `src/components/automations/AutomationHistoryDialog.tsx` | Modificar | Query para tabela correta |
-| `src/components/planning/AutomationDialog.tsx` | Modificar | Botão para testar RSS feed |
-| `supabase/config.toml` | Modificar | Adicionar verify_jwt = false para fetch-rss-feed |
-
----
-
-## Detalhes Técnicos
-
-### Edge Function - Suporte a Teste Manual
+E usar no Select com agrupamento por categoria:
 
 ```typescript
-// Recebe body opcional
-const body = await req.json().catch(() => ({}));
-const { automationId } = body;
+<SelectContent>
+  {/* Twitter/X */}
+  <SelectGroup>
+    <SelectLabel>Twitter/X</SelectLabel>
+    <SelectItem value="tweet">Tweet</SelectItem>
+    <SelectItem value="thread">Thread</SelectItem>
+    <SelectItem value="x_article">Artigo no X</SelectItem>
+  </SelectGroup>
+  {/* LinkedIn */}
+  <SelectGroup>
+    <SelectLabel>LinkedIn</SelectLabel>
+    <SelectItem value="linkedin_post">Post LinkedIn</SelectItem>
+  </SelectGroup>
+  {/* Instagram */}
+  <SelectGroup>
+    <SelectLabel>Instagram</SelectLabel>
+    <SelectItem value="carousel">Carrossel</SelectItem>
+    <SelectItem value="stories">Stories</SelectItem>
+    <SelectItem value="instagram_post">Post Instagram</SelectItem>
+  </SelectGroup>
+  {/* E assim por diante... */}
+</SelectContent>
+```
 
-// Se automationId fornecido, busca só essa
-let query = supabase.from('planning_automations').select('*');
+### Mudança 2: Preview Rico ao Testar Feed
 
-if (automationId) {
-  query = query.eq('id', automationId);
-} else {
-  query = query.eq('is_active', true);
-}
+**Arquivo:** `src/components/planning/AutomationDialog.tsx`
 
-const { data: automations } = await query;
+Expandir a interface `FeedTestResult` e o componente de resultado:
 
-// Para teste manual, força execução mesmo se já disparou hoje
-if (automationId) {
-  // Ignora verificação de last_triggered_at
-  shouldTrigger = true;
+```typescript
+interface FeedTestResult {
+  success: boolean;
+  feedTitle?: string;
+  itemCount?: number;
+  latestItems?: Array<{
+    title: string;
+    description?: string;
+    link?: string;
+    pubDate?: string;
+    imageUrl?: string;
+    allImages?: string[];
+    content?: string;
+  }>;
+  availableFields?: string[];
+  error?: string;
 }
 ```
 
-### Registro de Runs
+UI que mostra:
+- **Campos disponíveis:** `{{title}}`, `{{description}}`, `{{link}}`, `{{content}}`, `{{images}}`
+- **Preview dos últimos 3 itens** com expandir/colapsar
+- **Imagens detectadas** com contador e preview
 
-```typescript
-// Criar run no início
-const { data: run } = await supabase
-  .from('planning_automation_runs')
-  .insert({
-    automation_id: automation.id,
-    workspace_id: automation.workspace_id,
-    status: 'running',
-    started_at: new Date().toISOString(),
-  })
-  .select()
-  .single();
-
-// Atualizar no final
-await supabase
-  .from('planning_automation_runs')
-  .update({
-    status: error ? 'failed' : 'completed',
-    error: error?.message,
-    result: `Criado: ${itemTitle}`,
-    items_created: 1,
-    completed_at: new Date().toISOString(),
-    duration_ms: Date.now() - startTime,
-  })
-  .eq('id', run.id);
+Texto de ajuda melhorado no prompt template:
+```
+Use {{title}}, {{description}}, {{link}}, {{content}} e {{images}} para incluir dados do RSS.
+Para threads com imagens: as imagens do RSS serão anexadas automaticamente aos tweets.
 ```
 
-### Teste de RSS Feed no Dialog
+### Mudança 3: Edge Function com Geração de Qualidade
+
+**Arquivo:** `supabase/functions/process-automations/index.ts`
+
+#### 3a. Mapear content_type para format correto
 
 ```typescript
-const handleTestFeed = async () => {
-  setTesting(true);
-  try {
-    const { data, error } = await supabase.functions.invoke('fetch-rss-feed', {
-      body: { rssUrl, limit: 5 }
-    });
-    
-    if (error) throw error;
-    
-    setFeedResult({
-      success: true,
-      feedTitle: data.feedTitle,
-      itemCount: data.totalItems,
-      latestItem: data.items[0],
-    });
-  } catch (err) {
-    setFeedResult({ success: false, error: err.message });
-  }
-  setTesting(false);
+const FORMAT_MAP: Record<string, string> = {
+  'tweet': 'tweet',
+  'thread': 'thread',
+  'x_article': 'linkedin', // Similar a post longo
+  'linkedin_post': 'linkedin',
+  'carousel': 'carousel',
+  'stories': 'stories',
+  'instagram_post': 'post',
+  'static_image': 'post',
+  'short_video': 'reels',
+  'long_video': 'reels',
+  'newsletter': 'newsletter',
+  'blog_post': 'newsletter',
+  'social_post': 'post', // Legacy
 };
 ```
+
+#### 3b. Chamar kai-content-agent com parâmetros completos
+
+```typescript
+const response = await fetch(`${supabaseUrl}/functions/v1/kai-content-agent`, {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${supabaseKey}`,
+  },
+  body: JSON.stringify({
+    clientId: automation.client_id,
+    workspaceId: automation.workspace_id,
+    request: prompt,
+    format: FORMAT_MAP[automation.content_type] || 'post',
+    platform: derivedPlatform,
+    stream: false, // Não precisamos de stream para processamento em background
+  }),
+});
+```
+
+#### 3c. Buscar RSS com conteúdo completo e imagens
+
+Quando o trigger for RSS, buscar os dados completos:
+
+```typescript
+if (automation.trigger_type === 'rss') {
+  const rssResult = await parseRSSFeed(automation.trigger_config.url);
+  const latestItem = rssResult[0];
+  
+  triggerData = {
+    ...latestItem,
+    allImages: latestItem.allImages || [],
+  };
+}
+```
+
+#### 3d. Incluir imagens do RSS no planning_item
+
+```typescript
+const mediaUrls = triggerData?.allImages?.slice(0, 4) || [];
+
+// Para threads, incluir as imagens nos tweets
+let initialThreadTweets = null;
+if (automation.content_type === 'thread' && mediaUrls.length > 0) {
+  // Preparar estrutura inicial de thread com imagens distribuídas
+  initialThreadTweets = mediaUrls.slice(0, 4).map((url, i) => ({
+    id: `tweet-${i + 1}`,
+    text: '',
+    media_urls: [url]
+  }));
+}
+
+const { data: newItem } = await supabase
+  .from('planning_items')
+  .insert({
+    // ... outros campos ...
+    media_urls: mediaUrls,
+    metadata: {
+      automation_id: automation.id,
+      source_url: triggerData?.link,
+      rss_images: mediaUrls,
+      thread_tweets: initialThreadTweets,
+    }
+  });
+```
+
+### Mudança 4: Atualizar kai-content-agent para RSS com Imagens
+
+**Arquivo:** `supabase/functions/kai-content-agent/format-rules.ts`
+
+Adicionar regras para Tweet individual:
+
+```typescript
+tweet: `
+## REGRAS OBRIGATÓRIAS PARA TWEET
+
+### ESTRUTURA
+- Máximo 280 caracteres
+- Uma mensagem clara e impactante
+- Hashtags no final (máx 2)
+
+### FORMATO DE ENTREGA
+\`\`\`
+[Texto do tweet - máx 280 chars]
+
+#hashtag1 #hashtag2
+\`\`\`
+
+### PROIBIÇÕES ABSOLUTAS
+- ❌ Exceder 280 caracteres
+- ❌ Mais de 2 hashtags
+- ❌ Linguagem corporativa
+
+### TÉCNICAS QUE FUNCIONAM
+- ✅ Gancho forte no início
+- ✅ Números específicos
+- ✅ Call to action no final
+`,
+```
+
+### Mudança 5: Prompt Template Melhorado
+
+**Arquivo:** `supabase/functions/process-automations/index.ts`
+
+Melhorar a construção do prompt com variáveis extras:
+
+```typescript
+let prompt = automation.prompt_template || '';
+
+// Substituir variáveis de template
+const variables: Record<string, string> = {
+  '{{title}}': triggerData?.title || automation.name,
+  '{{description}}': triggerData?.description || '',
+  '{{link}}': triggerData?.link || '',
+  '{{content}}': triggerData?.content?.substring(0, 3000) || '',
+  '{{images}}': (triggerData?.allImages || []).length > 0 
+    ? `${triggerData.allImages.length} imagens disponíveis do conteúdo original`
+    : 'Sem imagens',
+};
+
+for (const [key, value] of Object.entries(variables)) {
+  prompt = prompt.replace(new RegExp(key.replace(/[{}]/g, '\\$&'), 'g'), value);
+}
+
+// Adicionar contexto sobre imagens se disponíveis
+if (triggerData?.allImages?.length > 0 && automation.content_type === 'thread') {
+  prompt += `\n\nIMPORTANTE: O conteúdo original possui ${triggerData.allImages.length} imagens. 
+Para a thread, referencie as imagens nos tweets apropriados. 
+As imagens serão anexadas automaticamente após a geração do texto.`;
+}
+```
+
+---
+
+## Fluxo Completo Atualizado
+
+```
+1. Usuário cria automação:
+   - Seleciona tipo de conteúdo (lista completa: tweet, thread, carousel, etc.)
+   - Testa RSS Feed → Vê preview rico com campos disponíveis
+   - Escreve prompt usando {{title}}, {{content}}, {{images}}, etc.
+   - Ativa auto-publish se desejar
+
+2. Trigger RSS detecta novo item:
+   - Extrai título, descrição, conteúdo completo
+   - Extrai TODAS as imagens do HTML
+   - Guarda tudo no trigger_data
+
+3. Process-automations executa:
+   - Cria run em planning_automation_runs
+   - Substitui variáveis no prompt template
+   - Chama kai-content-agent com format correto
+   
+4. kai-content-agent gera:
+   - Aplica regras específicas do formato
+   - Usa contexto do cliente (tom de voz, exemplos)
+   - Retorna conteúdo formatado
+   
+5. Para threads especificamente:
+   - Parseia tweets individuais
+   - Distribui imagens do RSS entre os tweets
+   - Salva thread_tweets no metadata
+   
+6. Planning item criado:
+   - Título, conteúdo gerado
+   - media_urls com imagens do RSS
+   - metadata.thread_tweets se for thread
+   
+7. Se auto_publish ativo:
+   - Chama late-post com content + media
+   - Atualiza status para published
+
+8. Card aparece no Kanban:
+   - Com conteúdo pronto
+   - Com imagens já anexadas
+   - Pronto para revisão ou já publicado
+```
+
+---
+
+## Arquivos a Modificar
+
+| Arquivo | Mudança |
+|---------|---------|
+| `src/components/planning/AutomationDialog.tsx` | Importar CONTENT_TYPE_OPTIONS, preview rico de RSS, variáveis de template |
+| `supabase/functions/process-automations/index.ts` | Format mapping, extração de imagens, substituição de variáveis, thread com imagens |
+| `supabase/functions/kai-content-agent/format-rules.ts` | Adicionar regras para Tweet individual |
 
 ---
 
 ## Resultado Esperado
 
-1. **Teste manual funciona** - Clicar em "Testar Agora" executa a automação imediatamente
-2. **Histórico real** - Todas as execuções são registradas e exibidas corretamente
-3. **Feedback visual** - Usuário vê status da execução (sucesso/erro/duração)
-4. **Validação de RSS** - Usuário pode testar URL antes de salvar
-5. **Auto-publish completo** - Integração com Late API para publicação automática
+1. **16 tipos de conteúdo** disponíveis na automação (incluindo Tweet)
+2. **Preview rico do RSS** mostrando campos disponíveis e imagens detectadas
+3. **Variáveis de template** completas: `{{title}}`, `{{description}}`, `{{link}}`, `{{content}}`, `{{images}}`
+4. **Geração de qualidade** com format rules aplicados corretamente
+5. **Threads com imagens** do RSS já distribuídas entre os tweets
+6. **Carrosséis com imagens** prontas para uso
+7. **Conteúdo pronto para publicar** sem necessidade de edição manual
 
----
-
-## Fluxo Completo Final
-
-```text
-1. Usuário cria automação com:
-   - Gatilho (RSS/Agenda/Webhook)
-   - Perfil e plataforma
-   - Geração IA (opcional)
-   - Publicação automática (opcional)
-         ↓
-2. Cron job ou teste manual dispara process-automations
-         ↓
-3. Registra início em planning_automation_runs
-         ↓
-4. Verifica gatilho (novo item RSS / horário / webhook)
-         ↓
-5. Cria card no planejamento
-         ↓
-6. Se auto_generate_content:
-   → Chama kai-content-agent
-   → Atualiza card com conteúdo
-         ↓
-7. Se auto_publish:
-   → Busca credenciais Late API
-   → Chama late-post
-   → Atualiza status para "published"
-         ↓
-8. Atualiza planning_automation_runs com resultado
-         ↓
-9. Card aparece no Kanban/Calendário
-```
