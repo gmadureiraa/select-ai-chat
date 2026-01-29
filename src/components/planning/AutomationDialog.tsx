@@ -329,12 +329,12 @@ export function AutomationDialog({ open, onOpenChange, automation }: AutomationD
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Perfil</Label>
-              <Select value={clientId} onValueChange={setClientId}>
+              <Select value={clientId || "all"} onValueChange={(v) => setClientId(v === "all" ? "" : v)}>
                 <SelectTrigger>
                   <SelectValue placeholder="Selecione um perfil" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Todos os perfis</SelectItem>
+                  <SelectItem value="all">Todos os perfis</SelectItem>
                   {clients.map((client) => (
                     <SelectItem key={client.id} value={client.id}>
                       {client.name}
@@ -346,12 +346,12 @@ export function AutomationDialog({ open, onOpenChange, automation }: AutomationD
 
             <div className="space-y-2">
               <Label>Coluna de destino</Label>
-              <Select value={columnId} onValueChange={setColumnId}>
+              <Select value={columnId || "default"} onValueChange={(v) => setColumnId(v === "default" ? "" : v)}>
                 <SelectTrigger>
                   <SelectValue placeholder="Coluna padrão" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Coluna padrão</SelectItem>
+                  <SelectItem value="default">Coluna padrão</SelectItem>
                   {columns.map((column) => (
                     <SelectItem key={column.id} value={column.id}>
                       {column.name}
