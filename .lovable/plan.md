@@ -1,232 +1,169 @@
 
-# Plano: Melhorar Geração de Imagem com Contexto Completo do Cliente
+# Plano: Ajustar Cards de Planejamento - Tamanho e Legibilidade
 
 ## Diagnóstico
 
-Foram identificados **4 problemas** principais:
+Os cards de planejamento estão muito compactos, dificultando a leitura. Analisando o código:
 
-### Problema 1: Instrução "Sem texto" não está sendo aplicada corretamente
-Na edge function `generate-content-v2`, a instrução `noText` é adicionada apenas na seção "AVOID" do prompt (linha 535-538), mas o modelo Gemini Image não está respeitando. Precisamos de:
-- Instrução MUITO mais enfática no prompt principal
-- Instrução em inglês e português
-- Repetição da restrição em múltiplos pontos
+### Onde os Cards Aparecem
 
-### Problema 2: Falta de busca de referências visuais do cliente
-A edge function `generate-content-v2` busca apenas dados da tabela `clients` (linha 59-63), mas **não busca as referências visuais** da tabela `client_visual_references`. Isso significa que:
-- Logos, fotos de estilo, paletas de cores enviadas pelo cliente são ignoradas
-- A análise de estilo (`metadata.styleAnalysis`) não é usada
+| Local | Arquivo | Problema Atual |
+|-------|---------|----------------|
+| **Kanban (Board)** | `VirtualizedKanbanColumn.tsx` linha 207 | Passa `compact` como **fixo true** |
+| **Lista** | `PlanningBoard.tsx` linha 309-318 | Passa `compact` como **fixo true** |
+| **Calendário** | `CalendarView.tsx` | Usa componente próprio `CalendarCard` (separado) |
 
-### Problema 3: Briefing incompleto para geração de imagem
-O prompt atual é genérico. Quando um texto gerado é conectado, ele deveria:
-- Extrair o tema principal do texto
-- Identificar elementos visuais mencionados
-- Criar um briefing estruturado em inglês para o modelo
+### Problemas no PlanningItemCard.tsx
 
-### Problema 4: Falta de preview de contexto no Gerador
-O usuário não sabe quais informações serão usadas. Devemos mostrar:
-- Quantas referências visuais do cliente serão usadas
-- Se o perfil tem cores/estilo definidos
-- Um resumo do briefing que será enviado
+1. **Título**: `text-sm` (14px) - OK mas truncado em 2 linhas (`line-clamp-2`)
+2. **Descrição**: `text-[11px]` - Muito pequeno e `line-clamp-1` (só 1 linha!)
+3. **Padding**: `p-2.5` - Muito apertado
+4. **Media Preview**: `h-24` - Altura baixa
+5. **Largura da coluna**: `w-72` (288px) - Poderia ser maior
 
 ---
 
 ## Solução
 
-### Arquivos a Modificar
+### 1. Aumentar o PlanningItemCard
 
-| Arquivo | Modificação |
-|---------|-------------|
-| `supabase/functions/generate-content-v2/index.ts` | Buscar referências visuais, melhorar prompt noText |
-| `src/components/kai/canvas/nodes/GeneratorNode.tsx` | Adicionar preview de contexto do cliente |
+```text
+┌────────────────────────────────────────┐
+│  ANTES (compacto)                      │
+│  --------------------------------      │
+│  • Título (14px, 2 linhas max)         │
+│  • Descrição (11px, 1 linha max)       │
+│  • Padding: 10px                       │
+└────────────────────────────────────────┘
+
+┌────────────────────────────────────────┐
+│  DEPOIS (legível)                      │
+│  --------------------------------      │
+│  • Título (15px, 3 linhas max)         │
+│  • Descrição (13px, 2-3 linhas max)    │
+│  • Padding: 14px                       │
+│  • Media: altura 32 → 36               │
+└────────────────────────────────────────┘
+```
+
+### 2. Aumentar Largura das Colunas Kanban
+
+| Elemento | Antes | Depois |
+|----------|-------|--------|
+| Coluna Kanban | `w-72` (288px) | `w-80` (320px) |
+| Mobile | `w-[85vw]` | `w-[90vw]` |
+
+### 3. Remover `compact` Fixo
+
+No Kanban e Lista, usar `compact={false}` por padrão para mostrar mais conteúdo.
 
 ---
 
 ## Mudanças Detalhadas
 
-### 1. Edge Function: Buscar Referências Visuais do Cliente
+### Arquivo 1: `PlanningItemCard.tsx`
 
-Adicionar nova função após `fetchClientBrandContext`:
-
-```typescript
-async function fetchClientVisualReferences(
-  supabaseClient: any,
-  clientId: string | null
-): Promise<Array<{
-  imageUrl: string;
-  type: string;
-  styleAnalysis?: any;
-  isPrimary: boolean;
-}>> {
-  if (!clientId) return [];
-
-  const { data, error } = await supabaseClient
-    .from('client_visual_references')
-    .select('image_url, reference_type, is_primary, metadata')
-    .eq('client_id', clientId)
-    .order('is_primary', { ascending: false })
-    .limit(5);
-
-  if (error || !data) return [];
-
-  return data.map((ref: any) => ({
-    imageUrl: ref.image_url,
-    type: ref.reference_type,
-    styleAnalysis: ref.metadata?.styleAnalysis,
-    isPrimary: ref.is_primary,
-  }));
-}
+**Mudanças no título:**
+```text
+Linha 179: 
+  - Antes: className="font-medium text-sm line-clamp-2"
+  - Depois: className="font-medium text-[15px] leading-snug line-clamp-3"
 ```
 
-### 2. Edge Function: Melhorar Instrução "Sem Texto"
-
-Substituir a lógica atual (linhas 535-538) por uma instrução MUITO mais enfática:
-
-```typescript
-if (config.noText) {
-  // Instrução principal - no início do prompt
-  imagePrompt = `CRITICAL REQUIREMENT - ABSOLUTELY NO TEXT:
-This image MUST NOT contain ANY text, letters, numbers, symbols, words, typography, captions, 
-watermarks, logos with text, or ANY written content in ANY language.
-If you add ANY text, the image will be rejected.
-
-` + imagePrompt;
-
-  // Instrução adicional na seção AVOID
-  imagePrompt += `
-STRICTLY FORBIDDEN (image will be rejected if present):
-- ANY text, letters, or numbers
-- Typography of any kind
-- Words or symbols
-- Watermarks with text
-- Logos that contain text
-`;
-}
+**Mudanças na descrição:**
+```text
+Linha 206:
+  - Antes: className="text-[11px] text-muted-foreground line-clamp-1 mb-1.5 ml-4"
+  - Depois: className="text-[13px] text-muted-foreground line-clamp-2 mb-2 ml-4 leading-relaxed"
 ```
 
-### 3. Edge Function: Incorporar Referências Visuais no Prompt
-
-Na seção de geração de imagem (após linha 508), adicionar:
-
-```typescript
-// Fetch visual references
-const visualRefs = await fetchClientVisualReferences(supabaseClient, clientId || null);
-
-if (visualRefs.length > 0) {
-  imagePrompt += `CLIENT VISUAL REFERENCES:\n`;
-  
-  for (const ref of visualRefs) {
-    if (ref.styleAnalysis) {
-      imagePrompt += `- ${ref.type.toUpperCase()} STYLE: ${ref.styleAnalysis.style_summary || ''}\n`;
-      if (ref.styleAnalysis.visual_elements?.photography_style) {
-        imagePrompt += `  Photography: ${ref.styleAnalysis.visual_elements.photography_style}\n`;
-      }
-      if (ref.styleAnalysis.visual_elements?.color_palette) {
-        imagePrompt += `  Colors: ${ref.styleAnalysis.visual_elements.color_palette.join(', ')}\n`;
-      }
-    }
-  }
-  imagePrompt += "\n";
-}
+**Mudanças no padding:**
+```text
+Linha 168:
+  - Antes: cn(compact ? "" : "p-2.5")
+  - Depois: cn(compact ? "p-2" : "p-3.5")
 ```
 
-### 4. Edge Function: Melhorar Extração de Briefing do Texto
-
-Quando um texto é passado como input, extrair o tema de forma mais inteligente:
-
-```typescript
-if (briefingText.trim()) {
-  // Traduzir/resumir o tema para inglês (melhora aderência do modelo)
-  const themePrompt = `Based on this content, create a visual representation:
-
-CONTENT THEME: "${briefingText.trim().substring(0, 500)}"
-
-Visual interpretation: Create an image that captures the essence and mood of this content.
-The image should evoke the main topic without being literal.
-`;
-  imagePrompt += themePrompt + "\n";
-}
+**Mudanças no media preview:**
+```text
+Linha 146:
+  - Antes: className="relative h-24 bg-muted/50..."
+  - Depois: className="relative h-32 bg-muted/50..."
 ```
 
-### 5. GeneratorNode: Preview de Contexto
+### Arquivo 2: `VirtualizedKanbanColumn.tsx`
 
-Adicionar um componente que mostra o contexto que será usado:
+**Largura da coluna:**
+```text
+Linha 127:
+  - Antes: !className && "w-72"
+  - Depois: !className && "w-80"
+```
 
-```tsx
-// Novo componente dentro do GeneratorNode, acima do botão
-{generationType === 'image' && connectedCount > 0 && !isGenerating && (
-  <div className="bg-muted/50 rounded-lg p-2 text-[10px] space-y-1">
-    <div className="flex items-center gap-1 text-muted-foreground">
-      <Brain className="h-3 w-3" />
-      <span className="font-medium">Contexto detectado:</span>
-    </div>
-    <div className="text-muted-foreground pl-4 space-y-0.5">
-      <p>• {connectedCount} input(s) conectado(s)</p>
-      {data.noText && <p>• Sem texto na imagem ✓</p>}
-      <p className="text-[9px] opacity-70">
-        + Identidade visual e referências do cliente
-      </p>
-    </div>
-  </div>
-)}
+**Remover compact fixo:**
+```text
+Linha 215:
+  - Antes: compact
+  - Depois: compact={false}
+```
+
+### Arquivo 3: `KanbanView.tsx`
+
+**Mobile width:**
+```text
+Linha 126:
+  - Antes: className={isMobile ? "w-[85vw] min-w-[85vw]..." 
+  - Depois: className={isMobile ? "w-[90vw] min-w-[90vw]..."
+```
+
+### Arquivo 4: `PlanningBoard.tsx`
+
+**Lista view - remover compact:**
+```text
+Linha 317:
+  - Antes: compact
+  - Depois: compact={false}
 ```
 
 ---
 
-## Fluxo Visual da Solução
+## Comparativo Visual
 
 ```text
-┌─────────────────────────────────────────────────────────────────────────┐
-│                       GERAÇÃO DE IMAGEM MELHORADA                       │
-├─────────────────────────────────────────────────────────────────────────┤
-│                                                                         │
-│  ┌─────────────┐     ┌─────────────┐     ┌─────────────────────────┐   │
-│  │  Resultado  │ ──▶ │   Gerador   │ ──▶ │  generate-content-v2    │   │
-│  │   (texto)   │     │   (imagem)  │     └───────────┬─────────────┘   │
-│  └─────────────┘     └─────────────┘                 │                 │
-│                              │                       ▼                 │
-│                              │        ┌──────────────────────────────┐ │
-│                              │        │ 1. Buscar brand_assets       │ │
-│                              │        │ 2. Buscar visual_references  │ │
-│                              │        │ 3. Extrair tema do texto     │ │
-│                              │        │ 4. Montar briefing completo  │ │
-│                              │        │ 5. Aplicar noText enfático   │ │
-│                              │        └──────────────┬───────────────┘ │
-│                              │                       │                 │
-│                              ▼                       ▼                 │
-│                    ┌─────────────────────────────────────────────────┐ │
-│                    │    Gemini 2.0 Flash Image Generation            │ │
-│                    │    (com contexto completo do cliente)           │ │
-│                    └─────────────────────────────────────────────────┘ │
-│                                                                         │
-└─────────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────┐
+│                         ANTES vs DEPOIS                             │
+├────────────────────────────┬────────────────────────────────────────┤
+│        ANTES (288px)       │           DEPOIS (320px)               │
+├────────────────────────────┼────────────────────────────────────────┤
+│ ┌────────────────────────┐ │ ┌──────────────────────────────────┐   │
+│ │ • Post Instagram      │ │ │ • Post Instagram sobre           │   │
+│ │   preview...          │ │ │   lançamento de produto          │   │
+│ │ 📸 12/02              │ │ │                                  │   │
+│ └────────────────────────┘ │ │   Descrição mais longa que       │   │
+│                            │ │   agora aparece em duas linhas   │   │
+│                            │ │                                  │   │
+│                            │ │ 📸 12/02    👤                   │   │
+│                            │ └──────────────────────────────────┘   │
+└────────────────────────────┴────────────────────────────────────────┘
 ```
+
+---
+
+## Arquivos a Modificar
+
+| Arquivo | Mudanças |
+|---------|----------|
+| `src/components/planning/PlanningItemCard.tsx` | Título maior, descrição maior, padding maior, media mais alta |
+| `src/components/planning/VirtualizedKanbanColumn.tsx` | Coluna mais larga, remover compact fixo |
+| `src/components/planning/KanbanView.tsx` | Mobile width maior |
+| `src/components/planning/PlanningBoard.tsx` | Remover compact na view lista |
 
 ---
 
 ## Resultado Esperado
 
-1. **Opção "Sem texto" funciona** - Instrução enfática impede texto bugado
-2. **Imagens relevantes ao tema** - Briefing extraído do texto conectado
-3. **Identidade visual aplicada** - Cores, estilo do perfil do cliente são usados
-4. **Referências visuais incorporadas** - Análises de estilo salvos são aplicadas
-5. **Preview de contexto** - Usuário vê o que será usado antes de gerar
-
----
-
-## Sequência de Implementação
-
-```text
-┌─────────────────────────────────────────────────────────────────────────┐
-│ 1. Atualizar generate-content-v2/index.ts:                              │
-│    - Adicionar função fetchClientVisualReferences                       │
-│    - Melhorar instrução noText (enfática, repetida)                     │
-│    - Incorporar referências visuais no prompt                           │
-│    - Melhorar extração de briefing do texto                             │
-├─────────────────────────────────────────────────────────────────────────┤
-│ 2. Atualizar GeneratorNode.tsx:                                         │
-│    - Adicionar preview de contexto detectado                            │
-│    - Mostrar que referências do cliente serão usadas                    │
-├─────────────────────────────────────────────────────────────────────────┤
-│ 3. Deploy e teste                                                       │
-└─────────────────────────────────────────────────────────────────────────┘
-```
+1. **Cards mais legíveis** - Texto maior e mais linhas visíveis
+2. **Colunas mais espaçosas** - 320px ao invés de 288px
+3. **Descrição visível** - 2-3 linhas ao invés de 1
+4. **Imagens maiores** - Altura de 128px ao invés de 96px
+5. **Consistência** - Mesmas melhorias em Kanban, Lista e onde mais aparecer
