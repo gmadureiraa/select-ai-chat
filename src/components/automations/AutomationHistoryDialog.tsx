@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { CheckCircle2, XCircle, Clock, Loader2 } from 'lucide-react';
+import { CheckCircle2, XCircle, Clock, Loader2, SkipForward, ExternalLink } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -19,16 +19,19 @@ interface AutomationHistoryDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
-interface AutomationRun {
+interface PlanningAutomationRun {
   id: string;
   automation_id: string;
+  workspace_id: string;
   status: string;
   started_at: string;
   completed_at: string | null;
   duration_ms: number | null;
   result: string | null;
   error: string | null;
-  automation?: {
+  items_created: number;
+  trigger_data: { title?: string; link?: string } | null;
+  planning_automations?: {
     name: string;
   };
 }
@@ -37,27 +40,25 @@ export function AutomationHistoryDialog({ open, onOpenChange }: AutomationHistor
   const { workspace } = useWorkspace();
 
   const { data: runs, isLoading } = useQuery({
-    queryKey: ['automation-runs', workspace?.id],
+    queryKey: ['planning-automation-runs', workspace?.id],
     queryFn: async () => {
       if (!workspace?.id) return [];
       
       const { data, error } = await supabase
-        .from('automation_runs')
+        .from('planning_automation_runs')
         .select(`
           *,
-          automations!automation_runs_automation_id_fkey (
+          planning_automations (
             name
           )
         `)
+        .eq('workspace_id', workspace.id)
         .order('started_at', { ascending: false })
         .limit(50);
       
       if (error) throw error;
       
-      return (data || []).map(run => ({
-        ...run,
-        automation: run.automations,
-      })) as AutomationRun[];
+      return (data || []) as PlanningAutomationRun[];
     },
     enabled: !!workspace?.id && open,
   });
@@ -70,6 +71,8 @@ export function AutomationHistoryDialog({ open, onOpenChange }: AutomationHistor
         return <XCircle className="h-4 w-4 text-red-500" />;
       case 'running':
         return <Loader2 className="h-4 w-4 text-blue-500 animate-spin" />;
+      case 'skipped':
+        return <SkipForward className="h-4 w-4 text-muted-foreground" />;
       default:
         return <Clock className="h-4 w-4 text-muted-foreground" />;
     }
@@ -83,9 +86,17 @@ export function AutomationHistoryDialog({ open, onOpenChange }: AutomationHistor
         return <Badge variant="outline" className="bg-red-500/10 text-red-600 border-red-500/30">Erro</Badge>;
       case 'running':
         return <Badge variant="outline" className="bg-blue-500/10 text-blue-600 border-blue-500/30">Executando</Badge>;
+      case 'skipped':
+        return <Badge variant="outline" className="bg-muted text-muted-foreground">Pulado</Badge>;
       default:
         return <Badge variant="secondary">{status}</Badge>;
     }
+  };
+
+  const formatDuration = (ms: number | null) => {
+    if (!ms) return null;
+    if (ms < 1000) return `${ms}ms`;
+    return `${(ms / 1000).toFixed(1)}s`;
   };
 
   return (
@@ -94,7 +105,7 @@ export function AutomationHistoryDialog({ open, onOpenChange }: AutomationHistor
         <DialogHeader>
           <DialogTitle>Histórico de Execuções</DialogTitle>
           <DialogDescription>
-            Últimas 50 execuções de automações
+            Últimas 50 execuções de automações de planejamento
           </DialogDescription>
         </DialogHeader>
 
@@ -116,14 +127,19 @@ export function AutomationHistoryDialog({ open, onOpenChange }: AutomationHistor
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
                       <span className="font-medium truncate">
-                        {run.automation?.name || 'Automação removida'}
+                        {run.planning_automations?.name || 'Automação removida'}
                       </span>
                       {getStatusBadge(run.status)}
                     </div>
-                    <div className="text-sm text-muted-foreground">
-                      {format(new Date(run.started_at), "dd MMM yyyy 'às' HH:mm", { locale: ptBR })}
+                    <div className="text-sm text-muted-foreground flex flex-wrap items-center gap-2">
+                      <span>
+                        {format(new Date(run.started_at), "dd MMM yyyy 'às' HH:mm", { locale: ptBR })}
+                      </span>
                       {run.duration_ms && (
-                        <span className="ml-2">• {run.duration_ms}ms</span>
+                        <span>• {formatDuration(run.duration_ms)}</span>
+                      )}
+                      {run.items_created > 0 && (
+                        <span className="text-green-600">• {run.items_created} item criado</span>
                       )}
                     </div>
                     {run.error && (
@@ -131,10 +147,21 @@ export function AutomationHistoryDialog({ open, onOpenChange }: AutomationHistor
                         {run.error}
                       </p>
                     )}
-                    {run.result && (
+                    {run.result && run.status !== 'skipped' && (
                       <p className="text-sm text-muted-foreground mt-1 truncate">
                         {run.result}
                       </p>
+                    )}
+                    {run.trigger_data?.link && (
+                      <a 
+                        href={run.trigger_data.link} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-xs text-primary hover:underline mt-1"
+                      >
+                        <ExternalLink className="h-3 w-3" />
+                        Ver fonte
+                      </a>
                     )}
                   </div>
                 </div>
@@ -145,6 +172,7 @@ export function AutomationHistoryDialog({ open, onOpenChange }: AutomationHistor
           <div className="py-8 text-center text-muted-foreground">
             <Clock className="h-8 w-8 mx-auto mb-2 opacity-50" />
             <p>Nenhuma execução registrada</p>
+            <p className="text-sm">As execuções aparecerão aqui quando as automações forem disparadas</p>
           </div>
         )}
       </DialogContent>

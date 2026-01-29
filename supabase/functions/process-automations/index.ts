@@ -140,50 +140,119 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    console.log('Starting automation processing...');
+    // Parse request body to check for specific automationId (manual test)
+    let automationId: string | null = null;
+    let isManualTest = false;
+    try {
+      const body = await req.json();
+      automationId = body.automationId || null;
+      isManualTest = !!automationId;
+    } catch {
+      // No body or invalid JSON, that's fine for cron jobs
+    }
 
-    // Fetch active automations
-    const { data: automations, error: fetchError } = await supabase
+    console.log(`Starting automation processing... ${isManualTest ? `(Manual test: ${automationId})` : '(Scheduled)'}`);
+
+    // Fetch automations based on whether it's a manual test or scheduled run
+    let query = supabase
       .from('planning_automations')
-      .select('*')
-      .eq('is_active', true);
+      .select('*');
+    
+    if (automationId) {
+      // Manual test: fetch specific automation regardless of active status
+      query = query.eq('id', automationId);
+    } else {
+      // Scheduled run: fetch only active automations
+      query = query.eq('is_active', true);
+    }
+
+    const { data: automations, error: fetchError } = await query;
 
     if (fetchError) {
       console.error('Error fetching automations:', fetchError);
       throw fetchError;
     }
 
-    console.log(`Found ${automations?.length || 0} active automations`);
+    console.log(`Found ${automations?.length || 0} automation(s) to process`);
 
-    const results: { id: string; name: string; triggered: boolean; error?: string }[] = [];
+    const results: { id: string; name: string; triggered: boolean; error?: string; runId?: string }[] = [];
 
     for (const automation of (automations as PlanningAutomation[]) || []) {
+      const startTime = Date.now();
+      let runId: string | null = null;
+      
       try {
+        // Create run record at the start
+        const { data: run, error: runError } = await supabase
+          .from('planning_automation_runs')
+          .insert({
+            automation_id: automation.id,
+            workspace_id: automation.workspace_id,
+            status: 'running',
+            started_at: new Date().toISOString(),
+          })
+          .select()
+          .single();
+
+        if (runError) {
+          console.error(`Error creating run record for ${automation.name}:`, runError);
+        } else {
+          runId = run?.id;
+        }
+
         let shouldTrigger = false;
         let triggerData: RSSItem | null = null;
         let newGuid: string | undefined;
 
-        // Check trigger based on type
-        switch (automation.trigger_type) {
-          case 'schedule':
-            shouldTrigger = shouldTriggerSchedule(automation.trigger_config, automation.last_triggered_at);
-            break;
-            
-          case 'rss':
-            const rssResult = await checkRSSTrigger(automation.trigger_config);
-            shouldTrigger = rssResult.shouldTrigger;
-            triggerData = rssResult.data || null;
-            newGuid = rssResult.newGuid;
-            break;
-            
-          case 'webhook':
-            // Webhooks are triggered externally, skip in cron
-            shouldTrigger = false;
-            break;
+        // For manual tests, skip trigger checks and force execution
+        if (isManualTest) {
+          console.log(`Manual test for ${automation.name} - forcing trigger`);
+          shouldTrigger = true;
+          
+          // For RSS, still try to get the latest item data
+          if (automation.trigger_type === 'rss' && automation.trigger_config.url) {
+            const items = await parseRSSFeed(automation.trigger_config.url);
+            if (items.length > 0) {
+              triggerData = items[0];
+              newGuid = items[0].guid;
+            }
+          }
+        } else {
+          // Normal scheduled check
+          switch (automation.trigger_type) {
+            case 'schedule':
+              shouldTrigger = shouldTriggerSchedule(automation.trigger_config, automation.last_triggered_at);
+              break;
+              
+            case 'rss':
+              const rssResult = await checkRSSTrigger(automation.trigger_config);
+              shouldTrigger = rssResult.shouldTrigger;
+              triggerData = rssResult.data || null;
+              newGuid = rssResult.newGuid;
+              break;
+              
+            case 'webhook':
+              // Webhooks are triggered externally, skip in cron
+              shouldTrigger = false;
+              break;
+          }
         }
 
         if (!shouldTrigger) {
-          results.push({ id: automation.id, name: automation.name, triggered: false });
+          // Update run record as skipped
+          if (runId) {
+            await supabase
+              .from('planning_automation_runs')
+              .update({
+                status: 'skipped',
+                result: 'Trigger conditions not met',
+                completed_at: new Date().toISOString(),
+                duration_ms: Date.now() - startTime,
+              })
+              .eq('id', runId);
+          }
+          
+          results.push({ id: automation.id, name: automation.name, triggered: false, runId: runId || undefined });
           continue;
         }
 
@@ -239,7 +308,21 @@ serve(async (req) => {
 
         if (createError) {
           console.error(`Error creating item for ${automation.name}:`, createError);
-          results.push({ id: automation.id, name: automation.name, triggered: false, error: createError.message });
+          
+          // Update run as failed
+          if (runId) {
+            await supabase
+              .from('planning_automation_runs')
+              .update({
+                status: 'failed',
+                error: createError.message,
+                completed_at: new Date().toISOString(),
+                duration_ms: Date.now() - startTime,
+              })
+              .eq('id', runId);
+          }
+          
+          results.push({ id: automation.id, name: automation.name, triggered: false, error: createError.message, runId: runId || undefined });
           continue;
         }
 
@@ -366,15 +449,45 @@ serve(async (req) => {
           .update(updateData)
           .eq('id', automation.id);
 
-        results.push({ id: automation.id, name: automation.name, triggered: true });
+        // Update run as completed
+        if (runId) {
+          await supabase
+            .from('planning_automation_runs')
+            .update({
+              status: 'completed',
+              result: `Criado: ${itemTitle}`,
+              items_created: 1,
+              completed_at: new Date().toISOString(),
+              duration_ms: Date.now() - startTime,
+              trigger_data: triggerData ? { title: triggerData.title, link: triggerData.link } : null,
+            })
+            .eq('id', runId);
+        }
+
+        results.push({ id: automation.id, name: automation.name, triggered: true, runId: runId || undefined });
 
       } catch (automationError) {
         console.error(`Error processing automation ${automation.name}:`, automationError);
+        
+        // Update run as failed
+        if (runId) {
+          await supabase
+            .from('planning_automation_runs')
+            .update({
+              status: 'failed',
+              error: automationError instanceof Error ? automationError.message : 'Unknown error',
+              completed_at: new Date().toISOString(),
+              duration_ms: Date.now() - startTime,
+            })
+            .eq('id', runId);
+        }
+        
         results.push({ 
           id: automation.id, 
           name: automation.name, 
           triggered: false, 
-          error: automationError instanceof Error ? automationError.message : 'Unknown error' 
+          error: automationError instanceof Error ? automationError.message : 'Unknown error',
+          runId: runId || undefined
         });
       }
     }

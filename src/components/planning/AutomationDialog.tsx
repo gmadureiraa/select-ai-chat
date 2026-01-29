@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Calendar, Rss, Webhook, Sparkles, Send, AlertCircle } from 'lucide-react';
+import { Calendar, Rss, Webhook, Sparkles, Send, AlertCircle, Loader2, CheckCircle2, XCircle } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -31,6 +31,7 @@ import {
 } from '@/hooks/usePlanningAutomations';
 import { useClients } from '@/hooks/useClients';
 import { usePlanningItems } from '@/hooks/usePlanningItems';
+import { supabase } from '@/integrations/supabase/client';
 
 interface AutomationDialogProps {
   open: boolean;
@@ -67,6 +68,14 @@ const CONTENT_TYPES = [
   { value: 'blog', label: 'Blog Post' },
 ];
 
+interface FeedTestResult {
+  success: boolean;
+  feedTitle?: string;
+  itemCount?: number;
+  latestItem?: { title: string; pubDate?: string };
+  error?: string;
+}
+
 export function AutomationDialog({ open, onOpenChange, automation }: AutomationDialogProps) {
   const { createAutomation, updateAutomation } = usePlanningAutomations();
   const { clients } = useClients();
@@ -91,6 +100,8 @@ export function AutomationDialog({ open, onOpenChange, automation }: AutomationD
 
   // RSS config
   const [rssUrl, setRssUrl] = useState('');
+  const [testingFeed, setTestingFeed] = useState(false);
+  const [feedTestResult, setFeedTestResult] = useState<FeedTestResult | null>(null);
 
   // Auto publish
   const [autoPublish, setAutoPublish] = useState(false);
@@ -118,6 +129,9 @@ export function AutomationDialog({ open, onOpenChange, automation }: AutomationD
         const config = automation.trigger_config as RSSConfig;
         setRssUrl(config.url || '');
       }
+      
+      // Reset test result when editing
+      setFeedTestResult(null);
     } else if (open) {
       // Reset to defaults for new automation
       setName('');
@@ -133,6 +147,7 @@ export function AutomationDialog({ open, onOpenChange, automation }: AutomationD
       setScheduleTime('10:00');
       setRssUrl('');
       setAutoPublish(false);
+      setFeedTestResult(null);
     }
   }, [open, automation]);
 
@@ -142,6 +157,45 @@ export function AutomationDialog({ open, onOpenChange, automation }: AutomationD
         ? prev.filter(d => d !== day)
         : [...prev, day].sort()
     );
+  };
+
+  const handleTestFeed = async () => {
+    if (!rssUrl.trim()) return;
+    
+    setTestingFeed(true);
+    setFeedTestResult(null);
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('fetch-rss-feed', {
+        body: { rssUrl, limit: 5 }
+      });
+      
+      if (error) throw error;
+      
+      if (data.success && data.items?.length > 0) {
+        setFeedTestResult({
+          success: true,
+          feedTitle: data.feedTitle || 'Feed RSS',
+          itemCount: data.totalItems || data.items.length,
+          latestItem: {
+            title: data.items[0].title,
+            pubDate: data.items[0].pubDate,
+          },
+        });
+      } else {
+        setFeedTestResult({
+          success: false,
+          error: data.error || 'Nenhum item encontrado no feed',
+        });
+      }
+    } catch (err) {
+      setFeedTestResult({
+        success: false,
+        error: err instanceof Error ? err.message : 'Erro ao testar feed',
+      });
+    } finally {
+      setTestingFeed(false);
+    }
   };
 
   const handleSubmit = () => {
@@ -194,6 +248,24 @@ export function AutomationDialog({ open, onOpenChange, automation }: AutomationD
     (triggerType === 'rss' && rssUrl.trim()) ||
     triggerType === 'webhook'
   );
+
+  const formatRelativeTime = (dateString?: string) => {
+    if (!dateString) return '';
+    try {
+      const date = new Date(dateString);
+      const now = new Date();
+      const diffMs = now.getTime() - date.getTime();
+      const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+      
+      if (diffDays === 0) return 'hoje';
+      if (diffDays === 1) return 'há 1 dia';
+      if (diffDays < 7) return `há ${diffDays} dias`;
+      if (diffDays < 30) return `há ${Math.floor(diffDays / 7)} semana(s)`;
+      return `há ${Math.floor(diffDays / 30)} mês(es)`;
+    } catch {
+      return '';
+    }
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -303,14 +375,67 @@ export function AutomationDialog({ open, onOpenChange, automation }: AutomationD
               <TabsContent value="rss" className="space-y-4 mt-4">
                 <div className="space-y-2">
                   <Label>URL do RSS Feed</Label>
-                  <Input
-                    value={rssUrl}
-                    onChange={(e) => setRssUrl(e.target.value)}
-                    placeholder="https://exemplo.com/feed.xml"
-                  />
+                  <div className="flex gap-2">
+                    <Input
+                      value={rssUrl}
+                      onChange={(e) => {
+                        setRssUrl(e.target.value);
+                        setFeedTestResult(null);
+                      }}
+                      placeholder="https://exemplo.com/feed.xml"
+                      className="flex-1"
+                    />
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      onClick={handleTestFeed}
+                      disabled={!rssUrl.trim() || testingFeed}
+                    >
+                      {testingFeed ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        'Testar Feed'
+                      )}
+                    </Button>
+                  </div>
                   <p className="text-xs text-muted-foreground">
                     Um novo card será criado quando um item aparecer no feed
                   </p>
+                  
+                  {/* Feed test result */}
+                  {feedTestResult && (
+                    <div className={`p-3 rounded-lg text-sm ${
+                      feedTestResult.success 
+                        ? 'bg-green-500/10 border border-green-500/30' 
+                        : 'bg-red-500/10 border border-red-500/30'
+                    }`}>
+                      {feedTestResult.success ? (
+                        <div className="flex items-start gap-2">
+                          <CheckCircle2 className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
+                          <div>
+                            <p className="font-medium text-green-700 dark:text-green-400">
+                              Feed válido: {feedTestResult.itemCount} itens encontrados
+                            </p>
+                            {feedTestResult.latestItem && (
+                              <p className="text-green-600 dark:text-green-500 mt-1">
+                                Último: "{feedTestResult.latestItem.title}" 
+                                {feedTestResult.latestItem.pubDate && (
+                                  <span className="text-muted-foreground"> ({formatRelativeTime(feedTestResult.latestItem.pubDate)})</span>
+                                )}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-start gap-2">
+                          <XCircle className="h-4 w-4 text-red-500 mt-0.5 flex-shrink-0" />
+                          <p className="text-red-700 dark:text-red-400">
+                            {feedTestResult.error}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </TabsContent>
 
@@ -366,11 +491,12 @@ export function AutomationDialog({ open, onOpenChange, automation }: AutomationD
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Plataforma</Label>
-              <Select value={platform} onValueChange={setPlatform}>
+              <Select value={platform || "none"} onValueChange={(v) => setPlatform(v === "none" ? "" : v)}>
                 <SelectTrigger>
                   <SelectValue placeholder="Selecione" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="none">Nenhuma</SelectItem>
                   {PLATFORMS.map((p) => (
                     <SelectItem key={p.value} value={p.value}>
                       {p.label}
