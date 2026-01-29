@@ -1,169 +1,243 @@
 
-# Plano: Ajustar Cards de Planejamento - Tamanho e Legibilidade
+# Plano: Área de Automações no Menu Principal
 
-## Diagnóstico
+## Visão Geral
 
-Os cards de planejamento estão muito compactos, dificultando a leitura. Analisando o código:
+Criar uma área dedicada de **Automações** no menu lateral que permita configurar fluxos automatizados completos: RSS triggers → IA gera conteúdo → Publica automaticamente → Aparece no planejamento.
 
-### Onde os Cards Aparecem
+## O Que Já Existe (Base Sólida)
 
-| Local | Arquivo | Problema Atual |
-|-------|---------|----------------|
-| **Kanban (Board)** | `VirtualizedKanbanColumn.tsx` linha 207 | Passa `compact` como **fixo true** |
-| **Lista** | `PlanningBoard.tsx` linha 309-318 | Passa `compact` como **fixo true** |
-| **Calendário** | `CalendarView.tsx` | Usa componente próprio `CalendarCard` (separado) |
+| Componente | Status | Local |
+|------------|--------|-------|
+| Hook `usePlanningAutomations` | Completo | `src/hooks/usePlanningAutomations.ts` |
+| Componente `PlanningAutomations` | Completo | `src/components/planning/PlanningAutomations.tsx` |
+| Dialog `AutomationDialog` | Completo | `src/components/planning/AutomationDialog.tsx` |
+| Edge Function `process-automations` | Completo | `supabase/functions/process-automations/` |
+| Edge Function `fetch-rss-feed` | Completo | `supabase/functions/fetch-rss-feed/` |
+| Tabela `planning_automations` | Existe | Database |
+| Sistema Late API (publish) | Funcional | `late-post`, `process-scheduled-posts` |
 
-### Problemas no PlanningItemCard.tsx
+## O Que Falta Implementar
 
-1. **Título**: `text-sm` (14px) - OK mas truncado em 2 linhas (`line-clamp-2`)
-2. **Descrição**: `text-[11px]` - Muito pequeno e `line-clamp-1` (só 1 linha!)
-3. **Padding**: `p-2.5` - Muito apertado
-4. **Media Preview**: `h-24` - Altura baixa
-5. **Largura da coluna**: `w-72` (288px) - Poderia ser maior
-
----
-
-## Solução
-
-### 1. Aumentar o PlanningItemCard
+### 1. Nova Entrada no Menu Lateral
 
 ```text
-┌────────────────────────────────────────┐
-│  ANTES (compacto)                      │
-│  --------------------------------      │
-│  • Título (14px, 2 linhas max)         │
-│  • Descrição (11px, 1 linha max)       │
-│  • Padding: 10px                       │
-└────────────────────────────────────────┘
-
-┌────────────────────────────────────────┐
-│  DEPOIS (legível)                      │
-│  --------------------------------      │
-│  • Título (15px, 3 linhas max)         │
-│  • Descrição (13px, 2-3 linhas max)    │
-│  • Padding: 14px                       │
-│  • Media: altura 32 → 36               │
-└────────────────────────────────────────┘
+┌─────────────────────────────┐
+│  Canvas                     │
+│  Planejamento               │
+│  Performance                │
+│  Biblioteca                 │
+│  ★ Automações ★ ← NOVA      │
+│  Perfis                     │
+└─────────────────────────────┘
 ```
 
-### 2. Aumentar Largura das Colunas Kanban
+### 2. Nova Página de Automações
 
-| Elemento | Antes | Depois |
-|----------|-------|--------|
-| Coluna Kanban | `w-72` (288px) | `w-80` (320px) |
-| Mobile | `w-[85vw]` | `w-[90vw]` |
-
-### 3. Remover `compact` Fixo
-
-No Kanban e Lista, usar `compact={false}` por padrão para mostrar mais conteúdo.
-
----
-
-## Mudanças Detalhadas
-
-### Arquivo 1: `PlanningItemCard.tsx`
-
-**Mudanças no título:**
 ```text
-Linha 179: 
-  - Antes: className="font-medium text-sm line-clamp-2"
-  - Depois: className="font-medium text-[15px] leading-snug line-clamp-3"
+┌────────────────────────────────────────────────────────────────┐
+│  Automações                                    [+ Nova Autom.] │
+├────────────────────────────────────────────────────────────────┤
+│                                                                │
+│  ┌──────────────────────────────────────────────────────────┐  │
+│  │ 📰 Nova Newsletter → Post LinkedIn                       │  │
+│  │ RSS: newsletter.substack.com • Última: há 2h             │  │
+│  │ IA gera conteúdo ✓ • Publica auto ✓                      │  │
+│  │ [▶ Ativo]                               [Editar] [Test]  │  │
+│  └──────────────────────────────────────────────────────────┘  │
+│                                                                │
+│  ┌──────────────────────────────────────────────────────────┐  │
+│  │ 🎬 Novo Vídeo YouTube → Thread Twitter                   │  │
+│  │ RSS: youtube.com/feeds/videos.xml • Última: há 1d        │  │
+│  │ IA gera conteúdo ✓ • Publica auto ✓                      │  │
+│  │ [⏸ Pausado]                             [Editar] [Test]  │  │
+│  └──────────────────────────────────────────────────────────┘  │
+│                                                                │
+│  ┌──────────────────────────────────────────────────────────┐  │
+│  │ 📅 Dica Diária 09:00 → Post Instagram                    │  │
+│  │ Schedule: Diário às 09:00 • Última: hoje 09:02           │  │
+│  │ IA gera conteúdo ✓ • Publica manual                      │  │
+│  │ [▶ Ativo]                               [Editar] [Test]  │  │
+│  └──────────────────────────────────────────────────────────┘  │
+│                                                                │
+│  [Ver Histórico de Execuções]                                  │
+└────────────────────────────────────────────────────────────────┘
 ```
 
-**Mudanças na descrição:**
+### 3. Dialog de Automação Melhorado
+
+Adicionar ao dialog existente:
+
 ```text
-Linha 206:
-  - Antes: className="text-[11px] text-muted-foreground line-clamp-1 mb-1.5 ml-4"
-  - Depois: className="text-[13px] text-muted-foreground line-clamp-2 mb-2 ml-4 leading-relaxed"
+┌─────────────────────────────────────────────────────────────────┐
+│  Nova Automação                                                 │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  GATILHO                                                        │
+│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐                │
+│  │ 📅 Agenda   │ │ 📰 RSS Feed │ │ 🔗 Webhook  │                │
+│  └─────────────┘ └─────────────┘ └─────────────┘                │
+│                                                                 │
+│  URL do RSS Feed:                                               │
+│  ┌───────────────────────────────────────────────────────────┐  │
+│  │ https://www.youtube.com/feeds/videos.xml?channel_id=...   │  │
+│  └───────────────────────────────────────────────────────────┘  │
+│  [Testar Feed]                                                  │
+│                                                                 │
+│  PERFIL E PLATAFORMA                                            │
+│  Perfil: [Kaleidos Digital ▼]  Plataforma: [LinkedIn ▼]         │
+│                                                                 │
+│  GERAÇÃO DE CONTEÚDO                                            │
+│  ┌─────────────────────────────────────────────────────────────┐│
+│  │ ✅ Gerar conteúdo com IA                                    ││
+│  └─────────────────────────────────────────────────────────────┘│
+│  Prompt (use {{title}} e {{description}}):                      │
+│  ┌───────────────────────────────────────────────────────────┐  │
+│  │ Com base no novo vídeo "{{title}}", crie um post para     │  │
+│  │ LinkedIn que destaque os principais pontos...             │  │
+│  └───────────────────────────────────────────────────────────┘  │
+│                                                                 │
+│  ★ PUBLICAÇÃO AUTOMÁTICA (NOVA SEÇÃO) ★                         │
+│  ┌─────────────────────────────────────────────────────────────┐│
+│  │ ✅ Publicar automaticamente                                 ││
+│  │    Quando a IA gerar, publica direto na plataforma          ││
+│  │    ⚠️ Requer conta conectada (Late API)                     ││
+│  └─────────────────────────────────────────────────────────────┘│
+│                                                                 │
+│                                        [Cancelar] [Criar]       │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
-**Mudanças no padding:**
-```text
-Linha 168:
-  - Antes: cn(compact ? "" : "p-2.5")
-  - Depois: cn(compact ? "p-2" : "p-3.5")
-```
-
-**Mudanças no media preview:**
-```text
-Linha 146:
-  - Antes: className="relative h-24 bg-muted/50..."
-  - Depois: className="relative h-32 bg-muted/50..."
-```
-
-### Arquivo 2: `VirtualizedKanbanColumn.tsx`
-
-**Largura da coluna:**
-```text
-Linha 127:
-  - Antes: !className && "w-72"
-  - Depois: !className && "w-80"
-```
-
-**Remover compact fixo:**
-```text
-Linha 215:
-  - Antes: compact
-  - Depois: compact={false}
-```
-
-### Arquivo 3: `KanbanView.tsx`
-
-**Mobile width:**
-```text
-Linha 126:
-  - Antes: className={isMobile ? "w-[85vw] min-w-[85vw]..." 
-  - Depois: className={isMobile ? "w-[90vw] min-w-[90vw]..."
-```
-
-### Arquivo 4: `PlanningBoard.tsx`
-
-**Lista view - remover compact:**
-```text
-Linha 317:
-  - Antes: compact
-  - Depois: compact={false}
-```
-
----
-
-## Comparativo Visual
+### 4. Fluxo Completo
 
 ```text
-┌─────────────────────────────────────────────────────────────────────┐
-│                         ANTES vs DEPOIS                             │
-├────────────────────────────┬────────────────────────────────────────┤
-│        ANTES (288px)       │           DEPOIS (320px)               │
-├────────────────────────────┼────────────────────────────────────────┤
-│ ┌────────────────────────┐ │ ┌──────────────────────────────────┐   │
-│ │ • Post Instagram      │ │ │ • Post Instagram sobre           │   │
-│ │   preview...          │ │ │   lançamento de produto          │   │
-│ │ 📸 12/02              │ │ │                                  │   │
-│ └────────────────────────┘ │ │   Descrição mais longa que       │   │
-│                            │ │   agora aparece em duas linhas   │   │
-│                            │ │                                  │   │
-│                            │ │ 📸 12/02    👤                   │   │
-│                            │ └──────────────────────────────────┘   │
-└────────────────────────────┴────────────────────────────────────────┘
+1. RSS detecta novo item (ex: novo vídeo YouTube)
+         ↓
+2. Edge function `process-automations` dispara
+         ↓
+3. Cria card no planejamento (coluna "Ideias" ou configurada)
+         ↓
+4. Se auto_generate_content = true:
+   → Chama `kai-content-agent` para gerar conteúdo
+         ↓
+5. Se auto_publish = true E conta conectada:
+   → Chama `late-post` para publicar
+   → Move card para coluna "Publicado"
+         ↓
+6. Tudo aparece no planejamento com metadata da automação
 ```
 
 ---
 
-## Arquivos a Modificar
+## Mudanças Técnicas
 
-| Arquivo | Mudanças |
-|---------|----------|
-| `src/components/planning/PlanningItemCard.tsx` | Título maior, descrição maior, padding maior, media mais alta |
-| `src/components/planning/VirtualizedKanbanColumn.tsx` | Coluna mais larga, remover compact fixo |
-| `src/components/planning/KanbanView.tsx` | Mobile width maior |
-| `src/components/planning/PlanningBoard.tsx` | Remover compact na view lista |
+### Arquivo 1: Adicionar campo `auto_publish` na tabela
+
+```sql
+ALTER TABLE planning_automations 
+ADD COLUMN auto_publish BOOLEAN DEFAULT false;
+```
+
+### Arquivo 2: `src/components/kai/KaiSidebar.tsx`
+
+Adicionar nova entrada de menu entre Biblioteca e Perfis:
+
+```tsx
+{/* Automações - Dev only por enquanto, depois Pro */}
+{isDevUser && (
+  <NavItem
+    icon={<Zap className="h-4 w-4" strokeWidth={1.5} />}
+    label="Automações"
+    active={activeTab === "automations"}
+    onClick={() => onTabChange("automations")}
+    collapsed={collapsed}
+  />
+)}
+```
+
+### Arquivo 3: Criar `src/pages/kai/AutomationsTab.tsx`
+
+Nova página que agrupa:
+- Lista de automações ativas/pausadas
+- Botão para criar nova
+- Histórico de execuções
+- Status de conexões (Late API)
+
+### Arquivo 4: Atualizar `src/components/planning/AutomationDialog.tsx`
+
+Adicionar seção de publicação automática:
+- Switch para `auto_publish`
+- Verificação se conta está conectada (Late API)
+- Warning se não tiver conexão
+
+### Arquivo 5: Atualizar `supabase/functions/process-automations/index.ts`
+
+Após gerar conteúdo, se `auto_publish = true`:
+1. Verificar se cliente tem conta conectada para a plataforma
+2. Chamar `late-post` para publicar
+3. Atualizar status do card para `published`
+4. Salvar ID do post retornado
+
+### Arquivo 6: Atualizar `src/hooks/usePlanningAutomations.ts`
+
+Adicionar `auto_publish` ao tipo e mutações.
+
+### Arquivo 7: Atualizar `src/pages/kai/KaiWorkspace.tsx`
+
+Adicionar renderização da nova tab `automations`.
+
+---
+
+## Exemplos de Uso Final
+
+### Exemplo 1: Newsletter → LinkedIn
+```text
+Gatilho: RSS feed do Beehiiv
+Plataforma: LinkedIn
+IA: "Transforme esta newsletter em um post executivo..."
+Auto-publish: ✅
+→ Toda nova newsletter vira post no LinkedIn automaticamente
+```
+
+### Exemplo 2: YouTube → Thread Twitter
+```text
+Gatilho: RSS do canal YouTube
+Plataforma: Twitter
+IA: "Crie uma thread de 5 tweets resumindo o vídeo..."
+Auto-publish: ✅
+→ Todo novo vídeo gera thread automática no Twitter
+```
+
+### Exemplo 3: Dica Diária
+```text
+Gatilho: Diário às 09:00
+Plataforma: Instagram
+IA: "Gere uma dica de produtividade baseada em tendências..."
+Auto-publish: ❌ (revisão manual)
+→ Card criado todo dia para revisar antes de postar
+```
+
+---
+
+## Arquivos a Criar/Modificar
+
+| Arquivo | Ação | Descrição |
+|---------|------|-----------|
+| `supabase/migrations/...` | Criar | Add `auto_publish` column |
+| `src/pages/kai/AutomationsTab.tsx` | Criar | Nova página de automações |
+| `src/components/kai/KaiSidebar.tsx` | Modificar | Adicionar menu Automações |
+| `src/pages/kai/KaiWorkspace.tsx` | Modificar | Renderizar nova tab |
+| `src/components/planning/AutomationDialog.tsx` | Modificar | Seção auto-publish |
+| `src/hooks/usePlanningAutomations.ts` | Modificar | Tipo + auto_publish |
+| `supabase/functions/process-automations/index.ts` | Modificar | Lógica de auto-publish |
 
 ---
 
 ## Resultado Esperado
 
-1. **Cards mais legíveis** - Texto maior e mais linhas visíveis
-2. **Colunas mais espaçosas** - 320px ao invés de 288px
-3. **Descrição visível** - 2-3 linhas ao invés de 1
-4. **Imagens maiores** - Altura de 128px ao invés de 96px
-5. **Consistência** - Mesmas melhorias em Kanban, Lista e onde mais aparecer
+1. **Menu lateral** com entrada "Automações" dedicada
+2. **Página completa** para gerenciar todas automações
+3. **Auto-publish funcional** via Late API
+4. **Tudo no planejamento** - cards criados automaticamente aparecem no Kanban
+5. **Histórico visível** - saber quando cada automação rodou
+6. **Teste manual** - botão para testar automação antes de ativar
