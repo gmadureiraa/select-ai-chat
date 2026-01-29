@@ -31,6 +31,7 @@ interface PlanningAutomation {
   content_type: string;
   auto_generate_content: boolean;
   prompt_template: string | null;
+  auto_publish: boolean;
   last_triggered_at: string | null;
   items_created: number;
   created_by: string | null;
@@ -244,6 +245,8 @@ serve(async (req) => {
 
         console.log(`Created planning item: ${newItem.id}`);
 
+        let generatedContent: string | null = null;
+
         // Generate content if enabled
         if (automation.auto_generate_content && automation.client_id) {
           try {
@@ -270,9 +273,10 @@ serve(async (req) => {
             if (response.ok) {
               const contentResult = await response.json();
               if (contentResult.content) {
+                generatedContent = contentResult.content;
                 await supabase
                   .from('planning_items')
-                  .update({ content: contentResult.content })
+                  .update({ content: generatedContent })
                   .eq('id', newItem.id);
                 console.log(`Content generated for item ${newItem.id}`);
               }
@@ -280,6 +284,65 @@ serve(async (req) => {
           } catch (genError) {
             console.error(`Error generating content for ${automation.name}:`, genError);
             // Continue even if content generation fails
+          }
+        }
+
+        // Auto publish if enabled
+        if (automation.auto_publish && automation.client_id && automation.platform && generatedContent) {
+          try {
+            console.log(`Auto-publishing item ${newItem.id} to ${automation.platform}...`);
+            
+            // Get client credentials for Late API
+            const { data: credentials } = await supabase
+              .from('client_social_credentials')
+              .select('metadata')
+              .eq('client_id', automation.client_id)
+              .eq('platform', automation.platform === 'twitter' ? 'twitter' : automation.platform)
+              .maybeSingle();
+
+            const lateProfileId = (credentials?.metadata as any)?.late_profile_id;
+
+            if (lateProfileId) {
+              // Call late-post function
+              const publishResponse = await fetch(`${supabaseUrl}/functions/v1/late-post`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${supabaseKey}`,
+                },
+                body: JSON.stringify({
+                  clientId: automation.client_id,
+                  platform: automation.platform,
+                  content: generatedContent,
+                  mediaUrls: [],
+                }),
+              });
+
+              if (publishResponse.ok) {
+                const publishResult = await publishResponse.json();
+                console.log(`Successfully published item ${newItem.id}:`, publishResult);
+                
+                // Update item status to published
+                await supabase
+                  .from('planning_items')
+                  .update({ 
+                    status: 'published',
+                    metadata: {
+                      ...newItem.metadata,
+                      auto_published: true,
+                      published_at: new Date().toISOString(),
+                    }
+                  })
+                  .eq('id', newItem.id);
+              } else {
+                console.error(`Failed to publish item ${newItem.id}:`, await publishResponse.text());
+              }
+            } else {
+              console.log(`No Late API credentials found for ${automation.platform}`);
+            }
+          } catch (publishError) {
+            console.error(`Error auto-publishing for ${automation.name}:`, publishError);
+            // Continue even if publish fails
           }
         }
 

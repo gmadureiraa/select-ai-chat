@@ -2095,6 +2095,7 @@ export type Database = {
       planning_automations: {
         Row: {
           auto_generate_content: boolean | null
+          auto_publish: boolean | null
           client_id: string | null
           content_type: string | null
           created_at: string | null
@@ -2114,6 +2115,7 @@ export type Database = {
         }
         Insert: {
           auto_generate_content?: boolean | null
+          auto_publish?: boolean | null
           client_id?: string | null
           content_type?: string | null
           created_at?: string | null
@@ -2133,6 +2135,7 @@ export type Database = {
         }
         Update: {
           auto_generate_content?: boolean | null
+          auto_publish?: boolean | null
           client_id?: string | null
           content_type?: string | null
           created_at?: string | null

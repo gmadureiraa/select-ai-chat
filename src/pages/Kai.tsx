@@ -12,6 +12,7 @@ import { ClientsManagementTool } from "@/components/kai/tools/ClientsManagementT
 import { ContentCanvas } from "@/components/kai/canvas/ContentCanvas";
 import { PlanningBoard } from "@/components/planning/PlanningBoard";
 import { SettingsTab } from "@/components/settings/SettingsTab";
+import { AutomationsTab } from "@/components/automations/AutomationsTab";
 
 import { OnboardingFlow } from "@/components/onboarding";
 import { NotificationPermissionPrompt } from "@/components/notifications/NotificationPermissionPrompt";
@@ -157,7 +158,7 @@ export default function Kai() {
     }
 
     // Tools that don't need client
-    const toolTabs = ["canvas", "clients", "docs", "settings"];
+    const toolTabs = ["canvas", "clients", "docs", "settings", "automations"];
     
     if (toolTabs.includes(tab)) {
       switch (tab) {
@@ -177,6 +178,8 @@ export default function Kai() {
           );
         case "settings":
           return <SettingsTab />;
+        case "automations":
+          return <AutomationsTab />;
         // assistant tab removed - chat now in GlobalKAIAssistant popup
       }
     }
