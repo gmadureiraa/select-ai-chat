@@ -380,22 +380,44 @@ export function getFormatRules(format: string): string {
   
   // Map common format names to our defined formats
   const formatMap: Record<string, string> = {
+    // Carousel
     'carousel': 'carousel',
     'carrossel': 'carousel',
     'carouselinstagram': 'carousel',
+    
+    // Newsletter/Email
     'newsletter': 'newsletter',
     'email': 'newsletter',
+    'blogpost': 'newsletter',
+    'blog': 'newsletter',
+    
+    // Static Post
     'post': 'post',
     'staticpost': 'post',
     'instagram': 'post',
+    'instagrampost': 'post',
+    'staticimage': 'post',
+    
+    // Video/Reels
     'reels': 'reels',
     'reel': 'reels',
     'video': 'reels',
     'shortvideo': 'reels',
+    'longvideo': 'reels',
+    
+    // Thread
     'thread': 'thread',
     'twitterthread': 'thread',
+    
+    // Tweet (individual)
+    'tweet': 'tweet',
+    
+    // LinkedIn
     'linkedin': 'linkedin',
     'linkedinpost': 'linkedin',
+    'xarticle': 'linkedin',
+    
+    // Stories
     'stories': 'stories',
     'story': 'stories',
     'instagramstory': 'stories',
