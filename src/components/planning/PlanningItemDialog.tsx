@@ -471,7 +471,7 @@ export function PlanningItemDialog({
                 value={content}
                 onChange={setContent}
                 placeholder="Escreva seu conteúdo aqui..."
-                minRows={4}
+                minRows={10}
                 clientId={selectedClientId}
               />
             )}

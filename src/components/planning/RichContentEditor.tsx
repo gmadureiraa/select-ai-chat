@@ -28,7 +28,7 @@ export function RichContentEditor({
   onChange, 
   placeholder = "Digite aqui...",
   className,
-  minRows = 6,
+  minRows = 10,
   clientId
 }: RichContentEditorProps) {
   const [showPreview, setShowPreview] = useState(false);
@@ -304,7 +304,7 @@ export function RichContentEditor({
       
       {/* Editor / Preview */}
       {showPreview ? (
-        <div className="min-h-[150px] p-4 rounded-lg border border-border/50 bg-background prose prose-sm dark:prose-invert max-w-none">
+        <div className="min-h-[280px] p-4 rounded-lg border border-border/50 bg-background prose prose-sm dark:prose-invert max-w-none">
           <MentionRenderer 
             text={value || "*Nenhum conteúdo*"} 
             onMentionDoubleClick={handleMentionDoubleClick}
@@ -318,7 +318,7 @@ export function RichContentEditor({
               value={value}
               onChange={handleTextareaChange}
               placeholder={placeholder}
-              className="resize-none font-mono text-sm min-h-[150px] rounded-lg border-border/50"
+              className="resize-none font-mono text-sm min-h-[280px] rounded-lg border-border/50"
               rows={minRows}
               onKeyDown={handleKeyDown}
             />
