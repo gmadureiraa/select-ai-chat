@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Calendar, Rss, Webhook, Sparkles } from 'lucide-react';
+import { Calendar, Rss, Webhook, Sparkles, Send, AlertCircle } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -92,6 +92,9 @@ export function AutomationDialog({ open, onOpenChange, automation }: AutomationD
   // RSS config
   const [rssUrl, setRssUrl] = useState('');
 
+  // Auto publish
+  const [autoPublish, setAutoPublish] = useState(false);
+
   // Reset form when dialog opens/closes or automation changes
   useEffect(() => {
     if (open && automation) {
@@ -103,6 +106,8 @@ export function AutomationDialog({ open, onOpenChange, automation }: AutomationD
       setContentType(automation.content_type || 'social_post');
       setAutoGenerate(automation.auto_generate_content);
       setPromptTemplate(automation.prompt_template || '');
+
+      setAutoPublish((automation as any).auto_publish || false);
 
       if (automation.trigger_type === 'schedule') {
         const config = automation.trigger_config as ScheduleConfig;
@@ -127,6 +132,7 @@ export function AutomationDialog({ open, onOpenChange, automation }: AutomationD
       setScheduleDays([1]);
       setScheduleTime('10:00');
       setRssUrl('');
+      setAutoPublish(false);
     }
   }, [open, automation]);
 
@@ -171,6 +177,7 @@ export function AutomationDialog({ open, onOpenChange, automation }: AutomationD
       content_type: contentType,
       auto_generate_content: autoGenerate,
       prompt_template: autoGenerate ? promptTemplate : null,
+      auto_publish: autoPublish,
     };
 
     if (isEditing && automation) {
@@ -418,6 +425,44 @@ export function AutomationDialog({ open, onOpenChange, automation }: AutomationD
                   Use {"{{title}}"} e {"{{description}}"} para incluir dados do gatilho
                 </p>
               </div>
+            )}
+          </div>
+
+          {/* Publicação automática */}
+          <div className="space-y-4 p-4 border rounded-lg">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Send className="h-5 w-5 text-green-500" />
+                <div>
+                  <Label className="text-base">Publicar automaticamente</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Publica direto na plataforma após a IA gerar
+                  </p>
+                </div>
+              </div>
+              <Switch 
+                checked={autoPublish} 
+                onCheckedChange={setAutoPublish}
+                disabled={!autoGenerate || !platform || !clientId}
+              />
+            </div>
+
+            {autoPublish && (
+              <div className="flex items-start gap-2 p-3 bg-amber-500/10 rounded-lg">
+                <AlertCircle className="h-4 w-4 text-amber-500 mt-0.5 flex-shrink-0" />
+                <p className="text-sm text-amber-700 dark:text-amber-400">
+                  Requer conta conectada (Late API) para a plataforma selecionada.
+                  Certifique-se de que as credenciais estão configuradas no perfil.
+                </p>
+              </div>
+            )}
+
+            {(!autoGenerate || !platform || !clientId) && (
+              <p className="text-xs text-muted-foreground">
+                {!autoGenerate && "Ative a geração de conteúdo para habilitar. "}
+                {!platform && "Selecione uma plataforma. "}
+                {!clientId && "Selecione um perfil."}
+              </p>
             )}
           </div>
         </div>

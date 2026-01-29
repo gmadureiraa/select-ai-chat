@@ -37,6 +37,7 @@ export interface PlanningAutomation {
   content_type: string;
   auto_generate_content: boolean;
   prompt_template: string | null;
+  auto_publish: boolean;
   last_triggered_at: string | null;
   items_created: number;
   created_by: string | null;
@@ -54,6 +55,7 @@ export interface CreateAutomationInput {
   content_type?: string;
   auto_generate_content?: boolean;
   prompt_template?: string | null;
+  auto_publish?: boolean;
 }
 
 export interface UpdateAutomationInput extends Partial<CreateAutomationInput> {
@@ -119,6 +121,7 @@ export function usePlanningAutomations() {
           content_type: input.content_type || 'social_post',
           auto_generate_content: input.auto_generate_content || false,
           prompt_template: input.prompt_template,
+          auto_publish: input.auto_publish || false,
           created_by: user?.id,
         })
         .select()
@@ -153,6 +156,7 @@ export function usePlanningAutomations() {
       if (input.content_type !== undefined) updateData.content_type = input.content_type;
       if (input.auto_generate_content !== undefined) updateData.auto_generate_content = input.auto_generate_content;
       if (input.prompt_template !== undefined) updateData.prompt_template = input.prompt_template;
+      if ((input as any).auto_publish !== undefined) updateData.auto_publish = (input as any).auto_publish;
       if (input.is_active !== undefined) updateData.is_active = input.is_active;
       
       const { data, error } = await supabase

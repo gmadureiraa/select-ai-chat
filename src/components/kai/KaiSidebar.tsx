@@ -14,7 +14,9 @@ import {
   Sun,
   Library,
   Settings,
+  Zap,
 } from "lucide-react";
+import { useDevAccess } from "@/hooks/useDevAccess";
 import { cn } from "@/lib/utils";
 import { useClients } from "@/hooks/useClients";
 import { useWorkspace } from "@/hooks/useWorkspace";
@@ -132,6 +134,7 @@ export function KaiSidebar({
   const { showUpgradePrompt } = useUpgradePrompt();
   const { user, signOut } = useAuth();
   const { theme, setTheme } = useTheme();
+  const { hasDevAccess } = useDevAccess();
   const selectedClient = clients?.find(c => c.id === selectedClientId);
   const [showClientDialog, setShowClientDialog] = useState(false);
   const hasClients = clients && clients.length > 0;
@@ -353,6 +356,16 @@ export function KaiSidebar({
           />
         )}
 
+        {/* Automações - Dev only por enquanto */}
+        {hasDevAccess && (
+          <NavItem
+            icon={<Zap className="h-4 w-4" strokeWidth={1.5} />}
+            label="Automações"
+            active={activeTab === "automations"}
+            onClick={() => onTabChange("automations")}
+            collapsed={collapsed}
+          />
+        )}
 
         {/* Profiles - requires Pro plan */}
         {canViewClients && canAccessProfiles && (
