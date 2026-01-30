@@ -3927,6 +3927,10 @@ export type Database = {
         Args: { p_client_id: string; p_user_id: string }
         Returns: boolean
       }
+      can_access_credentials: {
+        Args: { p_client_id: string; p_user_id: string }
+        Returns: boolean
+      }
       can_access_planning_item: {
         Args: { _planning_item_id: string }
         Returns: boolean

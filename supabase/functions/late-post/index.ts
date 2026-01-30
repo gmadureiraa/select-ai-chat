@@ -19,9 +19,13 @@ interface MediaItem {
   type?: 'image' | 'video';
 }
 
+// Allowed platforms enum for validation
+const ALLOWED_PLATFORMS = ['twitter', 'linkedin', 'instagram', 'tiktok', 'youtube', 'facebook', 'threads'] as const;
+type AllowedPlatform = typeof ALLOWED_PLATFORMS[number];
+
 interface PostRequest {
   clientId: string;
-  platform: 'twitter' | 'linkedin' | 'instagram' | 'tiktok' | 'youtube' | 'facebook' | 'threads';
+  platform: AllowedPlatform;
   content: string;
   mediaUrls?: string[];
   mediaItems?: MediaItem[];
@@ -30,6 +34,11 @@ interface PostRequest {
   scheduledFor?: string; // ISO date string for scheduling
   publishNow?: boolean;
 }
+
+// Input validation constants
+const MAX_CONTENT_LENGTH = 50000;
+const MAX_MEDIA_ITEMS = 10;
+const MAX_THREAD_ITEMS = 25;
 
 serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
@@ -87,12 +96,95 @@ serve(async (req: Request) => {
       publishNow = true 
     }: PostRequest = await req.json();
 
+    // === INPUT VALIDATION ===
+    
+    // Required fields
     if (!clientId || !platform) {
       return new Response(JSON.stringify({ error: "Cliente e plataforma são obrigatórios" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    // Validate clientId is a valid UUID format
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(clientId)) {
+      return new Response(JSON.stringify({ error: "ID do cliente inválido" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Validate platform is one of allowed values
+    if (!ALLOWED_PLATFORMS.includes(platform as AllowedPlatform)) {
+      return new Response(JSON.stringify({ 
+        error: `Plataforma inválida. Permitidas: ${ALLOWED_PLATFORMS.join(', ')}` 
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Validate content length
+    if (content && content.length > MAX_CONTENT_LENGTH) {
+      return new Response(JSON.stringify({ 
+        error: `Conteúdo muito longo (max ${MAX_CONTENT_LENGTH} caracteres)` 
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Validate media URL count
+    if (mediaUrls && mediaUrls.length > MAX_MEDIA_ITEMS) {
+      return new Response(JSON.stringify({ 
+        error: `Máximo de ${MAX_MEDIA_ITEMS} mídias por post` 
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Validate mediaItems count
+    if (inputMediaItems && inputMediaItems.length > MAX_MEDIA_ITEMS) {
+      return new Response(JSON.stringify({ 
+        error: `Máximo de ${MAX_MEDIA_ITEMS} mídias por post` 
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Validate thread items count
+    if (threadItems && threadItems.length > MAX_THREAD_ITEMS) {
+      return new Response(JSON.stringify({ 
+        error: `Máximo de ${MAX_THREAD_ITEMS} itens na thread` 
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Validate planningItemId if provided
+    if (planningItemId && !uuidRegex.test(planningItemId)) {
+      return new Response(JSON.stringify({ error: "ID do item de planejamento inválido" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Validate scheduledFor if provided
+    if (scheduledFor) {
+      const scheduledDate = new Date(scheduledFor);
+      if (isNaN(scheduledDate.getTime())) {
+        return new Response(JSON.stringify({ error: "Data de agendamento inválida" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
+    // === END INPUT VALIDATION ===
 
     // Content validation
     const hasContent = content?.trim();
