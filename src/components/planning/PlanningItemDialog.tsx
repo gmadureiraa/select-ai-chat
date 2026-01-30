@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { format, parseISO, setHours, setMinutes } from 'date-fns';
+import { supabase } from '@/integrations/supabase/client';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -78,6 +79,44 @@ export function PlanningItemDialog({
   const [isPublishing, setIsPublishing] = useState(false);
   const [showImageModal, setShowImageModal] = useState(false);
   const [showMoreOptions, setShowMoreOptions] = useState(false);
+  const [freshItem, setFreshItem] = useState<PlanningItem | null>(null);
+  const [isFetchingItem, setIsFetchingItem] = useState(false);
+  
+  // Fetch fresh item data when dialog opens to ensure we have latest content
+  useEffect(() => {
+    const fetchFreshItem = async () => {
+      if (!open || !item?.id) {
+        setFreshItem(null);
+        return;
+      }
+      
+      setIsFetchingItem(true);
+      try {
+        const { data, error } = await supabase
+          .from('planning_items')
+          .select('*')
+          .eq('id', item.id)
+          .single();
+        
+        if (error) {
+          console.error('Error fetching fresh item:', error);
+          setFreshItem(null);
+        } else {
+          setFreshItem(data as PlanningItem);
+        }
+      } catch (err) {
+        console.error('Error fetching fresh item:', err);
+        setFreshItem(null);
+      } finally {
+        setIsFetchingItem(false);
+      }
+    };
+    
+    fetchFreshItem();
+  }, [open, item?.id]);
+  
+  // Use fresh item if available, otherwise fall back to prop
+  const effectiveItem = freshItem || item;
   
   // Form state
   const [title, setTitle] = useState('');
@@ -148,21 +187,22 @@ export function PlanningItemDialog({
   };
 
   useEffect(() => {
-    if (item) {
-      setTitle(item.title);
-      setContent(item.content || '');
-      setSelectedClientId(item.client_id || '');
-      setColumnId(item.column_id || '');
-      setPriority(item.priority);
-      setDueDate(item.due_date ? parseISO(item.due_date) : undefined);
-      const parsedScheduledAt = item.scheduled_at ? parseISO(item.scheduled_at) : undefined;
+    // Use effectiveItem (fresh data if available) instead of stale item prop
+    if (effectiveItem) {
+      setTitle(effectiveItem.title);
+      setContent(effectiveItem.content || '');
+      setSelectedClientId(effectiveItem.client_id || '');
+      setColumnId(effectiveItem.column_id || '');
+      setPriority(effectiveItem.priority);
+      setDueDate(effectiveItem.due_date ? parseISO(effectiveItem.due_date) : undefined);
+      const parsedScheduledAt = effectiveItem.scheduled_at ? parseISO(effectiveItem.scheduled_at) : undefined;
       setScheduledAt(parsedScheduledAt);
       setScheduledTime(parsedScheduledAt ? format(parsedScheduledAt, 'HH:mm') : '09:00');
-      setAssignedTo(item.assigned_to || '');
+      setAssignedTo(effectiveItem.assigned_to || '');
       
-      const metadata = item.metadata as any || {};
+      const metadata = effectiveItem.metadata as any || {};
       // Try to get content_type, fallback to mapping from platform
-      const savedContentType = metadata.content_type || item.content_type;
+      const savedContentType = metadata.content_type || effectiveItem.content_type;
       if (savedContentType && CONTENT_TO_PLATFORM[savedContentType as ContentTypeKey]) {
         setContentType(savedContentType as ContentTypeKey);
       } else {
@@ -170,13 +210,13 @@ export function PlanningItemDialog({
       }
       
       setRecurrenceConfig({
-        type: (item as any).recurrence_type || 'none',
-        days: (item as any).recurrence_days || [],
-        time: (item as any).recurrence_time || null,
-        endDate: (item as any).recurrence_end_date || null,
+        type: (effectiveItem as any).recurrence_type || 'none',
+        days: (effectiveItem as any).recurrence_days || [],
+        time: (effectiveItem as any).recurrence_time || null,
+        endDate: (effectiveItem as any).recurrence_end_date || null,
       });
       
-      const mediaUrls = item.media_urls as string[] || [];
+      const mediaUrls = effectiveItem.media_urls as string[] || [];
       setMediaItems(mediaUrls.map((url, i) => ({
         id: `media-${i}`,
         url,
@@ -186,9 +226,10 @@ export function PlanningItemDialog({
       if (metadata.thread_tweets) {
         setThreadTweets(metadata.thread_tweets);
       } else {
-        setThreadTweets([{ id: 'tweet-1', text: item.content || '', media_urls: [] }]);
+        setThreadTweets([{ id: 'tweet-1', text: effectiveItem.content || '', media_urls: [] }]);
       }
-    } else {
+    } else if (!item) {
+      // Only reset when there's no item at all (new card)
       setTitle('');
       setContent('');
       setSelectedClientId(defaultClientId || '');
@@ -206,7 +247,7 @@ export function PlanningItemDialog({
       setRecurrenceConfig({ type: 'none', days: [], time: null, endDate: null });
       setShowMoreOptions(false);
     }
-  }, [item, defaultColumnId, defaultDate, defaultClientId, columns, open]);
+  }, [effectiveItem, item, defaultColumnId, defaultDate, defaultClientId, columns, open]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -382,6 +423,11 @@ export function PlanningItemDialog({
           )}
         </DialogHeader>
 
+        {isFetchingItem && item ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
+        ) : (
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Title */}
           <div>
@@ -671,6 +717,7 @@ export function PlanningItemDialog({
             )}
           </div>
         </form>
+        )}
       </DialogContent>
     </Dialog>
 
