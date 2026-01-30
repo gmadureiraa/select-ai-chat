@@ -6,29 +6,30 @@ export const FORMAT_RULES: Record<string, string> = {
 ## REGRAS OBRIGATÓRIAS PARA TWEET
 
 ### ESTRUTURA
-- **Máximo 280 caracteres** (incluindo espaços e hashtags)
+- **Máximo 280 caracteres** (incluindo espaços)
 - Uma mensagem clara, impactante e direta
-- Hashtags no final (máximo 2)
+- **SEM HASHTAGS** - hashtags são datadas e prejudicam alcance
 
 ### FORMATO DE ENTREGA
 \`\`\`
-[Texto do tweet - máx 280 chars]
-
-#hashtag1 #hashtag2
+[Texto do tweet - máx 280 chars, sem hashtags]
 \`\`\`
 
 ### PROIBIÇÕES ABSOLUTAS
+- ❌ HASHTAGS (NUNCA use hashtags, são consideradas spam em 2024+)
 - ❌ Exceder 280 caracteres (CRÍTICO)
-- ❌ Mais de 2 hashtags
 - ❌ Linguagem corporativa ou genérica
 - ❌ Começar com "Você sabia que..." ou similares
+- ❌ Tweets vazios sem valor real (apenas afirmações genéricas)
+- ❌ Mencionar o nome do cliente como hashtag (#gabrielmadureira, etc)
 
 ### TÉCNICAS QUE FUNCIONAM
 - ✅ Gancho forte na primeira frase
 - ✅ Números específicos ("3 erros" em vez de "alguns erros")
-- ✅ Call to action claro (RT, Curtir, Responda)
-- ✅ Opinião ou take polêmico
-- ✅ Perguntas diretas
+- ✅ Opinião ou take polêmico que gera discussão
+- ✅ Perguntas diretas que provocam reflexão
+- ✅ Insight único baseado em experiência real
+- ✅ Estrutura com quebras de linha para ritmo
 `,
 
   carousel: `
@@ -321,17 +322,25 @@ Story Final:
 export const UNIVERSAL_RULES = `
 ## DIRETRIZES UNIVERSAIS DE CRIAÇÃO
 
+### ⚠️ REGRA CRÍTICA: ENTREGUE APENAS O CONTEÚDO FINAL
+- NUNCA inclua meta-texto como "Aqui está a newsletter que você pediu", "Segue o tweet", "Criei para você", etc.
+- NUNCA explique o que você fez ou por que fez
+- NUNCA inclua notas, observações ou comentários
+- Entregue DIRETAMENTE o conteúdo pronto para publicar, nada mais
+- Se precisar de múltiplas versões, numere-as (Versão 1, Versão 2) sem explicações
+
 ### 1. CLAREZA ACIMA DE TUDO
 - 1 ideia por seção/slide/parágrafo
 - Texto conciso respeitando limites de palavras do formato
 - Progressão lógica: cada parte leva naturalmente à próxima
 - Linguagem simples e direta
 
-### 2. EMOJIS: QUASE ZERO
+### 2. EMOJIS E HASHTAGS: QUASE ZERO
 - Emojis APENAS no CTA final quando apropriado
 - NUNCA no corpo principal do conteúdo
 - Máximo 2-3 emojis POR PEÇA INTEIRA
 - Exceção: Stories podem usar mais por natureza visual
+- **HASHTAGS: NÃO USE** - são datadas e consideradas spam em 2024+
 
 ### 3. LINGUAGEM DIRETA
 - PROIBIDO: "Entenda", "Aprenda", "Descubra como", "Vamos falar sobre", "Você sabia que"
@@ -345,11 +354,12 @@ export const UNIVERSAL_RULES = `
 - Termine SEMPRE com CTA específico
 - Entregue conteúdo PRONTO PARA USO, não sugestões
 
-### 5. AUTENTICIDADE
+### 5. AUTENTICIDADE E VALOR
 - Evite parecer "ChatGPT-like" ou genérico
 - Mantenha 100% o tom de voz do cliente
 - Use os exemplos fornecidos como referência de estilo
 - Replique estruturas que funcionam para o cliente
+- CADA FRASE deve agregar valor real - elimine preenchimento
 
 ### 6. GANCHOS QUE FUNCIONAM
 - Dor/problema específico
