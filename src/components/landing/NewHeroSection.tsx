@@ -1,7 +1,8 @@
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Sparkles, Play } from "lucide-react";
+import { ArrowRight, Sparkles } from "lucide-react";
 import { Link } from "react-router-dom";
+import InteractiveCanvasDemo from "./InteractiveCanvasDemo";
 
 const NewHeroSection = () => {
   return (
@@ -56,12 +57,11 @@ const NewHeroSection = () => {
           Tudo em um fluxo visual inteligente.
         </motion.p>
 
-        {/* CTAs - Minimal */}
+        {/* CTA - Single button */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.3 }}
-          className="flex flex-col sm:flex-row items-center justify-center gap-3"
         >
           <Link to="/signup?plan=basic">
             <Button 
@@ -72,41 +72,10 @@ const NewHeroSection = () => {
               <ArrowRight className="ml-2 w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
             </Button>
           </Link>
-          <a href="#canvas-demo">
-            <Button 
-              variant="ghost" 
-              size="lg" 
-              className="h-12 px-6 text-base font-medium text-muted-foreground hover:text-foreground"
-            >
-              <Play className="mr-2 w-4 h-4" />
-              Ver demo
-            </Button>
-          </a>
-        </motion.div>
-
-        {/* Trust badges - Subtle */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.5, delay: 0.5 }}
-          className="mt-16 flex flex-wrap items-center justify-center gap-6 text-muted-foreground/60"
-        >
-          <div className="flex items-center gap-2 text-sm">
-            <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
-            <span>+500 criadores</span>
-          </div>
-          <div className="flex items-center gap-2 text-sm">
-            <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
-            <span>4.9★ avaliação</span>
-          </div>
-          <div className="flex items-center gap-2 text-sm">
-            <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
-            <span>Garantia 14 dias</span>
-          </div>
         </motion.div>
       </div>
 
-      {/* Demo Preview - Floating below */}
+      {/* Interactive Canvas Demo */}
       <motion.div
         initial={{ opacity: 0, y: 40 }}
         animate={{ opacity: 1, y: 0 }}
@@ -128,15 +97,9 @@ const NewHeroSection = () => {
             </div>
           </div>
           
-          {/* Canvas mockup */}
-          <div className="aspect-[16/9] bg-gradient-to-br from-background via-background to-muted/30 flex items-center justify-center">
-            <div className="text-center text-muted-foreground/40">
-              <div className="w-16 h-16 rounded-xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
-                <Sparkles className="w-8 h-8 text-primary/60" />
-              </div>
-              <p className="text-sm font-medium">Canvas Interativo</p>
-              <p className="text-xs mt-1">Arraste nodes, conecte ideias, gere conteúdo</p>
-            </div>
+          {/* Real Interactive Canvas */}
+          <div className="p-4">
+            <InteractiveCanvasDemo />
           </div>
         </div>
         
