@@ -2,339 +2,127 @@ import { motion } from "framer-motion";
 import { 
   ArrowRight, 
   Layers,
-  Image,
-  Youtube,
+  Sparkles,
   LayoutGrid,
-  MessageSquare,
-  FileEdit,
-  BookOpen,
-  Mail,
-  Video,
-  Instagram,
-  Twitter,
-  Linkedin,
-  FileText
 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 
-// Output formats that the source transforms into
-const outputFormats = [
-  { icon: LayoutGrid, label: "Carrossel", delay: 0 },
-  { icon: MessageSquare, label: "Thread", delay: 0.1 },
-  { icon: FileEdit, label: "Artigo", delay: 0.2 },
-  { icon: BookOpen, label: "Stories", delay: 0.3 },
-  { icon: Mail, label: "Newsletter", delay: 0.4 },
-  { icon: Video, label: "Roteiro", delay: 0.5 },
-  { icon: FileText, label: "Resumo", delay: 0.6 },
-  { icon: Instagram, label: "Caption", delay: 0.7 },
-  { icon: Twitter, label: "Tweet", delay: 0.8 },
-  { icon: Linkedin, label: "LinkedIn", delay: 0.9 },
+const features = [
+  {
+    icon: Layers,
+    title: "10+ Templates",
+    description: "Carrossel, Thread, Artigo, Newsletter e mais.",
+  },
+  {
+    icon: Sparkles,
+    title: "IA Generativa",
+    description: "Crie imagens personalizadas integradas.",
+  },
+  {
+    icon: LayoutGrid,
+    title: "Multi-Agente",
+    description: "4 agentes refinam cada conteúdo.",
+  },
 ];
-
-// SVG Curved Connection component with animated path
-const CurvedConnection = ({ 
-  index, 
-  total, 
-  delay 
-}: { 
-  index: number; 
-  total: number; 
-  delay: number;
-}) => {
-  const angle = (index / total) * 360 - 90;
-  const radius = typeof window !== 'undefined' && window.innerWidth < 768 ? 120 : 180;
-  const innerRadius = 60;
-  
-  // Calculate start and end points
-  const startX = Math.cos((angle * Math.PI) / 180) * innerRadius;
-  const startY = Math.sin((angle * Math.PI) / 180) * innerRadius;
-  const endX = Math.cos((angle * Math.PI) / 180) * radius;
-  const endY = Math.sin((angle * Math.PI) / 180) * radius;
-  
-  // Control points for bezier curve (create a slight curve)
-  const midRadius = (innerRadius + radius) / 2;
-  const curveOffset = 15;
-  const perpAngle = angle + 90;
-  const controlX = Math.cos((angle * Math.PI) / 180) * midRadius + Math.cos((perpAngle * Math.PI) / 180) * curveOffset;
-  const controlY = Math.sin((angle * Math.PI) / 180) * midRadius + Math.sin((perpAngle * Math.PI) / 180) * curveOffset;
-  
-  return (
-    <motion.path
-      d={`M ${startX} ${startY} Q ${controlX} ${controlY} ${endX} ${endY}`}
-      stroke="hsl(var(--primary) / 0.4)"
-      strokeWidth="2"
-      fill="none"
-      strokeLinecap="round"
-      initial={{ pathLength: 0, opacity: 0 }}
-      whileInView={{ pathLength: 1, opacity: 1 }}
-      viewport={{ once: true }}
-      transition={{ delay: delay + 0.3, duration: 0.6, ease: "easeOut" }}
-    />
-  );
-};
-
-// Output format node component
-const OutputNode = ({ 
-  format, 
-  index, 
-  total 
-}: { 
-  format: typeof outputFormats[0]; 
-  index: number; 
-  total: number;
-}) => {
-  // Calculate position in a circle
-  const angle = (index / total) * 360 - 90; // Start from top
-  const radius = typeof window !== 'undefined' && window.innerWidth < 768 ? 120 : 180;
-  const x = Math.cos((angle * Math.PI) / 180) * radius;
-  const y = Math.sin((angle * Math.PI) / 180) * radius;
-  
-  return (
-    <motion.div
-      className="absolute left-1/2 top-1/2"
-      style={{ 
-        x: x - 40, 
-        y: y - 20,
-      }}
-      initial={{ opacity: 0, scale: 0 }}
-      whileInView={{ opacity: 1, scale: 1 }}
-      viewport={{ once: true }}
-      transition={{ 
-        delay: 0.8 + format.delay,
-        type: "spring",
-        stiffness: 200,
-        damping: 15
-      }}
-    >
-      <motion.div
-        className="flex items-center gap-2 px-3 py-2 rounded-xl bg-primary text-primary-foreground shadow-md cursor-default"
-        whileHover={{ scale: 1.1, y: -4 }}
-        transition={{ type: "spring", stiffness: 400 }}
-      >
-        <format.icon className="w-4 h-4" />
-        <span className="text-xs font-medium whitespace-nowrap">{format.label}</span>
-      </motion.div>
-    </motion.div>
-  );
-};
-
-// Main visualization component
-const SourceToOutputsVisualization = () => {
-  return (
-    <div className="relative w-full h-[400px] md:h-[500px] flex items-center justify-center">
-      {/* Background glow */}
-      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-        <motion.div
-          className="w-[300px] h-[300px] md:w-[400px] md:h-[400px] rounded-full bg-primary/10 blur-[80px]"
-          animate={{ scale: [1, 1.1, 1], opacity: [0.3, 0.5, 0.3] }}
-          transition={{ duration: 4, repeat: Infinity }}
-        />
-      </div>
-      
-      {/* SVG Container for curved connections */}
-      <svg 
-        className="absolute inset-0 w-full h-full pointer-events-none" 
-        style={{ 
-          overflow: 'visible',
-          left: '50%',
-          top: '50%',
-          transform: 'translate(-50%, -50%)',
-          width: '1px',
-          height: '1px'
-        }}
-      >
-        {outputFormats.map((format, index) => (
-          <CurvedConnection 
-            key={format.label} 
-            index={index} 
-            total={outputFormats.length}
-            delay={format.delay}
-          />
-        ))}
-      </svg>
-      
-      {/* Center source node */}
-      <motion.div
-        className="relative z-20"
-        initial={{ scale: 0, rotate: -180 }}
-        whileInView={{ scale: 1, rotate: 0 }}
-        viewport={{ once: true }}
-        transition={{ 
-          type: "spring",
-          stiffness: 200,
-          damping: 20,
-          delay: 0.2 
-        }}
-      >
-        {/* Pulsing rings */}
-        <motion.div
-          className="absolute -inset-4 rounded-full border-2 border-primary/30"
-          animate={{ scale: [1, 1.2, 1], opacity: [0.5, 0, 0.5] }}
-          transition={{ duration: 2, repeat: Infinity }}
-        />
-        <motion.div
-          className="absolute -inset-8 rounded-full border border-primary/20"
-          animate={{ scale: [1, 1.3, 1], opacity: [0.3, 0, 0.3] }}
-          transition={{ duration: 2, repeat: Infinity, delay: 0.5 }}
-        />
-        
-        {/* Main source card */}
-        <motion.div
-          className="relative w-24 h-24 md:w-28 md:h-28 rounded-2xl bg-red-500 shadow-xl flex flex-col items-center justify-center gap-2"
-          animate={{ y: [0, -5, 0] }}
-          transition={{ duration: 3, repeat: Infinity }}
-        >
-          <Youtube className="w-8 h-8 md:w-10 md:h-10 text-white" />
-          <span className="text-[10px] md:text-xs font-bold text-white/90">1 Vídeo</span>
-        </motion.div>
-      </motion.div>
-      
-      {/* Output nodes arranged in circle */}
-      {outputFormats.map((format, index) => (
-        <OutputNode 
-          key={format.label} 
-          format={format} 
-          index={index} 
-          total={outputFormats.length} 
-        />
-      ))}
-      
-      {/* Counter badge - removed gradient */}
-      <motion.div
-        className="absolute bottom-8 left-1/2 -translate-x-1/2"
-        initial={{ opacity: 0, y: 20 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true }}
-        transition={{ delay: 2 }}
-      >
-        <div className="flex items-center gap-3 px-6 py-3 rounded-full bg-background/80 backdrop-blur-sm border border-border shadow-lg">
-          <motion.span 
-            className="text-2xl font-bold text-primary"
-            animate={{ scale: [1, 1.1, 1] }}
-            transition={{ duration: 1, repeat: Infinity, repeatDelay: 2 }}
-          >
-            1
-          </motion.span>
-          <ArrowRight className="w-5 h-5 text-muted-foreground" />
-          <motion.span 
-            className="text-2xl font-bold text-primary"
-            initial={{ opacity: 0 }}
-            whileInView={{ opacity: 1 }}
-            viewport={{ once: true }}
-            transition={{ delay: 2.2 }}
-          >
-            10+
-          </motion.span>
-          <span className="text-sm text-muted-foreground">conteúdos</span>
-        </div>
-      </motion.div>
-    </div>
-  );
-};
 
 const CanvasDemoSection = () => {
   return (
-    <section id="canvas-demo" className="py-24 md:py-32 bg-muted/30 relative overflow-hidden">
-      {/* Background decoration */}
-      <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute top-1/4 left-0 w-[600px] h-[600px] bg-primary/5 rounded-full blur-[150px]" />
-        <div className="absolute bottom-1/4 right-0 w-[500px] h-[500px] bg-secondary/5 rounded-full blur-[120px]" />
-      </div>
-
-      <div className="max-w-6xl mx-auto px-6 relative z-10">
-        {/* Header - removed Sparkles icon */}
+    <section id="canvas-demo" className="py-24 md:py-32 bg-muted/30 relative">
+      <div className="max-w-5xl mx-auto px-6">
+        {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          transition={{ duration: 0.6 }}
-          className="text-center mb-8"
+          className="text-center mb-16"
         >
-          <Badge className="mb-6 bg-primary/10 text-primary border-primary/20">
-            Multiplicação de Conteúdo
-          </Badge>
-          <h2 className="text-3xl md:text-5xl font-bold text-foreground mb-4">
-            De uma fonte para{" "}
-            <span className="text-primary">10 conteúdos</span>
-          </h2>
-          <p className="text-muted-foreground text-lg font-light max-w-2xl mx-auto">
-            Um único vídeo, artigo ou documento se transforma em múltiplos formatos prontos para publicar
+          <p className="text-sm font-medium text-primary mb-4 tracking-wide uppercase">
+            Multiplicação de conteúdo
           </p>
+          <h2 className="text-4xl md:text-5xl lg:text-6xl font-semibold tracking-tight text-foreground mb-6">
+            De uma fonte para
+            <br />
+            <span className="text-muted-foreground">10 conteúdos prontos.</span>
+          </h2>
         </motion.div>
 
-        {/* Source to Outputs Visualization */}
+        {/* Visual demo - Simplified */}
         <motion.div
-          initial={{ opacity: 0 }}
-          whileInView={{ opacity: 1 }}
+          initial={{ opacity: 0, scale: 0.95 }}
+          whileInView={{ opacity: 1, scale: 1 }}
           viewport={{ once: true }}
-          transition={{ duration: 0.7 }}
-          className="mb-12"
+          className="relative mb-16"
         >
-          <SourceToOutputsVisualization />
+          <div className="flex items-center justify-center gap-4 md:gap-8">
+            {/* Source */}
+            <motion.div 
+              className="flex flex-col items-center"
+              animate={{ y: [0, -4, 0] }}
+              transition={{ duration: 3, repeat: Infinity }}
+            >
+              <div className="w-20 h-20 md:w-24 md:h-24 rounded-2xl bg-card border border-border flex items-center justify-center shadow-lg">
+                <span className="text-3xl md:text-4xl font-bold text-primary">1</span>
+              </div>
+              <p className="text-xs text-muted-foreground mt-3">Vídeo</p>
+            </motion.div>
+
+            {/* Arrow */}
+            <motion.div
+              animate={{ x: [0, 8, 0] }}
+              transition={{ duration: 1.5, repeat: Infinity }}
+              className="text-muted-foreground"
+            >
+              <ArrowRight className="w-6 h-6 md:w-8 md:h-8" />
+            </motion.div>
+
+            {/* Outputs */}
+            <motion.div 
+              className="flex flex-col items-center"
+              animate={{ y: [0, -4, 0] }}
+              transition={{ duration: 3, repeat: Infinity, delay: 0.5 }}
+            >
+              <div className="w-20 h-20 md:w-24 md:h-24 rounded-2xl bg-primary text-primary-foreground flex items-center justify-center shadow-lg shadow-primary/20">
+                <span className="text-3xl md:text-4xl font-bold">10+</span>
+              </div>
+              <p className="text-xs text-muted-foreground mt-3">Conteúdos</p>
+            </motion.div>
+          </div>
         </motion.div>
 
-        {/* Features Grid */}
-        <div className="grid md:grid-cols-3 gap-6 mb-12">
-          {[
-            {
-              icon: Layers,
-              title: "10+ Templates Prontos",
-              description: "Carrossel, Thread, Artigo, Newsletter e mais.",
-            },
-            {
-              icon: Image,
-              title: "Geração de Imagens",
-              description: "Crie imagens personalizadas com IA integrada.",
-            },
-            {
-              icon: LayoutGrid,
-              title: "IA Multi-Agente",
-              description: "4 agentes especializados refinam cada conteúdo.",
-            },
-          ].map((feature, index) => (
+        {/* Features - Clean cards */}
+        <div className="grid md:grid-cols-3 gap-4 md:gap-6 mb-12">
+          {features.map((feature, index) => (
             <motion.div
               key={feature.title}
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: index * 0.1 }}
-              whileHover={{ y: -4, scale: 1.02 }}
-              className="p-6 rounded-2xl bg-card border border-border hover:border-primary/30 hover:shadow-xl hover:shadow-primary/5 transition-all text-center group"
+              className="p-6 rounded-xl border border-border/50 bg-card/50 text-center"
             >
-              <motion.div 
-                className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mx-auto mb-4"
-                whileHover={{ rotate: 10, scale: 1.1 }}
-              >
-                <feature.icon className="w-6 h-6 text-primary" />
-              </motion.div>
-              <h3 className="font-semibold text-foreground mb-2 group-hover:text-primary transition-colors">{feature.title}</h3>
+              <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center mx-auto mb-4">
+                <feature.icon className="w-5 h-5 text-muted-foreground" strokeWidth={1.5} />
+              </div>
+              <h3 className="font-medium text-foreground mb-2">{feature.title}</h3>
               <p className="text-sm text-muted-foreground">{feature.description}</p>
             </motion.div>
           ))}
         </div>
 
-        {/* CTA with glow */}
+        {/* CTA */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           className="text-center"
         >
-          <div className="relative inline-block">
-            {/* Glow effect */}
-            <div className="absolute -inset-4 bg-primary/20 blur-xl rounded-full" />
-            <Link to="/signup?plan=basic">
-              <Button
-                size="lg"
-                className="relative h-14 px-8 text-lg rounded-full bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20 group"
-              >
-                Assinar Canvas - $19.90/mês
-                <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
-              </Button>
-            </Link>
-          </div>
+          <Link to="/signup?plan=basic">
+            <Button size="lg" className="h-12 px-8 rounded-full">
+              Assinar Canvas - $19.90/mês
+              <ArrowRight className="ml-2 w-4 h-4" />
+            </Button>
+          </Link>
         </motion.div>
       </div>
     </section>
