@@ -15,6 +15,7 @@ interface ContentRequest {
   workspaceId?: string;
   conversationHistory?: Array<{ role: string; content: string }>;
   includePerformanceContext?: boolean;
+  additionalMaterial?: string; // Pre-extracted references from frontend
 }
 
 interface TopPerformer {
@@ -37,8 +38,9 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     const requestBody = await req.json() as ContentRequest & { stream?: boolean; message?: string };
-    const { clientId, request, format, platform, workspaceId, conversationHistory, includePerformanceContext = true, stream = true, message } = requestBody;
+    const { clientId, request, format, platform, workspaceId, conversationHistory, includePerformanceContext = true, stream = true, message, additionalMaterial } = requestBody;
     
+    // Support both 'request' and 'message' field names for flexibility
     // Support both 'request' and 'message' field names for flexibility
     const userRequest = request || message;
 
@@ -249,6 +251,14 @@ serve(async (req) => {
         contextPrompt += `- **${k.title}** (${k.category}): ${k.summary?.substring(0, 150) || ""}...\n`;
       });
       contextPrompt += `\n`;
+    }
+
+    // NEW: Include additional material from frontend if provided
+    if (additionalMaterial) {
+      contextPrompt += `### Material de Referência Fornecido\n`;
+      contextPrompt += `*Material extraído e fornecido pelo usuário:*\n\n`;
+      contextPrompt += additionalMaterial.substring(0, 15000); // Limit to 15k chars
+      contextPrompt += `\n\n`;
     }
 
     // Get format-specific rules

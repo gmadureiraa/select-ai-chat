@@ -88,10 +88,11 @@ export async function callKaiContentAgent(params: {
   format?: string;
   platform?: string;
   accessToken: string;
+  additionalMaterial?: string; // Pre-extracted reference content
   onProgress?: (chunk: string) => void;
   onChunk?: (chunkIndex: number) => void;
 }): Promise<string> {
-  const { clientId, request, format, platform, accessToken, onProgress, onChunk } = params;
+  const { clientId, request, format, platform, accessToken, additionalMaterial, onProgress, onChunk } = params;
 
   const response = await fetch(
     `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/kai-content-agent`,
@@ -107,6 +108,7 @@ export async function callKaiContentAgent(params: {
         request,
         format,
         platform,
+        additionalMaterial,
       }),
     }
   );
