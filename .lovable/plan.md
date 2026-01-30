@@ -1,239 +1,156 @@
 
-
-# Ajustes Complementares: Planejamento e Criação de Conteúdo
+# Melhorias Adicionais para Criação de Conteúdo
 
 ## Visão Geral
 
-Após revisão detalhada, o sistema está funcional e bem estruturado. No entanto, identificamos oportunidades de refinamento para aprimorar a experiência, consistência visual e fluidez do Linear-style implementado.
+Após análise detalhada do sistema, identifiquei oportunidades significativas de melhoria em **3 áreas principais**:
+
+1. **Sincronização de Regras** - A `generate-content-v2` (Canvas) usa prompts diferentes do `kai-content-agent` (Chat/Planning)
+2. **Carregamento de Documentação** - As regras do `kai_documentation` não são usadas no Canvas
+3. **Qualidade do Contexto** - Oportunidades de enriquecer o contexto passado para a IA
 
 ---
 
-## Parte 1: Melhorias no Planejamento
+## Problema 1: Duas Fontes de Regras Diferentes
 
-### 1.1 PlanningBoard - Header Refinado
+### Situação Atual
 
-**Problema**: Header ainda tem espaçamento inconsistente com estética Linear.
+| Componente | Fonte de Regras | Problema |
+|------------|-----------------|----------|
+| `kai-content-agent` | `format-rules.ts` (regras detalhadas com UNIVERSAL_RULES) | Regras completas ✓ |
+| `generate-content-v2` | Prompts inline hardcoded | Regras básicas e desatualizadas ✗ |
 
-**Solução**:
-- Remover gaps excessivos
-- Alinhar ViewToggle e botões em uma linha compacta
-- Adicionar breadcrumb sutil "Planejamento > {Cliente}"
+O Canvas usa `generate-content-v2` que tem prompts simplificados, enquanto o Chat usa `kai-content-agent` com regras completas. Isso causa inconsistência na qualidade.
+
+### Solução
+
+Unificar a fonte de regras importando `format-rules.ts` no `generate-content-v2`:
+
+```typescript
+// generate-content-v2/index.ts
+import { getFormatRules } from "../kai-content-agent/format-rules.ts";
+
+// Substituir formatPrompts hardcoded por:
+const formatRules = getFormatRules(config.format || "post");
+```
+
+---
+
+## Problema 2: kai_documentation Não Usada no Canvas
+
+### Situação Atual
+
+O banco `kai_documentation` tem 16 formatos documentados com regras detalhadas, mas:
+- `kai-simple-chat` consulta → ✓
+- `kai-content-agent` não consulta (usa format-rules.ts) → ⚠️
+- `generate-content-v2` não consulta → ✗
+
+### Solução
+
+Duas opções:
+
+**Opção A (Recomendada)**: Manter `format-rules.ts` como fonte principal (já completo e testado), mas sincronizar periodicamente com `kai_documentation`.
+
+**Opção B**: Fazer `generate-content-v2` carregar regras do banco dinamicamente.
+
+---
+
+## Problema 3: Contexto Mais Rico para o Canvas
+
+### Melhorias Propostas
+
+1. **Buscar conteúdos favoritos do cliente** (como `kai-content-agent` faz)
+2. **Incluir top performers** do Instagram/YouTube
+3. **Aplicar UNIVERSAL_RULES** (proibição de meta-texto, hashtags)
+
+---
+
+## Implementação Proposta
+
+### Fase 1: Unificar Regras no generate-content-v2
 
 | Arquivo | Mudança |
 |---------|---------|
-| `PlanningBoard.tsx` | Header compactado, breadcrumb opcional |
+| `supabase/functions/generate-content-v2/index.ts` | Importar e usar `getFormatRules()` ao invés de prompts inline |
+| `supabase/functions/_shared/format-rules.ts` | Mover format-rules.ts para _shared (reutilizável) |
 
-### 1.2 PlanningItemCard - Polimento Final
+### Fase 2: Enriquecer Contexto no Canvas
 
-**Estado atual**: Bem implementado com dot colorido e layout compacto.
+| Arquivo | Mudança |
+|---------|---------|
+| `generate-content-v2/index.ts` | Buscar conteúdos favoritos (até 3) para referência de estilo |
+| `generate-content-v2/index.ts` | Buscar top performers (até 3) para inspiração |
+| `generate-content-v2/index.ts` | Adicionar UNIVERSAL_RULES no system prompt |
 
-**Melhorias adicionais**:
-- Adicionar hover glow sutil (`ring-1 ring-primary/20` on hover)
-- Transição suave no título (`group-hover:text-primary` já existe)
-- Reduzir padding de `p-3` para `p-2.5` para maior densidade
+### Fase 3: Melhorias de UX no GeneratorNode
 
-### 1.3 PlanningItemDialog - Reorganização Linear-Style
-
-**Problema**: Dialog muito longo com muitos campos visíveis por padrão.
-
-**Solução**:
-- Dividir em duas colunas no desktop: Editor à esquerda, Propriedades à direita
-- Mover campos menos usados (Prioridade, Recorrência) para seção colapsada
-- Aumentar destaque do botão "Gerar com IA"
-
-```text
-┌─────────────────────────────────────────────────────────────┐
-│ [X]                         Novo Card                        │
-├────────────────────────────┬────────────────────────────────┤
-│                            │ Cliente: [Select...]           │
-│  [Título]                  │ Formato: [Tweet ▾]             │
-│                            │ Plataforma: Twitter            │
-│  [Referência / URL]        │──────────────────────────────  │
-│     [🪄 Gerar com IA]      │ Data: [📅 Selecionar]          │
-│                            │ Responsável: [👤 Nenhum]       │
-│  ┌──────────────────────┐  │──────────────────────────────  │
-│  │                      │  │ ▸ Mais opções                  │
-│  │   Editor de Conteúdo │  │                                │
-│  │                      │  │                                │
-│  │                      │  │                                │
-│  └──────────────────────┘  │                                │
-│                            │                                │
-│  [Mídia: 0 itens] [+Gerar] │                                │
-├────────────────────────────┴────────────────────────────────┤
-│                    [Cancelar] [Publicar Agora] [Salvar]     │
-└─────────────────────────────────────────────────────────────┘
-```
-
-### 1.4 CalendarView - Ajustes de Densidade
-
-**Estado atual**: Funcional com cards compactos.
-
-**Melhorias**:
-- Reduzir padding das células de `p-1.5` para `p-1`
-- Usar fonte menor para dias (`text-xs`)
-- Hover card mais rápido (openDelay de 300 para 200)
-
-### 1.5 ViewToggle - Estilo Pill Compacto
-
-**Melhorias**:
-- Reduzir altura de `h-8` para `h-7`
-- Transição de background mais suave
-- Borda arredondada unificada (`rounded-lg`)
-
-### 1.6 PlanningFilters - Inline sem Backgrounds
-
-**Estado atual**: Filtros já compactos mas com backgrounds nos selects.
-
-**Melhorias**:
-- Remover backgrounds coloridos nos selects fechados
-- Usar variant="ghost" onde possível
-- Adicionar chips para filtros ativos
-
----
-
-## Parte 2: Melhorias na Criação de Conteúdo
-
-### 2.1 ContentDialog - Consistência
-
-**Melhorias**:
-- Aplicar mesmo layout de duas colunas do PlanningItemDialog
-- Botão "Escrever com IA" mais destacado
-- Seções colapsáveis para opções avançadas
-
-### 2.2 ContentCard - Hover States
-
-**Melhorias**:
-- Adicionar hover glow sutil
-- Transição de elevação mais suave
-- Badge de tipo menor e inline
-
-### 2.3 RichContentEditor - Refinamento
-
-**Estado atual**: Bem implementado com toolbar e @mentions.
-
-**Melhorias**:
-- Toolbar mais compacta (ícones menores `h-3 w-3`)
-- Preview mode com melhor padding
-- Help text mais discreto
-
-### 2.4 ThreadEditor - Polimento
-
-**Estado atual**: Funcional para Twitter threads.
-
-**Melhorias**:
-- Cards individuais de tweets mais compactos
-- Contador de caracteres mais discreto
-- Drag handle sutil
-
----
-
-## Parte 3: Outras Páginas Relevantes
-
-### 3.1 KaiLibraryTab - Grid Refinado
-
-**Melhorias**:
-- Cards de conteúdo com hover mais elegante
-- Grid responsivo otimizado
-- Empty state mais Linear
-
-### 3.2 Settings/AutomationsTab - Consistência
-
-**Verificação**: Garantir que seguem mesmo padrão visual.
+| Arquivo | Mudança |
+|---------|---------|
+| `GeneratorNode.tsx` | Mostrar preview das regras do formato selecionado |
+| `GeneratorNode.tsx` | Adicionar opção "Consultar biblioteca" toggle |
 
 ---
 
 ## Arquivos a Modificar
 
-### Prioridade Alta
+1. **`supabase/functions/_shared/format-rules.ts`** (novo)
+   - Mover conteúdo de `kai-content-agent/format-rules.ts`
+   - Exportar `FORMAT_RULES`, `UNIVERSAL_RULES`, `getFormatRules()`
 
-| Arquivo | Mudanças |
-|---------|----------|
-| `PlanningItemDialog.tsx` | Layout duas colunas, reorganização de campos |
-| `PlanningItemCard.tsx` | Hover glow, padding refinado |
-| `ViewToggle.tsx` | Pill menor, transições suaves |
-| `PlanningFilters.tsx` | Chips de filtro, sem backgrounds |
+2. **`supabase/functions/kai-content-agent/index.ts`**
+   - Atualizar import para `../_shared/format-rules.ts`
 
-### Prioridade Média
-
-| Arquivo | Mudanças |
-|---------|----------|
-| `ContentDialog.tsx` | Layout consistente |
-| `ContentCard.tsx` | Hover states |
-| `RichContentEditor.tsx` | Toolbar compacta |
-| `ThreadEditor.tsx` | Cards compactos |
-| `CalendarView.tsx` | Densidade aumentada |
-
-### Prioridade Baixa
-
-| Arquivo | Mudanças |
-|---------|----------|
-| `PlanningBoard.tsx` | Header mínimo |
-| `EmptyState.tsx` | Visual Linear |
-| `VirtualizedKanbanColumn.tsx` | Já bem implementado (ajustes mínimos) |
+3. **`supabase/functions/generate-content-v2/index.ts`**
+   - Importar regras de `../_shared/format-rules.ts`
+   - Substituir `formatPrompts` hardcoded
+   - Adicionar busca de conteúdos favoritos
+   - Aplicar UNIVERSAL_RULES
 
 ---
 
-## Ordem de Implementação
+## Benefícios Esperados
 
-### Fase 1: Planejamento Core
-1. `PlanningItemCard.tsx` - Hover e densidade
-2. `PlanningItemDialog.tsx` - Layout duas colunas
-3. `ViewToggle.tsx` - Pill compacto
-4. `PlanningFilters.tsx` - Inline sem backgrounds
-
-### Fase 2: Editores
-1. `RichContentEditor.tsx` - Toolbar refinada
-2. `ThreadEditor.tsx` - Cards compactos
-3. `ContentDialog.tsx` - Consistência
-
-### Fase 3: Outras Views
-1. `CalendarView.tsx` - Densidade
-2. `ContentCard.tsx` - Hover states
-3. `EmptyState.tsx` - Minimalismo
+| Métrica | Antes | Depois |
+|---------|-------|--------|
+| Consistência entre Canvas e Chat | Regras diferentes | Mesmas regras |
+| Qualidade no Canvas | Prompts básicos | Regras detalhadas + exemplos |
+| Meta-texto indesejado | Possível aparecer | Bloqueado por UNIVERSAL_RULES |
+| Hashtags | Podem aparecer | Globalmente proibidas |
+| Contexto do cliente | Apenas brand_assets | + Favoritos + Top performers |
 
 ---
 
 ## Seção Técnica
 
-### Patterns a Aplicar
+### Estrutura de Imports
 
-```css
-/* Hover glow sutil */
-.card-hover:hover {
-  @apply ring-1 ring-primary/10 shadow-sm;
-}
+```
+supabase/functions/
+├── _shared/
+│   ├── format-rules.ts      ← Nova localização (compartilhada)
+│   ├── format-constants.ts  ← Já existe
+│   └── knowledge-loader.ts  ← Já existe
+├── kai-content-agent/
+│   └── index.ts             ← Import de _shared/format-rules
+├── generate-content-v2/
+│   └── index.ts             ← Import de _shared/format-rules
+```
 
-/* Transições Linear */
-.transition-linear {
-  @apply transition-all duration-150 ease-out;
-}
+### Fallback de Compatibilidade
 
-/* Pill compacto */
-.pill-compact {
-  @apply h-7 text-xs px-2 rounded-lg;
+Se o import falhar por algum motivo, manter prompts inline como fallback:
+
+```typescript
+let formatRules: string;
+try {
+  formatRules = getFormatRules(config.format || "post");
+} catch {
+  formatRules = formatPrompts[config.format || "post"] || formatPrompts.post;
 }
 ```
 
 ### Performance
-- Manter memo() nos cards
-- Transições via transform/opacity
-- Evitar re-renders desnecessários no Dialog
 
-### Acessibilidade
-- Manter focus states visíveis
-- Contrast ratios adequados
-- Keyboard navigation funcional
-
----
-
-## Checklist de Validação
-
-| Item | Verificar |
-|------|-----------|
-| Hover states consistentes | ✓ Cards, botões, links |
-| Transições suaves | ✓ 150ms ease-out padrão |
-| Densidade aumentada | ✓ Menos whitespace |
-| Tipografia | ✓ text-sm para títulos, text-xs para meta |
-| Cores | ✓ Dots coloridos, backgrounds neutros |
-| Mobile | ✓ Touch targets 44px+ |
-
+- Não há impacto de performance (import estático)
+- Busca de favoritos/top performers já é feita em paralelo
+- Limite de 3 itens cada para não sobrecarregar contexto
