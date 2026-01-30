@@ -124,43 +124,43 @@ export function RichContentEditor({
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "write" | "preview")}>
-        <div className="flex items-center justify-between border-b px-3 py-2 bg-muted/30">
+        <div className="flex items-center justify-between border-b px-2 py-1.5 bg-muted/20">
           {/* Toolbar */}
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-0.5">
             {toolbarActions.map((action, index) => (
               <Button
                 key={index}
                 variant="ghost"
                 size="sm"
-                className="h-7 w-7 p-0"
+                className="h-6 w-6 p-0 rounded-md"
                 onClick={action.action}
                 title={action.label}
                 disabled={activeTab === 'preview'}
               >
-                <action.icon className="h-4 w-4" />
+                <action.icon className="h-3 w-3" />
               </Button>
             ))}
-            <div className="w-px h-4 bg-border mx-1" />
+            <div className="w-px h-3 bg-border mx-0.5" />
             <Button
               variant="ghost"
               size="sm"
-              className="h-7 w-7 p-0"
+              className="h-6 w-6 p-0 rounded-md"
               onClick={() => fileInputRef.current?.click()}
               title="Inserir imagem"
               disabled={activeTab === 'preview'}
             >
-              <Image className="h-4 w-4" />
+              <Image className="h-3 w-3" />
             </Button>
           </div>
 
           {/* View toggle */}
-          <TabsList className="h-7">
-            <TabsTrigger value="write" className="h-6 px-2 text-xs gap-1">
-              <Edit className="h-3 w-3" />
+          <TabsList className="h-6 p-0.5 bg-muted/50">
+            <TabsTrigger value="write" className="h-5 px-2 text-[10px] gap-1 rounded-sm">
+              <Edit className="h-2.5 w-2.5" />
               Escrever
             </TabsTrigger>
-            <TabsTrigger value="preview" className="h-6 px-2 text-xs gap-1">
-              <Eye className="h-3 w-3" />
+            <TabsTrigger value="preview" className="h-5 px-2 text-[10px] gap-1 rounded-sm">
+              <Eye className="h-2.5 w-2.5" />
               Preview
             </TabsTrigger>
           </TabsList>

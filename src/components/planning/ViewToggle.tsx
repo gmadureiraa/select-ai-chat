@@ -15,45 +15,45 @@ export function ViewToggle({ view, onChange }: ViewToggleProps) {
       type="single" 
       value={view} 
       onValueChange={(v) => v && onChange(v as PlanningView)}
-      className="gap-0.5"
+      className="gap-0 bg-muted/40 rounded-lg p-0.5"
     >
       <ToggleGroupItem 
         value="board" 
         aria-label="Board view" 
         className={cn(
-          "gap-1.5 px-2.5 h-8 text-xs rounded-md",
-          "data-[state=on]:bg-muted data-[state=on]:text-foreground",
-          "data-[state=off]:text-muted-foreground data-[state=off]:hover:text-foreground",
-          "transition-colors duration-150"
+          "gap-1 px-2 h-7 text-xs rounded-md",
+          "data-[state=on]:bg-background data-[state=on]:text-foreground data-[state=on]:shadow-sm",
+          "data-[state=off]:text-muted-foreground data-[state=off]:hover:text-foreground data-[state=off]:bg-transparent",
+          "transition-all duration-150"
         )}
       >
-        <LayoutGrid className="h-3.5 w-3.5" />
+        <LayoutGrid className="h-3 w-3" />
         <span className="hidden sm:inline">Board</span>
       </ToggleGroupItem>
       <ToggleGroupItem 
         value="calendar" 
         aria-label="Calendar view" 
         className={cn(
-          "gap-1.5 px-2.5 h-8 text-xs rounded-md",
-          "data-[state=on]:bg-muted data-[state=on]:text-foreground",
-          "data-[state=off]:text-muted-foreground data-[state=off]:hover:text-foreground",
-          "transition-colors duration-150"
+          "gap-1 px-2 h-7 text-xs rounded-md",
+          "data-[state=on]:bg-background data-[state=on]:text-foreground data-[state=on]:shadow-sm",
+          "data-[state=off]:text-muted-foreground data-[state=off]:hover:text-foreground data-[state=off]:bg-transparent",
+          "transition-all duration-150"
         )}
       >
-        <Calendar className="h-3.5 w-3.5" />
+        <Calendar className="h-3 w-3" />
         <span className="hidden sm:inline">Calendário</span>
       </ToggleGroupItem>
       <ToggleGroupItem 
         value="list" 
         aria-label="List view" 
         className={cn(
-          "gap-1.5 px-2.5 h-8 text-xs rounded-md",
-          "data-[state=on]:bg-muted data-[state=on]:text-foreground",
-          "data-[state=off]:text-muted-foreground data-[state=off]:hover:text-foreground",
-          "transition-colors duration-150"
+          "gap-1 px-2 h-7 text-xs rounded-md",
+          "data-[state=on]:bg-background data-[state=on]:text-foreground data-[state=on]:shadow-sm",
+          "data-[state=off]:text-muted-foreground data-[state=off]:hover:text-foreground data-[state=off]:bg-transparent",
+          "transition-all duration-150"
         )}
       >
-        <List className="h-3.5 w-3.5" />
+        <List className="h-3 w-3" />
         <span className="hidden sm:inline">Lista</span>
       </ToggleGroupItem>
     </ToggleGroup>
