@@ -1,206 +1,328 @@
 
-# Revisão de Sênior - Sistema kAI
 
-## Resumo Executivo
+# Redesign Linear-Style: Planejamento e Landing Page
 
-Após análise detalhada de todos os componentes principais do sistema kAI, o código está **bem organizado e funcional**. A arquitetura unificada foi implementada corretamente, com boas práticas de modularização e separação de responsabilidades.
+## Visão Geral
 
----
-
-## Pontos Positivos Encontrados
-
-### 1. Arquitetura Bem Definida
-
-| Camada | Arquivo | Status |
-|--------|---------|--------|
-| Core Library | `src/lib/contentGeneration.ts` | Excelente - Funções puras bem documentadas |
-| Unified Hook | `src/hooks/useUnifiedContentGeneration.ts` | Excelente - Orquestra fluxo completo |
-| Stream Parser | `src/lib/parseOpenAIStream.ts` | Excelente - Lida bem com SSE |
-| Shared Constants | `supabase/functions/_shared/format-constants.ts` | Excelente - Single source of truth |
-| Format Rules | `kai-content-agent/format-rules.ts` | Excelente - Regras detalhadas por formato |
-
-### 2. Código Limpo e Bem Documentado
-
-```typescript
-// Exemplo de boas práticas encontradas em contentGeneration.ts
-/**
- * Extract ALL references from input (URLs, @mentions, plain text)
- */
-export async function extractAllReferences(
-  input: string | undefined
-): Promise<ExtractedReferences> {
-  // Implementação clara com comentários
-}
-```
-
-### 3. Edge Functions Consistentes
-
-- `kai-content-agent`: Corretamente aceita `additionalMaterial` para contexto rico
-- `kai-simple-chat`: Usa corretamente `_shared/format-constants.ts`
-- `process-automations`: Usa corretamente `_shared/format-constants.ts`
-- `process-push-queue`: Logs mostram funcionamento correto (sem erros)
-
-### 4. Error Handling Adequado
-
-```typescript
-// Em useUnifiedContentGeneration.ts
-} catch (error: any) {
-  console.error("[UnifiedGeneration] Generation failed:", error);
-  
-  // Check if it's a token error (402)
-  const isTokenError = await handleTokenError(error, error?.status);
-  if (!isTokenError) {
-    toast({
-      title: "Erro ao gerar conteúdo",
-      description: error instanceof Error ? error.message : "Tente novamente em alguns instantes.",
-      variant: "destructive"
-    });
-  }
-  return null;
-}
-```
+Este plano implementa um redesign completo inspirado no Linear, focando em:
+- **Estética minimalista** com fundo escuro dominante
+- **Tipografia grande e impactante**
+- **Animações sutis e performáticas**
+- **Layout limpo com muito espaço em branco (negativo)**
+- **Componentes polidos com transições suaves**
 
 ---
 
-## Observações Menores (Não Críticas)
+## Parte 1: Landing Page (Estilo Linear)
 
-### 1. Arquivo `useClientChat.ts` Muito Grande
+### 1.1 Header Redesign
 
-**Situação**: 2.235 linhas  
-**Impacto**: Baixo (funciona corretamente)  
-**Recomendação futura**: Considerar split em módulos menores quando houver refatoração maior
+| Atual | Linear-Style |
+|-------|--------------|
+| Logo + texto "Kaleidos" | Logo minimalista com nome simplificado |
+| Nav links básicos | Nav com hover states elegantes |
+| Botões CTA padrão | Botões com bordas arredondadas e hover glow |
+
+**Mudanças:**
+- Header mais fino (h-14 ao invés de h-16)
+- Background transparente até scroll, depois blur sutil
+- Links de navegação com underline animado on hover
+- Botão "Sign up" com borda branca e hover fill
+
+### 1.2 Hero Section Redesign
+
+**Linear Features a Implementar:**
+- Headline gigante (text-5xl md:text-7xl)
+- Subtítulo em cinza claro com max-width
+- Apenas 1-2 CTAs (não vários botões)
+- Demo visual flutuante abaixo (não ao lado)
+- Partículas/gradientes sutis de fundo
 
 ```text
-useClientChat.ts (2235 linhas)
-├── Intent detection logic
-├── Message handling
-├── Streaming logic
-├── Format detection
-└── Citation handling
+┌──────────────────────────────────────────────────────┐
+│                      [Header]                        │
+├──────────────────────────────────────────────────────┤
+│                                                      │
+│         kAI é a ferramenta definitiva                │
+│         para criar conteúdo                          │
+│                                                      │
+│    Subtítulo em texto muted menor aqui               │
+│                                                      │
+│            [ Start building → ]                      │
+│                                                      │
+│   ┌──────────────────────────────────────────────┐   │
+│   │                                              │   │
+│   │         Canvas Demo (flutuante)              │   │
+│   │                                              │   │
+│   └──────────────────────────────────────────────┘   │
+│                                                      │
+└──────────────────────────────────────────────────────┘
 ```
 
-### 2. Hook `useUnifiedContent.ts` vs `useUnifiedContentGeneration.ts`
+### 1.3 Social Proof Section (Novo)
 
-**Situação**: Dois hooks com nomes similares mas propósitos diferentes:
+Como o Linear mostra "Powering the world's best product teams":
 
-| Hook | Propósito |
-|------|-----------|
-| `useUnifiedContent.ts` | Fetch de conteúdo de múltiplas plataformas (Instagram, Twitter, etc) |
-| `useUnifiedContentGeneration.ts` | Geração de conteúdo via IA |
+- Faixa com logos de clientes ou badges de confiança
+- Texto "Empresas que confiam no kAI" em muted
+- Animação de scroll horizontal contínuo (marquee)
 
-**Impacto**: Nenhum (são hooks distintos com nomes suficientemente diferentes)  
-**Status**: OK - Nomes são claros quando se entende o contexto
+### 1.4 Features Grid Redesign
 
-### 3. Duplicação de Labels (Menor)
+**Linear Style:**
+- Cards grandes com ícones minimalistas
+- Títulos curtos e impactantes
+- Descrições concisas (1-2 linhas)
+- Hover state com elevação sutil
+- Grid 2x2 ou 3 colunas
 
-Existe uma pequena duplicação entre:
-- `src/lib/contentGeneration.ts` (frontend)
-- `supabase/functions/_shared/format-constants.ts` (edge functions)
+**Mudanças:**
+- Remover badges coloridos excessivos
+- Usar ícones monocromáticos (stroke: 1.5)
+- Adicionar gradiente sutil no hover
+- Espaçamento mais generoso entre cards
 
-**Impacto**: Baixo - São contextos diferentes (frontend vs backend)  
-**Status**: Aceitável - Manter sincronizado quando adicionar novos formatos
+### 1.5 Pricing Section Redesign
 
----
-
-## Fluxo de Dados Validado
+**Linear Style (simples e direto):**
+- 2 planos principais lado a lado
+- Card destacado com borda gradiente (não fill sólido)
+- Lista de features com checks minimalistas
+- CTA único por card
+- Sem animações bounce excessivas
 
 ```text
-FRONTEND                                  BACKEND
-┌─────────────────────────────────────────────────────────────────┐
-│                                                                 │
-│  usePlanningContentGeneration ──┐                               │
-│  useContentCreator ─────────────┼──► useUnifiedContentGeneration│
-│  useCanvasGeneration ───────────┘           │                   │
-│                                             ▼                   │
-│                              ┌──────────────────────────┐       │
-│                              │ extractAllReferences()   │       │
-│                              │ buildEnrichedPrompt()    │       │
-│                              │ callKaiContentAgent()    │───────┼──►
-│                              │ parseStructuredContent() │       │
-│                              └──────────────────────────┘       │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-                                                                    │
-                                     ┌──────────────────────────────┘
-                                     ▼
-                          ┌──────────────────────────┐
-                          │   kai-content-agent      │
-                          │   • format-rules.ts      │
-                          │   • Client context       │
-                          │   • Top performers       │
-                          │   • Library favorites    │
-                          │   • additionalMaterial   │
-                          └────────────┬─────────────┘
-                                       │
-                                       ▼
-                          ┌──────────────────────────┐
-                          │   Google Gemini 2.0 Flash│
-                          │   (Streaming SSE)        │
-                          └──────────────────────────┘
+┌─────────────────────────┐  ┌─────────────────────────┐
+│         Canvas          │  │  ┌──[Popular]──────┐   │
+│                         │  │  │                 │   │
+│        $19.90           │  │  │    kAI PRO      │   │
+│                         │  │  │    $99.90       │   │
+│  • Feature 1            │  │  │                 │   │
+│  • Feature 2            │  │  │  • Feature 1    │   │
+│  • Feature 3            │  │  │  • Feature 2    │   │
+│                         │  │  │  • Feature 3    │   │
+│  [ Get Started ]        │  │  │                 │   │
+│                         │  │  │ [ Get Started ] │   │
+└─────────────────────────┘  │  └─────────────────┘   │
+                             └─────────────────────────┘
 ```
+
+### 1.6 FAQ Section Redesign
+
+- Accordion com animação de altura suave
+- Ícone de seta que rotaciona
+- Sem bordas excessivas nos items fechados
+- Dividers sutis entre items
+
+### 1.7 Footer Redesign
+
+- Grid multi-coluna com links organizados
+- Logo à esquerda, social icons à direita
+- Cores muted, links com hover underline
+- Copyright simples no bottom
 
 ---
 
-## Push Notifications - Status
+## Parte 2: Sistema de Planejamento (Estilo Linear)
+
+### 2.1 Layout Geral
+
+**Linear Features:**
+- Sidebar colapsável com navegação rápida
+- Header de página mínimo
+- Área de conteúdo maximizada
+- Breadcrumbs sutis
+
+### 2.2 Kanban Board Redesign
+
+**Columns:**
+- Header minimalista com dot colorido + nome + count
+- Sem backgrounds coloridos nos headers (apenas dot)
+- Cards com sombra sutil (shadow-sm)
+- Drag preview com rotação e opacidade
 
 ```text
-Logs verificados (últimos 30 minutos):
-✅ 2026-01-30T14:15:04Z - [process-push-queue] No pending items
-✅ 2026-01-30T14:14:02Z - [process-push-queue] No pending items
-✅ 2026-01-30T14:13:02Z - [process-push-queue] No pending items
-...
+┌────────────────────────────────────────────────────────────┐
+│ • Ideia  3     • Rascunho  5     • Aprovado  2     +       │
+├────────────────────────────────────────────────────────────┤
+│ ┌──────────┐    ┌──────────┐    ┌──────────┐               │
+│ │ Card 1   │    │ Card 1   │    │ Card 1   │               │
+│ │          │    │          │    │          │               │
+│ └──────────┘    └──────────┘    └──────────┘               │
+│ ┌──────────┐    ┌──────────┐    ┌──────────┐               │
+│ │ Card 2   │    │ Card 2   │    │ Card 2   │               │
+│ │          │    │          │    │          │               │
+│ └──────────┘    └──────────┘    └──────────┘               │
+│                 ...            ...                          │
+└────────────────────────────────────────────────────────────┘
+```
 
-Status: FUNCIONANDO CORRETAMENTE
-- Sem erros nos logs
-- Boot time consistente (~60-500ms)
-- Queue sendo processada a cada minuto
+### 2.3 Planning Card Redesign
+
+**Linear Issue Card Style:**
+- Título à esquerda, metadata à direita
+- Ícone de plataforma como dot colorido pequeno
+- Avatar do assignee (se houver) no canto
+- Status como badge minimalista
+- Hover: elevação + borda sutil
+
+```text
+┌────────────────────────────────────────────────┐
+│ • Título do conteúdo aqui            ○ Status  │
+│   Descrição curta em muted...                  │
+│                                                │
+│   📅 12/02  • Twitter       👤                 │
+└────────────────────────────────────────────────┘
+```
+
+**Mudanças Específicas:**
+- Remover preview de imagem inline (apenas no dialog)
+- Títulos menores (text-sm font-medium)
+- Padding reduzido (p-3)
+- Border radius menor (rounded-lg ao invés de rounded-xl)
+- Cores mais sutis para plataformas
+
+### 2.4 Filters Bar Redesign
+
+**Linear Style:**
+- Barra compacta com dropdowns inline
+- Chips para filtros ativos
+- Botão de clear discreto
+- Sem backgrounds nos selects fechados
+
+### 2.5 View Toggle Redesign
+
+- Pills mais compactos
+- Transição de background suave
+- Ícones sem labels em mobile
+
+### 2.6 Dialog Redesign
+
+**Linear Issue Detail Style:**
+- Modal grande com sidebar de propriedades
+- Editor de conteúdo à esquerda
+- Metadata/assignee/status à direita
+- Header minimalista com close button
+
+---
+
+## Parte 3: Tokens de Design
+
+### Cores (Dark Theme Linear)
+
+```css
+--background: 0 0% 7%;        /* #121212 - Fundo principal */
+--foreground: 0 0% 95%;       /* Texto principal */
+--muted: 0 0% 14%;            /* Superfícies elevadas */
+--muted-foreground: 0 0% 55%; /* Texto secundário */
+--border: 0 0% 18%;           /* Bordas sutis */
+--primary: 142 70% 45%;       /* Verde kaleidos */
+--accent: 330 80% 60%;        /* Magenta kaleidos */
+```
+
+### Tipografia
+
+```css
+--font-display: text-5xl md:text-7xl font-semibold tracking-tight
+--font-heading: text-2xl md:text-4xl font-semibold
+--font-body: text-base font-normal
+--font-small: text-sm text-muted-foreground
+```
+
+### Espaçamento
+
+```css
+--section-padding: py-24 md:py-32
+--card-padding: p-6 md:p-8
+--gap-grid: gap-6 md:gap-8
+```
+
+### Transições
+
+```css
+--transition-fast: duration-150 ease-out
+--transition-medium: duration-300 ease-out
+--transition-slow: duration-500 ease-out
 ```
 
 ---
 
-## Checklist de Validação Final
+## Arquivos a Modificar
 
-| Item | Status | Notas |
-|------|--------|-------|
-| Imports corretos no `useClientChat.ts` | ✅ | Usa `contentGeneration.ts` |
-| Imports corretos no `useCanvasGeneration.ts` | ✅ | Usa `callKaiContentAgent` e `parseStructuredContent` |
-| Imports corretos no `process-automations` | ✅ | Usa `_shared/format-constants.ts` |
-| Imports corretos no `kai-simple-chat` | ✅ | Usa `_shared/format-constants.ts` |
-| `kai-content-agent` aceita `additionalMaterial` | ✅ | Implementado corretamente |
-| Push notifications funcionando | ✅ | Logs sem erros |
-| Format rules consistentes | ✅ | `format-rules.ts` completo |
-| Types bem definidos | ✅ | Interfaces claras |
-| Error handling | ✅ | Token errors tratados (402) |
-| Logging adequado | ✅ | Console logs em pontos-chave |
+### Landing Page
+
+| Arquivo | Mudanças |
+|---------|----------|
+| `NewLandingHeader.tsx` | Header mais fino, nav com hover underline |
+| `NewHeroSection.tsx` | Headline maior, layout centralizado, demo abaixo |
+| `ValueProposition.tsx` | Cards maiores, menos decoração |
+| `CanvasVsProSection.tsx` | Pricing simplificado, 2 cards clean |
+| `FAQSection.tsx` | Accordion mais sutil |
+| `LandingFooter.tsx` | Footer multi-coluna |
+| `StickyMobileCTA.tsx` | CTA mais discreto |
+
+### Sistema de Planejamento
+
+| Arquivo | Mudanças |
+|---------|----------|
+| `KanbanView.tsx` | Gap reduzido, layout mais tight |
+| `VirtualizedKanbanColumn.tsx` | Header minimalista, sem bg colorido |
+| `PlanningItemCard.tsx` | Card compacto estilo Linear |
+| `PlanningFilters.tsx` | Filters inline sem backgrounds |
+| `ViewToggle.tsx` | Pills mais compactos |
+| `PlanningBoard.tsx` | Header simplificado |
+| `EmptyState.tsx` | Empty state mais elegante |
+
+### Novos Componentes
+
+| Componente | Descrição |
+|------------|-----------|
+| `SocialProofMarquee.tsx` | Logos em scroll horizontal |
+| `LinearCard.tsx` | Card base estilo Linear |
+| `LinearButton.tsx` | Botão com hover glow |
 
 ---
 
-## Conclusão
+## Ordem de Implementação
 
-O sistema kAI está **pronto para produção**. A arquitetura unificada foi implementada corretamente, com:
+### Fase 1: Foundation (Design Tokens)
+1. Atualizar variáveis CSS no `globals.css`
+2. Criar utilitários de transição no Tailwind config
 
-1. **Código limpo** e bem organizado
-2. **Separação de responsabilidades** clara
-3. **Error handling** adequado
-4. **Logs** informativos para debugging
-5. **Edge functions** funcionando corretamente
-6. **Push notifications** operacionais
+### Fase 2: Landing Page
+1. `NewLandingHeader.tsx` - Header refinado
+2. `NewHeroSection.tsx` - Hero impactante
+3. `ValueProposition.tsx` - Seção como funciona
+4. `CanvasVsProSection.tsx` - Pricing clean
+5. `FAQSection.tsx` - FAQ refinado
+6. `LandingFooter.tsx` - Footer organizado
 
-### Nenhuma ação imediata necessária
-
-As observações menores documentadas acima são para referência futura em caso de refatoração maior.
+### Fase 3: Planejamento
+1. `VirtualizedKanbanColumn.tsx` - Columns minimalistas
+2. `PlanningItemCard.tsx` - Cards compactos
+3. `PlanningFilters.tsx` - Filters inline
+4. `ViewToggle.tsx` - Toggle refinado
+5. `PlanningBoard.tsx` - Layout geral
 
 ---
 
-## Métricas de Qualidade
+## Seção Técnica
 
-| Métrica | Avaliação |
-|---------|-----------|
-| Organização de código | 9/10 |
-| Documentação inline | 8/10 |
-| Error handling | 9/10 |
-| Consistência de padrões | 9/10 |
-| Modularização | 8/10 |
-| **Nota geral** | **8.6/10** |
+### Dependências Necessárias
+Nenhuma nova dependência - usaremos as já instaladas:
+- `framer-motion` para animações
+- `tailwindcss` para estilos
+- `lucide-react` para ícones
 
-O sistema está saudável e bem arquitetado.
+### Performance Considerations
+- Manter virtualization no Kanban
+- Lazy load de seções da landing
+- Usar `will-change` sparingly
+- Preferir `transform` e `opacity` para animações
+
+### Acessibilidade
+- Manter contrast ratios adequados
+- Focus states visíveis
+- Keyboard navigation funcional
+- Screen reader labels
+
