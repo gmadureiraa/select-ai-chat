@@ -202,46 +202,54 @@ export function PlanningBoard({ clientId, isEnterprise = false, onClientChange }
   }
 
   return (
-    <div className="h-full flex flex-col gap-2">
-      {/* Viewer Mode Banner - Compact */}
+    <div className="h-full flex flex-col gap-3">
+      {/* Viewer Mode Banner */}
       {isViewer && (
-        <div className="flex items-center gap-2 px-3 py-1.5 bg-muted/30 border border-border/30 rounded-lg text-xs text-muted-foreground">
-          <Eye className="h-3 w-3" />
-          <span>Modo visualização</span>
+        <div className="flex items-center gap-2 px-3 py-2 bg-muted/30 border border-border/50 rounded-lg text-xs text-muted-foreground">
+          <Eye className="h-3.5 w-3.5" />
+          <span>Modo visualização — você pode criar e mover itens</span>
         </div>
       )}
 
-      {/* Header - Linear style minimal */}
-      <div className="flex items-center justify-between gap-2">
-        <ViewToggle view={view} onChange={setView} />
-        
-        <div className="flex items-center gap-1.5">
-          {!isViewer && (
-            <>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button 
-                    variant="ghost" 
-                    size="icon"
-                    onClick={() => setShowAutomations(!showAutomations)}
-                    className={cn("h-7 w-7", showAutomations && 'bg-primary/10 text-primary')}
-                  >
-                    <Zap className="h-3.5 w-3.5" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Automações</TooltipContent>
-              </Tooltip>
-              <ViewSettingsPopover settings={settings} onChange={setSettings} />
-              <Button onClick={() => handleNewCard()} size="sm" className="h-7 px-3 text-xs gap-1.5">
-                <Plus className="h-3.5 w-3.5" />
-                {!isMobile && <span>Novo</span>}
-              </Button>
-            </>
-          )}
+      {/* Header */}
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <ViewToggle view={view} onChange={setView} />
         </div>
+        
+        {!isViewer && (
+          <div className="flex items-center gap-2">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button 
+                  variant="ghost" 
+                  size="icon"
+                  onClick={() => setShowAutomations(!showAutomations)}
+                  className={cn("h-8 w-8", showAutomations && 'bg-primary/10 text-primary')}
+                >
+                  <Zap className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Automações</TooltipContent>
+            </Tooltip>
+            <ViewSettingsPopover settings={settings} onChange={setSettings} />
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button onClick={() => handleNewCard()} size="sm" className="h-8 gap-1.5">
+                  <Plus className="h-4 w-4" />
+                  {!isMobile && <span>Novo</span>}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <span>Novo item</span>
+                <span className="ml-2 text-muted-foreground text-[10px]">{getShortcutHint('N')}</span>
+              </TooltipContent>
+            </Tooltip>
+          </div>
+        )}
       </div>
 
-      {/* Filters - Inline compact */}
+      {/* Filters */}
       {showFilters && (
         <FiltersComponent 
           filters={effectiveFilters} 
@@ -251,7 +259,7 @@ export function PlanningBoard({ clientId, isEnterprise = false, onClientChange }
 
       {/* Automations Panel */}
       {showAutomations && (
-        <div className="mb-1">
+        <div className="mb-2">
           <PlanningAutomations />
         </div>
       )}

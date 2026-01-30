@@ -1,6 +1,5 @@
 import NewLandingHeader from "@/components/landing/NewLandingHeader";
 import NewHeroSection from "@/components/landing/NewHeroSection";
-import SocialProofMarquee from "@/components/landing/SocialProofMarquee";
 import InputTypesGrid from "@/components/landing/InputTypesGrid";
 import CanvasDemoSection from "@/components/landing/CanvasDemoSection";
 import ValueProposition from "@/components/landing/ValueProposition";
@@ -16,7 +15,6 @@ const LandingPage = () => {
     <div className="min-h-screen bg-background">
       <NewLandingHeader />
       <NewHeroSection />
-      <SocialProofMarquee />
       <InputTypesGrid />
       <CanvasDemoSection />
       <ValueProposition />
