@@ -1,5 +1,11 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { 
+  FORMAT_KEY_MAP,
+  CONTENT_TYPE_MAP,
+  CONTENT_FORMAT_KEYWORDS,
+  detectFormatFromKeywords 
+} from "../_shared/format-constants.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -414,56 +420,16 @@ function detectPlanningIntent(message: string, history?: HistoryMessage[]): Plan
 // CONTENT CREATION DETECTION
 // ============================================
 
-// Map from detected PT format to database doc_key (EN) - used for kai_documentation
-const FORMAT_KEY_MAP: Record<string, string> = {
-  "carrossel": "carousel",
-  "post_instagram": "instagram_post",
-  "linkedin": "linkedin_post",
-  "artigo": "x_article",
-  "blog": "blog_post",
-  "email": "email_marketing",
-  // These are already the same
-  "newsletter": "newsletter",
-  "thread": "thread",
-  "stories": "stories",
-  "reels": "reels",
-  "tweet": "tweet",
-};
-
-// Map from detected PT format to database content_type - used for client_content_library
-const CONTENT_TYPE_MAP: Record<string, string> = {
-  "carrossel": "carousel",
-  "post_instagram": "instagram_post",
-  "linkedin": "linkedin_post",
-  "artigo": "x_article",
-  "blog": "blog_post",
-  "email": "newsletter", // email maps to newsletter type
-  "newsletter": "newsletter",
-  "thread": "thread",
-  "stories": "stories",
-  "reels": "short_video",
-  "tweet": "tweet",
-};
+// Note: FORMAT_KEY_MAP, CONTENT_TYPE_MAP, and CONTENT_FORMAT_KEYWORDS 
+// are imported from ../_shared/format-constants.ts
 
 interface ContentCreationResult {
   isContentCreation: boolean;
   detectedFormat: string | null;
 }
 
-// Content format keywords - exported for use in implicit detection
-const contentFormats: Record<string, string[]> = {
-  carrossel: ["carrossel", "carousel", "carrosel"],
-  newsletter: ["newsletter", "news letter"],
-  post_instagram: ["post", "postagem"],
-  reels: ["reels", "reel", "vídeo curto"],
-  thread: ["thread", "fio"],
-  linkedin: ["linkedin", "linked in"],
-  stories: ["stories", "story"],
-  tweet: ["tweet", "tuíte"],
-  artigo: ["artigo", "article", "artigo x"],
-  blog: ["blog", "blog post"],
-  email: ["email marketing", "email", "e-mail marketing"],
-};
+// Local alias for backward compatibility
+const contentFormats = CONTENT_FORMAT_KEYWORDS;
 
 /**
  * Detect implicit format from conversation history when explicit detection fails
