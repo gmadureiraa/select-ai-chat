@@ -1,11 +1,14 @@
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { useTokenError } from "@/hooks/useTokenError";
-import { parseMentions } from "@/lib/mentionParser";
 import { usePlanningItems } from "@/hooks/usePlanningItems";
 import { useWorkspaceContext } from "@/contexts/WorkspaceContext";
-import { callKaiContentAgent, parseOpenAIStream } from "@/lib/parseOpenAIStream";
+import { useUnifiedContentGeneration, StructuredContent } from "@/hooks/useUnifiedContentGeneration";
+import {
+  extractAllReferences,
+  getPlatformFromFormat,
+  extractTitleFromContent,
+} from "@/lib/contentGeneration";
 
 export type ContentFormat = 
   | "newsletter" 
@@ -31,7 +34,7 @@ export interface ContentSource {
   type: SourceType;
   theme?: string;
   url?: string;
-  referenceText?: string; // Text with @mentions
+  referenceText?: string;
 }
 
 export interface ExtractedSourceData {
@@ -60,6 +63,7 @@ export interface GeneratedContent {
   error?: string;
   addedToPlanning?: boolean;
   planningItemId?: string;
+  structuredContent?: StructuredContent;
 }
 
 export interface PlanningDestination {
@@ -81,23 +85,11 @@ const FORMAT_TO_CONTENT_TYPE: Record<ContentFormat, string> = {
   cut_moments: "cut_moments",
 };
 
-const FORMAT_TO_PLATFORM: Record<ContentFormat, string | undefined> = {
-  newsletter: "newsletter",
-  thread: "twitter",
-  tweet: "twitter",
-  carousel: "instagram",
-  linkedin_post: "linkedin",
-  instagram_post: "instagram",
-  reels_script: "tiktok",
-  blog_post: "blog",
-  email_marketing: "newsletter",
-  cut_moments: undefined,
-};
-
 export function useContentCreator() {
   const { toast } = useToast();
   const { workspace } = useWorkspaceContext();
   const { createItem, columns } = usePlanningItems();
+  const unified = useUnifiedContentGeneration();
 
   // Source state
   const [sourceType, setSourceType] = useState<SourceType>('theme');
@@ -131,57 +123,7 @@ export function useContentCreator() {
     return url.includes('youtube.com') || url.includes('youtu.be');
   };
 
-  // Fetch content from URL
-  const fetchUrlContent = async (url: string): Promise<ExtractedSourceData | null> => {
-    try {
-      const { data, error } = await supabase.functions.invoke("fetch-reference-content", {
-        body: { url },
-      });
-
-      if (error) throw error;
-      if (!data?.success) throw new Error(data?.error || "Não foi possível extrair o conteúdo");
-
-      return {
-        title: data.title || 'Conteúdo',
-        content: data.content || '',
-        thumbnail: data.thumbnail,
-        images: data.images || [],
-        sourceType: data.type || (isYoutubeUrl(url) ? 'youtube' : 'article'),
-        videoId: data.videoId,
-      };
-    } catch (error) {
-      console.error("[ContentCreator] URL fetch failed:", error);
-      throw error;
-    }
-  };
-
-  // Fetch content from @mentions
-  const fetchMentionedContent = async (text: string): Promise<string> => {
-    const mentions = parseMentions(text);
-    if (mentions.length === 0) return "";
-
-    const contents: string[] = [];
-
-    for (const mention of mentions) {
-      const table = mention.type === 'content' 
-        ? 'client_content_library' 
-        : 'client_reference_library';
-
-      const { data } = await supabase
-        .from(table)
-        .select('title, content')
-        .eq('id', mention.id)
-        .single();
-
-      if (data?.content) {
-        contents.push(`**${data.title}:**\n${data.content}`);
-      }
-    }
-
-    return contents.join('\n\n---\n\n');
-  };
-
-  // Extract/prepare source content
+  // Extract/prepare source content using unified extraction
   const extractContent = async (): Promise<ExtractedSourceData> => {
     setIsExtracting(true);
 
@@ -190,28 +132,19 @@ export function useContentCreator() {
 
       if (sourceType === 'url') {
         if (!urlInput.trim()) throw new Error("URL é obrigatória");
-        const extracted = await fetchUrlContent(urlInput);
-        if (!extracted) throw new Error("Não foi possível extrair o conteúdo");
-        data = extracted;
+        const extracted = await extractAllReferences(urlInput);
+        
+        data = {
+          title: 'Conteúdo da URL',
+          content: extracted.content,
+          thumbnail: extracted.images[0],
+          images: extracted.images,
+          sourceType: isYoutubeUrl(urlInput) ? 'youtube' : 'article',
+        };
       } else if (sourceType === 'reference') {
         if (!referenceInput.trim()) throw new Error("Referência é obrigatória");
-        const mentionContent = await fetchMentionedContent(referenceInput);
+        const extracted = await extractAllReferences(referenceInput);
         
-        // Also check for URLs in the reference input
-        const urlMatches = referenceInput.match(/https?:\/\/[^\s]+/g) || [];
-        let urlContent = "";
-        let images: string[] = [];
-        let thumbnail: string | undefined;
-
-        for (const url of urlMatches) {
-          const fetched = await fetchUrlContent(url);
-          if (fetched) {
-            urlContent += `\n\n---\n\n${fetched.content}`;
-            if (fetched.thumbnail) thumbnail = fetched.thumbnail;
-            if (fetched.images) images.push(...fetched.images);
-          }
-        }
-
         const plainRef = referenceInput
           .replace(/https?:\/\/[^\s]+/g, '')
           .replace(/@\[[^\]]+\]\([^)]+\)/g, '')
@@ -219,10 +152,10 @@ export function useContentCreator() {
 
         data = {
           title: plainRef || "Conteúdo de Referência",
-          content: mentionContent + urlContent,
+          content: extracted.content,
           sourceType: 'reference',
-          thumbnail,
-          images,
+          thumbnail: extracted.images[0],
+          images: extracted.images,
         };
       } else {
         // Theme
@@ -249,17 +182,6 @@ export function useContentCreator() {
     );
   };
 
-  // Extract title from content
-  const extractTitle = (content: string): string => {
-    const lines = content.split('\n').filter(l => l.trim());
-    if (lines.length > 0) {
-      const firstLine = lines[0].replace(/^#+\s*/, '').replace(/^\*\*/, '').replace(/\*\*$/, '').trim();
-      if (firstLine.length <= 100) return firstLine;
-      return firstLine.substring(0, 97) + "...";
-    }
-    return "Novo conteúdo";
-  };
-
   // Create planning item
   const createPlanningItem = async (
     content: GeneratedContent,
@@ -277,8 +199,8 @@ export function useContentCreator() {
         return null;
       }
 
-      const platform = FORMAT_TO_PLATFORM[content.format];
-      const title = extractTitle(content.content) || `${sourceTitle} - ${content.format}`;
+      const platform = getPlatformFromFormat(FORMAT_TO_CONTENT_TYPE[content.format]);
+      const title = extractTitleFromContent(content.content) || `${sourceTitle} - ${content.format}`;
 
       const result = await createItem.mutateAsync({
         title,
@@ -298,48 +220,73 @@ export function useContentCreator() {
     }
   };
 
-  // Generate content for a single format
+  // Generate content for a single format using unified generation
   const generateForFormat = async (
     format: ContentFormat, 
     clientId: string,
     sourceData: ExtractedSourceData
   ): Promise<GeneratedContent> => {
     try {
-      // Fetch client context
-      const { data: client } = await supabase
-        .from("clients")
-        .select("name, identity_guide, description")
-        .eq("id", clientId)
-        .single();
-
-      // Fetch content library
-      const { data: contentLibrary } = await supabase
-        .from("client_content_library")
-        .select("id, title, content, content_type")
-        .eq("client_id", clientId)
-        .limit(20);
-
-      // Fetch reference library
-      const { data: referenceLibrary } = await supabase
-        .from("client_reference_library")
-        .select("id, title, content, reference_type")
-        .eq("client_id", clientId)
-        .limit(10);
-
-      const isVideo = sourceData.sourceType === 'youtube';
-      const sourceLabel = isVideo ? 'VÍDEO' : 
-                          sourceData.sourceType === 'theme' ? 'TEMA' : 
-                          sourceData.sourceType === 'reference' ? 'REFERÊNCIA' : 'ARTIGO/TEXTO';
-      const contentLabel = isVideo ? 'TRANSCRIÇÃO' : 'CONTEÚDO';
       const contentType = FORMAT_TO_CONTENT_TYPE[format];
+      
+      // Special handling for cut_moments (different prompt structure)
+      if (format === "cut_moments") {
+        return await generateCutMoments(clientId, sourceData);
+      }
 
-      // Build user message
-      const userMessage = format === "cut_moments" 
-        ? `Analise a transcrição abaixo e identifique os 5 MELHORES momentos para criar cortes/clips virais.
+      // Use unified generation
+      const result = await unified.generate({
+        title: sourceData.title,
+        format: contentType,
+        clientId,
+        additionalContext: additionalContext || undefined,
+        images: sourceData.images,
+      });
 
-TÍTULO DO ${sourceLabel}: ${sourceData.title}
+      if (!result) {
+        return {
+          format,
+          content: "",
+          objective: "educational" as ContentObjective,
+          generatedAt: new Date(),
+          error: "Falha na geração",
+        };
+      }
 
-${contentLabel} COMPLETO:
+      return {
+        format,
+        content: result.content,
+        objective: "educational" as ContentObjective,
+        generatedAt: new Date(),
+        structuredContent: result.structuredContent,
+      };
+    } catch (error) {
+      console.error(`[ContentCreator] Error generating ${format}:`, error);
+      return {
+        format,
+        content: "",
+        objective: "educational" as ContentObjective,
+        generatedAt: new Date(),
+        error: error instanceof Error ? error.message : "Erro desconhecido",
+      };
+    }
+  };
+
+  // Special handling for cut moments (video analysis)
+  const generateCutMoments = async (
+    clientId: string,
+    sourceData: ExtractedSourceData
+  ): Promise<GeneratedContent> => {
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
+      if (!accessToken) throw new Error("Usuário não autenticado");
+
+      const userMessage = `Analise a transcrição abaixo e identifique os 5 MELHORES momentos para criar cortes/clips virais.
+
+TÍTULO DO VÍDEO: ${sourceData.title}
+
+TRANSCRIÇÃO COMPLETA:
 ${sourceData.content.substring(0, 20000)}
 
 Retorne APENAS o JSON com os 5 momentos, ordenados do maior score para o menor. Use o formato:
@@ -347,74 +294,18 @@ Retorne APENAS o JSON com os 5 momentos, ordenados do maior score para o menor. 
   "moments": [
     { "timestamp": "0:00", "title": "Título do momento", "description": "Descrição", "score": 95, "hook": "Gancho inicial" }
   ]
-}`
-        : format === "carousel" 
-          ? `TAREFA: TRANSFORMAR este conteúdo em um CARROSSEL PERSUASIVO de 7-10 slides.
+}`;
 
-⚠️ ATENÇÃO: Você NÃO está resumindo. Você está TRANSFORMANDO em narrativa persuasiva que faz a pessoa QUERER DESLIZAR.
-
-## FONTE ORIGINAL:
-Título: ${sourceData.title}
-
-Conteúdo:
-${sourceData.content.substring(0, 15000)}
-
-${additionalContext ? `INSTRUÇÕES ADICIONAIS: ${additionalContext}` : ''}
-
-## PROCESSO OBRIGATÓRIO:
-
-1. IDENTIFIQUE os 3-5 INSIGHTS MAIS IMPACTANTES (não todos os pontos)
-   - Dados surpreendentes, revelações, contrastes, erros comuns
-
-2. ESCOLHA uma FÓRMULA DE GANCHO para o Slide 1:
-   - Dor + Promessa: "Você está perdendo X por não fazer Y"
-   - Segredo Revelado: "O que ninguém te conta sobre X"
-   - Contraste Chocante: "Antes: X / Depois: Y"
-   - Erro Comum: "90% das pessoas erram nisso"
-
-3. ESTRUTURE narrativamente:
-   Slide 1: Gancho (máx 20 palavras) → 
-   Slide 2: Ponte (aprofunda dor/curiosidade) → 
-   Slides 3-7: Um insight por slide → 
-   Slides 8-9: Fechamento/Recapitulação → 
-   Slide 10: CTA
-
-4. USE LINGUAGEM CONVERSACIONAL E DIRETA:
-   ✓ "Você está perdendo", "O segredo é", "Faça isso agora"
-   ✗ "Entenda como", "Neste carrossel você vai aprender", "Vamos falar sobre"
-
-5. MÁXIMO 30 palavras por slide (20 no slide 1)
-
-O carrossel deve fazer a pessoa QUERER DESLIZAR, não apenas informar.`
-          : `Crie um conteúdo de ${format.replace(/_/g, " ")} baseado no conteúdo abaixo.
-
-TÍTULO/TEMA: ${sourceData.title}
-
-${contentLabel}:
-${sourceData.content.substring(0, 15000)}
-
-${additionalContext ? `INSTRUÇÕES ADICIONAIS: ${additionalContext}` : ''}
-
-Siga as regras do formato e gere o conteúdo pronto para publicar.`;
-
-      // Call kai-content-agent
-      const { data: sessionData } = await supabase.auth.getSession();
-      const accessToken = sessionData?.session?.access_token;
-
-      if (!accessToken) {
-        throw new Error("Usuário não autenticado");
-      }
-
+      const { callKaiContentAgent } = await import("@/lib/parseOpenAIStream");
       const finalContent = await callKaiContentAgent({
         clientId,
         request: userMessage,
-        format: contentType,
+        format: "cut_moments",
         accessToken,
       });
 
-      // Parse cut moments if needed
       let cutMoments: CutMoment[] | undefined;
-      if (format === "cut_moments" && finalContent) {
+      if (finalContent) {
         try {
           const jsonMatch = finalContent.match(/\{[\s\S]*"moments"[\s\S]*\}/);
           if (jsonMatch) {
@@ -435,16 +326,15 @@ Siga as regras do formato e gere o conteúdo pronto para publicar.`;
       }
 
       return {
-        format,
+        format: "cut_moments",
         content: finalContent,
         objective: "educational" as ContentObjective,
         generatedAt: new Date(),
         cutMoments,
       };
     } catch (error) {
-      console.error(`[ContentCreator] Error generating ${format}:`, error);
       return {
-        format,
+        format: "cut_moments",
         content: "",
         objective: "educational" as ContentObjective,
         generatedAt: new Date(),
