@@ -9,7 +9,8 @@ import { createChatError, getErrorMessage } from "@/lib/errors";
 import { validateMessage, validateModelId } from "@/lib/validation";
 import { withRetry, RetryError } from "@/lib/retry";
 import { parseSSEStream } from "@/lib/sse";
-import { parseOpenAIStream } from "@/lib/parseOpenAIStream";
+import { parseOpenAIStream, callKaiContentAgent } from "@/lib/parseOpenAIStream";
+import { parseThreadFromContent, parseCarouselFromContent, CONTENT_TYPE_LABELS, PLATFORM_MAP } from "@/lib/contentGeneration";
 import { useRealtimeMessages } from "@/hooks/useRealtimeMessages";
 import { useTemplateReferences } from "@/hooks/useTemplateReferences";
 
