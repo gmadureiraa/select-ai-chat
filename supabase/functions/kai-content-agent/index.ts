@@ -282,7 +282,14 @@ ${formatSpecificRules}
 ## Formato Solicitado: ${format || "post"}
 ## Plataforma: ${platform || "Instagram"}
 
-IMPORTANTE: Siga EXATAMENTE o formato de entrega especificado nas regras acima. Valide seu conteúdo contra o checklist antes de entregar.`;
+⚠️ REGRAS CRÍTICAS:
+- NUNCA inclua meta-texto como "Aqui está...", "Segue...", "Criei para você..."
+- NUNCA explique o que você fez - entregue APENAS o conteúdo final
+- NUNCA use hashtags (são consideradas spam em 2024+)
+- Cada frase deve ter VALOR REAL baseado no material de referência
+- Se a referência tiver insights específicos, USE-OS - não generalize
+
+Siga EXATAMENTE o formato de entrega especificado nas regras acima.`;
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
