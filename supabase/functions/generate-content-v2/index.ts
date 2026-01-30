@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
+import { getFormatRules, UNIVERSAL_RULES } from "../_shared/format-rules.ts";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -161,6 +161,97 @@ function extractKeywords(notes: string | null): string[] {
     .slice(0, 10);
 }
 
+// Fetch favorite content from client's content library for style reference
+async function fetchFavoriteContent(
+  supabaseClient: any,
+  clientId: string | null,
+  contentType?: string
+): Promise<Array<{ title: string; content: string; type: string }>> {
+  if (!clientId) return [];
+  
+  try {
+    let query = supabaseClient
+      .from('client_content_library')
+      .select('title, content, content_type')
+      .eq('client_id', clientId)
+      .eq('is_favorite', true)
+      .order('created_at', { ascending: false })
+      .limit(3);
+    
+    const { data, error } = await query;
+    if (error || !data) return [];
+    
+    return data.map((item: any) => ({
+      title: item.title,
+      content: item.content?.substring(0, 800) || '',
+      type: item.content_type
+    }));
+  } catch (err) {
+    console.error("[generate-content-v2] Error fetching favorites:", err);
+    return [];
+  }
+}
+
+// Fetch top performing content from Instagram/YouTube for inspiration
+async function fetchTopPerformers(
+  supabaseClient: any,
+  clientId: string | null
+): Promise<Array<{ title: string; content: string; type: string; metric: string }>> {
+  if (!clientId) return [];
+  const topPerformers: Array<{ title: string; content: string; type: string; metric: string }> = [];
+  
+  try {
+    // Top Instagram posts by engagement
+    const { data: instaPosts } = await supabaseClient
+      .from('instagram_posts')
+      .select('caption, full_content, video_transcript, engagement_rate, post_type')
+      .eq('client_id', clientId)
+      .not('content_synced_at', 'is', null)
+      .order('engagement_rate', { ascending: false, nullsFirst: false })
+      .limit(3);
+    
+    if (instaPosts) {
+      for (const post of instaPosts) {
+        const content = post.full_content || post.video_transcript || post.caption;
+        if (content) {
+          topPerformers.push({
+            title: (post.caption || '').substring(0, 80) + '...',
+            content: content.substring(0, 600),
+            type: post.post_type === 'VIDEO' || post.post_type === 'reel' ? 'Reels' : 'Post',
+            metric: `${((post.engagement_rate || 0) * 100).toFixed(1)}% engagement`
+          });
+        }
+      }
+    }
+    
+    // Top YouTube videos
+    const { data: ytVideos } = await supabaseClient
+      .from('youtube_videos')
+      .select('title, transcript, total_views')
+      .eq('client_id', clientId)
+      .not('transcript', 'is', null)
+      .order('total_views', { ascending: false, nullsFirst: false })
+      .limit(2);
+    
+    if (ytVideos) {
+      for (const video of ytVideos) {
+        if (video.transcript) {
+          topPerformers.push({
+            title: video.title,
+            content: video.transcript.substring(0, 600),
+            type: 'YouTube',
+            metric: `${(video.total_views || 0).toLocaleString()} views`
+          });
+        }
+      }
+    }
+  } catch (err) {
+    console.error("[generate-content-v2] Error fetching top performers:", err);
+  }
+  
+  return topPerformers;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -207,6 +298,17 @@ serve(async (req) => {
     console.log("[generate-content-v2] Brand context:", brandContext?.name || "none", "for client:", clientId);
 
     if (type === "text") {
+      // Fetch enriched context: favorites + top performers
+      const [favorites, topPerformers] = await Promise.all([
+        fetchFavoriteContent(supabaseClient, clientId || null),
+        fetchTopPerformers(supabaseClient, clientId || null)
+      ]);
+      
+      console.log("[generate-content-v2] Enriched context:", {
+        favorites: favorites.length,
+        topPerformers: topPerformers.length
+      });
+
       // Build context from all inputs - PRIORITIZE REAL EXTRACTED DATA
       let context = "";
       let hasInstagramReference = false;
@@ -240,83 +342,42 @@ serve(async (req) => {
         }
       }
 
-      const formatPrompts: Record<string, string> = {
-        // Instagram
-        carousel: "Crie um carrossel educativo com slides bem estruturados. Formato:\n\nSLIDE 1 (CAPA):\n[título impactante]\n\nSLIDE 2-N:\n[conteúdo do slide]\n\nSLIDE FINAL (CTA):\n[chamada para ação]",
-        static_post: "Crie um post estático para Instagram com legenda engajante.",
-        reels: "Crie um roteiro para Reels com ganchos visuais e timing.",
-        
-        // Twitter/X
-        tweet: "Crie um tweet impactante e conciso (máximo 280 caracteres).",
-        thread: `Crie uma thread viral para Twitter/X.
-
-FORMATO OBRIGATÓRIO - Cada tweet separado por "---":
-
-Tweet 1:
-[Hook poderoso - máximo 270 caracteres]
-
----
-
-Tweet 2:
-[Desenvolvimento - máximo 270 caracteres]
-
----
-
-Tweet 3:
-[Continuação - máximo 270 caracteres]
-
----
-
-Tweet 4:
-[CTA ou conclusão - máximo 270 caracteres]
-
-REGRAS IMPORTANTES:
-- Separe cada tweet com "---" em linha própria
-- Cada tweet deve ter no MÁXIMO 270 caracteres
-- Mínimo 3 tweets, máximo 10 tweets
-- Primeiro tweet: hook poderoso que gera curiosidade
-- Último tweet: CTA claro ou conclusão memorável
-- NÃO use numeração (1/, 2/, etc) no início
-- NÃO retorne JSON, retorne texto puro separado por ---`,
-        x_article: "Crie um artigo para X (Twitter) com formato longo e estruturado.",
-        
-        // LinkedIn
-        linkedin_post: "Crie um post profissional para LinkedIn com storytelling e insights.",
-        
-        // Newsletter
-        newsletter: "Crie uma newsletter envolvente com introdução, corpo e conclusão.",
-        
-        // YouTube
-        youtube_script: "Crie um roteiro completo para YouTube com hook, desenvolvimento e CTA.",
-        
-        // Legacy support
-        post: "Crie um post engajante para redes sociais.",
-        carrossel: "Crie um carrossel educativo com slides bem estruturados. Formato:\n\nSLIDE 1 (CAPA):\n[título impactante]\n\nSLIDE 2-N:\n[conteúdo do slide]\n\nSLIDE FINAL (CTA):\n[chamada para ação]",
-      };
-
-      const platformTone: Record<string, string> = {
-        instagram: "Tom visual, emojis moderados, hashtags relevantes",
-        linkedin: "Tom profissional, insights de negócios, sem emojis excessivos",
-        twitter: "Tom conciso, provocativo, máximo impacto em poucas palavras",
-        tiktok: "Tom jovem, trends, linguagem casual",
-      };
+      // Get format-specific rules from shared module
+      const formatRules = getFormatRules(config.format || "post");
 
       // Build enriched prompt with brand context and STRICT rules for references
       let brandSection = "";
       if (brandContext) {
         brandSection = `
-IDENTIDADE DA MARCA:
+## IDENTIDADE DA MARCA:
 - Nome: ${brandContext.name || "Não especificado"}
 ${brandContext.brandVoice ? `- Tom de voz: ${brandContext.brandVoice}` : ""}
 ${brandContext.values ? `- Valores: ${brandContext.values}` : ""}
 ${brandContext.keywords?.length ? `- Palavras-chave: ${brandContext.keywords.join(", ")}` : ""}
-
 `;
+      }
+
+      // Add favorites as style reference
+      let favoritesSection = "";
+      if (favorites.length > 0) {
+        favoritesSection = `\n## 🎯 EXEMPLOS FAVORITOS DO CLIENTE (USE COMO REFERÊNCIA DE TOM E ESTILO)\n*Replique o tom, estrutura e linguagem:*\n\n`;
+        favorites.forEach((fav, i) => {
+          favoritesSection += `**Exemplo ${i + 1}: "${fav.title}"** (${fav.type})\n\`\`\`\n${fav.content}\n\`\`\`\n\n`;
+        });
+      }
+
+      // Add top performers for inspiration
+      let performersSection = "";
+      if (topPerformers.length > 0) {
+        performersSection = `\n## 🏆 CONTEÚDOS DE MAIOR PERFORMANCE (USE COMO INSPIRAÇÃO)\n*Analise o que funcionou:*\n\n`;
+        topPerformers.forEach((perf, i) => {
+          performersSection += `**Top ${i + 1} [${perf.type}]** - ${perf.metric}\n*"${perf.title}"*\n\`\`\`\n${perf.content}\n\`\`\`\n\n`;
+        });
       }
 
       // STRICT rules when using references
       const strictReferenceRules = hasInstagramReference ? `
-REGRAS ABSOLUTAS PARA REFERÊNCIA INSTAGRAM:
+## REGRAS ABSOLUTAS PARA REFERÊNCIA INSTAGRAM:
 1. Use EXCLUSIVAMENTE o conteúdo da referência Instagram fornecida
 2. NÃO invente dados, estatísticas, exemplos ou informações que não estejam nas referências
 3. Mantenha o TEMA e ASSUNTO exato da referência original
@@ -325,28 +386,29 @@ REGRAS ABSOLUTAS PARA REFERÊNCIA INSTAGRAM:
 6. Se a referência fala de um tema específico, NÃO mude para outro tema
 ` : "";
 
-      const prompt = `Você é um copywriter especialista em conteúdo para redes sociais.
+      const prompt = `Você é um copywriter especialista em criação de conteúdo para redes sociais e marketing digital.
 
-${formatPrompts[config.format || "post"]}
+${brandSection}${favoritesSection}${performersSection}${strictReferenceRules}
 
-Plataforma: ${config.platform || "instagram"}
-Tom: ${platformTone[config.platform || "instagram"]}
-
-${brandSection}${strictReferenceRules}
-
-CONTEXTO E REFERÊNCIAS:
+## CONTEXTO E REFERÊNCIAS DO USUÁRIO:
 ${context}
 
-REGRAS GERAIS:
-- Seja direto e impactante
-- Use a linguagem adequada para a plataforma
-- Mantenha autenticidade
-- NUNCA invente informações que não estejam no contexto
-${brandContext?.brandVoice ? `- Mantenha o tom de voz: ${brandContext.brandVoice}` : ""}
+${formatRules}
 
+## Formato Solicitado: ${config.format || "post"}
+## Plataforma: ${config.platform || "instagram"}
+
+⚠️ LEMBRE-SE DAS REGRAS CRÍTICAS:
+- NUNCA inclua meta-texto como "Aqui está...", "Segue...", "Criei para você..."
+- NUNCA explique o que você fez - entregue APENAS o conteúdo final
+- NUNCA use hashtags (são consideradas spam em 2024+)
+- Cada frase deve ter VALOR REAL baseado no material de referência
+- Se a referência tiver insights específicos, USE-OS - não generalize
+
+Siga EXATAMENTE o formato de entrega especificado nas regras acima.
 Gere o conteúdo agora:`;
 
-      console.log("[generate-content-v2] Generating text with brand context...");
+      console.log("[generate-content-v2] Generating text with unified rules...");
 
       const response = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GOOGLE_API_KEY}`,
