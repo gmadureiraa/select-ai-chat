@@ -95,18 +95,18 @@ export const PlanningItemCard = memo(function PlanningItemCard({
   return (
     <div
       className={cn(
-        "group bg-card border border-border/50 rounded-lg overflow-hidden cursor-pointer",
+        "group bg-card border border-border/40 rounded-lg overflow-hidden cursor-pointer",
         "transition-all duration-150 ease-out",
-        "hover:border-border hover:shadow-sm",
-        isDragging && "opacity-50 shadow-lg",
-        isFailed && "border-destructive/30",
-        isPublished && "border-emerald-500/20"
+        "hover:border-border hover:shadow-sm hover:ring-1 hover:ring-primary/10",
+        isDragging && "opacity-50 shadow-lg rotate-1",
+        isFailed && "border-destructive/30 hover:border-destructive/50",
+        isPublished && "border-emerald-500/20 hover:border-emerald-500/30"
       )}
       onClick={() => {
         if (!lightboxOpen) onEdit(item);
       }}
     >
-      <div className="p-3">
+      <div className="p-2.5">
         {/* Row 1: Platform dot + Title + Menu */}
         <div className="flex items-start gap-2">
           {/* Platform indicator - small dot */}

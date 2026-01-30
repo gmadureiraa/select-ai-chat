@@ -80,9 +80,9 @@ export function ContentCard({
         onClick={onClick || onSelect}
         draggable={draggable}
         className={cn(
-          "w-full text-left p-3 rounded-lg border transition-all cursor-pointer",
-          "hover:bg-accent/50 hover:border-primary/30",
-          selected && "bg-primary/10 border-primary ring-2 ring-primary/20",
+          "w-full text-left p-2.5 rounded-lg border border-border/40 transition-all duration-150 cursor-pointer",
+          "hover:bg-accent/50 hover:border-primary/20 hover:ring-1 hover:ring-primary/10",
+          selected && "bg-primary/10 border-primary ring-1 ring-primary/20",
           draggable && "cursor-grab active:cursor-grabbing"
         )}
       >
@@ -119,9 +119,9 @@ export function ContentCard({
         onClick={onClick || onSelect}
         draggable={draggable}
         className={cn(
-          "group relative rounded-xl border bg-card overflow-hidden transition-all cursor-pointer",
-          "hover:shadow-lg hover:border-primary/30",
-          selected && "ring-2 ring-primary border-primary",
+          "group relative rounded-lg border border-border/40 bg-card overflow-hidden transition-all duration-150 cursor-pointer",
+          "hover:shadow-md hover:border-border hover:ring-1 hover:ring-primary/10",
+          selected && "ring-1 ring-primary border-primary",
           draggable && "cursor-grab active:cursor-grabbing"
         )}
       >
@@ -223,9 +223,9 @@ export function ContentCard({
       onClick={onClick || onSelect}
       draggable={draggable}
       className={cn(
-        "group relative rounded-xl border bg-card overflow-hidden transition-all cursor-pointer",
-        "hover:shadow-lg hover:border-primary/30",
-        selected && "ring-2 ring-primary border-primary",
+        "group relative rounded-lg border border-border/40 bg-card overflow-hidden transition-all duration-150 cursor-pointer",
+        "hover:shadow-md hover:border-border hover:ring-1 hover:ring-primary/10",
+        selected && "ring-1 ring-primary border-primary",
         draggable && "cursor-grab active:cursor-grabbing"
       )}
     >

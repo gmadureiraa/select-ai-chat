@@ -127,12 +127,12 @@ export function ThreadEditor({
   }
 
   return (
-    <div className={cn("space-y-4 rounded-xl border border-border/50 p-6 shadow-sm", className)}>
+    <div className={cn("space-y-3 rounded-lg border border-border/40 p-4", className)}>
       <div className="flex items-center justify-between">
-        <span className="text-sm font-medium">Thread ({value.length} tweets)</span>
+        <span className="text-xs font-medium text-muted-foreground">Thread ({value.length} tweets)</span>
       </div>
 
-      <div className="space-y-3">
+      <div className="space-y-2">
         {value.map((tweet, index) => (
           <div
             key={tweet.id}
@@ -141,33 +141,33 @@ export function ThreadEditor({
             onDragOver={(e) => handleDragOver(e, index)}
             onDragEnd={handleDragEnd}
             className={cn(
-              "rounded-xl border border-border/50 bg-card p-4 space-y-3",
-              "shadow-sm hover:shadow-md transition-all duration-200",
-              draggedIndex === index && "opacity-50"
+              "rounded-lg border border-border/40 bg-card p-3 space-y-2",
+              "hover:border-border hover:ring-1 hover:ring-primary/10 transition-all duration-150",
+              draggedIndex === index && "opacity-50 rotate-1"
             )}
           >
-            <div className="flex items-start gap-3">
-              <div className="flex items-center gap-1 pt-2">
-                <GripVertical className="h-4 w-4 text-muted-foreground cursor-move" />
-                <span className="text-xs font-medium text-muted-foreground w-4">
+            <div className="flex items-start gap-2">
+              <div className="flex items-center gap-1 pt-1.5">
+                <GripVertical className="h-3.5 w-3.5 text-muted-foreground/50 cursor-move" />
+                <span className="text-[10px] font-medium text-muted-foreground w-3">
                   {index + 1}
                 </span>
               </div>
 
-              <div className="flex-1 space-y-3">
+              <div className="flex-1 space-y-2">
                 <div className="relative">
                   <Textarea
                     value={tweet.text}
                     onChange={(e) => updateTweet(tweet.id, e.target.value)}
                     placeholder={index === 0 ? "Primeiro tweet da thread..." : "Continuar thread..."}
-                    className="resize-none min-h-[120px] pr-16 rounded-lg border-border/50 text-sm"
+                    className="resize-none min-h-[80px] pr-12 rounded-md border-border/40 text-sm"
                     maxLength={MAX_TWEET_LENGTH}
                   />
                   <span className={cn(
-                    "absolute bottom-2 right-2 text-xs",
+                    "absolute bottom-1.5 right-2 text-[10px] tabular-nums",
                     tweet.text.length > MAX_TWEET_LENGTH - 20 
                       ? "text-destructive" 
-                      : "text-muted-foreground"
+                      : "text-muted-foreground/60"
                   )}>
                     {tweet.text.length}/{MAX_TWEET_LENGTH}
                   </span>

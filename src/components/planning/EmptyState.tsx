@@ -58,21 +58,21 @@ export function EmptyState({
 
   if (compact) {
     return (
-      <div className="flex flex-col items-center justify-center py-6 px-4 text-center">
+      <div className="flex flex-col items-center justify-center py-4 px-3 text-center">
         {displayIcon && (
-          <div className="text-muted-foreground/40 mb-2">
+          <div className="text-muted-foreground/30 mb-1.5 [&>svg]:h-6 [&>svg]:w-6">
             {displayIcon}
           </div>
         )}
-        <p className="text-xs text-muted-foreground">{displayDescription}</p>
+        <p className="text-[10px] text-muted-foreground">{displayDescription}</p>
         {action && (
           <Button
             variant="ghost"
             size="sm"
             onClick={action.onClick}
-            className="mt-2 text-xs h-7 gap-1"
+            className="mt-1.5 text-[10px] h-6 gap-1 px-2"
           >
-            <Plus className="h-3 w-3" />
+            <Plus className="h-2.5 w-2.5" />
             {action.label}
           </Button>
         )}
@@ -81,22 +81,22 @@ export function EmptyState({
   }
 
   return (
-    <div className="flex flex-col items-center justify-center py-12 px-6 text-center">
+    <div className="flex flex-col items-center justify-center py-10 px-4 text-center">
       {displayIcon && (
-        <div className="text-muted-foreground/30 mb-4">
+        <div className="text-muted-foreground/20 mb-3 [&>svg]:h-10 [&>svg]:w-10">
           {displayIcon}
         </div>
       )}
-      <h3 className="text-sm font-medium text-foreground mb-1">{displayTitle}</h3>
-      <p className="text-xs text-muted-foreground max-w-xs">{displayDescription}</p>
+      <h3 className="text-xs font-medium text-foreground mb-0.5">{displayTitle}</h3>
+      <p className="text-[10px] text-muted-foreground max-w-[200px]">{displayDescription}</p>
       {action && (
         <Button
           variant="outline"
           size="sm"
           onClick={action.onClick}
-          className="mt-4 gap-1.5"
+          className="mt-3 gap-1 h-7 text-xs"
         >
-          <Plus className="h-4 w-4" />
+          <Plus className="h-3 w-3" />
           {action.label}
         </Button>
       )}

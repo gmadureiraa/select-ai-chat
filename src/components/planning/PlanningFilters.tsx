@@ -63,28 +63,29 @@ export function PlanningFilters({ filters, onChange }: PlanningFiltersProps) {
 
   const FiltersContent = ({ inSheet = false }: { inSheet?: boolean }) => (
     <div className={cn(
-      "flex items-center gap-2",
-      inSheet && "flex-col items-stretch"
+      "flex items-center gap-1.5",
+      inSheet && "flex-col items-stretch gap-2"
     )}>
       {/* Search */}
-      <div className={cn("relative", inSheet ? "w-full" : "flex-1 min-w-[160px] max-w-[200px]")}>
-        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+      <div className={cn("relative", inSheet ? "w-full" : "flex-1 min-w-[140px] max-w-[180px]")}>
+        <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
         <Input
           placeholder="Buscar..."
           value={filters.search || ''}
           onChange={(e) => onChange({ ...filters, search: e.target.value || undefined })}
-          className="pl-8 h-8 text-xs border-transparent bg-transparent hover:bg-muted/50 focus:bg-background focus:border-border"
+          className="pl-7 h-7 text-xs border-transparent bg-transparent hover:bg-muted/50 focus:bg-background focus:border-border rounded-md"
         />
       </div>
 
-      {/* Filters - inline style */}
+      {/* Filters - inline ghost style */}
       <Select
         value={filters.clientId === '' ? 'all' : (filters.clientId || 'all')}
         onValueChange={(v) => onChange({ ...filters, clientId: v === 'all' ? '' : v })}
       >
         <SelectTrigger className={cn(
-          "h-8 text-xs border-transparent bg-transparent hover:bg-muted/50 focus:bg-background",
-          inSheet ? "w-full" : "w-[110px]"
+          "h-7 text-xs border-0 bg-transparent hover:bg-muted/50 focus:ring-0 focus:ring-offset-0 rounded-md",
+          filters.clientId && filters.clientId !== '' && "text-foreground bg-muted/50",
+          inSheet ? "w-full border" : "w-[100px]"
         )}>
           <SelectValue placeholder="Perfil" />
         </SelectTrigger>
@@ -101,8 +102,9 @@ export function PlanningFilters({ filters, onChange }: PlanningFiltersProps) {
         onValueChange={(v) => onChange({ ...filters, platform: v === 'all' ? undefined : v as PlanningPlatform })}
       >
         <SelectTrigger className={cn(
-          "h-8 text-xs border-transparent bg-transparent hover:bg-muted/50 focus:bg-background",
-          inSheet ? "w-full" : "w-[100px]"
+          "h-7 text-xs border-0 bg-transparent hover:bg-muted/50 focus:ring-0 focus:ring-offset-0 rounded-md",
+          filters.platform && "text-foreground bg-muted/50",
+          inSheet ? "w-full border" : "w-[90px]"
         )}>
           <SelectValue placeholder="Rede" />
         </SelectTrigger>
@@ -119,8 +121,9 @@ export function PlanningFilters({ filters, onChange }: PlanningFiltersProps) {
         onValueChange={(v) => onChange({ ...filters, status: v === 'all' ? undefined : v as PlanningStatus })}
       >
         <SelectTrigger className={cn(
-          "h-8 text-xs border-transparent bg-transparent hover:bg-muted/50 focus:bg-background",
-          inSheet ? "w-full" : "w-[90px]"
+          "h-7 text-xs border-0 bg-transparent hover:bg-muted/50 focus:ring-0 focus:ring-offset-0 rounded-md",
+          filters.status && "text-foreground bg-muted/50",
+          inSheet ? "w-full border" : "w-[85px]"
         )}>
           <SelectValue placeholder="Status" />
         </SelectTrigger>
@@ -137,7 +140,7 @@ export function PlanningFilters({ filters, onChange }: PlanningFiltersProps) {
           variant="ghost" 
           size="sm" 
           onClick={clearFilters} 
-          className={cn("h-8 px-2 text-xs text-muted-foreground hover:text-foreground", inSheet && "w-full")}
+          className={cn("h-7 px-2 text-xs text-muted-foreground hover:text-foreground rounded-md", inSheet && "w-full")}
         >
           <X className="h-3 w-3 mr-1" />
           Limpar
