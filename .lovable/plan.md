@@ -1,328 +1,239 @@
 
 
-# Redesign Linear-Style: Planejamento e Landing Page
+# Ajustes Complementares: Planejamento e Criação de Conteúdo
 
 ## Visão Geral
 
-Este plano implementa um redesign completo inspirado no Linear, focando em:
-- **Estética minimalista** com fundo escuro dominante
-- **Tipografia grande e impactante**
-- **Animações sutis e performáticas**
-- **Layout limpo com muito espaço em branco (negativo)**
-- **Componentes polidos com transições suaves**
+Após revisão detalhada, o sistema está funcional e bem estruturado. No entanto, identificamos oportunidades de refinamento para aprimorar a experiência, consistência visual e fluidez do Linear-style implementado.
 
 ---
 
-## Parte 1: Landing Page (Estilo Linear)
+## Parte 1: Melhorias no Planejamento
 
-### 1.1 Header Redesign
+### 1.1 PlanningBoard - Header Refinado
 
-| Atual | Linear-Style |
-|-------|--------------|
-| Logo + texto "Kaleidos" | Logo minimalista com nome simplificado |
-| Nav links básicos | Nav com hover states elegantes |
-| Botões CTA padrão | Botões com bordas arredondadas e hover glow |
+**Problema**: Header ainda tem espaçamento inconsistente com estética Linear.
 
-**Mudanças:**
-- Header mais fino (h-14 ao invés de h-16)
-- Background transparente até scroll, depois blur sutil
-- Links de navegação com underline animado on hover
-- Botão "Sign up" com borda branca e hover fill
+**Solução**:
+- Remover gaps excessivos
+- Alinhar ViewToggle e botões em uma linha compacta
+- Adicionar breadcrumb sutil "Planejamento > {Cliente}"
 
-### 1.2 Hero Section Redesign
+| Arquivo | Mudança |
+|---------|---------|
+| `PlanningBoard.tsx` | Header compactado, breadcrumb opcional |
 
-**Linear Features a Implementar:**
-- Headline gigante (text-5xl md:text-7xl)
-- Subtítulo em cinza claro com max-width
-- Apenas 1-2 CTAs (não vários botões)
-- Demo visual flutuante abaixo (não ao lado)
-- Partículas/gradientes sutis de fundo
+### 1.2 PlanningItemCard - Polimento Final
 
-```text
-┌──────────────────────────────────────────────────────┐
-│                      [Header]                        │
-├──────────────────────────────────────────────────────┤
-│                                                      │
-│         kAI é a ferramenta definitiva                │
-│         para criar conteúdo                          │
-│                                                      │
-│    Subtítulo em texto muted menor aqui               │
-│                                                      │
-│            [ Start building → ]                      │
-│                                                      │
-│   ┌──────────────────────────────────────────────┐   │
-│   │                                              │   │
-│   │         Canvas Demo (flutuante)              │   │
-│   │                                              │   │
-│   └──────────────────────────────────────────────┘   │
-│                                                      │
-└──────────────────────────────────────────────────────┘
-```
+**Estado atual**: Bem implementado com dot colorido e layout compacto.
 
-### 1.3 Social Proof Section (Novo)
+**Melhorias adicionais**:
+- Adicionar hover glow sutil (`ring-1 ring-primary/20` on hover)
+- Transição suave no título (`group-hover:text-primary` já existe)
+- Reduzir padding de `p-3` para `p-2.5` para maior densidade
 
-Como o Linear mostra "Powering the world's best product teams":
+### 1.3 PlanningItemDialog - Reorganização Linear-Style
 
-- Faixa com logos de clientes ou badges de confiança
-- Texto "Empresas que confiam no kAI" em muted
-- Animação de scroll horizontal contínuo (marquee)
+**Problema**: Dialog muito longo com muitos campos visíveis por padrão.
 
-### 1.4 Features Grid Redesign
-
-**Linear Style:**
-- Cards grandes com ícones minimalistas
-- Títulos curtos e impactantes
-- Descrições concisas (1-2 linhas)
-- Hover state com elevação sutil
-- Grid 2x2 ou 3 colunas
-
-**Mudanças:**
-- Remover badges coloridos excessivos
-- Usar ícones monocromáticos (stroke: 1.5)
-- Adicionar gradiente sutil no hover
-- Espaçamento mais generoso entre cards
-
-### 1.5 Pricing Section Redesign
-
-**Linear Style (simples e direto):**
-- 2 planos principais lado a lado
-- Card destacado com borda gradiente (não fill sólido)
-- Lista de features com checks minimalistas
-- CTA único por card
-- Sem animações bounce excessivas
+**Solução**:
+- Dividir em duas colunas no desktop: Editor à esquerda, Propriedades à direita
+- Mover campos menos usados (Prioridade, Recorrência) para seção colapsada
+- Aumentar destaque do botão "Gerar com IA"
 
 ```text
-┌─────────────────────────┐  ┌─────────────────────────┐
-│         Canvas          │  │  ┌──[Popular]──────┐   │
-│                         │  │  │                 │   │
-│        $19.90           │  │  │    kAI PRO      │   │
-│                         │  │  │    $99.90       │   │
-│  • Feature 1            │  │  │                 │   │
-│  • Feature 2            │  │  │  • Feature 1    │   │
-│  • Feature 3            │  │  │  • Feature 2    │   │
-│                         │  │  │  • Feature 3    │   │
-│  [ Get Started ]        │  │  │                 │   │
-│                         │  │  │ [ Get Started ] │   │
-└─────────────────────────┘  │  └─────────────────┘   │
-                             └─────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│ [X]                         Novo Card                        │
+├────────────────────────────┬────────────────────────────────┤
+│                            │ Cliente: [Select...]           │
+│  [Título]                  │ Formato: [Tweet ▾]             │
+│                            │ Plataforma: Twitter            │
+│  [Referência / URL]        │──────────────────────────────  │
+│     [🪄 Gerar com IA]      │ Data: [📅 Selecionar]          │
+│                            │ Responsável: [👤 Nenhum]       │
+│  ┌──────────────────────┐  │──────────────────────────────  │
+│  │                      │  │ ▸ Mais opções                  │
+│  │   Editor de Conteúdo │  │                                │
+│  │                      │  │                                │
+│  │                      │  │                                │
+│  └──────────────────────┘  │                                │
+│                            │                                │
+│  [Mídia: 0 itens] [+Gerar] │                                │
+├────────────────────────────┴────────────────────────────────┤
+│                    [Cancelar] [Publicar Agora] [Salvar]     │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-### 1.6 FAQ Section Redesign
+### 1.4 CalendarView - Ajustes de Densidade
 
-- Accordion com animação de altura suave
-- Ícone de seta que rotaciona
-- Sem bordas excessivas nos items fechados
-- Dividers sutis entre items
+**Estado atual**: Funcional com cards compactos.
 
-### 1.7 Footer Redesign
+**Melhorias**:
+- Reduzir padding das células de `p-1.5` para `p-1`
+- Usar fonte menor para dias (`text-xs`)
+- Hover card mais rápido (openDelay de 300 para 200)
 
-- Grid multi-coluna com links organizados
-- Logo à esquerda, social icons à direita
-- Cores muted, links com hover underline
-- Copyright simples no bottom
+### 1.5 ViewToggle - Estilo Pill Compacto
+
+**Melhorias**:
+- Reduzir altura de `h-8` para `h-7`
+- Transição de background mais suave
+- Borda arredondada unificada (`rounded-lg`)
+
+### 1.6 PlanningFilters - Inline sem Backgrounds
+
+**Estado atual**: Filtros já compactos mas com backgrounds nos selects.
+
+**Melhorias**:
+- Remover backgrounds coloridos nos selects fechados
+- Usar variant="ghost" onde possível
+- Adicionar chips para filtros ativos
 
 ---
 
-## Parte 2: Sistema de Planejamento (Estilo Linear)
+## Parte 2: Melhorias na Criação de Conteúdo
 
-### 2.1 Layout Geral
+### 2.1 ContentDialog - Consistência
 
-**Linear Features:**
-- Sidebar colapsável com navegação rápida
-- Header de página mínimo
-- Área de conteúdo maximizada
-- Breadcrumbs sutis
+**Melhorias**:
+- Aplicar mesmo layout de duas colunas do PlanningItemDialog
+- Botão "Escrever com IA" mais destacado
+- Seções colapsáveis para opções avançadas
 
-### 2.2 Kanban Board Redesign
+### 2.2 ContentCard - Hover States
 
-**Columns:**
-- Header minimalista com dot colorido + nome + count
-- Sem backgrounds coloridos nos headers (apenas dot)
-- Cards com sombra sutil (shadow-sm)
-- Drag preview com rotação e opacidade
+**Melhorias**:
+- Adicionar hover glow sutil
+- Transição de elevação mais suave
+- Badge de tipo menor e inline
 
-```text
-┌────────────────────────────────────────────────────────────┐
-│ • Ideia  3     • Rascunho  5     • Aprovado  2     +       │
-├────────────────────────────────────────────────────────────┤
-│ ┌──────────┐    ┌──────────┐    ┌──────────┐               │
-│ │ Card 1   │    │ Card 1   │    │ Card 1   │               │
-│ │          │    │          │    │          │               │
-│ └──────────┘    └──────────┘    └──────────┘               │
-│ ┌──────────┐    ┌──────────┐    ┌──────────┐               │
-│ │ Card 2   │    │ Card 2   │    │ Card 2   │               │
-│ │          │    │          │    │          │               │
-│ └──────────┘    └──────────┘    └──────────┘               │
-│                 ...            ...                          │
-└────────────────────────────────────────────────────────────┘
-```
+### 2.3 RichContentEditor - Refinamento
 
-### 2.3 Planning Card Redesign
+**Estado atual**: Bem implementado com toolbar e @mentions.
 
-**Linear Issue Card Style:**
-- Título à esquerda, metadata à direita
-- Ícone de plataforma como dot colorido pequeno
-- Avatar do assignee (se houver) no canto
-- Status como badge minimalista
-- Hover: elevação + borda sutil
+**Melhorias**:
+- Toolbar mais compacta (ícones menores `h-3 w-3`)
+- Preview mode com melhor padding
+- Help text mais discreto
 
-```text
-┌────────────────────────────────────────────────┐
-│ • Título do conteúdo aqui            ○ Status  │
-│   Descrição curta em muted...                  │
-│                                                │
-│   📅 12/02  • Twitter       👤                 │
-└────────────────────────────────────────────────┘
-```
+### 2.4 ThreadEditor - Polimento
 
-**Mudanças Específicas:**
-- Remover preview de imagem inline (apenas no dialog)
-- Títulos menores (text-sm font-medium)
-- Padding reduzido (p-3)
-- Border radius menor (rounded-lg ao invés de rounded-xl)
-- Cores mais sutis para plataformas
+**Estado atual**: Funcional para Twitter threads.
 
-### 2.4 Filters Bar Redesign
-
-**Linear Style:**
-- Barra compacta com dropdowns inline
-- Chips para filtros ativos
-- Botão de clear discreto
-- Sem backgrounds nos selects fechados
-
-### 2.5 View Toggle Redesign
-
-- Pills mais compactos
-- Transição de background suave
-- Ícones sem labels em mobile
-
-### 2.6 Dialog Redesign
-
-**Linear Issue Detail Style:**
-- Modal grande com sidebar de propriedades
-- Editor de conteúdo à esquerda
-- Metadata/assignee/status à direita
-- Header minimalista com close button
+**Melhorias**:
+- Cards individuais de tweets mais compactos
+- Contador de caracteres mais discreto
+- Drag handle sutil
 
 ---
 
-## Parte 3: Tokens de Design
+## Parte 3: Outras Páginas Relevantes
 
-### Cores (Dark Theme Linear)
+### 3.1 KaiLibraryTab - Grid Refinado
 
-```css
---background: 0 0% 7%;        /* #121212 - Fundo principal */
---foreground: 0 0% 95%;       /* Texto principal */
---muted: 0 0% 14%;            /* Superfícies elevadas */
---muted-foreground: 0 0% 55%; /* Texto secundário */
---border: 0 0% 18%;           /* Bordas sutis */
---primary: 142 70% 45%;       /* Verde kaleidos */
---accent: 330 80% 60%;        /* Magenta kaleidos */
-```
+**Melhorias**:
+- Cards de conteúdo com hover mais elegante
+- Grid responsivo otimizado
+- Empty state mais Linear
 
-### Tipografia
+### 3.2 Settings/AutomationsTab - Consistência
 
-```css
---font-display: text-5xl md:text-7xl font-semibold tracking-tight
---font-heading: text-2xl md:text-4xl font-semibold
---font-body: text-base font-normal
---font-small: text-sm text-muted-foreground
-```
-
-### Espaçamento
-
-```css
---section-padding: py-24 md:py-32
---card-padding: p-6 md:p-8
---gap-grid: gap-6 md:gap-8
-```
-
-### Transições
-
-```css
---transition-fast: duration-150 ease-out
---transition-medium: duration-300 ease-out
---transition-slow: duration-500 ease-out
-```
+**Verificação**: Garantir que seguem mesmo padrão visual.
 
 ---
 
 ## Arquivos a Modificar
 
-### Landing Page
+### Prioridade Alta
 
 | Arquivo | Mudanças |
 |---------|----------|
-| `NewLandingHeader.tsx` | Header mais fino, nav com hover underline |
-| `NewHeroSection.tsx` | Headline maior, layout centralizado, demo abaixo |
-| `ValueProposition.tsx` | Cards maiores, menos decoração |
-| `CanvasVsProSection.tsx` | Pricing simplificado, 2 cards clean |
-| `FAQSection.tsx` | Accordion mais sutil |
-| `LandingFooter.tsx` | Footer multi-coluna |
-| `StickyMobileCTA.tsx` | CTA mais discreto |
+| `PlanningItemDialog.tsx` | Layout duas colunas, reorganização de campos |
+| `PlanningItemCard.tsx` | Hover glow, padding refinado |
+| `ViewToggle.tsx` | Pill menor, transições suaves |
+| `PlanningFilters.tsx` | Chips de filtro, sem backgrounds |
 
-### Sistema de Planejamento
+### Prioridade Média
 
 | Arquivo | Mudanças |
 |---------|----------|
-| `KanbanView.tsx` | Gap reduzido, layout mais tight |
-| `VirtualizedKanbanColumn.tsx` | Header minimalista, sem bg colorido |
-| `PlanningItemCard.tsx` | Card compacto estilo Linear |
-| `PlanningFilters.tsx` | Filters inline sem backgrounds |
-| `ViewToggle.tsx` | Pills mais compactos |
-| `PlanningBoard.tsx` | Header simplificado |
-| `EmptyState.tsx` | Empty state mais elegante |
+| `ContentDialog.tsx` | Layout consistente |
+| `ContentCard.tsx` | Hover states |
+| `RichContentEditor.tsx` | Toolbar compacta |
+| `ThreadEditor.tsx` | Cards compactos |
+| `CalendarView.tsx` | Densidade aumentada |
 
-### Novos Componentes
+### Prioridade Baixa
 
-| Componente | Descrição |
-|------------|-----------|
-| `SocialProofMarquee.tsx` | Logos em scroll horizontal |
-| `LinearCard.tsx` | Card base estilo Linear |
-| `LinearButton.tsx` | Botão com hover glow |
+| Arquivo | Mudanças |
+|---------|----------|
+| `PlanningBoard.tsx` | Header mínimo |
+| `EmptyState.tsx` | Visual Linear |
+| `VirtualizedKanbanColumn.tsx` | Já bem implementado (ajustes mínimos) |
 
 ---
 
 ## Ordem de Implementação
 
-### Fase 1: Foundation (Design Tokens)
-1. Atualizar variáveis CSS no `globals.css`
-2. Criar utilitários de transição no Tailwind config
+### Fase 1: Planejamento Core
+1. `PlanningItemCard.tsx` - Hover e densidade
+2. `PlanningItemDialog.tsx` - Layout duas colunas
+3. `ViewToggle.tsx` - Pill compacto
+4. `PlanningFilters.tsx` - Inline sem backgrounds
 
-### Fase 2: Landing Page
-1. `NewLandingHeader.tsx` - Header refinado
-2. `NewHeroSection.tsx` - Hero impactante
-3. `ValueProposition.tsx` - Seção como funciona
-4. `CanvasVsProSection.tsx` - Pricing clean
-5. `FAQSection.tsx` - FAQ refinado
-6. `LandingFooter.tsx` - Footer organizado
+### Fase 2: Editores
+1. `RichContentEditor.tsx` - Toolbar refinada
+2. `ThreadEditor.tsx` - Cards compactos
+3. `ContentDialog.tsx` - Consistência
 
-### Fase 3: Planejamento
-1. `VirtualizedKanbanColumn.tsx` - Columns minimalistas
-2. `PlanningItemCard.tsx` - Cards compactos
-3. `PlanningFilters.tsx` - Filters inline
-4. `ViewToggle.tsx` - Toggle refinado
-5. `PlanningBoard.tsx` - Layout geral
+### Fase 3: Outras Views
+1. `CalendarView.tsx` - Densidade
+2. `ContentCard.tsx` - Hover states
+3. `EmptyState.tsx` - Minimalismo
 
 ---
 
 ## Seção Técnica
 
-### Dependências Necessárias
-Nenhuma nova dependência - usaremos as já instaladas:
-- `framer-motion` para animações
-- `tailwindcss` para estilos
-- `lucide-react` para ícones
+### Patterns a Aplicar
 
-### Performance Considerations
-- Manter virtualization no Kanban
-- Lazy load de seções da landing
-- Usar `will-change` sparingly
-- Preferir `transform` e `opacity` para animações
+```css
+/* Hover glow sutil */
+.card-hover:hover {
+  @apply ring-1 ring-primary/10 shadow-sm;
+}
+
+/* Transições Linear */
+.transition-linear {
+  @apply transition-all duration-150 ease-out;
+}
+
+/* Pill compacto */
+.pill-compact {
+  @apply h-7 text-xs px-2 rounded-lg;
+}
+```
+
+### Performance
+- Manter memo() nos cards
+- Transições via transform/opacity
+- Evitar re-renders desnecessários no Dialog
 
 ### Acessibilidade
-- Manter contrast ratios adequados
-- Focus states visíveis
+- Manter focus states visíveis
+- Contrast ratios adequados
 - Keyboard navigation funcional
-- Screen reader labels
+
+---
+
+## Checklist de Validação
+
+| Item | Verificar |
+|------|-----------|
+| Hover states consistentes | ✓ Cards, botões, links |
+| Transições suaves | ✓ 150ms ease-out padrão |
+| Densidade aumentada | ✓ Menos whitespace |
+| Tipografia | ✓ text-sm para títulos, text-xs para meta |
+| Cores | ✓ Dots coloridos, backgrounds neutros |
+| Mobile | ✓ Touch targets 44px+ |
 
