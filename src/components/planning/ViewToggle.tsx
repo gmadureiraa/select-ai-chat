@@ -15,14 +15,16 @@ export function ViewToggle({ view, onChange }: ViewToggleProps) {
       type="single" 
       value={view} 
       onValueChange={(v) => v && onChange(v as PlanningView)}
-      className="bg-muted/30 p-0.5 rounded-lg border border-border/50"
+      className="gap-0.5"
     >
       <ToggleGroupItem 
         value="board" 
         aria-label="Board view" 
         className={cn(
-          "gap-1.5 px-3 h-7 text-xs rounded-md data-[state=on]:bg-background data-[state=on]:shadow-sm",
-          "transition-all duration-150"
+          "gap-1.5 px-2.5 h-8 text-xs rounded-md",
+          "data-[state=on]:bg-muted data-[state=on]:text-foreground",
+          "data-[state=off]:text-muted-foreground data-[state=off]:hover:text-foreground",
+          "transition-colors duration-150"
         )}
       >
         <LayoutGrid className="h-3.5 w-3.5" />
@@ -32,8 +34,10 @@ export function ViewToggle({ view, onChange }: ViewToggleProps) {
         value="calendar" 
         aria-label="Calendar view" 
         className={cn(
-          "gap-1.5 px-3 h-7 text-xs rounded-md data-[state=on]:bg-background data-[state=on]:shadow-sm",
-          "transition-all duration-150"
+          "gap-1.5 px-2.5 h-8 text-xs rounded-md",
+          "data-[state=on]:bg-muted data-[state=on]:text-foreground",
+          "data-[state=off]:text-muted-foreground data-[state=off]:hover:text-foreground",
+          "transition-colors duration-150"
         )}
       >
         <Calendar className="h-3.5 w-3.5" />
@@ -43,8 +47,10 @@ export function ViewToggle({ view, onChange }: ViewToggleProps) {
         value="list" 
         aria-label="List view" 
         className={cn(
-          "gap-1.5 px-3 h-7 text-xs rounded-md data-[state=on]:bg-background data-[state=on]:shadow-sm",
-          "transition-all duration-150"
+          "gap-1.5 px-2.5 h-8 text-xs rounded-md",
+          "data-[state=on]:bg-muted data-[state=on]:text-foreground",
+          "data-[state=off]:text-muted-foreground data-[state=off]:hover:text-foreground",
+          "transition-colors duration-150"
         )}
       >
         <List className="h-3.5 w-3.5" />
