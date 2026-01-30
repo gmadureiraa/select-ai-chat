@@ -64,63 +64,90 @@ const inputTypes: InputType[] = [
 
 export function InputTypesGrid() {
   return (
-    <section className="py-24 md:py-32 bg-background relative">
-      {/* Subtle grid pattern */}
-      <div className="absolute inset-0 opacity-[0.02] pointer-events-none">
-        <div 
-          className="absolute inset-0" 
-          style={{
-            backgroundImage: `linear-gradient(hsl(var(--foreground)) 1px, transparent 1px), linear-gradient(90deg, hsl(var(--foreground)) 1px, transparent 1px)`,
-            backgroundSize: '80px 80px',
-          }} 
-        />
-      </div>
+    <section className="py-24 md:py-32 bg-background relative overflow-hidden">
+      {/* Subtle gradient background */}
+      <div
+        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[600px] opacity-10"
+        style={{
+          background:
+            "radial-gradient(ellipse, hsl(var(--primary)) 0%, transparent 60%)",
+          filter: "blur(100px)",
+        }}
+      />
       
       <div className="max-w-5xl mx-auto px-6 relative z-10">
-        {/* Header - Linear style */}
+        {/* Header with animations */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 40 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
+          transition={{ duration: 0.6 }}
           className="text-center mb-16"
         >
-          <p className="text-sm font-medium text-primary mb-4 tracking-wide uppercase">
+          <motion.p 
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
+            viewport={{ once: true }}
+            transition={{ delay: 0.2 }}
+            className="text-sm font-medium text-primary mb-4 tracking-wide uppercase"
+          >
             Entradas flexíveis
-          </p>
+          </motion.p>
           <h2 className="text-4xl md:text-5xl lg:text-6xl font-semibold tracking-tight text-foreground mb-6">
             Cole qualquer fonte.
             <br />
             <span className="text-muted-foreground">Gere 10+ formatos.</span>
           </h2>
-          <p className="text-lg text-muted-foreground max-w-xl mx-auto">
+          <motion.p 
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ delay: 0.3 }}
+            className="text-lg text-muted-foreground max-w-xl mx-auto"
+          >
             O Canvas aceita URLs, vídeos, documentos, imagens e áudio.
-          </p>
+          </motion.p>
         </motion.div>
 
-        {/* Grid - Clean cards */}
+        {/* Grid with staggered animations */}
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
           {inputTypes.map((type, index) => (
             <motion.div
               key={type.id}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
+              initial={{ opacity: 0, y: 30, scale: 0.95 }}
+              whileInView={{ opacity: 1, y: 0, scale: 1 }}
               viewport={{ once: true }}
-              transition={{ delay: index * 0.05 }}
-              className="group p-5 md:p-6 rounded-xl border border-border/50 bg-card/50 hover:bg-card hover:border-border transition-all duration-200"
+              transition={{ 
+                duration: 0.5,
+                delay: index * 0.08,
+                ease: "easeOut"
+              }}
+              whileHover={{ 
+                y: -4,
+                transition: { duration: 0.2 }
+              }}
+              className="group p-5 md:p-6 rounded-xl border border-border/50 bg-card/30 backdrop-blur-sm hover:bg-card/80 hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5 transition-all duration-300"
             >
-              {/* Icon */}
-              <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center mb-4 group-hover:bg-primary/10 transition-colors">
-                <type.icon className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" strokeWidth={1.5} />
-              </div>
+              {/* Icon with hover animation */}
+              <motion.div 
+                className="w-12 h-12 rounded-xl bg-muted/50 flex items-center justify-center mb-4 group-hover:bg-primary/10 transition-colors duration-300"
+                whileHover={{ scale: 1.05 }}
+              >
+                <type.icon className="w-6 h-6 text-muted-foreground group-hover:text-primary transition-colors duration-300" strokeWidth={1.5} />
+              </motion.div>
               
               {/* Content */}
-              <h3 className="font-medium text-foreground mb-1">{type.label}</h3>
-              <p className="text-sm text-muted-foreground mb-4">{type.description}</p>
+              <h3 className="font-semibold text-foreground mb-2 group-hover:text-primary transition-colors duration-300">{type.label}</h3>
+              <p className="text-sm text-muted-foreground mb-4 leading-relaxed">{type.description}</p>
               
-              {/* Outputs */}
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <ArrowRight className="w-3 h-3" />
-                <span>{type.outputs.join(", ")}</span>
+              {/* Outputs with arrow animation */}
+              <div className="flex items-center gap-2 text-xs text-muted-foreground/70 group-hover:text-muted-foreground transition-colors">
+                <motion.div
+                  className="group-hover:translate-x-1 transition-transform duration-300"
+                >
+                  <ArrowRight className="w-3 h-3" />
+                </motion.div>
+                <span className="font-medium">{type.outputs.join(", ")}</span>
               </div>
             </motion.div>
           ))}

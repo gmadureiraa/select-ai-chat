@@ -15,10 +15,6 @@ export function SocialProofMarquee() {
   return (
     <section className="py-12 border-y border-border/30 bg-muted/20 overflow-hidden">
       <div className="max-w-6xl mx-auto px-6">
-        <p className="text-center text-sm text-muted-foreground mb-8">
-          Usado por criadores e agências que levam conteúdo a sério
-        </p>
-        
         <div className="relative">
           {/* Fade edges */}
           <div className="absolute left-0 top-0 bottom-0 w-24 bg-gradient-to-r from-background to-transparent z-10 pointer-events-none" />
