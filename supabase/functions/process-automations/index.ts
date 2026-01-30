@@ -1,5 +1,11 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { 
+  FORMAT_MAP, 
+  PLATFORM_MAP, 
+  CONTENT_TYPE_LABELS,
+  getFormatLabel 
+} from "../_shared/format-constants.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -47,62 +53,6 @@ interface RSSItem {
   imageUrl?: string;
   allImages?: string[];
 }
-
-// Content type to format mapping for AI generation
-const FORMAT_MAP: Record<string, string> = {
-  'tweet': 'tweet',
-  'thread': 'thread',
-  'x_article': 'linkedin',
-  'linkedin_post': 'linkedin',
-  'carousel': 'carousel',
-  'stories': 'stories',
-  'instagram_post': 'post',
-  'static_image': 'post',
-  'short_video': 'reels',
-  'long_video': 'reels',
-  'newsletter': 'newsletter',
-  'blog_post': 'newsletter',
-  'case_study': 'newsletter',
-  'report': 'newsletter',
-  'document': 'post',
-  'social_post': 'post', // Legacy
-  'other': 'post',
-};
-
-// Content type to platform mapping
-const PLATFORM_MAP: Record<string, string> = {
-  'tweet': 'twitter',
-  'thread': 'twitter',
-  'x_article': 'twitter',
-  'linkedin_post': 'linkedin',
-  'carousel': 'instagram',
-  'stories': 'instagram',
-  'instagram_post': 'instagram',
-  'static_image': 'instagram',
-  'short_video': 'tiktok',
-  'long_video': 'youtube',
-  'newsletter': 'newsletter',
-  'blog_post': 'blog',
-};
-
-// Content type labels for enriched prompts
-const CONTENT_TYPE_LABELS: Record<string, string> = {
-  'tweet': 'Tweet (máx 280 caracteres)',
-  'thread': 'Thread Twitter (5-10 tweets conectados)',
-  'x_article': 'Artigo no X (conteúdo longo e profundo)',
-  'linkedin_post': 'Post LinkedIn (profissional e informativo)',
-  'carousel': 'Carrossel Instagram (8-10 slides visuais)',
-  'stories': 'Stories (5-7 stories sequenciais)',
-  'instagram_post': 'Post Instagram (legenda + visual impactante)',
-  'static_image': 'Post Estático (visual único com legenda)',
-  'short_video': 'Roteiro Reels/TikTok (30-60 segundos)',
-  'long_video': 'Roteiro Vídeo Longo (5-15 minutos)',
-  'newsletter': 'Newsletter (estruturada com seções)',
-  'blog_post': 'Blog Post (SEO-otimizado)',
-  'case_study': 'Estudo de Caso (análise detalhada)',
-  'report': 'Relatório (dados e insights)',
-  'social_post': 'Post Social (genérico)',
-};
 
 // Extract images from HTML content
 function extractImagesFromHTML(html: string): string[] {
