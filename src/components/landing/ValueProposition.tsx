@@ -6,140 +6,113 @@ import {
   Send,
   ArrowRight
 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 
-interface Pillar {
+interface Step {
   step: string;
   icon: React.ElementType;
   title: string;
   description: string;
-  bgColor: string;
-  isPro?: boolean;
 }
 
-const pillars: Pillar[] = [
+const steps: Step[] = [
   {
-    step: "1",
+    step: "01",
     icon: User,
     title: "Entende seu perfil",
-    description: "Tom de voz, objetivos e audiência. KAI aprende com cada interação.",
-    bgColor: "bg-blue-500",
+    description: "Tom de voz, objetivos e audiência. A IA aprende com cada interação.",
   },
   {
-    step: "2",
+    step: "02",
     icon: PenTool,
     title: "Desenvolve conteúdo",
     description: "Textos otimizados para cada plataforma. Posts, threads, artigos.",
-    bgColor: "bg-primary",
   },
   {
-    step: "3",
+    step: "03",
     icon: Image,
     title: "Cria as imagens",
-    description: "Geração de imagens com IA. Carrosséis, thumbnails, stories.",
-    bgColor: "bg-secondary",
+    description: "Geração visual com IA. Carrosséis, thumbnails, stories.",
   },
   {
-    step: "4",
+    step: "04",
     icon: Send,
     title: "Publica direto",
     description: "Planejamento visual e publicação agendada nas suas redes.",
-    bgColor: "bg-accent",
-    isPro: true,
   },
 ];
 
 const ValueProposition = () => {
   return (
-    <section className="py-24 md:py-32 bg-background relative overflow-hidden">
-      {/* Background */}
-      <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute top-0 right-1/4 w-[500px] h-[500px] bg-primary/3 rounded-full blur-[150px]" />
-        <div className="absolute bottom-0 left-1/4 w-[400px] h-[400px] bg-secondary/3 rounded-full blur-[120px]" />
-      </div>
+    <section id="features" className="py-24 md:py-32 bg-background relative">
+      {/* Subtle top border */}
+      <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-border to-transparent" />
 
-      <div className="max-w-6xl mx-auto px-6 relative z-10">
-        {/* Header */}
+      <div className="max-w-5xl mx-auto px-6">
+        {/* Header - Linear style */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          transition={{ duration: 0.6 }}
+          transition={{ duration: 0.5 }}
           className="text-center mb-16"
         >
-          <Badge className="mb-6 bg-secondary/10 text-secondary border-secondary/20">
-            Tudo em um só lugar
-          </Badge>
-          <h2 className="text-3xl md:text-5xl font-bold text-foreground mb-4">
-            Como o <span className="text-primary">KAI</span> funciona
+          <span className="inline-block px-3 py-1 rounded-full bg-muted text-muted-foreground text-xs font-medium mb-4">
+            Como funciona
+          </span>
+          <h2 className="text-3xl md:text-4xl lg:text-5xl font-semibold text-foreground tracking-tight">
+            Do briefing à publicação
           </h2>
-          <p className="text-muted-foreground text-lg font-light max-w-2xl mx-auto">
-            Do entendimento do seu perfil até a publicação. Automatize seu fluxo de conteúdo.
+          <p className="text-muted-foreground text-lg mt-4 max-w-xl mx-auto">
+            Automatize todo o fluxo de criação de conteúdo em 4 passos simples.
           </p>
         </motion.div>
 
-        {/* Pillars Grid */}
-        <div className="grid md:grid-cols-4 gap-6 relative">
-          {/* Connection line - Desktop - solid color */}
-          <div className="hidden md:block absolute top-1/2 left-0 right-0 h-0.5 bg-primary/20 -translate-y-1/2 z-0" />
-          
-          {pillars.map((pillar, index) => (
+        {/* Steps Grid - Minimal cards */}
+        <div className="grid md:grid-cols-4 gap-px bg-border/50 rounded-xl overflow-hidden">
+          {steps.map((step, index) => (
             <motion.div
-              key={pillar.title}
-              initial={{ opacity: 0, y: 30 }}
+              key={step.title}
+              initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: index * 0.1 }}
-              className="relative z-10"
+              className="bg-background p-6 group hover:bg-muted/30 transition-colors"
             >
-              <div className="p-6 rounded-2xl bg-card border border-border hover:border-primary/30 transition-all h-full text-center group">
-                {/* Step indicator - solid color instead of gradient */}
-                <div className={`w-16 h-16 rounded-2xl ${pillar.bgColor} flex items-center justify-center mx-auto mb-4 shadow-lg group-hover:scale-110 transition-transform`}>
-                  <pillar.icon className="w-8 h-8 text-white" />
-                </div>
-                
-                <span className="text-xs font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full mb-3 inline-block">
-                  Passo {pillar.step}
-                </span>
-                
-                <h3 className="text-lg font-semibold text-foreground mb-2 flex items-center justify-center gap-2">
-                  {pillar.title}
-                  {pillar.isPro && (
-                    <span className="text-[10px] px-2 py-0.5 rounded bg-primary text-primary-foreground font-bold">
-                      PRO
-                    </span>
-                  )}
-                </h3>
-                <p className="text-sm text-muted-foreground">
-                  {pillar.description}
-                </p>
+              {/* Step number */}
+              <span className="text-xs font-mono text-muted-foreground mb-4 block">
+                {step.step}
+              </span>
+              
+              {/* Icon */}
+              <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center mb-4 group-hover:bg-primary/10 transition-colors">
+                <step.icon className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
               </div>
               
-              {/* Arrow connector - Desktop */}
-              {index < pillars.length - 1 && (
-                <div className="hidden md:flex absolute top-1/2 -right-3 transform -translate-y-1/2 z-20">
-                  <div className="w-6 h-6 rounded-full bg-background border border-border flex items-center justify-center">
-                    <ArrowRight className="w-3 h-3 text-primary" />
-                  </div>
-                </div>
-              )}
+              {/* Content */}
+              <h3 className="text-base font-semibold text-foreground mb-2">
+                {step.title}
+              </h3>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                {step.description}
+              </p>
             </motion.div>
           ))}
         </div>
 
-        {/* Bottom highlight - removed gradient, unified text color */}
+        {/* Bottom CTA */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ delay: 0.4 }}
-          className="mt-16 p-8 rounded-3xl bg-primary/5 border border-border text-center"
+          className="mt-16 text-center"
         >
-          <h3 className="text-2xl md:text-3xl font-bold text-foreground mb-3">
-            Resultado: 10x mais conteúdo em menos tempo
-          </h3>
-          <p className="text-muted-foreground max-w-xl mx-auto">
-            Enquanto você foca no que importa, KAI cuida da produção. Menos trabalho manual, mais presença online.
+          <p className="text-xl md:text-2xl font-medium text-foreground mb-2">
+            10x mais conteúdo, menos esforço
+          </p>
+          <p className="text-muted-foreground">
+            Enquanto você foca no que importa, o kAI cuida da produção.
           </p>
         </motion.div>
       </div>

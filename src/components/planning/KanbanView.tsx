@@ -97,8 +97,8 @@ export function KanbanView({
     <div ref={containerRef} className="h-full w-full">
       <ScrollArea className="h-full w-full">
         <div className={cn(
-          "flex pb-4 min-h-full px-1",
-          isMobile ? "gap-3 snap-x snap-mandatory overflow-x-auto" : "gap-6"
+          "flex pb-4 min-h-full px-2",
+          isMobile ? "gap-3 snap-x snap-mandatory overflow-x-auto" : "gap-4"
         )}>
           {columns.map(column => {
             const items = getItemsByColumn(column.id);
