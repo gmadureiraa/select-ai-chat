@@ -1,85 +1,261 @@
 
-# Plano: Unificar Fluxo de Geração de Conteúdo
+# Revisão Completa do Sistema kAI - Status e Próximos Passos
 
-## ✅ Status: Em Implementação
+## Resumo Executivo
 
-## Progresso
+O sistema kAI é um assistente de IA integrado que opera em múltiplos contextos (Chat Global, Canvas, Planejamento, Automações). Após a análise detalhada, identifiquei o **estado atual**, **o que está funcionando**, e **o que ainda precisa ser implementado/corrigido**.
 
-| Arquivo | Status | Descrição |
-|---------|--------|-----------|
-| `src/lib/contentGeneration.ts` | ✅ Criado | Funções puras de parsing e construção de prompts |
-| `src/hooks/useUnifiedContentGeneration.ts` | ✅ Criado | Hook centralizado de geração |
-| `supabase/functions/kai-content-agent/index.ts` | ✅ Atualizado | Aceita additionalMaterial |
-| `src/lib/parseOpenAIStream.ts` | ✅ Atualizado | Suporta additionalMaterial |
-| `src/hooks/usePlanningContentGeneration.ts` | ✅ Refatorado | Usa hook unificado |
-| `src/hooks/useContentCreator.ts` | ✅ Refatorado | Usa hook unificado |
-| `src/components/kai/canvas/hooks/useCanvasGeneration.ts` | ⏳ Pendente | Usa hook unificado |
-| `src/hooks/useClientChat.ts` | ⏳ Pendente | Simplificar para usar lib |
+---
 
-## Arquitetura Implementada
+## Estado Atual - O Que Está Pronto
+
+### 1. Infraestrutura Core de Geração de Conteúdo
+
+| Componente | Status | Descrição |
+|------------|--------|-----------|
+| `contentGeneration.ts` | ✅ Completo | Biblioteca unificada com funções puras |
+| `useUnifiedContentGeneration.ts` | ✅ Completo | Hook centralizado de geração |
+| `kai-content-agent` | ✅ Completo | Edge function com suporte a additionalMaterial |
+| `parseOpenAIStream.ts` | ✅ Completo | Streaming com parâmetros unificados |
+
+### 2. Pontos de Entrada Refatorados
+
+| Ponto de Entrada | Status | Descrição |
+|------------------|--------|-----------|
+| Planning Dialog | ✅ Refatorado | Usa `useUnifiedContentGeneration` |
+| Content Creator | ✅ Refatorado | Usa hook unificado com structured content |
+| Automations | ✅ Funcional | Usa `kai-content-agent` diretamente |
+| Performance Report | ✅ Funcional | Usa `kai-metrics-agent` |
+
+### 3. kAI Chat Global
+
+| Funcionalidade | Status | Descrição |
+|----------------|--------|-----------|
+| Multi-agent routing | ✅ Funcional | Detecta intent (content/metrics/planning) |
+| Streaming SSE | ✅ Funcional | Resposta em tempo real |
+| Multimodal (imagens) | ✅ Funcional | Upload e análise de imagens |
+| Citations (@mentions) | ✅ Funcional | Busca conteúdo da biblioteca |
+| Planning cards creation | ✅ Funcional | Cria cards via Smart Planner |
+| Conversation history | ✅ Funcional | Histórico persistido no banco |
+| Pro-only restriction | ✅ Funcional | Bloqueio para planos básicos |
+
+### 4. Canvas
+
+| Funcionalidade | Status | Descrição |
+|----------------|--------|-----------|
+| Toolbar unificada | ✅ Funcional | Ferramentas de desenho/nós |
+| Drawing Layer | ✅ Corrigido | Não bloqueia mais cliques no mobile |
+| Geração de texto | ✅ Funcional | Via `kai-content-agent` |
+| Geração de imagem | ✅ Funcional | Via `generate-image` |
+| Múltiplos inputs | ✅ Funcional | Anexos, texto, biblioteca |
+
+### 5. Mobile/PWA
+
+| Funcionalidade | Status | Descrição |
+|----------------|--------|-----------|
+| GlobalKAIPanel backdrop | ✅ Corrigido | pointer-events-none quando fechado |
+| Canvas z-index | ✅ Corrigido | Toolbar z-55, header z-55 |
+| Service Worker | ✅ Funcional | Registro e cache |
+
+### 6. Push Notifications
+
+| Componente | Status | Descrição |
+|------------|--------|-----------|
+| `process-push-queue` | ✅ Reescrito | Implementação nativa Deno |
+| `send-push-notification` | ✅ Reescrito | Web Crypto API + jose |
+| `get-vapid-public-key` | ✅ Funcional | Retorna chave pública |
+| `useWebPushSubscription` | ✅ Funcional | Gerencia subscription no frontend |
+
+---
+
+## O Que Ainda Precisa Ser Feito
+
+### Prioridade Alta (Funcionalidade Core)
+
+#### 1. Refatorar `useCanvasGeneration.ts` para Usar Hook Unificado
+
+**Status**: ⏳ Pendente  
+**Arquivo**: `src/components/kai/canvas/hooks/useCanvasGeneration.ts`  
+**Problema**: Ainda usa lógica inline de ~690 linhas com streaming manual
+**Solução**: Substituir pela chamada ao `useUnifiedContentGeneration`
+
+```typescript
+// ATUAL (~100 linhas de streaming inline)
+const response = await fetch(`${...}/kai-content-agent`, {...});
+const reader = response.body?.getReader();
+// ... parsing manual ...
+
+// PROPOSTO (simplificado)
+const result = await unified.generate({
+  title: briefing || 'Conteúdo',
+  format: genData.format,
+  clientId,
+  additionalContext: combinedContext,
+  images: imageReferences,
+});
+```
+
+#### 2. Simplificar `useClientChat.ts`
+
+**Status**: ⏳ Pendente  
+**Arquivo**: `src/hooks/useClientChat.ts` (~2234 linhas!)  
+**Problema**: Arquivo gigante com muita lógica duplicada
+**Solução**: Extrair lógica comum para a biblioteca `contentGeneration.ts`
+
+Áreas a simplificar:
+- Detecção de formato (já existe em `contentGeneration.ts`)
+- Parsing de thread/carousel (já existe)
+- Construção de prompts (já existe)
+
+#### 3. Validar Notificações Push End-to-End
+
+**Status**: 🧪 Requer Teste  
+**Problema**: Edge functions foram reescritas mas precisam de validação
+**Ações**:
+1. Verificar se a subscription está sendo salva corretamente
+2. Testar criação de tarefa com assignee
+3. Verificar logs da edge function `process-push-queue`
+
+### Prioridade Média (Melhorias)
+
+#### 4. Adicionar Structured Content ao Canvas Output
+
+**Status**: ⏳ Pendente  
+**Problema**: Canvas não usa `parseStructuredContent` para threads/carousels
+**Solução**: Após gerar conteúdo, parsear e salvar no `metadata` do OutputNode
+
+#### 5. Unificar Labels e Maps de Formato
+
+**Status**: ⚠️ Duplicação  
+**Problema**: `CONTENT_TYPE_LABELS`, `FORMAT_MAP`, `PLATFORM_MAP` existem em:
+- `src/lib/contentGeneration.ts`
+- `supabase/functions/process-automations/index.ts`
+- `supabase/functions/kai-simple-chat/index.ts`
+
+**Solução**: Criar arquivo `_shared/format-constants.ts` no Supabase e importar
+
+#### 6. Documentar Regras de Formato na kai_documentation
+
+**Status**: ✅ Parcial  
+**Problema**: Nem todos os 16 formatos têm documentação completa
+**Ação**: Revisar e completar documentação para formatos menos usados
+
+### Prioridade Baixa (Otimizações)
+
+#### 7. Adicionar Cache de Referências
+
+**Status**: 💡 Sugestão  
+**Problema**: Cada geração busca referências novamente
+**Solução**: Cache de 5 minutos para URLs já fetched
+
+#### 8. Melhorar Error Handling no Streaming
+
+**Status**: 💡 Sugestão  
+**Problema**: Erros de streaming podem deixar UI em estado inconsistente
+**Solução**: Timeout e fallback consistentes em todos os pontos
+
+#### 9. Adicionar Métricas de Uso
+
+**Status**: 💡 Sugestão  
+**Problema**: Não há tracking de qual formato é mais gerado
+**Solução**: Log analytics para otimizar experiência
+
+---
+
+## Arquitetura Final Proposta
 
 ```text
 ┌─────────────────────────────────────────────────────────────────────┐
 │                    PONTOS DE ENTRADA (UI)                          │
 ├───────────────┬─────────────┬─────────────┬──────────────┬─────────┤
 │ Planning      │ Canvas      │ kAI Chat    │ Content      │ Report  │
-│ Dialog ✅     │ Generator   │             │ Creator ✅   │         │
+│ Dialog ✅     │ ⏳ Pendente │ ⏳ Pendente │ Creator ✅   │ ✅      │
 └───────┬───────┴──────┬──────┴──────┬──────┴───────┬──────┴────┬────┘
         │              │             │              │           │
-        ▼              ▼             ▼              ▼           ▼
-┌───────────────────────────────────────────────────────────────────┐
-│                   useUnifiedContentGeneration ✅                   │
-│  ┌────────────────────────────────────────────────────────────┐   │
-│  │ 1. extractAllReferences(input) ✅                          │   │
-│  │    - URLs → fetch-reference-content                        │   │
-│  │    - @mentions → biblioteca                                │   │
-│  │    - Texto adicional                                       │   │
-│  └────────────────────────────────────────────────────────────┘   │
-│  ┌────────────────────────────────────────────────────────────┐   │
-│  │ 2. buildEnrichedPrompt(title, context, format, references) │   │
-│  │    - Labels consistentes por formato ✅                    │   │
-│  │    - Instruções específicas ✅                             │   │
-│  │    - Contexto de imagens ✅                                │   │
-│  └────────────────────────────────────────────────────────────┘   │
-│  ┌────────────────────────────────────────────────────────────┐   │
-│  │ 3. callKaiContentAgent(prompt, clientId, format) ✅        │   │
-│  │    - Streaming via parseOpenAIStream                       │   │
-│  │    - Token error handling                                  │   │
-│  └────────────────────────────────────────────────────────────┘   │
-│  ┌────────────────────────────────────────────────────────────┐   │
-│  │ 4. parseStructuredContent(content, format) ✅              │   │
-│  │    - Thread → tweets array                                 │   │
-│  │    - Carousel → slides array                               │   │
-│  │    - Newsletter → sections                                 │   │
-│  └────────────────────────────────────────────────────────────┘   │
-└───────────────────────────────────────────────────────────────────┘
-        │
-        ▼
-┌───────────────────────────────────────────────────────────────────┐
-│                       kai-content-agent ✅                         │
-│  - Suporta additionalMaterial                                     │
-│  - format-rules.ts, contexto do cliente, top performers           │
-│  - identity_guide, content_library, references                    │
-└───────────────────────────────────────────────────────────────────┘
+        └──────────────┴──────┬──────┴──────────────┘           │
+                              ▼                                 │
+┌─────────────────────────────────────────────────────┐         │
+│        useUnifiedContentGeneration ✅               │         │
+│  - extractAllReferences (URLs, @mentions)          │         │
+│  - buildEnrichedPrompt                             │         │
+│  - callKaiContentAgent (streaming)                 │         │
+│  - parseStructuredContent (thread/carousel/news)   │         │
+└────────────────────────┬────────────────────────────┘         │
+                         ▼                                      │
+┌───────────────────────────────────────────────────────────────┤
+│                   Edge Functions                              │
+├─────────────────┬──────────────────┬──────────────────────────┤
+│ kai-content-    │ kai-metrics-     │ kai-simple-chat          │
+│ agent ✅        │ agent ✅         │ (multi-agent router) ✅  │
+│                 │                  │                          │
+│ Formato         │ Instagram        │ Intent detection         │
+│ + Contexto      │ YouTube          │ → content agent          │
+│ + Style         │ Newsletter       │ → metrics agent          │
+│ + Rules         │ LinkedIn         │ → planning agent         │
+└─────────────────┴──────────────────┴──────────────────────────┘
 ```
 
-## Funções Criadas em `src/lib/contentGeneration.ts`
+---
 
-- `CONTENT_TYPE_LABELS` - Labels por formato
-- `PLATFORM_MAP` - Mapeamento format → platform
-- `fetchUrlContent()` - Busca conteúdo de URL
-- `fetchMentionedContent()` - Busca conteúdo de @mentions
-- `extractAllReferences()` - Extração unificada de referências
-- `parseThreadFromContent()` - Parser de thread → TweetItem[]
-- `parseCarouselFromContent()` - Parser de carousel → SlideItem[]
-- `distributeImages()` - Distribuir imagens entre itens
-- `buildEnrichedPrompt()` - Construir prompt enriquecido
-- `parseStructuredContent()` - Parsing por formato
-- `extractTitleFromContent()` - Extrair título do conteúdo
-- `getPlatformFromFormat()` - Obter plataforma do formato
+## Plano de Implementação
 
-## Próximos Passos
+### Fase 1: Completar Unificação (Esta Semana)
 
-1. ⏳ Refatorar `useCanvasGeneration.ts` para usar hook unificado
-2. ⏳ Simplificar `useClientChat.ts`
-3. 🧪 Testar fluxos em cada ponto de entrada
+| Tarefa | Esforço | Prioridade |
+|--------|---------|------------|
+| Refatorar `useCanvasGeneration.ts` | 2-3h | Alta |
+| Simplificar `useClientChat.ts` | 3-4h | Alta |
+| Testar push notifications E2E | 1h | Alta |
+
+### Fase 2: Eliminar Duplicações (Próxima Semana)
+
+| Tarefa | Esforço | Prioridade |
+|--------|---------|------------|
+| Criar `_shared/format-constants.ts` | 1h | Média |
+| Atualizar edge functions para usar shared | 2h | Média |
+| Completar kai_documentation | 2h | Média |
+
+### Fase 3: Otimizações (Futuro)
+
+| Tarefa | Esforço | Prioridade |
+|--------|---------|------------|
+| Cache de referências | 2h | Baixa |
+| Error handling melhorado | 2h | Baixa |
+| Analytics de uso | 3h | Baixa |
+
+---
+
+## Checklist de Testes Recomendados
+
+Antes de considerar o kAI "100% pronto", testar:
+
+1. **Planning Dialog**
+   - [ ] Criar card com URL de YouTube → verificar conteúdo e imagens
+   - [ ] Criar card com @mention → verificar contexto usado
+   - [ ] Criar carousel → verificar slides parseados
+
+2. **Canvas**
+   - [ ] Gerar conteúdo com múltiplos anexos → verificar output
+   - [ ] Gerar imagem com referências visuais → verificar estilo
+   - [ ] Testar no mobile → clicar em ferramentas funciona
+
+3. **kAI Chat Global**
+   - [ ] Perguntar métricas → verificar dados corretos
+   - [ ] Pedir para criar card → verificar card no Kanban
+   - [ ] Enviar imagem → verificar análise multimodal
+
+4. **Automações**
+   - [ ] Criar automação RSS → verificar card com conteúdo
+   - [ ] Verificar geração de imagem opcional → verificar thumbnail
+
+5. **Push Notifications**
+   - [ ] Criar tarefa com assignee → verificar notificação chega
+   - [ ] Verificar logs da edge function → sem erros
+
+---
+
+## Conclusão
+
+O sistema kAI está **~80% completo**. As funcionalidades core estão funcionando, mas dois hooks grandes (`useCanvasGeneration` e `useClientChat`) ainda não usam a arquitetura unificada, o que pode causar inconsistências na qualidade de geração.
+
+**Recomendação**: Priorizar a refatoração desses dois hooks antes de adicionar novas funcionalidades.
