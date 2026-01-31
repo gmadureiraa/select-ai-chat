@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { getFormatRules } from "../_shared/format-rules.ts";
+import { getFormatDocs } from "../_shared/knowledge-loader.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -277,8 +278,30 @@ ${client.identity_guide}
       contextPrompt += `\n\n`;
     }
 
-    // Get format-specific rules
-    const formatSpecificRules = getFormatRules(format || "post");
+    // ===================================================
+    // FORMATO: Buscar do banco primeiro, fallback hardcoded
+    // ===================================================
+    let formatRulesContent = "";
+    
+    if (format) {
+      console.log("[kai-content-agent] Loading format rules for:", format);
+      
+      // Tentar buscar do banco de dados (kai_documentation)
+      const dbFormatDocs = await getFormatDocs(format);
+      
+      if (dbFormatDocs && dbFormatDocs.trim().length > 50) {
+        // Usar documentação do banco
+        formatRulesContent = `\n## 📋 REGRAS DO FORMATO: ${format.toUpperCase()}\n\n${dbFormatDocs}\n`;
+        console.log("[kai-content-agent] Using DB format rules, length:", dbFormatDocs.length);
+      } else {
+        // Fallback para regras hardcoded
+        formatRulesContent = getFormatRules(format);
+        console.log("[kai-content-agent] Using hardcoded format rules (fallback)");
+      }
+    } else {
+      // Sem formato especificado, usar regras genéricas de post
+      formatRulesContent = getFormatRules("post");
+    }
 
     const systemPrompt = `# REGRAS ABSOLUTAS DE ENTREGA (LEIA PRIMEIRO)
 
@@ -297,7 +320,9 @@ Você é um copywriter especialista em criação de conteúdo para redes sociais
 
 ${contextPrompt}
 
-${formatSpecificRules}
+${formatRulesContent}
+
+## Suas Responsabilidades:
 
 ## Suas Responsabilidades:
 
