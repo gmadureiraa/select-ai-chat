@@ -134,7 +134,7 @@ export function GlobalKAIPanel({
       <AnimatePresence mode="wait">
         {isOpen && (
           <>
-            {/* Backdrop overlay - with pointer-events protection */}
+            {/* Backdrop overlay */}
             <motion.div
               key="kai-backdrop"
               initial={{ opacity: 0 }}
@@ -146,7 +146,7 @@ export function GlobalKAIPanel({
               style={{ pointerEvents: isOpen ? 'auto' : 'none' }}
             />
 
-            {/* Panel - Clean, minimal design */}
+            {/* Panel - Wider, modern design */}
             <motion.div
               ref={panelRef}
               initial={{ x: "100%", opacity: 0 }}
@@ -160,17 +160,21 @@ export function GlobalKAIPanel({
               }}
               className={cn(
                 "fixed right-0 top-0 z-[70]",
-                "w-full sm:w-[400px] lg:w-[440px]",
+                // Wider panel for better readability
+                "w-full sm:w-[480px] md:w-[540px] lg:w-[600px]",
                 "h-screen max-h-screen",
-                "bg-background border-l border-border",
-                "flex flex-col overflow-hidden",
+                "bg-background border-l border-border/50",
+                "flex flex-col",
+                // Subtle shadow for depth
+                "shadow-[-8px_0_30px_-10px_rgba(0,0,0,0.1)] dark:shadow-[-8px_0_30px_-10px_rgba(0,0,0,0.3)]",
                 className
               )}
             >
-              {/* Minimal Header */}
-              <div className="flex items-center justify-between h-14 px-4 border-b border-border">
+              {/* Modern Header */}
+              <div className="flex items-center justify-between h-16 px-5 border-b border-border/50 bg-card/50 backdrop-blur-sm">
                 <div className="flex items-center gap-3 flex-1 min-w-0">
-<div className="flex h-8 w-8 items-center justify-center flex-shrink-0">
+                  {/* Logo container */}
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/20 flex-shrink-0">
                     <img 
                       src={resolvedTheme === "dark" ? kaleidosLogoVerde : kaleidosLogoRosa} 
                       alt="kAI" 
@@ -182,33 +186,40 @@ export function GlobalKAIPanel({
                   {clients.length > 0 && onClientChange ? (
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="h-auto p-1.5 gap-2 max-w-[200px]">
+                        <Button variant="ghost" className="h-auto py-1.5 px-2 gap-2 max-w-[220px] hover:bg-muted/50">
                           {selectedClient ? (
                             <>
-                              <Avatar className="h-5 w-5">
+                              <Avatar className="h-6 w-6 border border-border/50">
                                 <AvatarImage src={selectedClient.avatar_url} />
-                                <AvatarFallback className="text-[10px]">
+                                <AvatarFallback className="text-[10px] bg-muted">
                                   {selectedClient.name.substring(0, 2).toUpperCase()}
                                 </AvatarFallback>
                               </Avatar>
-                              <span className="text-sm font-medium truncate">{selectedClient.name}</span>
+                              <div className="flex flex-col items-start min-w-0">
+                                <span className="text-sm font-medium truncate max-w-[140px]">{selectedClient.name}</span>
+                                <span className="text-[10px] text-muted-foreground">Criando conteúdo</span>
+                              </div>
                             </>
                           ) : (
                             <span className="text-sm text-muted-foreground">Selecionar perfil</span>
                           )}
-                          <ChevronDown className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                          <ChevronDown className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 ml-1" />
                         </Button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="start" className="w-56">
+                      <DropdownMenuContent align="start" className="w-64">
+                        <DropdownMenuLabel className="text-xs text-muted-foreground">
+                          Selecione um perfil
+                        </DropdownMenuLabel>
+                        <DropdownMenuSeparator />
                         {clients.map((client) => (
                           <DropdownMenuItem
                             key={client.id}
                             onClick={() => onClientChange(client.id)}
-                            className="gap-2"
+                            className="gap-3 py-2"
                           >
-                            <Avatar className="h-5 w-5">
+                            <Avatar className="h-7 w-7 border border-border/50">
                               <AvatarImage src={client.avatar_url} />
-                              <AvatarFallback className="text-[10px]">
+                              <AvatarFallback className="text-[10px] bg-muted">
                                 {client.name.substring(0, 2).toUpperCase()}
                               </AvatarFallback>
                             </Avatar>
@@ -222,7 +233,7 @@ export function GlobalKAIPanel({
                     </DropdownMenu>
                   ) : (
                     <div className="flex flex-col min-w-0">
-                      <span className="text-sm font-medium text-foreground">kAI</span>
+                      <span className="text-base font-semibold text-foreground">kAI</span>
                       {selectedClientName && (
                         <span className="text-xs text-muted-foreground truncate">
                           {selectedClientName}
@@ -233,12 +244,12 @@ export function GlobalKAIPanel({
                 </div>
                 
                 {/* Actions */}
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-0.5">
                   {/* New conversation button */}
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted"
+                    className="h-9 w-9 text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-lg"
                     onClick={onNewConversation}
                     title="Nova conversa"
                   >
@@ -252,13 +263,13 @@ export function GlobalKAIPanel({
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted"
+                          className="h-9 w-9 text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-lg"
                           title="Histórico de conversas"
                         >
                           <History className="h-4 w-4" />
                         </Button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-72 max-h-80 overflow-y-auto">
+                      <DropdownMenuContent align="end" className="w-80 max-h-96 overflow-y-auto">
                         <DropdownMenuLabel className="text-xs text-muted-foreground">
                           Conversas anteriores
                         </DropdownMenuLabel>
@@ -268,7 +279,7 @@ export function GlobalKAIPanel({
                             key={conv.id}
                             onClick={() => onSelectConversation?.(conv.id)}
                             className={cn(
-                              "flex items-start gap-2 py-2 cursor-pointer",
+                              "flex items-start gap-3 py-2.5 cursor-pointer",
                               conv.id === activeConversationId && "bg-accent"
                             )}
                           >
@@ -278,11 +289,11 @@ export function GlobalKAIPanel({
                                 {conv.title || "Nova conversa"}
                               </p>
                               {conv.last_message_preview && (
-                                <p className="text-xs text-muted-foreground truncate">
+                                <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">
                                   {conv.last_message_preview}
                                 </p>
                               )}
-                              <p className="text-[10px] text-muted-foreground/60 mt-0.5">
+                              <p className="text-[10px] text-muted-foreground/60 mt-1">
                                 {formatDistanceToNow(new Date(conv.updated_at), { 
                                   addSuffix: true, 
                                   locale: ptBR 
@@ -302,7 +313,7 @@ export function GlobalKAIPanel({
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted"
+                    className="h-9 w-9 text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-lg"
                     onClick={handleExport}
                     disabled={messages.length === 0}
                     title="Exportar conversa"
@@ -314,7 +325,7 @@ export function GlobalKAIPanel({
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-muted"
+                    className="h-9 w-9 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg"
                     onClick={() => setShowDeleteDialog(true)}
                     disabled={messages.length === 0}
                     title="Apagar conversa"
@@ -322,13 +333,14 @@ export function GlobalKAIPanel({
                     <Trash2 className="h-4 w-4" />
                   </Button>
 
-                  <DropdownMenuSeparator className="h-6 w-px bg-border mx-1" />
+                  {/* Divider */}
+                  <div className="h-6 w-px bg-border/50 mx-1.5" />
 
                   {/* Close button */}
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted"
+                    className="h-9 w-9 text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-lg"
                     onClick={onClose}
                   >
                     <X className="h-4 w-4" />
@@ -336,7 +348,7 @@ export function GlobalKAIPanel({
                 </div>
               </div>
 
-              {/* Content */}
+              {/* Content - Full height with proper overflow */}
               <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
                 {children}
               </div>

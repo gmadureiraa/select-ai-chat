@@ -109,27 +109,27 @@ export function GlobalKAIChat({
   // Empty state - minimal design
   if (messages.length === 0 && !isProcessing) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center px-6 py-12">
+      <div className="flex-1 flex flex-col items-center justify-center px-8 py-12">
         <motion.div
           initial={{ scale: 0.95, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={{ delay: 0.1, duration: 0.2 }}
-          className="flex flex-col items-center text-center max-w-[280px]"
+          className="flex flex-col items-center text-center max-w-[320px]"
         >
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-sidebar-accent mb-4">
-            <Sparkles className="h-5 w-5 text-sidebar-accent-foreground" />
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/20 mb-5">
+            <Sparkles className="h-6 w-6 text-primary" />
           </div>
-          <h3 className="text-base font-medium text-foreground mb-1">
+          <h3 className="text-lg font-semibold text-foreground mb-2">
             Olá! Sou o kAI
           </h3>
-          <p className="text-sm text-muted-foreground mb-6">
-            Seu assistente para criar conteúdo.
+          <p className="text-sm text-muted-foreground mb-8 leading-relaxed">
+            Seu assistente para criar conteúdo estratégico e relevante.
           </p>
 
           {/* Client context or selection CTA */}
           {selectedClientId ? (
             selectedClientName && (
-              <div className="flex items-center gap-2 mb-6 px-3 py-2 rounded-lg bg-muted/50 border border-border">
+              <div className="flex items-center gap-2.5 mb-8 px-4 py-2.5 rounded-xl bg-muted/50 border border-border/50">
                 <UserCircle className="h-4 w-4 text-primary" />
                 <span className="text-sm text-muted-foreground">
                   Criando para <span className="font-medium text-foreground">{selectedClientName}</span>
@@ -137,7 +137,7 @@ export function GlobalKAIChat({
               </div>
             )
           ) : (
-            <div className="flex items-center gap-2 mb-6 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/20">
+            <div className="flex items-center gap-2.5 mb-8 px-4 py-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20">
               <AlertCircle className="h-4 w-4 text-amber-500" />
               <span className="text-sm text-amber-700 dark:text-amber-400">
                 Selecione um perfil para começar
@@ -146,7 +146,7 @@ export function GlobalKAIChat({
           )}
 
           {/* Minimal prompts */}
-          <div className="w-full space-y-2">
+          <div className="w-full space-y-2.5">
             {selectedClientId && onSuggestionClick ? (
               <>
                 <PromptSuggestion text="Me dê ideias para o LinkedIn" onClick={() => onSuggestionClick("Me dê ideias para o LinkedIn")} />
@@ -160,7 +160,7 @@ export function GlobalKAIChat({
                 <PromptSuggestion text="Escreva uma newsletter" />
               </>
             ) : (
-              <p className="text-xs text-muted-foreground py-3 px-4 rounded-lg bg-muted/50">
+              <p className="text-xs text-muted-foreground py-4 px-5 rounded-xl bg-muted/50 border border-border/50">
                 Selecione um perfil para criar conteúdo personalizado
               </p>
             )}
@@ -172,7 +172,7 @@ export function GlobalKAIChat({
 
   return (
     <ScrollArea className="flex-1" ref={scrollRef}>
-      <div className="flex flex-col gap-3 p-4 w-full max-w-full overflow-x-hidden">
+      <div className="flex flex-col gap-1 px-5 py-4">
         <AnimatePresence mode="popLayout">
           {messages.map((message, index) => {
             const isError = message.role === "assistant" && isErrorMessage(message.content);
@@ -188,18 +188,18 @@ export function GlobalKAIChat({
               >
                 {isError ? (
                   // Error message with retry button
-                  <div className="flex flex-col gap-2">
+                  <div className="flex flex-col gap-2 py-3">
                     <div className="flex items-start gap-3">
-                      <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-destructive/10 flex items-center justify-center">
+                      <div className="flex-shrink-0 w-9 h-9 rounded-xl bg-destructive/10 flex items-center justify-center">
                         <AlertCircle className="h-4 w-4 text-destructive" />
                       </div>
-                      <div className="flex-1 bg-destructive/5 border border-destructive/20 rounded-lg p-3">
-                        <p className="text-sm text-foreground">{message.content}</p>
+                      <div className="flex-1 min-w-0 bg-destructive/5 border border-destructive/20 rounded-xl p-4">
+                        <p className="text-sm text-foreground break-words">{message.content}</p>
                         {lastUserMessage && onRetryMessage && (
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="mt-2 h-7 text-xs text-muted-foreground hover:text-foreground"
+                            className="mt-3 h-8 text-xs text-muted-foreground hover:text-foreground"
                             onClick={() => onRetryMessage(lastUserMessage)}
                           >
                             <RotateCcw className="h-3 w-3 mr-1.5" />
@@ -229,12 +229,12 @@ export function GlobalKAIChat({
           })}
         </AnimatePresence>
 
-        {/* Processing indicator - aligned with messages but no icon */}
+        {/* Processing indicator - aligned with messages */}
         {isProcessing && (
           <motion.div
             initial={{ opacity: 0, y: 5 }}
             animate={{ opacity: 1, y: 0 }}
-            className="flex items-start gap-4 py-5"
+            className="flex items-start gap-3 py-5"
           >
             {/* Spacer to align with message avatars */}
             <div className="flex-shrink-0 w-9 h-9" />
@@ -245,7 +245,7 @@ export function GlobalKAIChat({
           </motion.div>
         )}
 
-        <div ref={bottomRef} />
+        <div ref={bottomRef} className="h-1" />
       </div>
     </ScrollArea>
   );
@@ -258,13 +258,13 @@ function PromptSuggestion({ text, onClick }: { text: string; onClick?: () => voi
       onClick={onClick}
       disabled={!onClick}
       className={cn(
-        "w-full flex items-center gap-2 px-3 py-2.5 rounded-lg border border-border bg-card/50 text-sm text-muted-foreground transition-colors text-left",
+        "w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-border/50 bg-card/50 text-sm text-muted-foreground transition-all duration-200 text-left",
         onClick 
-          ? "hover:bg-accent hover:text-foreground hover:border-primary/30 cursor-pointer" 
+          ? "hover:bg-accent hover:text-foreground hover:border-primary/30 hover:shadow-sm cursor-pointer" 
           : "cursor-default hover:bg-muted/50 hover:text-foreground"
       )}
     >
-      <MessageSquare className="h-3.5 w-3.5 flex-shrink-0" />
+      <MessageSquare className="h-4 w-4 flex-shrink-0 text-primary/60" />
       <span className="truncate">{text}</span>
     </button>
   );
