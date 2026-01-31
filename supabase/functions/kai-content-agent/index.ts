@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { getFormatRules } from "../_shared/format-rules.ts";
-import { getFormatDocs } from "../_shared/knowledge-loader.ts";
+import { getFormatDocs, getFormatChecklistFormatted, getGlobalKnowledge, getSuccessPatterns } from "../_shared/knowledge-loader.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -303,6 +303,38 @@ ${client.identity_guide}
       formatRulesContent = getFormatRules("post");
     }
 
+    // ===================================================
+    // NOVOS ENRICHMENTS: Global Knowledge, Success Patterns, Checklist
+    // ===================================================
+    let enrichmentContext = "";
+    
+    // Global Knowledge (se temos workspaceId)
+    if (workspaceId) {
+      const globalKnowledge = await getGlobalKnowledge(workspaceId);
+      if (globalKnowledge) {
+        enrichmentContext += globalKnowledge;
+        console.log("[kai-content-agent] Added global knowledge");
+      }
+    }
+    
+    // Success Patterns (padrões que funcionam para o cliente)
+    if (clientId) {
+      const successPatterns = await getSuccessPatterns(clientId);
+      if (successPatterns) {
+        enrichmentContext += successPatterns;
+        console.log("[kai-content-agent] Added success patterns");
+      }
+    }
+    
+    // Checklist de validação (para IA auto-validar internamente)
+    if (format) {
+      const checklist = await getFormatChecklistFormatted(format);
+      if (checklist) {
+        enrichmentContext += checklist;
+        console.log("[kai-content-agent] Added format checklist");
+      }
+    }
+
     const systemPrompt = `# REGRAS ABSOLUTAS DE ENTREGA (LEIA PRIMEIRO)
 
 ⛔ PROIBIDO INCLUIR NA RESPOSTA:
@@ -322,7 +354,7 @@ ${contextPrompt}
 
 ${formatRulesContent}
 
-## Suas Responsabilidades:
+${enrichmentContext}
 
 ## Suas Responsabilidades:
 
@@ -332,6 +364,7 @@ ${formatRulesContent}
 4. **Copywriting Estratégico**: Use gatilhos mentais, CTAs e técnicas de persuasão apropriadas
 5. **Seguir Regras do Formato**: Respeite TODAS as regras específicas acima - limites de palavras, estrutura, proibições
 6. **Conteúdo Completo**: Entregue o conteúdo PRONTO PARA USO, não apenas sugestões
+7. **Auto-Validar**: Use o checklist interno para garantir conformidade antes de responder
 
 ## Formato Solicitado: ${format || "post"}
 ## Plataforma: ${platform || "Instagram"}

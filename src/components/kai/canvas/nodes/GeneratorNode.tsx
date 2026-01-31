@@ -156,16 +156,27 @@ const GeneratorNodeComponent: React.FC<NodeProps<GeneratorNodeData>> = ({
           content: sourceNode.data.content as string,
         });
       }
-      // Support for output/result nodes as references
+      // ENHANCED: Support for output/result nodes as rich context references
       if ((sourceNode?.type === 'output' || sourceNode?.type === 'contentOutput') && sourceNode.data?.content) {
         const isImage = sourceNode.data?.isImage;
-        attachments.push({
-          type: isImage ? 'image' : 'text',
-          content: sourceNode.data.content as string,
-          imageBase64: isImage ? (sourceNode.data.content as string) : undefined,
-          // If text, use as briefing/transcription for image generation
-          transcription: !isImage ? (sourceNode.data.content as string) : undefined,
-        });
+        const outputFormat = sourceNode.data?.format || 'unknown';
+        const contentStr = sourceNode.data.content as string;
+        
+        if (isImage) {
+          // Image output - use as visual reference
+          attachments.push({
+            type: 'image',
+            content: contentStr,
+            imageBase64: contentStr,
+          });
+        } else {
+          // Text output - mark as previous generation for context continuity
+          attachments.push({
+            type: 'text',
+            content: `[CONTEXTO DE GERAÇÃO ANTERIOR - FORMATO: ${outputFormat.toUpperCase()}]\n\n${contentStr}\n\n---\n*Use este conteúdo anterior para manter consistência de tom, estilo e informações.*`,
+            transcription: contentStr,
+          });
+        }
       }
     }
     
@@ -173,6 +184,17 @@ const GeneratorNodeComponent: React.FC<NodeProps<GeneratorNodeData>> = ({
   }, [id, getEdges, getNode]);
 
   const connectedCount = getConnectedAttachments().length;
+  
+  // Detect if we have previous outputs connected (for UI feedback)
+  const hasPreviousOutputs = useCallback((): boolean => {
+    const edges = getEdges();
+    const incomingEdges = edges.filter(e => e.target === id);
+    
+    return incomingEdges.some(edge => {
+      const sourceNode = getNode(edge.source);
+      return sourceNode?.type === 'output' || sourceNode?.type === 'contentOutput';
+    });
+  }, [id, getEdges, getNode]);
 
   const handleGenerate = useCallback(async () => {
     const attachments = getConnectedAttachments();
@@ -404,6 +426,27 @@ const GeneratorNodeComponent: React.FC<NodeProps<GeneratorNodeData>> = ({
                 ))}
               </SelectContent>
             </Select>
+            
+            {/* Context preview for text generation */}
+            {connectedCount > 0 && !isGenerating && (
+              <div className="bg-muted/50 rounded-lg p-2 text-[10px] space-y-1 border border-border/50">
+                <div className="flex items-center gap-1 text-muted-foreground">
+                  <Brain className="h-3 w-3" />
+                  <span className="font-medium">Contexto:</span>
+                </div>
+                <div className="text-muted-foreground pl-4 space-y-0.5">
+                  <p>• {connectedCount} input(s) conectado(s)</p>
+                  {hasPreviousOutputs() && (
+                    <p className="text-primary text-[9px] font-medium">
+                      ✨ Memória de contexto ativada
+                    </p>
+                  )}
+                  <p className="text-[9px] opacity-70">
+                    + Regras do formato, identidade do cliente, favoritos
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -458,6 +501,11 @@ const GeneratorNodeComponent: React.FC<NodeProps<GeneratorNodeData>> = ({
                 <div className="text-muted-foreground pl-4 space-y-0.5">
                   <p>• {connectedCount} input(s) conectado(s)</p>
                   {data.noText && <p>• Sem texto na imagem ✓</p>}
+                  {hasPreviousOutputs() && (
+                    <p className="text-primary text-[9px] font-medium">
+                      ✨ Memória de contexto ativada
+                    </p>
+                  )}
                   <p className="text-[9px] opacity-70">
                     + Identidade visual e referências do perfil
                   </p>

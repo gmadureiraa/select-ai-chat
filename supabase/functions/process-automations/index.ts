@@ -6,6 +6,7 @@ import {
   CONTENT_TYPE_LABELS,
   getFormatLabel 
 } from "../_shared/format-constants.ts";
+import { getFullContentContext } from "../_shared/knowledge-loader.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -676,16 +677,45 @@ serve(async (req) => {
           try {
             console.log(`Generating content for item ${newItem.id} with format: ${format}...`);
             
-            // Build enriched prompt with full context
-            const enrichedPrompt = buildEnrichedPrompt(
+            // ===================================================
+            // ENRICHED CONTEXT: Usar mesma qualidade dos outros ambientes
+            // ===================================================
+            let enrichedContext = "";
+            
+            // Buscar contexto completo (identity_guide, favorites, top performers, etc)
+            try {
+              enrichedContext = await getFullContentContext({
+                clientId: automation.client_id,
+                format: format,
+                workspaceId: automation.workspace_id,
+                includeLibrary: true,
+                includeTopPerformers: true,
+                includeGlobalKnowledge: true,
+                includeSuccessPatterns: true,
+                includeChecklist: true,
+                maxLibraryExamples: 3,
+                maxTopPerformers: 3,
+              });
+              console.log(`Enriched context loaded: ${enrichedContext.length} chars`);
+            } catch (ctxError) {
+              console.warn(`Could not load enriched context:`, ctxError);
+            }
+            
+            // Build enriched prompt with full context + RSS data
+            const rssPrompt = buildEnrichedPrompt(
               automation.prompt_template,
               triggerData,
               automation,
               automation.content_type,
               mediaUrls
             );
+            
+            // Combine enriched context with RSS-specific prompt
+            const finalPrompt = enrichedContext 
+              ? `${enrichedContext}\n\n---\n\n## MATERIAL DE REFERÊNCIA (RSS/FONTE EXTERNA):\n\n${rssPrompt}`
+              : rssPrompt;
 
-            console.log(`Enriched prompt (${enrichedPrompt.length} chars): ${enrichedPrompt.substring(0, 300)}...`);
+            console.log(`Final prompt (${finalPrompt.length} chars): ${finalPrompt.substring(0, 300)}...`);
 
             const response = await fetch(`${supabaseUrl}/functions/v1/kai-content-agent`, {
               method: 'POST',
@@ -694,7 +724,7 @@ serve(async (req) => {
                 'Authorization': `Bearer ${supabaseKey}`,
               },
               body: JSON.stringify({
-                message: enrichedPrompt,
+                message: finalPrompt,
                 clientId: automation.client_id,
                 workspaceId: automation.workspace_id,
                 format: format,

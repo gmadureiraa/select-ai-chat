@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getFormatRules, UNIVERSAL_RULES } from "../_shared/format-rules.ts";
-import { getFormatDocs } from "../_shared/knowledge-loader.ts";
+import { getFormatDocs, getFormatChecklistFormatted, getGlobalKnowledge, getSuccessPatterns, getFullContentContext } from "../_shared/knowledge-loader.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -391,7 +391,7 @@ ${brandContext.keywords?.length ? `- Palavras-chave: ${brandContext.keywords.joi
       if (topPerformers.length > 0) {
         performersSection = `\n## 🏆 CONTEÚDOS DE MAIOR PERFORMANCE (USE COMO INSPIRAÇÃO)\n*Analise o que funcionou:*\n\n`;
         topPerformers.forEach((perf, i) => {
-          performersSection += `**Top ${i + 1} [${perf.type}]** - ${perf.metric}\n*"${perf.title}"*\n\`\`\`\n${perf.content}\n\`\`\`\n\n`;
+        performersSection += `**Top ${i + 1} [${perf.type}]** - ${perf.metric}\n*"${perf.title}"*\n\`\`\`\n${perf.content}\n\`\`\`\n\n`;
         });
       }
 
@@ -406,6 +406,27 @@ ${brandContext.keywords?.length ? `- Palavras-chave: ${brandContext.keywords.joi
 6. Se a referência fala de um tema específico, NÃO mude para outro tema
 ` : "";
 
+      // ===================================================
+      // NOVOS ENRICHMENTS: Success Patterns + Checklist
+      // ===================================================
+      let enrichmentContext = "";
+      
+      // Success Patterns (padrões que funcionam para o cliente)
+      if (clientId) {
+        const successPatterns = await getSuccessPatterns(clientId);
+        if (successPatterns) {
+          enrichmentContext += successPatterns;
+          console.log("[generate-content-v2] Added success patterns");
+        }
+      }
+      
+      // Checklist de validação (para IA auto-validar internamente)
+      const checklist = await getFormatChecklistFormatted(requestedFormat);
+      if (checklist) {
+        enrichmentContext += checklist;
+        console.log("[generate-content-v2] Added format checklist");
+      }
+
       const prompt = `Você é um copywriter especialista em criação de conteúdo para redes sociais e marketing digital.
 
 ${brandSection}${favoritesSection}${performersSection}${strictReferenceRules}
@@ -414,6 +435,8 @@ ${brandSection}${favoritesSection}${performersSection}${strictReferenceRules}
 ${context}
 
 ${formatRules}
+
+${enrichmentContext}
 
 ## Formato Solicitado: ${config.format || "post"}
 ## Plataforma: ${config.platform || "instagram"}
@@ -424,6 +447,7 @@ ${formatRules}
 - NUNCA use hashtags (são consideradas spam em 2024+)
 - Cada frase deve ter VALOR REAL baseado no material de referência
 - Se a referência tiver insights específicos, USE-OS - não generalize
+- Use o checklist interno para validar antes de responder
 
 Siga EXATAMENTE o formato de entrega especificado nas regras acima.
 Gere o conteúdo agora:`;
