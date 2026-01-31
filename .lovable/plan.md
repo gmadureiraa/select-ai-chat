@@ -1,188 +1,190 @@
 
-# Unificação do Contexto de Formatos em TODOS os Ambientes
+# Evolução dos Criadores de Conteúdo: Canvas, kAI Chat e Automações
 
-## Diagnóstico
+## Diagnóstico Atual
 
-### Situação Atual - PROBLEMA IDENTIFICADO
+### O que FUNCIONA BEM
 
-O sistema possui **16 formatos documentados** no banco de dados (`kai_documentation`), porém:
+| Ambiente | Status | Usa Regras DB? | Usa Contexto Cliente? |
+|----------|--------|----------------|----------------------|
+| **kAI Chat** | ✅ Robusto | ✅ Sim | ✅ identity_guide + biblioteca |
+| **Canvas** | ⚠️ Parcial | ✅ Sim (v2) | ✅ favorites + top performers |
+| **Automações** | ⚠️ Parcial | ✅ Sim | ⚠️ Apenas prompt template |
 
-| Ambiente | Usa `kai_documentation`? | Como Carrega Formato? |
-|----------|--------------------------|------------------------|
-| **kAI Chat** (`kai-simple-chat`) | ✅ SIM | Busca diretamente do banco |
-| **kai-content-agent** | ⚠️ PARCIAL | Usa `format-rules.ts` (hardcoded) |
-| **Canvas** | ⚠️ PARCIAL | Passa formato para `kai-content-agent` |
-| **Planejamento** | ⚠️ PARCIAL | Usa `kai-content-agent` via hook |
-| **generate-content-v2** | ❌ NÃO | Usa apenas `format-rules.ts` |
+### O que Pode Melhorar
 
-### O Problema Principal
+1. **Knowledge Base Global** (`global_knowledge`)
+   - Disponível no banco mas NÃO sendo usada em Canvas e Automações
+   - Contém melhores práticas, tendências, insights estratégicos
 
-Existem **DUAS fontes de documentação de formato**:
+2. **Checklist de Formatos**
+   - Cada formato tem checklist de validação no banco (`kai_documentation.checklist`)
+   - NÃO está sendo usado para validar output antes de entregar
 
-1. **Banco de dados** (`kai_documentation`) - 16 formatos com documentação estratégica rica
-2. **Código hardcoded** (`format-rules.ts`) - Regras básicas que podem estar desatualizadas
+3. **Contexto de Conversa no Canvas**
+   - Generator nodes não mantém "memória" entre gerações
+   - Não aproveita outputs anteriores como contexto acumulado
 
-A função `knowledge-loader.ts` foi criada para carregar do banco, mas **NÃO está sendo usada** pelos agentes principais!
+4. **Enriquecimento de Automações**
+   - Automações usam prompt template simples
+   - Não carregam exemplos favoritos nem top performers automaticamente
 
-### Impacto
-
-- A IA pode receber regras diferentes dependendo de qual caminho chama
-- Atualizações no banco não refletem em todos os fluxos
-- Documentação fragmentada = comportamento inconsistente
-
----
-
-## Solução Proposta
-
-### Arquitetura Unificada
-
-```
-┌──────────────────────────────────────────────────────────────────┐
-│                    FLUXO UNIFICADO DE CONTEXTO                   │
-└──────────────────────────────────────────────────────────────────┘
-                                │
-                                ▼
-                 ┌─────────────────────────────┐
-                 │     kai_documentation       │
-                 │     (FONTE ÚNICA)           │
-                 │  • 16 formatos documentados │
-                 │  • Atualizado via banco     │
-                 └─────────────────────────────┘
-                                │
-            ┌───────────────────┼───────────────────┐
-            │                   │                   │
-            ▼                   ▼                   ▼
-    ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
-    │ kAI Chat    │     │ kai-content │     │ generate-   │
-    │             │     │ -agent      │     │ content-v2  │
-    └─────────────┘     └─────────────┘     └─────────────┘
-            │                   │                   │
-            └───────────────────┼───────────────────┘
-                                │
-                                ▼
-                 ┌─────────────────────────────┐
-                 │  + identity_guide (cliente) │
-                 │  + biblioteca de exemplos   │
-                 │  + top performers           │
-                 └─────────────────────────────┘
-                                │
-                                ▼
-                    ┌───────────────────┐
-                    │  CONTEXTO FINAL   │
-                    │  para Gemini      │
-                    └───────────────────┘
-```
+5. **Feedback Loop**
+   - Conteúdos de alta performance não retroalimentam automaticamente os prompts
 
 ---
 
-## Implementação Técnica
+## Melhorias Propostas
 
-### 1. Atualizar `kai-content-agent` para Usar Banco
+### 1. Integrar Global Knowledge em Todos os Ambientes
 
-Modificar para buscar regras de formato do `kai_documentation` em vez de usar apenas `format-rules.ts`:
+**Arquivo:** `supabase/functions/_shared/knowledge-loader.ts`
 
-```typescript
-// Atual (linha ~280-300 de kai-content-agent/index.ts)
-const formatSpecificRules = getFormatRules(format || "post");
-
-// Novo: Buscar do banco primeiro, fallback para hardcoded
-let formatRulesContent = "";
-
-if (format) {
-  const { data: formatDoc } = await supabase
-    .from("kai_documentation")
-    .select("content")
-    .eq("doc_type", "format")
-    .eq("doc_key", normalizeFormatKey(format))
-    .maybeSingle();
-  
-  if (formatDoc?.content) {
-    formatRulesContent = `\n## 📋 Regras do Formato: ${format.toUpperCase()}\n${formatDoc.content}\n`;
-  } else {
-    // Fallback para hardcoded
-    formatRulesContent = getFormatRules(format);
-  }
-}
-```
-
-### 2. Atualizar `generate-content-v2` para Usar Banco
-
-Mesmo padrão:
+Adicionar função para buscar conhecimento global do workspace:
 
 ```typescript
-// Adicionar importação
-import { getFormatDocs } from "../_shared/knowledge-loader.ts";
-
-// Antes de gerar, buscar formato
-let formatContext = "";
-if (config.format) {
-  formatContext = await getFormatDocs(config.format);
-}
-```
-
-### 3. Criar Função Utilitária Unificada
-
-Adicionar ao `knowledge-loader.ts` uma função que combina tudo:
-
-```typescript
-export async function getFullContentContext(params: {
-  clientId: string;
-  format: string;
-  includeLibrary?: boolean;
-  includeTopPerformers?: boolean;
-}): Promise<string> {
-  const { clientId, format, includeLibrary = true, includeTopPerformers = true } = params;
+export async function getGlobalKnowledge(workspaceId: string, limit = 5): Promise<string> {
+  const { data } = await supabase
+    .from("global_knowledge")
+    .select("title, summary, category, content")
+    .eq("workspace_id", workspaceId)
+    .limit(limit);
   
-  let context = "";
+  if (!data?.length) return "";
   
-  // 1. Regras do formato (do banco)
-  const formatDocs = await getFormatDocs(format);
-  if (formatDocs) {
-    context += `## 📋 REGRAS DO FORMATO: ${format.toUpperCase()}\n\n${formatDocs}\n\n`;
-  }
+  let context = "\n## 📚 BASE DE CONHECIMENTO GLOBAL\n";
+  context += "*Use esses insights para enriquecer o conteúdo:*\n\n";
   
-  // 2. Contexto do cliente (identity_guide)
-  const { data: client } = await supabase
-    .from("clients")
-    .select("name, identity_guide, description")
-    .eq("id", clientId)
-    .single();
-  
-  if (client?.identity_guide) {
-    context += `## 🎯 CONTEXTO DO CLIENTE\n\n${client.identity_guide}\n\n`;
-  } else if (client?.description) {
-    context += `## Cliente: ${client.name}\n${client.description}\n\n`;
-  }
-  
-  // 3. Exemplos da biblioteca (opcional)
-  if (includeLibrary) {
-    // Buscar exemplos favoritos do mesmo formato
-    // ...
-  }
-  
-  // 4. Top performers (opcional)
-  if (includeTopPerformers) {
-    // Buscar posts com melhor engagement
-    // ...
+  for (const item of data) {
+    context += `### ${item.title} (${item.category})\n`;
+    context += item.summary || item.content?.substring(0, 500);
+    context += "\n\n";
   }
   
   return context;
 }
 ```
 
-### 4. Sincronizar `format-rules.ts` com Banco
+**Integrar em:**
+- `kai-content-agent` ✅ (já tem parcialmente)
+- `generate-content-v2` ❌ (adicionar)
+- `process-automations` ❌ (adicionar)
 
-Manter o arquivo como **fallback** mas adicionar aviso de que a fonte primária é o banco:
+### 2. Adicionar Validação com Checklist
+
+**Arquivo:** `supabase/functions/_shared/knowledge-loader.ts`
+
+Adicionar função para buscar e formatar checklist:
 
 ```typescript
-// format-rules.ts
-// ⚠️ ATENÇÃO: A documentação primária está em kai_documentation (banco de dados)
-// Este arquivo é usado apenas como FALLBACK quando o banco não está disponível
-// Para atualizar regras, edite diretamente no banco via kai_documentation
+export async function getFormatChecklist(format: string): Promise<string> {
+  const doc = await fetchDocumentation('format', normalizeFormatKey(format));
+  
+  if (!doc?.checklist?.length) return "";
+  
+  let validation = "\n## ✅ CHECKLIST DE VALIDAÇÃO\n";
+  validation += "*VERIFIQUE antes de finalizar:*\n\n";
+  
+  doc.checklist.forEach((item, i) => {
+    validation += `${i + 1}. ${item}\n`;
+  });
+  
+  return validation;
+}
+```
 
-export const FORMAT_RULES: Record<string, string> = {
-  // ... (manter como fallback)
-};
+Incluir no prompt final para IA auto-validar o output.
+
+### 3. Enriquecer Automações com Contexto Completo
+
+**Arquivo:** `supabase/functions/process-automations/index.ts`
+
+Na função de geração de conteúdo (linha ~690), antes de chamar `kai-content-agent`:
+
+```typescript
+// Buscar contexto enriquecido igual aos outros ambientes
+const enrichedContext = await getFullContentContext({
+  clientId: automation.client_id,
+  format: format,
+  includeLibrary: true,
+  includeTopPerformers: true,
+});
+
+// Adicionar ao prompt
+const enrichedPrompt = `${enrichedContext}\n\n${buildEnrichedPrompt(...)}`;
+```
+
+**Resultado:** Automações passam a usar:
+- ✅ Regras do formato (do banco)
+- ✅ identity_guide do cliente
+- ✅ Exemplos favoritos da biblioteca
+- ✅ Top performers (Instagram/YouTube)
+
+### 4. Melhorar Canvas com Memória de Contexto
+
+**Problema:** Cada geração é isolada, não aproveita gerações anteriores.
+
+**Solução:** No `GeneratorNode.tsx`, passar outputs conectados como contexto:
+
+```typescript
+// Já implementado parcialmente (linhas 159-168)
+// Melhorar para extrair mais contexto:
+
+if (sourceNode?.type === 'output' && sourceNode.data?.content) {
+  attachments.push({
+    type: 'text',
+    content: `[OUTPUT ANTERIOR - USE COMO CONTEXTO]\n${sourceNode.data.content}`,
+    transcription: sourceNode.data.content,
+  });
+}
+```
+
+E no `generate-content-v2`, reconhecer e priorizar esses outputs:
+
+```typescript
+if (input.content?.startsWith('[OUTPUT ANTERIOR')) {
+  context += `\n### 📎 CONTEXTO DE GERAÇÃO ANTERIOR:\n${input.content}\n`;
+  context += "*Use este contexto para manter consistência e continuidade.*\n";
+}
+```
+
+### 5. Criar Pipeline de Feedback Automático
+
+**Nova função:** Quando um post tem alta performance, extrair padrões:
+
+**Arquivo:** `supabase/functions/_shared/knowledge-loader.ts`
+
+```typescript
+export async function getSuccessPatterns(clientId: string): Promise<string> {
+  // Buscar posts com engagement > média
+  const { data: topPosts } = await supabase
+    .from("instagram_posts")
+    .select("caption, post_type, engagement_rate")
+    .eq("client_id", clientId)
+    .order("engagement_rate", { ascending: false })
+    .limit(3);
+  
+  if (!topPosts?.length) return "";
+  
+  let patterns = "\n## 🎯 PADRÕES QUE FUNCIONAM PARA ESTE CLIENTE\n";
+  patterns += "*Baseado em análise de posts de alta performance:*\n\n";
+  
+  for (const post of topPosts) {
+    patterns += `- **${post.post_type}** com ${(post.engagement_rate * 100).toFixed(1)}% engagement\n`;
+    if (post.caption) {
+      // Extrair padrões do caption
+      const hasQuestion = /\?/.test(post.caption);
+      const hasEmojis = /[\u{1F600}-\u{1F6FF}]/u.test(post.caption);
+      const hasCTA = /(coment|compartilh|salv|link|bio)/i.test(post.caption);
+      
+      if (hasQuestion) patterns += "  - Usa perguntas para engajar\n";
+      if (hasEmojis) patterns += "  - Inclui emojis estrategicamente\n";
+      if (hasCTA) patterns += "  - Tem CTA claro\n";
+    }
+  }
+  
+  return patterns;
+}
 ```
 
 ---
@@ -191,75 +193,100 @@ export const FORMAT_RULES: Record<string, string> = {
 
 | Arquivo | Modificação |
 |---------|-------------|
-| `supabase/functions/kai-content-agent/index.ts` | Buscar formato do banco antes de usar hardcoded |
-| `supabase/functions/generate-content-v2/index.ts` | Importar e usar `getFormatDocs` |
-| `supabase/functions/_shared/knowledge-loader.ts` | Adicionar `getFullContentContext` |
-| `supabase/functions/_shared/format-rules.ts` | Adicionar comentário de deprecação |
+| `supabase/functions/_shared/knowledge-loader.ts` | Adicionar `getGlobalKnowledge`, melhorar `getFormatChecklist`, adicionar `getSuccessPatterns` |
+| `supabase/functions/generate-content-v2/index.ts` | Integrar global knowledge + checklist de validação |
+| `supabase/functions/process-automations/index.ts` | Usar `getFullContentContext` para enriquecer prompts |
+| `supabase/functions/kai-content-agent/index.ts` | Adicionar checklist de validação no final do prompt |
+| `src/components/kai/canvas/nodes/GeneratorNode.tsx` | Melhorar extração de contexto de outputs conectados |
 
 ---
 
-## Contexto Completo na Geração
-
-Após as mudanças, TODA geração de conteúdo terá:
+## Fluxo Final Unificado
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│ CONTEXTO ENVIADO PARA A IA (em qualquer ambiente)              │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│ 1. 📋 REGRAS DO FORMATO (do kai_documentation)                  │
-│    • Estrutura obrigatória                                      │
-│    • Limites de caracteres/slides                               │
-│    • Proibições específicas                                     │
-│    • Exemplos de entrega                                        │
-│                                                                 │
-│ 2. 🎯 CONTEXTO DO CLIENTE (do identity_guide)                   │
-│    • Tom de voz                                                 │
-│    • Público-alvo                                               │
-│    • Posicionamento                                             │
-│    • Diretrizes de estilo                                       │
-│                                                                 │
-│ 3. 📚 EXEMPLOS DA BIBLIOTECA (opcional)                         │
-│    • 3-5 conteúdos favoritos do mesmo formato                   │
-│    • Estrutura e tom para replicar                              │
-│                                                                 │
-│ 4. 📊 TOP PERFORMERS (opcional)                                 │
-│    • Posts com melhor engagement                                │
-│    • O que funciona para este cliente                           │
-│                                                                 │
-│ 5. 📎 MATERIAL DE REFERÊNCIA (se fornecido)                     │
-│    • URLs extraídas                                             │
-│    • @mentions citados                                          │
-│    • Transcrições/briefings                                     │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         CONTEXTO COMPLETO DA GERAÇÃO                        │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  1. 📋 REGRAS DO FORMATO (kai_documentation)                                │
+│     • Estrutura obrigatória                                                 │
+│     • Limites de caracteres/slides                                          │
+│     • Proibições específicas                                                │
+│     • Formato de entrega                                                    │
+│                                                                             │
+│  2. 🎯 CONTEXTO DO CLIENTE (identity_guide + context_notes)                 │
+│     • Tom de voz                                                            │
+│     • Público-alvo                                                          │
+│     • Posicionamento                                                        │
+│     • Diretrizes de estilo                                                  │
+│                                                                             │
+│  3. 📚 EXEMPLOS DA BIBLIOTECA (favoritos)                                   │
+│     • 3-5 conteúdos favoritos do mesmo formato                              │
+│     • Estrutura e tom para replicar                                         │
+│                                                                             │
+│  4. 🏆 TOP PERFORMERS (Instagram + YouTube)                                 │
+│     • Posts com melhor engagement                                           │
+│     • O que funciona para este cliente                                      │
+│                                                                             │
+│  5. 📖 GLOBAL KNOWLEDGE (base de conhecimento)                              │
+│     • Melhores práticas do setor                                            │
+│     • Tendências e insights estratégicos                                    │
+│     • Metodologias e frameworks                                             │
+│                                                                             │
+│  6. 📎 MATERIAL DE REFERÊNCIA (se fornecido)                                │
+│     • URLs extraídas                                                        │
+│     • @mentions citados                                                     │
+│     • Transcrições/briefings                                                │
+│     • Outputs anteriores conectados                                         │
+│                                                                             │
+│  7. ✅ CHECKLIST DE VALIDAÇÃO                                               │
+│     • Auto-verificação antes de entregar                                    │
+│     • Garantir conformidade com regras do formato                           │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Benefícios
+## Seção Técnica
 
-1. **Consistência**: Mesmas regras em Chat, Canvas, Planejamento e Automações
-2. **Manutenção Central**: Atualizar formato no banco reflete em todos os lugares
-3. **Retroalimentação**: O sistema sempre usa a documentação mais atualizada
-4. **Fallback Seguro**: Se o banco falhar, usa o código hardcoded
+### Ordem de Implementação
 
----
+1. **Expandir `knowledge-loader.ts`** (30 min)
+   - Adicionar `getGlobalKnowledge()`
+   - Melhorar `getFormatChecklist()` para retornar string formatada
+   - Adicionar `getSuccessPatterns()` (análise de padrões)
 
-## Ordem de Execução
+2. **Atualizar `generate-content-v2`** (20 min)
+   - Importar e usar novas funções
+   - Adicionar global knowledge ao prompt
+   - Incluir checklist de validação
 
-1. Atualizar `kai-content-agent` para buscar do banco (prioridade alta)
-2. Atualizar `generate-content-v2` para usar `knowledge-loader.ts`
-3. Criar função `getFullContentContext` unificada
-4. Adicionar comentário de deprecação em `format-rules.ts`
-5. Redeploy das edge functions
+3. **Atualizar `process-automations`** (30 min)
+   - Importar `getFullContentContext`
+   - Substituir prompt simples por contexto enriquecido
+   - Garantir que automações usem mesma qualidade de contexto
 
-## Tempo Estimado
+4. **Atualizar `kai-content-agent`** (15 min)
+   - Adicionar checklist de validação no prompt
+   - Garantir que global knowledge seja buscada
 
-| Tarefa | Tempo |
-|--------|-------|
-| Modificar `kai-content-agent` | 20 min |
-| Modificar `generate-content-v2` | 15 min |
-| Criar `getFullContentContext` | 25 min |
-| Testes e ajustes | 20 min |
-| **Total** | ~1h 20min |
+5. **Melhorar `GeneratorNode.tsx`** (20 min)
+   - Melhorar extração de contexto de outputs conectados
+   - Adicionar label visual mostrando "contexto acumulado"
+
+6. **Redeploy das Edge Functions** (5 min)
+   - `generate-content-v2`
+   - `process-automations`
+   - `kai-content-agent`
+
+### Tempo Total Estimado: ~2 horas
+
+### Resultado Final
+
+Após as melhorias:
+- **Canvas**: Contexto completo + memória de outputs anteriores + validação
+- **kAI Chat**: Contexto completo (já tem) + global knowledge + validação
+- **Automações**: Contexto completo igual aos outros + enriquecimento automático
+
+Todos os ambientes usarão a mesma fonte de verdade (`kai_documentation`) e terão acesso ao contexto rico do cliente, garantindo consistência e qualidade em toda geração de conteúdo.
