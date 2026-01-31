@@ -1,227 +1,262 @@
 
+# Automação com Geração de Texto + Imagem (Briefings Separados)
 
-# Diagnóstico Completo: Automação GM + Erro de Geração no Perfil
+## Visão Geral
 
-## Problema 1: Conteúdo de GM - Está usando dados do cliente?
+Implementar suporte a **geração simultânea de texto e imagem** nas automações, com **briefings separados** para cada tipo de conteúdo. Isso permitirá criar posts de "Bom Dia" ou "Boa Noite" que incluam:
+1. **Texto personalizado** (gerado pela IA com base no briefing de texto)
+2. **Imagem temática** (gerada pela IA com base no briefing de imagem)
 
-### ✅ Análise: SIM, está usando corretamente
+## Arquitetura Atual
 
-Baseado nos logs e no código, confirmei que a automação de GM **USA os dados do cliente** através do seguinte fluxo:
+| Componente | Responsabilidade | Status |
+|------------|------------------|--------|
+| `planning_automations` | Armazena configuração da automação | ✅ Existe |
+| `AutomationDialog.tsx` | UI para criar/editar automações | ✅ Existe |
+| `process-automations` | Executa automações | ✅ Existe |
+| `kai-content-agent` | Gera texto via Gemini | ✅ Existe |
+| `generate-content-v2` | Gera imagem via Gemini | ✅ Existe |
 
-```text
-process-automations → kai-content-agent
-       ↓                     ↓
-  clientId passado    Busca perfil completo
-                            ↓
-                      identity_guide
-                      context_notes
-                      tags
-                      social_media
-                      + favoritos da biblioteca
-                      + top performers
-```
-
-**Evidências nos Logs:**
-
-| Etapa | Log |
-|-------|-----|
-| Prompt | `"Crie um Tweet de GM todo dia diferente..."` |
-| Geração | `"Content generated (62 chars)"` |
-| Resultado | `"GM GM\nCafé na mesa, foco no código. Bora construir. ☕"` |
-
-**O que o `kai-content-agent` busca automaticamente:**
-1. `identity_guide` → Tom de voz do Madureira (técnico, direto, Web3)
-2. `context_notes` → Diretrizes operacionais
-3. Conteúdos favoritos (até 3)
-4. Top performers Instagram/YouTube
-
-### Verificação do Conteúdo do Cliente Madureira
-
-| Campo | Valor |
-|-------|-------|
-| `identity_guide` | Guia completo de 93+ linhas com posicionamento "Estrategista Full-Stack para Marcas Web3" |
-| `context_notes` | "Tom descontraído e autêntico. Mistura storytelling pessoal com insights práticos..." |
-| `tags.tone` | Presente no guia |
-
-### Avaliação da Qualidade
-
-O tweet gerado:
-```
-GM GM
-Café na mesa, foco no código. Bora construir. ☕
-```
-
-**Análise:**
-- ✅ Tom correto: Direto, sem rodeios
-- ✅ Linguagem Web3: "Bora construir"
-- ⚠️ Genérico: Não usa referências específicas do guia (cripto, marketing, Kaleidos)
-
-**Oportunidade de Melhoria:**
-O prompt da automação poderia ser mais específico para forçar referências ao universo do cliente:
-
-```
-Atual: "Crie um Tweet de GM todo dia diferente, simples e direto..."
-Sugerido: "Crie um Tweet de GM para Gabriel Madureira usando referências a Web3, 
-cripto, marketing digital ou building in public. Tom técnico mas didático."
-```
+**Lacuna identificada:** Não há suporte para briefing de imagem separado nem geração automática de imagem nas automações.
 
 ---
 
-## Problema 2: Erro ao Gerar Contexto no Perfil do Cliente
+## Implementação
 
-### ❌ BUG IDENTIFICADO
+### 1. Atualizar Schema do Banco de Dados
 
-**Erro:**
+Adicionar novos campos à tabela `planning_automations`:
+
+```sql
+ALTER TABLE planning_automations 
+ADD COLUMN auto_generate_image boolean DEFAULT false,
+ADD COLUMN image_prompt_template text,
+ADD COLUMN image_style text DEFAULT 'photographic';
 ```
-TypeError: data.getReader is not a function
-at handleGenerateContext (ClientEditTabsSimplified.tsx:165:37)
+
+| Campo | Tipo | Descrição |
+|-------|------|-----------|
+| `auto_generate_image` | boolean | Se true, gera imagem automaticamente |
+| `image_prompt_template` | text | Briefing separado para a imagem |
+| `image_style` | text | Estilo visual: photographic, illustration, minimalist, vibrant |
+
+### 2. Atualizar Interface (AutomationDialog.tsx)
+
+Adicionar nova seção após "Gerar conteúdo automaticamente":
+
+```
+┌────────────────────────────────────────────────────────────┐
+│ 🎨 Gerar imagem automaticamente                    [Toggle]│
+├────────────────────────────────────────────────────────────┤
+│ Briefing da imagem:                                        │
+│ ┌──────────────────────────────────────────────────────┐  │
+│ │ Crie uma imagem minimalista de {bom dia/boa noite}   │  │
+│ │ com elementos de café, sol nascendo, e cores         │  │
+│ │ vibrantes. Tema: {{title}}                           │  │
+│ └──────────────────────────────────────────────────────┘  │
+│                                                            │
+│ Estilo visual:  [Fotográfico ▼]                           │
+│   ○ Fotográfico   ○ Ilustração   ○ Minimalista   ○ Vibrante│
+│                                                            │
+│ ☑ Sem texto na imagem                                     │
+└────────────────────────────────────────────────────────────┘
 ```
 
-**Causa Raiz:**
-O componente `ClientEditTabsSimplified.tsx` espera que `supabase.functions.invoke` retorne um `ReadableStream` (como em `data.body.getReader()`), mas o Supabase SDK retorna o corpo da resposta já parseado quando não é streaming.
+**Variáveis disponíveis no briefing de imagem:**
+- `{{title}}` - Título do item
+- `{{content}}` - Contexto do conteúdo (resumido)
+- `{{time_of_day}}` - "manhã", "tarde" ou "noite" (baseado no horário da execução)
 
-**APIs Usadas:**
+### 3. Atualizar Edge Function (process-automations)
 
-| Componente | API | Modelo | Status |
-|------------|-----|--------|--------|
-| `kai-content-agent` | Google Gemini 2.0 Flash | Via `GOOGLE_AI_STUDIO_API_KEY` | ✅ Funcionando |
-| `chat` | Google Gemini 2.5 Flash | Via `GOOGLE_AI_STUDIO_API_KEY` | ⚠️ Streaming OK, invoke falha |
-| `ClientEditTabsSimplified.tsx` | `chat` via `functions.invoke` | - | ❌ Erro no parse |
-
-### Problema Técnico
+Adicionar lógica para gerar imagem após gerar texto:
 
 ```typescript
-// ClientEditTabsSimplified.tsx (linha 127)
-const reader = data.getReader(); // ❌ data não é um ReadableStream
-
-// O correto seria usar:
-const reader = data.body?.getReader(); // ✅ Se for Response object
-// OU processar diretamente se já vier parseado
-```
-
-O `supabase.functions.invoke` retorna:
-- `{ data: ..., error: ... }` - onde `data` é o corpo já processado
-- NÃO retorna um `ReadableStream` diretamente
-
-### Comparação com hook que funciona
-
-O hook `useGenerateClientContext.ts` usa a mesma API mas processa corretamente:
-
-```typescript
-// useGenerateClientContext.ts (linha 126)
-const reader = data.body?.getReader(); // ✅ Usa data.body
-```
-
-Enquanto `ClientEditTabsSimplified.tsx` faz:
-
-```typescript
-// ClientEditTabsSimplified.tsx (linha 127)
-const reader = data.getReader(); // ❌ Tenta ler data diretamente
-```
-
----
-
-## Solução Proposta
-
-### Correção 1: Atualizar `ClientEditTabsSimplified.tsx`
-
-Mudar a linha 127 para usar `data.body?.getReader()` ou tratar o caso onde `data` já vem parseado:
-
-```typescript
-// Antes (linha 127)
-const reader = data.getReader();
-
-// Depois
-if (data.body && typeof data.body.getReader === 'function') {
-  const reader = data.body.getReader();
-  // ... streaming logic
-} else if (typeof data === 'string') {
-  // Já veio como string
-  setContextNotes(data);
-} else if (data.content) {
-  // Veio como objeto JSON
-  setContextNotes(data.content);
+// Após gerar conteúdo de texto...
+if (automation.auto_generate_image && automation.image_prompt_template) {
+  console.log(`Generating image for item ${newItem.id}...`);
+  
+  const imagePrompt = replaceTemplateVariables(
+    automation.image_prompt_template,
+    triggerData,
+    automation.name
+  );
+  
+  const imageResponse = await fetch(`${supabaseUrl}/functions/v1/generate-content-v2`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${supabaseKey}`,
+    },
+    body: JSON.stringify({
+      type: 'image',
+      inputs: [{
+        type: 'text',
+        content: imagePrompt
+      }],
+      config: {
+        format: 'post',
+        aspectRatio: '1:1',
+        noText: automation.image_no_text ?? true,
+        style: automation.image_style || 'photographic'
+      },
+      clientId: automation.client_id
+    }),
+  });
+  
+  if (imageResponse.ok) {
+    const imageResult = await imageResponse.json();
+    if (imageResult.imageUrl) {
+      mediaUrls.push(imageResult.imageUrl);
+      console.log(`Image generated: ${imageResult.imageUrl}`);
+    }
+  }
 }
 ```
 
-### Correção 2: (Opcional) Melhorar prompt da automação GM
+### 4. Fluxo de Execução
 
-Atualizar a automação "GM Tweet Madureira" no banco para incluir mais contexto:
-
-```sql
-UPDATE planning_automations 
-SET prompt_template = 'Crie um Tweet de GM para Gabriel Madureira.
-Use referências sutis a: Web3, marketing digital, building in public, ou tecnologia.
-Mantenha o tom técnico mas didático, direto e sem rodeios.
-Ideias de variação:
-- GM GM + insight sobre o dia
-- GM fam + call to action sutil
-- GM simples + referência a cripto/tech'
-WHERE id = 'd22e5a77-45ed-4938-a840-d9d0d148253e';
+```text
+┌─────────────────────────────────────────────────────────────┐
+│                    AUTOMAÇÃO DISPARADA                       │
+│                   (schedule/rss/webhook)                     │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│              1. CRIAR PLANNING ITEM (CARD)                   │
+│                     Título + Descrição                       │
+└─────────────────────────────────────────────────────────────┘
+                              │
+              ┌───────────────┼───────────────┐
+              ▼               ▼               ▼
+┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐
+│ auto_generate   │  │ auto_generate   │  │ Nenhuma geração │
+│ _content: true  │  │ _image: true    │  │ automática      │
+└─────────────────┘  └─────────────────┘  └─────────────────┘
+         │                    │                    │
+         ▼                    ▼                    │
+┌─────────────────┐  ┌─────────────────┐          │
+│ kai-content-    │  │ generate-       │          │
+│ agent           │  │ content-v2      │          │
+│ (briefing texto)│  │ (briefing img)  │          │
+└─────────────────┘  └─────────────────┘          │
+         │                    │                    │
+         ▼                    ▼                    │
+┌─────────────────────────────────────────────────┤
+│          3. ATUALIZAR PLANNING ITEM              │
+│    content + media_urls (texto + imagem gerada)  │
+└──────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│               4. AUTO-PUBLISH (se habilitado)                │
+│                    Late API → Plataforma                     │
+└─────────────────────────────────────────────────────────────┘
 ```
 
----
+### 5. Exemplo de Uso: GM Diário
 
-## Resumo das APIs de IA Usadas
+**Configuração da Automação:**
 
-| Funcionalidade | Edge Function | API Provider | Modelo |
-|----------------|---------------|--------------|--------|
-| Automação GM | `kai-content-agent` | Google Gemini | `gemini-2.0-flash` |
-| Chat/Perfil | `chat` | Google Gemini | `gemini-2.5-flash` |
-| Canvas | `generate-content-v2` | Google Gemini | `gemini-2.0-flash` |
-| Reverse Engineer | `reverse-engineer` | Google Gemini | `gemini-2.0-flash-exp` + `gemini-2.5-flash` |
+| Campo | Valor |
+|-------|-------|
+| Nome | GM Diário Gabriel |
+| Gatilho | Agenda: Diário às 7:00 |
+| Perfil | Gabriel Madureira |
+| Tipo de Conteúdo | Tweet |
+| **Gerar Texto** | ✅ Ativo |
+| Briefing Texto | `Crie um tweet de GM curto e autêntico. Tom Web3, building in public. Referência ao {{time_of_day}}.` |
+| **Gerar Imagem** | ✅ Ativo |
+| Briefing Imagem | `Imagem minimalista de café e teclado ao amanhecer. Cores quentes, luz suave. Sem texto.` |
+| Estilo | Fotográfico |
+| Sem texto na imagem | ✅ |
+| Auto-publish | ✅ (Twitter) |
 
-**Nota:** Todas as funções usam a chave `GOOGLE_AI_STUDIO_API_KEY` (chave própria do usuário), NÃO o gateway Lovable AI.
+**Resultado Esperado:**
+```
+Tweet:
+"GM fam ☀️
+Café quente, tela acesa, código rodando.
+Mais um dia construindo em público. 
+Qual seu projeto hoje?"
+
++ Imagem gerada automaticamente (café + teclado + luz dourada)
+```
 
 ---
 
 ## Arquivos a Modificar
 
-1. **`src/components/clients/ClientEditTabsSimplified.tsx`**
-   - Linha 127: Corrigir `data.getReader()` → `data.body?.getReader()`
-   - Adicionar fallback para quando `data` já vem parseado
-
-2. **(Opcional)** **Atualizar automação no banco**
-   - Enriquecer `prompt_template` para mais personalização
+| Arquivo | Mudança |
+|---------|---------|
+| `supabase/migrations/xxx_add_image_generation_to_automations.sql` | Adicionar colunas |
+| `src/hooks/usePlanningAutomations.ts` | Atualizar interface e types |
+| `src/components/planning/AutomationDialog.tsx` | Adicionar UI de briefing de imagem |
+| `supabase/functions/process-automations/index.ts` | Adicionar lógica de geração de imagem |
 
 ---
 
-## Seção Técnica
+## Detalhes Técnicos
 
-### Fluxo de Dados da Automação GM
-
-```text
-1. CRON/Manual → process-automations
-2. Busca automação "GM Tweet Madureira"
-3. buildEnrichedPrompt() + prompt_template
-4. POST → kai-content-agent
-   ├── clientId: c3fdf44d-1eb5-49f0-aa91-a030642b5396
-   ├── format: "tweet"
-   └── message: <prompt enriquecido>
-5. kai-content-agent busca:
-   ├── clients.identity_guide
-   ├── clients.context_notes
-   ├── client_content_library (favoritos)
-   ├── instagram_posts (top performers)
-   └── youtube_videos (top performers)
-6. Gemini 2.0 Flash → gera conteúdo
-7. Retorna → salva em planning_items
-8. Se auto_publish → late-post → publica no Twitter
-```
-
-### Diferença entre invoke com/sem streaming
+### Interface Atualizada (TypeScript)
 
 ```typescript
-// SEM streaming (padrão)
-const { data, error } = await supabase.functions.invoke("chat", { body });
-// data = objeto já parseado ou texto
-
-// COM streaming (precisa de ReadableStream)
-const response = await fetch(`${SUPABASE_URL}/functions/v1/chat`, {
-  method: 'POST',
-  headers: { Authorization: `Bearer ${token}` },
-  body: JSON.stringify(body)
-});
-const reader = response.body.getReader(); // ✅ response.body é ReadableStream
+export interface PlanningAutomation {
+  // ... campos existentes
+  auto_generate_content: boolean;
+  prompt_template: string | null;
+  // NOVOS CAMPOS
+  auto_generate_image: boolean;
+  image_prompt_template: string | null;
+  image_style: 'photographic' | 'illustration' | 'minimalist' | 'vibrant' | null;
+  image_no_text: boolean;
+}
 ```
 
+### Variável Dinâmica `{{time_of_day}}`
+
+```typescript
+function getTimeOfDay(): string {
+  const hour = new Date().getHours();
+  if (hour >= 5 && hour < 12) return 'manhã';
+  if (hour >= 12 && hour < 18) return 'tarde';
+  return 'noite';
+}
+
+// No replaceTemplateVariables:
+variables['{{time_of_day}}'] = getTimeOfDay();
+```
+
+### Estilos de Imagem
+
+| Estilo | Descrição para Prompt |
+|--------|----------------------|
+| `photographic` | `Professional photography style, ultra realistic, natural lighting` |
+| `illustration` | `Digital illustration, artistic style, clean vector-like aesthetic` |
+| `minimalist` | `Minimalist design, clean composition, lots of white space, simple elements` |
+| `vibrant` | `Vibrant colors, high contrast, bold and energetic visual style` |
+
+---
+
+## Benefícios
+
+| Antes | Depois |
+|-------|--------|
+| Automação gera apenas texto | Texto + Imagem com briefings independentes |
+| Precisa adicionar imagem manualmente | Imagem gerada automaticamente |
+| Prompt único para tudo | Briefings otimizados para cada tipo |
+| Sem contexto de horário | Variável `{{time_of_day}}` disponível |
+
+---
+
+## Estimativa
+
+| Tarefa | Tempo |
+|--------|-------|
+| Migração do banco | 5 min |
+| Atualizar hooks e types | 10 min |
+| UI do AutomationDialog | 25 min |
+| Lógica em process-automations | 20 min |
+| Testes e ajustes | 15 min |
+| **Total** | ~1h 15min |
