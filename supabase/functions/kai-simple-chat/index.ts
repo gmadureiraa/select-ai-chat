@@ -2055,12 +2055,10 @@ serve(async (req) => {
         });
       }
       
-      // Build format rules context
+      // Build format rules context - DO NOT include checklist (internal use only)
       if (formatDocResult.data) {
         formatRulesContext = `\n## 📋 Regras do Formato: ${contentCreation.detectedFormat?.toUpperCase()}\n${formatDocResult.data.content}\n`;
-        if (formatDocResult.data.checklist) {
-          formatRulesContext += `\n### Checklist Obrigatório:\n${JSON.stringify(formatDocResult.data.checklist)}\n`;
-        }
+        // Note: checklist is intentionally NOT included - it's for internal AI validation only
       }
       
       console.log("[kai-simple-chat] Content creation context loaded:", {
@@ -2153,13 +2151,22 @@ Use como referência de métricas e abordagens que funcionam.
 ### REGRAS OBRIGATÓRIAS:
 1. **Tom de voz**: EXATAMENTE como definido no Guia de Identidade
 2. **Estrutura**: IGUAL aos exemplos da biblioteca (se disponíveis)
-3. **Regras do formato**: Siga o checklist obrigatório do formato
+3. **Regras do formato**: Siga as regras específicas do formato
 4. **Emojis**: ZERO emojis no corpo do texto (apenas CTA final se necessário)
 5. **Linguagem**: Verbos de ação, números específicos, fatos concretos
 6. **PROIBIDO**: "Entenda", "Aprenda", "Descubra como", "Você sabia que", frases genéricas
 7. **USE**: "Você está perdendo", "O segredo é", "Faça isso agora", linguagem direta
 
-ENTREGUE o conteúdo completo no formato adequado, pronto para uso.`;
+### ⚠️ FORMATO DE ENTREGA (CRÍTICO):
+ENTREGUE APENAS o conteúdo final. NÃO inclua:
+- Checklists de validação
+- Seções de "Observações" ou "Notas"
+- Explicações sobre o que você fez
+- Comentários como "Segue...", "Aqui está...", "Criei para você..."
+- Hashtags (são consideradas spam)
+- Emojis de checklist (✅❌)
+
+Sua resposta deve conter SOMENTE o conteúdo pronto para publicação.`;
     } else if (comparisonQuery.isComparison) {
       systemPrompt += `
 

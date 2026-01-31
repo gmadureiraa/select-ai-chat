@@ -177,7 +177,7 @@ export const EnhancedMessageBubble = memo(function EnhancedMessageBubble({
           </div>
         )}
         
-        <div className="flex flex-col gap-3 max-w-[85%] min-w-0">
+        <div className="flex flex-col gap-3 max-w-[85%] min-w-0 overflow-hidden">
           {/* As citações agora ficam visíveis no próprio texto da mensagem como @título */}
 
           {/* Imagens */}
@@ -269,6 +269,7 @@ export const EnhancedMessageBubble = memo(function EnhancedMessageBubble({
             <div
               className={cn(
                 "break-words relative rounded-2xl px-4 py-3.5 transition-all duration-200",
+                "overflow-hidden w-full",
                 isUser
                   ? "bg-primary/8 border border-primary/15"
                   : "bg-muted/30 border border-border/40"
@@ -288,6 +289,7 @@ export const EnhancedMessageBubble = memo(function EnhancedMessageBubble({
               )}
               
               <div className="prose prose-sm dark:prose-invert max-w-none text-sm leading-relaxed 
+                break-words [overflow-wrap:anywhere]
                 [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 
                 [&_p]:my-2.5 [&_ul]:my-2 [&_ol]:my-2 [&_li]:my-0.5
                 [&_h1]:text-lg [&_h1]:font-bold [&_h1]:mt-4 [&_h1]:mb-2
@@ -295,7 +297,7 @@ export const EnhancedMessageBubble = memo(function EnhancedMessageBubble({
                 [&_h3]:text-sm [&_h3]:font-semibold [&_h3]:mt-2 [&_h3]:mb-1
                 [&_strong]:font-semibold [&_strong]:text-foreground
                 [&_em]:italic
-                [&_code]:bg-muted [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-xs [&_code]:font-mono
+                [&_code]:bg-muted [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-xs [&_code]:font-mono [&_code]:break-all
                 [&_pre]:bg-muted [&_pre]:p-3 [&_pre]:rounded-lg [&_pre]:overflow-x-auto
                 [&_blockquote]:border-l-2 [&_blockquote]:border-primary/30 [&_blockquote]:pl-3 [&_blockquote]:italic [&_blockquote]:text-muted-foreground
                 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5
