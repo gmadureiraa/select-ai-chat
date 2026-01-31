@@ -38,6 +38,11 @@ interface PlanningAutomation {
   auto_generate_content: boolean;
   prompt_template: string | null;
   auto_publish: boolean;
+  // Image generation fields
+  auto_generate_image: boolean;
+  image_prompt_template: string | null;
+  image_style: 'photographic' | 'illustration' | 'minimalist' | 'vibrant' | null;
+  // Tracking
   last_triggered_at: string | null;
   items_created: number;
   created_by: string | null;
@@ -206,6 +211,12 @@ function replaceTemplateVariables(template: string, data: RSSItem | null, automa
   
   let prompt = template;
   
+  // Get time of day based on current hour
+  const hour = new Date().getHours();
+  let timeOfDay = 'noite';
+  if (hour >= 5 && hour < 12) timeOfDay = 'manhã';
+  else if (hour >= 12 && hour < 18) timeOfDay = 'tarde';
+  
   const variables: Record<string, string> = {
     '{{title}}': data?.title || automationName,
     '{{description}}': data?.description?.replace(/<[^>]*>/g, '').substring(0, 500) || '',
@@ -214,6 +225,7 @@ function replaceTemplateVariables(template: string, data: RSSItem | null, automa
     '{{images}}': (data?.allImages?.length || 0) > 0 
       ? `${data!.allImages!.length} imagens disponíveis do conteúdo original`
       : 'Sem imagens disponíveis',
+    '{{time_of_day}}': timeOfDay,
   };
   
   for (const [key, value] of Object.entries(variables)) {
@@ -222,6 +234,22 @@ function replaceTemplateVariables(template: string, data: RSSItem | null, automa
   }
   
   return prompt;
+}
+
+// Get image style modifier for prompt
+function getImageStyleModifier(style: string | null): string {
+  switch (style) {
+    case 'photographic':
+      return 'Professional photography style, ultra realistic, natural lighting, high resolution';
+    case 'illustration':
+      return 'Digital illustration, artistic style, clean vector-like aesthetic, modern design';
+    case 'minimalist':
+      return 'Minimalist design, clean composition, lots of white space, simple elements, elegant';
+    case 'vibrant':
+      return 'Vibrant colors, high contrast, bold and energetic visual style, eye-catching';
+    default:
+      return 'Professional photography style, natural lighting';
+  }
 }
 
 // Build enriched prompt with context when template is empty or simple
@@ -748,6 +776,83 @@ serve(async (req) => {
             }
           } catch (genError) {
             console.error(`Error generating content for ${automation.name}:`, genError);
+          }
+        }
+
+        // Generate image if enabled
+        if (automation.auto_generate_image && automation.client_id) {
+          try {
+            // Build image prompt
+            let imagePrompt = '';
+            if (automation.image_prompt_template) {
+              imagePrompt = replaceTemplateVariables(
+                automation.image_prompt_template,
+                triggerData,
+                automation.name
+              );
+            } else {
+              // Default prompt based on content
+              const title = triggerData?.title || automation.name;
+              imagePrompt = `Create an image for: ${title}`;
+            }
+            
+            // Add style modifier
+            const styleModifier = getImageStyleModifier(automation.image_style);
+            const fullImagePrompt = `${imagePrompt}. Style: ${styleModifier}. No text in image.`;
+            
+            console.log(`Generating image for item ${newItem.id}...`);
+            console.log(`Image prompt: ${fullImagePrompt.substring(0, 200)}...`);
+            
+            const imageResponse = await fetch(`${supabaseUrl}/functions/v1/generate-content-v2`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${supabaseKey}`,
+              },
+              body: JSON.stringify({
+                type: 'image',
+                inputs: [{
+                  type: 'text',
+                  content: fullImagePrompt
+                }],
+                config: {
+                  format: 'post',
+                  aspectRatio: '1:1',
+                  noText: true,
+                },
+                clientId: automation.client_id,
+                workspaceId: automation.workspace_id,
+              }),
+            });
+            
+            if (imageResponse.ok) {
+              const imageResult = await imageResponse.json();
+              if (imageResult.imageUrl) {
+                // Add generated image to mediaUrls
+                mediaUrls.unshift(imageResult.imageUrl); // Add at beginning
+                console.log(`Image generated: ${imageResult.imageUrl}`);
+                
+                // Update planning item with new image
+                await supabase
+                  .from('planning_items')
+                  .update({ 
+                    media_urls: mediaUrls,
+                    metadata: {
+                      ...(newItem.metadata as any || {}),
+                      generated_image_url: imageResult.imageUrl,
+                      image_style: automation.image_style,
+                    }
+                  })
+                  .eq('id', newItem.id);
+                  
+                console.log(`Image saved to item ${newItem.id}`);
+              }
+            } else {
+              const errorText = await imageResponse.text();
+              console.error(`Image generation failed: ${errorText}`);
+            }
+          } catch (imgError) {
+            console.error(`Error generating image for ${automation.name}:`, imgError);
           }
         }
 
