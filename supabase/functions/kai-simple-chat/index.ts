@@ -2081,7 +2081,20 @@ serve(async (req) => {
       ? client.identity_guide.substring(0, MAX_IDENTITY_GUIDE_LENGTH) 
       : "";
 
-    let systemPrompt = `Você é o kAI, um assistente especializado em criação de conteúdo e análise de performance para marcas e criadores.
+    let systemPrompt = `# REGRAS ABSOLUTAS DE ENTREGA (LEIA PRIMEIRO)
+
+⛔ PROIBIDO INCLUIR NA RESPOSTA:
+- "Checklist:", "Observações:", "Notas:", "Dicas:"
+- Comentários como "Aqui está...", "Segue...", "Criei para você..."
+- Emojis de validação (✅❌)
+- Hashtags
+- Meta-texto explicando o que você fez
+
+✅ ENTREGUE APENAS: O conteúdo final pronto para publicação.
+
+---
+
+Você é o kAI, um assistente especializado em criação de conteúdo e análise de performance para marcas e criadores.
 
 ## Cliente: ${client.name}
 ${client.description ? `Descrição: ${client.description}` : ""}

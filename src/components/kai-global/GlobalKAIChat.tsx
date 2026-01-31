@@ -172,7 +172,7 @@ export function GlobalKAIChat({
 
   return (
     <ScrollArea className="flex-1" ref={scrollRef}>
-      <div className="flex flex-col gap-3 p-4 overflow-x-hidden">
+      <div className="flex flex-col gap-3 p-4 w-full max-w-full overflow-x-hidden">
         <AnimatePresence mode="popLayout">
           {messages.map((message, index) => {
             const isError = message.role === "assistant" && isErrorMessage(message.content);
@@ -229,22 +229,19 @@ export function GlobalKAIChat({
           })}
         </AnimatePresence>
 
-        {/* Minimal processing indicator */}
+        {/* Processing indicator - aligned with messages but no icon */}
         {isProcessing && (
           <motion.div
             initial={{ opacity: 0, y: 5 }}
             animate={{ opacity: 1, y: 0 }}
-            className="flex items-start gap-3"
+            className="flex items-start gap-4 py-5"
           >
-            <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-sidebar-accent flex items-center justify-center">
-              <Sparkles className="h-4 w-4 text-sidebar-accent-foreground" />
-            </div>
-            <div className="flex-1 pt-1">
-              <SimpleProgress 
-                currentStep={currentStep} 
-                multiAgentStep={multiAgentStep} 
-              />
-            </div>
+            {/* Spacer to align with message avatars */}
+            <div className="flex-shrink-0 w-9 h-9" />
+            <SimpleProgress 
+              currentStep={currentStep} 
+              multiAgentStep={multiAgentStep} 
+            />
           </motion.div>
         )}
 
