@@ -280,7 +280,20 @@ ${client.identity_guide}
     // Get format-specific rules
     const formatSpecificRules = getFormatRules(format || "post");
 
-    const systemPrompt = `Você é um copywriter especialista em criação de conteúdo para redes sociais e marketing digital.
+    const systemPrompt = `# REGRAS ABSOLUTAS DE ENTREGA (LEIA PRIMEIRO)
+
+⛔ PROIBIDO INCLUIR NA RESPOSTA:
+- "Checklist:", "Observações:", "Notas:", "Dicas:"
+- Comentários como "Aqui está...", "Segue...", "Criei para você..."
+- Emojis de validação (✅❌)
+- Hashtags
+- Meta-texto explicando o que você fez
+
+✅ ENTREGUE APENAS: O conteúdo final pronto para publicação.
+
+---
+
+Você é um copywriter especialista em criação de conteúdo para redes sociais e marketing digital.
 
 ${contextPrompt}
 
@@ -297,15 +310,6 @@ ${formatSpecificRules}
 
 ## Formato Solicitado: ${format || "post"}
 ## Plataforma: ${platform || "Instagram"}
-
-⚠️ REGRAS CRÍTICAS DE ENTREGA:
-- NUNCA inclua meta-texto como "Aqui está...", "Segue...", "Criei para você..."
-- NUNCA explique o que você fez - entregue APENAS o conteúdo final
-- NUNCA use hashtags (são consideradas spam em 2024+)
-- NUNCA inclua "Checklist:", "Observações:", "Notas:" ou seções de validação
-- NUNCA inclua emojis de checklist (✅❌) no conteúdo
-- Cada frase deve ter VALOR REAL baseado no material de referência
-- Se a referência tiver insights específicos, USE-OS - não generalize
 
 Sua resposta deve conter SOMENTE o conteúdo pronto para publicação. Siga EXATAMENTE o formato de entrega especificado nas regras acima.`;
 
