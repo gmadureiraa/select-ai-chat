@@ -167,7 +167,7 @@ export const EnhancedMessageBubble = memo(function EnhancedMessageBubble({
   return (
     <>
       <div className={cn(
-        "flex gap-4 py-5 group transition-all duration-200 animate-in fade-in slide-in-from-bottom-2",
+        "flex gap-3 py-4 group transition-all duration-200 animate-in fade-in slide-in-from-bottom-2",
         isUser ? "justify-end" : "justify-start"
       )}>
         {/* Avatar do assistente */}
@@ -177,9 +177,12 @@ export const EnhancedMessageBubble = memo(function EnhancedMessageBubble({
           </div>
         )}
         
-        <div className="flex flex-col gap-3 max-w-[85%] min-w-0 w-full overflow-hidden">
-          {/* As citações agora ficam visíveis no próprio texto da mensagem como @título */}
-
+        {/* Main content container - properly constrained */}
+        <div className={cn(
+          "flex flex-col gap-3 min-w-0",
+          isUser ? "max-w-[80%]" : "max-w-[calc(100%-3.5rem)]",
+          !isUser && "flex-1"
+        )}>
           {/* Imagens */}
           {hasImages && (
             <div className={cn(
@@ -246,8 +249,6 @@ export const EnhancedMessageBubble = memo(function EnhancedMessageBubble({
             />
           )}
 
-          {/* Social post preview removed - just show formatted text */}
-
           {/* Artifacts (documentos, tabelas, etc) */}
           {artifacts.length > 0 && (
             <div className="space-y-2">
@@ -264,13 +265,12 @@ export const EnhancedMessageBubble = memo(function EnhancedMessageBubble({
             </div>
           )}
 
-          {/* Conteúdo de texto */}
+          {/* Conteúdo de texto - with proper overflow handling */}
           {textContent && (
             <div
               className={cn(
                 "relative rounded-2xl px-4 py-3.5 transition-all duration-200",
-                "w-full overflow-hidden",
-                "break-words [word-break:break-word] [overflow-wrap:anywhere]",
+                "w-full min-w-0",
                 isUser
                   ? "bg-primary/8 border border-primary/15"
                   : "bg-muted/30 border border-border/40"
@@ -281,7 +281,7 @@ export const EnhancedMessageBubble = memo(function EnhancedMessageBubble({
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="absolute -top-2 -right-2 h-6 px-2 bg-card border border-border shadow-sm hover:bg-muted text-[9px] rounded-lg"
+                  className="absolute -top-2 -right-2 h-6 px-2 bg-card border border-border shadow-sm hover:bg-muted text-[9px] rounded-lg z-10"
                   onClick={handleDownloadAsPDF}
                 >
                   <FileDown className="h-3 w-3 mr-1" />
@@ -289,25 +289,39 @@ export const EnhancedMessageBubble = memo(function EnhancedMessageBubble({
                 </Button>
               )}
               
-              <div className="prose prose-sm dark:prose-invert text-sm leading-relaxed 
-                w-full max-w-full
-                break-words [word-break:break-word] [overflow-wrap:anywhere]
-                [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 
-                [&_p]:my-2.5 [&_ul]:my-2 [&_ol]:my-2 [&_li]:my-0.5
-                [&_h1]:text-lg [&_h1]:font-bold [&_h1]:mt-4 [&_h1]:mb-2
-                [&_h2]:text-base [&_h2]:font-semibold [&_h2]:mt-3 [&_h2]:mb-2
-                [&_h3]:text-sm [&_h3]:font-semibold [&_h3]:mt-2 [&_h3]:mb-1
-                [&_strong]:font-semibold [&_strong]:text-foreground
-                [&_em]:italic
-                [&_code]:bg-muted [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-xs [&_code]:font-mono [&_code]:break-all
-                [&_pre]:bg-muted [&_pre]:p-3 [&_pre]:rounded-lg [&_pre]:overflow-x-auto
-                [&_blockquote]:border-l-2 [&_blockquote]:border-primary/30 [&_blockquote]:pl-3 [&_blockquote]:italic [&_blockquote]:text-muted-foreground
-                [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5
-                [&_hr]:border-border [&_hr]:my-4
-                [&_a]:text-primary [&_a]:underline [&_a]:underline-offset-2
-              ">
+              {/* Prose container with forced text wrapping */}
+              <div 
+                className="prose prose-sm dark:prose-invert text-sm leading-relaxed max-w-none
+                  [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 
+                  [&_p]:my-2.5 [&_ul]:my-2 [&_ol]:my-2 [&_li]:my-0.5
+                  [&_h1]:text-lg [&_h1]:font-bold [&_h1]:mt-4 [&_h1]:mb-2
+                  [&_h2]:text-base [&_h2]:font-semibold [&_h2]:mt-3 [&_h2]:mb-2
+                  [&_h3]:text-sm [&_h3]:font-semibold [&_h3]:mt-2 [&_h3]:mb-1
+                  [&_strong]:font-semibold [&_strong]:text-foreground
+                  [&_em]:italic
+                  [&_code]:bg-muted [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-xs [&_code]:font-mono
+                  [&_pre]:bg-muted [&_pre]:p-3 [&_pre]:rounded-lg [&_pre]:overflow-x-auto [&_pre]:max-w-full
+                  [&_blockquote]:border-l-2 [&_blockquote]:border-primary/30 [&_blockquote]:pl-3 [&_blockquote]:italic [&_blockquote]:text-muted-foreground
+                  [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5
+                  [&_hr]:border-border [&_hr]:my-4
+                  [&_a]:text-primary [&_a]:underline [&_a]:underline-offset-2 [&_a]:break-all
+                  [&_p]:break-words [&_li]:break-words [&_td]:break-words
+                "
+                style={{
+                  wordBreak: 'break-word',
+                  overflowWrap: 'anywhere',
+                  hyphens: 'auto',
+                }}
+              >
                 <ReactMarkdown
                   components={{
+                    // Force all text to wrap properly
+                    p: ({ children }) => (
+                      <p style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>{children}</p>
+                    ),
+                    li: ({ children }) => (
+                      <li style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>{children}</li>
+                    ),
                     img: ({ src, alt }) => (
                       <img 
                         src={src} 
