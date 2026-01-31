@@ -1,230 +1,179 @@
 
-# Correção do Chat kAI: Visual + Remoção de Checklist/Observações
+# Correção: Duas Fotrinhas + Texto Cortado no Chat kAI
 
 ## Problemas Identificados
 
-### Problema 1: Texto Cortado Horizontalmente
-O conteúdo da mensagem está sendo cortado na lateral direita porque:
-- O painel tem largura fixa de 400-440px
-- A bolha usa `max-w-[85%]` mas o conteúdo interno (prose) não tem controle de overflow adequado
-- Listas ordenadas e outros elementos podem exceder o container
+### Problema 1: Duas Fotrinhas (Ícones Duplicados)
+Analisando a screenshot, o que aparece como "duas fotrinhas" são:
+1. **Ícone kAI** (kaleidos-logo) - avatar da mensagem do assistente no `EnhancedMessageBubble`
+2. **Ícones de ação** (Copy/Copiar) - do `MessageActions`
 
-### Problema 2: IA Retornando Checklist e Observações
-A IA está entregando:
-- "Checklist:" com itens de validação
-- "Observações:" com explicações
-- Emojis excessivos
-- Hashtags em alguns casos
+Quando o estado `isProcessing=true`, aparece OUTRO ícone (Sparkles no `GlobalKAIChat.tsx` linha 239) mostrando "Pensando...", criando a impressão de ícones duplicados.
 
-Isso ocorre porque:
-1. O `VALIDATION_CHECKLIST` em `format-rules.ts` está sendo incluído no prompt
-2. O checklist da documentação (`kai_documentation`) é adicionado ao contexto
-3. A IA interpreta isso como algo para **incluir** na resposta em vez de **aplicar** internamente
+**Solução**: Ajustar o layout para que o indicador de processamento não tenha ícone próprio ou compartilhe o mesmo alinhamento visual.
+
+### Problema 2: Texto Cortado Horizontalmente
+O CSS foi aplicado na última mudança, mas não está funcionando corretamente porque:
+- A classe `overflow-hidden` está no container mas o conteúdo não está respeitando `max-width`
+- O `prose` precisa de `word-break: break-word` explícito
+
+### Problema 3: IA Ainda Retornando Checklist
+A edge function `kai-simple-chat` tem as instruções corretas (linhas 2160-2169), mas:
+- A IA ainda está retornando "Checklist:" e "Observações:"
+- As instruções precisam ser ainda mais enfáticas no início do prompt (não apenas no final)
 
 ---
 
 ## Solução Proposta
 
-### Parte 1: Correção Visual do Chat
+### Parte 1: Corrigir Indicador de Processamento
+
+**Arquivo: `src/components/kai-global/GlobalKAIChat.tsx`**
+
+Remover o ícone duplicado do indicador de processamento e alinhar com o layout das mensagens:
+
+```typescript
+// Linhas 233-249 - Simplificar o indicador de processamento
+{isProcessing && (
+  <motion.div
+    initial={{ opacity: 0, y: 5 }}
+    animate={{ opacity: 1, y: 0 }}
+    className="flex items-start gap-4 py-5"
+  >
+    {/* Usar o mesmo espaço do avatar mas sem ícone */}
+    <div className="flex-shrink-0 w-9 h-9" />
+    <SimpleProgress 
+      currentStep={currentStep} 
+      multiAgentStep={multiAgentStep} 
+    />
+  </motion.div>
+)}
+```
+
+Isso alinha o "Pensando..." com o espaço do avatar sem mostrar dois ícones.
+
+### Parte 2: Corrigir Texto Cortado
 
 **Arquivo: `src/components/chat/EnhancedMessageBubble.tsx`**
 
-Adicionar controle de overflow ao container de texto para garantir que o conteúdo nunca exceda os limites:
+Ajustar as classes CSS para garantir que o texto quebre corretamente:
 
 ```typescript
-// Linha 268-276 - Atualizar o container de texto
+// Linha 180 - Container principal
+<div className="flex flex-col gap-3 max-w-[85%] min-w-0 w-full overflow-hidden">
+
+// Linha 270-276 - Container do texto
 <div
   className={cn(
-    "break-words relative rounded-2xl px-4 py-3.5 transition-all duration-200",
-    "overflow-hidden",  // ADICIONAR: prevenir overflow
-    "w-full",           // ADICIONAR: garantir largura total disponível
+    "relative rounded-2xl px-4 py-3.5 transition-all duration-200",
+    "w-full overflow-hidden",
+    "break-words [word-break:break-word] [overflow-wrap:anywhere]",
     isUser
       ? "bg-primary/8 border border-primary/15"
       : "bg-muted/30 border border-border/40"
   )}
 >
-```
 
-E ajustar a prose para quebrar palavras longas:
-
-```typescript
-// Linha 290-304 - Adicionar classes de overflow
-<div className="prose prose-sm dark:prose-invert max-w-none text-sm leading-relaxed 
-  overflow-x-auto        // ADICIONAR: scroll horizontal se necessário
-  break-words            // ADICIONAR: quebrar palavras longas
-  overflow-wrap-anywhere // ADICIONAR: quebrar em qualquer lugar
+// Linha 291-306 - Prose com overflow fixado
+<div className="prose prose-sm dark:prose-invert text-sm leading-relaxed 
+  w-full max-w-full
+  break-words [word-break:break-word] [overflow-wrap:anywhere]
   [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 
+  [&_p]:my-2.5 [&_ul]:my-2 [&_ol]:my-2 [&_li]:my-0.5
   ...
 ">
 ```
 
 **Arquivo: `src/components/kai-global/GlobalKAIChat.tsx`**
 
-Adicionar controle de overflow no container de mensagens:
-
 ```typescript
-// Linha 175 - Adicionar overflow-x-hidden ao container
-<div className="flex flex-col gap-3 p-4 overflow-x-hidden">
+// Linha 175 - Container de mensagens
+<div className="flex flex-col gap-3 p-4 w-full max-w-full overflow-x-hidden">
 ```
 
----
-
-### Parte 2: Remoção de Checklist/Observações da Resposta
-
-**Arquivo: `supabase/functions/_shared/format-rules.ts`**
-
-Modificar o `VALIDATION_CHECKLIST` para deixar explícito que é para uso INTERNO:
-
-```typescript
-// Linhas 886-902 - Atualizar o checklist
-export const VALIDATION_CHECKLIST = `
-## ⚠️ VALIDAÇÃO INTERNA (NÃO INCLUA NA RESPOSTA)
-Antes de entregar, valide INTERNAMENTE:
-- Comecei DIRETAMENTE com o conteúdo (sem "Aqui está...")?
-- NÃO usei nenhuma hashtag?
-- Respeitei o limite de palavras por seção?
-...
-
-⚠️ IMPORTANTE: Esta validação é APENAS para você. 
-NÃO inclua este checklist na sua resposta.
-NÃO inclua observações ou explicações sobre o que você fez.
-ENTREGUE APENAS o conteúdo final, sem comentários.
-`;
-```
+### Parte 3: Reforçar Proibição de Checklist
 
 **Arquivo: `supabase/functions/kai-simple-chat/index.ts`**
 
-Atualizar o contexto de format rules para NÃO incluir checklist visível:
+Adicionar instrução de proibição NO INÍCIO do system prompt (não apenas no final):
 
 ```typescript
-// Linhas 2058-2063 - Remover adição do checklist
-if (formatDocResult.data) {
-  formatRulesContext = `\n## 📋 Regras do Formato: ${contentCreation.detectedFormat?.toUpperCase()}\n${formatDocResult.data.content}\n`;
-  // REMOVER: A linha que adiciona o checklist JSON
-  // if (formatDocResult.data.checklist) {
-  //   formatRulesContext += `\n### Checklist Obrigatório:\n${JSON.stringify(formatDocResult.data.checklist)}\n`;
-  // }
-}
-```
+// Linha ~2084 - Adicionar no início do prompt
+let systemPrompt = `# REGRAS ABSOLUTAS DE ENTREGA (LEIA PRIMEIRO)
 
-Adicionar instrução clara no prompt de criação de conteúdo (linha ~2160):
+⛔ PROIBIDO INCLUIR NA RESPOSTA:
+- "Checklist:", "Observações:", "Notas:", "Dicas:"
+- Comentários como "Aqui está...", "Segue...", "Criei para você..."
+- Emojis de validação (✅❌)
+- Hashtags
+- Meta-texto explicando o que você fez
 
-```typescript
-systemPrompt += `
+✅ ENTREGUE APENAS: O conteúdo final pronto para publicação.
 
-## 🎯 INSTRUÇÕES PARA CRIAÇÃO DE CONTEÚDO
-...
+---
 
-### REGRAS OBRIGATÓRIAS:
-...
-
-### ⚠️ FORMATO DE ENTREGA (CRÍTICO):
-ENTREGUE APENAS o conteúdo final. NÃO inclua:
-- Checklists de validação
-- Seções de "Observações"
-- Explicações sobre o que você fez
-- Comentários como "Segue...", "Aqui está..."
-- Hashtags (são spam)
-
-Sua resposta deve conter SOMENTE o conteúdo pronto para publicação.`;
+Você é o kAI, um assistente especializado em criação de conteúdo...`;
 ```
 
 **Arquivo: `supabase/functions/kai-content-agent/index.ts`**
 
-Reforçar as regras críticas (linha ~301-308):
-
-```typescript
-⚠️ REGRAS CRÍTICAS:
-- NUNCA inclua meta-texto como "Aqui está...", "Segue...", "Criei para você..."
-- NUNCA explique o que você fez - entregue APENAS o conteúdo final
-- NUNCA use hashtags (são consideradas spam em 2024+)
-- NUNCA inclua "Checklist:", "Observações:", "Notas:" ou seções de validação
-- NUNCA inclua emojis ✅❌ de checklist no conteúdo
-- Cada frase deve ter VALOR REAL baseado no material de referência
-- Se a referência tiver insights específicos, USE-OS - não generalize
-```
+Mesmo reforço no início do prompt.
 
 ---
 
 ## Arquivos a Modificar
 
-| Arquivo | Tipo de Mudança |
-|---------|-----------------|
-| `src/components/chat/EnhancedMessageBubble.tsx` | Correção de CSS overflow |
-| `src/components/kai-global/GlobalKAIChat.tsx` | Adicionar overflow-x-hidden |
-| `supabase/functions/_shared/format-rules.ts` | Reescrever VALIDATION_CHECKLIST |
-| `supabase/functions/kai-simple-chat/index.ts` | Remover checklist do contexto + instruções mais claras |
-| `supabase/functions/kai-content-agent/index.ts` | Reforçar proibição de checklist/observações |
+| Arquivo | Mudança |
+|---------|---------|
+| `src/components/kai-global/GlobalKAIChat.tsx` | Remover ícone duplicado do loading, ajustar overflow |
+| `src/components/chat/EnhancedMessageBubble.tsx` | Adicionar word-break e overflow-wrap mais explícitos |
+| `supabase/functions/kai-simple-chat/index.ts` | Adicionar proibição no INÍCIO do prompt |
+| `supabase/functions/kai-content-agent/index.ts` | Adicionar proibição no INÍCIO do prompt |
 
 ---
 
 ## Resultado Esperado
 
-### Antes:
-```
-Aqui estão 10 sugestões de tweets:
+### Visual:
+- Apenas UM ícone visível durante o processamento (alinhado com mensagens)
+- Texto quebrando corretamente sem cortar na horizontal
 
-1. Seu projeto Web3 não decola? Pare de culpar o algor...
-2. A maior mentira da Web3: "A melhor tecnologia venc...
-...
-
-Checklist:
-[x] Max 280 caracteres
-[x] Uma ideia por tweet
-...
-
-Observações:
-- Emojis: Usei emojis em alguns tweets para dar mais...
-```
-
-### Depois:
-```
-1. Seu projeto Web3 não decola? Pare de culpar o algoritmo.
-O problema pode ser você.
-
-2. A maior mentira da Web3: "A melhor tecnologia vence."
-Spoiler: não vence. Marketing e comunidade sim.
-
-3. Pare de esperar pela perfeição. Comece a testar o que você tem.
-Perfeição é desculpa para não lançar.
-...
-```
+### Conteúdo:
+- IA entregando APENAS o conteúdo final
+- Sem seções de "Checklist:" ou "Observações:"
 
 ---
 
 ## Seção Técnica
 
-### Classes CSS para Overflow
+### CSS Crítico para Overflow
 
 ```css
-/* Container de mensagem */
+/* Container da mensagem */
 .message-container {
   max-width: 85%;
-  min-width: 0; /* Permite shrink */
-  overflow-hidden;
+  min-width: 0;
+  width: 100%;
+  overflow: hidden;
   word-break: break-word;
   overflow-wrap: anywhere;
 }
 
-/* Prose (conteúdo markdown) */
+/* Prose content */
 .prose {
-  overflow-x: auto; /* Scroll se necessário */
+  width: 100%;
   max-width: 100%;
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 ```
 
-### Hierarquia de Prompts
+### Posição da Proibição no Prompt
 
-A ordem de prioridade para instruções de output deve ser:
-1. **Mais restritivo primeiro**: "NUNCA inclua X"
-2. **Contexto de formato**: Regras específicas do formato
-3. **Exemplos de referência**: Estrutura a seguir
-4. **Pedido do usuário**: O que criar
+A IA tende a seguir instruções que aparecem **no início** do prompt com mais rigor do que as que aparecem no final (primacy effect). Por isso, as regras de proibição devem vir ANTES da descrição de contexto.
 
-### Deploy de Edge Functions
+### Deploy Necessário
 
-Após as mudanças, as seguintes funções precisam ser redeployadas:
+Após as mudanças, as funções precisam ser redeployadas:
 - `kai-simple-chat`
 - `kai-content-agent`
-
-A função `_shared/format-rules.ts` é importada por ambas, então ambas precisam redeploy.

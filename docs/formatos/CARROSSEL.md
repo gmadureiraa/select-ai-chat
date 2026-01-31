@@ -8,7 +8,6 @@
 
 ### Limitações Técnicas
 - **Número de slides:** Até 10 slides (ideal: 7-10)
-- **Formato:** Imagens 1080x1080px (quadrado) ou 1080x1350px (vertical)
 - **Textos:** Devem ser legíveis em imagens
 - **Legenda:** Suporte até 2.200 caracteres
 
@@ -29,7 +28,6 @@
 **Elementos Obrigatórios:**
 - Headline impactante (máximo 8 palavras)
 - Promessa clara do que será entregue
-- Visual atraente que chama atenção
 - Deve gerar curiosidade para o próximo slide
 
 **Exemplos de Headlines:**
