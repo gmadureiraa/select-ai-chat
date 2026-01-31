@@ -147,6 +147,20 @@ serve(async (req: Request) => {
         const lateAccounts: LateAccount[] = accountsData.accounts || [];
 
         console.log(`Found ${lateAccounts.length} accounts in Late API for profile ${profileId}`);
+        
+        // Log all accounts for debugging
+        for (const acc of lateAccounts) {
+          console.log(`Late API account:`, JSON.stringify({
+            _id: acc._id,
+            platform: acc.platform,
+            username: acc.username,
+            displayName: acc.displayName,
+            status: acc.status,
+            connected: acc.connected,
+            // Log all keys to see what fields are available
+            availableKeys: Object.keys(acc)
+          }));
+        }
 
         // Check each credential against the fetched accounts
         for (const credential of profileCredentials) {
@@ -185,8 +199,27 @@ serve(async (req: Request) => {
               });
             }
           } else {
-            // Account exists - check if connected
-            const isConnected = matchingAccount.status === 'connected' || matchingAccount.connected === true;
+            // Account exists in Late API - use conservative approach
+            // If the account exists, assume it's connected unless explicitly marked otherwise
+            // Late API typically removes disconnected accounts automatically
+            console.log(`Checking account status for ${credential.platform}:`, JSON.stringify({
+              lateAccountId,
+              status: matchingAccount.status,
+              connected: matchingAccount.connected,
+              hasStatusField: matchingAccount.hasOwnProperty('status'),
+              hasConnectedField: matchingAccount.hasOwnProperty('connected')
+            }));
+            
+            // Conservative logic: account is connected if:
+            // 1. It exists in the API (presence = likely connected), AND
+            // 2. Not explicitly marked as disconnected
+            const isExplicitlyDisconnected = 
+              matchingAccount.status === 'disconnected' || 
+              matchingAccount.status === 'expired' ||
+              matchingAccount.status === 'revoked' ||
+              matchingAccount.connected === false;
+            
+            const isConnected = !isExplicitlyDisconnected;
             
             if (credential.is_valid !== isConnected) {
               const { error: updateError } = await supabase
