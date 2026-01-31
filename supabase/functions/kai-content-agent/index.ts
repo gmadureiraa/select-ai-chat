@@ -161,19 +161,35 @@ serve(async (req) => {
       }
     }
 
-    // Build rich context
-    let contextPrompt = `## Cliente: ${client?.name || "Não especificado"}\n`;
-    
-    if (client?.description) {
-      contextPrompt += `**Descrição:** ${client.description}\n\n`;
-    }
+    // Build rich context - PRIORITIZE identity_guide as MASTER DOCUMENT
+    let contextPrompt = "";
     
     if (client?.identity_guide) {
-      contextPrompt += `### Guia de Identidade e Tom de Voz\n${client.identity_guide}\n\n`;
+      // identity_guide is the MASTER DOCUMENT - use it as primary context
+      contextPrompt = `## 🎯 CONTEXTO OPERACIONAL DO CLIENTE (DOCUMENTO MESTRE)
+
+*SIGA RIGOROSAMENTE as diretrizes abaixo. Este documento foi criado para garantir consistência em todo o conteúdo.*
+
+${client.identity_guide}
+
+---
+
+## INFORMAÇÕES ADICIONAIS
+`;
+    } else {
+      // Fallback: build context from fragments if no master document
+      contextPrompt = `## Cliente: ${client?.name || "Não especificado"}\n`;
     }
     
-    if (client?.context_notes) {
-      contextPrompt += `### Contexto Adicional\n${client.context_notes}\n\n`;
+    // Always add basic info if not in identity_guide
+    if (!client?.identity_guide) {
+      if (client?.description) {
+        contextPrompt += `**Descrição:** ${client.description}\n\n`;
+      }
+      
+      if (client?.context_notes) {
+        contextPrompt += `### Contexto Adicional\n${client.context_notes}\n\n`;
+      }
     }
 
     if (client?.social_media) {
