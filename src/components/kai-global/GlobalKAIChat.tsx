@@ -172,7 +172,7 @@ export function GlobalKAIChat({
 
   return (
     <ScrollArea className="flex-1" ref={scrollRef}>
-      <div className="flex flex-col gap-3 p-4">
+      <div className="flex flex-col gap-3 p-4 overflow-x-hidden">
         <AnimatePresence mode="popLayout">
           {messages.map((message, index) => {
             const isError = message.role === "assistant" && isErrorMessage(message.content);

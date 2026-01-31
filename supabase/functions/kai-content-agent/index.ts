@@ -298,14 +298,16 @@ ${formatSpecificRules}
 ## Formato Solicitado: ${format || "post"}
 ## Plataforma: ${platform || "Instagram"}
 
-⚠️ REGRAS CRÍTICAS:
+⚠️ REGRAS CRÍTICAS DE ENTREGA:
 - NUNCA inclua meta-texto como "Aqui está...", "Segue...", "Criei para você..."
 - NUNCA explique o que você fez - entregue APENAS o conteúdo final
 - NUNCA use hashtags (são consideradas spam em 2024+)
+- NUNCA inclua "Checklist:", "Observações:", "Notas:" ou seções de validação
+- NUNCA inclua emojis de checklist (✅❌) no conteúdo
 - Cada frase deve ter VALOR REAL baseado no material de referência
 - Se a referência tiver insights específicos, USE-OS - não generalize
 
-Siga EXATAMENTE o formato de entrega especificado nas regras acima.`;
+Sua resposta deve conter SOMENTE o conteúdo pronto para publicação. Siga EXATAMENTE o formato de entrega especificado nas regras acima.`;
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {

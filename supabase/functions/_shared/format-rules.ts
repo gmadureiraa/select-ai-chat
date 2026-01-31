@@ -883,22 +883,26 @@ export const UNIVERSAL_RULES = `
 - Pergunta provocativa
 `;
 
-// Self-validation checklist
+// Self-validation checklist - FOR INTERNAL USE ONLY
 export const VALIDATION_CHECKLIST = `
-## ANTES DE ENTREGAR, VALIDE:
-- [ ] Comecei DIRETAMENTE com o conteúdo (sem "Aqui está...")?
-- [ ] NÃO usei nenhuma hashtag?
-- [ ] Respeitei o limite de palavras por seção?
-- [ ] Usei emojis APENAS onde permitido (CTA)?
-- [ ] Cada slide/seção tem apenas 1 ideia?
-- [ ] O gancho inicial cria curiosidade (NÃO educa)?
-- [ ] O CTA é claro e específico?
-- [ ] O formato de entrega está exatamente como especificado?
-- [ ] O tom de voz está fiel ao cliente?
-- [ ] Evitei frases genéricas proibidas?
-- [ ] Cada frase agrega valor real (não é preenchimento)?
+## ⚠️ VALIDAÇÃO INTERNA (NÃO INCLUA NA RESPOSTA)
+Antes de entregar, valide INTERNAMENTE:
+- Comecei DIRETAMENTE com o conteúdo (sem "Aqui está...", "Segue...")?
+- NÃO usei nenhuma hashtag?
+- Respeitei o limite de palavras por seção?
+- Usei emojis APENAS onde permitido (máx 2-3 no CTA)?
+- Cada slide/seção tem apenas 1 ideia?
+- O gancho inicial cria curiosidade (NÃO educa)?
+- O CTA é claro e específico?
+- O formato de entrega está exatamente como especificado?
+- O tom de voz está fiel ao cliente?
+- Evitei frases genéricas proibidas?
+- Cada frase agrega valor real (não é preenchimento)?
 
-Se algum item falhar, REESCREVA antes de entregar.
+⚠️ CRÍTICO: Esta validação é APENAS para você internamente. 
+NÃO inclua este checklist na sua resposta.
+NÃO inclua "Observações:", "Notas:" ou explicações sobre o que você fez.
+ENTREGUE APENAS o conteúdo final, pronto para publicação.
 `;
 
 // Helper function to get format-specific rules
