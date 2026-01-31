@@ -122,25 +122,38 @@ Estruture o documento com seções para: Visão Geral, Posicionamento, Tom de Vo
 
       if (error) throw error;
 
-      // Parse streaming response
+      // Parse response - handle both streaming and non-streaming cases
       if (data) {
-        const reader = data.getReader();
-        const decoder = new TextDecoder();
         let result = "";
         
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          const chunk = decoder.decode(value);
-          const lines = chunk.split("\n");
-          for (const line of lines) {
-            if (line.startsWith("data: ") && !line.includes("[DONE]")) {
-              try {
-                const json = JSON.parse(line.slice(6));
-                result += json.choices?.[0]?.delta?.content || "";
-              } catch {}
+        // Check if it's a streaming response with body.getReader()
+        if (data.body && typeof data.body.getReader === 'function') {
+          const reader = data.body.getReader();
+          const decoder = new TextDecoder();
+          
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            const chunk = decoder.decode(value);
+            const lines = chunk.split("\n");
+            for (const line of lines) {
+              if (line.startsWith("data: ") && !line.includes("[DONE]")) {
+                try {
+                  const json = JSON.parse(line.slice(6));
+                  result += json.choices?.[0]?.delta?.content || "";
+                } catch {}
+              }
             }
           }
+        } else if (typeof data === 'string') {
+          // Already parsed as string
+          result = data;
+        } else if (data.choices?.[0]?.message?.content) {
+          // OpenAI-style non-streaming response
+          result = data.choices[0].message.content;
+        } else if (data.content) {
+          // Simple content response
+          result = data.content;
         }
 
         setContextNotes(result);
