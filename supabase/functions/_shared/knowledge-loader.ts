@@ -179,7 +179,7 @@ export async function getFormatDocs(contentType: string): Promise<string> {
 }
 
 /**
- * Carrega checklist de validação de um formato
+ * Carrega checklist de validação de um formato (retorna array)
  */
 export async function getFormatChecklist(contentType: string): Promise<string[]> {
   const normalizedKey = normalizeFormatKey(contentType);
@@ -187,6 +187,122 @@ export async function getFormatChecklist(contentType: string): Promise<string[]>
   const doc = await fetchDocumentation('format', normalizedKey);
   
   return doc?.checklist || [];
+}
+
+/**
+ * Carrega checklist de validação formatado como string para injeção no prompt
+ * Usado para IA auto-validar o output antes de entregar
+ */
+export async function getFormatChecklistFormatted(contentType: string): Promise<string> {
+  const checklist = await getFormatChecklist(contentType);
+  
+  if (!checklist || checklist.length === 0) return "";
+  
+  let validation = "\n## ✅ CHECKLIST DE AUTO-VALIDAÇÃO\n";
+  validation += "*VERIFIQUE mentalmente antes de entregar a resposta final:*\n\n";
+  
+  checklist.forEach((item, i) => {
+    validation += `${i + 1}. ${item}\n`;
+  });
+  
+  validation += "\n⚠️ NÃO inclua este checklist na resposta. Use apenas para validar internamente.\n";
+  
+  return validation;
+}
+
+/**
+ * Busca conhecimento global do workspace (melhores práticas, tendências, insights)
+ */
+export async function getGlobalKnowledge(workspaceId: string, limit = 5): Promise<string> {
+  if (!workspaceId) return "";
+  
+  try {
+    const supabase = getSupabaseClient();
+    
+    const { data, error } = await supabase
+      .from("global_knowledge")
+      .select("title, summary, category, content")
+      .eq("workspace_id", workspaceId)
+      .limit(limit);
+    
+    if (error || !data || data.length === 0) return "";
+    
+    let context = "\n## 📚 BASE DE CONHECIMENTO GLOBAL\n";
+    context += "*Use esses insights para enriquecer o conteúdo:*\n\n";
+    
+    for (const item of data) {
+      context += `### ${item.title} (${item.category})\n`;
+      context += (item.summary || item.content?.substring(0, 500) || "") + "\n\n";
+    }
+    
+    return context;
+  } catch (err) {
+    console.error("[KNOWLEDGE-LOADER] Error fetching global knowledge:", err);
+    return "";
+  }
+}
+
+/**
+ * Extrai padrões de sucesso dos conteúdos de alta performance do cliente
+ * Analisa o que funcionou para gerar insights acionáveis
+ */
+export async function getSuccessPatterns(clientId: string): Promise<string> {
+  if (!clientId) return "";
+  
+  try {
+    const supabase = getSupabaseClient();
+    
+    // Buscar posts com maior engagement
+    const { data: topPosts, error } = await supabase
+      .from("instagram_posts")
+      .select("caption, post_type, engagement_rate")
+      .eq("client_id", clientId)
+      .not("engagement_rate", "is", null)
+      .order("engagement_rate", { ascending: false })
+      .limit(5);
+    
+    if (error || !topPosts || topPosts.length === 0) return "";
+    
+    let patterns = "\n## 🎯 PADRÕES QUE FUNCIONAM PARA ESTE CLIENTE\n";
+    patterns += "*Baseado em análise de posts de alta performance:*\n\n";
+    
+    // Analisar padrões comuns
+    let hasQuestions = 0;
+    let hasEmojis = 0;
+    let hasCTA = 0;
+    let hasNumbers = 0;
+    let shortCaptions = 0;
+    
+    for (const post of topPosts) {
+      if (!post.caption) continue;
+      
+      const caption = post.caption;
+      const engagementPct = ((post.engagement_rate || 0) * 100).toFixed(1);
+      
+      patterns += `- **${post.post_type || 'Post'}** com ${engagementPct}% engagement\n`;
+      
+      // Detectar padrões
+      if (/\?/.test(caption)) hasQuestions++;
+      if (/[\u{1F600}-\u{1F6FF}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}]/u.test(caption)) hasEmojis++;
+      if (/(coment|compartilh|salv|link|bio|clique|acesse|saiba mais)/i.test(caption)) hasCTA++;
+      if (/\d+/.test(caption)) hasNumbers++;
+      if (caption.length < 150) shortCaptions++;
+    }
+    
+    patterns += "\n**Insights detectados:**\n";
+    if (hasQuestions >= 2) patterns += "- ✅ Usar perguntas aumenta engajamento\n";
+    if (hasEmojis >= 2) patterns += "- ✅ Emojis estratégicos funcionam bem\n";
+    if (hasCTA >= 2) patterns += "- ✅ CTAs claros geram mais ação\n";
+    if (hasNumbers >= 2) patterns += "- ✅ Números/dados chamam atenção\n";
+    if (shortCaptions >= 2) patterns += "- ✅ Legendas mais curtas performam melhor\n";
+    
+    patterns += "\n";
+    
+    return patterns;
+  } catch (err) {
+    console.error("[KNOWLEDGE-LOADER] Error extracting success patterns:", err);
+    return "";
+  }
 }
 
 /**
@@ -290,14 +406,23 @@ interface ContentExample {
  * 3. Exemplos favoritos da biblioteca (se includeLibrary = true)
  * 4. Top performers do Instagram/YouTube (se includeTopPerformers = true)
  */
-export async function getFullContentContext(params: FullContentContextParams): Promise<string> {
+export async function getFullContentContext(params: FullContentContextParams & {
+  workspaceId?: string;
+  includeGlobalKnowledge?: boolean;
+  includeSuccessPatterns?: boolean;
+  includeChecklist?: boolean;
+}): Promise<string> {
   const { 
     clientId, 
     format, 
     includeLibrary = true, 
     includeTopPerformers = true,
     maxLibraryExamples = 5,
-    maxTopPerformers = 5
+    maxTopPerformers = 5,
+    workspaceId,
+    includeGlobalKnowledge = true,
+    includeSuccessPatterns = true,
+    includeChecklist = true,
   } = params;
   
   const supabase = getSupabaseClient();
@@ -481,6 +606,32 @@ export async function getFullContentContext(params: FullContentContextParams): P
       }
     } catch (err) {
       console.error("[KNOWLEDGE-LOADER] Error fetching top performers:", err);
+    }
+  }
+  
+  // 5. GLOBAL KNOWLEDGE (base de conhecimento do workspace)
+  if (includeGlobalKnowledge && workspaceId) {
+    const globalKnowledge = await getGlobalKnowledge(workspaceId);
+    if (globalKnowledge) {
+      context += globalKnowledge;
+      context += `---\n\n`;
+    }
+  }
+  
+  // 6. SUCCESS PATTERNS (padrões que funcionam para o cliente)
+  if (includeSuccessPatterns && clientId) {
+    const successPatterns = await getSuccessPatterns(clientId);
+    if (successPatterns) {
+      context += successPatterns;
+      context += `---\n\n`;
+    }
+  }
+  
+  // 7. CHECKLIST DE VALIDAÇÃO (para IA auto-validar)
+  if (includeChecklist && format) {
+    const checklistFormatted = await getFormatChecklistFormatted(format);
+    if (checklistFormatted) {
+      context += checklistFormatted;
     }
   }
   
