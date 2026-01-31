@@ -1,4 +1,3 @@
-
 # Análise Completa e Sênior do kAI (Kaleidos)
 
 ## Executive Summary
