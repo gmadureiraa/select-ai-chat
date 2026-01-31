@@ -1,3 +1,21 @@
+// =====================================================
+// ⚠️ ATENÇÃO: ARQUIVO DE FALLBACK
+// =====================================================
+// A documentação PRIMÁRIA de formatos está em:
+//   Tabela: kai_documentation (doc_type = 'format')
+//
+// Este arquivo é usado APENAS como FALLBACK quando:
+//   1. O banco de dados não está disponível
+//   2. Um formato específico não existe no banco
+//
+// Para ATUALIZAR regras de formato, edite diretamente no banco via:
+//   - Interface de administração de kai_documentation
+//   - SQL: UPDATE kai_documentation SET content = '...' WHERE doc_key = 'formato'
+//
+// As funções getFormatDocs() e getFullContentContext() em knowledge-loader.ts
+// buscam do banco primeiro e usam este arquivo como fallback.
+// =====================================================
+
 // Universal format rules for content generation
 // Shared across all edge functions: kai-content-agent, generate-content-v2, etc.
 // These rules are injected into the agent's system prompt based on the content format

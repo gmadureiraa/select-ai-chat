@@ -1,6 +1,8 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getFormatRules, UNIVERSAL_RULES } from "../_shared/format-rules.ts";
+import { getFormatDocs } from "../_shared/knowledge-loader.ts";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -342,8 +344,26 @@ serve(async (req) => {
         }
       }
 
-      // Get format-specific rules from shared module
-      const formatRules = getFormatRules(config.format || "post");
+      // ===================================================
+      // FORMATO: Buscar do banco primeiro, fallback hardcoded
+      // ===================================================
+      let formatRules = "";
+      const requestedFormat = config.format || "post";
+      
+      console.log("[generate-content-v2] Loading format rules for:", requestedFormat);
+      
+      // Tentar buscar do banco de dados (kai_documentation)
+      const dbFormatDocs = await getFormatDocs(requestedFormat);
+      
+      if (dbFormatDocs && dbFormatDocs.trim().length > 50) {
+        // Usar documentação do banco
+        formatRules = `## 📋 REGRAS DO FORMATO: ${requestedFormat.toUpperCase()}\n\n${dbFormatDocs}`;
+        console.log("[generate-content-v2] Using DB format rules, length:", dbFormatDocs.length);
+      } else {
+        // Fallback para regras hardcoded
+        formatRules = getFormatRules(requestedFormat);
+        console.log("[generate-content-v2] Using hardcoded format rules (fallback)");
+      }
 
       // Build enriched prompt with brand context and STRICT rules for references
       let brandSection = "";

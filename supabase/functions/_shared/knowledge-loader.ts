@@ -133,7 +133,7 @@ async function fetchDocumentation(
 /**
  * Normaliza a chave do formato
  */
-function normalizeFormatKey(contentType: string): string {
+export function normalizeFormatKey(contentType: string): string {
   const normalized = contentType.toLowerCase().replace(/-/g, "_").trim();
   return FORMAT_KEY_ALIASES[normalized] || normalized;
 }
@@ -257,6 +257,234 @@ export async function getAvailableAgents(): Promise<string[]> {
   } catch {
     return Object.values(AGENT_KEY_ALIASES);
   }
+}
+
+// =====================================================
+// CONTEXTO UNIFICADO PARA GERAÇÃO DE CONTEÚDO
+// Combina: Regras de Formato + Identidade do Cliente + Exemplos
+// =====================================================
+
+interface FullContentContextParams {
+  clientId: string;
+  format: string;
+  includeLibrary?: boolean;
+  includeTopPerformers?: boolean;
+  maxLibraryExamples?: number;
+  maxTopPerformers?: number;
+}
+
+interface ContentExample {
+  title: string;
+  content: string;
+  type: string;
+  metric?: string;
+}
+
+/**
+ * Monta o contexto completo de conteúdo para qualquer agente.
+ * Essa é a FUNÇÃO CENTRAL que garante consistência em todos os ambientes.
+ * 
+ * Retorna um bloco de texto formatado contendo:
+ * 1. Regras do formato (do kai_documentation)
+ * 2. Contexto do cliente (identity_guide + context_notes)
+ * 3. Exemplos favoritos da biblioteca (se includeLibrary = true)
+ * 4. Top performers do Instagram/YouTube (se includeTopPerformers = true)
+ */
+export async function getFullContentContext(params: FullContentContextParams): Promise<string> {
+  const { 
+    clientId, 
+    format, 
+    includeLibrary = true, 
+    includeTopPerformers = true,
+    maxLibraryExamples = 5,
+    maxTopPerformers = 5
+  } = params;
+  
+  const supabase = getSupabaseClient();
+  let context = "";
+  
+  // 1. REGRAS DO FORMATO (do banco, com fallback)
+  const formatDocs = await getFormatDocs(format);
+  if (formatDocs) {
+    context += `## 📋 REGRAS DO FORMATO: ${format.toUpperCase()}\n\n${formatDocs}\n\n---\n\n`;
+  }
+  
+  // 2. CONTEXTO DO CLIENTE (identity_guide como documento mestre)
+  try {
+    const { data: client, error } = await supabase
+      .from("clients")
+      .select("name, identity_guide, description, context_notes, social_media")
+      .eq("id", clientId)
+      .single();
+    
+    if (!error && client) {
+      if (client.identity_guide) {
+        context += `## 🎯 CONTEXTO OPERACIONAL DO CLIENTE (DOCUMENTO MESTRE)\n\n`;
+        context += `*SIGA RIGOROSAMENTE as diretrizes abaixo. Este documento foi criado para garantir consistência em todo o conteúdo.*\n\n`;
+        context += `${client.identity_guide}\n\n---\n\n`;
+      } else {
+        // Fallback para descrição + notas
+        context += `## 🎯 CONTEXTO DO CLIENTE: ${client.name}\n\n`;
+        if (client.description) {
+          context += `**Descrição:** ${client.description}\n\n`;
+        }
+        if (client.context_notes) {
+          context += `**Notas de Contexto:**\n${client.context_notes}\n\n`;
+        }
+        context += `---\n\n`;
+      }
+      
+      // Redes sociais (informativo)
+      if (client.social_media && Object.keys(client.social_media).length > 0) {
+        const socialMedia = typeof client.social_media === 'string' 
+          ? JSON.parse(client.social_media) 
+          : client.social_media;
+        if (Object.keys(socialMedia).some(k => socialMedia[k])) {
+          context += `### Redes Sociais do Cliente\n`;
+          Object.entries(socialMedia).forEach(([key, value]) => {
+            if (value) context += `- ${key}: ${value}\n`;
+          });
+          context += `\n`;
+        }
+      }
+    }
+  } catch (err) {
+    console.error("[KNOWLEDGE-LOADER] Error fetching client:", err);
+  }
+  
+  // 3. EXEMPLOS FAVORITOS DA BIBLIOTECA
+  if (includeLibrary) {
+    try {
+      const normalizedFormat = normalizeFormatKey(format);
+      
+      // Primeiro buscar favoritos do mesmo formato
+      const { data: favorites } = await supabase
+        .from("client_content_library")
+        .select("title, content, content_type")
+        .eq("client_id", clientId)
+        .eq("is_favorite", true)
+        .order("created_at", { ascending: false })
+        .limit(maxLibraryExamples);
+      
+      const examples: ContentExample[] = [];
+      
+      if (favorites && favorites.length > 0) {
+        for (const fav of favorites) {
+          examples.push({
+            title: fav.title,
+            content: fav.content?.substring(0, 800) || "",
+            type: fav.content_type
+          });
+        }
+      }
+      
+      // Se não tiver favoritos suficientes, pegar conteúdos recentes
+      if (examples.length < 3) {
+        const { data: recent } = await supabase
+          .from("client_content_library")
+          .select("title, content, content_type")
+          .eq("client_id", clientId)
+          .order("created_at", { ascending: false })
+          .limit(5);
+        
+        if (recent) {
+          for (const item of recent) {
+            if (examples.length >= maxLibraryExamples) break;
+            if (!examples.some(e => e.title === item.title)) {
+              examples.push({
+                title: item.title,
+                content: item.content?.substring(0, 800) || "",
+                type: item.content_type
+              });
+            }
+          }
+        }
+      }
+      
+      if (examples.length > 0) {
+        context += `## 📚 EXEMPLOS DA BIBLIOTECA (USE COMO REFERÊNCIA DE TOM E ESTILO)\n`;
+        context += `*Analise esses exemplos e replique o tom de voz, estrutura e linguagem:*\n\n`;
+        
+        examples.forEach((ex, i) => {
+          context += `**Exemplo ${i + 1}: "${ex.title}"** (${ex.type})\n`;
+          context += `\`\`\`\n${ex.content}${ex.content.length >= 800 ? "..." : ""}\n\`\`\`\n\n`;
+        });
+        
+        context += `---\n\n`;
+      }
+    } catch (err) {
+      console.error("[KNOWLEDGE-LOADER] Error fetching library:", err);
+    }
+  }
+  
+  // 4. TOP PERFORMERS (Instagram + YouTube)
+  if (includeTopPerformers) {
+    const topPerformers: ContentExample[] = [];
+    
+    try {
+      // Top Instagram posts por engagement
+      const { data: instaPosts } = await supabase
+        .from("instagram_posts")
+        .select("caption, full_content, video_transcript, engagement_rate, post_type")
+        .eq("client_id", clientId)
+        .not("content_synced_at", "is", null)
+        .order("engagement_rate", { ascending: false, nullsFirst: false })
+        .limit(3);
+      
+      if (instaPosts) {
+        for (const post of instaPosts) {
+          const content = post.full_content || post.video_transcript || post.caption;
+          if (content) {
+            topPerformers.push({
+              title: (post.caption || "").substring(0, 80) + "...",
+              content: content.substring(0, 600),
+              type: post.post_type === "VIDEO" || post.post_type === "reel" ? "Reels" : "Post",
+              metric: `${((post.engagement_rate || 0) * 100).toFixed(1)}% engagement`
+            });
+          }
+        }
+      }
+      
+      // Top YouTube videos por views
+      const { data: ytVideos } = await supabase
+        .from("youtube_videos")
+        .select("title, transcript, total_views")
+        .eq("client_id", clientId)
+        .not("transcript", "is", null)
+        .order("total_views", { ascending: false, nullsFirst: false })
+        .limit(2);
+      
+      if (ytVideos) {
+        for (const video of ytVideos) {
+          if (video.transcript) {
+            topPerformers.push({
+              title: video.title,
+              content: video.transcript.substring(0, 600),
+              type: "YouTube",
+              metric: `${(video.total_views || 0).toLocaleString()} views`
+            });
+          }
+        }
+      }
+      
+      if (topPerformers.length > 0) {
+        context += `## 🏆 CONTEÚDOS DE MAIOR PERFORMANCE (USE COMO INSPIRAÇÃO)\n`;
+        context += `*Estes são os conteúdos do cliente com melhor desempenho. Analise o estilo, estrutura, ganchos e tom de voz para criar conteúdos similares.*\n\n`;
+        
+        topPerformers.slice(0, maxTopPerformers).forEach((perf, i) => {
+          context += `**Top ${i + 1} [${perf.type}]** - ${perf.metric}\n`;
+          context += `*"${perf.title}"*\n`;
+          context += `\`\`\`\n${perf.content}${perf.content.length >= 600 ? "..." : ""}\n\`\`\`\n\n`;
+        });
+        
+        context += `---\n\n`;
+      }
+    } catch (err) {
+      console.error("[KNOWLEDGE-LOADER] Error fetching top performers:", err);
+    }
+  }
+  
+  return context;
 }
 
 // =====================================================
