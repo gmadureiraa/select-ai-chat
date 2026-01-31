@@ -24,6 +24,8 @@ export interface WebhookConfig {
 
 export type TriggerConfig = ScheduleConfig | RSSConfig | WebhookConfig;
 
+export type ImageStyle = 'photographic' | 'illustration' | 'minimalist' | 'vibrant';
+
 export interface PlanningAutomation {
   id: string;
   workspace_id: string;
@@ -38,6 +40,11 @@ export interface PlanningAutomation {
   auto_generate_content: boolean;
   prompt_template: string | null;
   auto_publish: boolean;
+  // Image generation fields
+  auto_generate_image: boolean;
+  image_prompt_template: string | null;
+  image_style: ImageStyle | null;
+  // Tracking fields
   last_triggered_at: string | null;
   items_created: number;
   created_by: string | null;
@@ -56,6 +63,10 @@ export interface CreateAutomationInput {
   auto_generate_content?: boolean;
   prompt_template?: string | null;
   auto_publish?: boolean;
+  // Image generation
+  auto_generate_image?: boolean;
+  image_prompt_template?: string | null;
+  image_style?: ImageStyle | null;
 }
 
 export interface UpdateAutomationInput extends Partial<CreateAutomationInput> {
@@ -122,6 +133,9 @@ export function usePlanningAutomations() {
           auto_generate_content: input.auto_generate_content || false,
           prompt_template: input.prompt_template,
           auto_publish: input.auto_publish || false,
+          auto_generate_image: input.auto_generate_image || false,
+          image_prompt_template: input.image_prompt_template,
+          image_style: input.image_style || 'photographic',
           created_by: user?.id,
         })
         .select()
@@ -157,6 +171,9 @@ export function usePlanningAutomations() {
       if (input.auto_generate_content !== undefined) updateData.auto_generate_content = input.auto_generate_content;
       if (input.prompt_template !== undefined) updateData.prompt_template = input.prompt_template;
       if ((input as any).auto_publish !== undefined) updateData.auto_publish = (input as any).auto_publish;
+      if ((input as any).auto_generate_image !== undefined) updateData.auto_generate_image = (input as any).auto_generate_image;
+      if ((input as any).image_prompt_template !== undefined) updateData.image_prompt_template = (input as any).image_prompt_template;
+      if ((input as any).image_style !== undefined) updateData.image_style = (input as any).image_style;
       if (input.is_active !== undefined) updateData.is_active = input.is_active;
       
       const { data, error } = await supabase

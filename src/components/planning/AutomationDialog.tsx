@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Calendar, Rss, Webhook, Sparkles, Send, AlertCircle, Loader2, CheckCircle2, XCircle, Image, ExternalLink, Copy, ChevronDown, ChevronUp } from 'lucide-react';
+import { Calendar, Rss, Webhook, Sparkles, Send, AlertCircle, Loader2, CheckCircle2, XCircle, Image, ExternalLink, Copy, ChevronDown, ChevronUp, Palette } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -23,6 +23,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
@@ -32,6 +33,7 @@ import {
   TriggerType,
   ScheduleConfig,
   RSSConfig,
+  ImageStyle,
 } from '@/hooks/usePlanningAutomations';
 import { useClients } from '@/hooks/useClients';
 import { usePlanningItems } from '@/hooks/usePlanningItems';
@@ -72,6 +74,21 @@ const TEMPLATE_VARIABLES = [
   { key: '{{link}}', description: 'URL do conteúdo original' },
   { key: '{{content}}', description: 'Conteúdo completo (até 3000 chars)' },
   { key: '{{images}}', description: 'Quantidade de imagens detectadas' },
+];
+
+// Template variables for image prompts
+const IMAGE_TEMPLATE_VARIABLES = [
+  { key: '{{title}}', description: 'Título do item' },
+  { key: '{{content}}', description: 'Resumo do conteúdo' },
+  { key: '{{time_of_day}}', description: 'manhã, tarde ou noite (horário execução)' },
+];
+
+// Image style options
+const IMAGE_STYLES: { value: ImageStyle; label: string; description: string }[] = [
+  { value: 'photographic', label: 'Fotográfico', description: 'Estilo realista, iluminação natural' },
+  { value: 'illustration', label: 'Ilustração', description: 'Arte digital, estilo vetorial' },
+  { value: 'minimalist', label: 'Minimalista', description: 'Composição clean, muito espaço negativo' },
+  { value: 'vibrant', label: 'Vibrante', description: 'Cores intensas, alto contraste' },
 ];
 
 interface RSSItemPreview {
@@ -124,6 +141,11 @@ export function AutomationDialog({ open, onOpenChange, automation }: AutomationD
   // Auto publish
   const [autoPublish, setAutoPublish] = useState(false);
 
+  // Image generation
+  const [autoGenerateImage, setAutoGenerateImage] = useState(false);
+  const [imagePromptTemplate, setImagePromptTemplate] = useState('');
+  const [imageStyle, setImageStyle] = useState<ImageStyle>('photographic');
+
   // Auto-derive platform from content type
   useEffect(() => {
     const derivedPlatform = CONTENT_TO_PLATFORM[contentType as keyof typeof CONTENT_TO_PLATFORM];
@@ -158,6 +180,11 @@ export function AutomationDialog({ open, onOpenChange, automation }: AutomationD
       setPromptTemplate(automation.prompt_template || '');
 
       setAutoPublish((automation as any).auto_publish || false);
+      
+      // Image generation fields
+      setAutoGenerateImage(automation.auto_generate_image || false);
+      setImagePromptTemplate(automation.image_prompt_template || '');
+      setImageStyle((automation.image_style as ImageStyle) || 'photographic');
 
       if (automation.trigger_type === 'schedule') {
         const config = automation.trigger_config as ScheduleConfig;
@@ -187,6 +214,10 @@ export function AutomationDialog({ open, onOpenChange, automation }: AutomationD
       setScheduleTime('10:00');
       setRssUrl('');
       setAutoPublish(false);
+      // Image generation defaults
+      setAutoGenerateImage(false);
+      setImagePromptTemplate('');
+      setImageStyle('photographic');
       setFeedTestResult(null);
       setExpandedPreview(false);
     }
@@ -294,6 +325,10 @@ export function AutomationDialog({ open, onOpenChange, automation }: AutomationD
       auto_generate_content: autoGenerate,
       prompt_template: autoGenerate ? promptTemplate : null,
       auto_publish: autoPublish,
+      // Image generation
+      auto_generate_image: autoGenerateImage,
+      image_prompt_template: autoGenerateImage ? imagePromptTemplate : null,
+      image_style: autoGenerateImage ? imageStyle : null,
     };
 
     if (isEditing && automation) {
@@ -739,6 +774,85 @@ export function AutomationDialog({ open, onOpenChange, automation }: AutomationD
                   </p>
                 </div>
               </div>
+            )}
+          </div>
+
+          {/* Geração automática de imagem */}
+          <div className="space-y-4 p-4 border rounded-lg">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Palette className="h-5 w-5 text-purple-500" />
+                <div>
+                  <Label className="text-base">Gerar imagem automaticamente</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Cria uma imagem com IA junto do conteúdo
+                  </p>
+                </div>
+              </div>
+              <Switch 
+                checked={autoGenerateImage} 
+                onCheckedChange={setAutoGenerateImage}
+                disabled={!clientId}
+              />
+            </div>
+
+            {autoGenerateImage && (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Briefing da imagem</Label>
+                  <Textarea
+                    value={imagePromptTemplate}
+                    onChange={(e) => setImagePromptTemplate(e.target.value)}
+                    placeholder="Ex: Imagem minimalista de café e teclado ao amanhecer. Cores quentes, luz suave. Tema: {{time_of_day}}"
+                    rows={3}
+                  />
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">
+                      Variáveis disponíveis:
+                    </p>
+                    <div className="flex flex-wrap gap-1">
+                      {IMAGE_TEMPLATE_VARIABLES.map(variable => (
+                        <Button
+                          key={variable.key}
+                          variant="outline"
+                          size="sm"
+                          className="h-6 text-xs gap-1"
+                          onClick={() => copyVariable(variable.key)}
+                          title={variable.description}
+                        >
+                          <Copy className="h-3 w-3" />
+                          {variable.key}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Estilo visual</Label>
+                  <RadioGroup
+                    value={imageStyle}
+                    onValueChange={(v) => setImageStyle(v as ImageStyle)}
+                    className="grid grid-cols-2 gap-2"
+                  >
+                    {IMAGE_STYLES.map(style => (
+                      <div key={style.value} className="flex items-start space-x-2">
+                        <RadioGroupItem value={style.value} id={`style-${style.value}`} className="mt-1" />
+                        <label htmlFor={`style-${style.value}`} className="cursor-pointer">
+                          <div className="font-medium text-sm">{style.label}</div>
+                          <div className="text-xs text-muted-foreground">{style.description}</div>
+                        </label>
+                      </div>
+                    ))}
+                  </RadioGroup>
+                </div>
+              </div>
+            )}
+
+            {!clientId && (
+              <p className="text-xs text-muted-foreground">
+                Selecione um perfil para habilitar geração de imagem.
+              </p>
             )}
           </div>
 

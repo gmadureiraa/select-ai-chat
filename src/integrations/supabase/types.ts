@@ -2155,12 +2155,15 @@ export type Database = {
       planning_automations: {
         Row: {
           auto_generate_content: boolean | null
+          auto_generate_image: boolean | null
           auto_publish: boolean | null
           client_id: string | null
           content_type: string | null
           created_at: string | null
           created_by: string | null
           id: string
+          image_prompt_template: string | null
+          image_style: string | null
           is_active: boolean | null
           items_created: number | null
           last_triggered_at: string | null
@@ -2175,12 +2178,15 @@ export type Database = {
         }
         Insert: {
           auto_generate_content?: boolean | null
+          auto_generate_image?: boolean | null
           auto_publish?: boolean | null
           client_id?: string | null
           content_type?: string | null
           created_at?: string | null
           created_by?: string | null
           id?: string
+          image_prompt_template?: string | null
+          image_style?: string | null
           is_active?: boolean | null
           items_created?: number | null
           last_triggered_at?: string | null
@@ -2195,12 +2201,15 @@ export type Database = {
         }
         Update: {
           auto_generate_content?: boolean | null
+          auto_generate_image?: boolean | null
           auto_publish?: boolean | null
           client_id?: string | null
           content_type?: string | null
           created_at?: string | null
           created_by?: string | null
           id?: string
+          image_prompt_template?: string | null
+          image_style?: string | null
           is_active?: boolean | null
           items_created?: number | null
           last_triggered_at?: string | null
