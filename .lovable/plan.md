@@ -1,262 +1,369 @@
 
-# Automação com Geração de Texto + Imagem (Briefings Separados)
+# Contexto IA como Aba Final do Perfil + Geração Inteligente
 
 ## Visão Geral
 
-Implementar suporte a **geração simultânea de texto e imagem** nas automações, com **briefings separados** para cada tipo de conteúdo. Isso permitirá criar posts de "Bom Dia" ou "Boa Noite" que incluam:
-1. **Texto personalizado** (gerado pela IA com base no briefing de texto)
-2. **Imagem temática** (gerada pela IA com base no briefing de imagem)
+Reorganizar o perfil do cliente para que o **Contexto de IA** seja a última aba (a "estrela final"), gerado automaticamente a partir de TODAS as fontes de dados do cliente. Este contexto será o **documento central** que a IA consulta para criar qualquer conteúdo.
 
-## Arquitetura Atual
+## Estrutura Atual vs. Nova
 
-| Componente | Responsabilidade | Status |
-|------------|------------------|--------|
-| `planning_automations` | Armazena configuração da automação | ✅ Existe |
-| `AutomationDialog.tsx` | UI para criar/editar automações | ✅ Existe |
-| `process-automations` | Executa automações | ✅ Existe |
-| `kai-content-agent` | Gera texto via Gemini | ✅ Existe |
-| `generate-content-v2` | Gera imagem via Gemini | ✅ Existe |
+| Posição | Atual | Nova |
+|---------|-------|------|
+| Aba 1 | Perfil (com Contexto IA inline) | Perfil |
+| Aba 2 | Presença Digital | Presença Digital |
+| Aba 3 | Referências | Referências |
+| Aba 4 | Integrações | Integrações |
+| Aba 5 | - | **Contexto IA** |
 
-**Lacuna identificada:** Não há suporte para briefing de imagem separado nem geração automática de imagem nas automações.
+## Arquitetura de Geração do Contexto
 
----
+O novo Contexto IA será gerado combinando TODAS as fontes:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    GERAÇÃO DO CONTEXTO IA                        │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+       ┌──────────────────────┼──────────────────────┐
+       │                      │                      │
+       ▼                      ▼                      ▼
+┌─────────────┐      ┌─────────────┐      ┌─────────────┐
+│ PERFIL      │      │ DIGITAL     │      │ BIBLIOTECA  │
+│ • Nome      │      │ • Websites  │      │ • Conteúdos │
+│ • Descrição │      │   scraped   │      │ • Referências│
+│ • Segmento  │      │ • Redes     │      │ • Documentos│
+│ • Tom       │      │   sociais   │      │ • Visuais   │
+│ • Público   │      │   (links)   │      │ (extraídos) │
+│ • Objetivos │      └─────────────┘      └─────────────┘
+└─────────────┘              │                      │
+       │                     │                      │
+       └─────────────────────┴──────────────────────┘
+                              │
+                              ▼
+              ┌───────────────────────────────┐
+              │      🤖 GEMINI 2.0 FLASH      │
+              │  (Processa + Estrutura tudo)  │
+              └───────────────────────────────┘
+                              │
+                              ▼
+              ┌───────────────────────────────┐
+              │   CONTEXTO IA ESTRUTURADO     │
+              │   (Markdown completo salvo    │
+              │    em identity_guide)         │
+              └───────────────────────────────┘
+```
+
+## Fontes de Dados a Processar
+
+| Fonte | Tabela/Campo | O que Extrair |
+|-------|--------------|---------------|
+| Descrição manual | `clients.description` | Texto do usuário |
+| Tags/Posicionamento | `clients.tags` | segment, tone, audience, objectives, etc. |
+| Redes Sociais | `clients.social_media` | Links e handles |
+| Websites | `client_websites.scraped_markdown` | Conteúdo scrapeado |
+| Documentos | `client_documents.extracted_content` | PDFs, DOCs transcritos |
+| Biblioteca Conteúdo | `client_content_library.content` | Posts, artigos (favoritos) |
+| Biblioteca Refs | `client_reference_library.content` | Referências externas |
+| Instagram Posts | `instagram_posts.caption` | Legendas com melhor performance |
+| YouTube Videos | `youtube_videos.transcript` | Transcrições |
 
 ## Implementação
 
-### 1. Atualizar Schema do Banco de Dados
-
-Adicionar novos campos à tabela `planning_automations`:
-
-```sql
-ALTER TABLE planning_automations 
-ADD COLUMN auto_generate_image boolean DEFAULT false,
-ADD COLUMN image_prompt_template text,
-ADD COLUMN image_style text DEFAULT 'photographic';
-```
-
-| Campo | Tipo | Descrição |
-|-------|------|-----------|
-| `auto_generate_image` | boolean | Se true, gera imagem automaticamente |
-| `image_prompt_template` | text | Briefing separado para a imagem |
-| `image_style` | text | Estilo visual: photographic, illustration, minimalist, vibrant |
-
-### 2. Atualizar Interface (AutomationDialog.tsx)
-
-Adicionar nova seção após "Gerar conteúdo automaticamente":
+### 1. Nova Aba "Contexto IA" (ClientEditTabsSimplified.tsx)
 
 ```
-┌────────────────────────────────────────────────────────────┐
-│ 🎨 Gerar imagem automaticamente                    [Toggle]│
-├────────────────────────────────────────────────────────────┤
-│ Briefing da imagem:                                        │
-│ ┌──────────────────────────────────────────────────────┐  │
-│ │ Crie uma imagem minimalista de {bom dia/boa noite}   │  │
-│ │ com elementos de café, sol nascendo, e cores         │  │
-│ │ vibrantes. Tema: {{title}}                           │  │
-│ └──────────────────────────────────────────────────────┘  │
-│                                                            │
-│ Estilo visual:  [Fotográfico ▼]                           │
-│   ○ Fotográfico   ○ Ilustração   ○ Minimalista   ○ Vibrante│
-│                                                            │
-│ ☑ Sem texto na imagem                                     │
-└────────────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────┐
+│  Perfil  │  Digital  │  Referências  │  Integrações  │ 🧠 IA  │
+└────────────────────────────────────────────────────────────────┘
+                                                            ↑
+                                                      Nova aba
 ```
 
-**Variáveis disponíveis no briefing de imagem:**
-- `{{title}}` - Título do item
-- `{{content}}` - Contexto do conteúdo (resumido)
-- `{{time_of_day}}` - "manhã", "tarde" ou "noite" (baseado no horário da execução)
+**Conteúdo da aba:**
+- Card de status mostrando quais fontes estão disponíveis
+- Botão "Gerar Contexto Completo" (chama edge function)
+- Textarea editável com o `identity_guide` gerado
+- Indicador de última atualização
 
-### 3. Atualizar Edge Function (process-automations)
+### 2. Nova Edge Function: `generate-client-context`
 
-Adicionar lógica para gerar imagem após gerar texto:
+Função dedicada que:
+1. Busca TODOS os dados do cliente de todas as tabelas
+2. Faz scrape de redes sociais via links (se não tiver conteúdo)
+3. Monta um mega-prompt para o Gemini
+4. Gera um documento estruturado em Markdown
+5. Salva em `clients.identity_guide`
+
+**Estrutura do contexto gerado:**
+
+```markdown
+# [Nome do Cliente] - Contexto Operacional para IA
+
+## 1. IDENTIDADE E POSICIONAMENTO
+[Extraído da descrição + tags]
+
+## 2. PÚBLICO-ALVO E PERSONAS
+[Baseado em tags.audience + análise de conteúdo]
+
+## 3. TOM DE VOZ E LINGUAGEM
+### Tom: [Formal/Informal/Técnico/Didático]
+### Características:
+- [Lista de características]
+### Palavras-chave: [keywords]
+### Evitar: [anti-patterns]
+
+## 4. PRESENÇA DIGITAL
+### Website: [resumo do conteúdo scrapeado]
+### Redes Sociais: [análise das redes]
+
+## 5. CONTEÚDO DE REFERÊNCIA
+### Top Performers:
+[Análise dos posts com melhor performance]
+
+### Estilo de Escrita:
+[Padrões identificados nos conteúdos]
+
+## 6. DIRETRIZES DE CRIAÇÃO
+[Regras inferidas do histórico]
+
+## 7. FONTES UTILIZADAS
+[Lista de documentos, websites, conteúdos processados]
+```
+
+### 3. Atualizar kai-content-agent
+
+Modificar para dar prioridade máxima ao `identity_guide`:
 
 ```typescript
-// Após gerar conteúdo de texto...
-if (automation.auto_generate_image && automation.image_prompt_template) {
-  console.log(`Generating image for item ${newItem.id}...`);
-  
-  const imagePrompt = replaceTemplateVariables(
-    automation.image_prompt_template,
-    triggerData,
-    automation.name
-  );
-  
-  const imageResponse = await fetch(`${supabaseUrl}/functions/v1/generate-content-v2`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${supabaseKey}`,
-    },
-    body: JSON.stringify({
-      type: 'image',
-      inputs: [{
-        type: 'text',
-        content: imagePrompt
-      }],
-      config: {
-        format: 'post',
-        aspectRatio: '1:1',
-        noText: automation.image_no_text ?? true,
-        style: automation.image_style || 'photographic'
-      },
-      clientId: automation.client_id
-    }),
-  });
-  
-  if (imageResponse.ok) {
-    const imageResult = await imageResponse.json();
-    if (imageResult.imageUrl) {
-      mediaUrls.push(imageResult.imageUrl);
-      console.log(`Image generated: ${imageResult.imageUrl}`);
-    }
-  }
+// ANTES: contexto fragmentado
+if (client?.identity_guide) {
+  contextPrompt += `### Guia de Identidade\n${client.identity_guide}\n\n`;
+}
+if (client?.context_notes) {
+  contextPrompt += `### Contexto Adicional\n${client.context_notes}\n\n`;
+}
+
+// DEPOIS: contexto unificado como BASE
+if (client?.identity_guide) {
+  contextPrompt = `## 🎯 CONTEXTO PRINCIPAL DO CLIENTE\n
+*Este é o documento mestre. SIGA RIGOROSAMENTE estas diretrizes.*
+
+${client.identity_guide}
+
+---
+
+`;
 }
 ```
 
-### 4. Fluxo de Execução
+### 4. UI da Aba de Contexto
 
-```text
-┌─────────────────────────────────────────────────────────────┐
-│                    AUTOMAÇÃO DISPARADA                       │
-│                   (schedule/rss/webhook)                     │
-└─────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────┐
-│              1. CRIAR PLANNING ITEM (CARD)                   │
-│                     Título + Descrição                       │
-└─────────────────────────────────────────────────────────────┘
-                              │
-              ┌───────────────┼───────────────┐
-              ▼               ▼               ▼
-┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐
-│ auto_generate   │  │ auto_generate   │  │ Nenhuma geração │
-│ _content: true  │  │ _image: true    │  │ automática      │
-└─────────────────┘  └─────────────────┘  └─────────────────┘
-         │                    │                    │
-         ▼                    ▼                    │
-┌─────────────────┐  ┌─────────────────┐          │
-│ kai-content-    │  │ generate-       │          │
-│ agent           │  │ content-v2      │          │
-│ (briefing texto)│  │ (briefing img)  │          │
-└─────────────────┘  └─────────────────┘          │
-         │                    │                    │
-         ▼                    ▼                    │
-┌─────────────────────────────────────────────────┤
-│          3. ATUALIZAR PLANNING ITEM              │
-│    content + media_urls (texto + imagem gerada)  │
-└──────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────┐
-│               4. AUTO-PUBLISH (se habilitado)                │
-│                    Late API → Plataforma                     │
-└─────────────────────────────────────────────────────────────┘
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  🧠 Contexto de IA                                              │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  ┌─────────────────────────────────────────────────────────┐   │
+│  │ 📊 Fontes de Dados Disponíveis                          │   │
+│  │                                                         │   │
+│  │  ✓ Descrição e posicionamento                          │   │
+│  │  ✓ 3 websites indexados                                │   │
+│  │  ✓ 5 documentos transcritos                            │   │
+│  │  ✓ 12 conteúdos na biblioteca                          │   │
+│  │  ⚠ Sem posts do Instagram sincronizados               │   │
+│  └─────────────────────────────────────────────────────────┘   │
+│                                                                 │
+│  ┌──────────────────────────┐  ┌───────────────────────────┐   │
+│  │ 🔄 Regenerar Contexto    │  │ ⏰ Última geração:        │   │
+│  │    com todas as fontes   │  │    15/03/2024 às 14:30    │   │
+│  └──────────────────────────┘  └───────────────────────────┘   │
+│                                                                 │
+│  ┌─────────────────────────────────────────────────────────┐   │
+│  │ # Gabriel Madureira - Contexto Operacional              │   │
+│  │                                                         │   │
+│  │ ## 1. IDENTIDADE E POSICIONAMENTO                       │   │
+│  │ Estrategista Full-Stack para Marcas Web3...             │   │
+│  │                                                         │   │
+│  │ ## 2. PÚBLICO-ALVO                                      │   │
+│  │ Empreendedores e criadores no ecossistema Web3...       │   │
+│  │                                                         │   │
+│  │ [... documento completo editável ...]                   │   │
+│  └─────────────────────────────────────────────────────────┘   │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
-### 5. Exemplo de Uso: GM Diário
+## Arquivos a Criar/Modificar
 
-**Configuração da Automação:**
+| Arquivo | Ação | Descrição |
+|---------|------|-----------|
+| `supabase/functions/generate-client-context/index.ts` | CRIAR | Nova edge function de geração |
+| `src/components/clients/ClientEditTabsSimplified.tsx` | MODIFICAR | Adicionar 5ª aba + remover contexto inline |
+| `src/components/clients/AIContextTab.tsx` | CRIAR | Componente da nova aba |
+| `supabase/functions/kai-content-agent/index.ts` | MODIFICAR | Priorizar identity_guide |
+| `src/hooks/useClientContext.ts` | CRIAR | Hook para gerenciar contexto |
 
-| Campo | Valor |
-|-------|-------|
-| Nome | GM Diário Gabriel |
-| Gatilho | Agenda: Diário às 7:00 |
-| Perfil | Gabriel Madureira |
-| Tipo de Conteúdo | Tweet |
-| **Gerar Texto** | ✅ Ativo |
-| Briefing Texto | `Crie um tweet de GM curto e autêntico. Tom Web3, building in public. Referência ao {{time_of_day}}.` |
-| **Gerar Imagem** | ✅ Ativo |
-| Briefing Imagem | `Imagem minimalista de café e teclado ao amanhecer. Cores quentes, luz suave. Sem texto.` |
-| Estilo | Fotográfico |
-| Sem texto na imagem | ✅ |
-| Auto-publish | ✅ (Twitter) |
+## Fluxo de Geração Detalhado
 
-**Resultado Esperado:**
 ```
-Tweet:
-"GM fam ☀️
-Café quente, tela acesa, código rodando.
-Mais um dia construindo em público. 
-Qual seu projeto hoje?"
-
-+ Imagem gerada automaticamente (café + teclado + luz dourada)
+USUÁRIO CLICA "REGENERAR CONTEXTO"
+          │
+          ▼
+┌─────────────────────────────────────────────────────────────┐
+│ 1. COLETA DE DADOS (Edge Function)                          │
+│                                                             │
+│    SELECT * FROM clients WHERE id = ?                       │
+│    SELECT scraped_markdown FROM client_websites             │
+│    SELECT extracted_content FROM client_documents           │
+│    SELECT content FROM client_content_library (favorites)   │
+│    SELECT content FROM client_reference_library             │
+│    SELECT caption FROM instagram_posts (top 5 by engagement)│
+│    SELECT transcript FROM youtube_videos (top 5 by views)   │
+└─────────────────────────────────────────────────────────────┘
+          │
+          ▼
+┌─────────────────────────────────────────────────────────────┐
+│ 2. ENRIQUECIMENTO (Opcional - se tiver links não scrapeados)│
+│                                                             │
+│    Para cada rede social com link mas sem conteúdo:         │
+│    → Chamar firecrawl-scrape                                │
+└─────────────────────────────────────────────────────────────┘
+          │
+          ▼
+┌─────────────────────────────────────────────────────────────┐
+│ 3. MONTAGEM DO MEGA-PROMPT                                  │
+│                                                             │
+│    "Analise TODO o material abaixo e gere um documento      │
+│     de contexto estruturado seguindo o template..."         │
+│                                                             │
+│    + descrição + tags + websites + docs + biblioteca + ...  │
+└─────────────────────────────────────────────────────────────┘
+          │
+          ▼
+┌─────────────────────────────────────────────────────────────┐
+│ 4. GERAÇÃO COM GEMINI 2.0 FLASH                             │
+│                                                             │
+│    Temperature: 0.3 (mais factual)                          │
+│    Max tokens: 8192                                         │
+└─────────────────────────────────────────────────────────────┘
+          │
+          ▼
+┌─────────────────────────────────────────────────────────────┐
+│ 5. SALVAR EM identity_guide                                 │
+│                                                             │
+│    UPDATE clients SET identity_guide = ?, updated_at = NOW()│
+└─────────────────────────────────────────────────────────────┘
+          │
+          ▼
+      EXIBIR NA UI
 ```
 
----
+## Como a IA Usa o Contexto
 
-## Arquivos a Modificar
+### Antes (fragmentado):
+```
+kai-content-agent busca:
+  ├── clients.identity_guide (pode estar vazio)
+  ├── clients.context_notes (duplicado)
+  ├── client_content_library (5 itens)
+  ├── client_reference_library (5 itens)
+  ├── instagram_posts (5 top)
+  └── youtube_videos (5 top)
+```
 
-| Arquivo | Mudança |
-|---------|---------|
-| `supabase/migrations/xxx_add_image_generation_to_automations.sql` | Adicionar colunas |
-| `src/hooks/usePlanningAutomations.ts` | Atualizar interface e types |
-| `src/components/planning/AutomationDialog.tsx` | Adicionar UI de briefing de imagem |
-| `supabase/functions/process-automations/index.ts` | Adicionar lógica de geração de imagem |
+### Depois (unificado):
+```
+kai-content-agent busca:
+  └── clients.identity_guide ← DOCUMENTO MESTRE
+      (já contém análise de TUDO, estruturado e pronto)
+      
+  + Opcionalmente: exemplos recentes para refresh
+```
 
----
+**Benefícios:**
+- Contexto mais consistente e completo
+- Menos queries no banco
+- IA tem visão holística do cliente
+- Usuário pode editar/refinar o documento
+- Histórico de quando foi gerado
 
-## Detalhes Técnicos
+## Seção Técnica
 
-### Interface Atualizada (TypeScript)
+### Estrutura da Edge Function `generate-client-context`
 
 ```typescript
-export interface PlanningAutomation {
-  // ... campos existentes
-  auto_generate_content: boolean;
-  prompt_template: string | null;
-  // NOVOS CAMPOS
-  auto_generate_image: boolean;
-  image_prompt_template: string | null;
-  image_style: 'photographic' | 'illustration' | 'minimalist' | 'vibrant' | null;
-  image_no_text: boolean;
+interface ContextSources {
+  profile: {
+    name: string;
+    description: string;
+    tags: Record<string, string>;
+    social_media: Record<string, string>;
+  };
+  websites: Array<{ url: string; content: string }>;
+  documents: Array<{ name: string; content: string }>;
+  contentLibrary: Array<{ title: string; content: string; type: string }>;
+  referenceLibrary: Array<{ title: string; content: string }>;
+  instagramPosts: Array<{ caption: string; engagement: number }>;
+  youtubeVideos: Array<{ title: string; transcript: string; views: number }>;
+}
+
+// Limite de caracteres por fonte para não estourar contexto
+const LIMITS = {
+  websites: 3000,      // por website
+  documents: 2000,     // por documento
+  content: 1500,       // por conteúdo
+  references: 1000,    // por referência
+  instagram: 500,      // por post
+  youtube: 2000,       // por vídeo (transcrição)
+  totalPrompt: 50000,  // total do prompt
+};
+```
+
+### Template do Prompt de Geração
+
+```typescript
+const systemPrompt = `Você é um especialista em estratégia de marca e marketing digital.
+
+Analise TODAS as informações fornecidas sobre o cliente e gere um documento de contexto COMPLETO e ESTRUTURADO em Markdown.
+
+Este documento será usado pela IA para criar todo o conteúdo do cliente, então seja:
+- ESPECÍFICO: Use exemplos reais do material fornecido
+- PRÁTICO: Foque em diretrizes acionáveis
+- FIEL: Preserve o tom de voz identificado nos materiais
+- COMPLETO: Cubra todas as seções do template
+
+TEMPLATE OBRIGATÓRIO:
+[... estrutura do documento ...]`;
+```
+
+### Atualização do kai-content-agent
+
+```typescript
+// Dar máxima prioridade ao identity_guide
+if (client?.identity_guide) {
+  contextPrompt = `## 🎯 CONTEXTO OPERACIONAL DO CLIENTE
+
+*DOCUMENTO MESTRE - Siga TODAS as diretrizes abaixo rigorosamente.*
+
+${client.identity_guide}
+
+---
+## MATERIAL ADICIONAL DE REFERÊNCIA
+`;
+} else {
+  // Fallback para geração dinâmica (cliente sem contexto gerado)
+  contextPrompt = `## Cliente: ${client?.name}\n...`;
 }
 ```
 
-### Variável Dinâmica `{{time_of_day}}`
-
-```typescript
-function getTimeOfDay(): string {
-  const hour = new Date().getHours();
-  if (hour >= 5 && hour < 12) return 'manhã';
-  if (hour >= 12 && hour < 18) return 'tarde';
-  return 'noite';
-}
-
-// No replaceTemplateVariables:
-variables['{{time_of_day}}'] = getTimeOfDay();
-```
-
-### Estilos de Imagem
-
-| Estilo | Descrição para Prompt |
-|--------|----------------------|
-| `photographic` | `Professional photography style, ultra realistic, natural lighting` |
-| `illustration` | `Digital illustration, artistic style, clean vector-like aesthetic` |
-| `minimalist` | `Minimalist design, clean composition, lots of white space, simple elements` |
-| `vibrant` | `Vibrant colors, high contrast, bold and energetic visual style` |
-
----
-
-## Benefícios
-
-| Antes | Depois |
-|-------|--------|
-| Automação gera apenas texto | Texto + Imagem com briefings independentes |
-| Precisa adicionar imagem manualmente | Imagem gerada automaticamente |
-| Prompt único para tudo | Briefings otimizados para cada tipo |
-| Sem contexto de horário | Variável `{{time_of_day}}` disponível |
-
----
-
-## Estimativa
+## Estimativa de Implementação
 
 | Tarefa | Tempo |
 |--------|-------|
-| Migração do banco | 5 min |
-| Atualizar hooks e types | 10 min |
-| UI do AutomationDialog | 25 min |
-| Lógica em process-automations | 20 min |
-| Testes e ajustes | 15 min |
-| **Total** | ~1h 15min |
+| Nova edge function `generate-client-context` | 45 min |
+| Componente `AIContextTab.tsx` | 30 min |
+| Modificar `ClientEditTabsSimplified.tsx` | 20 min |
+| Hook `useClientContext.ts` | 15 min |
+| Atualizar `kai-content-agent` | 15 min |
+| Testes e ajustes | 25 min |
+| **Total** | ~2h 30min |
