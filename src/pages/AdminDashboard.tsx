@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import FormatMetricsDashboard from "@/components/admin/FormatMetricsDashboard";
 import { 
   Building2, 
   Users, 
@@ -18,7 +20,8 @@ import {
   Shield,
   Calendar,
   CreditCard,
-  TrendingUp
+  TrendingUp,
+  BarChart3
 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -109,53 +112,66 @@ const AdminDashboard = () => {
       </div>
 
       <div className="max-w-7xl mx-auto p-6 space-y-6">
-        {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-4">
-                <div className="p-3 rounded-xl bg-primary/10">
-                  <Building2 className="h-6 w-6 text-primary" />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Workspaces</p>
-                  <p className="text-2xl font-bold">{workspaces.length}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+        <Tabs defaultValue="workspaces" className="space-y-6">
+          <TabsList>
+            <TabsTrigger value="workspaces" className="flex items-center gap-2">
+              <Building2 className="h-4 w-4" />
+              Workspaces
+            </TabsTrigger>
+            <TabsTrigger value="formats" className="flex items-center gap-2">
+              <BarChart3 className="h-4 w-4" />
+              Métricas de Formatos
+            </TabsTrigger>
+          </TabsList>
 
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-4">
-                <div className="p-3 rounded-xl bg-blue-500/10">
-                  <Users className="h-6 w-6 text-blue-500" />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Membros Total</p>
-                  <p className="text-2xl font-bold">{totalMembers}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <TabsContent value="workspaces" className="space-y-6">
+            {/* Summary Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="flex items-center gap-4">
+                    <div className="p-3 rounded-xl bg-primary/10">
+                      <Building2 className="h-6 w-6 text-primary" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Workspaces</p>
+                      <p className="text-2xl font-bold">{workspaces.length}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
 
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-4">
-                <div className="p-3 rounded-xl bg-green-500/10">
-                  <UserCircle className="h-6 w-6 text-green-500" />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Clientes Total</p>
-                  <p className="text-2xl font-bold">{totalClients}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="flex items-center gap-4">
+                    <div className="p-3 rounded-xl bg-blue-500/10">
+                      <Users className="h-6 w-6 text-blue-500" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Membros Total</p>
+                      <p className="text-2xl font-bold">{totalMembers}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
 
-        {/* Main Content */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="flex items-center gap-4">
+                    <div className="p-3 rounded-xl bg-green-500/10">
+                      <UserCircle className="h-6 w-6 text-green-500" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Clientes Total</p>
+                      <p className="text-2xl font-bold">{totalClients}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Main Content */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Workspaces List */}
           <Card className="lg:col-span-1">
             <CardHeader>
@@ -358,7 +374,13 @@ const AdminDashboard = () => {
               </div>
             )}
           </Card>
-        </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="formats">
+            <FormatMetricsDashboard />
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );
