@@ -190,7 +190,9 @@ export function PlanningItemDialog({
     // Use effectiveItem (fresh data if available) instead of stale item prop
     if (effectiveItem) {
       setTitle(effectiveItem.title);
-      setContent(effectiveItem.content || '');
+      // Use content, fallback to description if content is empty (for automation-generated items)
+      const itemContent = effectiveItem.content || (effectiveItem as any).description || '';
+      setContent(itemContent);
       setSelectedClientId(effectiveItem.client_id || '');
       setColumnId(effectiveItem.column_id || '');
       setPriority(effectiveItem.priority);
@@ -352,7 +354,21 @@ export function PlanningItemDialog({
   };
 
   const handlePublishNow = async () => {
-    if (!canPublishNow || !platform) return;
+    // Explicit validations with user feedback
+    if (!platform) {
+      toast.error('Selecione um tipo de conteúdo com plataforma');
+      return;
+    }
+    
+    if (!selectedClientId) {
+      toast.error('Selecione um cliente');
+      return;
+    }
+    
+    if (!canPublishNow) {
+      toast.error('Conta não conectada ou conteúdo vazio');
+      return;
+    }
     
     let finalContent = content;
     if (isTwitterThread) {
@@ -364,21 +380,66 @@ export function PlanningItemDialog({
       return;
     }
     
+    // If item is not saved yet, save it first
+    let itemId = effectiveItem?.id;
+    if (!itemId) {
+      toast.info('Salvando card antes de publicar...');
+      try {
+        const saveData: CreatePlanningItemInput = {
+          title: title.trim() || 'Conteúdo sem título',
+          content: finalContent.trim(),
+          client_id: selectedClientId,
+          column_id: columnId || columns[0]?.id,
+          platform: platform,
+          priority,
+          status: 'publishing',
+          media_urls: mediaItems.map(m => m.url),
+          metadata: {
+            content_type: contentType,
+            ...(isTwitterThread && { thread_tweets: threadTweets }),
+          },
+        };
+        
+        const result = await onSave(saveData);
+        itemId = result && 'id' in result ? result.id : undefined;
+        
+        if (!itemId) {
+          toast.error('Erro ao salvar card');
+          return;
+        }
+      } catch (saveError) {
+        console.error('Error saving before publish:', saveError);
+        toast.error('Erro ao salvar card antes de publicar');
+        return;
+      }
+    }
+    
     setIsPublishing(true);
     try {
+      console.log('[PlanningItemDialog] Publishing...', { 
+        platform, 
+        contentLength: finalContent.length, 
+        itemId,
+        hasMedia: mediaItems.length > 0,
+      });
+      
       await lateConnection.publishContent(
         platform as LatePlatform,
         finalContent,
         {
           mediaUrls: mediaItems.map(m => m.url),
-          planningItemId: item?.id,
+          planningItemId: itemId,
           threadItems: isTwitterThread ? threadTweets : undefined,
         }
       );
       toast.success(`Publicado em ${platform}!`);
       onOpenChange(false);
     } catch (error) {
-      // Error toast is handled by useLateConnection
+      console.error('[PlanningItemDialog] Publish error:', error);
+      // Error toast is handled by useLateConnection, but add explicit feedback for edge cases
+      if (error instanceof Error && !error.message) {
+        toast.error('Erro desconhecido ao publicar. Tente novamente.');
+      }
     } finally {
       setIsPublishing(false);
     }
