@@ -7,7 +7,6 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
-  LogOut,
   Building2,
   Plus,
   Moon,
@@ -15,16 +14,15 @@ import {
   Library,
   Settings,
   Zap,
+  Lock,
+  MessageSquare,
 } from "lucide-react";
 import { useDevAccess } from "@/hooks/useDevAccess";
 import { cn } from "@/lib/utils";
 import { useClients } from "@/hooks/useClients";
 import { useWorkspace } from "@/hooks/useWorkspace";
 import { useAuth } from "@/hooks/useAuth";
-import { usePlanFeatures } from "@/hooks/usePlanFeatures";
-import { useUpgradePrompt } from "@/hooks/useUpgradePrompt";
 import { WorkspaceSwitcher } from "./WorkspaceSwitcher";
-import { Lock, MessageSquare } from "lucide-react";
 
 import {
   DropdownMenu,
@@ -37,10 +35,10 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { supabase } from "@/integrations/supabase/client";
-import { usePlanLimits } from "@/hooks/usePlanLimits";
 import { ClientDialog } from "@/components/clients/ClientDialog";
 import { useQuery } from "@tanstack/react-query";
 import { useTheme } from "next-themes";
+import { toast } from "sonner";
 
 interface NavItemProps {
   icon: React.ReactNode;
@@ -116,23 +114,18 @@ export function KaiSidebar({
   const navigate = useNavigate();
   const { slug } = useParams<{ slug: string }>();
   const { clients } = useClients();
-  const { canAddClient } = usePlanLimits();
   const { 
     canViewPerformance, 
     canViewClients, 
     canViewSettings, 
-    canViewRepurpose,
     canViewPlanning,
+    canViewLibrary,
     isViewer,
+    canUseAssistant,
     workspace 
   } = useWorkspace();
-  const { hasPlanning, isPro, isCanvas, canAccessProfiles, canAccessPerformance, canAccessLibrary, canAccessKaiChat } = usePlanFeatures();
   
-  // Planning is visible if: plan has access (hasPlanning) AND user has role permission
-  // Viewers can see planning (read-only) if on Pro plan
-  const canSeePlanning = hasPlanning && canViewPlanning;
-  const { showUpgradePrompt } = useUpgradePrompt();
-  const { user, signOut } = useAuth();
+  const { user } = useAuth();
   const { theme, setTheme } = useTheme();
   const { hasDevAccess } = useDevAccess();
   const selectedClient = clients?.find(c => c.id === selectedClientId);
@@ -159,6 +152,11 @@ export function KaiSidebar({
   const userInitials = user?.email?.slice(0, 2).toUpperCase() || "U";
   const userName = userProfile?.full_name || user?.user_metadata?.full_name || user?.email?.split("@")[0] || "Usuário";
 
+  // Handler para mostrar mensagem de permissão
+  const showPermissionMessage = () => {
+    toast.info("Você não tem permissão para esta área.");
+  };
+
   return (
     <aside className={cn(
       "h-screen bg-sidebar flex flex-col transition-all duration-200",
@@ -175,12 +173,10 @@ export function KaiSidebar({
         {!hasClients ? (
           <button
             onClick={() => {
-              if (isCanvas) {
-                showUpgradePrompt("profiles_locked");
-              } else if (canAddClient) {
-                setShowClientDialog(true);
+              if (isViewer) {
+                showPermissionMessage();
               } else {
-                showUpgradePrompt("max_clients");
+                setShowClientDialog(true);
               }
             }}
             className={cn(
@@ -255,22 +251,18 @@ export function KaiSidebar({
                 </DropdownMenuItem>
               ))}
               
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={() => {
-                  if (isCanvas) {
-                    showUpgradePrompt("profiles_locked");
-                  } else if (canAddClient) {
-                    setShowClientDialog(true);
-                  } else {
-                    showUpgradePrompt("max_clients");
-                  }
-                }}
-                className="flex items-center gap-2 cursor-pointer"
-              >
-                <Plus className="h-4 w-4" />
-                <span className="text-sm">Adicionar perfil</span>
-              </DropdownMenuItem>
+              {!isViewer && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={() => setShowClientDialog(true)}
+                    className="flex items-center gap-2 cursor-pointer"
+                  >
+                    <Plus className="h-4 w-4" />
+                    <span className="text-sm">Adicionar perfil</span>
+                  </DropdownMenuItem>
+                </>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         )}
@@ -285,95 +277,49 @@ export function KaiSidebar({
           icon={<Palette className="h-4 w-4" strokeWidth={1.5} />}
           label="Canvas"
           active={activeTab === "canvas"}
-          onClick={() => isViewer ? undefined : onTabChange("canvas")}
+          onClick={() => isViewer ? showPermissionMessage() : onTabChange("canvas")}
           collapsed={collapsed}
           disabled={isViewer}
           showLock={isViewer}
         />
 
-        {/* kAI Chat - Pro only */}
-        {canAccessKaiChat ? (
-          <NavItem
-            icon={<MessageSquare className="h-4 w-4" strokeWidth={1.5} />}
-            label="kAI Chat"
-            active={activeTab === "assistant"}
-            onClick={() => onTabChange("assistant")}
-            collapsed={collapsed}
-          />
-        ) : (
-          <NavItem
-            icon={<MessageSquare className="h-4 w-4" strokeWidth={1.5} />}
-            label="kAI Chat"
-            active={false}
-            onClick={() => showUpgradePrompt("kai_chat_locked")}
-            collapsed={collapsed}
-            disabled={true}
-            showLock={true}
-          />
-        )}
+        {/* kAI Chat - Bloqueado para Viewers */}
+        <NavItem
+          icon={<MessageSquare className="h-4 w-4" strokeWidth={1.5} />}
+          label="kAI Chat"
+          active={activeTab === "assistant"}
+          onClick={() => canUseAssistant ? onTabChange("assistant") : showPermissionMessage()}
+          collapsed={collapsed}
+          disabled={!canUseAssistant}
+          showLock={!canUseAssistant}
+        />
 
-        {/* Planning - Viewers podem ver, Canvas plan vê bloqueado */}
-        {(hasPlanning || isViewer) ? (
-          <NavItem
-            icon={<CalendarDays className="h-4 w-4" strokeWidth={1.5} />}
-            label="Planejamento"
-            active={activeTab === "planning"}
-            onClick={() => onTabChange("planning")}
-            collapsed={collapsed}
-          />
-        ) : (
-          <NavItem
-            icon={<CalendarDays className="h-4 w-4" strokeWidth={1.5} />}
-            label="Planejamento"
-            active={false}
-            onClick={() => showUpgradePrompt("planning_locked")}
-            collapsed={collapsed}
-            disabled={true}
-            showLock={true}
-          />
-        )}
+        {/* Planning - Viewers podem ver (read-only) */}
+        <NavItem
+          icon={<CalendarDays className="h-4 w-4" strokeWidth={1.5} />}
+          label="Planejamento"
+          active={activeTab === "planning"}
+          onClick={() => onTabChange("planning")}
+          collapsed={collapsed}
+        />
 
-        {/* Performance - Viewers podem ver, Canvas plan vê bloqueado */}
-        {(canAccessPerformance || isViewer) ? (
-          <NavItem
-            icon={<BarChart3 className="h-4 w-4" strokeWidth={1.5} />}
-            label="Performance"
-            active={activeTab === "performance"}
-            onClick={() => onTabChange("performance")}
-            collapsed={collapsed}
-          />
-        ) : (
-          <NavItem
-            icon={<BarChart3 className="h-4 w-4" strokeWidth={1.5} />}
-            label="Performance"
-            active={false}
-            onClick={() => showUpgradePrompt("performance_locked")}
-            collapsed={collapsed}
-            disabled={true}
-            showLock={true}
-          />
-        )}
+        {/* Performance - Viewers podem ver */}
+        <NavItem
+          icon={<BarChart3 className="h-4 w-4" strokeWidth={1.5} />}
+          label="Performance"
+          active={activeTab === "performance"}
+          onClick={() => onTabChange("performance")}
+          collapsed={collapsed}
+        />
 
-        {/* Library - Viewers podem ver, Canvas plan vê bloqueado */}
-        {(canAccessLibrary || isViewer) ? (
-          <NavItem
-            icon={<Library className="h-4 w-4" strokeWidth={1.5} />}
-            label="Biblioteca"
-            active={activeTab === "library"}
-            onClick={() => onTabChange("library")}
-            collapsed={collapsed}
-          />
-        ) : (
-          <NavItem
-            icon={<Library className="h-4 w-4" strokeWidth={1.5} />}
-            label="Biblioteca"
-            active={false}
-            onClick={() => showUpgradePrompt("library_locked")}
-            collapsed={collapsed}
-            disabled={true}
-            showLock={true}
-          />
-        )}
+        {/* Library - Viewers podem ver */}
+        <NavItem
+          icon={<Library className="h-4 w-4" strokeWidth={1.5} />}
+          label="Biblioteca"
+          active={activeTab === "library"}
+          onClick={() => onTabChange("library")}
+          collapsed={collapsed}
+        />
 
         {/* Automações - Dev only por enquanto */}
         {hasDevAccess && (
@@ -386,27 +332,16 @@ export function KaiSidebar({
           />
         )}
 
-        {/* Profiles - requires Pro plan */}
-        {canViewClients && canAccessProfiles && (
+        {/* Profiles - Bloqueado para Viewers */}
+        {canViewClients && (
           <NavItem
             icon={<Building2 className="h-4 w-4" strokeWidth={1.5} />}
             label="Perfis"
             active={activeTab === "clients"}
-            onClick={() => onTabChange("clients")}
+            onClick={() => isViewer ? showPermissionMessage() : onTabChange("clients")}
             collapsed={collapsed}
-          />
-        )}
-        
-        {/* Profiles locked for Canvas */}
-        {canViewClients && !canAccessProfiles && (
-          <NavItem
-            icon={<Building2 className="h-4 w-4" strokeWidth={1.5} />}
-            label="Perfis"
-            active={false}
-            onClick={() => showUpgradePrompt("profiles_locked")}
-            collapsed={collapsed}
-            disabled={true}
-            showLock={true}
+            disabled={isViewer}
+            showLock={isViewer}
           />
         )}
       </nav>
@@ -494,13 +429,13 @@ export function KaiSidebar({
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-52">
-            <DropdownMenuItem onClick={() => onTabChange("settings")} className="cursor-pointer">
-              <Settings className="h-4 w-4 mr-2" strokeWidth={1.5} />
-              Configurações
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={signOut} className="cursor-pointer text-destructive focus:text-destructive">
-              <LogOut className="h-4 w-4 mr-2" strokeWidth={1.5} />
+            <DropdownMenuItem
+              onClick={async () => {
+                await supabase.auth.signOut();
+                navigate("/login");
+              }}
+              className="text-destructive focus:text-destructive"
+            >
               Sair
             </DropdownMenuItem>
           </DropdownMenuContent>

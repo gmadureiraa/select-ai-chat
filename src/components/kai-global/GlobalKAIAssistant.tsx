@@ -1,16 +1,20 @@
 import { useGlobalKAI } from "@/hooks/useGlobalKAI";
 import { useClients } from "@/hooks/useClients";
 import { useWorkspace } from "@/hooks/useWorkspace";
-import { usePlanFeatures } from "@/hooks/usePlanFeatures";
-import { useUpgradePrompt } from "@/hooks/useUpgradePrompt";
 import { FloatingKAIButton } from "./FloatingKAIButton";
 import { GlobalKAIPanel } from "./GlobalKAIPanel";
 import { GlobalKAIChat } from "./GlobalKAIChat";
 import { GlobalKAIInputMinimal } from "./GlobalKAIInputMinimal";
 import { ViewerBlockedPanel } from "./ViewerBlockedPanel";
 import { useMemo, useCallback } from "react";
+import { toast } from "sonner";
 import type { SimpleCitation } from "@/hooks/useKAISimpleChat";
 
+/**
+ * GlobalKAIAssistant - Sistema interno Kaleidos
+ * 
+ * Bloqueio baseado em role (viewer não pode usar) em vez de plano.
+ */
 export function GlobalKAIAssistant() {
   const {
     isOpen,
@@ -42,9 +46,7 @@ export function GlobalKAIAssistant() {
   } = useGlobalKAI();
 
   const { clients: clientsData } = useClients();
-  const { canUseAssistant } = useWorkspace();
-  const { canAccessKaiChat, isCanvas } = usePlanFeatures();
-  const { showUpgradePrompt } = useUpgradePrompt();
+  const { canUseAssistant, isViewer } = useWorkspace();
 
   // Get selected client name
   const selectedClientName = useMemo(() => {
@@ -89,14 +91,14 @@ export function GlobalKAIAssistant() {
     cancelRequest?.();
   }, [cancelRequest]);
 
-  // Handle button click - show upgrade prompt for Canvas users
+  // Handle button click - show permission message for viewers
   const handleButtonClick = useCallback(() => {
-    if (!canAccessKaiChat && isCanvas) {
-      showUpgradePrompt("kai_chat_locked");
+    if (!canUseAssistant) {
+      toast.info("Você não tem permissão para usar o assistente.");
       return;
     }
     togglePanel();
-  }, [canAccessKaiChat, isCanvas, showUpgradePrompt, togglePanel]);
+  }, [canUseAssistant, togglePanel]);
 
   // Handle client change
   const handleClientChange = useCallback((clientId: string) => {
@@ -113,14 +115,15 @@ export function GlobalKAIAssistant() {
     startNewConversation();
   }, [startNewConversation]);
 
-  // Don't render the floating button if user can't use assistant at all (viewer)
-  // But DO render it for Canvas users (locked state with upgrade prompt)
-  const shouldShowButton = canUseAssistant || isCanvas;
+  // Viewers não veem o botão flutuante
+  if (isViewer) {
+    return null;
+  }
 
   return (
     <>
-      {/* Floating button - show for Pro users and Canvas users (locked) */}
-      {shouldShowButton && (
+      {/* Floating button - apenas para quem pode usar */}
+      {canUseAssistant && (
         <FloatingKAIButton
           isOpen={isOpen}
           onClick={handleButtonClick}
@@ -129,8 +132,8 @@ export function GlobalKAIAssistant() {
         />
       )}
 
-      {/* Simplified slide-in panel - only for Pro users */}
-      {canAccessKaiChat && (
+      {/* Slide-in panel - apenas para quem pode usar */}
+      {canUseAssistant && (
         <GlobalKAIPanel 
           isOpen={isOpen} 
           onClose={closePanel}
@@ -140,47 +143,40 @@ export function GlobalKAIAssistant() {
           onClientChange={handleClientChange}
           onClearConversation={clearConversation}
           messages={messages}
-          // Conversation management props
           conversations={conversations}
           activeConversationId={activeConversationId}
           onSelectConversation={handleSelectConversation}
           onNewConversation={handleNewConversation}
           onDeleteConversation={deleteConversation}
         >
-          {canUseAssistant ? (
-            <>
-              {/* Chat messages */}
-              <GlobalKAIChat
-                messages={messages}
-                isProcessing={isProcessing}
-                selectedClientId={selectedClientId}
-                selectedClientName={selectedClientName}
-                actionStatus={actionStatus}
-                currentStep={currentStep}
-                multiAgentStep={multiAgentStep}
-                onSendMessage={handleSendFromChat}
-                onRetryMessage={handleRetryMessage}
-                chatMode={chatMode}
-                onSuggestionClick={handleSendFromChat}
-              />
+          {/* Chat messages */}
+          <GlobalKAIChat
+            messages={messages}
+            isProcessing={isProcessing}
+            selectedClientId={selectedClientId}
+            selectedClientName={selectedClientName}
+            actionStatus={actionStatus}
+            currentStep={currentStep}
+            multiAgentStep={multiAgentStep}
+            onSendMessage={handleSendFromChat}
+            onRetryMessage={handleRetryMessage}
+            chatMode={chatMode}
+            onSuggestionClick={handleSendFromChat}
+          />
 
-              {/* Input with @ mentions and stop button */}
-              <GlobalKAIInputMinimal
-                onSend={handleSend}
-                isProcessing={isProcessing}
-                attachedFiles={attachedFiles}
-                onAttachFiles={attachFiles}
-                onRemoveFile={removeFile}
-                onCancel={handleCancel}
-                placeholder="Pergunte qualquer coisa... Use @ para citar"
-                clientId={selectedClientId || undefined}
-                contentLibrary={contentLibrary}
-                referenceLibrary={referenceLibrary}
-              />
-            </>
-          ) : (
-            <ViewerBlockedPanel onClose={closePanel} />
-          )}
+          {/* Input with @ mentions and stop button */}
+          <GlobalKAIInputMinimal
+            onSend={handleSend}
+            isProcessing={isProcessing}
+            attachedFiles={attachedFiles}
+            onAttachFiles={attachFiles}
+            onRemoveFile={removeFile}
+            onCancel={handleCancel}
+            placeholder="Pergunte qualquer coisa... Use @ para citar"
+            clientId={selectedClientId || undefined}
+            contentLibrary={contentLibrary}
+            referenceLibrary={referenceLibrary}
+          />
         </GlobalKAIPanel>
       )}
     </>

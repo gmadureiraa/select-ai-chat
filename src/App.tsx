@@ -62,7 +62,8 @@ const App = () => (
                     />
                     
                     {/* Public landing page */}
-                    <Route path="/" element={<LandingPage />} />
+                    {/* Landing page desativada - redireciona para app */}
+                    <Route path="/" element={<Navigate to="/kaleidos" replace />} />
                     
                     {/* Super Admin route - uses AuthOnlyRoute instead of ProtectedRoute to skip workspace check */}
                     <Route
