@@ -17,6 +17,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { exportToMarkdown, exportToPDF, downloadFile } from "@/lib/exportConversation";
 import { supabase } from "@/integrations/supabase/client";
+import { PlanningItemDialog } from "@/components/planning/PlanningItemDialog";
+import { usePlanningItems } from "@/hooks/usePlanningItems";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -55,6 +57,14 @@ export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
   
   // Chat mode state - synchronized with the 4-mode system
   const [chatMode, setChatMode] = useState<ChatMode>("ideas");
+  
+  // Planning dialog state
+  const [planningDialogOpen, setPlanningDialogOpen] = useState(false);
+  const [contentForPlanning, setContentForPlanning] = useState("");
+  
+  // Planning access - enabled for all users with planning columns available
+  const { columns, createItem } = usePlanningItems();
+  const hasPlanningAccess = columns.length > 0;
 
   // Always use the single default conversation per client (no sidebar, no multiple conversations)
   const {
@@ -69,6 +79,15 @@ export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
     referenceLibrary,
     regenerateLastMessage,
   } = useClientChat(clientId, undefined, undefined);
+  
+  // Handle "Use" button click - opens planning dialog with pre-filled content
+  const handleUseContent = useCallback((content: string) => {
+    setContentForPlanning(content);
+    setPlanningDialogOpen(true);
+  }, []);
+  
+  // Get default column (idea or draft)
+  const defaultColumn = columns.find(c => c.column_type === "idea" || c.column_type === "draft");
 
   // Export handlers
   const handleExportMarkdown = async () => {
@@ -302,6 +321,8 @@ export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
                     isLastMessage={index === messages.length - 1}
                     onSendMessage={handleSend}
                     disableAutoPostDetection={true}
+                    onUseContent={handleUseContent}
+                    hasPlanningAccess={hasPlanningAccess}
                   />
                 ))}
 
@@ -342,6 +363,32 @@ export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
           </div>
         </div>
       </div>
+      
+      {/* Planning Dialog - Opens when user clicks "Use" */}
+      <PlanningItemDialog
+        open={planningDialogOpen}
+        onOpenChange={setPlanningDialogOpen}
+        columns={columns}
+        defaultColumnId={defaultColumn?.id}
+        defaultClientId={clientId}
+        onSave={async (data) => {
+          const result = await createItem.mutateAsync(data);
+          return { id: result.id };
+        }}
+        item={contentForPlanning ? {
+          id: "",
+          title: contentForPlanning.substring(0, 60) + (contentForPlanning.length > 60 ? "..." : ""),
+          content: contentForPlanning,
+          client_id: clientId,
+          column_id: defaultColumn?.id || "",
+          priority: "medium",
+          status: "idea",
+          created_by: "",
+          workspace_id: "",
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        } as any : null}
+      />
     </div>
   );
 };

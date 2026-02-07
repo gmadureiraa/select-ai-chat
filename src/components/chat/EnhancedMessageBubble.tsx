@@ -46,6 +46,10 @@ interface EnhancedMessageBubbleProps {
   messageId?: string;
   /** Callback for saving content to library */
   onSaveToLibrary?: (content: string) => void;
+  /** Callback when user clicks "Use" - opens planning dialog with content */
+  onUseContent?: (content: string) => void;
+  /** Whether the user has access to planning features */
+  hasPlanningAccess?: boolean;
 }
 
 // Helper to get citation icon
@@ -80,6 +84,8 @@ export const EnhancedMessageBubble = memo(function EnhancedMessageBubble({
   hideContentActions = false,
   messageId,
   onSaveToLibrary,
+  onUseContent,
+  hasPlanningAccess = false,
 }: EnhancedMessageBubbleProps) {
   const isUser = role === "user";
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
@@ -384,6 +390,8 @@ export const EnhancedMessageBubble = memo(function EnhancedMessageBubble({
               formatType={payload?.format_type}
               onRegenerate={onRegenerate}
               onSaveToLibrary={onSaveToLibrary}
+              onUseContent={onUseContent}
+              hasPlanningAccess={hasPlanningAccess}
             />
           )}
         </div>
