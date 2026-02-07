@@ -533,7 +533,7 @@ const sections: DocSection[] = [
         <div className="space-y-4">
           <h2 className="text-xl font-semibold">Equipe</h2>
           <p className="text-muted-foreground">
-            Convide membros para seu workspace e gerencie permissões:
+            Convide membros para a equipe e gerencie permissões:
           </p>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div className="p-3 rounded-lg bg-muted/30 border">
@@ -552,9 +552,9 @@ const sections: DocSection[] = [
         </div>
 
         <div className="space-y-4">
-          <h2 className="text-xl font-semibold">Plano e Tokens</h2>
+          <h2 className="text-xl font-semibold">Uso e Tokens</h2>
           <p className="text-muted-foreground">
-            Visualize seu plano atual, consumo de tokens e faça upgrade se necessário.
+            Visualize informações de uso e consumo de tokens.
           </p>
         </div>
       </div>
@@ -769,8 +769,7 @@ const sections: DocSection[] = [
                   { feature: "Editar Base de Conhecimento", owner: true, admin: true, member: false, viewer: false },
                   { feature: "Gerenciar Time", owner: true, admin: true, member: false, viewer: false },
                   { feature: "Configurações Avançadas", owner: true, admin: true, member: false, viewer: false },
-                  { feature: "Billing e Plano", owner: true, admin: false, member: false, viewer: false },
-                  { feature: "Excluir Workspace", owner: true, admin: false, member: false, viewer: false },
+                  { feature: "Gerenciar Dados", owner: true, admin: false, member: false, viewer: false },
                 ].map((row) => (
                   <tr key={row.feature} className="hover:bg-muted/30">
                     <td className="py-2 px-4">{row.feature}</td>
@@ -849,7 +848,7 @@ const sections: DocSection[] = [
             },
             {
               q: "Não consigo acessar uma ferramenta",
-              a: "Verifique sua role no workspace. Algumas ferramentas são restritas a Admins e Owners. Peça ao administrador para alterar sua permissão se necessário."
+              a: "Verifique sua role na equipe. Algumas ferramentas são restritas a Admins e Owners. Peça ao administrador para alterar sua permissão se necessário."
             },
             {
               q: "O carrossel do Instagram não importou todas as imagens",
@@ -857,7 +856,7 @@ const sections: DocSection[] = [
             },
             {
               q: "Tokens acabaram antes do fim do mês",
-              a: "Considere fazer upgrade do plano ou otimizar prompts. Gerar imagens consome mais tokens que texto. Verifique o uso detalhado em Configurações."
+              a: "Otimize prompts para usar menos tokens. Gerar imagens consome mais tokens que texto. Verifique o uso detalhado em Configurações."
             }
           ].map((item, i) => (
             <div key={i} className="p-4 rounded-lg border border-border/50">

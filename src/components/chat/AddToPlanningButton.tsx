@@ -102,7 +102,7 @@ export const AddToPlanningButton = ({
           </Button>
         </TooltipTrigger>
         <TooltipContent>
-          <p>Disponível no plano Pro</p>
+          <p>Você não tem permissão para esta ação</p>
         </TooltipContent>
       </Tooltip>
     );

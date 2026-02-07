@@ -531,7 +531,7 @@ function ContentOutputNodeComponent({
                       ? "Aprove o conteúdo antes de enviar"
                       : hasPlanning 
                         ? "Abre o editor para revisar antes de salvar" 
-                        : "Disponível no plano Pro"
+                        : "Você não tem permissão para esta ação"
                     }
                   </p>
                 </TooltipContent>

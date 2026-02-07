@@ -4,15 +4,13 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Building2, LogOut, Mail, Loader2, UserPlus, CreditCard, RefreshCw } from "lucide-react";
+import { LogOut, Mail, Loader2, UserPlus, RefreshCw, Clock } from "lucide-react";
 import kaleidosLogo from "@/assets/kaleidos-logo.svg";
-import { CreateWorkspaceDialog } from "@/components/workspace/CreateWorkspaceDialog";
 import { toast } from "sonner";
 
 const NoWorkspacePage = () => {
   const navigate = useNavigate();
   const { signOut, user } = useAuth();
-  const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [checkingInvites, setCheckingInvites] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -95,64 +93,55 @@ const NoWorkspacePage = () => {
                 Olá, {user?.email?.split('@')[0] || 'usuário'}! 👋
               </CardTitle>
               <CardDescription className="mt-2">
-                Você ainda não faz parte de nenhum workspace
+                Você ainda não tem acesso ao sistema
               </CardDescription>
             </div>
           </CardHeader>
         </Card>
 
-        {/* Option 1: Create Workspace */}
-        <Card className="border-primary/30 bg-gradient-to-br from-primary/5 to-transparent">
+        {/* Pending Access Info */}
+        <Card className="border-amber-500/30 bg-gradient-to-br from-amber-500/5 to-transparent">
           <CardHeader className="pb-3">
             <CardTitle className="text-lg flex items-center gap-2">
-              <div className="h-8 w-8 rounded-lg bg-primary/20 flex items-center justify-center">
-                <Building2 className="h-4 w-4 text-primary" />
+              <div className="h-8 w-8 rounded-lg bg-amber-500/20 flex items-center justify-center">
+                <Clock className="h-4 w-4 text-amber-500" />
               </div>
-              Criar seu próprio workspace
+              Acesso Pendente
             </CardTitle>
             <CardDescription>
-              Tenha acesso completo ao kAI com seu próprio ambiente
+              Seu acesso precisa ser autorizado por um administrador
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-3">
-            <Button
-              onClick={() => setShowCreateDialog(true)}
-              className="w-full"
-              size="lg"
-            >
-              <CreditCard className="mr-2 h-4 w-4" />
-              Criar Workspace
-            </Button>
-            <p className="text-xs text-muted-foreground text-center">
-              Requer assinatura de um plano
-            </p>
+          <CardContent className="space-y-4">
+            <div className="bg-muted/50 rounded-lg p-4 space-y-3">
+              <p className="text-sm text-muted-foreground">
+                Para ter acesso ao kAI, você precisa ser convidado por um administrador da equipe.
+              </p>
+              <div className="flex items-center gap-2 text-sm">
+                <Mail className="h-4 w-4 text-primary" />
+                <span className="font-medium">Seu email:</span>
+              </div>
+              <p className="text-sm font-mono bg-background rounded px-2 py-1 break-all">
+                {user?.email}
+              </p>
+            </div>
           </CardContent>
         </Card>
 
-        {/* Option 2: Wait for Invite */}
+        {/* Check Invites */}
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-lg flex items-center gap-2">
               <div className="h-8 w-8 rounded-lg bg-muted flex items-center justify-center">
                 <UserPlus className="h-4 w-4 text-muted-foreground" />
               </div>
-              Aguardando convite?
+              Recebeu um convite?
             </CardTitle>
             <CardDescription>
-              Peça para um colega te convidar para o workspace dele
+              Verifique se há convites pendentes para sua conta
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="bg-muted/50 rounded-lg p-4 space-y-2">
-              <div className="flex items-center gap-2 text-sm">
-                <Mail className="h-4 w-4 text-primary" />
-                <span className="font-medium">Seu email para convite:</span>
-              </div>
-              <p className="text-sm font-mono bg-background rounded px-2 py-1 break-all">
-                {user?.email}
-              </p>
-            </div>
-            
             <div className="flex flex-col gap-2">
               <Button
                 variant="outline"
@@ -165,7 +154,7 @@ const NoWorkspacePage = () => {
                 ) : (
                   <RefreshCw className="mr-2 h-4 w-4" />
                 )}
-                Verificar novos convites
+                Verificar convites pendentes
               </Button>
               <p className="text-xs text-muted-foreground text-center">
                 Convites são aceitos automaticamente quando detectados
@@ -186,11 +175,6 @@ const NoWorkspacePage = () => {
           </Button>
         </div>
       </div>
-      
-      <CreateWorkspaceDialog 
-        open={showCreateDialog} 
-        onOpenChange={setShowCreateDialog} 
-      />
     </div>
   );
 };
