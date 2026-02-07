@@ -38,6 +38,11 @@ interface ProcessingResult {
     twitter: number;
     linkedin: number;
   };
+  postsCreated: {
+    instagram: number;
+    twitter: number;
+    linkedin: number;
+  };
   metricsUpdated: number;
   errors: string[];
 }
@@ -137,6 +142,290 @@ async function fetchFollowerStats(
   return data.accounts || data.data || [];
 }
 
+// Sync Instagram posts with URL-based deduplication
+async function syncInstagramPosts(
+  supabase: any,
+  clientId: string,
+  posts: LateAnalyticsPost[]
+): Promise<{ updated: number; created: number; errors: string[] }> {
+  let updated = 0;
+  let created = 0;
+  const errors: string[] = [];
+
+  for (const post of posts) {
+    const permalink = post.platformPostUrl;
+    if (!permalink) continue;
+
+    try {
+      // Check if post exists by permalink
+      const { data: existing, error: fetchError } = await supabase
+        .from('instagram_posts')
+        .select('id, likes, impressions, reach, comments, shares, engagement_rate, metadata')
+        .eq('client_id', clientId)
+        .eq('permalink', permalink)
+        .maybeSingle();
+
+      if (fetchError) {
+        console.error(`[fetch-late-metrics] Error fetching Instagram post:`, fetchError);
+        errors.push(`Instagram fetch: ${fetchError.message}`);
+        continue;
+      }
+
+      if (existing) {
+        // Post exists - update metrics only if new values are greater
+        const updates: Record<string, any> = { 
+          updated_at: new Date().toISOString(),
+          metadata: {
+            ...(existing.metadata || {}),
+            late_post_id: post.id,
+            late_synced_at: new Date().toISOString()
+          }
+        };
+
+        // Only update if Late has better data
+        if (post.likes && post.likes > (existing.likes || 0)) updates.likes = post.likes;
+        if (post.impressions && post.impressions > (existing.impressions || 0)) updates.impressions = post.impressions;
+        if (post.reach && post.reach > (existing.reach || 0)) updates.reach = post.reach;
+        if (post.comments && post.comments > (existing.comments || 0)) updates.comments = post.comments;
+        if (post.shares && post.shares > (existing.shares || 0)) updates.shares = post.shares;
+        if (post.engagementRate && post.engagementRate > (existing.engagement_rate || 0)) {
+          updates.engagement_rate = post.engagementRate;
+        }
+
+        const { error: updateError } = await supabase
+          .from('instagram_posts')
+          .update(updates)
+          .eq('id', existing.id);
+
+        if (updateError) {
+          console.error(`[fetch-late-metrics] Error updating Instagram post:`, updateError);
+          errors.push(`Instagram update: ${updateError.message}`);
+        } else {
+          updated++;
+        }
+      } else {
+        // Post doesn't exist - insert new
+        const { error: insertError } = await supabase
+          .from('instagram_posts')
+          .insert({
+            client_id: clientId,
+            post_id: extractStablePostId('instagram', post),
+            permalink,
+            caption: post.content || null,
+            likes: post.likes || 0,
+            comments: post.comments || 0,
+            impressions: post.impressions || 0,
+            reach: post.reach || 0,
+            shares: post.shares || 0,
+            engagement_rate: post.engagementRate || 0,
+            posted_at: post.publishedAt || null,
+            metadata: { late_post_id: post.id, late_synced_at: new Date().toISOString() }
+          });
+
+        if (insertError) {
+          console.error(`[fetch-late-metrics] Error inserting Instagram post:`, insertError);
+          errors.push(`Instagram insert: ${insertError.message}`);
+        } else {
+          created++;
+        }
+      }
+    } catch (err: any) {
+      console.error(`[fetch-late-metrics] Exception syncing Instagram post:`, err);
+      errors.push(`Instagram exception: ${err.message}`);
+    }
+  }
+
+  return { updated, created, errors };
+}
+
+// Sync Twitter posts with URL-based deduplication
+async function syncTwitterPosts(
+  supabase: any,
+  clientId: string,
+  posts: LateAnalyticsPost[]
+): Promise<{ updated: number; created: number; errors: string[] }> {
+  let updated = 0;
+  let created = 0;
+  const errors: string[] = [];
+
+  for (const post of posts) {
+    const tweetUrl = post.platformPostUrl;
+    const tweetId = extractStablePostId('twitter', post);
+    if (!tweetId) continue;
+
+    try {
+      // Check if post exists by tweet_id (Twitter uses tweet_id as primary identifier)
+      // Also check by URL if available
+      let existing = null;
+      
+      if (tweetUrl) {
+        // Try to find by URL pattern in metadata or by tweet_id
+        const { data, error } = await supabase
+          .from('twitter_posts')
+          .select('id, tweet_id, likes, impressions, retweets, replies, engagement_rate, metadata')
+          .eq('client_id', clientId)
+          .eq('tweet_id', tweetId)
+          .maybeSingle();
+        
+        if (!error) existing = data;
+      }
+
+      if (existing) {
+        // Post exists - update metrics only if new values are greater
+        const updates: Record<string, any> = { 
+          updated_at: new Date().toISOString(),
+          metadata: {
+            ...(existing.metadata || {}),
+            late_post_id: post.id,
+            late_synced_at: new Date().toISOString(),
+            tweet_url: tweetUrl
+          }
+        };
+
+        if (post.likes && post.likes > (existing.likes || 0)) updates.likes = post.likes;
+        if (post.impressions && post.impressions > (existing.impressions || 0)) updates.impressions = post.impressions;
+        if (post.shares && post.shares > (existing.retweets || 0)) updates.retweets = post.shares;
+        if (post.comments && post.comments > (existing.replies || 0)) updates.replies = post.comments;
+        if (post.engagementRate && post.engagementRate > (existing.engagement_rate || 0)) {
+          updates.engagement_rate = post.engagementRate;
+        }
+
+        const { error: updateError } = await supabase
+          .from('twitter_posts')
+          .update(updates)
+          .eq('id', existing.id);
+
+        if (updateError) {
+          errors.push(`Twitter update: ${updateError.message}`);
+        } else {
+          updated++;
+        }
+      } else {
+        // Post doesn't exist - insert new
+        const { error: insertError } = await supabase
+          .from('twitter_posts')
+          .insert({
+            client_id: clientId,
+            tweet_id: tweetId,
+            content: post.content || null,
+            likes: post.likes || 0,
+            impressions: post.impressions || 0,
+            retweets: post.shares || 0,
+            replies: post.comments || 0,
+            engagement_rate: post.engagementRate || 0,
+            posted_at: post.publishedAt || null,
+            metadata: { 
+              late_post_id: post.id, 
+              late_synced_at: new Date().toISOString(),
+              tweet_url: tweetUrl
+            }
+          });
+
+        if (insertError) {
+          errors.push(`Twitter insert: ${insertError.message}`);
+        } else {
+          created++;
+        }
+      }
+    } catch (err: any) {
+      errors.push(`Twitter exception: ${err.message}`);
+    }
+  }
+
+  return { updated, created, errors };
+}
+
+// Sync LinkedIn posts with URL-based deduplication
+async function syncLinkedInPosts(
+  supabase: any,
+  clientId: string,
+  posts: LateAnalyticsPost[]
+): Promise<{ updated: number; created: number; errors: string[] }> {
+  let updated = 0;
+  let created = 0;
+  const errors: string[] = [];
+
+  for (const post of posts) {
+    const postUrl = post.platformPostUrl;
+    if (!postUrl) continue;
+
+    try {
+      // Check if post exists by post_url
+      const { data: existing, error: fetchError } = await supabase
+        .from('linkedin_posts')
+        .select('id, post_id, likes, impressions, comments, shares, clicks, engagement_rate, metadata')
+        .eq('client_id', clientId)
+        .eq('post_url', postUrl)
+        .maybeSingle();
+
+      if (fetchError) {
+        errors.push(`LinkedIn fetch: ${fetchError.message}`);
+        continue;
+      }
+
+      if (existing) {
+        // Post exists - update metrics only if new values are greater
+        const updates: Record<string, any> = { 
+          updated_at: new Date().toISOString(),
+          metadata: {
+            ...(existing.metadata || {}),
+            late_post_id: post.id,
+            late_synced_at: new Date().toISOString()
+          }
+        };
+
+        if (post.likes && post.likes > (existing.likes || 0)) updates.likes = post.likes;
+        if (post.impressions && post.impressions > (existing.impressions || 0)) updates.impressions = post.impressions;
+        if (post.comments && post.comments > (existing.comments || 0)) updates.comments = post.comments;
+        if (post.shares && post.shares > (existing.shares || 0)) updates.shares = post.shares;
+        if (post.clicks && post.clicks > (existing.clicks || 0)) updates.clicks = post.clicks;
+        if (post.engagementRate && post.engagementRate > (existing.engagement_rate || 0)) {
+          updates.engagement_rate = post.engagementRate;
+        }
+
+        const { error: updateError } = await supabase
+          .from('linkedin_posts')
+          .update(updates)
+          .eq('id', existing.id);
+
+        if (updateError) {
+          errors.push(`LinkedIn update: ${updateError.message}`);
+        } else {
+          updated++;
+        }
+      } else {
+        // Post doesn't exist - insert new
+        const { error: insertError } = await supabase
+          .from('linkedin_posts')
+          .insert({
+            client_id: clientId,
+            post_id: extractStablePostId('linkedin', post) || post.id,
+            post_url: postUrl,
+            content: post.content || null,
+            likes: post.likes || 0,
+            impressions: post.impressions || 0,
+            comments: post.comments || 0,
+            shares: post.shares || 0,
+            clicks: post.clicks || 0,
+            engagement_rate: post.engagementRate || 0,
+            posted_at: post.publishedAt || null,
+            metadata: { late_post_id: post.id, late_synced_at: new Date().toISOString() }
+          });
+
+        if (insertError) {
+          errors.push(`LinkedIn insert: ${insertError.message}`);
+        } else {
+          created++;
+        }
+      }
+    } catch (err: any) {
+      errors.push(`LinkedIn exception: ${err.message}`);
+    }
+  }
+
+  return { updated, created, errors };
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -222,6 +511,7 @@ Deno.serve(async (req) => {
         clientId,
         clientName: clientData.clientName,
         postsUpdated: { instagram: 0, twitter: 0, linkedin: 0 },
+        postsCreated: { instagram: 0, twitter: 0, linkedin: 0 },
         metricsUpdated: 0,
         errors: []
       };
@@ -266,7 +556,7 @@ Deno.serve(async (req) => {
             }
           }
           
-          // 2. Fetch and upsert post analytics
+          // 2. Fetch post analytics
           let page = 1;
           let hasMore = true;
           
@@ -283,112 +573,46 @@ Deno.serve(async (req) => {
             if (posts.length === 0) break;
             
             // Group posts by platform
-            const instagramPosts: any[] = [];
-            const twitterPosts: any[] = [];
-            const linkedinPosts: any[] = [];
+            const instagramPosts: LateAnalyticsPost[] = [];
+            const twitterPosts: LateAnalyticsPost[] = [];
+            const linkedinPosts: LateAnalyticsPost[] = [];
             
             for (const post of posts) {
               const platform = post.platform?.toLowerCase();
-              const stableId = extractStablePostId(platform, post);
-              
-              if (!stableId) continue;
-              
-              const baseData = {
-                client_id: clientId,
-                likes: post.likes || 0,
-                comments: post.comments || 0,
-                impressions: post.impressions || 0,
-                engagement_rate: post.engagementRate || 0,
-                posted_at: post.publishedAt || null,
-                updated_at: new Date().toISOString(),
-                metadata: { late_post_id: post.id, late_synced_at: new Date().toISOString() }
-              };
-              
               switch (platform) {
                 case 'instagram':
-                  instagramPosts.push({
-                    ...baseData,
-                    post_id: stableId,
-                    caption: post.content || null,
-                    reach: post.reach || 0,
-                    shares: post.shares || 0,
-                    permalink: post.platformPostUrl || null
-                  });
+                  instagramPosts.push(post);
                   break;
-                  
                 case 'twitter':
                 case 'x':
-                  twitterPosts.push({
-                    ...baseData,
-                    tweet_id: stableId,
-                    content: post.content || null,
-                    retweets: post.shares || 0,
-                    replies: post.comments || 0
-                  });
+                  twitterPosts.push(post);
                   break;
-                  
                 case 'linkedin':
-                  linkedinPosts.push({
-                    ...baseData,
-                    post_id: stableId,
-                    content: post.content || null,
-                    shares: post.shares || 0,
-                    clicks: post.clicks || 0,
-                    post_url: post.platformPostUrl || null
-                  });
+                  linkedinPosts.push(post);
                   break;
               }
             }
             
-            // Upsert Instagram posts
+            // Sync each platform with URL-based deduplication
             if (instagramPosts.length > 0) {
-              const { error } = await supabase
-                .from('instagram_posts')
-                .upsert(instagramPosts, { 
-                  onConflict: 'client_id,post_id',
-                  ignoreDuplicates: false 
-                });
-              
-              if (error) {
-                console.error('[fetch-late-metrics] Instagram upsert error:', error);
-                result.errors.push(`Instagram: ${error.message}`);
-              } else {
-                result.postsUpdated.instagram += instagramPosts.length;
-              }
+              const igResult = await syncInstagramPosts(supabase, clientId, instagramPosts);
+              result.postsUpdated.instagram += igResult.updated;
+              result.postsCreated.instagram += igResult.created;
+              result.errors.push(...igResult.errors);
             }
             
-            // Upsert Twitter posts
             if (twitterPosts.length > 0) {
-              const { error } = await supabase
-                .from('twitter_posts')
-                .upsert(twitterPosts, { 
-                  onConflict: 'client_id,tweet_id',
-                  ignoreDuplicates: false 
-                });
-              
-              if (error) {
-                console.error('[fetch-late-metrics] Twitter upsert error:', error);
-                result.errors.push(`Twitter: ${error.message}`);
-              } else {
-                result.postsUpdated.twitter += twitterPosts.length;
-              }
+              const twResult = await syncTwitterPosts(supabase, clientId, twitterPosts);
+              result.postsUpdated.twitter += twResult.updated;
+              result.postsCreated.twitter += twResult.created;
+              result.errors.push(...twResult.errors);
             }
             
-            // Upsert LinkedIn posts
             if (linkedinPosts.length > 0) {
-              const { error } = await supabase
-                .from('linkedin_posts')
-                .upsert(linkedinPosts, { 
-                  onConflict: 'client_id,post_id',
-                  ignoreDuplicates: false 
-                });
-              
-              if (error) {
-                console.error('[fetch-late-metrics] LinkedIn upsert error:', error);
-                result.errors.push(`LinkedIn: ${error.message}`);
-              } else {
-                result.postsUpdated.linkedin += linkedinPosts.length;
-              }
+              const liResult = await syncLinkedInPosts(supabase, clientId, linkedinPosts);
+              result.postsUpdated.linkedin += liResult.updated;
+              result.postsCreated.linkedin += liResult.created;
+              result.errors.push(...liResult.errors);
             }
             
             // Stop if no more pages
@@ -407,21 +631,24 @@ Deno.serve(async (req) => {
       }
       
       results.push(result);
-      console.log(`[fetch-late-metrics] Client ${clientData.clientName}: ${JSON.stringify(result.postsUpdated)}, metrics: ${result.metricsUpdated}`);
+      console.log(`[fetch-late-metrics] Client ${clientData.clientName}: updated=${JSON.stringify(result.postsUpdated)}, created=${JSON.stringify(result.postsCreated)}, metrics=${result.metricsUpdated}`);
     }
     
     const duration = Date.now() - startTime;
-    const totalPosts = results.reduce((sum, r) => 
+    const totalUpdated = results.reduce((sum, r) => 
       sum + r.postsUpdated.instagram + r.postsUpdated.twitter + r.postsUpdated.linkedin, 0);
+    const totalCreated = results.reduce((sum, r) => 
+      sum + r.postsCreated.instagram + r.postsCreated.twitter + r.postsCreated.linkedin, 0);
     const totalMetrics = results.reduce((sum, r) => sum + r.metricsUpdated, 0);
     const totalErrors = results.reduce((sum, r) => sum + r.errors.length, 0);
     
-    console.log(`[fetch-late-metrics] Completed in ${duration}ms. Posts: ${totalPosts}, Metrics: ${totalMetrics}, Errors: ${totalErrors}`);
+    console.log(`[fetch-late-metrics] Completed in ${duration}ms. Updated: ${totalUpdated}, Created: ${totalCreated}, Metrics: ${totalMetrics}, Errors: ${totalErrors}`);
     
     return new Response(JSON.stringify({
       success: true,
       clientsProcessed: results.length,
-      totalPostsUpdated: totalPosts,
+      totalPostsUpdated: totalUpdated,
+      totalPostsCreated: totalCreated,
       totalMetricsUpdated: totalMetrics,
       totalErrors,
       duration,
