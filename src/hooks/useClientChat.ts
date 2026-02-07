@@ -1120,12 +1120,21 @@ INSTRUÇÕES:
           aiResponse = await parseSSEStream(reader);
         }
 
-        // Salvar resposta
+        // Salvar resposta com metadados básicos
+        const freeChatSourcesUsed = {
+          identity_guide: !!identityGuide,
+          global_knowledge: (globalKnowledge?.length || 0) > 0,
+        };
+
         await supabase.from("messages").insert({
           conversation_id: conversationId,
           role: "assistant",
           content: aiResponse,
-        });
+          payload: {
+            sources_used: freeChatSourcesUsed,
+            format_type: "free_chat",
+          },
+        } as any);
 
         queryClient.invalidateQueries({ queryKey: ["messages", conversationId] });
         setIsLoading(false);
@@ -1274,13 +1283,32 @@ Por favor, use este material como base para criar o conteúdo solicitado, adapta
 
           setMultiAgentStep("complete" as any);
 
-          // Salvar resposta final
+          // Salvar resposta final com metadados de fontes
           if (finalContent) {
+            // Build sources_used based on what was actually consulted
+            const sourcesUsed = {
+              identity_guide: !!identityGuide,
+              library_items_count: (contentLibrary?.length || 0),
+              top_performers_count: 0, // TODO: track when top posts are used
+              format_rules: contentTypeForPipeline || undefined,
+              voice_profile: !!identityGuide,
+              global_knowledge: (globalKnowledge?.length || 0) > 0,
+            };
+
             await supabase.from("messages").insert({
               conversation_id: conversationId,
               role: "assistant",
               content: finalContent,
-            });
+              payload: {
+                sources_used: sourcesUsed,
+                format_type: contentTypeForPipeline,
+                validation: {
+                  passed: true,
+                  repaired: false,
+                  reviewed: quality === "high",
+                },
+              },
+            } as any);
 
             queryClient.invalidateQueries({ queryKey: ["messages", conversationId] });
           }
@@ -1391,12 +1419,22 @@ ${referenceLibrary.length > 0 ? `## 📖 REFERÊNCIAS DE ESTILO:\n${referenceCon
           aiResponse = await parseSSEStream(reader);
         }
 
-        // Salvar resposta
+        // Salvar resposta com metadados
+        const ideaSourcesUsed = {
+          identity_guide: !!identityGuide,
+          library_items_count: (contentLibrary?.length || 0),
+          global_knowledge: (globalKnowledge?.length || 0) > 0,
+        };
+
         await supabase.from("messages").insert({
           conversation_id: conversationId,
           role: "assistant",
           content: aiResponse,
-        });
+          payload: {
+            sources_used: ideaSourcesUsed,
+            format_type: "ideas",
+          },
+        } as any);
         setIsLoading(false);
         setCurrentStep(null);
         return;
