@@ -291,7 +291,26 @@ export function KaiSidebar({
           showLock={isViewer}
         />
 
-        {/* kAI Chat removed from sidebar - now accessed via floating button */}
+        {/* kAI Chat - Pro only */}
+        {canAccessKaiChat ? (
+          <NavItem
+            icon={<MessageSquare className="h-4 w-4" strokeWidth={1.5} />}
+            label="kAI Chat"
+            active={activeTab === "assistant"}
+            onClick={() => onTabChange("assistant")}
+            collapsed={collapsed}
+          />
+        ) : (
+          <NavItem
+            icon={<MessageSquare className="h-4 w-4" strokeWidth={1.5} />}
+            label="kAI Chat"
+            active={false}
+            onClick={() => showUpgradePrompt("kai_chat_locked")}
+            collapsed={collapsed}
+            disabled={true}
+            showLock={true}
+          />
+        )}
 
         {/* Planning - Viewers podem ver, Canvas plan vê bloqueado */}
         {(hasPlanning || isViewer) ? (
