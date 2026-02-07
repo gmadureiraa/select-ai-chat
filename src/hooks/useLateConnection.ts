@@ -207,8 +207,31 @@ export function useLateConnection({ clientId }: UseLateConnectionProps) {
       publishNow?: boolean;
     }
   ) => {
+    // Timeout to prevent infinite loading (30 seconds)
+    let didTimeout = false;
+    const timeoutId = setTimeout(() => {
+      didTimeout = true;
+      console.error('[late-post] Request timeout after 30s');
+      setIsLoading(false);
+      toast({
+        title: "Tempo esgotado",
+        description: "A publicação demorou muito. Verifique sua conexão e tente novamente.",
+        variant: "destructive",
+      });
+    }, 30000);
+
     try {
       setIsLoading(true);
+      
+      console.log('[late-post] Starting publish...', { 
+        clientId, 
+        platform, 
+        hasContent: !!content,
+        contentLength: content?.length,
+        hasMedia: !!options?.mediaUrls?.length,
+        planningItemId: options?.planningItemId,
+        isScheduling: !!options?.scheduledFor && options?.publishNow === false,
+      });
 
       const isScheduling = !!options?.scheduledFor && options?.publishNow === false;
 
@@ -225,9 +248,20 @@ export function useLateConnection({ clientId }: UseLateConnectionProps) {
         }
       });
 
+      clearTimeout(timeoutId);
+      
+      // If timeout already triggered, abort
+      if (didTimeout) {
+        console.warn('[late-post] Response received after timeout, ignoring');
+        return;
+      }
+
       if (error) {
+        console.error('[late-post] Error:', error);
         throw new Error(error.message);
       }
+
+      console.log('[late-post] Success:', data);
 
       const displayName = platformNames[platform] || platform;
       
@@ -252,7 +286,13 @@ export function useLateConnection({ clientId }: UseLateConnectionProps) {
       return data;
 
     } catch (error) {
+      clearTimeout(timeoutId);
+      
+      // If timeout already triggered, don't show duplicate error
+      if (didTimeout) return;
+      
       const displayName = platformNames[platform] || platform;
+      console.error('[late-post] Caught error:', error);
       
       toast({
         title: "Falha na publicação",
@@ -261,7 +301,10 @@ export function useLateConnection({ clientId }: UseLateConnectionProps) {
       });
       throw error;
     } finally {
-      setIsLoading(false);
+      clearTimeout(timeoutId);
+      if (!didTimeout) {
+        setIsLoading(false);
+      }
     }
   }, [clientId, toast, platformNames, queryClient]);
 
