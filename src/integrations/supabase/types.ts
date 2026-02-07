@@ -586,6 +586,7 @@ export type Database = {
           tags: Json | null
           updated_at: string | null
           user_id: string
+          voice_profile: Json | null
           workspace_id: string
         }
         Insert: {
@@ -604,6 +605,7 @@ export type Database = {
           tags?: Json | null
           updated_at?: string | null
           user_id?: string
+          voice_profile?: Json | null
           workspace_id: string
         }
         Update: {
@@ -622,6 +624,7 @@ export type Database = {
           tags?: Json | null
           updated_at?: string | null
           user_id?: string
+          voice_profile?: Json | null
           workspace_id?: string
         }
         Relationships: [
@@ -1356,6 +1359,7 @@ export type Database = {
           doc_type: string
           id: string
           metadata: Json | null
+          output_schema: Json | null
           summary: string | null
           title: string
           updated_at: string | null
@@ -1369,6 +1373,7 @@ export type Database = {
           doc_type: string
           id?: string
           metadata?: Json | null
+          output_schema?: Json | null
           summary?: string | null
           title: string
           updated_at?: string | null
@@ -1382,6 +1387,7 @@ export type Database = {
           doc_type?: string
           id?: string
           metadata?: Json | null
+          output_schema?: Json | null
           summary?: string | null
           title?: string
           updated_at?: string | null
