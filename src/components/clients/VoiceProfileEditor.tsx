@@ -4,14 +4,24 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, X, Check, Loader2, Volume2 } from "lucide-react";
+import { Plus, X, Check, Loader2, Volume2, Sparkles, Wand2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface VoiceProfile {
   tone: string;
   use: string[];
   avoid: string[];
+}
+
+interface VoiceProfileSuggestion {
+  tone: string;
+  use_patterns: string[];
+  avoid_patterns: string[];
+  detected_expressions: Array<{ expression: string; frequency: number }>;
+  style_characteristics: string[];
+  analysis_summary: string;
 }
 
 interface VoiceProfileEditorProps {
@@ -40,6 +50,9 @@ const SUGGESTED_AVOID = [
   "espero que goste",
   "fique à vontade",
   "não hesite em",
+  "você sabia que",
+  "descubra como",
+  "aprenda a",
 ];
 
 export function VoiceProfileEditor({ 
@@ -51,7 +64,9 @@ export function VoiceProfileEditor({
   const [newUseItem, setNewUseItem] = useState("");
   const [newAvoidItem, setNewAvoidItem] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
+  const [suggestion, setSuggestion] = useState<VoiceProfileSuggestion | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -141,18 +156,177 @@ export function VoiceProfileEditor({
   // Check which suggested phrases are not yet added
   const suggestionsNotAdded = SUGGESTED_AVOID.filter(p => !profile.avoid.includes(p));
 
+  // Generate voice profile automatically using AI
+  const handleAutoGenerate = async () => {
+    setIsGenerating(true);
+    setSuggestion(null);
+    
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-voice-profile", {
+        body: { client_id: clientId },
+      });
+
+      if (error) throw error;
+
+      if (data?.suggestion) {
+        setSuggestion(data.suggestion);
+        toast({
+          title: "Análise concluída!",
+          description: `${data.samples_analyzed} conteúdos analisados.`,
+        });
+      } else if (data?.error) {
+        toast({
+          title: "Não foi possível analisar",
+          description: data.details || data.error,
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Error generating voice profile:", error);
+      toast({
+        title: "Erro ao gerar",
+        description: "Não foi possível analisar o conteúdo automaticamente.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  // Apply suggestion to profile
+  const applySuggestion = () => {
+    if (!suggestion) return;
+
+    setProfile(prev => ({
+      tone: suggestion.tone || prev.tone,
+      use: [...new Set([...prev.use, ...suggestion.use_patterns.slice(0, 10)])],
+      avoid: [...new Set([...prev.avoid, ...suggestion.avoid_patterns.slice(0, 10)])],
+    }));
+    setHasChanges(true);
+    setSuggestion(null);
+    toast({
+      title: "Sugestões aplicadas!",
+      description: "Revise e ajuste conforme necessário.",
+    });
+  };
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base flex items-center gap-2">
-          <Volume2 className="h-4 w-4 text-primary" />
-          Perfil de Voz
-        </CardTitle>
-        <CardDescription>
-          Configure o tom de voz e expressões específicas que a IA deve usar ou evitar
-        </CardDescription>
+        <div className="flex items-start justify-between">
+          <div>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Volume2 className="h-4 w-4 text-primary" />
+              Perfil de Voz
+            </CardTitle>
+            <CardDescription>
+              Configure o tom de voz e expressões específicas que a IA deve usar ou evitar
+            </CardDescription>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleAutoGenerate}
+            disabled={isGenerating}
+            className="gap-2 shrink-0"
+          >
+            {isGenerating ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Analisando...
+              </>
+            ) : (
+              <>
+                <Wand2 className="h-4 w-4" />
+                Gerar automaticamente
+              </>
+            )}
+          </Button>
+        </div>
       </CardHeader>
       <CardContent className="space-y-6">
+        {/* AI Suggestion Panel */}
+        <AnimatePresence>
+          {suggestion && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="p-4 rounded-lg bg-primary/5 border border-primary/20 space-y-4"
+            >
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-primary" />
+                  <span className="font-medium text-sm">Sugestões da IA</span>
+                </div>
+                <Button size="sm" onClick={applySuggestion} className="gap-1.5">
+                  <Check className="h-3.5 w-3.5" />
+                  Aplicar sugestões
+                </Button>
+              </div>
+              
+              <div className="text-sm text-muted-foreground">
+                {suggestion.analysis_summary}
+              </div>
+
+              <div className="grid gap-3 text-sm">
+                <div>
+                  <span className="font-medium">Tom sugerido:</span>
+                  <span className="ml-2 text-primary">{suggestion.tone}</span>
+                </div>
+                
+                {suggestion.use_patterns.length > 0 && (
+                  <div>
+                    <span className="font-medium text-emerald-600">Use:</span>
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {suggestion.use_patterns.slice(0, 6).map((p, i) => (
+                        <Badge key={i} variant="secondary" className="text-xs bg-emerald-500/10 text-emerald-700">
+                          {p}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {suggestion.avoid_patterns.length > 0 && (
+                  <div>
+                    <span className="font-medium text-rose-600">Evite:</span>
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {suggestion.avoid_patterns.slice(0, 6).map((p, i) => (
+                        <Badge key={i} variant="secondary" className="text-xs bg-rose-500/10 text-rose-700">
+                          {p}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {suggestion.detected_expressions.length > 0 && (
+                  <div>
+                    <span className="font-medium">Expressões detectadas:</span>
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {suggestion.detected_expressions.slice(0, 5).map((expr, i) => (
+                        <Badge key={i} variant="outline" className="text-xs">
+                          "{expr.expression}" ({expr.frequency}%)
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSuggestion(null)}
+                className="text-xs text-muted-foreground"
+              >
+                Descartar sugestões
+              </Button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* Tone */}
         <div className="space-y-2">
           <label className="text-sm font-medium">Tom de Voz</label>

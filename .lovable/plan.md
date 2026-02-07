@@ -1,6 +1,17 @@
 
 # Plano: Evolução do kAI - Interface e Qualidade de Respostas
 
+## ✅ STATUS: IMPLEMENTADO (2025-02-07)
+
+### Implementações Concluídas:
+- **Analytics DB**: Colunas format_type, validation_passed, was_repaired em ai_usage_logs + tabela content_feedback
+- **UI Components**: MessageFeedback.tsx, SourcesBadge.tsx, PipelineProgress.tsx
+- **Quality Rules**: Lista expandida de ~60 para ~150 frases proibidas
+- **Voice Profile Auto-Generate**: Edge function + UI com botão "Gerar automaticamente"
+- **Unified API**: Retorna sources_used e loga métricas de formato
+
+---
+
 ## Resumo Executivo
 
 Com a arquitetura "Conteúdo Impecável" implementada (Writer → Validator → Repair → Reviewer), este plano foca em **evoluir a experiência do usuário** e **refinar a qualidade das respostas** através de melhorias incrementais de alto impacto.

@@ -203,3 +203,6 @@ verify_jwt = true
 
 [functions.unified-content-api]
 verify_jwt = true
+
+[functions.generate-voice-profile]
+verify_jwt = true
