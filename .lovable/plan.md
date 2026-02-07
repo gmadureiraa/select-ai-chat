@@ -1,101 +1,189 @@
 
-# Plano: Correção de Conteúdo do kAI Chat - Respeitar Instruções do Usuário
 
-## Diagnóstico dos Problemas
+# Plano: Corrigir Loading Infinito ao Publicar/Agendar do Planejamento
 
-### 1. A IA não obedeceu "sem imagens"
-**Causa raiz:** O sistema não tem mecanismo para extrair e preservar instruções específicas do usuário (como "não use imagens", "apenas URL", "sem emojis") e passá-las para o pipeline de geração de conteúdo.
+## Diagnóstico
 
-O fluxo atual simplesmente detecta se é uma "content creation request" e envia para a IA, mas as instruções específicas do usuário se perdem no meio do contexto volumoso.
+### O que investigamos
 
-### 2. Emoji de lâmpada (💡) apareceu no tweet
-**Causa raiz identificada:**
-- O `kai_documentation` para `tweet` diz "Máx 1-2 emojis" (permitindo emojis)
-- O `format-rules.ts` para tweet diz "Mais de 2 emojis por tweet" como proibição (não zero)
-- A documentação em `docs/formatos/TWEET.md` diz "Opcional, mas pode ajudar" e "Máximo 1-2 emojis"
-- O Defiverso **não tem `identity_guide`** configurado (retornou `null`), então não há regras específicas do cliente para emojis
+1. **Edge Function `late-post`** - Testada e funcionando perfeitamente. Ao chamar diretamente, publica com sucesso e retorna resposta em ~2 segundos.
 
-**Inconsistência:** As regras permitem emojis nos tweets, mas as regras gerais de qualidade dizem "Emojis APENAS no CTA final quando apropriado" e "NUNCA no corpo principal do conteúdo".
+2. **Credenciais do Defiverso** - Válidas. Twitter conectado via Late API com `late_account_id: 69874ac6c2419ab74f6a030d`.
 
-### 3. O cliente Defiverso não está usando o formato de qualidade correto
-**Causa raiz:** O Defiverso não tem `identity_guide` configurado no banco de dados. Isso significa que a IA não tem diretrizes específicas de tom de voz e estilo para esse cliente.
+3. **Item de Planejamento** - O item `600e160c-fce2-4fed-aa93-d812fc362120` foi publicado com sucesso (pela minha chamada de teste) e agora está com status `published`.
+
+4. **Logs de Rede** - Não há chamada à `late-post` nos logs do frontend, apenas `late-verify-accounts` e `process-automations`.
+
+### Causa Raiz Provável
+
+O problema de "loading infinito" provavelmente ocorre porque:
+
+1. **Requisição não está sendo disparada** - O botão dispara `setIsPublishing(true)` mas a chamada `lateConnection.publishContent()` falha silenciosamente antes de chegar ao servidor.
+
+2. **Possíveis causas:**
+   - O `item?.id` pode ser `undefined` se o card ainda não foi salvo
+   - O `content` pode estar vazio (a validação existe mas pode haver edge case)
+   - O `selectedClientId` pode estar incorreto
+   - Erro de rede não tratado adequadamente
 
 ---
 
-## Solução Proposta
+## Problemas Identificados
 
-### Parte 1: Extrair e Preservar Instruções Específicas do Usuário
+### 1. Publicar card não salvo
+Se o usuário clica "Publicar Agora" em um card novo (não salvo), o `item?.id` é `undefined` e a publicação ocorre sem `planningItemId`, o que pode causar comportamento inesperado.
 
-Modificar o `kai-simple-chat` para detectar e passar instruções do usuário como meta-dados que sobrescrevem comportamentos padrão.
+### 2. Falta de feedback durante erros
+O bloco `catch` no `handlePublishNow` está vazio (apenas comenta "Error toast is handled by useLateConnection"), mas se o erro ocorrer antes da chamada de função (validação, estado), não há feedback.
 
-**Instruções a detectar:**
-- `sem imagem` / `sem imagens` / `sem mídia` / `apenas texto` → `skipImages: true`
-- `só a URL` / `apenas a URL` / `apenas link` → `useOnlyUrl: true`
-- `sem emoji` / `zero emoji` → `noEmojis: true`
-- `com capa` / `usar capa` → `useCoverImage: true`
+### 3. Possível problema com conteúdo vazio
+Ao abrir o dialog, o `content` é carregado do `effectiveItem`. Se o item veio de automação e o conteúdo está no campo `description` em vez de `content`, pode haver descompasso.
 
-**Arquivo:** `supabase/functions/kai-simple-chat/index.ts`
+---
+
+## Correções Propostas
+
+### Parte 1: Melhorar `handlePublishNow`
 
 ```typescript
-// Nova função de detecção de instruções
-function detectUserInstructions(message: string): UserInstructions {
-  const lowerMessage = message.toLowerCase();
+const handlePublishNow = async () => {
+  // Validações mais explícitas
+  if (!platform) {
+    toast.error('Selecione um tipo de conteúdo com plataforma');
+    return;
+  }
   
-  return {
-    skipImages: /sem\s*(imagens?|m[ií]dia)|apenas\s*texto|s[oó]\s*texto/i.test(lowerMessage),
-    useOnlyUrl: /s[oó]\s*(a\s*)?url|apenas\s*(a\s*)?(url|link)/i.test(lowerMessage),
-    noEmojis: /sem\s*emoji|zero\s*emoji|n[aã]o\s*use\s*emoji/i.test(lowerMessage),
-    useCoverImage: /(usar?|com|inclua?)\s*capa|apenas\s*(a\s*)?capa/i.test(lowerMessage),
-  };
-}
+  if (!selectedClientId) {
+    toast.error('Selecione um cliente');
+    return;
+  }
+  
+  if (!canPublishNow) {
+    toast.error('Conta não conectada ou inválida');
+    return;
+  }
+  
+  let finalContent = content;
+  if (isTwitterThread) {
+    finalContent = threadTweets.map(t => t.text).join('\n\n');
+  }
+  
+  if (!finalContent.trim()) {
+    toast.error('Adicione conteúdo para publicar');
+    return;
+  }
+  
+  // Se o item ainda não foi salvo, salvar primeiro
+  let itemId = item?.id;
+  if (!itemId) {
+    toast.info('Salvando card antes de publicar...');
+    try {
+      // Salvar via handleSubmit logic ou direta
+      const result = await onSave({
+        title: title || 'Conteúdo sem título',
+        content: finalContent,
+        client_id: selectedClientId,
+        column_id: columnId,
+        platform,
+        content_type: contentType,
+        status: 'publishing',
+        media_urls: mediaItems.map(m => m.url),
+      });
+      itemId = result?.id;
+    } catch (saveError) {
+      toast.error('Erro ao salvar card antes de publicar');
+      return;
+    }
+  }
+  
+  setIsPublishing(true);
+  try {
+    await lateConnection.publishContent(
+      platform as LatePlatform,
+      finalContent,
+      {
+        mediaUrls: mediaItems.map(m => m.url),
+        planningItemId: itemId,
+        threadItems: isTwitterThread ? threadTweets : undefined,
+      }
+    );
+    toast.success(`Publicado em ${platform}!`);
+    onOpenChange(false);
+  } catch (error) {
+    console.error('Publish error:', error);
+    // Feedback mais explícito
+    toast.error(error instanceof Error ? error.message : 'Erro ao publicar');
+  } finally {
+    setIsPublishing(false);
+  }
+};
 ```
 
-Essas instruções serão adicionadas ao system prompt com prioridade máxima:
+### Parte 2: Melhorar feedback no `useLateConnection`
+
+Adicionar logs de debug e timeout para evitar loading infinito:
 
 ```typescript
-// Inserir no system prompt ANTES das outras instruções
-if (userInstructions.skipImages) {
-  systemPrompt += `\n⛔ INSTRUÇÃO DO USUÁRIO (PRIORIDADE MÁXIMA): NÃO inclua nem sugira imagens. Gere APENAS texto.\n`;
-}
-if (userInstructions.noEmojis) {
-  systemPrompt += `\n⛔ INSTRUÇÃO DO USUÁRIO (PRIORIDADE MÁXIMA): ZERO emojis no conteúdo. Nem mesmo no CTA.\n`;
-}
+const publishContent = useCallback(async (...) => {
+  const timeoutId = setTimeout(() => {
+    console.error('[late-post] Request timeout after 30s');
+    setIsLoading(false);
+    toast({
+      title: "Tempo esgotado",
+      description: "A publicação demorou muito. Verifique sua conexão.",
+      variant: "destructive",
+    });
+  }, 30000);
+  
+  try {
+    setIsLoading(true);
+    console.log('[late-post] Starting publish...', { clientId, platform, hasContent: !!content });
+    
+    const { data, error } = await supabase.functions.invoke('late-post', { ... });
+    
+    clearTimeout(timeoutId);
+    
+    if (error) {
+      console.error('[late-post] Error:', error);
+      throw new Error(error.message);
+    }
+    
+    console.log('[late-post] Success:', data);
+    // ...
+  } catch (error) {
+    clearTimeout(timeoutId);
+    // ...
+  } finally {
+    clearTimeout(timeoutId);
+    setIsLoading(false);
+  }
+}, [...]);
 ```
 
-### Parte 2: Tornar as Regras de Emoji Mais Rigorosas
+### Parte 3: Garantir que conteúdo de automação seja carregado
 
-Atualizar as regras de formato para serem consistentes e mais restritivas sobre emojis.
+No useEffect que carrega o item, garantir que `content` seja preenchido corretamente:
 
-**Arquivos a modificar:**
-- `supabase/functions/_shared/format-rules.ts`
-- Tabela `kai_documentation` (registro `tweet`)
-
-**Mudanças:**
-```
-ANTES: "Máx 1-2 emojis"
-DEPOIS: "Emojis: OPCIONAL e APENAS no CTA final. ZERO emojis no corpo do texto. Em caso de dúvida, NÃO use."
+```typescript
+// Se content está vazio mas description tem texto, usar description
+const itemContent = effectiveItem.content || effectiveItem.description || '';
+setContent(itemContent);
 ```
 
-### Parte 3: Atualizar Documentação de Tweet
+---
 
-Sincronizar `docs/formatos/TWEET.md` e `kai_documentation` para terem regras consistentes:
+## Verificação de Agendamento
 
-```markdown
-### Uso de Emojis
-- **Padrão**: ZERO emojis no corpo do tweet
-- **Exceção**: máximo 1 emoji no CTA final SE for relevante
-- **Regra de ouro**: em caso de dúvida, NÃO use emoji
-- **Nunca**: emojis decorativos no meio do texto (💡, 🔥, etc.)
-```
+O agendamento já está implementado corretamente no `handleSubmit`:
 
-### Parte 4: Criar Identity Guide para Defiverso (Recomendado)
+1. Usuário define data/hora em "Mais opções" → Agendamento
+2. Ao salvar, se `scheduledAt` está definido e `canPublishNow`:
+   - O sistema salva o card primeiro
+   - Depois chama `lateConnection.publishContent()` com `scheduledFor` e `publishNow: false`
+   - O Late API agenda a publicação
+3. Se o Late falhar, o card fica com `scheduled_at` no banco e o cron job (`process-scheduled-posts`) publica no horário
 
-O Defiverso não tem `identity_guide`. Isso precisa ser corrigido pelo usuário ou automaticamente.
-
-**Opção A (via UI):** Gerar um guia de identidade acessando:
-- Configurações do cliente → Gerar Guia de Identidade
-
-**Opção B (via banco):** Criar um guia básico baseado nas newsletters existentes em `public/clients/defiverso/`
+**Problema potencial:** A UI não mostra claramente se o conteúdo foi agendado no Late ou apenas salvo localmente.
 
 ---
 
@@ -103,70 +191,22 @@ O Defiverso não tem `identity_guide`. Isso precisa ser corrigido pelo usuário 
 
 | Arquivo | Mudança |
 |---------|---------|
-| `supabase/functions/kai-simple-chat/index.ts` | Adicionar detecção de instruções do usuário (`skipImages`, `noEmojis`, etc.) e injetá-las no prompt com prioridade máxima |
-| `supabase/functions/_shared/format-rules.ts` | Atualizar regras de emoji para tweet (linha ~263) para serem mais restritivas |
-| `supabase/functions/_shared/quality-rules.ts` | Adicionar 💡 (lâmpada) e outros emojis decorativos comuns à lista de `GLOBAL_FORBIDDEN_PHRASES` |
-| Migration para `kai_documentation` | Atualizar o registro `tweet` com regras mais restritivas de emoji |
+| `src/components/planning/PlanningItemDialog.tsx` | Melhorar validações, salvar antes de publicar se necessário, feedback mais explícito |
+| `src/hooks/useLateConnection.ts` | Adicionar timeout de 30s, logs de debug, fallback de erro |
 
 ---
 
-## Detalhes Técnicos
+## Testes Recomendados
 
-### Nova Interface de Instruções do Usuário
+1. **Publicar card existente** - Abrir um card salvo → clicar "Publicar Agora" → deve publicar com sucesso
 
-```typescript
-interface UserInstructions {
-  skipImages: boolean;      // "sem imagens", "apenas texto"
-  useOnlyUrl: boolean;      // "só a URL", "apenas o link"
-  noEmojis: boolean;        // "sem emoji", "zero emoji"
-  useCoverImage: boolean;   // "usar capa", "apenas a capa"
-  customNote?: string;      // Qualquer outra instrução detectada
-}
-```
+2. **Publicar card novo** - Criar novo card → preencher conteúdo → "Publicar Agora" → deve salvar e publicar
 
-### Fluxo de Prioridade Atualizado
+3. **Agendar conteúdo** - Definir data/hora → salvar → deve agendar no Late ou localmente
 
-```text
-PRIORIDADE 1: Instruções Explícitas do Usuário
-             ↓ (se "sem imagens" → ignorar mídia)
-PRIORIDADE 2: Materiais Citados (@mentions)
-             ↓
-PRIORIDADE 3: Identity Guide do Cliente
-             ↓
-PRIORIDADE 4: Regras do Formato (kai_documentation)
-             ↓
-PRIORIDADE 5: Exemplos da Biblioteca
-```
+4. **Erro de rede** - Desconectar internet → publicar → deve mostrar erro após timeout
 
-### Regras de Emoji Atualizadas para Tweet
-
-```typescript
-tweet: `
-## REGRAS OBRIGATÓRIAS PARA TWEET
-
-### ESTRUTURA
-- **Gancho**: Primeira frase irresistível
-- **Corpo**: Máximo 280 caracteres
-- **CTA**: Opcional, integrado ao texto
-
-### PROIBIÇÕES ABSOLUTAS
-- ❌ Tweets que excedem 280 caracteres
-- ❌ Múltiplas ideias no mesmo tweet
-- ❌ Ganchos vagos
-- ❌ HASHTAGS (nunca use)
-- ❌ Emojis decorativos no corpo (💡🔥✨🚀💰 etc.)
-
-### REGRA DE EMOJI
-- PADRÃO: Zero emojis
-- EXCEÇÃO: máximo 1 emoji no CTA final, SE relevante
-- NA DÚVIDA: não use emoji
-
-### TÉCNICAS QUE FUNCIONAM
-- ✅ Números específicos (3,5% > "muito")
-- ✅ Opinião ou take forte
-- ✅ Perguntas diretas
-`,
-```
+5. **Conta inválida** - Remover credencial → publicar → botão não deve aparecer
 
 ---
 
@@ -174,48 +214,8 @@ tweet: `
 
 Após implementação:
 
-1. **Usuário diz "crie um tweet sem imagens"** → IA gera APENAS texto, sem sugerir imagens
-2. **Usuário diz "sem emoji"** → IA gera conteúdo com ZERO emojis
-3. **Tweets do Defiverso** → Seguem padrão limpo, sem emojis decorativos como 💡
-4. **Regras consistentes** → Todas as fontes (format-rules.ts, kai_documentation, TWEET.md) alinhadas
+1. **Publicação funciona sempre** - Com validações claras e salvamento automático se necessário
+2. **Sem loading infinito** - Timeout de 30s com feedback
+3. **Feedback claro** - Usuário sabe exatamente o que aconteceu (sucesso, erro, agendado)
+4. **Agendamento transparente** - Indica se foi agendado no Late ou apenas salvo localmente
 
----
-
-## Checklist de Implementação
-
-- [x] Adicionar `detectUserInstructions()` ao `kai-simple-chat/index.ts`
-- [x] Injetar instruções do usuário no system prompt com prioridade máxima
-- [x] Atualizar regras de emoji em `format-rules.ts` (tweet e thread)
-- [x] Adicionar emojis decorativos comuns à lista de proibidos em `quality-rules.ts`
-- [x] Criar migration para atualizar `kai_documentation` registro `tweet` e `thread`
-- [x] Atualizar `docs/formatos/TWEET.md` para consistência
-
-## Implementação Concluída
-
-✅ **Todas as mudanças foram implementadas com sucesso!**
-
-### Mudanças Realizadas:
-1. **kai-simple-chat/index.ts**: Adicionada função `detectUserInstructions()` e `buildUserInstructionsPrompt()` para detectar e priorizar instruções explícitas do usuário
-2. **format-rules.ts**: Regras de tweet e thread atualizadas com "ZERO emojis no corpo"
-3. **quality-rules.ts**: Adicionada lista `FORBIDDEN_DECORATIVE_EMOJIS` com 30+ emojis proibidos
-4. **TWEET.md**: Documentação atualizada com regras rigorosas de emoji
-5. **kai_documentation**: Migration executada atualizando registros `tweet` e `thread`
-
-### Segunda Rodada de Correções (07/02/2026):
-
-**Problema**: Ao criar card via chat e postar no Twitter, todas as imagens foram incluídas e o tweet ficou sem texto.
-
-**Diagnóstico**:
-- A função `generatePlanningCards()` não recebia as `userInstructions`
-- O prompt para geração de tweets era muito básico ("diretos, máximo 280 chars")
-- Não passava instruções de "sem imagens" para o conteúdo gerado
-
-**Correções**:
-1. ✅ Adicionado parâmetro `userInstructions` na função `generatePlanningCards()`
-2. ✅ Prompt de geração de tweets atualizado com regras rigorosas:
-   - ZERO emojis no corpo
-   - ZERO hashtags
-   - Máximo 280 caracteres (obrigatório)
-   - Gancho forte na primeira linha
-3. ✅ Instruções do usuário (`skipImages`, `noEmojis`) são passadas para o prompt de geração
-4. ✅ O campo `description` agora contém o conteúdo COMPLETO pronto para publicar
