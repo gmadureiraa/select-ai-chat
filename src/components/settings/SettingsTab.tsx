@@ -7,11 +7,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/useAuth";
 import { useWorkspace } from "@/hooks/useWorkspace";
-import { User, Sun, Moon, Palette, Key, Trash2, Loader2, MessageCircle, HelpCircle, Mail } from "lucide-react";
+import { User, Sun, Moon, Palette, Key, Loader2 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { useTheme } from "next-themes";
 import { TeamManagement } from "@/components/settings/TeamManagement";
-import { PlanBillingCard } from "@/components/settings/PlanBillingCard";
+
 import { NotificationSettings } from "@/components/settings/NotificationSettings";
 import { AvatarUpload } from "@/components/ui/avatar-upload";
 import { supabase } from "@/integrations/supabase/client";
@@ -20,18 +20,7 @@ import { useToast } from "@/hooks/use-toast";
 import { SettingsNavigation, SettingsSection } from "@/components/settings/SettingsNavigation";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { SALES_CONTACT } from "@/lib/plans";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+
 
 export function SettingsTab() {
   const { user, signOut } = useAuth();
@@ -49,13 +38,10 @@ export function SettingsTab() {
   // State for password reset
   const [isSendingReset, setIsSendingReset] = useState(false);
   
-  // State for account deletion
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [deleteConfirmation, setDeleteConfirmation] = useState("");
   
   // Initialize section from URL section parameter
   const sectionParam = searchParams.get("section");
-  const validSections: SettingsSection[] = ["profile", "billing", "team", "notifications", "appearance"];
+  const validSections: SettingsSection[] = ["profile", "team", "notifications", "appearance"];
   const initialSection = validSections.includes(sectionParam as SettingsSection) 
     ? (sectionParam as SettingsSection) 
     : "profile";
@@ -190,33 +176,6 @@ export function SettingsTab() {
     }
   };
 
-  // Handle account deletion
-  const handleDeleteAccount = async () => {
-    if (deleteConfirmation !== "EXCLUIR") return;
-    
-    setIsDeleting(true);
-    try {
-      const { error } = await supabase.functions.invoke("delete-account");
-      
-      if (error) throw error;
-      
-      toast({
-        title: "Conta excluída",
-        description: "Sua conta foi excluída com sucesso.",
-      });
-      
-      await signOut();
-    } catch (error) {
-      toast({
-        title: "Erro",
-        description: "Não foi possível excluir sua conta. Tente novamente.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsDeleting(false);
-      setDeleteConfirmation("");
-    }
-  };
 
   const hasNameChanges = editedName !== null && editedName !== profile?.full_name;
 
@@ -318,113 +277,9 @@ export function SettingsTab() {
         </CardContent>
       </Card>
 
-      {/* Danger Zone Card */}
-      <Card className="border-destructive/30">
-        <CardHeader>
-          <div className="flex items-center gap-2 text-destructive">
-            <Trash2 className="h-5 w-5" />
-            <CardTitle className="text-destructive">Zona de Perigo</CardTitle>
-          </div>
-          <CardDescription>
-            Ações irreversíveis da sua conta
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className={cn(
-            "flex gap-4",
-            isMobile ? "flex-col" : "items-center justify-between"
-          )}>
-            <div className="space-y-0.5">
-              <Label className="text-base font-medium">Excluir Conta</Label>
-              <p className="text-sm text-muted-foreground">
-                Exclua permanentemente sua conta e todos os dados
-              </p>
-            </div>
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant="destructive" className={cn(isMobile && "w-full")}>Excluir conta</Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent className="max-w-[95vw] sm:max-w-lg">
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Tem certeza absoluta?</AlertDialogTitle>
-                  <AlertDialogDescription className="space-y-3">
-                    <p>
-                      Esta ação não pode ser desfeita. Isso excluirá permanentemente sua conta
-                      e removerá seus dados dos nossos servidores.
-                    </p>
-                    <div className="space-y-2">
-                      <Label htmlFor="confirm-delete">
-                        Digite <span className="font-mono font-bold">EXCLUIR</span> para confirmar:
-                      </Label>
-                      <Input
-                        id="confirm-delete"
-                        value={deleteConfirmation}
-                        onChange={(e) => setDeleteConfirmation(e.target.value)}
-                        placeholder="EXCLUIR"
-                      />
-                    </div>
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel onClick={() => setDeleteConfirmation("")}>
-                    Cancelar
-                  </AlertDialogCancel>
-                  <AlertDialogAction
-                    onClick={handleDeleteAccount}
-                    disabled={deleteConfirmation !== "EXCLUIR" || isDeleting}
-                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                  >
-                    {isDeleting ? (
-                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                    ) : null}
-                    Excluir minha conta
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Support Card */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <HelpCircle className="h-5 w-5 text-muted-foreground" />
-            <CardTitle>Suporte</CardTitle>
-          </div>
-          <CardDescription>Precisa de ajuda? Fale com nossa equipe</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className={cn(
-            "flex gap-3",
-            isMobile ? "flex-col" : "flex-row"
-          )}>
-            <Button 
-              variant="outline" 
-              onClick={() => window.open(SALES_CONTACT.whatsapp, "_blank")}
-              className="gap-2"
-            >
-              <MessageCircle className="h-4 w-4" />
-              WhatsApp
-            </Button>
-            <Button 
-              variant="ghost" 
-              onClick={() => window.open("mailto:contato@kaleidos.ai", "_blank")}
-              className="gap-2"
-            >
-              <Mail className="h-4 w-4" />
-              Email
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 
-  const renderBillingSection = () => (
-    <PlanBillingCard />
-  );
 
   const renderNotificationsSection = () => (
     <NotificationSettings />
@@ -470,8 +325,6 @@ export function SettingsTab() {
     switch (activeSection) {
       case "profile":
         return renderProfileSection();
-      case "billing":
-        return renderBillingSection();
       case "team":
         return <TeamManagement />;
       case "notifications":

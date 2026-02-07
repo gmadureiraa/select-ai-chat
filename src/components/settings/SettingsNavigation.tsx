@@ -3,7 +3,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { User, CreditCard, Users, Palette, Bell } from "lucide-react";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 
-export type SettingsSection = "profile" | "billing" | "team" | "notifications" | "appearance";
+export type SettingsSection = "profile" | "team" | "notifications" | "appearance";
 
 interface SettingsNavigationProps {
   activeSection: SettingsSection;
@@ -13,7 +13,6 @@ interface SettingsNavigationProps {
 
 const sections = [
   { id: "profile" as const, label: "Perfil", icon: User },
-  { id: "billing" as const, label: "Plano", icon: CreditCard },
   { id: "team" as const, label: "Time", icon: Users, requiresPermission: "team" },
   { id: "notifications" as const, label: "Notificações", icon: Bell },
   { id: "appearance" as const, label: "Aparência", icon: Palette },

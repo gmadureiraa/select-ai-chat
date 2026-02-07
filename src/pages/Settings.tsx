@@ -8,11 +8,10 @@ import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/useAuth";
 import { useWorkspace } from "@/hooks/useWorkspace";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { User, Sun, Moon, Palette, Key, Trash2, Loader2 } from "lucide-react";
+import { User, Sun, Moon, Palette, Key, Loader2 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { useTheme } from "next-themes";
 import { TeamManagement } from "@/components/settings/TeamManagement";
-import { PlanBillingCard } from "@/components/settings/PlanBillingCard";
 import { NotificationSettings } from "@/components/settings/NotificationSettings";
 import { SecondaryLayout } from "@/components/SecondaryLayout";
 import { AvatarUpload } from "@/components/ui/avatar-upload";
@@ -55,7 +54,7 @@ export default function Settings() {
   
   // Initialize section from URL tab parameter
   const tabParam = searchParams.get("tab");
-  const validSections: SettingsSection[] = ["profile", "billing", "team", "notifications", "appearance"];
+  const validSections: SettingsSection[] = ["profile", "team", "notifications", "appearance"];
   const initialSection = validSections.includes(tabParam as SettingsSection) 
     ? (tabParam as SettingsSection) 
     : "profile";
@@ -315,79 +314,7 @@ export default function Settings() {
           </div>
         </CardContent>
       </Card>
-
-      {/* Danger Zone Card */}
-      <Card className="border-destructive/30">
-        <CardHeader>
-          <div className="flex items-center gap-2 text-destructive">
-            <Trash2 className="h-5 w-5" />
-            <CardTitle className="text-destructive">Zona de Perigo</CardTitle>
-          </div>
-          <CardDescription>
-            Ações irreversíveis da sua conta
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className={cn(
-            "flex gap-4",
-            isMobile ? "flex-col" : "items-center justify-between"
-          )}>
-            <div className="space-y-0.5">
-              <Label className="text-base font-medium">Excluir Conta</Label>
-              <p className="text-sm text-muted-foreground">
-                Exclua permanentemente sua conta e todos os dados
-              </p>
-            </div>
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant="destructive" className={cn(isMobile && "w-full")}>Excluir conta</Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent className="max-w-[95vw] sm:max-w-lg">
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Tem certeza absoluta?</AlertDialogTitle>
-                  <AlertDialogDescription className="space-y-3">
-                    <p>
-                      Esta ação não pode ser desfeita. Isso excluirá permanentemente sua conta
-                      e removerá seus dados dos nossos servidores.
-                    </p>
-                    <div className="space-y-2">
-                      <Label htmlFor="confirm-delete">
-                        Digite <span className="font-mono font-bold">EXCLUIR</span> para confirmar:
-                      </Label>
-                      <Input
-                        id="confirm-delete"
-                        value={deleteConfirmation}
-                        onChange={(e) => setDeleteConfirmation(e.target.value)}
-                        placeholder="EXCLUIR"
-                      />
-                    </div>
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter className={cn(isMobile && "flex-col gap-2")}>
-                  <AlertDialogCancel onClick={() => setDeleteConfirmation("")} className={cn(isMobile && "w-full")}>
-                    Cancelar
-                  </AlertDialogCancel>
-                  <AlertDialogAction
-                    onClick={handleDeleteAccount}
-                    disabled={deleteConfirmation !== "EXCLUIR" || isDeleting}
-                    className={cn("bg-destructive text-destructive-foreground hover:bg-destructive/90", isMobile && "w-full")}
-                  >
-                    {isDeleting ? (
-                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                    ) : null}
-                    Excluir minha conta
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          </div>
-        </CardContent>
-      </Card>
     </div>
-  );
-
-  const renderBillingSection = () => (
-    <PlanBillingCard />
   );
 
   const renderNotificationsSection = () => (
@@ -434,8 +361,6 @@ export default function Settings() {
     switch (activeSection) {
       case "profile":
         return renderProfileSection();
-      case "billing":
-        return renderBillingSection();
       case "team":
         return <TeamManagement />;
       case "notifications":
