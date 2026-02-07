@@ -73,24 +73,34 @@ Deno.serve(async (req) => {
       throw new Error(`Error fetching planning items: ${planningError.message}`);
     }
 
-    // Also process legacy scheduled_posts table
-    const { data: legacyPosts, error: legacyError } = await supabaseClient
-      .from('scheduled_posts')
-      .select('*')
-      .eq('status', 'scheduled')
-      .lte('scheduled_at', marginTime.toISOString())
-      .lt('retry_count', 3)
-      .or(`next_retry_at.is.null,next_retry_at.lte.${now.toISOString()}`)
-      .order('scheduled_at', { ascending: true })
-      .limit(25);
+    // Also process legacy scheduled_posts table (with graceful fallback)
+    // This table may not exist in all environments, so we wrap in try/catch
+    let legacyPosts: unknown[] = [];
+    try {
+      const { data: legacyData, error: legacyError } = await supabaseClient
+        .from('scheduled_posts')
+        .select('*')
+        .eq('status', 'scheduled')
+        .lte('scheduled_at', marginTime.toISOString())
+        .lt('retry_count', 3)
+        .or(`next_retry_at.is.null,next_retry_at.lte.${now.toISOString()}`)
+        .order('scheduled_at', { ascending: true })
+        .limit(25);
 
-    if (legacyError) {
-      console.error("Error fetching legacy posts:", legacyError);
+      if (legacyError) {
+        // Log but don't fail - table may not exist or have different schema
+        console.log("[process-scheduled-posts] Legacy table query failed (may not exist):", legacyError.message);
+      } else {
+        legacyPosts = legacyData || [];
+      }
+    } catch (legacyQueryError) {
+      // Table may not exist - this is expected in newer environments
+      console.log("[process-scheduled-posts] Legacy scheduled_posts table not available:", legacyQueryError);
     }
 
     const allItems = [
       ...(planningItems || []).map(item => ({ ...item, source: 'planning_items' })),
-      ...(legacyPosts || []).map(post => ({ ...post, source: 'scheduled_posts' })),
+      ...legacyPosts.map((post: unknown) => ({ ...(post as Record<string, unknown>), source: 'scheduled_posts' })),
     ];
 
     if (allItems.length === 0) {

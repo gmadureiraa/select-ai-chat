@@ -119,44 +119,96 @@ Ações:
   - Enviar email para lista de newsletter
 ```
 
-## Configuração do Cron Job
+## Configuração dos Cron Jobs (Agendamento Automático)
 
-Para executar automaticamente, configure um cron job no Supabase:
+O sistema utiliza dois cron jobs para executar automaticamente:
+
+1. **process-scheduled-posts** (a cada 5 minutos): Publica itens agendados cujo `scheduled_at` já passou
+2. **process-automations** (a cada 15 minutos): Avalia gatilhos de schedule/RSS e cria conteúdo
+
+### Checklist Pós-Deploy
+
+Para que as automações funcionem automaticamente, siga estes passos:
+
+#### 1. Configurar Segredos no Vault
+
+Acesse o **Dashboard do Supabase > Project Settings > Vault** e crie os seguintes segredos:
+
+| Nome do Segredo | Valor |
+|-----------------|-------|
+| `project_url` | `https://tkbsjtgrumhvwlxkmojg.supabase.co` |
+| `cron_service_role_key` | Sua SERVICE_ROLE_KEY (encontre em API Settings) |
+
+#### 2. Criar os Cron Jobs
+
+Execute o seguinte SQL no **SQL Editor** do Supabase:
 
 ```sql
-select cron.schedule(
-  'run-automations',
-  '*/15 * * * *', -- A cada 15 minutos
+-- JOB 1: Publicar posts agendados (a cada 5 minutos)
+SELECT cron.schedule(
+  'process-scheduled-posts-cron',
+  '*/5 * * * *',
   $$
-  select net.http_post(
-    url:='https://seu-projeto.supabase.co/functions/v1/run-automation',
-    headers:='{"Content-Type": "application/json", "Authorization": "Bearer SUA_ANON_KEY"}'::jsonb,
-    body:=concat('{"automationId": "', id, '"}')::jsonb
-  ) as request_id
-  from automations
-  where is_active = true
-  and (
-    (schedule_type = 'daily' and extract(hour from now()) = extract(hour from schedule_time::time))
-    or (schedule_type = 'weekly' and extract(dow from now())::text = any(schedule_days) and extract(hour from now()) = extract(hour from schedule_time::time))
+  SELECT net.http_post(
+    url := (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'project_url' LIMIT 1) || '/functions/v1/process-scheduled-posts',
+    headers := jsonb_build_object(
+      'Content-Type', 'application/json',
+      'Authorization', 'Bearer ' || (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'cron_service_role_key' LIMIT 1)
+    ),
+    body := '{}'::jsonb
+  );
+  $$
+);
+
+-- JOB 2: Processar automações (a cada 15 minutos)
+SELECT cron.schedule(
+  'process-automations-cron',
+  '*/15 * * * *',
+  $$
+  SELECT net.http_post(
+    url := (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'project_url' LIMIT 1) || '/functions/v1/process-automations',
+    headers := jsonb_build_object(
+      'Content-Type', 'application/json',
+      'Authorization', 'Bearer ' || (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'cron_service_role_key' LIMIT 1)
+    ),
+    body := '{}'::jsonb
   );
   $$
 );
 ```
 
+#### 3. Verificar Jobs
+
+```sql
+-- Ver jobs criados
+SELECT * FROM cron.job;
+
+-- Ver execuções recentes
+SELECT * FROM cron.job_run_details ORDER BY start_time DESC LIMIT 20;
+```
+
+#### 4. (Opcional) Testar Manualmente
+
+Antes de aguardar o cron, teste as funções:
+- Use o botão **"Testar Agora"** na UI de automações
+- Ou execute via curl com a service_role_key
+
 ## Monitoramento
 
-Cada execução gera um registro em `automation_runs` com:
-- Status (running, completed, failed)
-- Resultado
-- Duração em ms
-- Erros (se houver)
+Cada execução gera registros em:
+- `planning_automation_runs`: histórico de automações com status, duração, erros
+- Logs da Edge Function (acessível via Dashboard > Functions)
 
-Acesse o histórico de execuções para monitorar o desempenho.
+### Status Possíveis
+- `running`: em execução
+- `completed`: concluído com sucesso
+- `failed`: falhou (erro será registrado)
+- `skipped`: condições do gatilho não atendidas
 
 ## Dicas
 
-1. **Teste antes**: Use "Executar Agora" para testar antes de ativar
-2. **Fontes confiáveis**: Certifique-se que as APIs externas são estáveis
-3. **Prompts claros**: Seja específico no prompt para melhores resultados
-4. **Monitore custos**: Automações frequentes podem gerar custos de API
-5. **Webhooks seguros**: Use HTTPS e valide origens em seus webhooks
+1. **Teste antes**: Use "Testar Agora" para validar antes de ativar
+2. **Vault obrigatório**: Os cron jobs dependem dos segredos no Vault
+3. **Fuso horário**: O agendamento usa horário UTC do servidor
+4. **Monitore logs**: Verifique os logs das Edge Functions periodicamente
+5. **Backoff automático**: Falhas de publicação têm retry com backoff exponencial (2min, 4min, 8min)
