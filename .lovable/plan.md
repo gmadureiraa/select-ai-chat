@@ -1,120 +1,73 @@
-# kAI - Plano de Implementação
 
-## Status: ✅ Consolidação Interna Completa
+# Plano: Corrigir Conexão Twitter - Remover Trigger de Auditoria Órfão
 
-Data: 2025-02-07
+## Diagnóstico
 
----
+### Causa Raiz Identificada
+O erro `relation "public.social_credentials_audit_log" does not exist` ocorre porque:
 
-## Resumo da Transformação
+1. A migration `20260207090904` removeu a tabela `social_credentials_audit_log`
+2. O trigger `audit_social_credentials_trigger` **não foi removido junto**
+3. Quando você tenta conectar o Twitter do Defiverso:
+   - OAuth funciona ✅
+   - Late API retorna os dados da conta ✅
+   - Edge function tenta fazer upsert na tabela `client_social_credentials` ✅
+   - **Trigger dispara e tenta inserir na tabela de auditoria que não existe** ❌
 
-O kAI foi completamente transformado de uma plataforma SaaS multi-tenant para uma **ferramenta interna exclusiva da Kaleidos**.
-
-### O que mudou:
-
-1. **Roteamento Fixo**
-   - Rota raiz `/` redireciona para `/kaleidos`
-   - Qualquer outro slug (`/:slug`) redireciona para `/kaleidos`
-   - Rotas removidas: `/no-workspace`, `/:slug/join`, `/:slug/login`
-
-2. **Workspace Único**
-   - `WorkspaceContext` usa slug fixo "kaleidos"
-   - `WorkspaceRouter` força sempre o workspace Kaleidos
-   - `WorkspaceRedirect` sempre redireciona para `/kaleidos`
-
-3. **WorkspaceSwitcher → Indicador Estático**
-   - Componente transformado em exibição estática
-   - Sem dropdown, sem opção de trocar
-   - `hasMultipleWorkspaces` sempre retorna `false`
-
-4. **Terminologia Atualizada**
-   - "workspace" → "equipe" em mensagens ao usuário
-   - "plano Pro" → removido
-   - "fazer upgrade" → "solicitar acesso"
-
-5. **Páginas Desativadas (não deletadas)**
-   - `NoWorkspacePage.tsx` - não roteada
-   - `JoinWorkspace.tsx` - não roteada
-   - `WorkspaceLogin.tsx` - não roteada
-   - `CreateWorkspaceDialog.tsx` - não renderizado
-   - `UpgradePlanDialog.tsx` - não renderizado
+### Por que Gabriel Madureira funciona?
+A conexão dele foi feita antes da migration ou os dados não foram atualizados desde então.
 
 ---
 
-## Arquitetura Atual
+## Solução
 
-### Fluxo de Acesso
-```
-/login → autenticação → /kaleidos
-                          ↓
-              WorkspaceGuard verifica membership
-                          ↓
-           ┌──────────────┴──────────────┐
-           ↓                              ↓
-    É membro da equipe            Não é membro
-           ↓                              ↓
-    Acesso ao kAI            PendingAccessOverlay
+### Migration para Limpar Objetos Órfãos
+
+Criar uma migration que:
+
+1. **Remove o trigger órfão** `audit_social_credentials_trigger`
+2. **Remove as funções órfãs** `audit_credential_changes()` e `log_credential_access()`
+
+```sql
+-- Remove o trigger que tenta inserir na tabela deletada
+DROP TRIGGER IF EXISTS audit_social_credentials_trigger ON public.client_social_credentials;
+
+-- Remove as funções que não têm mais utilidade
+DROP FUNCTION IF EXISTS public.audit_credential_changes();
+DROP FUNCTION IF EXISTS public.log_credential_access(UUID, UUID, TEXT, JSONB);
 ```
 
-### Modelo de Permissões
-| Role | Acesso |
-|------|--------|
-| Admin (owner/admin) | Acesso total + gestão de equipe |
-| Member | Acesso total às ferramentas |
-| Viewer | Acesso somente leitura (Planejamento, Performance, Biblioteca) |
+---
 
-### Controle de Acesso
-- Usuários sem convite veem `PendingAccessOverlay`
-- Admin pode convidar via `Equipe` > `Convidar Membro`
-- Convites podem definir role e clientes específicos
+## Arquivos Afetados
+
+| Arquivo | Ação |
+|---------|------|
+| Nova migration | Criar para dropar trigger e funções |
 
 ---
 
-## Arquivos Principais Modificados
+## Verificação Pós-Implementação
 
-| Arquivo | Mudança |
-|---------|---------|
-| `src/App.tsx` | Rotas simplificadas, imports limpos |
-| `src/components/WorkspaceRouter.tsx` | Slug fixo "kaleidos" |
-| `src/components/WorkspaceRedirect.tsx` | Sempre redireciona para /kaleidos |
-| `src/components/kai/WorkspaceSwitcher.tsx` | Exibição estática (sem dropdown) |
-| `src/hooks/useUserWorkspaces.ts` | `hasMultipleWorkspaces: false` |
-| `src/contexts/WorkspaceContext.tsx` | Slug fixo KALEIDOS_SLUG |
-| `src/pages/SimpleSignup.tsx` | Sem lógica de workspace param |
-| `src/components/PendingAccessOverlay.tsx` | "workspace" → "equipe" |
-| `src/hooks/usePlanFeatures.ts` | Sempre retorna true |
-| `src/hooks/usePlanLimits.ts` | Limites infinitos |
-| `src/hooks/useUpgradePrompt.ts` | Mensagem de permissão |
+Após aplicar a migration:
+
+1. Tentar conectar Twitter do Defiverso novamente
+2. Verificar se a conexão é salva com sucesso
+3. Confirmar que o trigger não existe mais:
+   ```sql
+   SELECT * FROM pg_trigger WHERE tgname = 'audit_social_credentials_trigger';
+   ```
 
 ---
 
-## Checklist Final ✅
+## Impacto
 
-- [x] `/` redireciona para `/kaleidos`
-- [x] `/agencia` redireciona para `/kaleidos`
-- [x] Rotas legadas removidas do router
-- [x] WorkspaceSwitcher sem dropdown
-- [x] Nenhum texto "Trocar Workspace" visível
-- [x] Nenhum botão "Fazer upgrade" visível
-- [x] Termos "workspace" substituídos por "equipe"
-- [x] `isPro` sempre true em features
-- [x] Limites de plano são infinitos
-- [x] Usuário sem acesso vê PendingAccessOverlay
+- **Risco**: Baixo - apenas remove código morto
+- **Funcionalidade perdida**: Nenhuma - a tabela de destino já não existe
+- **Benefício**: Conexões OAuth voltam a funcionar normalmente
 
 ---
 
-## Manutenção Futura
+## Tempo Estimado
 
-### Se precisar reativar multi-workspace:
-1. Restaurar rotas dinâmicas em `App.tsx`
-2. Remover slug fixo do `WorkspaceContext`
-3. Restaurar lógica do `WorkspaceSwitcher`
-4. Reativar páginas (arquivos ainda existem)
-
-### Arquivos preservados (não deletados):
-- `NoWorkspacePage.tsx`
-- `JoinWorkspace.tsx`
-- `WorkspaceLogin.tsx`
-- `CreateWorkspaceDialog.tsx`
-- `UpgradePlanDialog.tsx`
-- `CreateWorkspaceCallback.tsx`
+~2 minutos para criar e aplicar a migration
