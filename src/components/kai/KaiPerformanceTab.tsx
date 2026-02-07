@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Eye, Instagram, Mail, Twitter, Megaphone, Linkedin } from "lucide-react";
+import { Eye, Instagram, Mail, Twitter, Megaphone, Linkedin, RefreshCw } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { usePerformanceMetrics } from "@/hooks/usePerformanceMetrics";
 import { useYouTubeVideos } from "@/hooks/useYouTubeMetrics";
@@ -14,6 +14,9 @@ import { LinkedInDashboard } from "@/components/performance/LinkedInDashboard";
 import { MetaAdsDashboard } from "@/components/performance/MetaAdsDashboard";
 import { Client } from "@/hooks/useClients";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
+import { useSyncLateMetrics } from "@/hooks/useSyncLateMetrics";
+import { cn } from "@/lib/utils";
 
 interface KaiPerformanceTabProps {
   clientId: string;
@@ -39,6 +42,7 @@ export const KaiPerformanceTab = ({ clientId, client }: KaiPerformanceTabProps) 
   );
   
   const [activeChannel, setActiveChannel] = useState("instagram");
+  const { syncMetrics, isSyncing } = useSyncLateMetrics(clientId);
   
   const { data: instagramMetrics, isLoading: isLoadingInstagram } = usePerformanceMetrics(clientId, "instagram", 365);
   const { data: instagramPosts, isLoading: isLoadingInstagramPosts } = useInstagramPosts(clientId, 500);
@@ -64,15 +68,27 @@ export const KaiPerformanceTab = ({ clientId, client }: KaiPerformanceTabProps) 
     <div className="space-y-4">
       {/* Channel Tabs */}
       <Tabs value={activeChannel} onValueChange={setActiveChannel}>
-        <div className="overflow-x-auto -mx-3 sm:mx-0 px-3 sm:px-0">
-          <TabsList className="bg-muted/50 inline-flex min-w-max">
-            {channels.map((channel) => (
-              <TabsTrigger key={channel.id} value={channel.id} className="gap-1.5 sm:gap-2 px-2.5 sm:px-4 text-xs sm:text-sm">
-                <channel.icon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                <span>{channel.label}</span>
-              </TabsTrigger>
-            ))}
-          </TabsList>
+        <div className="flex items-center justify-between gap-4 -mx-3 sm:mx-0 px-3 sm:px-0">
+          <div className="overflow-x-auto">
+            <TabsList className="bg-muted/50 inline-flex min-w-max">
+              {channels.map((channel) => (
+                <TabsTrigger key={channel.id} value={channel.id} className="gap-1.5 sm:gap-2 px-2.5 sm:px-4 text-xs sm:text-sm">
+                  <channel.icon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                  <span>{channel.label}</span>
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </div>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={syncMetrics} 
+            disabled={isSyncing}
+            className="shrink-0"
+          >
+            <RefreshCw className={cn("h-4 w-4 mr-2", isSyncing && "animate-spin")} />
+            Sincronizar
+          </Button>
         </div>
 
         <TabsContent value="instagram" className="mt-4">
