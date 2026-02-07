@@ -60,7 +60,11 @@ export function VoiceProfileEditor({
   initialProfile, 
   onSave 
 }: VoiceProfileEditorProps) {
-  const [profile, setProfile] = useState<VoiceProfile>(initialProfile || DEFAULT_PROFILE);
+  const [profile, setProfile] = useState<VoiceProfile>(() => ({
+    tone: initialProfile?.tone || "",
+    use: initialProfile?.use || [],
+    avoid: initialProfile?.avoid || [],
+  }));
   const [newUseItem, setNewUseItem] = useState("");
   const [newAvoidItem, setNewAvoidItem] = useState("");
   const [isSaving, setIsSaving] = useState(false);
@@ -71,7 +75,11 @@ export function VoiceProfileEditor({
 
   useEffect(() => {
     if (initialProfile) {
-      setProfile(initialProfile);
+      setProfile({
+        tone: initialProfile.tone || "",
+        use: initialProfile.use || [],
+        avoid: initialProfile.avoid || [],
+      });
     }
   }, [initialProfile]);
 
@@ -154,7 +162,7 @@ export function VoiceProfileEditor({
   };
 
   // Check which suggested phrases are not yet added
-  const suggestionsNotAdded = SUGGESTED_AVOID.filter(p => !profile.avoid.includes(p));
+  const suggestionsNotAdded = SUGGESTED_AVOID.filter(p => !(profile.avoid || []).includes(p));
 
   // Generate voice profile automatically using AI
   const handleAutoGenerate = async () => {
