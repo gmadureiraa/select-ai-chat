@@ -203,3 +203,6 @@ verify_jwt = true
 
 [functions.late-webhook]
 verify_jwt = false
+
+[functions.fetch-late-metrics]
+verify_jwt = false

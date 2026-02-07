@@ -1,6 +1,8 @@
 
 # Plano: Late API de Métricas + Atualização Diária + Sync CSV em Performance
 
+## ✅ Status: IMPLEMENTADO
+
 ## Resumo Executivo
 
 Implementar a integração com a API de Analytics do Late para buscar métricas de todas as redes conectadas, atualizar automaticamente todos os dias, e garantir que os CSVs de Twitter, LinkedIn e Instagram façam sync (upsert) corretamente.
@@ -11,18 +13,28 @@ Implementar a integração com a API de Analytics do Late para buscar métricas 
 
 | Recurso | Status |
 |---------|--------|
-| Instagram CSV → `instagram_posts` | Upsert por `(client_id, post_id)` |
-| Twitter CSV → `twitter_posts` | Upsert por `(client_id, tweet_id)` |
-| LinkedIn Excel → `linkedin_posts` | Upsert por `(client_id, post_id)` |
-| `platform_metrics` | Upsert por `(client_id, platform, metric_date)` |
-| Late OAuth | Conecta contas e salva em `client_social_credentials` |
-| Late Post | Publica via API |
+| Instagram CSV → `instagram_posts` | ✅ Upsert por `(client_id, post_id)` |
+| Twitter CSV → `twitter_posts` | ✅ Upsert por `(client_id, tweet_id)` |
+| LinkedIn Excel → `linkedin_posts` | ✅ Upsert por `(client_id, post_id)` |
+| `platform_metrics` | ✅ Upsert por `(client_id, platform, metric_date)` |
+| Late OAuth | ✅ Conecta contas e salva em `client_social_credentials` |
+| Late Post | ✅ Publica via API |
+| **Edge Function `fetch-late-metrics`** | ✅ Busca métricas do Late e grava nas tabelas |
+| **Cron job diário** | ✅ Documentado (executar SQL no Supabase) |
 
-### O que falta
+### Último Teste (07/02/2026)
 
-1. **Edge Function `fetch-late-metrics`** - Buscar métricas da API do Late e gravar nas tabelas
-2. **Cron job diário** - Chamar `fetch-late-metrics` automaticamente
-3. **Documentação UX** - Informar que CSV faz sync (não só insert)
+```json
+{
+  "success": true,
+  "clientsProcessed": 2,
+  "totalPostsUpdated": 54,
+  "results": [
+    { "clientName": "Defiverso", "postsUpdated": { "instagram": 54 } },
+    { "clientName": "Gabriel Madureira", "postsUpdated": {} }
+  ]
+}
+```
 
 ---
 
