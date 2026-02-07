@@ -1531,6 +1531,7 @@ function buildPlanningQuestionPrompt(intent: PlanningIntent, clientName: string)
 
 /**
  * Generate planning cards using AI for content
+ * Now accepts userInstructions to respect explicit user constraints (no images, no emojis, etc.)
  */
 async function generatePlanningCards(
   supabase: any,
@@ -1539,7 +1540,8 @@ async function generatePlanningCards(
   workspaceId: string,
   userId: string,
   intent: PlanningIntent,
-  authHeader: string
+  authHeader: string,
+  userInstructions?: UserInstructions
 ): Promise<any[]> {
   console.log("[kai-simple-chat] generatePlanningCards called:", {
     clientId,
@@ -1551,6 +1553,7 @@ async function generatePlanningCards(
     hasSourceUrl: !!intent.sourceUrl,
     hasTopic: !!intent.topic,
     action: intent.action,
+    userInstructions, // Log user constraints
   });
   
   const GOOGLE_API_KEY = Deno.env.get("GOOGLE_AI_STUDIO_API_KEY");
@@ -1615,26 +1618,55 @@ async function generatePlanningCards(
   // Generate content for cards
   if (GOOGLE_API_KEY && (intent.topic || urlContext)) {
     const platformInstructions: Record<string, string> = {
-      instagram: "Posts para Instagram: hook forte, máximo 2200 chars, poucos emojis",
-      twitter: "Tweets: diretos, máximo 280 chars, impactantes",
-      linkedin: "Posts LinkedIn: profissionais, storytelling, insights",
+      instagram: "Posts para Instagram: hook forte, máximo 2200 chars, poucos emojis, estrutura clara (GANCHO → DESENVOLVIMENTO → CTA)",
+      twitter: `Tweets: 
+        - MÁXIMO 280 caracteres (OBRIGATÓRIO)
+        - ZERO emojis no corpo do tweet
+        - ZERO hashtags
+        - Gancho forte na primeira linha
+        - Uma única ideia por tweet
+        - Tom direto e impactante
+        - Pode ter MÁXIMO 1 emoji no CTA final (opcional)`,
+      linkedin: "Posts LinkedIn: profissionais, storytelling, insights, quebras de linha para facilitar leitura",
       youtube: "Títulos/descrições para YouTube: SEO otimizado",
       newsletter: "Títulos para newsletter: valor claro, CTA forte",
       tiktok: "Ideias para TikTok: trends, ganchos virais",
     };
     
-    const prompt = `Você é um estrategista de conteúdo para ${client.name}.
+    // Build user instruction overrides for the prompt
+    let userConstraints = "";
+    if (userInstructions?.skipImages) {
+      userConstraints += "\n⛔ INSTRUÇÃO DO USUÁRIO: NÃO inclua nem sugira imagens. Conteúdo apenas texto.";
+    }
+    if (userInstructions?.noEmojis) {
+      userConstraints += "\n⛔ INSTRUÇÃO DO USUÁRIO: ZERO emojis no conteúdo. Nem mesmo no CTA.";
+    }
+    if (userInstructions?.useOnlyUrl) {
+      userConstraints += "\n⛔ INSTRUÇÃO DO USUÁRIO: Use APENAS a URL, sem imagens.";
+    }
+    
+    const prompt = `Você é um estrategista de conteúdo especializado para ${client.name}.
 ${client.identity_guide ? `\nGuia de Identidade:\n${client.identity_guide.substring(0, 1500)}` : ""}
 ${urlContext ? `\n## Conteúdo de Referência:\n${urlContext}` : ""}
+${userConstraints}
 
-TAREFA: Gere ${intent.quantity} ideias de conteúdo para ${intent.platform || "redes sociais"}.
+TAREFA: Gere ${intent.quantity} conteúdo(s) COMPLETO(S) e PRONTO(S) para publicar em ${intent.platform || "redes sociais"}.
 ${intent.topic ? `Tema: ${intent.topic}` : ""}
+
+## REGRAS DO FORMATO:
 ${platformInstructions[intent.platform || "instagram"] || ""}
+
+## REGRAS OBRIGATÓRIAS:
+- O campo "description" deve conter o CONTEÚDO COMPLETO pronto para publicar
+- NÃO inclua explicações, notas ou observações
+- NÃO use hashtags
+- Siga RIGOROSAMENTE o limite de caracteres do formato
+- Use o tom de voz definido no Guia de Identidade
 
 Responda APENAS com JSON no formato:
 {
   "cards": [
-    { "title": "título descritivo curto", "description": "conteúdo completo pronto para publicar" }
+    { "title": "título descritivo curto (max 50 chars)", "description": "CONTEÚDO COMPLETO pronto para publicar" }
   ]
 }`;
 
@@ -2003,7 +2035,8 @@ serve(async (req) => {
           client.workspace_id,
           user.id,
           planningIntent,
-          authHeader
+          authHeader,
+          userInstructions // Pass user constraints (skipImages, noEmojis, etc.)
         );
         
         // Build success message
