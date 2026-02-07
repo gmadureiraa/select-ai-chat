@@ -1256,66 +1256,49 @@ Por favor, use este material como base para criar o conteúdo solicitado, adapta
             throw new Error(`Erro na API: ${response.status} - ${errorText}`);
           }
 
-          // Process SSE stream using OpenAI format parser
-          const reader = response.body?.getReader();
-          if (!reader) throw new Error("Não foi possível ler a resposta");
+          // unified-content-api returns JSON, NOT SSE stream
+          const jsonResponse = await response.json();
+          console.log("[CHAT] unified-content-api response:", jsonResponse);
 
-          let finalContent = "";
-          let chunkCount = 0;
-
-          finalContent = await parseOpenAIStream(reader, {
-            onChunk: (count) => {
-              chunkCount = count;
-              // Update progress based on unified pipeline stages
-              if (chunkCount % 20 === 0) {
-                const progress = Math.min(90, 20 + Math.floor(chunkCount / 8));
-                if (progress < 40) {
-                  setMultiAgentStep("writer" as any);
-                  setMultiAgentDetails({ writer: "Escrevendo conteúdo..." });
-                } else if (progress < 60) {
-                  setMultiAgentStep("validator" as any);
-                  setMultiAgentDetails({ validator: "Validando estrutura..." });
-                } else if (progress < 80) {
-                  setMultiAgentStep("reviewer" as any);
-                  setMultiAgentDetails({ reviewer: "Revisando qualidade..." });
-                } else {
-                  setMultiAgentStep("complete" as any);
-                }
-              }
-            }
-          });
-
+          // Update progress to complete
           setMultiAgentStep("complete" as any);
 
-          // Salvar resposta final com metadados de fontes
-          if (finalContent) {
-            // Build sources_used based on what was actually consulted
-            const sourcesUsed = {
-              identity_guide: !!identityGuide,
-              library_items_count: (contentLibrary?.length || 0),
-              top_performers_count: 0, // TODO: track when top posts are used
-              format_rules: contentTypeForPipeline || undefined,
-              voice_profile: !!identityGuide,
-              global_knowledge: (globalKnowledge?.length || 0) > 0,
-            };
+          // Extract content from response
+          const finalContent = jsonResponse.content || "";
 
-            await supabase.from("messages").insert({
-              conversation_id: conversationId,
-              role: "assistant",
-              content: finalContent,
-              payload: {
-                sources_used: sourcesUsed,
-                format_type: contentTypeForPipeline,
-                validation: {
-                  passed: true,
-                  repaired: false,
-                  reviewed: quality === "high",
-                },
-              },
-            } as any);
-
-            queryClient.invalidateQueries({ queryKey: ["messages", conversationId] });
+          if (!finalContent) {
+            throw new Error("A API não retornou conteúdo");
           }
+
+          // Extract metadata from response
+          const sourcesUsed = jsonResponse.sources_used || {
+            identity_guide: !!identityGuide,
+            library_items_count: (contentLibrary?.length || 0),
+            top_performers_count: 0,
+            format_rules: contentTypeForPipeline || undefined,
+            voice_profile: !!identityGuide,
+            global_knowledge: (globalKnowledge?.length || 0) > 0,
+          };
+
+          const validation = jsonResponse.validation || {
+            passed: true,
+            repaired: false,
+            reviewed: quality === "high",
+          };
+
+          // Save response with metadata
+          await supabase.from("messages").insert({
+            conversation_id: conversationId,
+            role: "assistant",
+            content: finalContent,
+            payload: {
+              sources_used: sourcesUsed,
+              format_type: jsonResponse.metadata?.format || contentTypeForPipeline,
+              validation: validation,
+            },
+          } as any);
+
+          queryClient.invalidateQueries({ queryKey: ["messages", conversationId] });
         } catch (multiAgentError: any) {
           console.error("kai-content-agent error:", multiAgentError);
           
