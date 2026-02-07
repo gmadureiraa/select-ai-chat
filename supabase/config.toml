@@ -200,3 +200,6 @@ verify_jwt = false
 
 [functions.generate-client-context]
 verify_jwt = true
+
+[functions.unified-content-api]
+verify_jwt = true
