@@ -31,12 +31,19 @@ export const FORMAT_RULES: Record<string, string> = {
 
 ### FORMATO DE ENTREGA
 \`\`\`
-[Texto do tweet - máx 280 chars, sem hashtags]
+[Texto do tweet - máx 280 chars, sem hashtags, sem emojis decorativos]
 \`\`\`
+
+### REGRA DE EMOJI (CRÍTICO)
+- **PADRÃO**: ZERO emojis no corpo do tweet
+- **EXCEÇÃO**: máximo 1 emoji no CTA final, SE absolutamente relevante
+- **NA DÚVIDA**: NÃO use emoji
+- **PROIBIDO**: Emojis decorativos (💡🔥✨🚀💰📈💼🎯 etc.) em qualquer parte
 
 ### PROIBIÇÕES ABSOLUTAS
 - ❌ HASHTAGS (NUNCA use hashtags, são consideradas spam em 2024+)
 - ❌ Exceder 280 caracteres (CRÍTICO)
+- ❌ Emojis decorativos no corpo do texto (💡🔥✨🚀💰📈💼🎯)
 - ❌ Linguagem corporativa ou genérica
 - ❌ Começar com "Você sabia que..." ou similares
 - ❌ Tweets vazios sem valor real (apenas afirmações genéricas)
@@ -256,11 +263,17 @@ Tweet 10/10:
 [CTA: Curta, salve, siga para mais]
 \`\`\`
 
+### REGRA DE EMOJI (CRÍTICO)
+- **PADRÃO**: ZERO emojis no corpo dos tweets
+- **EXCEÇÃO**: máximo 1 emoji no tweet final (CTA), SE relevante
+- **NA DÚVIDA**: NÃO use emoji
+- **PROIBIDO**: Emojis decorativos (💡🔥✨🚀💰📈💼🎯 etc.)
+
 ### PROIBIÇÕES ABSOLUTAS
 - ❌ Tweets que excedem 280 caracteres
 - ❌ Múltiplas ideias no mesmo tweet
 - ❌ Ganchos vagos
-- ❌ Mais de 2 emojis por tweet
+- ❌ Emojis decorativos no corpo (💡🔥✨🚀💰📈💼🎯)
 - ❌ HASHTAGS (nunca use)
 
 ### TÉCNICAS QUE FUNCIONAM
