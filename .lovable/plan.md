@@ -1,141 +1,188 @@
 
+# Plano: Corrigir Duplicação de Posts no Sync do Late
 
-# Plano: Ativar Sync Automático + Botão Manual de Sincronização de Métricas
+## Problema Identificado
 
-## Status Atual
+Ao sincronizar métricas via Late API, os posts estão sendo **duplicados** porque:
 
-### Edge Function ✅
-A função `fetch-late-metrics` já existe e funciona corretamente:
-- Busca métricas da API Late para Instagram, Twitter e LinkedIn
-- Faz upsert em `instagram_posts`, `twitter_posts`, `linkedin_posts`
-- Atualiza `platform_metrics` com dados de seguidores
-- Aceita `clientId` opcional no body (para sync de um cliente específico)
+1. **Upload manual (CSV/Excel)** usa o **ID numérico** interno do Instagram como `post_id`:
+   - Exemplo: `18178406515326641`
 
-### Cron Job ❌
-O cron job **NÃO está ativo**. A query `SELECT jobid, jobname FROM cron.job` retornou vazio.
+2. **Sync via Late API** usa o **shortcode da URL** como `post_id`:
+   - Exemplo: `DUWU2iUEQjj`
 
-O SQL para criar o cron está documentado em `AUTOMATIONS.md` mas precisa ser executado manualmente no SQL Editor do Supabase.
+O mesmo post "O Bitcoin caiu..." aparece duas vezes no banco:
 
-### Botão de Sync ❌
-Não existe nenhum botão no frontend para sincronizar métricas manualmente.
+| Origem | post_id | likes | impressions |
+|--------|---------|-------|-------------|
+| Excel | `18178406515326641` | 292 | 15,489 |
+| Late | `DUWU2iUEQjj` | 0 | 0 |
+
+Como o `post_id` é diferente, o **upsert não reconhece como duplicata** e cria um novo registro.
+
+---
+
+## Solução Proposta
+
+### Estratégia: Usar URL como Chave de Deduplicação
+
+Antes de fazer upsert de um post do Late, verificar se já existe um registro com a mesma URL (`permalink` para Instagram, `post_url` para LinkedIn, etc.).
+
+Se existir:
+- **Atualizar métricas** do registro existente (se as métricas do Late forem maiores que zero)
+- **Não criar novo registro**
+
+Se não existir:
+- Criar novo registro normalmente
 
 ---
 
 ## Implementação
 
-### Parte 1: Ativar Cron Job (Requer Ação Manual)
+### Parte 1: Modificar `fetch-late-metrics` Edge Function
 
-Você precisa executar o seguinte SQL no backend (via Cloud UI > Run SQL):
+```typescript
+// ANTES: Upsert direto com post_id do Late
+const instagramPosts = posts.map(p => ({
+  post_id: extractStablePostId('instagram', p), // retorna shortcode
+  ...
+}));
+await supabase.from('instagram_posts').upsert(instagramPosts, { 
+  onConflict: 'client_id,post_id' 
+});
+
+// DEPOIS: Verificar por URL antes de inserir
+async function syncInstagramPosts(supabase, clientId: string, posts: LateAnalyticsPost[]) {
+  for (const post of posts) {
+    const permalink = post.platformPostUrl;
+    if (!permalink) continue;
+    
+    // Buscar post existente por URL
+    const { data: existing } = await supabase
+      .from('instagram_posts')
+      .select('id, post_id, likes, impressions')
+      .eq('client_id', clientId)
+      .eq('permalink', permalink)
+      .maybeSingle();
+    
+    if (existing) {
+      // Post já existe - atualizar métricas se as novas forem maiores
+      const updates: any = { updated_at: new Date().toISOString() };
+      
+      // Só atualizar métricas se vierem dados maiores que zero
+      if (post.likes && post.likes > (existing.likes || 0)) updates.likes = post.likes;
+      if (post.impressions && post.impressions > (existing.impressions || 0)) updates.impressions = post.impressions;
+      if (post.reach) updates.reach = post.reach;
+      if (post.comments) updates.comments = post.comments;
+      if (post.engagementRate) updates.engagement_rate = post.engagementRate;
+      
+      // Marcar como sincronizado
+      updates.metadata = { 
+        ...(existing.metadata || {}), 
+        late_synced_at: new Date().toISOString() 
+      };
+      
+      await supabase
+        .from('instagram_posts')
+        .update(updates)
+        .eq('id', existing.id);
+    } else {
+      // Post não existe - inserir novo
+      await supabase
+        .from('instagram_posts')
+        .insert({
+          client_id: clientId,
+          post_id: extractStablePostId('instagram', post),
+          permalink,
+          caption: post.content,
+          likes: post.likes || 0,
+          impressions: post.impressions || 0,
+          reach: post.reach || 0,
+          comments: post.comments || 0,
+          engagement_rate: post.engagementRate || 0,
+          posted_at: post.publishedAt,
+          metadata: { late_post_id: post.id, late_synced_at: new Date().toISOString() }
+        });
+    }
+  }
+}
+```
+
+### Parte 2: Aplicar Mesma Lógica para Twitter e LinkedIn
+
+- **Twitter**: Usar `tweet_url` ou campo similar para deduplicação
+- **LinkedIn**: Usar `post_url` para deduplicação
+
+### Parte 3: Adicionar Índice para Performance (Opcional mas Recomendado)
 
 ```sql
--- Habilitar extensões (caso não existam)
-CREATE EXTENSION IF NOT EXISTS pg_cron;
-CREATE EXTENSION IF NOT EXISTS pg_net;
+CREATE INDEX IF NOT EXISTS idx_instagram_posts_permalink 
+  ON instagram_posts(client_id, permalink) 
+  WHERE permalink IS NOT NULL;
 
--- JOB: Buscar métricas do Late (diariamente às 7h UTC = 4h Brasília)
-SELECT cron.schedule(
-  'fetch-late-metrics-daily',
-  '0 7 * * *',
-  $$
-  SELECT net.http_post(
-    url := (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'project_url' LIMIT 1) || '/functions/v1/fetch-late-metrics',
-    headers := jsonb_build_object(
-      'Content-Type', 'application/json',
-      'Authorization', 'Bearer ' || (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'cron_service_role_key' LIMIT 1)
-    ),
-    body := '{}'::jsonb
-  );
-  $$
-);
+CREATE INDEX IF NOT EXISTS idx_linkedin_posts_url 
+  ON linkedin_posts(client_id, post_url) 
+  WHERE post_url IS NOT NULL;
 ```
-
-**Pré-requisitos** (se ainda não configurados):
-1. Criar secrets no Vault:
-   - `project_url` = `https://tkbsjtgrumhvwlxkmojg.supabase.co`
-   - `cron_service_role_key` = Sua SERVICE_ROLE_KEY
-
-### Parte 2: Criar Hook para Sync Manual
-
-Criar um hook reutilizável para chamar a função de sincronização:
-
-**Arquivo:** `src/hooks/useSyncLateMetrics.ts`
-
-```typescript
-// Hook que chama fetch-late-metrics para um cliente específico
-// Retorna mutation com loading state e funções de invalidação
-```
-
-Funcionalidades:
-- Aceita `clientId` para sync de um cliente específico
-- Invalida as queries de posts após sucesso
-- Mostra toast de progresso/sucesso/erro
-- Retorna `isSyncing` para UI
-
-### Parte 3: Adicionar Botão de Sync no Performance Tab
-
-Adicionar um botão "Sincronizar" no header do `KaiPerformanceTab.tsx` que:
-- Aparece apenas para clientes com Late conectado
-- Mostra estado de loading durante sync
-- Dispara refresh das métricas após sucesso
-
-**Modificação em:** `src/components/kai/KaiPerformanceTab.tsx`
-
-```typescript
-// No header, junto aos tabs de canais:
-<Button variant="outline" size="sm" onClick={syncMetrics} disabled={isSyncing}>
-  <RefreshCw className={cn("h-4 w-4 mr-2", isSyncing && "animate-spin")} />
-  Sincronizar
-</Button>
-```
-
-### Parte 4: Verificar Late Connection
-
-Criar helper para verificar se o cliente tem Late conectado:
-
-**Modificação em:** `src/hooks/useLateConnection.ts`
-
-Adicionar verificação se o cliente tem `late_profile_id` no metadata das credenciais.
 
 ---
 
-## Arquivos a Modificar/Criar
+## Arquivos a Modificar
 
-| Arquivo | Tipo | Descrição |
-|---------|------|-----------|
-| `src/hooks/useSyncLateMetrics.ts` | Criar | Hook para sincronização manual de métricas |
-| `src/components/kai/KaiPerformanceTab.tsx` | Modificar | Adicionar botão de sync no header |
+| Arquivo | Mudança |
+|---------|---------|
+| `supabase/functions/fetch-late-metrics/index.ts` | Refatorar lógica de upsert para verificar por URL antes de inserir |
+| Migration SQL | Adicionar índices para `permalink` e `post_url` |
+
+---
+
+## Limpeza de Dados Existentes
+
+Após implementar a correção, será necessário limpar os registros duplicados:
+
+```sql
+-- Identificar duplicatas do Instagram (mesmo permalink, diferentes post_id)
+WITH duplicates AS (
+  SELECT permalink, client_id, 
+         COUNT(*) as count,
+         array_agg(id ORDER BY likes DESC) as ids,
+         array_agg(post_id) as post_ids
+  FROM instagram_posts
+  WHERE permalink IS NOT NULL
+  GROUP BY permalink, client_id
+  HAVING COUNT(*) > 1
+)
+SELECT * FROM duplicates;
+
+-- Deletar registros duplicados (manter o que tem mais likes)
+-- (SQL de limpeza será fornecido após análise dos dados)
+```
+
+---
+
+## Fluxo de Sync Corrigido
+
+```text
+Late API retorna post
+    ↓
+Extrai permalink/URL do post
+    ↓
+Busca no banco: "Existe post com essa URL?"
+    ↓
+┌─ SIM ─────────────────────────┐    ┌─ NÃO ──────────────────┐
+│                               │    │                        │
+│ Atualizar métricas se > 0    │    │ Inserir novo registro  │
+│ Manter post_id original      │    │ Usar shortcode como ID │
+│ Marcar como sincronizado     │    │ Salvar permalink       │
+│                               │    │                        │
+└───────────────────────────────┘    └────────────────────────┘
+```
 
 ---
 
 ## Resultado Esperado
 
-| Funcionalidade | Estado Final |
-|----------------|--------------|
-| Sync automático diário às 7h UTC | ✅ Ativo (após executar SQL) |
-| Botão "Sincronizar" no Performance | ✅ Implementado |
-| Feedback visual durante sync | ✅ Loading spinner + toast |
-| Refresh automático após sync | ✅ Invalida queries de posts/métricas |
-
----
-
-## Fluxo Visual
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│ Performance Tab                                             │
-├─────────────────────────────────────────────────────────────┤
-│ [Instagram] [YouTube] [Twitter] [LinkedIn] ...   [🔄 Sync] │
-├─────────────────────────────────────────────────────────────┤
-│                                                             │
-│   Cards de métricas, gráficos, tabelas...                  │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
-```
-
-Ao clicar em "Sync":
-1. Botão mostra spinner
-2. Chama `fetch-late-metrics` com `clientId`
-3. Toast: "Sincronizando métricas..."
-4. Ao concluir: Toast com resultado (X posts atualizados)
-5. Dados na tela são recarregados automaticamente
-
+1. **Sem duplicação**: Posts existentes são atualizados, não duplicados
+2. **Métricas preservadas**: Dados do Excel não são sobrescritos com zeros
+3. **Atualização inteligente**: Apenas atualiza se novas métricas forem maiores
+4. **Performance mantida**: Índices otimizam busca por URL
