@@ -1,22 +1,45 @@
-
-
 # Plano: Refatoração do Agente para Conteúdo Impecável
+
+## Status: 🚧 Em Progresso (Fases 1-4 Completas)
+
+---
 
 ## Resumo Executivo
 
 Este plano implementa uma arquitetura de geração de conteúdo baseada em **contrato por formato**, **voz estruturada do cliente** e um fluxo de **Writer + Validador + Repair + Revisor**. O objetivo é garantir que todo conteúdo (chat e automações) seja **impecável** e soe como o cliente, não como IA genérica.
 
-## Diagnóstico Atual
+## Progresso Atual
 
-| Componente | Estado | Problema |
-|------------|--------|----------|
-| `kai-content-agent` | Funcional | Formato como "sugestão", não contrato. Sem validação pós-geração. |
-| `generate-content-from-idea` | 4 agentes | Pipeline longo (writer → style → consistency → reviewer). Ineficiente. |
-| `process-automations` | Usa `kai-content-agent` | Mesmas limitações do agente principal |
-| Voz do cliente | Apenas `identity_guide` | Sem campos explícitos "Use/Evite". Diluído no contexto. |
-| Validação | Nenhuma | Sem parser. Sem verificação de limites, campos obrigatórios, proibições. |
+| Fase | Status | Descrição |
+|------|--------|-----------|
+| 1. Format Schemas | ✅ Completo | `format-schemas.ts` com 16 formatos |
+| 2. Validador + Quality | ✅ Completo | `content-validator.ts`, `quality-rules.ts` |
+| 3. Voz Estruturada | ✅ Completo | `getStructuredVoice()`, campo `voice_profile` |
+| 4. API Unificada | ✅ Completo | `unified-content-api` deployada |
+| 5. Migrar Chat | 🔄 Pendente | `useClientChat.ts` |
+| 6. Migrar Automações | ⏳ Pendente | `process-automations` |
+| 7. Interface Voice Profile | ⏳ Pendente | UI para configurar Use/Evite |
 
-## Arquitetura Alvo
+## Arquivos Criados
+
+- `supabase/functions/_shared/format-schemas.ts` - Schemas de output (16 formatos)
+- `supabase/functions/_shared/content-validator.ts` - Parser + validador + repair
+- `supabase/functions/_shared/quality-rules.ts` - Lista global de proibições
+- `supabase/functions/unified-content-api/index.ts` - API unificada principal
+
+## Arquivos Atualizados
+
+- `supabase/functions/_shared/knowledge-loader.ts` - +getStructuredVoice, +getClientAvoidList
+- `supabase/config.toml` - +unified-content-api
+
+## Migrations Aplicadas
+
+- `voice_profile` JSONB na tabela `clients`
+- `output_schema` JSONB na tabela `kai_documentation`
+
+---
+
+## Arquitetura Implementada
 
 ```text
 ┌─────────────────────────────────────────────────────────────────────────┐
