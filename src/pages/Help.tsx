@@ -128,20 +128,16 @@ const faqs = [
     answer: "Não! O KAI foi feito para criadores de conteúdo e agências. A interface é visual e intuitiva - basta arrastar, conectar e gerar.",
   },
   {
-    question: "Qual a diferença entre Canvas e Pro?",
-    answer: "O plano Canvas ($25/mês) inclui o Canvas de criação com IA multi-agente para 1 perfil. O Pro ($100/mês) adiciona até 10 perfis, planejamento Kanban, publicação agendada, analytics de performance e membros de equipe.",
+    question: "Quais são os níveis de acesso?",
+    answer: "Admin tem acesso total ao sistema. Membro pode criar e editar conteúdo, mas não gerencia equipe. Visualizador tem acesso somente leitura ao planejamento, performance e biblioteca.",
   },
   {
-    question: "Posso testar antes de pagar?",
-    answer: "Sim! Todos os planos incluem 14 dias grátis. Não pedimos cartão de crédito para começar.",
+    question: "Como solicitar acesso?",
+    answer: "Entre em contato com o administrador do sistema para receber um convite. Você receberá um email com instruções para criar sua conta.",
   },
   {
     question: "Como funciona a IA multi-agente?",
     answer: "O KAI usa 4 agentes especializados: Pesquisador (coleta contexto), Estrategista (define abordagem), Redator (cria o texto) e Editor (refina e formata). Eles trabalham juntos para criar conteúdo de alta qualidade.",
-  },
-  {
-    question: "Posso cancelar quando quiser?",
-    answer: "Sim, você pode cancelar sua assinatura a qualquer momento sem multas ou taxas adicionais.",
   },
 ];
 
@@ -359,11 +355,8 @@ const Help = () => {
             © {new Date().getFullYear()} KAI by Kaleidos
           </p>
           <div className="flex items-center gap-6">
-            <Link to="/" className="text-sm text-muted-foreground hover:text-foreground">
-              Início
-            </Link>
-            <Link to="/#pricing" className="text-sm text-muted-foreground hover:text-foreground">
-              Preços
+            <Link to="/kaleidos" className="text-sm text-muted-foreground hover:text-foreground">
+              Voltar ao app
             </Link>
             <a href={WHATSAPP_LINK} target="_blank" rel="noopener noreferrer" className="text-sm text-muted-foreground hover:text-foreground">
               Contato

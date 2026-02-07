@@ -3,6 +3,12 @@ import { useClients } from "@/hooks/useClients";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
+/**
+ * usePlanLimits - Sistema interno Kaleidos
+ * 
+ * Este hook foi simplificado para sempre retornar limites ilimitados.
+ * O sistema de planos foi desativado - todos os limites são baseados em roles.
+ */
 interface PlanLimits {
   maxClients: number;
   maxMembers: number;
@@ -21,16 +27,10 @@ interface PlanLimits {
 }
 
 export function usePlanLimits(): PlanLimits {
-  const { workspace, subscription } = useWorkspaceContext();
+  const { workspace } = useWorkspaceContext();
   const { clients } = useClients();
 
-  // Check plan type for permissions
-  const planType = subscription?.plan?.type;
-  const isEnterprise = planType === 'enterprise';
-  const isPro = planType === 'pro' || isEnterprise;
-  const isCanvas = planType === 'starter';
-
-  // Fetch member count
+  // Fetch member count (mantido para exibição informativa)
   const { data: memberCount, isLoading: isLoadingMembers } = useQuery({
     queryKey: ["member-count", workspace?.id],
     queryFn: async () => {
@@ -61,33 +61,26 @@ export function usePlanLimits(): PlanLimits {
     enabled: !!workspace?.id,
   });
 
-  // Enterprise has unlimited clients and members
-  const maxClients = isEnterprise ? Infinity : (subscription?.plan?.max_clients || 1);
-  const maxMembers = isEnterprise ? Infinity : (subscription?.plan?.max_members || 1);
   const currentClients = clients?.length || 0;
   const currentMembers = memberCount || 0;
   const currentPendingInvites = pendingInvites || 0;
 
-  // Members includes current members + pending invites
-  const totalPotentialMembers = currentMembers + currentPendingInvites;
-
-  // Canvas plan CANNOT create profiles at all
-  const canAddClient = isCanvas ? false : (isEnterprise || currentClients < maxClients);
-
+  // Sistema interno - limites ilimitados
+  // Permissões de criação controladas por role em useWorkspace.ts
   return {
-    maxClients,
-    maxMembers,
+    maxClients: Infinity,
+    maxMembers: Infinity,
     currentClients,
     currentMembers,
     pendingInvites: currentPendingInvites,
-    canAddClient,
-    canAddMember: isEnterprise || totalPotentialMembers < maxMembers,
-    clientsRemaining: isCanvas ? 0 : (isEnterprise ? Infinity : Math.max(0, maxClients - currentClients)),
-    membersRemaining: isEnterprise ? Infinity : Math.max(0, maxMembers - totalPotentialMembers),
+    canAddClient: true,
+    canAddMember: true,
+    clientsRemaining: Infinity,
+    membersRemaining: Infinity,
     isLoading: isLoadingMembers || isLoadingInvites,
-    isUnlimitedClients: isEnterprise,
-    isUnlimitedMembers: isEnterprise,
-    isCanvas,
-    isPro,
+    isUnlimitedClients: true,
+    isUnlimitedMembers: true,
+    isCanvas: false,
+    isPro: true,
   };
 }
