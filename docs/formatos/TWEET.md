@@ -221,10 +221,12 @@ Mediano que continua sempre ganha."
 - Frases curtas (máx 20 palavras)
 - Uma ideia por frase
 
-### Uso de Emojis
-- Opcional, mas pode ajudar
-- Máximo 1-2 emojis
-- Use com moderação
+### Uso de Emojis (REGRA ATUALIZADA)
+- **PADRÃO**: ZERO emojis no corpo do tweet
+- **EXCEÇÃO**: máximo 1 emoji no CTA final, SE absolutamente relevante
+- **REGRA DE OURO**: em caso de dúvida, NÃO use emoji
+- **PROIBIDO**: Emojis decorativos no meio do texto (💡, 🔥, ✨, 🚀, etc.)
+- **MOTIVO**: Emojis decorativos parecem genéricos e robóticos (padrão de IA)
 
 ### Mencionar Pessoas
 - Mencione pessoas relevantes quando apropriado

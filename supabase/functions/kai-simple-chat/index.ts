@@ -41,6 +41,61 @@ interface RequestBody {
   history?: HistoryMessage[];
 }
 
+// User instructions that override default behaviors
+interface UserInstructions {
+  skipImages: boolean;      // "sem imagens", "apenas texto"
+  useOnlyUrl: boolean;      // "só a URL", "apenas o link"
+  noEmojis: boolean;        // "sem emoji", "zero emoji"
+  useCoverImage: boolean;   // "usar capa", "apenas a capa"
+}
+
+/**
+ * Detect explicit user instructions that should override default behaviors
+ * These take PRIORITY over all other formatting rules
+ */
+function detectUserInstructions(message: string): UserInstructions {
+  const lowerMessage = message.toLowerCase();
+  
+  return {
+    // Detect "no images" instructions
+    skipImages: /sem\s*(imagens?|m[ií]dia)|apenas\s*texto|s[oó]\s*texto|n[aã]o\s*use\s*imagem/i.test(lowerMessage),
+    
+    // Detect "only URL" instructions  
+    useOnlyUrl: /s[oó]\s*(a\s*)?url|apenas\s*(a\s*)?(url|link)|somente\s*(a\s*)?(url|link)/i.test(lowerMessage),
+    
+    // Detect "no emojis" instructions
+    noEmojis: /sem\s*emoji|zero\s*emoji|n[aã]o\s*use\s*emoji|nenhum\s*emoji/i.test(lowerMessage),
+    
+    // Detect "use cover image" instructions
+    useCoverImage: /(usar?|com|inclua?)\s*capa|apenas\s*(a\s*)?capa|só\s*(a\s*)?capa/i.test(lowerMessage),
+  };
+}
+
+/**
+ * Build priority override instructions for system prompt
+ */
+function buildUserInstructionsPrompt(instructions: UserInstructions): string {
+  const lines: string[] = [];
+  
+  if (instructions.skipImages) {
+    lines.push("⛔ INSTRUÇÃO DO USUÁRIO (PRIORIDADE MÁXIMA): NÃO inclua nem sugira imagens. Gere APENAS texto.");
+  }
+  
+  if (instructions.noEmojis) {
+    lines.push("⛔ INSTRUÇÃO DO USUÁRIO (PRIORIDADE MÁXIMA): ZERO emojis no conteúdo. Nem mesmo no CTA final.");
+  }
+  
+  if (instructions.useOnlyUrl) {
+    lines.push("⛔ INSTRUÇÃO DO USUÁRIO (PRIORIDADE MÁXIMA): Use APENAS a URL do conteúdo, sem imagem.");
+  }
+  
+  if (instructions.useCoverImage) {
+    lines.push("⛔ INSTRUÇÃO DO USUÁRIO (PRIORIDADE MÁXIMA): Use apenas a imagem de capa, sem outras imagens.");
+  }
+  
+  return lines.length > 0 ? `\n${lines.join("\n")}\n` : "";
+}
+
 interface DateRange {
   start: string;
   end: string;
@@ -1850,6 +1905,9 @@ serve(async (req) => {
     const comparisonQuery = isComparisonQuery(message);
     const contentCreation = detectContentCreation(message, history);
     const planningIntent = detectPlanningIntent(message, history);
+    
+    // 3.5 Detect explicit user instructions (PRIORITY OVERRIDE)
+    const userInstructions = detectUserInstructions(message);
 
     // 4. Extract date range and metric focus from message
     const dateRange = extractDateRange(message);
@@ -1869,6 +1927,7 @@ serve(async (req) => {
       planningQuantity: planningIntent.quantity,
       planningPlatform: planningIntent.platform,
       planningMissingInfo: planningIntent.missingInfo,
+      userInstructions, // Log user override instructions
       dateRange,
       metricFocus 
     });
@@ -2080,13 +2139,17 @@ serve(async (req) => {
     const identityGuide = client.identity_guide 
       ? client.identity_guide.substring(0, MAX_IDENTITY_GUIDE_LENGTH) 
       : "";
+    
+    // Build user instruction overrides (PRIORITY 0 - highest)
+    const userInstructionsPrompt = buildUserInstructionsPrompt(userInstructions);
 
     let systemPrompt = `# REGRAS ABSOLUTAS DE ENTREGA (LEIA PRIMEIRO)
-
+${userInstructionsPrompt}
 ⛔ PROIBIDO INCLUIR NA RESPOSTA:
 - "Checklist:", "Observações:", "Notas:", "Dicas:"
 - Comentários como "Aqui está...", "Segue...", "Criei para você..."
 - Emojis de validação (✅❌)
+- Emojis decorativos no corpo do texto (💡🔥✨🚀💰📈💼🎯)
 - Hashtags
 - Meta-texto explicando o que você fez
 

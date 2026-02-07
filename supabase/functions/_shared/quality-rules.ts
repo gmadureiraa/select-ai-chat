@@ -158,6 +158,40 @@ export const GLOBAL_FORBIDDEN_PHRASES = [
 ];
 
 /**
+ * Common decorative emojis that should NOT appear in professional content body
+ * These are allowed ONLY in CTA final when appropriate
+ */
+export const FORBIDDEN_DECORATIVE_EMOJIS = [
+  "💡", // Lamp/idea - very common AI pattern
+  "🔥", // Fire - overused
+  "✨", // Sparkles - decorative
+  "🚀", // Rocket - cliché
+  "💰", // Money bag - salesy
+  "📈", // Chart up - generic
+  "💼", // Briefcase - corporate
+  "🎯", // Target - overused
+  "💪", // Muscle - motivational cliché
+  "🏆", // Trophy - cliché
+  "⭐", // Star - generic
+  "🌟", // Glowing star - generic
+  "💎", // Gem - salesy
+  "🔑", // Key - cliché
+  "📌", // Pin - decorative
+  "⚡", // Lightning - decorative
+  "🎉", // Party - out of place in professional content
+  "👇", // Point down - overused
+  "👆", // Point up - overused
+  "👉", // Point right - overused
+  "🤔", // Thinking - decorative
+  "💭", // Thought bubble - decorative
+  "📊", // Bar chart - generic
+  "🧠", // Brain - cliché
+  "❗", // Exclamation - unnecessary
+  "‼️", // Double exclamation - spam-like
+  "⁉️", // Exclamation question - spam-like
+];
+
+/**
  * Patterns that indicate meta-text (AI talking about the content instead of delivering it)
  */
 export const META_TEXT_PATTERNS = [
