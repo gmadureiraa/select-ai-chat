@@ -1213,9 +1213,12 @@ Por favor, use este material como base para criar o conteúdo solicitado, adapta
             throw new Error("Usuário não autenticado");
           }
 
-          // Use kai-content-agent instead of chat-multi-agent
+          // Use unified-content-api for impeccable content generation
+          setMultiAgentStep("writer" as any);
+          setMultiAgentDetails({ writer: "Escrevendo conteúdo..." });
+
           const response = await fetch(
-            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/kai-content-agent`,
+            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/unified-content-api`,
             {
               method: "POST",
               headers: {
@@ -1224,9 +1227,13 @@ Por favor, use este material como base para criar o conteúdo solicitado, adapta
                 "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
               },
               body: JSON.stringify({
-                clientId,
-                request: enrichedContent,
-                format: contentTypeForPipeline,
+                client_id: clientId,
+                format: contentTypeForPipeline || "post",
+                brief: enrichedContent,
+                options: {
+                  skip_review: quality !== "high", // Skip review for fast quality
+                  strict_validation: true,
+                },
               }),
             }
           );
@@ -1246,24 +1253,26 @@ Por favor, use este material como base para criar o conteúdo solicitado, adapta
           finalContent = await parseOpenAIStream(reader, {
             onChunk: (count) => {
               chunkCount = count;
-              // Update progress visual based on chunks
-              if (chunkCount % 15 === 0) {
-                const progress = Math.min(90, 20 + Math.floor(chunkCount / 10));
-                const agents = pipeline.agents;
-                const agentIndex = Math.min(Math.floor(progress / 25), agents.length - 1);
-                const currentAgent = agents[agentIndex];
-                if (currentAgent) {
-                  setMultiAgentStep(currentAgent.id as any);
-                  setMultiAgentDetails(prev => ({
-                    ...prev,
-                    [currentAgent.id]: `${currentAgent.description}...`
-                  }));
+              // Update progress based on unified pipeline stages
+              if (chunkCount % 20 === 0) {
+                const progress = Math.min(90, 20 + Math.floor(chunkCount / 8));
+                if (progress < 40) {
+                  setMultiAgentStep("writer" as any);
+                  setMultiAgentDetails({ writer: "Escrevendo conteúdo..." });
+                } else if (progress < 60) {
+                  setMultiAgentStep("validator" as any);
+                  setMultiAgentDetails({ validator: "Validando estrutura..." });
+                } else if (progress < 80) {
+                  setMultiAgentStep("reviewer" as any);
+                  setMultiAgentDetails({ reviewer: "Revisando qualidade..." });
+                } else {
+                  setMultiAgentStep("complete" as any);
                 }
               }
             }
           });
 
-          setMultiAgentStep("complete");
+          setMultiAgentStep("complete" as any);
 
           // Salvar resposta final
           if (finalContent) {

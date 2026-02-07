@@ -10,6 +10,15 @@ import {
 import { useClientContext, ContextSources } from "@/hooks/useClientContext";
 import { useClients } from "@/hooks/useClients";
 import { useToast } from "@/hooks/use-toast";
+import { VoiceProfileEditor } from "./VoiceProfileEditor";
+import { supabase } from "@/integrations/supabase/client";
+import { useQuery } from "@tanstack/react-query";
+
+interface VoiceProfile {
+  tone: string;
+  use: string[];
+  avoid: string[];
+}
 
 interface AIContextTabProps {
   clientId: string;
@@ -31,6 +40,22 @@ export function AIContextTab({
   const { generateContext, fetchSourceCounts, isGenerating, sources } = useClientContext();
   const { updateClient } = useClients();
   const { toast } = useToast();
+
+  // Fetch voice profile
+  const { data: voiceProfile, refetch: refetchVoiceProfile } = useQuery({
+    queryKey: ["voice-profile", clientId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("clients")
+        .select("voice_profile")
+        .eq("id", clientId)
+        .single();
+      
+      if (error) throw error;
+      return (data?.voice_profile as unknown as VoiceProfile) || null;
+    },
+    enabled: !!clientId,
+  });
 
   // Fetch source counts on mount
   useEffect(() => {
@@ -116,6 +141,13 @@ export function AIContextTab({
 
   return (
     <div className="space-y-4">
+      {/* Voice Profile Editor */}
+      <VoiceProfileEditor 
+        clientId={clientId}
+        initialProfile={voiceProfile}
+        onSave={() => refetchVoiceProfile()}
+      />
+
       {/* Data Sources Status */}
       <Card>
         <CardHeader className="pb-3">

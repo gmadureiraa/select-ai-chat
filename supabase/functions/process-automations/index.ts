@@ -717,19 +717,21 @@ serve(async (req) => {
 
             console.log(`Final prompt (${finalPrompt.length} chars): ${finalPrompt.substring(0, 300)}...`);
 
-            const response = await fetch(`${supabaseUrl}/functions/v1/kai-content-agent`, {
+            // Use unified-content-api for consistent impeccable content generation
+            const response = await fetch(`${supabaseUrl}/functions/v1/unified-content-api`, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${supabaseKey}`,
               },
               body: JSON.stringify({
-                message: finalPrompt,
-                clientId: automation.client_id,
-                workspaceId: automation.workspace_id,
+                client_id: automation.client_id,
                 format: format,
-                platform: derivedPlatform,
-                stream: false,
+                brief: finalPrompt,
+                options: {
+                  skip_review: false, // Always review for automations
+                  strict_validation: true,
+                },
               }),
             });
 
