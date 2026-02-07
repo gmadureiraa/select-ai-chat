@@ -1,332 +1,191 @@
 
-# Plano: Late API de Métricas + Atualização Diária + Sync CSV em Performance
+# Plano: Correção de Conteúdo do kAI Chat - Respeitar Instruções do Usuário
 
-## ✅ Status: IMPLEMENTADO
+## Diagnóstico dos Problemas
 
-## Resumo Executivo
+### 1. A IA não obedeceu "sem imagens"
+**Causa raiz:** O sistema não tem mecanismo para extrair e preservar instruções específicas do usuário (como "não use imagens", "apenas URL", "sem emojis") e passá-las para o pipeline de geração de conteúdo.
 
-Implementar a integração com a API de Analytics do Late para buscar métricas de todas as redes conectadas, atualizar automaticamente todos os dias, e garantir que os CSVs de Twitter, LinkedIn e Instagram façam sync (upsert) corretamente.
+O fluxo atual simplesmente detecta se é uma "content creation request" e envia para a IA, mas as instruções específicas do usuário se perdem no meio do contexto volumoso.
 
-## Status Atual
+### 2. Emoji de lâmpada (💡) apareceu no tweet
+**Causa raiz identificada:**
+- O `kai_documentation` para `tweet` diz "Máx 1-2 emojis" (permitindo emojis)
+- O `format-rules.ts` para tweet diz "Mais de 2 emojis por tweet" como proibição (não zero)
+- A documentação em `docs/formatos/TWEET.md` diz "Opcional, mas pode ajudar" e "Máximo 1-2 emojis"
+- O Defiverso **não tem `identity_guide`** configurado (retornou `null`), então não há regras específicas do cliente para emojis
 
-### O que já funciona
+**Inconsistência:** As regras permitem emojis nos tweets, mas as regras gerais de qualidade dizem "Emojis APENAS no CTA final quando apropriado" e "NUNCA no corpo principal do conteúdo".
 
-| Recurso | Status |
-|---------|--------|
-| Instagram CSV → `instagram_posts` | ✅ Upsert por `(client_id, post_id)` |
-| Twitter CSV → `twitter_posts` | ✅ Upsert por `(client_id, tweet_id)` |
-| LinkedIn Excel → `linkedin_posts` | ✅ Upsert por `(client_id, post_id)` |
-| `platform_metrics` | ✅ Upsert por `(client_id, platform, metric_date)` |
-| Late OAuth | ✅ Conecta contas e salva em `client_social_credentials` |
-| Late Post | ✅ Publica via API |
-| **Edge Function `fetch-late-metrics`** | ✅ Busca métricas do Late e grava nas tabelas |
-| **Cron job diário** | ✅ Documentado (executar SQL no Supabase) |
+### 3. O cliente Defiverso não está usando o formato de qualidade correto
+**Causa raiz:** O Defiverso não tem `identity_guide` configurado no banco de dados. Isso significa que a IA não tem diretrizes específicas de tom de voz e estilo para esse cliente.
 
-### Último Teste (07/02/2026)
+---
 
-```json
-{
-  "success": true,
-  "clientsProcessed": 2,
-  "totalPostsUpdated": 54,
-  "results": [
-    { "clientName": "Defiverso", "postsUpdated": { "instagram": 54 } },
-    { "clientName": "Gabriel Madureira", "postsUpdated": {} }
-  ]
+## Solução Proposta
+
+### Parte 1: Extrair e Preservar Instruções Específicas do Usuário
+
+Modificar o `kai-simple-chat` para detectar e passar instruções do usuário como meta-dados que sobrescrevem comportamentos padrão.
+
+**Instruções a detectar:**
+- `sem imagem` / `sem imagens` / `sem mídia` / `apenas texto` → `skipImages: true`
+- `só a URL` / `apenas a URL` / `apenas link` → `useOnlyUrl: true`
+- `sem emoji` / `zero emoji` → `noEmojis: true`
+- `com capa` / `usar capa` → `useCoverImage: true`
+
+**Arquivo:** `supabase/functions/kai-simple-chat/index.ts`
+
+```typescript
+// Nova função de detecção de instruções
+function detectUserInstructions(message: string): UserInstructions {
+  const lowerMessage = message.toLowerCase();
+  
+  return {
+    skipImages: /sem\s*(imagens?|m[ií]dia)|apenas\s*texto|s[oó]\s*texto/i.test(lowerMessage),
+    useOnlyUrl: /s[oó]\s*(a\s*)?url|apenas\s*(a\s*)?(url|link)/i.test(lowerMessage),
+    noEmojis: /sem\s*emoji|zero\s*emoji|n[aã]o\s*use\s*emoji/i.test(lowerMessage),
+    useCoverImage: /(usar?|com|inclua?)\s*capa|apenas\s*(a\s*)?capa/i.test(lowerMessage),
+  };
 }
 ```
 
----
-
-## Parte 1: Nova Edge Function `fetch-late-metrics`
-
-### Arquivos a Criar
-
-```
-supabase/functions/fetch-late-metrics/
-└── index.ts
-```
-
-### Lógica Principal
-
-```text
-┌─────────────────────────────────────────────────────────────────┐
-│                     fetch-late-metrics                          │
-├─────────────────────────────────────────────────────────────────┤
-│ 1. Buscar clientes com Late conectado                           │
-│    SELECT * FROM client_social_credentials                      │
-│    WHERE metadata->>'late_profile_id' IS NOT NULL                │
-│                                                                 │
-│ 2. Para cada profileId único:                                   │
-│    a) GET /v1/accounts/follower-stats                           │
-│       → Upsert em platform_metrics (subscribers por dia)        │
-│                                                                 │
-│    b) GET /v1/analytics?profileId=...                           │
-│       → Para cada post retornado:                               │
-│         - Identificar plataforma                                │
-│         - Extrair post_id estável (external_id ou URL)          │
-│         - Upsert na tabela correspondente                       │
-│           (instagram_posts, twitter_posts, linkedin_posts)      │
-│                                                                 │
-│ 3. Tratamento de erros                                          │
-│    - 402: Analytics add-on necessário → log e continua          │
-│    - Timeout/Network: retry leve, depois continua               │
-│                                                                 │
-│ 4. Retornar JSON com resumo                                     │
-│    { clientsProcessed, postsUpdated, errors }                   │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-### Endpoints do Late API a Usar
-
-| Endpoint | Método | Parâmetros | Retorno |
-|----------|--------|------------|---------|
-| `/v1/analytics` | GET | `profileId`, `platform?`, `fromDate?`, `toDate?`, `limit`, `page` | Posts com métricas (impressions, reach, likes, comments, shares, clicks, views, engagementRate, platformPostUrl, publishedAt) |
-| `/v1/accounts/follower-stats` | GET | `profileId`, `fromDate?`, `toDate?`, `granularity` | Histórico de seguidores por dia |
-
-### Mapeamento Late → Tabelas
-
-| Campo Late | Instagram | Twitter | LinkedIn | platform_metrics |
-|------------|-----------|---------|----------|-----------------|
-| `id` / `externalId` | `post_id` | `tweet_id` | `post_id` | - |
-| `content` | `caption` | `content` | `content` | - |
-| `publishedAt` | `posted_at` | `posted_at` | `posted_at` | `metric_date` |
-| `likes` | `likes` | `likes` | `likes` | `likes` |
-| `comments` | `comments` | `replies` | `comments` | `comments` |
-| `shares` | `shares` | `retweets` | `shares` | `shares` |
-| `impressions` | `impressions` | `impressions` | `impressions` | `views` |
-| `reach` | `reach` | - | - | - |
-| `engagementRate` | `engagement_rate` | `engagement_rate` | `engagement_rate` | `engagement_rate` |
-| `platformPostUrl` | `permalink` | (extrair tweet_id) | `post_url` | - |
-| `followers` (stats) | - | - | - | `subscribers` |
-
-### Detalhes de Implementação
+Essas instruções serão adicionadas ao system prompt com prioridade máxima:
 
 ```typescript
-// Estrutura principal da Edge Function
-const LATE_API_BASE = "https://getlate.dev/api/v1";
-
-interface LateAnalyticsPost {
-  id: string;
-  externalId?: string;
-  platform: string;
-  content?: string;
-  publishedAt?: string;
-  platformPostUrl?: string;
-  impressions?: number;
-  reach?: number;
-  likes?: number;
-  comments?: number;
-  shares?: number;
-  clicks?: number;
-  views?: number;
-  engagementRate?: number;
+// Inserir no system prompt ANTES das outras instruções
+if (userInstructions.skipImages) {
+  systemPrompt += `\n⛔ INSTRUÇÃO DO USUÁRIO (PRIORIDADE MÁXIMA): NÃO inclua nem sugira imagens. Gere APENAS texto.\n`;
 }
-
-async function fetchLateAnalytics(profileId: string, lateApiKey: string, options?: {
-  platform?: string;
-  fromDate?: string;
-  toDate?: string;
-}) {
-  const params = new URLSearchParams({ profileId });
-  if (options?.platform) params.set('platform', options.platform);
-  if (options?.fromDate) params.set('fromDate', options.fromDate);
-  if (options?.toDate) params.set('toDate', options.toDate);
-  
-  const response = await fetch(`${LATE_API_BASE}/analytics?${params}`, {
-    headers: { Authorization: `Bearer ${lateApiKey}` }
-  });
-  
-  if (response.status === 402) {
-    throw new Error('ANALYTICS_ADDON_REQUIRED');
-  }
-  
-  if (!response.ok) {
-    throw new Error(`Late API error: ${response.status}`);
-  }
-  
-  return response.json();
+if (userInstructions.noEmojis) {
+  systemPrompt += `\n⛔ INSTRUÇÃO DO USUÁRIO (PRIORIDADE MÁXIMA): ZERO emojis no conteúdo. Nem mesmo no CTA.\n`;
 }
 ```
 
----
+### Parte 2: Tornar as Regras de Emoji Mais Rigorosas
 
-## Parte 2: Cron Job Diário
+Atualizar as regras de formato para serem consistentes e mais restritivas sobre emojis.
 
-### Configuração
+**Arquivos a modificar:**
+- `supabase/functions/_shared/format-rules.ts`
+- Tabela `kai_documentation` (registro `tweet`)
 
-Adicionar ao `AUTOMATIONS.md` e executar no SQL Editor:
-
-```sql
--- JOB 4: Buscar métricas do Late (diariamente às 7h UTC)
-SELECT cron.schedule(
-  'fetch-late-metrics-daily',
-  '0 7 * * *',
-  $$
-  SELECT net.http_post(
-    url := (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'project_url' LIMIT 1) || '/functions/v1/fetch-late-metrics',
-    headers := jsonb_build_object(
-      'Content-Type', 'application/json',
-      'Authorization', 'Bearer ' || (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'cron_service_role_key' LIMIT 1)
-    ),
-    body := '{}'::jsonb
-  );
-  $$
-);
+**Mudanças:**
+```
+ANTES: "Máx 1-2 emojis"
+DEPOIS: "Emojis: OPCIONAL e APENAS no CTA final. ZERO emojis no corpo do texto. Em caso de dúvida, NÃO use."
 ```
 
-### Atualizar config.toml
+### Parte 3: Atualizar Documentação de Tweet
 
-```toml
-[functions.fetch-late-metrics]
-verify_jwt = false
+Sincronizar `docs/formatos/TWEET.md` e `kai_documentation` para terem regras consistentes:
+
+```markdown
+### Uso de Emojis
+- **Padrão**: ZERO emojis no corpo do tweet
+- **Exceção**: máximo 1 emoji no CTA final SE for relevante
+- **Regra de ouro**: em caso de dúvida, NÃO use emoji
+- **Nunca**: emojis decorativos no meio do texto (💡, 🔥, etc.)
 ```
 
----
+### Parte 4: Criar Identity Guide para Defiverso (Recomendado)
 
-## Parte 3: CSV Sync (Verificação)
+O Defiverso não tem `identity_guide`. Isso precisa ser corrigido pelo usuário ou automaticamente.
 
-### Status das Constraints UNIQUE (Já Existem)
+**Opção A (via UI):** Gerar um guia de identidade acessando:
+- Configurações do cliente → Gerar Guia de Identidade
 
-| Tabela | Constraint | Suporte a Upsert |
-|--------|------------|-----------------|
-| `instagram_posts` | `(client_id, post_id)` | Funciona |
-| `twitter_posts` | `(client_id, tweet_id)` | Funciona |
-| `linkedin_posts` | `(client_id, post_id)` | Funciona |
-| `platform_metrics` | `(client_id, platform, metric_date)` | Funciona |
-
-### Verificação dos Hooks de Import
-
-| Hook | Usa Upsert? | onConflict |
-|------|-------------|------------|
-| `useImportInstagramPostsCSV` | Sim | `client_id,post_id` |
-| `useImportTwitterCSV` | Sim | `client_id,tweet_id` |
-| `useImportLinkedInExcel` | Sim | `client_id,post_id` |
-
-**Todos os imports já fazem sync (upsert)** - apenas precisa documentar melhor na UI.
-
-### Melhoria de UX
-
-Adicionar tooltip/texto nos componentes de upload:
-
-```typescript
-// Em SmartCSVUpload.tsx ou similar
-const helpText = "O CSV será sincronizado com os dados existentes: " +
-  "posts já cadastrados serão atualizados com as informações da planilha; " +
-  "posts novos serão adicionados.";
-```
+**Opção B (via banco):** Criar um guia básico baseado nas newsletters existentes em `public/clients/defiverso/`
 
 ---
 
-## Parte 4: Botão de Refresh Manual (Opcional)
+## Arquivos a Modificar
 
-Adicionar na área de Performance um botão para forçar atualização:
-
-```typescript
-// Hook para chamar fetch-late-metrics
-const useFetchLateMetrics = () => {
-  return useMutation({
-    mutationFn: async (clientId?: string) => {
-      const { data, error } = await supabase.functions.invoke('fetch-late-metrics', {
-        body: { clientId }
-      });
-      if (error) throw error;
-      return data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['instagram-posts'] });
-      queryClient.invalidateQueries({ queryKey: ['twitter-posts'] });
-      queryClient.invalidateQueries({ queryKey: ['linkedin-posts'] });
-      queryClient.invalidateQueries({ queryKey: ['performance-metrics'] });
-    }
-  });
-};
-```
-
----
-
-## Ordem de Implementação
-
-| # | Tarefa | Prioridade | Estimativa |
-|---|--------|------------|------------|
-| 1 | Criar Edge Function `fetch-late-metrics` | Alta | 45 min |
-| 2 | Atualizar `supabase/config.toml` | Alta | 2 min |
-| 3 | Documentar cron job em `AUTOMATIONS.md` | Alta | 10 min |
-| 4 | Adicionar tooltip de sync nos uploads CSV | Média | 15 min |
-| 5 | (Opcional) Botão "Atualizar métricas" | Baixa | 20 min |
-
----
-
-## Requisitos e Dependências
-
-### Pré-requisitos
-
-1. **Late API Key** configurada em Supabase Secrets (`LATE_API_KEY`)
-2. **Late Analytics Add-on** ativo na conta Late (necessário para endpoints de analytics)
-3. **Vault Secrets** configurados: `project_url` e `cron_service_role_key`
-
-### Tratamento de Erros
-
-| Erro | Comportamento |
-|------|---------------|
-| 402 (Add-on required) | Log warning, continua para próximo cliente |
-| 404 (Profile not found) | Log info, continua |
-| 429 (Rate limit) | Retry com backoff, max 3 tentativas |
-| 5xx | Log error, continua para próximo cliente |
+| Arquivo | Mudança |
+|---------|---------|
+| `supabase/functions/kai-simple-chat/index.ts` | Adicionar detecção de instruções do usuário (`skipImages`, `noEmojis`, etc.) e injetá-las no prompt com prioridade máxima |
+| `supabase/functions/_shared/format-rules.ts` | Atualizar regras de emoji para tweet (linha ~263) para serem mais restritivas |
+| `supabase/functions/_shared/quality-rules.ts` | Adicionar 💡 (lâmpada) e outros emojis decorativos comuns à lista de `GLOBAL_FORBIDDEN_PHRASES` |
+| Migration para `kai_documentation` | Atualizar o registro `tweet` com regras mais restritivas de emoji |
 
 ---
 
 ## Detalhes Técnicos
 
-### Estrutura da Edge Function
-
-```
-fetch-late-metrics/
-└── index.ts
-```
-
-A função deve:
-1. Aceitar `{ clientId?: string }` no body (opcional)
-2. Se `clientId` não for passado, processar todos os clientes com Late conectado
-3. Usar `SUPABASE_SERVICE_ROLE_KEY` para queries sem RLS
-4. Retornar resumo JSON com estatísticas
-
-### Extração de Post ID Estável
+### Nova Interface de Instruções do Usuário
 
 ```typescript
-function extractStablePostId(platform: string, post: LateAnalyticsPost): string | null {
-  // Preferir externalId se disponível
-  if (post.externalId) return post.externalId;
-  
-  // Extrair do URL da plataforma
-  const url = post.platformPostUrl || '';
-  
-  switch (platform) {
-    case 'twitter':
-      const tweetMatch = url.match(/status\/(\d+)/);
-      return tweetMatch ? tweetMatch[1] : post.id;
-    
-    case 'instagram':
-      const igMatch = url.match(/\/p\/([^\/]+)/);
-      return igMatch ? igMatch[1] : post.id;
-    
-    case 'linkedin':
-      const liMatch = url.match(/activity:(\d+)/);
-      return liMatch ? liMatch[1] : post.id;
-    
-    default:
-      return post.id;
-  }
+interface UserInstructions {
+  skipImages: boolean;      // "sem imagens", "apenas texto"
+  useOnlyUrl: boolean;      // "só a URL", "apenas o link"
+  noEmojis: boolean;        // "sem emoji", "zero emoji"
+  useCoverImage: boolean;   // "usar capa", "apenas a capa"
+  customNote?: string;      // Qualquer outra instrução detectada
 }
+```
+
+### Fluxo de Prioridade Atualizado
+
+```text
+PRIORIDADE 1: Instruções Explícitas do Usuário
+             ↓ (se "sem imagens" → ignorar mídia)
+PRIORIDADE 2: Materiais Citados (@mentions)
+             ↓
+PRIORIDADE 3: Identity Guide do Cliente
+             ↓
+PRIORIDADE 4: Regras do Formato (kai_documentation)
+             ↓
+PRIORIDADE 5: Exemplos da Biblioteca
+```
+
+### Regras de Emoji Atualizadas para Tweet
+
+```typescript
+tweet: `
+## REGRAS OBRIGATÓRIAS PARA TWEET
+
+### ESTRUTURA
+- **Gancho**: Primeira frase irresistível
+- **Corpo**: Máximo 280 caracteres
+- **CTA**: Opcional, integrado ao texto
+
+### PROIBIÇÕES ABSOLUTAS
+- ❌ Tweets que excedem 280 caracteres
+- ❌ Múltiplas ideias no mesmo tweet
+- ❌ Ganchos vagos
+- ❌ HASHTAGS (nunca use)
+- ❌ Emojis decorativos no corpo (💡🔥✨🚀💰 etc.)
+
+### REGRA DE EMOJI
+- PADRÃO: Zero emojis
+- EXCEÇÃO: máximo 1 emoji no CTA final, SE relevante
+- NA DÚVIDA: não use emoji
+
+### TÉCNICAS QUE FUNCIONAM
+- ✅ Números específicos (3,5% > "muito")
+- ✅ Opinião ou take forte
+- ✅ Perguntas diretas
+`,
 ```
 
 ---
 
-## Resultado Final
+## Resultado Esperado
 
 Após implementação:
 
-1. **Late = fonte oficial de métricas** para redes conectadas via OAuth
-2. **Atualização automática diária** às 7h UTC
-3. **CSV complementa/sobrescreve** quando o usuário quiser dados mais detalhados
-4. **Cards de Performance** mostram dados atualizados combinando Late + CSV
+1. **Usuário diz "crie um tweet sem imagens"** → IA gera APENAS texto, sem sugerir imagens
+2. **Usuário diz "sem emoji"** → IA gera conteúdo com ZERO emojis
+3. **Tweets do Defiverso** → Seguem padrão limpo, sem emojis decorativos como 💡
+4. **Regras consistentes** → Todas as fontes (format-rules.ts, kai_documentation, TWEET.md) alinhadas
+
+---
+
+## Checklist de Implementação
+
+- [ ] Adicionar `detectUserInstructions()` ao `kai-simple-chat/index.ts`
+- [ ] Injetar instruções do usuário no system prompt com prioridade máxima
+- [ ] Atualizar regras de emoji em `format-rules.ts` (tweet e thread)
+- [ ] Adicionar emojis decorativos comuns à lista de proibidos em `quality-rules.ts`
+- [ ] Criar migration para atualizar `kai_documentation` registro `tweet`
+- [ ] Atualizar `docs/formatos/TWEET.md` para consistência
