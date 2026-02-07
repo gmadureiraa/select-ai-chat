@@ -174,7 +174,7 @@ export const PendingAccessOverlay = ({
             <p className="text-muted-foreground">
               {isRejected 
                 ? "Seu pedido de acesso foi recusado pelo administrador."
-                : "Seu pedido de acesso está sendo analisado pelo administrador do workspace."
+                : "Seu pedido de acesso está sendo analisado pelo administrador da equipe."
               }
             </p>
           </div>

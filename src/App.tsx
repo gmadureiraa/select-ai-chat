@@ -7,21 +7,15 @@ import Help from "./pages/Help";
 import AdminDashboard from "./pages/AdminDashboard";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
-import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AuthOnlyRoute } from "@/components/AuthOnlyRoute";
 import { SuperAdminRoute } from "@/components/SuperAdminRoute";
-import { Navigate } from "react-router-dom";
 import Login from "./pages/Login";
 import SimpleSignup from "./pages/SimpleSignup";
-import NoWorkspacePage from "./pages/NoWorkspacePage";
-import JoinWorkspace from "./pages/JoinWorkspace";
-import WorkspaceLogin from "./pages/WorkspaceLogin";
 import NotFound from "./pages/NotFound";
 import { WorkspaceProvider } from "@/contexts/WorkspaceContext";
 import { WorkspaceRouter } from "@/components/WorkspaceRouter";
-import { WorkspaceRedirect } from "@/components/WorkspaceRedirect";
 import { TokenErrorProvider } from "@/hooks/useTokenError";
 import { GlobalKAIProvider } from "@/contexts/GlobalKAIContext";
 import { GlobalKAIAssistant } from "@/components/kai-global";
@@ -46,24 +40,12 @@ const App = () => (
                     <Route path="/login" element={<Login />} />
                     <Route path="/register" element={<SimpleSignup />} />
                     <Route path="/signup" element={<SimpleSignup />} />
-                    <Route path="/create-workspace" element={<Navigate to="/signup" replace />} />
                     <Route path="/help" element={<Help />} />
                     
-                    {/* Protected route for users without workspace */}
-                    <Route
-                      path="/no-workspace"
-                      element={
-                        <AuthOnlyRoute>
-                          <NoWorkspacePage />
-                        </AuthOnlyRoute>
-                      }
-                    />
-                    
-                    {/* Public landing page */}
-                    {/* Landing page desativada - redireciona para app */}
+                    {/* Root redirects to Kaleidos */}
                     <Route path="/" element={<Navigate to="/kaleidos" replace />} />
                     
-                    {/* Super Admin route - uses AuthOnlyRoute instead of ProtectedRoute to skip workspace check */}
+                    {/* Super Admin route */}
                     <Route
                       path="/admin"
                       element={
@@ -75,28 +57,15 @@ const App = () => (
                       }
                     />
                     
-                    {/* Redirect to workspace for authenticated users */}
-                    <Route
-                      path="/app"
-                      element={
-                        <ProtectedRoute>
-                          <WorkspaceRedirect />
-                        </ProtectedRoute>
-                      }
-                    />
-                    
-                    {/* Legacy route - kept for compatibility but not used */}
-                    {/* CreateWorkspaceCallback disabled - internal tool only */}
-                    
-                    {/* Workspace auth routes */}
-                    <Route path="/:slug/join" element={<JoinWorkspace />} />
-                    <Route path="/:slug/login" element={<WorkspaceLogin />} />
-                    
-                    {/* Workspace routes with slug */}
-                    <Route path="/:slug" element={<WorkspaceRouter />}>
+                    {/* Main app route - fixed to /kaleidos */}
+                    <Route path="/kaleidos" element={<WorkspaceRouter />}>
                       <Route index element={<Kai />} />
                       <Route path="docs" element={<Documentation />} />
                     </Route>
+                    
+                    {/* Catch any other workspace slug and redirect to kaleidos */}
+                    <Route path="/:slug" element={<Navigate to="/kaleidos" replace />} />
+                    <Route path="/:slug/*" element={<Navigate to="/kaleidos" replace />} />
                     
                     {/* 404 */}
                     <Route path="/404" element={<NotFound />} />

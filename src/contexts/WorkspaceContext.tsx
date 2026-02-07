@@ -47,30 +47,32 @@ interface WorkspaceContextType {
 
 const WorkspaceContext = createContext<WorkspaceContextType | undefined>(undefined);
 
+// Sistema interno Kaleidos: slug fixo
+const KALEIDOS_SLUG = "kaleidos";
+
 export const WorkspaceProvider = ({ children }: { children: ReactNode }) => {
   const { user } = useAuth();
-  const [slug, setSlug] = useState<string | null>(null);
+  // Slug fixo para Kaleidos - mantido para compatibilidade com código existente
+  const [slug, setSlug] = useState<string | null>(KALEIDOS_SLUG);
 
-  // Fetch workspace by slug
+  // Fetch workspace - sempre usa Kaleidos
   const { 
     data: workspace, 
     isLoading: isLoadingWorkspace,
     error: workspaceError 
   } = useQuery({
-    queryKey: ["workspace-by-slug", slug],
+    queryKey: ["workspace", KALEIDOS_SLUG],
     queryFn: async () => {
-      if (!slug) return null;
-      
       const { data, error } = await supabase
         .from("workspaces")
         .select("*")
-        .eq("slug", slug)
+        .eq("slug", KALEIDOS_SLUG)
         .single();
 
       if (error) throw error;
       return data as WorkspaceData;
     },
-    enabled: !!slug,
+    enabled: true, // Sempre carrega o workspace Kaleidos
   });
 
   // Fetch subscription

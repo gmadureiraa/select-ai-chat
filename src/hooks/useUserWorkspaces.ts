@@ -64,7 +64,8 @@ export const useUserWorkspaces = () => {
   return {
     workspaces: workspaces || [],
     isLoading,
-    hasMultipleWorkspaces: (workspaces?.length || 0) > 1,
+    // Sistema interno Kaleidos: sempre false para nunca mostrar switcher
+    hasMultipleWorkspaces: false,
     refetch,
   };
 };
