@@ -157,13 +157,16 @@ async function syncInstagramPosts(
     if (!permalink) continue;
 
     try {
-      // Check if post exists by permalink
-      const { data: existing, error: fetchError } = await supabase
+      // Check if post exists by permalink (use limit(1) to handle duplicates gracefully)
+      const { data: existingList, error: fetchError } = await supabase
         .from('instagram_posts')
         .select('id, likes, impressions, reach, comments, shares, engagement_rate, metadata')
         .eq('client_id', clientId)
         .eq('permalink', permalink)
-        .maybeSingle();
+        .order('likes', { ascending: false, nullsFirst: false })
+        .limit(1);
+      
+      const existing = existingList?.[0] || null;
 
       if (fetchError) {
         console.error(`[fetch-late-metrics] Error fetching Instagram post:`, fetchError);
@@ -350,13 +353,16 @@ async function syncLinkedInPosts(
     if (!postUrl) continue;
 
     try {
-      // Check if post exists by post_url
-      const { data: existing, error: fetchError } = await supabase
+      // Check if post exists by post_url (use limit(1) to handle duplicates gracefully)
+      const { data: existingList, error: fetchError } = await supabase
         .from('linkedin_posts')
         .select('id, post_id, likes, impressions, comments, shares, clicks, engagement_rate, metadata')
         .eq('client_id', clientId)
         .eq('post_url', postUrl)
-        .maybeSingle();
+        .order('likes', { ascending: false, nullsFirst: false })
+        .limit(1);
+      
+      const existing = existingList?.[0] || null;
 
       if (fetchError) {
         errors.push(`LinkedIn fetch: ${fetchError.message}`);
