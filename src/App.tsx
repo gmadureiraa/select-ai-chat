@@ -3,7 +3,6 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { SkipLink } from "@/components/ui/skip-link";
 import Kai from "./pages/Kai";
 import Documentation from "./pages/Documentation";
-import LandingPage from "./pages/LandingPage";
 import Help from "./pages/Help";
 import AdminDashboard from "./pages/AdminDashboard";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -19,7 +18,6 @@ import SimpleSignup from "./pages/SimpleSignup";
 import NoWorkspacePage from "./pages/NoWorkspacePage";
 import JoinWorkspace from "./pages/JoinWorkspace";
 import WorkspaceLogin from "./pages/WorkspaceLogin";
-import CreateWorkspaceCallback from "./pages/CreateWorkspaceCallback";
 import NotFound from "./pages/NotFound";
 import { WorkspaceProvider } from "@/contexts/WorkspaceContext";
 import { WorkspaceRouter } from "@/components/WorkspaceRouter";
@@ -87,15 +85,8 @@ const App = () => (
                       }
                     />
                     
-                    {/* Callback for creating new workspace after Stripe checkout */}
-                    <Route
-                      path="/create-workspace-callback"
-                      element={
-                        <ProtectedRoute>
-                          <CreateWorkspaceCallback />
-                        </ProtectedRoute>
-                      }
-                    />
+                    {/* Legacy route - kept for compatibility but not used */}
+                    {/* CreateWorkspaceCallback disabled - internal tool only */}
                     
                     {/* Workspace auth routes */}
                     <Route path="/:slug/join" element={<JoinWorkspace />} />

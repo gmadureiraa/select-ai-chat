@@ -354,7 +354,7 @@ export function TeamManagement() {
           <CardTitle>Time</CardTitle>
         </div>
         <CardDescription>
-          Gerencie os membros do workspace "{workspace?.name}"
+          Gerencie os membros da equipe
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">

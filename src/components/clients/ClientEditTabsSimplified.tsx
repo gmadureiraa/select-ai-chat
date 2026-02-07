@@ -1,16 +1,14 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { 
   User, Loader2, Globe, Instagram, Twitter, 
   Linkedin, Youtube, Mail, Megaphone, Check,
-  Building, MessageSquare, Users, Target, Plug, FileText, Sparkles, Lock, Brain
+  Building, MessageSquare, Users, Target, Plug, FileText, Brain
 } from "lucide-react";
 import { AvatarUpload } from "@/components/ui/avatar-upload";
 import { SocialIntegrationsTab } from "./SocialIntegrationsTab";
@@ -23,8 +21,6 @@ import { useClientWebsites } from "@/hooks/useClientWebsites";
 import { useClientDocuments } from "@/hooks/useClientDocuments";
 import { useToast } from "@/hooks/use-toast";
 import { useDebounce } from "@/hooks/useDebounce";
-import { cn } from "@/lib/utils";
-import { usePlanFeatures } from "@/hooks/usePlanFeatures";
 
 interface ClientEditTabsSimplifiedProps {
   client: Client;
@@ -41,7 +37,6 @@ const socialMediaFields = [
 ];
 
 export function ClientEditTabsSimplified({ client, onClose }: ClientEditTabsSimplifiedProps) {
-  const navigate = useNavigate();
   const [name, setName] = useState(client.name);
   const [description, setDescription] = useState(client.description || "");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(client.avatar_url || null);
@@ -60,7 +55,6 @@ export function ClientEditTabsSimplified({ client, onClose }: ClientEditTabsSimp
   const { websites } = useClientWebsites(client.id);
   const { documents } = useClientDocuments(client.id);
   const { toast } = useToast();
-  const { isPro } = usePlanFeatures();
 
   // Form data for debounce
   const formData = { name, description, avatarUrl, socialMedia, tags };
@@ -151,14 +145,9 @@ export function ClientEditTabsSimplified({ client, onClose }: ClientEditTabsSimp
             <FileText className="h-3.5 w-3.5" />
             Referências
           </TabsTrigger>
-          <TabsTrigger 
-            value="integrations" 
-            className={cn("text-xs gap-1", !isPro && "opacity-50")}
-            disabled={!isPro}
-          >
+          <TabsTrigger value="integrations" className="text-xs gap-1">
             <Plug className="h-3.5 w-3.5" />
             Integrações
-            {!isPro && <Lock className="h-3 w-3 ml-1 text-muted-foreground" />}
           </TabsTrigger>
           <TabsTrigger value="ai-context" className="text-xs gap-1">
             <Brain className="h-3.5 w-3.5" />
@@ -307,20 +296,7 @@ export function ClientEditTabsSimplified({ client, onClose }: ClientEditTabsSimp
 
         {/* Tab: Integrações */}
         <TabsContent value="integrations" className="mt-4">
-          {isPro ? (
-            <SocialIntegrationsTab clientId={client.id} />
-          ) : (
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <Lock className="h-12 w-12 text-muted-foreground/40 mb-4" />
-              <h3 className="font-semibold mb-2">Integrações PRO</h3>
-              <p className="text-sm text-muted-foreground mb-4 max-w-sm">
-                Conecte redes sociais e publique diretamente com o plano PRO.
-              </p>
-              <Button onClick={() => navigate('/settings?section=billing')}>
-                Fazer upgrade
-              </Button>
-            </div>
-          )}
+          <SocialIntegrationsTab clientId={client.id} />
         </TabsContent>
 
         {/* Tab: AI Context - Final tab */}
