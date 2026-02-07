@@ -3922,15 +3922,6 @@ export type Database = {
         Args: { p_user_id: string; p_workspace_id: string }
         Returns: boolean
       }
-      log_credential_access: {
-        Args: {
-          p_action: string
-          p_client_id: string
-          p_credential_id: string
-          p_metadata?: Json
-        }
-        Returns: undefined
-      }
       log_user_activity: {
         Args: {
           p_activity_type: Database["public"]["Enums"]["activity_type"]
