@@ -6,7 +6,7 @@ import { GradientHero } from "@/components/kai/GradientHero";
 import { KaiPerformanceTab } from "@/components/kai/KaiPerformanceTab";
 import { KaiLibraryTab } from "@/components/kai/KaiLibraryTab";
 import { KaiDocsTab } from "@/components/kai/KaiDocsTab";
-// KaiAssistantTab removed - chat now centralized in GlobalKAIAssistant popup
+import { KaiAssistantTab } from "@/components/kai/KaiAssistantTab";
 
 import { ClientsManagementTool } from "@/components/kai/tools/ClientsManagementTool";
 import { ContentCanvas } from "@/components/kai/canvas/ContentCanvas";
@@ -158,7 +158,7 @@ export default function Kai() {
     }
 
     // Tools that don't need client
-    const toolTabs = ["canvas", "clients", "docs", "settings", "automations"];
+    const toolTabs = ["canvas", "clients", "docs", "settings", "automations", "assistant"];
     
     if (toolTabs.includes(tab)) {
       switch (tab) {
@@ -180,7 +180,18 @@ export default function Kai() {
           return <SettingsTab />;
         case "automations":
           return <AutomationsTab />;
-        // assistant tab removed - chat now in GlobalKAIAssistant popup
+        case "assistant":
+          return selectedClient ? (
+            <div className="h-full overflow-hidden">
+              <KaiAssistantTab clientId={selectedClient.id} client={selectedClient} />
+            </div>
+          ) : (
+            <div className="flex items-center justify-center h-full">
+              <div className="text-center text-muted-foreground">
+                <p>Selecione um cliente para usar o chat</p>
+              </div>
+            </div>
+          );
       }
     }
 
