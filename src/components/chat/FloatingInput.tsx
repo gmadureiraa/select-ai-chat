@@ -18,6 +18,7 @@ interface FloatingInputProps {
   placeholder?: string;
   contentLibrary?: Array<{ id: string; title: string; content_type: string; content: string }>;
   referenceLibrary?: Array<{ id: string; title: string; reference_type: string; content: string }>;
+  selectedMode?: ChatMode; // Mode from ModeSelector - used as base when no format citation
 }
 
 const modeConfig = {
@@ -57,6 +58,7 @@ export const FloatingInput = ({
   placeholder = "Digite sua mensagem... Use @ para citar conteúdo",
   contentLibrary = [],
   referenceLibrary = [],
+  selectedMode,
 }: FloatingInputProps) => {
   const [input, setInput] = useState("");
   const [imageFiles, setImageFiles] = useState<File[]>([]);
@@ -209,16 +211,24 @@ export const FloatingInput = ({
       setUploadingImages(false);
     }
 
-    // Determinar modo baseado nas citações
+    // Determinar modo baseado nas citações E no modo selecionado
+    // Prioridade: citação de formato > citação de ideias > modo selecionado pelo ModeSelector > fallback
     let effectiveMode: ChatMode;
-    if (citations.length > 0) {
-      // Se tem citações, o modo é determinado por elas
-      effectiveMode = getEffectiveModeFromCitations(citations);
+    if (citations.some(c => c.category === "ideias" || c.id === "format_ideias")) {
+      // Citação explícita de @ideias
+      effectiveMode = "ideas";
+    } else if (citations.some(c => c.type === "format" && c.category !== "ideias")) {
+      // Citação de formato específico (ex: @LinkedIn, @Carrossel)
+      effectiveMode = "content";
+    } else if (selectedMode) {
+      // Modo selecionado pelo ModeSelector (Conteúdo, Ideias, Performance, Chat)
+      effectiveMode = selectedMode;
     } else {
-      // Sem citações = chat livre
+      // Fallback: sem citações e sem modo = chat livre
       effectiveMode = "free_chat";
     }
     
+    // Modo "content" SEMPRE usa alta qualidade (pipeline multi-agente)
     const quality = effectiveMode === "content" ? "high" : "fast";
     
     onSend(trimmed || "Analise esta imagem", imageUrls, quality, effectiveMode, citations.length > 0 ? citations : undefined);
