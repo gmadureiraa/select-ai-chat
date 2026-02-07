@@ -16,9 +16,11 @@ export type Database = {
     Tables: {
       ai_usage_logs: {
         Row: {
+          client_id: string | null
           created_at: string
           edge_function: string
           estimated_cost_usd: number | null
+          format_type: string | null
           id: string
           input_tokens: number | null
           metadata: Json | null
@@ -27,11 +29,15 @@ export type Database = {
           provider: string
           total_tokens: number | null
           user_id: string
+          validation_passed: boolean | null
+          was_repaired: boolean | null
         }
         Insert: {
+          client_id?: string | null
           created_at?: string
           edge_function: string
           estimated_cost_usd?: number | null
+          format_type?: string | null
           id?: string
           input_tokens?: number | null
           metadata?: Json | null
@@ -40,11 +46,15 @@ export type Database = {
           provider: string
           total_tokens?: number | null
           user_id: string
+          validation_passed?: boolean | null
+          was_repaired?: boolean | null
         }
         Update: {
+          client_id?: string | null
           created_at?: string
           edge_function?: string
           estimated_cost_usd?: number | null
+          format_type?: string | null
           id?: string
           input_tokens?: number | null
           metadata?: Json | null
@@ -53,8 +63,18 @@ export type Database = {
           provider?: string
           total_tokens?: number | null
           user_id?: string
+          validation_passed?: boolean | null
+          was_repaired?: boolean | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "ai_usage_logs_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       automation_runs: {
         Row: {
@@ -684,6 +704,63 @@ export type Database = {
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      content_feedback: {
+        Row: {
+          client_id: string | null
+          created_at: string | null
+          edit_distance: number | null
+          edited_content: string | null
+          feedback_type: string
+          format_type: string | null
+          id: string
+          message_id: string | null
+          metadata: Json | null
+          original_content: string | null
+          user_id: string
+        }
+        Insert: {
+          client_id?: string | null
+          created_at?: string | null
+          edit_distance?: number | null
+          edited_content?: string | null
+          feedback_type: string
+          format_type?: string | null
+          id?: string
+          message_id?: string | null
+          metadata?: Json | null
+          original_content?: string | null
+          user_id: string
+        }
+        Update: {
+          client_id?: string | null
+          created_at?: string | null
+          edit_distance?: number | null
+          edited_content?: string | null
+          feedback_type?: string
+          format_type?: string | null
+          id?: string
+          message_id?: string | null
+          metadata?: Json | null
+          original_content?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_feedback_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_feedback_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
             referencedColumns: ["id"]
           },
         ]

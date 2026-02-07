@@ -55,6 +55,15 @@ interface ContentRequest {
   };
 }
 
+interface SourcesUsed {
+  identity_guide: boolean;
+  library_items_count: number;
+  top_performers_count: number;
+  format_rules: string | null;
+  voice_profile: boolean;
+  global_knowledge: boolean;
+}
+
 interface ContentResponse {
   content: string;
   parsed_fields: Record<string, string>;
@@ -64,6 +73,7 @@ interface ContentResponse {
     reviewed: boolean;
     warnings: string[];
   };
+  sources_used: SourcesUsed;
   tokens_used: {
     writer: number;
     repair: number;
@@ -238,6 +248,16 @@ serve(async (req) => {
       includeChecklist: false, // We use our own validation
     });
 
+    // Track sources used
+    const sourcesUsed: SourcesUsed = {
+      identity_guide: fullContext.includes("GUIA DE IDENTIDADE") || fullContext.includes("identity"),
+      library_items_count: (fullContext.match(/\[BIBLIOTECA\]/g) || []).length,
+      top_performers_count: (fullContext.match(/\[TOP PERFORMER\]/g) || []).length,
+      format_rules: schema?.format_label || null,
+      voice_profile: structuredVoice.includes("USE SEMPRE") || structuredVoice.includes("EVITE SEMPRE"),
+      global_knowledge: fullContext.includes("KNOWLEDGE BASE") || fullContext.includes("conhecimento global"),
+    };
+
     // Get forbidden phrases section
     const forbiddenPhrases = buildForbiddenPhrasesSection();
 
@@ -395,6 +415,29 @@ ${formatContract}
 
     console.log(`[UNIFIED-API] Completed in ${processingTime}ms, ${totalTokens} tokens`);
 
+    // Log to ai_usage_logs with format tracking
+    try {
+      await supabase.from("ai_usage_logs").insert({
+        user_id: req.headers.get("x-user-id") || "system",
+        edge_function: "unified-content-api",
+        provider: "google",
+        model_name: "gemini-2.5-flash",
+        total_tokens: totalTokens,
+        format_type: normalizedFormat,
+        client_id: client_id,
+        validation_passed: finalValidation.valid,
+        was_repaired: wasRepaired,
+        metadata: {
+          format: normalizedFormat,
+          processing_time_ms: processingTime,
+          steps: stepsCompleted,
+          sources_used: sourcesUsed,
+        },
+      });
+    } catch (logError) {
+      console.error("[UNIFIED-API] Error logging usage:", logError);
+    }
+
     const response: ContentResponse = {
       content: currentContent,
       parsed_fields: finalParsed,
@@ -404,12 +447,20 @@ ${formatContract}
         reviewed: wasReviewed,
         warnings: finalValidation.warnings,
       },
+      sources_used: sourcesUsed,
       tokens_used: {
         writer: writerTokens,
         repair: repairTokens,
         reviewer: reviewerTokens,
         total: totalTokens,
       },
+      metadata: {
+        format: normalizedFormat,
+        format_label: schema?.format_label || normalizedFormat,
+        processing_time_ms: processingTime,
+        steps_completed: stepsCompleted,
+      },
+    };
       metadata: {
         format: normalizedFormat,
         format_label: schema?.format_label || normalizedFormat,
