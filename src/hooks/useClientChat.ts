@@ -1175,10 +1175,14 @@ Por favor, use este material como base para criar o conteúdo solicitado, adapta
       // Detectar tipo de conteúdo para multi-agente (apenas se NÃO estiver em modo ideias)
       const earlyDetectedType = detectContentType(enrichedContent);
       
+      // CORREÇÃO: Modo "content" explícito SEMPRE usa o pipeline multi-agente
+      const isExplicitContentMode = explicitMode === "content";
+      
       // Usar pipeline multi-agente QUANDO:
       // 1. NÃO está em modo ideias explícito E
-      // 2. (Usuário escolheu "Alta Qualidade" OU é conteúdo longo com modelo premium OU tem conteúdo extraído de URL)
+      // 2. (Modo content explícito OU quality high OU tem conteúdo extraído de URL OU é conteúdo longo com modelo premium)
       const shouldUseMultiAgent = !isExplicitIdeaMode && (
+        isExplicitContentMode ||
         quality === "high" || 
         extractedUrlContent !== null ||
         (MULTI_AGENT_CONTENT_TYPES.includes(earlyDetectedType || "") &&

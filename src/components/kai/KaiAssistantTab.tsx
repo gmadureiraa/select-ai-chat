@@ -329,6 +329,7 @@ export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
               placeholder="Pergunte sobre o cliente... Use @ para formatos"
               contentLibrary={contentLibrary || []}
               referenceLibrary={referenceLibrary || []}
+              selectedMode={chatMode}
             />
             {/* Mode Selector - 4 modes */}
             <div className="flex justify-center px-4">

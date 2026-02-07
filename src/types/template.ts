@@ -1405,9 +1405,19 @@ export const detectContentType = (text: string): ContentFormatType | null => {
   if (lowerText.includes('@artigo')) return 'x_article';
   if (lowerText.includes('@reels') || lowerText.includes('@reel')) return 'short_video';
   
-  // MÉTODO 2: Detecção por nome explícito
+  // MÉTODO 2: Detecção por linguagem natural (melhorado para LinkedIn)
   // ORDEM CRÍTICA: Thread ANTES de stories para evitar false positives
-  // ("thread" é mais específico que "story/storie")
+  
+  // LinkedIn - AMPLIADO para detectar variações naturais
+  // Detecta: "linkedin", "post linkedin", "conteúdo de linkedin", "publicação linkedin", etc.
+  if (/linkedin/i.test(lowerText) ||
+      /conteúdo\s+(de|pra|para)\s+linkedin/i.test(lowerText) ||
+      /post\s+(de|pra|para)\s+linkedin/i.test(lowerText) ||
+      /publicação\s+(de|no|pra|para)\s+linkedin/i.test(lowerText) ||
+      /cri(e|a)\s+(um\s+)?post\s+linkedin/i.test(lowerText) ||
+      /gere?\s+(um\s+)?(conteúdo|post)\s+(de\s+)?linkedin/i.test(lowerText)) {
+    return 'linkedin_post';
+  }
   
   // Artigo no X (mais específico, antes de artigo genérico)
   if (lowerText.includes('artigo no x') || lowerText.includes('artigo x') || lowerText.includes('artigo twitter')) return 'x_article';
@@ -1418,12 +1428,18 @@ export const detectContentType = (text: string): ContentFormatType | null => {
   // Newsletter
   if (/newsletter/i.test(lowerText)) return 'newsletter';
   
-  // Carrossel
-  if (/carrossel|carousel|carrosel/i.test(lowerText)) return 'carousel';
+  // Carrossel - AMPLIADO
+  if (/carrossel|carousel|carrosel/i.test(lowerText) ||
+      /conteúdo\s+(de|pra|para)\s+carrossel/i.test(lowerText) ||
+      /cri(e|a)\s+(um\s+)?carrossel/i.test(lowerText)) {
+    return 'carousel';
+  }
   
   // Stories (Instagram) - DEPOIS de thread para evitar confusão
-  // Usar word boundary para evitar match em "história" 
-  if (/\bstories?\b/i.test(lowerText) || /\bstorie\b/i.test(lowerText)) return 'stories';
+  if (/\bstories?\b/i.test(lowerText) || /\bstorie\b/i.test(lowerText) ||
+      /conteúdo\s+(de|pra|para)\s+stories/i.test(lowerText)) {
+    return 'stories';
+  }
   
   // Tweet (diferente de thread)
   if (/\btweet\b/i.test(lowerText)) return 'tweet';
@@ -1431,20 +1447,23 @@ export const detectContentType = (text: string): ContentFormatType | null => {
   // Plataformas Twitter/X (quando não é thread nem artigo)
   if (/\btwitter\b/i.test(lowerText) || /\bpara o x\b/i.test(lowerText) || /\bno x\b/i.test(lowerText)) return 'tweet';
   
-  // Reels/Shorts/Vídeo curto
-  if (/reels?|tiktok|vídeo curto|video curto|shorts?/i.test(lowerText)) return 'short_video';
+  // Reels/Shorts/Vídeo curto - AMPLIADO
+  if (/reels?|tiktok|vídeo curto|video curto|shorts?/i.test(lowerText) ||
+      /conteúdo\s+(de|pra|para)\s+(reels?|tiktok)/i.test(lowerText)) {
+    return 'short_video';
+  }
   
   // Vídeo longo
   if (/vídeo longo|video longo|youtube|roteiro de vídeo|roteiro de video/i.test(lowerText)) return 'long_video';
-  
-  // LinkedIn
-  if (/linkedin/i.test(lowerText)) return 'linkedin_post';
   
   // Post estático
   if (/post estático|imagem estática|post único|estático/i.test(lowerText)) return 'static_image';
   
   // Post Instagram (genérico)
-  if (/post instagram|legenda instagram|instagram post/i.test(lowerText)) return 'instagram_post';
+  if (/post instagram|legenda instagram|instagram post/i.test(lowerText) ||
+      /conteúdo\s+(de|pra|para)\s+instagram/i.test(lowerText)) {
+    return 'instagram_post';
+  }
   
   // Blog (menos específico, por último)
   if (/blog\s*post|post\s*(do|para)\s*blog/i.test(lowerText)) return 'blog_post';
