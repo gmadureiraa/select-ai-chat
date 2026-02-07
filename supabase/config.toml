@@ -33,13 +33,7 @@ verify_jwt = true
 [functions.transcribe-images]
 verify_jwt = true
 
-[functions.grok-search]
-verify_jwt = true
-
 [functions.fetch-instagram-metrics]
-verify_jwt = true
-
-[functions.import-beehiiv-newsletters]
 verify_jwt = true
 
 [functions.fetch-youtube-metrics]
@@ -73,9 +67,6 @@ verify_jwt = true
 verify_jwt = true
 
 [functions.create-checkout]
-verify_jwt = true
-
-[functions.check-subscription]
 verify_jwt = true
 
 [functions.customer-portal]
@@ -117,9 +108,6 @@ verify_jwt = false
 [functions.fetch-reference-content]
 verify_jwt = true
 
-[functions.kai-chat]
-verify_jwt = true
-
 [functions.kai-content-agent]
 verify_jwt = true
 
@@ -134,9 +122,6 @@ verify_jwt = true
 
 [functions.process-automations]
 verify_jwt = false
-
-[functions.kai-smart-planner]
-verify_jwt = true
 
 [functions.send-invite-email]
 verify_jwt = true
@@ -206,3 +191,15 @@ verify_jwt = true
 
 [functions.generate-voice-profile]
 verify_jwt = true
+
+[functions.delete-account]
+verify_jwt = true
+
+[functions.kai-metrics-agent]
+verify_jwt = true
+
+[functions.generate-content-learnings]
+verify_jwt = true
+
+[functions.late-webhook]
+verify_jwt = false
