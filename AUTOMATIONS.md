@@ -121,10 +121,13 @@ Ações:
 
 ## Configuração dos Cron Jobs (Agendamento Automático)
 
-O sistema utiliza dois cron jobs para executar automaticamente:
+O sistema utiliza os seguintes cron jobs para executar automaticamente:
 
-1. **process-scheduled-posts** (a cada 5 minutos): Publica itens agendados cujo `scheduled_at` já passou
-2. **process-automations** (a cada 15 minutos): Avalia gatilhos de schedule/RSS e cria conteúdo
+| Job | Frequência | Função |
+|-----|------------|--------|
+| `process-scheduled-posts-cron` | A cada 5 min | Publica itens com `scheduled_at` no passado |
+| `process-automations-cron` | A cada 15 min | Avalia gatilhos de schedule/RSS e cria conteúdo |
+| `process-recurring-content-daily` | Diariamente às 6h UTC | Cria itens a partir de templates recorrentes |
 
 ### Checklist Pós-Deploy
 
@@ -139,11 +142,15 @@ Acesse o **Dashboard do Supabase > Project Settings > Vault** e crie os seguinte
 | `project_url` | `https://tkbsjtgrumhvwlxkmojg.supabase.co` |
 | `cron_service_role_key` | Sua SERVICE_ROLE_KEY (encontre em API Settings) |
 
-#### 2. Criar os Cron Jobs
+#### 2. Criar os Cron Jobs (via SQL Editor)
 
 Execute o seguinte SQL no **SQL Editor** do Supabase:
 
 ```sql
+-- Habilitar extensões necessárias (se ainda não habilitadas)
+CREATE EXTENSION IF NOT EXISTS pg_cron;
+CREATE EXTENSION IF NOT EXISTS pg_net;
+
 -- JOB 1: Publicar posts agendados (a cada 5 minutos)
 SELECT cron.schedule(
   'process-scheduled-posts-cron',
@@ -175,23 +182,80 @@ SELECT cron.schedule(
   );
   $$
 );
+
+-- JOB 3: Conteúdo recorrente (diariamente às 6h UTC)
+SELECT cron.schedule(
+  'process-recurring-content-cron',
+  '0 6 * * *',
+  $$
+  SELECT net.http_post(
+    url := (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'project_url' LIMIT 1) || '/functions/v1/process-recurring-content',
+    headers := jsonb_build_object(
+      'Content-Type', 'application/json',
+      'Authorization', 'Bearer ' || (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'cron_service_role_key' LIMIT 1)
+    ),
+    body := '{}'::jsonb
+  );
+  $$
+);
 ```
 
-#### 3. Verificar Jobs
+#### 3. Verificar Jobs Criados
 
 ```sql
 -- Ver jobs criados
-SELECT * FROM cron.job;
+SELECT jobid, jobname, schedule, active FROM cron.job ORDER BY jobname;
 
 -- Ver execuções recentes
-SELECT * FROM cron.job_run_details ORDER BY start_time DESC LIMIT 20;
+SELECT jobid, jobname, status, return_message, start_time 
+FROM cron.job_run_details 
+ORDER BY start_time DESC 
+LIMIT 20;
 ```
 
-#### 4. (Opcional) Testar Manualmente
+#### 4. Remover Jobs Antigos (se necessário)
+
+Se existirem jobs antigos que usam a anon key diretamente:
+
+```sql
+-- Listar jobs atuais
+SELECT jobid, jobname FROM cron.job;
+
+-- Remover job específico por ID
+SELECT cron.unschedule(jobid) FROM cron.job WHERE jobname = 'nome-do-job-antigo';
+```
+
+#### 5. (Opcional) Testar Manualmente
 
 Antes de aguardar o cron, teste as funções:
 - Use o botão **"Testar Agora"** na UI de automações
 - Ou execute via curl com a service_role_key
+
+---
+
+## Conteúdo Recorrente com IA
+
+Templates recorrentes podem gerar conteúdo automaticamente com IA se:
+
+1. **Campo `generate_with_ai`** estiver marcado como `true`, OU
+2. **Template tiver descrição (briefing) mas não tiver conteúdo**
+
+### Como funciona
+
+1. O cron job `process-recurring-content` executa diariamente às 6h UTC
+2. Para cada template que deve ser criado hoje:
+   - Se deve gerar com IA: chama `unified-content-api` com client_id, format e briefing
+   - Se não: usa o conteúdo do template diretamente
+3. Cria o novo item no planejamento com status "Ideia"
+
+### Configurar um template para geração com IA
+
+No template recorrente:
+- Preencha a **descrição** com o briefing desejado (ex: "Crie um carrossel sobre produtividade")
+- Deixe o campo **conteúdo** vazio
+- Ou marque `generate_with_ai: true` nos metadados
+
+---
 
 ## Monitoramento
 
@@ -205,6 +269,8 @@ Cada execução gera registros em:
 - `failed`: falhou (erro será registrado)
 - `skipped`: condições do gatilho não atendidas
 
+---
+
 ## Dicas
 
 1. **Teste antes**: Use "Testar Agora" para validar antes de ativar
@@ -212,3 +278,4 @@ Cada execução gera registros em:
 3. **Fuso horário**: O agendamento usa horário UTC do servidor
 4. **Monitore logs**: Verifique os logs das Edge Functions periodicamente
 5. **Backoff automático**: Falhas de publicação têm retry com backoff exponencial (2min, 4min, 8min)
+6. **AI tokens**: Geração com IA consome tokens do workspace
