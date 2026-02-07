@@ -200,3 +200,22 @@ Após implementação:
 3. **quality-rules.ts**: Adicionada lista `FORBIDDEN_DECORATIVE_EMOJIS` com 30+ emojis proibidos
 4. **TWEET.md**: Documentação atualizada com regras rigorosas de emoji
 5. **kai_documentation**: Migration executada atualizando registros `tweet` e `thread`
+
+### Segunda Rodada de Correções (07/02/2026):
+
+**Problema**: Ao criar card via chat e postar no Twitter, todas as imagens foram incluídas e o tweet ficou sem texto.
+
+**Diagnóstico**:
+- A função `generatePlanningCards()` não recebia as `userInstructions`
+- O prompt para geração de tweets era muito básico ("diretos, máximo 280 chars")
+- Não passava instruções de "sem imagens" para o conteúdo gerado
+
+**Correções**:
+1. ✅ Adicionado parâmetro `userInstructions` na função `generatePlanningCards()`
+2. ✅ Prompt de geração de tweets atualizado com regras rigorosas:
+   - ZERO emojis no corpo
+   - ZERO hashtags
+   - Máximo 280 caracteres (obrigatório)
+   - Gancho forte na primeira linha
+3. ✅ Instruções do usuário (`skipImages`, `noEmojis`) são passadas para o prompt de geração
+4. ✅ O campo `description` agora contém o conteúdo COMPLETO pronto para publicar
