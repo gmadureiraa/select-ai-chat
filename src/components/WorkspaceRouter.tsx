@@ -5,16 +5,28 @@ import { useAuth } from "@/hooks/useAuth";
 import { Skeleton } from "@/components/ui/skeleton";
 import { WorkspaceGuard } from "./WorkspaceGuard";
 
+const KALEIDOS_SLUG = "kaleidos";
+
+/**
+ * WorkspaceRouter - Sistema interno Kaleidos
+ * 
+ * Força o uso do workspace "kaleidos" único.
+ * Qualquer outro slug redireciona para /kaleidos.
+ */
 export const WorkspaceRouter = () => {
   const { slug } = useParams<{ slug: string }>();
   const { setSlug, workspace, isLoading, error } = useWorkspaceContext();
   const { user, loading: authLoading } = useAuth();
 
   useEffect(() => {
-    if (slug) {
-      setSlug(slug);
-    }
-  }, [slug, setSlug]);
+    // Always set to kaleidos
+    setSlug(KALEIDOS_SLUG);
+  }, [setSlug]);
+
+  // If trying to access a different workspace, redirect to kaleidos
+  if (slug && slug !== KALEIDOS_SLUG) {
+    return <Navigate to="/kaleidos" replace />;
+  }
 
   // Loading states
   if (authLoading || isLoading) {
@@ -32,12 +44,12 @@ export const WorkspaceRouter = () => {
     );
   }
 
-  // Not authenticated - redirect to workspace login
+  // Not authenticated - redirect to login
   if (!user) {
-    return <Navigate to={`/${slug}/login`} replace />;
+    return <Navigate to="/login" replace />;
   }
 
-  // Workspace not found
+  // Workspace not found (shouldn't happen with kaleidos)
   if (error || !workspace) {
     return <Navigate to="/404" replace />;
   }

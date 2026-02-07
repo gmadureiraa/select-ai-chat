@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable/index";
@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Building2, Loader2, Sparkles } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import kaleidosLogo from "@/assets/kaleidos-logo.svg";
 
@@ -32,47 +32,28 @@ const GoogleIcon = () => (
   </svg>
 );
 
+/**
+ * SimpleSignup - Sistema interno Kaleidos
+ * 
+ * Página de cadastro simplificada.
+ * Após criar conta, redireciona para /kaleidos.
+ * Acesso controlado pelo WorkspaceGuard (PendingAccessOverlay).
+ */
 const SimpleSignup = () => {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const workspaceSlug = searchParams.get("workspace");
   const { user } = useAuth();
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
-  const [invitedWorkspaceName, setInvitedWorkspaceName] = useState<string | null>(null);
 
-  // Fetch workspace name if slug is provided
-  useEffect(() => {
-    const fetchWorkspaceName = async () => {
-      if (workspaceSlug) {
-        try {
-          const { data } = await supabase
-            .from("workspaces")
-            .select("name")
-            .eq("slug", workspaceSlug.toLowerCase())
-            .maybeSingle();
-          
-          if (data) {
-            setInvitedWorkspaceName(data.name);
-          }
-        } catch (err) {
-          console.error("Error fetching workspace:", err);
-        }
-      }
-    };
-
-    fetchWorkspaceName();
-  }, [workspaceSlug]);
-
-  // If already logged in, check for workspace and redirect
+  // If already logged in, redirect to kaleidos
   useEffect(() => {
     const checkAndRedirect = async () => {
       if (user) {
+        // Check for pending invites first
         try {
-          // First check for pending invites
           const { data: pendingInvites } = await supabase.rpc("get_my_pending_workspace_invites");
 
           if (pendingInvites && pendingInvites.length > 0) {
@@ -85,24 +66,13 @@ const SimpleSignup = () => {
             });
             
             toast.success("Convite aceito! Redirecionando...");
-            navigate(`/${invite.workspace_slug}`, { replace: true });
-            return;
-          }
-
-          // Check existing workspace
-          const { data: slug } = await supabase.rpc("get_user_workspace_slug", {
-            p_user_id: user.id,
-          });
-
-          if (slug) {
-            navigate(`/${slug}`, { replace: true });
-          } else {
-            navigate("/no-workspace", { replace: true });
           }
         } catch (err) {
-          console.error("Error checking workspace:", err);
-          navigate("/no-workspace", { replace: true });
+          console.error("Error checking invites:", err);
         }
+
+        // Always redirect to kaleidos
+        navigate("/kaleidos", { replace: true });
       }
     };
 
@@ -114,7 +84,7 @@ const SimpleSignup = () => {
     setLoading(true);
 
     try {
-      // 1. Create user account
+      // Create user account
       const { data: authData, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
@@ -131,11 +101,10 @@ const SimpleSignup = () => {
 
       toast.success("Conta criada com sucesso!");
 
-      // 2. Check if trigger added user to a workspace (via invite)
-      // Small delay to allow trigger to execute
+      // Small delay to allow triggers to execute
       await new Promise((resolve) => setTimeout(resolve, 1500));
 
-      // Check for pending invites first
+      // Check for pending invites
       const { data: pendingInvites } = await supabase.rpc("get_my_pending_workspace_invites");
 
       if (pendingInvites && pendingInvites.length > 0) {
@@ -147,24 +116,11 @@ const SimpleSignup = () => {
           p_user_id: authData.user.id
         });
         
-        toast.success("Convite aceito! Bem-vindo ao workspace.");
-        navigate(`/${invite.workspace_slug}`, { replace: true });
-        return;
+        toast.success("Convite aceito! Bem-vindo à equipe.");
       }
 
-      // Check if already added to workspace
-      const { data: slug } = await supabase.rpc("get_user_workspace_slug", {
-        p_user_id: authData.user.id,
-      });
-
-      if (slug) {
-        // User was invited - redirect to workspace
-        toast.success("Você foi adicionado ao workspace automaticamente!");
-        navigate(`/${slug}`, { replace: true });
-      } else {
-        // No invite - go to no-workspace page
-        navigate("/no-workspace", { replace: true });
-      }
+      // Always redirect to kaleidos
+      navigate("/kaleidos", { replace: true });
     } catch (err: unknown) {
       console.error("Signup error:", err);
       const errorMessage = err instanceof Error ? err.message : "Erro ao criar conta";
@@ -204,20 +160,7 @@ const SimpleSignup = () => {
           <div>
             <CardTitle className="text-2xl text-center">Criar Conta</CardTitle>
             <CardDescription className="text-center">
-              {invitedWorkspaceName ? (
-                <span className="flex flex-col items-center gap-2 mt-2">
-                  <span className="flex items-center gap-1 text-primary">
-                    <Sparkles className="h-3 w-3" />
-                    Você foi convidado!
-                  </span>
-                  <span className="flex items-center gap-2">
-                    <Building2 className="h-4 w-4" />
-                    <strong>{invitedWorkspaceName}</strong>
-                  </span>
-                </span>
-              ) : (
-                "Crie sua conta para acessar o kAI"
-              )}
+              Crie sua conta para acessar o kAI
             </CardDescription>
           </div>
         </CardHeader>
@@ -235,7 +178,7 @@ const SimpleSignup = () => {
             ) : (
               <GoogleIcon />
             )}
-            {invitedWorkspaceName ? "Criar conta com Google" : "Criar conta com Google"}
+            Criar conta com Google
           </Button>
 
           {/* Divider */}
@@ -292,11 +235,6 @@ const SimpleSignup = () => {
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Criando conta...
                 </>
-              ) : invitedWorkspaceName ? (
-                <>
-                  <Sparkles className="mr-2 h-4 w-4" />
-                  Criar Conta e Aceitar Convite
-                </>
               ) : (
                 "Criar Conta"
               )}
@@ -311,11 +249,9 @@ const SimpleSignup = () => {
             >
               Já tem conta? Faça login
             </button>
-            {!invitedWorkspaceName && (
-              <p className="text-xs text-muted-foreground">
-                Recebeu um convite? Clique no link do convite para acessar.
-              </p>
-            )}
+            <p className="text-xs text-muted-foreground">
+              O acesso é controlado pelo administrador da equipe.
+            </p>
           </div>
         </CardContent>
       </Card>

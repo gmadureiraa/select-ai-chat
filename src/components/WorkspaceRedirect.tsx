@@ -1,65 +1,27 @@
 import { useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Skeleton } from "@/components/ui/skeleton";
 
+/**
+ * WorkspaceRedirect - Sistema interno Kaleidos
+ * 
+ * Sempre redireciona para /kaleidos (workspace único).
+ * Não há mais lógica de buscar workspace do usuário.
+ */
 export const WorkspaceRedirect = () => {
   const { user, loading: authLoading } = useAuth();
-  const [slug, setSlug] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [hasWorkspace, setHasWorkspace] = useState(true);
+  const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
-    const fetchUserWorkspace = async () => {
-      if (!user) {
-        setIsLoading(false);
-        return;
-      }
-
-      try {
-        // First check for pending invites using RPC (bypasses RLS)
-        const { data: pendingInvites } = await supabase.rpc("get_my_pending_workspace_invites");
-
-        if (pendingInvites && pendingInvites.length > 0) {
-          const invite = pendingInvites[0];
-          
-          // Accept the invite via RPC
-          await supabase.rpc("accept_pending_invite", {
-            p_workspace_id: invite.workspace_id,
-            p_user_id: user.id
-          });
-          
-          // Redirect to the workspace
-          setSlug(invite.workspace_slug);
-          setIsLoading(false);
-          return;
-        }
-
-        // Get user's workspace slug using the database function
-        const { data, error } = await supabase
-          .rpc("get_user_workspace_slug", { p_user_id: user.id });
-
-        if (error || !data) {
-          // User has no workspace
-          setHasWorkspace(false);
-        } else {
-          setSlug(data);
-        }
-      } catch (err) {
-        console.error("Error fetching workspace:", err);
-        setHasWorkspace(false);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
+    // Small delay to ensure auth state is settled
     if (!authLoading) {
-      fetchUserWorkspace();
+      const timer = setTimeout(() => setIsReady(true), 100);
+      return () => clearTimeout(timer);
     }
-  }, [user, authLoading]);
+  }, [authLoading]);
 
-  if (authLoading || isLoading) {
+  if (authLoading || !isReady) {
     return (
       <div className="min-h-screen bg-background p-6">
         <div className="max-w-7xl mx-auto space-y-6">
@@ -79,17 +41,8 @@ export const WorkspaceRedirect = () => {
     return <Navigate to="/login" replace />;
   }
 
-  // Has workspace - redirect to it
-  if (slug) {
-    return <Navigate to={`/${slug}`} replace />;
-  }
-
-  // No workspace - redirect to no-workspace page
-  if (!hasWorkspace) {
-    return <Navigate to="/no-workspace" replace />;
-  }
-
-  return null;
+  // Always redirect to Kaleidos
+  return <Navigate to="/kaleidos" replace />;
 };
 
 export default WorkspaceRedirect;
