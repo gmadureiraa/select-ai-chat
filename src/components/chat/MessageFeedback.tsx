@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Check, Edit3, RotateCcw, BookmarkPlus, Loader2, CalendarPlus } from "lucide-react";
+import { Check, Edit3, RotateCcw, BookmarkPlus, Loader2, CalendarPlus, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -7,22 +7,31 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { getAlternativeFormats } from "@/lib/formatDetection";
 
 interface MessageFeedbackProps {
   messageId: string;
   clientId: string;
   content: string;
   formatType?: string;
-  onRegenerate?: (feedback?: string) => void;
+  onRegenerate?: (feedback?: string, newFormat?: string) => void;
   onSaveToLibrary?: (content: string) => void;
   /** Callback when user clicks "Use" - opens planning dialog with content */
   onUseContent?: (content: string) => void;
   /** Whether the user has access to planning features */
   hasPlanningAccess?: boolean;
+  /** Show "Refazer como" dropdown with alternative formats */
+  showRegenerateAs?: boolean;
   className?: string;
 }
 
@@ -35,6 +44,7 @@ export function MessageFeedback({
   onSaveToLibrary,
   onUseContent,
   hasPlanningAccess = false,
+  showRegenerateAs = true,
   className,
 }: MessageFeedbackProps) {
   const [isEditing, setIsEditing] = useState(false);
@@ -131,12 +141,15 @@ export function MessageFeedback({
     setEditedContent(content);
   };
 
-  const handleRegenerate = async () => {
+  const handleRegenerate = async (newFormat?: string) => {
     setIsSubmitting(true);
     await submitFeedback("regenerated");
     setIsSubmitting(false);
-    onRegenerate?.();
+    onRegenerate?.(undefined, newFormat);
   };
+
+  // Get alternative formats for "Refazer como" dropdown
+  const alternativeFormats = getAlternativeFormats(formatType);
 
   const handleSaveToLibrary = async () => {
     setIsSubmitting(true);
@@ -260,21 +273,49 @@ export function MessageFeedback({
           </Tooltip>
 
           {onRegenerate && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-8 px-3 text-xs gap-1.5"
-                  onClick={handleRegenerate}
-                  disabled={isSubmitting}
-                >
-                  <RotateCcw className="h-3.5 w-3.5" />
-                  Refazer
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Regenerar conteúdo</TooltipContent>
-            </Tooltip>
+            <div className="flex items-center">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 px-3 text-xs gap-1.5 rounded-r-none"
+                    onClick={() => handleRegenerate()}
+                    disabled={isSubmitting}
+                  >
+                    <RotateCcw className="h-3.5 w-3.5" />
+                    Refazer
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Regenerar conteúdo</TooltipContent>
+              </Tooltip>
+              
+              {showRegenerateAs && alternativeFormats.length > 0 && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 px-1.5 rounded-l-none border-l border-border/30"
+                      disabled={isSubmitting}
+                    >
+                      <ChevronDown className="h-3.5 w-3.5" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-40">
+                    {alternativeFormats.slice(0, 6).map((format) => (
+                      <DropdownMenuItem
+                        key={format.key}
+                        onClick={() => handleRegenerate(format.key)}
+                        className="text-xs"
+                      >
+                        Refazer como {format.label}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+            </div>
           )}
 
           {onSaveToLibrary && (
