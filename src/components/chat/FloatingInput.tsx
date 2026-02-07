@@ -1,6 +1,7 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
 import { Send, X, Loader2, Image as ImageIcon, FileText, Lightbulb, MessageCircle, Sparkles, AtSign } from "lucide-react";
 import { uploadAndGetSignedUrl } from "@/lib/storage";
 import { useToast } from "@/hooks/use-toast";
@@ -8,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { ActionMenuPopover } from "./ActionMenuPopover";
 import { CitationPopover, CitationItem } from "./CitationPopover";
 import { CitationChip, Citation } from "./CitationChip";
+import { detectFormat, type DetectedFormat } from "@/lib/formatDetection";
 
 import { ChatMode } from "./ModeSelector";
 
@@ -122,6 +124,17 @@ export const FloatingInput = ({
     setShowCitationPopover(false);
     setCitationSearchQuery("");
   }, []);
+
+  // Detectar formato a partir do texto digitado
+  const detectedFormat = useMemo((): DetectedFormat | null => {
+    if (!input || input.length < 5) return null;
+    
+    // Se já tem citação de formato, não detectar automaticamente
+    const hasFormatCitation = citations.some(c => c.type === "format");
+    if (hasFormatCitation) return null;
+    
+    return detectFormat(input);
+  }, [input, citations]);
 
   const handleCitationSelect = useCallback((item: CitationItem) => {
     // Adicionar citação
@@ -340,6 +353,19 @@ export const FloatingInput = ({
 
   return (
     <div className="p-4 space-y-3">
+      {/* Detected Format Chip */}
+      {detectedFormat && (
+        <div className="flex items-center gap-2 px-1">
+          <Badge 
+            variant="secondary" 
+            className="bg-primary/10 text-primary border border-primary/20 text-xs font-medium gap-1.5"
+          >
+            <Sparkles className="h-3 w-3" />
+            {detectedFormat.formatLabel} detectado
+          </Badge>
+        </div>
+      )}
+
       {/* Citations Display */}
       {citations.length > 0 && (
         <div className="flex gap-2 flex-wrap px-1">

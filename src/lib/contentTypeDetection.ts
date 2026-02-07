@@ -33,6 +33,13 @@ export function detectContentType(content: string): ContentType {
     /\b(copy|copywriting)\b/i,
     /\b(headline|título|chamada)\b/i,
     /\b(cta|call.to.action)\b/i,
+    // New expanded patterns
+    /\b(linkedin|carrossel|carousel|stories|reels)\b/i,
+    /\b(tweet|thread|newsletter)\b/i,
+    /\b(email\s+(de\s+)?marketing)\b/i,
+    /\b(artigo\s+(no\s+)?(x|twitter|blog))\b/i,
+    /\b(blog\s*post|post\s+(para\s+)?blog)\b/i,
+    /\b(vídeo\s+(curto|longo)|shorts?|tiktok)\b/i,
   ];
   
   if (contentPatterns.some(pattern => pattern.test(content)) || content.length > 500) {

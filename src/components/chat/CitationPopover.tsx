@@ -24,17 +24,35 @@ interface CitationPopoverProps {
   showFormats?: boolean;
 }
 
-// Built-in format options
+// Built-in format options - expanded with more formats
 const FORMAT_OPTIONS: CitationItem[] = [
+  // Special mode
   { id: "format_ideias", title: "Ideias", type: "format", category: "ideias" },
+  
+  // LinkedIn
+  { id: "format_linkedin", title: "LinkedIn", type: "format", category: "linkedin" },
+  
+  // Instagram
   { id: "format_carousel", title: "Carrossel", type: "format", category: "instagram" },
   { id: "format_stories", title: "Stories", type: "format", category: "instagram" },
   { id: "format_reels", title: "Reels", type: "format", category: "instagram" },
   { id: "format_post", title: "Post Estático", type: "format", category: "instagram" },
+  
+  // Twitter/X
   { id: "format_thread", title: "Thread", type: "format", category: "twitter" },
   { id: "format_tweet", title: "Tweet", type: "format", category: "twitter" },
-  { id: "format_linkedin", title: "LinkedIn", type: "format", category: "linkedin" },
+  { id: "format_x_article", title: "Artigo X", type: "format", category: "twitter" },
+  
+  // Email
   { id: "format_newsletter", title: "Newsletter", type: "format", category: "email" },
+  { id: "format_email_marketing", title: "Email Marketing", type: "format", category: "email" },
+  
+  // Blog
+  { id: "format_blog_post", title: "Blog Post", type: "format", category: "blog" },
+  
+  // Video
+  { id: "format_long_video", title: "Roteiro Vídeo", type: "format", category: "video" },
+  { id: "format_short_video", title: "Vídeo Curto", type: "format", category: "video" },
 ];
 
 const getItemIcon = (type: CitationItem["type"], category?: string) => {
@@ -161,14 +179,15 @@ export function CitationPopover({
         sideOffset={8}
         onOpenAutoFocus={(e) => e.preventDefault()}
       >
-        <Command className="bg-transparent">
+        <Command className="bg-transparent" aria-label="Selecione uma citação ou formato">
           <CommandInput
             placeholder="Buscar..."
             value={internalSearch}
             onValueChange={setInternalSearch}
             className="h-9 text-sm"
+            aria-label="Buscar formatos e conteúdo"
           />
-          <CommandList className="max-h-64">
+          <CommandList className="max-h-64" aria-label="Lista de opções">
             <CommandEmpty className="py-3 text-center text-xs text-muted-foreground">
               Nenhum resultado encontrado
             </CommandEmpty>
@@ -186,8 +205,9 @@ export function CitationPopover({
                         onOpenChange(false);
                       }}
                       className="flex items-center gap-2 py-1.5 cursor-pointer"
+                      aria-label={`Selecionar ${item.title}`}
                     >
-                      <Icon className={cn("h-3.5 w-3.5", colorClass)} />
+                      <Icon className={cn("h-3.5 w-3.5", colorClass)} aria-hidden="true" />
                       <span className="truncate text-sm">{item.title}</span>
                     </CommandItem>
                   );
