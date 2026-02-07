@@ -44,31 +44,31 @@ Este plano lista todos os arquivos, hooks, componentes, Edge Functions e tabelas
 
 ---
 
-## 🔜 Fase 5: Tabelas do Banco de Dados a Remover
+## ✅ Fase 5 Parcialmente Concluída: Tabelas do Banco de Dados
 
-### 5.1 Tabelas Legadas (Provavelmente não usadas)
+### 5.1 Tabelas Removidas (vazias)
 
-| Tabela | Situação | Recomendação |
-|--------|----------|--------------|
-| `proactive_suggestions` | Hook/componente removidos | **REMOVER** |
-| `prompt_templates` | Apenas no types.ts; nenhum uso no código | **REMOVER** |
-| `kai_documentation` | Apenas no types.ts; nenhum uso no código | **REMOVER** |
-| `instagram_tokens` | Apenas no types.ts; nenhum uso no código | **REMOVER** se não usado por OAuth |
-| `youtube_tokens` | Apenas no types.ts; nenhum uso no código | **REMOVER** se não usado por OAuth |
-| `social_credentials_audit_log` | Apenas no types.ts; nenhum uso no código | **REMOVER** |
-| `rss_triggers` | Apenas no types.ts; nenhum uso no código | **REMOVER** se não usado por automações |
-| `user_activities` | Apenas no types.ts; função log_user_activity existe mas não é chamada | **REMOVER** |
+| Tabela | Status |
+|--------|--------|
+| `proactive_suggestions` | ✅ Removida |
+| `prompt_templates` | ✅ Removida |
+| `instagram_tokens` | ✅ Removida |
+| `youtube_tokens` | ✅ Removida |
+| `social_credentials_audit_log` | ✅ Removida |
+| `rss_triggers` | ✅ Removida |
 
-### 5.2 Tabelas de Research (Feature removida)
+### 5.2 Tabelas Mantidas (contêm dados)
 
-| Tabela | Situação |
-|--------|----------|
-| `research_comments` | Apenas no types.ts |
-| `research_conversations` | Apenas no types.ts |
-| `research_items` | Apenas no types.ts |
-| `research_messages` | Apenas no types.ts |
-| `research_project_shares` | Apenas no types.ts |
-| `research_project_versions` | Apenas no types.ts |
+| Tabela | Registros | Decisão |
+|--------|-----------|---------|
+| `kai_documentation` | 23 | Mantida (dados legados) |
+| `user_activities` | 533 | Mantida (logs de atividade) |
+| `research_conversations` | 13 | Mantida (feature legada com dados) |
+| `research_items` | 12 | Mantida (feature legada com dados) |
+| `research_messages` | 17 | Mantida (feature legada com dados) |
+| `research_comments` | 0 | Mantida (FK de research_*) |
+| `research_project_shares` | 0 | Mantida (FK de research_*) |
+| `research_project_versions` | 0 | Mantida (FK de research_*) |
 
 ---
 
