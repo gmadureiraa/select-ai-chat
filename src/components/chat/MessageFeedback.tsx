@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Check, Edit3, RotateCcw, BookmarkPlus, Loader2 } from "lucide-react";
+import { Check, Edit3, RotateCcw, BookmarkPlus, Loader2, CalendarPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -19,6 +19,10 @@ interface MessageFeedbackProps {
   formatType?: string;
   onRegenerate?: (feedback?: string) => void;
   onSaveToLibrary?: (content: string) => void;
+  /** Callback when user clicks "Use" - opens planning dialog with content */
+  onUseContent?: (content: string) => void;
+  /** Whether the user has access to planning features */
+  hasPlanningAccess?: boolean;
   className?: string;
 }
 
@@ -29,6 +33,8 @@ export function MessageFeedback({
   formatType,
   onRegenerate,
   onSaveToLibrary,
+  onUseContent,
+  hasPlanningAccess = false,
   className,
 }: MessageFeedbackProps) {
   const [isEditing, setIsEditing] = useState(false);
@@ -86,10 +92,18 @@ export function MessageFeedback({
     setIsSubmitting(true);
     await submitFeedback("approved");
     setIsSubmitting(false);
-    toast({
-      description: "Conteúdo aprovado! ✓",
-      duration: 2000,
-    });
+    
+    // If user has planning access and callback is provided, open planning dialog
+    if (hasPlanningAccess && onUseContent) {
+      onUseContent(content);
+    } else {
+      // Fallback: copy to clipboard
+      navigator.clipboard.writeText(content);
+      toast({
+        description: "Conteúdo copiado! ✓",
+        duration: 2000,
+      });
+    }
   };
 
   const handleEdit = () => {
@@ -213,13 +227,20 @@ export function MessageFeedback({
               >
                 {isSubmitting ? (
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : hasPlanningAccess && onUseContent ? (
+                  <CalendarPlus className="h-3.5 w-3.5" />
                 ) : (
                   <Check className="h-3.5 w-3.5" />
                 )}
-                Usar
+                {hasPlanningAccess && onUseContent ? "Usar" : "Copiar"}
               </Button>
             </TooltipTrigger>
-            <TooltipContent>Marcar como aprovado</TooltipContent>
+            <TooltipContent>
+              {hasPlanningAccess && onUseContent 
+                ? "Usar no planejamento" 
+                : "Copiar para área de transferência"
+              }
+            </TooltipContent>
           </Tooltip>
 
           <Tooltip>

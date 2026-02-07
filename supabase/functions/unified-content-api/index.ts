@@ -2,7 +2,7 @@
 // UNIFIED CONTENT API
 // Single entry point for impeccable content generation
 // Pipeline: Writer → Validate → Repair → Review
-// Version 1.0 - "Impeccable Content" architecture
+// Version 2.0 - Resilient with retry + fallback
 // =====================================================
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
@@ -36,6 +36,15 @@ import {
   UNIVERSAL_OUTPUT_RULES,
   buildReviewerChecklist,
 } from "../_shared/quality-rules.ts";
+
+// NEW: Import centralized LLM module with retry + fallback
+import {
+  callLLM,
+  LLMError,
+  createLLMUnavailableResponse,
+  isLLMConfigured,
+  LLMMessage,
+} from "../_shared/llm.ts";
 
 // =====================================================
 // TYPES
@@ -85,6 +94,7 @@ interface ContentResponse {
     format_label: string;
     processing_time_ms: number;
     steps_completed: string[];
+    provider?: string;
   };
 }
 
@@ -93,76 +103,6 @@ const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
-
-// =====================================================
-// AI CALL HELPER
-// =====================================================
-
-async function callGemini(
-  messages: Array<{ role: string; content: string }>,
-  options: { maxTokens?: number; temperature?: number } = {}
-): Promise<{ content: string; tokens: number }> {
-  const GOOGLE_API_KEY = Deno.env.get("GOOGLE_AI_STUDIO_API_KEY");
-  
-  if (!GOOGLE_API_KEY) {
-    throw new Error("GOOGLE_AI_STUDIO_API_KEY not configured");
-  }
-
-  // Convert to Gemini format and merge consecutive same-role messages
-  const geminiContents: Array<{ role: string; parts: Array<{ text: string }> }> = [];
-  
-  for (const msg of messages) {
-    const role = msg.role === "assistant" ? "model" : "user";
-    
-    if (geminiContents.length > 0 && geminiContents[geminiContents.length - 1].role === role) {
-      // Merge with previous
-      geminiContents[geminiContents.length - 1].parts[0].text += "\n\n" + msg.content;
-    } else {
-      geminiContents.push({
-        role,
-        parts: [{ text: msg.content }]
-      });
-    }
-  }
-
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GOOGLE_API_KEY}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: geminiContents,
-        generationConfig: {
-          temperature: options.temperature ?? 0.7,
-          maxOutputTokens: options.maxTokens ?? 8192,
-        },
-      }),
-    }
-  );
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error("[UNIFIED-API] Gemini error:", errorText);
-    
-    if (response.status === 429) {
-      throw new Error("Rate limit excedido. Tente novamente em alguns segundos.");
-    }
-    
-    throw new Error("Erro ao gerar conteúdo");
-  }
-
-  const result = await response.json();
-  const content = result?.candidates?.[0]?.content?.parts?.[0]?.text || "";
-  
-  // Estimate tokens (Gemini doesn't always return token count)
-  const inputTokens = result?.usageMetadata?.promptTokenCount || 0;
-  const outputTokens = result?.usageMetadata?.candidatesTokenCount || 0;
-  
-  return {
-    content,
-    tokens: inputTokens + outputTokens
-  };
-}
 
 // =====================================================
 // MAIN HANDLER
@@ -262,10 +202,20 @@ serve(async (req) => {
     const forbiddenPhrases = buildForbiddenPhrasesSection();
 
     // =========================================================
-    // STEP 2: WRITER (Main generation)
+    // STEP 2: WRITER (Main generation) - Now with retry + fallback
     // =========================================================
     console.log("[UNIFIED-API] Step 2: Writer generating content...");
     stepsCompleted.push("writer_started");
+
+    // Check if LLM is configured
+    if (!isLLMConfigured()) {
+      return new Response(
+        JSON.stringify({ 
+          error: "Nenhuma chave de IA configurada. Configure GOOGLE_AI_STUDIO_API_KEY ou OPENAI_API_KEY." 
+        }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     const writerSystemPrompt = `# VOCÊ É UM COPYWRITER ESPECIALISTA
 
@@ -284,15 +234,29 @@ Crie conteúdo seguindo RIGOROSAMENTE o formato de entrega acima.
 Seu output deve conter APENAS o conteúdo final - nada de explicações.
 `;
 
-    const writerMessages = [
+    const writerMessages: LLMMessage[] = [
       { role: "system", content: writerSystemPrompt },
       { role: "user", content: brief }
     ];
 
-    const writerResult = await callGemini(writerMessages, {
-      maxTokens: 8192,
-      temperature: 0.7,
-    });
+    let writerResult;
+    let usedProvider = "google";
+    
+    try {
+      writerResult = await callLLM(writerMessages, {
+        maxTokens: 8192,
+        temperature: 0.7,
+      });
+      usedProvider = writerResult.provider;
+    } catch (error) {
+      console.error("[UNIFIED-API] Writer failed:", error);
+      
+      // Return 503 with retry info
+      return createLLMUnavailableResponse(
+        error instanceof Error ? error : new Error("Erro ao gerar conteúdo"),
+        corsHeaders
+      );
+    }
 
     writerTokens = writerResult.tokens;
     let currentContent = writerResult.content;
@@ -326,19 +290,26 @@ Seu output deve conter APENAS o conteúdo final - nada de explicações.
 
         const repairPrompt = buildRepairPrompt(validationResult.violations, currentContent);
 
-        const repairMessages = [
+        const repairMessages: LLMMessage[] = [
           { role: "system", content: `Você é um editor preciso. Corrija APENAS os problemas listados.\n${formatContract}` },
           { role: "user", content: repairPrompt }
         ];
 
-        const repairResult = await callGemini(repairMessages, {
-          maxTokens: 4096,
-          temperature: 0.3, // Lower temperature for precise corrections
-        });
+        try {
+          const repairResult = await callLLM(repairMessages, {
+            maxTokens: 4096,
+            temperature: 0.3, // Lower temperature for precise corrections
+          });
 
-        repairTokens += repairResult.tokens;
-        currentContent = repairResult.content;
-        wasRepaired = true;
+          repairTokens += repairResult.tokens;
+          currentContent = repairResult.content;
+          wasRepaired = true;
+        } catch (error) {
+          console.warn("[UNIFIED-API] Repair failed, continuing with unrepaired content:", error);
+          // Don't fail completely - we still have the writer content
+          validationResult.warnings.push("Validação de reparo não concluída devido a falha na API");
+          break;
+        }
 
         // Re-validate
         const repairedParsed = parseOutput(currentContent, normalizedFormat);
@@ -383,23 +354,27 @@ ${formatContract}
 4. Mantenha o mesmo formato de entrega
 `;
 
-      const reviewerMessages = [
+      const reviewerMessages: LLMMessage[] = [
         { role: "system", content: reviewerSystemPrompt },
         { role: "user", content: `Revise este conteúdo:\n\n${currentContent}` }
       ];
 
-      // Use lighter model for review
-      const reviewerResult = await callGemini(reviewerMessages, {
-        maxTokens: 4096,
-        temperature: 0.3,
-      });
+      try {
+        const reviewerResult = await callLLM(reviewerMessages, {
+          maxTokens: 4096,
+          temperature: 0.3,
+        });
 
-      reviewerTokens = reviewerResult.tokens;
-      currentContent = reviewerResult.content;
-      wasReviewed = true;
-
-      stepsCompleted.push("reviewer_completed");
-      console.log("[UNIFIED-API] Review completed");
+        reviewerTokens = reviewerResult.tokens;
+        currentContent = reviewerResult.content;
+        wasReviewed = true;
+        stepsCompleted.push("reviewer_completed");
+        console.log("[UNIFIED-API] Review completed");
+      } catch (error) {
+        console.warn("[UNIFIED-API] Review failed, continuing without review:", error);
+        // Don't fail completely - we still have the writer/repair content
+        stepsCompleted.push("reviewer_skipped");
+      }
     }
 
     // =========================================================
@@ -459,6 +434,7 @@ ${formatContract}
         format_label: schema?.format_label || normalizedFormat,
         processing_time_ms: processingTime,
         steps_completed: stepsCompleted,
+        provider: usedProvider,
       },
     };
 
