@@ -1,292 +1,395 @@
 
-# Evolução dos Criadores de Conteúdo: Canvas, kAI Chat e Automações
+
+# Plano: Refatoração do Agente para Conteúdo Impecável
+
+## Resumo Executivo
+
+Este plano implementa uma arquitetura de geração de conteúdo baseada em **contrato por formato**, **voz estruturada do cliente** e um fluxo de **Writer + Validador + Repair + Revisor**. O objetivo é garantir que todo conteúdo (chat e automações) seja **impecável** e soe como o cliente, não como IA genérica.
 
 ## Diagnóstico Atual
 
-### O que FUNCIONA BEM
+| Componente | Estado | Problema |
+|------------|--------|----------|
+| `kai-content-agent` | Funcional | Formato como "sugestão", não contrato. Sem validação pós-geração. |
+| `generate-content-from-idea` | 4 agentes | Pipeline longo (writer → style → consistency → reviewer). Ineficiente. |
+| `process-automations` | Usa `kai-content-agent` | Mesmas limitações do agente principal |
+| Voz do cliente | Apenas `identity_guide` | Sem campos explícitos "Use/Evite". Diluído no contexto. |
+| Validação | Nenhuma | Sem parser. Sem verificação de limites, campos obrigatórios, proibições. |
 
-| Ambiente | Status | Usa Regras DB? | Usa Contexto Cliente? |
-|----------|--------|----------------|----------------------|
-| **kAI Chat** | ✅ Robusto | ✅ Sim | ✅ identity_guide + biblioteca |
-| **Canvas** | ⚠️ Parcial | ✅ Sim (v2) | ✅ favorites + top performers |
-| **Automações** | ⚠️ Parcial | ✅ Sim | ⚠️ Apenas prompt template |
+## Arquitetura Alvo
 
-### O que Pode Melhorar
-
-1. **Knowledge Base Global** (`global_knowledge`)
-   - Disponível no banco mas NÃO sendo usada em Canvas e Automações
-   - Contém melhores práticas, tendências, insights estratégicos
-
-2. **Checklist de Formatos**
-   - Cada formato tem checklist de validação no banco (`kai_documentation.checklist`)
-   - NÃO está sendo usado para validar output antes de entregar
-
-3. **Contexto de Conversa no Canvas**
-   - Generator nodes não mantém "memória" entre gerações
-   - Não aproveita outputs anteriores como contexto acumulado
-
-4. **Enriquecimento de Automações**
-   - Automações usam prompt template simples
-   - Não carregam exemplos favoritos nem top performers automaticamente
-
-5. **Feedback Loop**
-   - Conteúdos de alta performance não retroalimentam automaticamente os prompts
-
----
-
-## Melhorias Propostas
-
-### 1. Integrar Global Knowledge em Todos os Ambientes
-
-**Arquivo:** `supabase/functions/_shared/knowledge-loader.ts`
-
-Adicionar função para buscar conhecimento global do workspace:
-
-```typescript
-export async function getGlobalKnowledge(workspaceId: string, limit = 5): Promise<string> {
-  const { data } = await supabase
-    .from("global_knowledge")
-    .select("title, summary, category, content")
-    .eq("workspace_id", workspaceId)
-    .limit(limit);
-  
-  if (!data?.length) return "";
-  
-  let context = "\n## 📚 BASE DE CONHECIMENTO GLOBAL\n";
-  context += "*Use esses insights para enriquecer o conteúdo:*\n\n";
-  
-  for (const item of data) {
-    context += `### ${item.title} (${item.category})\n`;
-    context += item.summary || item.content?.substring(0, 500);
-    context += "\n\n";
-  }
-  
-  return context;
-}
-```
-
-**Integrar em:**
-- `kai-content-agent` ✅ (já tem parcialmente)
-- `generate-content-v2` ❌ (adicionar)
-- `process-automations` ❌ (adicionar)
-
-### 2. Adicionar Validação com Checklist
-
-**Arquivo:** `supabase/functions/_shared/knowledge-loader.ts`
-
-Adicionar função para buscar e formatar checklist:
-
-```typescript
-export async function getFormatChecklist(format: string): Promise<string> {
-  const doc = await fetchDocumentation('format', normalizeFormatKey(format));
-  
-  if (!doc?.checklist?.length) return "";
-  
-  let validation = "\n## ✅ CHECKLIST DE VALIDAÇÃO\n";
-  validation += "*VERIFIQUE antes de finalizar:*\n\n";
-  
-  doc.checklist.forEach((item, i) => {
-    validation += `${i + 1}. ${item}\n`;
-  });
-  
-  return validation;
-}
-```
-
-Incluir no prompt final para IA auto-validar o output.
-
-### 3. Enriquecer Automações com Contexto Completo
-
-**Arquivo:** `supabase/functions/process-automations/index.ts`
-
-Na função de geração de conteúdo (linha ~690), antes de chamar `kai-content-agent`:
-
-```typescript
-// Buscar contexto enriquecido igual aos outros ambientes
-const enrichedContext = await getFullContentContext({
-  clientId: automation.client_id,
-  format: format,
-  includeLibrary: true,
-  includeTopPerformers: true,
-});
-
-// Adicionar ao prompt
-const enrichedPrompt = `${enrichedContext}\n\n${buildEnrichedPrompt(...)}`;
-```
-
-**Resultado:** Automações passam a usar:
-- ✅ Regras do formato (do banco)
-- ✅ identity_guide do cliente
-- ✅ Exemplos favoritos da biblioteca
-- ✅ Top performers (Instagram/YouTube)
-
-### 4. Melhorar Canvas com Memória de Contexto
-
-**Problema:** Cada geração é isolada, não aproveita gerações anteriores.
-
-**Solução:** No `GeneratorNode.tsx`, passar outputs conectados como contexto:
-
-```typescript
-// Já implementado parcialmente (linhas 159-168)
-// Melhorar para extrair mais contexto:
-
-if (sourceNode?.type === 'output' && sourceNode.data?.content) {
-  attachments.push({
-    type: 'text',
-    content: `[OUTPUT ANTERIOR - USE COMO CONTEXTO]\n${sourceNode.data.content}`,
-    transcription: sourceNode.data.content,
-  });
-}
-```
-
-E no `generate-content-v2`, reconhecer e priorizar esses outputs:
-
-```typescript
-if (input.content?.startsWith('[OUTPUT ANTERIOR')) {
-  context += `\n### 📎 CONTEXTO DE GERAÇÃO ANTERIOR:\n${input.content}\n`;
-  context += "*Use este contexto para manter consistência e continuidade.*\n";
-}
-```
-
-### 5. Criar Pipeline de Feedback Automático
-
-**Nova função:** Quando um post tem alta performance, extrair padrões:
-
-**Arquivo:** `supabase/functions/_shared/knowledge-loader.ts`
-
-```typescript
-export async function getSuccessPatterns(clientId: string): Promise<string> {
-  // Buscar posts com engagement > média
-  const { data: topPosts } = await supabase
-    .from("instagram_posts")
-    .select("caption, post_type, engagement_rate")
-    .eq("client_id", clientId)
-    .order("engagement_rate", { ascending: false })
-    .limit(3);
-  
-  if (!topPosts?.length) return "";
-  
-  let patterns = "\n## 🎯 PADRÕES QUE FUNCIONAM PARA ESTE CLIENTE\n";
-  patterns += "*Baseado em análise de posts de alta performance:*\n\n";
-  
-  for (const post of topPosts) {
-    patterns += `- **${post.post_type}** com ${(post.engagement_rate * 100).toFixed(1)}% engagement\n`;
-    if (post.caption) {
-      // Extrair padrões do caption
-      const hasQuestion = /\?/.test(post.caption);
-      const hasEmojis = /[\u{1F600}-\u{1F6FF}]/u.test(post.caption);
-      const hasCTA = /(coment|compartilh|salv|link|bio)/i.test(post.caption);
-      
-      if (hasQuestion) patterns += "  - Usa perguntas para engajar\n";
-      if (hasEmojis) patterns += "  - Inclui emojis estrategicamente\n";
-      if (hasCTA) patterns += "  - Tem CTA claro\n";
-    }
-  }
-  
-  return patterns;
-}
+```text
+┌─────────────────────────────────────────────────────────────────────────┐
+│                      UNIFIED CONTENT API                                 │
+├─────────────────────────────────────────────────────────────────────────┤
+│ Input: client_id, format, brief, options                                │
+│                                                                         │
+│  ┌─────────────────────────────────────────────────────────────────┐   │
+│  │ 1. CARREGAR CONTEXTO                                             │   │
+│  │    - Contrato do formato (schema + limites + proibições)         │   │
+│  │    - Voz do cliente (Use/Evite + snippets)                       │   │
+│  │    - Lista global de frases proibidas                            │   │
+│  └─────────────────────────────────────────────────────────────────┘   │
+│                               ▼                                         │
+│  ┌─────────────────────────────────────────────────────────────────┐   │
+│  │ 2. WRITER (1 chamada forte)                                      │   │
+│  │    - Contrato como REGRA, não sugestão                           │   │
+│  │    - Output em schema definido (JSON ou markdown estruturado)    │   │
+│  │    - Gemini 2.5 Flash (rápido e capaz)                           │   │
+│  └─────────────────────────────────────────────────────────────────┘   │
+│                               ▼                                         │
+│  ┌─────────────────────────────────────────────────────────────────┐   │
+│  │ 3. VALIDADOR (código, não IA)                                    │   │
+│  │    - Parser extrai campos do output                              │   │
+│  │    - Checa limites (ex: subject ≤ 50 chars)                      │   │
+│  │    - Checa campos obrigatórios                                   │   │
+│  │    - Checa lista de proibições (global + formato)                │   │
+│  └─────────────────────────────────────────────────────────────────┘   │
+│                               ▼                                         │
+│              ┌──────────────────────────────────────┐                  │
+│              │ Violações encontradas?               │                  │
+│              │   SIM → REPAIR (1 chamada curta)     │                  │
+│              │   NÃO → Continua                     │                  │
+│              └──────────────────────────────────────┘                  │
+│                               ▼                                         │
+│  ┌─────────────────────────────────────────────────────────────────┐   │
+│  │ 4. REVISOR OPCIONAL (se options.skip_review = false)             │   │
+│  │    - Checklist focado: gancho, CTA, frases genéricas             │   │
+│  │    - Modelo mais leve (Flash Lite)                               │   │
+│  │    - Não reescreve, apenas corrige                               │   │
+│  └─────────────────────────────────────────────────────────────────┘   │
+│                               ▼                                         │
+│  Output: Conteúdo final + metadados parseados (subject, preview, etc)  │
+└─────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Arquivos a Modificar
+## Fase 1: Contrato por Formato (Schemas de Saída)
 
-| Arquivo | Modificação |
-|---------|-------------|
-| `supabase/functions/_shared/knowledge-loader.ts` | Adicionar `getGlobalKnowledge`, melhorar `getFormatChecklist`, adicionar `getSuccessPatterns` |
-| `supabase/functions/generate-content-v2/index.ts` | Integrar global knowledge + checklist de validação |
-| `supabase/functions/process-automations/index.ts` | Usar `getFullContentContext` para enriquecer prompts |
-| `supabase/functions/kai-content-agent/index.ts` | Adicionar checklist de validação no final do prompt |
-| `src/components/kai/canvas/nodes/GeneratorNode.tsx` | Melhorar extração de contexto de outputs conectados |
+### 1.1 Criar schemas de output para cada formato
+
+**Arquivo novo:** `supabase/functions/_shared/format-schemas.ts`
+
+Definir um schema para cada formato que especifica:
+- Campos obrigatórios (ex: `subject`, `preview`, `body`)
+- Limites por campo (ex: `subject.max_length: 50`)
+- Proibições específicas do formato
+- Técnicas que funcionam
+
+Exemplo para Newsletter:
+```typescript
+const NEWSLETTER_SCHEMA = {
+  format: "newsletter",
+  fields: {
+    subject: { required: true, max_length: 50, description: "Linha de assunto" },
+    preview: { required: true, max_length: 90, description: "Preview text" },
+    greeting: { required: false, max_length: 100, description: "Saudação" },
+    body: { required: true, min_length: 300, max_length: 2000, description: "Corpo" },
+    cta: { required: true, max_length: 100, description: "Call to action" },
+    signature: { required: false, max_length: 100, description: "Assinatura" },
+  },
+  output_format: `**ASSUNTO:** [max 50 chars]
+**PREVIEW:** [max 90 chars]
+---
+[corpo da newsletter]
+---
+**CTA:** [call-to-action]
+[assinatura]`,
+  prohibited_words: ["grátis", "urgente", "última chance", "garantido", "clique aqui"],
+};
+```
+
+### 1.2 Atualizar tabela `kai_documentation`
+
+Adicionar coluna `output_schema` (JSONB) para armazenar o schema de cada formato:
+
+```sql
+ALTER TABLE kai_documentation 
+ADD COLUMN IF NOT EXISTS output_schema JSONB DEFAULT '{}';
+```
+
+### 1.3 Modificar carregamento de regras
+
+Atualizar `knowledge-loader.ts` para retornar também o schema de output junto com as regras.
 
 ---
 
-## Fluxo Final Unificado
+## Fase 2: Voz do Cliente Estruturada
 
+### 2.1 Adicionar campo `voice_profile` na tabela `clients`
+
+```sql
+ALTER TABLE clients 
+ADD COLUMN IF NOT EXISTS voice_profile JSONB DEFAULT '{}';
+
+-- Estrutura esperada:
+-- {
+--   "tone": "Direto, informal, acessível",
+--   "use": ["expressões como 'bora'", "números específicos", "perguntas diretas"],
+--   "avoid": ["certamente", "com certeza", "vamos falar sobre", "linguagem corporativa"]
+-- }
 ```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                         CONTEXTO COMPLETO DA GERAÇÃO                        │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│  1. 📋 REGRAS DO FORMATO (kai_documentation)                                │
-│     • Estrutura obrigatória                                                 │
-│     • Limites de caracteres/slides                                          │
-│     • Proibições específicas                                                │
-│     • Formato de entrega                                                    │
-│                                                                             │
-│  2. 🎯 CONTEXTO DO CLIENTE (identity_guide + context_notes)                 │
-│     • Tom de voz                                                            │
-│     • Público-alvo                                                          │
-│     • Posicionamento                                                        │
-│     • Diretrizes de estilo                                                  │
-│                                                                             │
-│  3. 📚 EXEMPLOS DA BIBLIOTECA (favoritos)                                   │
-│     • 3-5 conteúdos favoritos do mesmo formato                              │
-│     • Estrutura e tom para replicar                                         │
-│                                                                             │
-│  4. 🏆 TOP PERFORMERS (Instagram + YouTube)                                 │
-│     • Posts com melhor engagement                                           │
-│     • O que funciona para este cliente                                      │
-│                                                                             │
-│  5. 📖 GLOBAL KNOWLEDGE (base de conhecimento)                              │
-│     • Melhores práticas do setor                                            │
-│     • Tendências e insights estratégicos                                    │
-│     • Metodologias e frameworks                                             │
-│                                                                             │
-│  6. 📎 MATERIAL DE REFERÊNCIA (se fornecido)                                │
-│     • URLs extraídas                                                        │
-│     • @mentions citados                                                     │
-│     • Transcrições/briefings                                                │
-│     • Outputs anteriores conectados                                         │
-│                                                                             │
-│  7. ✅ CHECKLIST DE VALIDAÇÃO                                               │
-│     • Auto-verificação antes de entregar                                    │
-│     • Garantir conformidade com regras do formato                           │
-│                                                                             │
-└─────────────────────────────────────────────────────────────────────────────┘
+
+### 2.2 Criar seção "VOZ DO CLIENTE" no prompt
+
+Nova função em `knowledge-loader.ts`:
+
+```typescript
+export async function getStructuredVoice(clientId: string): Promise<string> {
+  // Buscar voice_profile do cliente
+  // Formatar como seção explícita:
+  // ## VOZ DO CLIENTE
+  // **Tom:** [tom em 1 frase]
+  // **USE:** [lista de expressões/padrões]
+  // **EVITE:** [lista de proibições]
+  // **Snippets de referência:** [3-5 trechos curtos da biblioteca]
+}
+```
+
+### 2.3 Interface para editar Voice Profile
+
+Adicionar seção no perfil do cliente (aba Contexto IA) para configurar:
+- Tom em 1 frase
+- Lista "Use sempre" (tags)
+- Lista "Evite sempre" (tags)
+
+---
+
+## Fase 3: Validador + Repair
+
+### 3.1 Criar módulo de validação
+
+**Arquivo novo:** `supabase/functions/_shared/content-validator.ts`
+
+```typescript
+interface ValidationResult {
+  valid: boolean;
+  violations: Violation[];
+  parsed_fields: Record<string, string>;
+}
+
+interface Violation {
+  field: string;
+  rule: string;
+  message: string;
+  value?: string;
+}
+
+export function parseOutput(content: string, format: string): Record<string, string>;
+export function validateContent(parsed: Record<string, string>, schema: FormatSchema): ValidationResult;
+export function buildRepairPrompt(violations: Violation[]): string;
+```
+
+### 3.2 Lista global de frases proibidas
+
+**Arquivo novo:** `supabase/functions/_shared/quality-rules.ts`
+
+```typescript
+export const GLOBAL_FORBIDDEN_PHRASES = [
+  "certamente",
+  "com certeza",
+  "absolutamente",
+  "é importante notar",
+  "vale ressaltar",
+  "vamos falar sobre",
+  "aqui está",
+  "segue abaixo",
+  "criei para você",
+  "espero que goste",
+  "fique à vontade",
+  "não hesite em",
+];
+
+export const REVIEWER_CHECKLIST = [
+  "Gancho forte nos primeiros segundos/linhas",
+  "Sem frases genéricas de IA",
+  "CTA claro e específico",
+  "Campos obrigatórios presentes",
+  "Limites de caracteres respeitados",
+  "Tom consistente com a voz do cliente",
+];
+```
+
+### 3.3 Lógica de Repair
+
+Quando validação falha, fazer 1 chamada curta:
+
+```typescript
+const repairPrompt = `O conteúdo abaixo violou estas regras:
+${violations.map(v => `- ${v.field}: ${v.message}`).join('\n')}
+
+CONTEÚDO ATUAL:
+${currentContent}
+
+TAREFA: Corrija APENAS os problemas listados. Mantenha o resto intacto.
+Retorne o conteúdo corrigido no MESMO FORMATO.`;
 ```
 
 ---
 
-## Seção Técnica
+## Fase 4: API Unificada de Conteúdo
 
-### Ordem de Implementação
+### 4.1 Criar nova Edge Function
 
-1. **Expandir `knowledge-loader.ts`** (30 min)
-   - Adicionar `getGlobalKnowledge()`
-   - Melhorar `getFormatChecklist()` para retornar string formatada
-   - Adicionar `getSuccessPatterns()` (análise de padrões)
+**Arquivo novo:** `supabase/functions/unified-content-api/index.ts`
 
-2. **Atualizar `generate-content-v2`** (20 min)
-   - Importar e usar novas funções
-   - Adicionar global knowledge ao prompt
-   - Incluir checklist de validação
+```typescript
+interface ContentRequest {
+  client_id: string;
+  format: string;
+  brief: string;
+  options?: {
+    skip_review?: boolean;       // default: false
+    strict_validation?: boolean; // default: true
+    max_repair_attempts?: number; // default: 1
+  };
+}
 
-3. **Atualizar `process-automations`** (30 min)
-   - Importar `getFullContentContext`
-   - Substituir prompt simples por contexto enriquecido
-   - Garantir que automações usem mesma qualidade de contexto
+interface ContentResponse {
+  content: string;
+  parsed_fields: Record<string, string>;
+  validation: {
+    passed: boolean;
+    repaired: boolean;
+    reviewed: boolean;
+  };
+  tokens_used: number;
+}
+```
 
-4. **Atualizar `kai-content-agent`** (15 min)
-   - Adicionar checklist de validação no prompt
-   - Garantir que global knowledge seja buscada
+### 4.2 Fluxo interno
 
-5. **Melhorar `GeneratorNode.tsx`** (20 min)
-   - Melhorar extração de contexto de outputs conectados
-   - Adicionar label visual mostrando "contexto acumulado"
+```
+1. Carregar contexto completo:
+   - getFormatSchema(format)
+   - getStructuredVoice(client_id)
+   - getFullContentContext(client_id, format)
 
-6. **Redeploy das Edge Functions** (5 min)
-   - `generate-content-v2`
-   - `process-automations`
-   - `kai-content-agent`
+2. Writer (1 chamada):
+   - System prompt com contrato + voz + contexto
+   - User prompt com brief
+   - Output em schema definido
 
-### Tempo Total Estimado: ~2 horas
+3. Validar:
+   - parseOutput(response, format)
+   - validateContent(parsed, schema)
 
-### Resultado Final
+4. Se violações → Repair (max 1 tentativa):
+   - buildRepairPrompt(violations)
+   - Chamada curta ao modelo
+   - Re-validar
 
-Após as melhorias:
-- **Canvas**: Contexto completo + memória de outputs anteriores + validação
-- **kAI Chat**: Contexto completo (já tem) + global knowledge + validação
-- **Automações**: Contexto completo igual aos outros + enriquecimento automático
+5. Se skip_review = false → Revisor:
+   - Modelo leve (gemini-2.5-flash-lite)
+   - Prompt com REVIEWER_CHECKLIST
+   - Apenas correções, não reescrita
 
-Todos os ambientes usarão a mesma fonte de verdade (`kai_documentation`) e terão acesso ao contexto rico do cliente, garantindo consistência e qualidade em toda geração de conteúdo.
+6. Retornar conteúdo + metadados
+```
+
+### 4.3 Migrar chamadas existentes
+
+| Origem | Antes | Depois |
+|--------|-------|--------|
+| `useClientChat.ts` | `kai-content-agent` | `unified-content-api` |
+| `process-automations` | `kai-content-agent` | `unified-content-api` |
+| `generate-content-from-idea` | Pipeline 4 agentes | `unified-content-api` |
+
+---
+
+## Fase 5: Deprecar Pipeline de 4 Agentes
+
+### 5.1 Remover `generate-content-from-idea`
+
+A função atual usa 4 chamadas sequenciais (writer → style_editor → consistency_editor → final_reviewer). Este padrão será substituído por:
+
+- 1 chamada forte (Writer com contexto completo)
+- Validação em código (sem chamada)
+- 1 chamada de Repair (se necessário)
+- 1 chamada de Revisor (opcional)
+
+Resultado: **De 4 chamadas para 2-3 no máximo**, com qualidade superior.
+
+---
+
+## Fase 6: Feedback Loop (Futuro)
+
+### 6.1 Tabela de feedback
+
+```sql
+CREATE TABLE IF NOT EXISTS content_feedback (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  content_id UUID REFERENCES planning_items(id),
+  feedback_type TEXT CHECK (feedback_type IN ('approved', 'rejected', 'edited')),
+  feedback_notes TEXT,
+  original_content TEXT,
+  edited_content TEXT,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  created_by UUID REFERENCES profiles(id)
+);
+```
+
+### 6.2 Extrair padrões de rejeições
+
+Job periódico que:
+- Analisa conteúdos rejeitados/editados
+- Extrai frases problemáticas
+- Sugere adições à lista "Evite" do cliente
+
+---
+
+## Arquivos a Criar/Modificar
+
+| Arquivo | Ação | Descrição |
+|---------|------|-----------|
+| `supabase/functions/_shared/format-schemas.ts` | **Criar** | Schemas de output por formato |
+| `supabase/functions/_shared/content-validator.ts` | **Criar** | Parser + validador + repair prompt builder |
+| `supabase/functions/_shared/quality-rules.ts` | **Criar** | Lista global de proibições + checklist revisor |
+| `supabase/functions/_shared/knowledge-loader.ts` | **Modificar** | Adicionar `getStructuredVoice()`, `getFormatSchema()` |
+| `supabase/functions/unified-content-api/index.ts` | **Criar** | Nova API unificada (writer → validate → repair → review) |
+| `supabase/functions/kai-content-agent/index.ts` | **Modificar** | Redirecionar para `unified-content-api` ou deprecar |
+| `supabase/functions/generate-content-from-idea/index.ts` | **Deprecar** | Migrar para `unified-content-api` |
+| `supabase/functions/process-automations/index.ts` | **Modificar** | Usar `unified-content-api` |
+| `src/hooks/useClientChat.ts` | **Modificar** | Chamar `unified-content-api`, mostrar progresso (Escrevendo/Validando/Revisando) |
+| `src/components/clients/profile/ContextAITab.tsx` | **Modificar** | Interface para editar Voice Profile (Use/Evite) |
+| `supabase/migrations/add_voice_profile.sql` | **Criar** | Adicionar coluna `voice_profile` em `clients` |
+| `supabase/migrations/add_output_schema.sql` | **Criar** | Adicionar coluna `output_schema` em `kai_documentation` |
+
+---
+
+## Ordem de Implementação
+
+| Fase | O quê | Tempo Est. |
+|------|-------|------------|
+| 1 | Schemas de output (`format-schemas.ts`) | 45 min |
+| 2 | Validador + Quality Rules (`content-validator.ts`, `quality-rules.ts`) | 1h |
+| 3 | Voice Profile (migration + `getStructuredVoice`) | 30 min |
+| 4 | API Unificada (`unified-content-api`) | 1h 30min |
+| 5 | Migrar Chat (`useClientChat.ts`) | 45 min |
+| 6 | Migrar Automações (`process-automations`) | 30 min |
+| 7 | Deprecar pipeline antigo | 15 min |
+| 8 | Interface Voice Profile (UI) | 45 min |
+
+**Tempo Total Estimado:** ~6 horas
+
+---
+
+## Resultado Esperado
+
+**Antes:**
+- Chat: 1 chamada sem validação, output livre
+- Automações: Igual ao chat
+- Pipeline ideias: 4 chamadas, ineficiente
+
+**Depois:**
+- **API Única** para chat e automações
+- **Formato como contrato**: Schema de saída validável
+- **Voz estruturada**: Use/Evite + snippets explícitos
+- **Validação pós-geração**: Parser + regras + repair automático
+- **Revisor focado**: Checklist curto, sem reescrita
+- **Máximo 2-3 chamadas** (vs 4 antes)
+- **Qualidade superior** com menos tokens
+
+O conteúdo final soa como o cliente, não como IA genérica.
+
