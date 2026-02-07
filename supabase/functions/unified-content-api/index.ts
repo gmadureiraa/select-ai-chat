@@ -461,13 +461,6 @@ ${formatContract}
         steps_completed: stepsCompleted,
       },
     };
-      metadata: {
-        format: normalizedFormat,
-        format_label: schema?.format_label || normalizedFormat,
-        processing_time_ms: processingTime,
-        steps_completed: stepsCompleted,
-      },
-    };
 
     return new Response(
       JSON.stringify(response),
