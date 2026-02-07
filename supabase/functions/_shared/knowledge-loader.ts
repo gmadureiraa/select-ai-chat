@@ -1,9 +1,11 @@
 // =====================================================
 // CARREGADOR DE DOCUMENTAÇÃO DE AGENTES E FORMATOS
-// Versão 2.0 - Carrega do banco de dados kai_documentation
+// Versão 3.0 - Suporta Voice Profile estruturado + Format Schemas
 // =====================================================
 
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { getFormatSchema, buildFormatContract, FormatSchema } from "./format-schemas.ts";
+import { buildForbiddenPhrasesSection, UNIVERSAL_OUTPUT_RULES } from "./quality-rules.ts";
 
 // Interface para documentação
 interface KaiDocumentation {
@@ -15,6 +17,14 @@ interface KaiDocumentation {
   summary: string | null;
   checklist: string[];
   metadata: Record<string, unknown>;
+  output_schema?: Record<string, unknown>;
+}
+
+// Interface para Voice Profile do cliente
+export interface VoiceProfile {
+  tone?: string;
+  use?: string[];
+  avoid?: string[];
 }
 
 // Cache em memória para documentos já carregados (por sessão da edge function)
@@ -334,6 +344,93 @@ export async function buildAgentContext(agentId: string, contentType: string): P
 export function clearDocsCache(): void {
   docsCache.clear();
 }
+
+// =====================================================
+// VOZ ESTRUTURADA DO CLIENTE
+// =====================================================
+
+/**
+ * Busca o voice profile estruturado do cliente (Use/Evite)
+ * Retorna uma seção formatada para o prompt
+ */
+export async function getStructuredVoice(clientId: string): Promise<string> {
+  if (!clientId) return "";
+  
+  try {
+    const supabase = getSupabaseClient();
+    
+    const { data: client, error } = await supabase
+      .from("clients")
+      .select("name, voice_profile, identity_guide")
+      .eq("id", clientId)
+      .single();
+    
+    if (error || !client) return "";
+    
+    let voiceSection = "";
+    
+    // Parse voice_profile JSONB
+    const voiceProfile: VoiceProfile = client.voice_profile || {};
+    
+    if (voiceProfile.tone || voiceProfile.use?.length || voiceProfile.avoid?.length) {
+      voiceSection += `## 🎯 VOZ DO CLIENTE: ${client.name}\n\n`;
+      
+      if (voiceProfile.tone) {
+        voiceSection += `**Tom:** ${voiceProfile.tone}\n\n`;
+      }
+      
+      if (voiceProfile.use && voiceProfile.use.length > 0) {
+        voiceSection += `**USE (expressões/padrões que funcionam):**\n`;
+        for (const item of voiceProfile.use) {
+          voiceSection += `✅ ${item}\n`;
+        }
+        voiceSection += `\n`;
+      }
+      
+      if (voiceProfile.avoid && voiceProfile.avoid.length > 0) {
+        voiceSection += `**EVITE (proibido para este cliente):**\n`;
+        for (const item of voiceProfile.avoid) {
+          voiceSection += `❌ ${item}\n`;
+        }
+        voiceSection += `\n`;
+      }
+    }
+    
+    return voiceSection;
+  } catch (err) {
+    console.error("[KNOWLEDGE-LOADER] Error fetching voice profile:", err);
+    return "";
+  }
+}
+
+/**
+ * Retorna a lista de palavras a evitar do cliente (para validação)
+ */
+export async function getClientAvoidList(clientId: string): Promise<string[]> {
+  if (!clientId) return [];
+  
+  try {
+    const supabase = getSupabaseClient();
+    
+    const { data: client } = await supabase
+      .from("clients")
+      .select("voice_profile")
+      .eq("id", clientId)
+      .single();
+    
+    if (!client?.voice_profile) return [];
+    
+    const voiceProfile: VoiceProfile = client.voice_profile;
+    return voiceProfile.avoid || [];
+  } catch {
+    return [];
+  }
+}
+
+// Re-export types and functions from new modules
+export { getFormatSchema, buildFormatContract } from "./format-schemas.ts";
+export { buildForbiddenPhrasesSection, UNIVERSAL_OUTPUT_RULES } from "./quality-rules.ts";
+export type { VoiceProfile };
 
 /**
  * Retorna lista de formatos disponíveis
