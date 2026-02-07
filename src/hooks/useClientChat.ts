@@ -415,7 +415,120 @@ export const useClientChat = (clientId: string, templateId?: string, conversatio
       // Immediately invalidate messages so UI shows user message right away
       queryClient.invalidateQueries({ queryKey: ["messages", conversationId] });
 
-      // DETECTAR PEDIDO DE GERAÇÃO DE IMAGEM
+      // =====================================================================
+      // PRIORIDADE MÁXIMA: Modo "content" explícito vai DIRETO para pipeline
+      // Isso garante que quando o usuário seleciona "Conteúdo", o sistema 
+      // SEMPRE usa o pipeline de alta qualidade, ignorando detecção de imagem
+      // =====================================================================
+      const isExplicitContentMode = explicitMode === "content";
+      
+      if (isExplicitContentMode) {
+        console.log("[CHAT] EXPLICIT CONTENT MODE - Bypassing all auto-detection, going direct to unified pipeline");
+        
+        // Ir direto para o pipeline multi-agente
+        const earlyDetectedType = detectContentType(content);
+        console.log("[CHAT] Detected content type from message:", earlyDetectedType);
+        
+        setCurrentStep("multi_agent");
+        setMultiAgentStep("researcher");
+        setMultiAgentDetails({ researcher: "Buscando contexto do cliente..." });
+        
+        try {
+          // Get access token for API call
+          const { data: sessionData } = await supabase.auth.getSession();
+          const accessToken = sessionData?.session?.access_token;
+
+          if (!accessToken) {
+            throw new Error("Usuário não autenticado");
+          }
+
+          setMultiAgentStep("writer");
+          setMultiAgentDetails({ writer: "Escrevendo conteúdo..." });
+
+          const response = await fetch(
+            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/unified-content-api`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${accessToken}`,
+                "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+              },
+              body: JSON.stringify({
+                client_id: clientId,
+                format: earlyDetectedType || "linkedin_post",
+                brief: content,
+                options: {
+                  skip_review: quality !== "high",
+                  strict_validation: true,
+                },
+              }),
+            }
+          );
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Erro na API: ${response.status} - ${errorText}`);
+          }
+
+          const jsonResponse = await response.json();
+          console.log("[CHAT] unified-content-api response:", jsonResponse);
+
+          setMultiAgentStep("complete");
+
+          const finalContent = jsonResponse.content || "";
+
+          if (!finalContent) {
+            throw new Error("A API não retornou conteúdo");
+          }
+
+          const sourcesUsed = jsonResponse.sources_used || {
+            identity_guide: !!identityGuide,
+            library_items_count: contentLibrary?.length || 0,
+            format_rules: earlyDetectedType || undefined,
+          };
+
+          const validation = jsonResponse.validation || {
+            passed: true,
+            repaired: false,
+            reviewed: quality === "high",
+          };
+
+          await supabase.from("messages").insert({
+            conversation_id: conversationId,
+            role: "assistant",
+            content: finalContent,
+            payload: {
+              sources_used: sourcesUsed,
+              format_type: earlyDetectedType || "linkedin_post",
+              validation: validation,
+              generation_mode: "explicit_content",
+            },
+          });
+
+          queryClient.invalidateQueries({ queryKey: ["messages", conversationId] });
+          
+        } catch (error) {
+          console.error("[CHAT] Explicit content generation error:", error);
+          setMultiAgentStep("error");
+          
+          await supabase.from("messages").insert({
+            conversation_id: conversationId,
+            role: "assistant",
+            content: `Erro ao gerar conteúdo: ${error instanceof Error ? error.message : "Erro desconhecido"}`,
+          });
+          
+          queryClient.invalidateQueries({ queryKey: ["messages", conversationId] });
+        } finally {
+          setIsLoading(false);
+          setCurrentStep(null);
+          setMultiAgentStep(null);
+        }
+        
+        return; // Sair da função - não continuar com outros fluxos
+      }
+
+      // DETECTAR PEDIDO DE GERAÇÃO DE IMAGEM (só se NÃO for modo content explícito)
       // Modo "image" (template de imagem) OU detecção automática de pedido de imagem
       const isImageTemplateMode = explicitMode === "image";
       const imageGenRequest = detectImageGenerationRequest(content);
@@ -1173,25 +1286,22 @@ Por favor, use este material como base para criar o conteúdo solicitado, adapta
       }
       
       // Detectar tipo de conteúdo para multi-agente (apenas se NÃO estiver em modo ideias)
-      const earlyDetectedType = detectContentType(enrichedContent);
-      
-      // CORREÇÃO: Modo "content" explícito SEMPRE usa o pipeline multi-agente
-      const isExplicitContentMode = explicitMode === "content";
+      const lateDetectedType = detectContentType(enrichedContent);
       
       // Usar pipeline multi-agente QUANDO:
       // 1. NÃO está em modo ideias explícito E
-      // 2. (Modo content explícito OU quality high OU tem conteúdo extraído de URL OU é conteúdo longo com modelo premium)
+      // 2. (Quality high OU tem conteúdo extraído de URL OU é conteúdo longo com modelo premium)
+      // NOTA: Modo content explícito já é tratado no início da função (linha ~420)
       const shouldUseMultiAgent = !isExplicitIdeaMode && (
-        isExplicitContentMode ||
         quality === "high" || 
         extractedUrlContent !== null ||
-        (MULTI_AGENT_CONTENT_TYPES.includes(earlyDetectedType || "") &&
+        (MULTI_AGENT_CONTENT_TYPES.includes(lateDetectedType || "") &&
         (selectedModel.includes("pro") || selectedModel.includes("gpt-5")))
       );
 
       if (shouldUseMultiAgent) {
         // Determinar tipo de conteúdo baseado no template ou detecção automática
-        let contentTypeForPipeline: string | ContentFormatType | null = earlyDetectedType;
+        let contentTypeForPipeline: string | ContentFormatType | null = lateDetectedType;
         
         // Se tem template, usar o tipo do template
         if (template?.name) {
