@@ -31,16 +31,16 @@ Este plano lista todos os arquivos, hooks, componentes, Edge Functions e tabelas
 
 ---
 
-## 🔜 Fase 4: Edge Functions a Avaliar
+## ✅ Fase 4 Concluída: Edge Functions Removidas
 
-| Função | Situação | Recomendação |
-|--------|----------|--------------|
-| `grok-search` | Apenas mencionado em documentação; requer GROK_API_KEY não configurada | Remover se não usado |
-| `kai-smart-planner` | Nenhum import/invoke encontrado no frontend | Remover se obsoleto |
-| `check-subscription` | Apenas mencionado em documentação | Verificar se usado por webhook/cron |
-| `process-due-date-notifications` | Nenhum invoke no frontend; provavelmente cron job | Manter se configurado como cron |
-| `import-beehiiv-newsletters` | Apenas mencionado em documentação | Verificar uso |
-| `kai-chat` | Usado apenas por useKAIChatStream (que pode ser obsoleto) | Avaliar se kai-simple-chat substitui |
+| Função | Status |
+|--------|--------|
+| `grok-search` | ✅ Removida (sem logs, sem uso) |
+| `kai-smart-planner` | ✅ Removida (sem logs, sem uso) |
+| `check-subscription` | ✅ Removida (sem logs, sem uso) |
+| `import-beehiiv-newsletters` | ✅ Removida (sem logs, sem uso) |
+| `kai-chat` | ✅ Removida (+ hook useKAIChatStream) |
+| `process-due-date-notifications` | **MANTIDA** (cron job ativo) |
 
 ---
 
