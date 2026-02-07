@@ -218,6 +218,7 @@ export function GlobalKAIChat({
                     payload={message.payload}
                     clientId={selectedClientId || undefined}
                     clientName={selectedClientName}
+                    messageId={message.id}
                     isLastMessage={index === messages.length - 1}
                     onSendMessage={onSendMessage}
                     disableAutoPostDetection={true}

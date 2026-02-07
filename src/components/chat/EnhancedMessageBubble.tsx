@@ -8,6 +8,8 @@ import { ImageActionButtons } from "./ImageActionButtons";
 import { AddToPlanningButton } from "./AddToPlanningButton";
 import { AdjustImageButton } from "./AdjustImageButton";
 import { ResponseCard, hasResponseCardPayload, ResponseCardPayload } from "./ResponseCard";
+import { SourcesBadge, ValidationBadge } from "./SourcesBadge";
+import { MessageFeedback } from "./MessageFeedback";
 import { useState, useMemo, memo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -40,6 +42,10 @@ interface EnhancedMessageBubbleProps {
   disableAutoPostDetection?: boolean;
   /** Hide content action buttons - useful for non-content contexts */
   hideContentActions?: boolean;
+  /** Message ID for feedback tracking */
+  messageId?: string;
+  /** Callback for saving content to library */
+  onSaveToLibrary?: (content: string) => void;
 }
 
 // Helper to get citation icon
@@ -72,6 +78,8 @@ export const EnhancedMessageBubble = memo(function EnhancedMessageBubble({
   onSendMessage,
   disableAutoPostDetection = false,
   hideContentActions = false,
+  messageId,
+  onSaveToLibrary,
 }: EnhancedMessageBubbleProps) {
   const isUser = role === "user";
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
@@ -241,6 +249,11 @@ export const EnhancedMessageBubble = memo(function EnhancedMessageBubble({
             </div>
           )}
 
+          {/* Sources Badge - Show which sources were used for this response */}
+          {!isUser && payload?.sources_used && (
+            <SourcesBadge sources={payload.sources_used} variant="inline" />
+          )}
+
           {/* Response Card (for structured responses like cards_created) */}
           {responseCardPayload && (
             <ResponseCard 
@@ -349,9 +362,30 @@ export const EnhancedMessageBubble = memo(function EnhancedMessageBubble({
               clientId={clientId}
               clientName={clientName}
               templateName={templateName}
-              messageId={payload?.messageId}
+              messageId={payload?.messageId || messageId}
             />
           </div>
+
+          {/* Validation Badge - Shows if content was validated/repaired */}
+          {!isUser && payload?.validation && (
+            <ValidationBadge 
+              passed={payload.validation.passed}
+              repaired={payload.validation.repaired}
+              reviewed={payload.validation.reviewed}
+            />
+          )}
+
+          {/* Message Feedback - Approve/Edit/Regenerate buttons for assistant messages */}
+          {!isUser && clientId && (messageId || payload?.messageId) && (
+            <MessageFeedback
+              messageId={messageId || payload?.messageId || ""}
+              clientId={clientId}
+              content={content}
+              formatType={payload?.format_type}
+              onRegenerate={onRegenerate}
+              onSaveToLibrary={onSaveToLibrary}
+            />
+          )}
         </div>
 
         {/* Avatar do usuário */}

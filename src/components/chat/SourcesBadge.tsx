@@ -8,15 +8,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-
-export interface SourcesUsed {
-  identity_guide?: boolean;
-  library_items_count?: number;
-  top_performers_count?: number;
-  format_rules?: string;
-  voice_profile?: boolean;
-  global_knowledge?: boolean;
-}
+import { SourcesUsed } from "@/types/chat";
 
 interface SourcesBadgeProps {
   sources: SourcesUsed;

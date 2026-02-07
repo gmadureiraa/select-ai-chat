@@ -7,10 +7,11 @@ import { useClientChat } from "@/hooks/useClientChat";
 import { FloatingInput } from "@/components/chat/FloatingInput";
 import { Citation } from "@/components/chat/CitationChip";
 import { EnhancedMessageBubble } from "@/components/chat/EnhancedMessageBubble";
-import { MinimalProgress } from "@/components/chat/MinimalProgress";
+import { PipelineProgress, PipelineStage } from "@/components/chat/PipelineProgress";
 import { QuickSuggestions } from "@/components/chat/QuickSuggestions";
 import { ModeSelector, ChatMode } from "@/components/chat/ModeSelector";
 import { Client } from "@/hooks/useClients";
+import { MultiAgentStep } from "@/types/chat";
 import KaleidosLogo from "@/assets/kaleidos-logo.svg";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
@@ -27,6 +28,19 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+
+// Map multiAgentStep to PipelineStage for visualization
+function mapStepToStage(step: MultiAgentStep): PipelineStage {
+  switch (step) {
+    case "researcher": return "context";
+    case "writer": return "writing";
+    case "editor": return "validating";
+    case "reviewer": return "reviewing";
+    case "complete": return "complete";
+    case "error": return "error";
+    default: return "context";
+  }
+}
 
 interface KaiAssistantTabProps {
   clientId: string;
@@ -283,6 +297,7 @@ export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
                     payload={(message as any).payload}
                     clientId={clientId}
                     clientName={client.name}
+                    messageId={message.id}
                     onRegenerate={index === messages.length - 1 && message.role === "assistant" ? regenerateLastMessage : undefined}
                     isLastMessage={index === messages.length - 1}
                     onSendMessage={handleSend}
@@ -291,9 +306,9 @@ export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
                 ))}
 
                 {isLoading && (
-                  <MinimalProgress 
-                    currentStep={currentStep}
-                    multiAgentStep={multiAgentStep}
+                  <PipelineProgress 
+                    currentStage={mapStepToStage(multiAgentStep)}
+                    showElapsedTime
                   />
                 )}
                 

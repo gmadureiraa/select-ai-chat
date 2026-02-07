@@ -1692,6 +1692,7 @@ export type Database = {
           created_at: string | null
           id: string
           image_urls: string[] | null
+          payload: Json | null
           rated_at: string | null
           rating: number | null
           rating_feedback: string | null
@@ -1704,6 +1705,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           image_urls?: string[] | null
+          payload?: Json | null
           rated_at?: string | null
           rating?: number | null
           rating_feedback?: string | null
@@ -1716,6 +1718,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           image_urls?: string[] | null
+          payload?: Json | null
           rated_at?: string | null
           rating?: number | null
           rating_feedback?: string | null

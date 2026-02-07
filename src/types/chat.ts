@@ -1,8 +1,26 @@
 import { Citation } from "@/components/chat/CitationChip";
 
+export interface SourcesUsed {
+  identity_guide?: boolean;
+  library_items_count?: number;
+  top_performers_count?: number;
+  format_rules?: string;
+  voice_profile?: boolean;
+  global_knowledge?: boolean;
+}
+
+export interface ValidationResult {
+  passed: boolean;
+  repaired: boolean;
+  reviewed: boolean;
+}
+
 export interface MessagePayload {
   citations?: Citation[];
   messageId?: string;
+  sources_used?: SourcesUsed;
+  format_type?: string;
+  validation?: ValidationResult;
   [key: string]: unknown;
 }
 
