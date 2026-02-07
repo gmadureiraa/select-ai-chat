@@ -127,7 +127,8 @@ O sistema utiliza os seguintes cron jobs para executar automaticamente:
 |-----|------------|--------|
 | `process-scheduled-posts-cron` | A cada 5 min | Publica itens com `scheduled_at` no passado |
 | `process-automations-cron` | A cada 15 min | Avalia gatilhos de schedule/RSS e cria conteúdo |
-| `process-recurring-content-daily` | Diariamente às 6h UTC | Cria itens a partir de templates recorrentes |
+| `process-recurring-content-cron` | Diariamente às 6h UTC | Cria itens a partir de templates recorrentes |
+| `fetch-late-metrics-daily` | Diariamente às 7h UTC | Busca métricas do Late e atualiza posts/platform_metrics |
 
 ### Checklist Pós-Deploy
 
@@ -190,6 +191,22 @@ SELECT cron.schedule(
   $$
   SELECT net.http_post(
     url := (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'project_url' LIMIT 1) || '/functions/v1/process-recurring-content',
+    headers := jsonb_build_object(
+      'Content-Type', 'application/json',
+      'Authorization', 'Bearer ' || (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'cron_service_role_key' LIMIT 1)
+    ),
+    body := '{}'::jsonb
+  );
+  $$
+);
+
+-- JOB 4: Buscar métricas do Late (diariamente às 7h UTC)
+SELECT cron.schedule(
+  'fetch-late-metrics-daily',
+  '0 7 * * *',
+  $$
+  SELECT net.http_post(
+    url := (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'project_url' LIMIT 1) || '/functions/v1/fetch-late-metrics',
     headers := jsonb_build_object(
       'Content-Type', 'application/json',
       'Authorization', 'Bearer ' || (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'cron_service_role_key' LIMIT 1)
