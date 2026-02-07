@@ -1301,59 +1301,6 @@ export type Database = {
           },
         ]
       }
-      instagram_tokens: {
-        Row: {
-          access_token: string
-          client_id: string
-          created_at: string | null
-          expires_at: string | null
-          id: string
-          instagram_business_id: string | null
-          instagram_username: string | null
-          page_access_token: string | null
-          page_id: string | null
-          updated_at: string | null
-          user_access_token: string | null
-          user_id: string
-        }
-        Insert: {
-          access_token: string
-          client_id: string
-          created_at?: string | null
-          expires_at?: string | null
-          id?: string
-          instagram_business_id?: string | null
-          instagram_username?: string | null
-          page_access_token?: string | null
-          page_id?: string | null
-          updated_at?: string | null
-          user_access_token?: string | null
-          user_id: string
-        }
-        Update: {
-          access_token?: string
-          client_id?: string
-          created_at?: string | null
-          expires_at?: string | null
-          id?: string
-          instagram_business_id?: string | null
-          instagram_username?: string | null
-          page_access_token?: string | null
-          page_id?: string | null
-          updated_at?: string | null
-          user_access_token?: string | null
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "instagram_tokens_client_id_fkey"
-            columns: ["client_id"]
-            isOneToOne: false
-            referencedRelation: "clients"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       kai_chat_conversations: {
         Row: {
           client_id: string
@@ -2624,50 +2571,6 @@ export type Database = {
           },
         ]
       }
-      proactive_suggestions: {
-        Row: {
-          client_id: string | null
-          created_at: string | null
-          description: string | null
-          id: string
-          is_dismissed: boolean | null
-          is_used: boolean | null
-          metadata: Json | null
-          suggestion_type: string
-          title: string
-        }
-        Insert: {
-          client_id?: string | null
-          created_at?: string | null
-          description?: string | null
-          id?: string
-          is_dismissed?: boolean | null
-          is_used?: boolean | null
-          metadata?: Json | null
-          suggestion_type: string
-          title: string
-        }
-        Update: {
-          client_id?: string | null
-          created_at?: string | null
-          description?: string | null
-          id?: string
-          is_dismissed?: boolean | null
-          is_used?: boolean | null
-          metadata?: Json | null
-          suggestion_type?: string
-          title?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "proactive_suggestions_client_id_fkey"
-            columns: ["client_id"]
-            isOneToOne: false
-            referencedRelation: "clients"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -2697,50 +2600,6 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: []
-      }
-      prompt_templates: {
-        Row: {
-          category: string | null
-          created_at: string | null
-          id: string
-          is_shared: boolean | null
-          name: string
-          prompt: string
-          updated_at: string | null
-          user_id: string
-          workspace_id: string
-        }
-        Insert: {
-          category?: string | null
-          created_at?: string | null
-          id?: string
-          is_shared?: boolean | null
-          name: string
-          prompt: string
-          updated_at?: string | null
-          user_id?: string
-          workspace_id: string
-        }
-        Update: {
-          category?: string | null
-          created_at?: string | null
-          id?: string
-          is_shared?: boolean | null
-          name?: string
-          prompt?: string
-          updated_at?: string | null
-          user_id?: string
-          workspace_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "prompt_templates_workspace_id_fkey"
-            columns: ["workspace_id"]
-            isOneToOne: false
-            referencedRelation: "workspaces"
-            referencedColumns: ["id"]
-          },
-        ]
       }
       push_notification_queue: {
         Row: {
@@ -3033,88 +2892,6 @@ export type Database = {
         }
         Relationships: []
       }
-      rss_triggers: {
-        Row: {
-          assigned_to: string | null
-          auto_generate_content: boolean | null
-          client_id: string | null
-          content_type: string | null
-          created_at: string | null
-          id: string
-          is_active: boolean | null
-          items_seen: Json | null
-          last_checked_at: string | null
-          last_item_guid: string | null
-          name: string
-          platform: string | null
-          prompt_template: string | null
-          rss_url: string
-          target_column_id: string | null
-          updated_at: string | null
-          workspace_id: string
-        }
-        Insert: {
-          assigned_to?: string | null
-          auto_generate_content?: boolean | null
-          client_id?: string | null
-          content_type?: string | null
-          created_at?: string | null
-          id?: string
-          is_active?: boolean | null
-          items_seen?: Json | null
-          last_checked_at?: string | null
-          last_item_guid?: string | null
-          name: string
-          platform?: string | null
-          prompt_template?: string | null
-          rss_url: string
-          target_column_id?: string | null
-          updated_at?: string | null
-          workspace_id: string
-        }
-        Update: {
-          assigned_to?: string | null
-          auto_generate_content?: boolean | null
-          client_id?: string | null
-          content_type?: string | null
-          created_at?: string | null
-          id?: string
-          is_active?: boolean | null
-          items_seen?: Json | null
-          last_checked_at?: string | null
-          last_item_guid?: string | null
-          name?: string
-          platform?: string | null
-          prompt_template?: string | null
-          rss_url?: string
-          target_column_id?: string | null
-          updated_at?: string | null
-          workspace_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "rss_triggers_client_id_fkey"
-            columns: ["client_id"]
-            isOneToOne: false
-            referencedRelation: "clients"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "rss_triggers_target_column_id_fkey"
-            columns: ["target_column_id"]
-            isOneToOne: false
-            referencedRelation: "kanban_columns"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "rss_triggers_workspace_id_fkey"
-            columns: ["workspace_id"]
-            isOneToOne: false
-            referencedRelation: "workspaces"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       scheduled_posts: {
         Row: {
           client_id: string
@@ -3192,50 +2969,6 @@ export type Database = {
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "workspaces"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      social_credentials_audit_log: {
-        Row: {
-          action: string
-          client_id: string
-          created_at: string
-          credential_id: string | null
-          id: string
-          ip_address: string | null
-          metadata: Json | null
-          user_agent: string | null
-          user_id: string | null
-        }
-        Insert: {
-          action: string
-          client_id: string
-          created_at?: string
-          credential_id?: string | null
-          id?: string
-          ip_address?: string | null
-          metadata?: Json | null
-          user_agent?: string | null
-          user_id?: string | null
-        }
-        Update: {
-          action?: string
-          client_id?: string
-          created_at?: string
-          credential_id?: string | null
-          id?: string
-          ip_address?: string | null
-          metadata?: Json | null
-          user_agent?: string | null
-          user_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "social_credentials_audit_log_client_id_fkey"
-            columns: ["client_id"]
-            isOneToOne: false
-            referencedRelation: "clients"
             referencedColumns: ["id"]
           },
         ]
@@ -3836,53 +3569,6 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: []
-      }
-      youtube_tokens: {
-        Row: {
-          access_token: string
-          channel_id: string | null
-          channel_title: string | null
-          client_id: string | null
-          created_at: string | null
-          expires_at: string | null
-          id: string
-          refresh_token: string | null
-          updated_at: string | null
-          user_id: string
-        }
-        Insert: {
-          access_token: string
-          channel_id?: string | null
-          channel_title?: string | null
-          client_id?: string | null
-          created_at?: string | null
-          expires_at?: string | null
-          id?: string
-          refresh_token?: string | null
-          updated_at?: string | null
-          user_id: string
-        }
-        Update: {
-          access_token?: string
-          channel_id?: string | null
-          channel_title?: string | null
-          client_id?: string | null
-          created_at?: string | null
-          expires_at?: string | null
-          id?: string
-          refresh_token?: string | null
-          updated_at?: string | null
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "youtube_tokens_client_id_fkey"
-            columns: ["client_id"]
-            isOneToOne: false
-            referencedRelation: "clients"
-            referencedColumns: ["id"]
-          },
-        ]
       }
       youtube_videos: {
         Row: {
