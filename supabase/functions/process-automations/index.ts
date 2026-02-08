@@ -943,37 +943,41 @@ serve(async (req) => {
                 const publishResult = await publishResponse.json();
                 console.log(`Publish response for item ${newItem.id}:`, JSON.stringify(publishResult));
                 
-                // CRITICAL: Verify that Late API actually published successfully
+                // CRITICAL: Accept both externalId and postId (Late API returns postId)
+                const externalPostId = publishResult.externalId || publishResult.postId;
+                
                 // Only mark as published if we get explicit success confirmation
-                if (publishResult.success && publishResult.externalId) {
-                  console.log(`✅ Successfully published item ${newItem.id} with externalId: ${publishResult.externalId}`);
+                if (publishResult.success && externalPostId) {
+                  console.log(`✅ Successfully published item ${newItem.id} with externalId: ${externalPostId}`);
                   
                   await supabase
                     .from('planning_items')
                     .update({ 
                       status: 'published',
-                      external_post_id: publishResult.externalId,
+                      external_post_id: externalPostId,
                       metadata: {
                         ...(newItem.metadata as any || {}),
                         auto_published: true,
                         published_at: new Date().toISOString(),
-                        late_post_id: publishResult.externalId,
+                        late_post_id: externalPostId,
                         late_response: publishResult,
                       }
                     })
                     .eq('id', newItem.id);
                 } else {
-                  // Late API returned OK but didn't confirm success - log and don't mark as published
+                  // Late API returned OK but didn't confirm success - log detailed error
+                  const publishError = publishResult.error || publishResult.message || 'Late API did not confirm successful publication';
                   console.warn(`⚠️ Late API returned OK but no success confirmation for item ${newItem.id}:`, publishResult);
                   
                   await supabase
                     .from('planning_items')
                     .update({ 
                       status: 'failed',
+                      error_message: publishError,
                       metadata: {
                         ...(newItem.metadata as any || {}),
                         auto_publish_attempted: true,
-                        auto_publish_error: 'Late API did not confirm successful publication',
+                        auto_publish_error: publishError,
                         late_response: publishResult,
                       }
                     })
@@ -1092,18 +1096,29 @@ serve(async (req) => {
           triggerDataForRun.images_count = triggerData.allImages?.length || 0;
         }
         
-        // Check if item was published and add that info
+        // Check if item was published and add that info (including metadata errors)
         const { data: finalItem } = await supabase
           .from('planning_items')
-          .select('status, external_post_id, error_message')
+          .select('status, external_post_id, error_message, metadata')
           .eq('id', newItem.id)
           .single();
         
         if (finalItem) {
           triggerDataForRun.published = finalItem.status === 'published';
           triggerDataForRun.external_post_id = finalItem.external_post_id;
-          if (finalItem.status === 'failed' && finalItem.error_message) {
-            triggerDataForRun.publish_error = finalItem.error_message;
+          
+          // Capture error from multiple sources for UI visibility
+          const publishError = finalItem.error_message || 
+            (finalItem.metadata as any)?.auto_publish_error ||
+            (finalItem.status === 'failed' ? 'Publicação falhou' : null);
+            
+          if (publishError) {
+            triggerDataForRun.publish_error = publishError;
+          }
+          
+          // Include Late API response for debugging
+          if ((finalItem.metadata as any)?.late_response) {
+            triggerDataForRun.late_response = (finalItem.metadata as any).late_response;
           }
         }
 
