@@ -1023,12 +1023,32 @@ serve(async (req) => {
           .update(updateData)
           .eq('id', automation.id);
 
-        // Build trigger data for run record
-        const triggerDataForRun = triggerData ? { 
-          title: triggerData.title, 
-          link: triggerData.link,
-          images_count: triggerData.allImages?.length || 0,
-        } : {};
+        // Build trigger data for run record - include item_id for detail lookup
+        const triggerDataForRun: Record<string, unknown> = {
+          item_id: newItem.id,
+          generated_content: generatedContent ? generatedContent.substring(0, 500) : null,
+        };
+        
+        if (triggerData) {
+          triggerDataForRun.title = triggerData.title;
+          triggerDataForRun.link = triggerData.link;
+          triggerDataForRun.images_count = triggerData.allImages?.length || 0;
+        }
+        
+        // Check if item was published and add that info
+        const { data: finalItem } = await supabase
+          .from('planning_items')
+          .select('status, external_post_id, error_message')
+          .eq('id', newItem.id)
+          .single();
+        
+        if (finalItem) {
+          triggerDataForRun.published = finalItem.status === 'published';
+          triggerDataForRun.external_post_id = finalItem.external_post_id;
+          if (finalItem.status === 'failed' && finalItem.error_message) {
+            triggerDataForRun.publish_error = finalItem.error_message;
+          }
+        }
 
         // Update run as completed
         if (runId) {
