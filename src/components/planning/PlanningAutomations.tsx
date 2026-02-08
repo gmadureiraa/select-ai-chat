@@ -252,7 +252,11 @@ export function PlanningAutomations() {
         automation={editingAutomation}
       />
 
-      <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
+      <AlertDialog open={!!deleteId} onOpenChange={(open) => {
+        if (!open && !deleteAutomation.isPending) {
+          setDeleteId(null);
+        }
+      }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir automação?</AlertDialogTitle>
@@ -261,9 +265,24 @@ export function PlanningAutomations() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground">
-              Excluir
+            <AlertDialogCancel 
+              disabled={deleteAutomation.isPending}
+              onClick={(e) => {
+                e.preventDefault();
+                setDeleteId(null);
+              }}
+            >
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={(e) => {
+                e.preventDefault();
+                handleDelete();
+              }} 
+              disabled={deleteAutomation.isPending}
+              className="bg-destructive text-destructive-foreground"
+            >
+              {deleteAutomation.isPending ? 'Excluindo...' : 'Excluir'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
