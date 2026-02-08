@@ -1,154 +1,112 @@
 
-# Plano: Correção de Notificações Push, Publicação Automática e Exibição de Erros
+# Análise Completa do Sistema kAI
 
-## Problemas Identificados
-
-### 1. Cron Jobs Não Funcionam (Vault vazio)
-- Os segredos `project_url` e `cron_service_role_key` **não existem** no Vault do Supabase
-- Os cron jobs 7, 8, 9 (process-automations, process-scheduled-posts, process-push-queue) dependem desses segredos
-- Resultado: Nenhuma automação, publicação agendada ou push notification é processada automaticamente
-
-### 2. Bug na Verificação de Publicação
-- O código em `process-automations` verifica `publishResult.externalId`
-- Mas a função `late-post` retorna `postId` (não `externalId`)
-- Resultado: Tweets são publicados com sucesso mas marcados como "failed"
-
-### 3. UI Não Exibe Erro de Publicação
-- O diálogo de detalhes busca `trigger_data?.publish_error`
-- Mas o erro é salvo em `metadata.auto_publish_error` no **planning_item**
-- Resultado: Usuário vê "failed" sem explicação
+Realizei uma auditoria abrangente do sistema e encontrei vários pontos que merecem atenção, organizados por prioridade.
 
 ---
 
-## Implementação
+## 🔴 Problemas Críticos
 
-### Parte 1: Corrigir Verificação de Sucesso em `process-automations`
+### 1. Bug no Modal de Exclusão de Automações
+**Descrição:** O session replay mostrou que ao clicar em "Cancelar" no modal de exclusão, a automação foi excluída mesmo assim.
 
-Alterar a lógica para aceitar tanto `externalId` quanto `postId`:
+**Causa técnica:** O componente `AlertDialogAction` do Radix UI pode propagar eventos de forma inesperada. O padrão atual `onOpenChange={() => setDeleteId(null)}` fecha o modal mas pode haver um race condition onde o clique é registrado no botão errado.
 
-```typescript
-// Linha ~948: Aceitar ambos os formatos de resposta
-const externalPostId = publishResult.externalId || publishResult.postId;
-if (publishResult.success && externalPostId) {
-  // Publicação confirmada
-  await supabase
-    .from('planning_items')
-    .update({
-      status: 'published',
-      external_post_id: externalPostId,
-      ...
-    })
-    .eq('id', newItem.id);
-}
-```
-
-### Parte 2: Salvar Erro de Publicação no `trigger_data` do Run
-
-Atualizar o `planning_automation_runs` com detalhes da publicação para que a UI possa exibir:
-
-```typescript
-// Após publicação (sucesso ou falha), atualizar o run com detalhes
-const runUpdateData = {
-  trigger_data: {
-    ...triggerData,
-    item_id: newItem.id,
-    published: publishResult.success,
-    external_post_id: externalPostId || null,
-    publish_error: !publishResult.success ? 'Erro na publicação' : null,
-    late_response: publishResult,
-  }
-};
-
-await supabase
-  .from('planning_automation_runs')
-  .update(runUpdateData)
-  .eq('id', runId);
-```
-
-### Parte 3: Melhorar Exibição de Erros na UI
-
-Atualizar `AutomationRunDetailDialog.tsx` para buscar erros de múltiplas fontes:
-
-```typescript
-// Buscar erro de múltiplas fontes
-const publishError = 
-  run?.trigger_data?.publish_error || 
-  createdItem?.metadata?.auto_publish_error ||
-  createdItem?.error_message;
-
-// Exibir se existir
-{publishError && (
-  <div className="p-4 rounded-lg border border-orange-500/30 bg-orange-500/5">
-    <AlertTriangle className="h-5 w-5 text-orange-500" />
-    <h4>Erro na Publicação</h4>
-    <p>{publishError}</p>
-  </div>
-)}
-```
-
-### Parte 4: Instruções para Criar Segredos no Vault
-
-O usuário precisa executar estes comandos no SQL Editor do Supabase:
-
-```sql
--- Criar segredo com a URL do projeto
-SELECT vault.create_secret(
-  'https://tkbsjtgrumhvwlxkmojg.supabase.co', 
-  'project_url'
-);
-
--- Criar segredo com a Service Role Key
--- (Copiar de Settings > API > service_role key)
-SELECT vault.create_secret(
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRrYnNqdGdydW1odndseGttb2pnIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NDM5MTExOSwiZXhwIjoyMDc5OTY3MTE5fQ.XXXXX', 
-  'cron_service_role_key'
-);
-```
+**Solução:** Adicionar `e.preventDefault()` explícito e separar claramente os handlers, além de verificar se a mutação não está pendente antes de permitir nova exclusão.
 
 ---
 
-## Arquivos a Modificar
+### 2. Emails de Notificação Falhando
+**Descrição:** Os logs mostram erro 403 do Resend: "The kaleidos.cc domain is not verified".
 
-| Arquivo | Mudança |
-|---------|---------|
-| `supabase/functions/process-automations/index.ts` | Corrigir verificação de `postId` vs `externalId`, salvar dados no run |
-| `src/components/automations/AutomationRunDetailDialog.tsx` | Buscar erros de múltiplas fontes e exibir corretamente |
+**Impacto:** As notificações por email não estão sendo entregues (2 emails na fila com erro).
 
----
-
-## Resultado Esperado
-
-1. **Publicações marcadas corretamente** - Aceita `postId` ou `externalId` da Late API
-2. **Erros visíveis no histórico** - UI mostra mensagem de erro quando publicação falha
-3. **Push notifications funcionando** - Após criar segredos no Vault, cron processa a fila a cada 2 minutos
-4. **iPhone recebe notificações** - A subscription já existe, só falta o cron processar
+**Solução:** Você precisa:
+1. Verificar o domínio `kaleidos.cc` no painel do Resend, **OU**
+2. Configurar um segredo `EMAIL_FROM_ADDRESS` com um email de domínio já verificado
 
 ---
 
-## Fluxo Corrigido
+### 3. Tabelas com RLS Habilitado mas Sem Políticas
+**Tabelas afetadas:**
+- `research_messages`
+- `research_conversations`
+- `research_items`
+- `research_project_shares`
+- `email_notification_queue`
 
-```text
-┌─────────────────────────────────────────────────────────┐
-│  process-automations (cron 15min)                       │
-├─────────────────────────────────────────────────────────┤
-│  1. Gera conteúdo via unified-content-api               │
-│  2. Chama late-post para publicar                       │
-│  3. Verifica publishResult.success && (postId||extId)   │
-│  4. Marca status = 'published' ou 'failed'              │
-│  5. Atualiza planning_automation_runs com detalhes      │
-│  6. Insere em notifications → trigger → push_queue      │
-└─────────────────────────────────────────────────────────┘
-                        │
-                        ▼
-┌─────────────────────────────────────────────────────────┐
-│  process-push-queue (cron 2min)                         │
-├─────────────────────────────────────────────────────────┤
-│  1. Lê fila push_notification_queue                     │
-│  2. Busca subscriptions do usuário                      │
-│  3. Envia Web Push via VAPID para cada device           │
-│  4. Marca como processado                               │
-└─────────────────────────────────────────────────────────┘
-                        │
-                        ▼
-               📱 iPhone recebe notificação
-```
+**Risco:** Estas tabelas estão inacessíveis para operações via cliente frontend (RLS bloqueará tudo).
+
+---
+
+## 🟡 Problemas Moderados
+
+### 4. Política RLS Permissiva Demais
+**Tabela:** `planning_automation_runs`  
+**Problema:** Política de UPDATE com `USING (true)` permite que qualquer usuário autenticado atualize registros de qualquer workspace.
+
+**Solução:** Restringir para membros do workspace específico.
+
+---
+
+### 5. Dívida Técnica Significativa
+**Arquivo `useClientChat.ts`:** 2.379 linhas em um único hook.
+
+**Recomendação:** Refatorar em módulos menores:
+- `useClientChatMessages.ts` - Gerenciamento de mensagens
+- `useClientChatGeneration.ts` - Lógica de geração
+- `useClientChatPipeline.ts` - Fluxo multi-agente
+- `useClientChatFormatDetection.ts` - Detecção de formato
+
+---
+
+### 6. Tabelas Legadas Ainda no Banco
+| Tabela | Registros | Status |
+|--------|-----------|--------|
+| `kanban_cards` | 2 | Legacy - migrar para `planning_items` |
+| `conversations` | 23 | Legacy - migrar para `kai_chat_conversations` |
+| `messages` | 336 | Legacy - migrar para `kai_chat_messages` |
+
+**Recomendação:** Criar script de migração e depois remover tabelas.
+
+---
+
+## 🟢 Pontos Positivos Identificados
+
+| Área | Status |
+|------|--------|
+| Automações | ✅ Funcionando (4 sucessos, 16 skips nas últimas 24h) |
+| Cron Jobs | ✅ Executando regularmente (logs confirmam) |
+| Push Notifications | ✅ Infraestrutura funcional |
+| Secrets | ✅ 30 segredos configurados |
+| Onboarding | ✅ Flow implementado |
+| RLS Geral | ✅ Maioria das tabelas protegidas |
+
+---
+
+## 📋 Plano de Ação Sugerido
+
+### Fase 1 - Correções Urgentes (Agora)
+1. Corrigir bug do modal de exclusão de automações
+2. Resolver problema do domínio Resend para emails funcionarem
+3. Adicionar políticas RLS nas 5 tabelas sem políticas
+
+### Fase 2 - Melhorias de Segurança (Próximos dias)
+4. Corrigir política permissiva em `planning_automation_runs`
+5. Implementar verificação de cron externo para confiabilidade
+
+### Fase 3 - Refatoração (Próximas semanas)
+6. Quebrar `useClientChat.ts` em módulos menores
+7. Migrar e remover tabelas legadas
+8. Implementar sistema de cache para URLs de referência
+
+---
+
+## 🎯 Recomendação Imediata
+
+O mais urgente agora é:
+
+1. **Verificar domínio no Resend** - Para que as notificações por email funcionem no seu iPhone
+2. **Corrigir o bug de exclusão** - Para evitar que usuários excluam automações acidentalmente
+
+Quer que eu comece corrigindo o bug do modal de exclusão?
