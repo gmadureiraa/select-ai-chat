@@ -156,30 +156,52 @@ async function parseRSSFeed(url: string): Promise<RSSItem[]> {
 // Check if schedule trigger should fire
 function shouldTriggerSchedule(config: ScheduleConfig, lastTriggered: string | null): boolean {
   const now = new Date();
-  const today = now.getDay();
+  const today = now.getDay(); // 0 = Sunday, 1 = Monday, etc.
+  const dayOfMonth = now.getDate();
   const currentTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
   
+  // Check if we already triggered today
   if (lastTriggered) {
     const lastDate = new Date(lastTriggered);
     if (lastDate.toDateString() === now.toDateString()) {
+      console.log(`Schedule already triggered today (last: ${lastTriggered})`);
       return false;
     }
   }
   
+  // Check if time has passed (if time is configured)
+  const timeCheck = config.time ? currentTime >= config.time : true;
+  if (!timeCheck) {
+    console.log(`Schedule time not reached yet (current: ${currentTime}, target: ${config.time})`);
+    return false;
+  }
+  
   switch (config.type) {
     case 'daily':
-      return config.time ? currentTime >= config.time : true;
+      // For "daily" type, IGNORE the days array - it should run every day
+      console.log(`Daily schedule: triggering at ${currentTime}`);
+      return true;
       
     case 'weekly':
-      if (!config.days?.includes(today)) return false;
-      return config.time ? currentTime >= config.time : true;
+      // For weekly, check if today is one of the selected days
+      if (!config.days?.includes(today)) {
+        console.log(`Weekly schedule: today (${today}) not in selected days (${config.days?.join(', ')})`);
+        return false;
+      }
+      console.log(`Weekly schedule: today (${today}) is a selected day, triggering`);
+      return true;
       
     case 'monthly':
-      const dayOfMonth = now.getDate();
-      if (!config.days?.includes(dayOfMonth)) return false;
-      return config.time ? currentTime >= config.time : true;
+      // For monthly, check if today is one of the selected days of month
+      if (!config.days?.includes(dayOfMonth)) {
+        console.log(`Monthly schedule: today (${dayOfMonth}) not in selected days (${config.days?.join(', ')})`);
+        return false;
+      }
+      console.log(`Monthly schedule: today (${dayOfMonth}) is a selected day, triggering`);
+      return true;
       
     default:
+      console.log(`Unknown schedule type: ${config.type}`);
       return false;
   }
 }
@@ -919,21 +941,60 @@ serve(async (req) => {
 
               if (publishResponse.ok) {
                 const publishResult = await publishResponse.json();
-                console.log(`Successfully published item ${newItem.id}:`, publishResult);
+                console.log(`Publish response for item ${newItem.id}:`, JSON.stringify(publishResult));
                 
+                // CRITICAL: Verify that Late API actually published successfully
+                // Only mark as published if we get explicit success confirmation
+                if (publishResult.success && publishResult.externalId) {
+                  console.log(`✅ Successfully published item ${newItem.id} with externalId: ${publishResult.externalId}`);
+                  
+                  await supabase
+                    .from('planning_items')
+                    .update({ 
+                      status: 'published',
+                      external_post_id: publishResult.externalId,
+                      metadata: {
+                        ...(newItem.metadata as any || {}),
+                        auto_published: true,
+                        published_at: new Date().toISOString(),
+                        late_post_id: publishResult.externalId,
+                        late_response: publishResult,
+                      }
+                    })
+                    .eq('id', newItem.id);
+                } else {
+                  // Late API returned OK but didn't confirm success - log and don't mark as published
+                  console.warn(`⚠️ Late API returned OK but no success confirmation for item ${newItem.id}:`, publishResult);
+                  
+                  await supabase
+                    .from('planning_items')
+                    .update({ 
+                      status: 'failed',
+                      metadata: {
+                        ...(newItem.metadata as any || {}),
+                        auto_publish_attempted: true,
+                        auto_publish_error: 'Late API did not confirm successful publication',
+                        late_response: publishResult,
+                      }
+                    })
+                    .eq('id', newItem.id);
+                }
+              } else {
+                const errorText = await publishResponse.text();
+                console.error(`❌ Failed to publish item ${newItem.id}:`, errorText);
+                
+                // Mark as failed with error details
                 await supabase
                   .from('planning_items')
                   .update({ 
-                    status: 'published',
+                    status: 'failed',
                     metadata: {
                       ...(newItem.metadata as any || {}),
-                      auto_published: true,
-                      published_at: new Date().toISOString(),
+                      auto_publish_attempted: true,
+                      auto_publish_error: errorText,
                     }
                   })
                   .eq('id', newItem.id);
-              } else {
-                console.error(`Failed to publish item ${newItem.id}:`, await publishResponse.text());
               }
             } else {
               console.log(`No Late API credentials found for ${derivedPlatform}`);
@@ -962,6 +1023,13 @@ serve(async (req) => {
           .update(updateData)
           .eq('id', automation.id);
 
+        // Build trigger data for run record
+        const triggerDataForRun = triggerData ? { 
+          title: triggerData.title, 
+          link: triggerData.link,
+          images_count: triggerData.allImages?.length || 0,
+        } : {};
+
         // Update run as completed
         if (runId) {
           await supabase
@@ -974,11 +1042,7 @@ serve(async (req) => {
               items_created: 1,
               completed_at: new Date().toISOString(),
               duration_ms: Date.now() - startTime,
-              trigger_data: triggerData ? { 
-                title: triggerData.title, 
-                link: triggerData.link,
-                images_count: triggerData.allImages?.length || 0,
-              } : null,
+              trigger_data: triggerDataForRun,
             })
             .eq('id', runId);
         }

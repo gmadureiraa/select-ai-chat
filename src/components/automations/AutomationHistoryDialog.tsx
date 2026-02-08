@@ -38,7 +38,14 @@ interface PlanningAutomationRun {
   result: string | null;
   error: string | null;
   items_created: number;
-  trigger_data: { title?: string; link?: string; images_count?: number } | null;
+  trigger_data: { 
+    title?: string; 
+    link?: string; 
+    images_count?: number;
+    published?: boolean;
+    external_post_id?: string;
+    publish_error?: string;
+  } | null;
   planning_automations?: {
     name: string;
     content_type?: string;
@@ -276,12 +283,34 @@ export function AutomationHistoryDialog({ open, onOpenChange }: AutomationHistor
                                     <span className="break-words">{run.error}</span>
                                   </div>
                                 )}
+                                {run.trigger_data?.publish_error && (
+                                  <div className="flex items-start gap-2 text-sm text-orange-600 bg-orange-500/10 p-2 rounded">
+                                    <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+                                    <span className="break-words">Erro na publicação: {run.trigger_data.publish_error}</span>
+                                  </div>
+                                )}
                                 {run.result && run.status !== 'skipped' && (
                                   <p className="text-sm text-muted-foreground">
                                     {run.result}
                                   </p>
                                 )}
-                                {run.trigger_data && (
+                                {run.trigger_data?.external_post_id && (
+                                  <div className="flex items-center gap-2 text-sm bg-green-500/10 p-2 rounded">
+                                    <CheckCircle2 className="h-4 w-4 text-green-500" />
+                                    <span className="text-green-600 font-medium">Publicado com sucesso</span>
+                                    <a 
+                                      href={`https://twitter.com/i/status/${run.trigger_data.external_post_id}`}
+                                      target="_blank" 
+                                      rel="noopener noreferrer"
+                                      className="inline-flex items-center gap-1 text-primary hover:underline ml-auto"
+                                      onClick={(e) => e.stopPropagation()}
+                                    >
+                                      <ExternalLink className="h-3 w-3" />
+                                      Ver post
+                                    </a>
+                                  </div>
+                                )}
+                                {run.trigger_data && (run.trigger_data.title || run.trigger_data.link) && (
                                   <div className="text-xs space-y-1 bg-muted/50 p-2 rounded">
                                     {run.trigger_data.title && (
                                       <p className="font-medium truncate">
