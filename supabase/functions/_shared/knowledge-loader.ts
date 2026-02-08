@@ -574,34 +574,85 @@ export async function getFullContentContext(params: FullContentContextParams & {
     console.error("[KNOWLEDGE-LOADER] Error fetching client:", err);
   }
   
-  // 3. EXEMPLOS FAVORITOS DA BIBLIOTECA
+  // 3. EXEMPLOS FAVORITOS DA BIBLIOTECA (PRIORIZA FAVORITOS DO MESMO FORMATO)
   if (includeLibrary) {
     try {
       const normalizedFormat = normalizeFormatKey(format);
       
-      // Primeiro buscar favoritos do mesmo formato
-      const { data: favorites } = await supabase
+      const examples: ContentExample[] = [];
+      
+      // PRIORITY 1: Favoritos do MESMO formato (máxima relevância)
+      const { data: formatFavorites } = await supabase
         .from("client_content_library")
         .select("title, content, content_type")
         .eq("client_id", clientId)
         .eq("is_favorite", true)
+        .eq("content_type", normalizedFormat)
         .order("created_at", { ascending: false })
-        .limit(maxLibraryExamples);
+        .limit(3);
       
-      const examples: ContentExample[] = [];
-      
-      if (favorites && favorites.length > 0) {
-        for (const fav of favorites) {
+      if (formatFavorites && formatFavorites.length > 0) {
+        for (const fav of formatFavorites) {
           examples.push({
             title: fav.title,
-            content: fav.content?.substring(0, 800) || "",
-            type: fav.content_type
+            content: fav.content?.substring(0, 1200) || "",
+            type: fav.content_type + " ⭐",
           });
+        }
+        console.log(`[KNOWLEDGE-LOADER] Found ${formatFavorites.length} favorite ${normalizedFormat}s`);
+      }
+      
+      // PRIORITY 2: Outros favoritos (qualquer formato)
+      if (examples.length < maxLibraryExamples) {
+        const { data: otherFavorites } = await supabase
+          .from("client_content_library")
+          .select("title, content, content_type")
+          .eq("client_id", clientId)
+          .eq("is_favorite", true)
+          .neq("content_type", normalizedFormat)
+          .order("created_at", { ascending: false })
+          .limit(maxLibraryExamples - examples.length);
+        
+        if (otherFavorites) {
+          for (const fav of otherFavorites) {
+            if (!examples.some(e => e.title === fav.title)) {
+              examples.push({
+                title: fav.title,
+                content: fav.content?.substring(0, 800) || "",
+                type: fav.content_type + " ⭐",
+              });
+            }
+          }
         }
       }
       
-      // Se não tiver favoritos suficientes, pegar conteúdos recentes
-      if (examples.length < 3) {
+      // PRIORITY 3: Recentes do mesmo formato (se ainda não tem exemplos suficientes)
+      if (examples.length < 2) {
+        const { data: recentFormat } = await supabase
+          .from("client_content_library")
+          .select("title, content, content_type")
+          .eq("client_id", clientId)
+          .eq("content_type", normalizedFormat)
+          .eq("is_favorite", false)
+          .order("created_at", { ascending: false })
+          .limit(3);
+        
+        if (recentFormat) {
+          for (const item of recentFormat) {
+            if (examples.length >= maxLibraryExamples) break;
+            if (!examples.some(e => e.title === item.title)) {
+              examples.push({
+                title: item.title,
+                content: item.content?.substring(0, 800) || "",
+                type: item.content_type,
+              });
+            }
+          }
+        }
+      }
+      
+      // PRIORITY 4: Recentes gerais (último fallback)
+      if (examples.length < 2) {
         const { data: recent } = await supabase
           .from("client_content_library")
           .select("title, content, content_type")
@@ -616,7 +667,7 @@ export async function getFullContentContext(params: FullContentContextParams & {
               examples.push({
                 title: item.title,
                 content: item.content?.substring(0, 800) || "",
-                type: item.content_type
+                type: item.content_type,
               });
             }
           }

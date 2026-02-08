@@ -1,16 +1,92 @@
+# ✅ Plano: Newsletter Inteligente com Pesquisa Gratuita (IMPLEMENTADO)
 
+## Status: CONCLUÍDO ✅
 
-# Plano: Newsletter Inteligente com Pesquisa Gratuita
-
-## Solução Escolhida
-
-Usar **Gemini 2.0 com Grounding** (pesquisa nativa do Google) - **100% gratuito** já incluso na sua chave existente!
-
-O Gemini tem uma feature chamada **"Google Search Grounding"** que permite pesquisar a web em tempo real durante a geração, retornando dados atualizados com citações. Isso elimina a necessidade de pagar por Perplexity, Tavily ou outras APIs de busca.
+Implementado em: 08/02/2026
 
 ---
 
-## Arquitetura da Solução
+## O Que Foi Implementado
+
+### 1. Gemini 2.0 Grounding (`_shared/llm.ts`)
+- Nova função `callLLMWithGrounding()` para pesquisa web em tempo real
+- Usa a API nativa do Gemini com Google Search
+- **100% gratuito** - já incluso na chave existente
+- Retorna dados + fontes citadas
+
+### 2. Edge Function `research-newsletter-topic`
+- Pesquisa dados de mercado crypto em tempo real
+- Busca: preços, métricas on-chain, notícias recentes
+- Carrega newsletters favoritas como modelo de estilo
+- Retorna briefing estruturado para geração
+
+### 3. Integração no `process-automations`
+- Quando `format === 'newsletter'`, executa pesquisa primeiro
+- Combina: Research + Contexto Enriquecido + RSS data
+- Passa tudo para `unified-content-api`
+
+### 4. `knowledge-loader.ts` Atualizado
+- Prioriza newsletters `is_favorite = true` do mesmo formato
+- Sistema de 4 prioridades para buscar exemplos relevantes
+- Aumentou contexto de 800 para 1200 chars para favoritos
+
+### 5. Newsletters Modelo Marcadas
+- "🤯 Essa queda é um sinal?" ⭐
+- "Análise detalhada: Cardano" ⭐
+- "Retrospectiva Defiverso 2025" ⭐
+- "👽 Resumo Criptoverso 23/01 👽" ⭐
+
+---
+
+## Teste Realizado
+
+**Query:** "Bitcoin on-chain analysis Supply Shock Ratio"
+
+**Resultado:**
+- ✅ Bitcoin: $71.062,53 (+2.27% 24h)
+- ✅ Ethereum: $2.110,32
+- ✅ Exchange Netflow: 6,6445K BTC
+- ✅ MVRV Z-Score: abaixo de 1
+- ✅ Dominância BTC: 57.1%
+- ✅ 9 web searches executados
+- ✅ 11 fontes citadas
+
+---
+
+## Fluxo Final de Newsletter
+
+```text
+┌─────────────────────────────────────────────────────────────────┐
+│                     AUTOMAÇÃO TRIGGER                           │
+│               (RSS, Schedule, Webhook)                          │
+└─────────────────────┬───────────────────────────────────────────┘
+                      │
+                      ▼
+┌─────────────────────────────────────────────────────────────────┐
+│              FASE 1: DEEP RESEARCH ✅                           │
+│                                                                 │
+│  research-newsletter-topic                                      │
+│  - Gemini 2.0 com Google Search Grounding                       │
+│  - Pesquisa preços, métricas, notícias                          │
+│  - Busca newsletters modelo (is_favorite=true)                  │
+│  - Retorna briefing com dados reais + fontes                    │
+└─────────────────────┬───────────────────────────────────────────┘
+                      │
+                      ▼
+┌─────────────────────────────────────────────────────────────────┐
+│              FASE 2: CONTENT GENERATION ✅                      │
+│                                                                 │
+│  unified-content-api                                            │
+│  - Recebe briefing com dados reais                              │
+│  - Exemplos das melhores newsletters                            │
+│  - Contexto completo do cliente                                 │
+│  - Gera newsletter pronta para publicar                         │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Arquitetura Original (Referência)
 
 ```text
 ┌─────────────────────────────────────────────────────────────────┐
@@ -53,66 +129,6 @@ O Gemini tem uma feature chamada **"Google Search Grounding"** que permite pesqu
 
 ---
 
-## Implementação Detalhada
-
-### Etapa 1: Criar Edge Function de Research
-
-Nova função `research-newsletter-topic/index.ts`:
-
-- Usa **Gemini 2.0 com Google Search Grounding**
-- Faz queries específicas para crypto (preços, métricas on-chain, notícias)
-- Busca newsletters favoritas como referência de estilo
-- Retorna um briefing estruturado com dados reais
-
-**Estrutura do Research:**
-
-```text
-## DADOS DE MERCADO ATUAIS (pesquisados agora)
-- Bitcoin: $XX,XXX (24h: +X.X%)
-- Ethereum: $X,XXX (24h: +X.X%)
-- [Token específico]: $X.XX (24h: +X.X%)
-
-## MÉTRICAS ON-CHAIN
-- Supply Shock Ratio: X.XX (tendência: acumulação)
-- Exchange Netflow (7d): -XX,XXX BTC
-- MVRV Z-Score: X.XX
-
-## CONTEXTO DE MERCADO
-- [Notícias e eventos recentes]
-- [Sentimento do mercado]
-
-## FONTES CONSULTADAS
-[1] coingecko.com - Preços atualizados
-[2] glassnode.com - Métricas on-chain
-[3] coindesk.com - Notícias
-```
-
-### Etapa 2: Modificar process-automations
-
-Quando `content_type === 'newsletter'`:
-
-1. Detectar se precisa de pesquisa (baseado no template)
-2. Chamar `research-newsletter-topic` primeiro
-3. Passar dados enriquecidos para `unified-content-api`
-4. Incluir exemplos das melhores newsletters
-
-### Etapa 3: Marcar Newsletters de Referência
-
-Atualizar as 3-5 melhores newsletters com `is_favorite = true`:
-
-- "Análise detalhada: Cardano" - Excelente estrutura analítica
-- "🤯 Essa queda é um sinal?" - Bom gancho emocional
-- "Retrospectiva Defiverso 2025" - Formato de resumo
-
-### Etapa 4: Atualizar knowledge-loader
-
-Modificar `getFullContentContext()` para:
-
-- Priorizar `is_favorite = true` ao buscar exemplos
-- Retornar até 3 newsletters modelo para o formato newsletter
-
----
-
 ## Por Que Gemini Grounding é a Melhor Opção
 
 | Critério | Gemini Grounding | Perplexity | Tavily |
@@ -125,14 +141,14 @@ Modificar `getFullContentContext()` para:
 
 ---
 
-## Arquivos a Serem Criados/Modificados
+## Arquivos Criados/Modificados
 
-### Novos Arquivos
+### Novos Arquivos ✅
 
 1. `supabase/functions/research-newsletter-topic/index.ts`
    - Edge function para pesquisa com Gemini Grounding
 
-### Arquivos Modificados
+### Arquivos Modificados ✅
 
 2. `supabase/functions/process-automations/index.ts`
    - Adicionar chamada ao research antes da geração de newsletters
@@ -143,30 +159,12 @@ Modificar `getFullContentContext()` para:
 4. `supabase/functions/_shared/knowledge-loader.ts`
    - Priorizar newsletters favoritas ao buscar exemplos
 
-### Migrations
+5. `supabase/config.toml`
+   - Registrar nova função
 
-5. SQL para marcar newsletters modelo como favoritas
+### Database ✅
 
----
-
-## Resultado Esperado
-
-Newsletters geradas pela automação terão:
-
-- Dados de mercado **reais e atualizados** (não inventados)
-- Métricas on-chain **específicas** (Supply Shock Ratio, Exchange Netflow, etc)
-- **Estilo e profundidade** das melhores edições existentes
-- **Prontas para publicar** sem edição manual
-
----
-
-## Exemplo de Newsletter Gerada
-
-**Antes (genérico):**
-> "O Bitcoin teve movimentação interessante esta semana..."
-
-**Depois (com dados reais):**
-> "Bitcoin testou $94.800 na madrugada (-2.3% em 24h), mas o Supply Shock Ratio em 4.2 sugere que baleias não estão vendendo. Exchange Netflow mostra saída de 12.400 BTC das exchanges nos últimos 7 dias - historicamente, isso precede rallies de 15-20%..."
+- 4 newsletters marcadas como `is_favorite = true`
 
 ---
 
@@ -174,5 +172,12 @@ Newsletters geradas pela automação terão:
 
 - **Rate Limits:** Gemini Grounding tem 15 requests/minuto no tier gratuito - suficiente para automações
 - **Latência:** A pesquisa adiciona ~3-5 segundos ao tempo total de geração
-- **Fallback:** Se Grounding falhar, a geração continua sem dados de pesquisa (comportamento atual)
+- **Fallback:** Se Grounding falhar, a geração continua sem dados de pesquisa
 
+---
+
+## Próximos Passos (Opcionais)
+
+1. **Marcar mais newsletters como favoritas** na biblioteca
+2. **Ajustar queries de pesquisa** baseado nos resultados
+3. **Adicionar métricas específicas** (ex: Glassnode API para Supply Shock Ratio exato)

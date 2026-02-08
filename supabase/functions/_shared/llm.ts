@@ -591,6 +591,107 @@ async function streamOpenAI(
 }
 
 // =====================================================
+// GROUNDING - WEB SEARCH VIA GEMINI
+// =====================================================
+
+/**
+ * Call Gemini with Google Search Grounding for real-time web search
+ * Uses Gemini 2.0 Flash with native Google Search integration
+ * 
+ * @param query - Search query or topic to research
+ * @param systemContext - Optional system context for the research
+ * @returns Research results with citations
+ */
+export async function callLLMWithGrounding(
+  query: string,
+  systemContext?: string
+): Promise<{ content: string; sources: string[]; tokens: number }> {
+  const apiKey = getGoogleApiKey();
+  if (!apiKey) {
+    throw new LLMError("GOOGLE_AI_STUDIO_API_KEY não configurada para Grounding");
+  }
+
+  const model = "gemini-2.0-flash";
+  
+  const requestBody: any = {
+    contents: [
+      {
+        role: "user",
+        parts: [{ text: query }],
+      },
+    ],
+    tools: [
+      {
+        google_search: {},
+      },
+    ],
+    generationConfig: {
+      temperature: 0.7,
+      maxOutputTokens: 4096,
+    },
+  };
+
+  if (systemContext) {
+    requestBody.systemInstruction = {
+      parts: [{ text: systemContext }],
+    };
+  }
+
+  console.log(`[LLM] Calling Gemini with Grounding for query: ${query.substring(0, 100)}...`);
+
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(requestBody),
+    }
+  );
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error(`[LLM] Gemini Grounding error:`, response.status, errorText);
+    throw new LLMError(
+      `Gemini Grounding error: ${response.status}`,
+      isRetryableError(response.status)
+    );
+  }
+
+  const result = await response.json();
+  
+  // Extract content
+  const content = result?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+  
+  // Extract grounding sources from metadata
+  const sources: string[] = [];
+  const groundingMetadata = result?.candidates?.[0]?.groundingMetadata;
+  
+  if (groundingMetadata?.groundingChunks) {
+    for (const chunk of groundingMetadata.groundingChunks) {
+      if (chunk.web?.uri) {
+        sources.push(chunk.web.uri);
+      }
+    }
+  }
+  
+  // Also check searchEntryPoint for search results
+  if (groundingMetadata?.webSearchQueries) {
+    console.log(`[LLM] Grounding performed ${groundingMetadata.webSearchQueries.length} web searches`);
+  }
+
+  const inputTokens = result?.usageMetadata?.promptTokenCount || 0;
+  const outputTokens = result?.usageMetadata?.candidatesTokenCount || 0;
+
+  console.log(`[LLM] Grounding complete: ${content.length} chars, ${sources.length} sources`);
+
+  return {
+    content,
+    sources: [...new Set(sources)], // Remove duplicates
+    tokens: inputTokens + outputTokens,
+  };
+}
+
+// =====================================================
 // HTTP RESPONSE HELPERS
 // =====================================================
 

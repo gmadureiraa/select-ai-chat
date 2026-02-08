@@ -723,6 +723,45 @@ serve(async (req) => {
               console.warn(`Could not load enriched context:`, ctxError);
             }
             
+            // ===================================================
+            // DEEP RESEARCH: Para newsletters, buscar dados em tempo real
+            // ===================================================
+            let researchBriefing = "";
+            
+            if (format === 'newsletter') {
+              try {
+                console.log(`[AUTOMATION] Starting deep research for newsletter...`);
+                
+                const researchTopic = triggerData?.title || automation.prompt_template?.substring(0, 200) || 'crypto market analysis';
+                
+                const researchResponse = await fetch(`${supabaseUrl}/functions/v1/research-newsletter-topic`, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${supabaseKey}`,
+                  },
+                  body: JSON.stringify({
+                    topic: researchTopic,
+                    client_id: automation.client_id,
+                    depth: 'standard',
+                    include_newsletter_examples: true,
+                  }),
+                });
+                
+                if (researchResponse.ok) {
+                  const researchResult = await researchResponse.json();
+                  if (researchResult.success && researchResult.briefing) {
+                    researchBriefing = researchResult.briefing;
+                    console.log(`[AUTOMATION] Research complete: ${researchBriefing.length} chars, ${researchResult.sources?.length || 0} sources`);
+                  }
+                } else {
+                  console.warn(`[AUTOMATION] Research failed: ${researchResponse.status}`);
+                }
+              } catch (researchError) {
+                console.warn(`[AUTOMATION] Research error (continuing without):`, researchError);
+              }
+            }
+            
             // Build enriched prompt with full context + RSS data
             const rssPrompt = buildEnrichedPrompt(
               automation.prompt_template,
@@ -732,10 +771,16 @@ serve(async (req) => {
               mediaUrls
             );
             
-            // Combine enriched context with RSS-specific prompt
-            const finalPrompt = enrichedContext 
-              ? `${enrichedContext}\n\n---\n\n## MATERIAL DE REFERÊNCIA (RSS/FONTE EXTERNA):\n\n${rssPrompt}`
-              : rssPrompt;
+            // Combine: Research Briefing + Enriched Context + RSS Prompt
+            let finalPrompt = "";
+            
+            if (researchBriefing) {
+              finalPrompt = `${researchBriefing}\n\n---\n\n## CONTEXTO DO CLIENTE:\n\n${enrichedContext}\n\n---\n\n## MATERIAL DE REFERÊNCIA (RSS/FONTE EXTERNA):\n\n${rssPrompt}`;
+            } else if (enrichedContext) {
+              finalPrompt = `${enrichedContext}\n\n---\n\n## MATERIAL DE REFERÊNCIA (RSS/FONTE EXTERNA):\n\n${rssPrompt}`;
+            } else {
+              finalPrompt = rssPrompt;
+            }
 
             console.log(`Final prompt (${finalPrompt.length} chars): ${finalPrompt.substring(0, 300)}...`);
 

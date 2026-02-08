@@ -209,3 +209,6 @@ verify_jwt = false
 
 [functions.process-email-notifications]
 verify_jwt = false
+
+[functions.research-newsletter-topic]
+verify_jwt = true
