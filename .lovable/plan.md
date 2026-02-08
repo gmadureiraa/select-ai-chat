@@ -1,89 +1,68 @@
 
-# Diagnóstico: Automação de Twitter não Publicando
+# Plano: Notificações no App (incl. PWA/Celular) e Configuração de Cron Jobs
 
-## Problemas Identificados
+## Análise da Situação Atual
 
-### 1. Cron Job `process-automations` Não Existe
+### O que já funciona:
+- **Tabela `notifications`** com trigger `trigger_push_notification` que insere automaticamente na fila `push_notification_queue`
+- **Edge Function `process-push-queue`** implementada com VAPID e encriptação aes128gcm nativa
+- **Assignment notifications**: Trigger em `planning_items` já cria notificação quando `assigned_to` muda
+- **Cron jobs 7 e 8 criados** corretamente usando Vault para `process-automations` (15min) e `process-scheduled-posts` (1min)
+- **Cron job 5** para `process-push-queue` existe (1min), mas usa `anon_key`
 
-O sistema **não possui** um cron job para disparar automações de agendamento (schedule). O cron `check-rss-triggers-every-5min` chama uma função que **não existe** (`check-rss-triggers`), e mesmo se existisse, não processaria gatilhos de schedule.
+### Problemas Identificados:
 
-**Cron jobs atuais:**
-| ID | Nome | O que faz |
-|----|------|-----------|
-| 1 | daily-instagram-metrics | Métricas às 23:59 |
-| 2 | process-scheduled-posts | Publica posts com `scheduled_at` no passado |
-| 3 | check-rss-triggers-every-5min | Chama função inexistente |
-| 4 | process-recurring-content-daily | Conteúdo recorrente às 6h |
-| 5 | process-push-queue | Push notifications |
-| 6 | due-date-notifications-9am | Notificações de vencimento |
+1. **Segredos do Vault não existem**: 
+   - `project_url` e `cron_service_role_key` não foram criados no Vault
+   - Os cron jobs 7 e 8 estão falhando silenciosamente (`url = NULL`)
 
-**Faltando:** Um job que chame `process-automations` para disparar automações com `trigger_type: schedule`.
+2. **CHECK constraint desatualizado na tabela `notifications`**:
+   - Atual: `'assignment', 'due_date', 'mention', 'publish_reminder'`
+   - Faltando: `publish_failed`, `publish_success`, `automation_completed`
 
-### 2. Cron Job `process-scheduled-posts` Rejeitando Requisições
+3. **`process-automations` não notifica o usuário** quando executa com sucesso
 
-Os logs mostram erro contínuo:
-```
-[process-scheduled-posts] Unauthorized access attempt
-```
-
-O cron está usando a `anon_key` ao invés da `service_role_key`. A função exige autenticação de service role, mas o cron usa chave anônima.
-
-### 3. Configuração de Schedule Inconsistente
-
-A automação tem configuração conflitante:
-- `type: "daily"` (deveria executar todo dia)
-- `days: [1]` (mas só tem segunda-feira selecionada)
-
-Se o código interpreta `days` literalmente, só executa às segundas.
-
-### 4. Posts "Publicados" Sem `external_post_id`
-
-Os 2 últimos posts marcados como `status: published` têm:
-- `external_post_id: null` (não foram publicados de verdade no Twitter)
-- `metadata.auto_published: true` e `metadata.published_at` preenchidos
-
-Isso sugere que o código marcou como publicado sem confirmar sucesso real da Late API.
+4. **Cron jobs antigos usando anon_key**:
+   - Job 5 (`process-push-queue`) usa anon_key hardcoded
 
 ---
 
-## Plano de Correção
+## Implementação
 
-### Parte 1: Criar Cron Job para `process-automations`
+### Parte 1: Atualizar CHECK Constraint na Tabela `notifications`
 
-Adicionar no SQL do Supabase (usando Vault para segurança):
+Migration SQL para estender os tipos de notificação:
 
 ```sql
-SELECT cron.schedule(
-  'process-automations-cron',
-  '*/15 * * * *', -- A cada 15 minutos
-  $$
-  SELECT net.http_post(
-    url := (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'project_url' LIMIT 1) || '/functions/v1/process-automations',
-    headers := jsonb_build_object(
-      'Content-Type', 'application/json',
-      'Authorization', 'Bearer ' || (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'cron_service_role_key' LIMIT 1)
-    ),
-    body := '{}'::jsonb
-  );
-  $$
-);
+-- Drop old constraint and create new one with all types
+ALTER TABLE public.notifications DROP CONSTRAINT IF EXISTS notifications_type_check;
+ALTER TABLE public.notifications ADD CONSTRAINT notifications_type_check 
+  CHECK (type = ANY (ARRAY[
+    'assignment'::text, 
+    'due_date'::text, 
+    'mention'::text, 
+    'publish_reminder'::text,
+    'publish_failed'::text,
+    'publish_success'::text,
+    'automation_completed'::text
+  ]));
 ```
 
-### Parte 2: Corrigir Cron Job `process-scheduled-posts`
+### Parte 2: Reconfigurar Cron Jobs para Usar Vault
 
-Atualizar o job existente para usar Vault:
+Atualizar job 5 (`process-push-queue`) para usar Vault:
 
 ```sql
 -- Remover job antigo
-SELECT cron.unschedule('process-scheduled-posts');
+SELECT cron.unschedule('process-push-queue');
 
--- Criar novo job com autenticação correta
+-- Criar novo job usando Vault (a cada 2 minutos)
 SELECT cron.schedule(
-  'process-scheduled-posts-cron',
-  '* * * * *',
+  'process-push-queue-cron',
+  '*/2 * * * *',
   $$
   SELECT net.http_post(
-    url := (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'project_url' LIMIT 1) || '/functions/v1/process-scheduled-posts',
+    url := (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'project_url' LIMIT 1) || '/functions/v1/process-push-queue',
     headers := jsonb_build_object(
       'Content-Type', 'application/json',
       'Authorization', 'Bearer ' || (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'cron_service_role_key' LIMIT 1)
@@ -94,61 +73,104 @@ SELECT cron.schedule(
 );
 ```
 
-### Parte 3: Corrigir Lógica de Schedule no `process-automations`
+**Importante**: O usuário precisa criar os segredos no Vault via SQL Editor:
 
-Atualizar a função `shouldTriggerSchedule()` para tratar `type: daily` corretamente, ignorando o campo `days` quando for diário:
+```sql
+-- EXECUTAR NO SQL EDITOR DO SUPABASE (não na migration)
+-- Substituir pelos valores reais
+SELECT vault.create_secret('https://tkbsjtgrumhvwlxkmojg.supabase.co', 'project_url');
+SELECT vault.create_secret('SUA_SERVICE_ROLE_KEY_AQUI', 'cron_service_role_key');
+```
+
+### Parte 3: Adicionar Notificação em `process-automations`
+
+Após cada execução bem-sucedida de automação, inserir notificação:
 
 ```typescript
-function shouldTriggerSchedule(config: ScheduleConfig, lastTriggered: string | null): boolean {
-  // Para "daily", ignorar days[] e executar todo dia
-  if (config.type === 'daily') {
-    if (lastTriggered) {
-      const lastDate = new Date(lastTriggered);
-      if (lastDate.toDateString() === now.toDateString()) {
-        return false; // Já executou hoje
-      }
+// Após criar o planning_item e antes do tracking update
+if (automation.created_by) {
+  await supabase.from('notifications').insert({
+    user_id: automation.created_by,
+    workspace_id: automation.workspace_id,
+    type: 'automation_completed',
+    title: `Automação executada: ${automation.name}`,
+    message: `Criado: "${itemTitle}"`,
+    entity_type: 'planning_automation',
+    entity_id: automation.id,
+    metadata: {
+      planning_item_id: newItem.id,
+      trigger_type: automation.trigger_type,
+      content_type: automation.content_type,
     }
-    return config.time ? currentTime >= config.time : true;
+  });
+} else {
+  // Fallback: notificar owner do workspace
+  const { data: workspace } = await supabase
+    .from('workspaces')
+    .select('owner_id')
+    .eq('id', automation.workspace_id)
+    .single();
+  
+  if (workspace?.owner_id) {
+    await supabase.from('notifications').insert({
+      user_id: workspace.owner_id,
+      workspace_id: automation.workspace_id,
+      type: 'automation_completed',
+      title: `Automação executada: ${automation.name}`,
+      message: `Criado: "${itemTitle}"`,
+      entity_type: 'planning_automation',
+      entity_id: automation.id,
+      metadata: {
+        planning_item_id: newItem.id,
+        trigger_type: automation.trigger_type,
+      }
+    });
   }
-  // ... resto do código para weekly/monthly
 }
 ```
 
-### Parte 4: Adicionar Verificação de Sucesso na Publicação
+### Parte 4: Atualizar Frontend
 
-No `process-automations`, verificar se a Late API retornou sucesso antes de marcar como publicado:
+#### 4.1. Atualizar `NotificationType` em `useNotifications.ts`:
 
 ```typescript
-if (publishResponse.ok) {
-  const publishResult = await publishResponse.json();
-  
-  // Verificar se realmente publicou
-  if (publishResult.success && publishResult.externalId) {
-    await supabase.from('planning_items').update({
-      status: 'published',
-      external_post_id: publishResult.externalId,
-      // ...
-    }).eq('id', newItem.id);
-  } else {
-    console.error('Late API returned ok but no success:', publishResult);
-  }
-}
+export type NotificationType = 
+  | 'assignment' 
+  | 'due_date' 
+  | 'mention' 
+  | 'publish_reminder' 
+  | 'publish_failed'
+  | 'publish_success'
+  | 'automation_completed';
 ```
 
-### Parte 5: Melhorar Painel de Histórico
+#### 4.2. Atualizar `NotificationBell.tsx`:
 
-Adicionar mais informações no `AutomationHistoryDialog.tsx`:
-- Mostrar se houve erro na publicação
-- Exibir `external_post_id` quando disponível
-- Link direto para o post no Twitter quando publicado
+Adicionar ícone e cor para `automation_completed`:
 
----
+```typescript
+import { Zap } from 'lucide-react';
 
-## Verificação dos Segredos no Vault
+const typeIcons: Record<Notification['type'], React.ElementType> = {
+  assignment: UserPlus,
+  due_date: Calendar,
+  mention: MessageSquare,
+  publish_reminder: Clock,
+  publish_failed: AlertTriangle,
+  publish_success: Check,
+  automation_completed: Zap,  // Ícone de raio para automações
+};
 
-Antes de criar os cron jobs, confirmar que existem:
-- `project_url` = `https://tkbsjtgrumhvwlxkmojg.supabase.co`
-- `cron_service_role_key` = (service role key do projeto)
+const typeColors: Record<Notification['type'], string> = {
+  assignment: 'text-blue-500 bg-blue-500/10',
+  due_date: 'text-orange-500 bg-orange-500/10',
+  mention: 'text-purple-500 bg-purple-500/10',
+  publish_reminder: 'text-green-500 bg-green-500/10',
+  publish_failed: 'text-red-500 bg-red-500/10',
+  publish_success: 'text-green-500 bg-green-500/10',
+  automation_completed: 'text-yellow-500 bg-yellow-500/10',  // Amarelo para automações
+};
+```
 
 ---
 
@@ -156,15 +178,74 @@ Antes de criar os cron jobs, confirmar que existem:
 
 | Arquivo | Mudança |
 |---------|---------|
-| SQL no Supabase | Criar/atualizar cron jobs |
-| `supabase/functions/process-automations/index.ts` | Corrigir lógica de schedule e verificação de publicação |
-| `src/components/automations/AutomationHistoryDialog.tsx` | Melhorar exibição de erros e status |
+| **SQL Migration** | Atualizar CHECK constraint e reconfigurar cron job do push-queue |
+| `supabase/functions/process-automations/index.ts` | Inserir notificação após execução bem-sucedida |
+| `src/hooks/useNotifications.ts` | Adicionar `automation_completed` ao tipo |
+| `src/components/notifications/NotificationBell.tsx` | Adicionar ícone/cor para novo tipo |
+
+---
+
+## Ação Manual Necessária (Vault)
+
+Após a implementação, o usuário deve executar no SQL Editor do Supabase:
+
+```sql
+-- Criar segredo para URL do projeto
+SELECT vault.create_secret('https://tkbsjtgrumhvwlxkmojg.supabase.co', 'project_url');
+
+-- Criar segredo para Service Role Key (copiar do Dashboard > Settings > API)
+SELECT vault.create_secret('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...', 'cron_service_role_key');
+```
+
+---
+
+## Fluxo Final
+
+```text
+┌─────────────────────────────────────────────────────────────────────┐
+│                        EVENTOS QUE GERAM PUSH                       │
+├─────────────────────────────────────────────────────────────────────┤
+│  1. Assignment (trigger existente em planning_items)                │
+│  2. Automation Completed (novo - inserido em process-automations)   │
+│  3. Publish Failed/Success (já inserido em process-scheduled-posts) │
+│  4. Due Date (process-due-date-notifications)                       │
+└───────────────────────────────┬─────────────────────────────────────┘
+                                │
+                                ▼
+                    ┌───────────────────────┐
+                    │  INSERT notifications │
+                    └───────────┬───────────┘
+                                │
+                                ▼
+                    ┌───────────────────────┐
+                    │   TRIGGER AUTOMÁTICO  │
+                    │ trigger_push_notification │
+                    └───────────┬───────────┘
+                                │
+                                ▼
+                    ┌───────────────────────┐
+                    │  push_notification_queue │
+                    └───────────┬───────────┘
+                                │
+                                ▼ (cron a cada 2 min)
+                    ┌───────────────────────┐
+                    │   process-push-queue  │
+                    │   (Web Push VAPID)    │
+                    └───────────┬───────────┘
+                                │
+                                ▼
+                    ┌───────────────────────┐
+                    │  📱 PWA / Celular     │
+                    │  🖥️ Desktop Browser   │
+                    └───────────────────────┘
+```
 
 ---
 
 ## Resultado Esperado
 
-1. **Automações de schedule disparam corretamente** - Cron a cada 15 min
-2. **Posts agendados publicam** - Cron a cada minuto com autenticação correta
-3. **Tweets realmente vão para o Twitter** - Verificação de sucesso da Late API
-4. **Histórico mostra erros claramente** - Usuário pode diagnosticar problemas
+1. **Notificações push funcionando** - Cron job 2min com autenticação correta
+2. **Usuário notificado quando automação executa** - Tipo `automation_completed`
+3. **Todos os tipos de notificação suportados** - CHECK constraint atualizado
+4. **Ícone diferenciado no sino** - Zap amarelo para automações
+5. **Clique na notificação navega para o item** - `entity_type: 'planning_automation'`
