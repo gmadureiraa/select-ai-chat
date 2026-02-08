@@ -1,89 +1,154 @@
 
+# Diagnóstico: Automação de Twitter não Publicando
 
-# Plano: Corrigir Sync de Métricas do Late
+## Problemas Identificados
 
-## Diagnóstico Completo
+### 1. Cron Job `process-automations` Não Existe
 
-### Problemas Identificados
+O sistema **não possui** um cron job para disparar automações de agendamento (schedule). O cron `check-rss-triggers-every-5min` chama uma função que **não existe** (`check-rss-triggers`), e mesmo se existisse, não processaria gatilhos de schedule.
 
-1. **72 duplicatas de Instagram** - cada post existe 2 vezes no banco:
-   - Registro do Excel: tem métricas reais (likes: 102, 231, 482...)
-   - Registro do Late: tem métricas zeradas (likes: 0)
+**Cron jobs atuais:**
+| ID | Nome | O que faz |
+|----|------|-----------|
+| 1 | daily-instagram-metrics | Métricas às 23:59 |
+| 2 | process-scheduled-posts | Publica posts com `scheduled_at` no passado |
+| 3 | check-rss-triggers-every-5min | Chama função inexistente |
+| 4 | process-recurring-content-daily | Conteúdo recorrente às 6h |
+| 5 | process-push-queue | Push notifications |
+| 6 | due-date-notifications-9am | Notificações de vencimento |
 
-2. **Erro PGRST116** nos logs - ao usar `maybeSingle()` para buscar post por permalink, o Supabase falha quando encontra 2 registros com o mesmo permalink
+**Faltando:** Um job que chame `process-automations` para disparar automações com `trigger_type: schedule`.
 
-3. **37 erros reportados** - a maioria dos posts do Instagram não foi atualizada porque a query de verificação falhou
+### 2. Cron Job `process-scheduled-posts` Rejeitando Requisições
 
-4. **Métricas não sincronizadas** - os registros duplicados do Late foram criados com métricas zeradas, e o update falhou
+Os logs mostram erro contínuo:
+```
+[process-scheduled-posts] Unauthorized access attempt
+```
 
-### Causa Raiz
-A correção de deduplicação (usar URL como chave) foi implementada após as duplicatas já terem sido criadas. O código atual falha ao tentar verificar se um post existe porque encontra 2 registros.
+O cron está usando a `anon_key` ao invés da `service_role_key`. A função exige autenticação de service role, mas o cron usa chave anônima.
+
+### 3. Configuração de Schedule Inconsistente
+
+A automação tem configuração conflitante:
+- `type: "daily"` (deveria executar todo dia)
+- `days: [1]` (mas só tem segunda-feira selecionada)
+
+Se o código interpreta `days` literalmente, só executa às segundas.
+
+### 4. Posts "Publicados" Sem `external_post_id`
+
+Os 2 últimos posts marcados como `status: published` têm:
+- `external_post_id: null` (não foram publicados de verdade no Twitter)
+- `metadata.auto_published: true` e `metadata.published_at` preenchidos
+
+Isso sugere que o código marcou como publicado sem confirmar sucesso real da Late API.
 
 ---
 
-## Solução
+## Plano de Correção
 
-### Parte 1: Corrigir Query de Verificação
+### Parte 1: Criar Cron Job para `process-automations`
 
-Modificar `syncInstagramPosts()` (e similares) para usar `.limit(1).single()` com tratamento adequado, ou usar `.order().limit(1)` para pegar o primeiro registro mesmo quando há duplicatas:
-
-```typescript
-// ANTES (falha com duplicatas):
-const { data: existing } = await supabase
-  .from('instagram_posts')
-  .select('...')
-  .eq('client_id', clientId)
-  .eq('permalink', permalink)
-  .maybeSingle();  // ERRO se houver 2+ registros
-
-// DEPOIS (funciona com duplicatas):
-const { data: existingList } = await supabase
-  .from('instagram_posts')
-  .select('...')
-  .eq('client_id', clientId)
-  .eq('permalink', permalink)
-  .order('likes', { ascending: false })  // Pegar o que tem mais likes
-  .limit(1);
-
-const existing = existingList?.[0] || null;
-```
-
-### Parte 2: Limpar Duplicatas Existentes
-
-SQL para deletar registros duplicados, mantendo o que tem mais métricas:
+Adicionar no SQL do Supabase (usando Vault para segurança):
 
 ```sql
--- Deletar duplicatas do Instagram (manter o que tem mais likes)
-DELETE FROM instagram_posts 
-WHERE id IN (
-  SELECT unnest(ids[2:]) -- Todos exceto o primeiro (com mais likes)
-  FROM (
-    SELECT array_agg(id ORDER BY COALESCE(likes, 0) DESC) as ids
-    FROM instagram_posts
-    WHERE client_id = 'c1227fa7-f9c4-4f8c-a091-ae250919dc07'
-      AND permalink IS NOT NULL
-    GROUP BY client_id, permalink
-    HAVING COUNT(*) > 1
-  ) dupes
+SELECT cron.schedule(
+  'process-automations-cron',
+  '*/15 * * * *', -- A cada 15 minutos
+  $$
+  SELECT net.http_post(
+    url := (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'project_url' LIMIT 1) || '/functions/v1/process-automations',
+    headers := jsonb_build_object(
+      'Content-Type', 'application/json',
+      'Authorization', 'Bearer ' || (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'cron_service_role_key' LIMIT 1)
+    ),
+    body := '{}'::jsonb
+  );
+  $$
 );
 ```
 
-### Parte 3: Garantir Sync de Métricas Completo
+### Parte 2: Corrigir Cron Job `process-scheduled-posts`
 
-Adicionar logs para debugar quais campos vêm da API Late e garantir que todos sejam mapeados corretamente:
+Atualizar o job existente para usar Vault:
+
+```sql
+-- Remover job antigo
+SELECT cron.unschedule('process-scheduled-posts');
+
+-- Criar novo job com autenticação correta
+SELECT cron.schedule(
+  'process-scheduled-posts-cron',
+  '* * * * *',
+  $$
+  SELECT net.http_post(
+    url := (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'project_url' LIMIT 1) || '/functions/v1/process-scheduled-posts',
+    headers := jsonb_build_object(
+      'Content-Type', 'application/json',
+      'Authorization', 'Bearer ' || (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'cron_service_role_key' LIMIT 1)
+    ),
+    body := '{}'::jsonb
+  );
+  $$
+);
+```
+
+### Parte 3: Corrigir Lógica de Schedule no `process-automations`
+
+Atualizar a função `shouldTriggerSchedule()` para tratar `type: daily` corretamente, ignorando o campo `days` quando for diário:
 
 ```typescript
-console.log(`[fetch-late-metrics] Post data from Late:`, {
-  permalink: post.platformPostUrl,
-  likes: post.likes,
-  comments: post.comments,
-  shares: post.shares,
-  impressions: post.impressions,
-  reach: post.reach,
-  views: post.views,
-  engagementRate: post.engagementRate
-});
+function shouldTriggerSchedule(config: ScheduleConfig, lastTriggered: string | null): boolean {
+  // Para "daily", ignorar days[] e executar todo dia
+  if (config.type === 'daily') {
+    if (lastTriggered) {
+      const lastDate = new Date(lastTriggered);
+      if (lastDate.toDateString() === now.toDateString()) {
+        return false; // Já executou hoje
+      }
+    }
+    return config.time ? currentTime >= config.time : true;
+  }
+  // ... resto do código para weekly/monthly
+}
 ```
+
+### Parte 4: Adicionar Verificação de Sucesso na Publicação
+
+No `process-automations`, verificar se a Late API retornou sucesso antes de marcar como publicado:
+
+```typescript
+if (publishResponse.ok) {
+  const publishResult = await publishResponse.json();
+  
+  // Verificar se realmente publicou
+  if (publishResult.success && publishResult.externalId) {
+    await supabase.from('planning_items').update({
+      status: 'published',
+      external_post_id: publishResult.externalId,
+      // ...
+    }).eq('id', newItem.id);
+  } else {
+    console.error('Late API returned ok but no success:', publishResult);
+  }
+}
+```
+
+### Parte 5: Melhorar Painel de Histórico
+
+Adicionar mais informações no `AutomationHistoryDialog.tsx`:
+- Mostrar se houve erro na publicação
+- Exibir `external_post_id` quando disponível
+- Link direto para o post no Twitter quando publicado
+
+---
+
+## Verificação dos Segredos no Vault
+
+Antes de criar os cron jobs, confirmar que existem:
+- `project_url` = `https://tkbsjtgrumhvwlxkmojg.supabase.co`
+- `cron_service_role_key` = (service role key do projeto)
 
 ---
 
@@ -91,23 +156,15 @@ console.log(`[fetch-late-metrics] Post data from Late:`, {
 
 | Arquivo | Mudança |
 |---------|---------|
-| `supabase/functions/fetch-late-metrics/index.ts` | Trocar `maybeSingle()` por `.order().limit(1)` + adicionar logs de debug |
-| SQL (executar no Supabase) | Deletar 72 duplicatas de Instagram |
+| SQL no Supabase | Criar/atualizar cron jobs |
+| `supabase/functions/process-automations/index.ts` | Corrigir lógica de schedule e verificação de publicação |
+| `src/components/automations/AutomationHistoryDialog.tsx` | Melhorar exibição de erros e status |
 
 ---
 
 ## Resultado Esperado
 
-1. **Sem erros PGRST116** - query funciona mesmo com duplicatas
-2. **Métricas sincronizadas** - dados do Late são atualizados nos registros existentes
-3. **Sem duplicatas** - limpeza remove registros redundantes
-4. **Logs claros** - possível debugar quais métricas vêm da API
-
----
-
-## Ordem de Execução
-
-1. Primeiro: Limpar duplicatas existentes (SQL)
-2. Segundo: Atualizar código para prevenir novos erros
-3. Terceiro: Rodar sync novamente para verificar
-
+1. **Automações de schedule disparam corretamente** - Cron a cada 15 min
+2. **Posts agendados publicam** - Cron a cada minuto com autenticação correta
+3. **Tweets realmente vão para o Twitter** - Verificação de sucesso da Late API
+4. **Histórico mostra erros claramente** - Usuário pode diagnosticar problemas
