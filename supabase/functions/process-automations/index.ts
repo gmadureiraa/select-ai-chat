@@ -1023,6 +1023,63 @@ serve(async (req) => {
           .update(updateData)
           .eq('id', automation.id);
 
+        // ========== CRIAR NOTIFICAÇÃO PARA O USUÁRIO ==========
+        // Notify the user that created the automation (or fallback to workspace owner)
+        const notifyUserId = automation.created_by;
+        
+        if (notifyUserId) {
+          try {
+            await supabase.from('notifications').insert({
+              user_id: notifyUserId,
+              workspace_id: automation.workspace_id,
+              type: 'automation_completed',
+              title: `Automação executada: ${automation.name}`,
+              message: `Criado: "${itemTitle}"`,
+              entity_type: 'planning_item',
+              entity_id: newItem.id,
+              metadata: {
+                automation_id: automation.id,
+                automation_name: automation.name,
+                trigger_type: automation.trigger_type,
+                content_type: automation.content_type,
+                published: false, // Will be updated after checking final status
+              }
+            });
+            console.log(`Notification created for user ${notifyUserId.substring(0, 8)}...`);
+          } catch (notifError) {
+            console.error('Error creating notification:', notifError);
+          }
+        } else {
+          // Fallback: notify workspace owner
+          try {
+            const { data: workspace } = await supabase
+              .from('workspaces')
+              .select('owner_id')
+              .eq('id', automation.workspace_id)
+              .single();
+            
+            if (workspace?.owner_id) {
+              await supabase.from('notifications').insert({
+                user_id: workspace.owner_id,
+                workspace_id: automation.workspace_id,
+                type: 'automation_completed',
+                title: `Automação executada: ${automation.name}`,
+                message: `Criado: "${itemTitle}"`,
+                entity_type: 'planning_item',
+                entity_id: newItem.id,
+                metadata: {
+                  automation_id: automation.id,
+                  automation_name: automation.name,
+                  trigger_type: automation.trigger_type,
+                }
+              });
+              console.log(`Notification created for workspace owner ${workspace.owner_id.substring(0, 8)}...`);
+            }
+          } catch (notifError) {
+            console.error('Error creating notification for owner:', notifError);
+          }
+        }
+
         // Build trigger data for run record - include item_id for detail lookup
         const triggerDataForRun: Record<string, unknown> = {
           item_id: newItem.id,
