@@ -5,6 +5,7 @@ import { useToast } from '@/hooks/use-toast';
 
 export interface NotificationPreferences {
   push_enabled: boolean;
+  email_notifications: boolean;
   assignment_notifications: boolean;
   due_date_notifications: boolean;
   publish_notifications: boolean;
@@ -13,6 +14,7 @@ export interface NotificationPreferences {
 
 const DEFAULT_PREFERENCES: NotificationPreferences = {
   push_enabled: true,
+  email_notifications: true, // Default true - recommended for iOS
   assignment_notifications: true,
   due_date_notifications: true,
   publish_notifications: true,
@@ -48,6 +50,7 @@ export function useNotificationPreferences() {
       
       return {
         push_enabled: typeof prefs.push_enabled === 'boolean' ? prefs.push_enabled : DEFAULT_PREFERENCES.push_enabled,
+        email_notifications: typeof prefs.email_notifications === 'boolean' ? prefs.email_notifications : DEFAULT_PREFERENCES.email_notifications,
         assignment_notifications: typeof prefs.assignment_notifications === 'boolean' ? prefs.assignment_notifications : DEFAULT_PREFERENCES.assignment_notifications,
         due_date_notifications: typeof prefs.due_date_notifications === 'boolean' ? prefs.due_date_notifications : DEFAULT_PREFERENCES.due_date_notifications,
         publish_notifications: typeof prefs.publish_notifications === 'boolean' ? prefs.publish_notifications : DEFAULT_PREFERENCES.publish_notifications,
