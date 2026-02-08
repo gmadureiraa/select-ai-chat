@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Bell, Check, CheckCheck, Calendar, UserPlus, Clock, MessageSquare, AlertTriangle } from 'lucide-react';
+import { Bell, Check, CheckCheck, Calendar, UserPlus, Clock, MessageSquare, AlertTriangle, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Popover,
@@ -24,6 +24,7 @@ const typeIcons: Record<Notification['type'], React.ElementType> = {
   publish_reminder: Clock,
   publish_failed: AlertTriangle,
   publish_success: Check,
+  automation_completed: Zap,
 };
 
 const typeColors: Record<Notification['type'], string> = {
@@ -33,6 +34,7 @@ const typeColors: Record<Notification['type'], string> = {
   publish_reminder: 'text-green-500 bg-green-500/10',
   publish_failed: 'text-red-500 bg-red-500/10',
   publish_success: 'text-green-500 bg-green-500/10',
+  automation_completed: 'text-yellow-500 bg-yellow-500/10',
 };
 
 function NotificationList({ 

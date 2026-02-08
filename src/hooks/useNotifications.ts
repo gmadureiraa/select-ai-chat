@@ -11,7 +11,8 @@ export type NotificationType =
   | 'mention' 
   | 'publish_reminder' 
   | 'publish_failed'
-  | 'publish_success';
+  | 'publish_success'
+  | 'automation_completed';
 
 export interface Notification {
   id: string;
