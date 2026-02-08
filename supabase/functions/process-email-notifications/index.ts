@@ -39,6 +39,31 @@ serve(async (req) => {
     return new Response("ok", { headers: corsHeaders });
   }
 
+  // ========================================
+  // SECURITY: Validate cron/service caller
+  // ========================================
+  const authHeader = req.headers.get("Authorization");
+  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  
+  // Accept requests from:
+  // 1. Supabase internal cron scheduler
+  // 2. Service role key authentication
+  // 3. Supabase pg_cron (internal call)
+  const isCronJob = req.headers.get("x-supabase-eed-request") === "true" || 
+                    req.headers.get("user-agent")?.includes("Supabase") ||
+                    req.headers.get("x-supabase-cron") === "true";
+  const isServiceRole = authHeader === `Bearer ${serviceRoleKey}`;
+
+  if (!isCronJob && !isServiceRole) {
+    console.error("[process-email-notifications] Unauthorized access attempt");
+    return new Response(
+      JSON.stringify({ error: "Unauthorized - Service role required" }),
+      { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+  
+  console.log(`[process-email-notifications] Auth check passed: isCronJob=${isCronJob}, isServiceRole=${isServiceRole}`);
+
   try {
     const resendApiKey = Deno.env.get("RESEND_API_KEY");
     if (!resendApiKey) {

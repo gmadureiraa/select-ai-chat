@@ -116,6 +116,11 @@ serve(async (req) => {
   const startTime = Date.now();
   const stepsCompleted: string[] = [];
 
+  // Initialize Supabase client
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const supabase = createClient(supabaseUrl, supabaseKey);
+
   try {
     // Parse request
     const body = await req.json() as ContentRequest;
@@ -142,13 +147,64 @@ serve(async (req) => {
       );
     }
 
+    // ========================================
+    // SECURITY: Validate user access to client
+    // ========================================
+    const authHeader = req.headers.get("Authorization");
+    if (authHeader && authHeader.startsWith("Bearer ") && !authHeader.includes(supabaseKey)) {
+      // This is a user JWT, not service role - validate access
+      const userToken = authHeader.replace("Bearer ", "");
+      const userSupabase = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
+        global: { headers: { Authorization: authHeader } }
+      });
+      
+      const { data: claims, error: authError } = await userSupabase.auth.getUser(userToken);
+      
+      if (authError || !claims?.user) {
+        console.error("[UNIFIED-API] Auth validation failed:", authError);
+        return new Response(
+          JSON.stringify({ error: "Unauthorized - Invalid token" }),
+          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      
+      const userId = claims.user.id;
+      
+      // Check if user has access to the client's workspace
+      const { data: clientData, error: clientError } = await supabase
+        .from("clients")
+        .select("workspace_id")
+        .eq("id", client_id)
+        .single();
+      
+      if (clientError || !clientData) {
+        console.error("[UNIFIED-API] Client not found:", client_id);
+        return new Response(
+          JSON.stringify({ error: "Client not found" }),
+          { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      
+      const { data: memberData, error: memberError } = await supabase
+        .from("workspace_members")
+        .select("id")
+        .eq("workspace_id", clientData.workspace_id)
+        .eq("user_id", userId)
+        .single();
+      
+      if (memberError || !memberData) {
+        console.error("[UNIFIED-API] User not member of client workspace:", userId, clientData.workspace_id);
+        return new Response(
+          JSON.stringify({ error: "Forbidden - You don't have access to this client" }),
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      
+      console.log(`[UNIFIED-API] User ${userId} authorized for client ${client_id}`);
+    }
+
     const normalizedFormat = normalizeFormatKey(format);
     console.log(`[UNIFIED-API] Starting generation for format: ${normalizedFormat}`);
-
-    // Initialize Supabase client
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
 
     // Token tracking
     let writerTokens = 0;

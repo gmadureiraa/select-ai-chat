@@ -308,24 +308,38 @@ Deno.serve(async (req) => {
             })
             .eq('id', item.id);
 
-          // Create notification for failure
+          // Create notification for failure (with owner fallback)
           if (item.workspace_id && newStatus === 'failed') {
-            await supabaseClient
-              .from('notifications')
-              .insert({
-                workspace_id: item.workspace_id,
-                user_id: item.created_by,
-                type: 'publish_failed',
-                title: `Falha ao publicar "${(item.title || 'Post').substring(0, 30)}..."`,
-                message: result.error || 'Erro desconhecido após 3 tentativas',
-                metadata: {
-                  planning_item_id: item.id,
-                  platform: item.platform,
-                  client_id: item.client_id,
-                  retry_count: newRetryCount,
-                },
-              });
-            console.log(`🔔 Notification created for failed post ${item.id}`);
+            // Determine recipient: created_by > assigned_to > workspace owner
+            let notifyUserId = item.created_by || item.assigned_to;
+            
+            if (!notifyUserId) {
+              const { data: workspace } = await supabaseClient
+                .from('workspaces')
+                .select('owner_id')
+                .eq('id', item.workspace_id)
+                .single();
+              notifyUserId = workspace?.owner_id;
+            }
+            
+            if (notifyUserId) {
+              await supabaseClient
+                .from('notifications')
+                .insert({
+                  workspace_id: item.workspace_id,
+                  user_id: notifyUserId,
+                  type: 'publish_failed',
+                  title: `Falha ao publicar "${(item.title || 'Post').substring(0, 30)}..."`,
+                  message: result.error || 'Erro desconhecido após 3 tentativas',
+                  metadata: {
+                    planning_item_id: item.id,
+                    platform: item.platform,
+                    client_id: item.client_id,
+                    retry_count: newRetryCount,
+                  },
+                });
+              console.log(`🔔 Notification created for failed post ${item.id}`);
+            }
           }
 
           console.log(`❌ Post ${item.id} ${newStatus === 'failed' ? 'failed permanently' : 'will retry at ' + nextRetryAt.toISOString()}: ${result.error}`);
@@ -358,22 +372,35 @@ Deno.serve(async (req) => {
           })
           .eq('id', item.id);
         
-        // Create notification for permanent failure
+        // Create notification for permanent failure (with owner fallback)
         if (item.workspace_id && newStatus === 'failed') {
-          await supabaseClient
-            .from('notifications')
-            .insert({
-              workspace_id: item.workspace_id,
-              user_id: item.created_by,
-              type: 'publish_failed',
-              title: `Falha ao publicar "${(item.title || 'Post').substring(0, 30)}..."`,
-              message: message,
-              metadata: {
-                planning_item_id: item.id,
-                platform: item.platform,
-                client_id: item.client_id,
-              },
-            });
+          let notifyUserId = item.created_by || item.assigned_to;
+          
+          if (!notifyUserId) {
+            const { data: workspace } = await supabaseClient
+              .from('workspaces')
+              .select('owner_id')
+              .eq('id', item.workspace_id)
+              .single();
+            notifyUserId = workspace?.owner_id;
+          }
+          
+          if (notifyUserId) {
+            await supabaseClient
+              .from('notifications')
+              .insert({
+                workspace_id: item.workspace_id,
+                user_id: notifyUserId,
+                type: 'publish_failed',
+                title: `Falha ao publicar "${(item.title || 'Post').substring(0, 30)}..."`,
+                message: message,
+                metadata: {
+                  planning_item_id: item.id,
+                  platform: item.platform,
+                  client_id: item.client_id,
+                },
+              });
+          }
         }
 
         results.push({
