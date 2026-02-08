@@ -312,18 +312,26 @@ export function AutomationRunDetailDialog({
                 </div>
               )}
 
-              {/* Publish Error */}
-              {run.trigger_data?.publish_error && (
-                <div className="p-4 rounded-lg border border-orange-500/30 bg-orange-500/5">
-                  <div className="flex items-start gap-2">
-                    <AlertTriangle className="h-5 w-5 text-orange-500 shrink-0 mt-0.5" />
-                    <div>
-                      <h4 className="font-medium text-orange-600 mb-1">Erro na Publicação</h4>
-                      <p className="text-sm text-orange-600/80">{run.trigger_data.publish_error}</p>
+              {/* Publish Error - Check multiple sources */}
+              {(() => {
+                const publishError = run.trigger_data?.publish_error || 
+                  (createdItem?.metadata as any)?.auto_publish_error ||
+                  createdItem?.error_message;
+                
+                if (!publishError) return null;
+                
+                return (
+                  <div className="p-4 rounded-lg border border-orange-500/30 bg-orange-500/5">
+                    <div className="flex items-start gap-2">
+                      <AlertTriangle className="h-5 w-5 text-orange-500 shrink-0 mt-0.5" />
+                      <div>
+                        <h4 className="font-medium text-orange-600 mb-1">Erro na Publicação</h4>
+                        <p className="text-sm text-orange-600/80 whitespace-pre-wrap">{publishError}</p>
+                      </div>
                     </div>
                   </div>
-                </div>
-              )}
+                );
+              })()}
 
               {/* Source Content */}
               {run.trigger_data?.link && (
