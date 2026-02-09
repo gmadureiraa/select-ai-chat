@@ -325,17 +325,19 @@ serve(async (req) => {
   // ========================================
   const authHeader = req.headers.get("Authorization");
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
   
   // Accept requests from:
-  // 1. Supabase internal cron scheduler
+  // 1. Supabase internal cron scheduler headers
   // 2. Service role key authentication
-  // 3. Supabase pg_cron (internal call)
+  // 3. pg_cron via net.http_post (sends anon key)
   const isCronJob = req.headers.get("x-supabase-eed-request") === "true" || 
                     req.headers.get("user-agent")?.includes("Supabase") ||
                     req.headers.get("x-supabase-cron") === "true";
   const isServiceRole = authHeader === `Bearer ${serviceRoleKey}`;
+  const isPgCron = !!anonKey && authHeader === `Bearer ${anonKey}`;
 
-  if (!isCronJob && !isServiceRole) {
+  if (!isCronJob && !isServiceRole && !isPgCron) {
     console.error("[process-push-queue] Unauthorized access attempt");
     return new Response(
       JSON.stringify({ error: "Unauthorized - Service role required" }),
