@@ -515,13 +515,27 @@ serve(async (req) => {
   // 1. Supabase internal cron scheduler headers
   // 2. Service role key authentication
   // 3. pg_cron via net.http_post (sends anon key)
+  // 4. Authenticated user JWT (for manual triggers from frontend)
   const isCronJob = req.headers.get("x-supabase-eed-request") === "true" || 
                     req.headers.get("user-agent")?.includes("Supabase") ||
                     req.headers.get("x-supabase-cron") === "true";
   const isServiceRole = authHeader === `Bearer ${serviceRoleKey}`;
   const isPgCron = !!anonKey && authHeader === `Bearer ${anonKey}`;
+  
+  // Check if it's an authenticated user (for manual trigger via frontend)
+  let isAuthenticatedUser = false;
+  if (!isCronJob && !isServiceRole && !isPgCron && authHeader?.startsWith('Bearer ')) {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
+    const tempClient = createClient(supabaseUrl, anonKey ?? '', {
+      global: { headers: { Authorization: authHeader } }
+    });
+    const { data: claimsData, error: claimsError } = await tempClient.auth.getClaims(authHeader.replace('Bearer ', ''));
+    if (!claimsError && claimsData?.claims?.sub) {
+      isAuthenticatedUser = true;
+    }
+  }
 
-  if (!isCronJob && !isServiceRole && !isPgCron) {
+  if (!isCronJob && !isServiceRole && !isPgCron && !isAuthenticatedUser) {
     console.error("[process-automations] Unauthorized access attempt");
     return new Response(
       JSON.stringify({ error: "Unauthorized - Service role required" }),
@@ -529,7 +543,7 @@ serve(async (req) => {
     );
   }
   
-  console.log(`[process-automations] Auth check passed: isCronJob=${isCronJob}, isServiceRole=${isServiceRole}`);
+  console.log(`[process-automations] Auth check passed: isCronJob=${isCronJob}, isServiceRole=${isServiceRole}, isUser=${isAuthenticatedUser}`);
 
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
