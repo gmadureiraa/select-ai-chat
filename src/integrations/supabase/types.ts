@@ -3759,6 +3759,77 @@ export type Database = {
       }
     }
     Views: {
+      client_social_credentials_decrypted: {
+        Row: {
+          access_token: string | null
+          access_token_secret: string | null
+          account_id: string | null
+          account_name: string | null
+          api_key: string | null
+          api_secret: string | null
+          client_id: string | null
+          created_at: string | null
+          expires_at: string | null
+          id: string | null
+          is_valid: boolean | null
+          last_validated_at: string | null
+          metadata: Json | null
+          oauth_access_token: string | null
+          oauth_refresh_token: string | null
+          platform: string | null
+          updated_at: string | null
+          validation_error: string | null
+        }
+        Insert: {
+          access_token?: never
+          access_token_secret?: never
+          account_id?: string | null
+          account_name?: string | null
+          api_key?: never
+          api_secret?: never
+          client_id?: string | null
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string | null
+          is_valid?: boolean | null
+          last_validated_at?: string | null
+          metadata?: Json | null
+          oauth_access_token?: never
+          oauth_refresh_token?: never
+          platform?: string | null
+          updated_at?: string | null
+          validation_error?: string | null
+        }
+        Update: {
+          access_token?: never
+          access_token_secret?: never
+          account_id?: string | null
+          account_name?: string | null
+          api_key?: never
+          api_secret?: never
+          client_id?: string | null
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string | null
+          is_valid?: boolean | null
+          last_validated_at?: string | null
+          metadata?: Json | null
+          oauth_access_token?: never
+          oauth_refresh_token?: never
+          platform?: string | null
+          updated_at?: string | null
+          validation_error?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_social_credentials_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       workspace_invites_secure: {
         Row: {
           accepted_at: string | null
