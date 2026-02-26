@@ -908,6 +908,77 @@ export type Database = {
           },
         ]
       }
+      engagement_opportunities: {
+        Row: {
+          author_avatar: string | null
+          author_followers: number | null
+          author_name: string | null
+          author_username: string
+          category: string | null
+          client_id: string
+          created_at: string
+          id: string
+          metadata: Json | null
+          relevance_score: number | null
+          replied_at: string | null
+          reply_text: string | null
+          reply_tweet_id: string | null
+          status: string | null
+          tweet_created_at: string | null
+          tweet_id: string
+          tweet_metrics: Json | null
+          tweet_text: string
+        }
+        Insert: {
+          author_avatar?: string | null
+          author_followers?: number | null
+          author_name?: string | null
+          author_username: string
+          category?: string | null
+          client_id: string
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          relevance_score?: number | null
+          replied_at?: string | null
+          reply_text?: string | null
+          reply_tweet_id?: string | null
+          status?: string | null
+          tweet_created_at?: string | null
+          tweet_id: string
+          tweet_metrics?: Json | null
+          tweet_text: string
+        }
+        Update: {
+          author_avatar?: string | null
+          author_followers?: number | null
+          author_name?: string | null
+          author_username?: string
+          category?: string | null
+          client_id?: string
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          relevance_score?: number | null
+          replied_at?: string | null
+          reply_text?: string | null
+          reply_tweet_id?: string | null
+          status?: string | null
+          tweet_created_at?: string | null
+          tweet_id?: string
+          tweet_metrics?: Json | null
+          tweet_text?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "engagement_opportunities_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       favorite_messages: {
         Row: {
           client_id: string

@@ -16,6 +16,7 @@ import {
   Zap,
   Lock,
   MessageSquare,
+  MessageCircle,
 } from "lucide-react";
 import { useDevAccess } from "@/hooks/useDevAccess";
 import { cn } from "@/lib/utils";
@@ -328,6 +329,17 @@ export function KaiSidebar({
             label="Automações"
             active={activeTab === "automations"}
             onClick={() => onTabChange("automations")}
+            collapsed={collapsed}
+          />
+        )}
+
+        {/* Engagement - Dev only */}
+        {hasDevAccess && (
+          <NavItem
+            icon={<MessageCircle className="h-4 w-4" strokeWidth={1.5} />}
+            label="Engajamento"
+            active={activeTab === "engagement"}
+            onClick={() => onTabChange("engagement")}
             collapsed={collapsed}
           />
         )}

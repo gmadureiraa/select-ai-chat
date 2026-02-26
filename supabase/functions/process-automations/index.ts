@@ -282,13 +282,26 @@ function getImageStyleModifier(style: string | null): string {
   }
 }
 
+// GM Tweet variation categories for anti-repetition
+const GM_VARIATION_CATEGORIES = [
+  { name: 'Provocação', instruction: 'Use um tom provocativo e desafiador. Questione uma crença comum do nicho. Seja bold e contrarian.' },
+  { name: 'Insight técnico', instruction: 'Compartilhe um insight técnico ou dado específico do nicho. Mostre profundidade de conhecimento.' },
+  { name: 'Pergunta', instruction: 'Faça uma pergunta poderosa que gere reflexão. Não responda - deixe o leitor pensar.' },
+  { name: 'Storytelling micro', instruction: 'Conte uma micro-história em 1-2 frases. Use narrativa pessoal ou metáfora.' },
+  { name: 'Call-to-action', instruction: 'Termine com uma chamada para ação clara. Peça opinião, RT, ou ação concreta.' },
+  { name: 'Dado/Métrica', instruction: 'Use um número, estatística ou dado concreto como gancho principal. Seja específico.' },
+  { name: 'Humor/Ironia', instruction: 'Use humor inteligente ou ironia sutil. Seja espirituoso sem ser genérico.' },
+  { name: 'Observação aguda', instruction: 'Faça uma observação perspicaz sobre o mercado/nicho que poucos percebem.' },
+];
+
 // Build enriched prompt with context when template is empty or simple
 function buildEnrichedPrompt(
   template: string | null,
   data: RSSItem | null,
   automation: PlanningAutomation,
   contentType: string,
-  mediaUrls: string[]
+  mediaUrls: string[],
+  variationContext?: { category: string; instruction: string; recentTweets: string[] }
 ): string {
   // First, replace template variables if we have a template
   let prompt = replaceTemplateVariables(template || '', data, automation.name);
@@ -318,6 +331,20 @@ ${cleanContent ? `📄 CONTEÚDO COMPLETO:\n${cleanContent}` : ''}
 
 🎯 RESULTADO ESPERADO:
 Conteúdo final completo, formatado e pronto para publicar como ${formatLabel}.`;
+  }
+  
+  // Add variation context for anti-repetition (tweets)
+  if (variationContext) {
+    prompt += `\n\n🎲 ESTILO OBRIGATÓRIO PARA HOJE: ${variationContext.category}
+${variationContext.instruction}`;
+    
+    if (variationContext.recentTweets.length > 0) {
+      prompt += `\n\n🚫 ANTI-EXEMPLOS (NÃO repita estes padrões, estruturas ou frases similares):`;
+      variationContext.recentTweets.forEach((tweet, i) => {
+        prompt += `\n${i + 1}. "${tweet}"`;
+      });
+      prompt += `\n\n⚠️ Seu tweet DEVE ser fundamentalmente DIFERENTE dos exemplos acima em estrutura, tema e abordagem.`;
+    }
   }
   
   // Add image context for visual formats
@@ -810,13 +837,61 @@ serve(async (req) => {
               }
             }
             
+            // Build variation context for tweets (anti-repetition)
+            let variationContext: { category: string; instruction: string; recentTweets: string[] } | undefined;
+            
+            if (automation.content_type === 'tweet') {
+              // Get variation index and rotate
+              const triggerConfig = automation.trigger_config as any;
+              const variationIndex = (triggerConfig.variation_index || 0) % GM_VARIATION_CATEGORIES.length;
+              const variation = GM_VARIATION_CATEGORIES[variationIndex];
+              
+              // Fetch recent tweets as anti-examples
+              let recentTweets: string[] = [];
+              try {
+                const { data: recentPosts } = await supabase
+                  .from('twitter_posts')
+                  .select('content')
+                  .eq('client_id', automation.client_id!)
+                  .not('content', 'is', null)
+                  .order('posted_at', { ascending: false })
+                  .limit(7);
+                
+                if (recentPosts) {
+                  recentTweets = recentPosts.map(p => p.content!).filter(Boolean);
+                }
+              } catch (e) {
+                console.warn('Could not fetch recent tweets for anti-examples:', e);
+              }
+              
+              variationContext = {
+                category: variation.name,
+                instruction: variation.instruction,
+                recentTweets,
+              };
+              
+              // Increment variation index
+              await supabase
+                .from('planning_automations')
+                .update({
+                  trigger_config: {
+                    ...automation.trigger_config,
+                    variation_index: variationIndex + 1,
+                  }
+                })
+                .eq('id', automation.id);
+              
+              console.log(`Variation: ${variation.name} (index ${variationIndex}), ${recentTweets.length} anti-examples`);
+            }
+            
             // Build enriched prompt with full context + RSS data
             const rssPrompt = buildEnrichedPrompt(
               automation.prompt_template,
               triggerData,
               automation,
               automation.content_type,
-              mediaUrls
+              mediaUrls,
+              variationContext
             );
             
             // Combine: Research Briefing + Enriched Context + RSS Prompt
