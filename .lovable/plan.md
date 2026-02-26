@@ -1,91 +1,119 @@
 
 
-# Plano: Melhorias na Criação de Conteúdo Twitter + Engagement Hub
+# Plano: Automações Criativas com Referências + Imagens Inteligentes
 
-## Situação Atual
+## Diagnóstico
 
-O sistema de automações já funciona bem para o GM Tweet diário do Madureira. O pipeline completo existe: geração via `unified-content-api` com contexto enriquecido (identity_guide, favorites, top performers), parsing de threads, publicação via `twitter-post` com suporte a OAuth 1.0a e threads com mídia. Porém, olhando os tweets publicados na screenshot, todos seguem um padrão muito similar (frases motivacionais curtas sobre "construir o futuro"), o que pode saturar a audiência.
-
-## Melhorias Propostas (3 Frentes)
-
----
-
-### Frente 1: Variação e Criatividade nos GM Tweets
-
-**Problema:** Os tweets de GM estão repetitivos - todos seguem o mesmo padrão "GM. Frase motivacional sobre construir."
-
-**Solução:** Adicionar sistema de variação ao `process-automations`:
-
-- Criar uma lista de "categorias de GM" que rota automaticamente: Provocação, Insight técnico, Pergunta, Dado/Métrica, Storytelling micro, Call-to-action
-- Injetar no prompt da automação uma instrução de variação baseada no dia da semana ou num counter
-- Guardar no `trigger_config` da automação um campo `variation_index` que incrementa a cada execução
-- O prompt passaria a incluir: "Hoje use o estilo X. NÃO repita padrões dos últimos tweets."
-- Buscar os últimos 5-7 tweets publicados do cliente (via `twitter_posts` table) e incluir como "anti-exemplos" no prompt para forçar diferenciação
-
-**Arquivos:** `supabase/functions/process-automations/index.ts` (modificar `buildEnrichedPrompt`)
+1. **`getFullContentContext` não carrega `client_reference_library`** — a biblioteca de referências (artigos, inspirações, estudos de caso) nunca chega ao prompt das automações. A IA está criando "no vácuo", sem material de inspiração real.
+2. **Imagens são geradas com prompts genéricos** — o `image_prompt_template` é básico ("Create an image for: título"). Não há busca inteligente de imagens na web nem geração contextualizada com a identidade visual do cliente.
+3. **Só existe 1 automação de tweet (GM)** — falta diversidade de formatos e horários.
 
 ---
 
-### Frente 2: Automação de Threads
+## Mudanças Necessárias
 
-**Problema:** Threads geram muito mais engajamento que tweets simples, mas não há automação de thread configurada.
+### 1. Injetar Biblioteca de Referências no Contexto de Geração
 
-**Solução:** 
+**Arquivo:** `supabase/functions/_shared/knowledge-loader.ts`
 
-- Criar nova automação "Thread Semanal Madureira" (pode ser feito via UI existente, content_type = 'thread')
-- O sistema já suporta: geração de thread, parsing de tweets numerados (`parseThreadFromContent`), publicação encadeada com `reply_to` (`twitter-post`)
-- Melhorar o prompt de thread para incluir a documentação de formato (`docs/formatos/THREAD.md`) automaticamente quando `content_type === 'thread'`
-- Atualmente o `knowledge-loader.ts` já carrega documentação de formato - verificar se THREAD.md está na tabela `kai_documentation`
+Adicionar uma etapa entre a seção 3 (exemplos favoritos) e seção 4 (top performers) na função `getFullContentContext`:
 
-**Arquivos:** `supabase/functions/process-automations/index.ts`, `supabase/functions/_shared/knowledge-loader.ts`
+- Buscar `client_reference_library` do cliente (limite 5, ordenado por `created_at DESC`)
+- Formatar como seção "MATERIAL DE REFERÊNCIA — USE COMO INSPIRAÇÃO"
+- Incluir `title`, `content` (truncado a 800 chars), `reference_type` e `source_url`
+- Isso garante que TODAS as gerações (automações, chat, canvas) tenham acesso às referências
+
+### 2. Sistema de Imagem Inteligente para Automações
+
+**Arquivo:** `supabase/functions/process-automations/index.ts`
+
+Quando `auto_generate_image = true` e o conteúdo já foi gerado:
+
+- Construir o prompt de imagem com base no **conteúdo gerado** (não só no título)
+- Incluir referências visuais do cliente (`client_visual_references`) no prompt
+- Usar o identity_guide para extrair paleta de cores e estilo visual
+- Forçar formato correto baseado na plataforma (1:1 para Twitter, etc.)
+- Adicionar instrução explícita de "NO TEXT" reforçada
+
+O prompt de imagem passará a ser construído assim:
+```
+IDENTIDADE VISUAL: [cores, estilo da marca]
+CONTEÚDO DO POST: [resumo do tweet/thread gerado]
+ESTILO: [image_style da automação]
+FORMATO: 1:1 (Twitter)
+REGRA ABSOLUTA: Sem texto na imagem
+```
+
+### 3. Criar 4 Novas Automações via Migration SQL
+
+**Arquivo:** Nova migration SQL (insert direto na tabela `planning_automations`)
+
+Usando os dados do cliente Madureira (`c3fdf44d-1eb5-49f0-aa91-a030642b5396`):
+
+| Automação | Tipo | Horário | content_type | auto_generate_image | Descrição |
+|-----------|------|---------|--------------|---------------------|-----------|
+| **Tweet Insight Diário** | daily | 12:00 | tweet | false | Tweet de insight/provocação baseado nas referências. Estilo rotativo via variation system |
+| **Tweet Visual Diário** | daily | 18:00 | tweet | **true** | Tweet com imagem gerada pela IA. Prompt de imagem contextualizado pelo conteúdo |
+| **Tweet Noturno** | daily | 21:00 | tweet | false | Tweet reflexivo/pergunta para engajamento noturno |
+| **Thread Semanal** | weekly (terça) | 10:00 | thread | false | Thread profunda baseada em referências da biblioteca |
+
+Cada automação terá um `prompt_template` rico que instrui a IA a:
+- Consultar as referências da biblioteca para inspiração
+- Usar tom e voz do identity_guide
+- Variar o estilo (sistema de rotação já existente para tweets)
+- Para a thread: explorar um tema em profundidade, com dados e insights
+
+### 4. Prompt Templates Específicos
+
+**Tweet Insight (12h):**
+```
+Crie um tweet único e impactante sobre o universo do cliente.
+USE as referências da biblioteca como fonte de inspiração.
+Traga um insight ORIGINAL baseado no material de referência.
+NÃO seja genérico. Cite dados, tendências ou observações específicas.
+```
+
+**Tweet Visual (18h):**
+```
+Crie um tweet curto e impactante que será acompanhado de uma imagem.
+O tweet deve COMPLEMENTAR a imagem, não descrevê-la.
+Máximo 200 caracteres para deixar espaço visual.
+Use insight das referências da biblioteca.
+```
+
+**Tweet Noturno (21h):**
+```
+Crie um tweet reflexivo ou uma pergunta provocativa para gerar conversa.
+Baseie-se nas referências da biblioteca para trazer profundidade.
+Tom mais pessoal e introspectivo.
+```
+
+**Thread Semanal (terça 10h):**
+```
+Crie uma thread de 7-12 tweets aprofundando um tema relevante.
+OBRIGATÓRIO: Use as referências da biblioteca como base de pesquisa.
+Traga dados, análises e insights originais.
+Formato: 1/ 2/ 3/ etc. Máximo 280 chars cada.
+Gancho forte no primeiro tweet. Último tweet pede RT.
+```
 
 ---
 
-### Frente 3: Engagement Hub (MVP) - Feed + Replies
+## Resumo de Arquivos
 
-Implementar a Fase 1 do plano aprovado anteriormente:
-
-**3.1 - Tabela `engagement_opportunities`**
-- `id`, `client_id`, `tweet_id`, `author_username`, `author_name`, `author_followers`, `tweet_text`, `tweet_metrics` (JSONB), `tweet_created_at`, `category` (networking/community/growth), `relevance_score`, `status` (new/saved/replied/dismissed), `reply_text`, `reply_tweet_id`, `replied_at`, `created_at`
-- RLS: workspace members only
-
-**3.2 - Edge Function `twitter-feed`**
-- Usa Twitter API v2 `GET /2/tweets/search/recent` com queries extraídas do identity_guide do cliente (hashtags, tópicos, pessoas-chave)
-- Retorna tweets com métricas públicas (likes, retweets, reply_count)
-- Scoring básico por IA (Gemini Flash) para classificar relevância
-
-**3.3 - Edge Function `twitter-reply`**
-- Gera reply com IA mantendo o tom de voz do cliente (via identity_guide)
-- Seletor de tom: Insightful, Bold, Supportive
-- Publica via `twitter-post` existente com `replyToId`
-
-**3.4 - UI: Nova aba "Engajamento" no cliente**
-- Feed de tweets relevantes com cards (autor, texto, métricas, categoria)
-- Filtros: Todos, Networking, Community, Growth
-- Painel lateral de reply com geração por IA e preview
-- Integração na sidebar do cliente
-
-**Arquivos novos:**
-- `supabase/functions/twitter-feed/index.ts`
-- `supabase/functions/twitter-reply/index.ts`
-- `src/components/engagement/EngagementHub.tsx`
-- `src/components/engagement/OpportunityFeed.tsx`
-- `src/components/engagement/OpportunityCard.tsx`
-- `src/components/engagement/ReplyPanel.tsx`
-- `src/hooks/useEngagementFeed.ts`
-- Migration para tabela `engagement_opportunities`
+| Arquivo | Ação |
+|---------|------|
+| `supabase/functions/_shared/knowledge-loader.ts` | Adicionar carregamento de `client_reference_library` no `getFullContentContext` |
+| `supabase/functions/process-automations/index.ts` | Melhorar construção do prompt de imagem usando conteúdo gerado + identidade visual |
+| Nova migration SQL | Inserir 4 automações para o cliente Madureira |
 
 ---
 
-## Ordem de Implementação
+## Resultado Esperado
 
-| Ordem | Tarefa | Esforço |
-|-------|--------|---------|
-| 1 | Sistema de variação nos GM tweets (anti-repetição) | 30min |
-| 2 | Injetar formato THREAD.md no prompt de threads automáticas | 20min |
-| 3 | Tabela `engagement_opportunities` + RLS | 15min |
-| 4 | Edge Function `twitter-feed` (Search API v2) | 1h |
-| 5 | Edge Function `twitter-reply` (geração + post) | 1h |
-| 6 | UI do Engagement Hub (feed + reply panel) | 2h |
-| 7 | Integração na sidebar/routing do cliente | 30min |
+- **Tweets nunca mais genéricos** — IA sempre terá material de referência real para se inspirar
+- **3 tweets/dia** em horários diferentes com estilos diferentes (insight, visual, reflexivo)
+- **1 thread/semana** profunda baseada nas referências
+- **Imagens contextualizadas** — geradas com base no conteúdo real + identidade visual do cliente
+- O sistema de variação (8 categorias) continua ativo para evitar repetição
 
