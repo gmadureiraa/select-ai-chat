@@ -1353,32 +1353,30 @@ async function generateImage(
   prompt: string,
   clientName: string
 ): Promise<ImageGenerationOutput> {
-  const GOOGLE_API_KEY = Deno.env.get("GOOGLE_AI_STUDIO_API_KEY");
-  if (!GOOGLE_API_KEY) {
-    return { error: "Chave de API do Google não configurada" };
+  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+  if (!LOVABLE_API_KEY) {
+    return { error: "Chave de API não configurada" };
   }
 
   try {
     console.log("[kai-simple-chat] Generating image for:", prompt);
     
-    // Enhance prompt with client context
     const enhancedPrompt = `Create a professional, high-quality image for ${clientName}. 
 The image should be: ${prompt}
 Style: Modern, clean, professional. No text or watermarks.`;
 
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp-image-generation:generateContent?key=${GOOGLE_API_KEY}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: enhancedPrompt }] }],
-          generationConfig: {
-            responseModalities: ["Text", "Image"],
-          },
-        }),
-      }
-    );
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash-image",
+        messages: [{ role: "user", content: enhancedPrompt }],
+        modalities: ["image", "text"],
+      }),
+    });
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -1387,26 +1385,15 @@ Style: Modern, clean, professional. No text or watermarks.`;
     }
 
     const data = await response.json();
-    const parts = data.candidates?.[0]?.content?.parts || [];
+    const imageUrl = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+    const text = data.choices?.[0]?.message?.content || "Imagem gerada! 🎨";
     
-    let imageData: string | undefined;
-    let text = "Imagem gerada! 🎨";
-    
-    for (const part of parts) {
-      if (part.inlineData?.mimeType?.startsWith("image/")) {
-        imageData = `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
-      }
-      if (part.text) {
-        text = part.text;
-      }
-    }
-    
-    if (!imageData) {
+    if (!imageUrl) {
       return { error: "Não foi possível gerar a imagem. Tente reformular o pedido." };
     }
 
     console.log("[kai-simple-chat] Image generated successfully");
-    return { imageData, text };
+    return { imageData: imageUrl, text };
     
   } catch (error) {
     console.error("[kai-simple-chat] Image generation failed:", error);

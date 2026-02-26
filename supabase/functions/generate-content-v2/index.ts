@@ -813,20 +813,23 @@ ${config.noText ? '6. 🚫 ABSOLUTELY NO TEXT, LETTERS, NUMBERS, OR WRITTEN CONT
         attempt++;
         console.log(`[generate-content-v2] Image generation attempt ${attempt}/${MAX_RETRIES + 1}`);
 
-        // Use high-quality model (gemini-3-pro-image-preview)
-        const response = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp-image-generation:generateContent?key=${GOOGLE_API_KEY}`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              contents: [{ parts }],
-              generationConfig: {
-                responseModalities: ["Text", "Image"],
-              },
-            }),
-          }
-        );
+        const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+        const imageContent = referenceImage 
+          ? [{ type: "text", text: imagePrompt }, { type: "image_url", image_url: { url: referenceImage } }]
+          : imagePrompt;
+        
+        const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${LOVABLE_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "google/gemini-2.5-flash-image",
+            messages: [{ role: "user", content: imageContent }],
+            modalities: ["image", "text"],
+          }),
+        });
 
         if (!response.ok) {
           const errorText = await response.text();
@@ -844,18 +847,14 @@ ${config.noText ? '6. 🚫 ABSOLUTELY NO TEXT, LETTERS, NUMBERS, OR WRITTEN CONT
 
         const data = await response.json();
         
-        // Extract image from response
-        const candidates = data.candidates;
-        if (candidates && candidates.length > 0) {
-          const content = candidates[0].content;
-          if (content && content.parts) {
-            for (const part of content.parts) {
-              if (part.inlineData) {
-                imageBase64 = part.inlineData.data;
-                mimeType = part.inlineData.mimeType || "image/png";
-                break;
-              }
-            }
+        // Extract image from Lovable AI Gateway response
+        const imageUrl = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+        if (imageUrl && imageUrl.startsWith("data:image/")) {
+          // Parse data URL: data:image/png;base64,XXXXX
+          const matches = imageUrl.match(/^data:(image\/\w+);base64,(.+)$/);
+          if (matches) {
+            mimeType = matches[1];
+            imageBase64 = matches[2];
           }
         }
 
@@ -882,8 +881,9 @@ ${config.noText ? '6. 🚫 ABSOLUTELY NO TEXT, LETTERS, NUMBERS, OR WRITTEN CONT
         );
       }
 
-      // Upload to storage
-      const fileName = `generated/${user.id}/${Date.now()}.${mimeType.split("/")[1] || "png"}`;
+      // Upload to storage - use clientId as fallback for service_role calls
+      const uploadUserId = isServiceRole ? (clientId || "automation") : (await supabaseClient.auth.getUser()).data?.user?.id || "unknown";
+      const fileName = `generated/${uploadUserId}/${Date.now()}.${mimeType.split("/")[1] || "png"}`;
       const imageBuffer = Uint8Array.from(atob(imageBase64), c => c.charCodeAt(0));
 
       const { error: uploadError } = await supabaseClient.storage
