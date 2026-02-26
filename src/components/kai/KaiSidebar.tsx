@@ -333,16 +333,6 @@ export function KaiSidebar({
           />
         )}
 
-        {/* Engagement - Dev only */}
-        {hasDevAccess && (
-          <NavItem
-            icon={<MessageCircle className="h-4 w-4" strokeWidth={1.5} />}
-            label="Engajamento"
-            active={activeTab === "engagement"}
-            onClick={() => onTabChange("engagement")}
-            collapsed={collapsed}
-          />
-        )}
 
         {/* Profiles - Bloqueado para Viewers */}
         {canViewClients && (

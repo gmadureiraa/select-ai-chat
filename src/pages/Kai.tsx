@@ -13,7 +13,7 @@ import { ContentCanvas } from "@/components/kai/canvas/ContentCanvas";
 import { PlanningBoard } from "@/components/planning/PlanningBoard";
 import { SettingsTab } from "@/components/settings/SettingsTab";
 import { AutomationsTab } from "@/components/automations/AutomationsTab";
-import { EngagementHub } from "@/components/engagement/EngagementHub";
+
 
 import { OnboardingFlow } from "@/components/onboarding";
 import { NotificationPermissionPrompt } from "@/components/notifications/NotificationPermissionPrompt";
@@ -159,7 +159,7 @@ export default function Kai() {
     }
 
     // Tools that don't need client
-    const toolTabs = ["canvas", "clients", "docs", "settings", "automations", "assistant", "engagement"];
+    const toolTabs = ["canvas", "clients", "docs", "settings", "automations", "assistant"];
     
     if (toolTabs.includes(tab)) {
       switch (tab) {
@@ -181,14 +181,6 @@ export default function Kai() {
           return <SettingsTab />;
         case "automations":
           return <AutomationsTab />;
-        case "engagement":
-          return selectedClient ? (
-            <EngagementHub clientId={selectedClient.id} />
-          ) : (
-            <div className="flex items-center justify-center h-full">
-              <p className="text-muted-foreground text-sm">Selecione um cliente</p>
-            </div>
-          );
         case "assistant":
           return selectedClient ? (
             <div className="h-full overflow-hidden">
