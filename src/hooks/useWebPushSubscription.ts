@@ -43,7 +43,7 @@ export function useWebPushSubscription() {
       // Check if already subscribed
       try {
         const registration = await navigator.serviceWorker.ready;
-        const subscription = await registration.pushManager.getSubscription();
+        const subscription = await (registration as any).pushManager.getSubscription();
         
         setState({
           isSupported: true,
@@ -100,7 +100,7 @@ export function useWebPushSubscription() {
       const registration = await navigator.serviceWorker.ready;
 
       // Subscribe to push
-      const subscription = await registration.pushManager.subscribe({
+      const subscription = await (registration as any).pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: vapidPublicKey,
       } as PushSubscriptionOptionsInit);
@@ -167,7 +167,7 @@ export function useWebPushSubscription() {
       setState((prev) => ({ ...prev, isLoading: true }));
 
       const registration = await navigator.serviceWorker.ready;
-      const subscription = await registration.pushManager.getSubscription();
+      const subscription = await (registration as any).pushManager.getSubscription();
 
       if (subscription) {
         // Unsubscribe from push

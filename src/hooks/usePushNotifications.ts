@@ -31,7 +31,7 @@ export function usePushNotifications() {
       if (serviceWorkerSupported) {
         try {
           const registration = await navigator.serviceWorker.ready;
-          const existingSubscription = await registration.pushManager.getSubscription();
+          const existingSubscription = await (registration as any).pushManager.getSubscription();
           setState((prev) => ({
             ...prev,
             isServiceWorkerReady: true,
