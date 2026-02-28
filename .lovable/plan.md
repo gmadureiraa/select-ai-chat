@@ -1,53 +1,45 @@
 
 
-# Plan: Fix Image Generation for Automations
+# Plano: 3 Automações Twitter para o Defiverso
 
-## Problem
-Image generation fails because:
-1. The `generate-content-v2` function calls Google's API directly with the deprecated model `gemini-2.0-flash-exp-image-generation` (404 error)
-2. When called from automations (service_role), `user.id` is undefined, which would crash on the upload path
+## Situação Atual
+- Já existe uma automação de tweet por newsletter (`d0dcb7ab`) mas precisa ser melhorada
+- Defiverso client: `c1227fa7-f9c4-4f8c-a091-ae250919dc07`
+- Twitter conectado via Late API (profile_id: `6966a0caadfdd3aef943cbd3`)
+- YouTube do Lucas: channel_id `UC8oofAsuieQv3imZGvaUDOQ`
+- Beehiiv RSS: `https://rss.beehiiv.com/feeds/UQC5Rb8a1M.xml`
 
-## Changes
+## Automações a Criar/Atualizar
 
-### File: `supabase/functions/generate-content-v2/index.ts`
+### 1. Atualizar automação existente — Tweet de Newsletter
+**Ação:** UPDATE na automação `d0dcb7ab` com prompt melhorado
 
-**Change 1 — Switch to Lovable AI Gateway (lines 816-829)**
+- Manter RSS trigger no Beehiiv
+- Prompt: tweet chamativo sobre o assunto + "Leia completo na newsletter 👇" + link
+- `auto_generate_image: false` (usar imagem da newsletter HTML via RSS extractor)
+- O sistema já extrai imagens do HTML via `extractImagesFromHTML` — a primeira imagem do RSS será usada automaticamente como capa
+- `auto_publish: true` para postar sozinho
 
-Replace the direct Google API call with the Lovable AI gateway:
-```typescript
-const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-  method: "POST",
-  headers: {
-    Authorization: `Bearer ${LOVABLE_API_KEY}`,
-    "Content-Type": "application/json",
-  },
-  body: JSON.stringify({
-    model: "google/gemini-2.5-flash-image",
-    messages: [{
-      role: "user",
-      content: referenceImage 
-        ? [{ type: "text", text: imagePrompt }, { type: "image_url", image_url: { url: referenceImage } }]
-        : imagePrompt,
-    }],
-    modalities: ["image", "text"],
-  }),
-});
-```
+### 2. Nova automação — Tweet de Vídeo do YouTube
+**Ação:** INSERT nova automação RSS
 
-**Change 2 — Parse new response format (lines 845-870)**
+- RSS: `https://www.youtube.com/feeds/videos.xml?channel_id=UC8oofAsuieQv3imZGvaUDOQ`
+- Trigger: RSS (detecta novo vídeo automaticamente)
+- Prompt: tweet chamativo sobre o vídeo + link do YouTube
+- `auto_generate_image: false` (usa thumbnail do YouTube via RSS media)
+- `auto_publish: true`
+- Client: Defiverso (posta no Twitter do Defiverso)
 
-The Lovable gateway returns images in `choices[0].message.images[0].image_url.url` (base64 data URL), not in Google's `candidates[0].content.parts[].inlineData` format. Update parsing accordingly.
+### 3. Nova automação — GM Diário com Imagem
+**Ação:** INSERT nova automação Schedule
 
-**Change 3 — Fix user.id for service_role (line 886)**
+- Trigger: daily às 08:00
+- `auto_generate_image: true` com `image_style: 'vibrant'`
+- Image prompt template: instruir a IA a criar imagem no estilo visual da capa da newsletter do Defiverso (cores escuras, estética crypto/DeFi, elementos espaciais/alienígena 👽)
+- `auto_publish: true`
 
-Replace `user.id` with a fallback: extract user from auth if available, otherwise use `clientId` or `"automation"` for the storage path.
+## Implementação
 
-**Change 4 — Also fix kai-simple-chat (line 1370)**
-
-Same deprecated model call exists in `kai-simple-chat/index.ts`. Apply same fix.
-
-### Deploy
-- Deploy `generate-content-v2` and `kai-simple-chat`
-- Re-trigger the visual tweet automation to verify
+1. **SQL via insert tool** — update da automação existente + insert das 2 novas
+2. **Nenhuma mudança de código** — o `process-automations` já suporta tudo (RSS com imagens, schedule com geração de imagem, auto-publish via Late API)
 
