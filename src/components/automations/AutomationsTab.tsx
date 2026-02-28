@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Plus, Zap, Calendar, Rss, Webhook, MoreVertical, Pause, Play, Trash2, Pencil, TestTube2, History, Loader2 } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { Plus, Zap, Calendar, Rss, Webhook, MoreVertical, Pause, Play, Trash2, Pencil, TestTube2, History, Loader2, Filter, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -21,6 +21,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { usePlanningAutomations, PlanningAutomation, ScheduleConfig, RSSConfig } from '@/hooks/usePlanningAutomations';
 import { useClients } from '@/hooks/useClients';
 import { AutomationDialog } from '@/components/planning/AutomationDialog';
@@ -67,6 +74,8 @@ export function AutomationsTab() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [testingId, setTestingId] = useState<string | null>(null);
+  const [clientFilter, setClientFilter] = useState<string>('all');
+  const [triggerFilter, setTriggerFilter] = useState<string>('all');
 
   const handleEdit = (automation: PlanningAutomation) => {
     setEditingAutomation(automation);
@@ -91,7 +100,7 @@ export function AutomationsTab() {
   };
 
   const handleTest = async (automation: PlanningAutomation) => {
-    if (testingId) return; // Already testing
+    if (testingId) return;
     
     setTestingId(automation.id);
     toast.info(`Executando "${automation.name}"...`, { duration: 3000 });
@@ -161,8 +170,36 @@ export function AutomationsTab() {
     }
   };
 
-  const activeAutomations = automations.filter(a => a.is_active);
-  const pausedAutomations = automations.filter(a => !a.is_active);
+  // Filter automations
+  const filteredAutomations = useMemo(() => {
+    return automations.filter(a => {
+      if (clientFilter !== 'all' && a.client_id !== clientFilter) return false;
+      if (triggerFilter !== 'all' && a.trigger_type !== triggerFilter) return false;
+      return true;
+    });
+  }, [automations, clientFilter, triggerFilter]);
+
+  // Group by client
+  const groupedByClient = useMemo(() => {
+    const groups: Record<string, PlanningAutomation[]> = {};
+    for (const a of filteredAutomations) {
+      const key = a.client_id || '__none__';
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(a);
+    }
+    return groups;
+  }, [filteredAutomations]);
+
+  // Unique clients that have automations
+  const clientsWithAutomations = useMemo(() => {
+    const ids = new Set(automations.map(a => a.client_id).filter(Boolean));
+    return clients.filter(c => ids.has(c.id));
+  }, [automations, clients]);
+
+  const activeCount = filteredAutomations.filter(a => a.is_active).length;
+  const pausedCount = filteredAutomations.filter(a => !a.is_active).length;
+  const rssCount = filteredAutomations.filter(a => a.trigger_type === 'rss').length;
+  const scheduleCount = filteredAutomations.filter(a => a.trigger_type === 'schedule').length;
 
   if (isLoading) {
     return (
@@ -199,95 +236,147 @@ export function AutomationsTab() {
         </div>
       </div>
 
+      {/* Filters */}
+      <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
+          <Filter className="h-4 w-4 text-muted-foreground" />
+          <Select value={clientFilter} onValueChange={setClientFilter}>
+            <SelectTrigger className="w-[200px] h-9">
+              <SelectValue placeholder="Filtrar por cliente" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os clientes</SelectItem>
+              {clientsWithAutomations.map(c => (
+                <SelectItem key={c.id} value={c.id}>
+                  {c.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <Select value={triggerFilter} onValueChange={setTriggerFilter}>
+          <SelectTrigger className="w-[180px] h-9">
+            <SelectValue placeholder="Tipo de trigger" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos os tipos</SelectItem>
+            <SelectItem value="schedule">Agendamento</SelectItem>
+            <SelectItem value="rss">RSS Feed</SelectItem>
+            <SelectItem value="webhook">Webhook</SelectItem>
+          </SelectContent>
+        </Select>
+        {(clientFilter !== 'all' || triggerFilter !== 'all') && (
+          <Button variant="ghost" size="sm" onClick={() => { setClientFilter('all'); setTriggerFilter('all'); }}>
+            Limpar filtros
+          </Button>
+        )}
+      </div>
+
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-4 gap-4">
         <Card>
           <CardContent className="pt-4">
-            <div className="text-2xl font-bold">{automations.length}</div>
+            <div className="text-2xl font-bold">{filteredAutomations.length}</div>
             <p className="text-sm text-muted-foreground">Total</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-4">
-            <div className="text-2xl font-bold text-green-500">{activeAutomations.length}</div>
+            <div className="text-2xl font-bold text-green-500">{activeCount}</div>
             <p className="text-sm text-muted-foreground">Ativas</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-4">
-            <div className="text-2xl font-bold text-muted-foreground">{pausedAutomations.length}</div>
-            <p className="text-sm text-muted-foreground">Pausadas</p>
+            <div className="text-2xl font-bold text-blue-500">{scheduleCount}</div>
+            <p className="text-sm text-muted-foreground">Agendadas</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-4">
+            <div className="text-2xl font-bold text-orange-500">{rssCount}</div>
+            <p className="text-sm text-muted-foreground">RSS</p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Active Automations */}
-      {activeAutomations.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Play className="h-4 w-4 text-green-500" />
-              Automações Ativas
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {activeAutomations.map((automation) => (
-              <AutomationCard
-                key={automation.id}
-                automation={automation}
-                onEdit={handleEdit}
-                onDelete={(id) => setDeleteId(id)}
-                onToggle={(id, active) => toggleAutomation.mutate({ id, is_active: active })}
-                onTest={handleTest}
-                getClientName={getClientName}
-                getTriggerDescription={getTriggerDescription}
-                isTesting={testingId === automation.id}
-              />
-            ))}
-          </CardContent>
-        </Card>
-      )}
+      {/* Grouped by Client */}
+      {Object.entries(groupedByClient).map(([clientId, clientAutomations]) => {
+        const clientName = clientId === '__none__' ? 'Sem cliente' : getClientName(clientId);
+        const client = clients.find(c => c.id === clientId);
+        const activeInGroup = clientAutomations.filter(a => a.is_active);
+        const pausedInGroup = clientAutomations.filter(a => !a.is_active);
 
-      {/* Paused Automations */}
-      {pausedAutomations.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2 text-muted-foreground">
-              <Pause className="h-4 w-4" />
-              Automações Pausadas
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {pausedAutomations.map((automation) => (
-              <AutomationCard
-                key={automation.id}
-                automation={automation}
-                onEdit={handleEdit}
-                onDelete={(id) => setDeleteId(id)}
-                onToggle={(id, active) => toggleAutomation.mutate({ id, is_active: active })}
-                onTest={handleTest}
-                getClientName={getClientName}
-                getTriggerDescription={getTriggerDescription}
-                isTesting={testingId === automation.id}
-              />
-            ))}
-          </CardContent>
-        </Card>
-      )}
+        return (
+          <Card key={clientId}>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  {client?.avatar_url ? (
+                    <img src={client.avatar_url} alt="" className="h-6 w-6 rounded-full object-cover" />
+                  ) : (
+                    <Users className="h-5 w-5 text-muted-foreground" />
+                  )}
+                  {clientName}
+                  <Badge variant="secondary" className="text-xs ml-1">
+                    {clientAutomations.length} automação{clientAutomations.length !== 1 ? 'ões' : ''}
+                  </Badge>
+                </CardTitle>
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  {activeInGroup.length > 0 && (
+                    <span className="flex items-center gap-1">
+                      <span className="h-2 w-2 rounded-full bg-green-500" />
+                      {activeInGroup.length} ativa{activeInGroup.length !== 1 ? 's' : ''}
+                    </span>
+                  )}
+                  {pausedInGroup.length > 0 && (
+                    <span className="flex items-center gap-1">
+                      <span className="h-2 w-2 rounded-full bg-muted-foreground" />
+                      {pausedInGroup.length} pausada{pausedInGroup.length !== 1 ? 's' : ''}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {clientAutomations.map((automation) => (
+                <AutomationCard
+                  key={automation.id}
+                  automation={automation}
+                  onEdit={handleEdit}
+                  onDelete={(id) => setDeleteId(id)}
+                  onToggle={(id, active) => toggleAutomation.mutate({ id, is_active: active })}
+                  onTest={handleTest}
+                  getClientName={getClientName}
+                  getTriggerDescription={getTriggerDescription}
+                  isTesting={testingId === automation.id}
+                  showClient={false}
+                />
+              ))}
+            </CardContent>
+          </Card>
+        );
+      })}
 
       {/* Empty State */}
-      {automations.length === 0 && (
+      {filteredAutomations.length === 0 && (
         <Card>
           <CardContent className="py-12 text-center">
             <Zap className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
-            <h3 className="text-lg font-medium mb-2">Nenhuma automação configurada</h3>
+            <h3 className="text-lg font-medium mb-2">
+              {automations.length === 0 ? 'Nenhuma automação configurada' : 'Nenhuma automação encontrada'}
+            </h3>
             <p className="text-muted-foreground mb-4">
-              Crie sua primeira automação para gerar conteúdo automaticamente
+              {automations.length === 0
+                ? 'Crie sua primeira automação para gerar conteúdo automaticamente'
+                : 'Tente ajustar os filtros'}
             </p>
-            <Button onClick={handleCreate}>
-              <Plus className="h-4 w-4 mr-2" />
-              Criar Automação
-            </Button>
+            {automations.length === 0 && (
+              <Button onClick={handleCreate}>
+                <Plus className="h-4 w-4 mr-2" />
+                Criar Automação
+              </Button>
+            )}
           </CardContent>
         </Card>
       )}
@@ -333,6 +422,7 @@ interface AutomationCardProps {
   getClientName: (clientId: string | null) => string;
   getTriggerDescription: (automation: PlanningAutomation) => string;
   isTesting?: boolean;
+  showClient?: boolean;
 }
 
 function AutomationCard({
@@ -344,6 +434,7 @@ function AutomationCard({
   getClientName,
   getTriggerDescription,
   isTesting,
+  showClient = true,
 }: AutomationCardProps) {
   const TriggerIcon = triggerIcons[automation.trigger_type];
   const contentLabel = contentTypeLabels[automation.content_type] || automation.content_type;
@@ -351,63 +442,63 @@ function AutomationCard({
   return (
     <div
       className={cn(
-        "flex items-center justify-between p-4 border rounded-lg transition-colors",
+        "flex items-center justify-between p-3 border rounded-lg transition-colors",
         automation.is_active ? "hover:bg-muted/50" : "opacity-60 bg-muted/20"
       )}
     >
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-3 min-w-0">
         <div className={cn(
-          "p-2.5 rounded-lg",
+          "p-2 rounded-lg shrink-0",
           automation.is_active ? "bg-primary/10" : "bg-muted"
         )}>
           <TriggerIcon className={cn(
-            "h-5 w-5",
+            "h-4 w-4",
             automation.is_active ? "text-primary" : "text-muted-foreground"
           )} />
         </div>
         
-        <div>
-          <div className="flex items-center gap-2">
-            <h4 className="font-medium">{automation.name}</h4>
-            <Badge variant={automation.is_active ? 'default' : 'secondary'}>
-              {automation.is_active ? 'Ativa' : 'Pausada'}
-            </Badge>
-            <Badge variant="outline" className="text-xs">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <h4 className="font-medium text-sm truncate">{automation.name}</h4>
+            <Badge variant="outline" className="text-xs shrink-0">
               {contentLabel}
             </Badge>
+            {automation.platform && (
+              <Badge variant="outline" className="text-xs capitalize shrink-0">
+                {automation.platform}
+              </Badge>
+            )}
             {automation.auto_generate_content && (
-              <Badge variant="outline" className="text-xs bg-purple-500/10 text-purple-600 border-purple-500/30">IA</Badge>
+              <Badge variant="outline" className="text-xs bg-purple-500/10 text-purple-600 border-purple-500/30 shrink-0">IA</Badge>
             )}
             {(automation as any).auto_publish && (
-              <Badge variant="outline" className="text-xs bg-green-500/10 text-green-600 border-green-500/30">
+              <Badge variant="outline" className="text-xs bg-green-500/10 text-green-600 border-green-500/30 shrink-0">
                 Auto-publish
               </Badge>
             )}
           </div>
-          <div className="flex items-center gap-3 text-sm text-muted-foreground mt-1">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
             <span>{triggerLabels[automation.trigger_type]}: {getTriggerDescription(automation)}</span>
-            <span>•</span>
-            <span>{getClientName(automation.client_id)}</span>
-            {automation.platform && (
+            {showClient && (
               <>
                 <span>•</span>
-                <span className="capitalize">{automation.platform}</span>
+                <span>{getClientName(automation.client_id)}</span>
               </>
             )}
           </div>
           {automation.last_triggered_at && (
-            <p className="text-xs text-muted-foreground mt-1">
-              Última execução: {formatDistanceToNow(new Date(automation.last_triggered_at), { 
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Última: {formatDistanceToNow(new Date(automation.last_triggered_at), { 
                 addSuffix: true, 
                 locale: ptBR 
               })}
-              {automation.items_created > 0 && ` • ${automation.items_created} cards criados`}
+              {automation.items_created > 0 && ` • ${automation.items_created} cards`}
             </p>
           )}
         </div>
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 shrink-0">
         <Switch
           checked={automation.is_active}
           onCheckedChange={(checked) => onToggle(automation.id, checked)}
@@ -415,7 +506,7 @@ function AutomationCard({
         
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon">
+            <Button variant="ghost" size="icon" className="h-8 w-8">
               <MoreVertical className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
