@@ -60,6 +60,84 @@ interface RSSItem {
   allImages?: string[];
 }
 
+// Clean tweet output: remove AI formatting labels like "TEXTO DO VISUAL:", "LEGENDA:", markdown bold, etc.
+function cleanTweetOutput(content: string): string {
+  if (!content) return content;
+  
+  let cleaned = content;
+  
+  // Remove common AI output labels/sections
+  // Pattern: **TEXTO DO VISUAL:** ... --- **LEGENDA:** ... → keep only the LEGENDA part (the actual tweet)
+  const legendaMatch = cleaned.match(/\*{0,2}LEGENDA[:\s]*\*{0,2}\s*([\s\S]+)/i);
+  const textoVisualMatch = cleaned.match(/\*{0,2}TEXTO\s*(?:DO\s*)?VISUAL[:\s]*\*{0,2}\s*([\s\S]+?)(?:\n---|\n\n\*{0,2}LEGENDA)/i);
+  
+  if (legendaMatch) {
+    // If there's a LEGENDA section, use that as the tweet text
+    cleaned = legendaMatch[1].trim();
+  } else if (textoVisualMatch && !cleaned.includes('LEGENDA')) {
+    // If there's only TEXTO DO VISUAL and no LEGENDA, use that
+    cleaned = textoVisualMatch[1].trim();
+  }
+  
+  // Remove remaining markdown formatting
+  cleaned = cleaned.replace(/\*{2}([^*]+)\*{2}/g, '$1'); // **bold** → bold
+  cleaned = cleaned.replace(/^#+\s+/gm, ''); // ## headers
+  cleaned = cleaned.replace(/^---+$/gm, ''); // --- separators
+  cleaned = cleaned.replace(/^\s*[\-\*]\s+/gm, ''); // bullet points
+  
+  // Remove label prefixes that might remain
+  cleaned = cleaned.replace(/^(?:TWEET|LEGENDA|TEXTO|CAPTION|POST)[:\s]*/im, '');
+  
+  // Clean up excessive whitespace
+  cleaned = cleaned.replace(/\n{3,}/g, '\n\n').trim();
+  
+  // Remove surrounding quotes if the entire text is quoted
+  if ((cleaned.startsWith('"') && cleaned.endsWith('"')) || 
+      (cleaned.startsWith('"') && cleaned.endsWith('"'))) {
+    cleaned = cleaned.slice(1, -1).trim();
+  }
+  
+  return cleaned;
+}
+
+// Transcribe YouTube video for richer content generation
+async function transcribeYouTubeVideo(
+  videoUrl: string,
+  supabaseUrl: string,
+  supabaseKey: string,
+): Promise<string | null> {
+  try {
+    console.log(`[YouTube] Transcribing video: ${videoUrl}`);
+    
+    const response = await fetch(`${supabaseUrl}/functions/v1/youtube-transcribe`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${supabaseKey}`,
+      },
+      body: JSON.stringify({ url: videoUrl }),
+    });
+    
+    if (!response.ok) {
+      console.warn(`[YouTube] Transcription failed: ${response.status}`);
+      return null;
+    }
+    
+    const result = await response.json();
+    const transcript = result.transcript || result.text || result.content;
+    
+    if (transcript) {
+      console.log(`[YouTube] Transcript obtained: ${transcript.length} chars`);
+      return transcript.substring(0, 5000); // Limit to 5000 chars
+    }
+    
+    return null;
+  } catch (error) {
+    console.warn(`[YouTube] Transcription error:`, error);
+    return null;
+  }
+}
+
 // Extract images from HTML content
 function extractImagesFromHTML(html: string): string[] {
   const images: string[] = [];
@@ -355,7 +433,14 @@ ${variationContext.instruction}`;
   // Add format-specific tips
   switch (contentType) {
     case 'tweet':
-      prompt += `\n\n⚠️ LIMITE ABSOLUTO: máximo 280 caracteres. Use gancho forte no início.`;
+      prompt += `\n\n⚠️ REGRAS ABSOLUTAS PARA TWEET:
+- Máximo 280 caracteres
+- Use gancho forte no início
+- RESPONDA APENAS COM O TEXTO FINAL DO TWEET
+- NÃO use rótulos como "TEXTO DO VISUAL:", "LEGENDA:", "TWEET:", "CAPTION:" etc.
+- NÃO use markdown (sem ** ou ##)
+- NÃO inclua instruções, explicações ou metadata
+- Apenas o texto puro do tweet, pronto para publicar`;
       break;
     case 'thread':
       prompt += `\n\n⚠️ FORMATO: Numere cada tweet (1/, 2/, etc). Máximo 280 chars por tweet. Gancho forte no primeiro.`;
@@ -691,9 +776,11 @@ serve(async (req) => {
         const itemDescription = triggerData?.description?.replace(/<[^>]*>/g, '').substring(0, 500) || '';
         
         // Get images from RSS
-        const mediaUrls = triggerData?.allImages?.slice(0, 4) || [];
-        console.log(`Extracted ${mediaUrls.length} images from RSS`);
-        
+        // For single tweets, limit to 1 image (best quality); threads/carousels can have more
+        const maxImages = automation.content_type === 'tweet' ? 1 : 4;
+        const mediaUrls = triggerData?.allImages?.slice(0, maxImages) || [];
+        console.log(`Extracted ${mediaUrls.length} images from RSS (max: ${maxImages})`);
+
         // Derive platform from content_type if not set
         const derivedPlatform = automation.platform || PLATFORM_MAP[automation.content_type] || null;
         const format = FORMAT_MAP[automation.content_type] || 'post';
@@ -884,6 +971,26 @@ serve(async (req) => {
               console.log(`Variation: ${variation.name} (index ${variationIndex}), ${recentTweets.length} anti-examples`);
             }
             
+            // ===================================================
+            // YOUTUBE TRANSCRIPTION: Enrich prompt with video content
+            // ===================================================
+            let youtubeTranscript = "";
+            
+            if (triggerData?.link && (
+              triggerData.link.includes('youtube.com') || 
+              triggerData.link.includes('youtu.be')
+            )) {
+              try {
+                const transcript = await transcribeYouTubeVideo(triggerData.link, supabaseUrl, supabaseKey);
+                if (transcript) {
+                  youtubeTranscript = transcript;
+                  console.log(`YouTube transcript loaded: ${youtubeTranscript.length} chars`);
+                }
+              } catch (ytError) {
+                console.warn('YouTube transcription failed:', ytError);
+              }
+            }
+            
             // Build enriched prompt with full context + RSS data
             const rssPrompt = buildEnrichedPrompt(
               automation.prompt_template,
@@ -894,15 +1001,20 @@ serve(async (req) => {
               variationContext
             );
             
-            // Combine: Research Briefing + Enriched Context + RSS Prompt
+            // Combine: YouTube Transcript + Research Briefing + Enriched Context + RSS Prompt
             let finalPrompt = "";
             
+            // Add YouTube transcript if available
+            const transcriptBlock = youtubeTranscript 
+              ? `\n\n## TRANSCRIÇÃO DO VÍDEO:\n${youtubeTranscript}\n\n---\n` 
+              : '';
+            
             if (researchBriefing) {
-              finalPrompt = `${researchBriefing}\n\n---\n\n## CONTEXTO DO CLIENTE:\n\n${enrichedContext}\n\n---\n\n## MATERIAL DE REFERÊNCIA (RSS/FONTE EXTERNA):\n\n${rssPrompt}`;
+              finalPrompt = `${researchBriefing}${transcriptBlock}\n\n---\n\n## CONTEXTO DO CLIENTE:\n\n${enrichedContext}\n\n---\n\n## MATERIAL DE REFERÊNCIA (RSS/FONTE EXTERNA):\n\n${rssPrompt}`;
             } else if (enrichedContext) {
-              finalPrompt = `${enrichedContext}\n\n---\n\n## MATERIAL DE REFERÊNCIA (RSS/FONTE EXTERNA):\n\n${rssPrompt}`;
+              finalPrompt = `${enrichedContext}${transcriptBlock}\n\n---\n\n## MATERIAL DE REFERÊNCIA (RSS/FONTE EXTERNA):\n\n${rssPrompt}`;
             } else {
-              finalPrompt = rssPrompt;
+              finalPrompt = `${transcriptBlock}${rssPrompt}`;
             }
 
             console.log(`Final prompt (${finalPrompt.length} chars): ${finalPrompt.substring(0, 300)}...`);
@@ -929,6 +1041,13 @@ serve(async (req) => {
               const contentResult = await response.json();
               if (contentResult.content) {
                 generatedContent = contentResult.content;
+                
+                // Clean tweet output: remove AI formatting labels
+                if (automation.content_type === 'tweet') {
+                  generatedContent = cleanTweetOutput(generatedContent);
+                  console.log(`Tweet cleaned: "${generatedContent.substring(0, 100)}..." (${generatedContent.length} chars)`);
+                }
+                
                 console.log(`Content generated (${generatedContent!.length} chars)`);
                 
                 // Update metadata based on content type
