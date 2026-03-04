@@ -281,6 +281,24 @@ serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY") || "";
+
+    // Caller validation: only allow internal/service-role calls
+    const authHeader = req.headers.get("Authorization") || "";
+    const isCronJob = req.headers.get("x-supabase-cron") === "true";
+    const isServiceRole = authHeader === `Bearer ${supabaseKey}`;
+    const isPgCron = authHeader === `Bearer ${supabaseAnonKey}`;
+
+    if (!isCronJob && !isServiceRole && !isPgCron) {
+      console.error("[send-push] Unauthorized access attempt");
+      return new Response(
+        JSON.stringify({ error: "Unauthorized - Service role required" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    console.log(`[send-push] Auth check passed: isCronJob=${isCronJob}, isServiceRole=${isServiceRole}`);
+
     const vapidPublicKey = Deno.env.get("VAPID_PUBLIC_KEY")!;
     const vapidPrivateKey = Deno.env.get("VAPID_PRIVATE_KEY")!;
     
