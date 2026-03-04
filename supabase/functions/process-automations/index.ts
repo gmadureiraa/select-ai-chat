@@ -163,12 +163,68 @@ function extractImagesFromHTML(html: string): string[] {
   return images.slice(0, 10); // Limit to 10 images
 }
 
-// Parse RSS feed with full content and images
+// Parse Atom feed (YouTube format)
+function parseAtomEntries(text: string): RSSItem[] {
+  const items: RSSItem[] = [];
+  const entryMatches = text.match(/<entry[\s\S]*?<\/entry>/gi) || [];
+  
+  console.log(`Parsing Atom feed, found ${entryMatches.length} entries`);
+  
+  for (const entryXml of entryMatches) {
+    const videoId = entryXml.match(/<yt:videoId[^>]*>([\s\S]*?)<\/yt:videoId>/i)?.[1]?.trim() || '';
+    const title = entryXml.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1]?.trim() || '';
+    const published = entryXml.match(/<published[^>]*>([\s\S]*?)<\/published>/i)?.[1]?.trim() || '';
+    const updated = entryXml.match(/<updated[^>]*>([\s\S]*?)<\/updated>/i)?.[1]?.trim() || '';
+    const description = entryXml.match(/<media:description[^>]*>([\s\S]*?)<\/media:description>/i)?.[1]?.trim() || '';
+    const thumbnail = entryXml.match(/<media:thumbnail[^>]*url="([^"]+)"/i)?.[1] || '';
+    const link = entryXml.match(/<link[^>]*href="([^"]+)"/i)?.[1] || '';
+    
+    const cleanDescription = description
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .substring(0, 500);
+    
+    const videoUrl = link || (videoId ? `https://www.youtube.com/watch?v=${videoId}` : '');
+    const thumbUrl = thumbnail || (videoId ? `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg` : '');
+    
+    items.push({
+      title,
+      link: videoUrl,
+      description: cleanDescription,
+      content: description,
+      pubDate: published || updated,
+      guid: videoId ? `yt:video:${videoId}` : videoUrl,
+      imageUrl: thumbUrl,
+      allImages: thumbUrl ? [thumbUrl] : [],
+    });
+  }
+  
+  return items;
+}
+
+// Parse RSS feed with full content and images (supports both RSS and Atom/YouTube)
 async function parseRSSFeed(url: string): Promise<RSSItem[]> {
   try {
-    const response = await fetch(url);
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (compatible; Kaleidos/1.0)',
+        'Accept': 'application/rss+xml, application/atom+xml, application/xml, text/xml, */*'
+      }
+    });
     const text = await response.text();
     
+    // Detect Atom format (YouTube uses this)
+    const isAtom = text.includes('<feed') && text.includes('<entry');
+    if (isAtom) {
+      console.log('Detected Atom format (YouTube)');
+      return parseAtomEntries(text);
+    }
+    
+    console.log('Detected RSS format');
     const items: RSSItem[] = [];
     const itemMatches = text.match(/<item[\s\S]*?<\/item>/gi) || [];
     
@@ -181,22 +237,17 @@ async function parseRSSFeed(url: string): Promise<RSSItem[]> {
       const pubDate = itemXml.match(/<pubDate[^>]*>([\s\S]*?)<\/pubDate>/i)?.[1]?.trim();
       const guid = itemXml.match(/<guid[^>]*>([\s\S]*?)<\/guid>/i)?.[1]?.trim() || link;
       
-      // Extract images from content and description
       const allImages: string[] = [];
       
-      // Media content
       const mediaUrl = itemXml.match(/<media:content[^>]+url=["']([^"']+)["']/i)?.[1];
       if (mediaUrl) allImages.push(mediaUrl);
       
-      // Media thumbnail
       const thumbnailUrl = itemXml.match(/<media:thumbnail[^>]+url=["']([^"']+)["']/i)?.[1];
       if (thumbnailUrl && !allImages.includes(thumbnailUrl)) allImages.push(thumbnailUrl);
       
-      // Enclosure
       const enclosureUrl = itemXml.match(/<enclosure[^>]+url=["']([^"']+)["'][^>]+type=["']image/i)?.[1];
       if (enclosureUrl && !allImages.includes(enclosureUrl)) allImages.push(enclosureUrl);
       
-      // Extract from content HTML
       if (content) {
         const contentImages = extractImagesFromHTML(content);
         for (const img of contentImages) {
@@ -204,7 +255,6 @@ async function parseRSSFeed(url: string): Promise<RSSItem[]> {
         }
       }
       
-      // Extract from description HTML
       if (description) {
         const descImages = extractImagesFromHTML(description);
         for (const img of descImages) {
@@ -220,7 +270,7 @@ async function parseRSSFeed(url: string): Promise<RSSItem[]> {
         pubDate, 
         guid,
         imageUrl: allImages[0],
-        allImages: allImages.slice(0, 8), // Limit to 8 images
+        allImages: allImages.slice(0, 8),
       });
     }
     
