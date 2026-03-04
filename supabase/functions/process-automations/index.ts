@@ -1130,6 +1130,7 @@ serve(async (req) => {
             
             // Fetch client visual identity for enriched image prompts
             let visualIdentity = '';
+            let visualRefs: any[] | null = null;
             try {
               const { data: client } = await supabase
                 .from('clients')
@@ -1147,12 +1148,14 @@ serve(async (req) => {
               }
               
               // Fetch visual references (including image_url for real visual input)
-              const { data: visualRefs } = await supabase
+              const { data: fetchedVisualRefs } = await supabase
                 .from('client_visual_references')
                 .select('image_url, description, reference_type')
                 .eq('client_id', automation.client_id)
                 .eq('is_primary', true)
                 .limit(3);
+              
+              visualRefs = fetchedVisualRefs;
               
               if (visualRefs && visualRefs.length > 0) {
                 visualIdentity += `REFERÊNCIAS VISUAIS: ${visualRefs.map(v => v.description || v.reference_type).join(', ')}\n`;
