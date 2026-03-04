@@ -1243,34 +1243,80 @@ REGRAS ABSOLUTAS:
               }),
             });
             
+            let imageResult: any = null;
+            let imageGenSuccess = false;
+            
             if (imageResponse.ok) {
-              const imageResult = await imageResponse.json();
+              imageResult = await imageResponse.json();
               if (imageResult.imageUrl) {
-                // Add generated image to mediaUrls
-                mediaUrls.unshift(imageResult.imageUrl); // Add at beginning
-                console.log(`Image generated: ${imageResult.imageUrl}`);
-                
-                // Update planning item with new image
-                await supabase
-                  .from('planning_items')
-                  .update({ 
-                    media_urls: mediaUrls,
-                    metadata: {
-                      ...(newItem.metadata as any || {}),
-                      generated_image_url: imageResult.imageUrl,
-                      image_style: automation.image_style,
-                    }
-                  })
-                  .eq('id', newItem.id);
-                  
-                console.log(`Image saved to item ${newItem.id}`);
+                imageGenSuccess = true;
+              } else {
+                console.warn(`[IMAGE] Response OK but no imageUrl returned for "${automation.name}". Response keys: ${Object.keys(imageResult).join(', ')}`);
               }
             } else {
               const errorText = await imageResponse.text();
-              console.error(`Image generation failed: ${errorText}`);
+              console.error(`[IMAGE] Generation failed for "${automation.name}" (status ${imageResponse.status}): ${errorText}`);
+            }
+            
+            // Retry once if first attempt failed
+            if (!imageGenSuccess) {
+              console.log(`[IMAGE] Retrying image generation for "${automation.name}"...`);
+              try {
+                const retryResponse = await fetch(`${supabaseUrl}/functions/v1/generate-content-v2`, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${supabaseKey}`,
+                  },
+                  body: JSON.stringify({
+                    type: 'image',
+                    prompt: resolvedImagePrompt,
+                    imageInputs,
+                    settings: {
+                      imageStyle: automation.image_style || 'illustration',
+                    },
+                    clientId: automation.client_id,
+                    workspaceId: automation.workspace_id,
+                  }),
+                });
+                
+                if (retryResponse.ok) {
+                  imageResult = await retryResponse.json();
+                  if (imageResult.imageUrl) {
+                    imageGenSuccess = true;
+                    console.log(`[IMAGE] Retry succeeded for "${automation.name}"`);
+                  } else {
+                    console.error(`[IMAGE] Retry returned no imageUrl for "${automation.name}"`);
+                  }
+                } else {
+                  const retryError = await retryResponse.text();
+                  console.error(`[IMAGE] Retry also failed for "${automation.name}": ${retryError}`);
+                }
+              } catch (retryErr) {
+                console.error(`[IMAGE] Retry exception for "${automation.name}":`, retryErr);
+              }
+            }
+            
+            if (imageGenSuccess && imageResult?.imageUrl) {
+              mediaUrls.unshift(imageResult.imageUrl);
+              console.log(`[IMAGE] ✅ Generated for "${automation.name}": ${imageResult.imageUrl}`);
+              
+              await supabase
+                .from('planning_items')
+                .update({ 
+                  media_urls: mediaUrls,
+                  metadata: {
+                    ...(newItem.metadata as any || {}),
+                    generated_image_url: imageResult.imageUrl,
+                    image_style: automation.image_style,
+                  }
+                })
+                .eq('id', newItem.id);
+            } else {
+              console.error(`[IMAGE] ❌ FAILED for "${automation.name}" after retry. Item ${newItem.id} will have no image.`);
             }
           } catch (imgError) {
-            console.error(`Error generating image for ${automation.name}:`, imgError);
+            console.error(`[IMAGE] Exception for "${automation.name}":`, imgError);
           }
         }
 
