@@ -422,6 +422,46 @@ const GM_VARIATION_CATEGORIES = [
   { name: 'Observação aguda', instruction: 'Faça uma observação perspicaz sobre o mercado/nicho que poucos percebem.' },
 ];
 
+// LinkedIn editorial variation categories for anti-repetition
+const LINKEDIN_VARIATION_CATEGORIES: Record<string, Array<{ name: string; instruction: string }>> = {
+  'opinion': [
+    { name: 'Contrarian Take', instruction: 'Desafie uma crença popular do mercado Web3/marketing com argumentos sólidos. Comece com "Todo mundo fala X, mas a verdade é Y". Tom provocativo mas fundamentado.' },
+    { name: 'Dados & Análise', instruction: 'Use dados concretos, números e métricas como base do argumento. Cite fontes ou experiências mensuráveis. Framework analítico.' },
+    { name: 'Framework Próprio', instruction: 'Apresente um framework, modelo mental ou metodologia própria para resolver um problema do mercado. Use nomenclatura original.' },
+    { name: 'Tendência Emergente', instruction: 'Analise uma tendência emergente em cripto/IA/marketing que poucos estão falando. Posicione-se sobre o futuro com visão de quem constrói.' },
+    { name: 'Lição do Fracasso', instruction: 'Comece com um erro real, investimento perdido ou decisão errada. Extraia a lição profunda. Vulnerabilidade + insight = conexão.' },
+  ],
+  'building_in_public': [
+    { name: 'Bastidores Reais', instruction: 'Mostre o dia-a-dia real da Kaleidos: reuniões, decisões difíceis, processos internos. Seja raw e autêntico, não polido.' },
+    { name: 'Números Abertos', instruction: 'Compartilhe uma métrica real do negócio: faturamento, crescimento, churn, leads. Contextualize o número com a jornada.' },
+    { name: 'Aprendizado Honesto', instruction: 'Revele algo que aprendeu recentemente na prática que contradiz a teoria. "Na teoria X, na prática Y". Tom confessional.' },
+    { name: 'Ferramenta/Stack', instruction: 'Revele uma ferramenta, automação ou processo interno que usa na Kaleidos. Explique por que e como implementou. Prático e replicável.' },
+    { name: 'Decisão Difícil', instruction: 'Conte sobre uma decisão recente que foi difícil: demitir, pivotar, recusar cliente, investir. Mostre o processo de decisão.' },
+  ],
+  'case_study': [
+    { name: 'Resultados & Métricas', instruction: 'Apresente resultados concretos de um cliente da Kaleidos: antes vs depois, ROI, crescimento. Use números reais ou realistas.' },
+    { name: 'Processo Revelado', instruction: 'Mostre o passo-a-passo de como resolveu um problema de um cliente. Framework de diagnóstico → estratégia → execução → resultado.' },
+    { name: 'Transformação do Cliente', instruction: 'Conte a história de transformação: onde o cliente estava, o desafio, a virada, onde está agora. Formato storytelling.' },
+    { name: 'Erro que Virou Acerto', instruction: 'Comece com algo que deu errado num projeto de cliente. Mostre como corrigiu e o resultado final superou as expectativas.' },
+  ],
+};
+
+// Get LinkedIn variation for a specific automation type
+function getLinkedInVariation(automationName: string, variationIndex: number): { category: string; instruction: string; editorialType: string } {
+  let editorialType = 'opinion';
+  if (automationName.toLowerCase().includes('building')) editorialType = 'building_in_public';
+  else if (automationName.toLowerCase().includes('case') || automationName.toLowerCase().includes('prova')) editorialType = 'case_study';
+  
+  const categories = LINKEDIN_VARIATION_CATEGORIES[editorialType] || LINKEDIN_VARIATION_CATEGORIES['opinion'];
+  const variation = categories[variationIndex % categories.length];
+  
+  return {
+    category: variation.name,
+    instruction: variation.instruction,
+    editorialType,
+  };
+}
+
 // Build enriched prompt with context when template is empty or simple
 function buildEnrichedPrompt(
   template: string | null,
@@ -1021,6 +1061,63 @@ serve(async (req) => {
               console.log(`Variation: ${variation.name} (index ${variationIndex}), ${recentTweets.length} anti-examples`);
             }
             
+            // LinkedIn editorial variation system
+            if (automation.content_type === 'linkedin_post') {
+              const triggerConfig = automation.trigger_config as any;
+              const variationIndex = triggerConfig.variation_index || 0;
+              const linkedInVariation = getLinkedInVariation(automation.name, variationIndex);
+              
+              // Fetch recent LinkedIn posts as anti-examples
+              let recentPosts: string[] = [];
+              try {
+                const { data: recent } = await supabase
+                  .from('planning_items')
+                  .select('content')
+                  .eq('client_id', automation.client_id!)
+                  .eq('platform', 'linkedin')
+                  .not('content', 'is', null)
+                  .order('created_at', { ascending: false })
+                  .limit(5);
+                
+                if (recent) {
+                  recentPosts = recent.map(p => p.content!).filter(Boolean).map(c => c.substring(0, 200));
+                }
+              } catch (e) {
+                console.warn('Could not fetch recent LinkedIn posts:', e);
+              }
+              
+              variationContext = {
+                category: `LinkedIn ${linkedInVariation.editorialType}: ${linkedInVariation.category}`,
+                instruction: `${linkedInVariation.instruction}
+
+📝 FORMATO LINKEDIN OBRIGATÓRIO:
+- Primeiras 2 linhas = GANCHO IRRESISTÍVEL (determinam se clicam em "ver mais")
+- Parágrafos de 1-2 linhas máximo (leitura mobile)
+- Espaço entre CADA parágrafo
+- 1.200-1.500 caracteres ideal (máximo 3.000)
+- Termine SEMPRE com pergunta que gera comentários
+- Máximo 3 hashtags relevantes no final
+- Tom: técnico mas didático, direto, visionário, provocador
+- Posicionamento: "O Estrategista Full-Stack para Marcas Web3"
+- NUNCA use emojis em excesso (máximo 2)
+- Use quebras de linha generosas para respiro visual`,
+                recentTweets: recentPosts,
+              };
+              
+              // Increment variation index
+              await supabase
+                .from('planning_automations')
+                .update({
+                  trigger_config: {
+                    ...automation.trigger_config,
+                    variation_index: variationIndex + 1,
+                  }
+                })
+                .eq('id', automation.id);
+              
+              console.log(`LinkedIn Variation: ${linkedInVariation.category} (type: ${linkedInVariation.editorialType}, index ${variationIndex})`);
+            }
+            
             // ===================================================
             // YOUTUBE TRANSCRIPTION: Enrich prompt with video content
             // ===================================================
@@ -1231,7 +1328,12 @@ serve(async (req) => {
             
             // Build the enriched image prompt
             const styleModifier = getImageStyleModifier(automation.image_style);
-            const platformFormat = automation.platform === 'twitter' || automation.content_type === 'tweet' ? '1:1 square format for Twitter/X' : '1:1 format';
+            const isLinkedIn = automation.platform === 'linkedin' || automation.content_type === 'linkedin_post';
+            const platformFormat = automation.platform === 'twitter' || automation.content_type === 'tweet' 
+              ? '1:1 square format for Twitter/X' 
+              : isLinkedIn 
+                ? '1.91:1 landscape format for LinkedIn (1200x628px)' 
+                : '1:1 format';
             
             const fullImagePrompt = `${visualIdentity ? `IDENTIDADE VISUAL DO CLIENTE:\n${visualIdentity}\n` : ''}CONTEÚDO DO POST: ${imagePrompt}
 
@@ -1283,8 +1385,8 @@ REGRAS ABSOLUTAS:
                 type: 'image',
                 inputs: imageInputs,
                 config: {
-                  format: 'post',
-                  aspectRatio: '1:1',
+                  format: isLinkedIn ? 'linkedin_post' : 'post',
+                  aspectRatio: isLinkedIn ? '16:9' : '1:1',
                   noText: true,
                   useVisualReferences: visualRefs && visualRefs.length > 0,
                 },
@@ -1320,8 +1422,8 @@ REGRAS ABSOLUTAS:
                   },
                   body: JSON.stringify({
                     type: 'image',
-                    prompt: resolvedImagePrompt,
-                    imageInputs,
+                    type: 'image',
+                    inputs: imageInputs,
                     settings: {
                       imageStyle: automation.image_style || 'illustration',
                     },
