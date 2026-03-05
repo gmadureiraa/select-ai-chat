@@ -1,0 +1,2 @@
+ALTER TABLE planning_items DROP CONSTRAINT planning_items_platform_check;
+ALTER TABLE planning_items ADD CONSTRAINT planning_items_platform_check CHECK (platform = ANY (ARRAY['twitter'::text, 'linkedin'::text, 'instagram'::text, 'youtube'::text, 'newsletter'::text, 'blog'::text, 'tiktok'::text, 'threads'::text, 'facebook'::text, 'other'::text]));
