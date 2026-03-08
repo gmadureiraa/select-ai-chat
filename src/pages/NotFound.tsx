@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Home, ArrowLeft, Search, HelpCircle } from "lucide-react";
+import { Home, ArrowLeft, LogIn, HelpCircle } from "lucide-react";
 import kaleidosLogo from "@/assets/kaleidos-logo.svg";
 
 const NotFound = () => {
