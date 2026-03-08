@@ -1201,11 +1201,10 @@ serve(async (req) => {
               if (contentResult.content) {
                 generatedContent = contentResult.content;
                 
-                // Clean tweet output: remove AI formatting labels
-                if (automation.content_type === 'tweet') {
-                  generatedContent = cleanTweetOutput(generatedContent);
-                  console.log(`Tweet cleaned: "${generatedContent.substring(0, 100)}..." (${generatedContent.length} chars)`);
-                }
+                // Clean content output: remove AI formatting labels for ALL content types
+                // Pass derivedPlatform so cleaning is context-aware (e.g., text-only for twitter/threads)
+                generatedContent = cleanContentOutput(generatedContent, derivedPlatform || undefined);
+                console.log(`Content cleaned for ${derivedPlatform}: "${generatedContent.substring(0, 100)}..." (${generatedContent.length} chars)`);
                 
                 console.log(`Content generated (${generatedContent!.length} chars)`);
                 
