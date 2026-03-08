@@ -885,7 +885,17 @@ serve(async (req) => {
 
         // Derive platform from content_type if not set
         const derivedPlatform = automation.platform || PLATFORM_MAP[automation.content_type] || null;
-        const format = FORMAT_MAP[automation.content_type] || 'post';
+        // Override format for text-only platforms using social_post type
+        // social_post → 'post' format generates TEXTO DO VISUAL labels (designed for Instagram)
+        // For twitter/threads/linkedin, use 'tweet' or 'linkedin' format instead
+        let format = FORMAT_MAP[automation.content_type] || 'post';
+        if (automation.content_type === 'social_post') {
+          if (derivedPlatform === 'threads' || derivedPlatform === 'twitter') {
+            format = 'tweet';
+          } else if (derivedPlatform === 'linkedin') {
+            format = 'linkedin';
+          }
+        }
         
         // Get default column
         let columnId = automation.target_column_id;
