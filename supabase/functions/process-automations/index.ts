@@ -60,21 +60,28 @@ interface RSSItem {
   allImages?: string[];
 }
 
-// Clean tweet output: remove AI formatting labels like "TEXTO DO VISUAL:", "LEGENDA:", markdown bold, etc.
-function cleanTweetOutput(content: string): string {
+// Clean content output: remove AI formatting labels like "TEXTO DO VISUAL:", "LEGENDA:", markdown bold, etc.
+// Applied to ALL text-based content types (tweet, social_post, thread, linkedin_post, etc.)
+function cleanContentOutput(content: string, platform?: string): string {
   if (!content) return content;
   
   let cleaned = content;
   
-  // Remove common AI output labels/sections
-  // Pattern: **TEXTO DO VISUAL:** ... --- **LEGENDA:** ... → keep only the LEGENDA part (the actual tweet)
+  // Remove code block wrappers (```...```)
+  cleaned = cleaned.replace(/^```[\s\S]*?\n([\s\S]*?)```\s*$/gm, '$1');
+  cleaned = cleaned.replace(/^```\s*\n?/gm, '').replace(/\n?```\s*$/gm, '');
+  
+  // For text-only platforms (twitter, threads, linkedin), extract only the caption/legenda
+  const isTextOnlyPlatform = ['twitter', 'threads', 'linkedin'].includes(platform || '');
+  
+  // Pattern: **TEXTO DO VISUAL:** ... --- **LEGENDA:** ... → keep only the LEGENDA part
   const legendaMatch = cleaned.match(/\*{0,2}LEGENDA[:\s]*\*{0,2}\s*([\s\S]+)/i);
   const textoVisualMatch = cleaned.match(/\*{0,2}TEXTO\s*(?:DO\s*)?VISUAL[:\s]*\*{0,2}\s*([\s\S]+?)(?:\n---|\n\n\*{0,2}LEGENDA)/i);
   
-  if (legendaMatch) {
-    // If there's a LEGENDA section, use that as the tweet text
+  if (legendaMatch && (isTextOnlyPlatform || cleaned.includes('TEXTO DO VISUAL'))) {
+    // If there's a LEGENDA section, use that as the post text
     cleaned = legendaMatch[1].trim();
-  } else if (textoVisualMatch && !cleaned.includes('LEGENDA')) {
+  } else if (textoVisualMatch && !cleaned.includes('LEGENDA') && isTextOnlyPlatform) {
     // If there's only TEXTO DO VISUAL and no LEGENDA, use that
     cleaned = textoVisualMatch[1].trim();
   }
@@ -86,7 +93,12 @@ function cleanTweetOutput(content: string): string {
   cleaned = cleaned.replace(/^\s*[\-\*]\s+/gm, ''); // bullet points
   
   // Remove label prefixes that might remain
-  cleaned = cleaned.replace(/^(?:TWEET|LEGENDA|TEXTO|CAPTION|POST)[:\s]*/im, '');
+  cleaned = cleaned.replace(/^(?:TWEET|LEGENDA|TEXTO|CAPTION|POST|TEXTO DO VISUAL)[:\s]*/im, '');
+  
+  // Remove "TEXTO DO VISUAL:" blocks entirely for text-only platforms
+  if (isTextOnlyPlatform) {
+    cleaned = cleaned.replace(/\*{0,2}TEXTO\s*(?:DO\s*)?VISUAL[:\s]*\*{0,2}[^\n]*\n*/gi, '');
+  }
   
   // Clean up excessive whitespace
   cleaned = cleaned.replace(/\n{3,}/g, '\n\n').trim();
