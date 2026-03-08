@@ -123,6 +123,7 @@ export function KaiSidebar({
     canViewLibrary,
     isViewer,
     canUseAssistant,
+    canManageTeam,
     workspace 
   } = useWorkspace();
   
