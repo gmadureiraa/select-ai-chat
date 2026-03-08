@@ -39,6 +39,7 @@ export const PLATFORM_MAP: Record<string, string> = {
   'newsletter': 'newsletter',
   'blog_post': 'blog',
   'email_marketing': 'email',
+  'social_post': 'twitter', // Used by Threads/Twitter social_post automations
 };
 
 // Content type labels for enriched prompts (Portuguese)

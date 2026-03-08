@@ -60,21 +60,28 @@ interface RSSItem {
   allImages?: string[];
 }
 
-// Clean tweet output: remove AI formatting labels like "TEXTO DO VISUAL:", "LEGENDA:", markdown bold, etc.
-function cleanTweetOutput(content: string): string {
+// Clean content output: remove AI formatting labels like "TEXTO DO VISUAL:", "LEGENDA:", markdown bold, etc.
+// Applied to ALL text-based content types (tweet, social_post, thread, linkedin_post, etc.)
+function cleanContentOutput(content: string, platform?: string): string {
   if (!content) return content;
   
   let cleaned = content;
   
-  // Remove common AI output labels/sections
-  // Pattern: **TEXTO DO VISUAL:** ... --- **LEGENDA:** ... → keep only the LEGENDA part (the actual tweet)
+  // Remove code block wrappers (```...```)
+  cleaned = cleaned.replace(/^```[\s\S]*?\n([\s\S]*?)```\s*$/gm, '$1');
+  cleaned = cleaned.replace(/^```\s*\n?/gm, '').replace(/\n?```\s*$/gm, '');
+  
+  // For text-only platforms (twitter, threads, linkedin), extract only the caption/legenda
+  const isTextOnlyPlatform = ['twitter', 'threads', 'linkedin'].includes(platform || '');
+  
+  // Pattern: **TEXTO DO VISUAL:** ... --- **LEGENDA:** ... → keep only the LEGENDA part
   const legendaMatch = cleaned.match(/\*{0,2}LEGENDA[:\s]*\*{0,2}\s*([\s\S]+)/i);
   const textoVisualMatch = cleaned.match(/\*{0,2}TEXTO\s*(?:DO\s*)?VISUAL[:\s]*\*{0,2}\s*([\s\S]+?)(?:\n---|\n\n\*{0,2}LEGENDA)/i);
   
-  if (legendaMatch) {
-    // If there's a LEGENDA section, use that as the tweet text
+  if (legendaMatch && (isTextOnlyPlatform || cleaned.includes('TEXTO DO VISUAL'))) {
+    // If there's a LEGENDA section, use that as the post text
     cleaned = legendaMatch[1].trim();
-  } else if (textoVisualMatch && !cleaned.includes('LEGENDA')) {
+  } else if (textoVisualMatch && !cleaned.includes('LEGENDA') && isTextOnlyPlatform) {
     // If there's only TEXTO DO VISUAL and no LEGENDA, use that
     cleaned = textoVisualMatch[1].trim();
   }
@@ -86,7 +93,12 @@ function cleanTweetOutput(content: string): string {
   cleaned = cleaned.replace(/^\s*[\-\*]\s+/gm, ''); // bullet points
   
   // Remove label prefixes that might remain
-  cleaned = cleaned.replace(/^(?:TWEET|LEGENDA|TEXTO|CAPTION|POST)[:\s]*/im, '');
+  cleaned = cleaned.replace(/^(?:TWEET|LEGENDA|TEXTO|CAPTION|POST|TEXTO DO VISUAL)[:\s]*/im, '');
+  
+  // Remove "TEXTO DO VISUAL:" blocks entirely for text-only platforms
+  if (isTextOnlyPlatform) {
+    cleaned = cleaned.replace(/\*{0,2}TEXTO\s*(?:DO\s*)?VISUAL[:\s]*\*{0,2}[^\n]*\n*/gi, '');
+  }
   
   // Clean up excessive whitespace
   cleaned = cleaned.replace(/\n{3,}/g, '\n\n').trim();
@@ -873,7 +885,17 @@ serve(async (req) => {
 
         // Derive platform from content_type if not set
         const derivedPlatform = automation.platform || PLATFORM_MAP[automation.content_type] || null;
-        const format = FORMAT_MAP[automation.content_type] || 'post';
+        // Override format for text-only platforms using social_post type
+        // social_post → 'post' format generates TEXTO DO VISUAL labels (designed for Instagram)
+        // For twitter/threads/linkedin, use 'tweet' or 'linkedin' format instead
+        let format = FORMAT_MAP[automation.content_type] || 'post';
+        if (automation.content_type === 'social_post') {
+          if (derivedPlatform === 'threads' || derivedPlatform === 'twitter') {
+            format = 'tweet';
+          } else if (derivedPlatform === 'linkedin') {
+            format = 'linkedin';
+          }
+        }
         
         // Get default column
         let columnId = automation.target_column_id;
@@ -1189,11 +1211,10 @@ serve(async (req) => {
               if (contentResult.content) {
                 generatedContent = contentResult.content;
                 
-                // Clean tweet output: remove AI formatting labels
-                if (automation.content_type === 'tweet') {
-                  generatedContent = cleanTweetOutput(generatedContent);
-                  console.log(`Tweet cleaned: "${generatedContent.substring(0, 100)}..." (${generatedContent.length} chars)`);
-                }
+                // Clean content output: remove AI formatting labels for ALL content types
+                // Pass derivedPlatform so cleaning is context-aware (e.g., text-only for twitter/threads)
+                generatedContent = cleanContentOutput(generatedContent, derivedPlatform || undefined);
+                console.log(`Content cleaned for ${derivedPlatform}: "${generatedContent.substring(0, 100)}..." (${generatedContent.length} chars)`);
                 
                 console.log(`Content generated (${generatedContent!.length} chars)`);
                 
