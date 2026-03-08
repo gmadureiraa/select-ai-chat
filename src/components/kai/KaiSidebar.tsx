@@ -322,8 +322,8 @@ export function KaiSidebar({
           collapsed={collapsed}
         />
 
-        {/* Automações - Dev only por enquanto */}
-        {hasDevAccess && (
+        {/* Automações - Dev e admins do workspace */}
+        {(hasDevAccess || canManageTeam) && (
           <NavItem
             icon={<Zap className="h-4 w-4" strokeWidth={1.5} />}
             label="Automações"

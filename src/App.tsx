@@ -64,6 +64,9 @@ const App = () => (
                       <Route path="docs" element={<Documentation />} />
                     </Route>
                     
+                    {/* No workspace page */}
+                    <Route path="/no-workspace" element={<NoWorkspacePage />} />
+                    
                     {/* Catch any other workspace slug and redirect to kaleidos */}
                     <Route path="/:slug" element={<Navigate to="/kaleidos" replace />} />
                     <Route path="/:slug/*" element={<Navigate to="/kaleidos" replace />} />

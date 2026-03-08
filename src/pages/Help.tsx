@@ -11,12 +11,9 @@ import {
   Settings, 
   HelpCircle,
   ChevronRight,
-  ExternalLink,
   ArrowLeft,
   MessageCircle,
-  BookOpen,
   Zap,
-  Play
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -27,6 +24,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import { toast } from "sonner";
 import kaleidosLogo from "@/assets/kaleidos-logo.svg";
 
 const WHATSAPP_LINK = "https://api.whatsapp.com/send/?phone=12936180547&text=Ol%C3%A1%21+Preciso+de+ajuda+com+o+KAI.&type=phone_number&app_absent=0";
@@ -141,6 +139,12 @@ const faqs = [
   },
 ];
 
+const handleArticleClick = () => {
+  toast.info("Em breve", {
+    description: "Este artigo ainda está sendo escrito. Fale com o suporte se precisar de ajuda.",
+  });
+};
+
 const Help = () => {
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -158,7 +162,7 @@ const Help = () => {
       <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <Link to="/" className="flex items-center gap-2">
+            <Link to="/kaleidos" className="flex items-center gap-2">
               <img src={kaleidosLogo} alt="KAI" className="h-8 w-8" />
               <span className="text-xl font-semibold">KAI</span>
             </Link>
@@ -166,7 +170,7 @@ const Help = () => {
             <span className="text-foreground font-medium">Central de Ajuda</span>
           </div>
           <div className="flex items-center gap-3">
-            <Link to="/kai">
+            <Link to="/kaleidos">
               <Button variant="ghost" size="sm">
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Voltar ao app
@@ -214,15 +218,15 @@ const Help = () => {
         <div className="max-w-6xl mx-auto px-6">
           <div className="flex flex-wrap items-center justify-center gap-4">
             <span className="text-sm text-muted-foreground">Acesso rápido:</span>
-            <Link to="/kai" className="inline-flex items-center gap-1 text-sm text-primary hover:underline">
+            <Link to="/kaleidos" className="inline-flex items-center gap-1 text-sm text-primary hover:underline">
               <LayoutDashboard className="w-4 h-4" />
               Abrir Canvas
             </Link>
-            <Link to="/kai?tab=planning" className="inline-flex items-center gap-1 text-sm text-primary hover:underline">
+            <Link to="/kaleidos?tab=planning" className="inline-flex items-center gap-1 text-sm text-primary hover:underline">
               <Calendar className="w-4 h-4" />
               Planejamento
             </Link>
-            <Link to="/settings" className="inline-flex items-center gap-1 text-sm text-primary hover:underline">
+            <Link to="/kaleidos?tab=settings" className="inline-flex items-center gap-1 text-sm text-primary hover:underline">
               <Settings className="w-4 h-4" />
               Configurações
             </Link>
@@ -260,7 +264,10 @@ const Help = () => {
                       <ul className="space-y-2">
                         {category.articles.slice(0, 4).map((article) => (
                           <li key={article.slug}>
-                            <button className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors w-full text-left">
+                            <button 
+                              onClick={handleArticleClick}
+                              className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors w-full text-left"
+                            >
                               <ChevronRight className="w-3 h-3" />
                               {article.title}
                             </button>
@@ -281,26 +288,8 @@ const Help = () => {
         </div>
       </section>
 
-      {/* Video Tutorial */}
-      <section className="py-16 bg-muted/30">
-        <div className="max-w-4xl mx-auto px-6">
-          <div className="text-center mb-8">
-            <h2 className="text-2xl font-bold text-foreground mb-2">Aprenda em 5 minutos</h2>
-            <p className="text-muted-foreground">Veja como criar seu primeiro conteúdo com o Canvas</p>
-          </div>
-          <div className="relative aspect-video bg-card rounded-2xl border border-border overflow-hidden">
-            <div className="absolute inset-0 flex items-center justify-center bg-muted/50">
-              <Button size="lg" className="gap-2">
-                <Play className="w-5 h-5" />
-                Assistir tutorial
-              </Button>
-            </div>
-          </div>
-        </div>
-      </section>
-
       {/* FAQ */}
-      <section className="py-16">
+      <section className="py-16 bg-muted/30">
         <div className="max-w-3xl mx-auto px-6">
           <h2 className="text-2xl font-bold text-foreground mb-8 text-center">
             Perguntas frequentes

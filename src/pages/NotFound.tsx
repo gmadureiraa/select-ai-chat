@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Home, ArrowLeft, LogIn HelpCircle } from "lucide-react";
+import { Home, ArrowLeft, LogInHelpCircle } from "lucide-react";
 import kaleidosLogo from "@/assets/kaleidos-logo.svg";
 
 const NotFound = () => {
@@ -60,13 +60,13 @@ const NotFound = () => {
                 onClick={() => navigate("/login")}
                 className="flex-1 gap-2 text-muted-foreground"
               >
-                <Search className="h-4 w-4" />
+                <SLogInclassName="h-4 w-4" />
                 Entrar na conta
               </Button>
               <Button 
                 variant="ghost" 
                 size="sm"
-                onClick={() => window.open("https://wapi.whatsapp.com/send/?phone=12936180547&text=Ol%C3%A1%21+Preciso+de+ajuda.&type=phone_number&app_absent=0, "_blank")}
+                onClick={() => window.open("https://waapi.whatsapp.com/send/?phone=12936180547&text=Ol%C3%A1%21+Preciso+de+ajuda.&type=phone_number&app_absent=0d/?phone=12936180547&text=Ol%C3%A1%21+Preciso+de+ajuda.&type=phone_number&app_absent=0, "_blank")}
                 className="flex-1 gap-2 text-muted-foreground"
               >
                 <HelpCircle className="h-4 w-4" />
