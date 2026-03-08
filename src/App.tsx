@@ -14,6 +14,7 @@ import { SuperAdminRoute } from "@/components/SuperAdminRoute";
 import Login from "./pages/Login";
 import SimpleSignup from "./pages/SimpleSignup";
 import NotFound from "./pages/NotFound";
+import NoWorkspacePage from "./pages/NoWorkspacePage";
 import { WorkspaceProvider } from "@/contexts/WorkspaceContext";
 import { WorkspaceRouter } from "@/components/WorkspaceRouter";
 import { TokenErrorProvider } from "@/hooks/useTokenError";
