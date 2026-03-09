@@ -208,6 +208,7 @@ export function AutomationDialog({ open, onOpenChange, automation }: AutomationD
       setClientId('');
       setColumnId('');
       setPlatform('');
+      setSelectedPlatforms([]);
       setContentType('tweet');
       setAutoGenerate(false);
       setPromptTemplate('');
