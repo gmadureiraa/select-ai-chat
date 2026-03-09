@@ -1,166 +1,56 @@
 
-# Auditoria 100% da Documentação — Análise Completa e Plano de Melhorias
 
-## 📊 Diagnóstico Geral
+## Diagnóstico: Por que as automações não estão postando
 
-Após revisão completa, a documentação está em **~85% de cobertura**. Existem gaps importantes que precisam ser preenchidos para atingir 100%.
+### Problema 1: LinkedIn - Itens criados mas nunca publicados
+As 3 automações de LinkedIn (Artigo de Opinião, Building in Public, Case & Prova Social) estão **funcionando corretamente** na geração de conteúdo e imagens. O problema é que todas estão com `auto_publish: false`. Os itens são criados com status "idea" no planejamento e ficam lá esperando publicação manual. Nenhum deles jamais é publicado automaticamente.
 
----
+### Problema 2: Threads - Nenhuma automação configurada
+As credenciais do Threads (conta `madureira0x`) estão válidas, mas **não existe nenhuma automação** direcionada ao Threads.
 
-## ✅ O QUE ESTÁ BEM DOCUMENTADO
+### Problema 3: Bug no retry de imagem
+No `process-automations`, linha ~1322, o retry de geração de imagem referencia a variável `resolvedImagePrompt` que **não existe** no escopo (o nome correto é `fullImagePrompt`). Isso faz o retry falhar silenciosamente.
 
-| Área | Documento | Status |
-|------|-----------|--------|
-| Arquitetura | `ARCHITECTURE.md` | ✅ Completo - stack, RLS, modelo de acesso |
-| kAI Chat | `KAI_CHAT.md` | ✅ Completo - detecção, contexto, métricas |
-| Pipeline Geração | `UNIFIED_CONTENT_PIPELINE.md` | ✅ Completo - 4 etapas, validação |
-| Planning | `PLANNING_KANBAN.md` | ✅ Completo - colunas, cards, publicação |
-| Canvas | `CONTENT_CANVAS.md` | ⚠️ Básico - falta detalhes dos nós |
-| Automações | `AUTOMATIONS_PIPELINE.md` | ✅ Completo - rotação, voice profile |
-| Publicação | `SOCIAL_PUBLISHING.md` | ✅ Completo - Late API, OAuth |
-| Repurpose | `CONTENT_REPURPOSE.md` | ⚠️ Básico - falta fluxo detalhado |
-| Engagement | `ENGAGEMENT.md` | ⚠️ Básico - falta scoring |
-| Onboarding | `CLIENT_ONBOARDING.md` | ✅ Completo |
-| Formatos (12) | `docs/formatos/` | ✅ Todos presentes |
-| Agentes (6) | `docs/agentes/` | ✅ Todos presentes |
-| API | `API-EDGE-FUNCTIONS.md` | ⚠️ Desatualizado - funções legadas |
-| Design System | `DESIGN-SYSTEM-COMPLETO.md` | ✅ Completo |
+### Problema 4: Qualidade do conteúdo LinkedIn repetitivo
+Os posts gerados para LinkedIn estão todos girando em torno do mesmo tema ("clareza vs complexidade em Web3"). Falta diversidade temática e o sistema de variação (que existe para tweets) não está implementado para LinkedIn.
 
 ---
 
-## 🔴 GAPS IDENTIFICADOS (15% faltante)
+## Plano de Implementação
 
-### 1. Performance Hub & Métricas (FALTA DOCUMENTAÇÃO)
-- **Problema:** Não existe `docs/PERFORMANCE_METRICS.md`
-- **Funcionalidades não documentadas:**
-  - Dashboard de métricas (Instagram, YouTube, LinkedIn, Beehiiv)
-  - Sincronização de posts via RSS
-  - Tabelas `instagram_posts`, `linkedin_posts`, `youtube_videos`
-  - Edge functions de coleta (`fetch-instagram-metrics`, `fetch-youtube-metrics`, etc.)
-  - Análise de top performers
+### 1. Corrigir bug do retry de imagem no process-automations
+- Substituir `resolvedImagePrompt` por `fullImagePrompt` na linha do retry
 
-### 2. Content Library (FALTA DOCUMENTAÇÃO)
-- **Problema:** Não existe `docs/CONTENT_LIBRARY.md`
-- **Funcionalidades não documentadas:**
-  - Tipos de conteúdo (posts, newsletters, case studies, reports)
-  - Sistema de favoritos (`is_favorite`)
-  - Sincronização RSS/Beehiiv
-  - Reference Library (artigos, estudos)
-  - Visual References (logos, paletas)
-  - Preview modal otimizado
+### 2. Criar sistema de variação para LinkedIn (anti-repetição)
+Adicionar categorias editoriais para LinkedIn similares ao `GM_VARIATION_CATEGORIES` dos tweets:
+- **Artigo de Opinião**: Análise contrarian de tendência, dados concretos, framework próprio
+- **Building in Public**: Bastidores reais, números, aprendizados honestos, erros
+- **Case & Prova Social**: Resultados de clientes, métricas antes/depois, processo
 
-### 3. Geração de Imagens (FALTA DOCUMENTAÇÃO)
-- **Problema:** Não existe `docs/IMAGE_GENERATION.md`
-- **Funcionalidades não documentadas:**
-  - Pipeline Gemini 2.0 Flash para imagens
-  - DNA Visual do cliente (`client_visual_references`)
-  - Regra "Sem Texto" com retry automático
-  - Modificadores de estilo (photographic, illustration, etc.)
-  - Integração com Canvas e Planning
+Cada automação LinkedIn receberá um `variation_index` rotativo com sub-temas específicos para evitar repetição.
 
-### 4. Sistema de Notificações (FALTA DOCUMENTAÇÃO)
-- **Problema:** Não existe `docs/NOTIFICATIONS.md`
-- **Funcionalidades não documentadas:**
-  - In-app notifications
-  - Push notifications (Web Push + Service Worker)
-  - Email notifications (queue + edge function)
-  - Preferências por usuário
-  - Tipos de notificação (publish_reminder, automation_complete, etc.)
+### 3. Melhorar prompts LinkedIn com estratégia de conteúdo
+Enriquecer os prompts usando o guia de conteúdo do Madureira (`public/clients/madureira/guia-conteudo.md`):
+- Incorporar os 5 pilares de conteúdo como rotação temática
+- Usar tom de voz definido: técnico mas didático, direto, visionário
+- Adicionar instruções de formatação específicas para LinkedIn (quebras de linha, storytelling, CTA)
 
-### 5. API Edge Functions (DESATUALIZADO)
-- **Problema:** `API-EDGE-FUNCTIONS.md` menciona funções legadas inexistentes
-- **Funções faltantes na doc:**
-  - `kai-simple-chat` (principal!)
-  - `kai-content-agent`, `kai-planning-agent`, `kai-metrics-agent`
-  - `process-automations`, `process-recurring-content`
-  - `late-post`, `late-oauth-*`
-  - `research-newsletter-topic`
-  - `sync-rss-to-library`
-- **Funções legadas que devem ser removidas:**
-  - `n8n-api`, `execute-workflow`, `run-automation`
-  - `chat-multi-agent`, `orchestrator`
-  - `transcribe-audio`, `transcribe-video`
-  - `analyze-research`, `scrape-research-link`
+### 4. Habilitar auto_publish para LinkedIn (com revisão inteligente)
+Alterar as 3 automações de LinkedIn para `auto_publish: true` para que os posts sejam publicados automaticamente após geração.
 
-### 6. Canvas — Detalhes Técnicos (INCOMPLETO)
-- **O que falta em `CONTENT_CANVAS.md`:**
-  - Schema completo de cada tipo de nó (data fields)
-  - Integração de OutputNode com threads/carrosséis
-  - Workflow de geração nó a nó
-  - Atalhos de teclado e gestos
-  - Export/Import de canvas
+### 5. Criar automações para Threads
+Criar 2-3 automações de Threads para o perfil Madureira:
+- **Threads Diário** (daily): Repurpose do melhor tweet do dia ou insight rápido
+- **Threads Semanal** (weekly): Versão expandida de um tweet de alta performance
 
-### 7. Engagement Hub — Scoring (INCOMPLETO)
-- **O que falta em `ENGAGEMENT.md`:**
-  - Algoritmo de `relevance_score`
-  - Critérios de categorização (industry, competitor, audience)
-  - Configuração de keywords por cliente
-  - Rate limits do Twitter API
-
-### 8. Tokens & Billing (FALTA DOCUMENTAÇÃO DEDICADA)
-- **Problema:** Existe apenas menção em `ARCHITECTURE.md`
-- **Falta doc dedicada:**
-  - Sistema de tokens (`workspace_tokens`)
-  - Débito por chamada de IA
-  - Planos (Free, Pro, Enterprise)
-  - Stripe checkout e portal
-  - Limites por plano
+### 6. Melhorar geração de imagem para LinkedIn
+- Ajustar o aspect ratio para LinkedIn: `1.91:1` (landscape) em vez de `1:1`
+- Enriquecer prompts de imagem com contexto profissional/corporativo
+- Usar modelo `google/gemini-3-pro-image-preview` para maior qualidade nas imagens de LinkedIn
 
 ---
 
-## 📋 PLANO DE IMPLEMENTAÇÃO
+### Arquivos a modificar
+1. `supabase/functions/process-automations/index.ts` - Fix retry bug, adicionar variação LinkedIn, melhorar prompts
+2. Database: Atualizar `planning_automations` para habilitar auto_publish nas automações LinkedIn e criar novas automações Threads
 
-### Fase 1: Documentos Novos (Críticos)
-
-| # | Documento | Descrição |
-|---|-----------|-----------|
-| 1 | `docs/PERFORMANCE_METRICS.md` | Dashboard, coleta de métricas, análise de top performers |
-| 2 | `docs/CONTENT_LIBRARY.md` | Tipos, favoritos, sync RSS, visual references |
-| 3 | `docs/IMAGE_GENERATION.md` | Pipeline Gemini, DNA visual, retry "sem texto" |
-| 4 | `docs/NOTIFICATIONS.md` | Push, email, in-app, preferências |
-| 5 | `docs/TOKENS_BILLING.md` | Sistema de créditos, planos, Stripe |
-
-### Fase 2: Atualizações
-
-| # | Documento | Mudança |
-|---|-----------|---------|
-| 6 | `API-EDGE-FUNCTIONS.md` | Remover 12 funções legadas, adicionar 15 funções atuais |
-| 7 | `CONTENT_CANVAS.md` | Adicionar schema de nós, OutputNode, atalhos |
-| 8 | `ENGAGEMENT.md` | Adicionar algoritmo de scoring, keywords config |
-| 9 | `CONTENT_REPURPOSE.md` | Expandir fluxo, adicionar tela UI |
-| 10 | `README.md` | Adicionar links para novos docs |
-
-### Fase 3: Detalhes Finais
-
-| # | Área | Ação |
-|---|------|------|
-| 11 | Formatos | Verificar se `format-schemas.ts` está 100% alinhado com docs |
-| 12 | Agentes | Adicionar links para edge functions correspondentes |
-| 13 | Data de atualização | Atualizar todas para "Março 2026" |
-
----
-
-## 📁 Arquivos a Criar/Modificar
-
-**Criar (5 arquivos):**
-- `docs/PERFORMANCE_METRICS.md`
-- `docs/CONTENT_LIBRARY.md`
-- `docs/IMAGE_GENERATION.md`
-- `docs/NOTIFICATIONS.md`
-- `docs/TOKENS_BILLING.md`
-
-**Atualizar (5 arquivos):**
-- `docs/API-EDGE-FUNCTIONS.md`
-- `docs/CONTENT_CANVAS.md`
-- `docs/ENGAGEMENT.md`
-- `docs/CONTENT_REPURPOSE.md`
-- `docs/README.md`
-
----
-
-## 📊 Resultado Esperado
-
-Após implementação:
-- **Cobertura:** 100% das funcionalidades documentadas
-- **Total de docs:** ~25 arquivos completos
-- **Utilidade:** Qualquer pessoa consegue entender o sistema completo lendo a documentação

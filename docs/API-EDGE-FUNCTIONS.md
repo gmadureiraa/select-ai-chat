@@ -1,4 +1,4 @@
-# API Edge Functions - Documentação
+# API Edge Functions — Documentação
 
 Este documento descreve as Edge Functions disponíveis no sistema Kaleidos.
 
@@ -8,21 +8,25 @@ Este documento descreve as Edge Functions disponíveis no sistema Kaleidos.
 
 1. [Chat & IA](#chat--ia)
 2. [Geração de Conteúdo](#geração-de-conteúdo)
-3. [Análise & Insights](#análise--insights)
-4. [Integrações Sociais](#integrações-sociais)
-5. [Métricas](#métricas)
-6. [Extração de Dados](#extração-de-dados)
-7. [Knowledge Base](#knowledge-base)
-8. [Automações](#automações)
-9. [Pagamentos](#pagamentos)
-10. [Utilitários](#utilitários)
+3. [Agentes Especializados](#agentes-especializados)
+4. [Análise & Insights](#análise--insights)
+5. [Imagens](#imagens)
+6. [Integrações Sociais](#integrações-sociais)
+7. [Publicação (Late API)](#publicação-late-api)
+8. [Métricas](#métricas)
+9. [Extração de Dados](#extração-de-dados)
+10. [Knowledge Base](#knowledge-base)
+11. [Automações & Scheduling](#automações--scheduling)
+12. [Notificações](#notificações)
+13. [Pagamentos](#pagamentos)
+14. [Utilitários](#utilitários)
 
 ---
 
 ## Chat & IA
 
-### `chat`
-Endpoint principal para conversas com IA.
+### `kai-simple-chat`
+Endpoint principal do kAI Chat. Detecção de intenção, geração de conteúdo, métricas e planejamento.
 
 **Método:** POST  
 **Autenticação:** Bearer Token  
@@ -33,16 +37,24 @@ Endpoint principal para conversas com IA.
   "clientId": "uuid",
   "model": "gemini-2.5-flash",
   "conversationId": "uuid (opcional)",
-  "templateId": "uuid (opcional)"
+  "mode": "chat|content|ideas|performance (opcional)",
+  "quality": "fast|high (opcional)"
 }
 ```
-
-**Resposta:** Stream de texto
+**Resposta:** Stream de texto (SSE)
 
 ---
 
-### `chat-multi-agent`
-Conversa com múltiplos agentes em sequência.
+### `chat`
+Endpoint legado de chat (mantido para compatibilidade).
+
+**Método:** POST  
+**Autenticação:** Bearer Token
+
+---
+
+### `chat-about-material`
+Chat contextualizado sobre material específico (documento, artigo, vídeo).
 
 **Método:** POST  
 **Autenticação:** Bearer Token  
@@ -50,32 +62,39 @@ Conversa com múltiplos agentes em sequência.
 ```json
 {
   "messages": [{ "role": "user", "content": "..." }],
-  "clientId": "uuid",
-  "agentIds": ["uuid1", "uuid2"]
+  "materialContent": "conteúdo do material",
+  "materialTitle": "título",
+  "clientId": "uuid"
 }
 ```
 
 ---
 
-### `execute-agent`
-Executa um agente específico.
+## Agentes Especializados
+
+### `kai-content-agent`
+Agente de geração de conteúdo. Aplica pipeline Writer → Validate → Repair → Review.
 
 **Método:** POST  
 **Autenticação:** Bearer Token  
 **Body:**
 ```json
 {
-  "agentId": "uuid",
-  "input": "mensagem do usuário",
+  "brief": "briefing do conteúdo",
   "clientId": "uuid",
-  "context": {}
+  "format": "tweet|thread|carousel|linkedin|newsletter|blog_post",
+  "references": ["ids de materiais (opcional)"]
 }
 ```
 
----
+### `kai-planning-agent`
+Agente de planejamento editorial. Cria e organiza cards no Kanban.
 
-### `orchestrator`
-Orquestra múltiplas chamadas de IA.
+**Método:** POST  
+**Autenticação:** Bearer Token
+
+### `kai-metrics-agent`
+Agente de análise de métricas. Interpreta dados de performance.
 
 **Método:** POST  
 **Autenticação:** Bearer Token
@@ -84,8 +103,24 @@ Orquestra múltiplas chamadas de IA.
 
 ## Geração de Conteúdo
 
+### `unified-content-api`
+Pipeline unificado de geração: Writer → Validate → Repair → Review.
+
+**Método:** POST  
+**Autenticação:** Bearer Token  
+**Body:**
+```json
+{
+  "brief": "briefing",
+  "clientId": "uuid",
+  "formatType": "tweet|thread|carousel|linkedin|...",
+  "formatRuleId": "uuid (opcional)",
+  "references": []
+}
+```
+
 ### `generate-content-from-idea`
-Gera conteúdo a partir de uma ideia.
+Gera conteúdo a partir de uma ideia (Canvas ou Library).
 
 **Método:** POST  
 **Autenticação:** Bearer Token  
@@ -98,10 +133,66 @@ Gera conteúdo a partir de uma ideia.
 }
 ```
 
+### `generate-content-v2`
+Versão 2 do gerador de conteúdo.
+
+**Método:** POST  
+**Autenticação:** Bearer Token
+
+### `generate-content-learnings`
+Gera learnings a partir de conteúdos de alta performance.
+
+**Método:** POST  
+**Autenticação:** Bearer Token
+
+### `generate-voice-profile`
+Gera Voice Profile do cliente a partir de amostras de conteúdo.
+
+**Método:** POST  
+**Autenticação:** Bearer Token
+
+### `generate-client-context`
+Gera contexto consolidado do cliente para uso em prompts.
+
+**Método:** POST  
+**Autenticação:** Bearer Token
+
+### `reverse-engineer`
+Analisa conteúdo existente e extrai estrutura/estilo/padrões.
+
+**Método:** POST  
+**Autenticação:** Bearer Token
+
+### `research-newsletter-topic`
+Pesquisa e gera conteúdo para newsletters com dados atualizados.
+
+**Método:** POST  
+**Autenticação:** Bearer Token
+
 ---
 
-### `generate-ideas-pipeline`
-Pipeline de geração de ideias.
+## Análise & Insights
+
+### `analyze-client-onboarding`
+Analisa dados do onboarding e sugere configurações.
+
+**Método:** POST  
+**Autenticação:** Bearer Token
+
+### `analyze-style`
+Analisa estilo de escrita de amostras de texto.
+
+**Método:** POST  
+**Autenticação:** Bearer Token
+
+### `analyze-youtube-sentiment`
+Analisa sentimento de comentários do YouTube.
+
+**Método:** POST  
+**Autenticação:** Bearer Token
+
+### `generate-performance-insights`
+Gera insights de performance com análise de top performers.
 
 **Método:** POST  
 **Autenticação:** Bearer Token  
@@ -109,15 +200,18 @@ Pipeline de geração de ideias.
 ```json
 {
   "clientId": "uuid",
-  "topic": "tema",
-  "count": 5
+  "period": "7d|30d|90d",
+  "metrics": {},
+  "topPosts": []
 }
 ```
 
 ---
 
+## Imagens
+
 ### `generate-image`
-Gera imagens com IA.
+Gera imagens via Gemini com DNA visual do cliente.
 
 **Método:** POST  
 **Autenticação:** Bearer Token  
@@ -126,160 +220,71 @@ Gera imagens com IA.
 {
   "prompt": "descrição da imagem",
   "clientId": "uuid",
-  "style": "realistic|artistic|cartoon"
+  "style": "photographic|illustration|abstract|minimalist|corporate|cinematic",
+  "aspectRatio": "1:1|16:9|9:16|1.91:1"
 }
 ```
 
----
-
 ### `prepare-image-generation`
-Prepara prompts para geração de imagem.
+Prepara prompt enriquecido com DNA visual e contexto.
+
+**Método:** POST  
+**Autenticação:** Bearer Token
+
+### `analyze-image-complete`
+Analisa imagem com IA multimodal (Gemini Vision).
+
+**Método:** POST  
+**Autenticação:** Bearer Token
+
+### `transcribe-images`
+Extrai texto/conteúdo de imagens via OCR + IA.
 
 **Método:** POST  
 **Autenticação:** Bearer Token
 
 ---
 
-### `reverse-engineer`
-Analisa conteúdo e extrai estrutura/estilo.
+## Integrações Sociais (OAuth)
 
-**Método:** POST  
-**Autenticação:** Bearer Token  
-**Body:**
-```json
-{
-  "content": "texto para analisar",
-  "clientId": "uuid"
-}
-```
-
----
-
-## Análise & Insights
-
-### `analyze-client-onboarding`
-Analisa dados do onboarding do cliente.
-
-**Método:** POST  
-**Autenticação:** Bearer Token  
-**Body:**
-```json
-{
-  "clientId": "uuid"
-}
-```
-
----
-
-### `analyze-style`
-Analisa estilo de escrita.
-
-**Método:** POST  
-**Autenticação:** Bearer Token  
-**Body:**
-```json
-{
-  "content": "texto para análise",
-  "clientId": "uuid"
-}
-```
-
----
-
-### `analyze-youtube-sentiment`
-Analisa sentimento de comentários do YouTube.
-
-**Método:** POST  
-**Autenticação:** Bearer Token  
-**Body:**
-```json
-{
-  "clientId": "uuid",
-  "comments": ["comentário 1", "comentário 2"]
-}
-```
-
----
-
-### `generate-performance-insights`
-Gera insights de performance.
-
-**Método:** POST  
-**Autenticação:** Bearer Token  
-**Body:**
-```json
-{
-  "clientId": "uuid",
-  "period": "7d|30d|90d"
-}
-```
-
----
-
-### `grok-search`
-Busca usando Grok AI.
-
-**Método:** POST  
-**Autenticação:** Bearer Token  
-**Body:**
-```json
-{
-  "query": "consulta de busca"
-}
-```
-
----
-
-## Integrações Sociais
-
-### Instagram
-
-#### `instagram-oauth-start`
-Inicia fluxo OAuth do Instagram.
-
-**Método:** POST  
-**Autenticação:** Bearer Token  
-**Body:**
-```json
-{
-  "clientId": "uuid"
-}
-```
-
-#### `instagram-oauth-callback`
-Callback do OAuth do Instagram.
-
-**Método:** GET  
-**Query Params:** `code`, `state`
-
----
-
-### YouTube
-
-#### `youtube-oauth-start`
-Inicia fluxo OAuth do YouTube.
-
-**Método:** POST  
-**Autenticação:** Bearer Token  
-**Body:**
-```json
-{
-  "clientId": "uuid"
-}
-```
-
-#### `youtube-oauth-callback`
-Callback do OAuth do YouTube.
-
-**Método:** GET  
-**Query Params:** `code`, `state`
-
----
+### Twitter/X
+| Função | Método | Descrição |
+|--------|--------|-----------|
+| `twitter-oauth-start` | POST | Inicia fluxo OAuth |
+| `twitter-oauth-callback` | GET | Callback OAuth |
+| `twitter-post` | POST | Publica tweet |
+| `twitter-reply` | POST | Responde tweet (Engagement Hub) |
+| `twitter-feed` | POST | Busca tweets relevantes |
 
 ### LinkedIn
+| Função | Método | Descrição |
+|--------|--------|-----------|
+| `linkedin-oauth-start` | POST | Inicia fluxo OAuth |
+| `linkedin-oauth-callback` | GET | Callback OAuth |
+| `linkedin-post` | POST | Publica no LinkedIn |
 
-#### `linkedin-oauth-start`
-Inicia fluxo OAuth do LinkedIn.
+### Instagram
+| Função | Método | Descrição |
+|--------|--------|-----------|
+| *Via Late API* | — | Instagram gerenciado via Late |
+
+### YouTube
+| Função | Método | Descrição |
+|--------|--------|-----------|
+| *OAuth via Late* | — | YouTube gerenciado via Late |
+
+### `validate-social-credentials`
+Valida credenciais de todas as plataformas.
+
+**Método:** POST  
+**Autenticação:** Bearer Token
+
+---
+
+## Publicação (Late API)
+
+### `late-oauth-start`
+Inicia conexão OAuth via Late (multi-plataforma).
 
 **Método:** POST  
 **Autenticação:** Bearer Token  
@@ -287,18 +292,19 @@ Inicia fluxo OAuth do LinkedIn.
 ```json
 {
   "clientId": "uuid",
+  "platform": "instagram|threads|tiktok|youtube",
   "redirectUri": "url"
 }
 ```
 
-#### `linkedin-oauth-callback`
-Callback do OAuth do LinkedIn.
+### `late-oauth-callback`
+Callback do OAuth Late.
 
 **Método:** GET  
 **Query Params:** `code`, `state`
 
-#### `linkedin-post`
-Publica no LinkedIn.
+### `late-post`
+Publica em qualquer plataforma via Late API.
 
 **Método:** POST  
 **Autenticação:** Bearer Token  
@@ -306,506 +312,154 @@ Publica no LinkedIn.
 ```json
 {
   "clientId": "uuid",
-  "content": "texto do post",
-  "imageUrl": "url (opcional)"
+  "platform": "instagram|threads|tiktok|linkedin|twitter",
+  "content": "texto",
+  "mediaUrls": ["url (opcional)"]
 }
 ```
 
----
-
-### Twitter/X
-
-#### `twitter-oauth-start`
-Inicia fluxo OAuth do Twitter.
-
-**Método:** POST  
-**Autenticação:** Bearer Token  
-**Body:**
-```json
-{
-  "clientId": "uuid"
-}
-```
-
-#### `twitter-oauth-callback`
-Callback do OAuth do Twitter.
-
-**Método:** GET  
-**Query Params:** `code`, `state`
-
-#### `twitter-post`
-Publica no Twitter.
+### `late-verify-accounts`
+Verifica status de contas conectadas via Late.
 
 **Método:** POST  
 **Autenticação:** Bearer Token
 
----
-
-### `validate-social-credentials`
-Valida credenciais de redes sociais.
+### `late-disconnect-account`
+Desconecta conta da Late API.
 
 **Método:** POST  
-**Autenticação:** Bearer Token  
-**Body:**
-```json
-{
-  "clientId": "uuid",
-  "platform": "instagram|youtube|linkedin|twitter"
-}
-```
+**Autenticação:** Bearer Token
+
+### `late-webhook`
+Recebe webhooks da Late (status de publicação, etc.).
+
+**Método:** POST  
+**Autenticação:** Webhook Signature
+
+### `fetch-late-metrics`
+Busca métricas de posts via Late API.
+
+**Método:** POST  
+**Autenticação:** Bearer Token
 
 ---
 
 ## Métricas
 
-### `fetch-instagram-metrics`
-Busca métricas do Instagram.
+| Função | Plataforma |
+|--------|-----------|
+| `fetch-instagram-metrics` | Instagram Graph API |
+| `fetch-youtube-metrics` | YouTube Data API |
+| `fetch-beehiiv-metrics` | Beehiiv API |
+| `fetch-late-metrics` | Late API (multi-plataforma) |
+
+### `sync-rss-to-library`
+Sincroniza feeds RSS para a Content Library.
 
 **Método:** POST  
-**Autenticação:** Bearer Token  
-**Body:**
-```json
-{
-  "clientId": "uuid",
-  "username": "@usuario"
-}
-```
+**Autenticação:** Service Role (cron)
 
----
-
-### `fetch-instagram-oauth-metrics`
-Busca métricas via OAuth do Instagram.
+### `fetch-rss-feed`
+Busca e parseia feed RSS.
 
 **Método:** POST  
 **Autenticação:** Bearer Token
 
----
-
-### `fetch-youtube-metrics`
-Busca métricas do YouTube.
-
-**Método:** POST  
-**Autenticação:** Bearer Token  
-**Body:**
-```json
-{
-  "clientId": "uuid",
-  "channelId": "id do canal"
-}
-```
-
----
-
-### `fetch-youtube-analytics`
-Busca analytics detalhados do YouTube.
-
-**Método:** POST  
-**Autenticação:** Bearer Token
-
----
-
-### `fetch-beehiiv-metrics`
-Busca métricas do Beehiiv.
-
-**Método:** POST  
-**Autenticação:** Bearer Token  
-**Body:**
-```json
-{
-  "clientId": "uuid"
-}
-```
-
----
-
-### `fetch-notion-metrics`
-Busca métricas do Notion.
-
-**Método:** POST  
-**Autenticação:** Bearer Token  
-**Body:**
-```json
-{
-  "clientId": "uuid",
-  "databaseId": "id do database"
-}
-```
-
----
-
-### `collect-daily-metrics`
-Coleta métricas diárias (cron job).
+### `update-newsletter-covers`
+Atualiza capas de newsletters via OpenGraph scraping.
 
 **Método:** POST  
 **Autenticação:** Service Role
 
----
-
-### `weekly-metrics-update`
-Atualização semanal de métricas (cron job).
-
-**Método:** POST  
-**Autenticação:** Service Role
-
----
-
-### `update-client-metrics`
-Atualiza métricas do cliente.
+### `resolve-youtube-channel`
+Resolve informações de canal YouTube (nome, avatar, subscribers).
 
 **Método:** POST  
 **Autenticação:** Bearer Token
-
----
-
-### `scrape-social-metrics`
-Extrai métricas de redes sociais via scraping.
-
-**Método:** POST  
-**Autenticação:** Bearer Token  
-**Body:**
-```json
-{
-  "clientId": "uuid",
-  "platform": "instagram|youtube|tiktok",
-  "url": "url do perfil"
-}
-```
 
 ---
 
 ## Extração de Dados
 
-### `extract-pdf`
-Extrai texto de PDFs.
-
-**Método:** POST  
-**Autenticação:** Bearer Token  
-**Body:**
-```json
-{
-  "fileUrl": "url do arquivo",
-  "fileName": "nome.pdf"
-}
-```
-
----
-
-### `extract-docx`
-Extrai texto de documentos Word.
-
-**Método:** POST  
-**Autenticação:** Bearer Token  
-**Body:**
-```json
-{
-  "fileUrl": "url do arquivo",
-  "fileName": "nome.docx"
-}
-```
-
----
-
-### `extract-youtube`
-Extrai transcrição de vídeos do YouTube.
-
-**Método:** POST  
-**Autenticação:** Bearer Token  
-**Body:**
-```json
-{
-  "url": "url do vídeo"
-}
-```
-
----
-
-### `extract-instagram`
-Extrai dados de posts do Instagram.
-
-**Método:** POST  
-**Autenticação:** Bearer Token  
-**Body:**
-```json
-{
-  "url": "url do post"
-}
-```
-
----
-
-### `extract-branding`
-Extrai informações de branding de sites.
-
-**Método:** POST  
-**Autenticação:** Bearer Token  
-**Body:**
-```json
-{
-  "url": "url do site",
-  "clientId": "uuid"
-}
-```
-
----
-
-### `transcribe-audio`
-Transcreve arquivos de áudio.
-
-**Método:** POST  
-**Autenticação:** Bearer Token  
-**Body:**
-```json
-{
-  "audioData": "base64 encoded audio"
-}
-```
-
----
-
-### `transcribe-video`
-Transcreve vídeos.
-
-**Método:** POST  
-**Autenticação:** Bearer Token  
-**Body:**
-```json
-{
-  "videoUrl": "url do vídeo"
-}
-```
-
----
-
-### `transcribe-images`
-Transcreve/analisa imagens.
-
-**Método:** POST  
-**Autenticação:** Bearer Token
-
----
-
-### `scrape-website`
-Extrai conteúdo de websites.
-
-**Método:** POST  
-**Autenticação:** Bearer Token  
-**Body:**
-```json
-{
-  "url": "url do site",
-  "clientId": "uuid"
-}
-```
-
----
-
-### `scrape-newsletter`
-Extrai conteúdo de newsletters.
-
-**Método:** POST  
-**Autenticação:** Bearer Token
-
----
-
-### `fetch-reference-content`
-Busca conteúdo de referências.
-
-**Método:** POST  
-**Autenticação:** Bearer Token
-
----
-
-### `import-beehiiv-newsletters`
-Importa newsletters do Beehiiv.
-
-**Método:** POST  
-**Autenticação:** Bearer Token
-
----
-
-### `validate-csv-import`
-Valida importação de CSV.
-
-**Método:** POST  
-**Autenticação:** Bearer Token
+| Função | Tipo | Descrição |
+|--------|------|-----------|
+| `extract-pdf` | Documento | Extrai texto de PDFs |
+| `extract-docx` | Documento | Extrai texto de Word |
+| `extract-youtube` | Vídeo | Extrai transcrição de YouTube |
+| `extract-instagram` | Social | Extrai dados de posts Instagram |
+| `extract-branding` | Website | Extrai branding de sites |
+| `extract-knowledge` | Conhecimento | Extrai e processa para embeddings |
+| `transcribe-media` | Áudio/Vídeo | Transcreve mídia (áudio e vídeo) |
+| `scrape-website` | Website | Scraping genérico |
+| `scrape-newsletter` | Newsletter | Extrai conteúdo de newsletters |
+| `firecrawl-scrape` | Website | Scraping avançado via Firecrawl |
+| `fetch-reference-content` | URL | Busca conteúdo de referências |
+| `validate-csv-import` | Dados | Valida importação de CSV |
 
 ---
 
 ## Knowledge Base
 
-### `extract-knowledge`
-Extrai conhecimento de arquivos.
-
-**Método:** POST  
-**Autenticação:** Bearer Token  
-**Body:**
-```json
-{
-  "clientFolder": "nome-da-pasta",
-  "files": ["arquivo1.txt", "arquivo2.md"]
-}
-```
+| Função | Descrição |
+|--------|-----------|
+| `extract-knowledge` | Extrai conhecimento de arquivos para embeddings |
+| `process-knowledge` | Processa chunks e gera embeddings vetoriais |
+| `search-knowledge` | Busca semântica na base de conhecimento |
 
 ---
 
-### `search-knowledge`
-Busca na base de conhecimento.
+## Automações & Scheduling
 
-**Método:** POST  
-**Autenticação:** Bearer Token  
-**Body:**
-```json
-{
-  "query": "termo de busca",
-  "workspaceId": "uuid",
-  "limit": 10
-}
-```
+| Função | Trigger | Descrição |
+|--------|---------|-----------|
+| `process-automations` | Cron (1min) | Processa automações ativas (RSS, agenda, webhook) |
+| `process-recurring-content` | Cron | Processa conteúdo recorrente (GM tweets, etc.) |
+| `process-scheduled-posts` | Cron (1min) | Publica posts agendados |
+| `send-publish-reminders` | Cron (diário) | Envia lembretes de publicação |
 
 ---
 
-### `process-knowledge`
-Processa conhecimento para embeddings.
+## Notificações
 
-**Método:** POST  
-**Autenticação:** Bearer Token
-
----
-
-### `analyze-research`
-Analisa itens de pesquisa.
-
-**Método:** POST  
-**Autenticação:** Bearer Token
-
----
-
-### `scrape-research-link`
-Extrai dados de links de pesquisa.
-
-**Método:** POST  
-**Autenticação:** Bearer Token
-
----
-
-## Automações
-
-### `run-automation`
-Executa uma automação.
-
-**Método:** POST  
-**Autenticação:** Bearer Token  
-**Body:**
-```json
-{
-  "automationId": "uuid"
-}
-```
-
----
-
-### `execute-workflow`
-Executa um workflow de IA.
-
-**Método:** POST  
-**Autenticação:** Bearer Token
-
----
-
-### `process-scheduled-posts`
-Processa posts agendados (cron job).
-
-**Método:** POST  
-**Autenticação:** Service Role
-
----
-
-### `process-recurring-content`
-Processa conteúdo recorrente (cron job).
-
-**Método:** POST  
-**Autenticação:** Service Role
-
----
-
-### `check-rss-triggers`
-Verifica triggers RSS (cron job).
-
-**Método:** POST  
-**Autenticação:** Service Role
-
----
-
-### `test-rss-trigger`
-Testa trigger RSS.
-
-**Método:** POST  
-**Autenticação:** Bearer Token
-
----
-
-### `send-publish-reminders`
-Envia lembretes de publicação (cron job).
-
-**Método:** POST  
-**Autenticação:** Service Role
-
----
-
-### `n8n-api`
-Proxy para API do n8n.
-
-**Método:** POST  
-**Autenticação:** Bearer Token  
-**Body:**
-```json
-{
-  "action": "list_workflows|get_workflow|execute_workflow|...",
-  "workspaceId": "uuid",
-  "workflowId": "id (quando aplicável)"
-}
-```
+| Função | Descrição |
+|--------|-----------|
+| `get-vapid-public-key` | Retorna chave VAPID para Web Push |
+| `send-push-notification` | Envia push notification individual |
+| `process-push-queue` | Processa fila de push (cron 2min) |
+| `process-email-notifications` | Processa fila de email (cron 2min) |
+| `process-due-date-notifications` | Cria notificações de prazo |
+| `send-invite-email` | Envia email de convite para workspace |
 
 ---
 
 ## Pagamentos
 
-### `create-checkout`
-Cria sessão de checkout Stripe.
-
-**Método:** POST  
-**Autenticação:** Bearer Token  
-**Body:**
-```json
-{
-  "planType": "starter|pro"
-}
-```
-
----
-
-### `check-subscription`
-Verifica status da assinatura.
-
-**Método:** POST  
-**Autenticação:** Bearer Token
-
----
-
-### `customer-portal`
-Abre portal do cliente Stripe.
-
-**Método:** POST  
-**Autenticação:** Bearer Token
+| Função | Descrição |
+|--------|-----------|
+| `create-checkout` | Cria sessão Stripe Checkout |
+| `customer-portal` | Abre portal do cliente Stripe |
+| `verify-checkout-and-create-workspace` | Webhook pós-checkout |
 
 ---
 
 ## Utilitários
 
+### `delete-account`
+Deleta conta do usuário e dados associados.
+
+**Método:** POST  
+**Autenticação:** Bearer Token
+
 ### `_shared/`
-Pasta com código compartilhado:
-- `ai-usage.ts` - Tracking de uso de IA
-- `tokens.ts` - Gerenciamento de tokens
+Código compartilhado entre Edge Functions:
+- `ai-provider.ts` — Gateway para LLMs (Gemini, OpenAI)
+- `ai-usage.ts` — Tracking de uso de IA e débito de tokens
+- `tokens.ts` — Gerenciamento de tokens
+- `format-schemas.ts` — Schemas de formato (tweet, thread, carousel, etc.)
+- `format-rules.ts` — Regras de geração por formato
+- `content-validator.ts` — Validação de conteúdo gerado
+- `knowledge-loader.ts` — Carregamento de knowledge base
+- `cors.ts` — Headers CORS padrão
 
 ---
 
@@ -818,9 +472,9 @@ Todas as Edge Functions requerem autenticação via Bearer Token, exceto webhook
 Authorization: Bearer <supabase_access_token>
 ```
 
-**Exemplo de chamada:**
+**Exemplo:**
 ```typescript
-const { data, error } = await supabase.functions.invoke('chat', {
+const { data, error } = await supabase.functions.invoke('kai-simple-chat', {
   body: { 
     messages: [{ role: 'user', content: 'Olá!' }],
     clientId: 'uuid-do-cliente'
@@ -830,29 +484,12 @@ const { data, error } = await supabase.functions.invoke('chat', {
 
 ---
 
-## 📊 Limites e Rate Limiting
+## 📊 Limites
 
 - Chamadas por minuto: 60 (por usuário)
 - Tamanho máximo de payload: 6MB
-- Timeout: 60 segundos (padrão)
+- Timeout: 60 segundos (padrão), 300s para geração complexa
 
 ---
 
-## 🐛 Troubleshooting
-
-### Erros comuns:
-
-| Código | Descrição | Solução |
-|--------|-----------|---------|
-| 401 | Não autenticado | Verificar token de acesso |
-| 403 | Sem permissão | Verificar RLS policies |
-| 429 | Rate limit | Aguardar e tentar novamente |
-| 500 | Erro interno | Verificar logs da função |
-
-### Logs
-
-Acesse os logs das Edge Functions via Lovable Cloud para debug.
-
----
-
-*Última atualização: Janeiro 2025*
+*Última atualização: Março 2026*
