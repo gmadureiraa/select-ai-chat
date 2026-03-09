@@ -199,6 +199,12 @@ export function PlanningAutomations() {
                           <span>{triggerLabels[automation.trigger_type]}: {getTriggerDescription(automation)}</span>
                           <span>•</span>
                           <span>{getClientName(automation.client_id)}</span>
+                          {getPlatformLabels(automation) && (
+                            <>
+                              <span>•</span>
+                              <span>{getPlatformLabels(automation)}</span>
+                            </>
+                          )}
                         </div>
                         {automation.last_triggered_at && (
                           <p className="text-xs text-muted-foreground mt-1">
