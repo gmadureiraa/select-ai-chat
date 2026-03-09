@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, RefObject } from "react";
 import {
   Command,
   CommandEmpty,
@@ -17,7 +17,8 @@ import { FileText, BookOpen } from "lucide-react";
 export interface CitationItem {
   id: string;
   title: string;
-  type: "content" | "reference" | "format";
+  type: "content_library" | "reference_library" | "format" | "assignee" | "client" | "performance";
+  category: string;
   content?: string;
 }
 
@@ -27,6 +28,7 @@ interface CitationPopoverProps {
   onSelect: (item: CitationItem) => void;
   contentLibrary?: Array<{ id: string; title: string; content_type: string; content: string }>;
   referenceLibrary?: Array<{ id: string; title: string; reference_type: string; content: string }>;
+  anchorRef?: RefObject<HTMLElement | null>;
   searchQuery?: string;
   children?: React.ReactNode;
 }
@@ -45,13 +47,15 @@ export const CitationPopover = ({
       ...contentLibrary.map((c) => ({
         id: c.id,
         title: c.title,
-        type: "content" as const,
+        type: "content_library" as const,
+        category: c.content_type,
         content: c.content,
       })),
       ...referenceLibrary.map((r) => ({
         id: r.id,
         title: r.title,
-        type: "reference" as const,
+        type: "reference_library" as const,
+        category: r.reference_type,
         content: r.content,
       })),
     ];
@@ -73,13 +77,13 @@ export const CitationPopover = ({
       {children && <PopoverTrigger asChild>{children}</PopoverTrigger>}
       <PopoverContent className="w-72 p-0" align="start" side="top">
         <Command>
-          <CommandInput placeholder="Buscar conteúdo..." value={searchQuery} />
+          <CommandInput placeholder="Buscar conteúdo..." />
           <CommandList>
             <CommandEmpty>Nenhum item encontrado</CommandEmpty>
-            {contentLibrary.length > 0 && (
+            {items.filter((i) => i.type === "content_library").length > 0 && (
               <CommandGroup heading="Biblioteca de Conteúdo">
                 {items
-                  .filter((i) => i.type === "content")
+                  .filter((i) => i.type === "content_library")
                   .map((item) => (
                     <CommandItem key={item.id} onSelect={() => handleSelect(item)}>
                       <FileText className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
@@ -88,10 +92,10 @@ export const CitationPopover = ({
                   ))}
               </CommandGroup>
             )}
-            {referenceLibrary.length > 0 && (
+            {items.filter((i) => i.type === "reference_library").length > 0 && (
               <CommandGroup heading="Referências">
                 {items
-                  .filter((i) => i.type === "reference")
+                  .filter((i) => i.type === "reference_library")
                   .map((item) => (
                     <CommandItem key={item.id} onSelect={() => handleSelect(item)}>
                       <BookOpen className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
