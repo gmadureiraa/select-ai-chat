@@ -133,16 +133,18 @@ export function UnifiedContentGrid({
 
   return (
     <div className="flex flex-col h-full gap-4">
-      {/* Search */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input
-          placeholder="Buscar conteúdo..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="pl-9"
-        />
-      </div>
+      {/* Internal Search - only show if no external search */}
+      {!externalSearchQuery && (
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Buscar conteúdo..."
+            value={internalSearchQuery}
+            onChange={(e) => setInternalSearchQuery(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+      )}
 
       {/* Platform filters - always visible */}
       <div className="flex flex-wrap gap-2">
