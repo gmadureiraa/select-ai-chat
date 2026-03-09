@@ -40,8 +40,8 @@ serve(async (req) => {
     
     console.log(`[fetch-twitter-apify] Starting for handle: ${handle}`);
 
-    const actorId = "quacker~twitter-scraper";
-    const maxTweets = customMaxResults || 100;
+    const actorId = "forge-api~x-scraper";
+    const maxItems = customMaxResults || 100;
 
     let items: any[] = [];
     let lastError = "";
@@ -63,8 +63,9 @@ serve(async (req) => {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               twitterHandles: [handle],
-              maxTweets,
-              proxyConfiguration: { useApifyProxy: true },
+              maxItems: maxItems,
+              includeReplies: false,
+              includeRetweets: true,
             }),
           });
 
