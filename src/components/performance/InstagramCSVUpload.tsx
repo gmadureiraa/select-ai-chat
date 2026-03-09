@@ -64,7 +64,7 @@ export function InstagramCSVUpload({ clientId }: InstagramCSVUploadProps) {
           }
 
           const headers = rows[headerRowIdx].map(normalizeHeader);
-          console.log("[InstagramCSV] Headers found:", headers);
+          
 
           // Build column map
           const colMap: Record<string, number> = {};
