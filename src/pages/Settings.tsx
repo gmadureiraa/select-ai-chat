@@ -55,7 +55,7 @@ export default function Settings() {
   
   // Initialize section from URL tab parameter
   const tabParam = searchParams.get("tab");
-  const validSections: SettingsSection[] = ["profile", "team", "notifications", "appearance"];
+  const validSections: SettingsSection[] = ["profile", "team", "notifications", "appearance", "docs"];
   const initialSection = validSections.includes(tabParam as SettingsSection) 
     ? (tabParam as SettingsSection) 
     : "profile";
