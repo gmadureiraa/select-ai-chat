@@ -340,7 +340,7 @@ function CanvasToolbarComponent({
 
   return (
     <TooltipProvider delayDuration={300}>
-      <div className="absolute top-14 left-1/2 -translate-x-1/2 z-[55] flex items-center gap-1.5 px-4 py-2.5 rounded-2xl bg-background/90 backdrop-blur-2xl saturate-200 border border-border/60 shadow-xl shadow-black/10 dark:shadow-black/30">
+      <div className="absolute top-14 left-1/2 -translate-x-1/2 z-[55] flex items-center gap-1.5 px-4 py-2.5 rounded-2xl bg-background/70 backdrop-blur-xl saturate-150 border border-border/40 shadow-2xl shadow-black/15 dark:shadow-black/40 overflow-x-auto max-w-[calc(100vw-2rem)] scrollbar-hide" style={{ WebkitOverflowScrolling: 'touch' }}>
         {/* Canvas name */}
         <div className="flex items-center gap-1 mr-1">
           {isEditing ? (

@@ -245,7 +245,8 @@ function ContentOutputNodeComponent({
       cardWidth,
       "shadow-lg rounded-xl transition-all duration-200 border-2 relative overflow-hidden bg-card",
       selected ? "border-primary ring-2 ring-primary/20 shadow-primary/10" : borderColor,
-      "hover:shadow-xl"
+      "hover:shadow-xl hover:shadow-primary/5",
+      !selected && "hover:border-primary/40"
     )}>
       {/* Shimmer effect during streaming */}
       <AnimatePresence>

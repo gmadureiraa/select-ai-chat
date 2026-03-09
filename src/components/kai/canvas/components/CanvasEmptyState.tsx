@@ -131,18 +131,30 @@ export function CanvasEmptyState({
 
         {/* Keyboard shortcuts hint */}
         <div className="flex items-center justify-center gap-4 mt-4 pt-4 border-t border-border/50">
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <kbd className="px-1.5 py-0.5 bg-muted rounded text-[10px] font-mono">A</kbd>
+          <motion.div 
+            className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer hover:text-primary transition-colors"
+            whileTap={{ scale: 0.95 }}
+            onClick={onAddAttachment}
+          >
+            <kbd className="px-1.5 py-0.5 bg-muted rounded text-[10px] font-mono border border-border/50 shadow-sm">A</kbd>
             <span>Anexo</span>
-          </div>
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <kbd className="px-1.5 py-0.5 bg-muted rounded text-[10px] font-mono">G</kbd>
+          </motion.div>
+          <motion.div 
+            className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer hover:text-primary transition-colors"
+            whileTap={{ scale: 0.95 }}
+            onClick={onAddGenerator}
+          >
+            <kbd className="px-1.5 py-0.5 bg-muted rounded text-[10px] font-mono border border-border/50 shadow-sm">G</kbd>
             <span>Gerador</span>
-          </div>
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <kbd className="px-1.5 py-0.5 bg-muted rounded text-[10px] font-mono">L</kbd>
+          </motion.div>
+          <motion.div 
+            className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer hover:text-primary transition-colors"
+            whileTap={{ scale: 0.95 }}
+            onClick={onOpenLibrary}
+          >
+            <kbd className="px-1.5 py-0.5 bg-muted rounded text-[10px] font-mono border border-border/50 shadow-sm">L</kbd>
             <span>Biblioteca</span>
-          </div>
+          </motion.div>
         </div>
       </div>
     </motion.div>

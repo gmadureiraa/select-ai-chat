@@ -544,7 +544,8 @@ const AttachmentNodeComponent: React.FC<NodeProps<AttachmentNodeData>> = ({
     <Card className={cn(
       cardWidth, 
       "shadow-lg rounded-xl transition-all duration-200",
-      selected ? 'ring-2 ring-primary shadow-primary/10' : 'hover:shadow-xl'
+      selected ? 'ring-2 ring-primary shadow-primary/10' : 'hover:shadow-xl hover:shadow-primary/5',
+      !selected && 'hover:ring-1 hover:ring-primary/20'
     )}>
       <CardHeader className={cn(
         "pb-2 rounded-t-xl border-b",
