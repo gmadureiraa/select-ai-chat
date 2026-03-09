@@ -1,14 +1,25 @@
-import { useState, useMemo, RefObject } from "react";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
-import { Popover, PopoverContent, PopoverAnchor } from "@/components/ui/popover";
-import { FileText, BookOpen, Wand2, Lightbulb, BarChart3, User, Building2 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { useCallback, useMemo, RefObject } from "react";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { FileText, BookOpen } from "lucide-react";
 
 export interface CitationItem {
   id: string;
   title: string;
   type: "content_library" | "reference_library" | "format" | "assignee" | "client" | "performance";
   category: string;
+  content?: string;
 }
 
 interface CitationPopoverProps {
@@ -17,206 +28,85 @@ interface CitationPopoverProps {
   onSelect: (item: CitationItem) => void;
   contentLibrary?: Array<{ id: string; title: string; content_type: string; content: string }>;
   referenceLibrary?: Array<{ id: string; title: string; reference_type: string; content: string }>;
-  assignees?: Array<{ id: string; name: string; email?: string }>;
-  clients?: Array<{ id: string; name: string }>;
-  anchorRef: RefObject<HTMLElement>;
+  anchorRef?: RefObject<HTMLElement | null>;
   searchQuery?: string;
-  showFormats?: boolean;
+  children?: React.ReactNode;
 }
 
-// Built-in format options - expanded with more formats
-const FORMAT_OPTIONS: CitationItem[] = [
-  // Special mode
-  { id: "format_ideias", title: "Ideias", type: "format", category: "ideias" },
-  
-  // LinkedIn
-  { id: "format_linkedin", title: "LinkedIn", type: "format", category: "linkedin" },
-  
-  // Instagram
-  { id: "format_carousel", title: "Carrossel", type: "format", category: "instagram" },
-  { id: "format_stories", title: "Stories", type: "format", category: "instagram" },
-  { id: "format_reels", title: "Reels", type: "format", category: "instagram" },
-  { id: "format_post", title: "Post Estático", type: "format", category: "instagram" },
-  
-  // Twitter/X
-  { id: "format_thread", title: "Thread", type: "format", category: "twitter" },
-  { id: "format_tweet", title: "Tweet", type: "format", category: "twitter" },
-  { id: "format_x_article", title: "Artigo X", type: "format", category: "twitter" },
-  
-  // Email
-  { id: "format_newsletter", title: "Newsletter", type: "format", category: "email" },
-  { id: "format_email_marketing", title: "Email Marketing", type: "format", category: "email" },
-  
-  // Blog
-  { id: "format_blog_post", title: "Blog Post", type: "format", category: "blog" },
-  
-  // Video
-  { id: "format_long_video", title: "Roteiro Vídeo", type: "format", category: "video" },
-  { id: "format_short_video", title: "Vídeo Curto", type: "format", category: "video" },
-];
-
-const getItemIcon = (type: CitationItem["type"], category?: string) => {
-  if (category === "ideias") return Lightbulb;
-  if (type === "format") return Wand2;
-  if (type === "reference_library") return BookOpen;
-  if (type === "performance") return BarChart3;
-  if (type === "assignee") return User;
-  if (type === "client") return Building2;
-  return FileText;
-};
-
-const getItemColorClass = (type: CitationItem["type"], category?: string) => {
-  if (category === "ideias") return "text-amber-600";
-  if (type === "format") return "text-primary";
-  if (type === "reference_library") return "text-slate-600";
-  if (type === "performance") return "text-green-600";
-  if (type === "assignee") return "text-violet-600";
-  if (type === "client") return "text-blue-600";
-  return "text-blue-500";
-};
-
-export function CitationPopover({
+export const CitationPopover = ({
   open,
   onOpenChange,
   onSelect,
   contentLibrary = [],
   referenceLibrary = [],
-  assignees = [],
-  clients = [],
-  anchorRef,
   searchQuery = "",
-  showFormats = true,
-}: CitationPopoverProps) {
-  const [internalSearch, setInternalSearch] = useState("");
-  const effectiveSearch = searchQuery || internalSearch;
+  children,
+}: CitationPopoverProps) => {
+  const items = useMemo(() => {
+    const all: CitationItem[] = [
+      ...contentLibrary.map((c) => ({
+        id: c.id,
+        title: c.title,
+        type: "content_library" as const,
+        category: c.content_type,
+        content: c.content,
+      })),
+      ...referenceLibrary.map((r) => ({
+        id: r.id,
+        title: r.title,
+        type: "reference_library" as const,
+        category: r.reference_type,
+        content: r.content,
+      })),
+    ];
+    if (!searchQuery) return all;
+    const q = searchQuery.toLowerCase();
+    return all.filter((item) => item.title.toLowerCase().includes(q));
+  }, [contentLibrary, referenceLibrary, searchQuery]);
 
-  // Transform library items to CitationItems
-  const allItems = useMemo(() => {
-    const items: CitationItem[] = [];
-
-    // Add format options first (if enabled)
-    if (showFormats) {
-      items.push(...FORMAT_OPTIONS);
-    }
-
-    // Add content library items
-    contentLibrary.forEach((item) => {
-      items.push({
-        id: item.id,
-        title: item.title,
-        type: "content_library",
-        category: item.content_type,
-      });
-    });
-
-    // Add reference library items
-    referenceLibrary.forEach((item) => {
-      items.push({
-        id: item.id,
-        title: item.title,
-        type: "reference_library",
-        category: item.reference_type,
-      });
-    });
-
-    // Add assignees
-    assignees.forEach((item) => {
-      items.push({
-        id: item.id,
-        title: item.name,
-        type: "assignee",
-        category: "assignee",
-      });
-    });
-
-    // Add clients
-    clients.forEach((item) => {
-      items.push({
-        id: item.id,
-        title: item.name,
-        type: "client",
-        category: "client",
-      });
-    });
-
-    return items;
-  }, [contentLibrary, referenceLibrary, assignees, clients, showFormats]);
-
-  // Filter items based on search
-  const filteredItems = useMemo(() => {
-    if (!effectiveSearch) return allItems;
-    const lower = effectiveSearch.toLowerCase();
-    return allItems.filter(
-      (item) =>
-        item.title.toLowerCase().includes(lower) ||
-        item.category.toLowerCase().includes(lower)
-    );
-  }, [allItems, effectiveSearch]);
-
-  // Group filtered items
-  const groupedItems = useMemo(() => {
-    const groups: Record<string, CitationItem[]> = {};
-    filteredItems.forEach((item) => {
-      const groupKey = item.type === "format" ? "Formatos" : 
-                       item.type === "content_library" ? "Biblioteca" :
-                       item.type === "reference_library" ? "Referências" :
-                       "Outros";
-      if (!groups[groupKey]) groups[groupKey] = [];
-      groups[groupKey].push(item);
-    });
-    return groups;
-  }, [filteredItems]);
+  const handleSelect = useCallback(
+    (item: CitationItem) => {
+      onSelect(item);
+      onOpenChange(false);
+    },
+    [onSelect, onOpenChange]
+  );
 
   return (
     <Popover open={open} onOpenChange={onOpenChange}>
-      <PopoverAnchor asChild>
-        <span ref={anchorRef as RefObject<HTMLSpanElement>} />
-      </PopoverAnchor>
-      <PopoverContent
-        side="top"
-        align="start"
-        className="w-64 p-0 border-border/50 bg-popover/95 backdrop-blur-xl"
-        sideOffset={8}
-        onOpenAutoFocus={(e) => e.preventDefault()}
-      >
-        <Command className="bg-transparent" aria-label="Selecione uma citação ou formato">
-          <CommandInput
-            placeholder="Buscar..."
-            value={internalSearch}
-            onValueChange={setInternalSearch}
-            className="h-9 text-sm"
-            aria-label="Buscar formatos e conteúdo"
-          />
-          <CommandList className="max-h-64" aria-label="Lista de opções">
-            <CommandEmpty className="py-3 text-center text-xs text-muted-foreground">
-              Nenhum resultado encontrado
-            </CommandEmpty>
-            {Object.entries(groupedItems).map(([group, items]) => (
-              <CommandGroup key={group} heading={group} className="px-1">
-                {items.slice(0, 10).map((item) => {
-                  const Icon = getItemIcon(item.type, item.category);
-                  const colorClass = getItemColorClass(item.type, item.category);
-                  return (
-                    <CommandItem
-                      key={item.id}
-                      value={`${item.title} ${item.category}`}
-                      onSelect={() => {
-                        onSelect(item);
-                        onOpenChange(false);
-                      }}
-                      className="flex items-center gap-2 py-1.5 cursor-pointer"
-                      aria-label={`Selecionar ${item.title}`}
-                    >
-                      <Icon className={cn("h-3.5 w-3.5", colorClass)} aria-hidden="true" />
-                      <span className="truncate text-sm">{item.title}</span>
+      {children && <PopoverTrigger asChild>{children}</PopoverTrigger>}
+      <PopoverContent className="w-72 p-0" align="start" side="top">
+        <Command>
+          <CommandInput placeholder="Buscar conteúdo..." />
+          <CommandList>
+            <CommandEmpty>Nenhum item encontrado</CommandEmpty>
+            {items.filter((i) => i.type === "content_library").length > 0 && (
+              <CommandGroup heading="Biblioteca de Conteúdo">
+                {items
+                  .filter((i) => i.type === "content_library")
+                  .map((item) => (
+                    <CommandItem key={item.id} onSelect={() => handleSelect(item)}>
+                      <FileText className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
+                      <span className="truncate">{item.title}</span>
                     </CommandItem>
-                  );
-                })}
+                  ))}
               </CommandGroup>
-            ))}
+            )}
+            {items.filter((i) => i.type === "reference_library").length > 0 && (
+              <CommandGroup heading="Referências">
+                {items
+                  .filter((i) => i.type === "reference_library")
+                  .map((item) => (
+                    <CommandItem key={item.id} onSelect={() => handleSelect(item)}>
+                      <BookOpen className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
+                      <span className="truncate">{item.title}</span>
+                    </CommandItem>
+                  ))}
+              </CommandGroup>
+            )}
           </CommandList>
         </Command>
       </PopoverContent>
     </Popover>
   );
-}
+};

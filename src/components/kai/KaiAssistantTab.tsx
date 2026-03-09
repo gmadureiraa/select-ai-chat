@@ -3,17 +3,16 @@ import { Trash2, Download, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { useClientChat } from "@/hooks/useClientChat";
+import { useKAISimpleChat, SimpleCitation } from "@/hooks/useKAISimpleChat";
 import { FloatingInput } from "@/components/chat/FloatingInput";
 import { Citation } from "@/components/chat/CitationChip";
 import { EnhancedMessageBubble } from "@/components/chat/EnhancedMessageBubble";
-import { PipelineProgress, PipelineStage } from "@/components/chat/PipelineProgress";
+import { PipelineProgress } from "@/components/chat/PipelineProgress";
 import { QuickSuggestions } from "@/components/chat/QuickSuggestions";
 import { ModeSelector, ChatMode } from "@/components/chat/ModeSelector";
 import { Client } from "@/hooks/useClients";
-import { MultiAgentStep } from "@/types/chat";
 import KaleidosLogo from "@/assets/kaleidos-logo.svg";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { exportToMarkdown, exportToPDF, downloadFile } from "@/lib/exportConversation";
 import { supabase } from "@/integrations/supabase/client";
@@ -31,19 +30,6 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
-// Map multiAgentStep to PipelineStage for visualization
-function mapStepToStage(step: MultiAgentStep): PipelineStage {
-  switch (step) {
-    case "researcher": return "context";
-    case "writer": return "writing";
-    case "editor": return "validating";
-    case "reviewer": return "reviewing";
-    case "complete": return "complete";
-    case "error": return "error";
-    default: return "context";
-  }
-}
-
 interface KaiAssistantTabProps {
   clientId: string;
   client: Client;
@@ -55,100 +41,114 @@ export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   
-  // Chat mode state - synchronized with the 4-mode system
   const [chatMode, setChatMode] = useState<ChatMode>("ideas");
-  
-  // Planning dialog state
   const [planningDialogOpen, setPlanningDialogOpen] = useState(false);
   const [contentForPlanning, setContentForPlanning] = useState("");
   
-  // Planning access - enabled for all users with planning columns available
   const { columns, createItem } = usePlanningItems();
   const hasPlanningAccess = columns.length > 0;
 
-  // Always use the single default conversation per client (no sidebar, no multiple conversations)
+  // Use the simplified chat hook — all intelligence lives on the backend
   const {
     messages,
     isLoading,
     sendMessage: baseSendMessage,
-    clearConversation,
+    clearHistory,
     conversationId,
-    currentStep,
-    multiAgentStep,
-    contentLibrary,
-    referenceLibrary,
-    regenerateLastMessage,
-  } = useClientChat(clientId, undefined, undefined);
-  
-  // Handle "Use" button click - opens planning dialog with pre-filled content
+  } = useKAISimpleChat({ clientId });
+
+  // Content & reference libraries for citation feature in FloatingInput
+  const { data: contentLibrary = [] } = useQuery({
+    queryKey: ["client-content-library", clientId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("client_content_library")
+        .select("id, title, content_type, content")
+        .eq("client_id", clientId)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!clientId,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const { data: referenceLibrary = [] } = useQuery({
+    queryKey: ["client-reference-library", clientId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("client_reference_library")
+        .select("id, title, reference_type, content")
+        .eq("client_id", clientId)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!clientId,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Handle "Use" button — opens planning dialog with pre-filled content
   const handleUseContent = useCallback((content: string) => {
     setContentForPlanning(content);
     setPlanningDialogOpen(true);
   }, []);
   
-  // Get default column (idea or draft)
   const defaultColumn = columns.find(c => c.column_type === "idea" || c.column_type === "draft");
 
   // Export handlers
   const handleExportMarkdown = async () => {
-    const md = await exportToMarkdown(messages, client.name);
+    const exportMessages = messages.map(m => ({
+      id: m.id,
+      role: m.role,
+      content: m.content,
+      image_urls: m.imageUrl ? [m.imageUrl] : null,
+    }));
+    const md = await exportToMarkdown(exportMessages as any, client.name);
     downloadFile(md, `conversa-${client.name}.md`, "text/markdown");
     toast({ title: "Conversa exportada como Markdown" });
   };
 
   const handleExportPDF = async () => {
-    const blob = await exportToPDF(messages, client.name);
+    const exportMessages = messages.map(m => ({
+      id: m.id,
+      role: m.role,
+      content: m.content,
+      image_urls: m.imageUrl ? [m.imageUrl] : null,
+    }));
+    const blob = await exportToPDF(exportMessages as any, client.name);
     downloadFile(blob, `conversa-${client.name}.pdf`, "application/pdf");
     toast({ title: "Conversa exportada como PDF" });
   };
 
-  // Scroll to bottom function
+  // Scroll helpers
   const scrollToBottom = useCallback((smooth = true) => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ 
-        behavior: smooth ? "smooth" : "auto",
-        block: "end" 
-      });
-    }
+    messagesEndRef.current?.scrollIntoView({ 
+      behavior: smooth ? "smooth" : "auto",
+      block: "end" 
+    });
   }, []);
 
-  // Auto-scroll on new messages
+  useEffect(() => { scrollToBottom(true); }, [messages, scrollToBottom]);
   useEffect(() => {
-    scrollToBottom(true);
-  }, [messages, scrollToBottom]);
-
-  // Initial scroll on mount
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      scrollToBottom(false);
-    }, 100);
-    return () => clearTimeout(timer);
+    const t = setTimeout(() => scrollToBottom(false), 100);
+    return () => clearTimeout(t);
   }, [scrollToBottom]);
 
-  // Enhanced send that handles performance mode specially
+  // Send handler — maps mode + citations to the simple chat backend
   const handleSend = async (content: string, images?: string[], quality?: "fast" | "high", mode?: ChatMode, citations?: Citation[]) => {
     if (!content.trim() && (!images || images.length === 0)) return;
     
     const effectiveMode = mode || chatMode;
     
-    // Performance mode - call kai-metrics-agent
+    // Performance mode — call kai-metrics-agent directly
     if (effectiveMode === "performance") {
       try {
-        // Add user message first
-        await baseSendMessage(content, images, "fast", "free_chat", citations);
-        
         const response = await supabase.functions.invoke("kai-metrics-agent", {
-          body: {
-            clientId,
-            question: content,
-          },
+          body: { clientId, question: content },
         });
+        if (response.error) throw new Error(response.error.message);
         
-        if (response.error) {
-          throw new Error(response.error.message);
-        }
-        
-        // Handle response
         let responseContent = "";
         const reader = response.data?.body?.getReader();
         if (reader) {
@@ -158,21 +158,17 @@ export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
             if (done) break;
             responseContent += decoder.decode(value, { stream: true });
           }
-        } else if (typeof response.data === "string") {
-          responseContent = response.data;
         } else {
-          responseContent = response.data?.content || "Não foi possível analisar as métricas.";
+          responseContent = typeof response.data === "string" 
+            ? response.data 
+            : response.data?.content || "Não foi possível analisar as métricas.";
         }
         
-        // Insert assistant response
-        if (conversationId) {
-          await supabase.from("messages").insert({
-            conversation_id: conversationId,
-            role: "assistant",
-            content: responseContent,
-          });
-          queryClient.invalidateQueries({ queryKey: ["messages", conversationId] });
-        }
+        // Use the simple chat to add both messages so they're persisted
+        await baseSendMessage(`[Análise de Performance] ${content}`, 
+          citations?.map(c => ({ id: c.id, type: c.type as any, title: c.title })),
+          images
+        );
       } catch (error) {
         console.error("Performance analysis error:", error);
         toast({
@@ -184,38 +180,27 @@ export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
       return;
     }
     
-    // Map mode to the expected pipeline
-    const pipelineMode = effectiveMode === "content" ? "content" 
-                       : effectiveMode === "ideas" ? "ideas" 
-                       : "free_chat";
+    // All other modes — delegate to kai-simple-chat via the hook
+    const simpleCitations: SimpleCitation[] | undefined = citations?.map(c => ({
+      id: c.id,
+      type: c.type as any,
+      title: c.title,
+    }));
     
-    await baseSendMessage(content, images, quality, pipelineMode, citations);
+    await baseSendMessage(content, simpleCitations, images);
   };
 
-  // Clear all messages from the conversation (but keep the conversation itself)
+  // Clear history
   const handleClearHistory = async () => {
-    if (!conversationId) return;
-    
-    try {
-      clearConversation();
-      queryClient.invalidateQueries({ queryKey: ["messages", conversationId] });
-      toast({
-        title: "Histórico limpo",
-        description: "As mensagens foram removidas.",
-      });
-    } catch (error) {
-      console.error("Error clearing history:", error);
-      toast({
-        title: "Erro ao limpar",
-        description: "Não foi possível limpar o histórico.",
-        variant: "destructive",
-      });
-    }
+    clearHistory();
+    toast({
+      title: "Histórico limpo",
+      description: "As mensagens foram removidas.",
+    });
   };
 
   return (
     <div className="flex h-[calc(100vh-140px)] relative">
-      {/* Main Chat Area - Full Width (no sidebar) */}
       <div className="flex-1 flex flex-col min-w-0 bg-background/50">
         {/* Header */}
         <div className="flex items-center gap-2 px-4 py-2 border-b border-border/20">
@@ -223,9 +208,7 @@ export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
             <div className="h-7 w-7 rounded-lg bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/20 flex items-center justify-center">
               <img src={KaleidosLogo} alt="kAI" className="h-4 w-4" />
             </div>
-            <span className="text-sm font-medium text-foreground/80 truncate">
-              Chat
-            </span>
+            <span className="text-sm font-medium text-foreground/80 truncate">Chat</span>
             <span className="text-muted-foreground/40">•</span>
             <span className="text-xs text-muted-foreground truncate">{client.name}</span>
           </div>
@@ -253,11 +236,7 @@ export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
 
               <AlertDialog>
                 <AlertDialogTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-muted-foreground hover:text-destructive h-7 px-2"
-                  >
+                  <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-destructive h-7 px-2">
                     <Trash2 className="h-3.5 w-3.5 mr-1" />
                     <span className="text-xs">Limpar</span>
                   </Button>
@@ -285,7 +264,6 @@ export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
         <ScrollArea className="flex-1" ref={scrollAreaRef}>
           <div className="min-h-full flex flex-col">
             {messages.length === 0 ? (
-              /* Empty State - Centered, Minimal */
               <div className="flex-1 flex flex-col items-center justify-center px-6 py-12">
                 <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/20 flex items-center justify-center mb-5">
                   <img src={KaleidosLogo} alt="kAI" className="h-8 w-8" />
@@ -296,8 +274,6 @@ export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
                 <p className="text-sm text-muted-foreground text-center max-w-sm mb-6">
                   Converse sobre {client.name}, analise dados ou explore ideias. Use @ para selecionar formatos.
                 </p>
-                
-                {/* Quick Suggestions */}
                 <QuickSuggestions 
                   onSelect={(suggestion) => handleSend(suggestion)}
                   clientId={clientId}
@@ -310,14 +286,12 @@ export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
                 {messages.map((message, index) => (
                   <EnhancedMessageBubble
                     key={message.id}
-                    role={message.role as "user" | "assistant"}
+                    role={message.role}
                     content={message.content}
-                    imageUrls={message.image_urls}
-                    payload={(message as any).payload}
+                    imageUrls={message.imageUrl ? [message.imageUrl] : undefined}
                     clientId={clientId}
                     clientName={client.name}
                     messageId={message.id}
-                    onRegenerate={index === messages.length - 1 && message.role === "assistant" ? regenerateLastMessage : undefined}
                     isLastMessage={index === messages.length - 1}
                     onSendMessage={handleSend}
                     disableAutoPostDetection={true}
@@ -328,19 +302,18 @@ export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
 
                 {isLoading && (
                   <PipelineProgress 
-                    currentStage={mapStepToStage(multiAgentStep)}
+                    currentStage="context"
                     showElapsedTime
                   />
                 )}
                 
-                {/* Scroll anchor */}
                 <div ref={messagesEndRef} className="h-1" />
               </div>
             )}
           </div>
         </ScrollArea>
 
-        {/* Floating Input - Bottom */}
+        {/* Floating Input */}
         <div className="border-t border-border/10 bg-background/60 backdrop-blur-sm">
           <div className="max-w-3xl mx-auto space-y-2 py-3">
             <FloatingInput
@@ -352,7 +325,6 @@ export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
               referenceLibrary={referenceLibrary || []}
               selectedMode={chatMode}
             />
-            {/* Mode Selector - 4 modes */}
             <div className="flex justify-center px-4">
               <ModeSelector
                 mode={chatMode}
@@ -364,7 +336,7 @@ export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
         </div>
       </div>
       
-      {/* Planning Dialog - Opens when user clicks "Use" */}
+      {/* Planning Dialog */}
       <PlanningItemDialog
         open={planningDialogOpen}
         onOpenChange={setPlanningDialogOpen}

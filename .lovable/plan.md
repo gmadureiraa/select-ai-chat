@@ -1,81 +1,56 @@
 
 
-# Limpeza e Melhorias: Admin, Help, Chat e Canvas
+## Diagnóstico: Por que as automações não estão postando
 
-## 1. Remoção de Páginas (Admin + Help)
+### Problema 1: LinkedIn - Itens criados mas nunca publicados
+As 3 automações de LinkedIn (Artigo de Opinião, Building in Public, Case & Prova Social) estão **funcionando corretamente** na geração de conteúdo e imagens. O problema é que todas estão com `auto_publish: false`. Os itens são criados com status "idea" no planejamento e ficam lá esperando publicação manual. Nenhum deles jamais é publicado automaticamente.
 
-### Arquivos a deletar
-- `src/pages/AdminDashboard.tsx` (389 linhas)
-- `src/pages/Help.tsx` (360 linhas)
-- `src/components/admin/FormatMetricsDashboard.tsx`
-- `src/components/SuperAdminRoute.tsx`
-- `src/hooks/useSuperAdmin.ts` (195 linhas)
+### Problema 2: Threads - Nenhuma automação configurada
+As credenciais do Threads (conta `madureira0x`) estão válidas, mas **não existe nenhuma automação** direcionada ao Threads.
 
-### Arquivos a editar
-- **`src/App.tsx`** — Remover imports de Help, AdminDashboard, SuperAdminRoute, AuthOnlyRoute. Remover rotas `/admin` e `/help`
-- **`src/components/AuthOnlyRoute.tsx`** — Pode ser deletado se nenhuma outra rota o usar (verificar — usado apenas pelo admin route)
+### Problema 3: Bug no retry de imagem
+No `process-automations`, linha ~1322, o retry de geração de imagem referencia a variável `resolvedImagePrompt` que **não existe** no escopo (o nome correto é `fullImagePrompt`). Isso faz o retry falhar silenciosamente.
 
-**Total: ~950 linhas removidas**
+### Problema 4: Qualidade do conteúdo LinkedIn repetitivo
+Os posts gerados para LinkedIn estão todos girando em torno do mesmo tema ("clareza vs complexidade em Web3"). Falta diversidade temática e o sistema de variação (que existe para tweets) não está implementado para LinkedIn.
 
 ---
 
-## 2. Componentes de Chat Não Utilizados (8 arquivos)
+## Plano de Implementação
 
-Estes componentes em `src/components/chat/` não são importados por nenhum arquivo:
+### 1. Corrigir bug do retry de imagem no process-automations
+- Substituir `resolvedImagePrompt` por `fullImagePrompt` na linha do retry
 
-| Arquivo | Linhas | Status |
-|---------|--------|--------|
-| `AdvancedProgress.tsx` | ~100 | Não importado |
-| `MinimalProgress.tsx` | ~80 | Não importado |
-| `QuickActionChips.tsx` | ~60 | Não importado |
-| `QuickActionsSuggestions.tsx` | ~80 | Não importado |
-| `CitationPopover.tsx` | ~70 | Não importado |
-| `ActionMenuPopover.tsx` | ~90 | Não importado |
-| `ChatErrorState.tsx` | ~50 | Não importado |
-| `ImageActionButtons.tsx` | ~80 | Não importado |
-| `SendToCanvasButton.tsx` | ~60 | Não importado |
+### 2. Criar sistema de variação para LinkedIn (anti-repetição)
+Adicionar categorias editoriais para LinkedIn similares ao `GM_VARIATION_CATEGORIES` dos tweets:
+- **Artigo de Opinião**: Análise contrarian de tendência, dados concretos, framework próprio
+- **Building in Public**: Bastidores reais, números, aprendizados honestos, erros
+- **Case & Prova Social**: Resultados de clientes, métricas antes/depois, processo
 
-**Total: ~670 linhas removidas**
+Cada automação LinkedIn receberá um `variation_index` rotativo com sub-temas específicos para evitar repetição.
 
----
+### 3. Melhorar prompts LinkedIn com estratégia de conteúdo
+Enriquecer os prompts usando o guia de conteúdo do Madureira (`public/clients/madureira/guia-conteudo.md`):
+- Incorporar os 5 pilares de conteúdo como rotação temática
+- Usar tom de voz definido: técnico mas didático, direto, visionário
+- Adicionar instruções de formatação específicas para LinkedIn (quebras de linha, storytelling, CTA)
 
-## 3. Melhoria do kAI Chat — Dois hooks duplicados
+### 4. Habilitar auto_publish para LinkedIn (com revisão inteligente)
+Alterar as 3 automações de LinkedIn para `auto_publish: true` para que os posts sejam publicados automaticamente após geração.
 
-O app mantém **dois sistemas de chat paralelos**:
-- `useClientChat.ts` — **2390 linhas**. Usado apenas no `KaiAssistantTab` (chat por cliente). Contém: regras de formato hardcoded, client-side model selection, parsing complexo, pipeline multi-agente local
-- `useKAISimpleChat.ts` — **361 linhas**. Usado no Global kAI e Canvas floating chat. Mais limpo, delega toda lógica ao backend
+### 5. Criar automações para Threads
+Criar 2-3 automações de Threads para o perfil Madureira:
+- **Threads Diário** (daily): Repurpose do melhor tweet do dia ou insight rápido
+- **Threads Semanal** (weekly): Versão expandida de um tweet de alta performance
 
-**Problema**: `useClientChat` duplica lógica que agora vive no backend (`kai-simple-chat`, `unified-content-api`). Importa regras de formato de `@/types/template` que já existem no servidor. Resultado: 2390 linhas de lógica client-side redundante.
-
-### Proposta
-- **Migrar `KaiAssistantTab` para usar `useKAISimpleChat`** em vez de `useClientChat`
-- Mover funcionalidades específicas que `KaiAssistantTab` precisa (export, planning dialog, performance mode) para o próprio componente
-- **Deletar `useClientChat.ts`** (~2390 linhas) e todo o sistema de regras client-side que ele importa
-- Isso elimina a maior fonte de duplicação no projeto
+### 6. Melhorar geração de imagem para LinkedIn
+- Ajustar o aspect ratio para LinkedIn: `1.91:1` (landscape) em vez de `1:1`
+- Enriquecer prompts de imagem com contexto profissional/corporativo
+- Usar modelo `google/gemini-3-pro-image-preview` para maior qualidade nas imagens de LinkedIn
 
 ---
 
-## 4. Melhoria do Canvas
-
-O `ContentCanvas.tsx` com 1154 linhas funciona bem mas pode ser melhorado:
-- `ContentCanvas` re-cria `nodeTypes` no useMemo mas cada node type é uma closure que captura `handlersRef` — isso é correto e estável
-- Sem bugs identificados, mas o arquivo é grande. Não vou refatorar agora para não quebrar funcionalidade
-
----
-
-## Resumo de Impacto
-
-| Categoria | Linhas removidas |
-|-----------|-----------------|
-| Admin + Help pages | ~950 |
-| Chat components unused | ~670 |
-| useClientChat migration | ~2390 |
-| **Total** | **~4000 linhas** |
-
-## Ordem de Execução
-
-1. Deletar páginas Admin/Help e dependências (SuperAdminRoute, useSuperAdmin, AuthOnlyRoute, FormatMetricsDashboard)
-2. Limpar App.tsx (remover rotas e imports)
-3. Deletar 9 componentes de chat não utilizados
-4. Migrar KaiAssistantTab para useKAISimpleChat e deletar useClientChat
+### Arquivos a modificar
+1. `supabase/functions/process-automations/index.ts` - Fix retry bug, adicionar variação LinkedIn, melhorar prompts
+2. Database: Atualizar `planning_automations` para habilitar auto_publish nas automações LinkedIn e criar novas automações Threads
 
