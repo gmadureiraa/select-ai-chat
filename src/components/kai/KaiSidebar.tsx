@@ -17,6 +17,7 @@ import {
   Lock,
   MessageSquare,
   MessageCircle,
+  LineChart,
 } from "lucide-react";
 import { useDevAccess } from "@/hooks/useDevAccess";
 import { cn } from "@/lib/utils";
