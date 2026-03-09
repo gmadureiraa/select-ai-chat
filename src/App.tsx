@@ -36,18 +36,6 @@ const App = () => (
                     {/* Root redirects to Kaleidos */}
                     <Route path="/" element={<Navigate to="/kaleidos" replace />} />
                     
-                    {/* Super Admin route */}
-                    <Route
-                      path="/admin"
-                      element={
-                        <AuthOnlyRoute>
-                          <SuperAdminRoute>
-                            <AdminDashboard />
-                          </SuperAdminRoute>
-                        </AuthOnlyRoute>
-                      }
-                    />
-                    
                     {/* Main app route - fixed to /kaleidos */}
                     <Route path="/kaleidos" element={<WorkspaceRouter />}>
                       <Route index element={<Kai />} />
