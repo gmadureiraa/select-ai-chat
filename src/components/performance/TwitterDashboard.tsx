@@ -415,6 +415,63 @@ export function TwitterDashboard({ clientId, posts, isLoading }: TwitterDashboar
         />
       )}
 
+      {/* Apify Sync Panel */}
+      {showApifySync && canImportData && (
+        <Card className="p-4">
+          <div className="flex items-center gap-3">
+            <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+              <Twitter className="h-4 w-4 text-primary" />
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-medium mb-1">Sincronizar tweets e métricas do perfil</p>
+              <p className="text-xs text-muted-foreground">
+                Insira o @handle do perfil para importar todos os tweets com likes, retweets, impressões etc.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 mt-3">
+            <Input
+              placeholder="@handle (ex: @lucasamendola)"
+              value={apifyHandleInput}
+              onChange={(e) => setApifyHandleInput(e.target.value)}
+              className="flex-1"
+            />
+            <Button
+              onClick={() => {
+                if (!apifyHandleInput.trim()) {
+                  toast.error("Insira o @handle do perfil");
+                  return;
+                }
+                fetchApify.mutate(
+                  { clientId, twitterHandle: apifyHandleInput.trim() },
+                  {
+                    onSuccess: (data) => {
+                      toast.success(`${data.tweetsUpdated} tweets importados/atualizados!`);
+                      setShowApifySync(false);
+                    },
+                    onError: (err) => {
+                      toast.error(`Erro: ${err.message}`);
+                    },
+                  }
+                );
+              }}
+              disabled={fetchApify.isPending}
+            >
+              {fetchApify.isPending ? (
+                <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Sincronizando...</>
+              ) : (
+                <><RefreshCw className="h-4 w-4 mr-2" />Sincronizar</>
+              )}
+            </Button>
+          </div>
+          {fetchApify.isPending && (
+            <p className="text-xs text-muted-foreground mt-2">
+              ⏳ Isso pode levar 1-2 minutos...
+            </p>
+          )}
+        </Card>
+      )}
+
       {/* Upload Section */}
       {showUpload && canImportData && (
         <Card className="border-dashed">
