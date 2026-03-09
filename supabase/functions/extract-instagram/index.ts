@@ -111,7 +111,7 @@ serve(async (req) => {
     console.log('Post keys:', Object.keys(post));
     
     // Extract images from all known Apify field variations
-    const imageFields = ['displayUrl', 'display_url', 'imageUrl', 'image_url', 'thumbnailSrc', 'thumbnail_src', 'previewUrl'];
+    const imageFields = ['displayUrl', 'display_url', 'imageUrl', 'image_url', 'image', 'thumbnailSrc', 'thumbnail_src', 'previewUrl'];
     for (const field of imageFields) {
       if (post[field] && typeof post[field] === 'string') {
         images.push(post[field]);
