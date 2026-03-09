@@ -481,7 +481,7 @@ export const VisualReferencesManager = ({
                 <img 
                   src={getPublicUrl(ref.image_url)} 
                   alt={ref.title || "Referência visual"}
-                  className="w-full h-32 object-cover"
+                  className="w-full aspect-[4/3] object-contain bg-black/20"
                 />
                 
                 {/* Overlay with actions */}
