@@ -164,6 +164,8 @@ interface PlanningIntent {
   topic: string | null;
   missingInfo: string[];
   isFollowUp?: boolean;
+  analyzeFirst?: boolean;
+  analyzeSource?: "youtube" | "instagram" | "linkedin" | "all";
 }
 
 function getPlatformEmoji(platform: string): string {
