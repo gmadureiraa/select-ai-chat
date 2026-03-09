@@ -919,7 +919,7 @@ export function AutomationDialog({ open, onOpenChange, automation }: AutomationD
               <Switch 
                 checked={autoPublish} 
                 onCheckedChange={setAutoPublish}
-                disabled={!autoGenerate || (selectedPlatforms.length === 0 && !platform) || !clientId}
+                disabled={!autoGenerate || selectedPlatforms.length === 0 || !clientId || selectedPlatforms.filter(p => canAutoPublish(p as any)).length === 0}
               />
             </div>
 
@@ -927,17 +927,20 @@ export function AutomationDialog({ open, onOpenChange, automation }: AutomationD
               <div className="flex items-start gap-2 p-3 bg-amber-500/10 rounded-lg">
                 <AlertCircle className="h-4 w-4 text-amber-500 mt-0.5 flex-shrink-0" />
                 <p className="text-sm text-amber-700 dark:text-amber-400">
-                  Requer conta conectada (Late API) para as plataformas selecionadas.
-                  Certifique-se de que as credenciais estão configuradas no perfil.
+                  Apenas plataformas conectadas serão publicadas automaticamente.
+                  {selectedPlatforms.filter(p => !canAutoPublish(p as any)).length > 0 && (
+                    <> As demais serão criadas como rascunho.</>
+                  )}
                 </p>
               </div>
             )}
 
-            {(!autoGenerate || (selectedPlatforms.length === 0 && !platform) || !clientId) && (
+            {(!autoGenerate || selectedPlatforms.length === 0 || !clientId) && (
               <p className="text-xs text-muted-foreground">
                 {!autoGenerate && "Ative a geração de conteúdo para habilitar. "}
-                {selectedPlatforms.length === 0 && !platform && "Selecione ao menos uma plataforma. "}
+                {selectedPlatforms.length === 0 && "Selecione ao menos uma plataforma. "}
                 {!clientId && "Selecione um perfil."}
+                {autoGenerate && selectedPlatforms.length > 0 && clientId && selectedPlatforms.filter(p => canAutoPublish(p as any)).length === 0 && "Nenhuma plataforma selecionada está conectada."}
               </p>
             )}
           </div>
