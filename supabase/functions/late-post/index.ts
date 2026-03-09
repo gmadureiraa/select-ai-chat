@@ -485,51 +485,65 @@ serve(async (req: Request) => {
 
     // Update planning item status if applicable
     if (planningItemId) {
+      // Get current item to merge metadata and get workspace_id
+      const { data: currentItem } = await supabase
+        .from("planning_items")
+        .select("metadata, workspace_id, added_to_library")
+        .eq("id", planningItemId)
+        .single();
+
+      const existingMetadata = (currentItem?.metadata as Record<string, unknown>) || {};
+      const publishedPlatforms: string[] = (existingMetadata.published_platforms as string[]) || [];
+      const latePostIds: Record<string, string> = (existingMetadata.late_post_ids as Record<string, string>) || {};
+      const publishedUrls: Record<string, string> = (existingMetadata.published_urls as Record<string, string>) || {};
+
+      // Track this platform's publish
+      if (!publishedPlatforms.includes(platform)) {
+        publishedPlatforms.push(platform);
+      }
+      const postId = postData.post?._id || postData.postId;
+      if (postId) {
+        latePostIds[platform] = postId;
+      }
+      if (publishedUrl) {
+        publishedUrls[platform] = publishedUrl;
+      }
+
       const updateData: Record<string, unknown> = {
         status: newStatus,
         error_message: null,
         updated_at: new Date().toISOString(),
-        external_post_id: postData.post?._id || postData.postId,
+        external_post_id: postId,
+        metadata: {
+          ...existingMetadata,
+          published_platforms: publishedPlatforms,
+          late_post_ids: latePostIds,
+          published_urls: publishedUrls,
+          published_url: publishedUrl, // Last published URL for backwards compat
+          late_post_id: postId,
+          late_confirmed: !publishNow,
+        },
       };
 
       if (publishNow) {
         updateData.published_at = new Date().toISOString();
       }
 
-      // metadata will be merged below after fetching current item
-
       if (scheduledFor) {
         updateData.scheduled_at = scheduledFor;
       }
 
-      // Get current item to merge metadata and get workspace_id
-      const { data: currentItem } = await supabase
-        .from("planning_items")
-        .select("metadata, workspace_id")
-        .eq("id", planningItemId)
-        .single();
-
-      if (currentItem) {
-        const existingMetadata = (currentItem.metadata as Record<string, unknown>) || {};
-        updateData.metadata = {
-          ...existingMetadata,
-          published_url: publishedUrl,
-          late_post_id: postData.post?._id,
-          late_confirmed: !publishNow, // Confirmed if scheduled
-        };
-
-        // If published, move to "published" column
-        if (publishNow && currentItem.workspace_id) {
-          const { data: publishedColumn } = await supabase
-            .from("kanban_columns")
-            .select("id")
-            .eq("workspace_id", currentItem.workspace_id)
-            .eq("column_type", "published")
-            .single();
-          
-          if (publishedColumn) {
-            updateData.column_id = publishedColumn.id;
-          }
+      // If published, move to "published" column
+      if (publishNow && currentItem?.workspace_id) {
+        const { data: publishedColumn } = await supabase
+          .from("kanban_columns")
+          .select("id")
+          .eq("workspace_id", currentItem.workspace_id)
+          .eq("column_type", "published")
+          .single();
+        
+        if (publishedColumn) {
+          updateData.column_id = publishedColumn.id;
         }
       }
 
@@ -538,8 +552,8 @@ serve(async (req: Request) => {
         .update(updateData)
         .eq("id", planningItemId);
 
-      // Also save to client content library if published
-      if (publishNow) {
+      // Save to content library if published (only once per planning item)
+      if (publishNow && !currentItem?.added_to_library) {
         const contentTypeMap: Record<string, string> = {
           twitter: 'tweet',
           linkedin: 'linkedin_post',
@@ -550,7 +564,6 @@ serve(async (req: Request) => {
           threads: 'threads_post',
         };
 
-        // Build full content for library (including thread if applicable)
         let libraryContent = content;
         if (threadItems && threadItems.length > 0) {
           libraryContent = threadItems.map(t => t.text).join('\n\n---\n\n');
@@ -566,14 +579,14 @@ serve(async (req: Request) => {
             content_url: publishedUrl,
             metadata: {
               platform,
+              all_platforms: publishedPlatforms,
               posted_at: new Date().toISOString(),
-              late_post_id: postData.post?._id,
+              late_post_id: postId,
               is_thread: threadItems && threadItems.length > 1,
               thread_count: threadItems?.length,
             },
           });
 
-        // Mark planning item as added to library
         await supabase
           .from("planning_items")
           .update({ added_to_library: true })
