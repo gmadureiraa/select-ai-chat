@@ -72,7 +72,11 @@ serve(async (req) => {
             const errorText = await startResponse.text();
             console.error(`[fetch-twitter-apify] Start error (${startResponse.status}):`, errorText);
             if (startResponse.status === 429 || errorText.includes("limit")) {
-              lastError = `Token ...${APIFY_API_TOKEN.slice(-4)} hit rate limit`;
+              lastError = `Token ...${APIFY_API_TOKEN.slice(-4)} hit rate/quota limit`;
+              if (errorText.includes("hard limit") || errorText.includes("platform-feature-disabled")) {
+                // Quota exhausted - skip retries for this token
+                break;
+              }
               if (attempt < MAX_RETRIES) continue;
               break;
             }
