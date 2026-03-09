@@ -12,7 +12,7 @@ serve(async (req) => {
   }
 
   try {
-    const { clientId, channelUrl } = await req.json();
+    const { clientId, channelUrl, singleVideo } = await req.json();
 
     if (!clientId || !channelUrl) {
       return new Response(
@@ -35,27 +35,31 @@ serve(async (req) => {
 
     // Normalize channel URL
     let normalizedUrl = channelUrl.trim();
-    if (normalizedUrl.startsWith("@")) {
-      normalizedUrl = `https://www.youtube.com/${normalizedUrl}`;
-    } else if (!normalizedUrl.startsWith("http")) {
-      normalizedUrl = `https://www.youtube.com/@${normalizedUrl}`;
+    if (!singleVideo) {
+      if (normalizedUrl.startsWith("@")) {
+        normalizedUrl = `https://www.youtube.com/${normalizedUrl}`;
+      } else if (!normalizedUrl.startsWith("http")) {
+        normalizedUrl = `https://www.youtube.com/@${normalizedUrl}`;
+      }
     }
 
-    console.log(`[fetch-youtube-apify] Starting Apify scrape for: ${normalizedUrl}`);
+    console.log(`[fetch-youtube-apify] Starting Apify scrape for: ${normalizedUrl} (singleVideo: ${!!singleVideo})`);
 
     // Run the Apify YouTube Channel Scraper actor synchronously
     const actorId = "streamers~youtube-scraper";
     const runUrl = `https://api.apify.com/v2/acts/${actorId}/run-sync-get-dataset-items?token=${APIFY_API_TOKEN}&timeout=120`;
 
+    const apifyBody: Record<string, unknown> = {
+      startUrls: [{ url: normalizedUrl }],
+      maxResults: singleVideo ? 1 : 200,
+      maxResultsShorts: 0,
+      maxResultStreams: 0,
+    };
+
     const apifyResponse = await fetch(runUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        startUrls: [{ url: normalizedUrl }],
-        maxResults: 200,
-        maxResultsShorts: 0,
-        maxResultStreams: 0,
-      }),
+      body: JSON.stringify(apifyBody),
     });
 
     if (!apifyResponse.ok) {
@@ -80,7 +84,7 @@ serve(async (req) => {
 
     if (!Array.isArray(items) || items.length === 0) {
       return new Response(
-        JSON.stringify({ error: "Nenhum vídeo encontrado para este canal. Verifique a URL." }),
+        JSON.stringify({ error: "Nenhum vídeo encontrado. Verifique a URL." }),
         { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
