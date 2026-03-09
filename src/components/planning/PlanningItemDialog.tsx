@@ -43,8 +43,6 @@ const platformLucideIcons: Record<string, React.ElementType> = {
   blog: FileText,
 };
 import { toast } from 'sonner';
-import type { PlanningItem, CreatePlanningItemInput, PlanningPlatform, PlanningPriority, KanbanColumn } from '@/hooks/usePlanningItems';
-import type { RecurrenceConfig as RecurrenceConfigType } from '@/types/recurrence';
 
 interface PlanningItemDialogProps {
   open: boolean;
