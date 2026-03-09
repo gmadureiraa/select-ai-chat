@@ -211,18 +211,16 @@ export const KaiLibraryTab = ({ clientId, client }: KaiLibraryTabProps) => {
         </div>
         
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
-          {/* Search for references and visuals tabs */}
-          {(activeTab === "references" || activeTab === "visuals") && (
-            <div className="relative flex-1 sm:flex-initial">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder={activeTab === "visuals" ? "Buscar visuais..." : "Buscar referências..."}
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 w-full sm:w-56 lg:w-64"
-              />
-            </div>
-          )}
+          {/* Global Search - always visible */}
+          <div className="relative flex-1 sm:flex-initial">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Buscar na biblioteca..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9 w-full sm:w-56 lg:w-64"
+            />
+          </div>
           
           <Button onClick={handleAddButtonClick} className="shrink-0">
             <Plus className="h-4 w-4 mr-2" />
@@ -266,6 +264,7 @@ export const KaiLibraryTab = ({ clientId, client }: KaiLibraryTabProps) => {
         <TabsContent value="content" className="mt-4 flex-1 overflow-y-auto">
           <UnifiedContentGrid
             clientId={clientId}
+            externalSearchQuery={searchQuery}
             onSelectContent={(item) => {
               toast.success(`Conteúdo selecionado: ${item.title}`);
             }}

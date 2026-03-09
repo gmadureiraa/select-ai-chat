@@ -1,88 +1,56 @@
 
 
-# Plano: Melhorias de Design e Interface -- Performance, Biblioteca e kAI Chat
+## Diagnóstico: Por que as automações não estão postando
 
-## Diagnóstico
+### Problema 1: LinkedIn - Itens criados mas nunca publicados
+As 3 automações de LinkedIn (Artigo de Opinião, Building in Public, Case & Prova Social) estão **funcionando corretamente** na geração de conteúdo e imagens. O problema é que todas estão com `auto_publish: false`. Os itens são criados com status "idea" no planejamento e ficam lá esperando publicação manual. Nenhum deles jamais é publicado automaticamente.
 
-Após revisão completa do código, identifiquei disparidades significativas entre os dashboards e oportunidades de melhoria nas três áreas.
+### Problema 2: Threads - Nenhuma automação configurada
+As credenciais do Threads (conta `madureira0x`) estão válidas, mas **não existe nenhuma automação** direcionada ao Threads.
 
-### Performance: Disparidades entre plataformas
+### Problema 3: Bug no retry de imagem
+No `process-automations`, linha ~1322, o retry de geração de imagem referencia a variável `resolvedImagePrompt` que **não existe** no escopo (o nome correto é `fullImagePrompt`). Isso faz o retry falhar silenciosamente.
 
-O Instagram Dashboard (1003 linhas) é muito mais completo que LinkedIn (438), Twitter (475) e YouTube (432). Features presentes apenas no Instagram:
+### Problema 4: Qualidade do conteúdo LinkedIn repetitivo
+Os posts gerados para LinkedIn estão todos girando em torno do mesmo tema ("clareza vs complexidade em Web3"). Falta diversidade temática e o sistema de variação (que existe para tweets) não está implementado para LinkedIn.
 
-| Feature | Instagram | LinkedIn | Twitter | YouTube | Newsletter |
-|---------|-----------|----------|---------|---------|------------|
-| Relatório IA (PerformanceReportGenerator) | ✅ | -- | -- | ✅ | -- |
-| Custom date range (calendário) | ✅ | -- | -- | -- | -- |
-| Top Posts Grid (visual cards) | ✅ | -- | -- | -- | -- |
-| Best Posts by Metric | ✅ | -- | -- | -- | -- |
-| Posting Time Heatmap | ✅ | -- | -- | -- | -- |
-| Post Averages Section | ✅ | -- | -- | -- | -- |
-| Goals Panel | ✅ | -- | -- | (disabled) | -- |
-| AI Insights Card | ✅ | -- | -- | -- | ✅ |
-| Stories Section | ✅ | N/A | N/A | N/A | N/A |
-| Sync to Library | ✅ | -- | -- | -- | -- |
-| Last import timestamp | ✅ | -- | -- | -- | -- |
+---
 
-### Biblioteca: Funcional mas com UX gaps
-- Busca só aparece nas abas "Refs" e "Visuais" -- deveria funcionar em todas
-- Seleção em batch (checkboxes) só funciona na aba de referências
-- Falta empty state mais informativo na aba "Conteúdo"
-- Grid de visuais poderia ter lightbox para visualização ampliada
+## Plano de Implementação
 
-### kAI Chat: Sólido mas com polish pendente
-- `KaiChatArea.tsx` (185 linhas) parece ser um componente legado/secundário -- o real é `KaiAssistantTab.tsx` com `EnhancedMessageBubble`
-- Actions de assistant (Copy, ThumbsUp, RefreshCw) no KaiChatArea têm `opacity-0 group-hover:opacity-100` mas o `group` class está no parent `div`, pode não funcionar corretamente
-- Botão de Paperclip no KaiChatArea não tem funcionalidade conectada
-- Empty state do chat é bom, mas QuickSuggestions poderia ter mais variedade contextual
+### 1. Corrigir bug do retry de imagem no process-automations
+- Substituir `resolvedImagePrompt` por `fullImagePrompt` na linha do retry
 
-## Mudanças Propostas
+### 2. Criar sistema de variação para LinkedIn (anti-repetição)
+Adicionar categorias editoriais para LinkedIn similares ao `GM_VARIATION_CATEGORIES` dos tweets:
+- **Artigo de Opinião**: Análise contrarian de tendência, dados concretos, framework próprio
+- **Building in Public**: Bastidores reais, números, aprendizados honestos, erros
+- **Case & Prova Social**: Resultados de clientes, métricas antes/depois, processo
 
-### A. Performance -- Nivelar LinkedIn e Twitter com Instagram (maior impacto)
+Cada automação LinkedIn receberá um `variation_index` rotativo com sub-temas específicos para evitar repetição.
 
-**LinkedInDashboard.tsx:**
-- Adicionar botão "Gerar Análise" com `PerformanceReportGenerator` (já existe para Instagram/YouTube)
-- Adicionar `TopPostsGrid` com os 3 melhores posts por engajamento
-- Adicionar timestamp do último import (como Instagram)
-- Adicionar seção `PostAveragesSection` com médias de impressões, engajamentos, cliques
+### 3. Melhorar prompts LinkedIn com estratégia de conteúdo
+Enriquecer os prompts usando o guia de conteúdo do Madureira (`public/clients/madureira/guia-conteudo.md`):
+- Incorporar os 5 pilares de conteúdo como rotação temática
+- Usar tom de voz definido: técnico mas didático, direto, visionário
+- Adicionar instruções de formatação específicas para LinkedIn (quebras de linha, storytelling, CTA)
 
-**TwitterDashboard.tsx:**
-- Adicionar botão "Gerar Análise" com `PerformanceReportGenerator`
-- Adicionar `TopPostsGrid` com os 3 melhores tweets
-- Adicionar timestamp do último import
-- Adicionar seção de médias por tweet
+### 4. Habilitar auto_publish para LinkedIn (com revisão inteligente)
+Alterar as 3 automações de LinkedIn para `auto_publish: true` para que os posts sejam publicados automaticamente após geração.
 
-**NewsletterDashboard.tsx:**
-- Adicionar botão "Gerar Análise" com `PerformanceReportGenerator` (tem insights mas não o report generator completo)
+### 5. Criar automações para Threads
+Criar 2-3 automações de Threads para o perfil Madureira:
+- **Threads Diário** (daily): Repurpose do melhor tweet do dia ou insight rápido
+- **Threads Semanal** (weekly): Versão expandida de um tweet de alta performance
 
-### B. Biblioteca -- Search global e UX refinements
+### 6. Melhorar geração de imagem para LinkedIn
+- Ajustar o aspect ratio para LinkedIn: `1.91:1` (landscape) em vez de `1:1`
+- Enriquecer prompts de imagem com contexto profissional/corporativo
+- Usar modelo `google/gemini-3-pro-image-preview` para maior qualidade nas imagens de LinkedIn
 
-**KaiLibraryTab.tsx:**
-- Mover barra de busca para fora das tabs (sempre visível, filtra qualquer aba ativa)
-- Estender seleção em batch para a aba "Conteúdo" (com delete em massa)
-- Melhorar empty states com ilustrações/descrições mais claras
+---
 
-### C. kAI Chat -- Polish de interação
-
-**KaiAssistantTab.tsx:**
-- Remover o `KaiChatArea.tsx` legado (não é usado pelo fluxo principal)
-- Adicionar indicador de "tokens usados" sutil no header do chat
-- Melhorar responsividade do ModeSelector em mobile (já existe mas pode estar cortado)
-
-## Arquivos Modificados
-
-| Arquivo | Tipo de Mudança |
-|---------|----------------|
-| `src/components/performance/LinkedInDashboard.tsx` | Adicionar Report Generator, Top Posts, médias, timestamp |
-| `src/components/performance/TwitterDashboard.tsx` | Adicionar Report Generator, Top Posts, médias, timestamp |
-| `src/components/performance/NewsletterDashboard.tsx` | Adicionar Report Generator |
-| `src/components/kai/KaiLibraryTab.tsx` | Search global, batch selection em content |
-| `src/components/kai/KaiChatArea.tsx` | Remover (legado não usado) |
-
-## Prioridade de Execução
-
-1. LinkedIn + Twitter dashboards (maior gap visual vs Instagram)
-2. Newsletter dashboard (report generator)
-3. Biblioteca (search + batch)
-4. Chat cleanup
+### Arquivos a modificar
+1. `supabase/functions/process-automations/index.ts` - Fix retry bug, adicionar variação LinkedIn, melhorar prompts
+2. Database: Atualizar `planning_automations` para habilitar auto_publish nas automações LinkedIn e criar novas automações Threads
 

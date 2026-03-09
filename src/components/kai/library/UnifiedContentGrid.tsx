@@ -14,6 +14,7 @@ interface UnifiedContentGridProps {
   onSelectContent?: (item: UnifiedContentItem) => void;
   compact?: boolean;
   draggable?: boolean;
+  externalSearchQuery?: string;
 }
 
 type PlatformFilter = 'all' | 'instagram' | 'twitter' | 'linkedin' | 'youtube' | 'newsletter' | 'content' | 'favorites';
@@ -33,13 +34,15 @@ export function UnifiedContentGrid({
   clientId, 
   onSelectContent, 
   compact, 
-  draggable
+  draggable,
+  externalSearchQuery
 }: UnifiedContentGridProps) {
   const { data: content, isLoading } = useUnifiedContent(clientId);
   const toggleFavorite = useToggleFavorite(clientId);
   const updateContent = useUpdateUnifiedContent(clientId);
   
-  const [searchQuery, setSearchQuery] = useState("");
+  const [internalSearchQuery, setInternalSearchQuery] = useState("");
+  const searchQuery = externalSearchQuery || internalSearchQuery;
   const [platformFilter, setPlatformFilter] = useState<PlatformFilter>('all');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [previewItem, setPreviewItem] = useState<UnifiedContentItem | null>(null);
@@ -130,16 +133,18 @@ export function UnifiedContentGrid({
 
   return (
     <div className="flex flex-col h-full gap-4">
-      {/* Search */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input
-          placeholder="Buscar conteúdo..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="pl-9"
-        />
-      </div>
+      {/* Internal Search - only show if no external search */}
+      {!externalSearchQuery && (
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Buscar conteúdo..."
+            value={internalSearchQuery}
+            onChange={(e) => setInternalSearchQuery(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+      )}
 
       {/* Platform filters - always visible */}
       <div className="flex flex-wrap gap-2">

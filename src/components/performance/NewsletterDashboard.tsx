@@ -3,11 +3,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Mail, Eye, MousePointer, Users, Upload, FileSpreadsheet, CheckCircle, AlertCircle, ChevronDown, UserPlus, UserMinus, Calendar, Rss } from "lucide-react";
+import { Mail, Eye, MousePointer, Users, Upload, FileSpreadsheet, CheckCircle, AlertCircle, ChevronDown, UserPlus, UserMinus, Calendar, Rss, Sparkles } from "lucide-react";
 import { StatCard } from "./StatCard";
 import { EnhancedAreaChart } from "./EnhancedAreaChart";
 import { GoalsPanel } from "./GoalsPanel";
 import { MetricMiniCard } from "./MetricMiniCard";
+import { PerformanceReportGenerator } from "./PerformanceReportGenerator";
 import { NewsletterInsightsCard } from "./NewsletterInsightsCard";
 import { BestNewsletterCard } from "./BestNewsletterCard";
 import { NewsletterMetricsTable } from "./NewsletterMetricsTable";
@@ -68,12 +69,13 @@ export function NewsletterDashboard({ clientId, metrics, isLoading }: Newsletter
   const [selectedMetric, setSelectedMetric] = useState("delivered");
   const [isDragging, setIsDragging] = useState(false);
   const [showRssConfig, setShowRssConfig] = useState(false);
+  const [showReportGenerator, setShowReportGenerator] = useState(false);
   
   const { importFile, importMultipleFiles, isImporting, result, reset } = useSmartNewsletterImport(clientId);
   
   // Fetch newsletter posts separately
   const { data: newsletterPosts = [], isLoading: isLoadingPosts } = useNewsletterPosts(clientId);
-  const { canImportData } = useWorkspace();
+  const { canImportData, canGenerateReports } = useWorkspace();
 
   const cutoffDate = useMemo(() => {
     if (period === "all") return null;
@@ -273,6 +275,15 @@ export function NewsletterDashboard({ clientId, metrics, isLoading }: Newsletter
               ))}
             </SelectContent>
           </Select>
+          {canGenerateReports && (
+            <Button
+              onClick={() => setShowReportGenerator(true)}
+              className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
+            >
+              <Sparkles className="h-4 w-4" />
+              Gerar Análise
+            </Button>
+          )}
           {canImportData && (
             <>
               <Button 
@@ -438,6 +449,17 @@ export function NewsletterDashboard({ clientId, metrics, isLoading }: Newsletter
         onOpenChange={setShowRssConfig}
         clientId={clientId}
         platform="newsletter"
+      />
+
+      {/* Report Generator Modal */}
+      <PerformanceReportGenerator
+        clientId={clientId}
+        platform="Newsletter"
+        period={periodOptions.find(o => o.value === period)?.label || period}
+        kpis={kpis}
+        metrics={filteredMetrics as any[]}
+        open={showReportGenerator}
+        onOpenChange={setShowReportGenerator}
       />
     </div>
   );

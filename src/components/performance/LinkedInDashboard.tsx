@@ -10,7 +10,13 @@ import {
   Upload, 
   Calendar,
   Linkedin,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Sparkles,
+  Trophy,
+  Heart,
+  MessageCircle,
+  Share2,
+  ExternalLink
 } from "lucide-react";
 import { StatCard } from "./StatCard";
 import { EnhancedAreaChart } from "./EnhancedAreaChart";
@@ -18,11 +24,13 @@ import { MetricMiniCard } from "./MetricMiniCard";
 import { LinkedInPostsTable } from "./LinkedInPostsTable";
 import { ImportHistoryPanel } from "./ImportHistoryPanel";
 import { DataCompletenessWarning } from "./DataCompletenessWarning";
+import { PerformanceReportGenerator } from "./PerformanceReportGenerator";
 import { subDays, format, parseISO, isAfter, startOfDay } from "date-fns";
 import { LinkedInPost } from "@/types/linkedin";
 import { useImportLinkedInExcel, parseLinkedInExcel } from "@/hooks/useLinkedInPosts";
 import { useImportHistory } from "@/hooks/useImportHistory";
 import { useWorkspace } from "@/hooks/useWorkspace";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 
 interface LinkedInDashboardProps {
@@ -40,17 +48,25 @@ const periodOptions = [
   { value: "all", label: "Todo período" },
 ];
 
+function formatNumber(num: number | null | undefined): string {
+  if (num === null || num === undefined) return "0";
+  if (num >= 1000000) return (num / 1000000).toFixed(1) + "M";
+  if (num >= 1000) return (num / 1000).toFixed(1) + "K";
+  return num.toString();
+}
+
 export function LinkedInDashboard({ clientId, posts, isLoading }: LinkedInDashboardProps) {
   const [period, setPeriod] = useState("30");
   const [showUpload, setShowUpload] = useState(false);
   const [selectedMetric, setSelectedMetric] = useState("impressions");
   const [isDragging, setIsDragging] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
+  const [showReportGenerator, setShowReportGenerator] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const importMutation = useImportLinkedInExcel();
   const { logImport } = useImportHistory(clientId);
-  const { canImportData } = useWorkspace();
+  const { canImportData, canGenerateReports } = useWorkspace();
 
   const cutoffDate = useMemo(() => {
     if (period === "all") return null;
@@ -149,11 +165,48 @@ export function LinkedInDashboard({ clientId, posts, isLoading }: LinkedInDashbo
       }));
   }, [filteredPosts]);
 
+  // Top 3 posts by engagement
+  const topPosts = useMemo(() => {
+    return [...filteredPosts]
+      .sort((a, b) => (b.engagements || 0) - (a.engagements || 0))
+      .slice(0, 3);
+  }, [filteredPosts]);
+
+  // Post averages
+  const postAverages = useMemo(() => {
+    const count = filteredPosts.length;
+    if (count === 0) return null;
+    const formatAvg = (total: number) => {
+      const avg = total / count;
+      if (avg >= 1000) return `${(avg / 1000).toFixed(1)}k`;
+      return avg.toFixed(avg >= 100 ? 0 : 1);
+    };
+    return {
+      impressions: formatAvg(kpis.impressions),
+      engagements: formatAvg(kpis.engagements),
+      likes: formatAvg(kpis.likes),
+      comments: formatAvg(kpis.comments),
+      shares: formatAvg(kpis.shares),
+      clicks: formatAvg(kpis.clicks),
+    };
+  }, [filteredPosts, kpis]);
+
+  // Last import timestamp
+  const { imports } = useImportHistory(clientId);
+  const lastLinkedInImport = useMemo(() => {
+    const linkedInImports = (imports || []).filter(i => i.platform === 'linkedin');
+    if (linkedInImports.length === 0) return null;
+    return linkedInImports.sort((a, b) => (b.imported_at || "").localeCompare(a.imported_at || ""))[0];
+  }, [imports]);
+
   // All metrics use theme primary color for unified visual
   const availableMetrics = [
     { key: 'impressions', dataKey: 'impressions', label: 'Impressões', color: 'hsl(var(--primary))' },
     { key: 'engagements', dataKey: 'engagements', label: 'Engajamentos', color: 'hsl(var(--primary))' },
   ];
+
+  // Period label for report
+  const selectedPeriodLabel = periodOptions.find(o => o.value === period)?.label || period;
 
   // Handle file import
   const handleFileUpload = async (files: FileList | null) => {
@@ -269,10 +322,18 @@ export function LinkedInDashboard({ clientId, posts, isLoading }: LinkedInDashbo
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <h2 className="text-lg font-semibold">LinkedIn Analytics</h2>
-          <span className="text-sm text-muted-foreground">
-            {filteredPosts.length} posts no período
-          </span>
+          <div>
+            <h2 className="text-lg font-semibold">LinkedIn Analytics</h2>
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <span>{filteredPosts.length} posts no período</span>
+              {lastLinkedInImport && (
+                <>
+                  <span>•</span>
+                  <span>Último import: {format(parseISO(lastLinkedInImport.imported_at), 'dd/MM/yyyy HH:mm')}</span>
+                </>
+              )}
+            </div>
+          </div>
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
@@ -288,6 +349,17 @@ export function LinkedInDashboard({ clientId, posts, isLoading }: LinkedInDashbo
               ))}
             </SelectContent>
           </Select>
+
+          {/* Report Generator */}
+          {canGenerateReports && (
+            <Button
+              onClick={() => setShowReportGenerator(true)}
+              className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
+            >
+              <Sparkles className="h-4 w-4" />
+              Gerar Análise
+            </Button>
+          )}
 
           {/* Upload Toggle */}
           {canImportData && (
@@ -393,6 +465,121 @@ export function LinkedInDashboard({ clientId, posts, isLoading }: LinkedInDashbo
         </div>
       )}
 
+      {/* Top 3 Posts */}
+      {topPosts.length > 0 && (
+        <Card className="border-border/50">
+          <CardHeader className="pb-3">
+            <div className="flex items-center gap-2">
+              <Trophy className="h-5 w-5 text-primary" />
+              <CardTitle className="text-lg">Top 3 Posts</CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {topPosts.map((post, index) => (
+                <div
+                  key={post.id}
+                  className="group relative bg-muted/30 rounded-xl overflow-hidden border border-border/50 hover:border-primary/30 transition-all hover:shadow-lg p-4 space-y-3"
+                >
+                  {/* Ranking */}
+                  <div className="flex items-center justify-between">
+                    <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center text-sm font-bold text-primary">
+                      {index + 1}
+                    </div>
+                    {post.post_url && (
+                      <a href={post.post_url} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary transition-colors">
+                        <ExternalLink className="h-4 w-4" />
+                      </a>
+                    )}
+                  </div>
+
+                  {/* Content preview */}
+                  <p className="text-sm text-foreground line-clamp-3 min-h-[3.75rem]">
+                    {post.content?.slice(0, 150) || "Sem conteúdo"}
+                  </p>
+
+                  {/* Metrics */}
+                  <div className="grid grid-cols-3 gap-2 text-center">
+                    <div className="space-y-0.5">
+                      <Heart className="h-3.5 w-3.5 mx-auto text-rose-500" />
+                      <p className="text-xs font-medium">{formatNumber(post.likes)}</p>
+                    </div>
+                    <div className="space-y-0.5">
+                      <MessageCircle className="h-3.5 w-3.5 mx-auto text-blue-500" />
+                      <p className="text-xs font-medium">{formatNumber(post.comments)}</p>
+                    </div>
+                    <div className="space-y-0.5">
+                      <Share2 className="h-3.5 w-3.5 mx-auto text-emerald-500" />
+                      <p className="text-xs font-medium">{formatNumber(post.shares)}</p>
+                    </div>
+                  </div>
+
+                  {/* Bottom metrics */}
+                  <div className="flex items-center justify-between text-xs text-muted-foreground pt-2 border-t border-border/50">
+                    <div className="flex items-center gap-1">
+                      <Eye className="h-3 w-3" />
+                      <span>{formatNumber(post.impressions)} impr.</span>
+                    </div>
+                    <span className="font-medium text-primary">
+                      {(post.engagement_rate || 0).toFixed(2)}% eng.
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Post Averages */}
+      {postAverages && (
+        <Card className="border-border/50">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <TrendingUp className="h-4 w-4 text-primary" />
+              Médias por Post
+              <span className="text-xs font-normal text-muted-foreground ml-2">
+                ({filteredPosts.length} posts)
+              </span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
+              <div className="flex flex-col items-center p-3 rounded-lg bg-muted/30">
+                <Eye className="h-4 w-4 text-blue-500 mb-1.5" />
+                <span className="text-lg font-semibold">{postAverages.impressions}</span>
+                <span className="text-[10px] text-muted-foreground">Impressões</span>
+              </div>
+              <div className="flex flex-col items-center p-3 rounded-lg bg-muted/30">
+                <MousePointer className="h-4 w-4 text-emerald-500 mb-1.5" />
+                <span className="text-lg font-semibold">{postAverages.engagements}</span>
+                <span className="text-[10px] text-muted-foreground">Engajamentos</span>
+              </div>
+              <div className="flex flex-col items-center p-3 rounded-lg bg-muted/30">
+                <Heart className="h-4 w-4 text-rose-500 mb-1.5" />
+                <span className="text-lg font-semibold">{postAverages.likes}</span>
+                <span className="text-[10px] text-muted-foreground">Curtidas</span>
+              </div>
+              <div className="flex flex-col items-center p-3 rounded-lg bg-muted/30">
+                <MessageCircle className="h-4 w-4 text-blue-500 mb-1.5" />
+                <span className="text-lg font-semibold">{postAverages.comments}</span>
+                <span className="text-[10px] text-muted-foreground">Comentários</span>
+              </div>
+              <div className="flex flex-col items-center p-3 rounded-lg bg-muted/30">
+                <Share2 className="h-4 w-4 text-emerald-500 mb-1.5" />
+                <span className="text-lg font-semibold">{postAverages.shares}</span>
+                <span className="text-[10px] text-muted-foreground">Compartilh.</span>
+              </div>
+              <div className="flex flex-col items-center p-3 rounded-lg bg-muted/30">
+                <TrendingUp className="h-4 w-4 text-primary mb-1.5" />
+                <span className="text-lg font-semibold">{kpis.avgEngagement.toFixed(2)}%</span>
+                <span className="text-[10px] text-muted-foreground">Engaj. Médio</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Secondary Metrics */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <MetricMiniCard
@@ -433,6 +620,18 @@ export function LinkedInDashboard({ clientId, posts, isLoading }: LinkedInDashbo
 
       {/* Import History */}
       <ImportHistoryPanel clientId={clientId} platform="linkedin" />
+
+      {/* Report Generator Modal */}
+      <PerformanceReportGenerator
+        clientId={clientId}
+        platform="LinkedIn"
+        period={selectedPeriodLabel}
+        kpis={kpis}
+        posts={filteredPosts as any[]}
+        previousPosts={previousPeriodPosts as any[]}
+        open={showReportGenerator}
+        onOpenChange={setShowReportGenerator}
+      />
     </div>
   );
 }

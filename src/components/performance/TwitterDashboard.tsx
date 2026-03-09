@@ -2,7 +2,6 @@ import { useState, useMemo, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { 
   Eye, 
   MousePointer, 
@@ -12,12 +11,11 @@ import {
   Heart, 
   Repeat2, 
   MessageCircle, 
-  ChevronDown, 
   Calendar,
-  FileText,
   Twitter,
-  CheckCircle,
-  AlertCircle
+  Sparkles,
+  Trophy,
+  ExternalLink
 } from "lucide-react";
 import { StatCard } from "./StatCard";
 import { EnhancedAreaChart } from "./EnhancedAreaChart";
@@ -25,11 +23,13 @@ import { MetricMiniCard } from "./MetricMiniCard";
 import { TwitterPostsTable } from "./TwitterPostsTable";
 import { ImportHistoryPanel } from "./ImportHistoryPanel";
 import { DataCompletenessWarning } from "./DataCompletenessWarning";
+import { PerformanceReportGenerator } from "./PerformanceReportGenerator";
 import { subDays, format, parseISO, isAfter, startOfDay } from "date-fns";
-import { ptBR } from "date-fns/locale";
 import { TwitterPost } from "@/types/twitter";
 import { useImportTwitterCSV, parseTwitterCSV } from "@/hooks/useTwitterMetrics";
 import { useImportHistory } from "@/hooks/useImportHistory";
+import { useWorkspace } from "@/hooks/useWorkspace";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 
 interface TwitterDashboardProps {
@@ -47,7 +47,12 @@ const periodOptions = [
   { value: "all", label: "Todo período" },
 ];
 
-import { useWorkspace } from "@/hooks/useWorkspace";
+function formatNumber(num: number | null | undefined): string {
+  if (num === null || num === undefined) return "0";
+  if (num >= 1000000) return (num / 1000000).toFixed(1) + "M";
+  if (num >= 1000) return (num / 1000).toFixed(1) + "K";
+  return num.toString();
+}
 
 export function TwitterDashboard({ clientId, posts, isLoading }: TwitterDashboardProps) {
   const [period, setPeriod] = useState("30");
@@ -55,11 +60,19 @@ export function TwitterDashboard({ clientId, posts, isLoading }: TwitterDashboar
   const [selectedMetric, setSelectedMetric] = useState("impressions");
   const [isDragging, setIsDragging] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
+  const [showReportGenerator, setShowReportGenerator] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const importMutation = useImportTwitterCSV();
-  const { logImport } = useImportHistory(clientId);
-  const { canImportData } = useWorkspace();
+  const { logImport, imports } = useImportHistory(clientId);
+  const { canImportData, canGenerateReports } = useWorkspace();
+
+  // Last import timestamp
+  const lastTwitterImport = useMemo(() => {
+    const twitterImports = (imports || []).filter(i => i.platform === 'twitter');
+    if (twitterImports.length === 0) return null;
+    return twitterImports.sort((a, b) => (b.imported_at || "").localeCompare(a.imported_at || ""))[0];
+  }, [imports]);
 
   const cutoffDate = useMemo(() => {
     if (period === "all") return null;
@@ -131,6 +144,31 @@ export function TwitterDashboard({ clientId, posts, isLoading }: TwitterDashboar
     };
   }, [filteredPosts, previousPeriodPosts]);
 
+  // Top 3 tweets by engagement
+  const topTweets = useMemo(() => {
+    return [...filteredPosts]
+      .sort((a, b) => (b.engagements || 0) - (a.engagements || 0))
+      .slice(0, 3);
+  }, [filteredPosts]);
+
+  // Post averages
+  const postAverages = useMemo(() => {
+    const count = filteredPosts.length;
+    if (count === 0) return null;
+    const formatAvg = (total: number) => {
+      const avg = total / count;
+      if (avg >= 1000) return `${(avg / 1000).toFixed(1)}k`;
+      return avg.toFixed(avg >= 100 ? 0 : 1);
+    };
+    return {
+      impressions: formatAvg(kpis.impressions),
+      engagements: formatAvg(kpis.engagements),
+      likes: formatAvg(kpis.likes),
+      retweets: formatAvg(kpis.retweets),
+      replies: formatAvg(kpis.replies),
+    };
+  }, [filteredPosts, kpis]);
+
   // Sparkline data
   const sparklineData = useMemo(() => {
     const last14 = filteredPosts.slice(0, 14).reverse();
@@ -175,7 +213,6 @@ export function TwitterDashboard({ clientId, posts, isLoading }: TwitterDashboar
       }));
   }, [filteredPosts]);
 
-  // All metrics use theme primary color for unified visual
   const availableMetrics = [
     { key: 'impressions', dataKey: 'impressions', label: 'Impressões', color: 'hsl(var(--primary))' },
     { key: 'engagements', dataKey: 'engagements', label: 'Engajamentos', color: 'hsl(var(--primary))' },
@@ -183,6 +220,8 @@ export function TwitterDashboard({ clientId, posts, isLoading }: TwitterDashboar
     { key: 'retweets', dataKey: 'retweets', label: 'Retweets', color: 'hsl(var(--primary))' },
     { key: 'replies', dataKey: 'replies', label: 'Respostas', color: 'hsl(var(--primary))' },
   ];
+
+  const selectedPeriodLabel = periodOptions.find(o => o.value === period)?.label || period;
 
   // Handle file import
   const handleFileUpload = async (files: FileList | null) => {
@@ -209,7 +248,6 @@ export function TwitterDashboard({ clientId, posts, isLoading }: TwitterDashboar
 
         totalPosts += parsedPosts.length;
 
-        // Log import
         await logImport.mutateAsync({
           clientId,
           platform: 'twitter',
@@ -240,10 +278,6 @@ export function TwitterDashboard({ clientId, posts, isLoading }: TwitterDashboar
     setIsDragging(false);
     handleFileUpload(e.dataTransfer.files);
   };
-
-  // Check data completeness
-  const hasImpressions = posts.some(p => p.impressions && p.impressions > 0);
-  const hasEngagements = posts.some(p => p.engagements && p.engagements > 0);
 
   // Empty state
   if (!isLoading && posts.length === 0) {
@@ -303,14 +337,21 @@ export function TwitterDashboard({ clientId, posts, isLoading }: TwitterDashboar
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <h2 className="text-lg font-semibold">Twitter/X Analytics</h2>
-          <span className="text-sm text-muted-foreground">
-            {filteredPosts.length} tweets no período
-          </span>
+          <div>
+            <h2 className="text-lg font-semibold">Twitter/X Analytics</h2>
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <span>{filteredPosts.length} tweets no período</span>
+              {lastTwitterImport && (
+                <>
+                  <span>•</span>
+                  <span>Último import: {format(parseISO(lastTwitterImport.imported_at), 'dd/MM/yyyy HH:mm')}</span>
+                </>
+              )}
+            </div>
+          </div>
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
-          {/* Period Selector */}
           <Select value={period} onValueChange={setPeriod}>
             <SelectTrigger className="w-[160px]">
               <Calendar className="h-4 w-4 mr-2" />
@@ -323,7 +364,16 @@ export function TwitterDashboard({ clientId, posts, isLoading }: TwitterDashboar
             </SelectContent>
           </Select>
 
-          {/* Upload Toggle */}
+          {canGenerateReports && (
+            <Button
+              onClick={() => setShowReportGenerator(true)}
+              className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
+            >
+              <Sparkles className="h-4 w-4" />
+              Gerar Análise
+            </Button>
+          )}
+
           {canImportData && (
             <Button
               variant="outline"
@@ -428,6 +478,107 @@ export function TwitterDashboard({ clientId, posts, isLoading }: TwitterDashboar
         />
       </div>
 
+      {/* Top 3 Tweets */}
+      {topTweets.length > 0 && (
+        <Card className="border-border/50">
+          <CardHeader className="pb-3">
+            <div className="flex items-center gap-2">
+              <Trophy className="h-5 w-5 text-primary" />
+              <CardTitle className="text-lg">Top 3 Tweets</CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {topTweets.map((tweet, index) => (
+                <div
+                  key={tweet.id}
+                  className="group relative bg-muted/30 rounded-xl overflow-hidden border border-border/50 hover:border-primary/30 transition-all hover:shadow-lg p-4 space-y-3"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center text-sm font-bold text-primary">
+                      {index + 1}
+                    </div>
+                  </div>
+
+                  <p className="text-sm text-foreground line-clamp-3 min-h-[3.75rem]">
+                    {tweet.content?.slice(0, 280) || "Sem conteúdo"}
+                  </p>
+
+                  <div className="grid grid-cols-3 gap-2 text-center">
+                    <div className="space-y-0.5">
+                      <Heart className="h-3.5 w-3.5 mx-auto text-rose-500" />
+                      <p className="text-xs font-medium">{formatNumber(tweet.likes)}</p>
+                    </div>
+                    <div className="space-y-0.5">
+                      <Repeat2 className="h-3.5 w-3.5 mx-auto text-emerald-500" />
+                      <p className="text-xs font-medium">{formatNumber(tweet.retweets)}</p>
+                    </div>
+                    <div className="space-y-0.5">
+                      <MessageCircle className="h-3.5 w-3.5 mx-auto text-blue-500" />
+                      <p className="text-xs font-medium">{formatNumber(tweet.replies)}</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between text-xs text-muted-foreground pt-2 border-t border-border/50">
+                    <div className="flex items-center gap-1">
+                      <Eye className="h-3 w-3" />
+                      <span>{formatNumber(tweet.impressions)} impr.</span>
+                    </div>
+                    <span className="font-medium text-primary">
+                      {(tweet.engagement_rate || 0).toFixed(2)}% eng.
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Post Averages */}
+      {postAverages && (
+        <Card className="border-border/50">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <TrendingUp className="h-4 w-4 text-primary" />
+              Médias por Tweet
+              <span className="text-xs font-normal text-muted-foreground ml-2">
+                ({filteredPosts.length} tweets)
+              </span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
+              <div className="flex flex-col items-center p-3 rounded-lg bg-muted/30">
+                <Eye className="h-4 w-4 text-blue-500 mb-1.5" />
+                <span className="text-lg font-semibold">{postAverages.impressions}</span>
+                <span className="text-[10px] text-muted-foreground">Impressões</span>
+              </div>
+              <div className="flex flex-col items-center p-3 rounded-lg bg-muted/30">
+                <Heart className="h-4 w-4 text-rose-500 mb-1.5" />
+                <span className="text-lg font-semibold">{postAverages.likes}</span>
+                <span className="text-[10px] text-muted-foreground">Curtidas</span>
+              </div>
+              <div className="flex flex-col items-center p-3 rounded-lg bg-muted/30">
+                <Repeat2 className="h-4 w-4 text-emerald-500 mb-1.5" />
+                <span className="text-lg font-semibold">{postAverages.retweets}</span>
+                <span className="text-[10px] text-muted-foreground">Retweets</span>
+              </div>
+              <div className="flex flex-col items-center p-3 rounded-lg bg-muted/30">
+                <MessageCircle className="h-4 w-4 text-blue-500 mb-1.5" />
+                <span className="text-lg font-semibold">{postAverages.replies}</span>
+                <span className="text-[10px] text-muted-foreground">Respostas</span>
+              </div>
+              <div className="flex flex-col items-center p-3 rounded-lg bg-muted/30">
+                <TrendingUp className="h-4 w-4 text-primary mb-1.5" />
+                <span className="text-lg font-semibold">{kpis.avgEngagement.toFixed(2)}%</span>
+                <span className="text-[10px] text-muted-foreground">Engaj. Médio</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Secondary Metrics */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <MetricMiniCard
@@ -470,6 +621,18 @@ export function TwitterDashboard({ clientId, posts, isLoading }: TwitterDashboar
 
       {/* Import History */}
       <ImportHistoryPanel clientId={clientId} platform="twitter" />
+
+      {/* Report Generator Modal */}
+      <PerformanceReportGenerator
+        clientId={clientId}
+        platform="Twitter/X"
+        period={selectedPeriodLabel}
+        kpis={kpis}
+        posts={filteredPosts as any[]}
+        previousPosts={previousPeriodPosts as any[]}
+        open={showReportGenerator}
+        onOpenChange={setShowReportGenerator}
+      />
     </div>
   );
 }
