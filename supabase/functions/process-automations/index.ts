@@ -6,7 +6,7 @@ import {
   CONTENT_TYPE_LABELS,
   getFormatLabel 
 } from "../_shared/format-constants.ts";
-import { getFullContentContext } from "../_shared/knowledge-loader.ts";
+import { getFullContentContext, getStructuredVoice } from "../_shared/knowledge-loader.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
