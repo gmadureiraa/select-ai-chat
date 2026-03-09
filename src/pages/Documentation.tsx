@@ -306,7 +306,7 @@ const sections: DocSection[] = [
         </div>
 
         <Accordion type="multiple" className="space-y-2">
-          {formatRulesData.map((format) => (
+          {formatRulesDataData.map((format) => (
             <FormatRuleCard key={format.id} format={format} />
           ))}
         </Accordion>
@@ -362,7 +362,7 @@ const sections: DocSection[] = [
         <div className="space-y-4">
           <h2 className="text-xl font-semibold">12 Formatos Suportados</h2>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-            {formatRules.map((f) => (
+            {formatRDataules.map((f) => (
               <div key={f.id} className="p-3 rounded-lg bg-muted/30 border">
                 <h4 className="font-medium text-sm">{f.emoji} {f.name}</h4>
                 <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{f.summary}</p>
