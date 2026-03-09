@@ -151,6 +151,10 @@ export function AutomationDialog({ open, onOpenChange, automation }: AutomationD
   const [autoGenerateImage, setAutoGenerateImage] = useState(false);
   const [imagePromptTemplate, setImagePromptTemplate] = useState('');
   const [imageStyle, setImageStyle] = useState<ImageStyle>('photographic');
+  const [imageReferenceIds, setImageReferenceIds] = useState<string[]>([]);
+  
+  // Visual references for the selected client
+  const [visualReferences, setVisualReferences] = useState<Array<{ id: string; image_url: string; description: string | null; reference_type: string }>>([]);
 
   // Auto-derive platform from content type
   useEffect(() => {
