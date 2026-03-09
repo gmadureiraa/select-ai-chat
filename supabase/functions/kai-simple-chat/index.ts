@@ -1267,15 +1267,22 @@ function buildPlanningSuccessMessage(cards: any[], intent: PlanningIntent): stri
   const count = cards.length;
   const platformLabel = intent.platform ? ` para **${intent.platform.charAt(0).toUpperCase() + intent.platform.slice(1)}**` : "";
   let message = `✅ **${count} ${count === 1 ? "card criado" : "cards criados"}${platformLabel}!**\n\n`;
+  if (intent.analyzeFirst) {
+    const sourceLabel = intent.analyzeSource === "youtube" ? "vídeos do YouTube" :
+                       intent.analyzeSource === "instagram" ? "posts do Instagram" :
+                       intent.analyzeSource === "linkedin" ? "posts do LinkedIn" :
+                       "conteúdos de todas as plataformas";
+    message += `📊 **Baseado na análise dos melhores ${sourceLabel}** do cliente\n\n`;
+  }
   if (intent.sourceUrl) message += `📎 Baseado em: ${intent.sourceUrl}\n\n`;
   message += "📋 **Cards adicionados ao planejamento:**\n\n";
-  for (let i = 0; i < Math.min(cards.length, 5); i++) {
+  for (let i = 0; i < Math.min(cards.length, 10); i++) {
     const card = cards[i];
     const dateStr = card.scheduled_at ? ` | 📅 ${formatDateBR(card.scheduled_at.split('T')[0])}` : "";
     const platformIcon = card.platform ? ` | ${getPlatformEmoji(card.platform)}` : "";
     message += `${i + 1}. **${card.title}**${platformIcon}${dateStr}\n`;
   }
-  if (cards.length > 5) message += `\n*...e mais ${cards.length - 5} cards*\n`;
+  if (cards.length > 10) message += `\n*...e mais ${cards.length - 10} cards*\n`;
   message += "\n---\n💡 Acesse **Planejamento** para editar ou reagendar\n";
   return message;
 }
