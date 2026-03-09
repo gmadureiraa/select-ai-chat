@@ -63,9 +63,10 @@ serve(async (req) => {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             startUrls: [{ url: normalizedUrl }],
-            maxResults: singleVideo ? 1 : (customMaxResults || 200),
+            maxResults: singleVideo ? 1 : (customMaxResults || 50),
             maxResultsShorts: 0,
             maxResultStreams: 0,
+            scrapeComments: false,
           }),
         });
 
