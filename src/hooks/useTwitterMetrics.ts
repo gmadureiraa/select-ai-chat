@@ -119,6 +119,27 @@ export const useImportTwitterCSV = () => {
   });
 };
 
+export const useFetchTwitterApify = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ clientId, twitterHandle, maxResults }: { clientId: string; twitterHandle: string; maxResults?: number }) => {
+      const { data, error } = await supabase.functions.invoke('fetch-twitter-apify', {
+        body: { clientId, twitterHandle, maxResults },
+      });
+
+      if (error) throw new Error(error.message || 'Erro ao sincronizar Twitter');
+      if (data?.error) throw new Error(data.error);
+      return data as { success: boolean; tweetsFound: number; tweetsUpdated: number; handle: string };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['twitter-posts'] });
+      queryClient.invalidateQueries({ queryKey: ['twitter-metrics'] });
+      queryClient.invalidateQueries({ queryKey: ['performance-metrics'] });
+    },
+  });
+};
+
 export const useUpdateTwitterPost = () => {
   const queryClient = useQueryClient();
 

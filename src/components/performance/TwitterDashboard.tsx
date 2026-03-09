@@ -1,6 +1,7 @@
 import { useState, useMemo, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { 
   Eye, 
@@ -15,7 +16,9 @@ import {
   Twitter,
   Sparkles,
   Trophy,
-  ExternalLink
+  ExternalLink,
+  RefreshCw,
+  Loader2
 } from "lucide-react";
 import { StatCard } from "./StatCard";
 import { EnhancedAreaChart } from "./EnhancedAreaChart";
@@ -26,7 +29,7 @@ import { DataCompletenessWarning } from "./DataCompletenessWarning";
 import { PerformanceReportGenerator } from "./PerformanceReportGenerator";
 import { subDays, format, parseISO, isAfter, startOfDay } from "date-fns";
 import { TwitterPost } from "@/types/twitter";
-import { useImportTwitterCSV, parseTwitterCSV } from "@/hooks/useTwitterMetrics";
+import { useImportTwitterCSV, parseTwitterCSV, useFetchTwitterApify } from "@/hooks/useTwitterMetrics";
 import { useImportHistory } from "@/hooks/useImportHistory";
 import { useWorkspace } from "@/hooks/useWorkspace";
 import { Badge } from "@/components/ui/badge";
@@ -57,6 +60,8 @@ function formatNumber(num: number | null | undefined): string {
 export function TwitterDashboard({ clientId, posts, isLoading }: TwitterDashboardProps) {
   const [period, setPeriod] = useState("30");
   const [showUpload, setShowUpload] = useState(false);
+  const [showApifySync, setShowApifySync] = useState(false);
+  const [apifyHandleInput, setApifyHandleInput] = useState("");
   const [selectedMetric, setSelectedMetric] = useState("impressions");
   const [isDragging, setIsDragging] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
@@ -64,6 +69,7 @@ export function TwitterDashboard({ clientId, posts, isLoading }: TwitterDashboar
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const importMutation = useImportTwitterCSV();
+  const fetchApify = useFetchTwitterApify();
   const { logImport, imports } = useImportHistory(clientId);
   const { canImportData, canGenerateReports } = useWorkspace();
 
@@ -375,14 +381,24 @@ export function TwitterDashboard({ clientId, posts, isLoading }: TwitterDashboar
           )}
 
           {canImportData && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowUpload(!showUpload)}
-            >
-              <Upload className="h-4 w-4 mr-2" />
-              Importar CSV
-            </Button>
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => { setShowApifySync(!showApifySync); setShowUpload(false); }}
+              >
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Sincronizar Perfil
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => { setShowUpload(!showUpload); setShowApifySync(false); }}
+              >
+                <Upload className="h-4 w-4 mr-2" />
+                Importar CSV
+              </Button>
+            </>
           )}
         </div>
       </div>
@@ -397,6 +413,63 @@ export function TwitterDashboard({ clientId, posts, isLoading }: TwitterDashboar
             withEngagement: posts.filter(p => p.engagements && p.engagements > 0).length,
           }}
         />
+      )}
+
+      {/* Apify Sync Panel */}
+      {showApifySync && canImportData && (
+        <Card className="p-4">
+          <div className="flex items-center gap-3">
+            <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+              <Twitter className="h-4 w-4 text-primary" />
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-medium mb-1">Sincronizar tweets e métricas do perfil</p>
+              <p className="text-xs text-muted-foreground">
+                Insira o @handle do perfil para importar todos os tweets com likes, retweets, impressões etc.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 mt-3">
+            <Input
+              placeholder="@handle (ex: @lucasamendola)"
+              value={apifyHandleInput}
+              onChange={(e) => setApifyHandleInput(e.target.value)}
+              className="flex-1"
+            />
+            <Button
+              onClick={() => {
+                if (!apifyHandleInput.trim()) {
+                  toast.error("Insira o @handle do perfil");
+                  return;
+                }
+                fetchApify.mutate(
+                  { clientId, twitterHandle: apifyHandleInput.trim() },
+                  {
+                    onSuccess: (data) => {
+                      toast.success(`${data.tweetsUpdated} tweets importados/atualizados!`);
+                      setShowApifySync(false);
+                    },
+                    onError: (err) => {
+                      toast.error(`Erro: ${err.message}`);
+                    },
+                  }
+                );
+              }}
+              disabled={fetchApify.isPending}
+            >
+              {fetchApify.isPending ? (
+                <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Sincronizando...</>
+              ) : (
+                <><RefreshCw className="h-4 w-4 mr-2" />Sincronizar</>
+              )}
+            </Button>
+          </div>
+          {fetchApify.isPending && (
+            <p className="text-xs text-muted-foreground mt-2">
+              ⏳ Isso pode levar 1-2 minutos...
+            </p>
+          )}
+        </Card>
       )}
 
       {/* Upload Section */}

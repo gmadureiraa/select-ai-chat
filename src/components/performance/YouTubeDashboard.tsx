@@ -318,14 +318,6 @@ export function YouTubeDashboard({ clientId, videos, isLoading }: YouTubeDashboa
               <Button 
                 variant="outline" 
                 className="border-border/50"
-                onClick={() => { setShowApiFetch(!showApiFetch); setShowApifyFetch(false); }}
-              >
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Buscar via API
-              </Button>
-              <Button 
-                variant="outline" 
-                className="border-border/50"
                 onClick={() => setShowRssImporter(true)}
               >
                 <Rss className="h-4 w-4 mr-2" />
@@ -431,8 +423,8 @@ export function YouTubeDashboard({ clientId, videos, isLoading }: YouTubeDashboa
         </Collapsible>
       )}
 
-      {/* Primary KPIs - 6 cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+      {/* Primary KPIs - 5 cards */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
         <StatCard
           icon={Eye}
           label="Visualizações"
@@ -473,12 +465,6 @@ export function YouTubeDashboard({ clientId, videos, isLoading }: YouTubeDashboa
           change={period !== "all" ? kpis.commentsTrend : undefined}
           sparklineData={sparklineData.comments}
           color="violet"
-        />
-        <StatCard
-          icon={MousePointer}
-          label="CTR Médio"
-          value={`${kpis.avgCTR.toFixed(1)}%`}
-          color="blue"
         />
       </div>
 
@@ -538,7 +524,7 @@ export function YouTubeDashboard({ clientId, videos, isLoading }: YouTubeDashboa
           <CardTitle className="text-base">Todos os Vídeos</CardTitle>
         </CardHeader>
         <CardContent>
-          <YouTubeVideosTable videos={videos as any} isLoading={isLoading} />
+          <YouTubeVideosTable videos={videos as any} clientId={clientId} isLoading={isLoading} />
         </CardContent>
       </Card>
 

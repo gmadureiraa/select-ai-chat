@@ -38,7 +38,7 @@ interface YouTubeVideosTableProps {
   isLoading?: boolean;
 }
 
-type SortField = "published_at" | "total_views" | "watch_hours" | "subscribers_gained" | "click_rate" | "likes" | "comments";
+type SortField = "published_at" | "total_views" | "watch_hours" | "subscribers_gained" | "likes" | "comments";
 type SortOrder = "asc" | "desc";
 
 const getPerformanceBadge = (views: number | null) => {
@@ -256,11 +256,6 @@ export function YouTubeVideosTable({ videos, clientId, isLoading }: YouTubeVideo
                   Coment. <ArrowUpDown className="ml-1 h-3 w-3" />
                 </Button>
               </TableHead>
-              <TableHead className="w-[70px]">
-                <Button variant="ghost" size="sm" className="h-8 px-2" onClick={() => handleSort("click_rate")}>
-                  CTR <ArrowUpDown className="ml-1 h-3 w-3" />
-                </Button>
-              </TableHead>
               <TableHead className="w-[90px]">Status</TableHead>
               <TableHead className="w-[140px]">Transcrição</TableHead>
             </TableRow>
@@ -322,9 +317,6 @@ export function YouTubeVideosTable({ videos, clientId, isLoading }: YouTubeVideo
                 </TableCell>
                 <TableCell className="text-muted-foreground">
                   {(video.comments || 0).toLocaleString()}
-                </TableCell>
-                <TableCell className="font-medium">
-                  {video.click_rate?.toFixed(1) || 0}%
                 </TableCell>
                 <TableCell>
                   {getPerformanceBadge(video.total_views)}

@@ -1,71 +1,56 @@
 
 
-# Plan: YouTube Table Cleanup, Twitter Apify Scraper & Review
+## Diagnóstico: Por que as automações não estão postando
 
-## What You Asked
-1. Remove the CTR column from the YouTube videos table
-2. Add Apify-based Twitter/X scraper to sync tweets and metrics (similar to YouTube Apify)
-3. Full review of Twitter and YouTube performance sections
+### Problema 1: LinkedIn - Itens criados mas nunca publicados
+As 3 automações de LinkedIn (Artigo de Opinião, Building in Public, Case & Prova Social) estão **funcionando corretamente** na geração de conteúdo e imagens. O problema é que todas estão com `auto_publish: false`. Os itens são criados com status "idea" no planejamento e ficam lá esperando publicação manual. Nenhum deles jamais é publicado automaticamente.
 
----
+### Problema 2: Threads - Nenhuma automação configurada
+As credenciais do Threads (conta `madureira0x`) estão válidas, mas **não existe nenhuma automação** direcionada ao Threads.
 
-## Changes
+### Problema 3: Bug no retry de imagem
+No `process-automations`, linha ~1322, o retry de geração de imagem referencia a variável `resolvedImagePrompt` que **não existe** no escopo (o nome correto é `fullImagePrompt`). Isso faz o retry falhar silenciosamente.
 
-### 1. YouTube Videos Table - Remove CTR Column
-**File:** `src/components/performance/YouTubeVideosTable.tsx`
-- Remove the CTR column header (line 259-262) and corresponding table cell (line 326-328)
-- Remove `click_rate` from the `SortField` type
-- Clean, simple table: Thumbnail | Title | Date | Views | Likes | Comments | Status | Transcription
-
-### 2. YouTube Dashboard - Cleanup Redundant Buttons
-**File:** `src/components/performance/YouTubeDashboard.tsx`
-- Remove the "Buscar via API" button (requires YouTube Data API key, rarely used) - keep only "Sincronizar Canal" (Apify) and RSS import
-- Remove the CTR StatCard from the KPI grid (line 477-482) since Apify doesn't provide CTR data
-- Simplify from 6 KPI cards to 5: Views, Watch Hours, Subscribers, Likes, Comments
-
-### 3. New Edge Function: `fetch-twitter-apify`
-**File:** `supabase/functions/fetch-twitter-apify/index.ts`
-- New edge function using Apify's Twitter/X scraper actor (`apidojo/twitter-user-scraper` or similar)
-- Input: `clientId` + `twitterHandle` (e.g., `@lucasamendola`)
-- Multi-token fallback (same pattern as YouTube: `APIFY_API_TOKEN` then `APIFY_API_TOKEN_2`)
-- Fetches recent tweets with metrics (likes, retweets, replies, impressions, views)
-- Upserts into `twitter_posts` table using `client_id,tweet_id` as conflict key
-- Returns count of tweets found/updated
-
-### 4. Frontend Hook: `useFetchTwitterApify`
-**File:** `src/hooks/useTwitterMetrics.ts`
-- New mutation hook that calls the `fetch-twitter-apify` edge function
-- Invalidates `twitter-posts` and `performance-metrics` queries on success
-
-### 5. Twitter Dashboard - Add Sync Button
-**File:** `src/components/performance/TwitterDashboard.tsx`
-- Add a "Sincronizar Perfil" button in the header (next to "Importar CSV")
-- Shows an input for the Twitter/X handle (e.g., `@lucasamendola`)
-- Calls `useFetchTwitterApify` to scrape and sync all tweets with metrics
-- Same UX pattern as YouTube's "Sincronizar Canal"
-
-### 6. Review Fixes (Twitter & YouTube)
-- **TwitterPostsTable**: Already well-structured with sorting, pagination, edit/view dialogs. No changes needed.
-- **TwitterDashboard**: Already has KPIs, charts, Top 3 Tweets, Post Averages, secondary metrics. Well organized.
-- **YouTubeVideosTable**: Pass `clientId` prop from dashboard (currently not passed, line 541).
-- **YouTubeDashboard**: Fix `clientId` not being passed to `YouTubeVideosTable`.
+### Problema 4: Qualidade do conteúdo LinkedIn repetitivo
+Os posts gerados para LinkedIn estão todos girando em torno do mesmo tema ("clareza vs complexidade em Web3"). Falta diversidade temática e o sistema de variação (que existe para tweets) não está implementado para LinkedIn.
 
 ---
 
-## Technical Details
+## Plano de Implementação
 
-### Apify Twitter Actor
-Will use `quacker/twitter-scraper` (or `apidojo/tweet-scraper`) which returns:
-- `id`, `text`, `created_at`, `favorite_count` (likes), `retweet_count`, `reply_count`, `view_count`, `bookmark_count`
-- Media URLs for images
+### 1. Corrigir bug do retry de imagem no process-automations
+- Substituir `resolvedImagePrompt` por `fullImagePrompt` na linha do retry
 
-### Database
-No schema changes needed. The `twitter_posts` table already has all necessary columns (`tweet_id`, `content`, `posted_at`, `likes`, `retweets`, `replies`, `impressions`, `engagements`, `engagement_rate`, `images`).
+### 2. Criar sistema de variação para LinkedIn (anti-repetição)
+Adicionar categorias editoriais para LinkedIn similares ao `GM_VARIATION_CATEGORIES` dos tweets:
+- **Artigo de Opinião**: Análise contrarian de tendência, dados concretos, framework próprio
+- **Building in Public**: Bastidores reais, números, aprendizados honestos, erros
+- **Case & Prova Social**: Resultados de clientes, métricas antes/depois, processo
 
-### Files Modified
-1. `src/components/performance/YouTubeVideosTable.tsx` - Remove CTR
-2. `src/components/performance/YouTubeDashboard.tsx` - Cleanup buttons, remove CTR card, pass clientId
-3. `supabase/functions/fetch-twitter-apify/index.ts` - New edge function
-4. `src/hooks/useTwitterMetrics.ts` - Add `useFetchTwitterApify` hook
-5. `src/components/performance/TwitterDashboard.tsx` - Add sync button/panel
+Cada automação LinkedIn receberá um `variation_index` rotativo com sub-temas específicos para evitar repetição.
+
+### 3. Melhorar prompts LinkedIn com estratégia de conteúdo
+Enriquecer os prompts usando o guia de conteúdo do Madureira (`public/clients/madureira/guia-conteudo.md`):
+- Incorporar os 5 pilares de conteúdo como rotação temática
+- Usar tom de voz definido: técnico mas didático, direto, visionário
+- Adicionar instruções de formatação específicas para LinkedIn (quebras de linha, storytelling, CTA)
+
+### 4. Habilitar auto_publish para LinkedIn (com revisão inteligente)
+Alterar as 3 automações de LinkedIn para `auto_publish: true` para que os posts sejam publicados automaticamente após geração.
+
+### 5. Criar automações para Threads
+Criar 2-3 automações de Threads para o perfil Madureira:
+- **Threads Diário** (daily): Repurpose do melhor tweet do dia ou insight rápido
+- **Threads Semanal** (weekly): Versão expandida de um tweet de alta performance
+
+### 6. Melhorar geração de imagem para LinkedIn
+- Ajustar o aspect ratio para LinkedIn: `1.91:1` (landscape) em vez de `1:1`
+- Enriquecer prompts de imagem com contexto profissional/corporativo
+- Usar modelo `google/gemini-3-pro-image-preview` para maior qualidade nas imagens de LinkedIn
+
+---
+
+### Arquivos a modificar
+1. `supabase/functions/process-automations/index.ts` - Fix retry bug, adicionar variação LinkedIn, melhorar prompts
+2. Database: Atualizar `planning_automations` para habilitar auto_publish nas automações LinkedIn e criar novas automações Threads
 
