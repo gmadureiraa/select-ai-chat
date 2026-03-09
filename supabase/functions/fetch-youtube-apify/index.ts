@@ -131,13 +131,6 @@ serve(async (req) => {
       );
     }
 
-    if (!Array.isArray(items) || items.length === 0) {
-      return new Response(
-        JSON.stringify({ error: "Nenhum vídeo encontrado." }),
-        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
     // Log first item for debugging
     if (items.length > 0) {
       console.log(`[fetch-youtube-apify] Sample item keys:`, Object.keys(items[0]));
