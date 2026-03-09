@@ -7,7 +7,7 @@ import type { Json } from '@/integrations/supabase/types';
 
 export type PlanningStatus = 'idea' | 'draft' | 'review' | 'approved' | 'scheduled' | 'publishing' | 'published' | 'failed';
 export type PlanningPriority = 'low' | 'medium' | 'high' | 'urgent';
-export type PlanningPlatform = 'twitter' | 'linkedin' | 'instagram' | 'youtube' | 'newsletter' | 'blog' | 'tiktok' | 'other';
+export type PlanningPlatform = 'twitter' | 'linkedin' | 'instagram' | 'youtube' | 'newsletter' | 'blog' | 'tiktok' | 'facebook' | 'threads' | 'other';
 
 export interface PlanningItem {
   id: string;

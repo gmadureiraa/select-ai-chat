@@ -917,13 +917,18 @@ serve(async (req) => {
 
         const position = (count || 0) + 1;
 
-        // Prepare metadata with images
+        // Prepare metadata with images and target platforms
+        const targetPlatforms: string[] = (automation as any).platforms?.length > 0
+          ? (automation as any).platforms
+          : (derivedPlatform ? [derivedPlatform] : []);
+
         const metadata: Record<string, unknown> = {
           automation_id: automation.id,
           automation_name: automation.name,
           trigger_type: automation.trigger_type,
           source_url: triggerData?.link,
           rss_images: mediaUrls,
+          target_platforms: targetPlatforms,
         };
 
         // Create planning item
