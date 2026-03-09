@@ -34,13 +34,15 @@ export function UnifiedContentGrid({
   clientId, 
   onSelectContent, 
   compact, 
-  draggable
+  draggable,
+  externalSearchQuery
 }: UnifiedContentGridProps) {
   const { data: content, isLoading } = useUnifiedContent(clientId);
   const toggleFavorite = useToggleFavorite(clientId);
   const updateContent = useUpdateUnifiedContent(clientId);
   
-  const [searchQuery, setSearchQuery] = useState("");
+  const [internalSearchQuery, setInternalSearchQuery] = useState("");
+  const searchQuery = externalSearchQuery || internalSearchQuery;
   const [platformFilter, setPlatformFilter] = useState<PlatformFilter>('all');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [previewItem, setPreviewItem] = useState<UnifiedContentItem | null>(null);
