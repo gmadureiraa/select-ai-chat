@@ -6,6 +6,7 @@ import {
   CONTENT_FORMAT_KEYWORDS,
   detectFormatFromKeywords 
 } from "../_shared/format-constants.ts";
+import { getFormatRules } from "../_shared/format-rules.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
