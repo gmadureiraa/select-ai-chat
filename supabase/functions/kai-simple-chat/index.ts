@@ -1508,7 +1508,7 @@ serve(async (req) => {
     }
 
     const body = await req.json() as RequestBody;
-    const { message, clientId, imageUrls, citations, history } = body;
+    const { message, clientId, imageUrls, citations, history, materialContext, materialTitle } = body;
 
     console.log("[kai-simple-chat] Request:", { 
       userId: user.id, clientId, 
