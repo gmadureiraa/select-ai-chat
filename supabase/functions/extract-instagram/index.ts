@@ -108,24 +108,44 @@ serve(async (req) => {
     const post = data[0];
     const images: string[] = [];
     
-    // Extract images from different possible fields
-    if (post.displayUrl) {
-      images.push(post.displayUrl);
+    console.log('Post keys:', Object.keys(post));
+    
+    // Extract images from all known Apify field variations
+    const imageFields = ['displayUrl', 'display_url', 'imageUrl', 'image_url', 'thumbnailSrc', 'thumbnail_src', 'previewUrl'];
+    for (const field of imageFields) {
+      if (post[field] && typeof post[field] === 'string') {
+        images.push(post[field]);
+      }
     }
     
-    if (post.images && Array.isArray(post.images)) {
-      images.push(...post.images);
-    }
-    
-    if (post.imageUrl) {
-      images.push(post.imageUrl);
+    // Array fields
+    const arrayFields = ['images', 'mediaUrls', 'media_urls'];
+    for (const field of arrayFields) {
+      if (post[field] && Array.isArray(post[field])) {
+        images.push(...post[field].filter((u: unknown) => typeof u === 'string'));
+      }
     }
 
-    // Handle carousel posts with multiple images
-    if (post.childPosts && Array.isArray(post.childPosts)) {
-      for (const child of post.childPosts) {
-        if (child.displayUrl) images.push(child.displayUrl);
-        if (child.imageUrl) images.push(child.imageUrl);
+    // Handle carousel/sidecar posts 
+    const childFields = ['childPosts', 'sidecarChildren', 'carousel_media', 'carouselMedia'];
+    for (const field of childFields) {
+      if (post[field] && Array.isArray(post[field])) {
+        for (const child of post[field]) {
+          for (const imgField of imageFields) {
+            if (child[imgField]) images.push(child[imgField]);
+          }
+        }
+      }
+    }
+
+    // For video/reel posts, use video thumbnail as fallback
+    if (images.length === 0) {
+      const videoThumbFields = ['videoUrl', 'video_url'];
+      for (const field of videoThumbFields) {
+        if (post[field] && typeof post[field] === 'string') {
+          // Video posts still have a display image usually
+          console.log('Post is a video, no separate image found');
+        }
       }
     }
 
@@ -133,13 +153,14 @@ serve(async (req) => {
     const uniqueImages = [...new Set(images)];
 
     if (uniqueImages.length === 0) {
+      console.error('No images found. Full post data:', JSON.stringify(post, null, 2));
       return new Response(
         JSON.stringify({ 
-          error: 'Nenhuma imagem encontrada neste post.' 
+          error: 'Nenhuma imagem encontrada neste post. Pode ser um reel/vídeo sem thumbnail acessível.',
+          postKeys: Object.keys(post),
         }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
-    }
 
     console.log(`Extracted ${uniqueImages.length} images from Instagram post`);
 
