@@ -14,6 +14,7 @@ interface UnifiedContentGridProps {
   onSelectContent?: (item: UnifiedContentItem) => void;
   compact?: boolean;
   draggable?: boolean;
+  externalSearchQuery?: string;
 }
 
 type PlatformFilter = 'all' | 'instagram' | 'twitter' | 'linkedin' | 'youtube' | 'newsletter' | 'content' | 'favorites';
