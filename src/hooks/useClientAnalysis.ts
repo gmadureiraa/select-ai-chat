@@ -127,16 +127,13 @@ export function useClientAnalysis() {
         // Check if it's a 402 token error
         const errorData = data || {};
         if (fnError.message?.includes('402') || errorData.error === 'insufficient_tokens') {
-          await handleTokenError(errorData, 402);
           throw new Error('Créditos insuficientes');
         }
         throw new Error(fnError.message);
       }
 
       if (!data?.success || !data?.analysis) {
-        // Also check for token error in data response
         if (data?.error === 'insufficient_tokens') {
-          await handleTokenError(data, 402);
           throw new Error('Créditos insuficientes');
         }
         throw new Error(data?.error || 'Falha ao gerar análise');

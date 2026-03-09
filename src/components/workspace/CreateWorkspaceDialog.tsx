@@ -21,13 +21,12 @@ interface CreateWorkspaceDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
-// Sistema interno - workspace criado diretamente sem checkout
+// Sistema interno - workspace criado diretamente
 
 export function CreateWorkspaceDialog({ open, onOpenChange }: CreateWorkspaceDialogProps) {
   const navigate = useNavigate();
   const [workspaceName, setWorkspaceName] = useState("");
   const [slug, setSlug] = useState("");
-  const [selectedPlan, setSelectedPlan] = useState<"basic" | "agency">("basic");
   const [isCheckingSlug, setIsCheckingSlug] = useState(false);
   const [isSlugAvailable, setIsSlugAvailable] = useState<boolean | null>(null);
   const [isLoading, setIsLoading] = useState(false);

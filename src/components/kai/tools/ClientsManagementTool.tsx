@@ -56,9 +56,6 @@ export function ClientsManagementTool() {
         <Button onClick={handleAddClient} className="gap-2">
           <Plus className="h-4 w-4" />
           Novo Perfil
-          {!isUnlimitedClients && clientsRemaining > 0 && (
-            <span className="text-xs opacity-70">({clientsRemaining})</span>
-          )}
         </Button>
       </div>
 

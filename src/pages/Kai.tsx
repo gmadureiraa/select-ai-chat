@@ -187,7 +187,7 @@ export default function Kai() {
         <div className={cn("h-full overflow-hidden", isMobile ? "p-2" : "p-6")}>
           <PlanningBoard 
             clientId={selectedClient?.id} 
-            isEnterprise={isEnterprise}
+            isEnterprise={true}
             onClientChange={handleClientChange}
           />
         </div>

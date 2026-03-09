@@ -148,14 +148,11 @@ export function useUnifiedContentGeneration(): UseUnifiedContentGenerationReturn
       console.error("[UnifiedGeneration] Generation failed:", error);
       
       // Check if it's a token error (402)
-      const isTokenError = await handleTokenError(error, error?.status);
-      if (!isTokenError) {
-        toast({
-          title: "Erro ao gerar conteúdo",
-          description: error instanceof Error ? error.message : "Tente novamente em alguns instantes.",
-          variant: "destructive"
-        });
-      }
+      toast({
+        title: "Erro ao gerar conteúdo",
+        description: error instanceof Error ? error.message : "Tente novamente em alguns instantes.",
+        variant: "destructive"
+      });
       return null;
     } finally {
       setIsGenerating(false);

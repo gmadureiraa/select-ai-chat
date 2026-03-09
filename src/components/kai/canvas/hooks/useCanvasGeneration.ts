@@ -499,16 +499,13 @@ export function useCanvasGeneration({
         generatedCount: 0,
       } as Partial<GeneratorNodeData>);
       
-      const isTokenError = await handleTokenError(error, error?.status);
-      if (!isTokenError) {
-        toast({
-          title: "Erro na geração",
-          description: "Não foi possível gerar o conteúdo",
-          variant: "destructive",
-        });
-      }
+      toast({
+        title: "Erro na geração",
+        description: "Não foi possível gerar o conteúdo",
+        variant: "destructive",
+      });
     }
-  }, [nodes, edges, getConnectedInputs, updateNodeData, addNode, clientId, toast, handleTokenError, analyzeImageSourceImage, setEdges]);
+  }, [nodes, edges, getConnectedInputs, updateNodeData, addNode, clientId, toast, analyzeImageSourceImage, setEdges]);
 
   const regenerateContent = useCallback(async (outputNodeId: string) => {
     const outputNode = nodes.find((n) => n.id === outputNodeId);
