@@ -44,9 +44,33 @@ export const YouTubeVideoSyncButton = ({
     setIsSyncing(true);
 
     try {
+      // Step 1: Scrape metrics via Apify
+      setSyncStatus("Atualizando métricas...");
+      
+      try {
+        const { data: apifyData, error: apifyError } = await supabase.functions.invoke(
+          "fetch-youtube-apify",
+          {
+            body: {
+              clientId,
+              channelUrl: `https://www.youtube.com/watch?v=${videoId}`,
+              singleVideo: true,
+            },
+          }
+        );
+
+        if (apifyError) {
+          console.warn("Apify metrics scrape failed, continuing with transcript:", apifyError);
+        } else {
+          console.log("Apify metrics updated:", apifyData);
+        }
+      } catch (apifyErr) {
+        console.warn("Apify metrics scrape error, continuing:", apifyErr);
+      }
+
+      // Step 2: Extract transcript
       setSyncStatus("Extraindo transcrição...");
       
-      // Call extract-youtube to get the transcript
       const { data: extractData, error: extractError } = await supabase.functions.invoke(
         "extract-youtube",
         {
@@ -67,7 +91,7 @@ export const YouTubeVideoSyncButton = ({
 
       setSyncStatus("Salvando na biblioteca...");
       
-      // Create entry in content library with thumbnail and transcript
+      // Step 3: Create entry in content library
       const { data: libraryEntry, error: insertError } = await supabase
         .from("client_content_library")
         .insert({
@@ -89,7 +113,7 @@ export const YouTubeVideoSyncButton = ({
 
       if (insertError) throw insertError;
 
-      // Update youtube_videos with transcript and library link
+      // Step 4: Update youtube_videos with transcript and library link
       const { error: updateError } = await supabase
         .from("youtube_videos")
         .update({
@@ -103,19 +127,21 @@ export const YouTubeVideoSyncButton = ({
 
       // Invalidate queries
       queryClient.invalidateQueries({ queryKey: ["youtube-videos", clientId] });
+      queryClient.invalidateQueries({ queryKey: ["youtube-videos-by-date", clientId] });
       queryClient.invalidateQueries({ queryKey: ["unified-content", clientId] });
       queryClient.invalidateQueries({ queryKey: ["content-library", clientId] });
       queryClient.invalidateQueries({ queryKey: ["client-content-library", clientId] });
+      queryClient.invalidateQueries({ queryKey: ["performance-metrics"] });
       
       const successMessage = hasTranscript 
-        ? "Vídeo transcrito e adicionado à biblioteca!" 
-        : "Vídeo adicionado à biblioteca (sem transcrição)";
+        ? "Métricas atualizadas, vídeo transcrito e adicionado à biblioteca!" 
+        : "Métricas atualizadas e vídeo adicionado à biblioteca (sem transcrição)";
       
       toast.success(successMessage);
       onSyncComplete?.();
     } catch (error) {
       console.error("Error syncing YouTube video:", error);
-      toast.error("Erro ao transcrever vídeo");
+      toast.error("Erro ao sincronizar vídeo");
     } finally {
       setIsSyncing(false);
       setSyncStatus("");
