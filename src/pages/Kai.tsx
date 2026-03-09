@@ -5,7 +5,7 @@ import { MobileHeader } from "@/components/kai/MobileHeader";
 import { GradientHero } from "@/components/kai/GradientHero";
 import { KaiPerformanceTab } from "@/components/kai/KaiPerformanceTab";
 import { KaiLibraryTab } from "@/components/kai/KaiLibraryTab";
-import { KaiDocsTab } from "@/components/kai/KaiDocsTab";
+
 import { KaiAssistantTab } from "@/components/kai/KaiAssistantTab";
 import { KaiAnalyticsTab } from "@/components/kai/KaiAnalyticsTab";
 
