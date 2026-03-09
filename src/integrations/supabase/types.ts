@@ -2311,6 +2311,7 @@ export type Database = {
           last_triggered_at: string | null
           name: string
           platform: string | null
+          platforms: string[] | null
           prompt_template: string | null
           target_column_id: string | null
           trigger_config: Json
@@ -2334,6 +2335,7 @@ export type Database = {
           last_triggered_at?: string | null
           name: string
           platform?: string | null
+          platforms?: string[] | null
           prompt_template?: string | null
           target_column_id?: string | null
           trigger_config?: Json
@@ -2357,6 +2359,7 @@ export type Database = {
           last_triggered_at?: string | null
           name?: string
           platform?: string | null
+          platforms?: string[] | null
           prompt_template?: string | null
           target_column_id?: string | null
           trigger_config?: Json

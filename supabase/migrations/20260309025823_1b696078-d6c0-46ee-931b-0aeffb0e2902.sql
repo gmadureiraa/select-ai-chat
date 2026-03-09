@@ -1,0 +1,1 @@
+ALTER TABLE planning_automations ADD COLUMN platforms TEXT[] DEFAULT NULL;
