@@ -70,6 +70,7 @@ export interface CreateAutomationInput {
   auto_generate_image?: boolean;
   image_prompt_template?: string | null;
   image_style?: ImageStyle | null;
+  image_reference_ids?: string[] | null;
 }
 
 export interface UpdateAutomationInput extends Partial<CreateAutomationInput> {
