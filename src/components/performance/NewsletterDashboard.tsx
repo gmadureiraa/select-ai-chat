@@ -69,12 +69,13 @@ export function NewsletterDashboard({ clientId, metrics, isLoading }: Newsletter
   const [selectedMetric, setSelectedMetric] = useState("delivered");
   const [isDragging, setIsDragging] = useState(false);
   const [showRssConfig, setShowRssConfig] = useState(false);
+  const [showReportGenerator, setShowReportGenerator] = useState(false);
   
   const { importFile, importMultipleFiles, isImporting, result, reset } = useSmartNewsletterImport(clientId);
   
   // Fetch newsletter posts separately
   const { data: newsletterPosts = [], isLoading: isLoadingPosts } = useNewsletterPosts(clientId);
-  const { canImportData } = useWorkspace();
+  const { canImportData, canGenerateReports } = useWorkspace();
 
   const cutoffDate = useMemo(() => {
     if (period === "all") return null;
