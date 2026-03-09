@@ -751,7 +751,7 @@ async function fetchMetricsContext(
   const postsLimit = isSpecificQuery ? 10 : 20;
 
   // Fetch all platforms in parallel
-  const [metricsResult, instaResult, twitterResult, linkedinResult] = await Promise.all([
+  const [metricsResult, instaResult, twitterResult, linkedinResult, youtubeResult] = await Promise.all([
     supabase.from("platform_metrics").select("*")
       .eq("client_id", clientId)
       .gte("metric_date", queryStart).lte("metric_date", queryEnd)
@@ -771,6 +771,10 @@ async function fetchMetricsContext(
       .select("tweet_text, tweet_metrics, tweet_created_at, author_username, status")
       .eq("client_id", clientId)
       .order("created_at", { ascending: false }).limit(10),
+    supabase.from("youtube_videos")
+      .select("id, title, total_views, likes, comments, published_at, duration_seconds, impressions, click_rate, subscribers_gained, watch_hours, transcript")
+      .eq("client_id", clientId)
+      .order("total_views", { ascending: false, nullsFirst: false }).limit(postsLimit),
   ]);
 
   const metrics: any[] = metricsResult.data || [];
