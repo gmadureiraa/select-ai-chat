@@ -781,8 +781,9 @@ async function fetchMetricsContext(
   const instaPosts: any[] = instaResult.data || [];
   const linkedinPosts: any[] = linkedinResult.data || [];
   const twitterData: any[] = twitterResult.data || [];
+  const youtubeVideos: any[] = youtubeResult.data || [];
 
-  if (metrics.length === 0 && instaPosts.length === 0 && linkedinPosts.length === 0) {
+  if (metrics.length === 0 && instaPosts.length === 0 && linkedinPosts.length === 0 && youtubeVideos.length === 0) {
     return `\n## Dados de Performance\nNenhum dado encontrado para o período de ${queryStart} a ${queryEnd}.\n`;
   }
 
