@@ -897,10 +897,10 @@ export function AutomationDialog({ open, onOpenChange, automation }: AutomationD
               </div>
             )}
 
-            {(!autoGenerate || !platform || !clientId) && (
+            {(!autoGenerate || (selectedPlatforms.length === 0 && !platform) || !clientId) && (
               <p className="text-xs text-muted-foreground">
                 {!autoGenerate && "Ative a geração de conteúdo para habilitar. "}
-                {!platform && "Selecione uma plataforma. "}
+                {selectedPlatforms.length === 0 && !platform && "Selecione ao menos uma plataforma. "}
                 {!clientId && "Selecione um perfil."}
               </p>
             )}
