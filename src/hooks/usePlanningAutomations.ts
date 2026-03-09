@@ -181,6 +181,7 @@ export function usePlanningAutomations() {
       if (input.auto_generate_image !== undefined) updateData.auto_generate_image = input.auto_generate_image;
       if (input.image_prompt_template !== undefined) updateData.image_prompt_template = input.image_prompt_template;
       if (input.image_style !== undefined) updateData.image_style = input.image_style;
+      if (input.image_reference_ids !== undefined) updateData.image_reference_ids = input.image_reference_ids;
       if (input.is_active !== undefined) updateData.is_active = input.is_active;
       
       const { data, error } = await supabase
