@@ -63,8 +63,9 @@ serve(async (req) => {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               twitterHandles: [handle],
-              maxTweets,
-              proxyConfiguration: { useApifyProxy: true },
+              maxItems: maxItems,
+              includeReplies: false,
+              includeRetweets: true,
             }),
           });
 
