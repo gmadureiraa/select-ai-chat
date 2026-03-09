@@ -227,6 +227,13 @@ export function PlanningItemDialog({
       } else {
         setContentType('tweet');
       }
+
+      // Restore selected platforms from metadata or derive from content type
+      if (metadata.target_platforms?.length > 0) {
+        setSelectedPlatforms(metadata.target_platforms);
+      } else if (effectiveItem.platform) {
+        setSelectedPlatforms([effectiveItem.platform]);
+      }
       
       setRecurrenceConfig({
         type: (effectiveItem as any).recurrence_type || 'none',
