@@ -130,7 +130,7 @@ serve(async (req) => {
 
     if (!Array.isArray(items) || items.length === 0) {
       return new Response(
-        JSON.stringify({ error: lastError || "No tweets found." }),
+        JSON.stringify({ error: lastError || `Nenhum tweet encontrado para @${handle}.` }),
         { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
