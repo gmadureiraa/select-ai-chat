@@ -347,17 +347,29 @@ export function useCanvasGeneration({
         const effectiveAspectRatio = genData.aspectRatio || formatSpec?.aspectRatio || "1:1";
         const preservePerson = (genData as any).preservePerson || false;
 
-        const { data, error } = await supabase.functions.invoke('generate-image', {
+        // Use generate-content-v2 which fetches client_visual_references automatically
+        const imageInputs: any[] = [{ type: 'text', content: imagePrompt }];
+        // Add reference images as inputs
+        for (const ref of allImageRefs.slice(0, 2)) {
+          if (ref.url || ref.base64) {
+            imageInputs.push({ 
+              type: 'image', 
+              content: ref.url || '', 
+              imageBase64: ref.base64 || undefined 
+            });
+          }
+        }
+        
+        const { data, error } = await supabase.functions.invoke('generate-content-v2', {
           body: {
-            prompt: imagePrompt,
+            type: 'image',
+            inputs: imageInputs,
+            config: {
+              aspectRatio: effectiveAspectRatio,
+              noText: true,
+              preserveFace: preservePerson,
+            },
             clientId,
-            aspectRatio: effectiveAspectRatio,
-            imageFormat: genData.imageStyle || "photographic",
-            imageType,
-            preservePerson,
-            formatInstructions: formatInstructionsText,
-            imageReferences: allImageRefs.slice(0, 2),
-            styleAnalysis: collectedStyleAnalysis,
           }
         });
 
