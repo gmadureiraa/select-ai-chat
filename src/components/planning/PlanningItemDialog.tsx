@@ -26,7 +26,8 @@ import { ImageGenerationModal, ImageGenerationOptions } from './ImageGenerationM
 import { PlanningItemComments } from './PlanningItemComments';
 import { MentionableInput } from './MentionableInput';
 import { RecurrenceConfig } from './RecurrenceConfig';
-import { CONTENT_TYPE_OPTIONS, CONTENT_TO_PLATFORM, ContentTypeKey } from '@/types/contentTypes';
+import { CONTENT_TYPE_OPTIONS, CONTENT_TO_PLATFORM, ContentTypeKey, ALL_PUBLISH_PLATFORMS } from '@/types/contentTypes';
+import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
 import type { PlanningItem, CreatePlanningItemInput, PlanningPlatform, PlanningPriority, KanbanColumn } from '@/hooks/usePlanningItems';
 import type { RecurrenceConfig as RecurrenceConfigType } from '@/types/recurrence';
@@ -132,6 +133,7 @@ export function PlanningItemDialog({
   const [mediaItems, setMediaItems] = useState<MediaItem[]>([]);
   const [threadTweets, setThreadTweets] = useState<ThreadTweet[]>([]);
   const [assignedTo, setAssignedTo] = useState<string>('');
+  const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
   const [referenceInput, setReferenceInput] = useState('');
   const [recurrenceConfig, setRecurrenceConfig] = useState<RecurrenceConfigType>({
     type: 'none',
@@ -145,10 +147,25 @@ export function PlanningItemDialog({
   const { canAutoPublish, getPlatformStatus } = useClientPlatformStatus(selectedClientId);
   const lateConnection = useLateConnection({ clientId: selectedClientId });
 
-  // Derive platform from content type
+  // Derive platform from content type (used as default suggestion)
   const platform = CONTENT_TO_PLATFORM[contentType] as PlanningPlatform;
-  const platformStatus = getPlatformStatus(platform);
-  const canPublishNow = canAutoPublish(platform) && (content.trim() || threadTweets.some(t => t.text.trim()));
+  
+  // Auto-set default platform when content type changes
+  useEffect(() => {
+    if (platform && selectedPlatforms.length === 0) {
+      setSelectedPlatforms([platform]);
+    }
+  }, [contentType]);
+
+  const togglePlatform = (p: string) => {
+    setSelectedPlatforms(prev => 
+      prev.includes(p) ? prev.filter(x => x !== p) : [...prev, p]
+    );
+  };
+
+  // Check if any selected platform can auto-publish
+  const publishablePlatforms = selectedPlatforms.filter(p => canAutoPublish(p as any));
+  const canPublishNow = publishablePlatforms.length > 0 && (content.trim() || threadTweets.some(t => t.text.trim()));
 
   const canGenerateContent = title.trim() && contentType && selectedClientId;
   const canGenerateImage = (content.trim() || threadTweets.some(t => t.text.trim())) && selectedClientId;
@@ -210,6 +227,13 @@ export function PlanningItemDialog({
       } else {
         setContentType('tweet');
       }
+
+      // Restore selected platforms from metadata or derive from content type
+      if (metadata.target_platforms?.length > 0) {
+        setSelectedPlatforms(metadata.target_platforms);
+      } else if (effectiveItem.platform) {
+        setSelectedPlatforms([effectiveItem.platform]);
+      }
       
       setRecurrenceConfig({
         type: (effectiveItem as any).recurrence_type || 'none',
@@ -245,6 +269,7 @@ export function PlanningItemDialog({
       setMediaItems([]);
       setThreadTweets([{ id: 'tweet-1', text: '', media_urls: [] }]);
       setAssignedTo('');
+      setSelectedPlatforms([]);
       setReferenceInput('');
       setRecurrenceConfig({ type: 'none', days: [], time: null, endDate: null });
       setShowMoreOptions(false);
@@ -296,6 +321,7 @@ export function PlanningItemDialog({
         content_type: contentType,
         metadata: {
           content_type: contentType,
+          target_platforms: selectedPlatforms,
           ...(isTwitterThread && { thread_tweets: threadTweets }),
         },
         recurrence_type: recurrenceConfig.type !== 'none' ? recurrenceConfig.type : null,
@@ -318,28 +344,28 @@ export function PlanningItemDialog({
       // If scheduling is set AND we can publish to this platform, send to Late API
       const shouldScheduleToLate = 
         finalScheduledAt && 
-        canPublishNow && 
-        platform && 
+        publishablePlatforms.length > 0 && 
         selectedClientId &&
         (finalContent.trim() || threadTweets.some(t => t.text.trim()));
 
       if (shouldScheduleToLate && savedItemId) {
         setIsSchedulingToLate(true);
         try {
-          await lateConnection.publishContent(
-            platform as LatePlatform,
-            isTwitterThread ? threadTweets.map(t => t.text).join('\n\n') : finalContent,
-            {
-              mediaUrls: mediaItems.map(m => m.url),
-              planningItemId: savedItemId,
-              threadItems: isTwitterThread ? threadTweets : undefined,
-              scheduledFor: finalScheduledAt.toISOString(),
-              publishNow: false,
-            }
-          );
-          toast.success(`Agendado para ${format(finalScheduledAt, "dd/MM 'às' HH:mm")}`);
+          for (const targetPlatform of publishablePlatforms) {
+            await lateConnection.publishContent(
+              targetPlatform as LatePlatform,
+              isTwitterThread ? threadTweets.map(t => t.text).join('\n\n') : finalContent,
+              {
+                mediaUrls: mediaItems.map(m => m.url),
+                planningItemId: savedItemId,
+                threadItems: isTwitterThread ? threadTweets : undefined,
+                scheduledFor: finalScheduledAt.toISOString(),
+                publishNow: false,
+              }
+            );
+          }
+          toast.success(`Agendado em ${publishablePlatforms.length} plataforma(s) para ${format(finalScheduledAt, "dd/MM 'às' HH:mm")}`);
         } catch (scheduleError) {
-          // If Late API scheduling fails, keep local scheduling (cron will handle it)
           console.warn('Late API scheduling failed, keeping local schedule:', scheduleError);
           toast.info("Salvo! Será publicado automaticamente no horário agendado.");
         } finally {
@@ -354,19 +380,13 @@ export function PlanningItemDialog({
   };
 
   const handlePublishNow = async () => {
-    // Explicit validations with user feedback
-    if (!platform) {
-      toast.error('Selecione um tipo de conteúdo com plataforma');
-      return;
-    }
-    
     if (!selectedClientId) {
       toast.error('Selecione um cliente');
       return;
     }
     
-    if (!canPublishNow) {
-      toast.error('Conta não conectada ou conteúdo vazio');
+    if (publishablePlatforms.length === 0) {
+      toast.error('Nenhuma plataforma conectada selecionada');
       return;
     }
     
@@ -390,12 +410,13 @@ export function PlanningItemDialog({
           content: finalContent.trim(),
           client_id: selectedClientId,
           column_id: columnId || columns[0]?.id,
-          platform: platform,
+          platform: selectedPlatforms[0] as PlanningPlatform,
           priority,
           status: 'publishing',
           media_urls: mediaItems.map(m => m.url),
           metadata: {
             content_type: contentType,
+            target_platforms: selectedPlatforms,
             ...(isTwitterThread && { thread_tweets: threadTweets }),
           },
         };
@@ -415,30 +436,39 @@ export function PlanningItemDialog({
     }
     
     setIsPublishing(true);
+    const successPlatforms: string[] = [];
+    const failedPlatforms: string[] = [];
+    
     try {
-      console.log('[PlanningItemDialog] Publishing...', { 
-        platform, 
-        contentLength: finalContent.length, 
-        itemId,
-        hasMedia: mediaItems.length > 0,
-      });
-      
-      await lateConnection.publishContent(
-        platform as LatePlatform,
-        finalContent,
-        {
-          mediaUrls: mediaItems.map(m => m.url),
-          planningItemId: itemId,
-          threadItems: isTwitterThread ? threadTweets : undefined,
+      for (const targetPlatform of publishablePlatforms) {
+        try {
+          console.log(`[PlanningItemDialog] Publishing to ${targetPlatform}...`);
+          await lateConnection.publishContent(
+            targetPlatform as LatePlatform,
+            finalContent,
+            {
+              mediaUrls: mediaItems.map(m => m.url),
+              planningItemId: itemId,
+              threadItems: isTwitterThread ? threadTweets : undefined,
+            }
+          );
+          successPlatforms.push(targetPlatform);
+        } catch (err) {
+          console.error(`[PlanningItemDialog] Failed to publish to ${targetPlatform}:`, err);
+          failedPlatforms.push(targetPlatform);
         }
-      );
-      toast.success(`Publicado em ${platform}!`);
-      onOpenChange(false);
-    } catch (error) {
-      console.error('[PlanningItemDialog] Publish error:', error);
-      // Error toast is handled by useLateConnection, but add explicit feedback for edge cases
-      if (error instanceof Error && !error.message) {
-        toast.error('Erro desconhecido ao publicar. Tente novamente.');
+      }
+
+      if (successPlatforms.length > 0 && failedPlatforms.length === 0) {
+        toast.success(`Publicado em ${successPlatforms.length} plataforma(s)!`);
+      } else if (successPlatforms.length > 0) {
+        toast.warning(`Publicado em ${successPlatforms.length}/${publishablePlatforms.length} plataformas. Falhou: ${failedPlatforms.join(', ')}`);
+      } else {
+        toast.error('Falha ao publicar em todas as plataformas');
+      }
+      
+      if (successPlatforms.length > 0) {
+        onOpenChange(false);
       }
     } finally {
       setIsPublishing(false);
@@ -530,6 +560,43 @@ export function PlanningItemDialog({
                 ))}
               </SelectContent>
             </Select>
+          </div>
+
+          {/* Platform Selection Checkboxes */}
+          <div className="space-y-2">
+            <Label className="text-xs text-muted-foreground">Publicar em:</Label>
+            <div className="grid grid-cols-3 gap-2">
+              {ALL_PUBLISH_PLATFORMS.map((p) => {
+                const status = getPlatformStatus(p.value as any);
+                const isConnected = status?.hasApi && status?.isValid;
+                return (
+                  <label
+                    key={p.value}
+                    className={cn(
+                      "flex items-center gap-2 p-2 rounded-md border cursor-pointer text-sm transition-colors",
+                      selectedPlatforms.includes(p.value)
+                        ? "border-primary bg-primary/5"
+                        : "border-border hover:border-muted-foreground/30",
+                      !isConnected && "opacity-50"
+                    )}
+                  >
+                    <Checkbox
+                      checked={selectedPlatforms.includes(p.value)}
+                      onCheckedChange={() => togglePlatform(p.value)}
+                    />
+                    <span className="truncate">{p.label}</span>
+                    {isConnected && (
+                      <span className="ml-auto text-[10px] text-green-500">●</span>
+                    )}
+                  </label>
+                );
+              })}
+            </div>
+            {selectedPlatforms.length > 0 && (
+              <p className="text-[10px] text-muted-foreground">
+                {publishablePlatforms.length} de {selectedPlatforms.length} conectada(s)
+              </p>
+            )}
           </div>
 
           {/* Reference Input with @mentions + Generate */}
@@ -727,9 +794,9 @@ export function PlanningItemDialog({
                     />
                   </div>
                 </div>
-                {scheduledAt && canPublishNow && (
+                {scheduledAt && publishablePlatforms.length > 0 && (
                   <p className="text-[10px] text-muted-foreground">
-                    ✓ Será enviado ao {platform} automaticamente
+                    ✓ Será enviado a {publishablePlatforms.length} plataforma(s) automaticamente
                   </p>
                 )}
               </div>
@@ -767,7 +834,7 @@ export function PlanningItemDialog({
                 ) : (
                   <Send className="h-4 w-4" />
                 )}
-                Publicar Agora
+                Publicar {publishablePlatforms.length > 1 ? `(${publishablePlatforms.length})` : 'Agora'}
               </Button>
             )}
             {!readOnly && (

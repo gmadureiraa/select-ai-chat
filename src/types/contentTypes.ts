@@ -105,6 +105,21 @@ export function normalizeContentType(type: string): ContentTypeKey {
   return LEGACY_TYPE_MAPPING[type] || "other";
 }
 
+// All publishable platforms for multi-platform selection
+export const ALL_PUBLISH_PLATFORMS = [
+  { value: 'twitter', label: 'Twitter/X', icon: '𝕏' },
+  { value: 'linkedin', label: 'LinkedIn', icon: 'in' },
+  { value: 'instagram', label: 'Instagram', icon: '📷' },
+  { value: 'threads', label: 'Threads', icon: '🧵' },
+  { value: 'tiktok', label: 'TikTok', icon: '🎵' },
+  { value: 'youtube', label: 'YouTube Shorts', icon: '▶️' },
+  { value: 'facebook', label: 'Facebook', icon: '📘' },
+  { value: 'newsletter', label: 'Newsletter', icon: '📧' },
+  { value: 'blog', label: 'Blog', icon: '📝' },
+] as const;
+
+export type PublishPlatform = typeof ALL_PUBLISH_PLATFORMS[number]['value'];
+
 // Sugestões de templates por categoria (para TemplateManager)
 export const TEMPLATE_SUGGESTIONS = [
   "Tweet",
