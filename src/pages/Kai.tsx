@@ -18,10 +18,8 @@ import { AutomationsTab } from "@/components/automations/AutomationsTab";
 
 import { OnboardingFlow } from "@/components/onboarding";
 import { NotificationPermissionPrompt } from "@/components/notifications/NotificationPermissionPrompt";
-import { useUpgradePrompt } from "@/hooks/useUpgradePrompt";
 import { useClients } from "@/hooks/useClients";
 import { useWorkspace } from "@/hooks/useWorkspace";
-import { usePlanFeatures } from "@/hooks/usePlanFeatures";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 import { Loader2 } from "lucide-react";
@@ -35,8 +33,6 @@ export default function Kai() {
   
   const { clients, isLoading: isLoadingClients } = useClients();
   const { canManageTeam, canViewPerformance, canViewClients, canViewHome, canViewRepurpose, isViewer } = useWorkspace();
-  const { isEnterprise, canAccessLibrary, canAccessPerformance, canAccessProfiles, isCanvas, canAccessKaiChat } = usePlanFeatures();
-  const { showUpgradePrompt } = useUpgradePrompt();
   const selectedClient = clients?.find(c => c.id === clientId);
   
   const [pendingMessage, setPendingMessage] = useState<string | null>(null);
@@ -77,30 +73,6 @@ export default function Kai() {
       redirectTab = "canvas";
     }
     
-    // Plan-based access restrictions for Canvas plan
-    if (isCanvas) {
-      // Library requires Pro plan
-      if (tab === "library" && !canAccessLibrary) {
-        shouldRedirect = true;
-        redirectTab = "canvas";
-        showUpgradePrompt("library_locked");
-      }
-      
-      // Performance requires Pro plan
-      if (tab === "performance" && !canAccessPerformance) {
-        shouldRedirect = true;
-        redirectTab = "canvas";
-        showUpgradePrompt("performance_locked");
-      }
-      
-      // Profiles require Pro plan
-      if (tab === "clients" && !canAccessProfiles) {
-        shouldRedirect = true;
-        redirectTab = "canvas";
-        showUpgradePrompt("profiles_locked");
-      }
-    }
-    
     // Admin tabs require specific permissions
     if (tab === "clients" && !canViewClients) {
       shouldRedirect = true;
@@ -111,7 +83,7 @@ export default function Kai() {
       params.set("tab", redirectTab);
       setSearchParams(params);
     }
-  }, [tab, canViewClients, canManageTeam, canViewHome, canViewRepurpose, isViewer, isCanvas, canAccessLibrary, canAccessPerformance, canAccessProfiles, searchParams, setSearchParams, showUpgradePrompt]);
+  }, [tab, canViewClients, canManageTeam, canViewHome, canViewRepurpose, isViewer, searchParams, setSearchParams]);
 
 
   const handleTabChange = (newTab: string) => {
@@ -215,7 +187,7 @@ export default function Kai() {
         <div className={cn("h-full overflow-hidden", isMobile ? "p-2" : "p-6")}>
           <PlanningBoard 
             clientId={selectedClient?.id} 
-            isEnterprise={isEnterprise}
+            isEnterprise={true}
             onClientChange={handleClientChange}
           />
         </div>

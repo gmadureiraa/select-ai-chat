@@ -11,8 +11,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { OutputNodeData, ContentFormat, Platform, ContentVersion, NodeComment as NodeCommentType, ApprovalStatus } from "../hooks/useCanvasState";
 import { useToast } from "@/hooks/use-toast";
-import { usePlanFeatures } from "@/hooks/usePlanFeatures";
-import { useUpgradePrompt } from "@/hooks/useUpgradePrompt";
 import { VersionHistory } from "../components/VersionHistory";
 import { ApprovalStatus as ApprovalStatusComponent } from "../components/ApprovalStatus";
 import { NodeComment } from "../components/NodeComment";
@@ -68,8 +66,6 @@ function ContentOutputNodeComponent({
   onCreateRemix
 }: ContentOutputNodeProps) {
   const { toast } = useToast();
-  const { hasPlanning } = usePlanFeatures();
-  const { showUpgradePrompt } = useUpgradePrompt();
   const [isEditing, setIsEditing] = useState(false);
   const [editedContent, setEditedContent] = useState(data.content);
   const [isExpanded, setIsExpanded] = useState(false);
@@ -88,10 +84,6 @@ function ContentOutputNodeComponent({
       return;
     }
     
-    if (!hasPlanning) {
-      showUpgradePrompt("planning_locked");
-      return;
-    }
     onSendToPlanning?.(id);
   };
 
@@ -503,22 +495,14 @@ function ContentOutputNodeComponent({
                 <TooltipTrigger asChild>
                   <Button 
                     onClick={handleSendToPlanning}
-                    className={cn(
-                      "w-full h-8 gap-1.5 text-xs",
-                      !hasPlanning && "bg-muted hover:bg-muted/80",
-                      data.approvalStatus === "rejected" && "opacity-50"
-                    )}
-                    variant={hasPlanning ? "default" : "outline"}
+                    className="w-full h-8 gap-1.5 text-xs"
+                    variant="default"
                     disabled={data.approvalStatus === "rejected"}
                   >
-                    {hasPlanning ? (
-                      data.approvalStatus === "approved" ? (
-                        <Check className="h-3.5 w-3.5 text-green-500" />
-                      ) : (
-                        <ExternalLink className="h-3.5 w-3.5" />
-                      )
+                    {data.approvalStatus === "approved" ? (
+                      <Check className="h-3.5 w-3.5 text-green-500" />
                     ) : (
-                      <Lock className="h-3.5 w-3.5 text-amber-500" />
+                      <ExternalLink className="h-3.5 w-3.5" />
                     )}
                     {data.approvalStatus === "approved" 
                       ? "Enviar (Aprovado)" 
@@ -530,9 +514,7 @@ function ContentOutputNodeComponent({
                   <p>
                     {data.approvalStatus === "rejected"
                       ? "Aprove o conteúdo antes de enviar"
-                      : hasPlanning 
-                        ? "Abre o editor para revisar antes de salvar" 
-                        : "Você não tem permissão para esta ação"
+                      : "Abre o editor para revisar antes de salvar"
                     }
                   </p>
                 </TooltipContent>

@@ -1,8 +1,6 @@
 import { useState } from "react";
 import { Plus, Search, Pencil, Trash2 } from "lucide-react";
 import { useClients, Client } from "@/hooks/useClients";
-import { usePlanLimits } from "@/hooks/usePlanLimits";
-import { useUpgradePrompt } from "@/hooks/useUpgradePrompt";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -14,18 +12,12 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 export function ClientsManagementTool() {
   const { clients, isLoading } = useClients();
-  const { canAddClient, clientsRemaining, maxClients, isUnlimitedClients } = usePlanLimits();
-  const { showUpgradePrompt } = useUpgradePrompt();
   const [searchQuery, setSearchQuery] = useState("");
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [deletingClient, setDeletingClient] = useState<Client | null>(null);
 
   const handleAddClient = () => {
-    if (!canAddClient) {
-      showUpgradePrompt("max_clients", `Você atingiu o limite de ${maxClients} perfil(is) do seu plano atual.`);
-      return;
-    }
     setIsCreateDialogOpen(true);
   };
 
@@ -64,9 +56,6 @@ export function ClientsManagementTool() {
         <Button onClick={handleAddClient} className="gap-2">
           <Plus className="h-4 w-4" />
           Novo Perfil
-          {!isUnlimitedClients && clientsRemaining > 0 && (
-            <span className="text-xs opacity-70">({clientsRemaining})</span>
-          )}
         </Button>
       </div>
 

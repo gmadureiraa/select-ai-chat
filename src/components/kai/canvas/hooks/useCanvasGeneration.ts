@@ -2,7 +2,7 @@ import { useCallback } from "react";
 import { Node, Edge } from "reactflow";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { useTokenError } from "@/hooks/useTokenError";
+
 import { IMAGE_FORMAT_INSTRUCTIONS } from "@/types/template";
 import { callKaiContentAgent } from "@/lib/parseOpenAIStream";
 import { parseStructuredContent } from "@/lib/contentGeneration";
@@ -41,7 +41,7 @@ export function useCanvasGeneration({
   analyzeImageSourceImage
 }: UseCanvasGenerationProps) {
   const { toast } = useToast();
-  const { handleTokenError } = useTokenError();
+  
 
   const getConnectedInputs = useCallback((generatorNodeId: string) => {
     const inputEdges = edges.filter((e) => e.target === generatorNodeId);
@@ -499,16 +499,13 @@ export function useCanvasGeneration({
         generatedCount: 0,
       } as Partial<GeneratorNodeData>);
       
-      const isTokenError = await handleTokenError(error, error?.status);
-      if (!isTokenError) {
-        toast({
-          title: "Erro na geração",
-          description: "Não foi possível gerar o conteúdo",
-          variant: "destructive",
-        });
-      }
+      toast({
+        title: "Erro na geração",
+        description: "Não foi possível gerar o conteúdo",
+        variant: "destructive",
+      });
     }
-  }, [nodes, edges, getConnectedInputs, updateNodeData, addNode, clientId, toast, handleTokenError, analyzeImageSourceImage, setEdges]);
+  }, [nodes, edges, getConnectedInputs, updateNodeData, addNode, clientId, toast, analyzeImageSourceImage, setEdges]);
 
   const regenerateContent = useCallback(async (outputNodeId: string) => {
     const outputNode = nodes.find((n) => n.id === outputNodeId);

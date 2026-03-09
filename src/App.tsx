@@ -17,10 +17,8 @@ import NotFound from "./pages/NotFound";
 import NoWorkspacePage from "./pages/NoWorkspacePage";
 import { WorkspaceProvider } from "@/contexts/WorkspaceContext";
 import { WorkspaceRouter } from "@/components/WorkspaceRouter";
-import { TokenErrorProvider } from "@/hooks/useTokenError";
 import { GlobalKAIProvider } from "@/contexts/GlobalKAIContext";
 import { GlobalKAIAssistant } from "@/components/kai-global";
-import { UpgradePromptProvider } from "@/hooks/useUpgradePrompt";
 
 const queryClient = new QueryClient();
 
@@ -33,8 +31,6 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <WorkspaceProvider>
-            <TokenErrorProvider>
-              <UpgradePromptProvider>
                 <GlobalKAIProvider>
                   <Routes>
                     {/* Public routes */}
@@ -79,8 +75,6 @@ const App = () => (
                   {/* Global kAI Assistant - available on all authenticated pages */}
                   <GlobalKAIAssistant />
                 </GlobalKAIProvider>
-              </UpgradePromptProvider>
-            </TokenErrorProvider>
           </WorkspaceProvider>
         </BrowserRouter>
       </TooltipProvider>

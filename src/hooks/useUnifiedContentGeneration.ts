@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { useTokenError } from "@/hooks/useTokenError";
+
 import { callKaiContentAgent } from "@/lib/parseOpenAIStream";
 import {
   extractAllReferences,
@@ -43,7 +43,7 @@ export function useUnifiedContentGeneration(): UseUnifiedContentGenerationReturn
   const [isGenerating, setIsGenerating] = useState(false);
   const [isFetchingReferences, setIsFetchingReferences] = useState(false);
   const { toast } = useToast();
-  const { handleTokenError } = useTokenError();
+  
 
   /**
    * Main generation function - unified flow for all content generation
@@ -148,14 +148,11 @@ export function useUnifiedContentGeneration(): UseUnifiedContentGenerationReturn
       console.error("[UnifiedGeneration] Generation failed:", error);
       
       // Check if it's a token error (402)
-      const isTokenError = await handleTokenError(error, error?.status);
-      if (!isTokenError) {
-        toast({
-          title: "Erro ao gerar conteúdo",
-          description: error instanceof Error ? error.message : "Tente novamente em alguns instantes.",
-          variant: "destructive"
-        });
-      }
+      toast({
+        title: "Erro ao gerar conteúdo",
+        description: error instanceof Error ? error.message : "Tente novamente em alguns instantes.",
+        variant: "destructive"
+      });
       return null;
     } finally {
       setIsGenerating(false);

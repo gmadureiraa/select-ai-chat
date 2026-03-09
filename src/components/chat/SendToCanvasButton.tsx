@@ -6,7 +6,7 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useWorkspace } from "@/hooks/useWorkspace";
-import { usePlanFeatures } from "@/hooks/usePlanFeatures";
+
 import {
   Tooltip,
   TooltipContent,
@@ -36,7 +36,7 @@ export function SendToCanvasButton({
   const [searchParams] = useSearchParams();
   const { user } = useAuth();
   const { workspace } = useWorkspace();
-  const { isCanvas } = usePlanFeatures();
+  
 
   // Don't show for short content or if no client
   if (!content || content.length < 100 || !clientId) {

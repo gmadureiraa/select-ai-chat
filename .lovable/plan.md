@@ -1,69 +1,56 @@
 
 
-# Limpeza de Código Duplicado, Não Usado e Vestígios do Sistema de Planos
+## Diagnóstico: Por que as automações não estão postando
 
-## Resumo
+### Problema 1: LinkedIn - Itens criados mas nunca publicados
+As 3 automações de LinkedIn (Artigo de Opinião, Building in Public, Case & Prova Social) estão **funcionando corretamente** na geração de conteúdo e imagens. O problema é que todas estão com `auto_publish: false`. Os itens são criados com status "idea" no planejamento e ficam lá esperando publicação manual. Nenhum deles jamais é publicado automaticamente.
 
-Encontrei ~30 arquivos/componentes que são vestígios do antigo sistema de planos/billing, duplicatas, ou completamente não usados. Removê-los vai reduzir a complexidade e o tamanho do app significativamente.
+### Problema 2: Threads - Nenhuma automação configurada
+As credenciais do Threads (conta `madureira0x`) estão válidas, mas **não existe nenhuma automação** direcionada ao Threads.
 
-## O que será removido
+### Problema 3: Bug no retry de imagem
+No `process-automations`, linha ~1322, o retry de geração de imagem referencia a variável `resolvedImagePrompt` que **não existe** no escopo (o nome correto é `fullImagePrompt`). Isso faz o retry falhar silenciosamente.
 
-### 1. Sistema de Planos/Billing (desativado, mas ainda presente)
-Estes arquivos são vestígios do sistema de monetização que foi desativado. Todos retornam valores fixos ou não são mais referenciados por rotas:
+### Problema 4: Qualidade do conteúdo LinkedIn repetitivo
+Os posts gerados para LinkedIn estão todos girando em torno do mesmo tema ("clareza vs complexidade em Web3"). Falta diversidade temática e o sistema de variação (que existe para tweets) não está implementado para LinkedIn.
 
-- **`src/lib/plans.ts`** — Config de preços Canvas/Pro/Enterprise. Não é importado por nenhum componente de UI ativo
-- **`src/hooks/useTokens.ts`** — Saldo de tokens/billing. Usado apenas por `useTokenError` e `PlanBillingCard`
-- **`src/hooks/useTokenError.tsx`** + **`src/components/settings/UpgradePlanDialog.tsx`** — Provider de erro 402 com dialog de upgrade. Pode ser simplificado para apenas logar o erro
-- **`src/components/settings/PlanBillingCard.tsx`** — Card de billing. Não é importado por ninguém
-- **`src/components/kai/SidebarUpgradeCTA.tsx`** — Retorna `null`. Não é importado
-- **`src/hooks/useUpgradePrompt.tsx`** — Provider wrapper que só faz `toast.info()`. Pode ser inlined
-- **`src/hooks/usePlanLimits.ts`** — Retorna `Infinity` para tudo. Único uso em `ClientsManagementTool`
-- **`src/hooks/usePlanFeatures.ts`** — Retorna `true` para tudo. 5 usos, pode ser inlined
-- **`src/components/shared/EnterpriseLockScreen.tsx`** — Lock screen com WhatsApp link. 1 uso
-- **Edge Functions de billing**: `create-checkout`, `customer-portal`, `verify-checkout-and-create-workspace` — Stripe checkout flow não mais usado
+---
 
-### 2. Componentes Duplicados
-- **`src/components/ConversationHistory.tsx`** vs **`src/components/kai/ConversationHistorySidebar.tsx`** — Dois componentes de histórico de conversa. O primeiro (90 linhas) não é importado por nenhum outro componente ativo
-- **`src/components/MessageBubble.tsx`** — Versão antiga, substituída por `EnhancedMessageBubble`. Usado apenas como wrapper do `MessageActions`
-- **`src/components/ProtectedRoute.tsx`** — Não é importado por ninguém (substituído por `AuthOnlyRoute` + `WorkspaceRouter`)
-- **`src/components/WorkspaceRedirect.tsx`** — Não é importado
-- **`src/components/NavLink.tsx`** — Não é importado
+## Plano de Implementação
 
-### 3. Páginas Não Roteadas
-- **`src/pages/LandingPage.tsx`** + todo **`src/components/landing/`** (28 arquivos) — Landing page completa que não está em nenhuma rota do App.tsx
-- **`src/pages/Settings.tsx`** — Página standalone que não é roteada (settings agora é uma tab em Kai via `SettingsTab`)
-- **`src/pages/CreateWorkspaceCallback.tsx`** — Callback do Stripe checkout, não roteado
+### 1. Corrigir bug do retry de imagem no process-automations
+- Substituir `resolvedImagePrompt` por `fullImagePrompt` na linha do retry
 
-### 4. Hooks Não Utilizados
-- **`src/hooks/useScheduledPosts.ts`** — Zero imports
-- **`src/hooks/useGenerateClientContext.ts`** — Verificar uso (provavelmente substituído pelo edge function)
+### 2. Criar sistema de variação para LinkedIn (anti-repetição)
+Adicionar categorias editoriais para LinkedIn similares ao `GM_VARIATION_CATEGORIES` dos tweets:
+- **Artigo de Opinião**: Análise contrarian de tendência, dados concretos, framework próprio
+- **Building in Public**: Bastidores reais, números, aprendizados honestos, erros
+- **Case & Prova Social**: Resultados de clientes, métricas antes/depois, processo
 
-### 5. Edge Functions Deprecated
-- **`supabase/functions/generate-content-from-idea/`** — Já faz redirect para `unified-content-api` com log `[DEPRECATED]`
-- **`supabase/functions/chat/`** — Provavelmente substituída por `kai-simple-chat`
+Cada automação LinkedIn receberá um `variation_index` rotativo com sub-temas específicos para evitar repetição.
 
-## O que será simplificado (não removido)
+### 3. Melhorar prompts LinkedIn com estratégia de conteúdo
+Enriquecer os prompts usando o guia de conteúdo do Madureira (`public/clients/madureira/guia-conteudo.md`):
+- Incorporar os 5 pilares de conteúdo como rotação temática
+- Usar tom de voz definido: técnico mas didático, direto, visionário
+- Adicionar instruções de formatação específicas para LinkedIn (quebras de linha, storytelling, CTA)
 
-### Inlining de hooks triviais
-- **`usePlanFeatures`** — Em vez de importar um hook que retorna `true` para tudo, remover as condições nos 5 componentes que o usam (já que tudo é sempre `true`)
-- **`usePlanLimits`** — Remover a checagem em `ClientsManagementTool` (sempre `canAddClient: true`)
-- **`useUpgradePrompt`** — Substituir os 4 usos por `toast.info()` direto e remover o Provider do App.tsx
-- **`useTokenError`** — Simplificar para não depender de `useTokens` nem mostrar `UpgradePlanDialog`
+### 4. Habilitar auto_publish para LinkedIn (com revisão inteligente)
+Alterar as 3 automações de LinkedIn para `auto_publish: true` para que os posts sejam publicados automaticamente após geração.
 
-## Impacto
+### 5. Criar automações para Threads
+Criar 2-3 automações de Threads para o perfil Madureira:
+- **Threads Diário** (daily): Repurpose do melhor tweet do dia ou insight rápido
+- **Threads Semanal** (weekly): Versão expandida de um tweet de alta performance
 
-- ~40 arquivos removidos (28 landing + 12 vestígios)
-- ~3000+ linhas de código eliminadas
-- App.tsx simplificado (remove `TokenErrorProvider` e `UpgradePromptProvider`)
-- 3 edge functions de billing podem ser removidas
-- Zero impacto funcional — tudo que é removido já está inativo ou retorna valores fixos
+### 6. Melhorar geração de imagem para LinkedIn
+- Ajustar o aspect ratio para LinkedIn: `1.91:1` (landscape) em vez de `1:1`
+- Enriquecer prompts de imagem com contexto profissional/corporativo
+- Usar modelo `google/gemini-3-pro-image-preview` para maior qualidade nas imagens de LinkedIn
 
-## Ordem de Execução
+---
 
-1. Remover arquivos não importados (landing, ProtectedRoute, WorkspaceRedirect, NavLink, SidebarUpgradeCTA, PlanBillingCard, ConversationHistory duplicado)
-2. Inline `usePlanFeatures` nos 5 componentes e remover hook
-3. Inline `useUpgradePrompt` nos 4 componentes e remover Provider do App.tsx
-4. Simplificar `useTokenError` (remover dependência de useTokens/UpgradePlanDialog)
-5. Remover `usePlanLimits`, `useTokens`, `plans.ts`, `useScheduledPosts`
-6. Remover edge functions deprecated (`generate-content-from-idea`, `create-checkout`, `customer-portal`, `verify-checkout-and-create-workspace`)
+### Arquivos a modificar
+1. `supabase/functions/process-automations/index.ts` - Fix retry bug, adicionar variação LinkedIn, melhorar prompts
+2. Database: Atualizar `planning_automations` para habilitar auto_publish nas automações LinkedIn e criar novas automações Threads
 

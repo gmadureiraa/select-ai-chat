@@ -11,7 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -21,28 +21,12 @@ interface CreateWorkspaceDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
-import { PLAN_CONFIG } from "@/lib/plans";
-
-const PLANS = {
-  basic: {
-    name: PLAN_CONFIG.canvas.name,
-    price: PLAN_CONFIG.canvas.priceFormatted,
-    description: PLAN_CONFIG.canvas.description,
-    features: PLAN_CONFIG.canvas.shortFeatures,
-  },
-  agency: {
-    name: PLAN_CONFIG.pro.displayName,
-    price: PLAN_CONFIG.pro.priceFormatted,
-    description: PLAN_CONFIG.pro.description,
-    features: PLAN_CONFIG.pro.shortFeatures,
-  },
-};
+// Sistema interno - workspace criado diretamente
 
 export function CreateWorkspaceDialog({ open, onOpenChange }: CreateWorkspaceDialogProps) {
   const navigate = useNavigate();
   const [workspaceName, setWorkspaceName] = useState("");
   const [slug, setSlug] = useState("");
-  const [selectedPlan, setSelectedPlan] = useState<"basic" | "agency">("basic");
   const [isCheckingSlug, setIsCheckingSlug] = useState(false);
   const [isSlugAvailable, setIsSlugAvailable] = useState<boolean | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -96,24 +80,31 @@ export function CreateWorkspaceDialog({ open, onOpenChange }: CreateWorkspaceDia
 
     setIsLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke("create-checkout", {
-        body: {
-          planType: selectedPlan,
-          isNewWorkspace: true,
-          workspaceName,
-          workspaceSlug: slug,
-        },
-      });
+      // Sistema interno - criar workspace diretamente
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Usuário não autenticado");
+
+      const { data, error } = await supabase
+        .from("workspaces")
+        .insert({ name: workspaceName, slug, owner_id: user.id })
+        .select("id, slug")
+        .single();
 
       if (error) throw error;
-      if (data?.url) {
-        window.open(data.url, "_blank");
-        onOpenChange(false);
-        toast.info("Complete o pagamento na nova aba para criar seu workspace");
-      }
+
+      // Add owner as member
+      await supabase.from("workspace_members").insert({
+        workspace_id: data.id,
+        user_id: user.id,
+        role: "owner",
+      });
+
+      toast.success("Workspace criado com sucesso!");
+      onOpenChange(false);
+      navigate(`/kaleidos`);
     } catch (error) {
-      console.error("Error creating checkout:", error);
-      toast.error("Erro ao iniciar pagamento. Tente novamente.");
+      console.error("Error creating workspace:", error);
+      toast.error("Erro ao criar workspace. Tente novamente.");
     } finally {
       setIsLoading(false);
     }
@@ -122,7 +113,6 @@ export function CreateWorkspaceDialog({ open, onOpenChange }: CreateWorkspaceDia
   const handleReset = () => {
     setWorkspaceName("");
     setSlug("");
-    setSelectedPlan("basic");
     setIsSlugAvailable(null);
   };
 
@@ -138,7 +128,7 @@ export function CreateWorkspaceDialog({ open, onOpenChange }: CreateWorkspaceDia
             Criar Novo Workspace
           </DialogTitle>
           <DialogDescription>
-            Escolha um nome e plano para começar a usar o kAI.
+            Escolha um nome para começar.
           </DialogDescription>
         </DialogHeader>
 
@@ -183,56 +173,6 @@ export function CreateWorkspaceDialog({ open, onOpenChange }: CreateWorkspaceDia
             )}
           </div>
 
-          {/* Plan Selection */}
-          <div className="space-y-3">
-            <Label>Escolha seu Plano</Label>
-            <RadioGroup
-              value={selectedPlan}
-              onValueChange={(value) => setSelectedPlan(value as "basic" | "agency")}
-              className="grid grid-cols-2 gap-3"
-            >
-              {(Object.keys(PLANS) as Array<keyof typeof PLANS>).map((planKey) => {
-                const plan = PLANS[planKey];
-                return (
-                  <label
-                    key={planKey}
-                    className={cn(
-                      "relative flex flex-col p-4 rounded-lg border-2 cursor-pointer transition-all",
-                      selectedPlan === planKey
-                        ? "border-primary bg-primary/5"
-                        : "border-border hover:border-primary/50"
-                    )}
-                  >
-                    <RadioGroupItem value={planKey} className="sr-only" />
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <p className="font-semibold">{plan.name}</p>
-                        <p className="text-xs text-muted-foreground">{plan.description}</p>
-                      </div>
-                      {selectedPlan === planKey && (
-                        <Check className="h-4 w-4 text-primary" />
-                      )}
-                    </div>
-                    <p className="text-lg font-bold mt-2">{plan.price}<span className="text-xs font-normal text-muted-foreground">/mês</span></p>
-                    <ul className="mt-2 space-y-1">
-                      {plan.features.map((feature, i) => (
-                        <li key={i} className="text-xs text-muted-foreground flex items-center gap-1">
-                          <Check className="h-3 w-3 text-primary" />
-                          {feature}
-                        </li>
-                      ))}
-                    </ul>
-                  </label>
-                );
-              })}
-            </RadioGroup>
-          </div>
-
-          {/* Payment Notice */}
-          <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 text-sm text-muted-foreground">
-            <strong className="text-foreground">Pagamento seguro via Stripe.</strong> Sua assinatura começará imediatamente após a confirmação do pagamento.
-          </div>
-
           {/* Submit Button */}
           <Button
             onClick={handleCreateWorkspace}
@@ -242,7 +182,7 @@ export function CreateWorkspaceDialog({ open, onOpenChange }: CreateWorkspaceDia
             {isLoading ? (
               <>
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Processando...
+                Criando...
               </>
             ) : (
               <>
