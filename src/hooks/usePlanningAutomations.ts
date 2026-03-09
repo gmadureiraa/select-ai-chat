@@ -45,6 +45,7 @@ export interface PlanningAutomation {
   auto_generate_image: boolean;
   image_prompt_template: string | null;
   image_style: ImageStyle | null;
+  image_reference_ids: string[] | null;
   // Tracking fields
   last_triggered_at: string | null;
   items_created: number;
