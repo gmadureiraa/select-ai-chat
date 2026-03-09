@@ -12,8 +12,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 export function ClientsManagementTool() {
   const { clients, isLoading } = useClients();
-  const { canAddClient, clientsRemaining, maxClients, isUnlimitedClients } = usePlanLimits();
-  const { showUpgradePrompt } = useUpgradePrompt();
   const [searchQuery, setSearchQuery] = useState("");
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
