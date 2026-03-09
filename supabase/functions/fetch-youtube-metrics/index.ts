@@ -36,14 +36,56 @@ serve(async (req) => {
     console.log(`Fetching YouTube metrics for channel: ${channelId}`);
 
     // 1. Fetch channel statistics + contentDetails for uploads playlist
-    const channelResponse = await fetch(
-      `https://www.googleapis.com/youtube/v3/channels?part=statistics,snippet,contentDetails&id=${channelId}&key=${YOUTUBE_API_KEY}`
-    );
+    // Support both channel ID (UC...) and handle/username (@...)
+    let resolvedChannelId = channelId;
+    
+    // If it looks like a handle or username, resolve it first
+    if (channelId.startsWith('@') || (!channelId.startsWith('UC') && !channelId.startsWith('HC'))) {
+      const handleParam = channelId.startsWith('@') ? channelId : `@${channelId}`;
+      console.log(`Resolving handle: ${handleParam}`);
+      
+      // Try forHandle first
+      const handleResponse = await fetch(
+        `https://www.googleapis.com/youtube/v3/channels?part=id&forHandle=${handleParam}&key=${YOUTUBE_API_KEY}`
+      );
+      const handleData = await handleResponse.json();
+      console.log(`Handle resolution response: ${JSON.stringify(handleData)}`);
+      
+      if (handleData.items && handleData.items.length > 0) {
+        resolvedChannelId = handleData.items[0].id;
+        console.log(`Resolved handle to channel ID: ${resolvedChannelId}`);
+      } else {
+        // Try forUsername as fallback
+        const usernameResponse = await fetch(
+          `https://www.googleapis.com/youtube/v3/channels?part=id&forUsername=${channelId.replace('@', '')}&key=${YOUTUBE_API_KEY}`
+        );
+        const usernameData = await usernameResponse.json();
+        if (usernameData.items && usernameData.items.length > 0) {
+          resolvedChannelId = usernameData.items[0].id;
+          console.log(`Resolved username to channel ID: ${resolvedChannelId}`);
+        }
+      }
+    }
+
+    const channelUrl = `https://www.googleapis.com/youtube/v3/channels?part=statistics,snippet,contentDetails&id=${resolvedChannelId}&key=${YOUTUBE_API_KEY}`;
+    console.log(`Fetching channel data from: ${channelUrl.replace(YOUTUBE_API_KEY, 'REDACTED')}`);
+    
+    const channelResponse = await fetch(channelUrl);
     const channelData = await channelResponse.json();
+    
+    console.log(`YouTube API response status: ${channelResponse.status}, items: ${channelData.items?.length || 0}`);
+    
+    if (channelData.error) {
+      console.error(`YouTube API error: ${JSON.stringify(channelData.error)}`);
+      return new Response(
+        JSON.stringify({ error: `YouTube API error: ${channelData.error.message}`, details: channelData.error }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
     
     if (!channelData.items || channelData.items.length === 0) {
       return new Response(
-        JSON.stringify({ error: 'Channel not found' }),
+        JSON.stringify({ error: 'Channel not found', channelId: resolvedChannelId, originalInput: channelId }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }

@@ -335,12 +335,12 @@ export function YouTubeDashboard({ clientId, videos, isLoading }: YouTubeDashboa
             </div>
             <div className="flex-1">
               <p className="text-sm font-medium mb-1">Buscar métricas via YouTube Data API</p>
-              <p className="text-xs text-muted-foreground">Insira o Channel ID (ex: UCxxxxxx) para buscar views, likes e comentários</p>
+              <p className="text-xs text-muted-foreground">Insira o Channel ID (ex: UCxxxxxx) ou handle (ex: @investidor420)</p>
             </div>
           </div>
           <div className="flex items-center gap-2 mt-3">
             <Input
-              placeholder="Channel ID (ex: UCxxxxxx)"
+              placeholder="Channel ID ou @handle (ex: @investidor420)"
               value={channelIdInput}
               onChange={(e) => setChannelIdInput(e.target.value)}
               className="flex-1"
