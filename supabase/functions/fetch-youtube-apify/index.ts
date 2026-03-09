@@ -134,13 +134,26 @@ serve(async (req) => {
 
     // Log first item for debugging
     if (items.length > 0) {
-      console.log(`[fetch-youtube-apify] Sample item keys:`, Object.keys(items[0]));
-      console.log(`[fetch-youtube-apify] First item:`, JSON.stringify(items[0]).substring(0, 1500));
+      const sampleKeys = Object.keys(items[0]);
+      console.log(`[fetch-youtube-apify] Sample item keys:`, JSON.stringify(sampleKeys));
+      console.log(`[fetch-youtube-apify] Sample viewCount:`, items[0].viewCount, typeof items[0].viewCount);
+      console.log(`[fetch-youtube-apify] Sample views:`, items[0].views, typeof items[0].views);
+      console.log(`[fetch-youtube-apify] Sample numberOfViews:`, items[0].numberOfViews, typeof items[0].numberOfViews);
+      console.log(`[fetch-youtube-apify] First item (truncated):`, JSON.stringify(items[0]).substring(0, 2000));
+    }
+
+    // Helper to parse view counts that may be strings like "1,234" or "1.2M"
+    function parseViewCount(val: any): number {
+      if (val === null || val === undefined) return 0;
+      if (typeof val === 'number') return val;
+      const str = String(val).replace(/,/g, '').replace(/\s/g, '');
+      const num = parseInt(str, 10);
+      return isNaN(num) ? 0 : num;
     }
 
     // Filter video items (skip errors/channel-info)
     const videoItems = items.filter((item: any) => 
-      !item.error && (item.type === "video" || item.id || item.videoId || item.url?.includes("/watch") || (item.title && item.viewCount !== undefined))
+      !item.error && (item.type === "video" || item.id || item.videoId || item.url?.includes("/watch") || (item.title && (item.viewCount !== undefined || item.views !== undefined || item.numberOfViews !== undefined)))
     );
 
     console.log(`[fetch-youtube-apify] ${videoItems.length} video items to process`);
