@@ -60,7 +60,9 @@ const WEEKDAYS = [
 const PLATFORMS = [
   { value: 'instagram', label: 'Instagram' },
   { value: 'twitter', label: 'Twitter/X' },
+  { value: 'threads', label: 'Threads' },
   { value: 'linkedin', label: 'LinkedIn' },
+  { value: 'facebook', label: 'Facebook' },
   { value: 'youtube', label: 'YouTube' },
   { value: 'tiktok', label: 'TikTok' },
   { value: 'newsletter', label: 'Newsletter' },
