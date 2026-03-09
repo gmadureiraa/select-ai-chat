@@ -63,9 +63,12 @@ export function YouTubeDashboard({ clientId, videos, isLoading }: YouTubeDashboa
   const [showReportGenerator, setShowReportGenerator] = useState(false);
   const [showRssImporter, setShowRssImporter] = useState(false);
   const [showApiFetch, setShowApiFetch] = useState(false);
+  const [showApifyFetch, setShowApifyFetch] = useState(false);
   const [channelIdInput, setChannelIdInput] = useState("");
+  const [apifyChannelInput, setApifyChannelInput] = useState("");
   const { canImportData, canGenerateReports } = useWorkspace();
   const fetchMetrics = useFetchYouTubeMetrics();
+  const fetchApify = useFetchYouTubeApify();
 
   const handleApiFetch = () => {
     if (!channelIdInput.trim()) {
@@ -81,6 +84,25 @@ export function YouTubeDashboard({ clientId, videos, isLoading }: YouTubeDashboa
         },
         onError: (err) => {
           toast.error(`Erro ao buscar métricas: ${err.message}`);
+        },
+      }
+    );
+  };
+
+  const handleApifyFetch = () => {
+    if (!apifyChannelInput.trim()) {
+      toast.error("Insira a URL ou @handle do canal");
+      return;
+    }
+    fetchApify.mutate(
+      { clientId, channelUrl: apifyChannelInput.trim() },
+      {
+        onSuccess: (data) => {
+          toast.success(`${data.videosUpdated} vídeos importados via Apify!`);
+          setShowApifyFetch(false);
+        },
+        onError: (err) => {
+          toast.error(`Erro: ${err.message}`);
         },
       }
     );
