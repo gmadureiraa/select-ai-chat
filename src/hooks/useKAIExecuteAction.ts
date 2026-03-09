@@ -267,10 +267,10 @@ async function executeCreateContent(
 ): Promise<ExecuteActionResult> {
   const { format, description } = action.params;
 
-  const { data, error } = await supabase.functions.invoke("generate-content-from-idea", {
+  const { data, error } = await supabase.functions.invoke("unified-content-api", {
     body: {
       clientId,
-      idea: description || "Criar conteúdo",
+      title: description || "Criar conteúdo",
       format: format || "post",
     },
   });

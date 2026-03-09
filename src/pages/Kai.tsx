@@ -83,7 +83,7 @@ export default function Kai() {
       params.set("tab", redirectTab);
       setSearchParams(params);
     }
-  }, [tab, canViewClients, canManageTeam, canViewHome, canViewRepurpose, isViewer, isCanvas, canAccessLibrary, canAccessPerformance, canAccessProfiles, searchParams, setSearchParams, showUpgradePrompt]);
+  }, [tab, canViewClients, canManageTeam, canViewHome, canViewRepurpose, isViewer, searchParams, setSearchParams]);
 
 
   const handleTabChange = (newTab: string) => {

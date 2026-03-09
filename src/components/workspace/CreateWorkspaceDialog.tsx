@@ -21,22 +21,7 @@ interface CreateWorkspaceDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
-import { PLAN_CONFIG } from "@/lib/plans";
-
-const PLANS = {
-  basic: {
-    name: PLAN_CONFIG.canvas.name,
-    price: PLAN_CONFIG.canvas.priceFormatted,
-    description: PLAN_CONFIG.canvas.description,
-    features: PLAN_CONFIG.canvas.shortFeatures,
-  },
-  agency: {
-    name: PLAN_CONFIG.pro.displayName,
-    price: PLAN_CONFIG.pro.priceFormatted,
-    description: PLAN_CONFIG.pro.description,
-    features: PLAN_CONFIG.pro.shortFeatures,
-  },
-};
+// Sistema interno - workspace criado diretamente sem checkout
 
 export function CreateWorkspaceDialog({ open, onOpenChange }: CreateWorkspaceDialogProps) {
   const navigate = useNavigate();

@@ -41,7 +41,7 @@ export function useCanvasGeneration({
   analyzeImageSourceImage
 }: UseCanvasGenerationProps) {
   const { toast } = useToast();
-  const { handleTokenError } = useTokenError();
+  
 
   const getConnectedInputs = useCallback((generatorNodeId: string) => {
     const inputEdges = edges.filter((e) => e.target === generatorNodeId);

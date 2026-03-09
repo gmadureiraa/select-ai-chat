@@ -43,7 +43,7 @@ export function useUnifiedContentGeneration(): UseUnifiedContentGenerationReturn
   const [isGenerating, setIsGenerating] = useState(false);
   const [isFetchingReferences, setIsFetchingReferences] = useState(false);
   const { toast } = useToast();
-  const { handleTokenError } = useTokenError();
+  
 
   /**
    * Main generation function - unified flow for all content generation

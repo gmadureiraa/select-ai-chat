@@ -51,14 +51,8 @@ export const AddToPlanningButton = ({
   const [showDialog, setShowDialog] = useState(false);
   const { workspace } = useWorkspaceContext();
   const { columns, createItem, isLoading: isLoadingItems } = usePlanningItems();
-  const { hasPlanning } = usePlanFeatures();
-  const { showUpgradePrompt } = useUpgradePrompt();
 
   const handleOpenDialog = () => {
-    if (!hasPlanning) {
-      showUpgradePrompt("planning_locked");
-      return;
-    }
     if (!workspace?.id) {
       toast.error("Workspace não encontrado. Por favor, recarregue a página.");
       return;

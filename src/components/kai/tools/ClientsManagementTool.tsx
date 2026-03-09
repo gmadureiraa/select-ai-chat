@@ -18,10 +18,6 @@ export function ClientsManagementTool() {
   const [deletingClient, setDeletingClient] = useState<Client | null>(null);
 
   const handleAddClient = () => {
-    if (!canAddClient) {
-      showUpgradePrompt("max_clients", `Você atingiu o limite de ${maxClients} perfil(is) do seu plano atual.`);
-      return;
-    }
     setIsCreateDialogOpen(true);
   };
 

@@ -75,8 +75,6 @@ const App = () => (
                   {/* Global kAI Assistant - available on all authenticated pages */}
                   <GlobalKAIAssistant />
                 </GlobalKAIProvider>
-              </UpgradePromptProvider>
-            </TokenErrorProvider>
           </WorkspaceProvider>
         </BrowserRouter>
       </TooltipProvider>

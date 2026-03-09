@@ -63,7 +63,7 @@ export function useClientAnalysis() {
   const [progress, setProgress] = useState<AnalysisProgress>({ step: '', progress: 0 });
   const [error, setError] = useState<string | null>(null);
   const progressIntervalRef = useRef<number | null>(null);
-  const { handleTokenError } = useTokenError();
+  
 
   // Cleanup on unmount
   useEffect(() => {

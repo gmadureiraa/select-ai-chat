@@ -36,7 +36,7 @@ export function SendToCanvasButton({
   const [searchParams] = useSearchParams();
   const { user } = useAuth();
   const { workspace } = useWorkspace();
-  const { isCanvas } = usePlanFeatures();
+  
 
   // Don't show for short content or if no client
   if (!content || content.length < 100 || !clientId) {

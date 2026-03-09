@@ -84,10 +84,6 @@ function ContentOutputNodeComponent({
       return;
     }
     
-    if (!hasPlanning) {
-      showUpgradePrompt("planning_locked");
-      return;
-    }
     onSendToPlanning?.(id);
   };
 

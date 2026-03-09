@@ -214,16 +214,6 @@ export function SocialIntegrationsTab({ clientId }: SocialIntegrationsTabProps) 
     );
   };
 
-  if (!isEnterprise) {
-    return (
-      <EnterpriseLockScreen
-        title="Integrações de Publicação"
-        description="Configure APIs para publicação automática nas redes sociais. Disponível exclusivamente no plano Enterprise."
-        icon={<Share2 className="h-10 w-10 text-muted-foreground" />}
-      />
-    );
-  }
-
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-8">
