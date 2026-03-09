@@ -231,6 +231,7 @@ export function AutomationDialog({ open, onOpenChange, automation }: AutomationD
       setAutoGenerateImage(false);
       setImagePromptTemplate('');
       setImageStyle('photographic');
+      setImageReferenceIds([]);
       setFeedTestResult(null);
       setExpandedPreview(false);
     }
