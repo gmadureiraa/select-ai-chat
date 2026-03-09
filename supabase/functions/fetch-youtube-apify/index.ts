@@ -12,7 +12,7 @@ serve(async (req) => {
   }
 
   try {
-    const { clientId, channelUrl, singleVideo } = await req.json();
+    const { clientId, channelUrl, singleVideo, maxResults: customMaxResults } = await req.json();
 
     if (!clientId || !channelUrl) {
       return new Response(
