@@ -713,31 +713,62 @@ export function AutomationDialog({ open, onOpenChange, automation }: AutomationD
             </div>
 
             <div className="space-y-2">
-              <Label>Plataformas de publicação</Label>
-              <div className="flex flex-wrap gap-2">
-                {PLATFORMS.map((p) => (
-                  <div key={p.value} className="flex items-center space-x-2">
-                    <Checkbox
-                      id={`platform-${p.value}`}
-                      checked={selectedPlatforms.includes(p.value)}
-                      onCheckedChange={(checked) => {
-                        if (checked) {
+              <Label className="text-xs text-muted-foreground">Publicar em:</Label>
+              <div className="grid grid-cols-3 gap-1.5">
+                {ALL_PUBLISH_PLATFORMS.map((p) => {
+                  const status = getPlatformStatus(p.value as any);
+                  const isConnected = status?.hasApi && status?.isValid;
+                  const isSelected = selectedPlatforms.includes(p.value);
+                  const IconComponent = platformLucideIcons[p.value];
+                  return (
+                    <button
+                      key={p.value}
+                      type="button"
+                      onClick={() => {
+                        if (isSelected) {
+                          setSelectedPlatforms(prev => prev.filter(v => v !== p.value));
+                        } else {
                           setSelectedPlatforms(prev => [...prev, p.value]);
                           if (!platform) setPlatform(p.value);
-                        } else {
-                          setSelectedPlatforms(prev => prev.filter(v => v !== p.value));
                         }
                       }}
-                    />
-                    <label htmlFor={`platform-${p.value}`} className="text-sm cursor-pointer">
-                      {p.label}
-                    </label>
-                  </div>
-                ))}
+                      className={cn(
+                        "flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border text-xs font-medium transition-all duration-150",
+                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                        isSelected
+                          ? "border-primary/50 bg-primary/10 text-foreground shadow-sm"
+                          : "border-border/60 bg-card text-muted-foreground hover:border-border hover:bg-accent/50",
+                        !isConnected && "opacity-40"
+                      )}
+                      style={isSelected ? { borderColor: p.brandColor, backgroundColor: `${p.brandColor}15` } : undefined}
+                    >
+                      {IconComponent && (
+                        <IconComponent
+                          className="h-3.5 w-3.5 shrink-0"
+                          style={isSelected ? { color: p.brandColor } : undefined}
+                        />
+                      )}
+                      <span className="truncate">{p.label}</span>
+                      {isSelected && (
+                        <Check className="h-3 w-3 ml-auto shrink-0 text-primary" style={{ color: p.brandColor }} />
+                      )}
+                      {!isSelected && isConnected && (
+                        <span className="ml-auto h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
+                      )}
+                    </button>
+                  );
+                })}
               </div>
-              <p className="text-xs text-muted-foreground">
-                Selecione uma ou mais plataformas para publicar o mesmo conteúdo
-              </p>
+              {selectedPlatforms.length > 0 && clientId && (
+                <p className="text-[10px] text-muted-foreground">
+                  {selectedPlatforms.filter(p => canAutoPublish(p as any)).length} de {selectedPlatforms.length} conectada(s) para auto-publish
+                </p>
+              )}
+              {!clientId && (
+                <p className="text-[10px] text-muted-foreground">
+                  Selecione um perfil para ver status de conexão
+                </p>
+              )}
             </div>
           </div>
 
