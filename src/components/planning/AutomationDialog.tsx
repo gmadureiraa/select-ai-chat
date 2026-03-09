@@ -123,6 +123,7 @@ export function AutomationDialog({ open, onOpenChange, automation }: AutomationD
   const [clientId, setClientId] = useState<string>('');
   const [columnId, setColumnId] = useState<string>('');
   const [platform, setPlatform] = useState<string>('');
+  const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
   const [contentType, setContentType] = useState('tweet');
   const [autoGenerate, setAutoGenerate] = useState(false);
   const [promptTemplate, setPromptTemplate] = useState('');
