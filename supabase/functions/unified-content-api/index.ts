@@ -71,6 +71,7 @@ interface SourcesUsed {
   format_rules: string | null;
   voice_profile: boolean;
   global_knowledge: boolean;
+  content_guidelines: boolean;
 }
 
 interface ContentResponse {

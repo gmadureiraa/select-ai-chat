@@ -148,8 +148,15 @@ export function AIContextTab({
       {/* Voice Profile Editor */}
       <VoiceProfileEditor 
         clientId={clientId}
-        initialProfile={voiceProfile}
-        onSave={() => refetchVoiceProfile()}
+        initialProfile={clientExtras?.voiceProfile ?? null}
+        onSave={() => refetchExtras()}
+      />
+
+      {/* Content Guidelines */}
+      <ContentGuidelinesCard
+        clientId={clientId}
+        initialGuidelines={clientExtras?.contentGuidelines ?? null}
+        onUpdate={() => refetchExtras()}
       />
 
       {/* Data Sources Status */}

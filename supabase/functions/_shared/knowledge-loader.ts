@@ -556,6 +556,13 @@ export async function getFullContentContext(params: FullContentContextParams & {
         context += `---\n\n`;
       }
       
+      // CONTENT GUIDELINES (guia de criação prático)
+      if (client.content_guidelines) {
+        context += `## 📝 GUIA DE CRIAÇÃO (REGRAS PRÁTICAS — ALTA PRIORIDADE)\n`;
+        context += `*SIGA estas regras práticas ao criar qualquer conteúdo para este cliente:*\n\n`;
+        context += `${client.content_guidelines}\n\n---\n\n`;
+      }
+      
       // Redes sociais (informativo)
       if (client.social_media && Object.keys(client.social_media).length > 0) {
         const socialMedia = typeof client.social_media === 'string' 
