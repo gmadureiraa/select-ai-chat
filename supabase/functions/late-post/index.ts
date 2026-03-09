@@ -440,9 +440,13 @@ serve(async (req: Request) => {
 
       // Parse error for better user message
       let userMessage = "Falha ao publicar conteúdo";
+      let responseStatus = 500;
       try {
         const errorJson = JSON.parse(responseText);
-        if (errorJson.message) {
+        if (postResponse.status === 409) {
+          userMessage = "Este conteúdo já foi publicado ou agendado para esta conta nas últimas 24 horas. Altere o texto para publicar novamente.";
+          responseStatus = 409;
+        } else if (errorJson.message) {
           userMessage = errorJson.message;
         } else if (errorJson.error) {
           userMessage = errorJson.error;
@@ -460,7 +464,7 @@ serve(async (req: Request) => {
         error: userMessage,
         details: responseText 
       }), {
-        status: 500,
+        status: responseStatus,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
