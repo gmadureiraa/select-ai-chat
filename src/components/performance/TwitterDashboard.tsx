@@ -1,6 +1,7 @@
 import { useState, useMemo, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { 
   Eye, 
@@ -15,7 +16,9 @@ import {
   Twitter,
   Sparkles,
   Trophy,
-  ExternalLink
+  ExternalLink,
+  RefreshCw,
+  Loader2
 } from "lucide-react";
 import { StatCard } from "./StatCard";
 import { EnhancedAreaChart } from "./EnhancedAreaChart";
@@ -26,7 +29,7 @@ import { DataCompletenessWarning } from "./DataCompletenessWarning";
 import { PerformanceReportGenerator } from "./PerformanceReportGenerator";
 import { subDays, format, parseISO, isAfter, startOfDay } from "date-fns";
 import { TwitterPost } from "@/types/twitter";
-import { useImportTwitterCSV, parseTwitterCSV } from "@/hooks/useTwitterMetrics";
+import { useImportTwitterCSV, parseTwitterCSV, useFetchTwitterApify } from "@/hooks/useTwitterMetrics";
 import { useImportHistory } from "@/hooks/useImportHistory";
 import { useWorkspace } from "@/hooks/useWorkspace";
 import { Badge } from "@/components/ui/badge";
