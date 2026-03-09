@@ -309,15 +309,17 @@ serve(async (req) => {
     console.log("[generate-content-v2] Brand context:", brandContext?.name || "none", "for client:", clientId);
 
     if (type === "text") {
-      // Fetch enriched context: favorites + top performers
-      const [favorites, topPerformers] = await Promise.all([
+      // Fetch enriched context: favorites + top performers + voice profile
+      const [favorites, topPerformers, voiceSection] = await Promise.all([
         fetchFavoriteContent(supabaseClient, clientId || null),
-        fetchTopPerformers(supabaseClient, clientId || null)
+        fetchTopPerformers(supabaseClient, clientId || null),
+        clientId ? getStructuredVoice(clientId) : Promise.resolve(""),
       ]);
       
       console.log("[generate-content-v2] Enriched context:", {
         favorites: favorites.length,
-        topPerformers: topPerformers.length
+        topPerformers: topPerformers.length,
+        hasVoice: !!voiceSection,
       });
 
       // Build context from all inputs - PRIORITIZE REAL EXTRACTED DATA
@@ -361,20 +363,17 @@ serve(async (req) => {
       
       console.log("[generate-content-v2] Loading format rules for:", requestedFormat);
       
-      // Tentar buscar do banco de dados (kai_documentation)
       const dbFormatDocs = await getFormatDocs(requestedFormat);
       
       if (dbFormatDocs && dbFormatDocs.trim().length > 50) {
-        // Usar documentação do banco
         formatRules = `## 📋 REGRAS DO FORMATO: ${requestedFormat.toUpperCase()}\n\n${dbFormatDocs}`;
         console.log("[generate-content-v2] Using DB format rules, length:", dbFormatDocs.length);
       } else {
-        // Fallback para regras hardcoded
         formatRules = getFormatRules(requestedFormat);
         console.log("[generate-content-v2] Using hardcoded format rules (fallback)");
       }
 
-      // Build enriched prompt with brand context and STRICT rules for references
+      // Build enriched prompt with brand context
       let brandSection = "";
       if (brandContext) {
         brandSection = `
@@ -384,6 +383,12 @@ ${brandContext.brandVoice ? `- Tom de voz: ${brandContext.brandVoice}` : ""}
 ${brandContext.values ? `- Valores: ${brandContext.values}` : ""}
 ${brandContext.keywords?.length ? `- Palavras-chave: ${brandContext.keywords.join(", ")}` : ""}
 `;
+      }
+
+      // Voice Profile section (USE/AVOID)
+      let voiceProfileSection = "";
+      if (voiceSection) {
+        voiceProfileSection = `\n${voiceSection}\n`;
       }
 
       // Add favorites as style reference
@@ -415,12 +420,9 @@ ${brandContext.keywords?.length ? `- Palavras-chave: ${brandContext.keywords.joi
 6. Se a referência fala de um tema específico, NÃO mude para outro tema
 ` : "";
 
-      // ===================================================
-      // NOVOS ENRICHMENTS: Success Patterns + Checklist
-      // ===================================================
+      // Success Patterns + Checklist
       let enrichmentContext = "";
       
-      // Success Patterns (padrões que funcionam para o cliente)
       if (clientId) {
         const successPatterns = await getSuccessPatterns(clientId);
         if (successPatterns) {
@@ -429,16 +431,22 @@ ${brandContext.keywords?.length ? `- Palavras-chave: ${brandContext.keywords.joi
         }
       }
       
-      // Checklist de validação (para IA auto-validar internamente)
       const checklist = await getFormatChecklistFormatted(requestedFormat);
       if (checklist) {
         enrichmentContext += checklist;
         console.log("[generate-content-v2] Added format checklist");
       }
 
-      const prompt = `Você é um copywriter especialista em criação de conteúdo para redes sociais e marketing digital.
+      // Quality rules (forbidden phrases + universal rules)
+      const forbiddenPhrases = buildForbiddenPhrasesSection();
 
-${brandSection}${favoritesSection}${performersSection}${strictReferenceRules}
+      const prompt = `${UNIVERSAL_OUTPUT_RULES}
+
+${forbiddenPhrases}
+
+Você é um copywriter especialista em criação de conteúdo para redes sociais e marketing digital.
+
+${brandSection}${voiceProfileSection}${favoritesSection}${performersSection}${strictReferenceRules}
 
 ## CONTEXTO E REFERÊNCIAS DO USUÁRIO:
 ${context}
@@ -450,29 +458,26 @@ ${enrichmentContext}
 ## Formato Solicitado: ${config.format || "post"}
 ## Plataforma: ${config.platform || "instagram"}
 
-⚠️ LEMBRE-SE DAS REGRAS CRÍTICAS:
-- NUNCA inclua meta-texto como "Aqui está...", "Segue...", "Criei para você..."
-- NUNCA explique o que você fez - entregue APENAS o conteúdo final
-- NUNCA use hashtags (são consideradas spam em 2024+)
-- Cada frase deve ter VALOR REAL baseado no material de referência
-- Se a referência tiver insights específicos, USE-OS - não generalize
-- Use o checklist interno para validar antes de responder
-
 Siga EXATAMENTE o formato de entrega especificado nas regras acima.
 Gere o conteúdo agora:`;
 
       console.log("[generate-content-v2] Generating text with unified rules...");
 
+      // Select model based on format complexity
+      const modelConfig = selectModelForFormat(requestedFormat);
+      const modelName = modelConfig.model;
+      console.log(`[generate-content-v2] Using model: ${modelName} for format: ${requestedFormat}`);
+
       const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GOOGLE_API_KEY}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${GOOGLE_API_KEY}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             contents: [{ parts: [{ text: prompt }] }],
             generationConfig: {
-              temperature: 0.8,
-              maxOutputTokens: 4096,
+              temperature: modelConfig.temperature,
+              maxOutputTokens: modelConfig.maxTokens,
             },
           }),
         }
