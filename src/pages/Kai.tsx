@@ -132,7 +132,7 @@ export default function Kai() {
     }
 
     // Tools that don't need client
-    const toolTabs = ["canvas", "clients", "docs", "settings", "automations", "assistant", "analytics"];
+    const toolTabs = ["canvas", "clients", "settings", "automations", "assistant", "analytics"];
     
     if (toolTabs.includes(tab)) {
       switch (tab) {
