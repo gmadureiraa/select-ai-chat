@@ -164,7 +164,7 @@ export function InstagramCSVUpload({ clientId }: InstagramCSVUploadProps) {
         }
       };
       reader.onerror = () => reject(new Error("Erro ao ler arquivo"));
-      reader.readAsArrayBuffer(file);
+      reader.readAsText(file, "utf-8");
     });
   };
 
