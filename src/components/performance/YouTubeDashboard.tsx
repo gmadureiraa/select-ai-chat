@@ -62,7 +62,29 @@ export function YouTubeDashboard({ clientId, videos, isLoading }: YouTubeDashboa
   const [selectedMetric, setSelectedMetric] = useState("views");
   const [showReportGenerator, setShowReportGenerator] = useState(false);
   const [showRssImporter, setShowRssImporter] = useState(false);
+  const [showApiFetch, setShowApiFetch] = useState(false);
+  const [channelIdInput, setChannelIdInput] = useState("");
   const { canImportData, canGenerateReports } = useWorkspace();
+  const fetchMetrics = useFetchYouTubeMetrics();
+
+  const handleApiFetch = () => {
+    if (!channelIdInput.trim()) {
+      toast.error("Insira o Channel ID do YouTube");
+      return;
+    }
+    fetchMetrics.mutate(
+      { clientId, channelId: channelIdInput.trim() },
+      {
+        onSuccess: (data) => {
+          toast.success(`${data.videosUpdated} vídeos atualizados via API!`);
+          setShowApiFetch(false);
+        },
+        onError: (err) => {
+          toast.error(`Erro ao buscar métricas: ${err.message}`);
+        },
+      }
+    );
+  };
 
   const cutoffDate = useMemo(() => {
     if (period === "all") return null;
