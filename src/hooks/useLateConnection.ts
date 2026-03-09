@@ -223,15 +223,6 @@ export function useLateConnection({ clientId }: UseLateConnectionProps) {
     try {
       setIsLoading(true);
       
-      console.log('[late-post] Starting publish...', { 
-        clientId, 
-        platform, 
-        hasContent: !!content,
-        contentLength: content?.length,
-        hasMedia: !!options?.mediaUrls?.length,
-        planningItemId: options?.planningItemId,
-        isScheduling: !!options?.scheduledFor && options?.publishNow === false,
-      });
 
       const isScheduling = !!options?.scheduledFor && options?.publishNow === false;
 
