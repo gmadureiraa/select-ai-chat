@@ -1766,6 +1766,7 @@ ${identityGuide ? `## Guia de Identidade\n${identityGuide}` : ""}`;
     if (docsWebsitesContext) systemPrompt += `\n${docsWebsitesContext}`;
     if (webSearchResult) systemPrompt += `\n${webSearchResult}`;
     if (citedContent) systemPrompt += `\n## Materiais Citados pelo Usuário (PRIORIDADE MÁXIMA)\n${citedContent}`;
+    if (materialContext) systemPrompt += `\n## 📄 Material em Discussão${materialTitle ? ` — ${materialTitle}` : ''} (CONTEXTO PRIMÁRIO)\n${materialContext.substring(0, 12000)}`;
     if (libraryExamplesContext) systemPrompt += `\n${libraryExamplesContext}`;
     if (referenceExamplesContext) systemPrompt += `\n${referenceExamplesContext}`;
     if (topPerformersContext) systemPrompt += `\n${topPerformersContext}`;
