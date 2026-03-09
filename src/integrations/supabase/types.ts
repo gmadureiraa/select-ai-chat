@@ -594,6 +594,7 @@ export type Database = {
           ai_analysis: Json | null
           avatar_url: string | null
           brand_assets: Json | null
+          content_guidelines: string | null
           context_notes: string | null
           created_at: string | null
           created_by: string | null
@@ -613,6 +614,7 @@ export type Database = {
           ai_analysis?: Json | null
           avatar_url?: string | null
           brand_assets?: Json | null
+          content_guidelines?: string | null
           context_notes?: string | null
           created_at?: string | null
           created_by?: string | null
@@ -632,6 +634,7 @@ export type Database = {
           ai_analysis?: Json | null
           avatar_url?: string | null
           brand_assets?: Json | null
+          content_guidelines?: string | null
           context_notes?: string | null
           created_at?: string | null
           created_by?: string | null
