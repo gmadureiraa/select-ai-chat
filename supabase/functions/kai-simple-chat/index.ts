@@ -255,10 +255,45 @@ function detectPlanningIntent(message: string, history?: HistoryMessage[]): Plan
     /montar?\s+(um\s+)?cronograma/i,
     /distribu(ir|a)\s+ao\s+longo\s+da\s+semana/i,
   ];
+
+  // Composite patterns: analyze metrics THEN create cards
+  const analyzeAndPlanPatterns = [
+    /analis[ea].*(?:e\s+)?(?:cri[ea]|sub[ea]|coloca|adiciona|gera|monta).*(?:planejamento|cards?|temas?)/i,
+    /(?:com\s+base|baseado)\s+(?:nos?|nas?)\s+(?:melhores?|top|dados).*(?:cri[ea]|sub[ea]|gera|monta).*(?:planejamento|cards?|temas?)/i,
+    /(?:cri[ea]|gera|monta|sub[ea]).*(?:temas?|cards?|conte[uú]dos?).*(?:com\s+base|baseado|a\s+partir).*(?:an[aá]lise|melhores?|performance|m[eé]tricas?)/i,
+    /(?:sugir[ea]|proponha).*temas?.*(?:e\s+)?(?:adiciona|suba|coloca).*planejamento/i,
+    /analis[ea].*(?:melhores?|top).*(?:conte[uú]dos?|v[ií]deos?|posts?).*(?:e\s+)?(?:cri[ea]|gera).*(?:novos?|temas?|cards?)/i,
+  ];
   
   for (const pattern of planningPatterns) {
     if (pattern.test(lowerMessage)) { result.isPlanning = true; break; }
   }
+
+  // Check composite analyze+plan patterns
+  if (!result.isPlanning) {
+    for (const pattern of analyzeAndPlanPatterns) {
+      if (pattern.test(lowerMessage)) {
+        result.isPlanning = true;
+        result.analyzeFirst = true;
+        break;
+      }
+    }
+  }
+
+  // Detect analyzeFirst even when planning was already detected
+  if (result.isPlanning && !result.analyzeFirst) {
+    const hasAnalyzeKeywords = /analis[ea]|com\s+base|baseado|melhores?|top\s+\d*\s*(conte[uú]dos?|v[ií]deos?|posts?)|performance|m[eé]tricas?/i.test(lowerMessage);
+    if (hasAnalyzeKeywords) result.analyzeFirst = true;
+  }
+
+  // Detect analyze source platform
+  if (result.analyzeFirst) {
+    if (/youtube|v[ií]deos?/i.test(lowerMessage)) result.analyzeSource = "youtube";
+    else if (/instagram|insta|posts?\s+do\s+insta/i.test(lowerMessage)) result.analyzeSource = "instagram";
+    else if (/linkedin/i.test(lowerMessage)) result.analyzeSource = "linkedin";
+    else result.analyzeSource = "all";
+  }
+
   if (!result.isPlanning) return result;
   
   if (/distribu(ir|a)|ao\s+longo|semana/i.test(lowerMessage)) result.action = "distribute";
