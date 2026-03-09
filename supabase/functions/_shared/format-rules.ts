@@ -1,19 +1,14 @@
 // =====================================================
-// ⚠️ ATENÇÃO: ARQUIVO DE FALLBACK
+// ⚠️ REGRAS DE FORMATO PARA A IA
 // =====================================================
-// A documentação PRIMÁRIA de formatos está em:
-//   Tabela: kai_documentation (doc_type = 'format')
+// A fonte única de verdade para a UI está em:
+//   src/lib/formatRulesData.ts
 //
-// Este arquivo é usado APENAS como FALLBACK quando:
-//   1. O banco de dados não está disponível
-//   2. Um formato específico não existe no banco
+// ⚠️ Ao alterar regras aqui, ATUALIZE TAMBÉM:
+//   src/lib/formatRulesData.ts (para manter a documentação sincronizada)
 //
-// Para ATUALIZAR regras de formato, edite diretamente no banco via:
-//   - Interface de administração de kai_documentation
-//   - SQL: UPDATE kai_documentation SET content = '...' WHERE doc_key = 'formato'
-//
-// As funções getFormatDocs() e getFullContentContext() em knowledge-loader.ts
-// buscam do banco primeiro e usam este arquivo como fallback.
+// Este arquivo é usado pelas Edge Functions como fallback
+// quando kai_documentation não está disponível.
 // =====================================================
 
 // Universal format rules for content generation
