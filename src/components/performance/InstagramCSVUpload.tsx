@@ -72,7 +72,7 @@ export function InstagramCSVUpload({ clientId }: InstagramCSVUploadProps) {
             post_id: ["identificacao do post", "post_id", "id"],
             post_type: ["tipo de post", "post_type", "type", "tipo"],
             caption: ["descricao", "caption", "legenda", "texto"],
-            posted_at: ["horario de publicacao", "posted_at", "data", "date", "published_at"],
+            posted_at: ["horario de publicacao", "posted_at", "date", "published_at"],
             likes: ["curtidas", "likes"],
             comments: ["comentarios", "comments"],
             shares: ["compartilhamentos", "shares"],
