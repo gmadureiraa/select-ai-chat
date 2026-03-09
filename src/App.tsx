@@ -33,8 +33,6 @@ const App = () => (
                     <Route path="/login" element={<Login />} />
                     <Route path="/register" element={<SimpleSignup />} />
                     <Route path="/signup" element={<SimpleSignup />} />
-                    <Route path="/help" element={<Help />} />
-                    
                     {/* Root redirects to Kaleidos */}
                     <Route path="/" element={<Navigate to="/kaleidos" replace />} />
                     
