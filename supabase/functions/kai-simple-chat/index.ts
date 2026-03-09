@@ -6,6 +6,7 @@ import {
   CONTENT_FORMAT_KEYWORDS,
   detectFormatFromKeywords 
 } from "../_shared/format-constants.ts";
+import { getFormatRules } from "../_shared/format-rules.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -2108,15 +2109,10 @@ serve(async (req) => {
           .order("engagement_rate", { ascending: false })
           .limit(5),
         
-        // 4. Format rules if specific format detected
-        contentCreation.detectedFormat
-          ? supabase
-              .from("kai_documentation")
-              .select("content, checklist")
-              .eq("doc_type", "format")
-              .eq("doc_key", FORMAT_KEY_MAP[contentCreation.detectedFormat] || contentCreation.detectedFormat)
-              .maybeSingle()
-          : Promise.resolve({ data: null }),
+        // 4. Format rules — usa getFormatRules() do _shared/format-rules.ts (fonte única de verdade)
+        Promise.resolve(contentCreation.detectedFormat 
+          ? getFormatRules(contentCreation.detectedFormat) 
+          : null),
       ]);
       
       // Assign results
@@ -2134,10 +2130,10 @@ serve(async (req) => {
         });
       }
       
-      // Build format rules context - DO NOT include checklist (internal use only)
-      if (formatDocResult.data) {
-        formatRulesContext = `\n## 📋 Regras do Formato: ${contentCreation.detectedFormat?.toUpperCase()}\n${formatDocResult.data.content}\n`;
-        // Note: checklist is intentionally NOT included - it's for internal AI validation only
+      // Build format rules context from unified format-rules.ts
+      const formatRulesData = formatDocResult as unknown as string | null;
+      if (formatRulesData) {
+        formatRulesContext = `\n## 📋 Regras do Formato: ${contentCreation.detectedFormat?.toUpperCase()}\n${formatRulesData}\n`;
       }
       
       console.log("[kai-simple-chat] Content creation context loaded:", {

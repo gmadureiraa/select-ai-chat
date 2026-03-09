@@ -643,18 +643,29 @@ export const useClientChat = (clientId: string, templateId?: string, conversatio
           
           console.log("[CHAT] Total reference images:", allReferenceImages.length);
           
-          const { data: imageData, error: imageError } = await supabase.functions.invoke("generate-image", {
+          // Build inputs for generate-content-v2 with reference images
+          const imageInputs: Array<{ type: string; content: string; imageBase64?: string }> = [
+            { type: 'text', content: enhancedPrompt }
+          ];
+          for (const ref of allReferenceImages.slice(0, 3)) {
+            if (ref.url) {
+              imageInputs.push({ type: 'image', content: ref.url });
+            } else if (ref.base64) {
+              imageInputs.push({ type: 'image', content: '', imageBase64: ref.base64 });
+            }
+          }
+          
+          const { data: imageData, error: imageError } = await supabase.functions.invoke("generate-content-v2", {
             body: {
-              prompt: enhancedPrompt,
-              clientId: clientId,
-              userId: user?.id,
-              referenceImages: allReferenceImages.length > 0 ? allReferenceImages : undefined,
-              styleAnalysis: references.styleAnalysis || undefined,
-              imageFormat: autoFormat.format,
-              formatInstructions: `Formato: ${autoFormat.format} | Aspect Ratio: ${autoFormat.aspectRatio} | Plataforma: ${autoFormat.platform || 'universal'} | ${autoFormat.reason}`,
-              aspectRatio: autoFormat.aspectRatio,
-              templateName: template?.name,
-              imageSpec: imageSpec,
+              type: 'image',
+              inputs: imageInputs,
+              config: {
+                format: autoFormat.format,
+                platform: autoFormat.platform || 'instagram',
+                aspectRatio: autoFormat.aspectRatio,
+                noText: true,
+              },
+              clientId,
             },
           });
 

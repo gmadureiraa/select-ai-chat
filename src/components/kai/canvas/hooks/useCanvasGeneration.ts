@@ -347,17 +347,25 @@ export function useCanvasGeneration({
         const effectiveAspectRatio = genData.aspectRatio || formatSpec?.aspectRatio || "1:1";
         const preservePerson = (genData as any).preservePerson || false;
 
-        const { data, error } = await supabase.functions.invoke('generate-image', {
+        // Use generate-content-v2 which fetches client_visual_references automatically
+        const imageInputs: any[] = [{ type: 'text', content: imagePrompt }];
+        // Add reference images as inputs (allImageRefs are URL strings)
+        for (const refUrl of allImageRefs.slice(0, 2)) {
+          if (refUrl) {
+            imageInputs.push({ type: 'image', content: refUrl });
+          }
+        }
+        
+        const { data, error } = await supabase.functions.invoke('generate-content-v2', {
           body: {
-            prompt: imagePrompt,
+            type: 'image',
+            inputs: imageInputs,
+            config: {
+              aspectRatio: effectiveAspectRatio,
+              noText: true,
+              preserveFace: preservePerson,
+            },
             clientId,
-            aspectRatio: effectiveAspectRatio,
-            imageFormat: genData.imageStyle || "photographic",
-            imageType,
-            preservePerson,
-            formatInstructions: formatInstructionsText,
-            imageReferences: allImageRefs.slice(0, 2),
-            styleAnalysis: collectedStyleAnalysis,
           }
         });
 
@@ -570,12 +578,18 @@ export function useCanvasGeneration({
     } as Partial<ImageEditorNodeData>);
 
     try {
-      const { data, error } = await supabase.functions.invoke('generate-image', {
+      const { data, error } = await supabase.functions.invoke('generate-content-v2', {
         body: {
-          prompt: editorData.editInstruction,
+          type: 'image',
+          inputs: [
+            { type: 'text', content: editorData.editInstruction },
+            { type: 'image', content: baseImageUrl },
+          ],
+          config: {
+            aspectRatio: editorData.aspectRatio || "1:1",
+            noText: true,
+          },
           clientId,
-          aspectRatio: editorData.aspectRatio || "1:1",
-          referenceImages: [{ url: baseImageUrl, isPrimary: true }],
         }
       });
 

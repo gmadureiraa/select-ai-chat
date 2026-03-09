@@ -1,65 +1,56 @@
 
 
-# Plano: Unificar Regras de Formato + Imagens com Referências Visuais
+## Diagnóstico: Por que as automações não estão postando
 
-## Diagnóstico
+### Problema 1: LinkedIn - Itens criados mas nunca publicados
+As 3 automações de LinkedIn (Artigo de Opinião, Building in Public, Case & Prova Social) estão **funcionando corretamente** na geração de conteúdo e imagens. O problema é que todas estão com `auto_publish: false`. Os itens são criados com status "idea" no planejamento e ficam lá esperando publicação manual. Nenhum deles jamais é publicado automaticamente.
 
-### Problema 1: kAI Chat usa regras de formato separadas
-O `kai-simple-chat` carrega regras da tabela `kai_documentation` (linhas 2112-2118), **não** do `format-rules.ts`. Isso significa que as regras que você vê na documentação NÃO são as mesmas que o chat usa para gerar conteúdo.
+### Problema 2: Threads - Nenhuma automação configurada
+As credenciais do Threads (conta `madureira0x`) estão válidas, mas **não existe nenhuma automação** direcionada ao Threads.
 
-**Solução:** Fazer o `kai-simple-chat` importar e usar `getFormatRules()` do `_shared/format-rules.ts` como fallback principal, usando `kai_documentation` apenas como complemento opcional.
+### Problema 3: Bug no retry de imagem
+No `process-automations`, linha ~1322, o retry de geração de imagem referencia a variável `resolvedImagePrompt` que **não existe** no escopo (o nome correto é `fullImagePrompt`). Isso faz o retry falhar silenciosamente.
 
-### Problema 2: Geração de imagem no Planning não usa referências visuais
-O `usePlanningImageGeneration.ts` chama uma edge function `generate-image` que **não existe** no projeto. Além disso, monta o prompt localmente sem buscar `client_visual_references`.
-
-A automação do Madureira funciona bem porque `process-automations` → `generate-content-v2` busca referências visuais da tabela `client_visual_references`, passa as imagens reais como input multimodal para o Gemini, e usa o modelo Pro quando há referências.
-
-**Solução:** Redirecionar o Planning para usar `generate-content-v2` com `type: 'image'`, que já tem todo o pipeline de referências visuais implementado.
+### Problema 4: Qualidade do conteúdo LinkedIn repetitivo
+Os posts gerados para LinkedIn estão todos girando em torno do mesmo tema ("clareza vs complexidade em Web3"). Falta diversidade temática e o sistema de variação (que existe para tweets) não está implementado para LinkedIn.
 
 ---
 
-## Implementação
+## Plano de Implementação
 
-### Fase 1: kAI Chat usa format-rules.ts
+### 1. Corrigir bug do retry de imagem no process-automations
+- Substituir `resolvedImagePrompt` por `fullImagePrompt` na linha do retry
 
-**Arquivo:** `supabase/functions/kai-simple-chat/index.ts`
+### 2. Criar sistema de variação para LinkedIn (anti-repetição)
+Adicionar categorias editoriais para LinkedIn similares ao `GM_VARIATION_CATEGORIES` dos tweets:
+- **Artigo de Opinião**: Análise contrarian de tendência, dados concretos, framework próprio
+- **Building in Public**: Bastidores reais, números, aprendizados honestos, erros
+- **Case & Prova Social**: Resultados de clientes, métricas antes/depois, processo
 
-1. Importar `getFormatRules` do `_shared/format-rules.ts`
-2. Na seção de content creation context (linhas ~2092-2120), substituir a query à `kai_documentation` pelo `getFormatRules(detectedFormat)` como fonte principal
-3. Manter `kai_documentation` como enriquecimento adicional (checklist etc.), mas as regras vêm do `format-rules.ts`
+Cada automação LinkedIn receberá um `variation_index` rotativo com sub-temas específicos para evitar repetição.
 
-### Fase 2: Planning usa generate-content-v2 para imagens
+### 3. Melhorar prompts LinkedIn com estratégia de conteúdo
+Enriquecer os prompts usando o guia de conteúdo do Madureira (`public/clients/madureira/guia-conteudo.md`):
+- Incorporar os 5 pilares de conteúdo como rotação temática
+- Usar tom de voz definido: técnico mas didático, direto, visionário
+- Adicionar instruções de formatação específicas para LinkedIn (quebras de linha, storytelling, CTA)
 
-**Arquivo:** `src/hooks/usePlanningImageGeneration.ts`
+### 4. Habilitar auto_publish para LinkedIn (com revisão inteligente)
+Alterar as 3 automações de LinkedIn para `auto_publish: true` para que os posts sejam publicados automaticamente após geração.
 
-1. Trocar a chamada de `supabase.functions.invoke('generate-image')` para `supabase.functions.invoke('generate-content-v2')`
-2. Montar o payload no formato correto: `{ type: 'image', inputs: [...], config: { ... }, clientId }`
-3. O `generate-content-v2` já faz automaticamente:
-   - Busca `client_visual_references` do cliente
-   - Passa imagens reais como input multimodal
-   - Usa modelo Pro (`gemini-3-pro-image-preview`) quando há referências
-   - Aplica regra "sem texto" com retry
-   - Upload automático para storage
+### 5. Criar automações para Threads
+Criar 2-3 automações de Threads para o perfil Madureira:
+- **Threads Diário** (daily): Repurpose do melhor tweet do dia ou insight rápido
+- **Threads Semanal** (weekly): Versão expandida de um tweet de alta performance
 
-### Fase 3: Canvas e Chat também usam generate-content-v2
-
-**Arquivos:** `src/components/kai/canvas/hooks/useCanvasGeneration.ts`, `src/hooks/useClientChat.ts`
-
-Mesma mudança: redirecionar de `generate-image` (inexistente) para `generate-content-v2`.
+### 6. Melhorar geração de imagem para LinkedIn
+- Ajustar o aspect ratio para LinkedIn: `1.91:1` (landscape) em vez de `1:1`
+- Enriquecer prompts de imagem com contexto profissional/corporativo
+- Usar modelo `google/gemini-3-pro-image-preview` para maior qualidade nas imagens de LinkedIn
 
 ---
 
-## Arquivos a Modificar
-
-| Arquivo | Mudança |
-|---------|---------|
-| `supabase/functions/kai-simple-chat/index.ts` | Importar e usar `getFormatRules()` para regras de formato |
-| `src/hooks/usePlanningImageGeneration.ts` | Usar `generate-content-v2` com referências visuais |
-| `src/components/kai/canvas/hooks/useCanvasGeneration.ts` | Usar `generate-content-v2` |
-| `src/hooks/useClientChat.ts` | Usar `generate-content-v2` |
-
-## Resultado Esperado
-- Alterar regras em `format-rules.ts` = alterar comportamento do chat, canvas e planning
-- Imagens geradas no planning usam DNA visual do cliente (como automações)
-- Uma única edge function para todas as gerações de imagem
+### Arquivos a modificar
+1. `supabase/functions/process-automations/index.ts` - Fix retry bug, adicionar variação LinkedIn, melhorar prompts
+2. Database: Atualizar `planning_automations` para habilitar auto_publish nas automações LinkedIn e criar novas automações Threads
 
