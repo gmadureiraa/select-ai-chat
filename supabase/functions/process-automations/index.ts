@@ -1454,35 +1454,19 @@ serve(async (req) => {
                 triggerData,
                 automation.name
               );
-            } else if (generatedContent) {
-              // Build contextual prompt from generated content
-              const contentSummary = generatedContent.substring(0, 200).replace(/\n/g, ' ');
-              imagePrompt = `Create a powerful visual that captures the essence of this message: "${contentSummary}"`;
-            } else {
-              const title = triggerData?.title || automation.name;
-              imagePrompt = `Create a striking visual for: ${title}`;
             }
             
-            // Build the enriched image prompt
-            const styleModifier = getImageStyleModifier(automation.image_style);
-            const isLinkedIn = automation.platform === 'linkedin' || automation.content_type === 'linkedin_post';
-            const platformFormat = automation.platform === 'twitter' || automation.content_type === 'tweet' 
-              ? '1:1 square format for Twitter/X' 
-              : isLinkedIn 
-                ? '1.91:1 landscape format for LinkedIn (1200x628px)' 
-                : '1:1 format';
-            
-            const fullImagePrompt = `${visualIdentity ? `IDENTIDADE VISUAL DO CLIENTE:\n${visualIdentity}\n` : ''}CONTEÚDO DO POST: ${imagePrompt}
-
-ESTILO: ${styleModifier}
-FORMATO: ${platformFormat}
-
-REGRAS ABSOLUTAS:
-- NÃO coloque NENHUM texto, palavra, letra ou número na imagem
-- NO TEXT, NO WORDS, NO LETTERS, NO NUMBERS in the image
-- A imagem deve ser puramente visual, sem elementos tipográficos
-- Composição limpa e profissional
-- Transmita a emoção e conceito do conteúdo visualmente`;
+            // Build the enriched image prompt using centralized builder
+            const fullImagePrompt = buildImageBriefing({
+              generatedContent: generatedContent || undefined,
+              title: triggerData?.title || automation.name,
+              customPrompt: imagePrompt || undefined,
+              platform: derivedPlatform || undefined,
+              contentType: automation.content_type,
+              imageStyle: automation.image_style || undefined,
+              visualIdentity: visualIdentity || undefined,
+              visualRefDescriptions: visualRefs?.map(v => v.description || v.reference_type).filter(Boolean) || [],
+            });
             
             console.log(`Generating image for item ${newItem.id}...`);
             console.log(`Image prompt: ${fullImagePrompt.substring(0, 200)}...`);
