@@ -203,7 +203,7 @@ export const YouTubeVideoSyncButton = ({
       ) : (
         <>
           <Youtube className="h-3 w-3" />
-          Transcrever + Biblioteca
+          Métricas + Transcrição
         </>
       )}
     </Button>
