@@ -45,6 +45,7 @@ export interface PlanningAutomation {
   auto_generate_image: boolean;
   image_prompt_template: string | null;
   image_style: ImageStyle | null;
+  image_reference_ids: string[] | null;
   // Tracking fields
   last_triggered_at: string | null;
   items_created: number;
@@ -69,6 +70,7 @@ export interface CreateAutomationInput {
   auto_generate_image?: boolean;
   image_prompt_template?: string | null;
   image_style?: ImageStyle | null;
+  image_reference_ids?: string[] | null;
 }
 
 export interface UpdateAutomationInput extends Partial<CreateAutomationInput> {
@@ -139,6 +141,7 @@ export function usePlanningAutomations() {
           auto_generate_image: input.auto_generate_image || false,
           image_prompt_template: input.image_prompt_template,
           image_style: input.image_style || 'photographic',
+          image_reference_ids: input.image_reference_ids || null,
           created_by: user?.id,
         } as any)
         .select()
@@ -178,6 +181,7 @@ export function usePlanningAutomations() {
       if (input.auto_generate_image !== undefined) updateData.auto_generate_image = input.auto_generate_image;
       if (input.image_prompt_template !== undefined) updateData.image_prompt_template = input.image_prompt_template;
       if (input.image_style !== undefined) updateData.image_style = input.image_style;
+      if (input.image_reference_ids !== undefined) updateData.image_reference_ids = input.image_reference_ids;
       if (input.is_active !== undefined) updateData.is_active = input.is_active;
       
       const { data, error } = await supabase

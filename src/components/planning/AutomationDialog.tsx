@@ -151,6 +151,28 @@ export function AutomationDialog({ open, onOpenChange, automation }: AutomationD
   const [autoGenerateImage, setAutoGenerateImage] = useState(false);
   const [imagePromptTemplate, setImagePromptTemplate] = useState('');
   const [imageStyle, setImageStyle] = useState<ImageStyle>('photographic');
+  const [imageReferenceIds, setImageReferenceIds] = useState<string[]>([]);
+  
+  // Visual references for the selected client
+  const [visualReferences, setVisualReferences] = useState<Array<{ id: string; image_url: string; description: string | null; reference_type: string }>>([]);
+
+  // Fetch visual references when client changes
+  useEffect(() => {
+    if (!clientId) {
+      setVisualReferences([]);
+      return;
+    }
+    const fetchRefs = async () => {
+      const { data } = await supabase
+        .from('client_visual_references')
+        .select('id, image_url, description, reference_type')
+        .eq('client_id', clientId)
+        .order('is_primary', { ascending: false })
+        .limit(20);
+      setVisualReferences(data || []);
+    };
+    fetchRefs();
+  }, [clientId]);
 
   // Auto-derive platform from content type
   useEffect(() => {
@@ -192,6 +214,7 @@ export function AutomationDialog({ open, onOpenChange, automation }: AutomationD
       setAutoGenerateImage(automation.auto_generate_image || false);
       setImagePromptTemplate(automation.image_prompt_template || '');
       setImageStyle((automation.image_style as ImageStyle) || 'photographic');
+      setImageReferenceIds(automation.image_reference_ids || []);
 
       if (automation.trigger_type === 'schedule') {
         const config = automation.trigger_config as ScheduleConfig;
@@ -226,6 +249,7 @@ export function AutomationDialog({ open, onOpenChange, automation }: AutomationD
       setAutoGenerateImage(false);
       setImagePromptTemplate('');
       setImageStyle('photographic');
+      setImageReferenceIds([]);
       setFeedTestResult(null);
       setExpandedPreview(false);
     }
@@ -338,6 +362,7 @@ export function AutomationDialog({ open, onOpenChange, automation }: AutomationD
       auto_generate_image: autoGenerateImage,
       image_prompt_template: autoGenerateImage ? imagePromptTemplate : null,
       image_style: autoGenerateImage ? imageStyle : null,
+      image_reference_ids: autoGenerateImage && imageReferenceIds.length > 0 ? imageReferenceIds : null,
     };
 
     if (isEditing && automation) {
@@ -894,6 +919,61 @@ export function AutomationDialog({ open, onOpenChange, automation }: AutomationD
                     ))}
                   </RadioGroup>
                 </div>
+
+                {/* Visual Reference Selector */}
+                {visualReferences.length > 0 && (
+                  <div className="space-y-2">
+                    <Label>Referências visuais para esta automação</Label>
+                    <p className="text-xs text-muted-foreground">
+                      Selecione referências específicas de estilo. Se nenhuma for selecionada, serão usadas as primárias do perfil.
+                    </p>
+                    <div className="grid grid-cols-4 gap-2 max-h-40 overflow-y-auto">
+                      {visualReferences.map((ref) => {
+                        const isSelected = imageReferenceIds.includes(ref.id);
+                        return (
+                          <button
+                            key={ref.id}
+                            type="button"
+                            onClick={() => {
+                              if (isSelected) {
+                                setImageReferenceIds(prev => prev.filter(id => id !== ref.id));
+                              } else {
+                                setImageReferenceIds(prev => [...prev, ref.id]);
+                              }
+                            }}
+                            className={cn(
+                              "relative aspect-square rounded-md overflow-hidden border-2 transition-all",
+                              isSelected
+                                ? "border-primary ring-2 ring-primary/30"
+                                : "border-border/50 hover:border-border"
+                            )}
+                          >
+                            <img
+                              src={ref.image_url}
+                              alt={ref.description || ref.reference_type}
+                              className="w-full h-full object-cover"
+                            />
+                            {isSelected && (
+                              <div className="absolute inset-0 bg-primary/20 flex items-center justify-center">
+                                <Check className="h-5 w-5 text-primary-foreground drop-shadow-md" />
+                              </div>
+                            )}
+                            {ref.description && (
+                              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-1">
+                                <p className="text-[9px] text-white truncate">{ref.description}</p>
+                              </div>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {imageReferenceIds.length > 0 && (
+                      <p className="text-xs text-muted-foreground">
+                        {imageReferenceIds.length} referência(s) selecionada(s)
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 

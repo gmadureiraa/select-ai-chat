@@ -1,82 +1,56 @@
 
 
-# Plan: Revisão Completa das Automações + Referências Visuais por Automação
+## Diagnóstico: Por que as automações não estão postando
 
-## Diagnóstico
+### Problema 1: LinkedIn - Itens criados mas nunca publicados
+As 3 automações de LinkedIn (Artigo de Opinião, Building in Public, Case & Prova Social) estão **funcionando corretamente** na geração de conteúdo e imagens. O problema é que todas estão com `auto_publish: false`. Os itens são criados com status "idea" no planejamento e ficam lá esperando publicação manual. Nenhum deles jamais é publicado automaticamente.
 
-Após análise detalhada do `process-automations/index.ts` (1841 linhas) e `generate-content-v2/index.ts` (984 linhas), identifiquei:
+### Problema 2: Threads - Nenhuma automação configurada
+As credenciais do Threads (conta `madureira0x`) estão válidas, mas **não existe nenhuma automação** direcionada ao Threads.
 
-### O que está bom
-- Twitter: 8 categorias de variação editorial (Provocação, Insight, Pergunta, etc.) com anti-exemplos dos últimos 7 tweets
-- LinkedIn: 14 variações em 3 pilares (Opinion, Building in Public, Case Study) com anti-exemplos
-- YouTube RSS: transcrição automática de vídeos para enriquecer prompts
-- Newsletter: Deep Research com Gemini + Google Search Grounding
-- Image generation: já busca `client_visual_references` com `is_primary=true` e envia como input multimodal
-- Content cleaning: remove labels de IA (TEXTO DO VISUAL, LEGENDA, etc.)
+### Problema 3: Bug no retry de imagem
+No `process-automations`, linha ~1322, o retry de geração de imagem referencia a variável `resolvedImagePrompt` que **não existe** no escopo (o nome correto é `fullImagePrompt`). Isso faz o retry falhar silenciosamente.
 
-### Problemas encontrados
-
-1. **Threads (plataforma) não tem sistema de variação** — posts de Threads usam o mesmo formato genérico sem rotação editorial. Twitter tem 8 categorias, LinkedIn tem 14, mas Threads tem 0.
-
-2. **Blog posts não têm variação** — sempre geram com o mesmo prompt sem rotação temática.
-
-3. **Imagens são genéricas entre automações** — todas usam as mesmas `client_visual_references` marcadas como `is_primary`. Se o cliente tem 3 refs de estilo "anime", todas as imagens saem iguais. Não há como variar o tipo de imagem (ex: fluxograma para um post de marketing, visual abstrato para outro).
-
-4. **Retry de imagem tem bug** — linha 1463 tem `type: 'image'` duplicado e o retry não passa `config` (aspectRatio, noText), apenas `settings`.
-
-5. **Sem referências visuais por automação** — sua ideia de anexar refs específicas por automação não existe ainda. Hoje é tudo global via `client_visual_references`.
+### Problema 4: Qualidade do conteúdo LinkedIn repetitivo
+Os posts gerados para LinkedIn estão todos girando em torno do mesmo tema ("clareza vs complexidade em Web3"). Falta diversidade temática e o sistema de variação (que existe para tweets) não está implementado para LinkedIn.
 
 ---
 
-## Mudanças Propostas
+## Plano de Implementação
 
-### 1. Adicionar campo `image_reference_ids` na tabela `planning_automations`
-- Novo campo `image_reference_ids uuid[]` — permite selecionar referências visuais específicas da biblioteca do cliente para cada automação
-- Quando preenchido, o sistema usa essas refs em vez das `is_primary` globais
-- Isso permite: automação de marketing → refs de fluxogramas/infográficos, automação pessoal → refs de lifestyle/anime
+### 1. Corrigir bug do retry de imagem no process-automations
+- Substituir `resolvedImagePrompt` por `fullImagePrompt` na linha do retry
 
-### 2. Sistema de variação para Threads
-- Adicionar `THREADS_VARIATION_CATEGORIES` (6-8 categorias): Reflexão, Pergunta Retórica, Insight Rápido, Hot Take, Storytelling Micro, Dado/Métrica, Behind the Scenes, Provocação
-- Aplicar rotação via `variation_index` no `trigger_config` (mesmo padrão do Twitter)
-- Buscar últimos 7 posts da plataforma Threads como anti-exemplos
+### 2. Criar sistema de variação para LinkedIn (anti-repetição)
+Adicionar categorias editoriais para LinkedIn similares ao `GM_VARIATION_CATEGORIES` dos tweets:
+- **Artigo de Opinião**: Análise contrarian de tendência, dados concretos, framework próprio
+- **Building in Public**: Bastidores reais, números, aprendizados honestos, erros
+- **Case & Prova Social**: Resultados de clientes, métricas antes/depois, processo
 
-### 3. Sistema de variação para Blog
-- Adicionar `BLOG_VARIATION_CATEGORIES` (5 categorias): Framework/Tutorial, Análise de Tendência, Opinião Contrarian, Caso de Estudo, Guia Prático
-- Aplicar rotação para garantir diversidade de formatos nos artigos
+Cada automação LinkedIn receberá um `variation_index` rotativo com sub-temas específicos para evitar repetição.
 
-### 4. Corrigir retry de imagem no process-automations
-- Remover `type: 'image'` duplicado (linha 1463)
-- Passar `config` com `aspectRatio`, `noText`, `useVisualReferences` no retry
+### 3. Melhorar prompts LinkedIn com estratégia de conteúdo
+Enriquecer os prompts usando o guia de conteúdo do Madureira (`public/clients/madureira/guia-conteudo.md`):
+- Incorporar os 5 pilares de conteúdo como rotação temática
+- Usar tom de voz definido: técnico mas didático, direto, visionário
+- Adicionar instruções de formatação específicas para LinkedIn (quebras de linha, storytelling, CTA)
 
-### 5. UI: Seletor de referências visuais no AutomationDialog
-- Na seção de imagem, adicionar um grid de thumbnails das `client_visual_references` do cliente selecionado
-- Checkbox para selecionar quais refs usar naquela automação
-- Se nenhuma selecionada, mantém comportamento atual (usa `is_primary`)
+### 4. Habilitar auto_publish para LinkedIn (com revisão inteligente)
+Alterar as 3 automações de LinkedIn para `auto_publish: true` para que os posts sejam publicados automaticamente após geração.
 
-### 6. Backend: Usar refs específicas na geração
-- No `process-automations`, quando `automation.image_reference_ids` existir, buscar essas refs em vez das `is_primary`
-- Passar como inputs multimodais para `generate-content-v2`
+### 5. Criar automações para Threads
+Criar 2-3 automações de Threads para o perfil Madureira:
+- **Threads Diário** (daily): Repurpose do melhor tweet do dia ou insight rápido
+- **Threads Semanal** (weekly): Versão expandida de um tweet de alta performance
+
+### 6. Melhorar geração de imagem para LinkedIn
+- Ajustar o aspect ratio para LinkedIn: `1.91:1` (landscape) em vez de `1:1`
+- Enriquecer prompts de imagem com contexto profissional/corporativo
+- Usar modelo `google/gemini-3-pro-image-preview` para maior qualidade nas imagens de LinkedIn
 
 ---
 
-## Technical Details
-
-### DB Migration
-```sql
-ALTER TABLE public.planning_automations 
-ADD COLUMN image_reference_ids uuid[] DEFAULT NULL;
-```
-
-### Files Modified
-1. **`supabase/functions/process-automations/index.ts`** — Add Threads/Blog variation categories, fix image retry bug, use `image_reference_ids` when available
-2. **`src/components/planning/AutomationDialog.tsx`** — Add visual reference selector grid in image section
-3. **DB Migration** — Add `image_reference_ids` column
-
-### Variation Categories (New)
-
-**Threads (8 categorias):**
-- Reflexão Profunda, Pergunta Retórica, Insight Rápido, Hot Take, Storytelling Micro, Dado/Métrica, Behind the Scenes, Provocação
-
-**Blog (5 categorias):**
-- Framework/Tutorial, Análise de Tendência, Opinião Contrarian, Deep Dive Técnico, Guia Prático
+### Arquivos a modificar
+1. `supabase/functions/process-automations/index.ts` - Fix retry bug, adicionar variação LinkedIn, melhorar prompts
+2. Database: Atualizar `planning_automations` para habilitar auto_publish nas automações LinkedIn e criar novas automações Threads
 

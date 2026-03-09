@@ -1,0 +1,1 @@
+ALTER TABLE public.planning_automations ADD COLUMN image_reference_ids uuid[] DEFAULT NULL;

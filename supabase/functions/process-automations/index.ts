@@ -43,6 +43,7 @@ interface PlanningAutomation {
   auto_generate_image: boolean;
   image_prompt_template: string | null;
   image_style: 'photographic' | 'illustration' | 'minimalist' | 'vibrant' | null;
+  image_reference_ids: string[] | null;
   // Tracking
   last_triggered_at: string | null;
   items_created: number;
@@ -433,6 +434,28 @@ const GM_VARIATION_CATEGORIES = [
   { name: 'Humor/Ironia', instruction: 'Use humor inteligente ou ironia sutil. Seja espirituoso sem ser genérico.' },
   { name: 'Observação aguda', instruction: 'Faça uma observação perspicaz sobre o mercado/nicho que poucos percebem.' },
 ];
+
+// Threads editorial variation categories for anti-repetition
+const THREADS_VARIATION_CATEGORIES = [
+  { name: 'Reflexão Profunda', instruction: 'Comece com uma reflexão profunda sobre um tema do nicho. Tom contemplativo, filosófico. Leve o leitor a repensar algo que dá por certo.' },
+  { name: 'Pergunta Retórica', instruction: 'Abra com uma pergunta poderosa que gere reflexão. Não dê a resposta — deixe o leitor chegar lá sozinho. Tom provocativo.' },
+  { name: 'Insight Rápido', instruction: 'Compartilhe um insight técnico ou de mercado em formato conciso. Vá direto ao ponto. Uma frase que muda a perspectiva.' },
+  { name: 'Hot Take', instruction: 'Dê uma opinião controversa mas bem fundamentada. Desafie o status quo. Tom ousado, assertivo.' },
+  { name: 'Storytelling Micro', instruction: 'Conte uma micro-história em 2-3 frases. Pode ser pessoal, de um cliente ou metáfora. Finalize com a moral/lição.' },
+  { name: 'Dado/Métrica', instruction: 'Use um número, estatística ou dado real como gancho. Contextualize com uma análise breve. Seja específico, não genérico.' },
+  { name: 'Behind the Scenes', instruction: 'Revele algo dos bastidores: processo de trabalho, decisão, ferramenta. Tom autêntico e raw, não polido.' },
+  { name: 'Provocação', instruction: 'Provoque o leitor com uma afirmação bold. Questione uma crença popular. Gere desconforto produtivo.' },
+];
+
+// Blog editorial variation categories for anti-repetition
+const BLOG_VARIATION_CATEGORIES = [
+  { name: 'Framework/Tutorial', instruction: 'Crie um guia passo-a-passo ou framework prático. Estrutura clara com etapas numeradas. Tom didático e aplicável imediatamente.' },
+  { name: 'Análise de Tendência', instruction: 'Analise uma tendência emergente do mercado. Conecte dados com previsões. Posicione-se como visionário que antecipa movimentos.' },
+  { name: 'Opinião Contrarian', instruction: 'Desafie uma crença amplamente aceita no mercado. Argumente com dados e experiência real. Tom provocativo mas fundamentado.' },
+  { name: 'Deep Dive Técnico', instruction: 'Mergulhe profundamente em um tópico técnico. Explique conceitos complexos de forma acessível. Use analogias e exemplos práticos.' },
+  { name: 'Guia Prático', instruction: 'Crie um guia completo e actionable. Inclua exemplos reais, templates ou checklists. O leitor deve sair com algo para aplicar hoje.' },
+];
+
 
 // LinkedIn editorial variation categories for anti-repetition
 const LINKEDIN_VARIATION_CATEGORIES: Record<string, Array<{ name: string; instruction: string }>> = {
@@ -1157,9 +1180,76 @@ serve(async (req) => {
               console.log(`LinkedIn Variation: ${linkedInVariation.category} (type: ${linkedInVariation.editorialType}, index ${variationIndex})`);
             }
             
-            // ===================================================
-            // YOUTUBE TRANSCRIPTION: Enrich prompt with video content
-            // ===================================================
+            // Threads editorial variation system
+            if (automation.content_type === 'social_post' && (derivedPlatform === 'threads')) {
+              const triggerConfig = automation.trigger_config as any;
+              const variationIndex = (triggerConfig.variation_index || 0) % THREADS_VARIATION_CATEGORIES.length;
+              const variation = THREADS_VARIATION_CATEGORIES[variationIndex];
+              
+              // Fetch recent Threads posts as anti-examples
+              let recentPosts: string[] = [];
+              try {
+                const { data: recent } = await supabase
+                  .from('planning_items')
+                  .select('content')
+                  .eq('client_id', automation.client_id!)
+                  .eq('platform', 'threads')
+                  .not('content', 'is', null)
+                  .order('created_at', { ascending: false })
+                  .limit(7);
+                
+                if (recent) {
+                  recentPosts = recent.map(p => p.content!).filter(Boolean).map(c => c.substring(0, 200));
+                }
+              } catch (e) {
+                console.warn('Could not fetch recent Threads posts:', e);
+              }
+              
+              variationContext = {
+                category: `Threads: ${variation.name}`,
+                instruction: variation.instruction,
+                recentTweets: recentPosts,
+              };
+              
+              // Increment variation index
+              await supabase
+                .from('planning_automations')
+                .update({
+                  trigger_config: {
+                    ...automation.trigger_config,
+                    variation_index: variationIndex + 1,
+                  }
+                })
+                .eq('id', automation.id);
+              
+              console.log(`Threads Variation: ${variation.name} (index ${variationIndex}), ${recentPosts.length} anti-examples`);
+            }
+            
+            // Blog editorial variation system
+            if (automation.content_type === 'blog_post' || automation.content_type === 'article') {
+              const triggerConfig = automation.trigger_config as any;
+              const variationIndex = (triggerConfig.variation_index || 0) % BLOG_VARIATION_CATEGORIES.length;
+              const variation = BLOG_VARIATION_CATEGORIES[variationIndex];
+              
+              variationContext = {
+                category: `Blog: ${variation.name}`,
+                instruction: variation.instruction,
+                recentTweets: [], // Blog posts don't need anti-examples as frequently
+              };
+              
+              // Increment variation index
+              await supabase
+                .from('planning_automations')
+                .update({
+                  trigger_config: {
+                    ...automation.trigger_config,
+                    variation_index: variationIndex + 1,
+                  }
+                })
+                .eq('id', automation.id);
+              
+              console.log(`Blog Variation: ${variation.name} (index ${variationIndex})`);
+            }
             let youtubeTranscript = "";
             
             if (triggerData?.link && (
@@ -1332,15 +1422,28 @@ serve(async (req) => {
                 if (styleMatch) visualIdentity += `ESTÉTICA DA MARCA: ${styleMatch[1].trim()}\n`;
               }
               
-              // Fetch visual references (including image_url for real visual input)
-              const { data: fetchedVisualRefs } = await supabase
-                .from('client_visual_references')
-                .select('image_url, description, reference_type')
-                .eq('client_id', automation.client_id)
-                .eq('is_primary', true)
-                .limit(3);
-              
-              visualRefs = fetchedVisualRefs;
+              // Fetch visual references: use automation-specific refs if set, else fallback to is_primary
+              if (automation.image_reference_ids && automation.image_reference_ids.length > 0) {
+                // Use specific references selected for this automation
+                const { data: fetchedVisualRefs } = await supabase
+                  .from('client_visual_references')
+                  .select('image_url, description, reference_type')
+                  .in('id', automation.image_reference_ids)
+                  .limit(5);
+                
+                visualRefs = fetchedVisualRefs;
+                console.log(`Using ${visualRefs?.length || 0} automation-specific visual references`);
+              } else {
+                // Fallback: use client's primary visual references
+                const { data: fetchedVisualRefs } = await supabase
+                  .from('client_visual_references')
+                  .select('image_url, description, reference_type')
+                  .eq('client_id', automation.client_id)
+                  .eq('is_primary', true)
+                  .limit(3);
+                
+                visualRefs = fetchedVisualRefs;
+              }
               
               if (visualRefs && visualRefs.length > 0) {
                 visualIdentity += `REFERÊNCIAS VISUAIS: ${visualRefs.map(v => v.description || v.reference_type).join(', ')}\n`;
@@ -1460,8 +1563,13 @@ REGRAS ABSOLUTAS:
                   },
                   body: JSON.stringify({
                     type: 'image',
-                    type: 'image',
                     inputs: imageInputs,
+                    config: {
+                      format: isLinkedIn ? 'linkedin_post' : 'post',
+                      aspectRatio: isLinkedIn ? '16:9' : '1:1',
+                      noText: true,
+                      useVisualReferences: visualRefs && visualRefs.length > 0,
+                    },
                     settings: {
                       imageStyle: automation.image_style || 'illustration',
                     },

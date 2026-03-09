@@ -2308,6 +2308,7 @@ export type Database = {
           created_by: string | null
           id: string
           image_prompt_template: string | null
+          image_reference_ids: string[] | null
           image_style: string | null
           is_active: boolean | null
           items_created: number | null
@@ -2332,6 +2333,7 @@ export type Database = {
           created_by?: string | null
           id?: string
           image_prompt_template?: string | null
+          image_reference_ids?: string[] | null
           image_style?: string | null
           is_active?: boolean | null
           items_created?: number | null
@@ -2356,6 +2358,7 @@ export type Database = {
           created_by?: string | null
           id?: string
           image_prompt_template?: string | null
+          image_reference_ids?: string[] | null
           image_style?: string | null
           is_active?: boolean | null
           items_created?: number | null
