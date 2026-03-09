@@ -1422,15 +1422,28 @@ serve(async (req) => {
                 if (styleMatch) visualIdentity += `ESTÉTICA DA MARCA: ${styleMatch[1].trim()}\n`;
               }
               
-              // Fetch visual references (including image_url for real visual input)
-              const { data: fetchedVisualRefs } = await supabase
-                .from('client_visual_references')
-                .select('image_url, description, reference_type')
-                .eq('client_id', automation.client_id)
-                .eq('is_primary', true)
-                .limit(3);
-              
-              visualRefs = fetchedVisualRefs;
+              // Fetch visual references: use automation-specific refs if set, else fallback to is_primary
+              if (automation.image_reference_ids && automation.image_reference_ids.length > 0) {
+                // Use specific references selected for this automation
+                const { data: fetchedVisualRefs } = await supabase
+                  .from('client_visual_references')
+                  .select('image_url, description, reference_type')
+                  .in('id', automation.image_reference_ids)
+                  .limit(5);
+                
+                visualRefs = fetchedVisualRefs;
+                console.log(`Using ${visualRefs?.length || 0} automation-specific visual references`);
+              } else {
+                // Fallback: use client's primary visual references
+                const { data: fetchedVisualRefs } = await supabase
+                  .from('client_visual_references')
+                  .select('image_url, description, reference_type')
+                  .eq('client_id', automation.client_id)
+                  .eq('is_primary', true)
+                  .limit(3);
+                
+                visualRefs = fetchedVisualRefs;
+              }
               
               if (visualRefs && visualRefs.length > 0) {
                 visualIdentity += `REFERÊNCIAS VISUAIS: ${visualRefs.map(v => v.description || v.reference_type).join(', ')}\n`;
