@@ -40,7 +40,7 @@ serve(async (req) => {
     
     console.log(`[fetch-twitter-apify] Starting for handle: ${handle}`);
 
-    const actorId = "forge-api~x-scraper";
+    const actorId = "xtdata~twitter-x-scraper";
     const maxItems = customMaxResults || 100;
 
     let items: any[] = [];
@@ -64,8 +64,7 @@ serve(async (req) => {
             body: JSON.stringify({
               twitterHandles: [handle],
               maxItems: maxItems,
-              includeReplies: false,
-              includeRetweets: true,
+              sort: "Latest",
             }),
           });
 
@@ -73,7 +72,11 @@ serve(async (req) => {
             const errorText = await startResponse.text();
             console.error(`[fetch-twitter-apify] Start error (${startResponse.status}):`, errorText);
             if (startResponse.status === 429 || errorText.includes("limit")) {
-              lastError = `Token ...${APIFY_API_TOKEN.slice(-4)} hit rate limit`;
+              lastError = `Token ...${APIFY_API_TOKEN.slice(-4)} hit rate/quota limit`;
+              if (errorText.includes("hard limit") || errorText.includes("platform-feature-disabled")) {
+                // Quota exhausted - skip retries for this token
+                break;
+              }
               if (attempt < MAX_RETRIES) continue;
               break;
             }
@@ -127,7 +130,7 @@ serve(async (req) => {
 
     if (!Array.isArray(items) || items.length === 0) {
       return new Response(
-        JSON.stringify({ error: lastError || "No tweets found." }),
+        JSON.stringify({ error: lastError || `Nenhum tweet encontrado para @${handle}.` }),
         { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
