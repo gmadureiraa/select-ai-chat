@@ -140,7 +140,7 @@ export function usePlanningAutomations() {
           image_prompt_template: input.image_prompt_template,
           image_style: input.image_style || 'photographic',
           created_by: user?.id,
-        }
+        } as any)
         .select()
         .single();
       
