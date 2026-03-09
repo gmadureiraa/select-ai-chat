@@ -64,8 +64,7 @@ serve(async (req) => {
             body: JSON.stringify({
               twitterHandles: [handle],
               maxItems: maxItems,
-              includeReplies: false,
-              includeRetweets: true,
+              sort: "Latest",
             }),
           });
 
