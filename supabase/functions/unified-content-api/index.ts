@@ -246,12 +246,13 @@ serve(async (req) => {
 
     // Track sources used
     const sourcesUsed: SourcesUsed = {
-      identity_guide: fullContext.includes("GUIA DE IDENTIDADE") || fullContext.includes("identity"),
+      identity_guide: fullContext.includes("GUIA DE IDENTIDADE") || fullContext.includes("identity") || fullContext.includes("DOCUMENTO MESTRE"),
       library_items_count: (fullContext.match(/\[BIBLIOTECA\]/g) || []).length,
       top_performers_count: (fullContext.match(/\[TOP PERFORMER\]/g) || []).length,
       format_rules: schema?.format_label || null,
       voice_profile: structuredVoice.includes("USE SEMPRE") || structuredVoice.includes("EVITE SEMPRE"),
       global_knowledge: fullContext.includes("KNOWLEDGE BASE") || fullContext.includes("conhecimento global"),
+      content_guidelines: fullContext.includes("GUIA DE CRIAÇÃO"),
     };
 
     // Get forbidden phrases section
