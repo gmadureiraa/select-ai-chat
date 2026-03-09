@@ -11,6 +11,7 @@ import { useClientContext, ContextSources } from "@/hooks/useClientContext";
 import { useClients } from "@/hooks/useClients";
 import { useToast } from "@/hooks/use-toast";
 import { VoiceProfileEditor } from "./VoiceProfileEditor";
+import { ContentGuidelinesCard } from "./ContentGuidelinesCard";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 
