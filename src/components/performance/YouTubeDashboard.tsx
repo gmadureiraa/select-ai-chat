@@ -16,7 +16,7 @@ import { ImportHistoryPanel } from "./ImportHistoryPanel";
 import { DataCompletenessWarning } from "./DataCompletenessWarning";
 import { MetricMiniCard } from "./MetricMiniCard";
 import { PerformanceReportGenerator } from "./PerformanceReportGenerator";
-import { useFetchYouTubeMetrics } from "@/hooks/useYouTubeMetrics";
+import { useFetchYouTubeMetrics, useFetchYouTubeApify } from "@/hooks/useYouTubeMetrics";
 import { subDays, format, parseISO, isAfter, startOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Input } from "@/components/ui/input";
@@ -63,9 +63,12 @@ export function YouTubeDashboard({ clientId, videos, isLoading }: YouTubeDashboa
   const [showReportGenerator, setShowReportGenerator] = useState(false);
   const [showRssImporter, setShowRssImporter] = useState(false);
   const [showApiFetch, setShowApiFetch] = useState(false);
+  const [showApifyFetch, setShowApifyFetch] = useState(false);
   const [channelIdInput, setChannelIdInput] = useState("");
+  const [apifyChannelInput, setApifyChannelInput] = useState("");
   const { canImportData, canGenerateReports } = useWorkspace();
   const fetchMetrics = useFetchYouTubeMetrics();
+  const fetchApify = useFetchYouTubeApify();
 
   const handleApiFetch = () => {
     if (!channelIdInput.trim()) {
@@ -81,6 +84,25 @@ export function YouTubeDashboard({ clientId, videos, isLoading }: YouTubeDashboa
         },
         onError: (err) => {
           toast.error(`Erro ao buscar métricas: ${err.message}`);
+        },
+      }
+    );
+  };
+
+  const handleApifyFetch = () => {
+    if (!apifyChannelInput.trim()) {
+      toast.error("Insira a URL ou @handle do canal");
+      return;
+    }
+    fetchApify.mutate(
+      { clientId, channelUrl: apifyChannelInput.trim() },
+      {
+        onSuccess: (data) => {
+          toast.success(`${data.videosUpdated} vídeos importados via Apify!`);
+          setShowApifyFetch(false);
+        },
+        onError: (err) => {
+          toast.error(`Erro: ${err.message}`);
         },
       }
     );
@@ -288,7 +310,15 @@ export function YouTubeDashboard({ clientId, videos, isLoading }: YouTubeDashboa
               <Button 
                 variant="outline" 
                 className="border-border/50"
-                onClick={() => setShowApiFetch(!showApiFetch)}
+                onClick={() => { setShowApifyFetch(!showApifyFetch); setShowApiFetch(false); }}
+              >
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Sincronizar Canal
+              </Button>
+              <Button 
+                variant="outline" 
+                className="border-border/50"
+                onClick={() => { setShowApiFetch(!showApiFetch); setShowApifyFetch(false); }}
               >
                 <RefreshCw className="h-4 w-4 mr-2" />
                 Buscar via API
@@ -356,7 +386,43 @@ export function YouTubeDashboard({ clientId, videos, isLoading }: YouTubeDashboa
         </Card>
       )}
 
-      {/* CSV Upload */}
+      {/* Apify Fetch Panel */}
+      {showApifyFetch && canImportData && (
+        <Card className="p-4">
+          <div className="flex items-center gap-3">
+            <div className="h-9 w-9 rounded-lg bg-red-500/10 flex items-center justify-center shrink-0">
+              <Youtube className="h-4 w-4 text-red-500" />
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-medium mb-1">Sincronizar vídeos públicos do canal</p>
+              <p className="text-xs text-muted-foreground">
+                Extrai views, likes e comentários públicos via Apify. Insira a URL ou @handle do canal.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 mt-3">
+            <Input
+              placeholder="@handle ou URL do canal (ex: @investidor420)"
+              value={apifyChannelInput}
+              onChange={(e) => setApifyChannelInput(e.target.value)}
+              className="flex-1"
+            />
+            <Button onClick={handleApifyFetch} disabled={fetchApify.isPending}>
+              {fetchApify.isPending ? (
+                <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Sincronizando...</>
+              ) : (
+                <><RefreshCw className="h-4 w-4 mr-2" />Sincronizar</>
+              )}
+            </Button>
+          </div>
+          {fetchApify.isPending && (
+            <p className="text-xs text-muted-foreground mt-2">
+              ⏳ Isso pode levar 1-2 minutos dependendo do tamanho do canal...
+            </p>
+          )}
+        </Card>
+      )}
+
       {canImportData && (
         <Collapsible open={showUpload} onOpenChange={setShowUpload}>
           <CollapsibleContent className="pt-2">

@@ -88,6 +88,32 @@ export const useFetchYouTubeMetrics = () => {
   });
 };
 
+export const useFetchYouTubeApify = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ 
+      clientId, 
+      channelUrl 
+    }: { 
+      clientId: string; 
+      channelUrl: string;
+    }) => {
+      const { data, error } = await supabase.functions.invoke('fetch-youtube-apify', {
+        body: { clientId, channelUrl },
+      });
+
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['youtube-videos'] });
+      queryClient.invalidateQueries({ queryKey: ['performance-metrics'] });
+    },
+  });
+};
+
 export const useImportYouTubeCSV = () => {
   const queryClient = useQueryClient();
 
