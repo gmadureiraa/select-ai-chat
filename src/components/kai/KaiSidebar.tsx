@@ -306,6 +306,15 @@ export function KaiSidebar({
           collapsed={collapsed}
         />
 
+        {/* Analytics (Beta) */}
+        <NavItem
+          icon={<LineChart className="h-4 w-4" strokeWidth={1.5} />}
+          label="Analytics ✨"
+          active={activeTab === "analytics"}
+          onClick={() => onTabChange("analytics")}
+          collapsed={collapsed}
+        />
+
         {/* Performance - Viewers podem ver */}
         <NavItem
           icon={<BarChart3 className="h-4 w-4" strokeWidth={1.5} />}
