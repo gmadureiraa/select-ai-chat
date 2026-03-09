@@ -153,6 +153,7 @@ export async function streamSSEToCallback(
 
   callbacks.onDone?.();
   return fullContent;
+}
 
 /**
  * Make a streaming request to kai-content-agent and parse the response
