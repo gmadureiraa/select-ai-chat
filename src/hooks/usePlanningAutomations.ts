@@ -131,6 +131,7 @@ export function usePlanningAutomations() {
           trigger_config: configToJson(input.trigger_config),
           target_column_id: input.target_column_id,
           platform: input.platform,
+          platforms: input.platforms || null,
           content_type: input.content_type || 'social_post',
           auto_generate_content: input.auto_generate_content || false,
           prompt_template: input.prompt_template,
@@ -139,6 +140,7 @@ export function usePlanningAutomations() {
           image_prompt_template: input.image_prompt_template,
           image_style: input.image_style || 'photographic',
           created_by: user?.id,
+        } as any)
         })
         .select()
         .single();
