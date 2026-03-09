@@ -28,7 +28,7 @@ Gerar imagem (se habilitado)
   ↓
 Salvar na biblioteca do cliente
   ↓
-Auto-publicar (se habilitado)
+Auto-publicar multi-plataforma (se habilitado)
   ↓
 Registrar run na planning_automation_runs
 ```
@@ -122,12 +122,22 @@ Quando `auto_generate_image` está habilitado:
 
 ---
 
-## 📤 AUTO-PUBLICAÇÃO
+## 📤 AUTO-PUBLICAÇÃO (Multi-plataforma)
 
 Quando `auto_publish` está habilitado:
-1. Move o card para a coluna "Publicado" do Kanban
-2. Chama a API de publicação da plataforma correspondente (Twitter, LinkedIn, etc.)
-3. Registra resultado na `planning_automation_runs`
+
+1. Lê `automation.platforms[]` (array de plataformas destino configuradas na automação)
+2. Para cada plataforma no array, chama `late-post` sequencialmente
+3. Registra tracking individual no `metadata` do planning_item:
+   - `published_platforms[]` — acumulado a cada sucesso
+   - `late_post_ids{}` — mapeamento plataforma → ID do post na Late
+   - `published_urls{}` — mapeamento plataforma → URL pública do post
+4. O conteúdo é salvo na `client_content_library` apenas uma vez (flag `added_to_library`)
+5. Move o card para a coluna "Publicado" do Kanban após todas as publicações
+6. Registra resultado na `planning_automation_runs`
+
+### Fallback Single-platform
+Se `automation.platforms` não estiver definido, usa `automation.platform` (campo legacy singular) como fallback.
 
 ---
 

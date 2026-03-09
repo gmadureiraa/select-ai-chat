@@ -40,7 +40,8 @@ Inicializadas por `initialize_kanban_columns()`:
 - Colunas drag-and-drop (mover cards entre colunas)
 - Cards virtualizados para performance (`react-window`)
 - Filtros por: cliente, plataforma, responsável, status
-- Indicadores visuais: plataforma, data, prioridade
+- Indicadores visuais: plataforma(s), data, prioridade
+- **Multi-plataforma**: cards exibem até 3 ícones Lucide de plataformas + "+N" no footer
 
 ### Calendar View
 - Visualização mensal/semanal
@@ -61,7 +62,7 @@ Inicializadas por `initialize_kanban_columns()`:
   client_id: string;
   title: string;
   description: string;          // Conteúdo principal (markdown)
-  platform: string;             // instagram, twitter, linkedin, etc.
+  platform: string;             // Plataforma principal (legacy, usado como fallback)
   content_type: string;         // tweet, carousel, newsletter, etc.
   column_id: string;            // Referência à coluna do kanban
   status: string;               // draft, scheduled, published, failed
@@ -70,10 +71,31 @@ Inicializadas por `initialize_kanban_columns()`:
   assigned_to: uuid;            // Responsável
   created_by: uuid;
   media_urls: json;             // URLs de mídias anexadas
-  metadata: json;               // Dados extras (thread_items, etc.)
-  late_post_id: string;         // ID do post na Late API
+  metadata: json;               // Dados extras (ver abaixo)
+  late_post_id: string;         // ID do post na Late API (legacy, single-platform)
   publication_status: string;   // pending, published, failed
   publication_error: string;
+}
+```
+
+### Campos de Metadata (Multi-plataforma)
+
+```typescript
+metadata: {
+  // Seleção de plataformas
+  target_platforms: string[];        // ["twitter", "linkedin", "instagram"]
+
+  // Tracking de publicação multi-plataforma
+  published_platforms: string[];     // ["twitter", "linkedin"] — quais já foram publicadas
+  late_post_ids: Record<string, string>;   // { twitter: "abc123", linkedin: "def456" }
+  published_urls: Record<string, string>;  // { twitter: "https://x.com/...", linkedin: "https://..." }
+
+  // Controle de biblioteca
+  added_to_library: boolean;         // true após salvar na content_library (evita duplicatas)
+
+  // Conteúdo estruturado
+  thread_tweets: ThreadItem[];       // Para threads Twitter/LinkedIn
+  carousel_slides: SlideItem[];      // Para carrosséis Instagram
 }
 ```
 
@@ -81,14 +103,16 @@ Inicializadas por `initialize_kanban_columns()`:
 
 O `PlanningItemDialog` permite:
 - Editar título e conteúdo (rich text com menções)
-- Selecionar plataforma e tipo de conteúdo
+- **Selecionar múltiplas plataformas** via chips interativos com ícones Lucide e cores branded (sky para Twitter, pink para Instagram, blue para LinkedIn, etc.)
+- Indicador de status de conexão por plataforma (dot verde = conectada)
+- Resumo "X de Y conectadas" para feedback rápido
 - Definir data/hora de agendamento
 - Atribuir responsável
 - Upload de mídias (imagens, vídeos)
 - Gerar imagem com IA (`ImageGenerationModal`)
 - Visualizar preview do conteúdo
 - Comentários e discussão
-- Publicar diretamente via Late API
+- **Publicar em múltiplas plataformas** com mini-ícones no botão de publicação
 
 ---
 
@@ -114,14 +138,17 @@ Edge function `process-recurring-content`:
 
 ## 📤 Publicação
 
-### Via Late API
-O `late-post` Edge Function:
-1. Busca credenciais sociais do cliente (`client_social_credentials`)
-2. Envia para Late API (getlate.dev)
-3. Suporta: Twitter, LinkedIn, Instagram, TikTok, YouTube, Facebook, Threads
-4. Suporta publicação imediata ou agendada
-5. Suporta threads nativas (Twitter, LinkedIn)
-6. Atualiza `publication_status` no planning_item
+### Via Late API (Multi-plataforma)
+
+O sistema suporta publicação simultânea em múltiplas plataformas:
+
+1. O usuário seleciona `target_platforms` no dialog (ex: Twitter + LinkedIn)
+2. Ao publicar, o sistema itera sequencialmente por cada plataforma:
+   - Chama `late-post` para cada plataforma individualmente
+   - Registra `late_post_id` e `published_url` no metadata por plataforma
+   - Adiciona a plataforma ao array `published_platforms`
+3. O conteúdo é salvo na `client_content_library` apenas uma vez (`added_to_library` flag)
+4. Se todas as plataformas publicarem com sucesso, o card move para coluna "Publicado"
 
 ### Plataformas Suportadas
 - Instagram (post, carousel, reels, stories)
@@ -152,4 +179,4 @@ Veja [KAI_CHAT.md](./KAI_CHAT.md) para detalhes da detecção de planning intent
 
 ---
 
-*Última atualização: Março 2025*
+*Última atualização: Março 2026*

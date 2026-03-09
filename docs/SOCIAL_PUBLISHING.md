@@ -3,7 +3,7 @@
 
 ## Visão Geral
 
-O Kaleidos publica conteúdo em redes sociais através da **Late API** (getlate.dev), com fluxo OAuth para conectar contas e edge functions para publicação.
+O Kaleidos publica conteúdo em redes sociais através da **Late API** (getlate.dev), com fluxo OAuth para conectar contas e edge functions para publicação. Suporta **publicação multi-plataforma** simultânea com tracking individual por rede.
 
 ---
 
@@ -67,6 +67,44 @@ threadItems: [
 
 ---
 
+## 🌐 Publicação Multi-plataforma
+
+### Fluxo Sequencial
+
+Quando o usuário seleciona múltiplas `target_platforms` no dialog de planejamento:
+
+1. O sistema itera por cada plataforma sequencialmente
+2. Para cada plataforma, chama `late-post` individualmente
+3. O resultado é rastreado no `metadata` do `planning_item`:
+
+```typescript
+metadata: {
+  target_platforms: ["twitter", "linkedin", "instagram"],
+  published_platforms: ["twitter", "linkedin"],  // atualizado a cada sucesso
+  late_post_ids: {
+    twitter: "late_abc123",
+    linkedin: "late_def456"
+  },
+  published_urls: {
+    twitter: "https://x.com/user/status/123",
+    linkedin: "https://linkedin.com/posts/..."
+  }
+}
+```
+
+### Deduplicação na Biblioteca
+
+O conteúdo é salvo na `client_content_library` apenas **uma vez**, controlado pelo flag `metadata.added_to_library`. Isso evita duplicatas quando o mesmo conteúdo é publicado em múltiplas redes.
+
+### Publicação via Automações
+
+O `process-automations` também suporta multi-plataforma:
+- Lê `automation.platforms[]` (array de plataformas destino)
+- Quando `auto_publish = true`, itera por cada plataforma
+- Registra tracking individual no metadata do planning_item criado
+
+---
+
 ## 📊 Métricas de Publicação
 
 ### Coleta
@@ -103,4 +141,4 @@ threadItems: [
 
 ---
 
-*Última atualização: Março 2025*
+*Última atualização: Março 2026*
