@@ -919,6 +919,61 @@ export function AutomationDialog({ open, onOpenChange, automation }: AutomationD
                     ))}
                   </RadioGroup>
                 </div>
+
+                {/* Visual Reference Selector */}
+                {visualReferences.length > 0 && (
+                  <div className="space-y-2">
+                    <Label>Referências visuais para esta automação</Label>
+                    <p className="text-xs text-muted-foreground">
+                      Selecione referências específicas de estilo. Se nenhuma for selecionada, serão usadas as primárias do perfil.
+                    </p>
+                    <div className="grid grid-cols-4 gap-2 max-h-40 overflow-y-auto">
+                      {visualReferences.map((ref) => {
+                        const isSelected = imageReferenceIds.includes(ref.id);
+                        return (
+                          <button
+                            key={ref.id}
+                            type="button"
+                            onClick={() => {
+                              if (isSelected) {
+                                setImageReferenceIds(prev => prev.filter(id => id !== ref.id));
+                              } else {
+                                setImageReferenceIds(prev => [...prev, ref.id]);
+                              }
+                            }}
+                            className={cn(
+                              "relative aspect-square rounded-md overflow-hidden border-2 transition-all",
+                              isSelected
+                                ? "border-primary ring-2 ring-primary/30"
+                                : "border-border/50 hover:border-border"
+                            )}
+                          >
+                            <img
+                              src={ref.image_url}
+                              alt={ref.description || ref.reference_type}
+                              className="w-full h-full object-cover"
+                            />
+                            {isSelected && (
+                              <div className="absolute inset-0 bg-primary/20 flex items-center justify-center">
+                                <Check className="h-5 w-5 text-primary-foreground drop-shadow-md" />
+                              </div>
+                            )}
+                            {ref.description && (
+                              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-1">
+                                <p className="text-[9px] text-white truncate">{ref.description}</p>
+                              </div>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {imageReferenceIds.length > 0 && (
+                      <p className="text-xs text-muted-foreground">
+                        {imageReferenceIds.length} referência(s) selecionada(s)
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 
