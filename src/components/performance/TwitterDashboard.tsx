@@ -381,14 +381,24 @@ export function TwitterDashboard({ clientId, posts, isLoading }: TwitterDashboar
           )}
 
           {canImportData && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowUpload(!showUpload)}
-            >
-              <Upload className="h-4 w-4 mr-2" />
-              Importar CSV
-            </Button>
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => { setShowApifySync(!showApifySync); setShowUpload(false); }}
+              >
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Sincronizar Perfil
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => { setShowUpload(!showUpload); setShowApifySync(false); }}
+              >
+                <Upload className="h-4 w-4 mr-2" />
+                Importar CSV
+              </Button>
+            </>
           )}
         </div>
       </div>
