@@ -1180,9 +1180,76 @@ serve(async (req) => {
               console.log(`LinkedIn Variation: ${linkedInVariation.category} (type: ${linkedInVariation.editorialType}, index ${variationIndex})`);
             }
             
-            // ===================================================
-            // YOUTUBE TRANSCRIPTION: Enrich prompt with video content
-            // ===================================================
+            // Threads editorial variation system
+            if (automation.content_type === 'social_post' && (derivedPlatform === 'threads')) {
+              const triggerConfig = automation.trigger_config as any;
+              const variationIndex = (triggerConfig.variation_index || 0) % THREADS_VARIATION_CATEGORIES.length;
+              const variation = THREADS_VARIATION_CATEGORIES[variationIndex];
+              
+              // Fetch recent Threads posts as anti-examples
+              let recentPosts: string[] = [];
+              try {
+                const { data: recent } = await supabase
+                  .from('planning_items')
+                  .select('content')
+                  .eq('client_id', automation.client_id!)
+                  .eq('platform', 'threads')
+                  .not('content', 'is', null)
+                  .order('created_at', { ascending: false })
+                  .limit(7);
+                
+                if (recent) {
+                  recentPosts = recent.map(p => p.content!).filter(Boolean).map(c => c.substring(0, 200));
+                }
+              } catch (e) {
+                console.warn('Could not fetch recent Threads posts:', e);
+              }
+              
+              variationContext = {
+                category: `Threads: ${variation.name}`,
+                instruction: variation.instruction,
+                recentTweets: recentPosts,
+              };
+              
+              // Increment variation index
+              await supabase
+                .from('planning_automations')
+                .update({
+                  trigger_config: {
+                    ...automation.trigger_config,
+                    variation_index: variationIndex + 1,
+                  }
+                })
+                .eq('id', automation.id);
+              
+              console.log(`Threads Variation: ${variation.name} (index ${variationIndex}), ${recentPosts.length} anti-examples`);
+            }
+            
+            // Blog editorial variation system
+            if (automation.content_type === 'blog_post' || automation.content_type === 'article') {
+              const triggerConfig = automation.trigger_config as any;
+              const variationIndex = (triggerConfig.variation_index || 0) % BLOG_VARIATION_CATEGORIES.length;
+              const variation = BLOG_VARIATION_CATEGORIES[variationIndex];
+              
+              variationContext = {
+                category: `Blog: ${variation.name}`,
+                instruction: variation.instruction,
+                recentTweets: [], // Blog posts don't need anti-examples as frequently
+              };
+              
+              // Increment variation index
+              await supabase
+                .from('planning_automations')
+                .update({
+                  trigger_config: {
+                    ...automation.trigger_config,
+                    variation_index: variationIndex + 1,
+                  }
+                })
+                .eq('id', automation.id);
+              
+              console.log(`Blog Variation: ${variation.name} (index ${variationIndex})`);
+            }
             let youtubeTranscript = "";
             
             if (triggerData?.link && (
