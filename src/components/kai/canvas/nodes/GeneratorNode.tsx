@@ -313,8 +313,9 @@ const GeneratorNodeComponent: React.FC<NodeProps<GeneratorNodeData>> = ({
       
       <Card className={cn(
         "w-80 shadow-lg rounded-xl transition-all duration-200 relative",
-        selected ? 'ring-2 ring-primary shadow-primary/10' : 'hover:shadow-xl',
-        isGenerating && 'ring-2 ring-primary/50 shadow-primary/20'
+        selected ? 'ring-2 ring-primary shadow-primary/10' : 'hover:shadow-xl hover:shadow-primary/5',
+        isGenerating && 'ring-2 ring-primary/50 shadow-primary/20',
+        !selected && !isGenerating && 'hover:ring-1 hover:ring-primary/20'
       )}>
         {/* Input handles - 4 slots for connections */}
         {[0, 1, 2, 3].map((i) => (
