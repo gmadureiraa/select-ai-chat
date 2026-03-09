@@ -257,55 +257,29 @@ export function useKAISimpleChat({
         throw new Error(errorData.error || "Erro ao processar mensagem");
       }
 
-      // Process SSE stream
+      // Process SSE stream using robust utility
       const reader = response.body?.getReader();
       if (!reader) throw new Error("No response body");
 
-      const decoder = new TextDecoder();
-      let fullContent = "";
       let imageUrl: string | undefined;
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        const chunk = decoder.decode(value, { stream: true });
-        const lines = chunk.split("\n");
-
-        for (const line of lines) {
-          if (!line.startsWith("data: ")) continue;
-          const data = line.slice(6).trim();
-          
-          if (data === "[DONE]") continue;
-          
-          try {
-            const parsed = JSON.parse(data);
-            const delta = parsed.choices?.[0]?.delta;
-            
-            if (delta?.content) {
-              fullContent += delta.content;
-              // Update message content
-              setMessages(prev => prev.map(m => 
-                m.id === assistantId 
-                  ? { ...m, content: fullContent }
-                  : m
-              ));
-            }
-            
-            // Check for image in response
-            if (delta?.image) {
-              imageUrl = delta.image;
-              setMessages(prev => prev.map(m => 
-                m.id === assistantId 
-                  ? { ...m, imageUrl }
-                  : m
-              ));
-            }
-          } catch {
-            // Ignore parse errors for incomplete chunks
-          }
-        }
-      }
+      const fullContent = await streamSSEToCallback(reader, {
+        onDelta: (content) => {
+          setMessages(prev => prev.map(m => 
+            m.id === assistantId 
+              ? { ...m, content }
+              : m
+          ));
+        },
+        onImage: (url) => {
+          imageUrl = url;
+          setMessages(prev => prev.map(m => 
+            m.id === assistantId 
+              ? { ...m, imageUrl: url }
+              : m
+          ));
+        },
+      });
 
       // Ensure final content is set
       const finalAssistantMessage: SimpleMessage = {
