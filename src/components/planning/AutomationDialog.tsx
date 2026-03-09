@@ -59,17 +59,17 @@ const WEEKDAYS = [
   { value: 6, label: 'Sábado' },
 ];
 
-const PLATFORMS = [
-  { value: 'instagram', label: 'Instagram' },
-  { value: 'twitter', label: 'Twitter/X' },
-  { value: 'threads', label: 'Threads' },
-  { value: 'linkedin', label: 'LinkedIn' },
-  { value: 'facebook', label: 'Facebook' },
-  { value: 'youtube', label: 'YouTube' },
-  { value: 'tiktok', label: 'TikTok' },
-  { value: 'newsletter', label: 'Newsletter' },
-  { value: 'blog', label: 'Blog' },
-];
+const platformLucideIcons: Record<string, React.ElementType> = {
+  twitter: Twitter,
+  linkedin: Linkedin,
+  instagram: Instagram,
+  threads: AtSign,
+  tiktok: Video,
+  youtube: Youtube,
+  facebook: Facebook,
+  newsletter: Mail,
+  blog: FileText,
+};
 
 // Template variables that can be used in prompts
 const TEMPLATE_VARIABLES = [
