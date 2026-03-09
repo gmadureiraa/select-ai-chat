@@ -1507,10 +1507,12 @@ REGRAS ABSOLUTAS:
 
         // Auto publish if enabled
         if (automation.auto_publish && automation.client_id && generatedContent) {
-          // Determine target platforms: use platforms[] array if available, fallback to single platform
-          const targetPlatforms: string[] = (automation as any).platforms?.length > 0
-            ? (automation as any).platforms
-            : (derivedPlatform ? [derivedPlatform] : []);
+          // Determine target platforms: use metadata.target_platforms, automation.platforms[], or fallback to derived
+          const itemMeta0 = (newItem.metadata as any) || {};
+          const targetPlatforms: string[] = 
+            itemMeta0.target_platforms?.length > 0 ? itemMeta0.target_platforms :
+            (automation as any).platforms?.length > 0 ? (automation as any).platforms :
+            (derivedPlatform ? [derivedPlatform] : []);
 
           for (const targetPlatform of targetPlatforms) {
             try {

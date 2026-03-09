@@ -794,9 +794,9 @@ export function PlanningItemDialog({
                     />
                   </div>
                 </div>
-                {scheduledAt && canPublishNow && (
+                {scheduledAt && publishablePlatforms.length > 0 && (
                   <p className="text-[10px] text-muted-foreground">
-                    ✓ Será enviado ao {platform} automaticamente
+                    ✓ Será enviado a {publishablePlatforms.length} plataforma(s) automaticamente
                   </p>
                 )}
               </div>
