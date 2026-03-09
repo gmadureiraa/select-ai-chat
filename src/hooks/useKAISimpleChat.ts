@@ -220,13 +220,14 @@ export function useKAISimpleChat({
           body: JSON.stringify({
             message: content,
             clientId,
+            conversationId: activeConversationId,
             imageUrls: imageUrls?.length ? imageUrls : undefined,
             citations: citations?.map(c => ({
               id: c.id,
               type: c.type,
               title: c.title,
             })),
-            history: messages.slice(-10).map(m => ({
+            history: messages.map(m => ({
               role: m.role,
               content: m.content,
               imageUrl: m.imageUrl,
