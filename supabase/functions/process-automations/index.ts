@@ -434,6 +434,28 @@ const GM_VARIATION_CATEGORIES = [
   { name: 'Observação aguda', instruction: 'Faça uma observação perspicaz sobre o mercado/nicho que poucos percebem.' },
 ];
 
+// Threads editorial variation categories for anti-repetition
+const THREADS_VARIATION_CATEGORIES = [
+  { name: 'Reflexão Profunda', instruction: 'Comece com uma reflexão profunda sobre um tema do nicho. Tom contemplativo, filosófico. Leve o leitor a repensar algo que dá por certo.' },
+  { name: 'Pergunta Retórica', instruction: 'Abra com uma pergunta poderosa que gere reflexão. Não dê a resposta — deixe o leitor chegar lá sozinho. Tom provocativo.' },
+  { name: 'Insight Rápido', instruction: 'Compartilhe um insight técnico ou de mercado em formato conciso. Vá direto ao ponto. Uma frase que muda a perspectiva.' },
+  { name: 'Hot Take', instruction: 'Dê uma opinião controversa mas bem fundamentada. Desafie o status quo. Tom ousado, assertivo.' },
+  { name: 'Storytelling Micro', instruction: 'Conte uma micro-história em 2-3 frases. Pode ser pessoal, de um cliente ou metáfora. Finalize com a moral/lição.' },
+  { name: 'Dado/Métrica', instruction: 'Use um número, estatística ou dado real como gancho. Contextualize com uma análise breve. Seja específico, não genérico.' },
+  { name: 'Behind the Scenes', instruction: 'Revele algo dos bastidores: processo de trabalho, decisão, ferramenta. Tom autêntico e raw, não polido.' },
+  { name: 'Provocação', instruction: 'Provoque o leitor com uma afirmação bold. Questione uma crença popular. Gere desconforto produtivo.' },
+];
+
+// Blog editorial variation categories for anti-repetition
+const BLOG_VARIATION_CATEGORIES = [
+  { name: 'Framework/Tutorial', instruction: 'Crie um guia passo-a-passo ou framework prático. Estrutura clara com etapas numeradas. Tom didático e aplicável imediatamente.' },
+  { name: 'Análise de Tendência', instruction: 'Analise uma tendência emergente do mercado. Conecte dados com previsões. Posicione-se como visionário que antecipa movimentos.' },
+  { name: 'Opinião Contrarian', instruction: 'Desafie uma crença amplamente aceita no mercado. Argumente com dados e experiência real. Tom provocativo mas fundamentado.' },
+  { name: 'Deep Dive Técnico', instruction: 'Mergulhe profundamente em um tópico técnico. Explique conceitos complexos de forma acessível. Use analogias e exemplos práticos.' },
+  { name: 'Guia Prático', instruction: 'Crie um guia completo e actionable. Inclua exemplos reais, templates ou checklists. O leitor deve sair com algo para aplicar hoje.' },
+];
+
+
 // LinkedIn editorial variation categories for anti-repetition
 const LINKEDIN_VARIATION_CATEGORIES: Record<string, Array<{ name: string; instruction: string }>> = {
   'opinion': [
