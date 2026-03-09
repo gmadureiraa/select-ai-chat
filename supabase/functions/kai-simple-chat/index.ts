@@ -1804,11 +1804,44 @@ SIGA RIGOROSAMENTE a ordem de prioridade:
       systemPrompt += `\n## Instruções Gerais\n- Siga tom de voz do cliente\n- Seja direto, prático e objetivo\n- Use referências citadas como base\n- Mantenha consistência com a marca`;
     }
 
-    // 7. Build messages array
-    const limitedHistory = (history || []).slice(-MAX_HISTORY_MESSAGES);
+    // 7. Build messages array with context summarization
+    const fullHistory = history || [];
+    let contextSummaryBlock = "";
+    let recentHistory: HistoryMessage[] = [];
+
+    if (fullHistory.length > 10) {
+      // Anchored summarization: summarize older messages, keep last 5 intact
+      const olderMessages = fullHistory.slice(0, -5);
+      recentHistory = fullHistory.slice(-5);
+      
+      // Build a condensed summary of older messages
+      const olderSummary = olderMessages.map(m => 
+        `${m.role === 'user' ? 'Usuário' : 'Assistente'}: ${m.content.substring(0, 200)}`
+      ).join('\n');
+      contextSummaryBlock = `\n## Resumo da Conversa Anterior\n${olderSummary.substring(0, 2000)}\n`;
+    } else {
+      recentHistory = fullHistory.slice(-MAX_HISTORY_MESSAGES);
+    }
+
+    if (contextSummaryBlock) {
+      systemPrompt += contextSummaryBlock;
+    }
+
+    // Save last_format_used if content was created
+    if (contentCreation.isContentCreation && contentCreation.detectedFormat) {
+      // Fire and forget — don't block the response
+      const conversationId = body.conversationId;
+      if (conversationId) {
+        supabase.from("kai_chat_conversations")
+          .update({ last_format_used: contentCreation.detectedFormat })
+          .eq("id", conversationId)
+          .then(() => {});
+      }
+    }
+
     const apiMessages = [
       { role: "system", content: systemPrompt },
-      ...limitedHistory.map(h => ({ role: h.role, content: h.content })),
+      ...recentHistory.map(h => ({ role: h.role, content: h.content })),
       { role: "user", content: message },
     ];
 
