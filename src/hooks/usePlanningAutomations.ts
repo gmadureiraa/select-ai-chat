@@ -171,13 +171,14 @@ export function usePlanningAutomations() {
       if (input.trigger_config !== undefined) updateData.trigger_config = configToJson(input.trigger_config);
       if (input.target_column_id !== undefined) updateData.target_column_id = input.target_column_id;
       if (input.platform !== undefined) updateData.platform = input.platform;
+      if (input.platforms !== undefined) updateData.platforms = input.platforms;
       if (input.content_type !== undefined) updateData.content_type = input.content_type;
       if (input.auto_generate_content !== undefined) updateData.auto_generate_content = input.auto_generate_content;
       if (input.prompt_template !== undefined) updateData.prompt_template = input.prompt_template;
-      if ((input as any).auto_publish !== undefined) updateData.auto_publish = (input as any).auto_publish;
-      if ((input as any).auto_generate_image !== undefined) updateData.auto_generate_image = (input as any).auto_generate_image;
-      if ((input as any).image_prompt_template !== undefined) updateData.image_prompt_template = (input as any).image_prompt_template;
-      if ((input as any).image_style !== undefined) updateData.image_style = (input as any).image_style;
+      if (input.auto_publish !== undefined) updateData.auto_publish = input.auto_publish;
+      if (input.auto_generate_image !== undefined) updateData.auto_generate_image = input.auto_generate_image;
+      if (input.image_prompt_template !== undefined) updateData.image_prompt_template = input.image_prompt_template;
+      if (input.image_style !== undefined) updateData.image_style = input.image_style;
       if (input.is_active !== undefined) updateData.is_active = input.is_active;
       
       const { data, error } = await supabase
