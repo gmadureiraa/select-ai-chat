@@ -39,6 +39,7 @@ interface RequestBody {
   history?: HistoryMessage[];
   materialContext?: string;
   materialTitle?: string;
+  conversationId?: string;
 }
 
 // User instructions that override default behaviors
