@@ -306,7 +306,7 @@ const sections: DocSection[] = [
         </div>
 
         <Accordion type="multiple" className="space-y-2">
-          {formatRulesDataData.map((format) => (
+          {formatRulesData.map((format) => (
             <FormatRuleCard key={format.id} format={format} />
           ))}
         </Accordion>
