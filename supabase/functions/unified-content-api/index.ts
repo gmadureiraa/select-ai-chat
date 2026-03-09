@@ -25,19 +25,20 @@ import {
 } from "../_shared/content-validator.ts";
 
 import {
-  getFullContentContext,
-  getStructuredVoice,
   getClientAvoidList,
   normalizeFormatKey,
 } from "../_shared/knowledge-loader.ts";
 
 import {
-  buildForbiddenPhrasesSection,
-  UNIVERSAL_OUTPUT_RULES,
   buildReviewerChecklist,
 } from "../_shared/quality-rules.ts";
 
-// NEW: Import centralized LLM module with retry + fallback
+// Centralized prompt builder
+import {
+  buildWriterSystemPrompt,
+} from "../_shared/prompt-builder.ts";
+
+// Centralized LLM module with retry + fallback
 import {
   callLLM,
   LLMError,
@@ -213,54 +214,46 @@ serve(async (req) => {
     let reviewerTokens = 0;
 
     // =========================================================
-    // STEP 1: LOAD CONTEXT
+    // STEP 1: LOAD CONTEXT + BUILD PROMPT (centralized)
     // =========================================================
     console.log("[UNIFIED-API] Step 1: Loading context...");
     stepsCompleted.push("context_loaded");
 
-    // Get format schema
+    // Get format schema for validation
     const schema = getFormatSchema(normalizedFormat);
     if (!schema && strict_validation) {
       console.warn(`[UNIFIED-API] No schema found for format: ${normalizedFormat}`);
     }
 
-    // Get format contract
-    const formatContract = buildFormatContract(normalizedFormat);
-
-    // Get structured voice (Use/Avoid)
-    const structuredVoice = await getStructuredVoice(client_id);
-
     // Get client avoid list for validation
     const clientAvoidList = await getClientAvoidList(client_id);
 
-    // Get full content context (identity, library, top performers)
-    const fullContext = await getFullContentContext({
+    // Build writer system prompt using centralized builder
+    const writerSystemPrompt = await buildWriterSystemPrompt({
       clientId: client_id,
       format: normalizedFormat,
       workspaceId: workspace_id,
+      includeVoice: true,
       includeLibrary: true,
-      includeTopPerformers: true,
+      includePerformers: true,
       includeGlobalKnowledge: true,
       includeSuccessPatterns: true,
-      includeChecklist: false, // We use our own validation
+      includeChecklist: false, // We use our own validation pipeline
     });
 
-    // Track sources used
+    // Track sources used (approximate from prompt content)
     const sourcesUsed: SourcesUsed = {
-      identity_guide: fullContext.includes("GUIA DE IDENTIDADE") || fullContext.includes("identity") || fullContext.includes("DOCUMENTO MESTRE"),
-      library_items_count: (fullContext.match(/\[BIBLIOTECA\]/g) || []).length,
-      top_performers_count: (fullContext.match(/\[TOP PERFORMER\]/g) || []).length,
+      identity_guide: writerSystemPrompt.includes("DOCUMENTO MESTRE") || writerSystemPrompt.includes("CONTEXTO OPERACIONAL"),
+      library_items_count: (writerSystemPrompt.match(/Exemplo \d+:/g) || []).length,
+      top_performers_count: (writerSystemPrompt.match(/Top \d+ \[/g) || []).length,
       format_rules: schema?.format_label || null,
-      voice_profile: structuredVoice.includes("USE SEMPRE") || structuredVoice.includes("EVITE SEMPRE"),
-      global_knowledge: fullContext.includes("KNOWLEDGE BASE") || fullContext.includes("conhecimento global"),
-      content_guidelines: fullContext.includes("GUIA DE CRIAÇÃO"),
+      voice_profile: writerSystemPrompt.includes("VOZ DO CLIENTE") || writerSystemPrompt.includes("USE SEMPRE"),
+      global_knowledge: writerSystemPrompt.includes("KNOWLEDGE BASE") || writerSystemPrompt.includes("BASE DE CONHECIMENTO"),
+      content_guidelines: writerSystemPrompt.includes("GUIA DE CRIAÇÃO"),
     };
 
-    // Get forbidden phrases section
-    const forbiddenPhrases = buildForbiddenPhrasesSection();
-
     // =========================================================
-    // STEP 2: WRITER (Main generation) - Now with retry + fallback
+    // STEP 2: WRITER (Main generation) - with retry + fallback
     // =========================================================
     console.log("[UNIFIED-API] Step 2: Writer generating content...");
     stepsCompleted.push("writer_started");
@@ -274,23 +267,6 @@ serve(async (req) => {
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
-
-    const writerSystemPrompt = `# VOCÊ É UM COPYWRITER ESPECIALISTA
-
-${UNIVERSAL_OUTPUT_RULES}
-
-${formatContract}
-
-${forbiddenPhrases}
-
-${structuredVoice}
-
-${fullContext}
-
-## TAREFA
-Crie conteúdo seguindo RIGOROSAMENTE o formato de entrega acima.
-Seu output deve conter APENAS o conteúdo final - nada de explicações.
-`;
 
     const writerMessages: LLMMessage[] = [
       { role: "system", content: writerSystemPrompt },

@@ -7,6 +7,7 @@ import {
   getFormatLabel 
 } from "../_shared/format-constants.ts";
 import { getFullContentContext, getStructuredVoice } from "../_shared/knowledge-loader.ts";
+import { buildImageBriefing } from "../_shared/prompt-builder.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -556,23 +557,18 @@ ${variationContext.instruction}`;
     prompt += `\n\n📸 IMAGENS DISPONÍVEIS (${mediaUrls.length}): As imagens do conteúdo original serão anexadas automaticamente. Faça referência a elas nos pontos relevantes do conteúdo.`;
   }
   
-  // Add format-specific tips
+  // NOTE: Format-specific tips removed here to avoid duplication.
+  // Format rules are already loaded via getFullContentContext() in the enriched context.
+  // Only add DELIVERY instructions that aren't covered by format schemas.
   switch (contentType) {
     case 'tweet':
-      prompt += `\n\n⚠️ REGRAS ABSOLUTAS PARA TWEET:
-- Máximo 280 caracteres
-- Use gancho forte no início
-- RESPONDA APENAS COM O TEXTO FINAL DO TWEET
-- NÃO use rótulos como "TEXTO DO VISUAL:", "LEGENDA:", "TWEET:", "CAPTION:" etc.
-- NÃO use markdown (sem ** ou ##)
-- NÃO inclua instruções, explicações ou metadata
-- Apenas o texto puro do tweet, pronto para publicar`;
+      prompt += `\n\n⚠️ ENTREGA: Responda APENAS com o texto puro do tweet. Sem rótulos, sem markdown, sem metadata.`;
       break;
     case 'thread':
-      prompt += `\n\n⚠️ FORMATO: Numere cada tweet (1/, 2/, etc). Máximo 280 chars por tweet. Gancho forte no primeiro.`;
+      prompt += `\n\n⚠️ ENTREGA: Numere cada tweet (1/, 2/, etc). Máximo 280 chars por tweet.`;
       break;
     case 'carousel':
-      prompt += `\n\n⚠️ FORMATO: Use "Página 1:", "Página 2:", etc. Máximo 30 palavras por slide. 8-10 slides idealmente.`;
+      prompt += `\n\n⚠️ ENTREGA: Use "Página 1:", "Página 2:", etc. + LEGENDA no final.`;
       break;
   }
   
@@ -1458,35 +1454,19 @@ serve(async (req) => {
                 triggerData,
                 automation.name
               );
-            } else if (generatedContent) {
-              // Build contextual prompt from generated content
-              const contentSummary = generatedContent.substring(0, 200).replace(/\n/g, ' ');
-              imagePrompt = `Create a powerful visual that captures the essence of this message: "${contentSummary}"`;
-            } else {
-              const title = triggerData?.title || automation.name;
-              imagePrompt = `Create a striking visual for: ${title}`;
             }
             
-            // Build the enriched image prompt
-            const styleModifier = getImageStyleModifier(automation.image_style);
-            const isLinkedIn = automation.platform === 'linkedin' || automation.content_type === 'linkedin_post';
-            const platformFormat = automation.platform === 'twitter' || automation.content_type === 'tweet' 
-              ? '1:1 square format for Twitter/X' 
-              : isLinkedIn 
-                ? '1.91:1 landscape format for LinkedIn (1200x628px)' 
-                : '1:1 format';
-            
-            const fullImagePrompt = `${visualIdentity ? `IDENTIDADE VISUAL DO CLIENTE:\n${visualIdentity}\n` : ''}CONTEÚDO DO POST: ${imagePrompt}
-
-ESTILO: ${styleModifier}
-FORMATO: ${platformFormat}
-
-REGRAS ABSOLUTAS:
-- NÃO coloque NENHUM texto, palavra, letra ou número na imagem
-- NO TEXT, NO WORDS, NO LETTERS, NO NUMBERS in the image
-- A imagem deve ser puramente visual, sem elementos tipográficos
-- Composição limpa e profissional
-- Transmita a emoção e conceito do conteúdo visualmente`;
+            // Build the enriched image prompt using centralized builder
+            const fullImagePrompt = buildImageBriefing({
+              generatedContent: generatedContent || undefined,
+              title: triggerData?.title || automation.name,
+              customPrompt: imagePrompt || undefined,
+              platform: derivedPlatform || undefined,
+              contentType: automation.content_type,
+              imageStyle: automation.image_style || undefined,
+              visualIdentity: visualIdentity || undefined,
+              visualRefDescriptions: visualRefs?.map(v => v.description || v.reference_type).filter(Boolean) || [],
+            });
             
             console.log(`Generating image for item ${newItem.id}...`);
             console.log(`Image prompt: ${fullImagePrompt.substring(0, 200)}...`);

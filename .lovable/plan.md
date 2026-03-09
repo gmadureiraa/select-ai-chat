@@ -1,109 +1,56 @@
 
 
-# Plan: Upgrade Completo dos Prompts e Pipeline de IA
+## Diagnóstico: Por que as automações não estão postando
 
-## Diagnóstico
+### Problema 1: LinkedIn - Itens criados mas nunca publicados
+As 3 automações de LinkedIn (Artigo de Opinião, Building in Public, Case & Prova Social) estão **funcionando corretamente** na geração de conteúdo e imagens. O problema é que todas estão com `auto_publish: false`. Os itens são criados com status "idea" no planejamento e ficam lá esperando publicação manual. Nenhum deles jamais é publicado automaticamente.
 
-Após análise detalhada de ~8000 linhas across 8 arquivos-chave, identifiquei problemas estruturais que degradam a qualidade do conteúdo:
+### Problema 2: Threads - Nenhuma automação configurada
+As credenciais do Threads (conta `madureira0x`) estão válidas, mas **não existe nenhuma automação** direcionada ao Threads.
 
-### Problemas Encontrados
+### Problema 3: Bug no retry de imagem
+No `process-automations`, linha ~1322, o retry de geração de imagem referencia a variável `resolvedImagePrompt` que **não existe** no escopo (o nome correto é `fullImagePrompt`). Isso faz o retry falhar silenciosamente.
 
-**1. Duplicação e fragmentação de prompts**
-- `kai-content-agent` (545 linhas), `unified-content-api` (518 linhas), `generate-content-v2` (984 linhas) e `process-automations` (1949 linhas) TODOS constroem seus próprios system prompts de formas diferentes
-- `kai-content-agent` monta contexto manualmente (linhas 166-280) em vez de usar `getFullContentContext()` que já existe no `knowledge-loader.ts`
-- `generate-content-v2` NÃO usa `getStructuredVoice()` — o Voice Profile (Use/Avoid) é ignorado na geração de texto pelo canvas
-- Resultado: regras inconsistentes entre Chat, Canvas e Automações
-
-**2. `generate-content-v2` usa modelo desatualizado**
-- Usa `gemini-2.0-flash` fixo (linha 465) sem distinção por complexidade do formato
-- `kai-content-agent` já faz essa distinção (Pro para newsletter/carousel, Flash para tweets) mas `generate-content-v2` não
-- Falta Voice Profile, Content Guidelines, Reference Library nesta edge function
-
-**3. Quality rules não são aplicadas no `kai-content-agent`**
-- `UNIVERSAL_OUTPUT_RULES` e `buildForbiddenPhrasesSection()` existem no `quality-rules.ts` mas NÃO são importados no `kai-content-agent`
-- Apenas o `unified-content-api` usa o pipeline completo de validação (Writer → Validate → Repair → Review)
-- O chat e o canvas geram conteúdo sem nenhuma validação pós-geração
-
-**4. Prompts inflados e redundantes**
-- O prompt do `process-automations` tem regras de tweet duplicadas: `buildEnrichedPrompt()` adiciona regras de formato (linha 560-577) E depois `getFullContentContext()` carrega as MESMAS regras novamente via `getFormatDocs()`
-- `kai-content-agent` carrega `formatRulesContent` + `enrichmentContext` que se sobrepõem
-- Prompts chegam a 20-30k tokens de contexto desnecessariamente
-
-**5. Imagem: prompt de geração genérico**
-- O prompt de imagem no `process-automations` (linha 1479) é uma string simples que não usa as instruções detalhadas do format schema
-- Não aproveita o conteúdo gerado para criar um briefing visual mais rico
-- A instrução "NO TEXT" é básica — deveria incluir exemplos negativos mais específicos
+### Problema 4: Qualidade do conteúdo LinkedIn repetitivo
+Os posts gerados para LinkedIn estão todos girando em torno do mesmo tema ("clareza vs complexidade em Web3"). Falta diversidade temática e o sistema de variação (que existe para tweets) não está implementado para LinkedIn.
 
 ---
 
-## Mudanças Propostas
+## Plano de Implementação
 
-### 1. Unificar construção de system prompt — `_shared/prompt-builder.ts` (NOVO)
-Criar módulo centralizado que monta o system prompt para QUALQUER contexto (chat, canvas, automação):
+### 1. Corrigir bug do retry de imagem no process-automations
+- Substituir `resolvedImagePrompt` por `fullImagePrompt` na linha do retry
 
-```text
-buildWriterSystemPrompt({
-  clientId, format, workspaceId,
-  includeVoice, includeLibrary, includePerformers,
-  variationContext?, researchBriefing?
-}) → string
-```
+### 2. Criar sistema de variação para LinkedIn (anti-repetição)
+Adicionar categorias editoriais para LinkedIn similares ao `GM_VARIATION_CATEGORIES` dos tweets:
+- **Artigo de Opinião**: Análise contrarian de tendência, dados concretos, framework próprio
+- **Building in Public**: Bastidores reais, números, aprendizados honestos, erros
+- **Case & Prova Social**: Resultados de clientes, métricas antes/depois, processo
 
-Elimina duplicação nos 4 arquivos. Garante que TODAS as gerações usam:
-- Voice Profile (Use/Avoid)
-- Content Guidelines
-- Format Rules (DB → fallback)
-- Quality Rules (forbidden phrases)
-- Universal Output Rules
-- Library examples + Top Performers
-- Global Knowledge
+Cada automação LinkedIn receberá um `variation_index` rotativo com sub-temas específicos para evitar repetição.
 
-### 2. Injetar Voice Profile no `generate-content-v2`
-- Importar e chamar `getStructuredVoice()` + `getClientAvoidList()`
-- Adicionar Content Guidelines (`client.content_guidelines`)
-- Aplicar `buildForbiddenPhrasesSection()` no prompt de texto
+### 3. Melhorar prompts LinkedIn com estratégia de conteúdo
+Enriquecer os prompts usando o guia de conteúdo do Madureira (`public/clients/madureira/guia-conteudo.md`):
+- Incorporar os 5 pilares de conteúdo como rotação temática
+- Usar tom de voz definido: técnico mas didático, direto, visionário
+- Adicionar instruções de formatação específicas para LinkedIn (quebras de linha, storytelling, CTA)
 
-### 3. Injetar Quality Rules no `kai-content-agent`
-- Importar `UNIVERSAL_OUTPUT_RULES` e `buildForbiddenPhrasesSection()`
-- Adicionar no system prompt ANTES do contexto do cliente
-- Remover regras hardcoded redundantes (linhas 338-372 que replicam parcialmente)
+### 4. Habilitar auto_publish para LinkedIn (com revisão inteligente)
+Alterar as 3 automações de LinkedIn para `auto_publish: true` para que os posts sejam publicados automaticamente após geração.
 
-### 4. Upgrade do modelo no `generate-content-v2`
-- Implementar a mesma lógica de seleção que `kai-content-agent` usa:
-  - Pro para carousel, newsletter, blog, long_video, x_article
-  - Flash para tweet, post, stories, reels
+### 5. Criar automações para Threads
+Criar 2-3 automações de Threads para o perfil Madureira:
+- **Threads Diário** (daily): Repurpose do melhor tweet do dia ou insight rápido
+- **Threads Semanal** (weekly): Versão expandida de um tweet de alta performance
 
-### 5. Otimizar tamanho dos prompts
-- No `process-automations`, remover regras de formato duplicadas em `buildEnrichedPrompt()` (linhas 560-577) já que `getFullContentContext()` as carrega
-- Limitar exemplos da biblioteca a 800 chars (alguns chegam a 1500)
-- Limitar identity_guide a 6000 chars no contexto de automações (hoje 8000)
-
-### 6. Melhorar prompt de geração de imagem
-- Extrair temas-chave do conteúdo gerado (não só 200 chars)
-- Adicionar instrução de composição baseada no formato (1:1 vs 16:9 vs 9:16)
-- Reforçar instrução "sem texto" com exemplos negativos mais específicos
-- Usar referências visuais como "style anchor" no prompt
+### 6. Melhorar geração de imagem para LinkedIn
+- Ajustar o aspect ratio para LinkedIn: `1.91:1` (landscape) em vez de `1:1`
+- Enriquecer prompts de imagem com contexto profissional/corporativo
+- Usar modelo `google/gemini-3-pro-image-preview` para maior qualidade nas imagens de LinkedIn
 
 ---
 
-## Technical Details
-
-### Novo arquivo
-**`supabase/functions/_shared/prompt-builder.ts`** (~200 linhas)
-- `buildWriterSystemPrompt()` — Monta prompt completo
-- `buildImageBriefing()` — Monta briefing visual contextual
-- `selectModelForFormat()` — Retorna modelo + temperatura + maxTokens
-
-### Arquivos modificados
-1. **`supabase/functions/_shared/prompt-builder.ts`** — NOVO: módulo centralizado
-2. **`supabase/functions/kai-content-agent/index.ts`** — Usar `buildWriterSystemPrompt()`, remover construção manual
-3. **`supabase/functions/generate-content-v2/index.ts`** — Adicionar Voice Profile, Content Guidelines, Quality Rules, model selection
-4. **`supabase/functions/process-automations/index.ts`** — Usar `buildWriterSystemPrompt()`, remover regras duplicadas em `buildEnrichedPrompt()`, melhorar prompt de imagem
-5. **`supabase/functions/unified-content-api/index.ts`** — Usar `buildWriterSystemPrompt()` (já é o mais completo, menor mudança)
-
-### Impacto esperado
-- Conteúdo do canvas (generate-content-v2) respeita Voice Profile → qualidade sobe significativamente
-- Prompts 30-40% menores → respostas mais rápidas e focadas
-- Regras consistentes em TODOS os ambientes → fim de discrepâncias entre chat/canvas/automação
-- Imagens mais contextuais e diversas
+### Arquivos a modificar
+1. `supabase/functions/process-automations/index.ts` - Fix retry bug, adicionar variação LinkedIn, melhorar prompts
+2. Database: Atualizar `planning_automations` para habilitar auto_publish nas automações LinkedIn e criar novas automações Threads
 
