@@ -40,7 +40,7 @@ serve(async (req) => {
     
     console.log(`[fetch-twitter-apify] Starting for handle: ${handle}`);
 
-    const actorId = "forge-api~x-scraper";
+    const actorId = "xtdata~twitter-x-scraper";
     const maxItems = customMaxResults || 100;
 
     let items: any[] = [];
