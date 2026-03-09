@@ -1,40 +1,95 @@
 
 
-# Plano: Automação Thread Twitter — Defiverso (Newsletter)
+# Plano: Multi-plataforma + Revisão de Threads/Carrosseis/Reels
 
-## O que será criado
+## Problemas Identificados
 
-Uma automação RSS que, a cada nova newsletter do Defiverso (Beehiiv), gera automaticamente uma **Thread no Twitter/X** com:
-- Conteúdo baseado na leitura real da newsletter (via Firecrawl)
-- Estrutura de thread seguindo as regras do guia `THREAD.md` (gancho com 🧵, numeração X/Y, um ponto por tweet, último tweet com resumo + CTA)
-- **Imagens geradas por IA** incluindo capa no primeiro tweet (estética alien/space do Defiverso)
-- Auto-publicação
+### 1. Publicação em múltiplas plataformas
+Atualmente `planning_automations.platform` é `TEXT` (valor único). Para publicar o mesmo conteúdo em múltiplas plataformas, precisamos de uma nova coluna.
 
-## Execução
+### 2. Threads NÃO são enviadas corretamente no auto-publish
+**BUG CRÍTICO**: Na linha 1529 do `process-automations`, o auto-publish envia apenas:
+```
+{ clientId, platform, content: generatedContent, mediaUrls }
+```
+Mas NÃO envia `threadItems` — mesmo quando `thread_tweets` foram parseados e salvos no metadata. O `late-post` suporta `threadItems`, mas nunca os recebe do auto-publish. Resultado: threads são publicadas como um post único.
 
-1 INSERT na tabela `planning_automations` com:
+### 3. Carrosseis NÃO são enviados corretamente
+Mesmo problema: `carousel_slides` são parseados e salvos no metadata, mas o auto-publish não envia `mediaItems` com a estrutura correta de carrossel para o Instagram.
 
-| Campo | Valor |
-|-------|-------|
-| `name` | Thread Twitter — Newsletter |
-| `client_id` | c1227fa7-f9c4-4f8c-a091-ae250919dc07 |
-| `trigger_type` | rss |
-| `trigger_config.url` | https://rss.beehiiv.com/feeds/UQC5Rb8a1M.xml |
-| `platform` | twitter |
-| `content_type` | thread |
-| `auto_generate_content` | true |
-| `auto_generate_image` | true |
-| `image_style` | vibrant |
-| `auto_publish` | true |
-| `target_column_id` | 918ac10d-dc1d-4212-8150-58f3ae32edc9 (Publicado) |
+### 4. Reels/Vídeos
+O sistema já suporta vídeos via `mediaItems` com type `video`. Não há bug estrutural, mas o auto-publish precisa passar `mediaItems` ao invés de apenas `mediaUrls` quando há vídeo.
 
-O `prompt_template` instruirá o sistema a:
-- Ler a newsletter completa via link
-- Extrair os 5-8 pontos mais relevantes
-- Criar thread de 7-10 tweets no formato correto (gancho 🧵, numeração, um conceito por tweet, último com resumo + "RT o primeiro tweet")
-- Tom Defiverso: "GM humanos do criptoverso", técnico mas acessível
+---
 
-O `image_prompt_template` gerará imagens no estilo alien/space para distribuir nos tweets.
+## Mudanças
 
-Sem mudança de código — o pipeline existente já suporta `content_type: 'thread'` com parsing, distribuição de imagens e publicação via Twitter API.
+### A. Schema: Adicionar `platforms` (array) à tabela
+```sql
+ALTER TABLE planning_automations ADD COLUMN platforms TEXT[] DEFAULT NULL;
+```
+Quando `platforms` está preenchido, o sistema publica em todas as plataformas listadas. O campo `platform` existente continua como fallback.
+
+### B. Edge Function `process-automations` — Corrigir auto-publish
+1. **Threads**: Quando `metadata.thread_tweets` existe, montar `threadItems` e enviá-los ao `late-post`
+2. **Carrosseis**: Quando `metadata.carousel_slides` existe, montar `mediaItems` com ordem correta
+3. **Multi-plataforma**: Loop de publicação para cada plataforma em `platforms[]`
+4. **Vídeos**: Detectar tipo de mídia e enviar como `mediaItems` com type correto
+
+### C. Hook `usePlanningAutomations` — Suportar `platforms[]`
+Adicionar campo `platforms` ao tipo e às operações de create/update.
+
+### D. UI de criação de automação — Multi-select de plataformas
+Permitir selecionar múltiplas plataformas ao criar/editar automação.
+
+---
+
+## Detalhes Técnicos
+
+### Fix do auto-publish (mais crítico):
+
+```typescript
+// ANTES (bugado):
+body: JSON.stringify({
+  clientId: automation.client_id,
+  platform: derivedPlatform,
+  content: generatedContent,
+  mediaUrls: mediaUrls,
+})
+
+// DEPOIS (correto):
+const publishBody: Record<string, unknown> = {
+  clientId: automation.client_id,
+  platform: targetPlatform,
+  content: generatedContent,
+  planningItemId: newItem.id,
+};
+
+// Threads: enviar threadItems estruturados
+if (automation.content_type === 'thread' && updatedMetadata.thread_tweets) {
+  publishBody.threadItems = updatedMetadata.thread_tweets.map(t => ({
+    text: t.text,
+    media_urls: t.media_urls,
+  }));
+}
+
+// Carrossel/Vídeo: enviar mediaItems com tipo e ordem
+if (mediaUrls.length > 0) {
+  publishBody.mediaItems = mediaUrls.map((url, i) => ({
+    url,
+    type: url.match(/\.(mp4|mov|webm)$/i) ? 'video' : 'image',
+  }));
+} 
+```
+
+### Multi-plataforma loop:
+```typescript
+const targetPlatforms = automation.platforms?.length > 0 
+  ? automation.platforms 
+  : (derivedPlatform ? [derivedPlatform] : []);
+
+for (const targetPlatform of targetPlatforms) {
+  // publicar em cada plataforma...
+}
+```
 
