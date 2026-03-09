@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Upload, FileSpreadsheet, CheckCircle, AlertCircle } from "lucide-react";
 import { useImportInstagramPostsCSV } from "@/hooks/useInstagramPosts";
+import * as XLSX from "xlsx";
 
 interface InstagramCSVUploadProps {
   clientId: string;
@@ -29,105 +30,142 @@ export function InstagramCSVUpload({ clientId }: InstagramCSVUploadProps) {
   const [parseResult, setParseResult] = useState<{ success: boolean; count: number; error?: string } | null>(null);
   const importMutation = useImportInstagramPostsCSV();
 
-  const parseCSV = (text: string): ParsedPost[] => {
-    const lines = text.trim().split("\n");
-    if (lines.length < 2) return [];
+  function normalizeHeader(h: any): string {
+    if (!h) return "";
+    return String(h).trim().toLowerCase()
+      .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+      .replace(/['"]/g, "");
+  }
 
-    const headers = lines[0].split(",").map(h => h.trim().toLowerCase().replace(/['"]/g, ""));
-    const posts: ParsedPost[] = [];
+  const parseCSV = (file: File): Promise<ParsedPost[]> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const data = new Uint8Array(e.target?.result as ArrayBuffer);
+          const workbook = XLSX.read(data, { type: "array" });
+          const sheet = workbook.Sheets[workbook.SheetNames[0]];
+          const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" }) as any[][];
 
-    for (let i = 1; i < lines.length; i++) {
-      const values = lines[i].split(",").map(v => v.trim().replace(/['"]/g, ""));
-      if (values.length < 2) continue;
+          if (rows.length < 2) { resolve([]); return; }
 
-      const post: ParsedPost = { post_id: "" };
+          // Find header row (scan first 5 rows)
+          let headerRowIdx = 0;
+          const knownHeaders = ["identificacao do post", "post_id", "curtidas", "likes", "alcance", "reach", "link permanente", "permalink"];
+          for (let i = 0; i < Math.min(5, rows.length); i++) {
+            const normalized = rows[i].map(normalizeHeader);
+            const matches = knownHeaders.filter(kh => normalized.some(n => n.includes(kh)));
+            if (matches.length >= 2) { headerRowIdx = i; break; }
+          }
 
-      headers.forEach((header, idx) => {
-        const value = values[idx];
-        if (!value) return;
+          const headers = rows[headerRowIdx].map(normalizeHeader);
+          console.log("[InstagramCSV] Headers found:", headers);
 
-        switch (header) {
-          case "post_id":
-          case "id":
-            post.post_id = value;
-            break;
-          case "post_type":
-          case "type":
-          case "tipo":
-            post.post_type = value.toLowerCase();
-            break;
-          case "caption":
-          case "legenda":
-          case "texto":
-            post.caption = value;
-            break;
-          case "posted_at":
-          case "data":
-          case "date":
-          case "published_at":
-            post.posted_at = value;
-            break;
-          case "likes":
-          case "curtidas":
-            post.likes = parseInt(value) || 0;
-            break;
-          case "comments":
-          case "comentarios":
-          case "comentários":
-            post.comments = parseInt(value) || 0;
-            break;
-          case "shares":
-          case "compartilhamentos":
-            post.shares = parseInt(value) || 0;
-            break;
-          case "saves":
-          case "salvos":
-            post.saves = parseInt(value) || 0;
-            break;
-          case "reach":
-          case "alcance":
-            post.reach = parseInt(value) || 0;
-            break;
-          case "impressions":
-          case "impressoes":
-          case "impressões":
-            post.impressions = parseInt(value) || 0;
-            break;
-          case "engagement_rate":
-          case "engajamento":
-          case "eng":
-            post.engagement_rate = parseFloat(value) || 0;
-            break;
-          case "thumbnail_url":
-          case "thumbnail":
-          case "imagem":
-            post.thumbnail_url = value;
-            break;
-          case "permalink":
-          case "link":
-          case "url":
-            post.permalink = value;
-            break;
+          // Build column map
+          const colMap: Record<string, number> = {};
+          const mappings: Record<string, string[]> = {
+            post_id: ["identificacao do post", "post_id", "id"],
+            post_type: ["tipo de post", "post_type", "type", "tipo"],
+            caption: ["descricao", "caption", "legenda", "texto"],
+            posted_at: ["horario de publicacao", "posted_at", "data", "date", "published_at"],
+            likes: ["curtidas", "likes"],
+            comments: ["comentarios", "comments"],
+            shares: ["compartilhamentos", "shares"],
+            saves: ["salvamentos", "salvos", "saves"],
+            reach: ["alcance", "reach"],
+            impressions: ["impressoes", "impressions", "visualizacoes"],
+            views: ["visualizacoes", "views"],
+            permalink: ["link permanente", "permalink", "link", "url"],
+            data_comment: ["comentario de dados", "data_comment"],
+          };
+
+          headers.forEach((h, idx) => {
+            for (const [field, aliases] of Object.entries(mappings)) {
+              if (aliases.some(a => h.includes(a))) {
+                if (!colMap[field]) colMap[field] = idx;
+              }
+            }
+          });
+
+          console.log("[InstagramCSV] Column map:", colMap);
+
+          const posts: ParsedPost[] = [];
+          for (let i = headerRowIdx + 1; i < rows.length; i++) {
+            const row = rows[i];
+            if (!row || row.length < 2) continue;
+
+            // Only process "Total" rows (Meta CSVs have multiple date breakdowns)
+            const dataComment = colMap.data_comment !== undefined ? String(row[colMap.data_comment] || "").trim() : "";
+            if (dataComment && dataComment.toLowerCase() !== "total" && dataComment !== "") {
+              // Check if there's a "Data" column with "Total"
+              const dataVal = colMap.data_comment !== undefined ? "" : "";
+              // For Meta format, skip non-Total rows
+              const possibleTotal = row.find((cell: any) => String(cell).trim().toLowerCase() === "total");
+              if (!possibleTotal) continue;
+            }
+
+            const postId = String(row[colMap.post_id] || "").trim();
+            if (!postId) continue;
+
+            const post: ParsedPost = {
+              post_id: postId,
+              post_type: colMap.post_type !== undefined ? String(row[colMap.post_type] || "").trim() : undefined,
+              caption: colMap.caption !== undefined ? String(row[colMap.caption] || "").trim() : undefined,
+              likes: colMap.likes !== undefined ? parseInt(String(row[colMap.likes])) || 0 : 0,
+              comments: colMap.comments !== undefined ? parseInt(String(row[colMap.comments])) || 0 : 0,
+              shares: colMap.shares !== undefined ? parseInt(String(row[colMap.shares])) || 0 : 0,
+              saves: colMap.saves !== undefined ? parseInt(String(row[colMap.saves])) || 0 : 0,
+              reach: colMap.reach !== undefined ? parseInt(String(row[colMap.reach])) || 0 : 0,
+              impressions: colMap.impressions !== undefined ? parseInt(String(row[colMap.impressions] || row[colMap.views])) || 0 : 0,
+              permalink: colMap.permalink !== undefined ? String(row[colMap.permalink] || "").trim() : undefined,
+            };
+
+            // Parse date
+            if (colMap.posted_at !== undefined) {
+              const rawDate = row[colMap.posted_at];
+              if (rawDate) {
+                try {
+                  const d = new Date(String(rawDate));
+                  if (!isNaN(d.getTime())) {
+                    post.posted_at = d.toISOString();
+                  }
+                } catch {}
+              }
+            }
+
+            // Use views as impressions if impressions not available
+            if (!post.impressions && colMap.views !== undefined) {
+              post.impressions = parseInt(String(row[colMap.views])) || 0;
+            }
+
+            posts.push(post);
+          }
+
+          // Deduplicate by post_id (keep highest views/reach)
+          const deduped = new Map<string, ParsedPost>();
+          for (const p of posts) {
+            const existing = deduped.get(p.post_id);
+            if (!existing || (p.reach || 0) > (existing.reach || 0)) {
+              deduped.set(p.post_id, p);
+            }
+          }
+
+          console.log(`[InstagramCSV] Parsed ${deduped.size} unique posts from ${rows.length - 1} rows`);
+          resolve(Array.from(deduped.values()));
+        } catch (err) {
+          reject(err);
         }
-      });
-
-      // Generate post_id if not provided
-      if (!post.post_id) {
-        post.post_id = `post_${i}_${Date.now()}`;
-      }
-
-      posts.push(post);
-    }
-
-    return posts;
+      };
+      reader.onerror = () => reject(new Error("Erro ao ler arquivo"));
+      reader.readAsArrayBuffer(file);
+    });
   };
 
   const handleFile = useCallback(async (file: File) => {
     setParseResult(null);
 
     try {
-      const text = await file.text();
-      const posts = parseCSV(text);
+      const posts = await parseCSV(file);
 
       if (posts.length === 0) {
         setParseResult({ success: false, count: 0, error: "Nenhum post encontrado no CSV" });
