@@ -18,10 +18,8 @@ import { AutomationsTab } from "@/components/automations/AutomationsTab";
 
 import { OnboardingFlow } from "@/components/onboarding";
 import { NotificationPermissionPrompt } from "@/components/notifications/NotificationPermissionPrompt";
-import { useUpgradePrompt } from "@/hooks/useUpgradePrompt";
 import { useClients } from "@/hooks/useClients";
 import { useWorkspace } from "@/hooks/useWorkspace";
-import { usePlanFeatures } from "@/hooks/usePlanFeatures";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 import { Loader2 } from "lucide-react";
