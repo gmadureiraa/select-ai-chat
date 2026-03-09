@@ -582,12 +582,18 @@ export function useCanvasGeneration({
     } as Partial<ImageEditorNodeData>);
 
     try {
-      const { data, error } = await supabase.functions.invoke('generate-image', {
+      const { data, error } = await supabase.functions.invoke('generate-content-v2', {
         body: {
-          prompt: editorData.editInstruction,
+          type: 'image',
+          inputs: [
+            { type: 'text', content: editorData.editInstruction },
+            { type: 'image', content: baseImageUrl },
+          ],
+          config: {
+            aspectRatio: editorData.aspectRatio || "1:1",
+            noText: true,
+          },
           clientId,
-          aspectRatio: editorData.aspectRatio || "1:1",
-          referenceImages: [{ url: baseImageUrl, isPrimary: true }],
         }
       });
 

@@ -11,23 +11,12 @@ interface GenerateImageParams {
   options: ImageGenerationOptions;
 }
 
-const platformToFormat: Record<string, string> = {
-  instagram: 'post-instagram',
-  twitter: 'post-twitter',
-  linkedin: 'post-linkedin',
-  youtube: 'thumbnail-youtube',
-  newsletter: 'header-newsletter',
-  blog: 'cover-blog',
-  tiktok: 'story-tiktok',
-  other: 'post-instagram',
-};
-
 const platformToAspectRatio: Record<string, string> = {
   instagram: '1:1',
   twitter: '16:9',
-  linkedin: '1.91:1',
+  linkedin: '16:9',
   youtube: '16:9',
-  newsletter: '3:1',
+  newsletter: '16:9',
   blog: '16:9',
   tiktok: '9:16',
   other: '1:1',
@@ -61,51 +50,56 @@ export function usePlanningImageGeneration(clientId: string) {
       // Start with style preference
       if (options.style) {
         const styleDescriptions: Record<string, string> = {
-          photographic: 'Crie uma imagem fotográfica realista e profissional',
-          illustration: 'Crie uma ilustração artística e criativa',
-          minimalist: 'Crie uma imagem minimalista, clean e com poucos elementos',
-          vibrant: 'Crie uma imagem vibrante com cores intensas e alto contraste',
+          photographic: 'Create a realistic professional photograph',
+          illustration: 'Create an artistic and creative illustration',
+          minimalist: 'Create a minimalist, clean image with few elements',
+          vibrant: 'Create a vibrant image with intense colors and high contrast',
         };
         prompt = styleDescriptions[options.style] + '. ';
       } else {
-        prompt = 'Crie uma imagem para redes sociais. ';
+        prompt = 'Create a professional social media image. ';
       }
 
       // Add cover/thumbnail context
       if (options.isCover) {
-        prompt += `Esta será uma imagem de capa/thumbnail para ${platform}. `;
+        prompt += `This will be a cover/thumbnail image for ${platform}. `;
       }
 
       // Add no-text constraint
       if (options.noText) {
-        prompt += 'IMPORTANTE: NÃO inclua nenhum texto, letras ou números na imagem. ';
+        prompt += 'CRITICAL: DO NOT include ANY text, words, letters, or numbers in the image. ';
       }
 
       // Add content context
       const contentSummary = content.length > 300 ? content.substring(0, 300) + '...' : content;
-      prompt += `O tema do conteúdo é: "${contentSummary}". `;
+      prompt += `The content theme is: "${contentSummary}". `;
 
       // Add additional user instructions
       if (options.additionalPrompt.trim()) {
-        prompt += `Instruções adicionais: ${options.additionalPrompt}`;
+        prompt += `Additional instructions: ${options.additionalPrompt}`;
       }
 
-      const imageFormat = platformToFormat[platform] || 'post-instagram';
       const aspectRatio = platformToAspectRatio[platform] || '1:1';
 
-      console.log('[usePlanningImageGeneration] Generating image:', { 
-        format: imageFormat, 
+      console.log('[usePlanningImageGeneration] Generating image via generate-content-v2:', { 
         aspectRatio, 
-        promptLength: prompt.length 
+        promptLength: prompt.length,
+        noText: options.noText,
       });
 
-      const { data, error } = await supabase.functions.invoke('generate-image', {
+      // Use generate-content-v2 which automatically fetches client_visual_references
+      // and uses multimodal input with the pro model for style consistency
+      const { data, error } = await supabase.functions.invoke('generate-content-v2', {
         body: {
-          prompt,
+          type: 'image',
+          inputs: [{ type: 'text', content: prompt }],
+          config: {
+            format: contentType === 'carousel' ? 'carousel' : 'post',
+            platform,
+            aspectRatio,
+            noText: options.noText !== false, // default true
+          },
           clientId,
-          imageFormat,
-          aspectRatio,
-          templateName: contentType === 'carousel' ? 'carousel-slide' : undefined,
         }
       });
 
@@ -134,10 +128,16 @@ export function usePlanningImageGeneration(clientId: string) {
       console.error('[usePlanningImageGeneration] Error:', error);
       const message = error instanceof Error ? error.message : 'Erro desconhecido';
       
-      if (message.includes('tokens')) {
+      if (message.includes('tokens') || message.includes('402')) {
         toast({
           title: 'Sem tokens suficientes',
           description: 'Seu workspace não possui tokens suficientes para gerar imagens.',
+          variant: 'destructive'
+        });
+      } else if (message.includes('429') || message.includes('Rate limit')) {
+        toast({
+          title: 'Limite de requisições',
+          description: 'Aguarde um momento e tente novamente.',
           variant: 'destructive'
         });
       } else {
