@@ -6,7 +6,7 @@ import {
   CONTENT_TYPE_LABELS,
   getFormatLabel 
 } from "../_shared/format-constants.ts";
-import { getFullContentContext } from "../_shared/knowledge-loader.ts";
+import { getFullContentContext, getStructuredVoice } from "../_shared/knowledge-loader.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -504,10 +504,11 @@ ${cleanContent ? `📄 CONTEÚDO COMPLETO:\n${cleanContent}` : ''}
 
 📋 INSTRUÇÕES:
 1. Siga RIGOROSAMENTE as regras do formato "${formatLabel}"
-2. Mantenha o tom de voz e estilo do cliente
-3. Crie conteúdo PRONTO PARA PUBLICAR - sem placeholders ou instruções
-4. Use linguagem natural e envolvente
-5. ${mediaUrls.length > 0 ? `Há ${mediaUrls.length} imagens disponíveis - faça referência a elas onde apropriado` : 'Não há imagens disponíveis'}
+2. Siga RIGOROSAMENTE o tom de voz e as expressões do Voice Profile do cliente. Use as expressões da lista "USE" e evite absolutamente as da lista "EVITE".
+3. Mantenha o tom de voz e estilo do cliente conforme o identity_guide
+4. Crie conteúdo PRONTO PARA PUBLICAR - sem placeholders ou instruções
+5. Use linguagem natural e envolvente
+6. ${mediaUrls.length > 0 ? `Há ${mediaUrls.length} imagens disponíveis - faça referência a elas onde apropriado` : 'Não há imagens disponíveis'}
 
 🎯 RESULTADO ESPERADO:
 Conteúdo final completo, formatado e pronto para publicar como ${formatLabel}.`;
@@ -993,6 +994,17 @@ serve(async (req) => {
                 maxTopPerformers: 3,
               });
               console.log(`Enriched context loaded: ${enrichedContext.length} chars`);
+              
+              // Inject Voice Profile directly into enrichedContext for double reinforcement
+              try {
+                const voiceSection = await getStructuredVoice(automation.client_id!);
+                if (voiceSection) {
+                  enrichedContext = `${voiceSection}\n\n---\n\n${enrichedContext}`;
+                  console.log(`Voice Profile injected: ${voiceSection.length} chars`);
+                }
+              } catch (vpError) {
+                console.warn(`Could not load voice profile:`, vpError);
+              }
             } catch (ctxError) {
               console.warn(`Could not load enriched context:`, ctxError);
             }

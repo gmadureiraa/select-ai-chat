@@ -1,70 +1,56 @@
 
 
-# Plano de Melhorias: Documentacao + Qualidade de Conteudo das Automacoes
+## Diagnóstico: Por que as automações não estão postando
 
-## Diagnostico
+### Problema 1: LinkedIn - Itens criados mas nunca publicados
+As 3 automações de LinkedIn (Artigo de Opinião, Building in Public, Case & Prova Social) estão **funcionando corretamente** na geração de conteúdo e imagens. O problema é que todas estão com `auto_publish: false`. Os itens são criados com status "idea" no planejamento e ficam lá esperando publicação manual. Nenhum deles jamais é publicado automaticamente.
 
-Apos revisao completa, identifiquei 3 areas de melhoria:
+### Problema 2: Threads - Nenhuma automação configurada
+As credenciais do Threads (conta `madureira0x`) estão válidas, mas **não existe nenhuma automação** direcionada ao Threads.
 
-### A. Documentacao Incompleta
-1. **2 arquivos de formato faltando**: `REELS_SHORT_VIDEO.md` e `LONG_VIDEO_YOUTUBE.md` sao referenciados no README mas nao existem no diretorio `docs/formatos/`
-2. **CONTENT_WRITER.md desatualizado**: Nao menciona o pipeline unified-content-api (Writer → Validate → Repair → Review) nem o sistema de rotacao editorial
-3. **Sem doc do pipeline de automacao**: Nao ha documentacao explicando como `process-automations` orquestra geracao, validacao e publicacao
+### Problema 3: Bug no retry de imagem
+No `process-automations`, linha ~1322, o retry de geração de imagem referencia a variável `resolvedImagePrompt` que **não existe** no escopo (o nome correto é `fullImagePrompt`). Isso faz o retry falhar silenciosamente.
 
-### B. Automacao: Voice Profile Nao Injetado Diretamente
-O `process-automations` chama `getFullContentContext()` que carrega identity_guide, biblioteca e top performers. Depois passa tudo para `unified-content-api` que carrega **novamente** `getFullContentContext()` + `getStructuredVoice()`. Isso significa que o Voice Profile (Use/Evite) **ja e usado** pelo unified-content-api.
-
-**Porem**, o `process-automations` nao injeta `getStructuredVoice()` no prompt que monta antes de chamar a API. Isso cria um prompt intermediario (o `finalPrompt`) que nao tem as regras de voz. O unified-content-api adiciona depois, mas o contexto ja vem pre-construido pelo process-automations.
-
-### C. Prompt Template sem Contexto de Voice Profile
-Os `buildEnrichedPrompt()` e `variationContext` injetados pelo process-automations nao incluem instrucoes explicitas sobre o Voice Profile. Quando o prompt template e curto, o fallback generico nao menciona "siga o tom de voz do cliente".
+### Problema 4: Qualidade do conteúdo LinkedIn repetitivo
+Os posts gerados para LinkedIn estão todos girando em torno do mesmo tema ("clareza vs complexidade em Web3"). Falta diversidade temática e o sistema de variação (que existe para tweets) não está implementado para LinkedIn.
 
 ---
 
-## Plano de Implementacao (5 passos)
+## Plano de Implementação
 
-### Passo 1: Criar docs faltantes (REELS_SHORT_VIDEO.md + LONG_VIDEO_YOUTUBE.md)
-- Criar `docs/formatos/REELS_SHORT_VIDEO.md` com estrutura padrao (baseado nas regras ja existentes em format-rules.ts `short_video` e `reels`)
-- Criar `docs/formatos/LONG_VIDEO_YOUTUBE.md` (baseado em `long_video` do format-rules.ts)
-- Ambos seguem o template: Estrutura Obrigatoria → Regras de Ouro → Boas Praticas → Formato de Entrega → Checklist → Erros Comuns
+### 1. Corrigir bug do retry de imagem no process-automations
+- Substituir `resolvedImagePrompt` por `fullImagePrompt` na linha do retry
 
-### Passo 2: Atualizar CONTENT_WRITER.md
-- Adicionar secao sobre o pipeline unified-content-api (Writer → Validate → Repair → Review)
-- Documentar sistema de rotacao editorial (8 categorias para tweets, 3 tipos editoriais para LinkedIn)
-- Mencionar anti-exemplos (ultimos 7 posts) como mecanismo anti-repeticao
-- Referenciar quality-rules.ts e content-validator.ts
+### 2. Criar sistema de variação para LinkedIn (anti-repetição)
+Adicionar categorias editoriais para LinkedIn similares ao `GM_VARIATION_CATEGORIES` dos tweets:
+- **Artigo de Opinião**: Análise contrarian de tendência, dados concretos, framework próprio
+- **Building in Public**: Bastidores reais, números, aprendizados honestos, erros
+- **Case & Prova Social**: Resultados de clientes, métricas antes/depois, processo
 
-### Passo 3: Injetar Voice Profile no enrichedContext do process-automations
-**Mudanca principal**: No `process-automations/index.ts`, apos carregar `enrichedContext` via `getFullContentContext()`, tambem carregar `getStructuredVoice()` e concatenar ao contexto. Isso garante que o Voice Profile apareca ANTES do prompt do usuario, dando mais peso ao tom de voz.
+Cada automação LinkedIn receberá um `variation_index` rotativo com sub-temas específicos para evitar repetição.
 
-```
-Arquivo: supabase/functions/process-automations/index.ts
-Mudanca: Importar getStructuredVoice e adicionar ao enrichedContext
-```
+### 3. Melhorar prompts LinkedIn com estratégia de conteúdo
+Enriquecer os prompts usando o guia de conteúdo do Madureira (`public/clients/madureira/guia-conteudo.md`):
+- Incorporar os 5 pilares de conteúdo como rotação temática
+- Usar tom de voz definido: técnico mas didático, direto, visionário
+- Adicionar instruções de formatação específicas para LinkedIn (quebras de linha, storytelling, CTA)
 
-### Passo 4: Melhorar buildEnrichedPrompt para incluir instrucao de voz
-No fallback prompt (quando template e curto/vazio), adicionar instrucao explicita: "Siga RIGOROSAMENTE o tom de voz e as expressoes do Voice Profile do cliente. Use as expressoes da lista 'USE' e evite absolutamente as da lista 'EVITE'."
+### 4. Habilitar auto_publish para LinkedIn (com revisão inteligente)
+Alterar as 3 automações de LinkedIn para `auto_publish: true` para que os posts sejam publicados automaticamente após geração.
 
-### Passo 5: Criar doc do pipeline de automacoes
-- Criar `docs/AUTOMATIONS_PIPELINE.md` documentando:
-  - Fluxo completo: Trigger → RSS/Schedule check → Content generation → Validation → Cleaning → Image gen → Auto-publish
-  - Sistema de rotacao editorial (tweets + LinkedIn)
-  - Anti-exemplos e como funciona
-  - Cleaning rules e por que existem
-  - Formato de entrega por plataforma
+### 5. Criar automações para Threads
+Criar 2-3 automações de Threads para o perfil Madureira:
+- **Threads Diário** (daily): Repurpose do melhor tweet do dia ou insight rápido
+- **Threads Semanal** (weekly): Versão expandida de um tweet de alta performance
+
+### 6. Melhorar geração de imagem para LinkedIn
+- Ajustar o aspect ratio para LinkedIn: `1.91:1` (landscape) em vez de `1:1`
+- Enriquecer prompts de imagem com contexto profissional/corporativo
+- Usar modelo `google/gemini-3-pro-image-preview` para maior qualidade nas imagens de LinkedIn
 
 ---
 
-## Detalhes Tecnicos
-
-**Arquivos modificados:**
-- `supabase/functions/process-automations/index.ts` (importar getStructuredVoice, injetar no contexto)
-- `docs/formatos/REELS_SHORT_VIDEO.md` (novo)
-- `docs/formatos/LONG_VIDEO_YOUTUBE.md` (novo)
-- `docs/agentes/CONTENT_WRITER.md` (atualizar)
-- `docs/AUTOMATIONS_PIPELINE.md` (novo)
-
-**Edge function redeployada:** process-automations
-
-**Impacto esperado:** Conteudo gerado por automacoes vai ter aderencia mais forte ao Voice Profile do cliente, pois as regras de "Use/Evite" aparecerão tanto no contexto do process-automations quanto no sistema do unified-content-api (dupla camada de reforco).
+### Arquivos a modificar
+1. `supabase/functions/process-automations/index.ts` - Fix retry bug, adicionar variação LinkedIn, melhorar prompts
+2. Database: Atualizar `planning_automations` para habilitar auto_publish nas automações LinkedIn e criar novas automações Threads
 
