@@ -324,6 +324,9 @@ serve(async (req: Request) => {
 
     console.log("Media items with order:", finalMediaItems.map(m => ({ url: m.url.substring(0, 50), order: m.order })));
 
+    // Use finalContent (possibly truncated for Threads) instead of raw content
+    const postContent = platform === 'threads' ? (finalContent || content) : content;
+
     // Build post payload for Late API
     const postPayload: Record<string, unknown> = {
       publishNow: publishNow,
