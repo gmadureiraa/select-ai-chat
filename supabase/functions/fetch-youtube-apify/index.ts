@@ -24,7 +24,7 @@ serve(async (req) => {
     const APIFY_API_TOKEN = Deno.env.get("APIFY_API_TOKEN");
     if (!APIFY_API_TOKEN) {
       return new Response(
-        JSON.stringify({ error: "APIFY_API_TOKEN not configured. Add it in Settings." }),
+        JSON.stringify({ error: "APIFY_API_TOKEN not configured." }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -33,7 +33,7 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Normalize channel URL
+    // Normalize URL
     let normalizedUrl = channelUrl.trim();
     if (!singleVideo) {
       if (normalizedUrl.startsWith("@")) {
@@ -43,61 +43,94 @@ serve(async (req) => {
       }
     }
 
-    console.log(`[fetch-youtube-apify] Starting Apify scrape for: ${normalizedUrl} (singleVideo: ${!!singleVideo})`);
+    console.log(`[fetch-youtube-apify] Starting for: ${normalizedUrl} (singleVideo: ${!!singleVideo})`);
 
-    // Run the Apify YouTube Channel Scraper actor synchronously
     const actorId = "streamers~youtube-scraper";
-    const runUrl = `https://api.apify.com/v2/acts/${actorId}/run-sync-get-dataset-items?token=${APIFY_API_TOKEN}&timeout=300`;
 
-    const apifyBody: Record<string, unknown> = {
-      startUrls: [{ url: normalizedUrl }],
-      maxResults: singleVideo ? 1 : 200,
-      maxResultsShorts: 0,
-      maxResultStreams: 0,
-    };
-
-    const apifyResponse = await fetch(runUrl, {
+    // Step 1: Start the actor run (async)
+    const startUrl = `https://api.apify.com/v2/acts/${actorId}/runs?token=${APIFY_API_TOKEN}`;
+    const startResponse = await fetch(startUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(apifyBody),
+      body: JSON.stringify({
+        startUrls: [{ url: normalizedUrl }],
+        maxResults: singleVideo ? 1 : 200,
+        maxResultsShorts: 0,
+        maxResultStreams: 0,
+      }),
     });
 
-    if (!apifyResponse.ok) {
-      const errorText = await apifyResponse.text();
-      console.error(`[fetch-youtube-apify] Apify error (${apifyResponse.status}):`, errorText);
-      
-      if (apifyResponse.status === 402) {
-        return new Response(
-          JSON.stringify({ error: "Créditos do Apify insuficientes. Verifique seu plano em apify.com" }),
-          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      
+    if (!startResponse.ok) {
+      const errorText = await startResponse.text();
+      console.error(`[fetch-youtube-apify] Start error:`, errorText);
       return new Response(
-        JSON.stringify({ error: `Apify error: ${apifyResponse.status}`, details: errorText.substring(0, 500) }),
+        JSON.stringify({ error: `Apify start error: ${startResponse.status}` }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const items = await apifyResponse.json();
-    console.log(`[fetch-youtube-apify] Got ${items.length} items from Apify`);
+    const runData = await startResponse.json();
+    const runId = runData.data?.id;
+    const defaultDatasetId = runData.data?.defaultDatasetId;
+    console.log(`[fetch-youtube-apify] Run started: ${runId}, dataset: ${defaultDatasetId}`);
+
+    // Step 2: Poll for completion (max ~100s to stay within edge function limits)
+    const maxWaitMs = 100_000;
+    const pollIntervalMs = 5_000;
+    const startTime = Date.now();
+    let status = runData.data?.status;
+
+    while (status !== "SUCCEEDED" && status !== "FAILED" && status !== "ABORTED" && status !== "TIMED-OUT") {
+      if (Date.now() - startTime > maxWaitMs) {
+        console.log(`[fetch-youtube-apify] Timeout waiting for run ${runId}`);
+        return new Response(
+          JSON.stringify({ 
+            error: "Scraping demorou demais. Tente novamente em alguns minutos.",
+            runId,
+          }),
+          { status: 408, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      await new Promise(r => setTimeout(r, pollIntervalMs));
+
+      const statusResponse = await fetch(
+        `https://api.apify.com/v2/actor-runs/${runId}?token=${APIFY_API_TOKEN}`
+      );
+      const statusData = await statusResponse.json();
+      status = statusData.data?.status;
+      console.log(`[fetch-youtube-apify] Poll status: ${status} (${Math.round((Date.now() - startTime) / 1000)}s)`);
+    }
+
+    if (status !== "SUCCEEDED") {
+      return new Response(
+        JSON.stringify({ error: `Apify run ${status}` }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Step 3: Get dataset items
+    const datasetUrl = `https://api.apify.com/v2/datasets/${defaultDatasetId}/items?token=${APIFY_API_TOKEN}`;
+    const datasetResponse = await fetch(datasetUrl);
+    const items = await datasetResponse.json();
+    console.log(`[fetch-youtube-apify] Got ${items.length} items`);
 
     if (!Array.isArray(items) || items.length === 0) {
       return new Response(
-        JSON.stringify({ error: "Nenhum vídeo encontrado. Verifique a URL." }),
+        JSON.stringify({ error: "Nenhum vídeo encontrado." }),
         { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Log first item structure for debugging
+    // Log first item for debugging
     if (items.length > 0) {
       console.log(`[fetch-youtube-apify] Sample item keys:`, Object.keys(items[0]));
-      console.log(`[fetch-youtube-apify] Full first item:`, JSON.stringify(items[0]).substring(0, 2000));
+      console.log(`[fetch-youtube-apify] First item:`, JSON.stringify(items[0]).substring(0, 1500));
     }
 
-    // Filter only video items (not channel info) - be permissive
+    // Filter video items (skip errors/channel-info)
     const videoItems = items.filter((item: any) => 
-      item.type === "video" || item.id || item.videoId || item.url?.includes("/watch") || item.title
+      !item.error && (item.type === "video" || item.id || item.videoId || item.url?.includes("/watch") || (item.title && item.viewCount !== undefined))
     );
 
     console.log(`[fetch-youtube-apify] ${videoItems.length} video items to process`);
@@ -109,33 +142,26 @@ serve(async (req) => {
       const batch = videoItems.slice(i, i + batchSize);
       
       const videosToUpsert = batch.map((item: any) => {
-        // Extract video ID from various possible fields
         const videoId = item.id || item.videoId || 
           (item.url?.match(/(?:v=|\/shorts\/|youtu\.be\/)([a-zA-Z0-9_-]{11})/)?.[1]) || 
           `unknown-${Date.now()}-${Math.random()}`;
 
-        // Parse duration from various formats
         let durationSeconds: number | null = null;
         if (item.duration) {
           if (typeof item.duration === "number") {
             durationSeconds = item.duration;
           } else if (typeof item.duration === "string") {
-            // Parse "HH:MM:SS" or "MM:SS" format
             const parts = item.duration.split(":").map(Number);
             if (parts.length === 3) durationSeconds = parts[0] * 3600 + parts[1] * 60 + parts[2];
             else if (parts.length === 2) durationSeconds = parts[0] * 60 + parts[1];
           }
         }
 
-        // Parse date
         let publishedAt: string | null = null;
         if (item.date || item.uploadDate || item.publishedAt) {
-          const dateStr = item.date || item.uploadDate || item.publishedAt;
           try {
-            publishedAt = new Date(dateStr).toISOString();
-          } catch {
-            publishedAt = null;
-          }
+            publishedAt = new Date(item.date || item.uploadDate || item.publishedAt).toISOString();
+          } catch { publishedAt = null; }
         }
 
         return {
@@ -148,7 +174,7 @@ serve(async (req) => {
           published_at: publishedAt,
           duration_seconds: durationSeconds,
           thumbnail_url: item.thumbnailUrl || item.thumbnail || 
-            (videoId !== `unknown-${Date.now()}` ? `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg` : null),
+            (videoId && !videoId.startsWith("unknown-") ? `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg` : null),
           impressions: null,
           click_rate: null,
           subscribers_gained: null,
