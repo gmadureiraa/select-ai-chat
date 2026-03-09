@@ -7,6 +7,7 @@ import {
   getFormatLabel 
 } from "../_shared/format-constants.ts";
 import { getFullContentContext, getStructuredVoice } from "../_shared/knowledge-loader.ts";
+import { buildImageBriefing } from "../_shared/prompt-builder.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
