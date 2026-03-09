@@ -1,56 +1,42 @@
 
 
-## Diagnóstico: Por que as automações não estão postando
+# Plano: Refinamento de Design e Interface do Planejamento
 
-### Problema 1: LinkedIn - Itens criados mas nunca publicados
-As 3 automações de LinkedIn (Artigo de Opinião, Building in Public, Case & Prova Social) estão **funcionando corretamente** na geração de conteúdo e imagens. O problema é que todas estão com `auto_publish: false`. Os itens são criados com status "idea" no planejamento e ficam lá esperando publicação manual. Nenhum deles jamais é publicado automaticamente.
+## Problemas Identificados
 
-### Problema 2: Threads - Nenhuma automação configurada
-As credenciais do Threads (conta `madureira0x`) estão válidas, mas **não existe nenhuma automação** direcionada ao Threads.
+1. **Dialog muito longo e sem hierarquia visual** -- tudo está empilhado verticalmente num scroll infinito, sem agrupamento claro
+2. **Checkboxes de plataforma sem ícones** -- só texto, sem indicadores visuais das redes (os ícones definidos em `ALL_PUBLISH_PLATFORMS` como strings emoji não são usados)
+3. **Cards no Kanban não mostram múltiplas plataformas** -- o card só mostra um `platformDot` e um ícone, sem indicar as `target_platforms` do metadata
+4. **Seção de mídia com label duplicado** -- "Mídia (0)" + "Mídia (0/4)" aparecem juntos
+5. **Botão "Publicar Agora" poderia ser mais proeminente** com indicação visual das plataformas destino
+6. **Falta feedback visual de plataformas conectadas** no card (dots coloridos por plataforma selecionada)
 
-### Problema 3: Bug no retry de imagem
-No `process-automations`, linha ~1322, o retry de geração de imagem referencia a variável `resolvedImagePrompt` que **não existe** no escopo (o nome correto é `fullImagePrompt`). Isso faz o retry falhar silenciosamente.
+## Mudanças
 
-### Problema 4: Qualidade do conteúdo LinkedIn repetitivo
-Os posts gerados para LinkedIn estão todos girando em torno do mesmo tema ("clareza vs complexidade em Web3"). Falta diversidade temática e o sistema de variação (que existe para tweets) não está implementado para LinkedIn.
+### A. PlanningItemDialog -- Layout e polish
+- Reorganizar o grid de plataformas com **ícones Lucide reais** (Twitter, Linkedin, Instagram, Youtube, etc.) ao invés de emojis/texto puro
+- Adicionar visual de "chip" selecionado com cor da plataforma (sky para Twitter, pink para Instagram, etc.)
+- Remover label duplicado de mídia
+- Melhorar botão "Publicar Agora" com indicadores visuais das plataformas selecionadas (mini-ícones)
+- Ajustar espaçamentos e transições
 
----
+### B. PlanningItemCard -- Mostrar multi-plataforma
+- Ler `metadata.target_platforms` e exibir dots/ícones de cada plataforma no footer do card ao invés de apenas uma
+- Limitar a 3 ícones + "+N" quando muitas plataformas
 
-## Plano de Implementação
+### C. ALL_PUBLISH_PLATFORMS -- Ícones reais
+- Substituir emojis por referências a ícones Lucide para uso nos dois componentes
 
-### 1. Corrigir bug do retry de imagem no process-automations
-- Substituir `resolvedImagePrompt` por `fullImagePrompt` na linha do retry
+### D. Pequenos ajustes visuais gerais
+- Melhorar o hover/seleção dos checkboxes de plataforma com cores branded
+- Garantir que o status "conectada" (dot verde) fique mais visível
+- Ajustar o grid de 3 colunas para ser responsivo (2 cols em mobile)
 
-### 2. Criar sistema de variação para LinkedIn (anti-repetição)
-Adicionar categorias editoriais para LinkedIn similares ao `GM_VARIATION_CATEGORIES` dos tweets:
-- **Artigo de Opinião**: Análise contrarian de tendência, dados concretos, framework próprio
-- **Building in Public**: Bastidores reais, números, aprendizados honestos, erros
-- **Case & Prova Social**: Resultados de clientes, métricas antes/depois, processo
+## Arquivos modificados
 
-Cada automação LinkedIn receberá um `variation_index` rotativo com sub-temas específicos para evitar repetição.
-
-### 3. Melhorar prompts LinkedIn com estratégia de conteúdo
-Enriquecer os prompts usando o guia de conteúdo do Madureira (`public/clients/madureira/guia-conteudo.md`):
-- Incorporar os 5 pilares de conteúdo como rotação temática
-- Usar tom de voz definido: técnico mas didático, direto, visionário
-- Adicionar instruções de formatação específicas para LinkedIn (quebras de linha, storytelling, CTA)
-
-### 4. Habilitar auto_publish para LinkedIn (com revisão inteligente)
-Alterar as 3 automações de LinkedIn para `auto_publish: true` para que os posts sejam publicados automaticamente após geração.
-
-### 5. Criar automações para Threads
-Criar 2-3 automações de Threads para o perfil Madureira:
-- **Threads Diário** (daily): Repurpose do melhor tweet do dia ou insight rápido
-- **Threads Semanal** (weekly): Versão expandida de um tweet de alta performance
-
-### 6. Melhorar geração de imagem para LinkedIn
-- Ajustar o aspect ratio para LinkedIn: `1.91:1` (landscape) em vez de `1:1`
-- Enriquecer prompts de imagem com contexto profissional/corporativo
-- Usar modelo `google/gemini-3-pro-image-preview` para maior qualidade nas imagens de LinkedIn
-
----
-
-### Arquivos a modificar
-1. `supabase/functions/process-automations/index.ts` - Fix retry bug, adicionar variação LinkedIn, melhorar prompts
-2. Database: Atualizar `planning_automations` para habilitar auto_publish nas automações LinkedIn e criar novas automações Threads
+| Arquivo | Mudança |
+|---------|---------|
+| `src/types/contentTypes.ts` | Adicionar `icon` como componente Lucide e `color` por plataforma |
+| `src/components/planning/PlanningItemDialog.tsx` | Redesenhar seção de plataformas com ícones e cores, limpar mídia duplicada |
+| `src/components/planning/PlanningItemCard.tsx` | Mostrar múltiplas plataformas do metadata no footer |
 
