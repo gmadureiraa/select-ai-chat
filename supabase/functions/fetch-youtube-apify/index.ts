@@ -21,13 +21,15 @@ serve(async (req) => {
       );
     }
 
-    const APIFY_API_TOKEN = Deno.env.get("APIFY_API_TOKEN");
-    if (!APIFY_API_TOKEN) {
+    const APIFY_API_TOKEN_1 = Deno.env.get("APIFY_API_TOKEN");
+    const APIFY_API_TOKEN_2 = Deno.env.get("APIFY_API_TOKEN_2");
+    if (!APIFY_API_TOKEN_1 && !APIFY_API_TOKEN_2) {
       return new Response(
-        JSON.stringify({ error: "APIFY_API_TOKEN not configured." }),
+        JSON.stringify({ error: "Nenhum APIFY_API_TOKEN configurado." }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+    const apifyTokens = [APIFY_API_TOKEN_1, APIFY_API_TOKEN_2].filter(Boolean) as string[];
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
