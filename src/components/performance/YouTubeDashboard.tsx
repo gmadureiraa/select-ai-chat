@@ -466,12 +466,6 @@ export function YouTubeDashboard({ clientId, videos, isLoading }: YouTubeDashboa
           sparklineData={sparklineData.comments}
           color="violet"
         />
-        <StatCard
-          icon={MousePointer}
-          label="CTR Médio"
-          value={`${kpis.avgCTR.toFixed(1)}%`}
-          color="blue"
-        />
       </div>
 
       {/* Chart + Goals */}
