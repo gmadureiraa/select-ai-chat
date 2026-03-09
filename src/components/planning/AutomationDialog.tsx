@@ -883,7 +883,7 @@ export function AutomationDialog({ open, onOpenChange, automation }: AutomationD
               <Switch 
                 checked={autoPublish} 
                 onCheckedChange={setAutoPublish}
-                disabled={!autoGenerate || !platform || !clientId}
+                disabled={!autoGenerate || (selectedPlatforms.length === 0 && !platform) || !clientId}
               />
             </div>
 
