@@ -386,7 +386,43 @@ export function YouTubeDashboard({ clientId, videos, isLoading }: YouTubeDashboa
         </Card>
       )}
 
-      {/* CSV Upload */}
+      {/* Apify Fetch Panel */}
+      {showApifyFetch && canImportData && (
+        <Card className="p-4">
+          <div className="flex items-center gap-3">
+            <div className="h-9 w-9 rounded-lg bg-red-500/10 flex items-center justify-center shrink-0">
+              <Youtube className="h-4 w-4 text-red-500" />
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-medium mb-1">Sincronizar vídeos públicos do canal</p>
+              <p className="text-xs text-muted-foreground">
+                Extrai views, likes e comentários públicos via Apify. Insira a URL ou @handle do canal.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 mt-3">
+            <Input
+              placeholder="@handle ou URL do canal (ex: @investidor420)"
+              value={apifyChannelInput}
+              onChange={(e) => setApifyChannelInput(e.target.value)}
+              className="flex-1"
+            />
+            <Button onClick={handleApifyFetch} disabled={fetchApify.isPending}>
+              {fetchApify.isPending ? (
+                <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Sincronizando...</>
+              ) : (
+                <><RefreshCw className="h-4 w-4 mr-2" />Sincronizar</>
+              )}
+            </Button>
+          </div>
+          {fetchApify.isPending && (
+            <p className="text-xs text-muted-foreground mt-2">
+              ⏳ Isso pode levar 1-2 minutos dependendo do tamanho do canal...
+            </p>
+          )}
+        </Card>
+      )}
+
       {canImportData && (
         <Collapsible open={showUpload} onOpenChange={setShowUpload}>
           <CollapsibleContent className="pt-2">
