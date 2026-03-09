@@ -191,12 +191,12 @@ serve(async (req) => {
           client_id: clientId,
           video_id: videoId,
           title: item.title || item.text || "Sem título",
-          total_views: item.viewCount ?? item.views ?? 0,
-          likes: item.likes ?? item.likeCount ?? 0,
-          comments: item.commentsCount ?? item.commentCount ?? item.numberOfComments ?? 0,
+          total_views: parseViewCount(item.viewCount ?? item.views ?? item.numberOfViews ?? 0),
+          likes: parseViewCount(item.likes ?? item.likeCount ?? item.numberOfLikes ?? 0),
+          comments: parseViewCount(item.commentsCount ?? item.commentCount ?? item.numberOfComments ?? 0),
           published_at: publishedAt,
           duration_seconds: durationSeconds,
-          thumbnail_url: item.thumbnailUrl || item.thumbnail || 
+          thumbnail_url: item.thumbnailUrl || item.thumbnail || item.thumbnails?.[0]?.url ||
             (videoId && !videoId.startsWith("unknown-") ? `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg` : null),
           impressions: null,
           click_rate: null,
@@ -208,6 +208,7 @@ serve(async (req) => {
             channel_name: item.channelName || item.channelTitle || null,
             channel_url: item.channelUrl || null,
             url: item.url || (videoId ? `https://www.youtube.com/watch?v=${videoId}` : null),
+            description: item.description?.substring(0, 500) || null,
           },
         };
       }).filter((v: any) => v.video_id && !v.video_id.startsWith("unknown-"));
