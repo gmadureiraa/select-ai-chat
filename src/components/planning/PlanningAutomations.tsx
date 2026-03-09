@@ -73,6 +73,27 @@ export function PlanningAutomations() {
     return client?.name || 'Perfil desconhecido';
   };
 
+  const getPlatformLabels = (automation: PlanningAutomation) => {
+    const platforms = (automation as any).platforms as string[] | null;
+    if (platforms?.length) {
+      return platforms.map(p => {
+        const found = [
+          { value: 'instagram', label: 'Instagram' },
+          { value: 'twitter', label: 'Twitter/X' },
+          { value: 'linkedin', label: 'LinkedIn' },
+          { value: 'youtube', label: 'YouTube' },
+          { value: 'tiktok', label: 'TikTok' },
+          { value: 'newsletter', label: 'Newsletter' },
+          { value: 'blog', label: 'Blog' },
+          { value: 'threads', label: 'Threads' },
+          { value: 'facebook', label: 'Facebook' },
+        ].find(x => x.value === p);
+        return found?.label || p;
+      }).join(', ');
+    }
+    return automation.platform || '';
+  };
+
   const getScheduleDescription = (config: ScheduleConfig) => {
     const type = config.type;
     const time = config.time || '00:00';
