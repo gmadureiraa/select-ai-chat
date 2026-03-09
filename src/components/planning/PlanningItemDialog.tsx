@@ -321,6 +321,7 @@ export function PlanningItemDialog({
         content_type: contentType,
         metadata: {
           content_type: contentType,
+          target_platforms: selectedPlatforms,
           ...(isTwitterThread && { thread_tweets: threadTweets }),
         },
         recurrence_type: recurrenceConfig.type !== 'none' ? recurrenceConfig.type : null,
