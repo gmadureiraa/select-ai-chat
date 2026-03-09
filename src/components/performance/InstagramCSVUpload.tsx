@@ -165,8 +165,7 @@ export function InstagramCSVUpload({ clientId }: InstagramCSVUploadProps) {
     setParseResult(null);
 
     try {
-      const text = await file.text();
-      const posts = parseCSV(text);
+      const posts = await parseCSV(file);
 
       if (posts.length === 0) {
         setParseResult({ success: false, count: 0, error: "Nenhum post encontrado no CSV" });
