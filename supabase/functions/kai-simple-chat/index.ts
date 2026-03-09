@@ -1086,13 +1086,75 @@ async function generatePlanningCards(
       if (scrapeData?.data?.markdown) urlContext = scrapeData.data.markdown.substring(0, 3000);
     }
   }
+
+  // Fetch metrics context when analyzeFirst is enabled
+  let metricsAnalysisContext = "";
+  if (intent.analyzeFirst) {
+    const fetchPromises: Promise<any>[] = [];
+    
+    if (intent.analyzeSource === "youtube" || intent.analyzeSource === "all") {
+      fetchPromises.push(
+        supabase.from("youtube_videos")
+          .select("title, total_views, likes, comments, published_at, duration_seconds, click_rate, subscribers_gained, watch_hours, transcript")
+          .eq("client_id", clientId)
+          .order("total_views", { ascending: false, nullsFirst: false }).limit(30)
+          .then((r: any) => ({ platform: "youtube", data: r.data || [] }))
+      );
+    }
+    if (intent.analyzeSource === "instagram" || intent.analyzeSource === "all") {
+      fetchPromises.push(
+        supabase.from("instagram_posts")
+          .select("caption, full_content, likes, comments, saves, shares, reach, engagement_rate, posted_at, post_type")
+          .eq("client_id", clientId)
+          .order("engagement_rate", { ascending: false, nullsFirst: false }).limit(30)
+          .then((r: any) => ({ platform: "instagram", data: r.data || [] }))
+      );
+    }
+    if (intent.analyzeSource === "linkedin" || intent.analyzeSource === "all") {
+      fetchPromises.push(
+        supabase.from("linkedin_posts")
+          .select("content, full_content, likes, comments, shares, impressions, engagement_rate, posted_at")
+          .eq("client_id", clientId)
+          .order("likes", { ascending: false, nullsFirst: false }).limit(30)
+          .then((r: any) => ({ platform: "linkedin", data: r.data || [] }))
+      );
+    }
+
+    const results = await Promise.all(fetchPromises);
+    
+    for (const result of results) {
+      if (result.data.length === 0) continue;
+      
+      if (result.platform === "youtube") {
+        metricsAnalysisContext += `\n## Top ${result.data.length} Vídeos do YouTube (por views)\n`;
+        result.data.forEach((v: any, i: number) => {
+          const pubDate = v.published_at ? v.published_at.split('T')[0] : '';
+          const duration = v.duration_seconds ? `${Math.floor(v.duration_seconds / 60)}min` : '';
+          metricsAnalysisContext += `${i + 1}. "${v.title}" — ${(v.total_views || 0).toLocaleString('pt-BR')} views | ${(v.likes || 0).toLocaleString('pt-BR')} likes | ${v.comments || 0} comments | CTR: ${(v.click_rate || 0).toFixed(2)}% | ${duration} | ${pubDate}\n`;
+          if (v.transcript && i < 5) metricsAnalysisContext += `   Resumo: ${v.transcript.substring(0, 200)}...\n`;
+        });
+      } else if (result.platform === "instagram") {
+        metricsAnalysisContext += `\n## Top ${result.data.length} Posts do Instagram (por engajamento)\n`;
+        result.data.forEach((p: any, i: number) => {
+          const caption = (p.full_content || p.caption || "").substring(0, 120);
+          metricsAnalysisContext += `${i + 1}. ${caption}${caption.length >= 120 ? '...' : ''} — ${p.engagement_rate?.toFixed(2) || 0}% eng | ${(p.likes || 0).toLocaleString('pt-BR')} likes | Tipo: ${p.post_type || 'post'}\n`;
+        });
+      } else if (result.platform === "linkedin") {
+        metricsAnalysisContext += `\n## Top ${result.data.length} Posts do LinkedIn (por likes)\n`;
+        result.data.forEach((p: any, i: number) => {
+          const content = (p.full_content || p.content || "").substring(0, 120);
+          metricsAnalysisContext += `${i + 1}. ${content}${content.length >= 120 ? '...' : ''} — ${(p.likes || 0).toLocaleString('pt-BR')} likes | ${p.comments || 0} comments\n`;
+        });
+      }
+    }
+  }
   
-  if (LOVABLE_API_KEY && (intent.topic || urlContext)) {
+  if (LOVABLE_API_KEY && (intent.topic || urlContext || intent.analyzeFirst)) {
     const platformInstructions: Record<string, string> = {
       instagram: "Posts para Instagram: hook forte, máximo 2200 chars, poucos emojis, estrutura clara",
       twitter: "Tweets: MÁXIMO 280 caracteres, ZERO emojis no corpo, ZERO hashtags, gancho forte",
       linkedin: "Posts LinkedIn: profissionais, storytelling, insights",
-      youtube: "Títulos/descrições para YouTube: SEO otimizado",
+      youtube: "Títulos/descrições para YouTube: SEO otimizado, títulos atrativos com hook claro",
       newsletter: "Títulos para newsletter: valor claro, CTA forte",
       tiktok: "Ideias para TikTok: trends, ganchos virais",
     };
@@ -1100,17 +1162,36 @@ async function generatePlanningCards(
     let userConstraints = "";
     if (userInstructions?.skipImages) userConstraints += "\n⛔ NÃO inclua imagens. Apenas texto.";
     if (userInstructions?.noEmojis) userConstraints += "\n⛔ ZERO emojis.";
+
+    let analysisInstructions = "";
+    if (intent.analyzeFirst && metricsAnalysisContext) {
+      analysisInstructions = `
+## ANÁLISE DE PERFORMANCE — DADOS REAIS DO CLIENTE
+${metricsAnalysisContext}
+
+## INSTRUÇÕES DE ANÁLISE
+Com base nos dados acima:
+1. Identifique os PADRÕES DE SUCESSO: quais temas, formatos, durações e abordagens geraram mais engajamento
+2. Identifique LACUNAS: temas que o público engajou mas foram pouco explorados
+3. Gere ${intent.quantity} temas NOVOS e ORIGINAIS inspirados nesses padrões
+4. Para cada tema, inclua:
+   - Título atrativo e estratégico
+   - Descrição com 3-5 tópicos/pontos que devem ser abordados no conteúdo
+   - Por que esse tema tem potencial (baseado nos dados)
+NÃO repita temas que já existem. Crie variações e evoluções dos melhores.`;
+    }
     
     const prompt = `Você é um estrategista de conteúdo para ${client.name}.
 ${client.identity_guide ? `\nGuia de Identidade:\n${client.identity_guide.substring(0, 1500)}` : ""}
 ${urlContext ? `\n## Conteúdo de Referência:\n${urlContext}` : ""}
+${analysisInstructions}
 ${userConstraints}
 
 TAREFA: Gere ${intent.quantity} conteúdo(s) COMPLETO(S) para ${intent.platform || "redes sociais"}.
 ${intent.topic ? `Tema: ${intent.topic}` : ""}
 ${platformInstructions[intent.platform || "instagram"] || ""}
 
-Responda APENAS com JSON: { "cards": [{ "title": "título curto", "description": "CONTEÚDO COMPLETO" }] }`;
+Responda APENAS com JSON: { "cards": [{ "title": "título curto", "description": "CONTEÚDO COMPLETO com tópicos detalhados" }] }`;
 
     try {
       const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
