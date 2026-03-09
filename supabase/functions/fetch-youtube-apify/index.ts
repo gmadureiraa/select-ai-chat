@@ -49,73 +49,87 @@ serve(async (req) => {
 
     const actorId = "streamers~youtube-scraper";
 
-    // Step 1: Start the actor run (async)
-    const startUrl = `https://api.apify.com/v2/acts/${actorId}/runs?token=${APIFY_API_TOKEN}`;
-    const startResponse = await fetch(startUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        startUrls: [{ url: normalizedUrl }],
-        maxResults: singleVideo ? 1 : (customMaxResults || 200),
-        maxResultsShorts: 0,
-        maxResultStreams: 0,
-      }),
-    });
+    let items: any[] = [];
+    let lastError = "";
 
-    if (!startResponse.ok) {
-      const errorText = await startResponse.text();
-      console.error(`[fetch-youtube-apify] Start error:`, errorText);
-      return new Response(
-        JSON.stringify({ error: `Apify start error: ${startResponse.status}` }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
+    for (const APIFY_API_TOKEN of apifyTokens) {
+      try {
+        console.log(`[fetch-youtube-apify] Trying token ending ...${APIFY_API_TOKEN.slice(-4)}`);
 
-    const runData = await startResponse.json();
-    const runId = runData.data?.id;
-    const defaultDatasetId = runData.data?.defaultDatasetId;
-    console.log(`[fetch-youtube-apify] Run started: ${runId}, dataset: ${defaultDatasetId}`);
-
-    // Step 2: Poll for completion (max ~100s to stay within edge function limits)
-    const maxWaitMs = 100_000;
-    const pollIntervalMs = 5_000;
-    const startTime = Date.now();
-    let status = runData.data?.status;
-
-    while (status !== "SUCCEEDED" && status !== "FAILED" && status !== "ABORTED" && status !== "TIMED-OUT") {
-      if (Date.now() - startTime > maxWaitMs) {
-        console.log(`[fetch-youtube-apify] Timeout waiting for run ${runId}`);
-        return new Response(
-          JSON.stringify({ 
-            error: "Scraping demorou demais. Tente novamente em alguns minutos.",
-            runId,
+        // Step 1: Start the actor run (async)
+        const startUrl = `https://api.apify.com/v2/acts/${actorId}/runs?token=${APIFY_API_TOKEN}`;
+        const startResponse = await fetch(startUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            startUrls: [{ url: normalizedUrl }],
+            maxResults: singleVideo ? 1 : (customMaxResults || 200),
+            maxResultsShorts: 0,
+            maxResultStreams: 0,
           }),
-          { status: 408, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+        });
+
+        if (!startResponse.ok) {
+          const errorText = await startResponse.text();
+          console.error(`[fetch-youtube-apify] Start error (${startResponse.status}):`, errorText);
+          if (startResponse.status === 429 || errorText.includes("limit")) {
+            lastError = `Token ...${APIFY_API_TOKEN.slice(-4)} hit rate limit, trying next...`;
+            continue;
+          }
+          lastError = `Apify start error: ${startResponse.status}`;
+          continue;
+        }
+
+        const runData = await startResponse.json();
+        const runId = runData.data?.id;
+        const defaultDatasetId = runData.data?.defaultDatasetId;
+        console.log(`[fetch-youtube-apify] Run started: ${runId}, dataset: ${defaultDatasetId}`);
+
+        // Step 2: Poll for completion
+        const maxWaitMs = 100_000;
+        const pollIntervalMs = 5_000;
+        const startTime = Date.now();
+        let status = runData.data?.status;
+
+        while (status !== "SUCCEEDED" && status !== "FAILED" && status !== "ABORTED" && status !== "TIMED-OUT") {
+          if (Date.now() - startTime > maxWaitMs) {
+            console.log(`[fetch-youtube-apify] Timeout waiting for run ${runId}`);
+            lastError = "Scraping demorou demais. Tente novamente em alguns minutos.";
+            break;
+          }
+          await new Promise(r => setTimeout(r, pollIntervalMs));
+          const statusResponse = await fetch(
+            `https://api.apify.com/v2/actor-runs/${runId}?token=${APIFY_API_TOKEN}`
+          );
+          const statusData = await statusResponse.json();
+          status = statusData.data?.status;
+          console.log(`[fetch-youtube-apify] Poll status: ${status} (${Math.round((Date.now() - startTime) / 1000)}s)`);
+        }
+
+        if (status !== "SUCCEEDED") {
+          lastError = `Apify run ${status}`;
+          continue;
+        }
+
+        // Step 3: Get dataset items
+        const datasetUrl = `https://api.apify.com/v2/datasets/${defaultDatasetId}/items?token=${APIFY_API_TOKEN}`;
+        const datasetResponse = await fetch(datasetUrl);
+        items = await datasetResponse.json();
+        console.log(`[fetch-youtube-apify] Got ${items.length} items with token ...${APIFY_API_TOKEN.slice(-4)}`);
+        break; // Success, exit the loop
+      } catch (tokenErr) {
+        console.error(`[fetch-youtube-apify] Token ...${APIFY_API_TOKEN.slice(-4)} failed:`, tokenErr);
+        lastError = tokenErr instanceof Error ? tokenErr.message : "Unknown token error";
+        continue;
       }
-
-      await new Promise(r => setTimeout(r, pollIntervalMs));
-
-      const statusResponse = await fetch(
-        `https://api.apify.com/v2/actor-runs/${runId}?token=${APIFY_API_TOKEN}`
-      );
-      const statusData = await statusResponse.json();
-      status = statusData.data?.status;
-      console.log(`[fetch-youtube-apify] Poll status: ${status} (${Math.round((Date.now() - startTime) / 1000)}s)`);
     }
 
-    if (status !== "SUCCEEDED") {
+    if (!Array.isArray(items) || items.length === 0) {
       return new Response(
-        JSON.stringify({ error: `Apify run ${status}` }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({ error: lastError || "Nenhum vídeo encontrado." }),
+        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
-
-    // Step 3: Get dataset items
-    const datasetUrl = `https://api.apify.com/v2/datasets/${defaultDatasetId}/items?token=${APIFY_API_TOKEN}`;
-    const datasetResponse = await fetch(datasetUrl);
-    const items = await datasetResponse.json();
-    console.log(`[fetch-youtube-apify] Got ${items.length} items`);
 
     if (!Array.isArray(items) || items.length === 0) {
       return new Response(
