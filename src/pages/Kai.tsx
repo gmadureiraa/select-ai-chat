@@ -182,6 +182,18 @@ export default function Kai() {
           return <SettingsTab />;
         case "automations":
           return <AutomationsTab />;
+        case "analytics":
+          return selectedClient ? (
+            <div className={cn("overflow-auto h-full", isMobile ? "p-3" : "p-6")}>
+              <KaiAnalyticsTab clientId={selectedClient.id} client={selectedClient} />
+            </div>
+          ) : (
+            <div className="flex items-center justify-center h-full">
+              <div className="text-center text-muted-foreground">
+                <p>Selecione um cliente para ver analytics</p>
+              </div>
+            </div>
+          );
         case "assistant":
           return selectedClient ? (
             <div className="h-full overflow-hidden">
