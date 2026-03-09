@@ -118,6 +118,8 @@ export function AutomationDialog({ open, onOpenChange, automation }: AutomationD
   const { createAutomation, updateAutomation } = usePlanningAutomations();
   const { clients } = useClients();
   const { columns } = usePlanningItems();
+  const [clientId, setClientId] = useState<string>('');
+  const { getPlatformStatus, canAutoPublish } = useClientPlatformStatus(clientId || null);
   
   const isEditing = !!automation;
 
