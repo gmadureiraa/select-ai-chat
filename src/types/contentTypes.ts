@@ -106,17 +106,27 @@ export function normalizeContentType(type: string): ContentTypeKey {
 }
 
 // All publishable platforms for multi-platform selection
+// icon: Lucide icon name (kebab-case) for dynamic import or direct use
 export const ALL_PUBLISH_PLATFORMS = [
-  { value: 'twitter', label: 'Twitter/X', icon: '𝕏' },
-  { value: 'linkedin', label: 'LinkedIn', icon: 'in' },
-  { value: 'instagram', label: 'Instagram', icon: '📷' },
-  { value: 'threads', label: 'Threads', icon: '🧵' },
-  { value: 'tiktok', label: 'TikTok', icon: '🎵' },
-  { value: 'youtube', label: 'YouTube Shorts', icon: '▶️' },
-  { value: 'facebook', label: 'Facebook', icon: '📘' },
-  { value: 'newsletter', label: 'Newsletter', icon: '📧' },
-  { value: 'blog', label: 'Blog', icon: '📝' },
+  { value: 'twitter', label: 'Twitter/X', lucideIcon: 'twitter', brandColor: 'hsl(203 89% 53%)' },
+  { value: 'linkedin', label: 'LinkedIn', lucideIcon: 'linkedin', brandColor: 'hsl(214 100% 40%)' },
+  { value: 'instagram', label: 'Instagram', lucideIcon: 'instagram', brandColor: 'hsl(340 75% 54%)' },
+  { value: 'threads', label: 'Threads', lucideIcon: 'at-sign', brandColor: 'hsl(0 0% 20%)' },
+  { value: 'tiktok', label: 'TikTok', lucideIcon: 'video', brandColor: 'hsl(0 0% 10%)' },
+  { value: 'youtube', label: 'YouTube', lucideIcon: 'youtube', brandColor: 'hsl(0 100% 50%)' },
+  { value: 'facebook', label: 'Facebook', lucideIcon: 'facebook', brandColor: 'hsl(220 46% 48%)' },
+  { value: 'newsletter', label: 'Newsletter', lucideIcon: 'mail', brandColor: 'hsl(38 92% 50%)' },
+  { value: 'blog', label: 'Blog', lucideIcon: 'file-text', brandColor: 'hsl(160 60% 45%)' },
 ] as const;
+
+// Map platform value to Lucide icon name for easy lookup
+export const PLATFORM_ICON_MAP: Record<string, string> = Object.fromEntries(
+  ALL_PUBLISH_PLATFORMS.map(p => [p.value, p.lucideIcon])
+);
+
+export const PLATFORM_COLOR_MAP: Record<string, string> = Object.fromEntries(
+  ALL_PUBLISH_PLATFORMS.map(p => [p.value, p.brandColor])
+);
 
 export type PublishPlatform = typeof ALL_PUBLISH_PLATFORMS[number]['value'];
 
