@@ -60,6 +60,8 @@ function formatNumber(num: number | null | undefined): string {
 export function TwitterDashboard({ clientId, posts, isLoading }: TwitterDashboardProps) {
   const [period, setPeriod] = useState("30");
   const [showUpload, setShowUpload] = useState(false);
+  const [showApifySync, setShowApifySync] = useState(false);
+  const [apifyHandleInput, setApifyHandleInput] = useState("");
   const [selectedMetric, setSelectedMetric] = useState("impressions");
   const [isDragging, setIsDragging] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
@@ -67,6 +69,7 @@ export function TwitterDashboard({ clientId, posts, isLoading }: TwitterDashboar
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const importMutation = useImportTwitterCSV();
+  const fetchApify = useFetchTwitterApify();
   const { logImport, imports } = useImportHistory(clientId);
   const { canImportData, canGenerateReports } = useWorkspace();
 
